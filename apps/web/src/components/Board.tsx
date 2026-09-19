@@ -66,8 +66,8 @@ function cellAt(cells: BoardCell[], cx: number, cy: number): BoardCell | undefin
 // tile's registry position.
 const INITIAL_VIEW = { left: 0, top: 0, vw: BOARD_W, vh: BOARD_H };
 
-// Fixed banner (same visual language as ConnectionLostBanner, one slot below
-// AppUpdateBanner) shown when the resolved layout couldn't place every tile ,
+// Fixed banner (same visual language as ConnectionLostBanner) shown when the
+// resolved layout couldn't place every tile ,
 // e.g. a newly-registered tile with no free space. In practice this is
 // unreachable: the codegen validator rejects overlapping rects, so `unplaced`
 // is always empty. Kept as a defensive fallback with neutral copy (no
@@ -151,9 +151,9 @@ function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void })
 /**
  * The pannable canvas board. Tiles are free-placed on a square world far larger
  * than the iPad viewport, on a square-cell lattice; the board opens centered on
- * the home tile (Clock) and idles back to it. Panning is native scroll (won the
- * pan-lab feel test) plus a desktop mouse-drag shim; only tiles near the viewport
- * are mounted (windowing). Zoom is fixed at 1:1 for now.
+ * the home tile (Controls) and idles back to it. Panning is native scroll (won
+ * the pan-lab feel test) plus a desktop mouse-drag shim; only tiles near the
+ * viewport are mounted (windowing). Zoom is fixed at 1:1.
  *
  * Layout comes straight from the tile registry (resolveLayout over
  * TILE_REGISTRY coords, collisions resolved by scanline): adding a tile to the
@@ -373,16 +373,14 @@ export function Board() {
   }, [nativeDisplay]);
 
   // Recenter + open the tile's detail, kicked off together. Shared by the
-  // plain-tap and keyboard activation paths. Every tile resolves through the
-  // detail registry: a "page" entry opens its full-page detail, an "action"
-  // entry (Frontend Logs) runs its deep link instead of opening a page.
+  // plain-tap and keyboard activation paths. A FACE-ONLY tile (the Clock, both
+  // weather tiles, Climate · A/C) has no Tile View, so the tap recenters and
+  // stops there.
   const activateTile = useCallback(
     (entry: TileRegistryEntry) => {
       glideToTile(entry);
-      const detail = getTileDetailEntry(entry.id);
-      if (!detail) return;
-      if (detail.kind === "action") detail.run();
-      else openTileDetail(entry.id);
+      if (!getTileDetailEntry(entry.id)) return;
+      openTileDetail(entry.id);
     },
     [glideToTile],
   );

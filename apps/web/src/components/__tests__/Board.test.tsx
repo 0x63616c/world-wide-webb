@@ -49,7 +49,6 @@ vi.mock("@features/_generated/web.gen", () => {
   };
 });
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
-vi.mock("../DevOverlayHud", () => ({ DevOverlayHud: () => null }));
 
 import { closeTileDetail } from "../../lib/tile-detail-store";
 import { Board } from "../Board";

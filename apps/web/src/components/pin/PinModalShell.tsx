@@ -16,7 +16,6 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeToClose } from "../../lib/escape-stack";
-import { interaction } from "../../lib/log/interaction";
 import { registerOpenModal } from "../../lib/modal-open-store";
 import { Z_LAYER } from "../../lib/z-layers";
 
@@ -47,16 +46,6 @@ export function PinModalShell({
   useEffect(() => {
     if (!open) return;
     return registerOpenModal(() => onCloseRef.current());
-  }, [open]);
-
-  // Title via ref so a changing title doesn't fabricate a close/open pair.
-  const titleRef = useRef(logTitle);
-  titleRef.current = logTitle;
-  useEffect(() => {
-    if (!open) return;
-    const target = `modal.pin.${titleRef.current}`;
-    interaction("modal", "open", target);
-    return () => interaction("modal", "close", target);
   }, [open]);
 
   // Escape-to-close, arbitrated so ONLY the topmost surface closes. A dialog

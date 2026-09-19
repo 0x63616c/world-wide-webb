@@ -5,7 +5,7 @@ export const APP_BRAND = Symbol.for("app-kit.app");
 export interface TileSpec {
   /** The TILE id (e.g. "tile_weath"). Distinct from the owning App id; a
    *  multi-tile App's tiles each carry their own. The board, board_tile_placement
-   *  rows, placeholder-tiles bento, and minimap all key on this. */
+   *  rows, and the placeholder-tiles bento all key on this. */
   id: string;
   label: string;
   component: ComponentType;

@@ -41,36 +41,22 @@ it("requires the conventional cycles export consumed by workers.gen.ts", () => {
 
 // Sanity check that collection over the real App facets produces one complete,
 // valid model.
-it("collect() includes the guest-wifi App manifest exactly once", () => {
+it("collect() includes the booth App manifest exactly once, with its facets", () => {
   const model = collected;
 
-  // The guest-wifi tile is sourced from features/guest-wifi/manifest.ts (source
-  // "feature"), and appears exactly once.
-  const guest = model.apps.filter((a) => a.id === "tile_guestwifi");
-  expect(guest).toHaveLength(1);
-  expect(guest[0].source).toBe("feature");
-  expect(guest[0].guestExposed).toBe(true);
+  const booth = model.apps.filter((a) => a.id === "tile_booth");
+  expect(booth).toHaveLength(1);
+  expect(booth[0].source).toBe("feature");
+  expect(booth[0].private).toBe(true);
 
-  // The fold surfaces: the feature's tables and its router key.
-  expect(model.features.map((f) => f.dir)).toContain("guest-wifi");
-  expect(model.tables.map((t) => t.name)).toEqual(
-    expect.arrayContaining(["portal_authorization", "portal_rate_limit"]),
-  );
-  expect(model.routerKeys).toContainEqual({ key: "portal", source: "feature:guest-wifi" });
+  // The fold surfaces: the feature's table, its router key, its schema exports.
+  expect(model.features.map((f) => f.dir)).toContain("booth");
+  expect(model.tables.map((t) => t.name)).toEqual(expect.arrayContaining(["booth_photo"]));
+  expect(model.routerKeys).toContainEqual({ key: "boothPhotos", source: "feature:booth" });
+  expect(model.schemaExports).toContainEqual({ name: "boothPhoto", source: "feature:booth" });
 
-  // The feature's schema.ts named exports are collected with a feature source
-  // label (used to detect schema.gen.ts `export *` symbol collisions).
-  expect(model.schemaExports).toContainEqual({
-    name: "portalAuthorization",
-    source: "feature:guest-wifi",
-  });
-  expect(model.schemaExports).toContainEqual({
-    name: "portalRateLimit",
-    source: "feature:guest-wifi",
-  });
-
-  // And the whole collected model still validates against the real allowlist.
-  expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
+  // And the whole collected model still validates.
+  expect(() => validate(model)).not.toThrow();
 });
 
 // The base apps/api/src/db/schema.ts module re-exports several symbols from
@@ -81,7 +67,7 @@ it("collect() sources the base schema's @www/core re-exports with source 'base'"
   const model = collected;
   const baseExportNames = model.schemaExports.filter((e) => e.source === "base").map((e) => e.name);
   expect(baseExportNames).toEqual(
-    expect.arrayContaining(["deviceState", "integrationSyncStatus", "job", "DeviceKind"]),
+    expect.arrayContaining(["deviceState", "integrationSyncStatus", "DeviceKind"]),
   );
 });
 
@@ -130,34 +116,33 @@ it("collect() sources both weather tiles once from the two-tile feature manifest
   // The BLOCKER regression guard: neither tile id leaks back in as a registry app.
   expect(model.apps.filter((a) => a.id === "tile_weath")).toHaveLength(0);
   expect(model.apps.filter((a) => a.id === "tile_hourly")).toHaveLength(0);
-  expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
+  expect(() => validate(model)).not.toThrow();
 });
 
-// Second multi-tile fold: features/events declares TWO tiles (tile_event +
-// tile_clock) under one app id (tile_events). Same collect.ts dedup guard as
-// weather above, plus this is the first fold that moves the board HOME tile —
-// tile_clock's home:true must survive the collect into a single global home.
-it("collect() sources both events tiles once from the two-tile feature manifest", () => {
+// features/events declares ONE tile now: the Clock face. Upcoming went with
+// the events table, and the Clock is FACE-ONLY — it declares no Tile View at
+// all, which is the zero-or-one invariant this collect must allow.
+it("collect() sources the clock tile from the events feature, with no Tile View", () => {
   const model = collected;
   const events = model.apps.filter((a) => a.id === "tile_events");
   expect(events).toHaveLength(1);
   expect(events[0].source).toBe("feature");
-  expect(events[0].tiles.map((t) => t.id).sort()).toEqual(["tile_clock", "tile_event"]);
-  // Neither tile id leaks back in as a registry app.
-  expect(model.apps.filter((a) => a.id === "tile_clock")).toHaveLength(0);
-  expect(model.apps.filter((a) => a.id === "tile_event")).toHaveLength(0);
-  expect(() => validate(model, ["tile_guestwifi"])).not.toThrow();
+  expect(events[0].tiles.map((t) => t.id)).toEqual(["tile_clock"]);
+  expect(model.features.find((f) => f.dir === "events")?.hasDetail).toBe(false);
+  expect(model.tileViews.map((v) => v.tileId)).not.toContain("tile_clock");
+  expect(() => validate(model)).not.toThrow();
 });
 
-it("collect() finds one App-owned Tile View declaration for every board Tile", () => {
+// A Tile has ZERO OR ONE Tile Views. The four face-only tiles declare none;
+// every declaration that IS present must belong to a real Tile.
+it("collect() finds at most one App-owned Tile View per board Tile", () => {
   const model = collected;
-  const tileIds = model.apps.flatMap((app) => app.tiles.map((tile) => tile.id)).sort();
+  const tileIds = new Set(model.apps.flatMap((app) => app.tiles.map((tile) => tile.id)));
+  const declared = model.tileViews.map((view) => view.tileId);
 
-  expect(model.tileViews.map((view) => view.tileId).sort()).toEqual(tileIds);
-  expect(model.tileViews).toContainEqual({
-    tileId: "tile_weath",
-    source: "feature:weather",
-  });
+  expect(new Set(declared).size).toBe(declared.length);
+  for (const tileId of declared) expect(tileIds.has(tileId)).toBe(true);
+  expect(declared.sort()).toEqual(["tile_booth", "tile_ctrl", "tile_sound", "tile_wakes"]);
 });
 
 it("collect() sources worker cycles from owning App facets", () => {
@@ -174,14 +159,11 @@ it("collect() sources worker cycles from owning App facets", () => {
   });
   expect(model.features.find((feature) => feature.dir === "weather")?.hasWorker).toBe(true);
   expect(model.workerCycles.map((cycle) => cycle.name).sort()).toEqual([
-    "asc-version-poll",
     "climate-enforcer",
     "device-sync",
-    "github-actions-poll",
     "light-enforcer",
     "party-mode",
     "weather-ingest",
     "weather-purge",
-    "withings-weight-ingest",
   ]);
 });

@@ -5,18 +5,12 @@
 import type { Worker } from "@app-kit";
 import { cycles as acCycles } from "../ac/worker";
 import { cycles as ctrlCycles } from "../ctrl/worker";
-import { cycles as deploysCycles } from "../deploys/worker";
-import { cycles as panelUpdateCycles } from "../panel-update/worker";
 import { cycles as soundCycles } from "../sound/worker";
 import { cycles as weatherCycles } from "../weather/worker";
-import { cycles as weightCycles } from "../weight/worker";
 
 export const GENERATED_WORKERS: readonly Worker[] = [
   ...acCycles,
   ...ctrlCycles,
-  ...deploysCycles,
-  ...panelUpdateCycles,
   ...soundCycles,
   ...weatherCycles,
-  ...weightCycles,
 ];

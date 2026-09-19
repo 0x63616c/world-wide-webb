@@ -15,7 +15,6 @@ import { getTileDetailEntry } from "@features/_generated/web.gen";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { PageHeader, Skeleton } from "@/components/ui";
-import { interaction } from "../../../lib/log/interaction";
 import { registerOpenModal } from "../../../lib/modal-open-store";
 import { usePanelAccess } from "../../../lib/panel-access";
 import { closeTileDetail, openTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
@@ -85,8 +84,7 @@ function TileDetailPage({
   const [slug, setSlug] = useState(initialSlug ?? entry.defaultSlug);
 
   // Deep links while the page is already open: the host keys by tileId, so
-  // retargeting the SAME tile with a variantSlug (e.g. a TimeSuiteBanner tap
-  // while another clock variant is up) re-renders without remounting , the
+  // retargeting the SAME tile with a variantSlug re-renders without remounting , the
   // useState seed above never re-runs. Sync the requested slug from the store
   // here instead. Depending on the target OBJECT (fresh per openTileDetail
   // call), not the slug string, means a repeat request for a slug the user has
@@ -102,13 +100,6 @@ function TileDetailPage({
   // reset dismiss it. closeTileDetail is module-stable, so unlike SettingsPage
   // no ref-routing is needed to keep this registration from churning.
   useEffect(() => registerOpenModal(() => closeTileDetail()), []);
-
-  // Interaction log for the open/close lifecycle, mirroring SettingsPage.
-  useEffect(() => {
-    const target = `detail.${entry.title}`;
-    interaction("modal", "open", target);
-    return () => interaction("modal", "close", target);
-  }, [entry.title]);
 
   // Escape-to-close, only while mounted (i.e. open).
   useEffect(() => {
@@ -211,8 +202,8 @@ function TileDetailPage({
           variants={variants}
           activeSlug={active.slug}
           // Write the hop back to the store as well: consumers of the live
-          // target (e.g. TimeSuiteBanner's open-variant suppression) must see
-          // the variant the page is actually showing, not the open-time slug.
+          // target must see the variant the page is actually showing, not the
+          // open-time slug.
           // The sync effect above then reads the same value back , a no-op.
           onSelect={(next) => {
             setSlug(next);

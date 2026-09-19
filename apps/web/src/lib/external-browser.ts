@@ -19,10 +19,8 @@ import {
   onKioskBrowserFinished,
   openKioskBrowser,
 } from "./kiosk-browser";
-import { log } from "./log/logger";
 import { registerOpenModal } from "./modal-open-store";
 
-const externalBrowserLog = log.child("external-browser");
 
 // Disposers for the in-flight browser session's modal registration and
 // browserFinished listener. Held at module scope because open/close are
@@ -55,7 +53,7 @@ export async function openExternalUrl(url: string): Promise<void> {
   // nothing or falling back to a Safari escape hatch , the kiosk-escape fix
   // this plugin exists for only holds once the native build has landed too.
   if (!isKioskBrowserAvailable()) {
-    externalBrowserLog.warn("KioskBrowser plugin unavailable, refusing to open", { url });
+    console.warn("KioskBrowser plugin unavailable, refusing to open", { url });
     return;
   }
 

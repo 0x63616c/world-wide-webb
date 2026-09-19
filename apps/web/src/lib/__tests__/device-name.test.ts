@@ -10,7 +10,6 @@ import {
   resetDeviceNameForTests,
   setDeviceName,
 } from "../device-name";
-import { getTail, log } from "../log/logger";
 
 const USER_KEY = "cc-device-name";
 const AUTO_KEY = "cc-device-name-auto";
@@ -179,21 +178,5 @@ describe("hydrateDeviceName", () => {
     setDeviceName("Same Name");
     hydrateDeviceName("Same Name");
     expect(getDeviceName()).toBe("Same Name");
-  });
-});
-
-describe("logger stamps deviceName", () => {
-  it("tags each write with the current device name, following name changes", () => {
-    setDeviceName("iPad");
-    const before = getTail().length;
-    log.info("first line");
-    const first = getTail()[before];
-    expect(first?.deviceName).toBe("iPad");
-    expect(first?.deviceName).toBe(getDeviceName());
-
-    setDeviceName("iPad-2");
-    log.info("second line");
-    const second = getTail()[before + 1];
-    expect(second?.deviceName).toBe("iPad-2");
   });
 });

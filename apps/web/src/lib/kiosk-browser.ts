@@ -11,9 +11,7 @@
  */
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { log } from "./log/logger";
 
-const kioskBrowserLog = log.child("kiosk-browser");
 
 interface KioskBrowserPlugin {
   open(options: { url: string }): Promise<void>;
@@ -42,7 +40,7 @@ export async function closeKioskBrowser(): Promise<void> {
   try {
     await plugin.close();
   } catch (err) {
-    kioskBrowserLog.warn("close failed", { err: String(err) });
+    console.warn("close failed", { err: String(err) });
   }
 }
 
@@ -58,7 +56,7 @@ export function onKioskBrowserFinished(handler: () => void): () => void {
       remove = handle.remove;
     })
     .catch((err) => {
-      kioskBrowserLog.warn("listener registration failed", { err: String(err) });
+      console.warn("listener registration failed", { err: String(err) });
     });
   return () => {
     cancelled = true;

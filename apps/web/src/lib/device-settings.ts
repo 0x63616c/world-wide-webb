@@ -19,11 +19,7 @@
  */
 
 import { DEVICE_SETTINGS_DEFAULTS, VOLUME_MAX, VOLUME_MIN } from "@cc/api/device-settings";
-import { interaction } from "./log/interaction";
-import { log } from "./log/logger";
 import { createStore, useStore } from "./store";
-
-const deviceSettingsLog = log.child("device-settings");
 
 // ─── shape + bounds ───────────────────────────────────────────────────────────
 
@@ -99,25 +95,15 @@ function shallowEqual(a: DeviceSettings, b: DeviceSettings): boolean {
   return true;
 }
 
-/**
- * Commit a changed field: persist locally, notify subscribers, push to the
- * server. `origin` decides whether it also lands on the human-activity channel
- * , that channel's value depends on every entry being someone actually touching
- * a control, so a value the DEVICE reported is logged but not recorded as an
- * interaction with the Settings panel.
- */
+/** Commit a changed field: persist locally, notify subscribers, push to the
+ *  server. */
 function patch<K extends keyof DeviceSettings>(
   key: K,
   value: DeviceSettings[K],
   serialized: string,
-  origin: "ui" | "device",
 ): void {
   const state = store.get();
   if (state[key] === value) return;
-  deviceSettingsLog.info(`${key} changed`, { from: state[key], to: value, origin });
-  if (origin === "ui") {
-    interaction("settings", "change", `deviceSettings.${key}`, { from: state[key], to: value });
-  }
   const next = { ...state, [key]: value };
   writeRaw(KEYS[key], serialized);
   store.set(next);
@@ -144,7 +130,7 @@ export function hydrateDeviceSettings(next: Partial<DeviceSettings>): void {
  *  the server, and , via the effect in useVolumeSync , down to the device. */
 export function setVolume(level: number): void {
   const clamped = clampVolume(level);
-  patch("volume", clamped, String(clamped), "ui");
+  patch("volume", clamped, String(clamped));
 }
 
 /**
@@ -162,14 +148,12 @@ export function setVolume(level: number): void {
  */
 export function setVolumeFromDevice(level: number): void {
   const clamped = clampVolume(level);
-  patch("volume", clamped, String(clamped), "device");
+  patch("volume", clamped, String(clamped));
 }
 
 /** Restore every per-device setting to its default. */
 export function resetDeviceSettings(): void {
   if (shallowEqual(store.get(), DEFAULTS)) return;
-  deviceSettingsLog.warn("reset to defaults");
-  interaction("settings", "commit", "deviceSettings.reset");
   const next = { ...DEFAULTS };
   for (const key of Object.keys(KEYS) as (keyof DeviceSettings)[]) {
     writeRaw(KEYS[key], String(DEFAULTS[key]));

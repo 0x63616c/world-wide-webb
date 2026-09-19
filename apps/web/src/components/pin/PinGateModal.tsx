@@ -33,14 +33,10 @@ export function PinGateModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const { pinCode, pinPadLayout } = useSettings();
+  const { pinCode } = useSettings();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
-  // Bumped after every rejected entry so a moving pad redraws between attempts ,
-  // reusing the layout across retries would hand a shoulder-surfer the same
-  // positional trace twice.
-  const [attempt, setAttempt] = useState(0);
 
   // Reset all internal state whenever the gate is (re)opened or closed so a
   // second open never inherits the last attempt's dots/error/unlocked flags.
@@ -50,7 +46,6 @@ export function PinGateModal({
     setPin("");
     setError(false);
     setUnlocked(false);
-    setAttempt(0);
   }, [open]);
 
   // Once unlocked, hand off to onSuccess after a short beat. Cleared on unmount
@@ -78,7 +73,6 @@ export function PinGateModal({
     } else {
       setPin("");
       setError(true);
-      setAttempt((n) => n + 1);
     }
   }
 
@@ -106,8 +100,6 @@ export function PinGateModal({
       <PinPadView
         entered={pin.length}
         error={error}
-        layout={pinPadLayout}
-        shuffleKey={attempt}
         onDigit={digit}
         onBackspace={() => {
           setError(false);

@@ -1,13 +1,13 @@
 /**
  * Battery readout via @capacitor/device , used by both the settings Device
- * row (`enabled` only while that modal is open) and NotChargingBanner
+ * row (`enabled` only while that page is open)
  * (`enabled` for the panel's whole lifetime).
  *
  * The wall panel sits on dock power, so the interesting signal is "still
  * charging?" rather than a fast-moving percentage , hence a 15s poll rather
  * than something tighter. In a plain browser / Storybook the plugin has no
  * native side and this resolves to null, which callers render as unavailable.
- * Mirrors the dynamic-import pattern in app-update.ts so the Capacitor module
+ * Uses a dynamic import so the Capacitor module
  * stays out of the main bundle path.
  */
 

@@ -5,14 +5,10 @@
 import type { HttpRoute } from "@app-kit";
 import { routes as acHttp } from "../ac/http";
 import { routes as boothHttp } from "../booth/http";
-import { routes as hooksHttp } from "../hooks/http";
-import { routes as injectionsHttp } from "../injections/http";
 import { routes as wakesHttp } from "../wakes/http";
 
 export const GENERATED_ROUTES: readonly HttpRoute[] = [
   ...acHttp,
   ...boothHttp,
-  ...hooksHttp,
-  ...injectionsHttp,
   ...wakesHttp,
 ];

@@ -11,7 +11,6 @@
  */
 
 import { getDeviceId } from "./device-id";
-import { log } from "./log/logger";
 
 export const BURST_DELAYS_MS = [700, 1300, 2000] as const;
 
@@ -24,7 +23,6 @@ const JPEG_QUALITY = 0.8;
 const READY_TIMEOUT_MS = 1500;
 const READY_POLL_MS = 50;
 
-const wakeLog = log.child("wake");
 
 let burstInFlight = false;
 
@@ -96,7 +94,7 @@ export async function uploadBurstFramesForTests(
 
 async function runBurst(sessionId: string | null): Promise<void> {
   const startedAt = performance.now();
-  wakeLog.info("burst start");
+  console.info("burst start");
 
   let stream: MediaStream;
   try {
@@ -107,7 +105,7 @@ async function runBurst(sessionId: string | null): Promise<void> {
   } catch (err) {
     // The single most diagnostic line: NotAllowedError here means the shell
     // build has no camera permission yet (Info.plist / TestFlight lag).
-    wakeLog.warn("camera open failed", {
+    console.warn("camera open failed", {
       name: err instanceof Error ? err.name : "unknown",
       message: err instanceof Error ? err.message : String(err),
     });
@@ -127,13 +125,13 @@ async function runBurst(sessionId: string | null): Promise<void> {
     // frame ever arrives we log it and let the burst try anyway.
     const ready = await awaitVideoReady(video);
     if (!ready) {
-      wakeLog.warn("camera not ready before burst", {
+      console.warn("camera not ready before burst", {
         w: video.videoWidth,
         h: video.videoHeight,
         waitedMs: READY_TIMEOUT_MS,
       });
     } else {
-      wakeLog.info("camera ready", { w: video.videoWidth, h: video.videoHeight });
+      console.info("camera ready", { w: video.videoWidth, h: video.videoHeight });
     }
 
     let uploaded = 0;
@@ -143,14 +141,14 @@ async function runBurst(sessionId: string | null): Promise<void> {
       elapsed = at;
       const blob = await grabFrame(video);
       if (!blob) {
-        wakeLog.warn("frame grab returned nothing", { at });
+        console.warn("frame grab returned nothing", { at });
         continue;
       }
       const res = await uploadFrame(blob, sessionId, frameIdx);
       if (res.ok) uploaded += 1;
-      else wakeLog.warn("frame upload rejected", { at, status: res.status, bytes: blob.size });
+      else console.warn("frame upload rejected", { at, status: res.status, bytes: blob.size });
     }
-    wakeLog.info("burst done", {
+    console.info("burst done", {
       uploaded,
       of: BURST_DELAYS_MS.length,
       ms: Math.round(performance.now() - startedAt),
@@ -200,12 +198,12 @@ export async function probeCamera(): Promise<CameraProbeResult> {
       audio: false,
     });
     for (const track of stream.getTracks()) track.stop();
-    wakeLog.info("camera probe ok");
+    console.info("camera probe ok");
     return { ok: true };
   } catch (err) {
     const name = err instanceof Error ? err.name : "unknown";
     const message = err instanceof Error ? err.message : String(err);
-    wakeLog.warn("camera probe failed", { name, message });
+    console.warn("camera probe failed", { name, message });
     return { ok: false, name, message };
   }
 }
@@ -218,7 +216,7 @@ export function captureWakeBurst(
   burstInFlight = true;
   runner(sessionId)
     .catch((err) =>
-      wakeLog.warn("burst failed", {
+      console.warn("burst failed", {
         name: err instanceof Error ? err.name : "unknown",
         message: err instanceof Error ? err.message : String(err),
       }),

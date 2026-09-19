@@ -11,7 +11,7 @@ import { Tile, TileHeader } from "@/components/ui";
  * Tapping the Tile opens the fullscreen camera through the App-owned detail facet,
  * whose wiring hosts the camera ⇄ gallery navigation.
  * The tile itself is presentational and takes no props, so it serves as both the
- * Board `component` and the minimap `viewComponent` in the App manifest.
+ * Board `component` and the `viewComponent` slot in the App manifest.
  *
  * The title MUST stay in sync with the manifest label
  * (asserted by tile-title-sync.test.tsx).

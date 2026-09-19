@@ -6,9 +6,9 @@
  * two galleries share it by construction rather than by copied constants , a
  * change to the cell size or header weight lands on both at once.
  *
- * Deliberately NOT included: the lightbox. The booth opens one; Activity
- * navigates to the owning session instead. Overlay behaviour stays with the
- * caller, and everything inside a cell comes from the `renderCell` slot, so
+ * Deliberately NOT included: the lightbox. The booth opens one; Activity has
+ * nothing to open and omits `onSelect` entirely. Overlay behaviour stays with
+ * the caller, and everything inside a cell comes from the `renderCell` slot, so
  * this component owns layout and nothing else.
  *
  * Purely presentational and generic over the item type , callers pre-group into
@@ -36,7 +36,9 @@ export interface PhotoGridProps<T> {
   renderCell: (item: T) => ReactNode;
   /** Accessible label for the cell button. */
   cellLabel: (item: T) => string;
-  onSelect: (item: T) => void;
+  /** Omit for a display-only grid , cells then render as inert figures rather
+   *  than buttons that swallow a tap (Activity has nothing to open). */
+  onSelect?: (item: T) => void;
   /**
    * Cells that cannot be opened , rendered dimmed and non-interactive rather
    * than silently swallowing a tap. Defaults to everything being selectable.
@@ -71,6 +73,14 @@ export function PhotoGrid<T>({
           <div style={grid}>
             {day.items.map((item) => {
               const disabled = isDisabled?.(item) ?? false;
+              if (!onSelect) {
+                return (
+                  <div key={itemKey(item)} style={inertCell} aria-label={cellLabel(item)}>
+                    {renderCell(item)}
+                    {renderOverlay?.(item)}
+                  </div>
+                );
+              }
               return (
                 <button
                   key={itemKey(item)}
@@ -146,4 +156,13 @@ const disabledCell: CSSProperties = {
   ...cell,
   cursor: "default",
   opacity: 0.45,
+};
+
+// A display-only cell: the same box as `cell`, minus the pointer affordances a
+// button carries (there is nothing to open).
+const inertCell: CSSProperties = {
+  position: "relative",
+  aspectRatio: "1 / 1",
+  background: "var(--nest)",
+  overflow: "hidden",
 };

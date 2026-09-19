@@ -18,6 +18,8 @@ const HOME_CX = HOME_RECT.x + HOME_RECT.w / 2;
 const HOME_CY = HOME_RECT.y + HOME_RECT.h / 2;
 const CLIENT_W = 1366;
 const CLIENT_H = 1024;
+// The idle-dim timeout is a constant now (lib/settings.ts IDLE_DIM_TIMEOUT_MS),
+// not a setting, so the tests run against that exact value.
 const TIMEOUT_MS = 60_000;
 
 const tileTap = vi.fn();
@@ -48,7 +50,6 @@ vi.mock("@features/_generated/web.gen", () => {
   };
 });
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
-vi.mock("../DevOverlayHud", () => ({ DevOverlayHud: () => null }));
 // Native so the session is enabled; the backlight calls are inert.
 vi.mock("../../lib/brightness", () => ({
   isNativeDisplay: () => true,
@@ -60,18 +61,7 @@ vi.mock("../../lib/wake-capture", () => ({
   // DevicePage (rendered by the I-1 test below) polls this on mount.
   cameraPermissionState: vi.fn(() => Promise.resolve("granted")),
 }));
-// DevicePage (#64: folds in the former About page) reads server build info via
-// trpc; stub a stably-loading query so the I-1 test below doesn't need a real
-// trpc/QueryClient context just to mount Settings on the Device page.
-vi.mock("../../lib/trpc", () => ({
-  trpc: {
-    health: {
-      buildHash: { useQuery: () => ({ isLoading: true, data: undefined }) },
-    },
-  },
-}));
-// jsdom has no AudioContext; the alarm tests below drive the real alarm store,
-// whose fire path plays cues through the sound bus.
+// jsdom has no AudioContext; anything that reaches the sound bus is inert here.
 vi.mock("../../lib/sound", () => ({
   playCue: vi.fn(),
   warmAudio: vi.fn(),
@@ -79,29 +69,14 @@ vi.mock("../../lib/sound", () => ({
 }));
 
 import { __resetSessionForTests, panelSession } from "../../lib/panel-session";
-import {
-  resetSettings,
-  setIdleDimEnabled,
-  setIdleDimTimeoutMs,
-  setLockScreenEnabled,
-} from "../../lib/settings";
+import { resetSettings } from "../../lib/settings";
 import { closeSettings, openSettings } from "../../lib/settings-overlay-store";
-import {
-  addAlarm,
-  dismissAlarmFiring,
-  resetAlarmsForTests,
-} from "../../lib/time-suite/alarm-store";
 import { Board } from "../Board";
 
 beforeEach(() => {
   vi.useFakeTimers();
   __resetSessionForTests();
   resetSettings();
-  setIdleDimEnabled(true);
-  // Existing cases cover the retained plain-dim fallback. Lock behavior has its
-  // own focused cases below.
-  setLockScreenEnabled(false);
-  setIdleDimTimeoutMs(TIMEOUT_MS);
   // jsdom has no scrollTo; the glide-home jumpTo calls it directly (no fallback).
   Object.defineProperty(HTMLElement.prototype, "scrollTo", {
     configurable: true,
@@ -146,23 +121,6 @@ function captureScrollTo(stage: HTMLElement) {
 }
 
 describe("Board panel-session wiring", () => {
-  it("shows the PIN-gated lock screen at session end and wakes only after a correct PIN", () => {
-    setLockScreenEnabled(true);
-    render(<Board />);
-    act(() => vi.advanceTimersByTime(TIMEOUT_MS));
-
-    const overlay = screen.getByTestId("lock-screen-overlay");
-    expect(screen.queryByTestId("dim-overlay")).toBeNull();
-    fireEvent.click(overlay);
-    expect(screen.getByTestId("pin-gate-backdrop")).toBeTruthy();
-    expect(panelSession.phase()).toBe("ended");
-
-    for (const digit of "000000") fireEvent.click(screen.getByRole("button", { name: digit }));
-    act(() => vi.advanceTimersByTime(250));
-    expect(panelSession.phase()).toBe("active");
-    expect(panelSession.isUnlocked()).toBe(true);
-    expect(screen.queryByTestId("lock-screen-overlay")).toBeNull();
-  });
   it("ends the session after the idle timeout: dims, glides home, relocks", () => {
     render(<Board />);
     const stage = document.getElementById("stage") as HTMLElement;
@@ -225,64 +183,6 @@ describe("Board panel-session wiring", () => {
     expect(panelSession.phase()).toBe("active");
   });
 
-  // Alarm-ring coupling (plan addendum): drive the REAL alarm store with fake
-  // timers. Alarms fire on minute boundaries, so tests pin the clock to a fixed
-  // whole minute and use a 90s session timeout to keep the two clocks distinct.
-  describe("alarm-ring coupling", () => {
-    const RING_TIMEOUT_MS = 90_000;
-
-    beforeEach(() => {
-      vi.setSystemTime(new Date(2026, 0, 1, 10, 0, 0));
-      resetAlarmsForTests();
-      setIdleDimTimeoutMs(RING_TIMEOUT_MS);
-    });
-
-    afterEach(() => {
-      resetAlarmsForTests();
-    });
-
-    it("a ringing alarm holds the session open past the timeout; dismissal releases it", () => {
-      render(<Board />);
-      // Fires at 10:01:00, 60s in.
-      act(() => addAlarm({ hour: 10, minute: 1 }));
-      act(() => {
-        vi.advanceTimersByTime(60_000);
-      });
-      // 150s since the last human touch (> 90s timeout), but the ring re-touches.
-      act(() => {
-        vi.advanceTimersByTime(RING_TIMEOUT_MS);
-      });
-      expect(screen.queryByTestId("dim-overlay")).toBeNull();
-      expect(panelSession.phase()).toBe("active");
-
-      act(() => dismissAlarmFiring());
-      act(() => {
-        vi.advanceTimersByTime(RING_TIMEOUT_MS);
-      });
-      expect(screen.queryByTestId("dim-overlay")).toBeTruthy();
-      expect(panelSession.phase()).toBe("ended");
-    });
-
-    it("an alarm firing while dimmed wakes the panel, still locked", () => {
-      render(<Board />);
-      act(() => panelSession.unlock());
-      act(() => {
-        vi.advanceTimersByTime(RING_TIMEOUT_MS);
-      });
-      expect(panelSession.phase()).toBe("ended");
-
-      // Now 10:01:30; the 10:03 alarm fires 90s later, mid-dim.
-      act(() => addAlarm({ hour: 10, minute: 3 }));
-      act(() => {
-        vi.advanceTimersByTime(90_000);
-      });
-      expect(screen.queryByTestId("dim-overlay")).toBeNull();
-      expect(panelSession.phase()).toBe("active");
-      // Wake, not unlock: the session relocked at end and stays locked.
-      expect(panelSession.isUnlocked()).toBe(false);
-    });
-  });
-
   it("session end with the Level sub-overlay open drops Settings entirely: no PIN gate on the dimmed board (final-review I-1)", () => {
     render(<Board />);
     // Unlocked session, Settings open on the Device page.
@@ -314,13 +214,4 @@ describe("Board panel-session wiring", () => {
     expect(screen.queryByTestId("pin-gate-backdrop")).toBeNull();
   });
 
-  it("never ends the session while idle-dim is disabled", () => {
-    setIdleDimEnabled(false);
-    render(<Board />);
-    act(() => {
-      vi.advanceTimersByTime(TIMEOUT_MS * 3);
-    });
-    expect(screen.queryByTestId("dim-overlay")).toBeNull();
-    expect(panelSession.phase()).toBe("active");
-  });
 });

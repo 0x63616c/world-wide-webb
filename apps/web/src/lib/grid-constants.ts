@@ -1,5 +1,5 @@
 // Single source of truth for the board grid.
-// Imported by Board, tile-registry, the Minimap, and Storybook.
+// Imported by the Board and the tile registry.
 //
 // The board is a SQUARE-cell grid: GRID_COLS columns × GRID_ROWS rows. A
 // non-square grid in the 1366×1000 viewport made cells taller than wide,

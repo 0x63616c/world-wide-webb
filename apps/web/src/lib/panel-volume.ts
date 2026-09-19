@@ -12,9 +12,7 @@
  */
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { log } from "./log/logger";
 
-const volumeLog = log.child("panel-volume");
 
 interface PanelVolumePlugin {
   getVolume(): Promise<{ value: number }>;
@@ -40,7 +38,7 @@ export async function getPanelVolume(): Promise<number | null> {
     const { value } = await plugin.getVolume();
     return value;
   } catch (err) {
-    volumeLog.warn("read failed", { err: String(err) });
+    console.warn("read failed", { err: String(err) });
     return null;
   }
 }
@@ -60,7 +58,7 @@ export async function setPanelVolume(value: number): Promise<number | null> {
     const result = await plugin.setVolume({ value });
     return result.value;
   } catch (err) {
-    volumeLog.warn("write failed", { requested: value, err: String(err) });
+    console.warn("write failed", { requested: value, err: String(err) });
     return null;
   }
 }
@@ -82,7 +80,7 @@ export function onPanelVolumeChanged(handler: (value: number) => void): () => vo
       remove = handle.remove;
     })
     .catch((err) => {
-      volumeLog.warn("listener registration failed", { err: String(err) });
+      console.warn("listener registration failed", { err: String(err) });
     });
   return () => {
     cancelled = true;

@@ -53,12 +53,12 @@ const model = (apps: Array<ReturnType<typeof app>>, extra: Record<string, unknow
 });
 
 it("throws on duplicate id", () => {
-  expect(() => validate(model([app({ id: "a", home: true }), app({ id: "a" })]), [])).toThrow(
+  expect(() => validate(model([app({ id: "a", home: true }), app({ id: "a" })]))).toThrow(
     CodegenError,
   );
 });
 it("throws when home count != 1", () => {
-  expect(() => validate(model([app({ id: "a" }), app({ id: "b" })]), [])).toThrow(
+  expect(() => validate(model([app({ id: "a" }), app({ id: "b" })]))).toThrow(
     /exactly one home/,
   );
 });
@@ -66,27 +66,16 @@ it("throws on overlapping tile rects", () => {
   expect(() =>
     validate(
       model([app({ id: "a", home: true, worldCol: 0, cols: 2 }), app({ id: "b", worldCol: 1 })]),
-      [],
     ),
   ).toThrow(/overlap/);
 });
-it("throws when guestExposed flag diverges from the GUEST_EXPOSED allowlist", () => {
-  expect(() => validate(model([app({ id: "a", home: true, guestExposed: true })]), [])).toThrow(
-    /GUEST_EXPOSED/,
-  );
-  expect(() => validate(model([app({ id: "a", home: true, guestExposed: false })]), ["a"])).toThrow(
-    /GUEST_EXPOSED/,
-  );
-});
 it("accepts a consistent model", () => {
-  expect(() =>
-    validate(model([app({ id: "a", home: true, guestExposed: true })]), ["a"]),
-  ).not.toThrow();
+  expect(() => validate(model([app({ id: "a", home: true })]))).not.toThrow();
 });
 
 it("rejects an App that combines session and fresh unlock policies", () => {
   expect(() =>
-    validate(model([app({ id: "a", home: true, sensitive: true, private: true })]), []),
+    validate(model([app({ id: "a", home: true, sensitive: true, private: true })])),
   ).toThrow(/cannot be both sensitive and private/);
 });
 
@@ -99,7 +88,6 @@ it("throws on a duplicate table name across the feature + base schemas", () => {
           { name: "portal_authorization", source: "base" },
         ],
       }),
-      [],
     ),
   ).toThrow(/duplicate table name/);
 });
@@ -113,7 +101,6 @@ it("throws when two features expose the same top-level router key", () => {
           { key: "portal", source: "feature:other" },
         ],
       }),
-      [],
     ),
   ).toThrow(/duplicate router key/);
 });
@@ -127,7 +114,6 @@ it("throws when two Apps declare the same worker cycle name", () => {
           { name: "weather-ingest", source: "feature:other-weather" },
         ],
       }),
-      [],
     ),
   ).toThrow(/duplicate worker cycle name 'weather-ingest'/);
 });
@@ -156,7 +142,6 @@ it("throws when two schema.ts files export the same symbol name", () => {
           { name: "job", source: "base" },
         ],
       }),
-      [],
     ),
   ).toThrow(/duplicate schema export/);
 });
@@ -199,7 +184,7 @@ it("accepts a single app with two non-overlapping tiles, exactly one home", () =
       { ...baseTile, id: "multi_b", home: false, worldCol: 2, worldRow: 0, cols: 1, rows: 1 },
     ],
   };
-  expect(() => validate(model([twoTile]), [])).not.toThrow();
+  expect(() => validate(model([twoTile]))).not.toThrow();
 });
 
 it("throws when a two-tile app has a second home tile", () => {
@@ -213,7 +198,7 @@ it("throws when a two-tile app has a second home tile", () => {
       { ...baseTile, id: "multi_b", home: true, worldCol: 2, worldRow: 0, cols: 1, rows: 1 },
     ],
   };
-  expect(() => validate(model([twoHome]), [])).toThrow(/exactly one home/);
+  expect(() => validate(model([twoHome]))).toThrow(/exactly one home/);
 });
 
 it("throws when two tiles of the same app overlap (intra-app overlap)", () => {
@@ -227,7 +212,7 @@ it("throws when two tiles of the same app overlap (intra-app overlap)", () => {
       { ...baseTile, id: "multi_b", home: false, worldCol: 1, worldRow: 0, cols: 2, rows: 1 },
     ],
   };
-  expect(() => validate(model([overlapping]), [])).toThrow(/overlap/);
+  expect(() => validate(model([overlapping]))).toThrow(/overlap/);
 });
 
 it("throws when two tiles (any apps) share a tile id", () => {
@@ -237,21 +222,19 @@ it("throws when two tiles (any apps) share a tile id", () => {
         app({ id: "a", tileId: "dup", home: true }),
         app({ id: "b", tileId: "dup", worldCol: 5 }),
       ]),
-      [],
     ),
   ).toThrow(/duplicate tile id/);
 });
 
-it("throws when a board Tile has no App-owned Tile View declaration", () => {
+// Zero or one Tile View per Tile: a FACE-ONLY Tile (the Clock, both weather
+// tiles, Climate · A/C) declares none, and that is not an error.
+it("accepts a board Tile with no Tile View declaration (face-only)", () => {
   expect(() =>
-    validate(
-      {
-        apps: [app({ id: "tile_a", home: true })],
-        tileViews: [],
-      },
-      [],
-    ),
-  ).toThrow(/missing Tile View.*tile_a/);
+    validate({
+      apps: [app({ id: "tile_a", home: true })],
+      tileViews: [],
+    }),
+  ).not.toThrow();
 });
 
 it("throws when two Apps declare a Tile View for the same Tile", () => {
@@ -264,7 +247,6 @@ it("throws when two Apps declare a Tile View for the same Tile", () => {
           { tileId: "tile_a", source: "feature:b" },
         ],
       },
-      [],
     ),
   ).toThrow(/duplicate Tile View.*tile_a/);
 });
@@ -279,7 +261,6 @@ it("throws when one App claims another App's Tile View", () => {
           { tileId: "tile_b", source: "feature:tile_a" },
         ],
       },
-      [],
     ),
   ).toThrow(/belongs to feature:tile_a, not feature:tile_b/);
 });

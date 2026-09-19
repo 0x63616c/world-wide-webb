@@ -6,10 +6,8 @@
 // once when the deployed SHA no longer matches the running one.
 
 import { BUILD_HASH } from "../config/build";
-import { log } from "./log/logger";
 import { setUpdatePending } from "./update-pending-store";
 
-const versionLog = log.child("version-check");
 
 // How often to poll version.json. 10s per Calum , fast enough that a deploy
 // lands on the panel within seconds, cheap enough as a static GET on the kiosk.
@@ -68,14 +66,14 @@ export function startVersionCheck(options: VersionCheckOptions = {}): () => void
       if (typeof data.hash !== "string") return;
       if (data.hash !== currentHash && !reloadTriggered) {
         reloadTriggered = true;
-        versionLog.info("update detected, reloading", {
+        console.info("update detected, reloading", {
           from: currentHash,
           to: data.hash,
           delayMs: reloadDelay,
         });
         setUpdatePending(true);
         setTimeout(() => {
-          versionLog.info("reloading now");
+          console.info("reloading now");
           reload();
         }, reloadDelay);
       }

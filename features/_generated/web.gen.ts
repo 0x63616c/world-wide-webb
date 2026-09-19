@@ -6,76 +6,30 @@ import { createWebRegistry } from "@app-kit";
 import acManifest from "../ac/manifest";
 import boothManifest from "../booth/manifest";
 import ctrlManifest from "../ctrl/manifest";
-import deploysManifest from "../deploys/manifest";
 import eventsManifest from "../events/manifest";
-import felogsManifest from "../felogs/manifest";
-import goalsManifest from "../goals/manifest";
-import guestWifiManifest from "../guest-wifi/manifest";
-import hooksManifest from "../hooks/manifest";
-import injectionsManifest from "../injections/manifest";
-import networkManifest from "../network/manifest";
-import notifManifest from "../notif/manifest";
-import panelUpdateManifest from "../panel-update/manifest";
-import scenesManifest from "../scenes/manifest";
 import soundManifest from "../sound/manifest";
 import wakesManifest from "../wakes/manifest";
 import weatherManifest from "../weather/manifest";
-import weightManifest from "../weight/manifest";
-import { tileViews as acTileViews } from "../ac/detail";
 import { tileViews as boothTileViews } from "../booth/detail";
 import { tileViews as ctrlTileViews } from "../ctrl/detail";
-import { tileViews as deploysTileViews } from "../deploys/detail";
-import { tileViews as eventsTileViews } from "../events/detail";
-import { tileViews as felogsTileViews } from "../felogs/detail";
-import { tileViews as goalsTileViews } from "../goals/detail";
-import { tileViews as guestWifiTileViews } from "../guest-wifi/detail";
-import { tileViews as injectionsTileViews } from "../injections/detail";
-import { tileViews as networkTileViews } from "../network/detail";
-import { tileViews as notifTileViews } from "../notif/detail";
-import { tileViews as scenesTileViews } from "../scenes/detail";
 import { tileViews as soundTileViews } from "../sound/detail";
 import { tileViews as wakesTileViews } from "../wakes/detail";
-import { tileViews as weatherTileViews } from "../weather/detail";
-import { tileViews as weightTileViews } from "../weight/detail";
 
 const manifests = [
   acManifest,
   boothManifest,
   ctrlManifest,
-  deploysManifest,
   eventsManifest,
-  felogsManifest,
-  goalsManifest,
-  guestWifiManifest,
-  hooksManifest,
-  injectionsManifest,
-  networkManifest,
-  notifManifest,
-  panelUpdateManifest,
-  scenesManifest,
   soundManifest,
   wakesManifest,
   weatherManifest,
-  weightManifest,
 ];
 
 const tileViews = [
-  ...acTileViews,
   ...boothTileViews,
   ...ctrlTileViews,
-  ...deploysTileViews,
-  ...eventsTileViews,
-  ...felogsTileViews,
-  ...goalsTileViews,
-  ...guestWifiTileViews,
-  ...injectionsTileViews,
-  ...networkTileViews,
-  ...notifTileViews,
-  ...scenesTileViews,
   ...soundTileViews,
   ...wakesTileViews,
-  ...weatherTileViews,
-  ...weightTileViews,
 ];
 
 export const {
