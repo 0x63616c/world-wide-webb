@@ -5,8 +5,6 @@ control-plane node replacing the Mac mini (MSI PRO Z690-A, amd64, RTX 3060).
 This is config authoring only: no cluster has been bootstrapped from this repo
 yet, and the mini is untouched.
 
-Full design/decision context: `docs/superpowers/plans/2026-07-24-homelab-migration.md`.
-
 ## Files
 
 | File | Purpose |
