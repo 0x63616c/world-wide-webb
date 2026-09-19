@@ -14,12 +14,15 @@ every item is independently checkable from the working tree or the live cluster.
 
 ## 0. Before anything
 
-- [ ] Trigger the `pg-backup` CronJob by hand and confirm a fresh dump landed on the
+- [x] Trigger the `pg-backup` CronJob by hand and confirm a fresh dump landed on the
       NAS under `/volume1/Homelab/backups/world-wide-webb/control-center/postgres`.
-- [ ] Confirm photo booth + wake photos need no action: `MEDIA_STORAGE_DIR` is an NFS
+      **Done 2026-09-19** — job `pg-backup-presimplify` succeeded, logged
+      `wrote /backup/control_center-20260919.sql.gz`.
+- [x] Confirm photo booth + wake photos need no action: `MEDIA_STORAGE_DIR` is an NFS
       mount onto the Synology (`subPath: media`), not a PVC. Photos are already off-cluster.
-- [ ] `dont-text-your-ex` data is disposable — explicitly no backup required.
-- [ ] Capture `kubectl get pods,pvc,svc -A` output for reference before teardown.
+- [x] `dont-text-your-ex` data is disposable — explicitly no backup required.
+- [x] Capture `kubectl get pods,pvc,svc -A` output for reference before teardown.
+      **Done 2026-09-19** — 163 lines captured to the session scratchpad.
 
 ---
 
@@ -205,11 +208,27 @@ Drop `@capacitor-community/screen-brightness`, `@capacitor/push-notifications`.
 `infra/src/secrets-map.ts`, and `packages/platform/env/manifest.ts`:**
 `captivePortal.*`, `softwareFactory.*` (6), `githubBot.*` (6), `apns.*` (3),
 `spotify.*` (3), `withings.*` (2), `unifi.*`, `wifiGuest.*`, `wifiMain.*`,
-`homeLocation.placeName`, `homeLocation.radiusMiles`, `github.ghcrPat` (if unused after
-SF removal — verify).
+`homeLocation.placeName`, `homeLocation.radiusMiles`.
 
 **Keep:** `homeAssistant.token`, `controlCenter.postgresPassword`,
-`cloudflare.managedTunnelToken`, `homeLocation.lat`/`lon`, `appStoreConnect.*` (CI).
+`cloudflare.managedTunnelToken`, `homeLocation.lat`/`lon`, `appStoreConnect.*` (CI),
+and **`github.ghcrPat`**.
+
+> ⚠️ **Correction (2026-09-19).** An earlier draft of this section listed
+> `github.ghcrPat` as "delete if unused after SF removal — verify". It is **used** and
+> **must stay**: `infra/src/services.ts:819` mints the GHCR image-pull secret from
+> `GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN`, so every app image pull breaks without it.
+> `scripts/save-ghcr-pull-token.sh` stays with it. Do not re-delete this.
+
+**Recoverability.** `secrets/vault.yaml` is SOPS-encrypted *in git*, so any key removed
+here stays recoverable from history for as long as the age key that decrypts it exists —
+nothing in this PR touches that key. Removing a vault key also does **not** revoke the
+credential upstream; revoking at the provider (Spotify, Withings, APNs, the GitHub App)
+is a separate manual pass after merge, if wanted.
+
+**Rule for every deletion in this section:** a secret only goes once its consumer is
+deleted in this same PR *and* a repo-wide grep for the vault key name returns zero
+non-test hits.
 
 **Delete the matching save scripts:** `save-spotify-credentials.sh`, `save-wifi-guest.sh`,
 `save-synology-dsm.sh` (verify), `save-openrouter.sh`, `save-resend.sh`,
@@ -397,6 +416,10 @@ Run against the finished `simplify` branch. Each item is independently checkable
 - [ ] `scripts/check-sops-encrypted.sh` passes on `secrets/vault.yaml`.
 - [ ] Every remaining `secretCatalog` entry has a live consumer: grep each vault key name
       and confirm at least one non-test hit.
+- [ ] **`github.ghcrPat` / `GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN` still exists** in
+      `secrets/vault.yaml` and `secretCatalog`, and `infra/src/services.ts` still reads it
+      for the GHCR image-pull secret. **If this was deleted, no app image can be pulled.**
+- [ ] `appStoreConnect.*` (3 keys) still exist and `ios-build.yml` still resolves them.
 - [ ] No secret VALUES appear anywhere in the diff.
 
 ## Cluster (post-deploy)
