@@ -285,12 +285,12 @@ describe("installTemporal (issue #124, talos-only)", () => {
       }
     });
 
-    test("retention is per-namespace, and both are 87600h (10y) today", async () => {
-      // Decided on #325: software-factory matches control-center's 10 years
-      // rather than the 90d originally proposed. Storage impact deliberately
-      // deferred — revisit ~2027-01. Retention is a per-entry field so that
-      // revisit is a one-word edit, not a refactor.
-      expect(temporal.TEMPORAL_NAMESPACES.map((n) => n.retention)).toEqual(["87600h", "87600h"]);
+    test("retention is per-namespace, and both are 720h (30d) today", async () => {
+      // Dropped from the #325-decided 10 years to 30 days on 2026-09-19: the
+      // deferred storage impact caught up (temporal-postgres's PVC filled).
+      // Retention is a per-entry field so that revisit is a one-word edit,
+      // not a refactor.
+      expect(temporal.TEMPORAL_NAMESPACES.map((n) => n.retention)).toEqual(["720h", "720h"]);
       const jobs = install().namespaceJobs;
       for (const ns of temporal.TEMPORAL_NAMESPACES) {
         const script = await scriptOf(jobs[ns.name]);

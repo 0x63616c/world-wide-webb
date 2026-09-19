@@ -213,11 +213,13 @@ describe("the worker's Role (#343)", () => {
 });
 
 describe("the worker Deployment (#343)", () => {
-  test("is a single replica with a Recreate strategy", async () => {
-    // Two replicas would mean two credential refreshers, and a rolling update
-    // over this volume is a deadlock this cluster has already hit.
+  test("is scaled to 0 with a Recreate strategy", async () => {
+    // Scaled to 0 on 2026-09-19 — deliberately not running. If it comes back
+    // up it must come back at 1: two replicas would mean two credential
+    // refreshers, and a rolling update over this volume is a deadlock this
+    // cluster has already hit.
     const spec = await deploymentSpec();
-    expect(spec.replicas).toBe(1);
+    expect(spec.replicas).toBe(0);
     expect(spec.strategy?.type).toBe("Recreate");
   });
 
