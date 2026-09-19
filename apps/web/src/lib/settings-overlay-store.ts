@@ -14,7 +14,7 @@
  *
  * SettingsButton owns the gate + the level/clean sub-overlays; this store owns
  * only whether Settings is up and where it should land , the single seam a
- * board tile (Frontend Logs) uses to open Settings without a prop path.
+ * board tile can use to open Settings on a specific page without a prop path.
  */
 
 import type { PageKey } from "../components/settings-page/pages";

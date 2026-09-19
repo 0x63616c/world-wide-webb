@@ -37,7 +37,7 @@ cert-manager, metallb, the observability stack, cloudflared). Everything else �
 product that was not the panel, every mechanism that existed to run or track work on
 other mechanisms, every feature whose tile nobody opened — went.
 
-Net effect: **1636 files changed, -225,520 lines** (`git diff --stat
+Net effect: **1690 files changed, -228,539 lines** (`git diff --stat
 origin/main...simplify`). Roughly 73% of the repo, and prod's steady-state memory
 footprint dropped from ~11.2 GB to roughly 3.5 GB.
 
@@ -70,7 +70,7 @@ footprint dropped from ~11.2 GB to roughly 3.5 GB.
   Pulumi project; the UniFi controller's Manage tool row went with it (ADR-0010).
 - **map-provision** — a basemap tile provisioner, the only consumer of `maplibre-gl`;
   died with the Tesla feature it existed for.
-- **Storybook** — the component workshop app, all 195 `*.stories.tsx` files, and its
+- **Storybook** — the component workshop app, all 160 `*.stories.tsx` files, and its
   vitest project. This repo is Storybook-first no longer; component work ships without
   a story.
 
@@ -126,11 +126,13 @@ is unaffected by it.
 
 ## What survives, unchanged
 
-The lamp reconciliation loop (`light-enforcer`/`device-sync`/`party-mode`), the climate
-and Sonos-volume enforcers, weather ingest, `packages/core`'s `device_state` store and
+The lamp reconciliation loop (`light-enforcer`/`device-sync`/`party-mode`), the
+climate enforcer, weather ingest, `packages/core`'s `device_state` store and
 its five writers, Home Assistant, Loki/Grafana/Prometheus, cloudflared, CNPG,
 cert-manager, metallb, and TestFlight-via-fastlane (`ios-build.yml` + the App Store
-Connect secrets) are all untouched by this PR.
+Connect secrets) are all untouched by this PR. (There is no Sonos-volume enforcer:
+`features/sound/worker.ts` registers zero cycles — that was already true on
+`origin/main`, not something this PR changed.)
 
 ## Recoverability
 

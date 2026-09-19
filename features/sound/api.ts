@@ -9,7 +9,6 @@ import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
 import { getSoundSystem } from "./sonos-sound-system-service";
 import {
-  playMediaOnRoom,
   sonosGrabTvToBeam,
   sonosGroupJoin,
   sonosGroupJoinAll,
@@ -99,10 +98,6 @@ const soundRouter = router({
   sonosGrabTvToBeam: publicProcedure
     .input(z.object({ beamIp: z.string(), beamUuid: z.string().min(1) }))
     .mutation(({ input }) => sonosGrabTvToBeam(input)),
-
-  playMedia: publicProcedure
-    .input(z.object({ entityId: z.string().startsWith("media_player."), uri: z.string().min(1) }))
-    .mutation(({ input }) => playMediaOnRoom(input)),
 });
 
 /**

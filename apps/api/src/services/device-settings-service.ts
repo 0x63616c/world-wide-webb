@@ -3,12 +3,7 @@ import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { z } from "zod";
 
-import {
-  DEVICE_SETTINGS_DEFAULTS,
-  NAME_MAX_LENGTH,
-  VOLUME_MAX,
-  VOLUME_MIN,
-} from "../contract/device-settings";
+import { NAME_MAX_LENGTH } from "../contract/device-settings";
 import type * as schema from "../db/schema";
 import { deviceSettings } from "../db/schema";
 
@@ -21,9 +16,6 @@ import { deviceSettings } from "../db/schema";
 // @cc/api/device-settings).
 
 export const deviceSettingsSchema = z.object({
-  /** Output volume as a 0..1 fraction of the device's media volume. 0 is a
-   *  legitimate value , it is the mute control. */
-  volume: z.number().min(VOLUME_MIN).max(VOLUME_MAX),
   /** Human-readable device name (ticket #63): persisted server-side so it
    *  survives reinstall and is visible off-device, not just a local nag. Empty
    *  string means "not yet set", mirroring lib/device-name.ts's local model. */
@@ -37,14 +29,8 @@ export type DeviceSettings = z.infer<typeof deviceSettingsSchema>;
 export type DeviceSettingsPatch = z.infer<typeof deviceSettingsPatchSchema>;
 
 /** Baseline returned for a panel with no row yet, and the merge floor for every
- *  read/write so a newly-added field falls back to its default.
- *
- *  Spreads the wire contract's DEVICE_SETTINGS_DEFAULTS (volume-only , that
- *  constant is a zero-import literal shared with the web client's generic
- *  DeviceSettings interface, which stays volume-only) and adds `name` locally,
- *  since the empty-string default is service-only bookkeeping, not part of the
- *  cross-boundary contract. */
-export const DEFAULTS: DeviceSettings = { ...DEVICE_SETTINGS_DEFAULTS, name: "" };
+ *  read/write so a newly-added field falls back to its default. */
+export const DEFAULTS: DeviceSettings = { name: "" };
 
 /** Device ids are minted client-side (lib/device-id.ts) and are the primary key,
  *  so they are bounded here rather than trusted , an empty or absurd id would

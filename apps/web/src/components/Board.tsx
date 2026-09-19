@@ -3,6 +3,7 @@ import {
   HOME_TILE,
   type TileRegistryEntry,
 } from "@features/_generated/web.gen";
+import { genId } from "@www/platform";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { attachCamera, type BoardCameraHost, boardCamera } from "../lib/board-camera";
@@ -203,7 +204,7 @@ export function Board() {
     [boardCells],
   );
 
-  // World-pixel center of the home tile (the Clock). The board opens here and
+  // World-pixel center of the home tile (Controls). The board opens here and
   // idles back here. "home" is the home tile's resolved registry position, not
   // the geometric world center. Falls back to the registry's HOME_TILE rect if
   // the resolved list somehow doesn't have it.
@@ -365,8 +366,13 @@ export function Board() {
   const wake = useCallback(() => {
     // The tap that ends a dim is the "someone approached the panel" signal, so
     // kick off the front-camera wake burst (fire-and-forget, best-effort , see
-    // lib/wake-capture).
-    if (nativeDisplay) captureWakeBurst(null);
+    // lib/wake-capture). Mint a fresh interaction-session id per wake so the
+    // uploaded frames carry x-session-id: wake_photo.interaction_session_id
+    // is how the Activity tile's Sessions view groups a visit's photos
+    // (features/wakes/service.ts's listInteractionSessions filters on it being
+    // non-null). 16 hex chars comfortably satisfies the server's
+    // ^isn_[0-9a-z]{1,32}$ validation (features/wakes/http.ts).
+    if (nativeDisplay) captureWakeBurst(genId("isn", { length: 16 }));
     // touch() wakes the session (ended → active) and rearms the clock; the
     // backlight effect above brightens off the phase flip.
     panelSession.touch();

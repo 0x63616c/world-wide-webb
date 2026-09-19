@@ -6,7 +6,6 @@ import { queryClient, trpc, trpcClient } from "./lib/trpc";
 import { useAccentTheme } from "./lib/useAccentTheme";
 import { useDeviceSettingsSync } from "./lib/useDeviceSettingsSync";
 import { useSettingsSync } from "./lib/useSettingsSync";
-import { useVolumeSync } from "./lib/useVolumeSync";
 import { startVersionCheck } from "./lib/version-check";
 import { routeTree } from "./routeTree.gen";
 
@@ -25,25 +24,19 @@ function SettingsSync() {
   return null;
 }
 
-// Same job for the per-device settings row (volume). A SEPARATE component, not
-// another hook call inside SettingsSync: each owns a tRPC query, and keeping
-// them apart means one poll settling cannot re-render the other's subscribers.
+// Same job for the per-device settings row (the device name). A SEPARATE
+// component, not another hook call inside SettingsSync: each owns a tRPC
+// query, and keeping them apart means one poll settling cannot re-render the
+// other's subscribers.
 function DeviceSettingsSync() {
   useDeviceSettingsSync();
   return null;
 }
 
-// Applies the stored volume to the device and adopts hardware button presses
-// back. Separate from DeviceSettingsSync because it touches no tRPC at all ,
-// it is purely store ↔ hardware, and is a no-op off the panel.
-function VolumeSync() {
-  useVolumeSync();
-  return null;
-}
-
 // Paints the chosen accent onto :root. Its own component for the same reason as
-// VolumeSync , it subscribes to the settings store and renders nothing, so
-// keeping it out of App means an accent change re-renders only this null node.
+// DeviceSettingsSync , it subscribes to the settings store and renders nothing,
+// so keeping it out of App means an accent change re-renders only this null
+// node.
 function AccentTheme() {
   useAccentTheme();
   return null;
@@ -60,7 +53,6 @@ export function App() {
         <SettingsSync />
         <AccentTheme />
         <DeviceSettingsSync />
-        <VolumeSync />
         {/* Caps the web app to the 1366x1024 panel resolution and, on a
             desktop browser with room to spare, frames it like a device.
             Passthrough (no-op) on the native kiosk shell , see PanelFrame.tsx. */}

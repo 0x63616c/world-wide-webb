@@ -1,4 +1,4 @@
-// The scheduled jobs for the control-center k3s stack (www-j934.7): the cronJob()
+// The scheduled jobs for the control-center Talos stack (www-j934.7): the cronJob()
 // declarations for the cluster. Only infra-level work remains here: the pg/HA
 // backups. Every retention purge
 // migrated to App-owned Worker cycles declared from feature facets (issue

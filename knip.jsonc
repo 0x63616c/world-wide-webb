@@ -21,9 +21,12 @@
     // registry as a byte-identical validation artifact. Nothing imports them yet
     // (Slice 5 flips runtime consumers), and generated files are opaque to the
     // dead-code detector just as they are to biome (`.gen.ts` is ignored there too).
-    "features/_generated/**"
-    // Codegen output stays ignored; every other former entry here became stale
-    // when The Simplification deleted the subsystem it covered.
+    "features/_generated/**",
+    // Capacitor copies the built web bundle in here on `cap sync ios`. It is
+    // gitignored build output, absent from a fresh clone - which is why knip
+    // reports this entry as unused there - but present for anyone who has run
+    // a native build, and then read as a pile of unused files.
+    "**/ios/**/public/**"
   ],
 
   // Real runtime deps with no JS-visible import edge.

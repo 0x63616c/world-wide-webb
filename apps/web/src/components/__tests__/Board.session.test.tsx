@@ -71,6 +71,7 @@ vi.mock("../../lib/sound", () => ({
 import { __resetSessionForTests, panelSession } from "../../lib/panel-session";
 import { resetSettings } from "../../lib/settings";
 import { closeSettings, openSettings } from "../../lib/settings-overlay-store";
+import { captureWakeBurst } from "../../lib/wake-capture";
 import { Board } from "../Board";
 
 beforeEach(() => {
@@ -158,6 +159,20 @@ describe("Board panel-session wiring", () => {
     expect(screen.queryByTestId("dim-overlay")).toBeNull();
     // Woken back to an active session.
     expect(panelSession.phase()).toBe("active");
+  });
+
+  it("wakes with an interaction-session id the server's wake-photo route will accept", () => {
+    render(<Board />);
+    act(() => {
+      vi.advanceTimersByTime(TIMEOUT_MS);
+    });
+    const overlay = screen.getByTestId("dim-overlay");
+    fireEvent.pointerDown(overlay);
+
+    // features/wakes/http.ts validates x-session-id against exactly this
+    // pattern; a session id that fails it is silently dropped to NULL, which
+    // is how the Activity tile's Sessions view regresses back to empty.
+    expect(captureWakeBurst).toHaveBeenCalledWith(expect.stringMatching(/^isn_[0-9a-z]{1,32}$/));
   });
 
   it("ignores a raw window pointerdown while ended (shield stays up)", () => {

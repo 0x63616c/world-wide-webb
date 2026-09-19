@@ -34,7 +34,7 @@ deploy
 ## Workspace layout
 
 - `apps/api` — Bun + tRPC backend: DB schema/migrations, the base router
-  (health, settings, device-settings, system), merged with the generated
+  (health, settings, device-settings), merged with the generated
   feature router.
 - `apps/worker` — the interval-cycle process: desired-state reconciliation,
   weather ingest/purge.
@@ -48,7 +48,8 @@ deploy
   `events`, `sound`, `wakes`, `weather`. Each has a `manifest.ts` (id, tile
   placement, access policy) plus whichever facets it needs — `web.tsx` (tile
   face), `detail.ts` (Tile View declaration), `api.ts` (tRPC router slice),
-  `worker.ts` (interval cycles), `schema.ts` (owned tables). See ADR-0001.
+  `http.ts` (raw HTTP routes, e.g. `ac`/`booth`/`wakes`), `worker.ts` (interval
+  cycles), `schema.ts` (owned tables). See ADR-0001.
 - `features/_generated/*.gen.ts` — committed codegen output from
   `bun run apps:gen`: `tiles.gen.ts`, `web.gen.ts`, `router.gen.ts`,
   `workers.gen.ts`, `http.gen.ts`, `schema.gen.ts`. Never hand-edit; `bun run
@@ -97,17 +98,18 @@ grid). `PanelFrame.tsx` enforces this on a desktop browser (framing the app
 like a device instead of stretching it) and is a no-op passthrough on native
 and on `MobileBoard`.
 
-- **Tiles**: 8 total (`tiles.gen.ts`) — `tile_clock` (home, face-only),
-  `tile_ctrl` (Controls, the glide-home target), `tile_ac` (Climate · A/C,
-  face-only), `tile_weath` / `tile_hourly` (Weather, face-only), `tile_booth`
-  (Photo Booth, `private`), `tile_wakes` (Activity, `sensitive`), `tile_sound`
-  (Sound System). A Tile needs zero or one Tile View, not exactly one — a
-  face-only tile (clock, A/C, weather) has no detail surface at all.
+- **Tiles**: 8 total (`tiles.gen.ts`) — `tile_ctrl` (Controls, the sole
+  `home: true` tile and the glide-home target), `tile_clock` (Clock,
+  face-only), `tile_ac` (Climate · A/C, face-only), `tile_weath` /
+  `tile_hourly` (Weather, face-only), `tile_booth` (Photo Booth, `private`),
+  `tile_wakes` (Activity, `sensitive`), `tile_sound` (Sound System). A Tile
+  needs zero or one Tile View, not exactly one — a face-only tile (clock, A/C,
+  weather) has no detail surface at all.
 - **Camera**: pointer pan + glide-home only (`lib/board-camera/`). No snap
   modes, no minimap.
 - **Idle dim**: hardcoded on, 60000ms timeout, dim level 30
   (`lib/settings.ts`), driving `DimOverlay` (`<DimOverlay
-  active={sessionPhase === "ended"} />`, unconditional — there is no
+  active={sessionPhase === "ended"} onWake={wake} />`, unconditional — there is no
   `LockScreenOverlay`). The panel's real backlight is driven the same way
   through `lib/brightness.ts` / the native `ScreenBrightness` plugin.
 - **PIN**: one shared PIN Session (`components/pin/`) gates every `sensitive`
@@ -137,7 +139,7 @@ migrations, serves with `Bun.serve()`.
 - `/trpc/*` — tRPC.
 
 The tRPC root router (`apps/api/src/trpc/routers/index.ts`) merges a small
-`baseRouter` (health, settings, device-settings, system) with the generated
+`baseRouter` (health, settings, device-settings) with the generated
 `featureAppRouter` (one slice per feature in `features/*/api.ts`).
 `packages/api` re-exports only the `AppRouter` type, so `web` gets typed tRPC
 without bundling backend code.
@@ -162,15 +164,17 @@ retired key on read rather than erroring.
 
 `apps/worker` owns process lifecycle, metrics, migrations, and graceful
 shutdown; each feature owns its own cadence in `worker.ts`, composed into
-`features/_generated/workers.gen.ts`. Registered cycles: `light-enforcer`
-(1s), `device-sync` (1s), `party-mode` (2s) — the lamp reconciliation loop,
-untouched by The Simplification — `climate-enforcer` (1s),
-`sonos-volume-enforcer`, `weather-ingest` (5m), and `weather-purge` (the
-worker cycle that replaced the deleted `WeatherPurgeWorkflow`). No queue, no
-scheduler: a feature that needs recurring backend work writes a `worker.ts`
-cycle; a feature that needs calendar-scheduled infra work is a Kubernetes
-CronJob in `infra/src/crons.ts` (only `pg-backup` and the Home Assistant
-config/Postgres backups remain).
+`features/_generated/workers.gen.ts`. Six cycles are registered:
+`light-enforcer` (1s), `device-sync` (1s), `party-mode` (2s) — the lamp
+reconciliation loop, untouched by The Simplification — `climate-enforcer`
+(1s), `weather-ingest` (5m), and `weather-purge` (the worker cycle that
+replaced the deleted `WeatherPurgeWorkflow`). `features/sound/worker.ts`
+registers no cycles (`defineWorkerCycles([])`) — there is no
+`sonos-volume-enforcer`. No queue, no scheduler: a feature that needs
+recurring backend work writes a `worker.ts` cycle; a feature that needs
+calendar-scheduled infra work is a Kubernetes CronJob in
+`infra/src/crons.ts` (the control-center and Home Assistant Postgres logical
+backups — both `pg_dump`, no config backup).
 
 ## Deployment
 

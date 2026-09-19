@@ -51,9 +51,10 @@ export const settings = pgTable("settings", {
 // jsonb-blob approach as `settings` above so new fields need no column
 // migration, but deliberately NOT that table: `settings` is a singleton every
 // panel shares, and these are preferences that belong to one piece of hardware
-// in one room. Volume is the first , two panels at the same level would be a
-// coincidence, not a shared truth. Shape, defaults, and validation live in
-// services/device-settings-service.ts; bounds in contract/device-settings.ts.
+// in one room , the device name (the only current field) is one of them, since
+// two panels at the same level would be a coincidence, not a shared truth.
+// Shape, defaults, and validation live in services/device-settings-service.ts;
+// bounds in contract/device-settings.ts.
 //
 // device_id is the primary key and is minted client-side, so rows appear on
 // first write from a panel and no registration step is needed.
@@ -61,7 +62,7 @@ export const settings = pgTable("settings", {
 // Kept as a structural type here so the jsonb column is typed; the authoritative
 // shape + Zod schema + defaults live in services/device-settings-service.ts.
 export interface DeviceSettingsValue {
-  volume: number;
+  name: string;
 }
 
 export const deviceSettings = pgTable("device_settings", {

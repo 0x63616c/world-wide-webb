@@ -35,3 +35,18 @@ a coupled multi-slice push. Surprising without context — a reader will find th
 comments and the explicit "must not share a container" split rationale and wonder why they were
 abandoned. A real trade-off — one deployable vs. the enforcer-isolation the split was built to
 provide.
+
+## Superseded by ADR-0013 (2026-09)
+
+The Simplification deleted every subsystem this ADR describes: the durable Queue-Job
+runner (`youtube_ingest`, `playlist-poller`), the `notify` drain, the media-ingest feature
+that owned them, and `ffmpeg`/`yt-dlp` in the worker image. `CycleSpec.runtime` carries no
+`"media-worker"` tag because there is no dispatch mechanism left to tag — `worker.ts`
+facets are a plain interval-cycle array (`packages/worker-runtime`), full stop.
+
+Kept (not deleted) per this file's own "why it is recorded" rule: the fold-vs-split
+trade-off was a real, hard-to-reverse decision at the time, and a reader who finds old
+`media-worker` references elsewhere (git history, cached docs) may still land here asking
+why. The answer is now two-part — this ADR explains why media-worker folded into `worker`
+in the first place, and ADR-0013 explains why the resulting fold was deleted outright. See
+`docs/adr/0013-the-simplification-what-was-deleted-and-why.md`.

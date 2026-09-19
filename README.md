@@ -6,8 +6,8 @@ Smart-home wall-panel monorepo for the fixed `1366x1024` Control Center panel.
 
 `apps/` = things that run/deploy. `packages/` = things you import.
 `features/<id>/` = self-contained Apps (manifest + `web.tsx`/`api.ts`/
-`worker.ts`/`schema.ts`); the folder existing is the App's registration
-(ADR-0001).
+`http.ts`/`worker.ts`/`schema.ts`); the folder existing is the App's
+registration (ADR-0001).
 
 | Path | Purpose |
 | --- | --- |

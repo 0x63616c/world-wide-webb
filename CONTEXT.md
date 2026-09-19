@@ -45,13 +45,15 @@ has a stable id, a compact card face, and (usually) a detail surface reached by 
 _Avoid_: widget, card, block, panel (Panel is the device).
 
 **Home tile**:
-The one Tile the Board recenters on when it returns to rest (the clock). There is exactly one.
+The one Tile the Board recenters on when it returns to rest (Controls, `tile_ctrl`). There is
+exactly one.
 _Avoid_: default tile, start tile.
 
 **Placement**:
 Where a Tile sits in the Board's coordinate space — its world column/row and its column/row
-span. Placement has a per-Tile default and an optional persisted override; a Tile with neither
-a default nor an override slot is unplaced.
+span. Placement is registry-only, resolved from the per-Tile default declared in the App's
+manifest (any collision between two defaulted tiles resolves via row-major scanline); there is
+no persisted override.
 _Avoid_: position, layout, coordinates.
 
 **Tile View**:

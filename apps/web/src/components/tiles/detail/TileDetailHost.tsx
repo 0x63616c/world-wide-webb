@@ -26,8 +26,8 @@ export function TileDetailHost() {
   const target = useTileDetail();
   if (!target) return null;
   const entry = getTileDetailEntry(target.tileId);
-  // Actions (e.g. Frontend Logs → Settings deep link) run in the board's tap
-  // handler, so they never render a page here.
+  // A tile whose "detail" is really an action (e.g. a Settings deep link) runs
+  // that action in the board's tap handler, so it never renders a page here.
   if (entry?.kind !== "page") return null;
   // Key by tileId so switching tiles fully remounts: fresh gate, fresh variant
   // selection, fresh queries.

@@ -30,8 +30,8 @@
     phone UA; iPad never counts, it IS the panel). `PanelFrame` is a
     passthrough there for the same reason it is on native.
 - Features are self-contained Apps under `features/<id>/` (manifest + facets:
-  `web.tsx`, `detail.ts`, `api.ts`, `worker.ts`, `schema.ts`); the folder
-  existing is the App's registration (ADR-0001). Tile placement is declared
+  `web.tsx`, `detail.ts`, `api.ts`, `http.ts`, `worker.ts`, `schema.ts`); the
+  folder existing is the App's registration (ADR-0001). Tile placement is declared
   as registry coords in the App's `manifest.ts`, glob-collected and emitted to
   checked-in `features/_generated/*.gen.ts` by `bun run apps:gen` (ADR-0002).
   The Board and Tile Detail Host consume `web.gen.ts`; never hand-edit

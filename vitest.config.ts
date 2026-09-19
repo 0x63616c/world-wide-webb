@@ -17,8 +17,8 @@ export default defineConfig({
       // The `infra` project's default glob also covers infra/cloudflare/test/**,
       // so no separate entry is needed; a second entry would double-run them.
       "infra",
-      // app-kit: the App authoring surface (defineApp/defineApi/defineJobs/
-      // defineCron brand checks). No package.json/vite config of its own
+      // app-kit: the App authoring surface (defineApp/defineApi/defineHttp/
+      // defineTileViews/defineWorkerCycles brand checks). No package.json/vite config of its own
       // (like test/scripts/apps-gen below), and define-app.test.ts only imports
       // sibling files via relative paths, so a bare inline project (no react
       // plugin, no jsdom, no aliases) is enough.

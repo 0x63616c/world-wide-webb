@@ -3,9 +3,4 @@
 // That is safe only because `@control-center/api/contract-device-settings`
 // imports nothing at all; keep it that way, or the panel starts pulling drizzle
 // and pg over the wire.
-export {
-  DEVICE_SETTINGS_DEFAULTS,
-  NAME_MAX_LENGTH,
-  VOLUME_MAX,
-  VOLUME_MIN,
-} from "@control-center/api/contract-device-settings";
+export { NAME_MAX_LENGTH } from "@control-center/api/contract-device-settings";

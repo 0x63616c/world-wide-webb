@@ -156,10 +156,10 @@ initMetrics({ service: "worker" }); // stamped on every series as `service`
 startMetricsServer({ port: config.METRICS_PORT, logger });
 ```
 
-`initMetrics` is idempotent (the api's second entrypoint, the guest listener, is
-safe). `metricsHandler()` returns a web-standard `Response` if you would rather
-serve it from an existing `Bun.serve` route — but see the security note below
-before doing that on a publicly-routed port.
+`initMetrics` is idempotent (calling it twice from the same process is
+safe — nothing double-registers). `metricsHandler()` returns a web-standard
+`Response` if you would rather serve it from an existing `Bun.serve` route —
+but see the security note below before doing that on a publicly-routed port.
 
 Observations go through the typed helpers rather than raw metric objects:
 
@@ -167,10 +167,10 @@ Observations go through the typed helpers rather than raw metric objects:
   `www_http_request_errors_total`, `www_http_request_duration_seconds`, labelled
   `method` / `route` / `status_class`. `route` is a route **template** or a tRPC
   procedure name, never a raw pathname.
-- `observeJobRun()` — `www_job_runs_total`, `www_job_failures_total`,
-  `www_job_duration_seconds`, labelled by job **type**. Wired into `claimOne` in
-  `@www/core`'s job queue.
-- `observeCronRun()` — the cron equivalent, labelled by cron **name**.
+- `observeCronRun()` — `www_cron_last_success_timestamp_seconds`,
+  `www_cron_failures_total`, labelled by cron **name**. There is no job-queue
+  equivalent — The Simplification deleted the durable job queue (and
+  `claimOne` with it) along with its `observeJobRun()` helper.
 
 Every label value passes through `boundedLabel`, which folds anything past 200
 distinct values per key into `other`. That is a backstop, not a licence: a
@@ -258,8 +258,11 @@ unlabelled — they are still there, just without `service`/`level`.
 Timestamps come from the application's own `time` field, so a backlogged
 collector does not stamp an hour-old line with the time it was read.
 
-Frontend/panel logs are a **separate** pipeline and are not in Loki — they ship
-to Postgres (`frontend_log`). See `docs/logging.md`.
+There is no separate frontend/panel log pipeline any more — the felogs
+pipeline (`frontend_log` table, the `logs.ingest` mutation, the web-side log
+shipper) was deleted by The Simplification (`docs/adr/0013-*.md`). Panel/browser
+issues are debugged from the browser console or by reproducing locally. See
+`docs/logging.md`.
 
 ---
 

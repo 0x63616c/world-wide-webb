@@ -22,12 +22,10 @@ export interface TileSpec {
   home?: boolean;
 }
 export interface AppManifest {
-  /** The APP / domain id: owns the router-key namespace, its table(s), the
-   *  guestExposed allowlist match, and the feature folder. For a single-tile App
-   *  this equals its one tile's id. */
+  /** The APP / domain id: owns the router-key namespace, its table(s), and the
+   *  feature folder. For a single-tile App this equals its one tile's id. */
   id: string;
   tiles: TileSpec[];
-  guestExposed?: boolean;
   /** Require the shared Panel PIN Session before any Tile View mounts.
    * Mutually exclusive with `private`. Client-only by ADR-0004; this does not
    * gate direct API calls. */

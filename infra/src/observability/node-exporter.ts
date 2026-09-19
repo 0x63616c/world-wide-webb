@@ -1,8 +1,8 @@
 /**
  * node-exporter (#33, ADR #207) — per-node hardware/OS metrics.
  *
- * Hand-rolled DaemonSet, same idiom as infra/src/nvidia.ts: no Helm chart, no
- * prometheus-operator. Prometheus finds it through the `node-exporter` Service's
+ * Hand-rolled DaemonSet: no Helm chart, no prometheus-operator. Prometheus
+ * finds it through the `node-exporter` Service's
  * endpoints, and the vendored kubernetes-mixin rules select on a scrape job
  * literally named `node-exporter`, so neither the Service name nor the pod
  * labels below are free to change.

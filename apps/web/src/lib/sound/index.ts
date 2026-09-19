@@ -16,11 +16,12 @@
  *    browser and CI, and the only path for cues iOS has no sound for.
  *
  * How LOUD any of it is is not this module's business. Volume is a property of
- * the device (see lib/panel-volume and the Settings slider), not an in-app gain
- * , an app-level multiplier on top of the system volume would mean two numbers
- * that both have to be right for the panel to be audible. Synths are handed an
- * output node rather than reaching for `destination` themselves, so if that ever
- * needs to change it changes in one place.
+ * the device (the hardware buttons; there is no in-app volume control or
+ * slider), not an in-app gain , an app-level multiplier on top of the system
+ * volume would mean two numbers that both have to be right for the panel to be
+ * audible. Synths are handed an output node rather than reaching for
+ * `destination` themselves, so if that ever needs to change it changes in one
+ * place.
  *
  * Everything is defensive about the runtime. CI/jsdom may lack
  * `AudioContext` or block autoplay until a gesture, so a cue that cannot be

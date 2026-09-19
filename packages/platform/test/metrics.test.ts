@@ -9,7 +9,6 @@ import {
   OTHER_LABEL,
   observeCronRun,
   observeHttpRequest,
-  observeJobRun,
   startMetricsServer,
   statusClass,
 } from "../metrics/index";
@@ -57,11 +56,16 @@ describe("registry", () => {
 
   test("metricsHandler returns the exposition text with prom-client's content-type", async () => {
     initMetrics({ service: "worker", collectDefaults: false });
-    observeJobRun({ job: "notify", outcome: "success", durationSeconds: 0.2 });
+    observeCronRun({
+      cron: "weather-purge",
+      outcome: "success",
+      durationSeconds: 0.2,
+      completedAtMs: 1_700_000_000_000,
+    });
     const res = await metricsHandler();
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe(metricsRegistry.contentType);
-    expect(await res.text()).toContain("www_job_runs_total");
+    expect(await res.text()).toContain("www_cron_last_success_timestamp_seconds");
   });
 });
 
@@ -105,17 +109,6 @@ describe("http helpers", () => {
     initMetrics({ service: "api", collectDefaults: false });
     observeHttpRequest({ route: "/up", method: "PROPFIND", status: 405, durationSeconds: 0.001 });
     expect(await exposition()).toContain(`method="${OTHER_LABEL}"`);
-  });
-});
-
-describe("job helpers", () => {
-  test("a failure increments both runs and failures", async () => {
-    initMetrics({ service: "worker", collectDefaults: false });
-    observeJobRun({ job: "notify", outcome: "success", durationSeconds: 0.1 });
-    observeJobRun({ job: "notify", outcome: "failure", durationSeconds: 0.1 });
-    const text = await exposition();
-    expect(seriesValue(text, "www_job_runs_total", 'job="notify"')).toBe(2);
-    expect(seriesValue(text, "www_job_failures_total", 'job="notify"')).toBe(1);
   });
 });
 
@@ -179,7 +172,12 @@ describe("label cardinality guard", () => {
 describe("metrics listener", () => {
   test("serves the exposition on its own port and 404s everything else", async () => {
     initMetrics({ service: "worker", collectDefaults: false });
-    observeJobRun({ job: "notify", outcome: "success", durationSeconds: 0.1 });
+    observeCronRun({
+      cron: "weather-purge",
+      outcome: "success",
+      durationSeconds: 0.1,
+      completedAtMs: 1_700_000_000_000,
+    });
     // Port 0 asks the OS for a free port; the listener is dedicated and never
     // fronted by a Service, so nothing depends on a fixed number here.
     const server = startMetricsServer({ port: 0, host: "127.0.0.1" });
@@ -192,7 +190,7 @@ describe("metrics listener", () => {
       expect(port).toBeDefined();
       const ok = await fetch(`http://127.0.0.1:${port}/metrics`);
       expect(ok.status).toBe(200);
-      expect(await ok.text()).toContain("www_job_runs_total");
+      expect(await ok.text()).toContain("www_cron_last_success_timestamp_seconds");
       const missing = await fetch(`http://127.0.0.1:${port}/anything-else`);
       expect(missing.status).toBe(404);
     } finally {

@@ -64,7 +64,7 @@ saturate the 5 Gbps WAN on its own.
 
 | Component | Value | Notes |
 | --- | --- | --- |
-| Enclosure | Synology DiskStation DS420+, 4-bay (B&H `SYDS420P`) | `192.168.0.218` — never `.219`; see `AGENTS.md` |
+| Enclosure | Synology DiskStation DS420+, 4-bay (B&H `SYDS420P`) | `192.168.0.218` — never `.219` |
 | Drives | 4× WD Red 4TB `WD40EFAX` — 5400 RPM, SATA 6 Gb/s, 256 MB cache, 3.5" | **SMR**, not CMR |
 
 `WD40EFAX` is the SMR revision of WD Red. SMR rewrites whole shingled zones, so

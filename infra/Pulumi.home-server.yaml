@@ -1,9 +1,11 @@
 config:
   # The Talos home-server cluster is production (the mini/prod stack is a retired
-  # cold spare). substrate=talos renders the node-local storage/LoadBalancer/GPU
-  # RuntimeClass + the Home Assistant workload (program.ts's talos block), and the
+  # cold spare). substrate=talos renders the node-local storage/LoadBalancer +
+  # the Home Assistant workload (program.ts's talos block), and the
   # node-IP-backed `ha` Service shape (services.ts). nodeIp is the node's static
-  # LAN IP (static DHCP reservation); it backs the `ha` EndpointSlice.
+  # LAN IP (static DHCP reservation); it backs the `ha` EndpointSlice. (There is
+  # no GPU RuntimeClass any more , The Simplification deleted Plex, its only
+  # consumer, along with the node's NVIDIA Talos extensions.)
   wwwinfra:substrate: talos
   wwwinfra:nodeIp: "192.168.0.5"
   # HA (2 replicas) — the live CF tunnel is served from here now, not the mini.
