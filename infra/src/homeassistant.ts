@@ -151,7 +151,7 @@ export function installHomeAssistant(args: HomeAssistantArgs): HomeAssistantReso
       metadata: {
         name: HOME_ASSISTANT_NAMESPACE,
         // Pod Security "privileged": HA runs hostNetwork (binds :8123 in the
-        // node netns for mDNS/HomeKit/Thread/ESPHome discovery, see the
+        // node netns for mDNS/HomeKit/Thread discovery, see the
         // Workload below), which the cluster-default `baseline` PSA forbids —
         // an unlabeled namespace leaves the HA pod FORBIDDEN at admission.
         // This dedicated namespace holds only HA + its own CNPG Postgres, so

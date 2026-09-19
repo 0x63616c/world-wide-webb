@@ -63,7 +63,6 @@
     "includes": [
       "**",
       "!**/node_modules",
-      "!**/.esphome",
       "!**/dist",
       "!**/*.gen.ts",
       "!**/*.gen.json",
