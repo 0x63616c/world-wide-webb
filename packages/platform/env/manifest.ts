@@ -57,7 +57,7 @@ export const ENV = defineEnv({
   WIFI_PASSWORD: secret().required().forRuntime("api").forFeatures("network"),
   WIFI_GUEST_SSID: secret().required().forRuntime("api").forFeatures("network"),
 
-  // ── Home location (tesla, weather) ────────────────────────────────────────
+  // ── Home location (weather) ───────────────────────────────────────────────
   HOME_LAT: num().required().devDefault(34.0537).forRuntime("api", "worker").forFeatures("weather"),
   HOME_LON: num()
     .required()
@@ -65,7 +65,6 @@ export const ENV = defineEnv({
     .forRuntime("api", "worker")
     .forFeatures("weather"),
   HOME_PLACE_NAME: str().default("Home").forFeatures("weather"),
-  HOME_RADIUS_MILES: num().default(1).forRuntime("api").forFeatures("tesla"),
 
   // ── GitHub webhooks (hooks) ───────────────────────────────────────────────
   // The shared secret GitHub signs every delivery with. hooks. is a PUBLIC host
@@ -74,9 +73,6 @@ export const ENV = defineEnv({
   // again in-cluster as defence in depth. Required for both — booting the api
   // without it would open a write endpoint.
   GITHUB_BOT_WEBHOOK_SECRET: secret().required().forRuntime("api").forFeatures("hooks"),
-
-  // ── Tesla (ac, tesla) ─────────────────────────────────────────────────────
-  TESLA_ENTITY_PREFIX: str().default("evee").forRuntime("api").forFeatures("tesla"),
 
   // ── Media storage (booth, wakes) ──────────────────────────────────────────
   MEDIA_STORAGE_DIR: str().default("/mnt/media").forRuntime("api").forFeatures("booth", "wakes"),
@@ -116,11 +112,6 @@ export const ENV = defineEnv({
     .forFeatures("notif"),
   APNS_HOST: url().default("https://api.push.apple.com").forRuntime("worker").forFeatures("notif"),
   PUSH_TOKEN_KEYRING: secret().optionalSecret().forRuntime("api"),
-
-  // ── Camera / go2rtc (dogcam) ──────────────────────────────────────────────
-  GO2RTC_URL: url().default("http://go2rtc:1984").forRuntime("api").forFeatures("dogcam"),
-  CAMERA_STREAM_NAME: str().default("bedroom_mjpeg").forRuntime("api").forFeatures("dogcam"),
-  CAMERA_LABEL: str().default("Living Room Cam").forRuntime("api").forFeatures("dogcam"),
 
   // ── Guest listener (api/guest-server, ADR-0006) ───────────────────────────
   GUEST_PORT: int().optional().forRuntime("api"),

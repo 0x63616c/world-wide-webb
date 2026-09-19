@@ -547,8 +547,8 @@ function scrapeAnnotations(scrape: WorkloadSpec["scrape"]): Record<string, strin
  * A workload that mounts a pre-existing `claim:` PVC cannot roll: those claims
  * are block volumes on the local-lvm CSI (ReadWriteOnce), so the surge pod's
  * mount is refused while the outgoing pod still holds the device and the
- * rollout deadlocks until the deploy times out (#300 broke prod this way — the
- * `maps` claim under web's map-provision init). Volumes this module generates
+ * rollout deadlocks until the deploy times out (#300 broke prod this way, via
+ * the web basemap claim that has since been deleted). Volumes this module generates
  * itself are NFS/ReadWriteMany and roll fine, so only declared claims count.
  */
 function mountsExistingClaim(w: WorkloadSpec): boolean {

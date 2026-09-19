@@ -60,7 +60,7 @@ export default defineConfig({
           // the apps-gen suites (Task 3.4).
           // apps-check.ts drives the SAME collect()/validate()/renderTiles()
           // chain as apps-gen/*.ts, so it needs the identical jsdom + "@" alias
-          // + MapLibre stub environment, not a separate project.
+          // environment, not a separate project.
           root: "./test/scripts",
           include: [
             "apps-gen/**/*.test.ts",
@@ -69,10 +69,6 @@ export default defineConfig({
             "check.test.ts",
           ],
           environment: "jsdom",
-          // Same MapLibre stub as apps/web's unit project (www-355t.11):
-          // collect() pulls in the real App web facets, which import
-          // maplibre-gl-backed tiles (Tesla), and jsdom has no WebGL.
-          setupFiles: [resolve(__dirname, "apps/web/vitest.setup.unit.ts")],
         },
       },
     ],
@@ -91,7 +87,7 @@ export default defineConfig({
     // exclude + thresholds; per-project config is ignored once `projects` is set,
     // so the root config is the only one that matters (www-355t.11). Without an
     // explicit `include`, v8 counts every transitively-loaded module
-    // (node_modules, maplibre, …) and the line/statement % is meaningless.
+    // (node_modules, …) and the line/statement % is meaningless.
     coverage: {
       provider: "v8",
       reporter: ["json-summary", "text-summary"],

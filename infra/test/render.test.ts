@@ -342,22 +342,22 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
   });
 });
 
-// www-hn1i: initContainers, first user is the web map-provision init, which
-// makes "the basemap exists in the maps PVC" a structural precondition of
-// nginx serving (a fresh stack self-provisions; nothing manual to remember).
+// www-hn1i: initContainers. No workload declares one today (the web basemap
+// init went with the Tesla tile), so this pins the render primitive itself
+// against a synthetic spec that seeds a claim before the main container serves it.
 describe("renderWorkload: initContainers (www-hn1i)", () => {
   const webWithInit: WorkloadSpec = {
     name: "web",
     image: "ghcr.io/0x63616c/www-control-center-web:main",
     replicas: 1,
     ports: [{ containerPort: 80, expose: "cluster" }],
-    volumes: [{ mountPath: "/usr/share/nginx/html/maps", claim: "maps", readOnly: true }],
+    volumes: [{ mountPath: "/usr/share/nginx/html/seed", claim: "seed", readOnly: true }],
     initContainers: [
       {
-        name: "map-provision",
-        image: "ghcr.io/0x63616c/www-control-center-map-provision:main",
+        name: "seed-provision",
+        image: "ghcr.io/0x63616c/www-control-center-web:main",
         command: ["/provision.sh"],
-        volumes: [{ mountPath: "/out", claim: "maps" }],
+        volumes: [{ mountPath: "/out", claim: "seed" }],
       },
     ],
   };
@@ -365,8 +365,8 @@ describe("renderWorkload: initContainers (www-hn1i)", () => {
   test("renders initContainers into the pod template ahead of the main container", () => {
     const r = renderWorkload(webWithInit);
     const init = r.deployment.spec.template.spec.initContainers?.[0];
-    expect(init?.name).toBe("map-provision");
-    expect(init?.image).toBe("ghcr.io/0x63616c/www-control-center-map-provision:main");
+    expect(init?.name).toBe("seed-provision");
+    expect(init?.image).toBe("ghcr.io/0x63616c/www-control-center-web:main");
     expect(init?.command).toEqual(["/provision.sh"]);
   });
 
@@ -377,21 +377,21 @@ describe("renderWorkload: initContainers (www-hn1i)", () => {
     expect(initMount).toBeDefined();
     expect(initMount?.readOnly).not.toBe(true);
     const main = r.deployment.spec.template.spec.containers[0];
-    const mainMount = main.volumeMounts.find((m) => m.mountPath.endsWith("/maps"));
+    const mainMount = main.volumeMounts.find((m) => m.mountPath.endsWith("/seed"));
     expect(mainMount?.readOnly).toBe(true);
   });
 
   test("init volumes reuse the main pod volume when they mount the same claim", () => {
     const r = renderWorkload(webWithInit);
     const volumes = r.deployment.spec.template.spec.volumes.filter(
-      (v) => v.persistentVolumeClaim?.claimName === "maps",
+      (v) => v.persistentVolumeClaim?.claimName === "seed",
     );
-    expect(volumes).toEqual([{ name: "vol-0", persistentVolumeClaim: { claimName: "maps" } }]);
+    expect(volumes).toEqual([{ name: "vol-0", persistentVolumeClaim: { claimName: "seed" } }]);
 
     const init = r.deployment.spec.template.spec.initContainers?.[0];
     const initMount = init?.volumeMounts.find((m) => m.mountPath === "/out");
     const main = r.deployment.spec.template.spec.containers[0];
-    const mainMount = main.volumeMounts.find((m) => m.mountPath.endsWith("/maps"));
+    const mainMount = main.volumeMounts.find((m) => m.mountPath.endsWith("/seed"));
     expect(initMount?.name).toBe("vol-0");
     expect(mainMount?.name).toBe("vol-0");
   });
@@ -416,7 +416,7 @@ describe("renderWorkload: rollout strategy for ReadWriteOnce claims", () => {
   test("a workload mounting a pre-existing claim deploys with Recreate", () => {
     const r = renderWorkload({
       ...base,
-      volumes: [{ mountPath: "/usr/share/nginx/html/maps", claim: "maps", readOnly: true }],
+      volumes: [{ mountPath: "/usr/share/nginx/html/seed", claim: "seed", readOnly: true }],
     });
     expect(r.deployment.spec.strategy).toEqual({ type: "Recreate", rollingUpdate: null });
   });
@@ -426,9 +426,9 @@ describe("renderWorkload: rollout strategy for ReadWriteOnce claims", () => {
       ...base,
       initContainers: [
         {
-          name: "map-provision",
-          image: "ghcr.io/0x63616c/www-control-center-map-provision:main",
-          volumes: [{ mountPath: "/out", claim: "maps" }],
+          name: "seed-provision",
+          image: "ghcr.io/0x63616c/www-control-center-web:main",
+          volumes: [{ mountPath: "/out", claim: "seed" }],
         },
       ],
     });
@@ -445,37 +445,6 @@ describe("renderWorkload: rollout strategy for ReadWriteOnce claims", () => {
       volumes: [{ mountPath: "/media", nfs: { server: "192.168.0.218", path: "/volume1/media" } }],
     });
     expect(r.deployment.spec.strategy).toBeUndefined();
-  });
-});
-
-// www-hn1i: the production web spec ships the map-provision init container so a
-// fresh stack serves the Tesla basemap with ZERO manual steps.
-describe("serviceSpecs: web map-provision initContainer (www-hn1i)", () => {
-  const baseOpts = {
-    cloudflaredReplicas: 2,
-    nasNfsServer: "192.168.0.218",
-  };
-  const web = () => serviceSpecs(baseOpts).find((s) => s.name === "web");
-
-  test("web declares the map-provision initContainer in if-missing mode", () => {
-    const init = web()?.initContainers?.[0];
-    expect(init?.name).toBe("map-provision");
-    expect(init?.image).toContain("www-control-center-map-provision");
-    // Default (no `force` arg) is if-missing: instant no-op when the file exists,
-    // so rollouts on a provisioned PVC are unaffected.
-    expect(init?.command).toEqual(["/provision.sh"]);
-    expect(init?.volumes?.[0]?.claim).toBe("maps");
-  });
-
-  test("the init image is digest-pinnable like every other CI-built image", () => {
-    const specs = serviceSpecs({
-      ...baseOpts,
-      imageDigests: { "control-center-map-provision": `sha256:${"a".repeat(64)}` },
-    });
-    const init = specs.find((s) => s.name === "web")?.initContainers?.[0];
-    expect(init?.image).toBe(
-      `ghcr.io/0x63616c/www-control-center-map-provision@sha256:${"a".repeat(64)}`,
-    );
   });
 });
 

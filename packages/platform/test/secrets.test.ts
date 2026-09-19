@@ -69,7 +69,6 @@ describe("secret catalog and service usage", () => {
       "HOME_LAT",
       "HOME_LON",
       "HOME_PLACE_NAME",
-      "HOME_RADIUS_MILES",
       "POSTGRES_PASSWORD",
       "SPOTIFY_CLIENT_ID",
       "SPOTIFY_CLIENT_SECRET",

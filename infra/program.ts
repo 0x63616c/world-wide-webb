@@ -152,8 +152,8 @@ const services = deployServices({
   vault,
 });
 
-// Scheduled jobs (www-j934.7): portal-data-purge + map-extract re-homed to k8s
-// CronJobs, plus product Postgres backups to the NAS. NO docker-image-prune
+// Scheduled jobs (www-j934.7): product Postgres backups to the NAS.
+// NO docker-image-prune
 // (kubelet image GC) and NO portal-cert-renew (cert-manager owns TLS). The
 // backup NFS PVs reuse nasNfsServer; the purge job's POSTGRES_PASSWORD comes
 // from its ESO Secret (secrets-map.ts), backup creds come from CNPG-managed
@@ -162,7 +162,6 @@ const crons = deployCrons({
   provider: cluster.provider,
   namespaces,
   nasNfsServer,
-  imageDigests,
 });
 
 // Task 4 (Talos migration): local-path-provisioner, MetalLB, the `nvidia`

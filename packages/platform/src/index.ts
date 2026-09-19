@@ -386,7 +386,6 @@ export const secretCatalog = {
     lat: secret("Home Location", "lat", "HOME_LOCATION__LAT"),
     lon: secret("Home Location", "lon", "HOME_LOCATION__LON"),
     placeName: secret("Home Location", "place_name", "HOME_LOCATION__PLACE_NAME"),
-    radiusMiles: secret("Home Location", "radius_miles", "HOME_LOCATION__RADIUS_MILES"),
   },
   spotify: {
     clientId: secret("Spotify", "client_id", "SPOTIFY__CLIENT_ID"),
@@ -463,7 +462,6 @@ export function controlCenterServiceSecretUsages(): Record<
     HOME_LAT: secretCatalog.homeLocation.lat,
     HOME_LON: secretCatalog.homeLocation.lon,
     HOME_PLACE_NAME: secretCatalog.homeLocation.placeName,
-    HOME_RADIUS_MILES: secretCatalog.homeLocation.radiusMiles,
     SPOTIFY_CLIENT_ID: secretCatalog.spotify.clientId,
     SPOTIFY_CLIENT_SECRET: secretCatalog.spotify.clientSecret,
     SPOTIFY_REFRESH_TOKEN: secretCatalog.spotify.refreshToken,

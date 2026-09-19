@@ -34,7 +34,6 @@ const ALL_IMAGE_DIGESTS = {
   "control-center-worker": VALID,
   "control-center-web": VALID,
   "control-center-manage": VALID,
-  "control-center-map-provision": VALID,
 } satisfies ImageDigests;
 
 describe("serviceSpecs image digest pinning", () => {
