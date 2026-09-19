@@ -10,8 +10,8 @@
 // Outer pad around the world area. Must match Minimap.tsx.
 const MINIMAP_PAD = 6;
 
-export type MinimapRect = { x: number; y: number; w: number; h: number };
-export type MinimapLabelledRect = MinimapRect & { label: string };
+type MinimapRect = { x: number; y: number; w: number; h: number };
+type MinimapLabelledRect = MinimapRect & { label: string };
 
 export interface MinimapViewProps {
   /** Scaled width of the world area (WORLD_W * SCALE). */

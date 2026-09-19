@@ -30,7 +30,7 @@ import { RowShell, SectionCard, SliderRow } from "../blocks";
  * states are reachable in Storybook (the real check is a device capability, not
  * something a story can arrange).
  */
-export function VolumeSection({
+function VolumeSection({
   volume,
   available,
   onChange,

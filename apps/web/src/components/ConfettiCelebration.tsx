@@ -23,7 +23,7 @@ type ConfettiStyle = CSSProperties & {
   "--confetti-rotation": string;
 };
 
-export function ConfettiCelebrationView() {
+function ConfettiCelebrationView() {
   return (
     <div
       aria-hidden="true"

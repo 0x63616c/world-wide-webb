@@ -116,7 +116,7 @@ export interface TimeSuiteBannerViewProps {
 }
 
 /** Presentational banner, exported for Storybook. */
-export function TimeSuiteBannerView({
+function TimeSuiteBannerView({
   tone,
   message,
   onStop,

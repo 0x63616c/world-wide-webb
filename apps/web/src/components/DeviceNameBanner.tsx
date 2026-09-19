@@ -40,7 +40,7 @@ export function DeviceNameBanner() {
 }
 
 /** Presentational banner, exported for Storybook. */
-export function DeviceNameBannerView() {
+function DeviceNameBannerView() {
   // Critical one-time setup nag → assertive so it interrupts.
   return (
     <NotificationBanner tone="red" role="alert" ariaLive="assertive">

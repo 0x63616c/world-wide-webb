@@ -75,7 +75,7 @@ function AppUpdateBannerQuery({ installedBuild }: { installedBuild: number }) {
 }
 
 /** Presentational banner, exported for Storybook. */
-export function AppUpdateBannerView({ model }: { model: AppUpdateBannerModel }) {
+function AppUpdateBannerView({ model }: { model: AppUpdateBannerModel }) {
   return (
     <NotificationBanner tone="green">
       {model.message}

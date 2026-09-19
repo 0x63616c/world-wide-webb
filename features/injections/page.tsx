@@ -39,7 +39,7 @@ type Screen =
   | { kind: "injection"; id?: string }
   | { kind: "vial"; id?: string }
   | { kind: "checkin"; date?: string };
-export function TrackerView({
+function TrackerView({
   data,
   weights,
   now,

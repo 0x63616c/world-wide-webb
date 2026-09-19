@@ -70,7 +70,7 @@ export function NotChargingBanner() {
 }
 
 /** Presentational banner, exported for Storybook. */
-export function NotChargingBannerView({ deviceName }: { deviceName: string }) {
+function NotChargingBannerView({ deviceName }: { deviceName: string }) {
   // The panel banner has horizontal room the iOS title does not, so it shows
   // both halves: headline first, then the same detail line the push body uses.
   return (

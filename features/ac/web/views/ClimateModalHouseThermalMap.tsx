@@ -30,7 +30,7 @@ type HvacAction = "cooling" | "heating" | "idle" | "off";
 export type HvacMode = "off" | "cool" | "heat" | "heat_cool" | "auto" | "fan_only" | "dry";
 
 /** All per-zone data that can come from ha.getEntities('climate'). */
-export interface ClimateZone {
+interface ClimateZone {
   /** HA entity id, e.g. "climate.bedroom" */
   entityId: string;
   /** Human-readable zone name, e.g. "Bedroom" */

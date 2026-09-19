@@ -120,7 +120,7 @@ const overlayStyle: CSSProperties = {
  * against a 4x3 board cell renders at the proportions it was designed for ,
  * just narrower. Height therefore follows width, and the column scrolls.
  */
-export function MobileBoardView({ tiles }: { tiles: readonly MobileTileCard[] }) {
+function MobileBoardView({ tiles }: { tiles: readonly MobileTileCard[] }) {
   return (
     <div id="mobile-stage" data-testid="mobile-stage" style={scrollStyle}>
       <div style={columnStyle}>
