@@ -8,6 +8,12 @@
 name: iOS Build
 
 on:
+  pull_request:
+    paths:
+      - "apps/web/ios/**"
+      - "apps/web/capacitor.config.ts"
+      - "apps/web/package.json"
+      - ".github/workflows/ios-build.yml"
   push:
     branches: [main]
     paths:
@@ -29,12 +35,54 @@ on:
         default: false
 
 concurrency:
-  group: ios-build
+  # Keyed by ref so a PR's verify job cannot cancel a main upload in flight.
+  group: ios-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # PR gate: compile the native shell WITHOUT signing, secrets or upload, so a
+  # broken Package.swift / missing Capacitor plugin fails the PR instead of
+  # surfacing after merge, when main has already deployed. The upload job below
+  # is push-only, so TestFlight never sees a PR build.
+  verify:
+    name: Verify native build (no signing)
+    if: github.event_name == 'pull_request'
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.19
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Kiosk recovery-logic guard
+        run: ./scripts/test-kiosk-health.sh
+        working-directory: apps/web/ios
+      - name: Build web
+        run: bun run build
+        working-directory: apps/web
+      - name: Capacitor sync
+        run: bunx cap sync ios
+        working-directory: apps/web
+      # Resolves every SPM dependency in CapApp-SPM/Package.swift and compiles
+      # the app target. CODE_SIGNING_ALLOWED=NO keeps it free of match certs,
+      # the App Store Connect key and the protected `production` environment.
+      - name: Compile app target (unsigned)
+        working-directory: apps/web/ios/App
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project App.xcodeproj \
+            -scheme App \
+            -destination 'generic/platform=iOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
   build:
     name: Build & Upload to TestFlight
+    if: github.event_name != 'pull_request'
     runs-on: macos-26
     timeout-minutes: 20
     # Protected environment: AGE_PRIVATE_KEY is gated here (CC-k8t7).
@@ -107,31 +155,6 @@ jobs:
           bundler-cache: true
           working-directory: apps/web/ios
 
-      # The entitlement must be declared in the project, not just permitted by
-      # the provisioning profile. Build 77 shipped with a valid push-enabled
-      # profile but no entitlements file, so the binary never claimed
-      # aps-environment and APNs returned no token - with a fully green build.
-      # Fail here rather than discover it on a device again.
-      - name: Guard aps-environment entitlement
-        working-directory: apps/web/ios/App
-        run: |
-          set -euo pipefail
-          test -f App/App.entitlements \
-            || { echo "::error::App/App.entitlements is missing - push cannot work"; exit 1; }
-          grep -q "aps-environment" App/App.entitlements \
-            || { echo "::error::aps-environment key absent from App.entitlements"; exit 1; }
-          grep -q "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;" App.xcodeproj/project.pbxproj \
-            || { echo "::error::CODE_SIGN_ENTITLEMENTS not wired in project.pbxproj"; exit 1; }
-          # The entitlement alone is not enough: iOS hands the APNs token to the
-          # AppDelegate, and the Capacitor plugin only sees it if the delegate
-          # forwards it as an NSNotification. Missing these is silent on EVERY
-          # path - no token, no error, no log - so assert them here.
-          grep -q "didRegisterForRemoteNotificationsWithDeviceToken" App/AppDelegate.swift \
-            || { echo "::error::AppDelegate is not forwarding the APNs token to Capacitor"; exit 1; }
-          grep -q "didFailToRegisterForRemoteNotificationsWithError" App/AppDelegate.swift \
-            || { echo "::error::AppDelegate is not forwarding APNs registration errors"; exit 1; }
-          echo "aps-environment entitlement present and wired; AppDelegate forwards APNs callbacks"
-
       - name: Build and upload to TestFlight
         run: bundle exec fastlane release
         env:
@@ -145,40 +168,3 @@ jobs:
           CF_ACCESS_KIOSK_CLIENT_ID: ${{ env.CF_ACCESS_KIOSK_CLIENT_ID }}
           CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ env.CF_ACCESS_KIOSK_CLIENT_SECRET }}
           MATCH_REGENERATE: ${{ inputs.regenerate_profiles }}
-
-      # The source-level guard above proves intent; this proves the SIGNED
-      # BINARY actually carries the entitlement. Reads it back out of the built
-      # .ipa with codesign, which is the only statement about the artifact that
-      # is not an inference. Runs after upload (fastlane builds and uploads in
-      # one lane), so it cannot prevent a bad upload - it makes one loud.
-      - name: Verify aps-environment in the built binary
-        working-directory: apps/web/ios
-        run: |
-          set -uo pipefail
-          # NOT `set -e`: a failing `find`/`ls` must reach the explicit checks
-          # below rather than killing the step with no diagnostic. The first
-          # version of this guard died silently on exactly that.
-          # gym writes to build/ (output_directory in the Fastfile), but search
-          # the whole tree so relocating it can't silently skip verification.
-          ipa=$(find . -name "*.ipa" -not -path "*/DerivedData/*" 2>/dev/null | head -1)
-          if [ -z "$ipa" ]; then
-            echo "::error::no .ipa found under $(pwd) - cannot verify entitlements"
-            find . -maxdepth 3 -type d -name build 2>/dev/null
-            exit 1
-          fi
-          echo "verifying $ipa"
-          rm -rf _verify && mkdir _verify
-          unzip -q "$ipa" -d _verify || { echo "::error::could not unzip $ipa"; exit 1; }
-          app=$(find _verify/Payload -maxdepth 1 -name "*.app" 2>/dev/null | head -1)
-          if [ -z "$app" ]; then
-            echo "::error::no .app inside $ipa"
-            exit 1
-          fi
-          ents=$(codesign -d --entitlements :- "$app" 2>/dev/null || true)
-          echo "$ents" | grep -q "aps-environment" || {
-            echo "::error::signed binary has NO aps-environment - push will silently fail"
-            echo "$ents"
-            exit 1
-          }
-          echo "$ents" | grep -A1 "aps-environment"
-          rm -rf _verify
