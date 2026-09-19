@@ -12,11 +12,7 @@
 
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import {
-  controlCenterProductManifest,
-  type ProductDatabase,
-  softwareFactoryProductManifest,
-} from "@www/platform";
+import { controlCenterProductManifest, type ProductDatabase } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 
 export interface CnpgArgs {
@@ -39,7 +35,7 @@ export interface CnpgResources {
 // Captive Portal remains retired. Every product database declared here has an
 // InfraNamespaceName and receives the common CNPG lifecycle.
 function productDatabases(): ProductDatabase[] {
-  return [controlCenterProductManifest().database, softwareFactoryProductManifest().database];
+  return [controlCenterProductManifest().database];
 }
 
 function createAuthSecret(

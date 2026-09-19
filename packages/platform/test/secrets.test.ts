@@ -17,24 +17,6 @@ describe("secret catalog and service usage", () => {
     });
   });
 
-  test("catalogues separate factory API credentials for write workers and read-only sandboxes", () => {
-    expect(secretCatalog.softwareFactory.workerBearerToken.vaultKey).toBe(
-      "SOFTWARE_FACTORY_API__WORKER_BEARER_TOKEN",
-    );
-    expect(secretCatalog.softwareFactory.sandboxBearerToken.vaultKey).toBe(
-      "SOFTWARE_FACTORY_API__SANDBOX_BEARER_TOKEN",
-    );
-  });
-
-  test("records the factory caller's Cloudflare service-token credentials", () => {
-    expect(secretCatalog.softwareFactory.cloudflareAccessServiceTokenClientID.vaultKey).toBe(
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_ID",
-    );
-    expect(secretCatalog.softwareFactory.cloudflareAccessServiceTokenClientSecret.vaultKey).toBe(
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_SECRET",
-    );
-  });
-
   test("derives service scoped secret mount metadata from product context", () => {
     const usage = defineServiceSecretUsage(defineProduct("control-center"), "api", {
       HA_TOKEN: secretCatalog.homeAssistant.token,

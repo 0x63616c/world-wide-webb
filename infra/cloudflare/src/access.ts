@@ -161,11 +161,8 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
   const temporalUiOrigin = `https://${ccManifest.temporalUi.exposure.hostname}`;
 
   const baseApps: DesiredAccessApp[] = [
-    // A single Access app shares the UI's session cookie with its codec host.
-    // Cloudflare handles the credentialed OPTIONS request before forwarding the
-    // subsequent POST to the codec origin.
     accessApp(ccManifest.temporalUi.exposure.hostname, [emailOtpPolicy()], {
-      domains: [ccManifest.temporalUi.exposure.hostname, ccManifest.codec.exposure.hostname],
+      domains: [ccManifest.temporalUi.exposure.hostname],
       cors: {
         allowCredentials: true,
         allowedHeaders: ["Content-Type", "X-Namespace"],
@@ -199,12 +196,6 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
       // internet-facing UniFi and DSM logins. email-OTP only, never a token.
       { exposure: ccManifest.unifi.exposure, policies: ["email-otp"] },
       { exposure: ccManifest.dsm.exposure, policies: ["email-otp"] },
-      // Factory needs both Service Auth for headless callers and an Allow
-      // policy so a browser can rely on the Cloudflare Access JWT.
-      {
-        exposure: ccManifest.factoryConsole.exposure,
-        policies: ["factory-service-token", "email-otp"],
-      },
     ]),
   ];
 

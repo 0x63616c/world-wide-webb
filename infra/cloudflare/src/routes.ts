@@ -198,20 +198,6 @@ function productRoutes(): CloudflareRoutes {
       origin: "http://ha.control-center.svc.cluster.local:8123",
       comment: "platform:home assistant web ui route (#75)",
     },
-    {
-      exposure: cc.factoryConsole.exposure,
-      // The console serves the SPA and proxies /api/* to the private API Service;
-      // exposing the API directly would create a second Access boundary.
-      origin: "http://web.software-factory.svc.cluster.local:80",
-      comment: "platform:software factory console route",
-    },
-    {
-      exposure: cc.codec.exposure,
-      // The codec runs in the software-factory namespace, so cloudflared
-      // needs the Service FQDN rather than a namespace-local short name.
-      origin: "http://codec.software-factory.svc.cluster.local:8080",
-      comment: "platform:software factory payload codec route",
-    },
   ];
 
   return cloudflareRoutesForExposures(sources);

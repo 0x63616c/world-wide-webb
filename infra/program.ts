@@ -7,8 +7,6 @@
 // CI deploy: SOPS_AGE_KEY injected from AGE_PRIVATE_KEY GitHub secret.
 
 import * as pulumi from "@pulumi/pulumi";
-import { controlCenterProductManifest } from "@www/platform";
-import { installAgentSandboxCrds } from "./src/agent-sandbox.ts";
 import { installCertManager, issuePortalCertificate } from "./src/certmanager.ts";
 import { makeCluster } from "./src/cluster.ts";
 import { installCnpg } from "./src/cnpg.ts";
@@ -17,7 +15,6 @@ import { installDbUi } from "./src/db-ui.ts";
 import { installEso } from "./src/eso.ts";
 import { verifyLiveGhcrPullSecrets } from "./src/ghcr-pull-secret-preflight.ts";
 import { installHomeAssistant } from "./src/homeassistant.ts";
-import { installKataRuntimeClass } from "./src/kata.ts";
 import { installLvmLocalPv } from "./src/lvm-localpv.ts";
 import { installMetallb } from "./src/metallb.ts";
 import { installMetricsServer } from "./src/metrics-server.ts";
@@ -28,10 +25,8 @@ import {
   parseSubstrateTarget,
   shouldRequireImageDigestPins,
 } from "./src/services.ts";
-import { installSoftwareFactory } from "./src/software-factory.ts";
 import { installTemporal } from "./src/temporal.ts";
 import { loadVault } from "./src/vault.ts";
-import { installWebhookRelay } from "./src/webhook-relay.ts";
 
 const cfg = new pulumi.Config("wwwinfra");
 const kubeContext = cfg.get("kubeContext");
@@ -181,7 +176,6 @@ const crons = deployCrons({
 // neither a storage provisioner (OrbStack ships one) nor a LoadBalancer
 // implementation (OrbStack's expose_services), and has no GPU passthrough.
 if (target.substrate === "talos") {
-  const softwareFactoryDeployId = cfg.require("softwareFactoryDeployId");
   // Enforced local storage (ADR-0009): OpenEBS LocalPV-LVM replaces
   // local-path-provisioner. `local-lvm` is the cluster's only/default
   // StorageClass; PVC sizes are real LVM reservations in VG `storage`.
@@ -191,15 +185,6 @@ if (target.substrate === "talos") {
   // The device plugin advertises nvidia.com/gpu so GPU workloads (Plex) can be
   // scheduled; needs the nvidia kernel modules (infra/talos machine.kernel).
   installNvidiaDevicePlugin({ provider: cluster.provider });
-  // Kata VM-isolated RuntimeClass + agent-sandbox CRDs (program handoff step 1,
-  // software-factory migration, issue #432). Inert until the kata-containers
-  // Talos extension is actually on the node (infra/talos/talconfig.yaml) —
-  // this RuntimeClass object has no matching containerd handler until that
-  // upgrade runs, and nothing in this step schedules a pod against it. The
-  // software factory itself changes nothing here; deliberately disconnected
-  // from installSoftwareFactory below.
-  installKataRuntimeClass({ provider: cluster.provider });
-  installAgentSandboxCrds({ provider: cluster.provider });
   // Temporal (issue #124): its own namespace, its own Postgres, hand-written
   // Deployments — no Helm chart. Same reuse of the already-installed CNPG
   // operator as Home Assistant above.
@@ -208,52 +193,6 @@ if (target.substrate === "talos") {
     cnpgOperator: cnpg.operator,
     vault,
     imageDigests,
-  });
-  // The software factory (ADR-0011): its shared k8s namespace, the worker's
-  // ServiceAccount + namespace-scoped Role, its NFS transcript volume, and the
-  // worker Deployment itself (#343). The SANDBOX image is deliberately not a
-  // workload here — the worker creates those pods at runtime from the
-  // digest-pinned ref it is handed.
-  //
-  // The factory's Cloudflare Access application (factory.<zone>) is minted by
-  // the SEPARATE world-wide-webb-cloudflare Pulumi project (infra/cloudflare/
-  // program.ts), not this one. Its audience tag is read here via
-  // StackReference rather than a hand-pasted vault secret (#593): it's
-  // derived infra state, not a secret anyone should be copying into
-  // secrets/vault.yaml. `getOutput` (not `requireOutput`) is deliberate — on
-  // this project's first apply after this wiring lands, deploy-cloudflare has
-  // not run since the app was declared, so the cloudflare stack's
-  // `accessAppAuds` output has no entry for this hostname yet, and this
-  // resolves to "" rather than throwing. installSoftwareFactory's api
-  // Deployment carries `pulumi.com/skipAwait` for exactly that gap: cmd/api
-  // already refuses to start on an empty audience (config.LoadAPI), so an
-  // empty AUD can never mean the API serves traffic unauthenticated, and the
-  // next deploy after deploy-cloudflare has run once picks up the real value
-  // with no further action.
-  const cloudflareStack = new pulumi.StackReference(
-    `${pulumi.getOrganization()}/world-wide-webb-cloudflare/prod`,
-  );
-  const factoryAccessAud = cloudflareStack
-    .getOutput("accessAppAuds")
-    .apply(
-      (auds: Record<string, string> | undefined) =>
-        auds?.[controlCenterProductManifest().factoryConsole.exposure.hostname] ?? "",
-    );
-  installSoftwareFactory({
-    provider: cluster.provider,
-    namespace: cluster.namespaces["software-factory"],
-    deployId: softwareFactoryDeployId,
-    vault,
-    accessAud: factoryAccessAud,
-    imageDigests,
-    nasNfsServer,
-    requireImageDigestPins: shouldRequireImageDigestPins(stackName) && !coldStart,
-  });
-  installWebhookRelay({
-    provider: cluster.provider,
-    vault,
-    imageDigests,
-    requireImageDigestPins: shouldRequireImageDigestPins(stackName) && !coldStart,
   });
   // Observability (#33): Prometheus/Grafana/Loki, hand-written like Temporal
   // above — no Helm, no operator, no CRDs (ADR #207). Grafana is reached ONLY

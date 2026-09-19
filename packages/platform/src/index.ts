@@ -31,9 +31,7 @@ export function genId(prefix: string, options?: { length?: number }): string {
   return `${prefix}_${randomHex(length)}`;
 }
 
-// "software-factory" (ADR-0011) owns worker, sandbox, relay, API, and console
-// images plus its product database. This is the one place that spelling is derived.
-export const productSlugs = ["control-center", "captive-portal", "software-factory"] as const;
+export const productSlugs = ["control-center", "captive-portal"] as const;
 
 export type ProductSlug = (typeof productSlugs)[number];
 
@@ -341,43 +339,6 @@ export const secretCatalog = {
       "CONTROL_CENTER_POSTGRES__PASSWORD",
     ),
   },
-  softwareFactory: {
-    postgresPassword: secret(
-      "Software Factory Postgres",
-      "password",
-      "SOFTWARE_FACTORY_POSTGRES__PASSWORD",
-    ),
-    workerBearerToken: secret(
-      "Software Factory API worker bearer",
-      "token",
-      "SOFTWARE_FACTORY_API__WORKER_BEARER_TOKEN",
-    ),
-    sandboxBearerToken: secret(
-      "Software Factory API sandbox bearer",
-      "token",
-      "SOFTWARE_FACTORY_API__SANDBOX_BEARER_TOKEN",
-    ),
-    cloudflareAccessTeamDomain: secret(
-      "Software Factory Cloudflare Access",
-      "team domain",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__TEAM_DOMAIN",
-    ),
-    cloudflareAccessAudience: secret(
-      "Software Factory Cloudflare Access",
-      "audience",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__AUD",
-    ),
-    cloudflareAccessServiceTokenClientID: secret(
-      "Software Factory Cloudflare Access",
-      "service token client id",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_ID",
-    ),
-    cloudflareAccessServiceTokenClientSecret: secret(
-      "Software Factory Cloudflare Access",
-      "service token client secret",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_SECRET",
-    ),
-  },
   github: {
     ghcrPat: secret("GitHub Personal Access Token", "token", "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"),
   },
@@ -605,8 +566,6 @@ function databasePasswordFor(product: ProductIdentity): SecretCatalogEntry {
       return secretCatalog.controlCenter.postgresPassword;
     case "captive-portal":
       return secretCatalog.captivePortal.postgresPassword;
-    case "software-factory":
-      return secretCatalog.softwareFactory.postgresPassword;
   }
   return assertNever(product.slug);
 }
@@ -728,17 +687,6 @@ export type ControlCenterProductManifest = Readonly<{
   app: Readonly<{
     exposure: WebExposure;
   }>;
-  // The factory console runs in its own namespace, but public hostnames are
-  // centrally owned here alongside other cross-product origins.
-  factoryConsole: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // The software-factory payload codec runs in its own namespace but serves a
-  // browser-facing Temporal UI integration, so its hostname follows the same
-  // central ownership rule as the factory console and Temporal UI.
-  codec: Readonly<{
-    exposure: WebExposure;
-  }>;
   // The Temporal web UI. Declared here rather than in `services` because it is
   // NOT a control-center workload: it runs in the `temporal` namespace from an
   // upstream image (infra/src/temporal.ts), and `services` drives control-center
@@ -818,14 +766,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     app: {
       exposure: privateWeb(target, { host: "app" }),
     },
-    factoryConsole: {
-      // Single label under the zone, so Universal SSL's one-label wildcard
-      // covers it (see webHostname).
-      exposure: privateWeb(target, { host: "factory" }),
-    },
-    codec: {
-      exposure: privateWeb(target, { host: "codec" }),
-    },
     temporalUi: {
       // Single label under the zone, so Universal SSL's one-label wildcard
       // covers it (see webHostname).
@@ -894,39 +834,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       },
     },
     secretUsages,
-    database,
-    backup,
-  };
-}
-
-export type SoftwareFactoryProductManifest = Readonly<{
-  product: ProductIdentity;
-  target: HomelabTarget;
-  database: ProductDatabase;
-  backup: DatabaseBackup;
-}>;
-
-/** The factory's empty durable record, kept separate from its Go application wiring. */
-export function softwareFactoryProductManifest(): SoftwareFactoryProductManifest {
-  const product = defineProduct("software-factory");
-  const target = homelabTarget;
-  const database = defineProductDatabase(product, target, {
-    authPassword: secretCatalog.softwareFactory.postgresPassword,
-    authSecretName: "software-factory-postgres-auth",
-    clusterName: "software-factory-postgres",
-    // ADR-0012 estimates retained transcripts at single-digit MB/year. ADR-0009
-    // makes this a hard local-LVM reservation, so start honestly and expand online.
-    size: "1Gi",
-  });
-  const backup = defineDatabaseBackup(database, target, {
-    name: "software-factory-pg-backup",
-    nasSubPathParts: ["backups", "world-wide-webb", "software-factory", "postgres"],
-    schedule: "0 1 * * *",
-  });
-
-  return {
-    product,
-    target,
     database,
     backup,
   };

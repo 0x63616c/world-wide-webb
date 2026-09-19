@@ -61,7 +61,6 @@ export function makeCluster(context: string = DEFAULT_CONTEXT): ClusterResources
   // back to `[...productSlugs, CLOUDFLARE_NAMESPACE]`.
   const namespaceNames = [
     "control-center",
-    "software-factory",
     CLOUDFLARE_NAMESPACE,
   ] as const satisfies readonly InfraNamespaceName[];
   const namespaces = Object.fromEntries(

@@ -3,14 +3,7 @@ import { defineProduct, productSlugs } from "../src/index.ts";
 
 describe("product identity", () => {
   test("defines the platform products", () => {
-    expect(productSlugs).toEqual(["control-center", "captive-portal", "software-factory"]);
-  });
-
-  test("retains software-factory deployment digest identity", () => {
-    const factory = defineProduct("software-factory");
-
-    expect(factory.imageDigestKey("worker")).toBe("software-factory-worker");
-    expect(factory.imageDigestKey("run-worker")).toBe("software-factory-run-worker");
+    expect(productSlugs).toEqual(["control-center", "captive-portal"]);
   });
 
   test("derives Control Center identity from the product slug", () => {

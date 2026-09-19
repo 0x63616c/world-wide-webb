@@ -29,20 +29,6 @@ export type ImageDigests = Record<string, string>;
 export type OwnedWorkloadSpec = WorkloadSpec & { namespaceName: InfraNamespaceName };
 
 const controlCenterProduct = defineProduct("control-center");
-const softwareFactoryProduct = defineProduct("software-factory");
-type StandaloneSoftwareFactoryComponent =
-  | "api"
-  | "blobs"
-  | "codec"
-  | "console"
-  | "relay"
-  | "run-worker"
-  | "worker";
-
-const standaloneSoftwareFactoryRepository = (
-  component: StandaloneSoftwareFactoryComponent,
-): string => `ghcr.io/0x63616c/software-factory-${component}`;
-
 const IMAGE_REPOSITORIES = {
   api: {
     product: "control-center",
@@ -79,48 +65,6 @@ const IMAGE_REPOSITORIES = {
     digestKey: controlCenterProduct.imageDigestKey("temporal-worker"),
     repository: controlCenterProduct.imageRepository("temporal-worker"),
   },
-  // Software Factory is now released by its standalone repository. Keep the
-  // existing Pulumi digest keys so the deployment interface stays stable, but
-  // render the producer-owned GHCR repositories instead of WWW's retired
-  // `www-software-factory-*` image family.
-  //
-  // `relay` is the separately deployed platform webhook edge, but shares this product
-  // image/digest registry so CI pins every Go module image together.
-  "software-factory-worker": {
-    product: "software-factory",
-    digestKey: softwareFactoryProduct.imageDigestKey("worker"),
-    repository: standaloneSoftwareFactoryRepository("worker"),
-  },
-  "software-factory-run-worker": {
-    product: "software-factory",
-    digestKey: softwareFactoryProduct.imageDigestKey("run-worker"),
-    repository: standaloneSoftwareFactoryRepository("run-worker"),
-  },
-  "software-factory-relay": {
-    product: "software-factory",
-    digestKey: softwareFactoryProduct.imageDigestKey("relay"),
-    repository: standaloneSoftwareFactoryRepository("relay"),
-  },
-  "software-factory-api": {
-    product: "software-factory",
-    digestKey: softwareFactoryProduct.imageDigestKey("api"),
-    repository: standaloneSoftwareFactoryRepository("api"),
-  },
-  "software-factory-console": {
-    product: "software-factory",
-    digestKey: softwareFactoryProduct.imageDigestKey("console"),
-    repository: standaloneSoftwareFactoryRepository("console"),
-  },
-  "software-factory-blobs": {
-    product: "software-factory",
-    digestKey: softwareFactoryProduct.imageDigestKey("blobs"),
-    repository: standaloneSoftwareFactoryRepository("blobs"),
-  },
-  "software-factory-codec": {
-    product: "software-factory",
-    digestKey: softwareFactoryProduct.imageDigestKey("codec"),
-    repository: standaloneSoftwareFactoryRepository("codec"),
-  },
 } as const satisfies Record<
   string,
   { product: ProductSlug; digestKey: string; repository: string }
@@ -132,11 +76,8 @@ const IMAGE_DIGEST_KEYS = new Set(
 /**
  * The digest keys belonging to one product.
  *
- * Required pins are asked for PER PRODUCT, not across the whole map. serviceSpecs
- * renders control-center's workloads and nothing else, so demanding
- * software-factory's pins there would let a broken sandbox build block the
- * house's own deploy — a coupling between two products that share nothing but a
- * registry. Each renderer asserts the pins it actually needs.
+ * Required pins are asked for PER PRODUCT, not across the whole map. Each
+ * renderer asserts the pins it actually needs.
  *
  * `imageDigestKey` is `${slug}-${component}`, so the prefix is the product.
  */
@@ -170,8 +111,8 @@ const REQUIRED_IMAGE_DIGEST_KEYS = digestKeysFor("control-center");
 /**
  * @public - asserts that every image this product ships is digest-pinned.
  *
- * For renderers outside serviceSpecs (software-factory.ts) that must not render
- * a mutable `:main` ref on a production cluster either.
+ * For renderers outside serviceSpecs that must not render a mutable `:main`
+ * ref on a production cluster either.
  */
 export function assertImageDigestPins(slug: ProductSlug, digests: ImageDigests): void {
   const missing = digestKeysFor(slug).filter((key) => !digests[key]);

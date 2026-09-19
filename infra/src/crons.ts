@@ -18,12 +18,7 @@
 
 import type * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
-import {
-  controlCenterProductManifest,
-  type DatabaseBackup,
-  defineProduct,
-  softwareFactoryProductManifest,
-} from "@www/platform";
+import { controlCenterProductManifest, type DatabaseBackup, defineProduct } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
 import type { CronJobSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
@@ -113,48 +108,6 @@ export function postgresBackupCronSpec(
 // noticing the duplication.
 const NAS_BACKUP_ROOT = "backups/world-wide-webb";
 
-// Payload blobs are primary data, unlike discardable stage transcripts. This
-// takes a nightly, atomically published archive to the product backup tree.
-// It mounts the NAS paths directly rather than the blobs PVC, preserving the
-// service-only PVC mount boundary declared in software-factory.ts.
-function softwareFactoryBlobsBackupCronSpec(nasNfsServer: string): OwnedCronJobSpec {
-  const sourceMountPath = "/source";
-  const backupMountPath = "/backup";
-  return {
-    name: "software-factory-blobs-backup",
-    namespaceName: "software-factory",
-    image: "alpine:3.20",
-    schedule: "30 1 * * *",
-    command: [
-      "sh",
-      "-c",
-      [
-        "set -e",
-        `out="${backupMountPath}/blobs-$(date +%Y%m%d).tar.gz"`,
-        'tmp="$out.tmp"',
-        'rm -f "$tmp"',
-        `tar -C ${sourceMountPath} -czf "$tmp" .`,
-        'mv "$tmp" "$out"',
-        'echo "wrote $out"',
-      ].join("\n"),
-    ],
-    env: { TZ },
-    volumes: [
-      {
-        mountPath: sourceMountPath,
-        nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
-        readOnly: true,
-        subPath: "software-factory/blobs",
-      },
-      {
-        mountPath: backupMountPath,
-        nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
-        subPath: `${NAS_BACKUP_ROOT}/software-factory/blobs`,
-      },
-    ],
-  };
-}
-
 /**
  * @public - the `home_assistant` CNPG cluster's daily pg_dump, alongside
  * control-center's (Step 6b): keeps the backup pattern uniform across every
@@ -204,7 +157,6 @@ export function homeAssistantPgBackupCronSpec(args: {
 
 const controlCenterManifest = controlCenterProductManifest();
 const controlCenterBackup = controlCenterManifest.backup;
-const softwareFactoryBackup = softwareFactoryProductManifest().backup;
 // captive-portal's backup CronJob REMOVED (SDD track 0, Task 6) along with
 // its CNPG clusters + namespace; a final pg_dump was taken to the NAS first
 // (captive-portal-final-20260721.dump).
@@ -247,8 +199,6 @@ export function cronSpecs(
     // Control Center stays on the compatibility backup path until that live path
     // migration gets explicit review. New product backups use the platform path.
     postgresBackupCronSpec(controlCenterBackup, nasNfsServer),
-    postgresBackupCronSpec(softwareFactoryBackup, nasNfsServer),
-    softwareFactoryBlobsBackupCronSpec(nasNfsServer),
   ];
 }
 
