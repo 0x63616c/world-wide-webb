@@ -9,7 +9,7 @@ import { defineConfig, devices } from "@playwright/test";
  * RAM discipline (the 32GB no-cgroups rule): chromium ONLY, ONE worker, NOT
  * fully parallel. A captive-webview flow is inherently sequential per device
  * and a single browser keeps the footprint to one Chromium (~1.5GB) instead
- * of one per core, the same reason the web Storybook browser project is
+ * of one per core, the same reason the web browser test project is
  * pinned serial.
  *
  * CI wiring is explicitly OUT of scope for this task (rides parent Task 5's

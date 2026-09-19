@@ -121,17 +121,6 @@ local_resource(
     ],
 )
 
-# Storybook , auto-started with the dev stack so it's always available for tile work.
-local_resource(
-    "storybook",
-    serve_cmd="cd %s && bun run --cwd apps/web storybook" % repo_root,
-    resource_deps=["install"],
-    labels=["frontend", "control-center"],
-    links=[
-        link("http://localhost:6006", "Storybook"),
-    ],
-)
-
 # Drizzle Studio , manual, opt-in.
 local_resource(
     "drizzle-studio",

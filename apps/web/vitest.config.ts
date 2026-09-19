@@ -7,7 +7,7 @@ export default defineConfig({
   resolve: {
     // Authoring-surface aliases (Track C, C7). The unit project's tile-registry
     // imports a folded feature's manifest (`@features`), which reaches the
-    // authoring surface (`@app-kit`); mirror vite.config.ts (the storybook
+    // authoring surface (`@app-kit`); mirror vite.config.ts (the
     // project extends that directly). `@app-kit/server` precedes `@app-kit`
     // (vite matches a string alias by equality or `alias + "/"` prefix, so the
     // bare `@app-kit` would otherwise swallow `@app-kit/server`).

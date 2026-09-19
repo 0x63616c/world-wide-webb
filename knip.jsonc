@@ -10,7 +10,7 @@
   // load-bearing rather than decorative.
   //
   // Most entry points are auto-detected from each workspace's package `exports`,
-  // `bin`, and the vite/storybook/vitest plugins. We only declare the edges knip
+  // `bin`, and the vite/vitest plugins. We only declare the edges knip
   // can't see: Docker CMD/ENTRYPOINT targets and db scripts.
 
   // Exports tagged `@public` are a deliberate surface, not dead code.
@@ -73,13 +73,6 @@
     "@testing-library/jest-dom",
     "@testing-library/react",
     "maplibre-gl",
-    // Storybook stories/story-tests stayed under apps/web/src for every fold up
-    // through guest-wifi; features/weather (Track C, Wave 7) is the first to
-    // carry its own .stories.tsx + .stories.test.tsx (the full 33-file web
-    // subtree move), so it hits the same workspace-boundary quirk as the
-    // testing-library deps above.
-    "@storybook/react-vite",
-    "storybook",
     // features/booth (Track C, final tile fold) hits the same workspace-boundary
     // quirk: gifenc (client-side GIF encoder, features/booth/web/lib/booth-capture.ts),
     // lucide-react and @capacitor/{core,share} (features/booth/web/BoothGallery.tsx,

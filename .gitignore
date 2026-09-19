@@ -57,9 +57,6 @@ coverage/
 # Tesla map basemap tiles , large, host locally / on homelab (see www-gma)
 apps/web/public/maps/*.pmtiles
 
-# Storybook
-*storybook.log
-storybook-static
 
 # ship workflow scratch + build worktrees
 .claude/worktrees/

@@ -134,11 +134,7 @@ jobs:
               - 'features/**'
               - 'bun.lock'
 
-  # Unit suite (jsdom) + all the fast hermetic bash guards. Split from the
-  # Storybook browser suite so the two run concurrently: they share nothing, and
-  # sequentially they cost sum(218s, 174s) instead of max(). The guards live
-  # here because this job needs no Playwright install, which keeps the two
-  # halves roughly balanced.
+  # Unit suite (jsdom) + all the fast hermetic bash guards.
   test-unit:
     needs: [changes]
     runs-on: ubuntu-latest
@@ -155,13 +151,6 @@ jobs:
         # bypass (or a hook that isn't installed on a contributor's machine)
         # would otherwise ship lint regressions undetected (www-355t.6).
         run: bun run lint
-      - name: Storybook docs guard
-        # Authoritative backstop for the lefthook pre-commit `storybook-docs`
-        # hook (bypassable with --no-verify): fails the test job if any tracked
-        # *.stories.tsx lacks an autodocs Docs page. `deploy-home-server` needs `test-unit`, so a
-        # missing doc blocks the deploy. Fast (grep), runs before the slow
-        # Playwright install so it fails early (www-o0ko).
-        run: bash scripts/check-storybook-docs.sh
       - name: Alias parity guard
         # Static backstop (Track C, C7): the @app-kit / @app-kit/server /
         # @features authoring-surface aliases must be declared identically
@@ -212,42 +201,10 @@ jobs:
         # guest listener that's about to carry live LAN guest traffic.
         run: bun run --cwd apps/api test:guest-smoke
 
-  # Storybook browser suite (Playwright/Chromium play functions). Runs
-  # concurrently with test-unit. Kept as its own job because it needs a Chromium
-  # install that the jsdom suite does not.
-  test-storybook:
-    needs: [changes]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2.19
-      - name: Install deps
-        run: bun install --frozen-lockfile
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            playwright-chromium-${{ runner.os }}-
-      - name: Install Playwright Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
-      - name: Install Playwright system deps (cached binary)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
-      - name: Test (Storybook, chromium)
-        run: bun run test:storybook
-
   # Typecheck + dead-code run in parallel with the test suite so type
   # errors and knip regressions surface without waiting for Playwright to
-  # install and all tests to run. `deploy-home-server` depends on `test-unit`,
-  # `test-storybook` and `typecheck` all passing
-  # (www-q2p5). Build jobs do
+  # install and all tests to run. `deploy-home-server` depends on `test-unit`
+  # and `typecheck` both passing (www-q2p5). Build jobs do
   # NOT — they gate on `changes` alone, so they run concurrently with these.
   typecheck:
     needs: [changes]
@@ -276,7 +233,7 @@ jobs:
   # concurrently with the test suite instead of queueing behind it (measured
   # 180s off the critical path, because the build fan-in is shorter than the
   # test job and now hides entirely under it).
-  # This does NOT weaken the deploy gate: `deploy-home-server` still lists test-unit + test-storybook + typecheck
+  # This does NOT weaken the deploy gate: `deploy-home-server` still lists test-unit + typecheck
   # in its own `needs:`, so an image built for a commit that fails tests is
   # simply never deployed. The only cost is building images for the ~9% of
   # pushes that fail — they are content-addressed and otherwise inert.
@@ -400,7 +357,6 @@ jobs:
       [
         changes,
         test-unit,
-        test-storybook,
         typecheck,
         build-web,
         build-manage,
@@ -680,7 +636,6 @@ jobs:
       [
         changes,
         test-unit,
-        test-storybook,
         typecheck,
         build-web,
         build-manage,

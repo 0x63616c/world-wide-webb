@@ -8,13 +8,6 @@ pre-commit:
       # Apply safe auto-fixes and re-stage; remaining format/lint errors block the commit.
       run: bun scripts/quality-gate.ts format-staged {staged_files}
       stage_fixed: true
-    storybook-docs:
-      glob: "*.stories.tsx"
-      # BLOCKING: every Storybook story must enable autodocs (directly via
-      # tags:["autodocs"] or through a sanctioned meta factory like defineTileMeta)
-      # so addon-docs generates a Docs page. Fast grep; CI's test job re-runs it
-      # over ALL tracked stories as the authoritative backstop (www-o0ko).
-      run: bash scripts/check-storybook-docs.sh {staged_files}
     no-ofelia:
       glob: "*.{ts,tsx,js,mjs,json,yml,yaml,md,sh,toml}"
       # BLOCKING: rejects reintroduction of Ofelia (replaced by k8s CronJobs,

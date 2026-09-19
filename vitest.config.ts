@@ -2,8 +2,7 @@ import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-// Root workspace: api + web unit tests. Storybook browser tests run separately via
-// `bunx vitest --project storybook` from apps/web/ (requires Playwright/Chromium).
+// Root workspace: api + web unit tests.
 export default defineConfig({
   test: {
     projects: [
@@ -109,8 +108,8 @@ export default defineConfig({
       // Coverage is REPORTED but deliberately NOT gated - no `thresholds` here.
       // A coverage drop must never fail a CI job or block a deploy (per Calum);
       // the merged browser+unit number is also slightly nondeterministic
-      // run-to-run, so a ratchet would flake. The test-unit/test-storybook jobs
-      // still fail on real test failures, just never on the coverage %.
+      // run-to-run, so a ratchet would flake. The test-unit job still fails on
+      // real test failures, just never on the coverage %.
     },
   },
 });
