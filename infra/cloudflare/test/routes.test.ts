@@ -28,7 +28,6 @@ describe("desiredIngressRules", () => {
       "app.worldwidewebb.co",
       "codec.worldwidewebb.co",
       "db-ui.worldwidewebb.co",
-      "dont-text-your-ex.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "factory.worldwidewebb.co",
       "grafana.worldwidewebb.co",
@@ -68,20 +67,7 @@ describe("desiredIngressRules", () => {
     expect(byHost["factory.worldwidewebb.co"]).toBe(
       "http://web.software-factory.svc.cluster.local:80",
     );
-    const dontTextYourExRules = desiredIngressRules(ZONE).filter(
-      (rule) => rule.hostname === "dont-text-your-ex.worldwidewebb.co",
-    );
-    expect(dontTextYourExRules).toEqual([
-      {
-        hostname: "dont-text-your-ex.worldwidewebb.co",
-        path: "^/api(/.*)?$",
-        service: "http://api.dont-text-your-ex.svc.cluster.local:8787",
-      },
-      {
-        hostname: "dont-text-your-ex.worldwidewebb.co",
-        service: "http://frontend.dont-text-your-ex.svc.cluster.local:80",
-      },
-    ]);
+    expect(byHost["dont-text-your-ex.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["api.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["dashboard.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["storybook.worldwidewebb.co"]).toBeUndefined();
@@ -195,7 +181,6 @@ describe("desiredCnames", () => {
       "app.worldwidewebb.co",
       "codec.worldwidewebb.co",
       "db-ui.worldwidewebb.co",
-      "dont-text-your-ex.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "factory.worldwidewebb.co",
       "grafana.worldwidewebb.co",
@@ -233,10 +218,8 @@ describe("desiredCnames", () => {
     expect(byHost["hooks.worldwidewebb.co"]).toBe(
       "platform:github webhook relay (public, HMAC-authenticated)",
     );
-    expect(byHost["dont-text-your-ex.worldwidewebb.co"]).toBe(
-      "platform:don't text your ex public app route",
-    );
     // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
+    expect(byHost).not.toHaveProperty("dont-text-your-ex.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("app--cc.worldwidewebb.co");
     // pruned dead routes are absent (www-oa74; storybook + drizzle pruned since)
     expect(byHost).not.toHaveProperty("portainer.worldwidewebb.co");

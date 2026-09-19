@@ -36,7 +36,6 @@ beforeAll(async () => {
 const NAS = "192.168.0.218";
 const testNamespaces = {
   "control-center": "control-center",
-  "dont-text-your-ex": "dont-text-your-ex",
   "software-factory": "software-factory",
   cloudflare: "cloudflare",
 } as const;

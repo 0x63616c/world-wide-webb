@@ -7,7 +7,7 @@ describe("GHCR pull secret namespace bootstrap", () => {
       namespaceLookupState({
         exitCode: 1,
         stdout: "",
-        stderr: 'Error from server (NotFound): namespaces "dont-text-your-ex" not found',
+        stderr: 'Error from server (NotFound): namespaces "control-center" not found',
       }),
     ).toBe("absent");
   });
@@ -23,7 +23,7 @@ describe("GHCR pull secret namespace bootstrap", () => {
     expect(
       namespaceLookupState({
         exitCode: 0,
-        stdout: "namespace/dont-text-your-ex",
+        stdout: "namespace/control-center",
         stderr: "",
       }),
     ).toBe("exists");
