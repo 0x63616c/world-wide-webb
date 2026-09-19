@@ -190,14 +190,12 @@ const DYNAMIC_CONFIG_MAP_NAME = "temporal-dynamic-config";
 const DYNAMIC_CONFIG_MOUNT = "/etc/temporal/dynamicconfig";
 const DYNAMIC_CONFIG_FILE = `${DYNAMIC_CONFIG_MOUNT}/docker.yaml`;
 
-// How long a CLOSED workflow's history stays queryable. 10 years, per explicit
-// request on #157 (control-center) and #325 (software-factory): long-term
-// workflow history over storage economy, with the storage cost of that choice
-// deliberately deferred — revisit ~2027-01.
-//
-// Named once and referenced twice rather than defaulted, so the two namespaces
-// diverging later is a one-word edit at the call site instead of a refactor.
-const TEN_YEAR_RETENTION = "87600h";
+// How long a CLOSED workflow's history stays queryable. Was 10 years per
+// explicit request on #157 (control-center) and #325 (software-factory);
+// dropped to 30 days on 2026-09-19 after the storage cost deferred there
+// caught up with us (temporal-postgres's PVC filled and crash-looped the
+// cluster) — the revisit those tickets flagged for ~2027-01 happened early.
+const THIRTY_DAY_RETENTION = "720h";
 
 /**
  * A Temporal-level namespace (NOT a k8s one) this cluster registers, and how
@@ -221,8 +219,8 @@ export interface TemporalNamespaceSpec {
  * control-center depend on.
  */
 export const TEMPORAL_NAMESPACES = [
-  { name: TEMPORAL_CLUSTER_NAMESPACE, retention: TEN_YEAR_RETENTION },
-  { name: SOFTWARE_FACTORY_TEMPORAL_NAMESPACE, retention: TEN_YEAR_RETENTION },
+  { name: TEMPORAL_CLUSTER_NAMESPACE, retention: THIRTY_DAY_RETENTION },
+  { name: SOFTWARE_FACTORY_TEMPORAL_NAMESPACE, retention: THIRTY_DAY_RETENTION },
 ] as const satisfies readonly TemporalNamespaceSpec[];
 
 /** The name of a namespace in {@link TEMPORAL_NAMESPACES}. */
@@ -501,7 +499,7 @@ export function installTemporal(args: TemporalArgs): TemporalResources {
             postInitSQL: [`CREATE DATABASE ${VISIBILITY_DATABASE_NAME} OWNER ${DATABASE_OWNER}`],
           },
         },
-        storage: { storageClass: "local-lvm", size: "10Gi" },
+        storage: { storageClass: "local-lvm", size: "25Gi" },
         resources: {
           limits: { memory: "1Gi" },
           requests: { cpu: "250m", memory: "512Mi" },

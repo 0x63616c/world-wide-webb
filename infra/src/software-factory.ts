@@ -386,15 +386,16 @@ export function installSoftwareFactory(args: SoftwareFactoryArgs): SoftwareFacto
     {
       metadata: { name: WORKER_SERVICE_ACCOUNT, namespace: namespaceName, labels: workerLabels },
       spec: {
-        // One replica, and Recreate rather than RollingUpdate. Two replicas
-        // would mean two credential refreshers, and a rolling update over this
-        // volume is the deadlock this cluster has hit before.
+        // Scaled to 0: deliberately not running. Recreate rather than
+        // RollingUpdate — two replicas would mean two credential refreshers,
+        // and a rolling update over this volume is the deadlock this cluster
+        // has hit before, so if this comes back up it must come back at 1.
         //
         // Single-replica is NOT what makes the credential refresh safe — the
         // compare-and-swap lease on the Secret's resourceVersion is, and a
         // `kubectl debug` pod or a terminating pod mid-Recreate is defeated by
         // the lease and by nothing else (ADR-0011, corrected by #335).
-        replicas: 1,
+        replicas: 0,
         strategy: { type: "Recreate" },
         selector: { matchLabels: workerLabels },
         template: {
