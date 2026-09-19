@@ -19,7 +19,6 @@ import notifManifest from "../notif/manifest";
 import panelUpdateManifest from "../panel-update/manifest";
 import scenesManifest from "../scenes/manifest";
 import soundManifest from "../sound/manifest";
-import temporalHealthManifest from "../temporal-health/manifest";
 import teslaManifest from "../tesla/manifest";
 import tvManifest from "../tv/manifest";
 import wakesManifest from "../wakes/manifest";
@@ -62,7 +61,6 @@ const manifests = [
   panelUpdateManifest,
   scenesManifest,
   soundManifest,
-  temporalHealthManifest,
   teslaManifest,
   tvManifest,
   wakesManifest,

@@ -56,15 +56,6 @@ const IMAGE_REPOSITORIES = {
     digestKey: controlCenterProduct.imageDigestKey("map-provision"),
     repository: controlCenterProduct.imageRepository("map-provision"),
   },
-  // The Temporal worker (apps/temporal-worker). Deployed by temporal.ts into
-  // its own namespace, but the image is a control-center product component like
-  // any other, so it pins through the SAME digest map — one place where "what
-  // does CI build and pin" is answered.
-  "temporal-worker": {
-    product: "control-center",
-    digestKey: controlCenterProduct.imageDigestKey("temporal-worker"),
-    repository: controlCenterProduct.imageRepository("temporal-worker"),
-  },
 } as const satisfies Record<
   string,
   { product: ProductSlug; digestKey: string; repository: string }
@@ -156,7 +147,7 @@ export function shouldRequireImageDigestPins(stackName: string): boolean {
 // service, else the mutable :main tag (local applies, first deploy before any
 // digest is set). The digest is validated shape-wise so a malformed config value
 // can't silently produce an unpullable ref.
-export const ghcrImage = (name: string, digests: ImageDigests = {}): string => {
+const ghcrImage = (name: string, digests: ImageDigests = {}): string => {
   const image = IMAGE_REPOSITORIES[name as keyof typeof IMAGE_REPOSITORIES];
   if (!image) throw new Error(`no image repository configured for ${name}`);
   const digest = digests[image.digestKey];

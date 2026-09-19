@@ -16,7 +16,6 @@ describe("desiredAccessApps", () => {
       .sort();
     expect(domains).toEqual([
       "app.worldwidewebb.co",
-      "db-ui.worldwidewebb.co",
       // The two LAN appliances (#292): putting them on the tunnel gives them an
       // internet-facing hostname, so their Access app is not optional.
       "dsm.worldwidewebb.co",
@@ -25,7 +24,6 @@ describe("desiredAccessApps", () => {
       "ha.worldwidewebb.co",
       // manage has no login of its own — this app IS its authentication.
       "manage.worldwidewebb.co",
-      "temporal-ui.worldwidewebb.co",
       "unifi.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("*.worldwidewebb.co");
@@ -42,14 +40,12 @@ describe("desiredAccessApps", () => {
     expect(domains).toEqual([
       "*.worldwidewebb.co",
       "app.worldwidewebb.co",
-      "db-ui.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "factory.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hooks.worldwidewebb.co",
       "manage.worldwidewebb.co",
-      "temporal-ui.worldwidewebb.co",
       "unifi.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("app--cc.worldwidewebb.co");
@@ -79,42 +75,6 @@ describe("desiredAccessApps", () => {
     ]);
 
     expect(apps.map((a) => a.domain)).toEqual(["app.worldwidewebb.co"]);
-  });
-
-  test("temporal-ui is human-login only — NEVER reachable with the kiosk token", () => {
-    // The Temporal UI can terminate and reset running workflows. The wall panel
-    // authenticates with a service token it stores on-device and never prompts
-    // for; that token must not open this door.
-    const ui = desiredAccessApps(ZONE, true).find(
-      (entry) => entry.domain === "temporal-ui.worldwidewebb.co",
-    );
-
-    expect(ui?.policies).toEqual([
-      {
-        decision: "allow",
-        include: { configKey: "allowedEmail", kind: "email-config" },
-        name: "email-otp",
-        precedence: 1,
-      },
-    ]);
-  });
-
-  test("Temporal UI and codec share one credentialed CORS Access application", () => {
-    const ui = desiredAccessApps(ZONE, true).find(
-      (entry) => entry.domain === "temporal-ui.worldwidewebb.co",
-    );
-
-    expect(
-      desiredAccessApps(ZONE, true).find((entry) => entry.domain === "codec.worldwidewebb.co"),
-    ).toBeUndefined();
-    expect(ui?.domains).toEqual(["temporal-ui.worldwidewebb.co", "codec.worldwidewebb.co"]);
-    expect(ui?.cors).toEqual({
-      allowCredentials: true,
-      allowedHeaders: ["Content-Type", "X-Namespace"],
-      allowedMethods: ["POST"],
-      allowedOrigins: ["https://temporal-ui.worldwidewebb.co"],
-      maxAge: 86400,
-    });
   });
 
   test("grafana is human-login only — NEVER reachable with the kiosk token", () => {

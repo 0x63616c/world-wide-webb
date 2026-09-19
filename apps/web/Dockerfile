@@ -13,20 +13,17 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/manage/package.json ./apps/manage/package.json
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
-COPY apps/temporal-worker/package.json ./apps/temporal-worker/package.json
 COPY apps/map-provision/package.json ./apps/map-provision/package.json
 COPY apps/storybook/package.json ./apps/storybook/package.json
 COPY apps/dont-text-your-ex/package.json ./apps/dont-text-your-ex/package.json
 COPY apps/dont-text-your-ex/apps/api/package.json ./apps/dont-text-your-ex/apps/api/package.json
 COPY apps/dont-text-your-ex/apps/e2e/package.json ./apps/dont-text-your-ex/apps/e2e/package.json
 COPY apps/dont-text-your-ex/apps/frontend/package.json ./apps/dont-text-your-ex/apps/frontend/package.json
-COPY apps/dont-text-your-ex/apps/temporal-worker/package.json ./apps/dont-text-your-ex/apps/temporal-worker/package.json
 COPY apps/dont-text-your-ex/packages/notifications/package.json ./apps/dont-text-your-ex/packages/notifications/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/core/package.json ./packages/core/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
 COPY packages/platform/package.json ./packages/platform/package.json
-COPY packages/temporal-runtime/package.json ./packages/temporal-runtime/package.json
 COPY packages/theme/package.json ./packages/theme/package.json
 COPY packages/worker-runtime/package.json ./packages/worker-runtime/package.json
 # Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so

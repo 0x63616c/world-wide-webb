@@ -11,7 +11,6 @@ import { installCertManager, issuePortalCertificate } from "./src/certmanager.ts
 import { makeCluster } from "./src/cluster.ts";
 import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
-import { installDbUi } from "./src/db-ui.ts";
 import { installEso } from "./src/eso.ts";
 import { verifyLiveGhcrPullSecrets } from "./src/ghcr-pull-secret-preflight.ts";
 import { installHomeAssistant } from "./src/homeassistant.ts";
@@ -25,7 +24,6 @@ import {
   parseSubstrateTarget,
   shouldRequireImageDigestPins,
 } from "./src/services.ts";
-import { installTemporal } from "./src/temporal.ts";
 import { loadVault } from "./src/vault.ts";
 
 const cfg = new pulumi.Config("wwwinfra");
@@ -185,17 +183,8 @@ if (target.substrate === "talos") {
   // The device plugin advertises nvidia.com/gpu so GPU workloads (Plex) can be
   // scheduled; needs the nvidia kernel modules (infra/talos machine.kernel).
   installNvidiaDevicePlugin({ provider: cluster.provider });
-  // Temporal (issue #124): its own namespace, its own Postgres, hand-written
-  // Deployments — no Helm chart. Same reuse of the already-installed CNPG
-  // operator as Home Assistant above.
-  installTemporal({
-    provider: cluster.provider,
-    cnpgOperator: cnpg.operator,
-    vault,
-    imageDigests,
-  });
-  // Observability (#33): Prometheus/Grafana/Loki, hand-written like Temporal
-  // above — no Helm, no operator, no CRDs (ADR #207). Grafana is reached ONLY
+  // Observability (#33): Prometheus/Grafana/Loki, hand-written — no Helm, no
+  // operator, no CRDs (ADR #207). Grafana is reached ONLY
   // through the Cloudflare tunnel; nothing here takes a LoadBalancer address.
   installObservability({ provider: cluster.provider });
   installHomeAssistant({
@@ -208,14 +197,6 @@ if (target.substrate === "talos") {
     vault,
     nasNfsServer,
   });
-  // pgAdmin (issue #65): declarative multi-database web GUI over its three
-  // configured CNPG clusters. The Software Factory database is deliberately
-  // not a target yet. No new CNPG operator/cluster of its own, so it only needs
-  // `vault` (it reads the same passwords control-center/home-assistant/
-  // temporal already mint). No explicit dependsOn on those clusters: pgAdmin
-  // only registers server definitions at startup, it does not eagerly
-  // connect, so apply order relative to them doesn't matter.
-  installDbUi({ provider: cluster.provider, vault });
 }
 
 // Surface resource names (not values) for the Phase-3 acceptance checks.

@@ -1,6 +1,5 @@
 /**
- * Weather-reading retention purge (Track C, Wave 7 fold — was apps/api's
- * weather-purge-service.ts). Both weather tables are append-only by design
+ * Weather-reading retention purge. Both weather tables are append-only by design
  * (the ingest poller inserts a fresh row per forecast hour every cycle so
  * run-over-run forecast drift is preserved), which means they grow without
  * bound: ~192 hourly rows + 8 daily rows per cycle, 288 cycles/day, is roughly
@@ -13,17 +12,12 @@
  *    cutoff can never delete a row the dashboard still reads
  *    (service.ts only queries from today/now forward).
  *
- * Runs as a daily Temporal Schedule (ADR-0008, see temporal.ts — formerly the
- * S2 k8s CronJob seam), never a worker loop (PRD Backend rule 7). Deletes are
+ * Runs as the `weather-purge` Worker cycle (see worker.ts). Deletes are
  * BATCHED: the first production run has millions of rows to remove and a
  * single unbounded DELETE would hold one long transaction and bloat WAL. Each
  * batch is its own statement; whatever a run doesn't finish is picked up by
  * the next day's run.
  *
- * jobs.ts now carries only the purge implementation (consumed by
- * activities.ts) — weather-ingest is a Worker interval, not a queue job, so
- * this feature has no `defineJobs` facet and, since the Temporal migration,
- * no `defineCron` either.
  */
 import { sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -95,8 +89,8 @@ async function purgeTable(
 }
 
 /**
- * Run one weather purge pass. Pure of any scheduling; the purge activity calls
- * this once per scheduled run.
+ * Run one weather purge pass. Pure of any scheduling; the `weather-purge`
+ * Worker cycle calls this once per run.
  */
 export async function purgeWeatherData(
   db: NodePgDatabase<typeof schema>,

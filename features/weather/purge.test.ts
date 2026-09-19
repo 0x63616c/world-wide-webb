@@ -1,8 +1,8 @@
 /**
  * Tests for the weather retention purge. Both weather tables are append-only,
  * so they need a hard 30-day cutoff on `recorded_at`. The purge runs from the
- * daily one-shot CronJob (never a worker loop) and deletes in batches, so the
- * two things worth pinning are the retention constant and the batch loop's
+ * `weather-purge` Worker cycle and deletes in batches, so the two things worth
+ * pinning are the retention constant and the batch loop's
  * termination + accumulation behaviour.
  */
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -13,7 +13,7 @@ import {
   readingShouldPurge,
   WEATHER_RETENTION_MS,
   weatherCutoff,
-} from "./jobs";
+} from "./purge";
 import type * as schema from "./schema";
 
 const asDb = (fake: unknown) => fake as unknown as NodePgDatabase<typeof schema>;

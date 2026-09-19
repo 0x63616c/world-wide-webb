@@ -27,14 +27,12 @@ describe("desiredIngressRules", () => {
     expect(Object.keys(byHost).sort()).toEqual([
       "app.worldwidewebb.co",
       "codec.worldwidewebb.co",
-      "db-ui.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "factory.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hooks.worldwidewebb.co",
       "manage.worldwidewebb.co",
-      "temporal-ui.worldwidewebb.co",
       "unifi.worldwidewebb.co",
     ]);
     // #126: the public webhook relay forwards to the in-cluster API consumer.
@@ -43,15 +41,9 @@ describe("desiredIngressRules", () => {
     expect(byHost["hooks.worldwidewebb.co"]).toBe(
       "http://relay.webhook-relay.svc.cluster.local:8080",
     );
-    // Cross-NAMESPACE origin: cloudflared runs in control-center, so only the
-    // cluster-local FQDN resolves the Service in `temporal`.
-    expect(byHost["temporal-ui.worldwidewebb.co"]).toBe(
-      "http://temporal-ui.temporal.svc.cluster.local:8080",
-    );
     expect(byHost["codec.worldwidewebb.co"]).toBe(
       "http://codec.software-factory.svc.cluster.local:8080",
     );
-    expect(byHost["db-ui.worldwidewebb.co"]).toBe("http://db-ui.db-ui.svc.cluster.local:80");
     // #209: same cross-NAMESPACE rule — the Grafana Service lives in
     // `observability`, so a bare `grafana` origin would 502.
     expect(byHost["grafana.worldwidewebb.co"]).toBe(
@@ -180,14 +172,12 @@ describe("desiredCnames", () => {
     expect(hosts).toEqual([
       "app.worldwidewebb.co",
       "codec.worldwidewebb.co",
-      "db-ui.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "factory.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hooks.worldwidewebb.co",
       "manage.worldwidewebb.co",
-      "temporal-ui.worldwidewebb.co",
       "unifi.worldwidewebb.co",
     ]);
     // #127: the EVEE-218 hooks-test leftover was deleted with the old tunnel.
@@ -212,7 +202,6 @@ describe("desiredCnames", () => {
     expect(byHost).not.toHaveProperty("hooks-test.worldwidewebb.co");
     // product-derived platform route comment (not a frozen legacy value)
     expect(byHost["app.worldwidewebb.co"]).toBe("platform:control-center private app route");
-    expect(byHost["temporal-ui.worldwidewebb.co"]).toBe("platform:temporal web ui route");
     expect(byHost["grafana.worldwidewebb.co"]).toBe("platform:grafana web ui route");
     expect(byHost["ha.worldwidewebb.co"]).toBe("platform:home assistant web ui route (#75)");
     expect(byHost["hooks.worldwidewebb.co"]).toBe(

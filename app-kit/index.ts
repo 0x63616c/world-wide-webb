@@ -6,8 +6,6 @@ export { APP_BRAND, defineApp } from "./define-app";
 export type {
   HttpRoute,
   JobSpec,
-  TemporalFacet,
-  TemporalScheduleSpec,
   TileViewDeclaration,
   Worker,
 } from "./define-facets";
@@ -17,12 +15,10 @@ export {
   defineApi,
   defineHttp,
   defineJobs,
-  defineTemporal,
   defineTileViews,
   defineWorkerCycles,
   HTTP_FACET_BRAND,
   JOBS_FACET_BRAND,
-  TEMPORAL_FACET_BRAND,
   TILE_VIEWS_FACET_BRAND,
   WORKER_CYCLES_FACET_BRAND,
 } from "./define-facets";

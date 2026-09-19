@@ -25,17 +25,14 @@ import { renderManifest, renderRules } from "../apps/manage/src/extension-rules"
 import { GUEST_EXPOSED } from "../features/guest-exposed";
 import { collect } from "./apps-gen/collect";
 import {
-  renderActivities,
   renderGuestRouter,
   renderHttp,
   renderJobs,
   renderRouter,
-  renderSchedules,
   renderSchema,
   renderTiles,
   renderWeb,
   renderWorkers,
-  renderWorkflows,
 } from "./apps-gen/emit";
 import { validate } from "./apps-gen/validate";
 
@@ -95,19 +92,6 @@ const AGGREGATES: readonly Aggregate[] = [
   {
     file: "http.gen.ts",
     render: async () => renderHttp(await collect()),
-  },
-  // Temporal facet artifacts (ADR-0008).
-  {
-    file: "workflows.gen.ts",
-    render: async () => renderWorkflows(await collect()),
-  },
-  {
-    file: "activities.gen.ts",
-    render: async () => renderActivities(await collect()),
-  },
-  {
-    file: "schedules.gen.ts",
-    render: async () => renderSchedules(await collect()),
   },
   // manage's browser-extension allowlist (ADR-0010). Drift here means a tool is
   // in the sidebar but not in the extension's allowlist — a pane that renders

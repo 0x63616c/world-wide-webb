@@ -4,10 +4,8 @@ import {
   API_FACET_BRAND,
   defineApi,
   defineJobs,
-  defineTemporal,
   defineWorkerCycles,
   JOBS_FACET_BRAND,
-  TEMPORAL_FACET_BRAND,
   WORKER_CYCLES_FACET_BRAND,
 } from "./define-facets";
 
@@ -74,11 +72,6 @@ it("facet wrappers brand their payload", () => {
         unknown
       >
     )[JOBS_FACET_BRAND],
-  ).toBe(true);
-  expect(
-    (defineTemporal({ workflowTypes: ["DemoWorkflow"], schedules: [] }) as Record<symbol, unknown>)[
-      TEMPORAL_FACET_BRAND
-    ],
   ).toBe(true);
   expect(
     (

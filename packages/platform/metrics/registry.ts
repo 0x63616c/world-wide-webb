@@ -20,7 +20,7 @@ export const metricsRegistry = new Registry();
 export type MetricsInit = {
   /**
    * Stamped on EVERY series as the `service` label (api, worker,
-   * temporal-worker). A default label rather than a per-metric one so no helper
+   * worker). A default label rather than a per-metric one so no helper
    * has to thread it and no caller can forget it.
    */
   service: string;

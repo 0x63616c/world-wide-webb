@@ -27,17 +27,14 @@ import { renderManifest, renderRules } from "../apps/manage/src/extension-rules"
 import { GUEST_EXPOSED } from "../features/guest-exposed";
 import { collect } from "./apps-gen/collect";
 import {
-  renderActivities,
   renderGuestRouter,
   renderHttp,
   renderJobs,
   renderRouter,
-  renderSchedules,
   renderSchema,
   renderTiles,
   renderWeb,
   renderWorkers,
-  renderWorkflows,
 } from "./apps-gen/emit";
 import { validate } from "./apps-gen/validate";
 
@@ -60,9 +57,6 @@ async function main(): Promise<void> {
   writeFileSync(join(GEN_DIR, "jobs.gen.ts"), renderJobs(model));
   writeFileSync(join(GEN_DIR, "workers.gen.ts"), renderWorkers(model));
   writeFileSync(join(GEN_DIR, "http.gen.ts"), renderHttp(model));
-  writeFileSync(join(GEN_DIR, "workflows.gen.ts"), renderWorkflows(model));
-  writeFileSync(join(GEN_DIR, "activities.gen.ts"), renderActivities(model));
-  writeFileSync(join(GEN_DIR, "schedules.gen.ts"), renderSchedules(model));
   writeFileSync(join(MANAGE_EXT_DIR, "rules.gen.json"), renderRules());
   writeFileSync(join(MANAGE_EXT_DIR, "manifest.json"), renderManifest());
 }

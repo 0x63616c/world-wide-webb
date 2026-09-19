@@ -1,7 +1,7 @@
 // The scheduled jobs for the control-center k3s stack (www-j934.7): the cronJob()
 // declarations for the cluster. Only infra-level work remains here: map-extract
 // (separate map-provision image) and the pg/HA backups. Every retention purge
-// migrated to Temporal Schedules declared from feature facets (ADR-0008, issue
+// migrated to App-owned Worker cycles declared from feature facets (issue
 // #260) — the whole generated-cron seam (crons.gen.ts + `bun cron.js <name>`)
 // is deleted.
 //

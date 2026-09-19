@@ -89,9 +89,9 @@ const accessName = (host: string) =>
 
 // --- Access apps + policies ---
 // The provider derives selfHostedDomains from `name` for single-domain apps, so
-// declaring it there would show a spurious update. The Temporal UI/codec pair is
-// the deliberate exception: it needs one multi-domain app to share an Access
-// session. sessionDuration is another exception (www-178): we deliberately
+// declaring it there would show a spurious update. A multi-domain app that
+// needs to share one Access session is the deliberate exception.
+// sessionDuration is another exception (www-178): we deliberately
 // override CF's 24h default so a human login/OTP lasts 30 days.
 //
 // accessAppAuds (#593): each app's audience tag, keyed by domain, exported

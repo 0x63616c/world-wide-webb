@@ -158,28 +158,14 @@ export function accessAppsForPrivateWeb(
  */
 export function desiredAccessApps(zone: string, includeGate = false): DesiredAccessApp[] {
   const ccManifest = controlCenterProductManifest();
-  const temporalUiOrigin = `https://${ccManifest.temporalUi.exposure.hostname}`;
 
   const baseApps: DesiredAccessApp[] = [
-    accessApp(ccManifest.temporalUi.exposure.hostname, [emailOtpPolicy()], {
-      domains: [ccManifest.temporalUi.exposure.hostname],
-      cors: {
-        allowCredentials: true,
-        allowedHeaders: ["Content-Type", "X-Namespace"],
-        allowedMethods: ["POST"],
-        allowedOrigins: [temporalUiOrigin],
-        maxAge: 86_400,
-      },
-    }),
     // Private-web products: the CC app (app.worldwidewebb.co, product-derived from
     // the platform manifest) uses a kiosk service-token (iPad wall panel, not
     // human login) plus an email-OTP fallback for browser access (CC-d15).
     ...accessAppsForPrivateWeb([
       { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
-      // pgAdmin (#65): same treatment as Temporal UI — a database admin
-      // surface with full read/write, no kiosk business reaching it.
-      { exposure: ccManifest.dbUi.exposure, policies: ["email-otp"] },
-      // Grafana: email-OTP ONLY, for the same reason as the Temporal UI. The
+      // Grafana: email-OTP ONLY. The
       // panel never calls Grafana, so it gets no kiosk service token, and the
       // UI can edit datasources and dashboards — a human login only.
       { exposure: ccManifest.grafana.exposure, policies: ["email-otp"] },

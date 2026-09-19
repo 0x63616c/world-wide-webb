@@ -51,14 +51,12 @@ it("collect() includes the guest-wifi App manifest exactly once", () => {
   expect(guest[0].source).toBe("feature");
   expect(guest[0].guestExposed).toBe(true);
 
-  // The fold surfaces: the feature's tables, its router key, and its Temporal
-  // schedule (ADR-0008 — the old defineCron seam is gone).
+  // The fold surfaces: the feature's tables and its router key.
   expect(model.features.map((f) => f.dir)).toContain("guest-wifi");
   expect(model.tables.map((t) => t.name)).toEqual(
     expect.arrayContaining(["portal_authorization", "portal_rate_limit"]),
   );
   expect(model.routerKeys).toContainEqual({ key: "portal", source: "feature:guest-wifi" });
-  expect(model.temporalSchedules.map((s) => s.scheduleId)).toContain("app_guest-wifi_purge");
 
   // The feature's schema.ts named exports are collected with a feature source
   // label (used to detect schema.gen.ts `export *` symbol collisions).
@@ -183,6 +181,7 @@ it("collect() sources worker cycles from owning App facets", () => {
     "light-enforcer",
     "party-mode",
     "weather-ingest",
+    "weather-purge",
     "withings-weight-ingest",
   ]);
 });

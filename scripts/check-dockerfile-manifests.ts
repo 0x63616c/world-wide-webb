@@ -47,7 +47,6 @@ const FULL_INSTALL_DOCKERFILES = [
   "apps/manage/Dockerfile",
   "apps/api/Dockerfile",
   "apps/worker/Dockerfile",
-  "apps/temporal-worker/Dockerfile",
   "apps/web/Dockerfile",
 ];
 
@@ -112,11 +111,8 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
 // so all three images must copy them in. A miss ships an image that can't
 // resolve @app-kit/@features at build time.
 //
-// Scoped to the images that actually CONSUME that surface, not to every
-// full-install Dockerfile: apps/temporal-worker serves the Temporal task queue
-// and imports no feature facet, so copying features/ in would ship a tree the
-// image never reads (and hand it a rebuild on every unrelated feature edit).
-// An image that starts draining feature work belongs on this list.
+// Scoped to the images that actually CONSUME that surface. An image that does
+// not import a feature facet does not belong on this list.
 const REQUIRED_SOURCE_DIRS = ["app-kit", "features"];
 const C7_AUTHORING_SURFACE_DOCKERFILES = [
   "apps/api/Dockerfile",

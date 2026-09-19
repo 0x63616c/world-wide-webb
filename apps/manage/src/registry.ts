@@ -83,24 +83,6 @@ export const TOOLS: readonly Tool[] = [
     group: "Platform",
     needsExtension: true,
   },
-  {
-    id: "temporal",
-    label: "Temporal",
-    url: "https://temporal-ui.worldwidewebb.co",
-    color: "#7c3aed",
-    mark: "T",
-    group: "Platform",
-    needsExtension: true,
-  },
-  {
-    id: "pgadmin",
-    label: "pgAdmin",
-    url: "https://db-ui.worldwidewebb.co",
-    color: "#336791",
-    mark: "PG",
-    group: "Platform",
-    needsExtension: true,
-  },
   // NB: Storybook is deliberately absent. The control-center-storybook workload
   // was deleted in Track B (infra/src/services.ts) and its tunnel route pruned
   // (infra/cloudflare/src/routes.ts) — storybook is a local-dev-only tool now,

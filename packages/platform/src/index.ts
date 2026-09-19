@@ -687,21 +687,6 @@ export type ControlCenterProductManifest = Readonly<{
   app: Readonly<{
     exposure: WebExposure;
   }>;
-  // The Temporal web UI. Declared here rather than in `services` because it is
-  // NOT a control-center workload: it runs in the `temporal` namespace from an
-  // upstream image (infra/src/temporal.ts), and `services` drives control-center
-  // workload derivation. What it shares with the product is the exposure surface
-  // — one hostname, tunnel-routed, Access-gated — so the hostname is owned here,
-  // where every other public name in this system is owned.
-  temporalUi: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // pgAdmin (issue #65): same shape as temporalUi above — runs in the `db-ui`
-  // namespace from an upstream image (infra/src/db-ui.ts), not a
-  // control-center workload, but shares the hostname-ownership rule.
-  dbUi: Readonly<{
-    exposure: WebExposure;
-  }>;
   // The Grafana web UI (#209). Same story again: it runs in the
   // `observability` namespace from an upstream image (infra/src/observability/)
   // rather than as a control-center workload, but it does have a hostname on
@@ -765,14 +750,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     target,
     app: {
       exposure: privateWeb(target, { host: "app" }),
-    },
-    temporalUi: {
-      // Single label under the zone, so Universal SSL's one-label wildcard
-      // covers it (see webHostname).
-      exposure: privateWeb(target, { host: "temporal-ui" }),
-    },
-    dbUi: {
-      exposure: privateWeb(target, { host: "db-ui" }),
     },
     grafana: {
       // Single label under the zone, so Universal SSL's one-label wildcard

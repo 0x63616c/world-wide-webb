@@ -118,7 +118,7 @@ loki.source.kubernetes "pods" {
 loki.process "pino" {
   forward_to = [loki.write.default.receiver]
 
-  // Our backend services (api, cron, guest-api, worker, temporal-worker) log
+  // Our backend services (api, guest-api, worker) log
   // pino JSON on stdout. pino's own field names: numeric \`level\`, message
   // \`msg\`, epoch-millis \`time\`, plus \`service\` and \`env\` bound as base
   // fields by packages/logger. Non-JSON lines from third-party images simply

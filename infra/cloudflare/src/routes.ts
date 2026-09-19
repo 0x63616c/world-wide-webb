@@ -137,25 +137,9 @@ function productRoutes(): CloudflareRoutes {
       //
       // Cross-NAMESPACE origin, so the cluster-local FQDN is required: cloudflared
       // runs in `cloudflare`, the Service is `relay` in `webhook-relay`. A short
-      // name resolves in the connector's own namespace and 502s (same reason
-      // temporal-ui carries an FQDN).
+      // name resolves in the connector's own namespace and 502s.
       origin: "http://relay.webhook-relay.svc.cluster.local:8080",
       comment: "platform:github webhook relay (public, HMAC-authenticated)",
-    },
-    {
-      exposure: cc.temporalUi.exposure,
-      // FQDN, not the short Service name: cloudflared runs in the
-      // `control-center` namespace, so `temporal-ui` alone would not resolve
-      // across into the `temporal` namespace.
-      origin: "http://temporal-ui.temporal.svc.cluster.local:8080",
-      comment: "platform:temporal web ui route",
-    },
-    {
-      exposure: cc.dbUi.exposure,
-      // FQDN, same cross-namespace reason as temporal-ui above: cloudflared
-      // runs in `control-center`, pgAdmin runs in `db-ui`.
-      origin: "http://db-ui.db-ui.svc.cluster.local:80",
-      comment: "platform:pgAdmin multi-database web ui route (#65)",
     },
     {
       exposure: cc.grafana.exposure,

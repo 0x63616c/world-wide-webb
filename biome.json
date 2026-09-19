@@ -141,11 +141,7 @@
       }
     },
     {
-      "includes": [
-        "packages/platform/env/**",
-        "packages/platform/test/env.test.ts",
-        "apps/temporal-worker/src/config.test.ts"
-      ],
+      "includes": ["packages/platform/env/**", "packages/platform/test/env.test.ts"],
       "linter": {
         "rules": {
           "style": {
