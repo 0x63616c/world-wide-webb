@@ -60,12 +60,7 @@ describe("secret catalog and service usage", () => {
     // CI-only), the GitHub bot, Spotify, UniFi, the WiFi SSIDs, Withings and the
     // home place-name all went with their consumers. Deliberately updated, not
     // deleted — this golden set is what proves nothing was dropped by accident.
-    const expectedKeys = [
-      "HA_TOKEN",
-      "HOME_LAT",
-      "HOME_LON",
-      "POSTGRES_PASSWORD",
-    ].sort();
+    const expectedKeys = ["HA_TOKEN", "HOME_LAT", "HOME_LON", "POSTGRES_PASSWORD"].sort();
 
     expect(Object.keys(usages.api.secrets).sort()).toEqual(expectedKeys);
     expect(Object.keys(usages.worker.secrets).sort()).toEqual(expectedKeys);

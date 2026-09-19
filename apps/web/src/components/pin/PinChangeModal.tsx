@@ -128,7 +128,6 @@ export function PinChangeModal({
   return (
     <PinModalShell
       open={open}
-      logTitle="Change PIN"
       label="Change PIN"
       backdropTestId="pin-change-backdrop"
       onClose={onClose}

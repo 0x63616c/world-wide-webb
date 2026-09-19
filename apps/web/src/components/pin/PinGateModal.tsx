@@ -79,7 +79,6 @@ export function PinGateModal({
   return (
     <PinModalShell
       open={open}
-      logTitle={title}
       label={`${title} PIN`}
       backdropTestId="pin-gate-backdrop"
       onClose={onClose}

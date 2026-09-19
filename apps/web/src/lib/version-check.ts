@@ -8,7 +8,6 @@
 import { BUILD_HASH } from "../config/build";
 import { setUpdatePending } from "./update-pending-store";
 
-
 // How often to poll version.json. 10s per Calum , fast enough that a deploy
 // lands on the panel within seconds, cheap enough as a static GET on the kiosk.
 export const VERSION_POLL_MS = 10_000;
@@ -66,16 +65,8 @@ export function startVersionCheck(options: VersionCheckOptions = {}): () => void
       if (typeof data.hash !== "string") return;
       if (data.hash !== currentHash && !reloadTriggered) {
         reloadTriggered = true;
-        console.info("update detected, reloading", {
-          from: currentHash,
-          to: data.hash,
-          delayMs: reloadDelay,
-        });
         setUpdatePending(true);
-        setTimeout(() => {
-          console.info("reloading now");
-          reload();
-        }, reloadDelay);
+        setTimeout(reload, reloadDelay);
       }
     } catch {
       // Swallow all network/parse errors: the kiosk keeps running and retries

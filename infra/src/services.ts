@@ -276,18 +276,12 @@ const mountSecrets = (service: ServiceSecretName) =>
  *   non-prod local applies, where every image falls back to the :main tag. www-j934.14.
  * - requireImageDigestPins: prod safety guard. Refuse to render app Deployments
  *   with mutable/private :main images when wwwinfra:imageDigests is incomplete.
- * - target: which cluster this program targets, {substrate:"orbstack"} (the
- *   mini, default) or {substrate:"talos", nodeIp} (the gaming-PC migration
- *   target). Default preserves the mini's exact current value. A talos target's nodeIp is REQUIRED by the type (see
- *   {@link SubstrateTarget}), so no call site can reach the talos branch with
- *   a missing/empty nodeIp.
  */
 export interface ServiceSpecOptions {
   cloudflaredReplicas: number;
   nasNfsServer: string;
   imageDigests?: ImageDigests;
   requireImageDigestPins?: boolean;
-  target?: SubstrateTarget;
 }
 
 /** @public - all app WorkloadSpecs, parameterised by {@link ServiceSpecOptions}. */
@@ -297,7 +291,6 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     nasNfsServer,
     imageDigests: digests = {},
     requireImageDigestPins = false,
-    target = { substrate: "orbstack" },
   } = opts;
   validateImageDigests(digests);
   if (requireImageDigestPins) validateRequiredImageDigests(digests);
@@ -565,7 +558,6 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     nasNfsServer,
     imageDigests,
     requireImageDigestPins,
-    target,
   }).map(
     ({ namespaceName, ...spec }) =>
       new Workload({ ...spec, provider, namespace: namespaces[namespaceName] }, opts),

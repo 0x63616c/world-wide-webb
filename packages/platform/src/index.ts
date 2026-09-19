@@ -178,8 +178,7 @@ export type WebExposure =
       hostname: string;
       tls: WebTlsRequirement;
       cloudflareAccess: false;
-    }>
-  ;
+    }>;
 
 export type InternalServiceExposure = Readonly<{
   kind: "internal-service";

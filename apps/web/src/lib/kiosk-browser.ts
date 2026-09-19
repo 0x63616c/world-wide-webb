@@ -12,7 +12,6 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
-
 interface KioskBrowserPlugin {
   open(options: { url: string }): Promise<void>;
   close(): Promise<void>;

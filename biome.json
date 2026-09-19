@@ -81,11 +81,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "**/api/drizzle.config.ts",
-        "**/web/vite.config.ts",
-        "**/scripts/**"
-      ],
+      "includes": ["**/api/drizzle.config.ts", "**/web/vite.config.ts", "**/scripts/**"],
       "linter": {
         "rules": {
           "style": {

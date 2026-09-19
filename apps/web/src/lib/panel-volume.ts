@@ -13,7 +13,6 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
-
 interface PanelVolumePlugin {
   getVolume(): Promise<{ value: number }>;
   setVolume(options: { value: number }): Promise<{ value: number }>;

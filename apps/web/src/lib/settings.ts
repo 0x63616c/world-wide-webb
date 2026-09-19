@@ -15,12 +15,7 @@
  * so there is one place that states them.
  */
 
-import {
-  ACCENTS,
-  type Accent,
-  DEFAULT_TIME_ZONE,
-  SETTINGS_DEFAULTS,
-} from "@cc/api/settings";
+import { ACCENTS, type Accent, DEFAULT_TIME_ZONE, SETTINGS_DEFAULTS } from "@cc/api/settings";
 import { createStore, useStore } from "./store";
 
 // ─── hardcoded panel behaviour ────────────────────────────────────────────────

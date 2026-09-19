@@ -75,7 +75,12 @@ export function PhotoGrid<T>({
               const disabled = isDisabled?.(item) ?? false;
               if (!onSelect) {
                 return (
-                  <div key={itemKey(item)} style={inertCell} aria-label={cellLabel(item)}>
+                  <div
+                    key={itemKey(item)}
+                    style={inertCell}
+                    role="img"
+                    aria-label={cellLabel(item)}
+                  >
                     {renderCell(item)}
                     {renderOverlay?.(item)}
                   </div>

@@ -21,7 +21,6 @@ import {
 } from "./kiosk-browser";
 import { registerOpenModal } from "./modal-open-store";
 
-
 // Disposers for the in-flight browser session's modal registration and
 // browserFinished listener. Held at module scope because open/close are
 // separate user gestures: `close()` is driven by the native "Done" button

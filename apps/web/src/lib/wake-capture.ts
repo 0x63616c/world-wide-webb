@@ -23,7 +23,6 @@ const JPEG_QUALITY = 0.8;
 const READY_TIMEOUT_MS = 1500;
 const READY_POLL_MS = 50;
 
-
 let burstInFlight = false;
 
 function sleep(ms: number): Promise<void> {
@@ -93,9 +92,6 @@ export async function uploadBurstFramesForTests(
 }
 
 async function runBurst(sessionId: string | null): Promise<void> {
-  const startedAt = performance.now();
-  console.info("burst start");
-
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -123,18 +119,14 @@ async function runBurst(sessionId: string | null): Promise<void> {
     // 0×0 sensor for the first fraction of a second, and grabbing then yields a
     // black skip that the burst silently drops. Bounded + best-effort: if no
     // frame ever arrives we log it and let the burst try anyway.
-    const ready = await awaitVideoReady(video);
-    if (!ready) {
+    if (!(await awaitVideoReady(video))) {
       console.warn("camera not ready before burst", {
         w: video.videoWidth,
         h: video.videoHeight,
         waitedMs: READY_TIMEOUT_MS,
       });
-    } else {
-      console.info("camera ready", { w: video.videoWidth, h: video.videoHeight });
     }
 
-    let uploaded = 0;
     let elapsed = 0;
     for (const [frameIdx, at] of BURST_DELAYS_MS.entries()) {
       await sleep(at - elapsed);
@@ -145,14 +137,10 @@ async function runBurst(sessionId: string | null): Promise<void> {
         continue;
       }
       const res = await uploadFrame(blob, sessionId, frameIdx);
-      if (res.ok) uploaded += 1;
-      else console.warn("frame upload rejected", { at, status: res.status, bytes: blob.size });
+      if (!res.ok) {
+        console.warn("frame upload rejected", { at, status: res.status, bytes: blob.size });
+      }
     }
-    console.info("burst done", {
-      uploaded,
-      of: BURST_DELAYS_MS.length,
-      ms: Math.round(performance.now() - startedAt),
-    });
   } finally {
     for (const track of stream.getTracks()) track.stop();
   }
@@ -198,7 +186,6 @@ export async function probeCamera(): Promise<CameraProbeResult> {
       audio: false,
     });
     for (const track of stream.getTracks()) track.stop();
-    console.info("camera probe ok");
     return { ok: true };
   } catch (err) {
     const name = err instanceof Error ? err.name : "unknown";

@@ -30,5 +30,4 @@ describe("product identity", () => {
       "worldwidewebb.co/product": "control-center",
     });
   });
-
 });

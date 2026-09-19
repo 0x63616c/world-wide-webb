@@ -58,9 +58,7 @@ it("throws on duplicate id", () => {
   );
 });
 it("throws when home count != 1", () => {
-  expect(() => validate(model([app({ id: "a" }), app({ id: "b" })]))).toThrow(
-    /exactly one home/,
-  );
+  expect(() => validate(model([app({ id: "a" }), app({ id: "b" })]))).toThrow(/exactly one home/);
 });
 it("throws on overlapping tile rects", () => {
   expect(() =>
@@ -239,28 +237,24 @@ it("accepts a board Tile with no Tile View declaration (face-only)", () => {
 
 it("throws when two Apps declare a Tile View for the same Tile", () => {
   expect(() =>
-    validate(
-      {
-        apps: [app({ id: "tile_a", home: true })],
-        tileViews: [
-          { tileId: "tile_a", source: "feature:a" },
-          { tileId: "tile_a", source: "feature:b" },
-        ],
-      },
-    ),
+    validate({
+      apps: [app({ id: "tile_a", home: true })],
+      tileViews: [
+        { tileId: "tile_a", source: "feature:a" },
+        { tileId: "tile_a", source: "feature:b" },
+      ],
+    }),
   ).toThrow(/duplicate Tile View.*tile_a/);
 });
 
 it("throws when one App claims another App's Tile View", () => {
   expect(() =>
-    validate(
-      {
-        apps: [app({ id: "tile_a", home: true }), app({ id: "tile_b", worldCol: 2 })],
-        tileViews: [
-          { tileId: "tile_a", source: "feature:tile_b" },
-          { tileId: "tile_b", source: "feature:tile_a" },
-        ],
-      },
-    ),
+    validate({
+      apps: [app({ id: "tile_a", home: true }), app({ id: "tile_b", worldCol: 2 })],
+      tileViews: [
+        { tileId: "tile_a", source: "feature:tile_b" },
+        { tileId: "tile_b", source: "feature:tile_a" },
+      ],
+    }),
   ).toThrow(/belongs to feature:tile_a, not feature:tile_b/);
 });

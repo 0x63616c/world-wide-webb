@@ -151,5 +151,4 @@ describe("installCertManager", () => {
     expect(spec.acme.solvers[0].dns01.cloudflare).toBeDefined();
     expect(spec.acme.email).toBeUndefined();
   });
-
 });

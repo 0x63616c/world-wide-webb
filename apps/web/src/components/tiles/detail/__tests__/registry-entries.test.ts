@@ -54,8 +54,6 @@ describe("tile detail registry", () => {
   });
 
   it("covers every registered tile between the two lists", () => {
-    expect(TILE_REGISTRY.map((t) => t.id).sort()).toEqual(
-      [...FACE_ONLY, ...WITH_DETAIL].sort(),
-    );
+    expect(TILE_REGISTRY.map((t) => t.id).sort()).toEqual([...FACE_ONLY, ...WITH_DETAIL].sort());
   });
 });

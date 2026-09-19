@@ -368,9 +368,7 @@
         "booth_photo_path_unique": {
           "name": "booth_photo_path_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "path"
-          ]
+          "columns": ["path"]
         }
       },
       "policies": {},

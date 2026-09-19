@@ -1,6 +1,6 @@
 // Weather reads (Track C, Wave 7 fold — was apps/api's weather-read-service.ts).
 import { and, asc, desc, eq, gte } from "drizzle-orm";
-import { config, HOME_PLACE_LABEL } from "./config";
+import { HOME_PLACE_LABEL } from "./config";
 import { db } from "./db";
 import { weatherDailyReading, weatherReading } from "./schema";
 import {

@@ -213,5 +213,4 @@ describe("Board panel-session wiring", () => {
     expect(panelSession.phase()).toBe("active");
     expect(screen.queryByTestId("pin-gate-backdrop")).toBeNull();
   });
-
 });
