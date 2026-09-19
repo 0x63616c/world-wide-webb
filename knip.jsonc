@@ -105,7 +105,7 @@
   // `openssl` is spawned by the guest-server TLS test to generate a throwaway
   // self-signed cert at run time (never committed, see guest-server.test.ts);
   // a system binary on macOS/CI Linux images, not an npm dep.
-  "ignoreBinaries": ["tilt", "scripts/check-rename-identity.py", "kubectl", "openssl"],
+  "ignoreBinaries": ["tilt", "kubectl", "openssl"],
 
   "workspaces": {
     ".": {

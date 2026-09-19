@@ -35,7 +35,6 @@
     "test:unit": "node --version && vitest run",
     "test:storybook": "cd apps/web && bunx vitest run --project storybook",
     "test:dockerfile-manifests": "bun scripts/check-dockerfile-manifests.ts",
-    "identity:audit": "scripts/check-rename-identity.py",
     "measure:ci": "bun scripts/measure-ci-latency.ts",
     "apps:gen": "cd apps/web && bun run ../../scripts/apps-gen.ts",
     "apps:check": "cd apps/web && bun run ../../scripts/apps-check.ts",

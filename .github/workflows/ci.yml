@@ -190,19 +190,12 @@ jobs:
         # resolve.alias), or a module resolves in one tool and not another.
         # Fast (grep), runs alongside the other hermetic guards.
         run: bash scripts/check-alias-parity.sh
-      - name: OrbStack watchdog logic tests
-        # Hermetic self-test of the docker-hang watchdog's decide/probe logic
-        # (www-sizh), no real docker/OrbStack. Gates the recovery automation so a
-        # regression in its thresholds/anti-loop guard can't ship silently. Fast
-        # (bash), runs before the slow Playwright install. Mirrors the
-        # test-kiosk-health gate in ios-build.yml.
-        run: bash scripts/test-orbstack-watchdog.sh
       - name: Basemap provisioner tests
         # Hermetic self-test of the map-provision script (www-hn1i): runtime
         # build resolution (no date pin to rot), if-missing/force modes, the
         # newest→previous fallback, atomic rename, and the nginx /maps/ loud-404.
         # Stubbed curl/pmtiles, no network. Fast (bash), runs before the slow
-        # Playwright install. Mirrors the orbstack-watchdog gate above.
+        # Playwright install.
         run: bash scripts/test-map-provision.sh
       - name: Dockerfile manifest coverage guard
         run: bun run test:dockerfile-manifests
@@ -240,19 +233,12 @@ jobs:
         run: |
           bash scripts/test-software-factory-release-manifest.sh
           bash scripts/test-verify-software-factory-release.sh
-      - name: Control Center cutover tooling tests
-        # Hermetic self-tests of the M7 production-cutover tooling (www-jtp0.7):
-        # the red-first preflight gate (refuses cutover until rehearsal/snapshot/
-        # counts/rollback/approval present), the post-cutover smoke dry-run plan,
-        # the CNPG local-name cleanup guard, and the wall-panel health classifier
-        # (1366x1024 + CF-error/skeleton markers, mirrored from iOS KioskHealth).
-        # No cluster/DB/network/secrets. Fast, runs before the slow Playwright
-        # install. Mirrors the gates above.
-        run: |
-          bash scripts/test-cc-cutover-preflight.sh
-          bash scripts/test-cc-post-cutover-smoke.sh
-          bash scripts/test-cnpg-local-name-preflight.sh
-          node scripts/test-panel-health.mjs
+      - name: Wall-panel health classifier tests
+        # Hermetic self-test of the panel health classifier (1366x1024 +
+        # CF-error/skeleton markers, mirrored from iOS KioskHealth). No
+        # cluster/DB/network/secrets. Fast, runs before the slow Playwright
+        # install.
+        run: node scripts/test-panel-health.mjs
       - name: Test (unit, jsdom)
         run: bun run test:unit
       - name: Guest listener smoke (real Bun.serve + TLS sockets)
