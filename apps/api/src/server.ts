@@ -13,7 +13,6 @@ import { ENV as config } from "@www/platform/env";
 import { initMetrics, observeHttpRequest, startMetricsServer } from "@www/platform/metrics";
 import { db } from "./db/index";
 import { runMigrations } from "./db/migrate";
-import { startGuestServer } from "./guest-server";
 import { findRoute } from "./http/route-table";
 import { migratePhotoPaths } from "./startup/photo-path-migration";
 import { createContext } from "./trpc/context";
@@ -45,23 +44,6 @@ try {
 } catch (err) {
   log.error({ err }, "migrations failed");
   throw err;
-}
-
-// Guest (captive-portal) listener, ADR-0006: a second, portal-only Bun.serve
-// bound to the LAN guest network. Fully optional , GUEST_PORT unset (the
-// default) means this never starts, so dev/test and any deploy that hasn't
-// wired the guest network yet boot exactly as before.
-if (config.GUEST_PORT) {
-  startGuestServer({
-    port: config.GUEST_PORT,
-    tlsDir: config.GUEST_TLS_DIR,
-    // Dev default: the built guest bundle sits alongside the web product
-    // (web/dist-portal/, relative to this api
-    // product's cwd). The production image sets GUEST_STATIC_DIR explicitly
-    // to the path Task 4's Dockerfile COPYs it to.
-    staticDir: config.GUEST_STATIC_DIR ?? "../web/dist-portal",
-    httpPort: config.GUEST_HTTP_PORT,
-  });
 }
 
 // Move any photos still under the legacy YYYY/MM/DD tree onto flat ISO-instant
@@ -134,20 +116,9 @@ async function handle(req: Request, url: URL): Promise<Response> {
     return new Response("OK", { status: 200, headers: CORS_HEADERS });
   }
 
-  // Deploy-health probe target (www-hya3) moved to features/ac/http.ts (S3 route seam).
-
-  // Now-playing artwork proxy moved to features/tv/http.ts (Track C, Wave 6),
-  // reached via the generated route table above.
-
-  // Camera-stream proxy moved to features/dogcam/http.ts (S3 route seam).
-
-  // Wake-photo ingest moved to apps/api/src/http/wake.http.ts (S3 route seam).
-
-  // Wake-photo bytes for the viewer moved to features/wakes/http.ts (S3 route seam).
-
-  // Photo-booth ingest moved to apps/api/src/http/booth.http.ts (S3 route seam).
-
-  // Photo-booth bytes for the gallery moved to features/booth/http.ts (S3 route seam).
+  // Every remaining hand-wired route (deploy-health probe, wake-photo and
+  // photo-booth ingest + bytes) now lives in a feature `http.ts` facet and is
+  // reached through the generated route table above.
 
   if (url.pathname.startsWith("/trpc")) {
     const res = await fetchRequestHandler({

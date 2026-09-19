@@ -1,6 +1,6 @@
 // Weather reads (Track C, Wave 7 fold — was apps/api's weather-read-service.ts).
 import { and, asc, desc, eq, gte } from "drizzle-orm";
-import { config } from "./config";
+import { config, HOME_PLACE_LABEL } from "./config";
 import { db } from "./db";
 import { weatherDailyReading, weatherReading } from "./schema";
 import {
@@ -133,10 +133,8 @@ export async function readWeatherNow(): Promise<WeatherNow> {
     tomorrowSunriseIso,
     solarLabel: solar.label,
     solarValue: solar.value,
-    // Display label for the configured home location. Driven by HOME_PLACE_NAME
-    // (delivered from 1Password via the secret rail; public placeholder in
-    // dev/test) so the weather tile matches HOME_LAT/HOME_LON instead of a
-    // hardcoded city (www-355t.14).
-    city: config.HOME_PLACE_NAME,
+    // Display label for the configured home location — a public, city-level
+    // constant since the placeName secret was retired (see ./config.ts).
+    city: HOME_PLACE_LABEL,
   };
 }

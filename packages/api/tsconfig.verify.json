@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@app-kit": [
+        "../../app-kit-zzverify/index.ts"
+      ],
+      "@app-kit/server": [
+        "../../app-kit-zzverify/server.ts"
+      ],
+      "@features/*": [
+        "../../features/*"
+      ],
+      "@features/_generated/*": [
+        "../../features/zz_verify_generated/*"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ]
+}

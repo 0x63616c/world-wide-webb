@@ -31,7 +31,7 @@ export function genId(prefix: string, options?: { length?: number }): string {
   return `${prefix}_${randomHex(length)}`;
 }
 
-export const productSlugs = ["control-center", "captive-portal"] as const;
+export const productSlugs = ["control-center"] as const;
 
 export type ProductSlug = (typeof productSlugs)[number];
 
@@ -179,14 +179,7 @@ export type WebExposure =
       tls: WebTlsRequirement;
       cloudflareAccess: false;
     }>
-  | Readonly<{
-      kind: "captive-portal-web";
-      policy: "captive";
-      target: ImplementedTargetName;
-      host: string;
-      hostname: string;
-      tls: WebTlsRequirement;
-    }>;
+  ;
 
 export type InternalServiceExposure = Readonly<{
   kind: "internal-service";
@@ -245,19 +238,6 @@ export function publicWeb(target: HomelabTarget, options: WebHostOptions): WebEx
   };
 }
 
-export function captivePortalWeb(target: HomelabTarget, options: WebHostOptions): WebExposure {
-  const hostname = webHostname(target, options.host);
-
-  return {
-    kind: "captive-portal-web",
-    policy: "captive",
-    target: target.name,
-    host: options.host,
-    hostname,
-    tls: webTlsRequirement(hostname),
-  };
-}
-
 export function internalService(options: { port: number }): InternalServiceExposure {
   return { kind: "internal-service", policy: "internal", port: options.port };
 }
@@ -288,7 +268,7 @@ export type ServiceSecretUsage = Readonly<{
   secrets: Readonly<Record<string, SecretCatalogEntry>>;
 }>;
 
-export type ControlCenterSecretUsageName = "api" | "worker" | "cloudflared" | "portal-data-purge";
+export type ControlCenterSecretUsageName = "api" | "worker" | "cloudflared";
 
 function secret(item: string, field: string, vaultKey: string): SecretCatalogEntry {
   return { item, field, vaultKey };
@@ -304,21 +284,6 @@ export const secretCatalog = {
       "App Store Connect API",
       "AuthKey_TJ8M46SFSQ.p8",
       "APP_STORE_CONNECT_API__P8_CONTENT",
-    ),
-  },
-  apns: {
-    keyId: secret("APNs Auth Key", "key id", "APNS_AUTH_KEY__KEY_ID"),
-    teamId: secret("APNs Auth Key", "team id", "APNS_AUTH_KEY__TEAM_ID"),
-    // Same shape as appStoreConnect.p8Content: the .p8 rides the item as a file
-    // attachment, and the SOPS vault holds it base64-encoded under
-    // APNS_AUTH_KEY__P8_CONTENT. pemToPkcs8() accepts armored PEM or bare base64.
-    p8Content: secret("APNs Auth Key", "AuthKey_Z8CPKZ46G7.p8", "APNS_AUTH_KEY__P8_CONTENT"),
-  },
-  captivePortal: {
-    postgresPassword: secret(
-      "Captive Portal Postgres",
-      "password",
-      "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
     ),
   },
   cloudflare: {
@@ -342,69 +307,12 @@ export const secretCatalog = {
   github: {
     ghcrPat: secret("GitHub Personal Access Token", "token", "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"),
   },
-  // The www-software-factory-bot GitHub App (#125): the machine identity
-  // autonomous agents act as. Minted by the App-manifest flow
-  // (scripts/create-github-bot-app.ts) and written by scripts/save-github-bot.sh,
-  // so none of these values is ever hand-copied.
-  //
-  // appId and installationId are identifiers, not secrets, but they live here so
-  // the whole credential set has one declaration site. The PEM is stored base64
-  // encoded (it is multi-line), the same handling the APNs / App Store Connect
-  // .p8 keys already use.
-  githubBot: {
-    appId: secret("GitHub App www-software-factory-bot", "app_id", "GITHUB_BOT_APP__APP_ID"),
-    clientId: secret(
-      "GitHub App www-software-factory-bot",
-      "client_id",
-      "GITHUB_BOT_APP__CLIENT_ID",
-    ),
-    clientSecret: secret(
-      "GitHub App www-software-factory-bot",
-      "client_secret",
-      "GITHUB_BOT_APP__CLIENT_SECRET",
-    ),
-    privateKeyPem: secret(
-      "GitHub App www-software-factory-bot",
-      "private_key_pem",
-      "GITHUB_BOT_APP__PRIVATE_KEY_PEM",
-    ),
-    webhookSecret: secret(
-      "GitHub App www-software-factory-bot",
-      "webhook_secret",
-      "GITHUB_BOT_APP__WEBHOOK_SECRET",
-    ),
-    installationId: secret(
-      "GitHub App www-software-factory-bot",
-      "installation_id",
-      "GITHUB_BOT_APP__INSTALLATION_ID",
-    ),
-  },
   homeAssistant: {
     token: secret("Home Assistant Token", "credential", "HOME_ASSISTANT_TOKEN__CREDENTIAL"),
   },
   homeLocation: {
     lat: secret("Home Location", "lat", "HOME_LOCATION__LAT"),
     lon: secret("Home Location", "lon", "HOME_LOCATION__LON"),
-    placeName: secret("Home Location", "place_name", "HOME_LOCATION__PLACE_NAME"),
-  },
-  spotify: {
-    clientId: secret("Spotify", "client_id", "SPOTIFY__CLIENT_ID"),
-    clientSecret: secret("Spotify", "client_secret", "SPOTIFY__CLIENT_SECRET"),
-    refreshToken: secret("Spotify", "refresh_token", "SPOTIFY__REFRESH_TOKEN"),
-  },
-  unifi: {
-    localApiKey: secret("UniFi", "local_api_key", "UNIFI__LOCAL_API_KEY"),
-  },
-  withings: {
-    clientId: secret("Withings", "client_id", "WITHINGS_CLIENT_ID"),
-    clientSecret: secret("Withings", "client_secret", "WITHINGS_CLIENT_SECRET"),
-  },
-  wifiGuest: {
-    password: secret("WiFi Guest Wifi", "password", "WIFI_GUEST_WIFI_PASSWORD"),
-    ssid: secret("WiFi Guest Wifi", "ssid", "WIFI_GUEST_WIFI_SSID"),
-  },
-  wifiMain: {
-    ssid: secret("WiFi Main Credentials", "ssid", "WIFI_MAIN_CREDENTIALS__SSID"),
   },
 } as const;
 
@@ -452,41 +360,9 @@ export function controlCenterServiceSecretUsages(): Record<
   // delta key(s) on the specific service's object instead of both.
   const apiWorkerSharedSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
-    UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
-    // Board display SSID is the MAIN network; the guest SSID/password feed the
-    // guest Wi-Fi QR only and are never rendered as text (design call 2026-07-19).
-    WIFI_SSID: secretCatalog.wifiMain.ssid,
-    WIFI_PASSWORD: secretCatalog.wifiGuest.password,
-    WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
     POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
     HOME_LAT: secretCatalog.homeLocation.lat,
     HOME_LON: secretCatalog.homeLocation.lon,
-    HOME_PLACE_NAME: secretCatalog.homeLocation.placeName,
-    SPOTIFY_CLIENT_ID: secretCatalog.spotify.clientId,
-    SPOTIFY_CLIENT_SECRET: secretCatalog.spotify.clientSecret,
-    SPOTIFY_REFRESH_TOKEN: secretCatalog.spotify.refreshToken,
-    ASC_KEY_ID: secretCatalog.appStoreConnect.keyId,
-    ASC_ISSUER_ID: secretCatalog.appStoreConnect.issuerId,
-    ASC_KEY_CONTENT: secretCatalog.appStoreConnect.p8Content,
-    // GitHub webhook signature verification (#126). The public hooks. host now
-    // terminates at the webhook relay, which is the outermost HMAC boundary;
-    // the api still verifies the same signature in-cluster as defence in depth.
-    // api/worker secret sets are kept in lockstep (www-51hf.35).
-    GITHUB_BOT_WEBHOOK_SECRET: secretCatalog.githubBot.webhookSecret,
-    // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
-    // are kept in lockstep (www-51hf.35), so it appears in both.
-    GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
-    // The worker is the only queue consumer, so it is the process that actually
-    // signs the APNs JWT and sends the push; api just enqueues. Both still
-    // carry the key so the secret sets stay in lockstep.
-    APNS_KEY_ID: secretCatalog.apns.keyId,
-    APNS_TEAM_ID: secretCatalog.apns.teamId,
-    APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
-    // Withings direct-API weight ingest. Only the worker polls Withings, but
-    // api/worker secret sets are kept in lockstep (see comment above), so it
-    // appears in both.
-    WITHINGS_CLIENT_ID: secretCatalog.withings.clientId,
-    WITHINGS_CLIENT_SECRET: secretCatalog.withings.clientSecret,
   } as const;
 
   return {
@@ -498,9 +374,6 @@ export function controlCenterServiceSecretUsages(): Record<
       { TUNNEL_TOKEN: secretCatalog.cloudflare.managedTunnelToken },
       { targetSecretName: "cloudflare-secrets-cloudflared", namespaceName: "cloudflare" },
     ),
-    "portal-data-purge": defineServiceSecretUsage(controlCenter, "portal-data-purge", {
-      POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
-    }),
   };
 }
 
@@ -562,8 +435,6 @@ function databasePasswordFor(product: ProductIdentity): SecretCatalogEntry {
   switch (product.slug) {
     case "control-center":
       return secretCatalog.controlCenter.postgresPassword;
-    case "captive-portal":
-      return secretCatalog.captivePortal.postgresPassword;
   }
   return assertNever(product.slug);
 }
@@ -659,14 +530,7 @@ export function defineDatabaseBackup(
   };
 }
 
-export type ControlCenterServiceName =
-  | "api"
-  | "worker"
-  | "web"
-  | "manage"
-  | "storybook"
-  | "captive-portal"
-  | "cloudflared";
+export type ControlCenterServiceName = "api" | "worker" | "web" | "manage" | "cloudflared";
 
 // Was `{ service, workloadName, image, exposure, secretUsage? }`: workloadName
 // and image had 0 external consumers (infra/src/services.ts re-derives both
@@ -793,14 +657,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
         // Single label under the zone, so Universal SSL's one-label wildcard
         // covers it (see webHostname).
         exposure: privateWeb(target, { host: "manage" }),
-      },
-      storybook: {
-        service: "storybook",
-        exposure: privateWeb(target, { host: "storybook" }),
-      },
-      "captive-portal": {
-        service: "captive-portal",
-        exposure: captivePortalWeb(target, { host: "app" }),
       },
       cloudflared: {
         service: "cloudflared",

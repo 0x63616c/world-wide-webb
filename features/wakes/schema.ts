@@ -10,11 +10,10 @@ import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 // retention a cheap cutoff query instead of a full-tree walk.
 //
 // `interactionSessionId` is a PLAIN COLUMN, not a foreign key. There is no
-// sessions table by design (sessions are derived from frontend_log), and even if
-// there were, the photo uploads immediately over HTTP while the log ships on a
-// 3s batch that backfills across offline windows , so the photo routinely lands
-// BEFORE the session it names. A soft reference tolerates that ordering; an FK
-// would reject the insert.
+// sessions table by design , a session is derived by grouping this table on
+// this column (see ./service.ts). Since the frontend log pipeline was deleted
+// (The Simplification §2), this table is the ONLY surviving record that a visit
+// happened at all.
 export const wakePhoto = pgTable(
   "wake_photo",
   {
@@ -26,7 +25,7 @@ export const wakePhoto = pgTable(
     // Nullable: bursts uploaded before this column existed, and any burst that
     // fires with no live session, are legitimately unattributed.
     interactionSessionId: text("interaction_session_id"),
-    // Nullable for the same backfill reason. Matches frontend_log.device_id.
+    // Nullable for the same backfill reason: the panel's stable device id.
     deviceId: text("device_id"),
     // 0-based position within its burst. Nullable for backfilled rows, where the
     // information does not exist , the old filename suffix was a same-millisecond

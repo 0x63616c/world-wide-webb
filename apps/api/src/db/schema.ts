@@ -1,11 +1,6 @@
 // Drizzle schema. Backend agents add tables here.
 import { jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-// The `job` durable queue table now lives in @www/core
-// (packages/core/src/jobs/schema.ts). Re-exported here (an identifier
-// re-export that preserves object identity) so the drizzle relational schema
-// still registers it and existing imports from "../db/schema" keep working
-// unchanged (same precedent as deviceState/integrationSyncStatus below).
 // Device sync: backend owns device state; frontend reads merged (effective) state.
 // Ported from evee device-state-sync pattern. Desired window is 5s for CC.
 // The deviceState table + its state types + DeviceKind now live in @www/core
@@ -23,7 +18,6 @@ export {
   type DeviceStateValue,
   deviceState,
   integrationSyncStatus,
-  job,
   type LightColor,
 } from "@www/core";
 
@@ -79,33 +73,10 @@ export const deviceSettings = pgTable("device_settings", {
   updatedAtUtc: timestamp("updated_at_utc", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ─── Captive portal (www-q002) ──────────────────────────────────────────────
-// The portal_rate_limit + portal_authorization tables + PORTAL_RATE_LIMIT_ID
-// were FOLDED into the guest-wifi feature (Track C, C7): they now live in
-// features/guest-wifi/schema.ts and reach drizzle-kit via the generated schema
-// barrel (features/_generated/schema.gen.ts, which unions this file with every
-// feature's schema.ts). Nothing in apps/api references them directly anymore.
-
-// Wake photos (spec docs/specs/2026-07-18-interaction-logging-design.md) were
-// FOLDED into the wakes feature (Track C, Wave 5): the `wake_photo` table now
-// lives in features/wakes/schema.ts and reaches drizzle-kit via the generated
-// schema barrel (features/_generated/schema.gen.ts).
-
-// Photo booth (the wall panel's on-demand camera) was FOLDED into the booth
-// feature (Track C, final tile): the `booth_photo` table now lives in
-// features/booth/schema.ts and reaches drizzle-kit via the generated schema
-// barrel (features/_generated/schema.gen.ts).
-
-// ─── GitHub Actions deploy pipeline (www-github-deploy) ────────────────────
-// githubRun, githubRunLogTail, githubPollStatus, GITHUB_POLL_STATUS_SINGLETON_ID
-// were FOLDED into the deploys feature (Track C, Wave 2): they now live in
-// features/deploys/schema.ts and reach drizzle-kit via the generated schema
-// barrel (features/_generated/schema.gen.ts, which unions this file with every
-// feature's schema.ts). The retention purge folded too (Track C shell-cleanup):
-// features/deploys/jobs.ts now purges the physical github_run/github_run_log_tail
-// tables via raw SQL from its `weather-purge` Worker cycle.
-
-// notification + devicePushToken (Notification Center) were FOLDED into the
-// notif feature (Track C, S1): they now live in features/notif/schema.ts and
-// reach drizzle-kit via the generated schema barrel (unions this file with
-// every feature's schema.ts), same precedent as the deploys fold above.
+// Every other table this file used to declare now lives in the App that owns
+// it, reaching drizzle-kit through the generated schema barrel
+// (features/_generated/schema.gen.ts, which unions this file with every
+// feature's schema.ts): `wake_photo` (features/wakes), `booth_photo`
+// (features/booth), `lamp_mode` (features/ctrl), the two weather tables
+// (features/weather). `device_state` and `integration_sync_status` live in
+// @www/core and are re-exported above.

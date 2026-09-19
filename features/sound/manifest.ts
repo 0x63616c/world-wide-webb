@@ -1,11 +1,11 @@
 import { defineApp } from "@app-kit";
-import { QuickPlayTile, QuickPlayTileView, SoundSystemTile, SoundSystemTileView } from "./web";
+import { SoundSystemTile, SoundSystemTileView } from "./web";
 
 /**
- * The sound app manifest (Track C, Wave 6). Two tiles: Sound System (Sonos
- * mixer) and Quick Play (favorites + Spotify browse). Board placement copied
- * verbatim from the pre-fold tile-registry entries. Neither tile is `home`.
- * Not guest-exposed.
+ * The sound app manifest (Track C, Wave 6). One tile: Sound System (the Sonos
+ * mixer). Quick Play was deleted with Spotify (The Simplification §4) — it was
+ * a browse surface over the Spotify API and nothing else. Board placement
+ * copied verbatim from the pre-fold tile-registry entry. Not `home`.
  */
 export default defineApp({
   id: "tile_sound",
@@ -19,16 +19,6 @@ export default defineApp({
       worldRow: 31,
       cols: 4,
       rows: 3,
-    },
-    {
-      id: "tile_quickplay",
-      label: "Quick Play",
-      component: QuickPlayTile,
-      viewComponent: QuickPlayTileView,
-      worldCol: 26,
-      worldRow: 32,
-      cols: 4,
-      rows: 2,
     },
   ],
 });

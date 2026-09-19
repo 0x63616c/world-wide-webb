@@ -3,7 +3,7 @@ import { defineProduct, productSlugs } from "../src/index.ts";
 
 describe("product identity", () => {
   test("defines the platform products", () => {
-    expect(productSlugs).toEqual(["control-center", "captive-portal"]);
+    expect(productSlugs).toEqual(["control-center"]);
   });
 
   test("derives Control Center identity from the product slug", () => {
@@ -31,14 +31,4 @@ describe("product identity", () => {
     });
   });
 
-  test.each([
-    ["captive-portal", "ghcr.io/0x63616c/www-captive-portal-api", "captive-portal-api"],
-  ] as const)("derives full-slug global naming for %s", (slug, imageRepository, imageDigestKey) => {
-    const app = defineProduct(slug);
-
-    expect(app.namespace).toBe(slug);
-    expect(app.folder).toBe(`products/${slug}`);
-    expect(app.imageRepository("api")).toBe(imageRepository);
-    expect(app.imageDigestKey("api")).toBe(imageDigestKey);
-  });
 });

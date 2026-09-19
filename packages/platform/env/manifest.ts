@@ -35,27 +35,13 @@ export const ENV = defineEnv({
   // in-cluster (nothing else in a pod binds it), so it is never set in prod.
   METRICS_PORT: int().default(DEFAULT_METRICS_PORT),
 
-  // ── Database (11 features + core) ─────────────────────────────────────────
+  // ── Database (features + core) ────────────────────────────────────────────
   DATABASE_URL: pgUrl().required().devDefault("postgresql://cc:cc@localhost:5432/controlcenter"),
 
-  // ── Home Assistant (ac, ctrl, dogcam, tesla, tv) ──────────────────────────
+  // ── Home Assistant (ac, ctrl) ─────────────────────────────────────────────
   HA_URL: url().default("http://homeassistant.local:8123"),
-  HA_TOKEN: secret()
-    .required()
-    .forRuntime("api", "worker")
-    .forFeatures("ac", "ctrl", "dogcam", "tesla", "tv"),
+  HA_TOKEN: secret().required().forRuntime("api", "worker").forFeatures("ac", "ctrl"),
   CLIMATE_ENTITY_ID: str().default("climate.home").forRuntime("api").forFeatures("ac"),
-
-  // ── UniFi / Wi-Fi (network, guest-wifi) ───────────────────────────────────
-  UNIFI_API_KEY: secret().required().forRuntime("api").forFeatures("network"),
-  UNIFI_CONTROLLER_URL: url()
-    .default("https://192.168.0.1")
-    .forRuntime("api")
-    .forFeatures("network"),
-  UNIFI_SITE_ID: str().default("default").forRuntime("api").forFeatures("network"),
-  WIFI_SSID: secret().required().forRuntime("api").forFeatures("network"),
-  WIFI_PASSWORD: secret().required().forRuntime("api").forFeatures("network"),
-  WIFI_GUEST_SSID: secret().required().forRuntime("api").forFeatures("network"),
 
   // ── Home location (weather) ───────────────────────────────────────────────
   HOME_LAT: num().required().devDefault(34.0537).forRuntime("api", "worker").forFeatures("weather"),
@@ -64,58 +50,7 @@ export const ENV = defineEnv({
     .devDefault(-118.2428)
     .forRuntime("api", "worker")
     .forFeatures("weather"),
-  HOME_PLACE_NAME: str().default("Home").forFeatures("weather"),
-
-  // ── GitHub webhooks (hooks) ───────────────────────────────────────────────
-  // The shared secret GitHub signs every delivery with. hooks. is a PUBLIC host
-  // with no Cloudflare Access in front, so this HMAC is the auth boundary: the
-  // webhook relay verifies it first at the public edge, and the api verifies it
-  // again in-cluster as defence in depth. Required for both — booting the api
-  // without it would open a write endpoint.
-  GITHUB_BOT_WEBHOOK_SECRET: secret().required().forRuntime("api").forFeatures("hooks"),
 
   // ── Media storage (booth, wakes) ──────────────────────────────────────────
   MEDIA_STORAGE_DIR: str().default("/mnt/media").forRuntime("api").forFeatures("booth", "wakes"),
-
-  // ── Spotify (sound) ───────────────────────────────────────────────────────
-  SPOTIFY_CLIENT_ID: secret().optionalSecret().forRuntime("api").forFeatures("sound"),
-  SPOTIFY_CLIENT_SECRET: secret().optionalSecret().forRuntime("api").forFeatures("sound"),
-  SPOTIFY_REFRESH_TOKEN: secret().optionalSecret().forRuntime("api").forFeatures("sound"),
-
-  // ── Withings direct-poll ingest (weight) ──────────────────────────────────
-  // No WITHINGS_REFRESH_TOKEN/ACCESS_TOKEN here: Withings rotates the refresh
-  // token on every use, so the live pair lives in Postgres (withings_oauth_token),
-  // not env/vault. Only the static app credentials live here.
-  WITHINGS_CLIENT_ID: secret().optionalSecret().forRuntime("worker").forFeatures("weight"),
-  WITHINGS_CLIENT_SECRET: secret().optionalSecret().forRuntime("worker").forFeatures("weight"),
-
-  // ── App Store Connect poll (worker) ───────────────────────────────────────
-  ASC_KEY_ID: secret().optionalSecret().forRuntime("worker").forFeatures("panel-update"),
-  ASC_ISSUER_ID: secret().optionalSecret().forRuntime("worker").forFeatures("panel-update"),
-  ASC_KEY_CONTENT: secret().optionalSecret().forRuntime("worker").forFeatures("panel-update"),
-  ASC_APP_ID: str().default("6762095888").forRuntime("worker").forFeatures("panel-update"),
-
-  // ── Deploys (deploys) ─────────────────────────────────────────────────────
-  GITHUB_ACTIONS_TOKEN: secret().optionalSecret().forRuntime("worker").forFeatures("deploys"),
-  GITHUB_REPO: str()
-    .default("0x63616c/world-wide-webb")
-    .forRuntime("worker")
-    .forFeatures("deploys"),
-
-  // ── APNs push (notif) ─────────────────────────────────────────────────────
-  APNS_KEY_ID: secret().optionalSecret().forRuntime("worker").forFeatures("notif"),
-  APNS_TEAM_ID: secret().optionalSecret().forRuntime("worker").forFeatures("notif"),
-  APNS_KEY_CONTENT: secret().optionalSecret().forRuntime("worker").forFeatures("notif"),
-  APNS_BUNDLE_ID: str()
-    .default("co.worldwidewebb.theworkflowengine")
-    .forRuntime("worker")
-    .forFeatures("notif"),
-  APNS_HOST: url().default("https://api.push.apple.com").forRuntime("worker").forFeatures("notif"),
-  PUSH_TOKEN_KEYRING: secret().optionalSecret().forRuntime("api"),
-
-  // ── Guest listener (api/guest-server, ADR-0006) ───────────────────────────
-  GUEST_PORT: int().optional().forRuntime("api"),
-  GUEST_TLS_DIR: str().optional().forRuntime("api"),
-  GUEST_STATIC_DIR: str().optional().forRuntime("api"),
-  GUEST_HTTP_PORT: int().optional().forRuntime("api"),
 });

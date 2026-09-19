@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { captivePortalWeb, homelabTarget, internalService, privateWeb } from "../src/index.ts";
+import { homelabTarget, internalService, privateWeb } from "../src/index.ts";
 
 describe("exposure intent primitives", () => {
   test("declares private web hostnames as a single label under the zone", () => {
@@ -40,16 +40,6 @@ describe("exposure intent primitives", () => {
       kind: "private-web",
       hostname: "app.worldwidewebb.co",
       policy: "private",
-    });
-  });
-
-  test("keeps captive portal as a special LAN/captive exposure", () => {
-    const exposure = captivePortalWeb(homelabTarget, { host: "app" });
-
-    expect(exposure).toMatchObject({
-      kind: "captive-portal-web",
-      hostname: "app.worldwidewebb.co",
-      policy: "captive",
     });
   });
 

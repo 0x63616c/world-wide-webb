@@ -19,7 +19,6 @@ import {
   sonosSetVolume,
   sonosTransport,
 } from "./sonos-write-service";
-import { spotifyBrowse } from "./spotify-service";
 
 const SoundSystemRoomSchema = z.object({
   name: z.string(),
@@ -47,36 +46,6 @@ const SoundSystemSchema = z.object({
     queriedAt: z.string(),
     message: z.string(),
   }),
-});
-
-// Spotify browse schemas (A16).
-const SpotifyRecentTrackSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  artist: z.string(),
-  albumArtUrl: z.string().nullable(),
-  uri: z.string(),
-});
-
-const SpotifyPlaylistItemSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  description: z.string().nullable(),
-  imageUrl: z.string().nullable(),
-  uri: z.string(),
-});
-
-const SpotifyBrowseResultSchema = z.object({
-  recentlyPlayed: z.array(SpotifyRecentTrackSchema),
-  playlists: z.array(SpotifyPlaylistItemSchema),
-});
-
-// Spotify is used only to browse a user's library. Playback is sent to HA.
-const spotifyRouter = router({
-  browse: publicProcedure
-    .input(z.object({}).optional())
-    .output(SpotifyBrowseResultSchema)
-    .query(() => spotifyBrowse()),
 });
 
 export const soundRouter = router({
@@ -134,8 +103,6 @@ export const soundRouter = router({
   playMedia: publicProcedure
     .input(z.object({ entityId: z.string().startsWith("media_player."), uri: z.string().min(1) }))
     .mutation(({ input }) => playMediaOnRoom(input)),
-
-  spotify: spotifyRouter,
 });
 
 /**

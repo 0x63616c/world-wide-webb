@@ -1,33 +1,20 @@
 import { defineApp } from "@app-kit";
-import { ClockTile, ClockTileView, EventsTile, EventsTileView } from "./web";
+import { ClockTile, ClockTileView } from "./web";
 
 /**
- * The events app manifest (Track C fold). Second multi-tile fold — one
- * `defineApp` holds both the Upcoming (events) tile and the Clock tile,
- * mirroring the weather fold's `tiles: TileSpec[]` shape. Board placement
- * (both tiles) copied verbatim from the pre-fold tile-registry entries.
+ * The events app manifest (Track C fold). One tile: the Clock. The Upcoming
+ * (`tile_event`) tile and the whole `events` table went with The Simplification
+ * §5, so this app is the clock face and nothing else.
  *
- * First fold to relocate the board HOME tile: `tile_clock` carries
- * `home: true`, the sole global home across all apps
- * (see scripts/apps-gen/validate.ts's single-home invariant). Neither tile
- * is guest-exposed.
+ * `home: true` moved off `tile_clock` to `tile_ctrl` at the same time — the
+ * Clock no longer has a detail view to land on.
  *
- * App id `tile_events` is distinct from both tile ids (`tile_event`,
- * `tile_clock`), matching the `events` router-key.
+ * App id `tile_events` is deliberately distinct from the tile id `tile_clock`,
+ * matching the `events` router-key that used to exist.
  */
 export default defineApp({
   id: "tile_events",
   tiles: [
-    {
-      id: "tile_event",
-      label: "Upcoming",
-      component: EventsTile,
-      viewComponent: EventsTileView,
-      worldCol: 30,
-      worldRow: 30,
-      cols: 4,
-      rows: 2,
-    },
     {
       id: "tile_clock",
       label: "Clock",
@@ -37,7 +24,6 @@ export default defineApp({
       worldRow: 27,
       cols: 5,
       rows: 3,
-      home: true,
     },
   ],
 });

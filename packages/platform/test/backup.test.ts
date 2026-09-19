@@ -35,16 +35,6 @@ describe("platform backup primitive", () => {
     });
   });
 
-  test("derives future platform NAS path from product identity", () => {
-    const database = defineProductDatabase(defineProduct("captive-portal"), homelabTarget, {
-      size: "5Gi",
-    });
-
-    expect(defineDatabaseBackup(database, homelabTarget).nasSubPath).toBe(
-      "backups/world-wide-webb/captive-portal/postgres",
-    );
-  });
-
   test("preserves the pg_dump backup filename date format", () => {
     const database = defineProductDatabase(defineProduct("control-center"), homelabTarget, {
       authSecretName: "cc-postgres-auth",
