@@ -1,66 +1,59 @@
 /**
- * Registry-shape tests for the Task-11 entries (Activity, DogCam,
- * Frontend Logs). The behavior these assert used to live in hand-wired tile
- * plumbing (WakesTile's own PinGateModal, FrontendLogsTile's own tap handler);
- * now it is declarative registry data, so the tests pin the declarations:
- * Activity stays PIN-gated (sensitive), and the Frontend Logs action deep-links
- * the Settings Logs page through settings-overlay-store.
+ * Registry-shape tests for the Tile View facets. The behavior these assert used
+ * to live in hand-wired tile plumbing (WakesTile's own PinGateModal); it is
+ * declarative registry data now, so the tests pin the declarations.
+ *
+ * A Tile has ZERO OR ONE Tile Views since The Simplification: the four
+ * face-only tiles (Clock, Weather Now, Next 12 Hours, Climate · A/C) resolve to
+ * none, and tapping one recenters the board and stops.
  */
 
 import { accessFor, getTileDetailEntry, TILE_REGISTRY } from "@features/_generated/web.gen";
-import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { closeSettings, useSettingsOverlay } from "../../../../lib/settings-overlay-store";
 
-describe("tile detail registry , Task 11 entries", () => {
+const FACE_ONLY = ["tile_clock", "tile_weath", "tile_hourly", "tile_ac"] as const;
+const WITH_DETAIL = ["tile_ctrl", "tile_booth", "tile_wakes", "tile_sound"] as const;
+
+describe("tile detail registry", () => {
   it("Activity is a PIN-gated (sensitive) page titled 'Activity'", () => {
     const entry = getTileDetailEntry("tile_wakes");
     expect(entry?.kind).toBe("page");
-    if (entry?.kind !== "page") throw new Error("expected a page entry");
+    if (!entry) throw new Error("expected a page entry");
     expect(entry.title).toBe("Activity");
     expect(accessFor("tile_wakes").requiresSessionUnlock).toBe(true);
     expect(entry.defaultSlug).toBe("activity");
   });
 
-  it("DogCam is a single-variant page", () => {
-    for (const [tileId, title] of [["tile_dogcam", "Living Room Cam"]] as const) {
-      const entry = getTileDetailEntry(tileId);
-      expect(entry?.kind).toBe("page");
-      if (entry?.kind !== "page") throw new Error("expected a page entry");
-      expect(entry.title).toBe(title);
-      expect(accessFor(tileId)).toEqual({
-        requiresSessionUnlock: false,
-        requiresFreshUnlock: false,
-      });
-    }
+  it("Photo Booth requires a fresh PIN on every opening (private)", () => {
+    expect(accessFor("tile_booth")).toEqual({
+      requiresSessionUnlock: false,
+      requiresFreshUnlock: true,
+    });
   });
 
-  it("Scenes opens without a PIN unlock", () => {
-    expect(accessFor("tile_scenes")).toEqual({
+  it("Controls opens without a PIN unlock", () => {
+    expect(accessFor("tile_ctrl")).toEqual({
       requiresSessionUnlock: false,
       requiresFreshUnlock: false,
     });
   });
 
-  it("Frontend Logs is an action that deep-links Settings → Logs", () => {
-    const entry = getTileDetailEntry("tile_felogs");
-    expect(entry?.kind).toBe("action");
-    if (entry?.kind !== "action") throw new Error("expected an action entry");
-    closeSettings(); // start from a closed overlay so the assertion is about THIS run
-    entry.run();
-    // The action opens the Settings overlay landed on the Logs page.
-    const { result } = renderHook(() => useSettingsOverlay());
-    expect(result.current.open).toBe(true);
-    expect(result.current.page).toBe("logs");
-    closeSettings();
+  it("face-only tiles resolve to no Tile View", () => {
+    for (const tileId of FACE_ONLY) {
+      expect(getTileDetailEntry(tileId), `${tileId} must be face-only`).toBeUndefined();
+      // Access is still answerable for every tile , it comes from the App
+      // manifest, not the (absent) detail facet.
+      expect(accessFor(tileId)).toBeDefined();
+    }
   });
 
-  it("EVERY board tile resolves to a detail entry (completeness guard)", () => {
-    // The board's tap/keyboard path resolves ONLY through this registry now
-    // (the modal fallback is gone), so a tile without an entry would silently
-    // no-op on tap. Fail CI instead.
-    for (const tile of TILE_REGISTRY) {
-      expect(getTileDetailEntry(tile.id), `no detail entry for ${tile.id}`).toBeDefined();
+  it("every other board tile resolves to exactly one Tile View", () => {
+    for (const tileId of WITH_DETAIL) {
+      expect(getTileDetailEntry(tileId), `no detail entry for ${tileId}`).toBeDefined();
     }
+  });
+
+  it("covers every registered tile between the two lists", () => {
+    expect(TILE_REGISTRY.map((t) => t.id).sort()).toEqual([...FACE_ONLY, ...WITH_DETAIL].sort());
   });
 });

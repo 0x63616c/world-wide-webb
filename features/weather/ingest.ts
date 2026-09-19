@@ -1,7 +1,6 @@
 /**
  * Weather ingest (Track C, Wave 7 fold — was apps/api's weather-ingest-service.ts).
- * Registered as a 5-minute App-owned interval through worker.ts. It is not a
- * durable queue job or a Temporal Schedule.
+ * Registered as a 5-minute App-owned interval through worker.ts.
  */
 import { createPgIntegrationSyncStore, heartbeat, runCycle } from "@www/core";
 import { getLogger } from "@www/logger";

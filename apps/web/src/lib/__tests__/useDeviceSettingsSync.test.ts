@@ -32,7 +32,7 @@ function installMemoryLocalStorage(): void {
 
 const mutate = vi.fn();
 const invalidate = vi.fn();
-let queryData: { volume: number; name: string } | undefined;
+let queryData: { name: string } | undefined;
 
 vi.mock("../trpc", () => ({
   trpc: {
@@ -63,7 +63,7 @@ afterEach(() => {
 describe("useDeviceSettingsSync , name migration", () => {
   it("pushes a pre-existing local name when the server has none yet, without clearing it locally", () => {
     setDeviceName("Calum's iPad");
-    queryData = { volume: 0.5, name: "" };
+    queryData = { name: "" };
 
     renderHook(() => useDeviceSettingsSync());
 
@@ -79,7 +79,7 @@ describe("useDeviceSettingsSync , name migration", () => {
 
   it("marks migration resolved once the mutation settles, so a reload does not retry it", () => {
     setDeviceName("Calum's iPad");
-    queryData = { volume: 0.5, name: "" };
+    queryData = { name: "" };
 
     renderHook(() => useDeviceSettingsSync());
     expect(mutate).toHaveBeenCalledTimes(1);
@@ -95,7 +95,7 @@ describe("useDeviceSettingsSync , name migration", () => {
 
   it("does not migrate when the server already has a name", () => {
     setDeviceName("Old Local Name");
-    queryData = { volume: 0.5, name: "Server Name" };
+    queryData = { name: "Server Name" };
 
     renderHook(() => useDeviceSettingsSync());
 
@@ -103,7 +103,7 @@ describe("useDeviceSettingsSync , name migration", () => {
   });
 
   it("does not migrate when no local name was ever set", () => {
-    queryData = { volume: 0.5, name: "" };
+    queryData = { name: "" };
 
     renderHook(() => useDeviceSettingsSync());
 

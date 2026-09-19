@@ -1,5 +1,5 @@
 // Single source of truth for the board grid.
-// Imported by Board, tile-registry, the Minimap, and Storybook.
+// Imported by the Board and the tile registry.
 //
 // The board is a SQUARE-cell grid: GRID_COLS columns × GRID_ROWS rows. A
 // non-square grid in the 1366×1000 viewport made cells taller than wide,
@@ -10,7 +10,7 @@
 // cells).
 // The wall-panel TARGET dimensions (the physical iPad Pro panel). Two real uses:
 // (1) CELL below is sized to fill BOARD_W, so this sets the absolute tile pixel
-// size; (2) Storybook frames stories at this size. The LIVE board does NOT crop
+// size; (2) it's the fixed size used for board screenshots/smoke tests. The LIVE board does NOT crop
 // to this , its stage is position:fixed/inset:0 (full window), so on a larger
 // screen you simply see more of the world. Not a viewport clip. See Board.tsx.
 export const BOARD_W = 1366;

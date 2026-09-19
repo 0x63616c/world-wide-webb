@@ -9,34 +9,31 @@
  *
  * The grid is the shared PhotoGrid (see components/gallery/PhotoGrid) , the same
  * component the booth gallery renders, so both galleries stay identical by
- * construction. Tapping a photo opens the session it belongs to rather than a
- * lightbox: the interesting thing about a wake photo is what the person then
- * did, which is the transcript. Frames with no session (backfilled history)
- * render dimmed and inert.
+ * construction. Its cells are display-only: the session transcript a photo used
+ * to open died with the frontend log pipeline, so there is nothing behind a
+ * frame to open and the grid does not pretend otherwise.
  *
  * The root is a flex column whose single scroll region (`flex:1; minHeight:0;
  * overflow-y:auto`) holds every mode body , the header and mode switch pin above
  * it, and no mode carries a nested scroller.
  *
- * Presentational: data arrives via props so Storybook exercises every state.
+ * Presentational: data arrives via props so a component harness exercises every state.
  */
 
 import { useMemo, useState } from "react";
 import { groupByDay } from "@/components/gallery/group-by-day";
 import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { PageHeader, Segmented, type SegmentedOption } from "@/components/ui";
-import { type SessionDetail, SessionDetailView } from "./SessionDetailView";
 import { SessionListView, type SessionSummary } from "./SessionListView";
-import { WakeCaptureDiagnostic } from "./WakeCaptureDiagnostic";
 
-export interface WakePhoto {
+interface WakePhoto {
   path: string;
   capturedAt: number;
   /** The visit this frame belongs to; null for backfilled history. */
   interactionSessionId: string | null;
 }
 
-export interface WakePhotoDay {
+interface WakePhotoDay {
   /** YYYY-MM-DD (UTC buckets, straight from wakePhotos.list). */
   day: string;
   photos: WakePhoto[];
@@ -48,12 +45,8 @@ export interface ActivityPageProps {
   totalBytes: number;
   /** Maps a listing path to a fetchable URL (the /media/wake-photos/ route). */
   photoUrl: (path: string) => string;
-  /** Visits derived from the interaction log, newest first. */
+  /** Visits derived from the wake bursts, newest first. */
   sessions: SessionSummary[];
-  /** The expanded session, when one is selected in the Sessions mode. */
-  selectedSession: SessionDetail | null;
-  /** Select a session (id) or return to the list (null). */
-  onSelectSession: (id: string | null) => void;
   /** Close the page (back to the board). */
   onBack: () => void;
 }
@@ -81,8 +74,6 @@ export function ActivityPage({
   totalBytes,
   photoUrl,
   sessions,
-  selectedSession,
-  onSelectSession,
   onBack,
 }: ActivityPageProps) {
   const [mode, setMode] = useState<ViewerMode>("grid");
@@ -101,14 +92,6 @@ export function ActivityPage({
       ).map((d) => ({ key: d.key, label: d.label, count: d.items.length, items: d.items })),
     [days],
   );
-
-  // Opening a photo jumps to its session's transcript , the same detail view the
-  // Sessions list opens, so there is one session surface, not two.
-  function openSession(photo: WakePhoto) {
-    if (photo.interactionSessionId === null) return;
-    onSelectSession(photo.interactionSessionId);
-    setMode("sessions");
-  }
 
   return (
     <div
@@ -155,29 +138,15 @@ export function ActivityPage({
       >
         {mode === "sessions" ? (
           // Sessions render even with zero photos on disk , a browser session
-          // with dimming off is still a visit worth reading back.
+          // with dimming off is still a visit worth listing.
           <div style={{ padding: "0 24px" }}>
-            {selectedSession ? (
-              <SessionDetailView
-                session={selectedSession}
-                photoUrl={photoUrl}
-                onBack={() => onSelectSession(null)}
-              />
-            ) : (
-              <SessionListView sessions={sessions} photoUrl={photoUrl} onSelect={onSelectSession} />
-            )}
+            <SessionListView sessions={sessions} photoUrl={photoUrl} />
           </div>
         ) : (
           <PhotoGrid
             days={gridDays}
             itemKey={(p) => p.path}
-            cellLabel={(p) =>
-              p.interactionSessionId === null
-                ? `Wake at ${formatTime(p.capturedAt)}`
-                : `Open session from ${formatTime(p.capturedAt)}`
-            }
-            isDisabled={(p) => p.interactionSessionId === null}
-            onSelect={openSession}
+            cellLabel={(p) => `Wake at ${formatTime(p.capturedAt)}`}
             renderCell={(p) => (
               <img
                 src={photoUrl(p.path)}
@@ -213,9 +182,6 @@ export function ActivityPage({
                 }}
               >
                 No activity photos yet , they appear after the panel is next woken.
-                {/* If the panel HAS tried to capture, say why it came up empty
-                    (camera denied, zero frames uploaded, …) from the wake log. */}
-                <WakeCaptureDiagnostic />
               </div>
             }
           />

@@ -1,11 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { log } from "./log/logger";
-import { failingQueryKeys } from "./log/query-log";
 
 const ERROR_THRESHOLD_MS = 8_000;
-
-const connLog = log.child("conn");
 
 export interface ConnectionStatus {
   isLost: boolean;
@@ -22,7 +18,7 @@ export interface ConnectionStatus {
  * dashboard where one integration is down must not spam outage notifications
  * while every other tile is happily refetching.
  */
-export function isConnectivityError(error: unknown): boolean {
+function isConnectivityError(error: unknown): boolean {
   const httpStatus = (error as { data?: { httpStatus?: number } } | null)?.data?.httpStatus;
   return typeof httpStatus !== "number";
 }
@@ -37,10 +33,6 @@ export function useConnectionStatus(): ConnectionStatus {
   const queryClient = useQueryClient();
   const errorSinceRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Mirrors `status.isLost` outside React state so the transition can be logged
-  // from the effect (a side effect in a setState updater would run twice under
-  // StrictMode and double-log).
-  const lostRef = useRef(false);
   const [status, setStatus] = useState<ConnectionStatus>({ isLost: false, since: null });
 
   useEffect(() => {
@@ -56,14 +48,6 @@ export function useConnectionStatus(): ConnectionStatus {
         }
         if (timerRef.current === null) {
           timerRef.current = setTimeout(() => {
-            // The banner says "unable to connect" and nothing more. This is the
-            // line that says WHICH queries are down, so the log can be read back
-            // later and explain a banner nobody was standing there to see.
-            lostRef.current = true;
-            connLog.error("connection lost", {
-              failing: failingQueryKeys(queryClient),
-              erroringForMs: errorSinceRef.current ? Date.now() - errorSinceRef.current : 0,
-            });
             setStatus({ isLost: true, since: errorSinceRef.current });
           }, ERROR_THRESHOLD_MS);
         }
@@ -72,10 +56,6 @@ export function useConnectionStatus(): ConnectionStatus {
         if (timerRef.current !== null) {
           clearTimeout(timerRef.current);
           timerRef.current = null;
-        }
-        if (lostRef.current) {
-          lostRef.current = false;
-          connLog.info("connection restored");
         }
         setStatus({ isLost: false, since: null });
       }

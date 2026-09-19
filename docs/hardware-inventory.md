@@ -54,7 +54,7 @@ interior and the PSU label.
 
 | Component | Value | Notes |
 | --- | --- | --- |
-| Router / gateway | UniFi Cloud Gateway Fiber | Runs the UniFi network the `guest-wifi` and device-state features talk to |
+| Router / gateway | UniFi Cloud Gateway Fiber | The home's LAN gateway; not managed from this repo |
 | WAN | AT&T Fiber, 5 Gbps | Fastest tier AT&T sells at this address |
 
 The onboard NIC on `home-server` is 2.5GbE (see above), so a single host cannot
@@ -64,16 +64,16 @@ saturate the 5 Gbps WAN on its own.
 
 | Component | Value | Notes |
 | --- | --- | --- |
-| Enclosure | Synology DiskStation DS420+, 4-bay (B&H `SYDS420P`) | `192.168.0.218` — never `.219`; see `AGENTS.md` |
+| Enclosure | Synology DiskStation DS420+, 4-bay (B&H `SYDS420P`) | `192.168.0.218` — never `.219` |
 | Drives | 4× WD Red 4TB `WD40EFAX` — 5400 RPM, SATA 6 Gb/s, 256 MB cache, 3.5" | **SMR**, not CMR |
 
 `WD40EFAX` is the SMR revision of WD Red. SMR rewrites whole shingled zones, so
 sustained random writes and RAID rebuilds are markedly slower than the CMR
 `WD40EFRX`. Assume slow resilver on any drive replacement, and don't put
-write-heavy workloads (databases, Temporal state) on the NAS — those belong on
-the node's NVMe via `local-lvm`.
+write-heavy workloads (databases) on the NAS — those belong on the node's
+NVMe via `local-lvm`.
 
-Bulk media storage lives here. Backups and map-extract crons write here too
+Bulk media storage lives here. The `pg-backup` cron writes here too
 (`infra/src/crons.ts`).
 
 ## Desk

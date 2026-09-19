@@ -149,7 +149,7 @@ describe("ExpandedControlsView , saved colors", () => {
   it("applies a saved color from its large circle", () => {
     const onColor = vi.fn();
     render(<ExpandedControlsView {...baseProps({ onColor })} />);
-    fireEvent.click(screen.getByRole("button", { name: "Use Red" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use Custom 1" }));
     expect(onColor).toHaveBeenCalledWith("red");
   });
 
@@ -157,8 +157,8 @@ describe("ExpandedControlsView , saved colors", () => {
     const onSaveColor = vi.fn();
     render(<ExpandedControlsView {...baseProps({ onSaveColor })} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit Blue" }));
-    expect(screen.getByRole("dialog", { name: "Edit Blue color" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Custom 2" }));
+    expect(screen.getByRole("dialog", { name: "Edit Custom 2 color" })).toBeInTheDocument();
     const input = screen.getByRole("textbox", { name: "Hex color" });
     fireEvent.change(input, { target: { value: "#00ff00" } });
     fireEvent.click(screen.getByRole("button", { name: "Save & use" }));

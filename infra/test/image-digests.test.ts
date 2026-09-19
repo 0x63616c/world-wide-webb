@@ -34,10 +34,6 @@ const ALL_IMAGE_DIGESTS = {
   "control-center-worker": VALID,
   "control-center-web": VALID,
   "control-center-manage": VALID,
-  "control-center-map-provision": VALID,
-  // Deployed by temporal.ts, not deployServices, but it pins through the same
-  // required-digest map — so prod still refuses to render on a missing pin.
-  "control-center-temporal-worker": VALID,
 } satisfies ImageDigests;
 
 describe("serviceSpecs image digest pinning", () => {
@@ -98,9 +94,8 @@ describe("serviceSpecs image digest pinning", () => {
 
   test("does not demand another product's pins", () => {
     // serviceSpecs renders control-center's workloads and nothing else.
-    // Requiring software-factory's pins here would let a broken sandbox build
+    // Requiring another product's pins here would let a broken build
     // block the house's own deploy — two products coupled by nothing but a
-    // shared registry. software-factory.ts asserts its own.
     expect(() =>
       serviceSpecs({
         cloudflaredReplicas: 2,

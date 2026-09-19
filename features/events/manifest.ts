@@ -1,33 +1,19 @@
 import { defineApp } from "@app-kit";
-import { ClockTile, ClockTileView, EventsTile, EventsTileView } from "./web";
+import { ClockTile, ClockTileView } from "./web";
 
 /**
- * The events app manifest (Track C fold). Second multi-tile fold — one
- * `defineApp` holds both the Upcoming (events) tile and the Clock tile,
- * mirroring the weather fold's `tiles: TileSpec[]` shape. Board placement
- * (both tiles) copied verbatim from the pre-fold tile-registry entries.
+ * The events app manifest. One tile: the Clock face (greeting + seconds ring).
  *
- * First fold to relocate the board HOME tile: `tile_clock` carries
- * `home: true`, the sole global home across all apps
- * (see scripts/apps-gen/validate.ts's single-home invariant). Neither tile
- * is guest-exposed.
+ * FACE-ONLY , the Clock declares no Tile View. The timer, stopwatch, alarm,
+ * world clocks and countdown horizon it used to open are gone, and with them
+ * the whole time suite. Tapping the Clock recenters the board and nothing more.
  *
- * App id `tile_events` is distinct from both tile ids (`tile_event`,
- * `tile_clock`), matching the `events` router-key.
+ * It is therefore no longer the board's home tile either: glide-home has to
+ * land somewhere actionable, so `home: true` moved to `tile_ctrl` (Controls).
  */
 export default defineApp({
   id: "tile_events",
   tiles: [
-    {
-      id: "tile_event",
-      label: "Upcoming",
-      component: EventsTile,
-      viewComponent: EventsTileView,
-      worldCol: 30,
-      worldRow: 30,
-      cols: 4,
-      rows: 2,
-    },
     {
       id: "tile_clock",
       label: "Clock",
@@ -37,7 +23,6 @@ export default defineApp({
       worldRow: 27,
       cols: 5,
       rows: 3,
-      home: true,
     },
   ],
 });

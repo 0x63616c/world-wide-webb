@@ -20,7 +20,7 @@ pre='(^|[;&|`(]|&&|\|\|)[[:space:]]*'
 
 if printf '%s' "$norm" | grep -Eq "${pre}bun[[:space:]]+test([[:space:]]|$)"; then
   cat <<'JSON'
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Blocked: bare `bun test` uses Bun's native runner, which is incompatible with vi.mock and reports false failures. Use `bun run test` (vitest) instead, or `bun run test:unit` / `bun run test:storybook` for a single suite."}}
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Blocked: bare `bun test` uses Bun's native runner, which is incompatible with vi.mock and reports false failures. Use `bun run test` (vitest) instead, or `bun run test:unit` for a single suite."}}
 JSON
   exit 0
 fi

@@ -21,8 +21,7 @@
  * inert: a keypad and a *Cancel* under the words "PIN changed" read as a screen
  * still waiting for something. What is left is the sentence and nothing else.
  *
- * The machine itself is unchanged from the Security page version: each stage is
- * its own PIN entry, so each gets its own pad layout (`shuffleKey={stage}`); a
+ * The machine itself is unchanged from the Security page version: a
  * mismatched confirm restarts the new/confirm PAIR rather than the whole flow
  * (re-verifying the current PIN you just proved is busywork); and `setPinCode`
  * fires only on a confirm that matches.
@@ -64,7 +63,7 @@ export function PinChangeModal({
    *  caller dismisses us and shows the confirmation on the row. */
   onChanged: () => void;
 }) {
-  const { pinCode, pinPadLayout } = useSettings();
+  const { pinCode } = useSettings();
   const [stage, setStage] = useState<ChangeStage>("current");
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
@@ -129,7 +128,6 @@ export function PinChangeModal({
   return (
     <PinModalShell
       open={open}
-      logTitle="Change PIN"
       label="Change PIN"
       backdropTestId="pin-change-backdrop"
       onClose={onClose}
@@ -154,9 +152,6 @@ export function PinChangeModal({
           <PinPadView
             entered={pin.length}
             error={error}
-            layout={pinPadLayout}
-            // Each stage is its own PIN entry, so each gets its own layout.
-            shuffleKey={stage}
             onDigit={digit}
             onBackspace={() => {
               setError(false);

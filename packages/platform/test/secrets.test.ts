@@ -17,24 +17,6 @@ describe("secret catalog and service usage", () => {
     });
   });
 
-  test("catalogues separate factory API credentials for write workers and read-only sandboxes", () => {
-    expect(secretCatalog.softwareFactory.workerBearerToken.vaultKey).toBe(
-      "SOFTWARE_FACTORY_API__WORKER_BEARER_TOKEN",
-    );
-    expect(secretCatalog.softwareFactory.sandboxBearerToken.vaultKey).toBe(
-      "SOFTWARE_FACTORY_API__SANDBOX_BEARER_TOKEN",
-    );
-  });
-
-  test("records the factory caller's Cloudflare service-token credentials", () => {
-    expect(secretCatalog.softwareFactory.cloudflareAccessServiceTokenClientID.vaultKey).toBe(
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_ID",
-    );
-    expect(secretCatalog.softwareFactory.cloudflareAccessServiceTokenClientSecret.vaultKey).toBe(
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_SECRET",
-    );
-  });
-
   test("derives service scoped secret mount metadata from product context", () => {
     const usage = defineServiceSecretUsage(defineProduct("control-center"), "api", {
       HA_TOKEN: secretCatalog.homeAssistant.token,
@@ -74,31 +56,11 @@ describe("secret catalog and service usage", () => {
 
   test("api and worker declare the exact same secret set (base+delta merge target, ADR-0006)", () => {
     const usages = controlCenterServiceSecretUsages();
-    const expectedKeys = [
-      "APNS_KEY_CONTENT",
-      "APNS_KEY_ID",
-      "APNS_TEAM_ID",
-      "ASC_ISSUER_ID",
-      "ASC_KEY_CONTENT",
-      "GITHUB_BOT_WEBHOOK_SECRET",
-      "ASC_KEY_ID",
-      "GITHUB_ACTIONS_TOKEN",
-      "HA_TOKEN",
-      "HOME_LAT",
-      "HOME_LON",
-      "HOME_PLACE_NAME",
-      "HOME_RADIUS_MILES",
-      "POSTGRES_PASSWORD",
-      "SPOTIFY_CLIENT_ID",
-      "SPOTIFY_CLIENT_SECRET",
-      "SPOTIFY_REFRESH_TOKEN",
-      "UNIFI_API_KEY",
-      "WIFI_GUEST_SSID",
-      "WIFI_PASSWORD",
-      "WIFI_SSID",
-      "WITHINGS_CLIENT_ID",
-      "WITHINGS_CLIENT_SECRET",
-    ].sort();
+    // Shrunk hard by The Simplification (§8): APNs, App Store Connect (moved to
+    // CI-only), the GitHub bot, Spotify, UniFi, the WiFi SSIDs, Withings and the
+    // home place-name all went with their consumers. Deliberately updated, not
+    // deleted — this golden set is what proves nothing was dropped by accident.
+    const expectedKeys = ["HA_TOKEN", "HOME_LAT", "HOME_LON", "POSTGRES_PASSWORD"].sort();
 
     expect(Object.keys(usages.api.secrets).sort()).toEqual(expectedKeys);
     expect(Object.keys(usages.worker.secrets).sort()).toEqual(expectedKeys);

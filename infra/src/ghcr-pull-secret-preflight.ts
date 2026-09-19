@@ -102,7 +102,7 @@ export function verifyLiveGhcrPullSecrets(opts: GhcrPullSecretPreflightOptions =
       [
         "GHCR pull secret preflight failed:",
         ...failures.map((failure) => `- ${failure}`),
-        "Recovery: run a targeted Pulumi refresh/up for the missing Secret, then rerun deploy. See docs/deployment-design.md.",
+        "Recovery: run a targeted Pulumi refresh/up for the missing Secret, then rerun deploy. See CODEBASE_OVERVIEW.md's Deployment section.",
       ].join("\n"),
     );
   }

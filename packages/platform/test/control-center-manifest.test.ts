@@ -1,11 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { cronSpecs } from "../../../infra/src/crons.ts";
 import { SERVICE_SECRETS, type ServiceSecrets } from "../../../infra/src/secrets-map.ts";
-import {
-  controlCenterProductManifest,
-  serviceSecretMap,
-  softwareFactoryProductManifest,
-} from "../src/index.ts";
+import { controlCenterProductManifest, serviceSecretMap } from "../src/index.ts";
 
 describe("Control Center platform representation", () => {
   test("declares Control Center app identity and target app surface", () => {
@@ -13,8 +9,6 @@ describe("Control Center platform representation", () => {
 
     expect(manifest.product.slug).toBe("control-center");
     expect(manifest.app.exposure.hostname).toBe("app.worldwidewebb.co");
-    expect(manifest.factoryConsole.exposure.hostname).toBe("factory.worldwidewebb.co");
-    expect(manifest.codec.exposure.hostname).toBe("codec.worldwidewebb.co");
   });
 
   test("declares every Control Center service the manifest owns", () => {
@@ -23,15 +17,9 @@ describe("Control Center platform representation", () => {
       .map((service) => service.service)
       .sort();
 
-    expect(serviceNames).toEqual([
-      "api",
-      "captive-portal",
-      "cloudflared",
-      "manage",
-      "storybook",
-      "web",
-      "worker",
-    ]);
+    // `captive-portal` and `storybook` were deleted by The Simplification
+    // (§1 Storybook, §2 guest-wifi).
+    expect(serviceNames).toEqual(["api", "cloudflared", "manage", "web", "worker"]);
   });
 
   test("keeps current service secret usage exactly representable (CC-k8t7: env names only, values now vault keys)", () => {
@@ -64,24 +52,5 @@ describe("Control Center platform representation", () => {
       nasSubPath: "backups/postgres",
     });
     expect("console" in manifest).toBe(false);
-  });
-});
-
-describe("Software Factory platform representation", () => {
-  test("declares its empty database and nightly backup", () => {
-    const manifest = softwareFactoryProductManifest();
-
-    expect(manifest.database).toMatchObject({
-      clusterName: "software-factory-postgres",
-      authSecretName: "software-factory-postgres-auth",
-      databaseName: "software_factory",
-      rwServiceName: "software-factory-postgres-rw",
-      size: "1Gi",
-    });
-    expect(manifest.backup).toMatchObject({
-      name: "software-factory-pg-backup",
-      schedule: "0 1 * * *",
-      nasSubPath: "backups/world-wide-webb/software-factory/postgres",
-    });
   });
 });

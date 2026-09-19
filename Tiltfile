@@ -1,5 +1,4 @@
-# Mac Mini homelab is the dev+prod host; whitelist it so local_resource/local() run.
-allow_k8s_contexts('admin@homelab')
+# Dev stack only: docker-compose + local_resource, no Kubernetes objects.
 
 load('ext://uibutton', 'cmd_button', 'location')
 
@@ -32,7 +31,7 @@ for line in secrets_raw.strip().split("\n"):
 local_resource(
     "install",
     cmd="cd %s && bun install" % repo_root,
-    deps=[repo_root + "/package.json", repo_root + "/bun.lock", repo_root + "/apps/api/package.json", repo_root + "/apps/web/package.json", repo_root + "/packages/api/package.json"],
+    deps=[repo_root + "/package.json", repo_root + "/bun.lock", repo_root + "/apps/api/package.json", repo_root + "/apps/web/package.json"],
     allow_parallel=True,
     labels=["tooling", "shared"],
 )
@@ -51,24 +50,17 @@ local_resource(
 )
 
 # api: bun --watch owns the file watch. Tilt orchestrates startup, bun handles reloads.
-# Wrapped in the watchdog so a sustained-unhealthy /up (alive but not serving)
-# exits non-zero and Tilt restarts it , no manual UI click on the wall panel.
 local_resource(
     "api",
-    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/up 20 15 -- bun --watch apps/api/src/server.ts" % (repo_root, port_api),
+    serve_cmd="cd %s && bun --watch apps/api/src/server.ts" % repo_root,
     serve_env={
         "PORT": str(port_api),
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
-        "UNIFI_API_KEY": secrets["UNIFI_API_KEY"],
-        "WIFI_SSID": secrets["WIFI_SSID"],
-        "WIFI_PASSWORD": secrets["WIFI_PASSWORD"],
-        # Real home location from 1Password so local dev matches prod; env.ts
+        # Real home location from the vault so local dev matches prod; env.ts
         # falls back to the public LA placeholder if these are absent (www-mqp).
         "HOME_LAT": secrets["HOME_LAT"],
         "HOME_LON": secrets["HOME_LON"],
-        "HOME_PLACE_NAME": secrets["HOME_PLACE_NAME"],
-        "HOME_RADIUS_MILES": secrets["HOME_RADIUS_MILES"],
     },
     readiness_probe=probe(
         http_get=http_get_action(port=port_api, path="/up"),
@@ -93,24 +85,17 @@ local_resource(
     serve_env={
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
-        "UNIFI_API_KEY": secrets["UNIFI_API_KEY"],
-        "WIFI_SSID": secrets["WIFI_SSID"],
-        "WIFI_PASSWORD": secrets["WIFI_PASSWORD"],
         "HOME_LAT": secrets["HOME_LAT"],
         "HOME_LON": secrets["HOME_LON"],
-        "HOME_PLACE_NAME": secrets["HOME_PLACE_NAME"],
-        "HOME_RADIUS_MILES": secrets["HOME_RADIUS_MILES"],
     },
     resource_deps=["postgres", "install", "db-migrate"],
     labels=["backend", "control-center"],
 )
 
 # web: Vite owns HMR. No `deps=` , same reasoning as api.
-# Watchdog-wrapped for the same self-heal reason as api (this is the one that
-# usually fails to come up). Vite cold start is slower, so a longer grace.
 local_resource(
     "web",
-    serve_cmd="cd %s && scripts/serve-with-watchdog.sh http://localhost:%d/ 30 15 -- bun run --cwd apps/web dev --port %d" % (repo_root, port_web, port_web),
+    serve_cmd="cd %s && bun run --cwd apps/web dev --port %d" % (repo_root, port_web),
     serve_env={
         "API_PORT": str(port_api),
     },
@@ -122,17 +107,6 @@ local_resource(
     labels=["frontend", "control-center"],
     links=[
         link("http://localhost:%d" % port_web, "Web"),
-    ],
-)
-
-# Storybook , auto-started with the dev stack so it's always available for tile work.
-local_resource(
-    "storybook",
-    serve_cmd="cd %s && bun run --cwd apps/web storybook" % repo_root,
-    resource_deps=["install"],
-    labels=["frontend", "control-center"],
-    links=[
-        link("http://localhost:6006", "Storybook"),
     ],
 )
 

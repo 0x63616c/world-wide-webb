@@ -1,7 +1,17 @@
 # Runbook: local-lvm cutover (ADR-0009)
 
-> **EXECUTED 2026-07-27.** Kept for the record and for any future
-> re-provision. Reality diverged from the plan in ways now folded into the
+> **EXECUTED 2026-07-27, before The Simplification (`docs/adr/0013-*.md`).**
+> Kept for the record and as a starting point for any future re-provision,
+> but do not follow it literally: `scripts/storage-migration/*` (referenced
+> throughout) was deleted as a completed one-time tool, the `software_factory`
+> and `temporal`/`temporal_visibility` databases and the `temporal-worker`
+> workload no longer exist, and Plex is gone. A real future re-provision needs
+> this runbook's SHAPE (backup → wipe → rebuild → restore) rewritten against
+> today's two databases (`control_center`, `home_assistant`) and workloads
+> (`api`, `worker`, `web`, `manage`, `home-assistant`, the observability
+> stack), not its literal commands.
+>
+> Reality diverged from the plan in ways now folded into the
 > steps below, the scripts, and the code — the biggest: `talosctl reset
 > --system-labels-to-wipe EPHEMERAL` only REFORMATS the partition (Talos
 > adopts the existing 998GB partition; maxSize applies at provision only).

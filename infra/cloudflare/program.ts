@@ -30,7 +30,6 @@
 //   tunnelSecret                               the managed tunnel's password;
 //                          REPLACE-FORCING, so never rotate it in place
 //   allowedEmail                               the OTP allow email (PII; SECRET config)
-//   factoryServiceTokenId                      factory caller service-token ID (SECRET config)
 
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
@@ -85,13 +84,13 @@ const opts: pulumi.CustomResourceOptions = { provider, protect: true };
 const sub = (host: string) => host.replace(`.${zoneName}`, "");
 
 const accessName = (host: string) =>
-  host.replace(`.${zoneName}`, "").replace("*", "wildcard").replaceAll(".", "-");
+  host.replace(`.${zoneName}`, "").replaceAll("*", "wildcard").replaceAll(".", "-");
 
 // --- Access apps + policies ---
 // The provider derives selfHostedDomains from `name` for single-domain apps, so
-// declaring it there would show a spurious update. The Temporal UI/codec pair is
-// the deliberate exception: it needs one multi-domain app to share an Access
-// session. sessionDuration is another exception (www-178): we deliberately
+// declaring it there would show a spurious update. A multi-domain app that
+// needs to share one Access session is the deliberate exception.
+// sessionDuration is another exception (www-178): we deliberately
 // override CF's 24h default so a human login/OTP lasts 30 days.
 //
 // accessAppAuds (#593): each app's audience tag, keyed by domain, exported
@@ -104,10 +103,8 @@ const accessName = (host: string) =>
 // this project only runs after `deploy-home-server` succeeds (see the
 // deploy-cloudflare `needs` in ci.yml), so on pass one the consumer reads an
 // empty AUD, and only on the next run does it see the real one. That is safe
-// because the consumer fails closed — the factory API refuses to start on an
-// empty CLOUDFLARE_ACCESS_AUD rather than serving unauthenticated traffic, and
-// its Deployment carries `pulumi.com/skipAwait` so the resulting CrashLoopBackOff
-// does not fail everything else in the cluster's `pulumi up`.
+// because a consumer is expected to fail closed — refusing to start on an empty
+// CLOUDFLARE_ACCESS_AUD rather than serving unauthenticated traffic.
 //
 // The corollary is a gotcha worth knowing: a change that touches only the
 // consumer (or only the vault) does NOT re-run this project, because the
@@ -264,7 +261,7 @@ export const summary = {
 };
 
 // Consumed cross-project by infra/program.ts via `pulumi.StackReference`
-// (#593) — e.g. the software-factory API needs `factory.<zone>`'s AUD to
+// (#593) — e.g. a consumer needs its own hostname's AUD to
 // validate Access JWTs, and reading it here rather than a vault secret means
 // a recreated app (a destructive replace, since `tag` and `domain` are
 // immutable) can never leave a stale AUD silently accepted downstream.

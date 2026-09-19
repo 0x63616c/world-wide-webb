@@ -1,10 +1,9 @@
 # Control Center
 
 The domain of the wall-mounted home control panel: a fixed-size touch surface showing a
-world of tiles, backed by a tRPC API and interval/queue workers that reconcile the physical
-home. This glossary fixes the ubiquitous language. Terms marked _(target)_ name a concept the
-team intends to build; they do not exist in the code yet and are recorded here so design
-conversations stay precise.
+world of tiles, backed by a tRPC API and interval workers that reconcile the physical
+home. This glossary fixes the ubiquitous language. Terms marked _(partly built)_ name a concept
+still mid-migration; they are recorded here so design conversations stay precise.
 
 ## The device and its surface
 
@@ -32,11 +31,11 @@ prompts drawn directly on the Board rather than through a Tile.
 _Avoid_: HUD, shell, overlay (an Overlay is a different thing — see below).
 
 **Banner**:
-One piece of Chrome: a persistent notice strip on the Board (e.g. device-name, connection-lost,
-update-available, unplaced-tiles, not-charging). A Banner is not a Tile and has no detail view.
-Banners are Panel chrome: the device-name and not-charging Banners never appear in the Phone
-view (a phone runs on battery by design, and its auto-derived device name is already correct).
-_Avoid_: toast, alert, notification (a Notification is a queued user message — different).
+One piece of Chrome: a persistent notice strip on the Board (device-name, connection-lost,
+update-available-reload). A Banner is not a Tile and has no detail view. Banners are Panel
+chrome: the device-name Banner never appears in the Phone view (a phone's auto-derived device
+name is already correct).
+_Avoid_: toast, alert, notification.
 
 ## Tiles and their detail surfaces
 
@@ -46,13 +45,15 @@ has a stable id, a compact card face, and (usually) a detail surface reached by 
 _Avoid_: widget, card, block, panel (Panel is the device).
 
 **Home tile**:
-The one Tile the Board recenters on when it returns to rest (the clock). There is exactly one.
+The one Tile the Board recenters on when it returns to rest (Controls, `tile_ctrl`). There is
+exactly one.
 _Avoid_: default tile, start tile.
 
 **Placement**:
 Where a Tile sits in the Board's coordinate space — its world column/row and its column/row
-span. Placement has a per-Tile default and an optional persisted override; a Tile with neither
-a default nor an override slot is unplaced.
+span. Placement is registry-only, resolved from the per-Tile default declared in the App's
+manifest (any collision between two defaulted tiles resolves via row-major scanline); there is
+no persisted override.
 _Avoid_: position, layout, coordinates.
 
 **Tile View**:
@@ -82,172 +83,81 @@ Modal — one scrolling surface with a back affordance, Escape-to-close, and idl
 and Activity already take this form; the rest are to follow.
 _Avoid_: full-page modal, screen, route.
 
-## Grouping (target vocabulary)
+## Grouping
 
 **Product**:
 A deployable top-level unit of the repo: its own services, image builds, database, and namespace.
-There is one Product, control-center (see ADR-0006 — captive-portal dissolved into it); the term
-is retained for the deploy unit itself, not as a claim that more than one exists today. Described
-by a **Product Manifest**. Must not be confused with App / App Manifest below.
+There is one Product, control-center; the term is retained for the deploy unit itself, not as a
+claim that more than one exists. Described by a **Product Manifest**
+(`controlCenterProductManifest()` in `packages/platform`). Must not be confused with App / App
+Manifest below.
 _Avoid_: app (an App is smaller — see below), service, package.
 
-**App** _(target)_:
+**App**:
 A single self-contained feature grouped as one unit — its Tile(s), the API slice that backs them,
-the Worker Cycles and Queue Jobs it needs, and the tables it owns — living together in one folder
-inside a Product. The consolidation the re-architecture aims at; today these pieces are scattered
-and tied together only by convention. `guest-wifi` (the former captive-portal product, folded per
-ADR-0006) is the canonical example: one folder holding the portal-only listener, the guest static
-bundle, and its owned tables.
+the Worker Cycles it needs, and the tables it owns — living together in one folder inside a
+Product: `features/<id>/`. The folder existing is the App's registration (ADR-0001); a generated
+aggregate (`features/_generated/*.gen.ts`, ADR-0002) is how the Board, the router, and the worker
+process consume every App without a hand-maintained registry.
 _Avoid_: feature, module (reserved for design vocabulary), plugin, product.
 
-**App Manifest** _(target)_:
-The single declaration that ties an App's parts together (its Tiles, router slice, jobs, tables,
-and flags such as Sensitive), replacing today's implicit wiring across the registry, router
-object, and worker array. Distinct from the deploy-time Product Manifest.
+**App Manifest**:
+The single declaration that ties an App's parts together — its Tiles, router slice, tables, and
+flags such as Sensitive — an App's `manifest.ts`. Distinct from the deploy-time Product Manifest.
 _Avoid_: manifest (ambiguous — always qualify as App or Product), config, registration.
 
 ## Security and access
 
-**Sensitive** _(target)_:
-An App-level flag marking a feature whose Tile View may only be opened after Unlock. Today no such
-flag exists; PIN gating is hand-wired per feature.
+**Sensitive**:
+An App-level manifest flag marking a feature whose Tile View may only be opened after Unlock —
+reuses the one shared PIN Session for the rest of the panel session.
 _Avoid_: private, protected, locked, secure.
 
+**Private**:
+An App-level manifest flag marking a feature that requires a fresh PIN entry every time it opens,
+never reusing the shared PIN Session (Photo Booth is the one example).
+_Avoid_: sensitive (different re-entry rule — see above).
+
 **PIN**:
-The numeric passcode (six digits) that guards Sensitive features. Stored as a synced setting and,
-today, compared entirely on the client; no server-side check exists.
+The numeric passcode (six digits) that guards Sensitive and Private features. Stored as a synced
+setting and compared entirely on the client; no server-side check exists (ADR-0004 — accepted
+state until a deferred server-side slice).
 _Avoid_: password, passcode, code.
 
 **Unlock** / **PIN Session**:
-The state of having entered the correct PIN so a Sensitive Tile View will open. Today there is no
-single shared session — each guarded feature runs its own independent gate; a shared PIN Session
-is the intended consolidation.
+The state of having entered the correct PIN so a Sensitive Tile View will open. One shared session
+covers every Sensitive surface for the rest of the panel session; it expires on the idle-reset
+that also dims the panel and glides the camera home. Private surfaces bypass the session and
+re-prompt every time.
 _Avoid_: login, auth, unlocked flag.
-
-PIN Session (decided 2026-07-21): one shared session covers all Sensitive surfaces; expires on
-idle-reset; explicit close supported; client-only until Slice S.
 
 ## Backend work
 
 **Worker Cycle**:
 One iteration of a named interval loop that runs on a fixed cadence and reconciles some slice of
 desired state against the physical home or an external service (lights, climate, Sonos volume,
-weather ingest, poll loops). Cycles never overlap with themselves.
-_Avoid_: tick, job (a Queue Job is different), task, cron.
+weather ingest/purge). Cycles never overlap with themselves. Declared in an App's `worker.ts`,
+composed into `features/_generated/workers.gen.ts`.
+_Avoid_: tick, task, job, cron.
 
 **Enforcer**:
 A Worker Cycle whose job is to drive a device's reported state toward its desired state on every
 iteration (the desired-state-is-truth pattern). A named subtype of Worker Cycle.
 _Avoid_: reconciler, syncer.
 
-**Queue Job**:
- A unit of work claimed from the shared work queue by a worker and run once — as opposed to a
-recurring Worker Cycle. Job types include notification delivery.
-_Avoid_: task, message, cycle.
-
 **Cron**:
-A scheduled Kubernetes job that runs on a calendar schedule (nightly purge, monthly map extract,
-database backups) — distinct from both a Worker Cycle (fixed interval, always-on process) and a
-Queue Job (claimed from a queue).
-_Avoid_: scheduled task, timer.
+A scheduled Kubernetes job that runs on a calendar schedule (currently: database backups) —
+distinct from a Worker Cycle (fixed interval, always-on process). Declared in
+`infra/src/crons.ts`; there is no app-level scheduler, and app-level recurring work is always a
+Worker Cycle, never a CronJob.
+_Avoid_: scheduled task, timer, queue job (there is no job queue in this repo).
 
-## The two meanings of "media" (do not use "media" bare)
+## Playback
 
 **AV Control**:
-Live control of playback devices — Apple TV and the Sonos sound system (transport, volume,
-grouping, app launch, favourites). Backed by one live-queried API slice; no download or storage.
-_Avoid_: media, playback (too broad), sound.
+Live control of the Sonos sound system (transport, volume, grouping, source). Backed by one
+live-queried API slice; no download or storage, and no credentials — grouping and volume are
+plain Home Assistant/Sonos calls, and the one Spotify-shaped detail (labelling a group's
+now-playing source) is a URI string match, not an API integration.
+_Avoid_: media (ambiguous with Photo Booth/Activity's stored images), playback (too broad), sound.
 
-## Software factory
-
-**Ticket**:
-A unit of requested work owned by the software factory and stored in its own database.
-_Avoid_: Issue, GitHub issue.
-
-**Confirmed Merge** _(target)_:
-GitHub's authoritative confirmation that the reviewed pull request was merged, identified by its
-merge SHA. It is the v0 terminal business outcome and says nothing about deployment.
-_Avoid_: Merge accepted, closed pull request, deployed.
-
-**Done Ticket** _(target)_:
-A Ticket whose Run reached a Confirmed Merge. In v0 it satisfies dependency edges even though
-deployment is observed, if at all, outside that Ticket's Run.
-_Avoid_: Deployed Ticket.
-
-**Run**:
-One attempt to complete a whole Ticket, represented by one `WorkOnTicket` Temporal workflow
-execution.
-_Avoid_: Job, session.
-
-**Run Worker** _(target)_:
-One generation of the ephemeral execution worker assigned exclusively to one Run. It owns that
-Run's checkout, tools, and activity execution while active. A Run normally has one generation;
-permanent loss may create one replacement at a time from the same pinned image, resuming after a
-durable Step boundary without resetting the Run or its budgets.
-_Avoid_: Sandbox, agent pod, shared worker.
-
-**Step**:
-One independently executed unit of workflow work inside a Run. A Step has exactly one primary
-operation. Temporal may retry that operation without creating another Step or Agent Attempt.
-_Avoid_: Phase, every Temporal activity.
-
-**Agent Attempt**:
-One workflow-authorized agent execution within one agent-backed Step, potentially spanning native
-activity retries and technical resumes. Its identity is scoped to the Step, not to a Codex thread:
-Agent Attempt 1 of a new Step may deliberately continue a thread from an earlier Step. Start another
-Attempt within the same Step only when the preceding execution cannot be recovered and the workflow
-explicitly authorizes another. Infrastructure Steps do not have Agent Attempts.
-_Avoid_: Activity retry, Turn, semantic rework.
-
-**Agent Thread**:
-The model provider's conversation identity. An Agent Thread may carry implementer context across
-multiple Steps and Agent Attempts, while reviewers deliberately start fresh Threads. It is not a
-unit of work or retry budget.
-_Avoid_: Agent Attempt, Step.
-
-**Activity Retry**:
-Temporal repeating the same Step operation after a transient execution failure. An activity retry
-does not create a Step or Agent Attempt; an agent activity retry reconciles or resumes the same
-Agent Attempt. Its detailed history belongs to Temporal, not the software factory's domain history.
-_Avoid_: Agent Attempt, semantic rework.
-
-**Step Result**:
-The authoritative domain answer discovered or produced by a completed Step. It
-is distinct from Agent Attempt status and activity execution status.
-_Avoid_: Agent Attempt status, activity failure, error.
-
-**CI Result**:
-The Step Result from observing CI for one exact pull-request head SHA: green, red with bounded
-failure evidence, or unobserved. A CI-triggered Implement Step receives this Result explicitly;
-resuming the implementer's Agent Thread is not a substitute for the handoff.
-_Avoid_: CI status without a head SHA, failed-check fingerprint alone.
-
-**Agent Stage**:
-The kind of agent work performed by an agent-backed Step: `plan`, `implement`, or `review`.
-_Avoid_: Step, phase.
-
-**Run Worker GitHub Credential** _(target)_:
-A short-lived, repository-scoped GitHub App installation token installed into a Run Worker's Git
-and `gh` configuration. It is renewed before every Agent Attempt and every 30 minutes while active,
-never enters Temporal history, and is distinct from both worker GitHub authentication and Codex OAuth.
-_Avoid_: GitHub token (ambiguous), Codex credential.
-
-**Run Policy** _(target)_:
-The complete, resolved set of domain budgets, timeouts, and technical retry behavior supplied to a
-Run in its workflow input. It is immutable for that Run. A new worker rollout publishes the policy
-for future Runs to the dispatcher before its workers begin polling task queues.
-_Avoid_: live config, mutable workflow config, Temporal version.
-
-**Policy Publication** _(target)_:
-The acknowledged Update-With-Start handshake by which a worker supplies its resolved Run Policy to
-the dispatcher before polling task queues. A stable fingerprint of the resolved policy deduplicates
-equivalent publications; Git SHA is audit metadata only. `APPLIED` and `ALREADY_CURRENT` permit
-worker startup, while any genuine publication failure prevents it.
-_Avoid_: policy signal, Git-SHA ordering, best-effort config refresh.
-
-**Dispatch Wait** _(target)_:
-The dispatcher's expected wait for a dispatchable Ticket, implemented by a polling activity whose
-no-work result uses Temporal activity retry and a bounded next-retry delay. Its intermediate retries
-do not create Steps, Agent Attempts, or Postgres history and must not be treated as operational
-failures.
-_Avoid_: Ticket Step, dispatcher error, workflow timer poll.

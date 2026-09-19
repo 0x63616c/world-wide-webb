@@ -48,11 +48,3 @@ export interface TileDetailPageEntry {
    */
   useVariants: () => { variants: DetailVariant[]; loading: boolean };
 }
-
-export interface TileDetailActionEntry {
-  kind: "action";
-  /** Matches the board tile id, e.g. "tile_felogs". */
-  tileId: string;
-  /** Runs instead of opening a page, e.g. Frontend Logs → openSettings("logs"). */
-  run: () => void;
-}

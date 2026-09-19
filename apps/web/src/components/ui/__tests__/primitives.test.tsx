@@ -1,11 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import "@testing-library/jest-dom";
-import { Chip } from "../Chip";
-import { Pill, PillTone } from "../Pill";
 import { Skeleton } from "../Skeleton";
-import { Stat } from "../Stat";
-import { StatusDot } from "../StatusDot";
 import { Tile } from "../Tile";
 import { TileHeader } from "../TileHeader";
 
@@ -49,78 +45,6 @@ describe("TileHeader", () => {
     render(<TileHeader icon="wifi" title="WiFi" right={<span data-testid="rt">pill</span>} />);
     const rt = screen.getByTestId("rt").parentElement as HTMLElement;
     expect(rt).toHaveStyle({ marginLeft: "auto" });
-  });
-});
-
-describe("Stat", () => {
-  test("renders label, value, and optional sub line", () => {
-    render(<Stat label="Speed" value="72 mph" sub="avg last 7d" />);
-    expect(screen.getByText("Speed")).toBeInTheDocument();
-    expect(screen.getByText("72 mph")).toBeInTheDocument();
-    expect(screen.getByText("avg last 7d")).toBeInTheDocument();
-  });
-
-  test("applies var(--acc) color when accent=true", () => {
-    const { container } = render(<Stat label="SOC" value="82%" accent />);
-    const value = container.querySelector("[data-stat-value]") as HTMLElement;
-    expect(value).toHaveStyle({ color: "var(--acc)" });
-  });
-});
-
-describe("Pill", () => {
-  test("tone=default renders className='pill'", () => {
-    const { container } = render(<Pill>default</Pill>);
-    expect(container.firstChild).toHaveClass("pill");
-    expect(container.firstChild).not.toHaveClass("on");
-    expect(container.firstChild).not.toHaveClass("amber");
-  });
-
-  test("tone=on renders className='pill on'", () => {
-    const { container } = render(<Pill tone={PillTone.On}>on</Pill>);
-    expect(container.firstChild).toHaveClass("pill");
-    expect(container.firstChild).toHaveClass("on");
-  });
-
-  test("tone=amber renders className='pill amber'", () => {
-    const { container } = render(<Pill tone={PillTone.Amber}>warn</Pill>);
-    expect(container.firstChild).toHaveClass("pill");
-    expect(container.firstChild).toHaveClass("amber");
-  });
-});
-
-describe("Chip", () => {
-  test("active=true renders className='chip on'", () => {
-    const { container } = render(
-      <Chip active={true} onClick={() => {}}>
-        Cool
-      </Chip>,
-    );
-    expect(container.firstChild).toHaveClass("chip");
-    expect(container.firstChild).toHaveClass("on");
-  });
-
-  test("active=false renders className='chip'", () => {
-    const { container } = render(
-      <Chip active={false} onClick={() => {}}>
-        Cool
-      </Chip>,
-    );
-    expect(container.firstChild).toHaveClass("chip");
-    expect(container.firstChild).not.toHaveClass("on");
-  });
-});
-
-describe("StatusDot", () => {
-  test("online=true renders span with className dot (pulse animation)", () => {
-    const { container } = render(<StatusDot online={true} />);
-    expect(container.querySelector(".dot")).toBeInTheDocument();
-  });
-
-  test("online=false renders a muted dot (no pulse)", () => {
-    const { container } = render(<StatusDot online={false} />);
-    expect(container.querySelector(".dot")).not.toBeInTheDocument();
-    const span = container.firstChild as HTMLElement;
-    expect(span).toBeInTheDocument();
   });
 });
 

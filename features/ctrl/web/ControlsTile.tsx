@@ -33,9 +33,6 @@ import { PartySpeed } from "./views/PartySpeedControls";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
-// Exported so existing tests can import it without going through the view module.
-export type { ControlKey };
-
 // ─── steady refetch interval ──────────────────────────────────────────────────
 
 // React Query passes the full Query object; we only care about its state data.

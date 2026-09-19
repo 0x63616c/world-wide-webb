@@ -34,7 +34,7 @@
      lib/accent.ts restates only the three primitives (--acc, --acc-2,
      --acc-rgb) on :root; every tint below derives from --acc-rgb, so a new
      accent needs no CSS change at all. The literals here are the blue default,
-     used before the store has applied anything (and in Storybook). */
+     used before the store has applied anything (and in a component harness). */
   --acc: #0070f3;
   --acc-2: #0061d5;
   --acc-rgb: 0 112 243;

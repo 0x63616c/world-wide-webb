@@ -1,5 +1,0 @@
-ALTER TABLE jars ADD COLUMN IF NOT EXISTS closed_at BIGINT;
-ALTER TABLE jars ADD COLUMN IF NOT EXISTS closed_by TEXT REFERENCES users(id);
-ALTER TABLE jars ALTER COLUMN invite_code DROP NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_jars_closed_at ON jars(closed_at);

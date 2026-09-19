@@ -63,9 +63,7 @@
     "includes": [
       "**",
       "!**/node_modules",
-      "!**/.esphome",
       "!**/dist",
-      "!**/storybook-static",
       "!**/*.gen.ts",
       "!**/*.gen.json",
       "!apps/manage/extension/manifest.json",
@@ -76,10 +74,6 @@
       "!**/.superpowers",
       "!**/.cmux",
       "!**/experiments",
-      "!**/docs/media-tiles",
-      "!**/docs/captive-portal/design",
-      "!**/docs/design",
-      "!apps/dont-text-your-ex/docs/design-reference",
       "!**/DerivedData",
       "!**/ios/App/App/public",
       "!**/ios/App/App/capacitor.config.json"
@@ -87,12 +81,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "**/api/drizzle.config.ts",
-        "**/web/vite.config.ts",
-        "**/web/e2e-portal/**",
-        "**/scripts/**"
-      ],
+      "includes": ["**/api/drizzle.config.ts", "**/web/vite.config.ts", "**/scripts/**"],
       "linter": {
         "rules": {
           "style": {
@@ -122,16 +111,6 @@
       }
     },
     {
-      "includes": ["**/infra/unifi/program.ts", "**/infra/unifi/src/**"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noProcessEnv": "off"
-          }
-        }
-      }
-    },
-    {
       "includes": [
         "**/packages/core/test/pg-contract.test.ts",
         "**/packages/core/test/integration-sync-pg-contract.test.ts"
@@ -145,12 +124,7 @@
       }
     },
     {
-      "includes": [
-        "packages/platform/env/**",
-        "packages/platform/test/env.test.ts",
-        "apps/dont-text-your-ex/apps/api/src/__tests__/**",
-        "apps/temporal-worker/src/config.test.ts"
-      ],
+      "includes": ["packages/platform/env/**", "packages/platform/test/env.test.ts"],
       "linter": {
         "rules": {
           "style": {

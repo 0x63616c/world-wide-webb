@@ -3,8 +3,8 @@
  * the full-page Settings overlay behind the always-on PIN gate: gear tap →
  * PinGateModal → success → SettingsPage.
  *
- * Open-state lives in settings-overlay-store (so a board tile , Frontend Logs ,
- * can deep-link Settings onto a page without a prop path); the gate is the
+ * Open-state lives in settings-overlay-store (so a board tile can deep-link
+ * Settings onto a specific page without a prop path); the gate is the
  * shared panel-session Unlock, so if the session is already unlocked Settings
  * opens straight through with no second PIN. The full-screen overlays launched
  * from inside Settings (level, clean screen) are hosted here rather than in
@@ -24,7 +24,7 @@ import { SettingsPage } from "./settings-page/SettingsPage";
 
 export function SettingsButton() {
   // Whether Settings is up and which page to land on (a plain gear tap lands on
-  // Device; a deep link , e.g. Frontend Logs → Logs , carries its page).
+  // Device; a tile's deep link carries its own target page).
   const { open, page } = useSettingsOverlay();
   // The shared session Unlock gates the page , one PIN for the whole session.
   const unlocked = panelSession.useIsUnlocked();

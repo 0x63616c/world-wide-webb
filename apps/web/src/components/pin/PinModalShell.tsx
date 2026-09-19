@@ -5,36 +5,26 @@
  * Extracted from PinGateModal when the change-PIN flow moved onto its own
  * surface (#298) and needed the identical container. The parts that must not
  * drift between the two , registering in the global modal count (which freezes
- * board pan and lets the idle reset dismiss us), and logging ONLY the open/close
- * of the surface , now have one implementation rather than two copies.
- *
- * NEVER log the entered digits. The interaction channel records the open/close
- * of the surface keyed by `logTitle` (`modal.pin.Settings`,
- * `modal.pin.Change PIN`) and nothing else, exactly like ui/Modal.
+ * board pan and lets the idle reset dismiss us) , now have one implementation
+ * rather than two copies.
  */
 
 import { type ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeToClose } from "../../lib/escape-stack";
-import { interaction } from "../../lib/log/interaction";
 import { registerOpenModal } from "../../lib/modal-open-store";
 import { Z_LAYER } from "../../lib/z-layers";
 
 export function PinModalShell({
   open,
-  logTitle,
   label,
   backdropTestId,
   onClose,
   children,
 }: {
   open: boolean;
-  /** Distinguishes the surfaces in the interaction log (`modal.pin.<title>`). */
-  logTitle: string;
-  /** The dialog's accessible name. Separate from logTitle because they answer
-   *  to different readers: renaming a log key must not rename what a screen
-   *  reader announces. The visible title changes per stage, so naming the
-   *  SURFACE is the stable choice. */
+  /** The dialog's accessible name. The visible title changes per stage, so
+   *  naming the SURFACE is the stable choice. */
   label: string;
   backdropTestId: string;
   onClose: () => void;
@@ -47,16 +37,6 @@ export function PinModalShell({
   useEffect(() => {
     if (!open) return;
     return registerOpenModal(() => onCloseRef.current());
-  }, [open]);
-
-  // Title via ref so a changing title doesn't fabricate a close/open pair.
-  const titleRef = useRef(logTitle);
-  titleRef.current = logTitle;
-  useEffect(() => {
-    if (!open) return;
-    const target = `modal.pin.${titleRef.current}`;
-    interaction("modal", "open", target);
-    return () => interaction("modal", "close", target);
   }, [open]);
 
   // Escape-to-close, arbitrated so ONLY the topmost surface closes. A dialog

@@ -13,8 +13,7 @@ import { wakePhoto } from "./schema";
  * is woken from its idle dim. The BYTES live on the filesystem at
  * <MEDIA_STORAGE_DIR>/wake-photos/<capturedAt ISO>-<n>.jpg (see @www/core media-path);
  * the INDEX lives in Postgres (`wake_photo`), one row per frame, carrying the
- * interaction session the frame belongs to (spec
- * docs/specs/2026-07-18-interaction-logging-design.md).
+ * interaction session the frame belongs to.
  *
  * A dated YYYY/MM/DD tree used to BE the store , listing walked it, and an epoch
  * stamp in a filename was the only metadata a photo had. The table is what lets

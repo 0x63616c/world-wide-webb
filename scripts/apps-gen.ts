@@ -24,20 +24,14 @@ import { writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderManifest, renderRules } from "../apps/manage/src/extension-rules";
-import { GUEST_EXPOSED } from "../features/guest-exposed";
 import { collect } from "./apps-gen/collect";
 import {
-  renderActivities,
-  renderGuestRouter,
   renderHttp,
-  renderJobs,
   renderRouter,
-  renderSchedules,
   renderSchema,
   renderTiles,
   renderWeb,
   renderWorkers,
-  renderWorkflows,
 } from "./apps-gen/emit";
 import { validate } from "./apps-gen/validate";
 
@@ -51,18 +45,13 @@ const MANAGE_EXT_DIR = join(REPO_ROOT, "apps", "manage", "extension");
 
 async function main(): Promise<void> {
   const model = await collect();
-  validate(model, GUEST_EXPOSED);
+  validate(model);
   writeFileSync(join(GEN_DIR, "tiles.gen.ts"), renderTiles(model));
   writeFileSync(join(GEN_DIR, "web.gen.ts"), renderWeb(model));
   writeFileSync(join(GEN_DIR, "router.gen.ts"), renderRouter(model));
-  writeFileSync(join(GEN_DIR, "guest-router.gen.ts"), renderGuestRouter(model, GUEST_EXPOSED));
   writeFileSync(join(GEN_DIR, "schema.gen.ts"), renderSchema(model));
-  writeFileSync(join(GEN_DIR, "jobs.gen.ts"), renderJobs(model));
   writeFileSync(join(GEN_DIR, "workers.gen.ts"), renderWorkers(model));
   writeFileSync(join(GEN_DIR, "http.gen.ts"), renderHttp(model));
-  writeFileSync(join(GEN_DIR, "workflows.gen.ts"), renderWorkflows(model));
-  writeFileSync(join(GEN_DIR, "activities.gen.ts"), renderActivities(model));
-  writeFileSync(join(GEN_DIR, "schedules.gen.ts"), renderSchedules(model));
   writeFileSync(join(MANAGE_EXT_DIR, "rules.gen.json"), renderRules());
   writeFileSync(join(MANAGE_EXT_DIR, "manifest.json"), renderManifest());
 }

@@ -1,18 +1,19 @@
 // MetalLB (Task 4, Talos migration): OrbStack synthesizes `type: LoadBalancer`
 // Services for free (its own `expose_services` host-port republishing, see
 // services.ts's ADVERTISE_IP comments) , bare-metal Talos has no cloud
-// controller to satisfy a LoadBalancer Service, so `api`/`plex` (the two LAN
-// LoadBalancers in services.ts) would sit in <pending> forever without an L2
-// LB implementation. MetalLB is that implementation: an L2Advertisement makes
-// the node itself answer ARP for the pool's addresses via its own NIC.
+// controller to satisfy a LoadBalancer Service, so any LAN LoadBalancer would
+// sit in <pending> forever without an L2 LB implementation. MetalLB is that
+// implementation: an L2Advertisement makes the node itself answer ARP for the
+// pool's addresses via its own NIC. No Service claims a pool address today —
+// the pool is kept reserved so the next LAN listener is a one-line addition.
 //
 // Namespace `metallb-system` is created BY the pinned upstream manifest itself
 // (L1: not threaded through cluster.ts's closed InfraNamespaceName map, same
 // pattern as lvm-localpv.ts/homeassistant.ts).
 //
-// TALOS-ONLY: never installed on "orbstack" (the mini's LoadBalancers are
-// already satisfied by OrbStack itself; MetalLB would double-advertise the
-// same addresses). Gated in program.ts behind `substrate === "talos"`.
+// TALOS-ONLY: never installed on "orbstack" (its LoadBalancers are already
+// satisfied by OrbStack itself; MetalLB would double-advertise the same
+// addresses). Gated in program.ts behind `substrate === "talos"`.
 
 import * as k8s from "@pulumi/kubernetes";
 
@@ -20,22 +21,8 @@ const METALLB_NAMESPACE = "metallb-system";
 const ADDRESS_POOL_NAME = "homelab-pool";
 
 // Locked decision (M3): a single reserved LAN range for every MetalLB
-// LoadBalancer this cluster creates today (`api` + `plex`, 2 addresses
-// suffices with headroom for one more before this needs revisiting).
+// LoadBalancer this cluster creates. Two addresses, reserved on the LAN.
 export const METALLB_ADDRESS_POOL_RANGE = "192.168.0.3-192.168.0.4";
-
-// Which address each LAN Service gets, pinned rather than allocator-assigned.
-// The pool is small and shared, so an unpinned Service just takes whatever is
-// free when it is created: the two below happened to land this way, and a
-// recreate in the other order would silently swap them. Both addresses are
-// baked into things outside this repo's control (the guest portal's DNS
-// record; Plex's ADVERTISE_IP, which is what the Apple TV dials), so they are
-// assignments, not observations. Values match the live cluster - changing one
-// moves a service the LAN already knows by address.
-export const LAN_SERVICE_IPS = {
-  api: "192.168.0.3",
-  plex: "192.168.0.4",
-} as const;
 
 export interface MetallbArgs {
   provider: k8s.Provider;
@@ -70,10 +57,9 @@ type SpeakerDaemonSetShape = {
  * node. On a multi-node cluster that is correct (announce from a worker
  * instead). Here there is exactly ONE node and it is the control plane, so the
  * label means NOTHING announces: the speaker creates its ARP responder on
- * enp4s0, then never answers ARP for any pool address. Symptom is both LAN
- * LoadBalancers (`api` on .3, `plex` on .4) resolving to `(incomplete)` in
- * `arp -n` from any LAN host while the Services show healthy endpoints — a
- * silent failure with no error log anywhere.
+ * enp4s0, then never answers ARP for any pool address. Symptom is a LAN
+ * LoadBalancer resolving to `(incomplete)` in `arp -n` from any LAN host while
+ * the Service shows healthy endpoints — a silent failure with no error log.
  *
  * The flag tells the speaker to ignore the label. Preferred over deleting the
  * label from the node: the label is Talos-managed cluster state, and stripping

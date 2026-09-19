@@ -9,7 +9,7 @@
  * session as everything else and survives the hardware silent switch (a system
  * sound would not; see the plugin's header).
  *
- * Native-only by nature. Off the kiosk (a browser, Storybook, CI) the plugin is
+ * Native-only by nature. Off the kiosk (a browser, CI) the plugin is
  * absent, `playUISound` reports false, and the caller falls back to synthesis.
  * The only caller is the sound bus (lib/sound), which owns that choice for every
  * cue.

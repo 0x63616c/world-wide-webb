@@ -26,9 +26,11 @@ export interface ResourceSpec {
   reserveMemory?: string;
   // GPU units (nvidia.com/gpu). Kubernetes extended resources require
   // limits === requests (no overcommit), so buildPod sets both to this value.
-  // Only meaningful alongside a runtimeClassName (Task 4: Plex/HA transcode on
-  // the Talos node's RTX 3060 via the `nvidia` RuntimeClass); absent
-  // everywhere on "orbstack" today.
+  // Only meaningful alongside a runtimeClassName. The Simplification removed
+  // the only workload that used this (Plex) along with the node's NVIDIA
+  // Talos extensions and `nvidia` RuntimeClass (infra/talos/talconfig.yaml),
+  // so nothing sets this field today; kept for a future GPU workload rather
+  // than re-plumbed from scratch if one ever shows up.
   gpu?: number;
 }
 
@@ -102,13 +104,15 @@ export interface WorkloadSpec {
   // non-hostNetwork pods). Absent everywhere on "orbstack" today.
   hostNetwork?: boolean;
   dnsPolicy?: "ClusterFirst" | "ClusterFirstWithHostNet" | "Default" | "None";
-  // RuntimeClass name (Task 4: "nvidia", for Plex/HA GPU transcode on the
-  // Talos node's RTX 3060). Absent everywhere on "orbstack" today.
+  // RuntimeClass name (formerly "nvidia", for Plex's GPU transcode on the
+  // Talos node's RTX 3060). The Simplification deleted Plex and the node's
+  // `nvidia` RuntimeClass with it, so nothing sets this today; kept for a
+  // future GPU workload.
   runtimeClassName?: string;
   // Annotations to stamp on the Deployment's metadata. The pulumi-kubernetes
   // provider reads its own `pulumi.com/*` await-control keys from here (e.g.
   // `pulumi.com/skipAwait: "true"` to not block the deploy on a workload that
-  // cannot become Ready — Plex on talos, parked pending the GPU device plugin).
+  // cannot become Ready).
   annotations?: Record<string, string>;
   // Declares this workload as a Prometheus scrape target (#214). Rendered onto
   // the POD TEMPLATE's annotations, deliberately NOT onto `annotations` above:
@@ -547,8 +551,8 @@ function scrapeAnnotations(scrape: WorkloadSpec["scrape"]): Record<string, strin
  * A workload that mounts a pre-existing `claim:` PVC cannot roll: those claims
  * are block volumes on the local-lvm CSI (ReadWriteOnce), so the surge pod's
  * mount is refused while the outgoing pod still holds the device and the
- * rollout deadlocks until the deploy times out (#300 broke prod this way — the
- * `maps` claim under web's map-provision init). Volumes this module generates
+ * rollout deadlocks until the deploy times out (#300 broke prod this way, via
+ * the web basemap claim that has since been deleted). Volumes this module generates
  * itself are NFS/ReadWriteMany and roll fine, so only declared claims count.
  */
 function mountsExistingClaim(w: WorkloadSpec): boolean {

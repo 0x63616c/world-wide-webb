@@ -47,11 +47,7 @@ const FULL_INSTALL_DOCKERFILES = [
   "apps/manage/Dockerfile",
   "apps/api/Dockerfile",
   "apps/worker/Dockerfile",
-  "apps/temporal-worker/Dockerfile",
   "apps/web/Dockerfile",
-  "apps/dont-text-your-ex/Dockerfile.api",
-  "apps/dont-text-your-ex/Dockerfile.frontend",
-  "apps/dont-text-your-ex/Dockerfile.temporal-worker",
 ];
 
 // --- 3. Parse each Dockerfile for `COPY <src>/package.json` lines ---
@@ -94,7 +90,7 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
 // `oven/bun:1-alpine` / `:latest` drift to the newest bun (e.g. 1.3.x), whose
 // lockfile format the 1.2-generated bun.lock can't satisfy under
 // --frozen-lockfile ("lockfile had changes"). Pin to a minor (oven/bun:1.2...),
-// matching the CI setup-bun pin. This has broken builds before (captive-portal).
+// matching the CI setup-bun pin. This has broken a build before.
 const FLOATING_BUN = /FROM\s+oven\/bun:(1-|latest|1\s|1$)/;
 const floatingBunOffenders: string[] = [];
 for (const df of FULL_INSTALL_DOCKERFILES) {
@@ -115,11 +111,8 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
 // so all three images must copy them in. A miss ships an image that can't
 // resolve @app-kit/@features at build time.
 //
-// Scoped to the images that actually CONSUME that surface, not to every
-// full-install Dockerfile: apps/temporal-worker serves the Temporal task queue
-// and imports no feature facet, so copying features/ in would ship a tree the
-// image never reads (and hand it a rebuild on every unrelated feature edit).
-// An image that starts draining feature work belongs on this list.
+// Scoped to the images that actually CONSUME that surface. An image that does
+// not import a feature facet does not belong on this list.
 const REQUIRED_SOURCE_DIRS = ["app-kit", "features"];
 const C7_AUTHORING_SURFACE_DOCKERFILES = [
   "apps/api/Dockerfile",

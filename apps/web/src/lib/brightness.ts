@@ -2,7 +2,7 @@
  * Native backlight bridge , the first (and only) web→native Capacitor call in
  * the web layer. Wraps @capacitor-community/screen-brightness so the idle-dim
  * feature can drive the iPad's real backlight, while staying a pure no-op in a
- * plain browser / Storybook / test env (where the CSS dim overlay provides the
+ * plain browser / a component harness / test env (where the CSS dim overlay provides the
  * visual instead).
  *
  * The panel OWNS its backlight ABSOLUTELY: awake it holds the configured active

@@ -17,47 +17,10 @@ function fakeDb(storedValue: unknown) {
 }
 
 describe("settings-service DEFAULTS", () => {
-  it("carries the minimap + PIN defaults", () => {
-    expect(DEFAULTS.showMinimap).toBe(true);
+  it("carries the PIN + accent + time zone defaults", () => {
     expect(DEFAULTS.pinCode).toBe("000000");
-    expect(DEFAULTS.showBuildNumber).toBe(false);
-  });
-
-  // The pad ships MOVING (#287): the feature exists because a fixed pad leaks the
-  // PIN's digit set through fingerprints, and a security default that has to be
-  // discovered in Settings protects nobody. #302 pushed the default all the way
-  // to the per-keypress mode , the only one that also covers being watched. The
-  // default may be raised, never lowered: a weaker value landing here would
-  // silently downgrade every panel that had never touched the setting.
-  it("defaults pinPadLayout to scrambled-per-key", () => {
-    expect(DEFAULTS.pinPadLayout).toBe("scrambled-per-key");
-  });
-});
-
-describe("legacy scramblePin migration", () => {
-  // #287 shipped a boolean; #291 replaced it with the three-way layout. zod drops
-  // the retired key, so without an explicit carry-over the DEFAULTS merge would
-  // turn a deliberate "off" back ON at the next read , the one direction of
-  // silent change that actually matters here.
-  it("maps a stored scramblePin=false onto the fixed layout", async () => {
-    const s = await getSettings(
-      fakeDb({ ...DEFAULTS, pinPadLayout: undefined, scramblePin: false }),
-    );
-    expect(s.pinPadLayout).toBe("fixed");
-  });
-
-  it("maps a stored scramblePin=true onto the scrambled layout", async () => {
-    const s = await getSettings(
-      fakeDb({ ...DEFAULTS, pinPadLayout: undefined, scramblePin: true }),
-    );
-    expect(s.pinPadLayout).toBe("scrambled");
-  });
-
-  it("prefers an explicit pinPadLayout over the legacy boolean", async () => {
-    const s = await getSettings(
-      fakeDb({ ...DEFAULTS, pinPadLayout: "rotated", scramblePin: true }),
-    );
-    expect(s.pinPadLayout).toBe("rotated");
+    expect(DEFAULTS.accent).toBe("white");
+    expect(DEFAULTS.timeZone).toBe("America/Los_Angeles");
   });
 });
 
@@ -67,44 +30,54 @@ describe("getSettings", () => {
     expect(s).toEqual(DEFAULTS);
   });
 
-  it("merges a legacy blob (missing the new fields) over DEFAULTS", async () => {
-    // A row written before the minimap + PIN fields existed.
-    const legacy = {
+  it("merges a legacy blob (missing a field) over DEFAULTS", async () => {
+    // A row written before the accent field existed.
+    const legacy = { pinCode: "123456", timeZone: "Europe/London" };
+    const s = await getSettings(fakeDb(legacy));
+    expect(s.pinCode).toBe("123456");
+    expect(s.timeZone).toBe("Europe/London");
+    expect(s.accent).toBe(DEFAULTS.accent);
+  });
+
+  it("silently drops a stored blob's retired fields", async () => {
+    // The Simplification (§6) retired every synced field except pinCode, accent
+    // and timeZone , idle dim, lock screen, snap mode, the minimap, the PIN-pad
+    // layout, the typeface and the goal-day cutoff. Rows written before that
+    // still carry these keys; settingsSchema has no `.strict()`, so zod strips
+    // them rather than throwing, and getSettings must not surface them.
+    const legacyBlob = {
+      ...DEFAULTS,
       activeBrightness: 1,
       idleDimEnabled: true,
       idleDimTimeoutMs: 600_000,
       idleDimLevel: 0.25,
-      recenterEnabled: true,
-      recenterTimeoutMs: 600_000,
+      lockScreenEnabled: true,
+      lockScreenBlurPercent: 10,
       showFps: false,
       showBuildBadge: true,
+      showBuildNumber: false,
       snapMode: "mandatory-settle",
+      showMinimap: true,
+      pinPadLayout: "scrambled-per-key",
+      typeface: "sf",
+      goalDayCutoffHour: 3,
     };
-    const s = await getSettings(fakeDb(legacy));
-    expect(s.showMinimap).toBe(true);
-    expect(s.pinCode).toBe("000000");
-  });
-
-  it("silently drops a stored blob's retired recenter fields", async () => {
-    // recenterEnabled/recenterTimeoutMs were retired once the panel-session
-    // module took over glide-home at session end (idleDimEnabled/idleDimTimeoutMs
-    // on the Display page). Rows written before the retirement still carry these
-    // keys; settingsSchema has no `.strict()`, so zod strips them rather than
-    // throwing, and getSettings must not surface them.
-    const legacyWithRecenter = { ...DEFAULTS, recenterEnabled: true, recenterTimeoutMs: 600_000 };
-    const s = await getSettings(fakeDb(legacyWithRecenter));
+    const s = await getSettings(fakeDb(legacyBlob));
     expect(s).toEqual(DEFAULTS);
-    expect(s).not.toHaveProperty("recenterEnabled");
-    expect(s).not.toHaveProperty("recenterTimeoutMs");
+    expect(s).not.toHaveProperty("activeBrightness");
+    expect(s).not.toHaveProperty("idleDimEnabled");
+    expect(s).not.toHaveProperty("snapMode");
+    expect(s).not.toHaveProperty("showMinimap");
+    expect(s).not.toHaveProperty("pinPadLayout");
+    expect(s).not.toHaveProperty("typeface");
+    expect(s).not.toHaveProperty("goalDayCutoffHour");
   });
 
-  it("falls back to DEFAULTS for a stored timeout above the 10 min cap", async () => {
-    // The server used to accept up to an hour while the panel clamped every edit
-    // to 10 min, so the looser ceiling could only ever be reached by editing the
-    // row by hand. Both sides now share one bound (contract/settings.ts), and an
-    // out-of-range blob fails validation , which getSettings catches, logs, and
-    // answers with DEFAULTS rather than propagating.
-    const s = await getSettings(fakeDb({ ...DEFAULTS, idleDimTimeoutMs: 3_600_000 }));
+  it("falls back to DEFAULTS for a stored blob that fails validation", async () => {
+    // An out-of-shape stored value (e.g. a malformed pinCode) fails validation ,
+    // which getSettings catches, logs, and answers with DEFAULTS rather than
+    // propagating.
+    const s = await getSettings(fakeDb({ ...DEFAULTS, pinCode: "not-six-digits" }));
     expect(s).toEqual(DEFAULTS);
   });
 });

@@ -33,11 +33,18 @@ it("renders the App web runtime as static manifest and Tile View imports", async
   const rendered = renderWeb(model);
   const tiles = renderTiles(model);
 
+  // EVERY App contributes its manifest , including the face-only ones.
   expect(rendered).toContain('import acManifest from "../ac/manifest";');
-  expect(rendered).toContain('import { tileViews as acTileViews } from "../ac/detail";');
+  expect(rendered).toContain('import ctrlManifest from "../ctrl/manifest";');
+  expect(rendered).toContain('import { tileViews as ctrlTileViews } from "../ctrl/detail";');
   expect(rendered).toContain("createWebRegistry(");
   expect(rendered).toContain("accessFor,");
-  expect(rendered).toContain("...weatherTileViews");
+  expect(rendered).toContain("...ctrlTileViews");
+  // …but a face-only App has no detail facet at all, so it contributes no
+  // Tile View import (the zero-or-one invariant, at the emit layer).
+  expect(rendered).not.toContain("../ac/detail");
+  expect(rendered).not.toContain("../weather/detail");
+  expect(rendered).not.toContain("../events/detail");
   expect(tiles).toMatch(/id: "tile_wakes",[\s\S]*?sensitive: true,/);
 });
 

@@ -7,15 +7,8 @@
     "apps/manage",
     "apps/api",
     "apps/worker",
-    "apps/temporal-worker",
-    "apps/storybook",
-    "apps/map-provision",
-    "apps/dont-text-your-ex",
-    "apps/dont-text-your-ex/apps/*",
-    "apps/dont-text-your-ex/packages/*",
     "packages/*",
     "infra",
-    "infra/unifi",
     "infra/cloudflare"
   ],
   "scripts": {
@@ -23,19 +16,14 @@
     "dev:web": "bun run --filter @control-center/web dev",
     "dev:api": "bun run --filter @control-center/api dev",
     "dev:worker": "bun run --filter @control-center/worker dev",
-    "dev:storybook": "bun run --filter @control-center/storybook dev",
     "dev:manage": "bun run --filter @control-center/manage dev",
-    "dev:dont-text-your-ex": "bun run --filter @dont-text-your-ex/app dev",
     "dev:db": "docker compose -f docker-compose.yml up postgres",
     "ios:sync": "bun run --cwd apps/web cap:sync",
     "ios:open": "bun run --cwd apps/web cap:open",
     "ios:sim": "bun run --cwd apps/web ios:sim",
-    "build:dont-text-your-ex": "bun run --filter @dont-text-your-ex/app build",
     "test": "node --version && vitest run",
     "test:unit": "node --version && vitest run",
-    "test:storybook": "cd apps/web && bunx vitest run --project storybook",
     "test:dockerfile-manifests": "bun scripts/check-dockerfile-manifests.ts",
-    "identity:audit": "scripts/check-rename-identity.py",
     "measure:ci": "bun scripts/measure-ci-latency.ts",
     "apps:gen": "cd apps/web && bun run ../../scripts/apps-gen.ts",
     "apps:check": "cd apps/web && bun run ../../scripts/apps-check.ts",
@@ -69,11 +57,7 @@
     "lefthook"
   ],
   "dependencies": {
-    "@temporalio/workflow": "^1.21.1",
-    "@trpc/server": "^11.17.0",
-    "bdui": "^0.0.38",
     "drizzle-orm": "^0.45.2",
-    "drizzle-zod": "^0.8.3",
     "react-colorful": "^5.8.1",
     "zod": "^4.4.2"
   }

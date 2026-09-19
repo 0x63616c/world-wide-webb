@@ -1,7 +1,7 @@
 /**
  * Modal , dumb presentational overlay + centered fixed-size panel.
  * Zero trpc/data/hook dependencies beyond local effect for Escape; all visible
- * state is driven by props so it can be exercised in isolation/Storybook.
+ * state is driven by props so it can be exercised in isolation.
  *
  * Sized for the fixed 1366x1024 wall panel: the panel is a fixed dialog size
  * (not responsive/fluid) and the overlay covers the whole board.
@@ -11,7 +11,6 @@ import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeToClose } from "../../lib/escape-stack";
-import { interaction } from "../../lib/log/interaction";
 import { registerOpenModal } from "../../lib/modal-open-store";
 import { Z_LAYER } from "../../lib/z-layers";
 
@@ -87,18 +86,6 @@ export function Modal({
   // call site instead would be ~15 edits today and a thing to remember forever.
   // `title` is the only identity a modal carries; it is stable enough to group
   // by and is what a human reading the transcript would name anyway. Routed
-  // through a ref so a title that changes while open (e.g. a live count in the
-  // heading) doesn't re-run the effect and fabricate a close/open pair the
-  // person never performed.
-  const titleRef = useRef(title);
-  titleRef.current = title;
-  useEffect(() => {
-    if (!open) return;
-    const target = `modal.${titleRef.current}`;
-    interaction("modal", "open", target);
-    return () => interaction("modal", "close", target);
-  }, [open]);
-
   // Escape-to-close, arbitrated by escape-stack: only while open, and only
   // while this is the topmost open surface.
   useEscapeToClose(open, onClose);

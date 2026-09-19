@@ -56,7 +56,7 @@ describe("logChange", () => {
 
   it("can emit at warn for a degraded-but-expected state", () => {
     const { log, lines } = capturingLogger();
-    logChange(log, "withings-token-unseeded", {}, "not seeded", { level: "warn" });
+    logChange(log, "ha-token-unseeded", {}, "not seeded", { level: "warn" });
     expect(lines).toHaveLength(1);
     expect(lines[0].level).toBe(40); // pino warn
     expect(lines[0].msg).toBe("not seeded");

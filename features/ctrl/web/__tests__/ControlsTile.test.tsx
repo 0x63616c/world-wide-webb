@@ -586,8 +586,8 @@ describe("ControlsTile", () => {
       render(<ControlsDetailPage />);
       expect(screen.getByRole("button", { name: "White" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Mood" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Use Red" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Use Blue" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Use Custom 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Use Custom 2" })).toBeInTheDocument();
       expect(screen.getByLabelText("Brightness")).toBeInTheDocument();
     });
 

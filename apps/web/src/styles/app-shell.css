@@ -1,4 +1,4 @@
-/* Kiosk lockdown , app entry ONLY. Imported by main.tsx, never by Storybook
+/* Kiosk lockdown , app entry ONLY. Imported by main.tsx, never by a component harness
    or tests, so the wall-panel reset can't leak into docs/canvas iframes.
 
    Principle: no-scroll is a property of the board, so it lives on #root (the

@@ -164,7 +164,7 @@ export function orderGifFrames<T>(frames: T[], boomerang: boolean): T[] {
 
 // Decode an image blob to raw RGBA. Browser-only (createImageBitmap + a canvas
 // readback); jsdom has neither, so assembleGif is exercised in the real webview
-// and Storybook, not unit tests.
+//, not unit tests.
 async function decodeToRgba(
   blob: Blob,
 ): Promise<{ data: Uint8ClampedArray; width: number; height: number }> {

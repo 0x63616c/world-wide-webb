@@ -2,22 +2,21 @@
  * MobileBoard , the phone view. What you get when this app is opened on an
  * iPhone instead of on the wall panel.
  *
- * The board (Board.tsx) is a pannable 1366x1024 world with a minimap, idle dim,
- * lock screen, a wall of tiles and a banner stack. None of that survives
- * translation to a phone: you cannot pan a 64x64-cell world with a thumb, and
- * the banners that matter on a docked panel ("set your device name", "not
- * charging") are setup/fault nags about the PANEL, shown on a device that is
- * neither. So the phone gets its own screen rather than a squeezed board , a
+ * The board (Board.tsx) is a pannable 1366x1024 world with idle dim, a wall of
+ * tiles and a banner stack. None of that survives translation to a phone: you
+ * cannot pan a 64x64-cell world with a thumb, and the banner that matters on a
+ * docked panel ("set your device name") is a setup nag about the PANEL, shown
+ * on a device that is not one. So the phone gets its own screen rather than a
+ * squeezed board , a
  * scroll column holding just the two things you actually reach for your phone
  * to do: the quick Controls (lamps / lights / fan) and Climate · A/C.
  *
  * Deliberately NOT here, and each for a reason:
- *   - The banner stack. Every banner in it is panel chrome; the two the phone
- *     view exists to silence also self-guard (see NotChargingBanner /
- *     DeviceNameBanner), so mounting one from a phone would still render
- *     nothing.
- *   - The minimap, drag-pan, camera glide, idle dim and lock screen , all are
- *     properties of a fixed panel sitting on a wall, not of a phone in a pocket.
+ *   - The banner stack. Every banner in it is panel chrome, and the one the
+ *     phone view exists to silence self-guards (see DeviceNameBanner), so
+ *     mounting it from a phone would still render nothing.
+ *   - Drag-pan, the camera glide and idle dim , all are properties of a fixed
+ *     panel sitting on a wall, not of a phone in a pocket.
  *
  * Still here, because a phone needs them: the Settings gear (the phone is where
  * you fix a setting you noticed on the panel) and TileDetailHost (the tile
@@ -32,7 +31,6 @@
 import { registryEntryForTileId } from "@features/_generated/web.gen";
 import type { CSSProperties, ReactNode } from "react";
 import { tilePixelSize } from "../lib/grid-constants";
-import { interaction } from "../lib/log/interaction";
 import { openTileDetail } from "../lib/tile-detail-store";
 import { SettingsButton } from "./SettingsButton";
 import { TileDetailHost } from "./tiles/detail/TileDetailHost";
@@ -113,14 +111,14 @@ const overlayStyle: CSSProperties = {
 
 /**
  * Presentational phone column , no registry, no store, no tRPC. Exported for
- * Storybook and for tests that want to drive the cards directly.
+ * for tests that want to drive the cards directly.
  *
  * Each card keeps the exact aspect ratio its panel tile has (the container
  * passes `aspect` straight from the grid's tile size), so a tile face designed
  * against a 4x3 board cell renders at the proportions it was designed for ,
  * just narrower. Height therefore follows width, and the column scrolls.
  */
-export function MobileBoardView({ tiles }: { tiles: readonly MobileTileCard[] }) {
+function MobileBoardView({ tiles }: { tiles: readonly MobileTileCard[] }) {
   return (
     <div id="mobile-stage" data-testid="mobile-stage" style={scrollStyle}>
       <div style={columnStyle}>
@@ -186,7 +184,6 @@ function phoneTileCards(): MobileTileCard[] {
           </BoundedTile>
         ),
         onOpen: () => {
-          interaction("tile", "tap", entry.id, { label: entry.label, kind: "open-detail" });
           openTileDetail(entry.id);
         },
       },

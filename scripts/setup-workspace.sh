@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Set up a local dev workspace for control-center: start the Tilt dev stack
-# (postgres + api + web + storybook), wait for the web app to be live, then
+# (postgres + api + web), wait for the web app to be live, then
 # surface the Tilt log UI and the app itself in cmux browser views.
 #
 # Idempotent: if Tilt is already running it just re-opens the views.
@@ -61,7 +61,6 @@ cat <<EOF
     Web app      http://localhost:${PORT_WEB}    (board, fixed 1366x1024)
     API          http://localhost:${PORT_API}
     Tilt logs    http://localhost:${PORT_TILT}   (per-service logs + restart/db buttons)
-    Storybook    http://localhost:6006
     Raw log      ${TILT_LOG}
 
   Hot reload is on (bun --watch for api, Vite HMR for web). Edit and see it live.

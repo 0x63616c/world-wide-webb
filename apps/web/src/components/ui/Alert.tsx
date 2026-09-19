@@ -3,7 +3,6 @@
  * Zero trpc/data/hook dependencies; all state driven by props. This is the
  * only alert variant (a full success state is a whole screen, not a banner).
  * Sits at the top of the form it relates to; role=alert so it's announced.
- * Ported from the captive-portal guest primitives, restyled onto cc tokens.
  */
 
 import type { ReactNode } from "react";

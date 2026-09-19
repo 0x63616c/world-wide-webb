@@ -117,7 +117,7 @@ export function NotificationBanner({
  * Portaled to <body> (the VariantSwitcher precedent): rendered in-tree the
  * stack lives under #stage's own stacking context, where NO zIndex can beat
  * the body-level detail-page/modal overlays (zIndex 100) , a ringing
- * alarm/timer banner (TimeSuiteBanner) and its Stop button would be invisible
+ * banner and its action button would be invisible
  * whenever any detail page is open. Same body context ⇒ 120 > 100 keeps every
  * banner on top of open pages.
  */

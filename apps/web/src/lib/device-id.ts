@@ -14,7 +14,7 @@
  * and app updates and changes only on uninstall+reinstall , which genuinely is a
  * new log source, so that is the right behaviour.
  *
- * Web (browser / Storybook / tests): `web-<8 hex>` minted once and persisted in
+ * Web (browser / a component harness / tests): `web-<8 hex>` minted once and persisted in
  * localStorage. There is no OS identity to lean on, so a persisted random suffix
  * is the stable-enough answer.
  *
@@ -26,7 +26,7 @@
  * `resolveDeviceId` completes, and every later boot reads the persisted real id.
  *
  * The @capacitor/device import is dynamic so the plugin never loads in a plain
- * browser session (mirrors lib/log/native.ts, app-update.ts, useBatteryInfo.ts).
+ * browser session (mirrors useBatteryInfo.ts).
  */
 
 const STORAGE_KEY = "cc-device-id";
@@ -105,7 +105,7 @@ let cache: string | null = null;
  * proxy itself: the proxy fabricates a method wrapper for ANY property including
  * `then`, so awaiting it (as resolving a promise with it does) dispatches a
  * native "Device.then" call that rejects and poisons the chain , the exact
- * failure lib/log/native.ts documents on the panel (2026-07-18). A plain object
+ * failure observed on the panel (2026-07-18). A plain object
  * has no `then`, so awaiting it is inert.
  */
 function unproxyDevice(device: DeviceIdPlugin): DeviceIdPlugin {

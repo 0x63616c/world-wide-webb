@@ -7,7 +7,7 @@
  *
  * Presentational , the gallery's live data arrives as props (the `photo-booth`
  * detail wiring runs `boothPhotos.list` and passes groups + a `photoUrl`
- * builder, exactly as the Activity wiring feeds its page), so Storybook can tap
+ * builder, exactly as the Activity wiring feeds its page), so a component harness can tap
  * through the whole flow with fixtures and no backend.
  */
 

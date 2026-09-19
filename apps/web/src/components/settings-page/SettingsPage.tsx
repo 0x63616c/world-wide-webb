@@ -1,34 +1,27 @@
 /**
- * SettingsPage , the full-page (1366x1024) Settings overlay that replaces the
- * old settings modal. A body-portal fixed overlay (same pattern as the modal /
- * LevelOverlay) laid out per approved Concept A: a 340px tinted-chip sidebar
- * owning page selection, and a scrolling content column that renders the active
- * page component.
+ * SettingsPage , the full-page (1366x1024) Settings overlay. A body-portal fixed
+ * overlay (same pattern as the modal / LevelOverlay): a 340px tinted-chip
+ * sidebar owning page selection, and a scrolling content column that renders
+ * the active page component.
  *
- * Page bodies live in `pages/` and register into `PAGE_COMPONENTS` below; a
- * missing key renders nothing (later tasks fill every key). All page components
- * share `PageProps` so the shell can pass its close/overlay callbacks through.
+ * Page bodies live in `pages/` and register into `PAGE_COMPONENTS` below. All
+ * page components share `PageProps` so the shell can pass its close/overlay
+ * callbacks through.
  */
 
 import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeToClose } from "../../lib/escape-stack";
-import { interaction } from "../../lib/log/interaction";
 import { registerOpenModal } from "../../lib/modal-open-store";
 import { useIsNarrow } from "../../lib/useIsNarrow";
 import { Z_LAYER } from "../../lib/z-layers";
 import { Icon } from "../Icon";
 import { BackButton, PageHeader } from "./blocks";
 import { PAGE_BY_KEY, PAGES, type PageKey } from "./pages";
-import { BoardPage } from "./pages/BoardPage";
 import { DevicePage } from "./pages/DevicePage";
 import { DisplayPage } from "./pages/DisplayPage";
-import { LogsPage } from "./pages/LogsPage";
-import { NetworkPage } from "./pages/NetworkPage";
-import { NotificationsPage } from "./pages/NotificationsPage";
 import { SecurityPage } from "./pages/SecurityPage";
-import { SoundPage } from "./pages/SoundPage";
 import { TimePage } from "./pages/TimePage";
 
 export type PageProps = {
@@ -37,20 +30,12 @@ export type PageProps = {
   onOpenClean: () => void;
 };
 
-/**
- * The active-page component registry. Empty for now , page tasks slot their
- * component in under its key. A key with no entry renders nothing.
- */
-const PAGE_COMPONENTS: Partial<Record<PageKey, ComponentType<PageProps>>> = {
+/** The active-page component registry, one entry per sidebar key. */
+const PAGE_COMPONENTS: Record<PageKey, ComponentType<PageProps>> = {
   device: DevicePage,
   display: DisplayPage,
-  sound: SoundPage,
-  board: BoardPage,
-  network: NetworkPage,
-  notifications: NotificationsPage,
   security: SecurityPage,
   time: TimePage,
-  logs: LogsPage,
 };
 
 export function SettingsPage({
@@ -65,11 +50,11 @@ export function SettingsPage({
   onOpenLevel: () => void;
   onOpenClean: () => void;
   /**
-   * The page to land on when the overlay opens (a deep link, e.g. the Logs tile
-   * routing to the Logs page). When set, the shell also skips straight into the
-   * page on a narrow viewport rather than showing the sidebar list. Defaults to
-   * the Device page. Applied by the open-transition effect below , this shell is
-   * NOT remounted per open, so a useState seed alone would not re-apply it.
+   * The page to land on when the overlay opens (a deep link). When set, the
+   * shell also skips straight into the page on a narrow viewport rather than
+   * showing the sidebar list. Defaults to the Device page. Applied by the
+   * open-transition effect below , this shell is NOT remounted per open, so a
+   * useState seed alone would not re-apply it.
    */
   initialPage?: PageKey;
 }) {
@@ -108,14 +93,6 @@ export function SettingsPage({
     return registerOpenModal(() => onCloseRef.current());
   }, [open]);
 
-  // Interaction log for the open/close lifecycle, mirroring Modal.tsx.
-  useEffect(() => {
-    if (!open) return;
-    const target = "modal.Settings full page";
-    interaction("modal", "open", target);
-    return () => interaction("modal", "close", target);
-  }, [open]);
-
   // Escape-to-close, only while open AND only while nothing is open on top of
   // us , a PIN dialog over Settings owns Escape until it closes (#298).
   useEscapeToClose(open, onClose);
@@ -124,10 +101,6 @@ export function SettingsPage({
 
   const active = PAGE_BY_KEY[page];
   const ActivePage = PAGE_COMPONENTS[page];
-  // A `fill` page (the log viewer) owns its own internal scroll region and needs
-  // a definite full height with no 720px column cap; every other page keeps the
-  // scrolling, centered 720px column.
-  const fill = active.fill ?? false;
 
   return createPortal(
     <div
@@ -228,32 +201,24 @@ export function SettingsPage({
 
       {/* Content , the only pane once a page is picked on a phone. The generous
           64px side padding is panel framing; on a 440px viewport it would eat
-          almost a third of the width, so it tightens to 20px. Fill pages (e.g.
-          Logs) own a dense full-width list, so 64px would eat directly into
-          usable columns , they get a tighter 24px instead. */}
+          almost a third of the width, so it tightens to 20px. */}
       <div
         style={{
           flex: 1,
           minHeight: 0,
-          // A fill page's own list is the scroller; the pane must not also
-          // scroll (that double-scrollbar is exactly what `fill` fixes).
-          overflowY: fill ? "hidden" : "auto",
-          padding: narrow ? "20px 20px 40px" : fill ? "40px 24px 0" : "40px 64px",
-          display: narrow && showList ? "none" : fill ? "flex" : "block",
-          flexDirection: fill ? "column" : undefined,
+          overflowY: "auto",
+          padding: narrow ? "20px 20px 40px" : "40px 64px",
+          display: narrow && showList ? "none" : "block",
         }}
       >
         <div
           style={{
-            // Fill pages span the full width and height they are given; other
-            // pages sit in the centered, capped reading column.
-            maxWidth: fill ? "none" : 720,
+            maxWidth: 720,
             width: "100%",
-            margin: fill ? undefined : "0 auto",
+            margin: "0 auto",
             display: "flex",
             flexDirection: "column",
             gap: 28,
-            ...(fill ? { flex: 1, minHeight: 0 } : {}),
           }}
         >
           {/* Back to the page list , the only way out of a page on a phone,
@@ -265,17 +230,7 @@ export function SettingsPage({
             </div>
           ) : null}
           <PageHeader title={active.label} blurb={active.blurb} />
-          {ActivePage ? (
-            fill ? (
-              // Give the fill page a definite height so its `height:100%` list
-              // resolves against real pixels instead of collapsing to auto.
-              <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-                <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
-              </div>
-            ) : (
-              <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
-            )
-          ) : null}
+          <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
         </div>
       </div>
     </div>,

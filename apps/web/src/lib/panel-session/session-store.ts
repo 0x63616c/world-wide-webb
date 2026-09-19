@@ -14,7 +14,7 @@
  *     turned off (`setSessionEnabled(false)`), never because something is live.
  *
  * The clock is OFF until the app enables it (`setSessionEnabled`) , so merely
- * importing this module never schedules a global timer (test + Storybook
+ * importing this module never schedules a global timer (test + a component harness
  * hygiene). Board owns the gating (native-only, idle-dim setting, layout-edit)
  * and feeds `setTimeoutMs` from settings; the store has no opinion on any of it.
  */

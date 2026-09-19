@@ -8,7 +8,7 @@ const MESSAGE = "Updating…";
 
 /**
  * Absolutely-positioned banner (top-right inside .board, same slot as
- * ConnectionLostBanner/AppUpdateBanner) shown for the brief RELOAD_GRACE_MS
+ * ConnectionLostBanner) shown for the brief RELOAD_GRACE_MS
  * window between version-check.ts detecting a new deploy and the hard reload
  * it schedules. Without this, the reload landed silently , especially jarring
  * right after dismissing the deploy pipeline's in-app browser, where it read

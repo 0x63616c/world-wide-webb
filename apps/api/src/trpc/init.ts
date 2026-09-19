@@ -1,20 +1,9 @@
-import { PortalError } from "@features/guest-wifi/service";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { getLogger } from "@www/logger";
 import { HaError } from "../integrations/homeassistant/types";
 import type { Context } from "./context";
 
-const t = initTRPC.context<Context>().create({
-  // Surface a thrown PortalError's typed code structurally as data.portalCode so
-  // the captive-portal client branches on the enum, not the human message string
-  // (www-q002.19). The "CODE: text" message prefix stays for logs/back-compat.
-  errorFormatter({ shape, error }) {
-    if (error.cause instanceof PortalError) {
-      return { ...shape, data: { ...shape.data, portalCode: error.cause.code } };
-    }
-    return shape;
-  },
-});
+const t = initTRPC.context<Context>().create();
 
 /**
  * Maps Home Assistant outages onto tRPC's standard error channel: the client
@@ -43,7 +32,7 @@ const haErrorMiddleware = t.middleware(async ({ path, next }) => {
 
 export const router = t.router;
 // Merges independently-authored routers (same `t` config) into one. The codegen
-// aggregates (features/_generated/router.gen.ts, guest-router.gen.ts) use this
-// to fold every feature `api` facet into the app + guest routers.
+// aggregate (features/_generated/router.gen.ts) uses this to fold every feature
+// `api` facet into the app router.
 export const mergeRouters = t.mergeRouters;
 export const publicProcedure = t.procedure.use(haErrorMiddleware);

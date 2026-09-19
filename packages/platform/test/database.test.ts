@@ -31,11 +31,11 @@ describe("product CNPG database primitive", () => {
   });
 
   test("defaults Kubernetes resources to namespace-local postgres names", () => {
-    const database = defineProductDatabase(defineProduct("captive-portal"), homelabTarget, {
+    const database = defineProductDatabase(defineProduct("control-center"), homelabTarget, {
       size: "5Gi",
     });
 
-    expect(database.databaseName).toBe("captive_portal");
+    expect(database.databaseName).toBe("control_center");
     expect(database.clusterName).toBe("postgres");
     expect(database.authSecretName).toBe("postgres-auth");
     expect(database.rwServiceName).toBe("postgres-rw");
@@ -51,19 +51,5 @@ describe("product CNPG database primitive", () => {
 
     expect(database.auth.kind).toBe("database-owned-basic-auth");
     expect(database.auth.secretName).toBe("cc-postgres-auth");
-  });
-
-  test("resolves Software Factory database auth from the secret catalogue", () => {
-    const database = defineProductDatabase(defineProduct("software-factory"), homelabTarget, {
-      size: "1Gi",
-    });
-
-    expect(database).toMatchObject({
-      databaseName: "software_factory",
-      auth: {
-        kind: "database-owned-basic-auth",
-        password: { vaultKey: "SOFTWARE_FACTORY_POSTGRES__PASSWORD" },
-      },
-    });
   });
 });

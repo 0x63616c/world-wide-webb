@@ -45,7 +45,6 @@ vi.mock("@features/_generated/web.gen", () => {
   };
 });
 vi.mock("../ConnectionLostBanner", () => ({ ConnectionLostBanner: () => null }));
-vi.mock("../DevOverlayHud", () => ({ DevOverlayHud: () => null }));
 
 import { Board } from "../Board";
 

@@ -1,9 +1,6 @@
 import type { ErrorInfo, ReactNode } from "react";
 import { Component } from "react";
-import { log } from "../../lib/log/logger";
 import { Skeleton } from "./Skeleton";
-
-const tileLog = log.child("tile");
 
 interface Props {
   children: ReactNode;
@@ -58,14 +55,9 @@ export class TileBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Goes to the log buffer (and, via the console patch, still to the console),
-    // so a tile that crashes at 3am leaves evidence that survives the reload.
-    tileLog.error("tile render error", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      componentStack: info.componentStack,
-    });
+    // The board runs unattended, so a crashed tile must at least leave a trace
+    // in the WebView console rather than failing silently behind the skeleton.
+    console.error("tile render error", error, info.componentStack);
   }
 
   render() {

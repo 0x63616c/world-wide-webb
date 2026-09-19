@@ -2,7 +2,7 @@
 
 Local, unpacked, one machine. It exists because the tools Manage frames send
 `x-frame-options` / CSP `frame-ancestors` and cannot be reverse-proxied under a
-sub-path (Home Assistant, DSM and UniFi all emit `/`-rooted URLs). See
+sub-path (Home Assistant and DSM both emit `/`-rooted URLs). See
 `docs/adr/0010-manage-plane-framed-tools.md`.
 
 ## Install

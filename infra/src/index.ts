@@ -46,17 +46,9 @@ export type { LvmLocalPvArgs } from "./lvm-localpv.ts";
 export { installLvmLocalPv, STORAGE_CLASS_NAME, VOLUME_GROUP } from "./lvm-localpv.ts";
 export type { MetallbArgs, MetallbResources } from "./metallb.ts";
 export { installMetallb, METALLB_ADDRESS_POOL_RANGE } from "./metallb.ts";
-export type { NvidiaArgs, NvidiaResources } from "./nvidia.ts";
-export {
-  installNvidiaDevicePlugin,
-  installNvidiaRuntimeClass,
-  NVIDIA_RUNTIME_CLASS_NAME,
-} from "./nvidia.ts";
 export type { ObservabilityArgs, ObservabilityResources } from "./observability/index.ts";
 export {
   installObservability,
   OBSERVABILITY_NAMESPACE,
   PROMETHEUS_DATASOURCE_UID,
 } from "./observability/index.ts";
-export type { WebhookRelayArgs, WebhookRelayResources } from "./webhook-relay.ts";
-export { installWebhookRelay, WEBHOOK_RELAY_NAMESPACE } from "./webhook-relay.ts";

@@ -9,9 +9,8 @@
  * Prometheus scrapes the pod IP directly off the pod annotations
  * (`WorkloadSpec.scrape`), so the port is reachable in-cluster only.
  *
- * `node:http` rather than `Bun.serve` because this same code runs on bun (api,
- * worker) AND on node (temporal-worker, whose runtime is forced by the Temporal
- * SDK's native bridge).
+ * `node:http` rather than `Bun.serve` so the same listener works on bun and on
+ * node.
  */
 import { createServer, type Server } from "node:http";
 import type { Logger } from "@www/logger";

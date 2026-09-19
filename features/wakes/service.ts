@@ -1,20 +1,26 @@
 /**
  * Interaction sessions , a visit to the wall panel, reconstructed.
  *
- * DERIVED, NOT STORED. There is deliberately no `interaction_session` table:
- * the `session/start` and `session/end` entries the panel already ships carry
- * every attribute a session has (reason, event count, duration), and the log
- * shipper is idempotent and backfills offline windows. A second write path for
- * session rows would be a copy that can drift from, and lose rows relative to,
- * the log it copies. An aggregate cannot drift.
+ * DERIVED, NOT STORED. There is deliberately no `interaction_session` table.
  *
- * The cost is that a session is a GROUP BY rather than a row, which is why the
- * ui-channel entries carry `interactionSessionId` in their JSONB payload and
- * the frontend_log ts index does the heavy lifting. At panel scale (one device,
- * tens of visits a day, 30-day log retention) that cost is noise.
+ * ⚠️ REDUCED BY THE SIMPLIFICATION (§2, felogs). This used to reconstruct a
+ * session by grouping `frontend_log` ui-channel rows on their
+ * `interactionSessionId`, which is where the transcript, the duration, the end
+ * reason and the digest came from. The frontend log pipeline and the
+ * `frontend_log` table are gone, so the ONLY surviving record of a visit is the
+ * front-camera burst the panel uploads on undim , `wake_photo`, this feature's
+ * own table.
+ *
+ * What that leaves is honest but thin: a session is "a burst of frames that
+ * named this session id", so it has an id, a start (its first frame), a device
+ * and its frames. Everything the transcript used to supply is reported as
+ * `null` / empty rather than invented, per the repo's no-fake-data rule.
+ * `endedAt`/`durationMs`/`endReason`/`digest` now mean "unknown", not "still
+ * running", and `events` is always empty. Those fields are kept on the wire
+ * only so the Activity view keeps typechecking; they should be deleted from
+ * both ends once that view drops its transcript panel.
  */
-import { frontendLog } from "@features/felogs/schema";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, isNotNull, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "./schema";
 import { wakePhoto } from "./schema";
@@ -22,23 +28,22 @@ import { wakePhoto } from "./schema";
 export interface InteractionSessionSummary {
   id: string;
   startedAt: number;
-  /** Null while the visit is still in progress (no session/end shipped yet). */
-  endedAt: number | null;
-  durationMs: number | null;
+  /** Always null: no end bracket survives the frontend-log removal. */
+  endedAt: null;
+  /** Always null: derived from the end bracket, which is gone. */
+  durationMs: null;
+  /** Always 0: the interaction transcript is gone. */
   eventCount: number;
-  endReason: string | null;
+  /** Always null: derived from the end bracket, which is gone. */
+  endReason: null;
   deviceName: string;
-  /** Burst frame paths, chronological. Empty when the burst failed or dimming is off. */
+  /** Burst frame paths, chronological. */
   photoPaths: string[];
-  /**
-   * A short summary of the notable things touched this visit ("Climate · Desk
-   * lamp · Settings", capped with "+N more"), so a list row says what happened
-   * without opening the transcript. Null when nothing notable was done.
-   */
-  digest: string | null;
+  /** Always null: the digest was folded from the transcript, which is gone. */
+  digest: null;
 }
 
-export interface InteractionSessionEvent {
+interface InteractionSessionEvent {
   ts: number;
   idx: number;
   msg: string;
@@ -46,138 +51,42 @@ export interface InteractionSessionEvent {
 }
 
 export interface InteractionSessionDetail extends InteractionSessionSummary {
+  /** Always empty, see the module note. */
   events: InteractionSessionEvent[];
 }
 
 const DEFAULT_LIMIT = 50;
-
-/** Max distinct subjects named before the digest collapses to "+N more". */
-const DIGEST_CAP = 3;
-
-function digestRecord(data: unknown): Record<string, unknown> {
-  return data && typeof data === "object" ? (data as Record<string, unknown>) : {};
-}
-
-/** Sentence-case a machine token (`sound_system` → "Sound system"). */
-function prettyToken(raw: string): string {
-  const spaced = raw
-    .replace(/^tile_/, "")
-    .replace(/[._-]+/g, " ")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .trim();
-  if (!spaced) return "";
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
-}
-
-/** A control id reads reversed: `control.lamp.desk` → "Desk lamp". */
-function controlSubject(target: string): string {
-  const segments = target
-    .replace(/^control\./, "")
-    .split(".")
-    .filter(Boolean);
-  if (segments.length === 0) return "Control";
-  const phrase = segments.reverse().join(" ");
-  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
-}
-
-/**
- * The digest subject for one event, or null when the event is not notable.
- * Notable = a tile the person opened, a control they moved, or a setting they
- * changed; brackets (start/end/wake), pans, and modal opens are noise here.
- */
-function digestSubject(msg: string, data: unknown): string | null {
-  const rec = digestRecord(data);
-  const target = typeof rec.target === "string" ? rec.target : "";
-  const [surface, action] = msg.split("/");
-  if (surface === "tile" && action === "tap") {
-    return (typeof rec.label === "string" && rec.label) || prettyToken(target) || null;
-  }
-  if (surface === "control" && (action === "change" || action === "commit")) {
-    return controlSubject(target);
-  }
-  if (surface === "settings" && (action === "change" || action === "commit")) {
-    return "Settings";
-  }
-  return null;
-}
-
-/**
- * Fold a session's events into a compact digest of what was touched, in first-
- * seen order, deduped, capped with a "+N more" tail. Null when nothing notable
- * happened (a glance that opened no tile and changed nothing).
- */
-export function computeDigest(events: InteractionSessionEvent[]): string | null {
-  const subjects: string[] = [];
-  for (const e of events) {
-    const subject = digestSubject(e.msg, e.data);
-    if (subject && !subjects.includes(subject)) subjects.push(subject);
-  }
-  if (subjects.length === 0) return null;
-  const head = subjects.slice(0, DIGEST_CAP).join(" · ");
-  const rest = subjects.length - DIGEST_CAP;
-  return rest > 0 ? `${head} · +${rest} more` : head;
-}
-
-/** The ui-channel rows for one session, in transcript order. */
-async function eventsFor(
-  db: NodePgDatabase<typeof schema>,
-  id: string,
-): Promise<InteractionSessionEvent[]> {
-  const rows = await db
-    .select({ ts: frontendLog.ts, msg: frontendLog.msg, data: frontendLog.data })
-    .from(frontendLog)
-    .where(
-      and(eq(frontendLog.source, "ui"), sql`${frontendLog.data}->>'interactionSessionId' = ${id}`),
-    )
-    .orderBy(asc(frontendLog.ts));
-
-  return rows.map((r) => ({
-    ts: r.ts.getTime(),
-    idx: Number((r.data as { idx?: number } | null)?.idx ?? 0),
-    msg: r.msg,
-    data: r.data,
-  }));
-}
 
 /** Burst frame paths for one session, chronological. */
 async function photosFor(db: NodePgDatabase<typeof schema>, id: string): Promise<string[]> {
   const rows = await db
     .select({ path: wakePhoto.path })
     .from(wakePhoto)
-    .where(eq(wakePhoto.interactionSessionId, id))
+    .where(sql`${wakePhoto.interactionSessionId} = ${id}`)
     .orderBy(asc(wakePhoto.capturedAt));
   return rows.map((r) => r.path);
 }
 
 /**
- * Fold a session's ordered events + photos into its summary. Exported for
- * direct tests , this is where ALL the derivation logic lives (end detection,
- * live-session nulls, count fallback); the SQL around it is a thin fetch.
+ * Fold one session's burst into its summary. Exported for direct tests , this
+ * is the whole derivation now that the transcript is gone.
  */
 export function summarise(
   id: string,
-  events: InteractionSessionEvent[],
+  startedAt: number,
   deviceName: string,
   photoPaths: string[],
 ): InteractionSessionSummary {
-  const end = events.find((e) => e.msg === "session/end");
-  const endData = end?.data as
-    | { reason?: string; events?: number; durationMs?: number }
-    | undefined;
   return {
     id,
-    startedAt: events[0]?.ts ?? 0,
-    endedAt: end?.ts ?? null,
-    durationMs: endData?.durationMs ?? null,
-    // Prefer the count the panel itself recorded; fall back to what shipped, so
-    // a live (unended) session still reports a truthful number.
-    eventCount:
-      endData?.events ??
-      events.filter((e) => e.msg !== "session/start" && e.msg !== "session/end").length,
-    endReason: endData?.reason ?? null,
+    startedAt,
+    endedAt: null,
+    durationMs: null,
+    eventCount: 0,
+    endReason: null,
     deviceName,
     photoPaths,
-    digest: computeDigest(events),
+    digest: null,
   };
 }
 
@@ -187,33 +96,26 @@ export async function listInteractionSessions(
 ): Promise<InteractionSessionSummary[]> {
   const limit = opts.limit ?? DEFAULT_LIMIT;
 
-  // One row per session: its id, start and device, newest visit first.
+  // One row per session: its id, the instant of its first frame, and the device
+  // that shot it. Newest visit first. Rides wake_photo_session_idx.
   const groups = await db
     .select({
-      id: sql<string>`${frontendLog.data}->>'interactionSessionId'`.as("id"),
-      startedAt: sql<Date>`min(${frontendLog.ts})`.as("started_at"),
-      deviceName: sql<string>`max(${frontendLog.deviceName})`.as("device_name"),
+      id: sql<string>`${wakePhoto.interactionSessionId}`.as("id"),
+      startedAt: sql<Date>`min(${wakePhoto.capturedAt})`.as("started_at"),
+      // `deviceId` is nullable for bursts backfilled before the column existed.
+      deviceId: sql<string | null>`max(${wakePhoto.deviceId})`.as("device_id"),
     })
-    .from(frontendLog)
-    .where(
-      and(
-        eq(frontendLog.source, "ui"),
-        sql`${frontendLog.data}->>'interactionSessionId' is not null`,
-      ),
-    )
-    .groupBy(sql`${frontendLog.data}->>'interactionSessionId'`)
-    .orderBy(desc(sql`min(${frontendLog.ts})`))
+    .from(wakePhoto)
+    .where(isNotNull(wakePhoto.interactionSessionId))
+    .groupBy(wakePhoto.interactionSessionId)
+    .orderBy(desc(sql`min(${wakePhoto.capturedAt})`))
     .limit(limit);
 
-  // Deliberate N+1 (two indexed lookups per session): at panel scale (one
-  // device, tens of visits, limit 50) that is ~100 hits on
-  // frontend_log_ui_session_idx / wake_photo_session_idx per list call, which
-  // is cheaper to own than a three-way JSONB join is to read. Revisit only if
-  // a fleet of devices ever makes this list hot.
   const summaries: InteractionSessionSummary[] = [];
   for (const g of groups) {
-    const events = await eventsFor(db, g.id);
-    summaries.push(summarise(g.id, events, g.deviceName, await photosFor(db, g.id)));
+    summaries.push(
+      summarise(g.id, g.startedAt.getTime(), g.deviceId ?? "unknown", await photosFor(db, g.id)),
+    );
   }
   return summaries;
 }
@@ -222,19 +124,26 @@ export async function getInteractionSession(
   db: NodePgDatabase<typeof schema>,
   id: string,
 ): Promise<InteractionSessionDetail | null> {
-  const events = await eventsFor(db, id);
-  if (events.length === 0) return null;
+  const rows = await db
+    .select({
+      path: wakePhoto.path,
+      capturedAt: wakePhoto.capturedAt,
+      deviceId: wakePhoto.deviceId,
+    })
+    .from(wakePhoto)
+    .where(sql`${wakePhoto.interactionSessionId} = ${id}`)
+    .orderBy(asc(wakePhoto.capturedAt));
 
-  const [row] = await db
-    .select({ deviceName: frontendLog.deviceName })
-    .from(frontendLog)
-    .where(
-      and(eq(frontendLog.source, "ui"), sql`${frontendLog.data}->>'interactionSessionId' = ${id}`),
-    )
-    .limit(1);
+  if (rows.length === 0) return null;
 
+  const first = rows[0];
   return {
-    ...summarise(id, events, row?.deviceName ?? "unknown", await photosFor(db, id)),
-    events,
+    ...summarise(
+      id,
+      first.capturedAt.getTime(),
+      rows.find((r) => r.deviceId !== null)?.deviceId ?? "unknown",
+      rows.map((r) => r.path),
+    ),
+    events: [],
   };
 }

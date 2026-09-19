@@ -3,7 +3,6 @@ node_modules/
 
 # Build output
 dist/
-dist-portal/
 build/
 
 # Postgres migration artifacts (Swarm->CNPG dump + count tsvs, www-j934.8).
@@ -24,8 +23,6 @@ build/
 # Tilt
 .tilt/
 
-# Local Temporal dev-server persistence
-.temporal/
 
 # Vite
 .vite/
@@ -56,13 +53,6 @@ coverage/
 # TypeScript build cache
 *.tsbuildinfo
 
-# Tesla map basemap tiles , large, host locally / on homelab (see www-gma)
-apps/web/public/maps/*.pmtiles
-
-# Storybook
-*storybook.log
-storybook-static
-
 # ship workflow scratch + build worktrees
 .claude/worktrees/
 .claire/
@@ -70,20 +60,8 @@ storybook-static
 # Runtime scheduler lock , ephemeral, never commit
 .claude/scheduled_tasks.lock
 
-# PR/verification screenshots , kept on local disk for reference, never tracked
-# (referenced nowhere in docs/code; purged from history in www-st5j to keep the
-# public repo lean). Drop new verification shots here freely; git ignores them.
-docs/screenshots/
-
 # Worktrees
 .worktrees/
-
-# Brainstorm mockups (visual companion sessions)
-.superpowers/
-
-# ESPHome per-config WiFi creds — beside the config, never committed (main
-# WiFi pw lives in 1Password, not SOPS). See infra/esphome/README.md.
-infra/esphome/secrets.yaml
 
 # Talos/kube clusterconfig — ephemeral, rebuilt each session. Holds cluster CA +
 # admin client cert/key + talos secrets. talhelper's generated inner .gitignore

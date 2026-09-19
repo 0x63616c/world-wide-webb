@@ -8,12 +8,7 @@ import {
   metricsRegistry,
   OTHER_LABEL,
   observeCronRun,
-  observeDtyeOutboxDispatch,
-  observeDtyeOutboxRecoverySuccess,
-  observeDtyeOutboxSnapshot,
-  observeDtyeSessionPurge,
   observeHttpRequest,
-  observeJobRun,
   startMetricsServer,
   statusClass,
 } from "../metrics/index";
@@ -61,11 +56,16 @@ describe("registry", () => {
 
   test("metricsHandler returns the exposition text with prom-client's content-type", async () => {
     initMetrics({ service: "worker", collectDefaults: false });
-    observeJobRun({ job: "notify", outcome: "success", durationSeconds: 0.2 });
+    observeCronRun({
+      cron: "weather-purge",
+      outcome: "success",
+      durationSeconds: 0.2,
+      completedAtMs: 1_700_000_000_000,
+    });
     const res = await metricsHandler();
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe(metricsRegistry.contentType);
-    expect(await res.text()).toContain("www_job_runs_total");
+    expect(await res.text()).toContain("www_cron_last_success_timestamp_seconds");
   });
 });
 
@@ -112,17 +112,6 @@ describe("http helpers", () => {
   });
 });
 
-describe("job helpers", () => {
-  test("a failure increments both runs and failures", async () => {
-    initMetrics({ service: "worker", collectDefaults: false });
-    observeJobRun({ job: "notify", outcome: "success", durationSeconds: 0.1 });
-    observeJobRun({ job: "notify", outcome: "failure", durationSeconds: 0.1 });
-    const text = await exposition();
-    expect(seriesValue(text, "www_job_runs_total", 'job="notify"')).toBe(2);
-    expect(seriesValue(text, "www_job_failures_total", 'job="notify"')).toBe(1);
-  });
-});
-
 describe("cron helpers", () => {
   test("a success sets the last-success gauge to the completion time in SECONDS", async () => {
     initMetrics({ service: "worker", collectDefaults: false });
@@ -163,38 +152,6 @@ describe("cron helpers", () => {
   });
 });
 
-describe("DTYE Temporal helpers", () => {
-  test("exports bounded outbox backlog, outcomes, queue latency and activity health", async () => {
-    initMetrics({ service: "dont-text-your-ex-temporal-worker", collectDefaults: false });
-    observeDtyeOutboxSnapshot({ pending: 7, oldestAgeSeconds: 91, permanentFailures: 2 });
-    observeDtyeOutboxDispatch({ outcome: "retry" });
-    observeDtyeOutboxDispatch({ outcome: "permanent_failure" });
-    observeDtyeOutboxDispatch({ outcome: "accepted", latencySeconds: 4.2 });
-    observeDtyeOutboxRecoverySuccess(1_700_000_000_000);
-    observeDtyeSessionPurge({
-      outcome: "success",
-      deleted: 12,
-      durationSeconds: 0.25,
-      completedAtMs: 1_700_000_001_000,
-    });
-    const text = await exposition();
-    expect(seriesValue(text, "www_dtye_outbox_pending")).toBe(7);
-    expect(seriesValue(text, "www_dtye_outbox_oldest_age_seconds")).toBe(91);
-    expect(seriesValue(text, "www_dtye_outbox_permanent_failures")).toBe(2);
-    expect(seriesValue(text, "www_dtye_outbox_dispatches_total", 'outcome="retry"')).toBe(1);
-    expect(text).toContain("www_dtye_outbox_dispatch_latency_seconds_bucket");
-    expect(
-      seriesValue(
-        text,
-        "www_dtye_temporal_activity_last_success_timestamp_seconds",
-        'activity="outbox_recovery"',
-      ),
-    ).toBe(1_700_000_000);
-    expect(seriesValue(text, "www_dtye_session_purge_deleted_total")).toBe(12);
-    expect(text).not.toMatch(/user_id|jar_id|event_id|token=/);
-  });
-});
-
 describe("label cardinality guard", () => {
   test("values beyond the limit fold into other instead of opening new series", () => {
     expect(boundedLabel("k", "a", 2)).toBe("a");
@@ -215,7 +172,12 @@ describe("label cardinality guard", () => {
 describe("metrics listener", () => {
   test("serves the exposition on its own port and 404s everything else", async () => {
     initMetrics({ service: "worker", collectDefaults: false });
-    observeJobRun({ job: "notify", outcome: "success", durationSeconds: 0.1 });
+    observeCronRun({
+      cron: "weather-purge",
+      outcome: "success",
+      durationSeconds: 0.1,
+      completedAtMs: 1_700_000_000_000,
+    });
     // Port 0 asks the OS for a free port; the listener is dedicated and never
     // fronted by a Service, so nothing depends on a fixed number here.
     const server = startMetricsServer({ port: 0, host: "127.0.0.1" });
@@ -228,7 +190,7 @@ describe("metrics listener", () => {
       expect(port).toBeDefined();
       const ok = await fetch(`http://127.0.0.1:${port}/metrics`);
       expect(ok.status).toBe(200);
-      expect(await ok.text()).toContain("www_job_runs_total");
+      expect(await ok.text()).toContain("www_cron_last_success_timestamp_seconds");
       const missing = await fetch(`http://127.0.0.1:${port}/anything-else`);
       expect(missing.status).toBe(404);
     } finally {

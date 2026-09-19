@@ -25,25 +25,21 @@ nodes:
     # for this exact extension set + v1.13.7 is recorded in README.md and MUST
     # match after any edit here.
     #
-    # siderolabs/kata-containers (program handoff step 1 of the software-factory
-    # migration, /tmp/handoffs/2026-07-29-software-factory-migration-program.md):
-    # gives Kata VM-isolated containers a `kata`/`kata-qemu` containerd runtime
-    # handler, for later scheduling of untrusted software-factory agent work
-    # into VM-isolated pods (see infra/src/kata.ts's RuntimeClass). Editing this
-    # list alone does NOTHING live , it changes machine.install.image, which
-    # only takes effect after a `talosctl upgrade` + reboot (infra/talos/README.md's
-    # Image Factory schematic section documents the exact upgrade command). New
-    # schematic ID for this extended list: see README.md.
+    # The NVIDIA (nonfree-kmod-nvidia-production +
+    # nvidia-container-toolkit-production) and Kata Containers extensions were
+    # REMOVED by The Simplification: the GPU workload (Plex) and the VM-isolated
+    # agent sandbox they existed for are both gone. Editing this list alone does
+    # NOTHING live , it changes machine.install.image, which only takes effect
+    # after a `talosctl upgrade` + reboot (infra/talos/README.md's Image Factory
+    # schematic section documents the exact upgrade command). New schematic ID
+    # for this reduced list: see README.md.
     schematic:
       customization:
         systemExtensions:
           officialExtensions:
-            - siderolabs/nonfree-kmod-nvidia-production
-            - siderolabs/nvidia-container-toolkit-production
             - siderolabs/iscsi-tools
             - siderolabs/nfs-utils
             - siderolabs/tailscale
-            - siderolabs/kata-containers
     networkInterfaces:
       - interface: enp4s0 # 2.5GbE NIC — confirmed on hardware 2026-07-24 via `talosctl get links` (MAC d8:bb:c1:df:7d:19)
         dhcp: false # CRITICAL: Talos defaults physical links to DHCP. Without this,
@@ -57,7 +53,7 @@ nodes:
           - network: 0.0.0.0/0
             gateway: 192.168.0.1
     nameservers:
-      - 192.168.0.1 # UniFi gateway (also DNS resolver on this LAN)
+      - 192.168.0.1 # LAN gateway (also DNS resolver on this LAN)
 
 patches:
   - |-
@@ -65,7 +61,7 @@ patches:
       certSANs: [home-server.tail8c014d.ts.net, 192.168.0.5]
       network:
         # `endpoint:` above is the node's own tailnet MagicDNS name, but the
-        # node's only resolver is the UniFi gateway (nameservers above), which
+        # node's only resolver is the LAN gateway (nameservers above), which
         # knows nothing about `.ts.net`. Talos' own k8s.StaticEndpointController
         # and k8s.EndpointController resolve `endpoint` on the HOST — so they
         # failed every ~15s forever with `lookup home-server.tail8c014d.ts.net
@@ -90,20 +86,10 @@ patches:
             aliases:
               - home-server.tail8c014d.ts.net
               - home-server
-      # NVIDIA (RTX 3060) kernel modules. The nonfree-kmod-nvidia-production +
-      # nvidia-container-toolkit-production system extensions (schematic above)
-      # ship the .ko files, but Talos only auto-loads modules listed here — so
-      # without this block the driver never binds (`/proc/driver/nvidia` absent)
-      # and the k8s device plugin finds no GPU. Loaded at boot, so applying this
-      # reboots the node. nvidia_uvm = CUDA, nvidia_drm/modeset = NVENC/NVDEC
-      # (Plex hardware transcode). Prereq for the nvidia RuntimeClass + device
-      # plugin the cluster uses to schedule Plex on the GPU.
-      kernel:
-        modules:
-          - name: nvidia
-          - name: nvidia_uvm
-          - name: nvidia_drm
-          - name: nvidia_modeset
+      # No `kernel.modules` block: the nvidia/nvidia_uvm/nvidia_drm/
+      # nvidia_modeset entries went with the NVIDIA system extensions above.
+      # Auto-loading a module whose .ko the image no longer ships would fail at
+      # boot for nothing, and no workload asks for the GPU any more.
       # NTP: this box has no reliable RTC across hard power cuts. If the clock
       # resets on boot, Talos' PKI certs look "not yet valid" and apid refuses to
       # start (node pings but no services). Sync fast + hard from the LAN gateway

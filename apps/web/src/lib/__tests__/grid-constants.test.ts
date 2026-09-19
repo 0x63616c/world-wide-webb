@@ -6,7 +6,7 @@ import { BOARD_H, BOARD_W, GRID_COLS, GRID_ROWS } from "../grid-constants";
 //
 // Two distinct numbers, both real:
 //  - Physical iPad Pro panel: 1366×1024 (screenshots, Playwright smoke).
-//  - Board CONTENT grid:      1366×1000 = BOARD_W×BOARD_H (CELL sizing + Storybook).
+//  - Board CONTENT grid:      1366×1000 = BOARD_W×BOARD_H (CELL sizing).
 // The live board is position:fixed/inset:0 (full window), so the extra 24px of
 // the 1024-tall panel is uncropped world, not a clip. If you intentionally change
 // the grid size, update the three docs above in the same change and adjust here.

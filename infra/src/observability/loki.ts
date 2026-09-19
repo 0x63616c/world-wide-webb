@@ -39,7 +39,7 @@ const LOKI_GRPC_PORT = 9096;
 
 /**
  * 30Gi on `local-lvm`, the node's only StorageClass. Node-local disk is
- * finite (~930 GiB total, shared with Prometheus, Postgres and Plex), so the
+ * finite (~930 GiB total, shared with Prometheus and Postgres), so the
  * PVC is the hard ceiling and `retention_period` is what keeps usage below it.
  * Sized for 14 days of a handful of chatty backend services at pino `info`.
  */

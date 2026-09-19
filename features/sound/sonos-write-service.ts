@@ -97,15 +97,3 @@ export async function sonosGrabTvToBeam(
 ): Promise<void> {
   await client.callService("media_player", "select_source", { entity_id: beamIp, source: "TV" });
 }
-
-/** Play a Spotify (or Sonos) URI via HA, rather than Spotify Connect device discovery. */
-export async function playMediaOnRoom(
-  { entityId, uri }: { entityId: string; uri: string },
-  client: HaWriter = ha,
-): Promise<void> {
-  await client.callService("media_player", "play_media", {
-    entity_id: entityId,
-    media_content_id: uri,
-    media_content_type: uri.startsWith("spotify:playlist:") ? "playlist" : "music",
-  });
-}

@@ -8,7 +8,6 @@
     "./contract": "./src/contract/settings.ts",
     "./contract-device-settings": "./src/contract/device-settings.ts",
     "./trpc": "./src/trpc/routers/index.ts",
-    "./trpc-guest": "./src/trpc/guest-router.ts",
     "./trpc-context": "./src/trpc/context.ts",
     "./trpc-init": "./src/trpc/init.ts",
     "./worker": "./src/worker-deps.ts"
@@ -17,7 +16,6 @@
     "dev": "bun --watch src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:guest-smoke": "bun run scripts/guest-server-smoke.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "bunx drizzle-kit generate",
     "db:migrate": "bunx drizzle-kit migrate",

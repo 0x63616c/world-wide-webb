@@ -11,7 +11,6 @@
  */
 
 import { getDeviceId } from "./device-id";
-import { log } from "./log/logger";
 
 export const BURST_DELAYS_MS = [700, 1300, 2000] as const;
 
@@ -23,8 +22,6 @@ const JPEG_QUALITY = 0.8;
 // a frame still gives up quickly and the burst proceeds best-effort.
 const READY_TIMEOUT_MS = 1500;
 const READY_POLL_MS = 50;
-
-const wakeLog = log.child("wake");
 
 let burstInFlight = false;
 
@@ -95,9 +92,6 @@ export async function uploadBurstFramesForTests(
 }
 
 async function runBurst(sessionId: string | null): Promise<void> {
-  const startedAt = performance.now();
-  wakeLog.info("burst start");
-
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -107,7 +101,7 @@ async function runBurst(sessionId: string | null): Promise<void> {
   } catch (err) {
     // The single most diagnostic line: NotAllowedError here means the shell
     // build has no camera permission yet (Info.plist / TestFlight lag).
-    wakeLog.warn("camera open failed", {
+    console.warn("camera open failed", {
       name: err instanceof Error ? err.name : "unknown",
       message: err instanceof Error ? err.message : String(err),
     });
@@ -125,36 +119,28 @@ async function runBurst(sessionId: string | null): Promise<void> {
     // 0×0 sensor for the first fraction of a second, and grabbing then yields a
     // black skip that the burst silently drops. Bounded + best-effort: if no
     // frame ever arrives we log it and let the burst try anyway.
-    const ready = await awaitVideoReady(video);
-    if (!ready) {
-      wakeLog.warn("camera not ready before burst", {
+    if (!(await awaitVideoReady(video))) {
+      console.warn("camera not ready before burst", {
         w: video.videoWidth,
         h: video.videoHeight,
         waitedMs: READY_TIMEOUT_MS,
       });
-    } else {
-      wakeLog.info("camera ready", { w: video.videoWidth, h: video.videoHeight });
     }
 
-    let uploaded = 0;
     let elapsed = 0;
     for (const [frameIdx, at] of BURST_DELAYS_MS.entries()) {
       await sleep(at - elapsed);
       elapsed = at;
       const blob = await grabFrame(video);
       if (!blob) {
-        wakeLog.warn("frame grab returned nothing", { at });
+        console.warn("frame grab returned nothing", { at });
         continue;
       }
       const res = await uploadFrame(blob, sessionId, frameIdx);
-      if (res.ok) uploaded += 1;
-      else wakeLog.warn("frame upload rejected", { at, status: res.status, bytes: blob.size });
+      if (!res.ok) {
+        console.warn("frame upload rejected", { at, status: res.status, bytes: blob.size });
+      }
     }
-    wakeLog.info("burst done", {
-      uploaded,
-      of: BURST_DELAYS_MS.length,
-      ms: Math.round(performance.now() - startedAt),
-    });
   } finally {
     for (const track of stream.getTracks()) track.stop();
   }
@@ -190,8 +176,8 @@ export type CameraProbeResult = { ok: true } | { ok: false; name: string; messag
  * settings page's "Test camera" action: it exercises the exact getUserMedia
  * call the wake burst makes, and , when the OS permission is still
  * undetermined , it is an on-demand way to raise the TCC prompt instead of
- * waiting for the next idle-dim wake. Logs to the same wake channel so the
- * probe shows up next to real bursts in frontend_log.
+ * waiting for the next idle-dim wake. Failures go to `console.warn` alongside
+ * real burst failures below.
  */
 export async function probeCamera(): Promise<CameraProbeResult> {
   try {
@@ -200,12 +186,11 @@ export async function probeCamera(): Promise<CameraProbeResult> {
       audio: false,
     });
     for (const track of stream.getTracks()) track.stop();
-    wakeLog.info("camera probe ok");
     return { ok: true };
   } catch (err) {
     const name = err instanceof Error ? err.name : "unknown";
     const message = err instanceof Error ? err.message : String(err);
-    wakeLog.warn("camera probe failed", { name, message });
+    console.warn("camera probe failed", { name, message });
     return { ok: false, name, message };
   }
 }
@@ -218,7 +203,7 @@ export function captureWakeBurst(
   burstInFlight = true;
   runner(sessionId)
     .catch((err) =>
-      wakeLog.warn("burst failed", {
+      console.warn("burst failed", {
         name: err instanceof Error ? err.name : "unknown",
         message: err instanceof Error ? err.message : String(err),
       }),

@@ -45,9 +45,6 @@ jobs:
       manage: ${{ steps.filter.outputs.manage }}
       api: ${{ steps.filter.outputs.api }}
       worker: ${{ steps.filter.outputs.worker }}
-      temporalworker: ${{ steps.filter.outputs.temporalworker }}
-      mapprovision: ${{ steps.filter.outputs.mapprovision }}
-      dont_text_your_ex: ${{ steps.filter.outputs.dont_text_your_ex }}
       # infra-only changes (Pulumi program / specs) deploy without any image
       # rebuild: a `pulumi up` must still converge the declared stack.
       infra: ${{ steps.filter.outputs.infra }}
@@ -103,15 +100,6 @@ jobs:
               - 'app-kit/**'
               - 'features/**'
               - 'bun.lock'
-            # The Temporal worker serves feature-declared workflows/activities
-            # (ADR-0008), so its build surface includes the feature tree and
-            # the shared packages their activities import.
-            temporalworker:
-              - 'apps/temporal-worker/**'
-              - 'app-kit/**'
-              - 'features/**'
-              - 'packages/**'
-              - 'bun.lock'
             # infra-only changes (the Pulumi program + workload specs) deploy
             # with NO image rebuild: the deploy job runs `pulumi up`, which must
             # converge an infra-only diff (e.g. a resource cap or env change).
@@ -126,40 +114,20 @@ jobs:
             cloudflareinfra:
               - 'infra/cloudflare/**'
               - 'packages/platform/src/index.ts'
-            # Basemap provisioner (www-hn1i): a self-contained alpine + pmtiles
-            # CLI + sh image, no workspace deps, so it rebuilds solely on its
-            # own tree.
-            mapprovision:
-              - 'apps/map-provision/**'
-            # Don't Text Your Ex ships as two images from one standalone app
-            # tree; changes to shared packages or the lockfile rebuild both.
-            dont_text_your_ex:
-              - 'apps/dont-text-your-ex/**'
-              - 'packages/**'
-              - 'bun.lock'
             # any_app is true when at least one TypeScript-workspace image
             # needs to be built. An infra-only change is handled by the separate
-            # `infra` filter above. Software-factory source and image builds
-            # live in the standalone repository; this workflow only verifies
-            # and deploys its pinned immutable release from `infra/**`.
+            # `infra` filter above.
             any_app:
               - 'apps/web/**'
               - 'apps/manage/**'
               - 'apps/api/**'
               - 'apps/worker/**'
-              - 'apps/temporal-worker/**'
-              - 'apps/map-provision/**'
-              - 'apps/dont-text-your-ex/**'
               - 'packages/**'
               - 'app-kit/**'
               - 'features/**'
               - 'bun.lock'
 
-  # Unit suite (jsdom) + all the fast hermetic bash guards. Split from the
-  # Storybook browser suite so the two run concurrently: they share nothing, and
-  # sequentially they cost sum(218s, 174s) instead of max(). The guards live
-  # here because this job needs no Playwright install, which keeps the two
-  # halves roughly balanced.
+  # Unit suite (jsdom) + all the fast hermetic bash guards.
   test-unit:
     needs: [changes]
     runs-on: ubuntu-latest
@@ -176,13 +144,6 @@ jobs:
         # bypass (or a hook that isn't installed on a contributor's machine)
         # would otherwise ship lint regressions undetected (www-355t.6).
         run: bun run lint
-      - name: Storybook docs guard
-        # Authoritative backstop for the lefthook pre-commit `storybook-docs`
-        # hook (bypassable with --no-verify): fails the test job if any tracked
-        # *.stories.tsx lacks an autodocs Docs page. `deploy-home-server` needs `test-unit`, so a
-        # missing doc blocks the deploy. Fast (grep), runs before the slow
-        # Playwright install so it fails early (www-o0ko).
-        run: bash scripts/check-storybook-docs.sh
       - name: Alias parity guard
         # Static backstop (Track C, C7): the @app-kit / @app-kit/server /
         # @features authoring-surface aliases must be declared identically
@@ -190,28 +151,8 @@ jobs:
         # resolve.alias), or a module resolves in one tool and not another.
         # Fast (grep), runs alongside the other hermetic guards.
         run: bash scripts/check-alias-parity.sh
-      - name: OrbStack watchdog logic tests
-        # Hermetic self-test of the docker-hang watchdog's decide/probe logic
-        # (www-sizh), no real docker/OrbStack. Gates the recovery automation so a
-        # regression in its thresholds/anti-loop guard can't ship silently. Fast
-        # (bash), runs before the slow Playwright install. Mirrors the
-        # test-kiosk-health gate in ios-build.yml.
-        run: bash scripts/test-orbstack-watchdog.sh
-      - name: Basemap provisioner tests
-        # Hermetic self-test of the map-provision script (www-hn1i): runtime
-        # build resolution (no date pin to rot), if-missing/force modes, the
-        # newest→previous fallback, atomic rename, and the nginx /maps/ loud-404.
-        # Stubbed curl/pmtiles, no network. Fast (bash), runs before the slow
-        # Playwright install. Mirrors the orbstack-watchdog gate above.
-        run: bash scripts/test-map-provision.sh
       - name: Dockerfile manifest coverage guard
         run: bun run test:dockerfile-manifests
-      - name: Embedded software-factory ownership guard
-        run: bash scripts/test-no-embedded-software-factory.sh
-      - name: Codex credential seed checker tests
-        # Hermetic checks for the operator-facing --check command, including
-        # the worker-owned refresh lease written after a healthy use.
-        run: bash scripts/test-seed-codex-auth.sh
       - name: Deploy gate guard
         # Everything CI builds, CI must also deploy. Found live on #355: a tree
         # with its own path filter and its own build jobs, named in no term of
@@ -225,136 +166,19 @@ jobs:
         # no arm64 leg or QEMU emulation creeps back in. The home-server Talos
         # node is the only deploy target and is x86.
         run: bash scripts/test-build-matrix.sh
-      - name: Don't Text Your Ex Temporal contract guard
-        run: bash scripts/test-dtye-temporal-contract.sh
-      - name: Software-factory image CI coverage guard
-        # `infra/src/services.ts` is the source of truth for factory images.
-        # Every entry needs both a producer and a digest collector: without
-        # either, prod's required-pin check turns a green merge into a failed
-        # deploy, or worse, a target image is never published at all.
-        run: bash scripts/test-software-factory-image-ci.sh
-      - name: Software-factory release manifest contract
-        # The standalone release is the producer after extraction. Before the
-        # cutover consumes its artifact, prove that only the exact seven
-        # linux/amd64 repositories and immutable digests can enter Pulumi's map.
-        run: |
-          bash scripts/test-software-factory-release-manifest.sh
-          bash scripts/test-verify-software-factory-release.sh
-      - name: Control Center cutover tooling tests
-        # Hermetic self-tests of the M7 production-cutover tooling (www-jtp0.7):
-        # the red-first preflight gate (refuses cutover until rehearsal/snapshot/
-        # counts/rollback/approval present), the post-cutover smoke dry-run plan,
-        # the CNPG local-name cleanup guard, and the wall-panel health classifier
-        # (1366x1024 + CF-error/skeleton markers, mirrored from iOS KioskHealth).
-        # No cluster/DB/network/secrets. Fast, runs before the slow Playwright
-        # install. Mirrors the gates above.
-        run: |
-          bash scripts/test-cc-cutover-preflight.sh
-          bash scripts/test-cc-post-cutover-smoke.sh
-          bash scripts/test-cnpg-local-name-preflight.sh
-          node scripts/test-panel-health.mjs
+      - name: Wall-panel health classifier tests
+        # Hermetic self-test of the panel health classifier (1366x1024 +
+        # CF-error/skeleton markers, mirrored from iOS KioskHealth). No
+        # cluster/DB/network/secrets. Fast, runs before the slow Playwright
+        # install.
+        run: node scripts/test-panel-health.mjs
       - name: Test (unit, jsdom)
         run: bun run test:unit
-      - name: Guest listener smoke (real Bun.serve + TLS sockets)
-        # The vitest `startGuestServer` integration block is Bun-runtime-gated
-        # (skipIf no `Bun` global, since this repo's `bunx vitest run` forks a
-        # plain node process); this script is the actual executing coverage
-        # for that wiring (real HTTPS/plain-HTTP sockets, self-signed cert via
-        # the system openssl). Task 4 (SDD track 0) cutover note: gates the
-        # guest listener that's about to carry live LAN guest traffic.
-        run: bun run --cwd apps/api test:guest-smoke
-
-  # Storybook browser suite (Playwright/Chromium play functions). Runs
-  # concurrently with test-unit. Kept as its own job because it needs a Chromium
-  # install that the jsdom suite does not.
-  test-storybook:
-    needs: [changes]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2.19
-      - name: Install deps
-        run: bun install --frozen-lockfile
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            playwright-chromium-${{ runner.os }}-
-      - name: Install Playwright Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
-      - name: Install Playwright system deps (cached binary)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
-      - name: Test (Storybook, chromium)
-        run: bun run test:storybook
-
-  # Don’t Text Your Ex has a real Postgres contract and restored browser suite.
-  # Keep it separate from the hermetic root unit lane: the database service and
-  # Chromium install are product-specific, and a changed product must never go
-  # green because its integration tests silently skipped without DATABASE_URL.
-  test-dont-text-your-ex:
-    needs: [changes]
-    if: needs.changes.outputs.dont_text_your_ex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: dont_text_your_ex_test
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d dont_text_your_ex_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dont_text_your_ex_test
-    steps:
-      - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2.19
-      - name: Install deps
-        run: bun install --frozen-lockfile
-      - name: Test API contracts against Postgres
-        run: bun run --cwd apps/dont-text-your-ex/apps/api test
-      - name: Test product Temporal worker
-        run: bun run --cwd apps/dont-text-your-ex/apps/temporal-worker test
-      - name: Test shared Temporal runtime
-        run: bun run --cwd packages/temporal-runtime test
-      - name: Cache Playwright browsers
-        uses: actions/cache@v5
-        id: dont-text-your-ex-playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: dont-text-your-ex-playwright-chromium-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            dont-text-your-ex-playwright-chromium-${{ runner.os }}-
-      - name: Install Playwright Chromium
-        if: steps.dont-text-your-ex-playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
-      - name: Install Playwright system deps (cached binary)
-        if: steps.dont-text-your-ex-playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
-      - name: Test restored end-to-end flows
-        run: bun run --cwd apps/dont-text-your-ex test:e2e
 
   # Typecheck + dead-code run in parallel with the test suite so type
   # errors and knip regressions surface without waiting for Playwright to
-  # install and all tests to run. `deploy-home-server` depends on `test-unit`,
-  # `test-storybook`, `test-dont-text-your-ex`, and `typecheck` all passing
-  # (www-q2p5). Build jobs do
+  # install and all tests to run. `deploy-home-server` depends on `test-unit`
+  # and `typecheck` both passing (www-q2p5). Build jobs do
   # NOT — they gate on `changes` alone, so they run concurrently with these.
   typecheck:
     needs: [changes]
@@ -375,40 +199,15 @@ jobs:
         run: bun run typecheck
       - name: Dead code (knip, zero-tolerance)
         # Authoritative backstop for the lefthook pre-push guard (which a
-        # --no-verify bypass or an uninstalled hook can skip). Export-level checks
-        # are disabled in the shared script because Temporal registers runtime
-        # activity/workflow exports dynamically by name.
+        # --no-verify bypass or an uninstalled hook can skip).
         # `deploy-home-server` needs `typecheck`, so a regression blocks the prod deploy (www-k6p1).
         run: bun run knip
-
-  # Stable target-policy check consumed by the standalone AgentWorkflow. This
-  # no longer builds or tests embedded product source: it is a WWW fan-in plus
-  # the retained consumer-boundary assertion. Keeping the context stable avoids
-  # stranding in-flight and newly dispatched Tickets during repository cutover.
-  test-software-factory:
-    needs: [test-unit, test-storybook, typecheck]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v5
-      - name: Require WWW quality gates
-        env:
-          TEST_UNIT_RESULT: ${{ needs.test-unit.result }}
-          TEST_STORYBOOK_RESULT: ${{ needs.test-storybook.result }}
-          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
-        run: |
-          test "$TEST_UNIT_RESULT" = success
-          test "$TEST_STORYBOOK_RESULT" = success
-          test "$TYPECHECK_RESULT" = success
-      - name: Prove the embedded product remains absent
-        run: bash scripts/test-no-embedded-software-factory.sh
 
   # Build jobs depend on `changes` ONLY, not on test/typecheck. They run
   # concurrently with the test suite instead of queueing behind it (measured
   # 180s off the critical path, because the build fan-in is shorter than the
   # test job and now hides entirely under it).
-  # This does NOT weaken the deploy gate: `deploy-home-server` still lists test-unit + test-storybook + test-dont-text-your-ex + typecheck
+  # This does NOT weaken the deploy gate: `deploy-home-server` still lists test-unit + typecheck
   # in its own `needs:`, so an image built for a commit that fails tests is
   # simply never deployed. The only cost is building images for the ~9% of
   # pushes that fail — they are content-addressed and otherwise inert.
@@ -502,122 +301,23 @@ jobs:
           cache-scope: worker
 
 
-  build-temporal-worker:
-    needs: [changes]
-    if: needs.changes.outputs.temporalworker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push temporal-worker image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-temporal-worker
-          dockerfile: apps/temporal-worker/Dockerfile
-          cache-scope: temporal-worker
-
-
-  build-map-provision:
-    needs: [changes]
-    if: needs.changes.outputs.mapprovision == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push map-provision image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-map-provision
-          dockerfile: apps/map-provision/Dockerfile
-          cache-scope: map-provision
-
-
-  build-dont-text-your-ex-frontend:
-    needs: [changes]
-    if: needs.changes.outputs.dont_text_your_ex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push Don't Text Your Ex frontend image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-dont-text-your-ex-frontend
-          dockerfile: apps/dont-text-your-ex/Dockerfile.frontend
-          cache-scope: dont-text-your-ex-frontend
-          build-args: |
-            VITE_API_BASE=https://dont-text-your-ex.worldwidewebb.co
-
-
-  build-dont-text-your-ex-api:
-    needs: [changes]
-    if: needs.changes.outputs.dont_text_your_ex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push Don't Text Your Ex API image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-dont-text-your-ex-api
-          dockerfile: apps/dont-text-your-ex/Dockerfile.api
-          cache-scope: dont-text-your-ex-api
-
-  build-dont-text-your-ex-temporal-worker:
-    needs: [changes]
-    if: needs.changes.outputs.dont_text_your_ex == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-      - name: Build and push Don't Text Your Ex Temporal worker image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-dont-text-your-ex-temporal-worker
-          dockerfile: apps/dont-text-your-ex/Dockerfile.temporal-worker
-          cache-scope: dont-text-your-ex-temporal-worker
-
-
   # After the images build on main, deploy to the home-server Talos cluster with
   # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL
   # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
   # over the tailnet, and runs the Pulumi program in infra/. CI is the deployer.
   #
   # Fires on `any_app || infra`: an application change or an infra-only change
-  # must converge the declared stack. Software-factory images are independently
-  # released and arrive here only through the pinned release lock under infra/.
+  # must converge the declared stack.
   deploy-home-server:
     needs:
       [
         changes,
         test-unit,
-        test-storybook,
-        test-dont-text-your-ex,
         typecheck,
-        test-software-factory,
         build-web,
         build-manage,
         build-api,
         build-worker,
-        build-temporal-worker,
-        build-map-provision,
-        build-dont-text-your-ex-frontend,
-        build-dont-text-your-ex-api,
-        build-dont-text-your-ex-temporal-worker,
       ]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
@@ -710,7 +410,7 @@ jobs:
           # KEY is product-component scoped and matches the Pulumi imageDigests
           # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-control-center-web:control-center-web www-control-center-manage:control-center-manage www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-temporal-worker:control-center-temporal-worker www-control-center-map-provision:control-center-map-provision www-dont-text-your-ex-frontend:dont-text-your-ex-frontend www-dont-text-your-ex-api:dont-text-your-ex-api www-dont-text-your-ex-temporal-worker:dont-text-your-ex-temporal-worker; do
+          for entry in www-control-center-web:control-center-web www-control-center-manage:control-center-manage www-control-center-api:control-center-api www-control-center-worker:control-center-worker; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
@@ -723,13 +423,6 @@ jobs:
           for k in "${!out[@]}"; do
             json=$(jq -cn --argjson cur "$json" --arg k "$k" --arg v "${out[$k]}" '$cur + {($k): $v}')
           done
-          # Software Factory is an independently released product. Its checked
-          # manifest is the immutable deployment input; WWW never substitutes
-          # a locally built :main digest for a released component.
-          factory_version="$(jq -er .version infra/software-factory-release.json)"
-          factory_json="$(GH_TOKEN='${{ github.token }}' scripts/verify-software-factory-release.sh \
-            "$factory_version" infra/software-factory-release.json)"
-          json="$(jq -cn --argjson app "$json" --argjson factory "$factory_json" '$app + $factory')"
           echo "Image digests: $json"
           echo "map=$json" >> "$GITHUB_OUTPUT"
 
@@ -794,11 +487,6 @@ jobs:
           STACK=home-server
           pulumi login
           pulumi stack select "$STACK"
-          # Scope the factory's Temporal activation idempotency key to one
-          # deployment attempt. A retry of this Actions run increments
-          # GITHUB_RUN_ATTEMPT, while ordinary pod restarts reuse this value.
-          deploy_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          pulumi config set wwwinfra:softwareFactoryDeployId "$deploy_id" --stack "$STACK"
           # Pin the k8s provider to the context the CI kubeconfig actually carries,
           # read from the file itself, so the provider never falls back to a
           # local context (which resolves per-machine to a DIFFERENT cluster). The
@@ -903,14 +591,11 @@ jobs:
       [
         changes,
         test-unit,
-        test-storybook,
-        test-dont-text-your-ex,
         typecheck,
         build-web,
         build-manage,
         build-api,
         build-worker,
-        build-map-provision,
         deploy-home-server,
         deploy-cloudflare,
       ]

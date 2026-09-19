@@ -72,7 +72,7 @@ describe("isMobileDevice", () => {
     expect(isMobileDevice()).toBe(true);
   });
 
-  // What makes the phone view reachable in a desktop browser (and Storybook)
+  // What makes the phone view reachable in a desktop browser (and a component harness)
   // without spoofing a user agent.
   it("is true on a desktop user agent in a phone-narrow window", () => {
     stubNavigator(MAC, "MacIntel");

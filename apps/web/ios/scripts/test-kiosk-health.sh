@@ -21,7 +21,6 @@ trap 'rm -rf "$(dirname "$bin")"' EXIT
 # KioskHealth.swift is pure Foundation; the test file owns @main.
 swiftc -O \
   "$app/KioskHealth.swift" \
-  "$app/PanelDiagnosticsModels.swift" \
   "$tests/KioskHealthTests.swift" \
   -o "$bin"
 "$bin"

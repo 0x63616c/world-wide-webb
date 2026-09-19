@@ -7,7 +7,7 @@
  * required prop is the gallery jump. `onClose`, when wired, renders a top-left
  * close for full-bleed hosts that lack their own back chrome.
  *
- * Locked behavior (see docs/superpowers/specs/2026-07-19-photo-booth-design.md):
+ * Locked behavior:
  * one-button timer cycle, top-right filter/timer/flash cluster (flash outermost),
  * 7 CSS filters in a Modal swatch grid, Photo/Burst/4-Frame/GIF modes (Video
  * disabled), screen-flash + countdown/shutter sounds, gallery button bottom-left.

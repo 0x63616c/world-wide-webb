@@ -1,140 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { LAN_SERVICE_IPS, METALLB_ADDRESS_POOL_RANGE } from "../src/metallb.ts";
 import {
   composeGhcrDockerConfigJson,
-  composeGo2rtcConfig,
   haTarget,
   parseSubstrate,
   parseSubstrateTarget,
-  plexAdvertiseIp,
 } from "../src/services.ts";
 
-// The two pure string builders pulled out of deployServices (www-j934.6): the
-// go2rtc config YAML and the GHCR imagePullSecret `.dockerconfigjson`. Both take
-// plain inputs and return a deterministic string, so their credential encoding
-// and exact wire shape are unit-testable without instantiating any Pulumi
-// resource. deployServices just feeds vault values through these.
-
-const VAULT = {
-  EUFY_BEDROOM_CAM__HOST: "10.0.0.5",
-  EUFY_BEDROOM_CAM__RTSP_USERNAME: "admin",
-  EUFY_BEDROOM_CAM__RTSP_PASSWORD: "s3cret",
-  EUFY_BEDROOM_CAM__RTSP_PATH: "live0",
-} satisfies Record<string, string>;
-
-const withVault = (overrides: Partial<typeof VAULT>): Record<string, string> => ({
-  ...VAULT,
-  ...overrides,
-});
-
-// The one URL line is where every credential/host/path edge case lands.
-const rtspLineOf = (yaml: string): string => {
-  const line = yaml.split("\n").find((l) => l.includes("rtsp://"));
-  if (!line) throw new Error("no rtsp:// line in config");
-  return line.trim().replace(/^-\s*/, "");
-};
-
-describe("composeGo2rtcConfig", () => {
-  test("renders the exact YAML shape for a simple camera (pins current output)", () => {
-    expect(composeGo2rtcConfig(VAULT)).toBe(
-      [
-        "api:",
-        '  listen: ":1984"',
-        "streams:",
-        "  bedroom:",
-        "    - rtsp://admin:s3cret@10.0.0.5:554/live0",
-        "  bedroom_mjpeg:",
-        "    - ffmpeg:bedroom#video=mjpeg#width=960",
-        "log:",
-        "  level: info",
-        "",
-      ].join("\n"),
-    );
-  });
-
-  test("is deterministic: identical input yields byte-identical output", () => {
-    expect(composeGo2rtcConfig(VAULT)).toBe(composeGo2rtcConfig({ ...VAULT }));
-  });
-
-  test("ends with a trailing newline (the file's final line is empty)", () => {
-    expect(composeGo2rtcConfig(VAULT).endsWith("\n")).toBe(true);
-  });
-
-  describe("credential URL-encoding (a password can't break the URL authority)", () => {
-    test.each([
-      // [raw password, expected encoded form]
-      ["p@ss", "p%40ss"],
-      ["a:b", "a%3Ab"],
-      ["a/b", "a%2Fb"],
-      ["a#b", "a%23b"],
-      ["a b", "a%20b"],
-      ["a?b", "a%3Fb"],
-      ["100%", "100%25"],
-      ["p@:s/s#1 2", "p%40%3As%2Fs%231%202"],
-    ])("password %j encodes to %j", (raw, encoded) => {
-      const line = rtspLineOf(
-        composeGo2rtcConfig(withVault({ EUFY_BEDROOM_CAM__RTSP_PASSWORD: raw })),
-      );
-      expect(line).toBe(`rtsp://admin:${encoded}@10.0.0.5:554/live0`);
-    });
-
-    test("username is URL-encoded the same way", () => {
-      const line = rtspLineOf(
-        composeGo2rtcConfig(withVault({ EUFY_BEDROOM_CAM__RTSP_USERNAME: "us@r:1" })),
-      );
-      expect(line).toBe("rtsp://us%40r%3A1:s3cret@10.0.0.5:554/live0");
-    });
-  });
-
-  describe("path handling", () => {
-    test("strips a single leading slash", () => {
-      const line = rtspLineOf(
-        composeGo2rtcConfig(withVault({ EUFY_BEDROOM_CAM__RTSP_PATH: "/live0" })),
-      );
-      expect(line).toBe("rtsp://admin:s3cret@10.0.0.5:554/live0");
-    });
-
-    test("strips repeated leading slashes", () => {
-      const line = rtspLineOf(
-        composeGo2rtcConfig(withVault({ EUFY_BEDROOM_CAM__RTSP_PATH: "///live0" })),
-      );
-      expect(line).toBe("rtsp://admin:s3cret@10.0.0.5:554/live0");
-    });
-
-    test("keeps interior slashes (only leading ones are stripped)", () => {
-      const line = rtspLineOf(
-        composeGo2rtcConfig(withVault({ EUFY_BEDROOM_CAM__RTSP_PATH: "/stream/main" })),
-      );
-      expect(line).toBe("rtsp://admin:s3cret@10.0.0.5:554/stream/main");
-    });
-
-    test("host is interpolated verbatim (not encoded)", () => {
-      const line = rtspLineOf(
-        composeGo2rtcConfig(withVault({ EUFY_BEDROOM_CAM__HOST: "cam.local" })),
-      );
-      expect(line).toBe("rtsp://admin:s3cret@cam.local:554/live0");
-    });
-  });
-
-  describe("required-key validation", () => {
-    test.each([
-      "EUFY_BEDROOM_CAM__HOST",
-      "EUFY_BEDROOM_CAM__RTSP_USERNAME",
-      "EUFY_BEDROOM_CAM__RTSP_PASSWORD",
-      "EUFY_BEDROOM_CAM__RTSP_PATH",
-    ])("throws when %s is missing", (key) => {
-      const vault = { ...VAULT };
-      delete (vault as Record<string, string>)[key];
-      expect(() => composeGo2rtcConfig(vault)).toThrow(`vault key ${key} not found`);
-    });
-
-    test("throws when a required key is present but empty", () => {
-      expect(() => composeGo2rtcConfig(withVault({ EUFY_BEDROOM_CAM__RTSP_PASSWORD: "" }))).toThrow(
-        /RTSP_PASSWORD not found/,
-      );
-    });
-  });
-});
+// The pure string builder pulled out of deployServices (www-j934.6): the GHCR
+// imagePullSecret `.dockerconfigjson`. It takes plain inputs and returns a
+// deterministic string, so its credential encoding and exact wire shape are
+// unit-testable without instantiating any Pulumi resource. deployServices just
+// feeds vault values through it.
 
 describe("composeGhcrDockerConfigJson", () => {
   const decode = (json: string) =>
@@ -177,9 +53,9 @@ describe("composeGhcrDockerConfigJson", () => {
   });
 });
 
-// The `substrate` flag (mini-migration Task 3): haTarget/plexAdvertiseIp must
-// keep the mini's ("orbstack") values byte-identical to today's live deploy
-// when the flag is absent, and switch to the node LAN IP on "talos".
+// The `substrate` flag (mini-migration Task 3): haTarget must keep the mini's
+// ("orbstack") value byte-identical to today's live deploy when the flag is
+// absent, and switch to the node LAN IP on "talos".
 describe("parseSubstrate", () => {
   test("undefined config defaults to orbstack (the mini)", () => {
     expect(parseSubstrate(undefined)).toBe("orbstack");
@@ -199,45 +75,6 @@ describe("haTarget", () => {
   test("ha target is the node LAN IP on talos (api/worker are non-hostNetwork pods)", () => {
     expect(haTarget({ substrate: "talos", nodeIp: "192.168.0.5" })).toBe("192.168.0.5");
     expect(haTarget({ substrate: "orbstack" })).toBe("homelab.tail8c014d.ts.net");
-  });
-});
-
-describe("plexAdvertiseIp", () => {
-  // Nothing listens on :32400 in the node's netns - Plex is reached only
-  // through its MetalLB LoadBalancer - so advertising the node IP hands every
-  // client a refused connection.
-  test("plex advertise uses the LoadBalancer address, not the node IP, on talos", () => {
-    expect(plexAdvertiseIp({ substrate: "talos", nodeIp: "192.168.0.5" })).toBe(
-      `http://${LAN_SERVICE_IPS.plex}:32400`,
-    );
-    expect(plexAdvertiseIp({ substrate: "talos", nodeIp: "192.168.0.5" })).not.toContain(
-      "192.168.0.5",
-    );
-  });
-
-  test("orbstack is the mini's frozen LAN IP", () => {
-    expect(plexAdvertiseIp({ substrate: "orbstack" })).toBe("http://192.168.0.147:32400");
-  });
-});
-
-// The pinned addresses and the pool they come from live in the same file, but
-// nothing stops one being edited without the other; an out-of-pool pin leaves
-// the Service permanently <pending>.
-describe("LAN_SERVICE_IPS", () => {
-  test("every pinned address falls inside the MetalLB pool range", () => {
-    const [start, end] = METALLB_ADDRESS_POOL_RANGE.split("-");
-    const asNumber = (ip: string) =>
-      ip.split(".").reduce((acc, octet) => acc * 256 + Number(octet), 0);
-
-    for (const ip of Object.values(LAN_SERVICE_IPS)) {
-      expect(asNumber(ip)).toBeGreaterThanOrEqual(asNumber(start));
-      expect(asNumber(ip)).toBeLessThanOrEqual(asNumber(end));
-    }
-  });
-
-  test("no two services are pinned to the same address", () => {
-    const addresses = Object.values(LAN_SERVICE_IPS);
-    expect(new Set(addresses).size).toBe(addresses.length);
   });
 });
 

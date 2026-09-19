@@ -1,6 +1,6 @@
 // crypto.randomUUID is present in every real runtime this repo ships to
-// (browser webview, Bun, Node), but not always in test doubles (older jsdom,
-// Storybook). getRandomValues is far more widely implemented, so it is the
+// (browser webview, Bun, Node), but not always in test doubles (older jsdom).
+// getRandomValues is far more widely implemented, so it is the
 // fallback — not Math.random, which CodeQL (rightly) flags as insecure
 // randomness for anything id-shaped.
 function randomHex(length: number): string {
@@ -31,9 +31,7 @@ export function genId(prefix: string, options?: { length?: number }): string {
   return `${prefix}_${randomHex(length)}`;
 }
 
-// "software-factory" (ADR-0011) owns worker, sandbox, relay, API, and console
-// images plus its product database. This is the one place that spelling is derived.
-export const productSlugs = ["control-center", "captive-portal", "software-factory"] as const;
+export const productSlugs = ["control-center"] as const;
 
 export type ProductSlug = (typeof productSlugs)[number];
 
@@ -95,9 +93,9 @@ export type HomelabTarget = Readonly<{
     exportPath: "/volume1/Homelab";
     backupRootParts: readonly ["backups", "world-wide-webb"];
   }>;
-  // Inlined (was the separately-exported TargetCapabilities type, ADR-0006):
-  // homelab is the only implemented target, so a named plurality type here had
-  // exactly one member and 0 external consumers.
+  // Inlined (was the separately-exported TargetCapabilities type): homelab is
+  // the only implemented target, so a named plurality type here had exactly
+  // one member and 0 external consumers.
   capabilities: Readonly<{
     certManager: boolean;
     cloudflareTunnel: boolean;
@@ -143,8 +141,8 @@ export function defineTarget(name: ImplementedTargetName): HomelabTarget {
 // one coverage model: the exact single host. (The old `product-wildcard` mode
 // built a 2-label `*.cc.worldwidewebb.co` wildcard that only paid ACM could
 // issue; it was removed with ACM, www-kbiy.) Inlined below (was the
-// separately-exported TlsCoverage/ExactHostTlsCoverage types, ADR-0006): a
-// plurality type with exactly one member and 0 external consumers.
+// separately-exported TlsCoverage/ExactHostTlsCoverage types): a plurality
+// type with exactly one member and 0 external consumers.
 export type WebTlsRequirement = Readonly<{
   required: true;
   coverage: Readonly<{
@@ -167,12 +165,14 @@ export type WebExposure =
       cloudflareAccess: true;
     }>
   | Readonly<{
-      // A host GitHub (or any other third party) must be able to POST to from
-      // the public internet, so it is deliberately NOT Access-gated. There is
-      // exactly one today, the webhook receiver, and its OWN auth is an HMAC
-      // over the request body — Cloudflare is not the boundary. Never reach for
-      // this to "make a page easier to load"; private-web is the default and
-      // this kind is a security decision each time.
+      // A host a third party must be able to POST to from the public internet,
+      // so it is deliberately NOT Access-gated — the service behind it owns its
+      // own auth (e.g. an HMAC over the request body); Cloudflare is not the
+      // boundary. No current manifest entry uses this kind (the one past
+      // consumer, an inbound webhook receiver, was deleted by The
+      // Simplification), but the variant and its test coverage stay: never
+      // reach for this to "make a page easier to load", and adding a real
+      // public host is a security decision each time, not a default.
       kind: "public-web";
       policy: "public";
       target: ImplementedTargetName;
@@ -180,14 +180,6 @@ export type WebExposure =
       hostname: string;
       tls: WebTlsRequirement;
       cloudflareAccess: false;
-    }>
-  | Readonly<{
-      kind: "captive-portal-web";
-      policy: "captive";
-      target: ImplementedTargetName;
-      host: string;
-      hostname: string;
-      tls: WebTlsRequirement;
     }>;
 
 export type InternalServiceExposure = Readonly<{
@@ -247,19 +239,6 @@ export function publicWeb(target: HomelabTarget, options: WebHostOptions): WebEx
   };
 }
 
-export function captivePortalWeb(target: HomelabTarget, options: WebHostOptions): WebExposure {
-  const hostname = webHostname(target, options.host);
-
-  return {
-    kind: "captive-portal-web",
-    policy: "captive",
-    target: target.name,
-    host: options.host,
-    hostname,
-    tls: webTlsRequirement(hostname),
-  };
-}
-
 export function internalService(options: { port: number }): InternalServiceExposure {
   return { kind: "internal-service", policy: "internal", port: options.port };
 }
@@ -290,7 +269,7 @@ export type ServiceSecretUsage = Readonly<{
   secrets: Readonly<Record<string, SecretCatalogEntry>>;
 }>;
 
-export type ControlCenterSecretUsageName = "api" | "worker" | "cloudflared" | "portal-data-purge";
+export type ControlCenterSecretUsageName = "api" | "worker" | "cloudflared";
 
 function secret(item: string, field: string, vaultKey: string): SecretCatalogEntry {
   return { item, field, vaultKey };
@@ -306,21 +285,6 @@ export const secretCatalog = {
       "App Store Connect API",
       "AuthKey_TJ8M46SFSQ.p8",
       "APP_STORE_CONNECT_API__P8_CONTENT",
-    ),
-  },
-  apns: {
-    keyId: secret("APNs Auth Key", "key id", "APNS_AUTH_KEY__KEY_ID"),
-    teamId: secret("APNs Auth Key", "team id", "APNS_AUTH_KEY__TEAM_ID"),
-    // Same shape as appStoreConnect.p8Content: the .p8 rides the item as a file
-    // attachment, and the SOPS vault holds it base64-encoded under
-    // APNS_AUTH_KEY__P8_CONTENT. pemToPkcs8() accepts armored PEM or bare base64.
-    p8Content: secret("APNs Auth Key", "AuthKey_Z8CPKZ46G7.p8", "APNS_AUTH_KEY__P8_CONTENT"),
-  },
-  captivePortal: {
-    postgresPassword: secret(
-      "Captive Portal Postgres",
-      "password",
-      "CAPTIVE_PORTAL_POSTGRES__PASSWORD",
     ),
   },
   cloudflare: {
@@ -341,82 +305,8 @@ export const secretCatalog = {
       "CONTROL_CENTER_POSTGRES__PASSWORD",
     ),
   },
-  softwareFactory: {
-    postgresPassword: secret(
-      "Software Factory Postgres",
-      "password",
-      "SOFTWARE_FACTORY_POSTGRES__PASSWORD",
-    ),
-    workerBearerToken: secret(
-      "Software Factory API worker bearer",
-      "token",
-      "SOFTWARE_FACTORY_API__WORKER_BEARER_TOKEN",
-    ),
-    sandboxBearerToken: secret(
-      "Software Factory API sandbox bearer",
-      "token",
-      "SOFTWARE_FACTORY_API__SANDBOX_BEARER_TOKEN",
-    ),
-    cloudflareAccessTeamDomain: secret(
-      "Software Factory Cloudflare Access",
-      "team domain",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__TEAM_DOMAIN",
-    ),
-    cloudflareAccessAudience: secret(
-      "Software Factory Cloudflare Access",
-      "audience",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__AUD",
-    ),
-    cloudflareAccessServiceTokenClientID: secret(
-      "Software Factory Cloudflare Access",
-      "service token client id",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_ID",
-    ),
-    cloudflareAccessServiceTokenClientSecret: secret(
-      "Software Factory Cloudflare Access",
-      "service token client secret",
-      "SOFTWARE_FACTORY_CLOUDFLARE_ACCESS__SERVICE_TOKEN_CLIENT_SECRET",
-    ),
-  },
   github: {
     ghcrPat: secret("GitHub Personal Access Token", "token", "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"),
-  },
-  // The www-software-factory-bot GitHub App (#125): the machine identity
-  // autonomous agents act as. Minted by the App-manifest flow
-  // (scripts/create-github-bot-app.ts) and written by scripts/save-github-bot.sh,
-  // so none of these values is ever hand-copied.
-  //
-  // appId and installationId are identifiers, not secrets, but they live here so
-  // the whole credential set has one declaration site. The PEM is stored base64
-  // encoded (it is multi-line), the same handling the APNs / App Store Connect
-  // .p8 keys already use.
-  githubBot: {
-    appId: secret("GitHub App www-software-factory-bot", "app_id", "GITHUB_BOT_APP__APP_ID"),
-    clientId: secret(
-      "GitHub App www-software-factory-bot",
-      "client_id",
-      "GITHUB_BOT_APP__CLIENT_ID",
-    ),
-    clientSecret: secret(
-      "GitHub App www-software-factory-bot",
-      "client_secret",
-      "GITHUB_BOT_APP__CLIENT_SECRET",
-    ),
-    privateKeyPem: secret(
-      "GitHub App www-software-factory-bot",
-      "private_key_pem",
-      "GITHUB_BOT_APP__PRIVATE_KEY_PEM",
-    ),
-    webhookSecret: secret(
-      "GitHub App www-software-factory-bot",
-      "webhook_secret",
-      "GITHUB_BOT_APP__WEBHOOK_SECRET",
-    ),
-    installationId: secret(
-      "GitHub App www-software-factory-bot",
-      "installation_id",
-      "GITHUB_BOT_APP__INSTALLATION_ID",
-    ),
   },
   homeAssistant: {
     token: secret("Home Assistant Token", "credential", "HOME_ASSISTANT_TOKEN__CREDENTIAL"),
@@ -424,27 +314,6 @@ export const secretCatalog = {
   homeLocation: {
     lat: secret("Home Location", "lat", "HOME_LOCATION__LAT"),
     lon: secret("Home Location", "lon", "HOME_LOCATION__LON"),
-    placeName: secret("Home Location", "place_name", "HOME_LOCATION__PLACE_NAME"),
-    radiusMiles: secret("Home Location", "radius_miles", "HOME_LOCATION__RADIUS_MILES"),
-  },
-  spotify: {
-    clientId: secret("Spotify", "client_id", "SPOTIFY__CLIENT_ID"),
-    clientSecret: secret("Spotify", "client_secret", "SPOTIFY__CLIENT_SECRET"),
-    refreshToken: secret("Spotify", "refresh_token", "SPOTIFY__REFRESH_TOKEN"),
-  },
-  unifi: {
-    localApiKey: secret("UniFi", "local_api_key", "UNIFI__LOCAL_API_KEY"),
-  },
-  withings: {
-    clientId: secret("Withings", "client_id", "WITHINGS_CLIENT_ID"),
-    clientSecret: secret("Withings", "client_secret", "WITHINGS_CLIENT_SECRET"),
-  },
-  wifiGuest: {
-    password: secret("WiFi Guest Wifi", "password", "WIFI_GUEST_WIFI_PASSWORD"),
-    ssid: secret("WiFi Guest Wifi", "ssid", "WIFI_GUEST_WIFI_SSID"),
-  },
-  wifiMain: {
-    ssid: secret("WiFi Main Credentials", "ssid", "WIFI_MAIN_CREDENTIALS__SSID"),
   },
 } as const;
 
@@ -486,48 +355,15 @@ export function controlCenterServiceSecretUsages(): Record<
   const controlCenter = defineProduct("control-center");
   // api and worker declare the EXACT SAME secret set today (pinned by
   // secrets.test.ts's "api and worker declare the exact same secret set"
-  // test, ADR-0006): both were hand-kept as two ~25-line lockstep blocks that
-  // never actually diverged, so a single shared base replaces them. If a
-  // future secret is api-only or worker-only, spread this base and add the
-  // delta key(s) on the specific service's object instead of both.
+  // test): both were hand-kept as two ~25-line lockstep blocks that never
+  // actually diverged, so a single shared base replaces them. If a future
+  // secret is api-only or worker-only, spread this base and add the delta
+  // key(s) on the specific service's object instead of both.
   const apiWorkerSharedSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
-    UNIFI_API_KEY: secretCatalog.unifi.localApiKey,
-    // Board display SSID is the MAIN network; the guest SSID/password feed the
-    // guest Wi-Fi QR only and are never rendered as text (design call 2026-07-19).
-    WIFI_SSID: secretCatalog.wifiMain.ssid,
-    WIFI_PASSWORD: secretCatalog.wifiGuest.password,
-    WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
     POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
     HOME_LAT: secretCatalog.homeLocation.lat,
     HOME_LON: secretCatalog.homeLocation.lon,
-    HOME_PLACE_NAME: secretCatalog.homeLocation.placeName,
-    HOME_RADIUS_MILES: secretCatalog.homeLocation.radiusMiles,
-    SPOTIFY_CLIENT_ID: secretCatalog.spotify.clientId,
-    SPOTIFY_CLIENT_SECRET: secretCatalog.spotify.clientSecret,
-    SPOTIFY_REFRESH_TOKEN: secretCatalog.spotify.refreshToken,
-    ASC_KEY_ID: secretCatalog.appStoreConnect.keyId,
-    ASC_ISSUER_ID: secretCatalog.appStoreConnect.issuerId,
-    ASC_KEY_CONTENT: secretCatalog.appStoreConnect.p8Content,
-    // GitHub webhook signature verification (#126). The public hooks. host now
-    // terminates at the webhook relay, which is the outermost HMAC boundary;
-    // the api still verifies the same signature in-cluster as defence in depth.
-    // api/worker secret sets are kept in lockstep (www-51hf.35).
-    GITHUB_BOT_WEBHOOK_SECRET: secretCatalog.githubBot.webhookSecret,
-    // Deploys-tile poller. Only the worker reads it, but api/worker secret sets
-    // are kept in lockstep (www-51hf.35), so it appears in both.
-    GITHUB_ACTIONS_TOKEN: secretCatalog.github.ghcrPat,
-    // The worker is the only queue consumer, so it is the process that actually
-    // signs the APNs JWT and sends the push; api just enqueues. Both still
-    // carry the key so the secret sets stay in lockstep.
-    APNS_KEY_ID: secretCatalog.apns.keyId,
-    APNS_TEAM_ID: secretCatalog.apns.teamId,
-    APNS_KEY_CONTENT: secretCatalog.apns.p8Content,
-    // Withings direct-API weight ingest. Only the worker polls Withings, but
-    // api/worker secret sets are kept in lockstep (see comment above), so it
-    // appears in both.
-    WITHINGS_CLIENT_ID: secretCatalog.withings.clientId,
-    WITHINGS_CLIENT_SECRET: secretCatalog.withings.clientSecret,
   } as const;
 
   return {
@@ -539,9 +375,6 @@ export function controlCenterServiceSecretUsages(): Record<
       { TUNNEL_TOKEN: secretCatalog.cloudflare.managedTunnelToken },
       { targetSecretName: "cloudflare-secrets-cloudflared", namespaceName: "cloudflare" },
     ),
-    "portal-data-purge": defineServiceSecretUsage(controlCenter, "portal-data-purge", {
-      POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
-    }),
   };
 }
 
@@ -603,10 +436,6 @@ function databasePasswordFor(product: ProductIdentity): SecretCatalogEntry {
   switch (product.slug) {
     case "control-center":
       return secretCatalog.controlCenter.postgresPassword;
-    case "captive-portal":
-      return secretCatalog.captivePortal.postgresPassword;
-    case "software-factory":
-      return secretCatalog.softwareFactory.postgresPassword;
   }
   return assertNever(product.slug);
 }
@@ -658,7 +487,7 @@ export type DatabaseBackup = Readonly<{
   nasSubPath: string;
   filenamePrefix: string;
   // Was the separately-exported `commandFeatures` object (compression/pipefail/
-  // passwordSource always the same 3 literals, 0 external consumers, ADR-0006);
+  // passwordSource always the same 3 literals, 0 external consumers);
   // dateFormat is the only field infra/src/crons.ts actually reads, so it is
   // now a flat field instead of a nested single-shape plurality type.
   dateFormat: "%Y%m%d";
@@ -702,20 +531,13 @@ export function defineDatabaseBackup(
   };
 }
 
-export type ControlCenterServiceName =
-  | "api"
-  | "worker"
-  | "web"
-  | "manage"
-  | "storybook"
-  | "captive-portal"
-  | "cloudflared";
+export type ControlCenterServiceName = "api" | "worker" | "web" | "manage" | "cloudflared";
 
 // Was `{ service, workloadName, image, exposure, secretUsage? }`: workloadName
 // and image had 0 external consumers (infra/src/services.ts re-derives both
-// independently via ProductIdentity.serviceName/imageRepository, ADR-0006) and
-// captivePortalProductManifest() (the only other user of the generic
-// ServiceName param) was itself dead, so the type is control-center-only now.
+// independently via ProductIdentity.serviceName/imageRepository) and the
+// generic ServiceName param had no second product left to serve, so the type
+// is control-center-only now.
 export type ProductServiceDeclaration = Readonly<{
   service: ControlCenterServiceName;
   exposure: WebExposure | InternalServiceExposure | null;
@@ -726,32 +548,6 @@ export type ControlCenterProductManifest = Readonly<{
   product: ProductIdentity;
   target: HomelabTarget;
   app: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // The factory console runs in its own namespace, but public hostnames are
-  // centrally owned here alongside other cross-product origins.
-  factoryConsole: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // The software-factory payload codec runs in its own namespace but serves a
-  // browser-facing Temporal UI integration, so its hostname follows the same
-  // central ownership rule as the factory console and Temporal UI.
-  codec: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // The Temporal web UI. Declared here rather than in `services` because it is
-  // NOT a control-center workload: it runs in the `temporal` namespace from an
-  // upstream image (infra/src/temporal.ts), and `services` drives control-center
-  // workload derivation. What it shares with the product is the exposure surface
-  // — one hostname, tunnel-routed, Access-gated — so the hostname is owned here,
-  // where every other public name in this system is owned.
-  temporalUi: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // pgAdmin (issue #65): same shape as temporalUi above — runs in the `db-ui`
-  // namespace from an upstream image (infra/src/db-ui.ts), not a
-  // control-center workload, but shares the hostname-ownership rule.
-  dbUi: Readonly<{
     exposure: WebExposure;
   }>;
   // The Grafana web UI (#209). Same story again: it runs in the
@@ -768,24 +564,13 @@ export type ControlCenterProductManifest = Readonly<{
   ha: Readonly<{
     exposure: WebExposure;
   }>;
-  // The two LAN appliances manage frames (ADR-0010): the UniFi controller and
-  // the Synology DSM. Neither is a workload of ours at all — they are boxes on
-  // the LAN — but each gets a tunnel hostname behind Access, and hostnames are
-  // owned here. Their origins are HTTPS with self-signed certs, so the ingress
-  // rules that point at them carry `noTlsVerify` (infra/cloudflare/src/routes.ts):
-  // an iframe cannot click through a certificate warning, so that is required
-  // rather than cosmetic.
-  unifi: Readonly<{
-    exposure: WebExposure;
-  }>;
+  // The Synology DSM: a LAN appliance manage frame (ADR-0010), not a workload
+  // of ours at all — it's a box on the LAN — but it gets a tunnel hostname
+  // behind Access, and hostnames are owned here. Its origin is HTTPS with a
+  // self-signed cert, so the ingress rule that points at it carries
+  // `noTlsVerify` (infra/cloudflare/src/routes.ts): an iframe cannot click
+  // through a certificate warning, so that is required rather than cosmetic.
   dsm: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // The public GitHub webhook host (#126). Served by the webhook relay, but it
-  // is NOT the api's exposure: api stays `internalService` for in-cluster
-  // traffic while the tunnel maps this hostname to the relay.
-  // Owned here because every other public name in this system is owned here.
-  hooks: Readonly<{
     exposure: WebExposure;
   }>;
   services: Readonly<Record<ControlCenterServiceName, ProductServiceDeclaration>>;
@@ -818,22 +603,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     app: {
       exposure: privateWeb(target, { host: "app" }),
     },
-    factoryConsole: {
-      // Single label under the zone, so Universal SSL's one-label wildcard
-      // covers it (see webHostname).
-      exposure: privateWeb(target, { host: "factory" }),
-    },
-    codec: {
-      exposure: privateWeb(target, { host: "codec" }),
-    },
-    temporalUi: {
-      // Single label under the zone, so Universal SSL's one-label wildcard
-      // covers it (see webHostname).
-      exposure: privateWeb(target, { host: "temporal-ui" }),
-    },
-    dbUi: {
-      exposure: privateWeb(target, { host: "db-ui" }),
-    },
     grafana: {
       // Single label under the zone, so Universal SSL's one-label wildcard
       // covers it (see webHostname).
@@ -844,16 +613,8 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       // covers it (see webHostname).
       exposure: privateWeb(target, { host: "ha" }),
     },
-    unifi: {
-      exposure: privateWeb(target, { host: "unifi" }),
-    },
     dsm: {
       exposure: privateWeb(target, { host: "dsm" }),
-    },
-    hooks: {
-      // PUBLIC on purpose: GitHub posts here from the internet and would be
-      // 403'd by Access. Auth is the HMAC in features/hooks/service.ts.
-      exposure: publicWeb(target, { host: "hooks" }),
     },
     services: {
       api: {
@@ -879,14 +640,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
         // covers it (see webHostname).
         exposure: privateWeb(target, { host: "manage" }),
       },
-      storybook: {
-        service: "storybook",
-        exposure: privateWeb(target, { host: "storybook" }),
-      },
-      "captive-portal": {
-        service: "captive-portal",
-        exposure: captivePortalWeb(target, { host: "app" }),
-      },
       cloudflared: {
         service: "cloudflared",
         exposure: null,
@@ -894,39 +647,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       },
     },
     secretUsages,
-    database,
-    backup,
-  };
-}
-
-export type SoftwareFactoryProductManifest = Readonly<{
-  product: ProductIdentity;
-  target: HomelabTarget;
-  database: ProductDatabase;
-  backup: DatabaseBackup;
-}>;
-
-/** The factory's empty durable record, kept separate from its Go application wiring. */
-export function softwareFactoryProductManifest(): SoftwareFactoryProductManifest {
-  const product = defineProduct("software-factory");
-  const target = homelabTarget;
-  const database = defineProductDatabase(product, target, {
-    authPassword: secretCatalog.softwareFactory.postgresPassword,
-    authSecretName: "software-factory-postgres-auth",
-    clusterName: "software-factory-postgres",
-    // ADR-0012 estimates retained transcripts at single-digit MB/year. ADR-0009
-    // makes this a hard local-LVM reservation, so start honestly and expand online.
-    size: "1Gi",
-  });
-  const backup = defineDatabaseBackup(database, target, {
-    name: "software-factory-pg-backup",
-    nasSubPathParts: ["backups", "world-wide-webb", "software-factory", "postgres"],
-    schedule: "0 1 * * *",
-  });
-
-  return {
-    product,
-    target,
     database,
     backup,
   };

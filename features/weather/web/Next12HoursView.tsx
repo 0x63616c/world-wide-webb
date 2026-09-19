@@ -23,7 +23,7 @@ export type HourlyEntry = {
   ic: string;
 };
 
-// Flat props shape: hours is optional so Storybook can spread args without a
+// Flat props shape: hours is optional so a component harness can spread args without a
 // discriminated-union wrapper. status="populated" with no hours falls back to skeleton.
 export type Next12HoursViewProps = {
   status: TileStatus;

@@ -18,7 +18,7 @@
  *      already owned that breakpoint for the Settings overlay's drill-down , the
  *      breakpoint and its matchMedia subscription stay in one module rather than
  *      being restated here. This is also what makes the phone view reachable in
- *      a desktop browser (narrow the window) and in Storybook, with no UA
+ *      a desktop browser (narrow the window) and in a component harness, with no UA
  *      spoofing.
  *   2. The user agent says phone, which catches a phone in LANDSCAPE (~844px
  *      wide, so not narrow) and the native shell installed on an iPhone. iPad is

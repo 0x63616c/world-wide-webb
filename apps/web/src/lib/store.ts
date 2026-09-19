@@ -1,7 +1,7 @@
 /**
  * createStore , the shared useSyncExternalStore primitive every hand-rolled
  * singleton store in this repo (settings.ts, device-settings.ts,
- * tile-detail-store.ts, the time-suite stores, ...) re-implemented from
+ * tile-detail-store.ts, ...) re-implemented from
  * scratch. This is that plumbing extracted once: a module keeps its own
  * `const store = createStore(initial)`, expresses its setters via `store.set`,
  * and exposes `useStore`/`useStoreSelector` for components. Everything else

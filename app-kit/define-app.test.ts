@@ -3,11 +3,7 @@ import { APP_BRAND, defineApp } from "./define-app";
 import {
   API_FACET_BRAND,
   defineApi,
-  defineJobs,
-  defineTemporal,
   defineWorkerCycles,
-  JOBS_FACET_BRAND,
-  TEMPORAL_FACET_BRAND,
   WORKER_CYCLES_FACET_BRAND,
 } from "./define-facets";
 
@@ -67,19 +63,6 @@ it("supports multiple tiles per app, with home readable per-tile", () => {
 
 it("facet wrappers brand their payload", () => {
   expect((defineApi({} as never) as Record<symbol, unknown>)[API_FACET_BRAND]).toBe(true);
-  expect(
-    (
-      defineJobs([{ type: "demo_job" as never, handler: async () => {}, maxMs: 1000 }]) as Record<
-        symbol,
-        unknown
-      >
-    )[JOBS_FACET_BRAND],
-  ).toBe(true);
-  expect(
-    (defineTemporal({ workflowTypes: ["DemoWorkflow"], schedules: [] }) as Record<symbol, unknown>)[
-      TEMPORAL_FACET_BRAND
-    ],
-  ).toBe(true);
   expect(
     (
       defineWorkerCycles([

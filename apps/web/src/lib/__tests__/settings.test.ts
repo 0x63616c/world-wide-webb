@@ -4,16 +4,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_PIN,
   hydrateSettings,
-  MAX_IDLE_TIMEOUT_MS,
+  IDLE_DIM_LEVEL,
+  IDLE_DIM_TIMEOUT_MS,
   PIN_LENGTH,
   resetSettings,
   setAccent,
-  setLockScreenBlurPercent,
   setPinCode,
-  setPinPadLayout,
-  setShowMinimap,
   setTimeZone,
-  setTypeface,
   useSettings,
 } from "../settings";
 
@@ -28,24 +25,12 @@ function read() {
 }
 
 describe("settings defaults", () => {
-  it("includes the minimap + PIN fields at their defaults", () => {
+  it("starts at the contract defaults", () => {
     act(() => resetSettings());
     const s = read().current;
-    expect(s.showMinimap).toBe(true);
     expect(s.pinCode).toBe("000000");
-    // The pad moves out of the box (#287/#291), and since #302 it moves per
-    // keypress , see the api-side default for why.
-    expect(s.pinPadLayout).toBe("scrambled-per-key");
-  });
-
-  it("defaults the lock screen to enabled with a slight blur", () => {
-    expect(read().current.lockScreenEnabled).toBe(true);
-    expect(read().current.lockScreenBlurPercent).toBe(10);
-  });
-
-  it("defaults showBuildNumber to false (opt-in, native-only)", () => {
-    act(() => resetSettings());
-    expect(read().current.showBuildNumber).toBe(false);
+    expect(s.accent).toBe(SETTINGS_DEFAULTS.accent);
+    expect(s.timeZone).toBe(SETTINGS_DEFAULTS.timeZone);
   });
 
   it("exports PIN_LENGTH = 6 and DEFAULT_PIN = 000000", () => {
@@ -53,8 +38,9 @@ describe("settings defaults", () => {
     expect(DEFAULT_PIN).toBe("000000");
   });
 
-  it("caps the idle timeout at 10 minutes", () => {
-    expect(MAX_IDLE_TIMEOUT_MS).toBe(600_000);
+  it("holds the idle-dim behaviour as constants, not settings", () => {
+    expect(IDLE_DIM_TIMEOUT_MS).toBe(60_000);
+    expect(IDLE_DIM_LEVEL).toBe(0.3);
   });
 
   it("defaults to the panel timezone and accepts a valid IANA replacement", () => {
@@ -97,36 +83,6 @@ describe("resetSettings", () => {
   });
 });
 
-describe("minimap setter", () => {
-  it("toggles showMinimap", () => {
-    act(() => setShowMinimap(false));
-    expect(read().current.showMinimap).toBe(false);
-  });
-});
-
-describe("lock-screen blur setter", () => {
-  it("clamps the value to the 0–100% contract", () => {
-    act(() => setLockScreenBlurPercent(140));
-    expect(read().current.lockScreenBlurPercent).toBe(100);
-    act(() => setLockScreenBlurPercent(-3));
-    expect(read().current.lockScreenBlurPercent).toBe(0);
-  });
-});
-
-describe("pin-pad-layout setter", () => {
-  it("stores a chosen layout", () => {
-    act(() => setPinPadLayout("rotated"));
-    expect(read().current.pinPadLayout).toBe("rotated");
-  });
-
-  // It is a SYNCED setting, not device-local: how the installation is locked is
-  // one decision, not a per-panel one. Hydration must therefore reach it.
-  it("accepts pinPadLayout from the server", () => {
-    act(() => hydrateSettings({ pinPadLayout: "fixed" }));
-    expect(read().current.pinPadLayout).toBe("fixed");
-  });
-});
-
 describe("accent setter", () => {
   it("stores a chosen accent", () => {
     act(() => setAccent("green"));
@@ -143,28 +99,15 @@ describe("accent setter", () => {
   });
 });
 
-describe("typeface setter", () => {
-  it("stores a chosen typeface", () => {
-    act(() => setTypeface("geist"));
-    expect(read().current.typeface).toBe("geist");
-  });
-
-  it("resets to the default typeface", () => {
-    act(() => setTypeface("grotesk"));
-    act(() => resetSettings());
-    expect(read().current.typeface).toBe(SETTINGS_DEFAULTS.typeface);
-  });
-});
-
 describe("hydrateSettings", () => {
   // The deploy-skew case: web knows a setting the api does not, so `settings.get`
   // returns it missing. Adopting the DEFAULT there would undo the user's choice
   // on the very next poll.
   it("keeps the current value for a field the server omits", () => {
     act(() => setAccent("orange"));
-    act(() => hydrateSettings({ showMinimap: false }));
+    act(() => hydrateSettings({ timeZone: "Europe/Paris" }));
     expect(read().current.accent).toBe("orange");
-    expect(read().current.showMinimap).toBe(false);
+    expect(read().current.timeZone).toBe("Europe/Paris");
   });
 
   it("still adopts a value the server does send", () => {

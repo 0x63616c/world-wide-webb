@@ -3,17 +3,7 @@
 // over the cluster, all in-bounds. This is the "validate without breaking it"
 // check; regenerate coords in placeholder-tiles.ts and this fails loudly on any
 // gap or collision.
-import { describe, expect, it, vi } from "vitest";
-
-// clusterWorldCells reads the generated TILE_REGISTRY, which imports TeslaTile →
-// MapLibre. MapLibre calls window.URL.createObjectURL at import time, which jsdom
-// lacks , so stub it the same way registry-guards.test.ts does.
-vi.mock("pmtiles", () => ({ Protocol: vi.fn().mockImplementation(() => ({ tile: vi.fn() })) }));
-vi.mock("@protomaps/basemaps", () => ({
-  layers: vi.fn().mockReturnValue([]),
-  namedFlavor: vi.fn().mockReturnValue({}),
-}));
-
+import { describe, expect, it } from "vitest";
 import {
   BENTO_TILES,
   bentoRegion,

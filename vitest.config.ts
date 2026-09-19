@@ -2,8 +2,7 @@ import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-// Root workspace: api + web unit tests. Storybook browser tests run separately via
-// `bunx vitest --project storybook` from apps/web/ (requires Playwright/Chromium).
+// Root workspace: api + web unit tests.
 export default defineConfig({
   test: {
     projects: [
@@ -11,20 +10,15 @@ export default defineConfig({
       "apps/web",
       "apps/manage",
       "apps/worker",
-      "apps/dont-text-your-ex/apps/api",
-      "apps/dont-text-your-ex/apps/frontend",
-      "apps/dont-text-your-ex/apps/temporal-worker",
       "packages/core",
       "packages/logger",
       "packages/platform",
-      "packages/temporal-runtime",
       "packages/worker-runtime",
-      // The `infra` project's default test glob also covers infra/unifi/test/**
-      // (UniFi adopt-only stack, www-j934.3), so no separate project entry is
-      // needed; a second entry would double-run those tests.
+      // The `infra` project's default glob also covers infra/cloudflare/test/**,
+      // so no separate entry is needed; a second entry would double-run them.
       "infra",
-      // app-kit: the App authoring surface (defineApp/defineApi/defineJobs/
-      // defineCron brand checks). No package.json/vite config of its own
+      // app-kit: the App authoring surface (defineApp/defineApi/defineHttp/
+      // defineTileViews/defineWorkerCycles brand checks). No package.json/vite config of its own
       // (like test/scripts/apps-gen below), and define-app.test.ts only imports
       // sibling files via relative paths, so a bare inline project (no react
       // plugin, no jsdom, no aliases) is enough.
@@ -65,7 +59,7 @@ export default defineConfig({
           // the apps-gen suites (Task 3.4).
           // apps-check.ts drives the SAME collect()/validate()/renderTiles()
           // chain as apps-gen/*.ts, so it needs the identical jsdom + "@" alias
-          // + MapLibre stub environment, not a separate project.
+          // environment, not a separate project.
           root: "./test/scripts",
           include: [
             "apps-gen/**/*.test.ts",
@@ -74,10 +68,6 @@ export default defineConfig({
             "check.test.ts",
           ],
           environment: "jsdom",
-          // Same MapLibre stub as apps/web's unit project (www-355t.11):
-          // collect() pulls in the real App web facets, which import
-          // maplibre-gl-backed tiles (Tesla), and jsdom has no WebGL.
-          setupFiles: [resolve(__dirname, "apps/web/vitest.setup.unit.ts")],
         },
       },
     ],
@@ -96,7 +86,7 @@ export default defineConfig({
     // exclude + thresholds; per-project config is ignored once `projects` is set,
     // so the root config is the only one that matters (www-355t.11). Without an
     // explicit `include`, v8 counts every transitively-loaded module
-    // (node_modules, maplibre, …) and the line/statement % is meaningless.
+    // (node_modules, …) and the line/statement % is meaningless.
     coverage: {
       provider: "v8",
       reporter: ["json-summary", "text-summary"],
@@ -113,8 +103,8 @@ export default defineConfig({
       // Coverage is REPORTED but deliberately NOT gated - no `thresholds` here.
       // A coverage drop must never fail a CI job or block a deploy (per Calum);
       // the merged browser+unit number is also slightly nondeterministic
-      // run-to-run, so a ratchet would flake. The test-unit/test-storybook jobs
-      // still fail on real test failures, just never on the coverage %.
+      // run-to-run, so a ratchet would flake. The test-unit job still fails on
+      // real test failures, just never on the coverage %.
     },
   },
 });

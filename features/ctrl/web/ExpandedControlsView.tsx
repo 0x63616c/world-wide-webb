@@ -1,7 +1,7 @@
 /**
  * ExpandedControlsView , the larger control surface the Controls tile
  * opens. PURE view: all data + callbacks arrive via props (no trpc/hooks),
- * so it composes trivially in Storybook and component tests.
+ * so it composes trivially in component tests.
  *
  * Reuses ControlsGridView (hideMore) for the Lamps/Lights/Fan toggles rather than
  * re-inlining them, then adds lamp-specific controls: scene presets and a
@@ -56,6 +56,20 @@ const DEFAULT_SAVED_COLORS: SavedLampColorView[] = [
   { slot: "custom", label: "Custom", hex: "#8b5cf6" },
 ];
 
+/**
+ * What a saved colour is CALLED on the panel: "Custom 1/2/3", by position.
+ *
+ * The three slots are named `red`/`blue`/`custom` on the wire (they started as
+ * fixed scenes), and the service still labels them that way. Once every slot
+ * became freely editable those names stopped being true , the "Red" swatch is
+ * whatever you last put in it , so the face numbers them instead of repeating a
+ * colour name that may be a lie. The slot ids are untouched; this is display
+ * only.
+ */
+function savedColorLabel(index: number): string {
+  return `Custom ${index + 1}`;
+}
+
 export interface ExpandedControlsViewProps {
   data: ControlsViewData;
   onToggle: (key: ControlKey, currentOn: boolean) => void;
@@ -89,7 +103,10 @@ export function ExpandedControlsView({
   const partyActive = activeScene === "party";
   const savedColors = data.lamps.savedColors ?? DEFAULT_SAVED_COLORS;
   const [editingColors, setEditingColors] = useState(false);
-  const [editingColor, setEditingColor] = useState<SavedLampColorView | null>(null);
+  const [editingColor, setEditingColor] = useState<{
+    color: SavedLampColorView;
+    label: string;
+  } | null>(null);
   const [draftColor, setDraftColor] = useState("");
 
   // Local value drives the slider during a drag for smooth motion + an instant
@@ -228,16 +245,17 @@ export function ExpandedControlsView({
                 gap: 20,
               }}
             >
-              {savedColors.map((color) => {
+              {savedColors.map((color, index) => {
+                const label = savedColorLabel(index);
                 const editColor = () => {
-                  setEditingColor(color);
+                  setEditingColor({ color, label });
                   setDraftColor(color.hex);
                 };
                 return (
                   <button
                     key={color.slot}
                     type="button"
-                    aria-label={`${editingColors ? "Edit" : "Use"} ${color.label}`}
+                    aria-label={`${editingColors ? "Edit" : "Use"} ${label}`}
                     onClick={() => (editingColors ? editColor() : onColor(color.slot))}
                     style={{
                       width: 86,
@@ -361,7 +379,7 @@ export function ExpandedControlsView({
               <button
                 type="button"
                 onClick={() => {
-                  onSaveColor?.(editingColor.slot, draftColor);
+                  onSaveColor?.(editingColor.color.slot, draftColor);
                   setEditingColor(null);
                 }}
                 style={{

@@ -33,7 +33,7 @@ export interface Tool {
    * has stripped those response headers.
    *
    * False ONLY where we control the response and it carries no frame-deny —
-   * today that is the control-center and Software Factory nginx origins.
+   * today that is the control-center nginx origin.
    * Everything else is third-party or upstream-configured, so it is marked true
    * and lands in the generated allowlist. Marking a framable host `true` costs
    * nothing but an extra allowlist entry; marking a frame-denying host `false`
@@ -63,15 +63,6 @@ export const TOOLS: readonly Tool[] = [
     group: "House",
     needsExtension: true,
   },
-  {
-    id: "plex",
-    label: "Plex",
-    url: "https://app.plex.tv/desktop",
-    color: "#e5a00d",
-    mark: "PX",
-    group: "House",
-    needsExtension: true,
-  },
 
   // ── Platform ─────────────────────────────────────────────────────────────
   {
@@ -83,28 +74,9 @@ export const TOOLS: readonly Tool[] = [
     group: "Platform",
     needsExtension: true,
   },
-  {
-    id: "temporal",
-    label: "Temporal",
-    url: "https://temporal-ui.worldwidewebb.co",
-    color: "#7c3aed",
-    mark: "T",
-    group: "Platform",
-    needsExtension: true,
-  },
-  {
-    id: "pgadmin",
-    label: "pgAdmin",
-    url: "https://db-ui.worldwidewebb.co",
-    color: "#336791",
-    mark: "PG",
-    group: "Platform",
-    needsExtension: true,
-  },
-  // NB: Storybook is deliberately absent. The control-center-storybook workload
-  // was deleted in Track B (infra/src/services.ts) and its tunnel route pruned
-  // (infra/cloudflare/src/routes.ts) — storybook is a local-dev-only tool now,
-  // so a `storybook.worldwidewebb.co` row would be a pane that always 502s.
+  // NB: tools whose origin no longer exists are deliberately absent — every
+  // retired product and service that once had a row here was removed along
+  // with it, and a row for a dead origin would be a pane that always 502s.
 
   // ── Infra ────────────────────────────────────────────────────────────────
   {
@@ -146,16 +118,6 @@ export const TOOLS: readonly Tool[] = [
 
   // ── Network ──────────────────────────────────────────────────────────────
   {
-    id: "unifi",
-    label: "UniFi",
-    url: "https://unifi.worldwidewebb.co",
-    color: "#1c6fd6",
-    mark: "U",
-    group: "Network",
-    // Verified live: https://192.168.0.1 → x-frame-options: SAMEORIGIN.
-    needsExtension: true,
-  },
-  {
     id: "synology",
     label: "Synology",
     url: "https://dsm.worldwidewebb.co",
@@ -168,16 +130,6 @@ export const TOOLS: readonly Tool[] = [
   },
 
   // ── Code ─────────────────────────────────────────────────────────────────
-  {
-    id: "factory",
-    label: "The Software Factory",
-    url: "https://factory.worldwidewebb.co",
-    color: "#6366f1",
-    mark: "SF",
-    group: "Code",
-    // The standalone software-factory console permits this same-origin frame.
-    needsExtension: false,
-  },
   {
     id: "github",
     label: "GitHub",

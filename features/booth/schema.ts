@@ -39,7 +39,7 @@ export const boothPhoto = pgTable(
     // capture, and gif uploads (which bake their filter in client-side) send none.
     // Validated `^[a-z0-9_]{1,32}$` at the edge so no arbitrary text can land here.
     filter: text("filter"),
-    // Which panel took the shot. Matches frontend_log.device_id; nullable when
+    // Which panel took the shot (the panel's stable device id); nullable when
     // the uploader sends no (or a malformed) attribution header.
     deviceId: text("device_id"),
     // Source-only frame: kept for future re-assembly but never shown in the

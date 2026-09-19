@@ -1,7 +1,7 @@
 # App registration is committed codegen over a file convention; runtime self-registration is forbidden
 
 An App folder becomes runtime wiring through a committed **codegen** step (`bun run apps:gen`) that
-globs `features/*/manifest.ts` + the convention facet files (`web.tsx`, `detail.ts`, `api.ts`, `jobs.ts`, `worker.ts`,
+globs `features/*/manifest.ts` + the convention facet files (`web.tsx`, `detail.ts`, `api.ts`, `http.ts`, `worker.ts`,
 `schema.ts`) and emits checked-in `features/_generated/*.gen.ts` aggregates — byte-compatible with
 today's hand-written `TILE_REGISTRY`, `appRouter` literal, and `Worker[]` array. The runtime stays
 100% static. A CI guard (`apps:check`) re-runs codegen in memory and fails when its fresh renders

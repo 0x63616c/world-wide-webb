@@ -29,8 +29,6 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
 
 const testNamespaces = {
   "control-center": "control-center",
-  "dont-text-your-ex": "dont-text-your-ex",
-  "software-factory": "software-factory",
   cloudflare: "cloudflare",
 } as const;
 
@@ -44,21 +42,18 @@ describe("SERVICE_SECRETS", () => {
     }
   });
 
-  test("services with no secrets are absent (web/storybook/captive-portal)", () => {
+  test("services with no secrets are absent (web/manage)", () => {
     expect("web" in map.SERVICE_SECRETS).toBe(false);
-    expect("storybook" in map.SERVICE_SECRETS).toBe(false);
+    expect("manage" in map.SERVICE_SECRETS).toBe(false);
+    // Retired services keep their absence pinned so a revival is deliberate.
     expect("captive-portal" in map.SERVICE_SECRETS).toBe(false);
-    // captive-portal-api's workload was deleted (Task 4 step C, SDD track 0);
-    // its Secret is gone too.
-    expect("captive-portal-api" in map.SERVICE_SECRETS).toBe(false);
   });
 
   test("every ref is a VAULT_KEY (SCREAMING_SNAKE_CASE, no Item/field slash form)", () => {
     for (const secrets of Object.values(map.SERVICE_SECRETS)) {
       for (const ref of Object.values(secrets)) {
         // Flat SCREAMING_SNAKE vault key: no slash (vault.ts does a flat
-        // lookup; ITEM__FIELD double-underscore is convention, not contract ,
-        // the WIFI_GUEST_WIFI_* keys are single-underscore by choice).
+        // lookup; ITEM__FIELD double-underscore is convention, not contract).
         expect(ref).not.toMatch(/\//);
         expect(ref).toMatch(/^[A-Z0-9_]+$/);
       }
@@ -102,7 +97,7 @@ describe("installEso (native Secrets, CC-k8t7)", () => {
     const apiSecret = res.externalSecrets[0];
     const stringData = await get<Record<string, string>>(apiSecret, "stringData");
     expect(Object.keys(stringData)).toContain("HA_TOKEN");
-    expect(Object.keys(stringData)).toContain("WIFI_PASSWORD");
+    expect(Object.keys(stringData)).toContain("POSTGRES_PASSWORD");
   });
 
   test("routes service Secrets to their owner namespaces", async () => {

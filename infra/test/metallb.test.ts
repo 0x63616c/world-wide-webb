@@ -46,7 +46,7 @@ describe("installMetallb (Task 4, talos-only)", () => {
 
 // The single-node announcement fix (#29): without --ignore-exclude-lb the
 // speaker silently refuses to announce from this control-plane node, and BOTH
-// LAN LoadBalancers (.3 guest portal, .4 plex) go dark with no error logged.
+// LAN LoadBalancers go dark with no error logged.
 describe("withIgnoreExcludeLb", () => {
   const speakerDs = () => ({
     kind: "DaemonSet",

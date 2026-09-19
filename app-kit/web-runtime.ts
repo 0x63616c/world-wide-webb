@@ -13,7 +13,8 @@ export interface TileRegistryEntry {
   readonly id: string;
   readonly label: string;
   readonly component: ComponentType;
-  readonly viewComponent: ComponentType<never>;
+  /** Optional: a face-only Tile (one with no detail view) may omit it. */
+  readonly viewComponent?: ComponentType<never>;
   readonly worldCol: number;
   readonly worldRow: number;
   readonly cols: number;
@@ -26,6 +27,12 @@ export interface TileRegistryEntry {
 /**
  * Build the web runtime from the generated, statically imported App aggregate.
  * Codegen owns discovery; this module owns the Board and Tile View lookup rules.
+ *
+ * A Tile has ZERO OR ONE Tile Views. Face-only Tiles (the Clock, Weather Now,
+ * Next 12 Hours, Climate · A/C) are a board face and nothing else, so
+ * `getTileDetailEntry` returns undefined for them and the Tile Detail Host
+ * renders nothing. `accessFor` still answers for every Tile, since the access
+ * policy belongs to the App manifest, not the detail facet.
  */
 export function createWebRegistry<TileView extends TileViewDeclaration>(
   manifests: readonly AppManifest[],
@@ -36,9 +43,6 @@ export function createWebRegistry<TileView extends TileViewDeclaration>(
       throw new Error(`App ${manifest.id} cannot be both sensitive and private`);
     }
     return manifest.tiles.map((tile) => {
-      if (!tile.viewComponent) {
-        throw new Error(`App ${manifest.id} Tile ${tile.id} has no viewComponent`);
-      }
       return {
         id: tile.id,
         label: tile.label,
@@ -64,7 +68,7 @@ export function createWebRegistry<TileView extends TileViewDeclaration>(
   const byTileId = new Map<string, TileRegistryEntry>();
   for (const entry of TILE_REGISTRY) {
     byComponent.set(entry.component, entry);
-    byComponent.set(entry.viewComponent, entry);
+    if (entry.viewComponent) byComponent.set(entry.viewComponent, entry);
     byTileId.set(entry.id, entry);
   }
 

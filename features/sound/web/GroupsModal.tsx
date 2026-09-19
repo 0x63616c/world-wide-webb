@@ -24,13 +24,13 @@ type JoinAllActionState =
   | { kind: "complete" }
   | { kind: "unavailable" };
 
-export interface JoinAllActionProps {
+interface JoinAllActionProps {
   state: JoinAllActionState;
   status: string | null;
   onJoin: () => void;
 }
 
-export function JoinAllAction({ state, status, onJoin }: JoinAllActionProps) {
+function JoinAllAction({ state, status, onJoin }: JoinAllActionProps) {
   const label =
     state.kind === "pending"
       ? `Joining ${state.roomCount} room${state.roomCount === 1 ? "" : "s"}…`

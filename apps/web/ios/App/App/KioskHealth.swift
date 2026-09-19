@@ -131,13 +131,6 @@ struct Backoff {
 enum PanelMemoryPressureRecoveryAction {
     case authenticatedOriginReload
     case suppressedByLoopProtection
-
-    var diagnosticsOutcome: PanelRecoveryOutcome {
-        switch self {
-        case .authenticatedOriginReload: .authenticatedOriginReload
-        case .suppressedByLoopProtection: .suppressedByLoopProtection
-        }
-    }
 }
 
 struct PanelMemoryPressureRecoveryPolicy {

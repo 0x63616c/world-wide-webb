@@ -43,8 +43,6 @@ export const POLL = {
   tvApps: 10 * 1000,
   // Sonos topology + volumes change infrequently; 10s covers group/volume edits.
   soundSystem: 10 * 1000,
-  // Favorites + Spotify browse content are near-static; 30s is a light refresh.
-  quickPlay: 30 * 1000,
   // Wake photos land a few times a day; 60s is well inside a "since I looked" gap.
   wakePhotos: 60 * 1000,
   // Notifications are the one surface where lag is the failure: an alert the

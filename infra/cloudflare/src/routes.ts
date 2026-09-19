@@ -4,16 +4,15 @@
 // The control-center app route is product-derived (productRoutes(), the
 // `app.worldwidewebb.co` single-label host from the platform manifest). The
 // flattened `app--cc.worldwidewebb.co` cutover host and the `${host}--${dnsCode}`
-// scheme were retired in Task 7 Step C; the one imported legacy tooling host
-// below (hooks-test) stays explicit as its own removal ticket.
+// scheme were retired in Task 7 Step C.
 //
 // Ingress and CNAMEs are SEPARATE lists because the live state was not always
-// symmetric: the retired `hooks-test` record was a CNAME with no ingress rule.
-// They are symmetric today, but keeping the lists separate leaves room for the
-// next asymmetric host without reshaping the model.
+// symmetric (a retired record was once a CNAME with no ingress rule). They are
+// symmetric today, but keeping the lists separate leaves room for the next
+// asymmetric host without reshaping the model.
 //
-// captive-portal is intentionally absent from BOTH: it is LAN-only, reached over
-// the OrbStack LoadBalancer on the mini's en1 (DESIGN §5a), never tunneled.
+// Every retired host's ingress rule and CNAME were pruned as its backing
+// service was deleted; both legacy lists below are intentionally empty.
 
 import { controlCenterProductManifest, type ProductServiceDeclaration } from "@www/platform";
 
@@ -76,16 +75,13 @@ export type CloudflareRoutes = Readonly<{
   cnames: readonly DesiredCname[];
 }>;
 
-// LIVE tunnel ingress: no legacy hosts remain (only the product app host, added
-// by productRoutes below). The dead `portainer` + `hooks` routes (origins removed
-// in the Swarm->k8s migration) were pruned in www-oa74; `storybook` (origin
-// deleted after the storybook rip) and `drizzle` (Drizzle Gateway torn down) were
-// pruned here.
+// LIVE tunnel ingress: no legacy hosts remain (only the product-derived hosts
+// added by productRoutes below). Every retired host was pruned from here as
+// its origin went away.
 const LEGACY_INGRESS: Record<string, string> = {};
 
-// LIVE proxied CNAMEs beyond the product-derived ones: none. The dead `hooks` +
-// `portainer` CNAMEs were pruned in www-oa74; `storybook` and `drizzle` later;
-// the `hooks-test` leftover went with the evee-webhooks tunnel in #127.
+// LIVE proxied CNAMEs beyond the product-derived ones: none. Every retired
+// host's CNAME was pruned alongside its ingress rule above.
 const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {};
 
 export function cloudflareRoutesForExposures(
@@ -131,33 +127,6 @@ function productRoutes(): CloudflareRoutes {
       comment: "platform:control-center private app route",
     },
     {
-      exposure: cc.hooks.exposure,
-      // The webhook relay verifies once then independently forwards deliveries;
-      // the host remains public because GitHub cannot pass Cloudflare Access.
-      //
-      // Cross-NAMESPACE origin, so the cluster-local FQDN is required: cloudflared
-      // runs in `cloudflare`, the Service is `relay` in `webhook-relay`. A short
-      // name resolves in the connector's own namespace and 502s (same reason
-      // temporal-ui carries an FQDN).
-      origin: "http://relay.webhook-relay.svc.cluster.local:8080",
-      comment: "platform:github webhook relay (public, HMAC-authenticated)",
-    },
-    {
-      exposure: cc.temporalUi.exposure,
-      // FQDN, not the short Service name: cloudflared runs in the
-      // `control-center` namespace, so `temporal-ui` alone would not resolve
-      // across into the `temporal` namespace.
-      origin: "http://temporal-ui.temporal.svc.cluster.local:8080",
-      comment: "platform:temporal web ui route",
-    },
-    {
-      exposure: cc.dbUi.exposure,
-      // FQDN, same cross-namespace reason as temporal-ui above: cloudflared
-      // runs in `control-center`, pgAdmin runs in `db-ui`.
-      origin: "http://db-ui.db-ui.svc.cluster.local:80",
-      comment: "platform:pgAdmin multi-database web ui route (#65)",
-    },
-    {
       exposure: cc.grafana.exposure,
       // FQDN, not the short Service name: cloudflared runs in the `cloudflare`
       // namespace, so `grafana` alone would not resolve across into the
@@ -172,14 +141,6 @@ function productRoutes(): CloudflareRoutes {
       // cloudflared, so the FQDN is required.
       origin: "http://manage.control-center.svc.cluster.local:80",
       comment: "platform:manage management plane route (#292)",
-    },
-    {
-      exposure: cc.unifi.exposure,
-      // LAN appliance, not a cluster Service: the UniFi controller on the house
-      // network. Self-signed cert, hence noTlsVerify.
-      origin: "https://192.168.0.1",
-      originRequest: { noTlsVerify: true },
-      comment: "platform:unifi controller route (#292)",
     },
     {
       exposure: cc.dsm.exposure,
@@ -198,20 +159,6 @@ function productRoutes(): CloudflareRoutes {
       origin: "http://ha.control-center.svc.cluster.local:8123",
       comment: "platform:home assistant web ui route (#75)",
     },
-    {
-      exposure: cc.factoryConsole.exposure,
-      // The console serves the SPA and proxies /api/* to the private API Service;
-      // exposing the API directly would create a second Access boundary.
-      origin: "http://web.software-factory.svc.cluster.local:80",
-      comment: "platform:software factory console route",
-    },
-    {
-      exposure: cc.codec.exposure,
-      // The codec runs in the software-factory namespace, so cloudflared
-      // needs the Service FQDN rather than a namespace-local short name.
-      origin: "http://codec.software-factory.svc.cluster.local:8080",
-      comment: "platform:software factory payload codec route",
-    },
   ];
 
   return cloudflareRoutesForExposures(sources);
@@ -221,19 +168,6 @@ function productRoutes(): CloudflareRoutes {
 export function desiredIngressRules(zone: string): DesiredIngressRule[] {
   return [
     ...productRoutes().ingressRules,
-    // One public hostname, two in-cluster origins. API must precede the
-    // frontend fallback or /api requests would be swallowed by the SPA server.
-    {
-      hostname: `dont-text-your-ex.${zone}`,
-      // cloudflared compiles this with Go's RE2 engine; non-capturing groups
-      // (`(?:...)`) are unsupported, so keep the optional suffix capturing.
-      path: "^/api(/.*)?$",
-      service: "http://api.dont-text-your-ex.svc.cluster.local:8787",
-    },
-    {
-      hostname: `dont-text-your-ex.${zone}`,
-      service: "http://frontend.dont-text-your-ex.svc.cluster.local:80",
-    },
     ...Object.entries(LEGACY_INGRESS).map(([sub, service]) => ({
       hostname: `${sub}.${zone}`,
       service,
@@ -245,12 +179,6 @@ export function desiredIngressRules(zone: string): DesiredIngressRule[] {
 export function desiredCnames(zone: string): DesiredCname[] {
   return [
     ...productRoutes().cnames,
-    {
-      hostname: `dont-text-your-ex.${zone}`,
-      proxied: true as const,
-      target: tunnelCnameTarget,
-      comment: "platform:don't text your ex public app route",
-    },
     ...Object.entries(LEGACY_CNAME_COMMENTS).map(([sub, comment]) => ({
       hostname: `${sub}.${zone}`,
       proxied: true as const,

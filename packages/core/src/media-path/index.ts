@@ -2,8 +2,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
- * The on-disk naming scheme for wake and booth photos (spec
- * docs/superpowers/specs/2026-07-21-flat-iso-photo-paths-design.md).
+ * The on-disk naming scheme for wake and booth photos.
  *
  * One flat directory per kind; the filename carries the full capture instant:
  *

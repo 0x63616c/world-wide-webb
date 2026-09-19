@@ -7,16 +7,14 @@
  * settings input, the "please set your name" banner, and the logger all read one
  * live source of truth without prop-drilling.
  *
- * DELIBERATELY NOT folded into lib/device-settings.ts (ticket #63). The name
- * used to be strictly local-only ("must never leave the browser"); that turned
- * out to be wrong , without a server copy the name is invisible off-device and
- * lost on reinstall, exactly the gap device-settings.ts's volume field solved
- * for panel preferences generally. Rather than adding a `name` field to that
- * store's KEYS/DEFAULTS (which would give two stores unconditional
- * write-every-key hydration over the SAME localStorage key, a real clobber
- * hazard), this store stays the sole owner of both `cc-device-name` keys and
- * grows its own bespoke, name-scoped sink , see `registerNameServerSink` below
- * , wired up by useDeviceSettingsSync.ts alongside its existing volume sink.
+ * The name used to be strictly local-only ("must never leave the browser");
+ * that turned out to be wrong , without a server copy the name is invisible
+ * off-device and lost on reinstall. This store stays the sole owner of both
+ * `cc-device-name` keys and grows its own bespoke, name-scoped sink , see
+ * `registerNameServerSink` below , wired up by useDeviceSettingsSync.ts, which
+ * bridges it to this panel's `device_settings` row (the volume field that row
+ * used to also carry was deleted along with the PanelVolume plugin it drove;
+ * `name` is the row's only field now).
  *
  * Two localStorage keys, on purpose (a separate-key design, not a sentinel):
  *   - `cc-device-name`      the USER-set name. Absent until the user explicitly
@@ -189,7 +187,7 @@ function snapshotNow(): DeviceNameState {
 const store = createStore<DeviceNameState>(snapshotNow());
 
 // Optional server sink, registered by useDeviceSettingsSync. Null when
-// unmounted / in tests / Storybook , the store is then local-only, same
+// unmounted / in tests / a component harness , the store is then local-only, same
 // pattern as device-settings.ts's serverSink but scoped to just the name.
 let serverSink: ((name: string) => void) | null = null;
 

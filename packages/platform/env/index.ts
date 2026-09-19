@@ -4,7 +4,7 @@
  * Declares every env key once (`registry.ts`), reads the hydrated `process.env`
  * lazily on first access (order-independent), owns secret-file hydration
  * (`hydrate.ts`), and fail-fast validates required prod secrets at boot
- * (`assert.ts` / `initEnv`). See docs/superpowers/specs/2026-07-23-env-config-registry-design.md.
+ * (`assert.ts` / `initEnv`).
  */
 
 export { assertEnv, type BootRuntime, initEnv } from "./assert";

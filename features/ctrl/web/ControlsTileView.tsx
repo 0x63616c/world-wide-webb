@@ -22,7 +22,7 @@ export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
  * ExpandedControlsView's LampScene; declared here (the lower-level module)
  * so ControlEntry can carry it without importing that view (avoids a cycle).
  */
-export type ActiveScene = "white" | "mood" | "red" | "blue" | "party" | null;
+type ActiveScene = "white" | "mood" | "red" | "blue" | "party" | null;
 
 export type SavedColorSlot = "red" | "blue" | "custom";
 export interface SavedLampColorView {
@@ -31,7 +31,7 @@ export interface SavedLampColorView {
   hex: string;
 }
 
-export interface ControlEntry {
+interface ControlEntry {
   on: boolean;
   sub?: string;
   pending?: boolean;

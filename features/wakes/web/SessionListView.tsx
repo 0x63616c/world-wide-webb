@@ -1,37 +1,29 @@
 /**
- * SessionListView , one row per visit to the panel: the wake photo of whoever
- * approached, when, for how long, and a one-line digest of what they touched.
- * Purely presentational; data arrives via props so Storybook exercises every
- * state (spec docs/specs/2026-07-18-interaction-logging-design.md).
+ * SessionListView , one row per visit to the panel: the front-camera burst of
+ * whoever approached, and when.
+ *
+ * It used to carry a duration, an event count, an end reason and a one-line
+ * digest of what was touched, and each row opened a full transcript. All of
+ * that came from the `frontend_log` ui channel, which The Simplification
+ * deleted. A visit is now exactly what `wake_photo` remembers of it , an id, a
+ * first frame, a device , so the row says that and stops. Rows are inert:
+ * there is no longer anything behind one to open.
+ *
+ * Purely presentational; data arrives via props.
  */
 
 export interface SessionSummary {
   id: string;
   startedAt: number;
-  /** Null while the visit is still in progress. */
-  endedAt: number | null;
-  durationMs: number | null;
-  eventCount: number;
-  endReason: string | null;
   deviceName: string;
-  /** Burst frame paths, chronological. Empty for backfilled/browser sessions. */
+  /** Burst frame paths, chronological. Empty for backfilled sessions. */
   photoPaths: string[];
-  /** Server-computed summary of notable subjects touched; null when none. */
-  digest: string | null;
 }
 
 export interface SessionListViewProps {
   sessions: SessionSummary[];
   /** Maps a photo path to a fetchable URL (the /media/wake-photos/ route). */
   photoUrl: (path: string) => string;
-  onSelect: (id: string) => void;
-}
-
-export function formatSessionDuration(durationMs: number | null): string {
-  if (durationMs === null) return "live";
-  const s = Math.round(durationMs / 1000);
-  if (s < 60) return `${s}s`;
-  return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
 function formatStart(startedAt: number): string {
@@ -41,11 +33,15 @@ function formatStart(startedAt: number): string {
   return `${day} · ${time}`;
 }
 
-export function SessionListView({ sessions, photoUrl, onSelect }: SessionListViewProps) {
+function frameCount(count: number): string {
+  return count === 1 ? "1 frame" : `${count} frames`;
+}
+
+export function SessionListView({ sessions, photoUrl }: SessionListViewProps) {
   if (sessions.length === 0) {
     return (
       <div className="cap" style={{ padding: "48px 0", textAlign: "center" }}>
-        No sessions yet , they appear after the panel is next woken and used.
+        No sessions yet , they appear after the panel is next woken.
       </div>
     );
   }
@@ -55,10 +51,8 @@ export function SessionListView({ sessions, photoUrl, onSelect }: SessionListVie
     // mode header can stay pinned above it (one scroller, not nested ones).
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {sessions.map((s) => (
-        <button
+        <div
           key={s.id}
-          type="button"
-          onClick={() => onSelect(s.id)}
           data-testid="session-row"
           style={{
             display: "flex",
@@ -68,9 +62,6 @@ export function SessionListView({ sessions, photoUrl, onSelect }: SessionListVie
             borderRadius: 12,
             border: "1px solid var(--hair)",
             background: "var(--nest)",
-            color: "inherit",
-            textAlign: "left",
-            cursor: "pointer",
           }}
         >
           <div
@@ -115,25 +106,10 @@ export function SessionListView({ sessions, photoUrl, onSelect }: SessionListVie
               {formatStart(s.startedAt)}
             </span>
             <span className="cap" style={{ color: "var(--ink-2)" }}>
-              {formatSessionDuration(s.durationMs)} · {s.eventCount}{" "}
-              {s.eventCount === 1 ? "event" : "events"}
-              {s.endReason ? ` · ${s.endReason}` : ""}
+              {frameCount(s.photoPaths.length)} · {s.deviceName}
             </span>
-            {s.digest ? (
-              <span
-                className="cap"
-                style={{
-                  color: "var(--ink-3)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {s.digest}
-              </span>
-            ) : null}
           </div>
-        </button>
+        </div>
       ))}
     </div>
   );

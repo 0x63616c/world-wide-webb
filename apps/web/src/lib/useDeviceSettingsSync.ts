@@ -1,19 +1,15 @@
 /**
- * useDeviceSettingsSync , bridges the local per-device store (lib/device-settings)
- * with this panel's server-persisted row.
+ * useDeviceSettingsSync , bridges the local device-name store (lib/device-name)
+ * with this panel's server-persisted `device_settings` row.
  *
- * Same two directions as useSettingsSync, and the same in-flight guard, but
- * every call is keyed on this panel's device_id so panels never read or write
- * each other's values:
+ * Same shape as useSettingsSync (server → store on load/poll, store → server
+ * debounced on edit), but keyed on this panel's device_id so panels never read
+ * or write each other's rows.
  *
- *  - Server → store: adopt the stored row on load and on each poll, unless a
- *    local write is mid-flight.
- *  - Store → server: an edit fires the store's sink; edits are debounced into a
- *    single mutation so dragging the volume slider isn't a write per frame.
- *
- * Ticket #63 folded the device NAME into this same round trip, even though it
- * lives in a separate local store (lib/device-name.ts, not device-settings.ts ,
- * see that file's header for why). Two things beyond the volume flow above:
+ * Ticket #63 gave the device NAME a server copy even though it lives in its
+ * own local store (lib/device-name.ts, not folded into a generic
+ * "device-settings" store , see that file's header for why). Two things beyond
+ * the plain sync above:
  *
  *  - A one-time upward MIGRATION: a panel that already had a local name before
  *    server persistence existed needs it pushed once. Each poll first checks
@@ -21,9 +17,8 @@
  *    and skips hydration entirely so the just-pushed local name can't be
  *    clobbered by the (still-empty) server value this same tick, then the NEXT
  *    poll picks up the now-populated row normally.
- *  - A second debounced push effect, sibling to the volume one, sharing this
- *    hook's mutateRef/inFlight so both fields funnel through the same
- *    in-flight guard and debounce window.
+ *  - The push effect is debounced so rapid edits (typing a name) aren't a
+ *    write per keystroke.
  *
  * Mount ONCE, inside the tRPC + Query providers (see app.tsx).
  */
@@ -36,7 +31,6 @@ import {
   nameToMigrate,
   registerNameServerSink,
 } from "./device-name";
-import { type DeviceSettings, hydrateDeviceSettings, registerServerSink } from "./device-settings";
 import { POLL } from "./hooks";
 import { trpc } from "./trpc";
 
@@ -64,8 +58,8 @@ export function useDeviceSettingsSync(): void {
 
     // Migration check runs FIRST, strictly before any hydration touches local
     // state: if there is a legacy local name to push, push it and stop , do
-    // not hydrate volume/name from this (pre-migration) snapshot at all. The
-    // next poll, after the mutation lands, will see the server's own name.
+    // not hydrate the name from this (pre-migration) snapshot at all. The next
+    // poll, after the mutation lands, will see the server's own name.
     const migrateName = nameToMigrate(data.name);
     if (migrateName !== null) {
       inFlight.current += 1;
@@ -83,37 +77,7 @@ export function useDeviceSettingsSync(): void {
     }
 
     hydrateDeviceName(data.name);
-    hydrateDeviceSettings(data);
   }, [data, deviceId, utils]);
-
-  useEffect(() => {
-    let timer = 0;
-    let pending: DeviceSettings | null = null;
-    const flush = () => {
-      const payload = pending;
-      pending = null;
-      if (!payload) return;
-      inFlight.current += 1;
-      mutateRef.current(
-        { deviceId, patch: payload },
-        {
-          onSettled: () => {
-            inFlight.current = Math.max(0, inFlight.current - 1);
-            void utils.deviceSettings.get.invalidate({ deviceId });
-          },
-        },
-      );
-    };
-    const unregister = registerServerSink((next) => {
-      pending = next;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(flush, PUSH_DEBOUNCE_MS);
-    });
-    return () => {
-      window.clearTimeout(timer);
-      unregister();
-    };
-  }, [utils, deviceId]);
 
   useEffect(() => {
     let timer = 0;

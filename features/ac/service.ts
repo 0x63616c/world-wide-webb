@@ -8,7 +8,7 @@ import {
   sanitizeClimateDesired,
 } from "@www/core";
 
-import { config } from "./config";
+import { config, TESLA_ENTITY_PREFIX } from "./config";
 import { deviceStateStore, ha } from "./deps";
 
 export const HvacMode = {
@@ -96,7 +96,7 @@ function num(value: unknown): number {
 /**
  * Pick the house thermostat from HA's climate entities. Prefers the configured
  * CLIMATE_ENTITY_ID; otherwise the alphabetical-first NON-Tesla entity. The
- * Tesla integration names its climate `climate.<TESLA_ENTITY_PREFIX>_*` and is
+ * Tesla integration names its climate `climate.<TESLA_ENTITY_PREFIX>_*` (see config.ts) and is
  * the car, not the wall thermostat , selecting it caused set_temperature 500s.
  */
 export function selectClimateEntity(entities: HaEntity[]): HaEntity | undefined {
@@ -104,7 +104,7 @@ export function selectClimateEntity(entities: HaEntity[]): HaEntity | undefined 
   const configured = entities.find((e) => e.entity_id === config.CLIMATE_ENTITY_ID);
   if (configured) return configured;
   const houseOnly = entities.filter(
-    (e) => !e.entity_id.startsWith(`climate.${config.TESLA_ENTITY_PREFIX}`),
+    (e) => !e.entity_id.startsWith(`climate.${TESLA_ENTITY_PREFIX}`),
   );
   const pool = houseOnly.length > 0 ? houseOnly : entities;
   return [...pool].sort((a, b) => a.entity_id.localeCompare(b.entity_id))[0];
@@ -376,7 +376,7 @@ export async function getClimateZones(): Promise<ClimateZone[]> {
   const entities = await ha.getEntities("climate");
   // Same Tesla-exclusion policy as selectClimateEntity: the car is not a zone.
   const houseOnly = entities.filter(
-    (e) => !e.entity_id.startsWith(`climate.${config.TESLA_ENTITY_PREFIX}`),
+    (e) => !e.entity_id.startsWith(`climate.${TESLA_ENTITY_PREFIX}`),
   );
   const pool = houseOnly.length > 0 ? houseOnly : entities;
   return [...pool].sort((a, b) => a.entity_id.localeCompare(b.entity_id)).map(toZone);

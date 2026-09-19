@@ -2,10 +2,7 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   // Dead-code detector (www-k6p1). `bun run knip` runs in lefthook pre-push and
   // CI for unused files, dependencies, exports and types. Export-level detection
-  // used to be disabled because the old project-management product's Temporal setup
-  // exported activities/workflows by runtime name; that product is gone, so it is on
-  // now. Today's Temporal usage (apps/temporal-worker, ADR-0008) references workflow
-  // and activity exports statically via bundler entry files, so detection stays on.
+  // is on: every export in this repo is referenced statically.
   //
   // An export that is deliberately part of a public surface with no internal
   // consumer yet (the shared tile-author UI primitives, infra component props)
@@ -13,7 +10,7 @@
   // load-bearing rather than decorative.
   //
   // Most entry points are auto-detected from each workspace's package `exports`,
-  // `bin`, and the vite/storybook/vitest plugins. We only declare the edges knip
+  // `bin`, and the vite/vitest plugins. We only declare the edges knip
   // can't see: Docker CMD/ENTRYPOINT targets and db scripts.
 
   // Exports tagged `@public` are a deliberate surface, not dead code.
@@ -25,27 +22,11 @@
     // (Slice 5 flips runtime consumers), and generated files are opaque to the
     // dead-code detector just as they are to biome (`.gen.ts` is ignored there too).
     "features/_generated/**",
-    // Generated output, never hand-edited (#553). knip already sees
-    // orval.config.js's edge via the "generate:api" package.json script, so it
-    // needs no ignore entry of its own. generated.ts exports the whole API
-    // surface, most of which has no console page yet (the ticket list and run
-    // detail land in follow-up tickets) , the same "public surface with no
-    // consumer yet" shape as the @public tag above, just for a file knip
-    // cannot annotate a tag onto.
-    // A HEADLESS App's manifest (#126). Manifests are collected by a build-time
-    // glob in scripts/apps-gen.ts, not imported, so the only edge knip can see is
-    // the tiles barrel importing manifests that declare tiles. A tileless App has
-    // no such edge and reads as dead, though deleting it would unregister the App.
-    "features/*/manifest.ts",
-    "docs/media-tiles/**", // Design handoff bundle (prototypes/reference, not app code)
-    "docs/captive-portal/design/**", // Captive portal design handoff (reference, not app code)
-    "apps/dont-text-your-ex/docs/design-reference/**", // Restored historical design handoff; reference material, not runtime source
-    "**/ios/**/public/**", // Capacitor web-bundle copies synced into iOS project (not source)
-    // Agent harness config: skills, hooks and Workflow scripts. These are entrypoints
-    // invoked by Claude Code by name, never imported, so knip cannot see an edge to them.
-    // (Re-added after #36 dropped it as stale; it only looked stale because .claude held
-    // no JS until .claude/workflows/ existed.)
-    ".claude/**"
+    // Capacitor copies the built web bundle in here on `cap sync ios`. It is
+    // gitignored build output, absent from a fresh clone - which is why knip
+    // reports this entry as unused there - but present for anyone who has run
+    // a native build, and then read as a pile of unused files.
+    "**/ios/**/public/**"
   ],
 
   // Real runtime deps with no JS-visible import edge.
@@ -61,9 +42,6 @@
     // It's invoked by the vitest CLI, not imported, so knip can't see the edge -
     // kept declared where coverage runs (www-k6p1).
     "@vitest/coverage-v8",
-    // bdui is the beads viewer CLI (the `bv` tool, config under .bv/); run from the
-    // shell, never imported, so knip sees no edge (www-iy13).
-    "bdui",
     // quality-gate.ts launches Biome through bunx so every workflow/hook uses the
     // same command path, but knip cannot see stringly CLI edges.
     "@biomejs/biome",
@@ -73,19 +51,9 @@
     // frontend test deps. These ARE real, used-in-apps/web deps (via
     // web.test.tsx / web-view.test.tsx render calls); the edge is just
     // invisible across this workspace-boundary quirk until a generic fix for
-    // the migration lands (Track C, see W0). maplibre-gl (features/tesla/tesla-map.tsx)
-    // is the same workspace-boundary quirk — a real apps/web dep the feature
-    // folder can't see resolved against.
+    // the migration lands (Track C, see W0).
     "@testing-library/jest-dom",
     "@testing-library/react",
-    "maplibre-gl",
-    // Storybook stories/story-tests stayed under apps/web/src for every fold up
-    // through guest-wifi; features/weather (Track C, Wave 7) is the first to
-    // carry its own .stories.tsx + .stories.test.tsx (the full 33-file web
-    // subtree move), so it hits the same workspace-boundary quirk as the
-    // testing-library deps above.
-    "@storybook/react-vite",
-    "storybook",
     // features/booth (Track C, final tile fold) hits the same workspace-boundary
     // quirk: gifenc (client-side GIF encoder, features/booth/web/lib/booth-capture.ts),
     // lucide-react and @capacitor/{core,share} (features/booth/web/BoothGallery.tsx,
@@ -104,10 +72,7 @@
   // config - knip itself flagged it stale.)
   // `kubectl` is spawned by the infra ghcr-pull-secret preflight to read live
   // Secrets during `pulumi up`; a system binary on the deploy runner, not an npm dep.
-  // `openssl` is spawned by the guest-server TLS test to generate a throwaway
-  // self-signed cert at run time (never committed, see guest-server.test.ts);
-  // a system binary on macOS/CI Linux images, not an npm dep.
-  "ignoreBinaries": ["tilt", "scripts/check-rename-identity.py", "kubectl", "openssl"],
+  "ignoreBinaries": ["tilt", "kubectl"],
 
   "workspaces": {
     ".": {
@@ -123,13 +88,9 @@
       "entry": ["scripts/*.ts", "scripts/*.mjs", "app-kit/index.ts", "app-kit/server.ts"]
     },
     "apps/api": {
-      // server.ts = Docker CMD
-      // (bundled to cron.js, run via `bun cron.js <name>`) — every retention
-      // purge (portal/weather/felogs/wakes/github) now runs through this,
-      // purge.ts is gone; seed.ts = db:seed script.
-      // drizzle.config.ts + the exports map (., ./trpc, ./worker) are
-      // auto-detected.
-      "entry": ["src/server.ts", "src/db/seed.ts"]
+      // server.ts = Docker CMD. drizzle.config.ts + the exports map
+      // (., ./trpc, ./worker) are auto-detected.
+      "entry": ["src/server.ts"]
     },
     "infra": {
       // program.ts = the Pulumi program (Pulumi.yaml `main`, run by the pulumi
@@ -138,25 +99,12 @@
       // (component.ts), so no ignoreDependencies needed.
       "entry": ["program.ts", "test/**/*.test.ts"]
     },
-    "infra/unifi": {
-      // Separate Pulumi project (control-center-unifi, www-j934.3): program.ts is
-      // auto-detected as the entry from Pulumi.yaml `main`; src/unifi.ts exports
-      // are consumed by it + the test. @pulumiverse/unifi + @pulumi/pulumi are
-      // imported, so no ignoreDependencies needed. scripts/*.ts are standalone
-      // Bun CLIs run by hand (gen-fixed-ip-manifest.ts re-derives the off-repo
-      // manifest from the live controller; www-j934.3.1), never imported.
-      "entry": ["scripts/*.ts", "test/**/*.test.ts"]
-    },
     "infra/cloudflare": {
       // Separate Pulumi PROJECT (control-center-cloudflare) for the adopt-only CF
       // edge state (www-j934.2). program.ts (the Pulumi program) is auto-detected
       // from package `main`; src/{access,routes}.ts are imported by it; tests in
       // test/.
       "entry": ["test/**/*.test.ts"]
-    },
-    "drizzle": {
-      // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
-      "entry": ["load-secret.js"]
     },
     "packages/logger": {
       // src/index.ts is auto-detected from the `exports` map.
@@ -173,11 +121,6 @@
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
     },
-    "apps/worker": {
-      // workers.gen.ts is deliberately ignored as generated output, so knip
-      // cannot see these direct runtime edges from the generated App aggregate.
-      "ignoreDependencies": ["@www/core", "drizzle-orm", "zod"]
-    },
     "apps/manage": {
       // extension/content.js is loaded by Chrome from the unpacked extension,
       // never imported — knip sees no edge to it, and the same goes for the
@@ -188,25 +131,7 @@
       "ignore": ["extension/**"]
     },
     "apps/web": {
-      // Guest portal entry (vite.portal.config.ts -> portal.html -> this file)
-      // is a second build knip's vite-plugin auto-detection doesn't see (it
-      // only picks up the default vite.config.ts / index.html pair).
-      // e2e-portal/playwright.config.ts: knip's Playwright plugin only
-      // auto-detects a config at the package root; ours lives in a
-      // subdirectory, so it isn't found without an explicit entry.
-      "entry": ["src/portal/main.tsx", "e2e-portal/playwright.config.ts"]
-    },
-    "apps/dont-text-your-ex/apps/frontend": {
-      // Storybook is hosted by apps/web, so its glob crosses this workspace
-      // boundary. The route contract is compiler-only and intentionally has no
-      // runtime importer.
-      "entry": ["src/**/*.stories.tsx", "src/appctx.type-test.ts"]
-    },
-    "apps/dont-text-your-ex": {
-      // Capacitor discovers this native plugin from the product package during
-      // `cap sync`; the frontend workspace also imports it directly, but that
-      // import cannot make the app-shell declaration visible to Knip.
-      "ignoreDependencies": ["@capacitor/app", "@capacitor/push-notifications"]
+      // Tests live beside sources; the vite/vitest plugins auto-detect everything.
     }
   }
 }

@@ -27,7 +27,7 @@ violations=()
 for f in "$@"; do
   is_sanctioned "$f" && continue
   case "$f" in
-    node_modules/*|*/node_modules/*|*/dist/*|*/storybook-static/*) continue ;;
+    node_modules/*|*/node_modules/*|*/dist/*) continue ;;
   esac
   [ -f "$f" ] || continue
 
