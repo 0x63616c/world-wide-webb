@@ -22,13 +22,6 @@
     // (Slice 5 flips runtime consumers), and generated files are opaque to the
     // dead-code detector just as they are to biome (`.gen.ts` is ignored there too).
     "features/_generated/**",
-    // Generated output, never hand-edited (#553). knip already sees
-    // orval.config.js's edge via the "generate:api" package.json script, so it
-    // needs no ignore entry of its own. generated.ts exports the whole API
-    // surface, most of which has no console page yet (the ticket list and run
-    // detail land in follow-up tickets) , the same "public surface with no
-    // consumer yet" shape as the @public tag above, just for a file knip
-    // cannot annotate a tag onto.
     // A HEADLESS App's manifest (#126). Manifests are collected by a build-time
     // glob in scripts/apps-gen.ts, not imported, so the only edge knip can see is
     // the tiles barrel importing manifests that declare tiles. A tileless App has
@@ -55,9 +48,6 @@
     // It's invoked by the vitest CLI, not imported, so knip can't see the edge -
     // kept declared where coverage runs (www-k6p1).
     "@vitest/coverage-v8",
-    // bdui is the beads viewer CLI (the `bv` tool, config under .bv/); run from the
-    // shell, never imported, so knip sees no edge (www-iy13).
-    "bdui",
     // quality-gate.ts launches Biome through bunx so every workflow/hook uses the
     // same command path, but knip cannot see stringly CLI edges.
     "@biomejs/biome",
@@ -88,10 +78,7 @@
   // config - knip itself flagged it stale.)
   // `kubectl` is spawned by the infra ghcr-pull-secret preflight to read live
   // Secrets during `pulumi up`; a system binary on the deploy runner, not an npm dep.
-  // `openssl` is spawned by the guest-server TLS test to generate a throwaway
-  // self-signed cert at run time (never committed, see guest-server.test.ts);
-  // a system binary on macOS/CI Linux images, not an npm dep.
-  "ignoreBinaries": ["tilt", "kubectl", "openssl"],
+  "ignoreBinaries": ["tilt", "kubectl"],
 
   "workspaces": {
     ".": {
@@ -108,11 +95,8 @@
     },
     "apps/api": {
       // server.ts = Docker CMD
-      // (bundled to cron.js, run via `bun cron.js <name>`) — every retention
-      // purge (portal/weather/felogs/wakes/github) now runs through this,
-      // purge.ts is gone; seed.ts = db:seed script.
-      // drizzle.config.ts + the exports map (., ./trpc, ./worker) are
-      // auto-detected.
+      // seed.ts = db:seed script. drizzle.config.ts + the exports map
+      // (., ./trpc, ./worker) are auto-detected.
       "entry": ["src/server.ts", "src/db/seed.ts"]
     },
     "infra": {
@@ -122,25 +106,12 @@
       // (component.ts), so no ignoreDependencies needed.
       "entry": ["program.ts", "test/**/*.test.ts"]
     },
-    "infra/unifi": {
-      // Separate Pulumi project (control-center-unifi, www-j934.3): program.ts is
-      // auto-detected as the entry from Pulumi.yaml `main`; src/unifi.ts exports
-      // are consumed by it + the test. @pulumiverse/unifi + @pulumi/pulumi are
-      // imported, so no ignoreDependencies needed. scripts/*.ts are standalone
-      // Bun CLIs run by hand (gen-fixed-ip-manifest.ts re-derives the off-repo
-      // manifest from the live controller; www-j934.3.1), never imported.
-      "entry": ["scripts/*.ts", "test/**/*.test.ts"]
-    },
     "infra/cloudflare": {
       // Separate Pulumi PROJECT (control-center-cloudflare) for the adopt-only CF
       // edge state (www-j934.2). program.ts (the Pulumi program) is auto-detected
       // from package `main`; src/{access,routes}.ts are imported by it; tests in
       // test/.
       "entry": ["test/**/*.test.ts"]
-    },
-    "drizzle": {
-      // load-secret.js is the drizzle image's `bun --preload` ENTRYPOINT.
-      "entry": ["load-secret.js"]
     },
     "packages/logger": {
       // src/index.ts is auto-detected from the `exports` map.
@@ -172,13 +143,8 @@
       "ignore": ["extension/**"]
     },
     "apps/web": {
-      // Guest portal entry (vite.portal.config.ts -> portal.html -> this file)
-      // is a second build knip's vite-plugin auto-detection doesn't see (it
-      // only picks up the default vite.config.ts / index.html pair).
-      // e2e-portal/playwright.config.ts: knip's Playwright plugin only
-      // auto-detects a config at the package root; ours lives in a
-      // subdirectory, so it isn't found without an explicit entry.
-      "entry": ["src/portal/main.tsx", "e2e-portal/playwright.config.ts"]
+      // Tests live beside sources; the vite/vitest plugins auto-detect the rest.
+      "entry": ["test/**/*.test.ts"]
     }
   }
 }

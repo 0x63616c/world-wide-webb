@@ -23,8 +23,8 @@ yet, and the mini is untouched.
   schematic — do not add `secureboot`/`useUKI` to `talconfig.yaml`.
 - Node + tailnet hostname: `home-server` (hyphen, not `homelab`).
 - Node static IP: `192.168.0.5/24`, gateway `192.168.0.1`, subnet
-  `192.168.0.0/24`. Below the UniFi DHCP start (`.6`), so no DHCP range
-  exclusion is needed. Matches the UniFi static reservation in `infra/unifi/`.
+  `192.168.0.0/24`. Below the gateway's DHCP start (`.6`), so no DHCP range
+  exclusion is needed, and it matches the gateway's static reservation.
 - `endpoint` is the **Tailscale** hostname
   (`https://home-server.tail8c014d.ts.net:6443`), not a bare LAN IP — CI
   validates kubeconfig over Tailscale, not the LAN.
@@ -35,8 +35,6 @@ yet, and the mini is untouched.
 
 Talos base images ship no system extensions. This node needs:
 
-- `siderolabs/nonfree-kmod-nvidia-production` + `siderolabs/nvidia-container-toolkit-production`
-  — RTX 3060 passthrough to workloads.
 - `siderolabs/iscsi-tools` — iSCSI PV support.
 - `siderolabs/nfs-utils` — **required**, not optional. The cluster mounts four
   NFSv3 PVs off the Synology; NFSv3 needs the `mount.nfs` helper + `rpcbind`
@@ -44,28 +42,16 @@ Talos base images ship no system extensions. This node needs:
   dependency, not the v3 mount-helper dependency (NFS recon, 2026-07-24).
 - `siderolabs/tailscale` — tailnet join (the `endpoint` above resolves over
   Tailscale).
-- `siderolabs/kata-containers` — VM-isolated Kata Containers runtime, for the
-  software-factory sandbox pods (program handoff step 1,
-  `/tmp/handoffs/2026-07-29-software-factory-migration-program.md`). Registers
-  `kata`/`kata-qemu` containerd runtime handlers itself; the `kata`
-  `RuntimeClass` object is Pulumi-managed (`infra/src/kata.ts`), same split as
-  `nvidia` below it. No extra containerd config patch needed, same precedent
-  as the NVIDIA extensions.
 
-  **Verified live 2026-07-29**, after the upgrade that installed it: a throwaway
-  `Sandbox` with `spec.podTemplate.spec.runtimeClassName: kata` came up, the
-  created Pod carried `runtimeClassName: kata` (so the agent-sandbox controller
-  does propagate it), and `uname -r` inside the pod answered **`6.18.35`**
-  against the node's `6.18.39-talos` — a different kernel, which is the proof of
-  VM isolation rather than a silent fall back to `runc`. The `kata`
-  (cloud-hypervisor) handler works on this board; `kata-qemu` was not needed.
-
-  Note the **nested** path. Top-level `spec.runtimeClassName` does not exist on
-  this CRD, and a structural-schema CRD prunes it silently, so a pod declared
-  that way would come up on plain `runc` with nothing erroring.
-
-All six are **official** Image Factory extensions, valid for Talos v1.13.7
+All three are **official** Image Factory extensions, valid for Talos v1.13.7
 (confirmed against `siderolabs/extensions` tag `v1.13.7`).
+
+The NVIDIA pair (`nonfree-kmod-nvidia-production`,
+`nvidia-container-toolkit-production`) and `siderolabs/kata-containers` were
+**removed by The Simplification**: the GPU workload (Plex) and the VM-isolated
+agent sandbox that justified them are both gone. Removing them changes the
+schematic, so it only takes effect after the `talosctl upgrade` + reboot in the
+human-apply procedure below.
 
 ### Where the schematic lives in `talconfig.yaml`
 
@@ -81,13 +67,15 @@ automatically and correctly on next render. This is the config-authoring
 equivalent of the brief's `schematic: { id: <SCHEMATIC_ID> }` for this talhelper
 version.
 
-**Schematic ID for the five-extension list (pre-Kata, live on the node today):**
+**Schematic ID for the current three-extension list (NOT yet applied to the
+live node — the node still runs the six-extension NVIDIA + Kata schematic until
+the `talosctl upgrade` in the human-apply procedure below):**
 
 ```
-73b5d5a3c4c54fc6722f58b88d9273466c52a4956a98250fbe2ca87b65547355
+406da29bd49dad4d9eb8f3a07b401e774e1decb1b18721e5406cfff51348e118
 ```
 
-Obtained (and independently reproduced by `talhelper genconfig` — see
+Obtained (and to be independently reproduced by `talhelper genconfig` — see
 Verification below) via:
 
 ```bash
@@ -95,8 +83,6 @@ curl -sS -X POST --data-binary @- https://factory.talos.dev/schematics <<'EOF'
 customization:
   systemExtensions:
     officialExtensions:
-      - siderolabs/nonfree-kmod-nvidia-production
-      - siderolabs/nvidia-container-toolkit-production
       - siderolabs/iscsi-tools
       - siderolabs/nfs-utils
       - siderolabs/tailscale
@@ -106,39 +92,13 @@ EOF
 Resulting installer image reference (what `machine.install.image` renders to):
 
 ```
-factory.talos.dev/metal-installer/73b5d5a3c4c54fc6722f58b88d9273466c52a4956a98250fbe2ca87b65547355:v1.13.7
+factory.talos.dev/metal-installer/406da29bd49dad4d9eb8f3a07b401e774e1decb1b18721e5406cfff51348e118:v1.13.7
 ```
 
-**Schematic ID for the six-extension list, adding `siderolabs/kata-containers`
-(what `talconfig.yaml` now pins — NOT yet applied to the live node; requires
-the `talosctl upgrade` in the human-apply procedure below to take effect):**
-
-```
-195eb23007a571a62f64d8eb362b6eacf3a4786b7cb11257a76c7b7fcbfba78c
-```
-
-Obtained via the same POST, extension list extended with
-`siderolabs/kata-containers` appended last:
-
-```bash
-curl -sS -X POST --data-binary @- https://factory.talos.dev/schematics <<'EOF'
-customization:
-  systemExtensions:
-    officialExtensions:
-      - siderolabs/nonfree-kmod-nvidia-production
-      - siderolabs/nvidia-container-toolkit-production
-      - siderolabs/iscsi-tools
-      - siderolabs/nfs-utils
-      - siderolabs/tailscale
-      - siderolabs/kata-containers
-EOF
-```
-
-Resulting installer image reference:
-
-```
-factory.talos.dev/metal-installer/195eb23007a571a62f64d8eb362b6eacf3a4786b7cb11257a76c7b7fcbfba78c:v1.13.7
-```
+For the record, the schematic the node runs TODAY (six extensions, NVIDIA +
+Kata) is `195eb23007a571a62f64d8eb362b6eacf3a4786b7cb11257a76c7b7fcbfba78c`;
+the pre-Kata five-extension one was
+`73b5d5a3c4c54fc6722f58b88d9273466c52a4956a98250fbe2ca87b65547355`.
 
 This ID needs no secrets to derive (the schematic hash is a function of the
 extension list only) and was reproduced by the plain `curl` above, not by
@@ -298,9 +258,8 @@ kubectl get cluster -A -o custom-columns=NS:.metadata.namespace,NAME:.metadata.n
 
 **Never render the installer image from the local `main` checkout.** It is
 usually well behind `origin/main` and renders a *valid but wrong* schematic
-silently — caught 2026-07-29, when local `main` produced the old
-five-extension schematic instead of the kata-bearing one, with nothing
-erroring. Render from a worktree at `origin/main` and treat a schematic
+silently — caught 2026-07-29, when local `main` produced a stale extension
+list instead of the current one, with nothing erroring. Render from a worktree at `origin/main` and treat a schematic
 mismatch as an abort gate.
 
 ## kubectl + talosctl context setup

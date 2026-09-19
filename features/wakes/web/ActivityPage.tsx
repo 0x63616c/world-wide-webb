@@ -27,7 +27,6 @@ import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { PageHeader, Segmented, type SegmentedOption } from "@/components/ui";
 import { type SessionDetail, SessionDetailView } from "./SessionDetailView";
 import { SessionListView, type SessionSummary } from "./SessionListView";
-import { WakeCaptureDiagnostic } from "./WakeCaptureDiagnostic";
 
 export interface WakePhoto {
   path: string;
@@ -213,9 +212,6 @@ export function ActivityPage({
                 }}
               >
                 No activity photos yet , they appear after the panel is next woken.
-                {/* If the panel HAS tried to capture, say why it came up empty
-                    (camera denied, zero frames uploaded, …) from the wake log. */}
-                <WakeCaptureDiagnostic />
               </div>
             }
           />

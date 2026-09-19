@@ -7,10 +7,8 @@
     "apps/manage",
     "apps/api",
     "apps/worker",
-    "apps/map-provision",
     "packages/*",
     "infra",
-    "infra/unifi",
     "infra/cloudflare"
   ],
   "scripts": {
@@ -60,7 +58,6 @@
   ],
   "dependencies": {
     "@trpc/server": "^11.17.0",
-    "bdui": "^0.0.38",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
     "react-colorful": "^5.8.1",

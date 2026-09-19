@@ -63,15 +63,6 @@ export const TOOLS: readonly Tool[] = [
     group: "House",
     needsExtension: true,
   },
-  {
-    id: "plex",
-    label: "Plex",
-    url: "https://app.plex.tv/desktop",
-    color: "#e5a00d",
-    mark: "PX",
-    group: "House",
-    needsExtension: true,
-  },
 
   // ── Platform ─────────────────────────────────────────────────────────────
   {
@@ -83,10 +74,9 @@ export const TOOLS: readonly Tool[] = [
     group: "Platform",
     needsExtension: true,
   },
-  // NB: Storybook is deliberately absent. The control-center-storybook workload
-  // was deleted in Track B (infra/src/services.ts) and its tunnel route pruned
-  // (infra/cloudflare/src/routes.ts) — storybook is a local-dev-only tool now,
-  // so a `storybook.worldwidewebb.co` row would be a pane that always 502s.
+  // NB: tools whose origin no longer exists are deliberately absent — Plex,
+  // pgAdmin, Storybook, Software Factory, UniFi and the Temporal UI were all
+  // retired, and a row for any of them would be a pane that always 502s.
 
   // ── Infra ────────────────────────────────────────────────────────────────
   {
@@ -127,16 +117,6 @@ export const TOOLS: readonly Tool[] = [
   },
 
   // ── Network ──────────────────────────────────────────────────────────────
-  {
-    id: "unifi",
-    label: "UniFi",
-    url: "https://unifi.worldwidewebb.co",
-    color: "#1c6fd6",
-    mark: "U",
-    group: "Network",
-    // Verified live: https://192.168.0.1 → x-frame-options: SAMEORIGIN.
-    needsExtension: true,
-  },
   {
     id: "synology",
     label: "Synology",

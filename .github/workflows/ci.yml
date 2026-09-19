@@ -45,7 +45,6 @@ jobs:
       manage: ${{ steps.filter.outputs.manage }}
       api: ${{ steps.filter.outputs.api }}
       worker: ${{ steps.filter.outputs.worker }}
-      mapprovision: ${{ steps.filter.outputs.mapprovision }}
       # infra-only changes (Pulumi program / specs) deploy without any image
       # rebuild: a `pulumi up` must still converge the declared stack.
       infra: ${{ steps.filter.outputs.infra }}

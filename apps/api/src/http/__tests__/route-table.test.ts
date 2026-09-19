@@ -96,9 +96,8 @@ describe("S3 route seam , real dispatch through the generated barrel", () => {
     expect(booth).toBeDefined();
   });
 
-  it("GENERATED_ROUTES contains the migrated ac, dogcam, wake-photo-read + booth-photo-read routes", () => {
+  it("GENERATED_ROUTES contains the migrated ac, wake-photo-read + booth-photo-read routes", () => {
     const climate = findRoute(GENERATED_ROUTES, "GET", "/health/climate");
-    const cameraStream = findRoute(GENERATED_ROUTES, "GET", "/media/camera-stream");
     const wakePhoto = findRoute(
       GENERATED_ROUTES,
       "GET",
@@ -110,7 +109,6 @@ describe("S3 route seam , real dispatch through the generated barrel", () => {
       "/media/booth-photos/2026-07-23T00-00-00-000Z-0.jpg",
     );
     expect(climate).toBeDefined();
-    expect(cameraStream).toBeDefined();
     expect(wakePhoto).toBeDefined();
     expect(boothPhoto).toBeDefined();
   });

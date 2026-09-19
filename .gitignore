@@ -3,7 +3,6 @@ node_modules/
 
 # Build output
 dist/
-dist-portal/
 build/
 
 # Postgres migration artifacts (Swarm->CNPG dump + count tsvs, www-j934.8).
@@ -54,10 +53,6 @@ coverage/
 # TypeScript build cache
 *.tsbuildinfo
 
-# Tesla map basemap tiles , large, host locally / on homelab (see www-gma)
-apps/web/public/maps/*.pmtiles
-
-
 # ship workflow scratch + build worktrees
 .claude/worktrees/
 .claire/
@@ -67,9 +62,6 @@ apps/web/public/maps/*.pmtiles
 
 # Worktrees
 .worktrees/
-
-# Brainstorm mockups (visual companion sessions)
-.superpowers/
 
 # ESPHome per-config WiFi creds — beside the config, never committed (main
 # WiFi pw lives in 1Password, not SOPS). See infra/esphome/README.md.

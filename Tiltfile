@@ -1,5 +1,4 @@
-# Mac Mini homelab is the dev+prod host; whitelist it so local_resource/local() run.
-allow_k8s_contexts('admin@homelab')
+# Dev stack only: docker-compose + local_resource, no Kubernetes objects.
 
 load('ext://uibutton', 'cmd_button', 'location')
 
@@ -32,7 +31,7 @@ for line in secrets_raw.strip().split("\n"):
 local_resource(
     "install",
     cmd="cd %s && bun install" % repo_root,
-    deps=[repo_root + "/package.json", repo_root + "/bun.lock", repo_root + "/apps/api/package.json", repo_root + "/apps/web/package.json", repo_root + "/packages/api/package.json"],
+    deps=[repo_root + "/package.json", repo_root + "/bun.lock", repo_root + "/apps/api/package.json", repo_root + "/apps/web/package.json"],
     allow_parallel=True,
     labels=["tooling", "shared"],
 )
@@ -58,15 +57,10 @@ local_resource(
         "PORT": str(port_api),
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
-        "UNIFI_API_KEY": secrets["UNIFI_API_KEY"],
-        "WIFI_SSID": secrets["WIFI_SSID"],
-        "WIFI_PASSWORD": secrets["WIFI_PASSWORD"],
-        # Real home location from 1Password so local dev matches prod; env.ts
+        # Real home location from the vault so local dev matches prod; env.ts
         # falls back to the public LA placeholder if these are absent (www-mqp).
         "HOME_LAT": secrets["HOME_LAT"],
         "HOME_LON": secrets["HOME_LON"],
-        "HOME_PLACE_NAME": secrets["HOME_PLACE_NAME"],
-        "HOME_RADIUS_MILES": secrets["HOME_RADIUS_MILES"],
     },
     readiness_probe=probe(
         http_get=http_get_action(port=port_api, path="/up"),
@@ -91,13 +85,8 @@ local_resource(
     serve_env={
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
-        "UNIFI_API_KEY": secrets["UNIFI_API_KEY"],
-        "WIFI_SSID": secrets["WIFI_SSID"],
-        "WIFI_PASSWORD": secrets["WIFI_PASSWORD"],
         "HOME_LAT": secrets["HOME_LAT"],
         "HOME_LON": secrets["HOME_LON"],
-        "HOME_PLACE_NAME": secrets["HOME_PLACE_NAME"],
-        "HOME_RADIUS_MILES": secrets["HOME_RADIUS_MILES"],
     },
     resource_deps=["postgres", "install", "db-migrate"],
     labels=["backend", "control-center"],

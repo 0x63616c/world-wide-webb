@@ -7,7 +7,6 @@
     "declarativeNetRequest"
   ],
   "host_permissions": [
-    "https://app.plex.tv/*",
     "https://app.pulumi.com/*",
     "https://dash.cloudflare.com/*",
     "https://dsm.worldwidewebb.co/*",
@@ -15,8 +14,7 @@
     "https://grafana.worldwidewebb.co/*",
     "https://ha.worldwidewebb.co/*",
     "https://login.tailscale.com/*",
-    "https://one.dash.cloudflare.com/*",
-    "https://unifi.worldwidewebb.co/*"
+    "https://one.dash.cloudflare.com/*"
   ],
   "declarative_net_request": {
     "rule_resources": [

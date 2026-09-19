@@ -15,7 +15,6 @@
   "dependencies": {
     "@www/logger": "workspace:*",
     "@www/platform": "workspace:*",
-    "@www/worker-runtime": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.2"
   },

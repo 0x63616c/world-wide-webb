@@ -115,7 +115,7 @@ if (!coldStart && Object.keys(imageDigests).length > 0) {
 
 // target: which cluster this program targets. Missing config = "orbstack"
 // (the mini), so an untouched stack keeps rendering today's live mini values
-// byte-for-byte (haTarget/plexAdvertiseIp in services.ts). The Talos migration
+// byte-for-byte (haTarget in services.ts). The Talos migration
 // target is "home-server" node context / "talos" substrate, at the static LAN
 // IP below (MetalLB pool 192.168.0.3-192.168.0.4 sits alongside it). A talos
 // target's nodeIp is REQUIRED by SubstrateTarget's type (Task 4's deferred

@@ -21,7 +21,6 @@
     },
     "condition": {
       "requestDomains": [
-        "app.plex.tv",
         "app.pulumi.com",
         "dash.cloudflare.com",
         "dsm.worldwidewebb.co",
@@ -29,8 +28,7 @@
         "grafana.worldwidewebb.co",
         "ha.worldwidewebb.co",
         "login.tailscale.com",
-        "one.dash.cloudflare.com",
-        "unifi.worldwidewebb.co"
+        "one.dash.cloudflare.com"
       ],
       "resourceTypes": [
         "sub_frame"

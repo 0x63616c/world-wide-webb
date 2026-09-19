@@ -85,7 +85,6 @@
       "includes": [
         "**/api/drizzle.config.ts",
         "**/web/vite.config.ts",
-        "**/web/e2e-portal/**",
         "**/scripts/**"
       ],
       "linter": {
@@ -108,16 +107,6 @@
     },
     {
       "includes": ["**/packages/logger/src/**"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noProcessEnv": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": ["**/infra/unifi/program.ts", "**/infra/unifi/src/**"],
       "linter": {
         "rules": {
           "style": {

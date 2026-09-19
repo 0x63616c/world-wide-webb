@@ -2,7 +2,7 @@
 # Flashes infra/esphome/ble-proxy.yaml to 192.168.0.211 over OTA. WiFi SSID
 # comes from the SOPS vault, password from 1Password (op read) — both land in
 # a secrets.yaml inside a mktemp -d scratch dir, used once, then deleted.
-# 192.168.0.211 is a UniFi DHCP reservation for this device's MAC, so the IP
+# 192.168.0.211 is a static DHCP reservation for this device's MAC, so the IP
 # never changes. Only for changes that can't break connectivity (no antenna/
 # RF/WiFi/board edits) — see infra/esphome/README.md.
 set -euo pipefail

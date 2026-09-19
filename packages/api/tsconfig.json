@@ -1,9 +1,9 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    // @cc/api re-exports apps/api's AppRouter/GuestRouter TYPES, so this program
-    // typechecks apps/api's trpc sources transitively — which, since the C7 fold,
-    // import the guest-wifi feature + generated aggregates via `@features` /
+    // @cc/api re-exports apps/api's AppRouter TYPE, so this program typechecks
+    // apps/api's trpc sources transitively — which, since the C7 fold, import the
+    // generated aggregates via `@features` /
     // `@app-kit`. Declare those resolvers here too (paths override, not merge, so
     // restated in full). Kept in sync with the other resolvers (check-alias-parity.sh).
     "paths": {
