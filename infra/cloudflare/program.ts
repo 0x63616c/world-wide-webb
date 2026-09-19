@@ -30,7 +30,6 @@
 //   tunnelSecret                               the managed tunnel's password;
 //                          REPLACE-FORCING, so never rotate it in place
 //   allowedEmail                               the OTP allow email (PII; SECRET config)
-//   factoryServiceTokenId                      factory caller service-token ID (SECRET config)
 
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
@@ -104,10 +103,8 @@ const accessName = (host: string) =>
 // this project only runs after `deploy-home-server` succeeds (see the
 // deploy-cloudflare `needs` in ci.yml), so on pass one the consumer reads an
 // empty AUD, and only on the next run does it see the real one. That is safe
-// because the consumer fails closed — the factory API refuses to start on an
-// empty CLOUDFLARE_ACCESS_AUD rather than serving unauthenticated traffic, and
-// its Deployment carries `pulumi.com/skipAwait` so the resulting CrashLoopBackOff
-// does not fail everything else in the cluster's `pulumi up`.
+// because a consumer is expected to fail closed — refusing to start on an empty
+// CLOUDFLARE_ACCESS_AUD rather than serving unauthenticated traffic.
 //
 // The corollary is a gotcha worth knowing: a change that touches only the
 // consumer (or only the vault) does NOT re-run this project, because the

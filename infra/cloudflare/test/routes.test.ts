@@ -13,8 +13,10 @@ import {
 // dashboard.worldwidewebb.co removed in CC-2ff. The flattened
 // app--cc.worldwidewebb.co cutover host was retired in Task 7 Step C (the product
 // app route is now the single-label app.worldwidewebb.co). The dead portainer +
-// hooks routes were pruned in www-oa74; storybook (origin deleted) and drizzle
-// (Drizzle Gateway torn down) were pruned since. captive-portal is never tunneled
+// hooks routes were pruned in www-oa74; storybook (origin deleted), drizzle
+// (Drizzle Gateway torn down), then `hooks` (the webhook relay it fronted),
+// `unifi`, `plex`, `db-ui`, the Temporal UI and the software-factory /
+// dont-text-your-ex hosts were pruned since. captive-portal is never tunneled
 // (LAN-only).
 
 const ZONE = "worldwidewebb.co";
@@ -29,16 +31,14 @@ describe("desiredIngressRules", () => {
       "dsm.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
-      "hooks.worldwidewebb.co",
       "manage.worldwidewebb.co",
-      "unifi.worldwidewebb.co",
     ]);
-    // #126: the public webhook relay forwards to the in-cluster API consumer.
-    // Cross-namespace: cloudflared runs in `cloudflare`, the relay Service lives
-    // in `webhook-relay`, so only the FQDN resolves. A short name here 502s.
-    expect(byHost["hooks.worldwidewebb.co"]).toBe(
-      "http://relay.webhook-relay.svc.cluster.local:8080",
-    );
+    // Retired hosts keep their absence pinned.
+    expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
+    expect(byHost["unifi.worldwidewebb.co"]).toBeUndefined();
+    expect(byHost["plex.worldwidewebb.co"]).toBeUndefined();
+    expect(byHost["db-ui.worldwidewebb.co"]).toBeUndefined();
+    expect(byHost["temporal.worldwidewebb.co"]).toBeUndefined();
     // #209: same cross-NAMESPACE rule — the Grafana Service lives in
     // `observability`, so a bare `grafana` origin would 502.
     expect(byHost["grafana.worldwidewebb.co"]).toBe(
@@ -62,16 +62,14 @@ describe("desiredIngressRules", () => {
     expect(byHost["portainer.worldwidewebb.co"]).toBeUndefined();
   });
 
-  // #292/ADR-0010: the two LAN appliances manage frames are the first origins
-  // that are not plaintext in-cluster Services. Both answer HTTPS with a
-  // self-signed cert, so cloudflared refuses them without noTlsVerify — and an
-  // iframe cannot click through a cert warning, so the pane would be
-  // permanently blank rather than merely ugly.
-  test("the LAN appliances route over https with origin verification disabled", () => {
+  // #292/ADR-0010: the Synology DSM manage frame is the one origin that is not
+  // a plaintext in-cluster Service. It answers HTTPS with a self-signed cert, so
+  // cloudflared refuses it without noTlsVerify — and an iframe cannot click
+  // through a cert warning, so the pane would be permanently blank rather than
+  // merely ugly.
+  test("the LAN appliance routes over https with origin verification disabled", () => {
     const byHost = Object.fromEntries(desiredIngressRules(ZONE).map((r) => [r.hostname, r]));
 
-    expect(byHost["unifi.worldwidewebb.co"].service).toBe("https://192.168.0.1");
-    expect(byHost["unifi.worldwidewebb.co"].originRequest).toEqual({ noTlsVerify: true });
     // .218, NOT .219 — a recurring mis-transcription in this repo's history.
     expect(byHost["dsm.worldwidewebb.co"].service).toBe("https://192.168.0.218:5001");
     expect(byHost["dsm.worldwidewebb.co"].originRequest).toEqual({ noTlsVerify: true });
@@ -166,10 +164,10 @@ describe("desiredCnames", () => {
       "dsm.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
-      "hooks.worldwidewebb.co",
       "manage.worldwidewebb.co",
-      "unifi.worldwidewebb.co",
     ]);
+    expect(hosts).not.toContain("hooks.worldwidewebb.co");
+    expect(hosts).not.toContain("unifi.worldwidewebb.co");
     // #127: the EVEE-218 hooks-test leftover was deleted with the old tunnel.
     expect(hosts).not.toContain("hooks-test.worldwidewebb.co");
     // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
@@ -194,9 +192,8 @@ describe("desiredCnames", () => {
     expect(byHost["app.worldwidewebb.co"]).toBe("platform:control-center private app route");
     expect(byHost["grafana.worldwidewebb.co"]).toBe("platform:grafana web ui route");
     expect(byHost["ha.worldwidewebb.co"]).toBe("platform:home assistant web ui route (#75)");
-    expect(byHost["hooks.worldwidewebb.co"]).toBe(
-      "platform:github webhook relay (public, HMAC-authenticated)",
-    );
+    expect(byHost).not.toHaveProperty("hooks.worldwidewebb.co");
+    expect(byHost).not.toHaveProperty("unifi.worldwidewebb.co");
     // Task 7 Step C: the flattened app--cc cutover CNAME is retired.
     expect(byHost).not.toHaveProperty("dont-text-your-ex.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("app--cc.worldwidewebb.co");

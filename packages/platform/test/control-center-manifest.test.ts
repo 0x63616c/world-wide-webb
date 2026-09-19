@@ -17,15 +17,9 @@ describe("Control Center platform representation", () => {
       .map((service) => service.service)
       .sort();
 
-    expect(serviceNames).toEqual([
-      "api",
-      "captive-portal",
-      "cloudflared",
-      "manage",
-      "storybook",
-      "web",
-      "worker",
-    ]);
+    // `captive-portal` and `storybook` were deleted by The Simplification
+    // (§1 Storybook, §2 guest-wifi).
+    expect(serviceNames).toEqual(["api", "cloudflared", "manage", "web", "worker"]);
   });
 
   test("keeps current service secret usage exactly representable (CC-k8t7: env names only, values now vault keys)", () => {

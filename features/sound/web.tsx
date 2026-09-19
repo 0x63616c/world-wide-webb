@@ -1,6 +1,4 @@
-// Barrel for the manifest's two tile component pairs (Track C, Wave 6).
+// Barrel for the manifest's one tile component pair.
 
-export { QuickPlayTile } from "./web/QuickPlayTile";
-export { QuickPlayTileView } from "./web/QuickPlayTileView";
 export { SoundSystemTile } from "./web/SoundSystemTile";
 export { SoundSystemTileView } from "./web/SoundSystemTileView";

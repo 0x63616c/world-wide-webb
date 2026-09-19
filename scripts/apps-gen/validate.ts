@@ -1,10 +1,8 @@
 /**
  * The codegen consistency check (Track C Q7). Every App manifest and convention
  * facet is validated as one model before anything is emitted: duplicate ids,
- * App-local Tile View ownership, home-tile count, tile-rect overlap, and the
- * guestExposed flag agreeing with the reviewed
- * GUEST_EXPOSED allowlist (widening the guest surface is a deliberate,
- * security-reviewed edit to that allowlist, never an implicit flag flip).
+ * App-local Tile View ownership (zero or one per Tile), home-tile count, and
+ * tile-rect overlap.
  */
 export class CodegenError extends Error {
   constructor(message: string) {
@@ -26,7 +24,6 @@ interface TileRect extends Rect {
 interface ValApp {
   id: string;
   featureDir: string;
-  guestExposed?: boolean;
   sensitive?: boolean;
   private?: boolean;
   tiles: TileRect[];
@@ -37,9 +34,6 @@ interface Model {
   tables?: { name: string; source: string }[];
   /** Collected top-level tRPC router keys across features; a duplicate key is a fold error. */
   routerKeys?: { key: string; source: string }[];
-  /** Collected `defineJobs` facet entries; a duplicate job type would let two
-   *  features both claim the same queue rows. */
-  jobs?: { type: string; source: string }[];
   /** App-owned interval workers. Names are runtime stats keys and must be globally unique. */
   workerCycles?: { name: string; source: string }[];
   /** Collected `defineHttp` routes; two routes with the same method+match+path
@@ -49,7 +43,8 @@ interface Model {
    *  schema.gen.ts is a flat `export *` barrel, so a duplicate export name
    *  across two schema.ts files would silently last-write-win in the barrel. */
   schemaExports?: { name: string; source: string }[];
-  /** App-owned Tile View declarations, one for every board Tile. */
+  /** App-owned Tile View declarations. A Tile has zero or one (a face-only
+   *  Tile declares none); two for the same Tile is a fold error. */
   tileViews: { tileId: string; source: string }[];
 }
 
@@ -63,8 +58,7 @@ function overlaps(a: Rect, b: Rect): boolean {
 }
 
 /** @public consumed by the codegen emitter (Task 3.3), not yet built. */
-export function validate(model: Model, guestExposed: readonly string[]): void {
-  const allow = new Set(guestExposed);
+export function validate(model: Model): void {
   const seen = new Set<string>();
 
   // Duplicate table name across the union of feature schemas + the base
@@ -100,22 +94,6 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
     }
   }
 
-  // Duplicate job type across features. Two features registering the same
-  // `type` would both be claimed against by the worker's single generic drain,
-  // so this is a hard fold error (mirrors the dup table / router-key checks).
-  if (model.jobs) {
-    const seenJob = new Map<string, string>();
-    for (const j of model.jobs) {
-      const prev = seenJob.get(j.type);
-      if (prev) {
-        throw new CodegenError(
-          `duplicate job type '${j.type}' (declared by ${prev} and ${j.source}) — two features cannot register the same worker job type`,
-        );
-      }
-      seenJob.set(j.type, j.source);
-    }
-  }
-
   if (model.workerCycles) {
     const seenCycle = new Map<string, string>();
     for (const cycle of model.workerCycles) {
@@ -132,7 +110,7 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
   // Duplicate HTTP route across features/the interim apps/api list. Two routes
   // with the same method+match+path would shadow each other in the generated
   // route table (findRoute returns whichever happens to sort first), so this is
-  // a hard fold error (mirrors the dup table/router-key/job checks).
+  // a hard fold error (mirrors the dup table/router-key checks).
   if (model.httpRoutes) {
     const seenRoute = new Map<string, string>();
     for (const r of model.httpRoutes) {
@@ -151,7 +129,7 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
   // schema.gen.ts is a flat `export *` barrel across all of these, so two
   // schema.ts files exporting the same symbol name would silently
   // last-write-win in the generated barrel — a hard fold error (mirrors the
-  // dup table/router-key/job/http-route checks).
+  // dup table/router-key/http-route checks).
   if (model.schemaExports) {
     const seenExport = new Map<string, string>();
     for (const e of model.schemaExports) {
@@ -170,14 +148,6 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
     seen.add(a.id);
     if (a.sensitive && a.private) {
       throw new CodegenError(`app ${a.id} cannot be both sensitive and private`);
-    }
-    const inAllow = allow.has(a.id);
-    if (Boolean(a.guestExposed) !== inAllow) {
-      throw new CodegenError(
-        `app ${a.id}: guestExposed=${Boolean(a.guestExposed)} but GUEST_EXPOSED allowlist ${
-          inAllow ? "contains" : "omits"
-        } it — widening the guest surface needs an explicit, security-reviewed edit to the allowlist`,
-      );
     }
   }
 
@@ -223,12 +193,6 @@ export function validate(model: Model, guestExposed: readonly string[]): void {
       throw new CodegenError(`Tile View '${view.tileId}' belongs to ${owner}, not ${view.source}`);
     }
   }
-  for (const tile of tiles) {
-    if (!declaredByTile.has(tile.id)) {
-      throw new CodegenError(`missing Tile View for '${tile.id}'`);
-    }
-  }
-
   // Exactly one home tile across ALL tiles of ALL apps.
   const homes = tiles.filter((t) => t.home).length;
   if (homes !== 1) throw new CodegenError(`expected exactly one home tile, found ${homes}`);

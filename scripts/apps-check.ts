@@ -22,12 +22,9 @@ import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderManifest, renderRules } from "../apps/manage/src/extension-rules";
-import { GUEST_EXPOSED } from "../features/guest-exposed";
 import { collect } from "./apps-gen/collect";
 import {
-  renderGuestRouter,
   renderHttp,
-  renderJobs,
   renderRouter,
   renderSchema,
   renderTiles,
@@ -58,7 +55,7 @@ const AGGREGATES: readonly Aggregate[] = [
     file: "tiles.gen.ts",
     render: async () => {
       const model = await collect();
-      validate(model, GUEST_EXPOSED);
+      validate(model);
       return renderTiles(model);
     },
   },
@@ -71,20 +68,12 @@ const AGGREGATES: readonly Aggregate[] = [
     render: async () => renderRouter(await collect()),
   },
   {
-    file: "guest-router.gen.ts",
-    render: async () => renderGuestRouter(await collect(), GUEST_EXPOSED),
-  },
-  {
     file: "schema.gen.ts",
     render: async () => renderSchema(await collect()),
   },
   // Backfill (issue #260): these predate this entry but were never
   // drift-checked — the natural mistake is emitting in apps-gen.ts and
   // forgetting this list.
-  {
-    file: "jobs.gen.ts",
-    render: async () => renderJobs(await collect()),
-  },
   {
     file: "workers.gen.ts",
     render: async () => renderWorkers(await collect()),

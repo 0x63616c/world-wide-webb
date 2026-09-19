@@ -267,6 +267,13 @@
       "when": 1788632502706,
       "tag": "0038_brainy_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1789854351242,
+      "tag": "0039_the_simplification_drop_tables",
+      "breakpoints": true
     }
   ]
 }

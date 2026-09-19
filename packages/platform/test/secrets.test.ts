@@ -56,29 +56,15 @@ describe("secret catalog and service usage", () => {
 
   test("api and worker declare the exact same secret set (base+delta merge target, ADR-0006)", () => {
     const usages = controlCenterServiceSecretUsages();
+    // Shrunk hard by The Simplification (§8): APNs, App Store Connect (moved to
+    // CI-only), the GitHub bot, Spotify, UniFi, the WiFi SSIDs, Withings and the
+    // home place-name all went with their consumers. Deliberately updated, not
+    // deleted — this golden set is what proves nothing was dropped by accident.
     const expectedKeys = [
-      "APNS_KEY_CONTENT",
-      "APNS_KEY_ID",
-      "APNS_TEAM_ID",
-      "ASC_ISSUER_ID",
-      "ASC_KEY_CONTENT",
-      "GITHUB_BOT_WEBHOOK_SECRET",
-      "ASC_KEY_ID",
-      "GITHUB_ACTIONS_TOKEN",
       "HA_TOKEN",
       "HOME_LAT",
       "HOME_LON",
-      "HOME_PLACE_NAME",
       "POSTGRES_PASSWORD",
-      "SPOTIFY_CLIENT_ID",
-      "SPOTIFY_CLIENT_SECRET",
-      "SPOTIFY_REFRESH_TOKEN",
-      "UNIFI_API_KEY",
-      "WIFI_GUEST_SSID",
-      "WIFI_PASSWORD",
-      "WIFI_SSID",
-      "WITHINGS_CLIENT_ID",
-      "WITHINGS_CLIENT_SECRET",
     ].sort();
 
     expect(Object.keys(usages.api.secrets).sort()).toEqual(expectedKeys);

@@ -13,7 +13,7 @@ import { controlCenterProductManifest, type ProductServiceDeclaration } from "@w
 // kioskTokenId: the CF service token *id* (UUID) for the kiosk token — NOT
 // the client_id (.access suffix). Access policies reference token_id; the
 // client_id is only sent in CF-Access-Client-Id headers by the iOS kiosk app.
-type AccessConfigKey = "allowedEmail" | "ciClientId" | "kioskTokenId" | "factoryServiceTokenId";
+type AccessConfigKey = "allowedEmail" | "ciClientId" | "kioskTokenId";
 
 export type AccessInclude =
   | Readonly<{ kind: "email-config"; configKey: "allowedEmail" }>
@@ -64,7 +64,7 @@ const OWNERSHIP_TAG = "bosun:control-center";
 
 export type PrivateWebAccessSource = Readonly<{
   exposure: ProductServiceDeclaration["exposure"];
-  policies: readonly ("email-otp" | "kiosk-service-token" | "factory-service-token")[];
+  policies: readonly ("email-otp" | "kiosk-service-token")[];
 }>;
 
 function accessApp(
@@ -92,8 +92,8 @@ function emailOtpPolicy(): DesiredAccessPolicy {
 }
 
 function serviceTokenPolicy(
-  name: "ci-service-token" | "kiosk-service-token" | "factory-service-token",
-  configKey: "ciClientId" | "kioskTokenId" | "factoryServiceTokenId",
+  name: "ci-service-token" | "kiosk-service-token",
+  configKey: "ciClientId" | "kioskTokenId",
 ): DesiredAccessPolicy {
   return {
     name,
@@ -133,9 +133,7 @@ export function accessAppsForPrivateWeb(
           const policy =
             p === "kiosk-service-token"
               ? serviceTokenPolicy("kiosk-service-token", "kioskTokenId")
-              : p === "factory-service-token"
-                ? serviceTokenPolicy("factory-service-token", "factoryServiceTokenId")
-                : emailOtpPolicy();
+              : emailOtpPolicy();
           return { ...policy, precedence: i + 1 };
         }),
       ),
@@ -145,16 +143,16 @@ export function accessAppsForPrivateWeb(
 /**
  * The desired Access apps for zone `<zone>`.
  *
- * `includeGate` (default false) toggles ONLY the NOT-YET-LIVE additions of the
- * zone-wide access gate (www-cuuw): the `*.<zone>` default-DENY floor and the
- * `hooks` CI lock. It is OFF by default because the floor's wildcard also catches
- * any currently PUBLIC host that lacks an explicit allow above it. Enabling it
- * before each such host has an explicit bypass would lock it out (www-b6ad).
+ * `includeGate` (default false) toggles ONLY the NOT-YET-LIVE addition of the
+ * zone-wide access gate (www-cuuw): the `*.<zone>` default-DENY floor. It is OFF
+ * by default because the floor's wildcard also catches any currently PUBLIC host
+ * that lacks an explicit allow above it (www-b6ad). Nothing on the zone is public
+ * any more — the `hooks` receiver, `storybook`, `drizzle`, `plex`, `db-ui`, the
+ * Temporal UI and the software-factory / dont-text-your-ex hosts were all
+ * retired — so the floor no longer needs a per-host bypass beside it.
  *
  * Always returned (safe to apply independent of the floor): the per-product
- * control-center private-route app (it gates the product host itself). The
- * `storybook` app was pruned here (origin deleted after the storybook rip); the
- * `drizzle` email-OTP app was pruned here (Drizzle Gateway torn down).
+ * control-center private-route app (it gates the product host itself).
  */
 export function desiredAccessApps(zone: string, includeGate = false): DesiredAccessApp[] {
   const ccManifest = controlCenterProductManifest();
@@ -176,31 +174,15 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
       // and no session store — this app IS its authentication, so it is not
       // optional and it never gets a service token.
       { exposure: ccManifest.services.manage.exposure, policies: ["email-otp"] },
-      // The two LAN appliances manage frames. Both were previously reachable
-      // only on the LAN; putting them on the tunnel gives them an internet-facing
-      // hostname, so the Access app is what keeps that from meaning
-      // internet-facing UniFi and DSM logins. email-OTP only, never a token.
-      { exposure: ccManifest.unifi.exposure, policies: ["email-otp"] },
+      // The LAN appliance manage frames. Synology DSM was previously reachable
+      // only on the LAN; putting it on the tunnel gives it an internet-facing
+      // hostname, so the Access app is what keeps that from meaning an
+      // internet-facing DSM login. email-OTP only, never a token.
       { exposure: ccManifest.dsm.exposure, policies: ["email-otp"] },
     ]),
   ];
 
   if (!includeGate) return baseApps;
 
-  return [
-    wildcardBlockFloor(zone),
-    ...baseApps,
-    // hooks. is PUBLIC (#126): GitHub posts to it from the internet and its auth
-    // is an HMAC, not Access. The wildcard floor above would otherwise sweep it
-    // into default-deny the moment the gate is switched on, breaking deliveries
-    // with no code change on our side — so the bypass is declared HERE, next to
-    // the floor, rather than left to be debugged later.
-    //
-    // This replaces the old CI service-token lock on this host: that predates
-    // the host being a public receiver, and a service-token requirement would
-    // reject every GitHub delivery.
-    accessApp(`hooks.${zone}`, [
-      { name: "public-bypass", decision: "allow", precedence: 1, include: { kind: "everyone" } },
-    ]),
-  ];
+  return [wildcardBlockFloor(zone), ...baseApps];
 }

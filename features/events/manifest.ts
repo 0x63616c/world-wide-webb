@@ -2,15 +2,14 @@ import { defineApp } from "@app-kit";
 import { ClockTile, ClockTileView } from "./web";
 
 /**
- * The events app manifest (Track C fold). One tile: the Clock. The Upcoming
- * (`tile_event`) tile and the whole `events` table went with The Simplification
- * §5, so this app is the clock face and nothing else.
+ * The events app manifest. One tile: the Clock face (greeting + seconds ring).
  *
- * `home: true` moved off `tile_clock` to `tile_ctrl` at the same time — the
- * Clock no longer has a detail view to land on.
+ * FACE-ONLY , the Clock declares no Tile View. The timer, stopwatch, alarm,
+ * world clocks and countdown horizon it used to open are gone, and with them
+ * the whole time suite. Tapping the Clock recenters the board and nothing more.
  *
- * App id `tile_events` is deliberately distinct from the tile id `tile_clock`,
- * matching the `events` router-key that used to exist.
+ * It is therefore no longer the board's home tile either: glide-home has to
+ * land somewhere actionable, so `home: true` moved to `tile_ctrl` (Controls).
  */
 export default defineApp({
   id: "tile_events",

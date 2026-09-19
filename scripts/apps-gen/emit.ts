@@ -24,7 +24,6 @@ interface RenderableTile {
   cols: number;
   rows: number;
   home: boolean;
-  guestExposed: boolean;
   sensitive: boolean;
   private: boolean;
   source: "feature" | "registry";
@@ -41,7 +40,6 @@ function renderTile(t: RenderableTile): string {
     `    cols: ${t.cols},`,
     `    rows: ${t.rows},`,
     `    home: ${t.home},`,
-    `    guestExposed: ${t.guestExposed},`,
     `    sensitive: ${t.sensitive},`,
     `    private: ${t.private},`,
     `    source: ${JSON.stringify(t.source)},`,
@@ -61,7 +59,6 @@ export function renderTiles(model: AppModel): string {
       cols: t.cols,
       rows: t.rows,
       home: t.home,
-      guestExposed: a.guestExposed,
       sensitive: a.sensitive,
       private: a.private,
       source: a.source,
@@ -80,7 +77,6 @@ export interface GeneratedTile {
   cols: number;
   rows: number;
   home: boolean;
-  guestExposed: boolean;
   sensitive: boolean;
   private: boolean;
   source: "feature" | "registry";
@@ -195,17 +191,6 @@ export function renderRouter(model: AppModel): string {
 }
 
 /**
- * The generated guest router (ADR-0006 security boundary): only features that
- * are BOTH `guestExposed` in their manifest AND present in the hand-owned
- * GUEST_EXPOSED allowlist. The guest listener mounts exactly this.
- */
-export function renderGuestRouter(model: AppModel, guestExposed: readonly string[]): string {
-  const allow = new Set(guestExposed);
-  const guest = sortedFeatures(model).filter((f) => f.guestExposed && allow.has(f.id));
-  return renderRouterModule(guest, "featureGuestRouter");
-}
-
-/**
  * The drizzle schema barrel drizzle-kit reads (drizzle.config.ts points here).
  * A union of the base apps/api schema with every feature schema, via relative
  * `export *` (drizzle-kit does not resolve tsconfig path aliases). The table set
@@ -220,37 +205,6 @@ export function renderSchema(model: AppModel): string {
 
 export * from "../../apps/api/src/db/schema";
 ${featureExports}
-`;
-}
-
-/**
- * The generated worker job barrel (S1). This emits REAL imports of each
- * feature's `jobs` facet, mirroring `renderRouter`: the worker entrypoint
- * spreads `GENERATED_JOBS` into its `JOBS[]` and folds every handler in
- * generically, with zero per-feature hand-wiring.
- */
-export function renderJobs(model: AppModel): string {
-  const withJobs = sortedFeatures(model).filter((f) => f.hasJobs);
-  if (withJobs.length === 0) {
-    return `${GEN_HEADER}
-
-import type { JobSpec } from "@app-kit";
-
-export const GENERATED_JOBS: readonly JobSpec[] = [];
-`;
-  }
-  const imports = withJobs
-    .map((f) => `import { jobs as ${ident(f.dir)}Jobs } from "../${f.dir}/jobs";`)
-    .join("\n");
-  const spread = withJobs.map((f) => `...${ident(f.dir)}Jobs`).join(",\n  ");
-  return `${GEN_HEADER}
-
-import type { JobSpec } from "@app-kit";
-${imports}
-
-export const GENERATED_JOBS: readonly JobSpec[] = [
-  ${spread},
-];
 `;
 }
 
@@ -284,7 +238,7 @@ export const GENERATED_WORKERS: readonly Worker[] = [
 }
 
 /**
- * The generated HTTP-route barrel (S3). Like `renderJobs` (a real import
+ * The generated HTTP-route barrel (S3). Like `renderRouter` (a real import
  * barrel, not a data-only listing), this emits REAL imports of each collected
  * `defineHttp` module's `routes` export, spread into one `GENERATED_ROUTES`
  * array. `apps/api/src/server.ts`'s `findRoute` iterates it before the residual

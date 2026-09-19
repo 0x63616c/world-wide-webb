@@ -115,11 +115,6 @@ jobs:
             cloudflareinfra:
               - 'infra/cloudflare/**'
               - 'packages/platform/src/index.ts'
-            # Basemap provisioner (www-hn1i): a self-contained alpine + pmtiles
-            # CLI + sh image, no workspace deps, so it rebuilds solely on its
-            # own tree.
-            mapprovision:
-              - 'apps/map-provision/**'
             # any_app is true when at least one TypeScript-workspace image
             # needs to be built. An infra-only change is handled by the separate
             # `infra` filter above.
@@ -128,7 +123,6 @@ jobs:
               - 'apps/manage/**'
               - 'apps/api/**'
               - 'apps/worker/**'
-              - 'apps/map-provision/**'
               - 'packages/**'
               - 'app-kit/**'
               - 'features/**'
@@ -158,19 +152,8 @@ jobs:
         # resolve.alias), or a module resolves in one tool and not another.
         # Fast (grep), runs alongside the other hermetic guards.
         run: bash scripts/check-alias-parity.sh
-      - name: Basemap provisioner tests
-        # Hermetic self-test of the map-provision script (www-hn1i): runtime
-        # build resolution (no date pin to rot), if-missing/force modes, the
-        # newest→previous fallback, atomic rename, and the nginx /maps/ loud-404.
-        # Stubbed curl/pmtiles, no network. Fast (bash), runs before the slow
-        # Playwright install.
-        run: bash scripts/test-map-provision.sh
       - name: Dockerfile manifest coverage guard
         run: bun run test:dockerfile-manifests
-      - name: Codex credential seed checker tests
-        # Hermetic checks for the operator-facing --check command, including
-        # the worker-owned refresh lease written after a healthy use.
-        run: bash scripts/test-seed-codex-auth.sh
       - name: Deploy gate guard
         # Everything CI builds, CI must also deploy. Found live on #355: a tree
         # with its own path filter and its own build jobs, named in no term of
@@ -192,14 +175,6 @@ jobs:
         run: node scripts/test-panel-health.mjs
       - name: Test (unit, jsdom)
         run: bun run test:unit
-      - name: Guest listener smoke (real Bun.serve + TLS sockets)
-        # The vitest `startGuestServer` integration block is Bun-runtime-gated
-        # (skipIf no `Bun` global, since this repo's `bunx vitest run` forks a
-        # plain node process); this script is the actual executing coverage
-        # for that wiring (real HTTPS/plain-HTTP sockets, self-signed cert via
-        # the system openssl). Task 4 (SDD track 0) cutover note: gates the
-        # guest listener that's about to carry live LAN guest traffic.
-        run: bun run --cwd apps/api test:guest-smoke
 
   # Typecheck + dead-code run in parallel with the test suite so type
   # errors and knip regressions surface without waiting for Playwright to
@@ -327,24 +302,6 @@ jobs:
           cache-scope: worker
 
 
-  build-map-provision:
-    needs: [changes]
-    if: needs.changes.outputs.mapprovision == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push map-provision image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-map-provision
-          dockerfile: apps/map-provision/Dockerfile
-          cache-scope: map-provision
-
-
   # After the images build on main, deploy to the home-server Talos cluster with
   # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL
   # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
@@ -362,7 +319,6 @@ jobs:
         build-manage,
         build-api,
         build-worker,
-        build-map-provision,
       ]
     # always() lets us run even when some build jobs were skipped (no changes).
     # We proceed when: on main, an app OR infra changed, and no build failed.
@@ -455,7 +411,7 @@ jobs:
           # KEY is product-component scoped and matches the Pulumi imageDigests
           # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-control-center-web:control-center-web www-control-center-manage:control-center-manage www-control-center-api:control-center-api www-control-center-worker:control-center-worker www-control-center-map-provision:control-center-map-provision; do
+          for entry in www-control-center-web:control-center-web www-control-center-manage:control-center-manage www-control-center-api:control-center-api www-control-center-worker:control-center-worker; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
@@ -641,7 +597,6 @@ jobs:
         build-manage,
         build-api,
         build-worker,
-        build-map-provision,
         deploy-home-server,
         deploy-cloudflare,
       ]

@@ -1,4 +1,4 @@
-import { captivePortalWeb, homelabTarget, privateWeb, publicWeb } from "@www/platform";
+import { homelabTarget, internalService, privateWeb, publicWeb } from "@www/platform";
 import { describe, expect, test } from "vitest";
 import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 
@@ -7,23 +7,21 @@ import { accessAppsForPrivateWeb, desiredAccessApps } from "../src/access.ts";
 const ZONE = "worldwidewebb.co";
 
 describe("desiredAccessApps", () => {
-  test("DEFAULT (gate off): the product app route, but NO wildcard floor or hooks lock", () => {
-    // www-b6ad: the not-yet-live gate additions (the *.<zone> default-deny floor
-    // and the hooks CI lock) are off by default, so the floor can never block a
-    // currently-public host (live dashboard) before it has an explicit bypass.
+  test("DEFAULT (gate off): the product app routes, but NO wildcard floor", () => {
+    // www-b6ad: the not-yet-live *.<zone> default-deny floor is off by default,
+    // so it can never block a host before its Access app is in place.
     const domains = desiredAccessApps(ZONE)
       .map((a) => a.domain)
       .sort();
     expect(domains).toEqual([
       "app.worldwidewebb.co",
-      // The two LAN appliances (#292): putting them on the tunnel gives them an
-      // internet-facing hostname, so their Access app is not optional.
+      // The LAN appliance (#292): putting DSM on the tunnel gives it an
+      // internet-facing hostname, so its Access app is not optional.
       "dsm.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
       // manage has no login of its own — this app IS its authentication.
       "manage.worldwidewebb.co",
-      "unifi.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("*.worldwidewebb.co");
     expect(domains).not.toContain("hooks.worldwidewebb.co");
@@ -32,7 +30,7 @@ describe("desiredAccessApps", () => {
     expect(domains).not.toContain("app--cc.worldwidewebb.co");
   });
 
-  test("declares the wildcard block floor, app kiosk, and the hooks bypass", () => {
+  test("declares the wildcard block floor alongside the app kiosk", () => {
     const domains = desiredAccessApps(ZONE, true)
       .map((a) => a.domain)
       .sort();
@@ -42,26 +40,15 @@ describe("desiredAccessApps", () => {
       "dsm.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
-      "hooks.worldwidewebb.co",
       "manage.worldwidewebb.co",
-      "unifi.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("app--cc.worldwidewebb.co");
     expect(domains).not.toContain("drizzle.worldwidewebb.co");
-  });
-
-  // #126: hooks. is a PUBLIC receiver. The wildcard default-deny floor would
-  // sweep it up the moment the gate is switched on and silently break GitHub
-  // deliveries, so the bypass must exist and must be `everyone`. A service-token
-  // policy here (what this host used to carry) would reject every delivery.
-  test("hooks. carries an everyone bypass so the deny floor cannot break deliveries", () => {
-    const hooks = desiredAccessApps(ZONE, true).find(
-      (entry) => entry.domain === "hooks.worldwidewebb.co",
-    );
-
-    expect(hooks?.policies).toHaveLength(1);
-    expect(hooks?.policies[0]).toMatchObject({ decision: "allow", include: { kind: "everyone" } });
-    expect(hooks?.policies.some((p) => p.include.kind === "service-token-config")).toBe(false);
+    // Retired hosts keep their absence pinned.
+    expect(domains).not.toContain("hooks.worldwidewebb.co");
+    expect(domains).not.toContain("unifi.worldwidewebb.co");
+    expect(domains).not.toContain("plex.worldwidewebb.co");
+    expect(domains).not.toContain("db-ui.worldwidewebb.co");
   });
 
   // The whole point of a separate exposure kind: public-web must never acquire
@@ -145,11 +132,6 @@ describe("desiredAccessApps", () => {
     ]);
   });
 
-  // SUPERSEDED by #126: this host used to carry a CI service-token lock, from
-  // when it was an internal tooling endpoint. It is now the public GitHub
-  // receiver, and a service-token requirement would reject every delivery. The
-  // replacement assertion lives in the "everyone bypass" test above.
-
   test("emits no literal personal email anywhere in the access apps", () => {
     expect(JSON.stringify(desiredAccessApps(ZONE, true))).not.toMatch(
       /[A-Z0-9._%+-]+@[A-Z0-9.-]+/i,
@@ -164,8 +146,8 @@ describe("desiredAccessApps", () => {
           policies: ["email-otp"],
         },
         {
-          // captive-portal-web is LAN-only, never a Cloudflare Access app.
-          exposure: captivePortalWeb(homelabTarget, { host: "app" }),
+          // An internal Service is never a Cloudflare Access app.
+          exposure: internalService({ port: 4201 }),
           policies: ["email-otp"],
         },
       ]).map((app) => app.domain),

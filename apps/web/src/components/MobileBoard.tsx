@@ -32,7 +32,6 @@
 import { registryEntryForTileId } from "@features/_generated/web.gen";
 import type { CSSProperties, ReactNode } from "react";
 import { tilePixelSize } from "../lib/grid-constants";
-import { interaction } from "../lib/log/interaction";
 import { openTileDetail } from "../lib/tile-detail-store";
 import { SettingsButton } from "./SettingsButton";
 import { TileDetailHost } from "./tiles/detail/TileDetailHost";
@@ -186,7 +185,6 @@ function phoneTileCards(): MobileTileCard[] {
           </BoundedTile>
         ),
         onOpen: () => {
-          interaction("tile", "tap", entry.id, { label: entry.label, kind: "open-detail" });
           openTileDetail(entry.id);
         },
       },

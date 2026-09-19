@@ -8,7 +8,6 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import {
   type AppManifest,
   HTTP_FACET_BRAND,
-  JOBS_FACET_BRAND,
   TILE_VIEWS_FACET_BRAND,
   type TileViewDeclaration,
   WORKER_CYCLES_FACET_BRAND,
@@ -37,7 +36,6 @@ export interface CollectedApp {
   /** Owning features/<dir> folder, used to validate App-local facet ownership. */
   featureDir: string;
   tiles: CollectedTile[];
-  guestExposed: boolean;
   sensitive: boolean;
   private: boolean;
   source: "feature" | "registry";
@@ -64,13 +62,6 @@ interface CollectedSchemaExport {
 /** A collected top-level tRPC router key, tagged with its owning feature. */
 interface CollectedRouterKey {
   key: string;
-  source: string;
-}
-
-/** A collected `defineJobs` facet entry , the worker folds these generically. */
-interface CollectedJob {
-  type: string;
-  maxMs: number;
   source: string;
 }
 
@@ -113,10 +104,8 @@ interface CollectedTileView {
 export interface CollectedFeature {
   dir: string;
   id: string;
-  guestExposed: boolean;
   hasApi: boolean;
   hasSchema: boolean;
-  hasJobs: boolean;
   hasWorker: boolean;
   hasHttp: boolean;
   /** True when the App has a branded detail.ts Tile View facet. */
@@ -129,7 +118,6 @@ export interface AppModel {
   tables: CollectedTable[];
   schemaExports: CollectedSchemaExport[];
   routerKeys: CollectedRouterKey[];
-  jobs: CollectedJob[];
   workerCycles: CollectedWorkerCycle[];
   httpRoutes: CollectedHttpRoute[];
   httpModules: CollectedHttpModule[];
@@ -192,7 +180,7 @@ const INTERIM_HTTP_MODULES: readonly {
 /**
  * Read a `defineHttp([...])` facet (an array branded with HTTP_FACET_BRAND) off
  * an imported module's `routes` export. Reads only `method`/`path`/`match` off
- * each spec , NEVER invokes `handler` (mirrors the jobs scan's data-only read).
+ * each spec , NEVER invokes `handler` (a data-only read).
  */
 function readHttpRoutes(mod: Record<string, unknown>, source: string): CollectedHttpRoute[] {
   const v = mod.routes;
@@ -243,7 +231,6 @@ export async function collect(): Promise<AppModel> {
   const tables: CollectedTable[] = [];
   const schemaExports: CollectedSchemaExport[] = [];
   const routerKeys: CollectedRouterKey[] = [];
-  const jobs: CollectedJob[] = [];
   const workerCycles: CollectedWorkerCycle[] = [];
   const httpRoutes: CollectedHttpRoute[] = [];
   const httpModules: CollectedHttpModule[] = [];
@@ -269,7 +256,6 @@ export async function collect(): Promise<AppModel> {
         rows: t.rows,
         home: Boolean(t.home),
       })),
-      guestExposed: Boolean(m.guestExposed),
       sensitive: Boolean(m.sensitive),
       private: Boolean(m.private),
       source: "feature",
@@ -293,6 +279,9 @@ export async function collect(): Promise<AppModel> {
       for (const key of Object.keys(record)) routerKeys.push({ key, source: `feature:${dir}` });
     }
 
+    // detail.ts is OPTIONAL: an App whose Tiles are all face-only (the Clock,
+    // the two weather Tiles, Climate · A/C) declares no Tile Views at all, so
+    // the file simply does not exist.
     let hasDetail = false;
     const detailPath = join(base, "detail.ts");
     if (existsSync(detailPath)) {
@@ -301,25 +290,6 @@ export async function collect(): Promise<AppModel> {
       hasDetail = true;
       for (const declaration of declarations) {
         tileViews.push({ tileId: declaration.tileId, source: `feature:${dir}` });
-      }
-    } else if (m.tiles.length > 0) {
-      throw new Error(
-        `features/${dir}/manifest.ts declares Tiles but features/${dir}/detail.ts is missing`,
-      );
-    }
-
-    let hasJobs = false;
-    if (existsSync(join(base, "jobs.ts"))) {
-      const jobsMod = (await import(join(base, "jobs.ts"))) as Record<string, unknown>;
-      for (const v of Object.values(jobsMod)) {
-        // A `defineJobs([...])` facet: an array branded with JOBS_FACET_BRAND.
-        // Read only `type` + `maxMs` off each spec , never invoke the handler.
-        if (Array.isArray(v) && (v as Record<symbol, unknown>)[JOBS_FACET_BRAND]) {
-          hasJobs = true;
-          for (const spec of v as Array<{ type: string; maxMs: number }>) {
-            jobs.push({ type: spec.type, maxMs: spec.maxMs, source: `feature:${dir}` });
-          }
-        }
       }
     }
 
@@ -335,7 +305,7 @@ export async function collect(): Promise<AppModel> {
     }
 
     // Source A , future feature http facets: features/<dir>/http.ts, collected
-    // the same way api.ts/jobs.ts are (never via the interim list below).
+    // the same way api.ts is (never via the interim list below).
     let hasHttp = false;
     if (existsSync(join(base, "http.ts"))) {
       const httpMod = (await import(join(base, "http.ts"))) as Record<string, unknown>;
@@ -354,10 +324,8 @@ export async function collect(): Promise<AppModel> {
     features.push({
       dir,
       id: m.id,
-      guestExposed: Boolean(m.guestExposed),
       hasApi,
       hasSchema,
-      hasJobs,
       hasWorker,
       hasHttp,
       hasDetail,
@@ -401,7 +369,6 @@ export async function collect(): Promise<AppModel> {
     tables,
     schemaExports,
     routerKeys,
-    jobs,
     workerCycles,
     httpRoutes,
     httpModules,

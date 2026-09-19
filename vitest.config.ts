@@ -14,9 +14,8 @@ export default defineConfig({
       "packages/logger",
       "packages/platform",
       "packages/worker-runtime",
-      // The `infra` project's default test glob also covers infra/unifi/test/**
-      // (UniFi adopt-only stack, www-j934.3), so no separate project entry is
-      // needed; a second entry would double-run those tests.
+      // The `infra` project's default glob also covers infra/cloudflare/test/**,
+      // so no separate entry is needed; a second entry would double-run them.
       "infra",
       // app-kit: the App authoring surface (defineApp/defineApi/defineJobs/
       // defineCron brand checks). No package.json/vite config of its own

@@ -1,18 +1,11 @@
-// JobSpec is imported (not declared locally, unlike HttpRoute/CronSpec below):
-// job specs are also consumed by `@www/core`'s runtime queue engine
-// (`jobWorker`/`claimOne`), so the type lives with the engine, not the
-// authoring surface. Re-exported here so feature authors and generated code
-// can import every facet type from this one barrel.
-import type { JobSpec } from "@www/core";
 import type { Worker } from "@www/worker-runtime";
 
 export const API_FACET_BRAND = Symbol.for("app-kit.api");
-export const JOBS_FACET_BRAND = Symbol.for("app-kit.jobs");
 export const HTTP_FACET_BRAND = Symbol.for("app-kit.http");
 export const TILE_VIEWS_FACET_BRAND = Symbol.for("app-kit.tile-views");
 export const WORKER_CYCLES_FACET_BRAND = Symbol.for("app-kit.worker-cycles");
 
-export type { JobSpec, Worker };
+export type { Worker };
 
 /** The minimum Tile View declaration codegen needs to enforce App ownership. */
 export interface TileViewDeclaration {
@@ -43,9 +36,6 @@ export interface HttpRoute {
 
 export function defineApi<T>(router: T): T {
   return brand(router, API_FACET_BRAND);
-}
-export function defineJobs(jobs: JobSpec[]): JobSpec[] {
-  return brand(jobs, JOBS_FACET_BRAND);
 }
 export function defineHttp(routes: HttpRoute[]): HttpRoute[] {
   return brand(routes, HTTP_FACET_BRAND);
