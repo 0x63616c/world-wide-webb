@@ -18,7 +18,6 @@
  */
 
 import { ACCENTS, type Accent } from "@cc/api/settings";
-import { useSettings } from "./settings";
 
 export { ACCENTS, type Accent };
 
@@ -64,9 +63,4 @@ export function applyAccent(root: HTMLElement, accent: Accent): void {
   root.style.setProperty("--acc-rgb", rgb);
   // Lets CSS (and screenshots) see which accent is live without parsing hexes.
   root.dataset.accent = accent;
-}
-
-/** The live accent palette, re-rendering when the setting changes. */
-export function useAccent(): AccentPalette {
-  return accentPalette(useSettings().accent);
 }

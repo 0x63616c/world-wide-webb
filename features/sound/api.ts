@@ -48,7 +48,7 @@ const SoundSystemSchema = z.object({
   }),
 });
 
-export const soundRouter = router({
+const soundRouter = router({
   soundSystem: publicProcedure
     .input(z.object({}).optional())
     .output(SoundSystemSchema)

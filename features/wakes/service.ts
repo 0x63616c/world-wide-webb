@@ -43,7 +43,7 @@ export interface InteractionSessionSummary {
   digest: null;
 }
 
-export interface InteractionSessionEvent {
+interface InteractionSessionEvent {
   ts: number;
   idx: number;
   msg: string;

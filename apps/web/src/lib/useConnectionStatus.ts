@@ -18,7 +18,7 @@ export interface ConnectionStatus {
  * dashboard where one integration is down must not spam outage notifications
  * while every other tile is happily refetching.
  */
-export function isConnectivityError(error: unknown): boolean {
+function isConnectivityError(error: unknown): boolean {
   const httpStatus = (error as { data?: { httpStatus?: number } } | null)?.data?.httpStatus;
   return typeof httpStatus !== "number";
 }

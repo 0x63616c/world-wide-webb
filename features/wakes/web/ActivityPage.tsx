@@ -26,14 +26,14 @@ import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { PageHeader, Segmented, type SegmentedOption } from "@/components/ui";
 import { SessionListView, type SessionSummary } from "./SessionListView";
 
-export interface WakePhoto {
+interface WakePhoto {
   path: string;
   capturedAt: number;
   /** The visit this frame belongs to; null for backfilled history. */
   interactionSessionId: string | null;
 }
 
-export interface WakePhotoDay {
+interface WakePhotoDay {
   /** YYYY-MM-DD (UTC buckets, straight from wakePhotos.list). */
   day: string;
   photos: WakePhoto[];

@@ -21,18 +21,9 @@
     // registry as a byte-identical validation artifact. Nothing imports them yet
     // (Slice 5 flips runtime consumers), and generated files are opaque to the
     // dead-code detector just as they are to biome (`.gen.ts` is ignored there too).
-    "features/_generated/**",
-    // A HEADLESS App's manifest (#126). Manifests are collected by a build-time
-    // glob in scripts/apps-gen.ts, not imported, so the only edge knip can see is
-    // the tiles barrel importing manifests that declare tiles. A tileless App has
-    // no such edge and reads as dead, though deleting it would unregister the App.
-    "features/*/manifest.ts",
-    "**/ios/**/public/**", // Capacitor web-bundle copies synced into iOS project (not source)
-    // Agent harness config: skills, hooks and Workflow scripts. These are entrypoints
-    // invoked by Claude Code by name, never imported, so knip cannot see an edge to them.
-    // (Re-added after #36 dropped it as stale; it only looked stale because .claude held
-    // no JS until .claude/workflows/ existed.)
-    ".claude/**"
+    "features/_generated/**"
+    // Codegen output stays ignored; every other former entry here became stale
+    // when The Simplification deleted the subsystem it covered.
   ],
 
   // Real runtime deps with no JS-visible import edge.
@@ -94,10 +85,9 @@
       "entry": ["scripts/*.ts", "scripts/*.mjs", "app-kit/index.ts", "app-kit/server.ts"]
     },
     "apps/api": {
-      // server.ts = Docker CMD
-      // seed.ts = db:seed script. drizzle.config.ts + the exports map
+      // server.ts = Docker CMD. drizzle.config.ts + the exports map
       // (., ./trpc, ./worker) are auto-detected.
-      "entry": ["src/server.ts", "src/db/seed.ts"]
+      "entry": ["src/server.ts"]
     },
     "infra": {
       // program.ts = the Pulumi program (Pulumi.yaml `main`, run by the pulumi
@@ -128,11 +118,6 @@
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
     },
-    "apps/worker": {
-      // workers.gen.ts is deliberately ignored as generated output, so knip
-      // cannot see these direct runtime edges from the generated App aggregate.
-      "ignoreDependencies": ["@www/core", "drizzle-orm", "zod"]
-    },
     "apps/manage": {
       // extension/content.js is loaded by Chrome from the unpacked extension,
       // never imported — knip sees no edge to it, and the same goes for the
@@ -143,8 +128,7 @@
       "ignore": ["extension/**"]
     },
     "apps/web": {
-      // Tests live beside sources; the vite/vitest plugins auto-detect the rest.
-      "entry": ["test/**/*.test.ts"]
+      // Tests live beside sources; the vite/vitest plugins auto-detect everything.
     }
   }
 }

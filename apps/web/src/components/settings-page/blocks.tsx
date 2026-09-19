@@ -121,14 +121,6 @@ export function RowShell({
 }
 
 /**
- * Wrapper for a full-width slider row. Sliders end in a thin rail, so a tighter
- * padding evens out the optical spacing under them vs text rows.
- */
-export function SliderRow({ children }: { children: ReactNode }) {
-  return <div style={{ padding: "2px 0 6px" }}>{children}</div>;
-}
-
-/**
  * A mono value with a trailing chevron; a plain span, or a button when onClick.
  *
  * `label` names the button for screen readers and tests when the value alone
