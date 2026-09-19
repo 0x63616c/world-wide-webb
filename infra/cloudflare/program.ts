@@ -264,7 +264,7 @@ export const summary = {
 };
 
 // Consumed cross-project by infra/program.ts via `pulumi.StackReference`
-// (#593) — e.g. the software-factory API needs `factory.<zone>`'s AUD to
+// (#593) — e.g. a consumer needs its own hostname's AUD to
 // validate Access JWTs, and reading it here rather than a vault secret means
 // a recreated app (a destructive replace, since `tag` and `domain` are
 // immutable) can never leave a stale AUD silently accepted downstream.

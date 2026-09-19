@@ -35,12 +35,10 @@ const provider = () => new k8s.Provider("test", { context: "x" });
 // removed the captive-portal CNPG cluster + namespace).
 const mockVault: Record<string, string> = {
   CONTROL_CENTER_POSTGRES__PASSWORD: "mock-cc-pw",
-  SOFTWARE_FACTORY_POSTGRES__PASSWORD: "mock-software-factory-pw",
 };
 
 const testNamespaces = {
   "control-center": "control-center",
-  "software-factory": "software-factory",
   cloudflare: "cloudflare",
 } as const;
 
@@ -86,7 +84,7 @@ describe("installCnpg", () => {
     expect(stringData.username).toBe("postgres");
   });
 
-  test("installs the two declared product databases", async () => {
+  test("installs the declared product database", async () => {
     const res = cnpg.installCnpg({
       provider: provider(),
       namespaces: testNamespaces,
@@ -94,18 +92,15 @@ describe("installCnpg", () => {
       vault: mockVault,
     });
 
-    expect(res.clusters).toHaveLength(2);
-    expect(res.authSecrets).toHaveLength(2);
+    expect(res.clusters).toHaveLength(1);
+    expect(res.authSecrets).toHaveLength(1);
 
     const clusterSpecs = await Promise.all(
       res.clusters.map((cluster) =>
         get<{ bootstrap: { initdb: { database: string } } }>(cluster, "spec"),
       ),
     );
-    expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database)).toEqual([
-      "control_center",
-      "software_factory",
-    ]);
+    expect(clusterSpecs.map((spec) => spec.bootstrap.initdb.database)).toEqual(["control_center"]);
   });
 
   test("creates the control-center database resources in its owning namespace", async () => {
@@ -128,12 +123,6 @@ describe("installCnpg", () => {
     );
     expect(secretMetadata.find((m) => m.name === "cc-postgres-auth")?.namespace).toBe(
       "control-center",
-    );
-    expect(clusterMetadata.find((m) => m.name === "software-factory-postgres")?.namespace).toBe(
-      "software-factory",
-    );
-    expect(secretMetadata.find((m) => m.name === "software-factory-postgres-auth")?.namespace).toBe(
-      "software-factory",
     );
   });
 });

@@ -36,7 +36,6 @@ beforeAll(async () => {
 const NAS = "192.168.0.218";
 const testNamespaces = {
   "control-center": "control-center",
-  "software-factory": "software-factory",
   cloudflare: "cloudflare",
 } as const;
 
@@ -54,19 +53,14 @@ type CronSpec = ReturnType<typeof crons.cronSpecs>[number];
 const byName = (specs: CronSpec[], name: string) => specs.find((s) => s.name === name);
 
 describe("cronSpecs: the declared CronJob set", () => {
-  // Every retention purge is deliberately ABSENT: they migrated to Temporal
-  // Schedules (ADR-0008, issue #260); only infra-level crons render CronJobs.
-  test("declares map-extract, product backups, and the payload blob backup (no purges, no image-prune, no cert-renew)", () => {
+  // Every retention purge is deliberately ABSENT: they are App-owned Worker
+  // cycles (issue #260); only infra-level crons render CronJobs.
+  test("declares map-extract and the product backup (no purges, no image-prune, no cert-renew)", () => {
     const names = crons
       .cronSpecs(NAS)
       .map((c) => c.name)
       .sort();
-    expect(names).toEqual([
-      "map-extract",
-      "pg-backup",
-      "software-factory-blobs-backup",
-      "software-factory-pg-backup",
-    ]);
+    expect(names).toEqual(["map-extract", "pg-backup"]);
   });
 
   test("docker-image-prune does NOT exist (kubelet image GC replaces it)", () => {
@@ -75,37 +69,6 @@ describe("cronSpecs: the declared CronJob set", () => {
 
   test("portal-cert-renew does NOT exist (cert-manager owns TLS renewal)", () => {
     expect(byName(crons.cronSpecs(NAS), "portal-cert-renew")).toBeUndefined();
-  });
-});
-
-describe("software-factory-blobs-backup", () => {
-  const backup = () => byName(crons.cronSpecs(NAS), "software-factory-blobs-backup");
-
-  test("takes a nightly archive from the NAS blob path to the NAS backup path", () => {
-    const spec = backup();
-    expect(spec?.namespaceName).toBe("software-factory");
-    expect(spec?.schedule).toBe("30 1 * * *");
-    expect(spec?.image).toBe("alpine:3.20");
-    expect(spec?.command?.join("\n")).toContain("tar -C /source -czf");
-    expect(spec?.volumes).toEqual([
-      {
-        mountPath: "/source",
-        nfs: { server: NAS, path: "/volume1/Homelab" },
-        readOnly: true,
-        subPath: "software-factory/blobs",
-      },
-      {
-        mountPath: "/backup",
-        nfs: { server: NAS, path: "/volume1/Homelab" },
-        subPath: "backups/world-wide-webb/software-factory/blobs",
-      },
-    ]);
-  });
-
-  test("fails rather than claiming a partial archive completed", () => {
-    const command = backup()?.command?.join("\n") ?? "";
-    expect(command).toContain("set -e");
-    expect(command).toContain('mv "$tmp" "$out"');
   });
 });
 
@@ -217,23 +180,6 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
   });
 });
 
-describe("software-factory-pg-backup", () => {
-  const backup = () => byName(crons.cronSpecs(NAS), "software-factory-pg-backup");
-
-  test("runs nightly against the factory cluster and its dedicated NAS path", () => {
-    const spec = backup();
-    expect(spec).toMatchObject({
-      namespaceName: "software-factory",
-      schedule: "0 1 * * *",
-      extraSecretMounts: [{ secretName: "software-factory-postgres-auth" }],
-    });
-    expect(spec?.command?.join("\n")).toContain("software-factory-postgres-rw");
-    expect(spec?.volumes?.[0]).toMatchObject({
-      subPath: "backups/world-wide-webb/software-factory/postgres",
-    });
-  });
-});
-
 describe("deployCrons (Pulumi wiring)", () => {
   test("instantiates a ScheduledJob per declared cron", async () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
@@ -252,9 +198,6 @@ describe("deployCrons (Pulumi wiring)", () => {
 
     expect(metadata.find((m) => m.name === "pg-backup")?.namespace).toBe("control-center");
     expect(metadata.find((m) => m.name === "map-extract")?.namespace).toBe("control-center");
-    expect(metadata.find((m) => m.name === "software-factory-pg-backup")?.namespace).toBe(
-      "software-factory",
-    );
   });
 });
 

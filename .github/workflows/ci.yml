@@ -122,9 +122,7 @@ jobs:
               - 'apps/map-provision/**'
             # any_app is true when at least one TypeScript-workspace image
             # needs to be built. An infra-only change is handled by the separate
-            # `infra` filter above. Software-factory source and image builds
-            # live in the standalone repository; this workflow only verifies
-            # and deploys its pinned immutable release from `infra/**`.
+            # `infra` filter above.
             any_app:
               - 'apps/web/**'
               - 'apps/manage/**'
@@ -180,8 +178,6 @@ jobs:
         run: bash scripts/test-map-provision.sh
       - name: Dockerfile manifest coverage guard
         run: bun run test:dockerfile-manifests
-      - name: Embedded software-factory ownership guard
-        run: bash scripts/test-no-embedded-software-factory.sh
       - name: Codex credential seed checker tests
         # Hermetic checks for the operator-facing --check command, including
         # the worker-owned refresh lease written after a healthy use.
@@ -199,19 +195,6 @@ jobs:
         # no arm64 leg or QEMU emulation creeps back in. The home-server Talos
         # node is the only deploy target and is x86.
         run: bash scripts/test-build-matrix.sh
-      - name: Software-factory image CI coverage guard
-        # `infra/src/services.ts` is the source of truth for factory images.
-        # Every entry needs both a producer and a digest collector: without
-        # either, prod's required-pin check turns a green merge into a failed
-        # deploy, or worse, a target image is never published at all.
-        run: bash scripts/test-software-factory-image-ci.sh
-      - name: Software-factory release manifest contract
-        # The standalone release is the producer after extraction. Before the
-        # cutover consumes its artifact, prove that only the exact seven
-        # linux/amd64 repositories and immutable digests can enter Pulumi's map.
-        run: |
-          bash scripts/test-software-factory-release-manifest.sh
-          bash scripts/test-verify-software-factory-release.sh
       - name: Wall-panel health classifier tests
         # Hermetic self-test of the panel health classifier (1366x1024 +
         # CF-error/skeleton markers, mirrored from iOS KioskHealth). No
@@ -288,29 +271,6 @@ jobs:
         # --no-verify bypass or an uninstalled hook can skip).
         # `deploy-home-server` needs `typecheck`, so a regression blocks the prod deploy (www-k6p1).
         run: bun run knip
-
-  # Stable target-policy check consumed by the standalone AgentWorkflow. This
-  # no longer builds or tests embedded product source: it is a WWW fan-in plus
-  # the retained consumer-boundary assertion. Keeping the context stable avoids
-  # stranding in-flight and newly dispatched Tickets during repository cutover.
-  test-software-factory:
-    needs: [test-unit, test-storybook, typecheck]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v5
-      - name: Require WWW quality gates
-        env:
-          TEST_UNIT_RESULT: ${{ needs.test-unit.result }}
-          TEST_STORYBOOK_RESULT: ${{ needs.test-storybook.result }}
-          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
-        run: |
-          test "$TEST_UNIT_RESULT" = success
-          test "$TEST_STORYBOOK_RESULT" = success
-          test "$TYPECHECK_RESULT" = success
-      - name: Prove the embedded product remains absent
-        run: bash scripts/test-no-embedded-software-factory.sh
 
   # Build jobs depend on `changes` ONLY, not on test/typecheck. They run
   # concurrently with the test suite instead of queueing behind it (measured
@@ -434,8 +394,7 @@ jobs:
   # over the tailnet, and runs the Pulumi program in infra/. CI is the deployer.
   #
   # Fires on `any_app || infra`: an application change or an infra-only change
-  # must converge the declared stack. Software-factory images are independently
-  # released and arrive here only through the pinned release lock under infra/.
+  # must converge the declared stack.
   deploy-home-server:
     needs:
       [
@@ -443,7 +402,6 @@ jobs:
         test-unit,
         test-storybook,
         typecheck,
-        test-software-factory,
         build-web,
         build-manage,
         build-api,
@@ -554,13 +512,6 @@ jobs:
           for k in "${!out[@]}"; do
             json=$(jq -cn --argjson cur "$json" --arg k "$k" --arg v "${out[$k]}" '$cur + {($k): $v}')
           done
-          # Software Factory is an independently released product. Its checked
-          # manifest is the immutable deployment input; WWW never substitutes
-          # a locally built :main digest for a released component.
-          factory_version="$(jq -er .version infra/software-factory-release.json)"
-          factory_json="$(GH_TOKEN='${{ github.token }}' scripts/verify-software-factory-release.sh \
-            "$factory_version" infra/software-factory-release.json)"
-          json="$(jq -cn --argjson app "$json" --argjson factory "$factory_json" '$app + $factory')"
           echo "Image digests: $json"
           echo "map=$json" >> "$GITHUB_OUTPUT"
 

@@ -29,7 +29,6 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
 
 const testNamespaces = {
   "control-center": "control-center",
-  "software-factory": "software-factory",
   cloudflare: "cloudflare",
 } as const;
 

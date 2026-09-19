@@ -33,7 +33,7 @@ export interface Tool {
    * has stripped those response headers.
    *
    * False ONLY where we control the response and it carries no frame-deny —
-   * today that is the control-center and Software Factory nginx origins.
+   * today that is the control-center nginx origin.
    * Everything else is third-party or upstream-configured, so it is marked true
    * and lands in the generated allowlist. Marking a framable host `true` costs
    * nothing but an extra allowlist entry; marking a frame-denying host `false`
@@ -150,16 +150,6 @@ export const TOOLS: readonly Tool[] = [
   },
 
   // ── Code ─────────────────────────────────────────────────────────────────
-  {
-    id: "factory",
-    label: "The Software Factory",
-    url: "https://factory.worldwidewebb.co",
-    color: "#6366f1",
-    mark: "SF",
-    group: "Code",
-    // The standalone software-factory console permits this same-origin frame.
-    needsExtension: false,
-  },
   {
     id: "github",
     label: "GitHub",

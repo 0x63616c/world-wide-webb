@@ -17,11 +17,6 @@ COPY apps/manage/package.json apps/manage/
 COPY apps/worker/package.json apps/worker/
 COPY apps/map-provision/package.json apps/map-provision/
 COPY apps/storybook/package.json apps/storybook/
-COPY apps/dont-text-your-ex/package.json apps/dont-text-your-ex/
-COPY apps/dont-text-your-ex/apps/api/package.json apps/dont-text-your-ex/apps/api/
-COPY apps/dont-text-your-ex/apps/e2e/package.json apps/dont-text-your-ex/apps/e2e/
-COPY apps/dont-text-your-ex/apps/frontend/package.json apps/dont-text-your-ex/apps/frontend/
-COPY apps/dont-text-your-ex/packages/notifications/package.json apps/dont-text-your-ex/packages/notifications/
 COPY packages/api/package.json packages/api/
 COPY packages/core/package.json packages/core/
 COPY packages/logger/package.json packages/logger/

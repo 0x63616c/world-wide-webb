@@ -1,6 +1,5 @@
 # CODEOWNERS: @0x63616c is the required approver repo-wide, so branch
 # protection's "require review from Code Owners" applies to every PR (see #495).
-# Human PRs bypass this requirement via the branch protection bypass list;
-# software-factory bot PRs do not, and need this approval before merging.
+# Human PRs bypass this requirement via the branch protection bypass list.
 
 *                              @0x63616c

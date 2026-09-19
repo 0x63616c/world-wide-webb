@@ -20,15 +20,13 @@ import {
 const ZONE = "worldwidewebb.co";
 
 describe("desiredIngressRules", () => {
-  test("declares the product-derived private hosts, including the factory console, as ingress hosts", () => {
+  test("declares the product-derived private hosts as ingress hosts", () => {
     const byHost = Object.fromEntries(
       desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),
     );
     expect(Object.keys(byHost).sort()).toEqual([
       "app.worldwidewebb.co",
-      "codec.worldwidewebb.co",
       "dsm.worldwidewebb.co",
-      "factory.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hooks.worldwidewebb.co",
@@ -41,9 +39,6 @@ describe("desiredIngressRules", () => {
     expect(byHost["hooks.worldwidewebb.co"]).toBe(
       "http://relay.webhook-relay.svc.cluster.local:8080",
     );
-    expect(byHost["codec.worldwidewebb.co"]).toBe(
-      "http://codec.software-factory.svc.cluster.local:8080",
-    );
     // #209: same cross-NAMESPACE rule — the Grafana Service lives in
     // `observability`, so a bare `grafana` origin would 502.
     expect(byHost["grafana.worldwidewebb.co"]).toBe(
@@ -55,9 +50,6 @@ describe("desiredIngressRules", () => {
     // #292: manage, same cross-namespace FQDN rule as the app route.
     expect(byHost["manage.worldwidewebb.co"]).toBe(
       "http://manage.control-center.svc.cluster.local:80",
-    );
-    expect(byHost["factory.worldwidewebb.co"]).toBe(
-      "http://web.software-factory.svc.cluster.local:80",
     );
     expect(byHost["dont-text-your-ex.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["api.worldwidewebb.co"]).toBeUndefined();
@@ -171,9 +163,7 @@ describe("desiredCnames", () => {
       .sort();
     expect(hosts).toEqual([
       "app.worldwidewebb.co",
-      "codec.worldwidewebb.co",
       "dsm.worldwidewebb.co",
-      "factory.worldwidewebb.co",
       "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hooks.worldwidewebb.co",
