@@ -1,6 +1,5 @@
-// cert-manager + a Cloudflare DNS-01 ClusterIssuer + the portal TLS Certificate
-// (www-j934.5). The captive portal is LAN-only, so HTTP-01 can't reach it from
-// the ACME server; DNS-01 via Cloudflare is the path (DESIGN section 1).
+// cert-manager + a Cloudflare DNS-01 ClusterIssuer (www-j934.5). DNS-01 via
+// Cloudflare is the issuance path: the cluster has no public HTTP-01 surface.
 //
 // IMPORTANT (www-j934.5 constraint): the DNS-01 challenge writes TXT records at
 // runtime via the CF API. Those are cert-manager's business, NOT Pulumi-managed,
@@ -12,13 +11,6 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 
-// The portal hostname the Certificate is issued for (LAN-only, never tunneled).
-// The abandoned `app--cp.worldwidewebb.co` SAN was dropped in Task 7 Step C (the
-// captive-portal product was dissolved by ADR-0006; that host never went live).
-const PORTAL_HOSTS = ["captive-portal.worldwidewebb.co"] as const;
-// The k8s Secret cert-manager mounts the issued cert into; the portal Deployment
-// (www-j934.6) mounts the same Secret for its TLS.
-const PORTAL_TLS_SECRET = "captive-portal-tls";
 // The Secret holding the CF API token for the DNS-01 solver.
 const CF_TOKEN_SECRET = "cloudflare-api-token";
 const CF_TOKEN_KEY = "token";
@@ -49,14 +41,10 @@ export interface CertManagerResources {
 }
 
 /**
- * @public - installs cert-manager and the CF DNS-01 ClusterIssuer. Portal TLS
- * Certificates are issued separately via issuePortalCertificate() (below),
- * which reuses this issuer , the control-center guest listener's copy
- * (program.ts's controlCenterGuestCert) is the live consumer. The ORIGINAL
- * app-namespace Certificate this function used to create directly was removed
- * (SDD track 0, Task 6) along with the captive-portal namespace it lived in;
- * nothing mounted PORTAL_TLS_SECRET there anymore after Task 4 deleted the old
- * portal workloads.
+ * @public - installs cert-manager and the CF DNS-01 ClusterIssuer. Consumed by
+ * program.ts. No Certificate is requested here: the guest/captive-portal
+ * listener that was the only consumer is gone, leaving the issuer available
+ * for the next workload that needs TLS.
  */
 export function installCertManager(args: CertManagerArgs): CertManagerResources {
   const { provider, acmeEmail, version, vault } = args;
@@ -64,12 +52,12 @@ export function installCertManager(args: CertManagerArgs): CertManagerResources 
 
   // cert-manager controller + webhook + cainjector + CRDs, one manifest.
   //
-  // Split-horizon DNS fix: the UniFi gateway answers captive-portal.worldwidewebb.co
-  // internally (-> .147), and the in-cluster resolver SERVFAILs the SOA lookup for
-  // the public _acme-challenge zone, so cert-manager's DNS-01 propagation
-  // self-check never passes. Point that self-check at PUBLIC recursive
-  // nameservers (the TXT record itself is published correctly in CF). This is the
-  // documented remedy (--dns01-recursive-nameservers-only).
+  // Split-horizon DNS fix: the house gateway answers some zone names internally
+  // and the in-cluster resolver SERVFAILs the SOA lookup for the public
+  // _acme-challenge zone, so cert-manager's DNS-01 propagation self-check never
+  // passes. Point that self-check at PUBLIC recursive nameservers (the TXT
+  // record itself is published correctly in CF). This is the documented remedy
+  // (--dns01-recursive-nameservers-only).
   const install = new k8s.yaml.ConfigFile(
     "cert-manager",
     {
@@ -133,46 +121,4 @@ export function installCertManager(args: CertManagerArgs): CertManagerResources 
   );
 
   return { install, cfTokenSecret, issuer };
-}
-
-export interface PortalCertificateArgs {
-  provider: k8s.Provider;
-  // Namespace for this copy of the Certificate (and the Secret it writes).
-  namespace: pulumi.Input<string>;
-  // The already-installed ClusterIssuer (installCertManager's `issuer`), so
-  // this never re-installs cert-manager/the issuer/the CF token Secret , all
-  // cluster-scoped singletons that can't be created twice.
-  issuer: k8s.apiextensions.CustomResource;
-  // Pulumi logical resource name, must be unique in the stack (a second
-  // Certificate in a different namespace can't reuse "captive-portal-tls").
-  resourceName: string;
-}
-
-/**
- * @public - a SECOND Certificate for the same portal hostnames, in a
- * different namespace (Task 4, SDD track 0: the guest listener moved into
- * control-center-api, and a k8s Secret mount is always namespace-local).
- * Deliberately additive: reuses the existing ClusterIssuer, issues its own
- * DNS-01 order, and writes its own PORTAL_TLS_SECRET-named Secret in the
- * given namespace, leaving the original Certificate (and its Secret) in its
- * original namespace completely untouched.
- */
-export function issuePortalCertificate(
-  args: PortalCertificateArgs,
-): k8s.apiextensions.CustomResource {
-  const { provider, namespace, issuer, resourceName } = args;
-  return new k8s.apiextensions.CustomResource(
-    resourceName,
-    {
-      apiVersion: "cert-manager.io/v1",
-      kind: "Certificate",
-      metadata: { name: PORTAL_TLS_SECRET, namespace },
-      spec: {
-        secretName: PORTAL_TLS_SECRET,
-        dnsNames: [...PORTAL_HOSTS],
-        issuerRef: { name: "letsencrypt-dns", kind: "ClusterIssuer" },
-      },
-    },
-    { provider, dependsOn: [issuer] },
-  );
 }

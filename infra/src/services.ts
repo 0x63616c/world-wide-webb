@@ -16,8 +16,6 @@ import type { InfraNamespaceName } from "./cluster.ts";
 import type { WorkloadSpec } from "./component.ts";
 import { ExternalService, HostBackedService, Workload } from "./component.ts";
 import { GHCR_PULL_SECRET_NAME, GHCR_PULL_SECRET_NAMESPACES } from "./ghcr-pull-secrets.ts";
-import { LAN_SERVICE_IPS } from "./metallb.ts";
-import { NVIDIA_RUNTIME_CLASS_NAME } from "./nvidia.ts";
 import { SERVICE_SECRET_TARGETS, SERVICE_SECRETS, type ServiceSecretName } from "./secrets-map.ts";
 
 // Per-service GHCR image digest map, name -> "sha256:…", set by the CI deploy job
@@ -167,8 +165,7 @@ const HA_PORT = 8123;
 // currently-live Mac mini (arm64, OrbStack k3s) and is the DEFAULT everywhere
 // below so an omitted `wwwinfra:substrate` config renders byte-identical mini
 // output; "talos" is the Talos cluster on the gaming PC (amd64) migration
-// target. Never add a third value without re-auditing every haTarget/
-// plexAdvertiseIp call site.
+// target. Never add a third value without re-auditing every haTarget call site.
 export type Substrate = "orbstack" | "talos";
 
 /**
@@ -185,7 +182,7 @@ export function parseSubstrate(value: string | undefined): Substrate {
   throw new Error(`wwwinfra:substrate must be "orbstack" or "talos", got "${value}"`);
 }
 
-// Task 3 shipped haTarget/plexAdvertiseIp as `(substrate: Substrate, nodeIp:
+// Task 3 shipped haTarget as `(substrate: Substrate, nodeIp:
 // string)`, with nodeIp defaulting to "" on orbstack — a representable-but-
 // meaningless state (an empty nodeIp could in principle reach the "talos"
 // branch of a future call site and silently render `http://:32400`). Task 4's
@@ -220,12 +217,9 @@ export function parseSubstrateTarget(
   };
 }
 
-// Mini (orbstack) values below are frozen: they are the CURRENT LIVE prod
-// values and must never change as a side effect of this file. The talos
-// counterparts route through the node's LAN IP instead (see haTarget /
-// plexAdvertiseIp).
-const MINI_PLEX_ADVERTISE_IP = "http://192.168.0.147:32400";
-const PLEX_PORT = 32400;
+// Mini (orbstack) values are frozen: they are the CURRENT LIVE prod values and
+// must never change as a side effect of this file. The talos counterparts
+// route through the node's LAN IP instead (see haTarget).
 
 /**
  * The `ha` ExternalName Service target (www-j934.17). On "orbstack" (the mini,
@@ -243,24 +237,6 @@ export function haTarget(target: SubstrateTarget): string {
   return target.substrate === "talos" ? target.nodeIp : HA_TAILNET_FQDN;
 }
 
-/**
- * Plex's `ADVERTISE_IP` env var: the externally-reachable URL Plex advertises
- * to clients (e.g. the Apple TV). On "orbstack" (the mini, default) this is
- * the Mac's LAN IP, republished on the host by OrbStack's expose_services. On
- * "talos" this is Plex's own MetalLB LoadBalancer address (LAN_SERVICE_IPS),
- * NOT the node IP: nothing listens on :32400 in the node's netns, so a node-IP
- * URL advertises a refused connection and every client that trusts it (the
- * Apple TV) fails to reach the server even though it is healthy.
- *
- * @public - unit-tested in infra/test/services.test.ts; consumed by
- * serviceSpecs below and by Task 4.
- */
-export function plexAdvertiseIp(target: SubstrateTarget): string {
-  return target.substrate === "talos"
-    ? `http://${LAN_SERVICE_IPS.plex}:${PLEX_PORT}`
-    : MINI_PLEX_ADVERTISE_IP;
-}
-
 const TZ = "America/Los_Angeles";
 
 // The CNPG read-write Service (www-j934.5) the app connects to. env.ts builds
@@ -268,11 +244,6 @@ const TZ = "America/Los_Angeles";
 // the default host "postgres" was the Swarm service name and does NOT resolve in
 // k3s, so set it to the CNPG Service explicitly (a live-deploy finding).
 const controlCenterDatabase = controlCenterProductManifest().database;
-// captivePortalProductManifest() (database/secretUsages) is no longer called
-// anywhere in infra/ (Task 4 step C removed the captive-portal-api workload
-// that used the secretUsages; Task 6 removed the CNPG cluster + backup
-// CronJob that used the database). The function itself still exists in
-// @www/platform , pruned in a later platform-cleanup task (7+8).
 
 // Shared non-secret env for api + worker (HA reached via the in-cluster `ha`
 // Service name now, not host.docker.internal; DB via the CNPG Service).
@@ -281,7 +252,6 @@ const haEnv = {
   APP_ENV: "production",
   TZ,
   HA_URL: `http://ha:${HA_PORT}`,
-  UNIFI_CONTROLLER_URL: "https://192.168.0.1",
   POSTGRES_HOST: controlCenterDatabase.rwServiceName,
 };
 
@@ -308,8 +278,7 @@ const mountSecrets = (service: ServiceSecretName) =>
  *   with mutable/private :main images when wwwinfra:imageDigests is incomplete.
  * - target: which cluster this program targets, {substrate:"orbstack"} (the
  *   mini, default) or {substrate:"talos", nodeIp} (the gaming-PC migration
- *   target). Drives plexAdvertiseIp() below; default preserves the mini's
- *   exact current value. A talos target's nodeIp is REQUIRED by the type (see
+ *   target). Default preserves the mini's exact current value. A talos target's nodeIp is REQUIRED by the type (see
  *   {@link SubstrateTarget}), so no call site can reach the talos branch with
  *   a missing/empty nodeIp.
  */
@@ -353,20 +322,6 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       env: {
         ...haEnv,
         MEDIA_STORAGE_DIR: "/app/media",
-        // Guest (captive-portal) listener cutover (SDD track 0, Task 4). LIVE
-        // LAN cutover (this deploy): 443/80, verified dark on 4300/4301 first
-        // (TLS wiring + static bundle + portal.* tRPC all checked from inside
-        // the cluster). GUEST_HTTP_PORT=80 is required , guest-server.ts's
-        // default plain-HTTP companion is port+1, which off 443 would be 444,
-        // not the conventional 80 (the k8s Service's exposed port always
-        // equals the container port, no remap in the infra WorkloadSpec).
-        // The old captive-portal-portal workload's LAN ports are removed in
-        // this SAME commit (see below) , both workloads can't hold the LAN
-        // 443/80 host ports at once.
-        GUEST_PORT: "443",
-        GUEST_HTTP_PORT: "80",
-        GUEST_STATIC_DIR: "/app/portal-dist",
-        GUEST_TLS_DIR: "/certs",
       },
       volumes: [
         {
@@ -375,40 +330,10 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
           subPath: "media",
         },
       ],
-      ports: [
-        { containerPort: 4201, expose: "cluster" },
-        // Guest TLS listener (443) + its always-plain-HTTP OS-detection
-        // companion (80, via GUEST_HTTP_PORT above). LAN LoadBalancer , the
-        // old captive-portal-portal Service (which held this same LAN address
-        // + ports) is confirmed deleted live (`kubectl get svc portal` ->
-        // NotFound), so nothing else is contending for it now (Task 4 step
-        // B2, second retry: the two-Service address handoff needs to be
-        // strictly sequential, see the removed-ports comment on the old
-        // captive-portal-portal workload below).
-        { containerPort: 443, expose: "lan" },
-        { containerPort: 80, expose: "lan" },
-      ],
-      // Pinned on talos: the guest portal is reached by address, and it shares
-      // a 2-address MetalLB pool with plex (see LAN_SERVICE_IPS).
-      ...(target.substrate === "talos" ? { loadBalancerIp: LAN_SERVICE_IPS.api } : {}),
-      // The control-center copy of the portal TLS cert (issuePortalCertificate
-      // in certmanager.ts), same rename convention as the old captive-portal
-      // workload below (tls.crt/tls.key -> fullchain.pem/key.pem, the acme.sh
-      // filenames guest-server.ts expects).
-      extraSecretMounts: [
-        {
-          secretName: "captive-portal-tls",
-          mountPath: "/certs",
-          items: [
-            { key: "tls.crt", path: "fullchain.pem" },
-            { key: "tls.key", path: "key.pem" },
-          ],
-        },
-      ],
+      ports: [{ containerPort: 4201, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
       // #214. The metrics listener is a SEPARATE port from the 4201 above and
-      // is deliberately absent from `ports`: 4201 is what the Cloudflare tunnel
-      // maps the public `hooks.` host to, and anything listed in `ports` gets a
+      // is deliberately absent from `ports`: anything listed in `ports` gets a
       // Service. Prometheus scrapes the pod IP directly off these annotations.
       scrape: { port: DEFAULT_METRICS_PORT },
     },
@@ -469,80 +394,6 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       ports: [{ containerPort: 80, expose: "cluster" }],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
     },
-    // control-center-storybook workload DELETED (Track B, Task 10a): storybook
-    // is a local-dev-only tool now, no deploy pipeline, no in-cluster Deployment.
-    // captive-portal-portal and captive-portal-api workloads DELETED (Task 4
-    // step C, SDD track 0): both were fully dark (zero ports exposed) after
-    // step B's LAN cutover moved all guest traffic onto control-center-api.
-    // The rest of the product followed: products/captive-portal/ + the
-    // "captive-portal"/"captive-portal-api" digestKey entries above (Task 5),
-    // then the "captive-portal" namespace, its CNPG Postgres Clusters, and its
-    // pg-backup CronJob (Task 6 , the one live guest-authorization row was
-    // copied into control_center and a final pg_dump taken to the NAS first).
-    // control-center-drizzle workload DELETED: the Drizzle Gateway (self-hosted
-    // Studio at drizzle.worldwidewebb.co) was parked at replicas 0 and never
-    // brought back; its folder, CF route, Access app, secret and PVC were pruned.
-    {
-      // Plex Media Server (third-party). Serves the Synology media share to the
-      // Apple TV. Not a control-center product component, but co-located in the
-      // control-center namespace to reuse the media NFS share + a local PVC.
-      logicalName: "control-center-plex",
-      name: "plex",
-      namespaceName: "control-center",
-      // Version-pinned public image (multi-arch; arm64 manifest for the OrbStack
-      // node). Third-party like cloudflared: no GHCR pull secret, no digest pin.
-      image: "plexinc/pms-docker:1.43.2.10687-563d026ea",
-      replicas: 1,
-      resources: {
-        memory: "1G",
-        reserveCpus: "0.5",
-        // GPU hardware transcode (Task 4): only the Talos node has a passed-
-        // through RTX 3060 + the `nvidia` RuntimeClass; the mini has neither,
-        // so this stays undefined (no nvidia.com/gpu limit rendered) on
-        // "orbstack" and Plex behaves exactly as it does today.
-        ...(target.substrate === "talos" ? { gpu: 1 } : {}),
-      },
-      // RuntimeClass for GPU device-plugin scheduling (nvidia.ts). Same
-      // talos-only gating as the gpu resource above.
-      ...(target.substrate === "talos" ? { runtimeClassName: NVIDIA_RUNTIME_CLASS_NAME } : {}),
-      // Don't gate the deploy on Plex readiness. On a cold apply the GPU device
-      // plugin (nvidia.ts) and Plex are created in the same `pulumi up`, and the
-      // node only advertises nvidia.com/gpu a beat after the plugin pod starts —
-      // so awaiting Plex could time out racing its own GPU capacity. Plex is a
-      // non-critical media server; let it schedule asynchronously onto the GPU.
-      ...(target.substrate === "talos" ? { annotations: { "pulumi.com/skipAwait": "true" } } : {}),
-      env: {
-        TZ,
-        HOSTNAME: "Plex",
-        // No PLEX_CLAIM: plex.tv/claim tokens expire in ~4 min so none can be
-        // pre-stored. The server boots UNCLAIMED; claim it once via the web UI
-        // (docs/plex.md). ADVERTISE_IP publishes the substrate's LAN address so
-        // clients get a directly-reachable URL, not the in-cluster pod IP: on
-        // "orbstack" (default) that's the Mac's LAN IP, republished on the host
-        // by OrbStack's expose_services (en0 LAN, update if it changes); on
-        // "talos" it's the node's LAN IP with the MetalLB :32400 LoadBalancer.
-        ADVERTISE_IP: plexAdvertiseIp(target),
-      },
-      // Plex config/metadata (SQLite) MUST live on fast local disk, never NFS
-      // (SQLite over NFS corrupts). local PVC on the OrbStack SSD.
-      // The media share is the same NFS export + subPath as the worker, mounted
-      // read-only; point a Plex library at /data (docs/plex.md).
-      volumes: [
-        { mountPath: "/config", claim: "plex-config" },
-        {
-          mountPath: "/data",
-          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
-          subPath: "media",
-          readOnly: true,
-        },
-      ],
-      // LAN LoadBalancer on :32400 (republished on the Mac host by OrbStack
-      // expose_services, same mechanism as the captive-portal LB), so the Apple
-      // TV on 192.168.0.0/24 reaches Plex directly. On talos the address is
-      // pinned, because ADVERTISE_IP above hardcodes it.
-      ports: [{ containerPort: 32400, expose: "lan" }],
-      ...(target.substrate === "talos" ? { loadBalancerIp: LAN_SERVICE_IPS.plex } : {}),
-    },
     {
       logicalName: "cloudflare-cloudflared",
       legacyLogicalName: "platform-cloudflared",
@@ -602,11 +453,9 @@ export interface ServicesResources {
 // The local (node-SSD) PVCs the workloads mount by claim name. Sizes are
 // ENFORCED LVM reservations (ADR-0009) — hitting one is an online expansion,
 // not an outage.
-const LOCAL_CLAIMS: { name: string; size: string }[] = [
-  // Plex config/metadata/thumbnails on the node SSD (SQLite must not be on
-  // NFS). Mounted at /config by the plex workload above.
-  { name: "plex-config", size: "10Gi" },
-];
+// Nothing claims local disk today (the plex-config claim went with Plex); the
+// seam stays so the next node-SSD workload is a one-line addition.
+const LOCAL_CLAIMS: { name: string; size: string }[] = [];
 
 // The GHCR org account the imagePullSecret authenticates as (org-owned PAT).
 const GHCR_USERNAME = "0x63616c";

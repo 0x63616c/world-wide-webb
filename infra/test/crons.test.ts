@@ -11,8 +11,8 @@ import { renderCronJob } from "../src/component.ts";
 
 // The k8s CronJobs for the cluster scheduler (www-j934.7): a nightly pg-backup
 // to the NAS. Every retention purge runs as an App-owned Worker cycle; the
-// legacy hand-wired portal-data-purge CronJob is retired. Two things are
-// deliberately ABSENT: docker-image-prune (kubelet image GC replaces it) and
+// legacy hand-wired data-purge CronJob is retired. Two things are deliberately
+// ABSENT: docker-image-prune (kubelet image GC replaces it) and
 // portal-cert-renew (cert-manager owns TLS now). These tests pin the
 // declarations (pure data) before the Pulumi wiring.
 
@@ -75,21 +75,21 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
   const backup = () => byName(crons.cronSpecs(NAS), "pg-backup");
 
   test("derives a product Postgres backup CronJob from the platform backup primitive", () => {
-    const product = defineProduct("captive-portal");
+    const product = defineProduct("control-center");
     const database = defineProductDatabase(product, homelabTarget, { size: "5Gi" });
     const platformBackup = defineDatabaseBackup(database, homelabTarget);
     const spec = crons.postgresBackupCronSpec(platformBackup, NAS);
     const rendered = renderCronJob(spec);
 
-    expect(spec.name).toBe("captive-portal-pg-backup");
+    expect(spec.name).toBe("control-center-pg-backup");
     expect(spec.schedule).toBe("0 1 * * *");
     expect(spec.image).toBe("ghcr.io/cloudnative-pg/postgresql:18");
     expect(spec.command?.join("\n")).toContain("pg_dump -h postgres-rw");
-    expect(spec.command?.join("\n")).toContain("-d captive_portal");
+    expect(spec.command?.join("\n")).toContain("-d control_center");
     expect(spec.volumes?.[0]).toMatchObject({
       mountPath: "/backup",
       nfs: { server: NAS, path: "/volume1/Homelab" },
-      subPath: "backups/world-wide-webb/captive-portal/postgres",
+      subPath: "backups/world-wide-webb/control-center/postgres",
     });
     expect(rendered.cronJob.spec.concurrencyPolicy).toBe("Forbid");
     expect(rendered.cronJob.spec.jobTemplate.spec.template.spec.restartPolicy).toBe("Never");

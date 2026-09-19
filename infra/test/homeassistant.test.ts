@@ -117,7 +117,7 @@ describe("installHomeAssistant (Task 4, §0.1-§0.4, talos-only)", () => {
     }>(res.workload.deployment, "spec");
     expect(spec.template.spec.hostNetwork).toBe(true);
     expect(spec.template.spec.dnsPolicy).toBe("ClusterFirstWithHostNet");
-    // HA needs no GPU: the earlier gpu:1 + `nvidia` RuntimeClass were a Plex
+    // HA needs no GPU: the earlier gpu:1 + `nvidia` RuntimeClass were a
     // copy-paste that left the pod Pending on the (deferred) device plugin.
     expect(spec.template.spec.runtimeClassName).toBeUndefined();
     expect(spec.template.spec.containers[0].resources.limits?.["nvidia.com/gpu"]).toBeUndefined();

@@ -7,7 +7,7 @@
 // CI deploy: SOPS_AGE_KEY injected from AGE_PRIVATE_KEY GitHub secret.
 
 import * as pulumi from "@pulumi/pulumi";
-import { installCertManager, issuePortalCertificate } from "./src/certmanager.ts";
+import { installCertManager } from "./src/certmanager.ts";
 import { makeCluster } from "./src/cluster.ts";
 import { installCnpg } from "./src/cnpg.ts";
 import { deployCrons } from "./src/crons.ts";
@@ -17,7 +17,6 @@ import { installHomeAssistant } from "./src/homeassistant.ts";
 import { installLvmLocalPv } from "./src/lvm-localpv.ts";
 import { installMetallb } from "./src/metallb.ts";
 import { installMetricsServer } from "./src/metrics-server.ts";
-import { installNvidiaDevicePlugin, installNvidiaRuntimeClass } from "./src/nvidia.ts";
 import { installObservability } from "./src/observability/index.ts";
 import {
   deployServices,
@@ -64,30 +63,13 @@ installMetricsServer({
   version: "v0.8.0",
 });
 
-// cert-manager + CF DNS-01 ClusterIssuer (www-j934.5). No longer issues a
-// Certificate directly (SDD track 0, Task 6 removed the app-namespace copy
-// along with the captive-portal namespace); issuePortalCertificate() below is
-// now the only source of a portal TLS Certificate.
-const certManager = installCertManager({
+// cert-manager + CF DNS-01 ClusterIssuer (www-j934.5). Installs the issuer
+// only; nothing in this stack requests a Certificate from it today.
+installCertManager({
   provider: cluster.provider,
   acmeEmail: cfg.get("acmeEmail"),
   version: "v1.20.2",
   vault,
-});
-
-// The portal Certificate, in control-center (Task 4 step B, SDD track 0): the
-// guest listener that carries live LAN guest traffic lives in the
-// control-center-api workload, and a k8s Secret mount is always
-// namespace-local to the pod. This was deliberately ADDITIVE alongside the
-// original captive-portal-namespace Certificate during the Task 4 cutover
-// (so cert-issuance latency never landed inside the atomic port swap); Task 6
-// deleted that original Certificate + its namespace once the cutover was
-// live-verified, leaving this as the sole portal Certificate.
-const controlCenterGuestCert = issuePortalCertificate({
-  provider: cluster.provider,
-  namespace: namespaces["control-center"],
-  issuer: certManager.issuer,
-  resourceName: "control-center-guest-tls",
 });
 
 // App workloads (www-j934.6). The media pipeline runs inside the always-on
@@ -164,24 +146,20 @@ const crons = deployCrons({
   nasNfsServer,
 });
 
-// Task 4 (Talos migration): local-path-provisioner, MetalLB, the `nvidia`
-// RuntimeClass, and the Home Assistant workload + its dedicated CNPG cluster
+// Task 4 (Talos migration): local-path-provisioner, MetalLB, and the Home
+// Assistant workload + its dedicated CNPG cluster
 // + backup crons. ALL gated behind `target.substrate === "talos"` , on
 // "orbstack" (the default, and every stack today) this whole block does not
 // run, so the mini's live deploy adds ZERO new resources from this task.
 // Talos node context IS the k3s "orbstack" equivalent here: the mini needs
 // neither a storage provisioner (OrbStack ships one) nor a LoadBalancer
-// implementation (OrbStack's expose_services), and has no GPU passthrough.
+// implementation (OrbStack's expose_services).
 if (target.substrate === "talos") {
   // Enforced local storage (ADR-0009): OpenEBS LocalPV-LVM replaces
   // local-path-provisioner. `local-lvm` is the cluster's only/default
   // StorageClass; PVC sizes are real LVM reservations in VG `storage`.
   installLvmLocalPv({ provider: cluster.provider });
   installMetallb({ provider: cluster.provider, version: "v0.14.9" });
-  installNvidiaRuntimeClass({ provider: cluster.provider });
-  // The device plugin advertises nvidia.com/gpu so GPU workloads (Plex) can be
-  // scheduled; needs the nvidia kernel modules (infra/talos machine.kernel).
-  installNvidiaDevicePlugin({ provider: cluster.provider });
   // Observability (#33): Prometheus/Grafana/Loki, hand-written — no Helm, no
   // operator, no CRDs (ADR #207). Grafana is reached ONLY
   // through the Cloudflare tunnel; nothing here takes a LoadBalancer address.
@@ -206,7 +184,6 @@ export const namespaceNames = Object.fromEntries(
 export const appNamespaceName = cluster.namespaces["control-center"].metadata.name;
 export const cnpgClusterName = cnpg.cluster.metadata.name;
 export const cnpgClusterNames = cnpg.clusters.map((c) => c.metadata.name);
-export const controlCenterGuestCertName = controlCenterGuestCert.metadata.name;
 export const cnpgAuthSecretNames = cnpg.authSecrets.map((s) => s.metadata.name);
 export const workloadNames = services.workloads.map((w) => w.deployment.metadata.name);
 export const cronJobNames = crons.jobs.map((j) => j.cronJob.metadata.name);

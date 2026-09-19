@@ -152,29 +152,4 @@ describe("installCertManager", () => {
     expect(spec.acme.email).toBeUndefined();
   });
 
-  // Regression (SDD track 0, Task 6): installCertManager() used to also issue
-  // the portal Certificate directly, in the (now-deleted) captive-portal
-  // namespace. issuePortalCertificate() is now the only source of a portal
-  // Certificate; this pins that it still covers the captive-portal LAN host,
-  // reusing the shared issuer installCertManager() returns. (The abandoned
-  // app--cp SAN was dropped in Task 7 Step C.)
-  test("issuePortalCertificate covers the captive-portal LAN host", async () => {
-    const cmRes = cm.installCertManager({
-      provider: provider(),
-      version: "v1.20.2",
-      vault: { CLOUDFLARE_API__CREDENTIAL: "test-token" },
-    });
-    const certificate = cm.issuePortalCertificate({
-      provider: provider(),
-      namespace: "control-center",
-      issuer: cmRes.issuer,
-      resourceName: "control-center-guest-tls",
-    });
-    const meta = await get<{ namespace: string }>(certificate, "metadata");
-    const spec = await get<{ dnsNames: string[]; secretName: string }>(certificate, "spec");
-    expect(meta.namespace).toBe("control-center");
-    expect(spec.dnsNames).toEqual(["captive-portal.worldwidewebb.co"]);
-    expect(spec.dnsNames).not.toContain("app--cp.worldwidewebb.co");
-    expect(spec.secretName).toBe("captive-portal-tls");
-  });
 });

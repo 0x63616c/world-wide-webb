@@ -10,16 +10,10 @@ import type { ProductSlug } from "@www/platform";
 
 export const CLOUDFLARE_NAMESPACE = "cloudflare";
 
-// "captive-portal" EXCLUDED (SDD track 0, Task 6): its namespace + CNPG
-// clusters + pg-backup CronJob are torn down here. Its @www/platform identity
-// (productSlugs, captivePortalProductManifest) deliberately survives a while
-// longer (pruned in the later platform-cleanup task, 7+8), so ProductSlug
-// itself still includes it , this Exclude is what actually stops a
-// "captive-portal" k8s Namespace from being created again.
-//
-// Software Factory is included because its product-owned CNPG Cluster and
-// backup CronJob need the shared namespace map. Captive Portal remains absent:
-// its namespace and database were intentionally retired.
+// "captive-portal" EXCLUDED: its namespace + CNPG clusters + pg-backup CronJob
+// were torn down. Its @www/platform identity (productSlugs) may still list it,
+// so this Exclude is what actually stops a "captive-portal" k8s Namespace from
+// being created again.
 export type InfraNamespaceName =
   | Exclude<ProductSlug, "captive-portal">
   | typeof CLOUDFLARE_NAMESPACE;
@@ -54,11 +48,9 @@ const K8S_PLUGIN_VERSION = "4.21.0";
 
 export function makeCluster(context: string = DEFAULT_CONTEXT): ClusterResources {
   const provider = new k8s.Provider("orbstack", { context }, { version: K8S_PLUGIN_VERSION });
-  // Namespaces actually created (SDD track 0, Task 6 removed captive-portal's
-  // namespace). Hardcoded rather than derived from productSlugs because
-  // productSlugs still lists captive-portal (see the InfraNamespaceName
-  // comment above); once Task 7+8 prunes it from @www/platform, this goes
-  // back to `[...productSlugs, CLOUDFLARE_NAMESPACE]`.
+  // Namespaces actually created. Hardcoded rather than derived from
+  // productSlugs because productSlugs may still list captive-portal (see the
+  // InfraNamespaceName comment above).
   const namespaceNames = [
     "control-center",
     CLOUDFLARE_NAMESPACE,

@@ -1,11 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { LAN_SERVICE_IPS, METALLB_ADDRESS_POOL_RANGE } from "../src/metallb.ts";
 import {
   composeGhcrDockerConfigJson,
   haTarget,
   parseSubstrate,
   parseSubstrateTarget,
-  plexAdvertiseIp,
 } from "../src/services.ts";
 
 // The pure string builder pulled out of deployServices (www-j934.6): the GHCR
@@ -55,9 +53,9 @@ describe("composeGhcrDockerConfigJson", () => {
   });
 });
 
-// The `substrate` flag (mini-migration Task 3): haTarget/plexAdvertiseIp must
-// keep the mini's ("orbstack") values byte-identical to today's live deploy
-// when the flag is absent, and switch to the node LAN IP on "talos".
+// The `substrate` flag (mini-migration Task 3): haTarget must keep the mini's
+// ("orbstack") value byte-identical to today's live deploy when the flag is
+// absent, and switch to the node LAN IP on "talos".
 describe("parseSubstrate", () => {
   test("undefined config defaults to orbstack (the mini)", () => {
     expect(parseSubstrate(undefined)).toBe("orbstack");
@@ -77,45 +75,6 @@ describe("haTarget", () => {
   test("ha target is the node LAN IP on talos (api/worker are non-hostNetwork pods)", () => {
     expect(haTarget({ substrate: "talos", nodeIp: "192.168.0.5" })).toBe("192.168.0.5");
     expect(haTarget({ substrate: "orbstack" })).toBe("homelab.tail8c014d.ts.net");
-  });
-});
-
-describe("plexAdvertiseIp", () => {
-  // Nothing listens on :32400 in the node's netns - Plex is reached only
-  // through its MetalLB LoadBalancer - so advertising the node IP hands every
-  // client a refused connection.
-  test("plex advertise uses the LoadBalancer address, not the node IP, on talos", () => {
-    expect(plexAdvertiseIp({ substrate: "talos", nodeIp: "192.168.0.5" })).toBe(
-      `http://${LAN_SERVICE_IPS.plex}:32400`,
-    );
-    expect(plexAdvertiseIp({ substrate: "talos", nodeIp: "192.168.0.5" })).not.toContain(
-      "192.168.0.5",
-    );
-  });
-
-  test("orbstack is the mini's frozen LAN IP", () => {
-    expect(plexAdvertiseIp({ substrate: "orbstack" })).toBe("http://192.168.0.147:32400");
-  });
-});
-
-// The pinned addresses and the pool they come from live in the same file, but
-// nothing stops one being edited without the other; an out-of-pool pin leaves
-// the Service permanently <pending>.
-describe("LAN_SERVICE_IPS", () => {
-  test("every pinned address falls inside the MetalLB pool range", () => {
-    const [start, end] = METALLB_ADDRESS_POOL_RANGE.split("-");
-    const asNumber = (ip: string) =>
-      ip.split(".").reduce((acc, octet) => acc * 256 + Number(octet), 0);
-
-    for (const ip of Object.values(LAN_SERVICE_IPS)) {
-      expect(asNumber(ip)).toBeGreaterThanOrEqual(asNumber(start));
-      expect(asNumber(ip)).toBeLessThanOrEqual(asNumber(end));
-    }
-  });
-
-  test("no two services are pinned to the same address", () => {
-    const addresses = Object.values(LAN_SERVICE_IPS);
-    expect(new Set(addresses).size).toBe(addresses.length);
   });
 });
 

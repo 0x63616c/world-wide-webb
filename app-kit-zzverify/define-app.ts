@@ -1,0 +1,43 @@
+import type { ComponentType } from "react";
+
+export const APP_BRAND = Symbol.for("app-kit.app");
+
+export interface TileSpec {
+  /** The TILE id (e.g. "tile_weath"). Distinct from the owning App id; a
+   *  multi-tile App's tiles each carry their own. The board, board_tile_placement
+   *  rows, placeholder-tiles bento, and minimap all key on this. */
+  id: string;
+  label: string;
+  component: ComponentType;
+  // Matches the generated web registry field (an identity-only slot: the full-screen
+  // view is looked up by identity, never rendered generically), so it is typed
+  // ComponentType<never> — which accepts a prop-taking view like a status tile.
+  viewComponent?: ComponentType<never>;
+  worldCol: number;
+  worldRow: number;
+  cols: number;
+  rows: number;
+  /** The one tile the board opens on and idles back to. Exactly one tile across
+   *  ALL apps sets this (validator-enforced). */
+  home?: boolean;
+}
+export interface AppManifest {
+  /** The APP / domain id: owns the router-key namespace, its table(s), the
+   *  guestExposed allowlist match, and the feature folder. For a single-tile App
+   *  this equals its one tile's id. */
+  id: string;
+  tiles: TileSpec[];
+  guestExposed?: boolean;
+  /** Require the shared Panel PIN Session before any Tile View mounts.
+   * Mutually exclusive with `private`. Client-only by ADR-0004; this does not
+   * gate direct API calls. */
+  sensitive?: boolean;
+  /** Require a fresh client-side PIN for every App opening, independent of
+   * session unlock. Mutually exclusive with `sensitive`. */
+  private?: boolean;
+}
+
+/** Brand + pass-through. The manifest is authored inline; codegen collects it. */
+export function defineApp(m: AppManifest): AppManifest {
+  return Object.assign(Object.create(null), m, { [APP_BRAND]: true }) as AppManifest;
+}

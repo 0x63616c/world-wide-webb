@@ -96,7 +96,6 @@ describe("serviceSpecs image digest pinning", () => {
     // serviceSpecs renders control-center's workloads and nothing else.
     // Requiring another product's pins here would let a broken build
     // block the house's own deploy — two products coupled by nothing but a
-    // shared registry. software-factory.ts asserts its own.
     expect(() =>
       serviceSpecs({
         cloudflaredReplicas: 2,

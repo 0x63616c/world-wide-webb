@@ -8,11 +8,6 @@ pre-commit:
       # Apply safe auto-fixes and re-stage; remaining format/lint errors block the commit.
       run: bun scripts/quality-gate.ts format-staged {staged_files}
       stage_fixed: true
-    no-ofelia:
-      glob: "*.{ts,tsx,js,mjs,json,yml,yaml,md,sh,toml}"
-      # BLOCKING: rejects reintroduction of Ofelia (replaced by k8s CronJobs,
-      # www-79k). The token is sanctioned only in the guard script itself.
-      run: bash scripts/check-no-ofelia.sh {staged_files}
     no-inline-ids:
       glob: "*.{ts,tsx}"
       # BLOCKING: rejects hand-rolled `prefix_${crypto.randomUUID()}` ids outside

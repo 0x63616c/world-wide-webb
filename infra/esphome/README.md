@@ -77,11 +77,9 @@ The config uses `!secret wifi_ssid` / `!secret wifi_password`, which ESPHome
 reads from a `secrets.yaml` **next to the config**. That file is deliberately not
 committed.
 
-The device is on the main SSID `world-wide-webb`. Note that the SOPS vault
-carries only `WIFI_MAIN_CREDENTIALS__SSID` — the main network's *password* is not
-in it (`WIFI_PASSWORD` derives from `WIFI_GUEST_WIFI_PASSWORD`, the guest
-network). So the main password must come from 1Password, which needs to be
-unlocked.
+The device is on the main SSID `world-wide-webb`. The SOPS vault carries only
+`WIFI_MAIN_CREDENTIALS__SSID`; the main network's *password* is not in it, so it
+must come from 1Password, which needs to be unlocked.
 
 Write a throwaway `secrets.yaml` outside the repo, run the flash from there, and
 delete it afterwards.

@@ -14,10 +14,5 @@ export SOPS_AGE_KEY
 extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
 
 printf 'HA_TOKEN=%s\n'           "$(extract HOME_ASSISTANT_TOKEN__CREDENTIAL)"
-printf 'UNIFI_API_KEY=%s\n'      "$(extract UNIFI__LOCAL_API_KEY)"
-printf 'WIFI_SSID=%s\n'          "$(extract WIFI_GUEST_CREDENTIALS__SSID)"
-printf 'WIFI_PASSWORD=%s\n'      "$(extract WIFI_GUEST_CREDENTIALS__PASSWORD)"
 printf 'HOME_LAT=%s\n'           "$(extract HOME_LOCATION__LAT)"
 printf 'HOME_LON=%s\n'           "$(extract HOME_LOCATION__LON)"
-printf 'HOME_PLACE_NAME=%s\n'    "$(extract HOME_LOCATION__PLACE_NAME)"
-printf 'HOME_RADIUS_MILES=%s\n'  "$(extract HOME_LOCATION__RADIUS_MILES)"

@@ -21,23 +21,14 @@ import type { InfraNamespaceName } from "./cluster.ts";
 export type ServiceSecrets = Record<string, string>;
 
 // The infra/eso service keys mapped to their platform manifest usage. The
-// control-center usage names are 1:1 with the infra keys.
-// web / storybook / captive-portal(app) have NO secrets and are absent on
-// purpose. The captive-portal-api eso service key was REMOVED (Task 4 step C,
-// SDD track 0): its workload (services.ts) was deleted once the guest
-// listener cutover moved all guest traffic onto control-center-api, so its
-// vault-derived Secret ("captive-portal-secrets-api") is now unused , this
-// next apply deletes it (a Secret holding credentials, not user data). The
-// captive-portal CNPG database + namespace were later torn down entirely in
-// Task 6 (its one live row was copied into control_center + a final pg_dump
-// taken first).
+// control-center usage names are 1:1 with the infra keys. web / manage have NO
+// secrets and are absent on purpose.
 const controlCenterUsages = controlCenterServiceSecretUsages();
 
 const serviceSecretUsages = {
   api: controlCenterUsages.api,
   worker: controlCenterUsages.worker,
   cloudflared: controlCenterUsages.cloudflared,
-  "portal-data-purge": controlCenterUsages["portal-data-purge"],
 } as const satisfies Record<string, ServiceSecretUsage>;
 
 /**
@@ -57,11 +48,9 @@ export type ServiceSecretTarget = Readonly<{
 }>;
 
 function targetOf(usage: ServiceSecretUsage): ServiceSecretTarget {
-  // usage.namespaceName is platform-typed broadly (still allows
-  // "captive-portal", kept alive in @www/platform until Task 7+8), but every
-  // usage actually wired below (serviceSecretUsages, all control-center) is
-  // control-center-scoped; InfraNamespaceName excludes "captive-portal" post
-  // Task 6 (its namespace is gone).
+  // usage.namespaceName is platform-typed broadly (it may still allow
+  // "captive-portal"), but every usage wired below is control-center-scoped;
+  // InfraNamespaceName excludes "captive-portal" (its namespace is gone).
   return {
     namespaceName: usage.namespaceName as InfraNamespaceName,
     secretName: usage.targetSecretName,
@@ -76,5 +65,4 @@ export const SERVICE_SECRET_TARGETS = {
   api: targetOf(serviceSecretUsages.api),
   worker: targetOf(serviceSecretUsages.worker),
   cloudflared: targetOf(serviceSecretUsages.cloudflared),
-  "portal-data-purge": targetOf(serviceSecretUsages["portal-data-purge"]),
 } as const satisfies Record<ServiceSecretName, ServiceSecretTarget>;

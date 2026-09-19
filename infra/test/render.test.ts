@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { WorkloadSpec } from "../src/component.ts";
 import { renderExternalService, renderWorkload } from "../src/component.ts";
-import { LAN_SERVICE_IPS } from "../src/metallb.ts";
 import { serviceSpecs } from "../src/services.ts";
 
 // The mapping layer is pure: a WorkloadSpec -> the kubernetes resource ARG
@@ -65,16 +64,16 @@ describe("renderWorkload", () => {
   });
 
   test("expose:lan yields a LoadBalancer Service (OrbStack LAN expose, §5a)", () => {
-    const portal: WorkloadSpec = {
-      name: "captive-portal",
-      image: "ghcr.io/0x63616c/www-captive-portal-portal:main",
+    const lanApp: WorkloadSpec = {
+      name: "lan-app",
+      image: "ghcr.io/0x63616c/www-control-center-api:main",
       replicas: 1,
       ports: [
         { containerPort: 443, expose: "lan" },
         { containerPort: 80, expose: "lan" },
       ],
     };
-    const r = renderWorkload(portal);
+    const r = renderWorkload(lanApp);
     expect(r.services).toHaveLength(1);
     expect(r.services[0].spec.type).toBe("LoadBalancer");
     const ports = r.services[0].spec.ports
@@ -84,14 +83,14 @@ describe("renderWorkload", () => {
   });
 
   test("loadBalancerIp pins the LoadBalancer address", () => {
-    const plex: WorkloadSpec = {
-      name: "plex",
-      image: "plexinc/pms-docker:1.43.2.10687-563d026ea",
+    const lanApp: WorkloadSpec = {
+      name: "lan-app",
+      image: "ghcr.io/0x63616c/www-control-center-api:main",
       replicas: 1,
-      ports: [{ containerPort: 32400, expose: "lan" }],
+      ports: [{ containerPort: 8443, expose: "lan" }],
       loadBalancerIp: "192.168.0.4",
     };
-    expect(renderWorkload(plex).services[0].spec.loadBalancerIP).toBe("192.168.0.4");
+    expect(renderWorkload(lanApp).services[0].spec.loadBalancerIP).toBe("192.168.0.4");
   });
 
   test("loadBalancerIp is dropped on a ClusterIP Service (the field is invalid there)", () => {
@@ -167,34 +166,34 @@ describe("renderWorkload: www-j934.6 extensions", () => {
     expect(r.deployment.spec.template.spec.imagePullSecrets).toBeUndefined();
   });
 
-  test("extraSecretMounts mount a secret as files at their own path (portal TLS)", () => {
-    const portal: WorkloadSpec = {
-      name: "captive-portal",
-      image: "ghcr.io/0x63616c/www-captive-portal-portal:main",
+  test("extraSecretMounts mount a secret as files at their own path (TLS)", () => {
+    const tlsApp: WorkloadSpec = {
+      name: "tls-app",
+      image: "ghcr.io/0x63616c/www-control-center-api:main",
       replicas: 1,
       resources: { memory: "64M" },
-      extraSecretMounts: [{ secretName: "captive-portal-tls", mountPath: "/etc/tls" }],
+      extraSecretMounts: [{ secretName: "app-tls", mountPath: "/etc/tls" }],
       ports: [{ containerPort: 443, expose: "lan" }],
     };
-    const r = renderWorkload(portal);
+    const r = renderWorkload(tlsApp);
     const mount = r.deployment.spec.template.spec.containers[0].volumeMounts.find(
       (m) => m.mountPath === "/etc/tls",
     );
     expect(mount).toBeDefined();
     expect(mount?.readOnly).toBe(true);
     const vol = r.deployment.spec.template.spec.volumes.find((v) => v.name === mount?.name);
-    expect(vol?.secret?.secretName).toBe("captive-portal-tls");
+    expect(vol?.secret?.secretName).toBe("app-tls");
   });
 
   test("extraSecretMounts items rename keys to file paths (cert-manager tls.crt -> fullchain.pem)", () => {
-    const portal: WorkloadSpec = {
-      name: "captive-portal",
-      image: "ghcr.io/0x63616c/www-captive-portal-portal:main",
+    const tlsApp: WorkloadSpec = {
+      name: "tls-app",
+      image: "ghcr.io/0x63616c/www-control-center-api:main",
       replicas: 1,
       resources: { memory: "64M" },
       extraSecretMounts: [
         {
-          secretName: "captive-portal-tls",
+          secretName: "app-tls",
           mountPath: "/certs",
           items: [
             { key: "tls.crt", path: "fullchain.pem" },
@@ -204,7 +203,7 @@ describe("renderWorkload: www-j934.6 extensions", () => {
       ],
       ports: [{ containerPort: 443, expose: "lan" }],
     };
-    const r = renderWorkload(portal);
+    const r = renderWorkload(tlsApp);
     const mount = r.deployment.spec.template.spec.containers[0].volumeMounts.find(
       (m) => m.mountPath === "/certs",
     );
@@ -283,10 +282,11 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
     expect(specOf(serviceSpecs(baseOpts), "media-worker")).toBeUndefined();
   });
 
-  test("captive-portal-portal/captive-portal-api are no longer declared workloads (Task 4 step C, SDD track 0)", () => {
-    const logicalNames = serviceSpecs(baseOpts).map((spec) => spec.logicalName);
-    expect(logicalNames).not.toContain("captive-portal-portal");
-    expect(logicalNames).not.toContain("captive-portal-api");
+  test("retired workloads stay undeclared (captive portal, plex, storybook)", () => {
+    const names = serviceSpecs(baseOpts).map((spec) => spec.name);
+    expect(names).not.toContain("captive-portal");
+    expect(names).not.toContain("plex");
+    expect(names).not.toContain("storybook");
   });
 
   test("cloudflared replicas come from the cloudflaredReplicas knob (0 pre-cutover, 2 HA)", () => {
@@ -448,77 +448,9 @@ describe("renderWorkload: rollout strategy for ReadWriteOnce claims", () => {
   });
 });
 
-// Task 4 (Talos migration): Plex's GPU/RuntimeClass wiring is talos-only. The
-// load-bearing safety property , an untouched ("orbstack") apply renders
-// Plex's spec BYTE-IDENTICAL to before this task , is asserted directly here.
-describe("serviceSpecs: Plex GPU transcode is talos-only (Task 4)", () => {
-  const baseOpts = {
-    cloudflaredReplicas: 2,
-    nasNfsServer: "192.168.0.218",
-  };
-  const plexOf = (opts: Parameters<typeof serviceSpecs>[0]) =>
-    serviceSpecs(opts).find((s) => s.name === "plex");
-
-  test("orbstack (default, no target passed): no gpu limit, no runtimeClassName", () => {
-    const plex = plexOf(baseOpts);
-    expect(plex?.resources?.gpu).toBeUndefined();
-    expect(plex?.runtimeClassName).toBeUndefined();
-  });
-
-  test("orbstack (explicit target): identical to the default", () => {
-    const plex = plexOf({ ...baseOpts, target: { substrate: "orbstack" } });
-    expect(plex?.resources?.gpu).toBeUndefined();
-    expect(plex?.runtimeClassName).toBeUndefined();
-  });
-
-  test("talos: gpu:1 limit + the nvidia RuntimeClass", () => {
-    const plex = plexOf({
-      ...baseOpts,
-      target: { substrate: "talos", nodeIp: "192.168.0.5" },
-    });
-    expect(plex?.resources?.gpu).toBe(1);
-    expect(plex?.runtimeClassName).toBe("nvidia");
-  });
-
-  test("talos: 1 replica with pulumi.com/skipAwait (async GPU scheduling), 1 on orbstack", () => {
-    // Plex runs 1 replica on the GPU now. skipAwait keeps the deploy from racing
-    // its own device-plugin-advertised GPU capacity on a cold apply; orbstack
-    // has neither the annotation nor the GPU.
-    const talos = plexOf({ ...baseOpts, target: { substrate: "talos", nodeIp: "192.168.0.5" } });
-    expect(talos?.replicas).toBe(1);
-    expect(talos?.annotations?.["pulumi.com/skipAwait"]).toBe("true");
-    const orbstack = plexOf({ ...baseOpts, target: { substrate: "orbstack" } });
-    expect(orbstack?.replicas).toBe(1);
-    expect(orbstack?.annotations).toBeUndefined();
-  });
-
-  test("talos ADVERTISE_IP matches the pinned LoadBalancer address on the same workload", () => {
-    // The advertised URL and the Service address are two independent
-    // declarations of the same fact; if they drift, Plex is healthy and
-    // unreachable at once. Assert them against each other, not against a
-    // literal that would be updated in lockstep with the bug.
-    const plex = plexOf({
-      ...baseOpts,
-      target: { substrate: "talos", nodeIp: "192.168.0.5" },
-    });
-    expect(plex?.loadBalancerIp).toBe(LAN_SERVICE_IPS.plex);
-    expect(plex?.env?.ADVERTISE_IP).toBe(`http://${plex?.loadBalancerIp}:32400`);
-    // The node IP is NOT a listener for :32400 - it was the old, broken value.
-    expect(plex?.env?.ADVERTISE_IP).not.toContain("192.168.0.5");
-  });
-
-  test("orbstack pins no LoadBalancer address (OrbStack has no MetalLB pool)", () => {
-    expect(plexOf(baseOpts)?.loadBalancerIp).toBeUndefined();
-  });
-
-  test("orbstack ADVERTISE_IP is still the mini's frozen LAN IP", () => {
-    expect(plexOf(baseOpts)?.env?.ADVERTISE_IP).toBe("http://192.168.0.147:32400");
-  });
-});
-
 // Task 4: component.ts's new optional WorkloadSpec fields (hostNetwork,
 // dnsPolicy, runtimeClassName, resources.gpu) are additive , absent by
-// default, so every EXISTING workload (api/worker/web/plex-on-orbstack/etc.)
+// default, so every EXISTING workload (api/worker/web/manage)
 // renders with none of these keys present at all (not merely `undefined`
 // values leaking into the k8s object).
 describe("renderWorkload: Task 4's GPU/hostNetwork fields are opt-in", () => {
