@@ -14,8 +14,6 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/manage/package.json apps/manage/
 COPY apps/worker/package.json apps/worker/
-COPY apps/map-provision/package.json apps/map-provision/
-COPY apps/storybook/package.json apps/storybook/
 COPY packages/api/package.json packages/api/
 COPY packages/core/package.json packages/core/
 COPY packages/logger/package.json packages/logger/
@@ -26,18 +24,11 @@ COPY packages/worker-runtime/package.json packages/worker-runtime/
 # bun install needs their manifests in the build context (www-272b).
 COPY infra/package.json infra/
 COPY infra/cloudflare/package.json infra/cloudflare/
-COPY infra/unifi/package.json infra/unifi/
 
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
 RUN bun install --frozen-lockfile --ignore-scripts
 
 COPY apps/api apps/api
-# The guest (captive-portal) SPA bundle (Task 4, SDD track 0): the api image
-# serves it from GUEST_STATIC_DIR via the guest listener (ADR-0006), so the
-# built dist-portal/ output has to be baked in here, not just the web image.
-# Needs the web product's full source + tsconfig (vite.portal.config.ts,
-# portal.html, src/portal/) to build.
-COPY apps/web apps/web
 COPY tsconfig.json tsconfig.json
 COPY packages packages
 # C7 authoring surface: api mounts feature routers + schema from the folder tree.
@@ -51,10 +42,6 @@ COPY features features
 # apps:gen codegen's `@/*` resolution isn't shadowed). apps/api/tsconfig.json
 # carries `@features`, so build from there. Mirrors `apps:gen`'s `cd apps/web`.
 RUN cd apps/api && bun build src/server.ts --target=bun --outfile ../../dist/server.js
-
-# Guest SPA bundle -> apps/web/dist-portal/, COPYd into the
-# runtime image below at /app/portal-dist (GUEST_STATIC_DIR).
-RUN bun run --cwd apps/web build:portal
 
 # The worker is a SEPARATE app + image now (worker, control-center-worker),
 # no longer bundled here (www-xjba). The api ships server.js only.
@@ -76,8 +63,6 @@ COPY --from=build /app/dist/server.js server.js
 # Migrations resolve relative to the bundle's own location (import.meta.url),
 # i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.
 COPY --from=build /app/apps/api/src/db/migrations migrations
-# Guest SPA bundle; GUEST_STATIC_DIR is set to this path in the k8s WorkloadSpec.
-COPY --from=build /app/apps/web/dist-portal portal-dist
 
 EXPOSE 4201
 

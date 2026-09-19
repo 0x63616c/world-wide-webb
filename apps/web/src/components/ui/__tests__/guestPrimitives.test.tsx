@@ -1,8 +1,6 @@
 /**
- * Ported from products/captive-portal/apps/frontend/src/components/primitives.test.tsx
- * and Field.reflow.test.tsx , coverage for the four shared ui primitives added
- * for the guest bundle (Button, Alert, Field, CheckboxRow). Restyled onto cc
- * tokens; behavior + aria wiring ported verbatim.
+ * Coverage for the four shared dumb presentational ui primitives
+ * (Button, Alert, Field, CheckboxRow): behavior + aria wiring.
  */
 
 import "@testing-library/jest-dom";

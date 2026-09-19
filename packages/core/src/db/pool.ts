@@ -14,7 +14,7 @@ export function createPool(url: string): Pool {
 // pg_stat_activity sitting around 20 as a baseline (other sessions
 // included). control_center's Postgres is dedicated to this namespace's own
 // processes (api, web, worker) per infra/src/cnpg.ts — no cross-product
-// sharing since captive-portal's DB was torn down. 10 is node-postgres's own
+// sharing; this repo is single-product. 10 is node-postgres's own
 // library default; even at 5x today's process count (api + worker + web,
 // each holding exactly one pool post-createFeatureDb-fold instead of the ~13
 // independent pools features/*/db.ts used to create), that's 5 x 10 = 50,

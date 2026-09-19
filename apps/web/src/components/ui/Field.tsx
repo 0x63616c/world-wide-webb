@@ -4,8 +4,7 @@
  * form control with a label + optional leading icon + an error-message slot.
  * The label row always reserves its height (the error slot is always present,
  * `role=alert` only when populated) so toggling an error never reflows the
- * control below it. Ported from the captive-portal guest primitives, restyled
- * onto cc tokens.
+ * control below it.
  */
 
 import type { ReactNode } from "react";

@@ -11,9 +11,9 @@
 // (L1: not threaded through cluster.ts's closed InfraNamespaceName map, same
 // pattern as lvm-localpv.ts/homeassistant.ts).
 //
-// TALOS-ONLY: never installed on "orbstack" (the mini's LoadBalancers are
-// already satisfied by OrbStack itself; MetalLB would double-advertise the
-// same addresses). Gated in program.ts behind `substrate === "talos"`.
+// TALOS-ONLY: never installed on "orbstack" (its LoadBalancers are already
+// satisfied by OrbStack itself; MetalLB would double-advertise the same
+// addresses). Gated in program.ts behind `substrate === "talos"`.
 
 import * as k8s from "@pulumi/kubernetes";
 

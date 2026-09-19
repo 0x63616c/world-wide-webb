@@ -1,6 +1,6 @@
 // crypto.randomUUID is present in every real runtime this repo ships to
-// (browser webview, Bun, Node), but not always in test doubles (older jsdom,
-// Storybook). getRandomValues is far more widely implemented, so it is the
+// (browser webview, Bun, Node), but not always in test doubles (older jsdom).
+// getRandomValues is far more widely implemented, so it is the
 // fallback — not Math.random, which CodeQL (rightly) flags as insecure
 // randomness for anything id-shaped.
 function randomHex(length: number): string {
@@ -93,9 +93,9 @@ export type HomelabTarget = Readonly<{
     exportPath: "/volume1/Homelab";
     backupRootParts: readonly ["backups", "world-wide-webb"];
   }>;
-  // Inlined (was the separately-exported TargetCapabilities type, ADR-0006):
-  // homelab is the only implemented target, so a named plurality type here had
-  // exactly one member and 0 external consumers.
+  // Inlined (was the separately-exported TargetCapabilities type): homelab is
+  // the only implemented target, so a named plurality type here had exactly
+  // one member and 0 external consumers.
   capabilities: Readonly<{
     certManager: boolean;
     cloudflareTunnel: boolean;
@@ -141,8 +141,8 @@ export function defineTarget(name: ImplementedTargetName): HomelabTarget {
 // one coverage model: the exact single host. (The old `product-wildcard` mode
 // built a 2-label `*.cc.worldwidewebb.co` wildcard that only paid ACM could
 // issue; it was removed with ACM, www-kbiy.) Inlined below (was the
-// separately-exported TlsCoverage/ExactHostTlsCoverage types, ADR-0006): a
-// plurality type with exactly one member and 0 external consumers.
+// separately-exported TlsCoverage/ExactHostTlsCoverage types): a plurality
+// type with exactly one member and 0 external consumers.
 export type WebTlsRequirement = Readonly<{
   required: true;
   coverage: Readonly<{
@@ -165,12 +165,14 @@ export type WebExposure =
       cloudflareAccess: true;
     }>
   | Readonly<{
-      // A host GitHub (or any other third party) must be able to POST to from
-      // the public internet, so it is deliberately NOT Access-gated. There is
-      // exactly one today, the webhook receiver, and its OWN auth is an HMAC
-      // over the request body — Cloudflare is not the boundary. Never reach for
-      // this to "make a page easier to load"; private-web is the default and
-      // this kind is a security decision each time.
+      // A host a third party must be able to POST to from the public internet,
+      // so it is deliberately NOT Access-gated — the service behind it owns its
+      // own auth (e.g. an HMAC over the request body); Cloudflare is not the
+      // boundary. No current manifest entry uses this kind (the one past
+      // consumer, an inbound webhook receiver, was deleted by The
+      // Simplification), but the variant and its test coverage stay: never
+      // reach for this to "make a page easier to load", and adding a real
+      // public host is a security decision each time, not a default.
       kind: "public-web";
       policy: "public";
       target: ImplementedTargetName;
@@ -353,10 +355,10 @@ export function controlCenterServiceSecretUsages(): Record<
   const controlCenter = defineProduct("control-center");
   // api and worker declare the EXACT SAME secret set today (pinned by
   // secrets.test.ts's "api and worker declare the exact same secret set"
-  // test, ADR-0006): both were hand-kept as two ~25-line lockstep blocks that
-  // never actually diverged, so a single shared base replaces them. If a
-  // future secret is api-only or worker-only, spread this base and add the
-  // delta key(s) on the specific service's object instead of both.
+  // test): both were hand-kept as two ~25-line lockstep blocks that never
+  // actually diverged, so a single shared base replaces them. If a future
+  // secret is api-only or worker-only, spread this base and add the delta
+  // key(s) on the specific service's object instead of both.
   const apiWorkerSharedSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
     POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
@@ -485,7 +487,7 @@ export type DatabaseBackup = Readonly<{
   nasSubPath: string;
   filenamePrefix: string;
   // Was the separately-exported `commandFeatures` object (compression/pipefail/
-  // passwordSource always the same 3 literals, 0 external consumers, ADR-0006);
+  // passwordSource always the same 3 literals, 0 external consumers);
   // dateFormat is the only field infra/src/crons.ts actually reads, so it is
   // now a flat field instead of a nested single-shape plurality type.
   dateFormat: "%Y%m%d";
@@ -533,9 +535,9 @@ export type ControlCenterServiceName = "api" | "worker" | "web" | "manage" | "cl
 
 // Was `{ service, workloadName, image, exposure, secretUsage? }`: workloadName
 // and image had 0 external consumers (infra/src/services.ts re-derives both
-// independently via ProductIdentity.serviceName/imageRepository, ADR-0006) and
-// captivePortalProductManifest() (the only other user of the generic
-// ServiceName param) was itself dead, so the type is control-center-only now.
+// independently via ProductIdentity.serviceName/imageRepository) and the
+// generic ServiceName param had no second product left to serve, so the type
+// is control-center-only now.
 export type ProductServiceDeclaration = Readonly<{
   service: ControlCenterServiceName;
   exposure: WebExposure | InternalServiceExposure | null;
@@ -562,24 +564,13 @@ export type ControlCenterProductManifest = Readonly<{
   ha: Readonly<{
     exposure: WebExposure;
   }>;
-  // The two LAN appliances manage frames (ADR-0010): the UniFi controller and
-  // the Synology DSM. Neither is a workload of ours at all — they are boxes on
-  // the LAN — but each gets a tunnel hostname behind Access, and hostnames are
-  // owned here. Their origins are HTTPS with self-signed certs, so the ingress
-  // rules that point at them carry `noTlsVerify` (infra/cloudflare/src/routes.ts):
-  // an iframe cannot click through a certificate warning, so that is required
-  // rather than cosmetic.
-  unifi: Readonly<{
-    exposure: WebExposure;
-  }>;
+  // The Synology DSM: a LAN appliance manage frame (ADR-0010), not a workload
+  // of ours at all — it's a box on the LAN — but it gets a tunnel hostname
+  // behind Access, and hostnames are owned here. Its origin is HTTPS with a
+  // self-signed cert, so the ingress rule that points at it carries
+  // `noTlsVerify` (infra/cloudflare/src/routes.ts): an iframe cannot click
+  // through a certificate warning, so that is required rather than cosmetic.
   dsm: Readonly<{
-    exposure: WebExposure;
-  }>;
-  // The public GitHub webhook host (#126). Served by the webhook relay, but it
-  // is NOT the api's exposure: api stays `internalService` for in-cluster
-  // traffic while the tunnel maps this hostname to the relay.
-  // Owned here because every other public name in this system is owned here.
-  hooks: Readonly<{
     exposure: WebExposure;
   }>;
   services: Readonly<Record<ControlCenterServiceName, ProductServiceDeclaration>>;
@@ -622,16 +613,8 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       // covers it (see webHostname).
       exposure: privateWeb(target, { host: "ha" }),
     },
-    unifi: {
-      exposure: privateWeb(target, { host: "unifi" }),
-    },
     dsm: {
       exposure: privateWeb(target, { host: "dsm" }),
-    },
-    hooks: {
-      // PUBLIC on purpose: GitHub posts here from the internet and would be
-      // 403'd by Access. Auth is the HMAC in features/hooks/service.ts.
-      exposure: publicWeb(target, { host: "hooks" }),
     },
     services: {
       api: {

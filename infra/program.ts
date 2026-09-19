@@ -1,4 +1,4 @@
-// Pulumi program for the control-center k3s cluster stack (CC-k8t7: migrated to
+// Pulumi program for the control-center cluster stack (CC-k8t7: migrated to
 // SOPS+age secrets). Decrypts secrets/vault.yaml once (via vault.ts) and creates
 // native k8s Secrets per workload — no ESO, no 1Password SDK, no in-cluster age
 // key. The /run/secrets/<NAME> mount contract in component.ts is unchanged.
@@ -75,12 +75,12 @@ installCertManager({
 // App workloads (www-j934.6). The media pipeline runs inside the always-on
 // worker workload (media-worker was merged into it), so there is no separate
 // media replica knob.
-// cloudflaredReplicas: 0 for a pre-cutover bring-up so the k3s cloudflared does
+// cloudflaredReplicas: 0 for a pre-cutover bring-up so the new cloudflared does
 // NOT register the live tunnel token alongside Swarm (a prod split-brain); the
 // cutover (www-j934.9 / DESIGN §7 step 3) flips it to 2 (HA) as Swarm comes down.
 // Drive via `pulumi config set wwwinfra:cloudflaredReplicas 0|2`; default 2.
 // nasNfsServer defaults to the NAS LAN IP. The NFS PV is mounted by KUBELET in
-// the node netns, which on homelab (the prod target) reaches the home LAN
+// the node netns, which on home-server (the prod target) reaches the home LAN
 // directly (DESIGN 5b spike). The pod-egress no-route limitation (DESIGN 5c)
 // does NOT apply to PV mounts. Overridable only if a node ever needs a different
 // path to the NAS (www-j934.17).
@@ -113,14 +113,13 @@ if (!coldStart && Object.keys(imageDigests).length > 0) {
   verifyLiveGhcrPullSecrets({ context: kubeContext });
 }
 
-// target: which cluster this program targets. Missing config = "orbstack"
-// (the mini), so an untouched stack keeps rendering today's live mini values
-// byte-for-byte (haTarget in services.ts). The Talos migration
-// target is "home-server" node context / "talos" substrate, at the static LAN
-// IP below (MetalLB pool 192.168.0.3-192.168.0.4 sits alongside it). A talos
-// target's nodeIp is REQUIRED by SubstrateTarget's type (Task 4's deferred
-// Task-3 cleanup), so it can never reach a talos code path empty.
-// Drive via `pulumi config set wwwinfra:substrate talos` on the talos stack.
+// target: which cluster this program targets. The deployed `home-server` stack
+// pins `wwwinfra:substrate talos` explicitly (see the Substrate doc in
+// services.ts); the static LAN IP below is that node (MetalLB pool
+// 192.168.0.3-192.168.0.4 sits alongside it). A talos target's nodeIp is
+// REQUIRED by SubstrateTarget's type (Task 4's deferred Task-3 cleanup), so it
+// can never reach a talos code path empty. Missing config falls back to
+// "orbstack", the local-preview default — never the case for a real deploy.
 const target = parseSubstrateTarget(cfg.get("substrate"), cfg.get("nodeIp"));
 
 const services = deployServices({
@@ -148,12 +147,11 @@ const crons = deployCrons({
 
 // Task 4 (Talos migration): local-path-provisioner, MetalLB, and the Home
 // Assistant workload + its dedicated CNPG cluster
-// + backup crons. ALL gated behind `target.substrate === "talos"` , on
-// "orbstack" (the default, and every stack today) this whole block does not
-// run, so the mini's live deploy adds ZERO new resources from this task.
-// Talos node context IS the k3s "orbstack" equivalent here: the mini needs
-// neither a storage provisioner (OrbStack ships one) nor a LoadBalancer
-// implementation (OrbStack's expose_services).
+// + backup crons. ALL gated behind `target.substrate === "talos"` — which the
+// deployed `home-server` stack always is, so this block runs there. It stays
+// gated because "orbstack" (the local-preview default) needs none of it: a
+// developer's own OrbStack ships its own storage provisioner and its own
+// LoadBalancer implementation (expose_services).
 if (target.substrate === "talos") {
   // Enforced local storage (ADR-0009): OpenEBS LocalPV-LVM replaces
   // local-path-provisioner. `local-lvm` is the cluster's only/default

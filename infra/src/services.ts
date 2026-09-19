@@ -1,4 +1,4 @@
-// The control-center app workloads on k3s (www-j934.6): the Pulumi-era successor
+// The control-center app workloads (www-j934.6): the Pulumi-era successor
 // to deploy.config.ts's service() declarations. Each is a WorkloadSpec fed to
 // the Workload component; secrets come from product-derived service Secrets
 // (www-j934.4), images from GHCR via an imagePullSecret, caps are the www-ke9a
@@ -161,18 +161,25 @@ const ghcrImage = (name: string, digests: ImageDigests = {}): string => {
 const HA_TAILNET_FQDN = "homelab.tail8c014d.ts.net";
 const HA_PORT = 8123;
 
-// The two homelab substrates this program can target: "orbstack" is the
-// currently-live Mac mini (arm64, OrbStack k3s) and is the DEFAULT everywhere
-// below so an omitted `wwwinfra:substrate` config renders byte-identical mini
-// output; "talos" is the Talos cluster on the gaming PC (amd64) migration
-// target. Never add a third value without re-auditing every haTarget call site.
+// The two substrates this program can target: "talos" is the live `home-server`
+// cluster (amd64, `infra/Pulumi.home-server.yaml` pins `wwwinfra:substrate:
+// talos` explicitly) and is the ONLY deployed stack; "orbstack" is a
+// zero-config local-preview fallback for a developer's own OrbStack
+// Kubernetes on their Mac, used when `wwwinfra:substrate` is unset (e.g. an
+// unconfigured `pulumi preview`). It is not tied to any specific machine and
+// is never the target of a real `pulumi up` today — the one machine it used
+// to mean, the Mac mini, was retired 2026-07-25 and its stack config
+// (`Pulumi.prod.yaml`) deleted. Never add a third value without re-auditing
+// every haTarget call site.
 export type Substrate = "orbstack" | "talos";
 
 /**
  * Boundary-validates the raw `wwwinfra:substrate` Pulumi config string (or
- * undefined) into a {@link Substrate}. Missing config = "orbstack" (the mini),
- * preserving today's live-deploy behavior exactly; any value other than the
- * two known substrates is a hard config error, not a silent fallback.
+ * undefined) into a {@link Substrate}. Missing config = "orbstack", the
+ * local-preview default (see the Substrate doc above) — NOT what the deployed
+ * `home-server` stack uses, which always sets `wwwinfra:substrate: talos`
+ * explicitly. Any value other than the two known substrates is a hard config
+ * error, not a silent fallback.
  *
  * @public - unit-tested in infra/test/services.test.ts.
  */
@@ -217,15 +224,16 @@ export function parseSubstrateTarget(
   };
 }
 
-// Mini (orbstack) values are frozen: they are the CURRENT LIVE prod values and
-// must never change as a side effect of this file. The talos counterparts
-// route through the node's LAN IP instead (see haTarget).
+// Orbstack (local-preview) values are frozen: they must never change as a
+// side effect of this file. The talos counterparts route through the node's
+// LAN IP instead (see haTarget).
 
 /**
- * The `ha` ExternalName Service target (www-j934.17). On "orbstack" (the mini,
- * default) this is unconditionally the host's tailnet FQDN: OrbStack pods
- * can't route to the LAN, but the Mac locally routes its own tailnet IP to the
- * host HA socat (see the HA_TAILNET_FQDN comment above). On "talos", api/
+ * The `ha` ExternalName Service target (www-j934.17). On "orbstack"
+ * (local-preview default) this is unconditionally the host's tailnet FQDN:
+ * OrbStack pods can't route to the LAN, but the Mac locally routes its own
+ * tailnet IP to the host HA socat (see the HA_TAILNET_FQDN comment above). On
+ * "talos" — the deployed `home-server` stack — api/
  * worker are ordinary (non-hostNetwork) pods, so they can't reach a
  * hostNetwork HA via loopback — HA binds :8123 in the *node's* netns, which is
  * reachable from any pod at the node's LAN IP.
@@ -242,7 +250,7 @@ const TZ = "America/Los_Angeles";
 // The CNPG read-write Service (www-j934.5) the app connects to. env.ts builds
 // DATABASE_URL as postgres://postgres:<pw>@$POSTGRES_HOST:5432/control_center;
 // the default host "postgres" was the Swarm service name and does NOT resolve in
-// k3s, so set it to the CNPG Service explicitly (a live-deploy finding).
+// the cluster, so set it to the CNPG Service explicitly (a live-deploy finding).
 const controlCenterDatabase = controlCenterProductManifest().database;
 
 // Shared non-secret env for api + worker (HA reached via the in-cluster `ha`
@@ -265,7 +273,7 @@ const mountSecrets = (service: ServiceSecretName) =>
 
 /**
  * Replica/topology knobs the program threads in at apply time.
- * - cloudflaredReplicas: 0 for a pre-cutover bring-up (so the k3s cloudflared does
+ * - cloudflaredReplicas: 0 for a pre-cutover bring-up (so the new cloudflared does
  *   NOT grab the live tunnel token and split-brain prod with Swarm), flipped to 2
  *   (HA) at the cutover (www-j934.9 / DESIGN §7 step 3).
  * - nasNfsServer: the NFS server address for the media share, the NAS LAN IP by
@@ -426,11 +434,11 @@ export interface ServicesArgs {
   imageDigests?: ImageDigests;
   // Prod stack guard against rendering app Deployments with mutable :main images.
   requireImageDigestPins?: boolean;
-  // Which cluster this program targets: {substrate:"orbstack"} (the mini,
-  // default) or {substrate:"talos", nodeIp} (the migration target). Drives
-  // haTarget() below; default preserves the mini's exact current `ha`
-  // ExternalName value. See {@link SubstrateTarget} , a talos target always
-  // carries its nodeIp, so this can't reach haTarget()'s talos branch empty.
+  // Which cluster this program targets: {substrate:"orbstack"} (local-preview
+  // default) or {substrate:"talos", nodeIp} (the deployed `home-server`
+  // stack). Drives haTarget() below. See {@link SubstrateTarget} , a talos
+  // target always carries its nodeIp, so this can't reach haTarget()'s talos
+  // branch empty.
   target?: SubstrateTarget;
   // Decrypted vault from vault.ts (CC-k8t7).
   vault: Record<string, string>;

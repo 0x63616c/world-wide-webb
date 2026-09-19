@@ -26,7 +26,7 @@
  *
  * The fix moves the transform onto `document.body` itself (an effect below,
  * not a static stylesheet rule, so it stays a no-op on native and cleans up
- * for Storybook/tests). `document.body` is an ancestor of literally
+ * for tests). `document.body` is an ancestor of literally
  * everything React ever mounts, portals included, so making IT the
  * containing block , sized and positioned to exactly the same 1366x1024 box
  * `panelStyle` already draws , contains every `position:fixed` descendant
@@ -190,8 +190,8 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   // Mount/unmount only: create and attach the bezel-root sibling, and capture
   // body/html's pre-existing inline `style` attribute so it can be restored
   // byte-for-byte on cleanup , this must never leak the 1366x1024 cap into
-  // Storybook stories, other routes, or a later test in the same jsdom
-  // document once PanelFrame unmounts.
+  // other routes or a later test in the same jsdom document once PanelFrame
+  // unmounts.
   useEffect(() => {
     if (passthrough) return;
     const bezelRoot = bezelRootRef.current;

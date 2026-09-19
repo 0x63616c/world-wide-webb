@@ -4,7 +4,7 @@
  * For destructive or otherwise irreversible actions (reset settings, delete):
  * a titled prompt with a Cancel / Confirm pair, Confirm tinted red in the
  * `danger` tone. Presentational , open/close and the two callbacks are driven
- * by the caller so it can be exercised in Storybook. Buttons are inline rather
+ * by the caller so it can be exercised in a component harness. Buttons are inline rather
  * than borrowed from the settings-page blocks, so this `ui/` primitive stays
  * free of any page-module dependency.
  */

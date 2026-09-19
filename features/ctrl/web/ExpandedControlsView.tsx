@@ -1,7 +1,7 @@
 /**
  * ExpandedControlsView , the larger control surface the Controls tile
  * opens. PURE view: all data + callbacks arrive via props (no trpc/hooks),
- * so it composes trivially in Storybook and component tests.
+ * so it composes trivially in component tests.
  *
  * Reuses ControlsGridView (hideMore) for the Lamps/Lights/Fan toggles rather than
  * re-inlining them, then adds lamp-specific controls: scene presets and a

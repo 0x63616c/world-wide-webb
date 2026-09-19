@@ -74,9 +74,9 @@ export const TOOLS: readonly Tool[] = [
     group: "Platform",
     needsExtension: true,
   },
-  // NB: tools whose origin no longer exists are deliberately absent — Plex,
-  // pgAdmin, Storybook, Software Factory, UniFi and the Temporal UI were all
-  // retired, and a row for any of them would be a pane that always 502s.
+  // NB: tools whose origin no longer exists are deliberately absent — every
+  // retired product and service that once had a row here was removed along
+  // with it, and a row for a dead origin would be a pane that always 502s.
 
   // ── Infra ────────────────────────────────────────────────────────────────
   {

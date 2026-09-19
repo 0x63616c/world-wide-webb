@@ -2,8 +2,7 @@
  * Button , standalone dumb presentational button.
  * Zero trpc/data/hook dependencies; all state driven by props. Two variants:
  * `primary` (accent-filled, the main action) and `ghost` (bordered, secondary
- * actions). Ported from the captive-portal guest primitives, restyled onto cc
- * tokens.
+ * actions).
  */
 
 import { type ButtonHTMLAttributes, type ReactNode, useState } from "react";

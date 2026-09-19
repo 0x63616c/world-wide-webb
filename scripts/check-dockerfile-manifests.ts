@@ -90,7 +90,7 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
 // `oven/bun:1-alpine` / `:latest` drift to the newest bun (e.g. 1.3.x), whose
 // lockfile format the 1.2-generated bun.lock can't satisfy under
 // --frozen-lockfile ("lockfile had changes"). Pin to a minor (oven/bun:1.2...),
-// matching the CI setup-bun pin. This has broken builds before (captive-portal).
+// matching the CI setup-bun pin. This has broken a build before.
 const FLOATING_BUN = /FROM\s+oven\/bun:(1-|latest|1\s|1$)/;
 const floatingBunOffenders: string[] = [];
 for (const df of FULL_INSTALL_DOCKERFILES) {

@@ -2,9 +2,9 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // A fake two-tile registry standing in for the real Apps, so the phone view can
-// be exercised in jsdom without loading real tiles (or their transitive deps,
-// e.g. maplibre-gl). Mirrors Board.test.tsx's fake, with one fake per curated
-// phone id plus a third the phone view must NOT show.
+// be exercised in jsdom without loading real tiles. Mirrors Board.test.tsx's
+// fake, with one fake per curated phone id plus a third the phone view must
+// NOT show.
 vi.mock("@features/_generated/web.gen", () => {
   function fakeTile(id: string, label: string) {
     return {

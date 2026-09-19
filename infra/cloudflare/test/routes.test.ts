@@ -12,12 +12,10 @@ import {
 // evee-webhooks tunnel in #127.
 // dashboard.worldwidewebb.co removed in CC-2ff. The flattened
 // app--cc.worldwidewebb.co cutover host was retired in Task 7 Step C (the product
-// app route is now the single-label app.worldwidewebb.co). The dead portainer +
-// hooks routes were pruned in www-oa74; storybook (origin deleted), drizzle
-// (Drizzle Gateway torn down), then `hooks` (the webhook relay it fronted),
-// `unifi`, `plex`, `db-ui`, the Temporal UI and the software-factory /
-// dont-text-your-ex hosts were pruned since. captive-portal is never tunneled
-// (LAN-only).
+// app route is now the single-label app.worldwidewebb.co). Every other retired
+// host below was pruned as its backing service was deleted, most recently The
+// Simplification's product and feature removals. The guest-WiFi captive
+// portal was never tunneled at all (LAN-only).
 
 const ZONE = "worldwidewebb.co";
 

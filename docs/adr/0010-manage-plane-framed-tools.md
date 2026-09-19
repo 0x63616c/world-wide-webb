@@ -2,26 +2,26 @@
 
 `manage.worldwidewebb.co` is Manage, a two-column web app with a grouped sidebar of the tools we operate on
 the left, the selected tool live in a same-page `<iframe>` on the right. It replaces the bookmark
-folder: Control Center, Home Assistant, Plex, Grafana, Temporal, pgAdmin, Cloudflare, Cloudflare
-Zero Trust, Pulumi, Tailscale, UniFi, Synology, Software Factory and GitHub in one place, one
-keystroke apart, each keeping its state while you switch away and back.
+folder: Control Center, Home Assistant, Grafana, Cloudflare, Cloudflare Zero Trust, Pulumi,
+Tailscale, Synology and GitHub in one place, one keystroke apart, each keeping its state while you
+switch away and back. (The original design shipped with a longer bookmark folder; see "Since The
+Simplification" below for what was pruned and why.)
 
 It ships as another control-center *service* (`apps/manage/`), declared in
-`controlCenterProductManifest()` exactly like `storybook`, so its tunnel route and Access app fall
-out of the existing exposure machinery rather than being wired by hand.
+`controlCenterProductManifest()`, so its tunnel route and Access app fall out of the existing
+exposure machinery rather than being wired by hand.
 
 ## The one hard problem: frame-deny
 
 Every interesting tool we did not write refuses to be framed. Grafana ships
-`allow_embedding=false`; pgAdmin defaults to `X_FRAME_OPTIONS=SAMEORIGIN`; UniFi answers
-`x-frame-options: SAMEORIGIN` (verified live against `192.168.0.1`); Synology DSM sends the same
-plus a `content-security-policy` (verified against `192.168.0.218:5001`); GitHub sends
+`allow_embedding=false`; Synology DSM sends `x-frame-options: SAMEORIGIN` plus a
+`content-security-policy` (verified against `192.168.0.218:5001`); GitHub sends
 `x-frame-options: deny`. Neither appliance exposes a supported toggle.
 
-A tool we own is the exception, and the Software Factory console is the first: its nginx sets no
-frame-deny header at all, so it frames without the extension and is registered
-`needsExtension: false`. That is the point of owning it — the problem below is about upstreams we
-cannot configure, not about every row in the registry.
+A tool we own is the exception, and Control Center itself is the one: its own nginx
+(`apps/web/nginx.conf`) sets no frame-deny header at all, so it frames without the extension and is
+registered `needsExtension: false`. That is the point of owning it — the problem below is about
+upstreams we cannot configure, not about every row in the registry.
 
 That header is not a server-side check. It is an instruction to the *browser*, honoured
 voluntarily. Every design below is a different answer to "who deletes it, and for whom".
@@ -29,11 +29,11 @@ voluntarily. Every design below is a different answer to "who deletes it, and fo
 ## Rejected: a reverse proxy under Manage
 
 The obvious shape — Manage proxies each tool at `manage.worldwidewebb.co/t/<tool>/` and strips the
-header on the way through — dies on sub-path support. Grafana (`serve_from_sub_path`), Temporal UI
-(`PUBLIC_PATH`) and pgAdmin (`SCRIPT_NAME`) relocate fine, but Home Assistant emits `/`-rooted URLs
-and ignores the path component of `external_url` (home-assistant/core#21113, still open), and DSM
-and UniFi do the same. Serving those three would mean rewriting HTML and JavaScript in flight —
-a body-rewriting MITM in front of the tools we depend on to debug outages.
+header on the way through — dies on sub-path support. Grafana (`serve_from_sub_path`) relocates
+fine, but Home Assistant emits `/`-rooted URLs and ignores the path component of `external_url`
+(home-assistant/core#21113, still open), and DSM does the same. Serving those the sub-path way
+would mean rewriting HTML and JavaScript in flight — a body-rewriting MITM in front of the tools we
+depend on to debug outages.
 
 The host-per-tool variant (`manage-grafana.worldwidewebb.co`, each upstream at `/`) avoids the
 rewriting but buys a proxy service, its own session store, cookies scoped across the zone, and a
@@ -43,8 +43,8 @@ security-critical: it would hold a live session for every tool behind one gate w
 ## Rejected: Cloudflare response-header transform rules
 
 Cloudflare can delete `x-frame-options` from responses at the edge, declaratively, next to the
-Access apps. Zero code. But it deletes the header **for everyone** — `unifi.worldwidewebb.co`
-becomes framable by any site on the internet, and clickjacking our gateway admin UI stops being
+Access apps. Zero code. But it deletes the header **for everyone** — `dsm.worldwidewebb.co`
+becomes framable by any site on the internet, and clickjacking our NAS admin UI stops being
 hypothetical. It also cannot help for `github.com`, `dash.cloudflare.com`, `app.pulumi.com` or any
 other host outside our zone, which is half the sidebar.
 
@@ -93,11 +93,10 @@ button that opens its own Access-gated host.
 
 ## Consequences
 
-- Two hosts gain tunnel routes and Access apps: `unifi.worldwidewebb.co` and
-  `dsm.worldwidewebb.co`. Header stripping does not make a LAN IP routable, and an iframe cannot
-  click through a self-signed certificate warning, so both need `noTLSVerify` origins — an
-  extension to the ingress model in `infra/cloudflare/src/routes.ts`, which today expresses only
-  `http://` origin strings.
+- `dsm.worldwidewebb.co` gains a tunnel route and Access app. Header stripping does not make a LAN
+  IP routable, and an iframe cannot click through a self-signed certificate warning, so it needs a
+  `noTLSVerify` origin — an extension to the ingress model in `infra/cloudflare/src/routes.ts`,
+  which today expresses only `http://` origin strings.
 - Manage has **no authentication of its own**: no login, no session store, no database. Cloudflare
   Access is the gate, as for every other private host. It holds no credentials and no data — a list
   of links and a set of iframes — so a second gate in front of it would protect nothing while being
@@ -117,7 +116,8 @@ above:
 
 - **No Storybook row.** The design listed 14 tools; 13 shipped. The `control-center-storybook`
   workload was deleted in Track B and its tunnel route pruned, so a `storybook.worldwidewebb.co`
-  pane would 502 forever. Storybook is a local-dev tool now.
+  pane would 502 forever. Storybook is a local-dev tool now (and, since The Simplification below,
+  gone from the repo entirely).
 - **The palette moved to `packages/theme`.** Manage renders in the same black theme as the control
   center, and the only honest way to do that across two apps is one file both `@import`. Copying the
   `:root` block would have forked it.
@@ -129,6 +129,17 @@ above:
   so it never actually paints. Manage widens the scroll box by exactly that 10px and pays it back as
   padding.
 
-`unifi.worldwidewebb.co` and `dsm.worldwidewebb.co` exist as predicted, and needed the ingress-model
-extension the decision anticipated (`DesiredOriginRequest`, rendered only for the rules that declare
-it so every pre-existing rule stays byte-identical to live).
+`dsm.worldwidewebb.co` exists as predicted, and needed the ingress-model extension the decision
+anticipated (`DesiredOriginRequest`, rendered only for the rules that declare it so every
+pre-existing rule stays byte-identical to live).
+
+## Since (The Simplification)
+
+The registry dropped five more rows: Plex, pgAdmin, the Temporal UI, the Software Factory console
+and UniFi were retired along with the products and infra they managed, taking their tunnel routes,
+Access apps and `manage.worldwidewebb.co` sidebar entries with them (`unifi.worldwidewebb.co`
+included — `dsm.worldwidewebb.co` is the only LAN-appliance frame left). Thirteen tools shipped;
+nine remain: Control Center, Home Assistant, Grafana, Cloudflare, Cloudflare Zero Trust, Pulumi,
+Tailscale, Synology and GitHub. The mechanism this ADR decided on — one MV3 extension, a generated
+allowlist, degrade to launcher cards without it — is unchanged and applies exactly as before to
+whatever is left in `apps/manage/src/registry.ts`.

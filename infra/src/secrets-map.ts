@@ -48,11 +48,8 @@ export type ServiceSecretTarget = Readonly<{
 }>;
 
 function targetOf(usage: ServiceSecretUsage): ServiceSecretTarget {
-  // usage.namespaceName is platform-typed broadly (it may still allow
-  // "captive-portal"), but every usage wired below is control-center-scoped;
-  // InfraNamespaceName excludes "captive-portal" (its namespace is gone).
   return {
-    namespaceName: usage.namespaceName as InfraNamespaceName,
+    namespaceName: usage.namespaceName,
     secretName: usage.targetSecretName,
   };
 }

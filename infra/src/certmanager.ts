@@ -42,8 +42,7 @@ export interface CertManagerResources {
 
 /**
  * @public - installs cert-manager and the CF DNS-01 ClusterIssuer. Consumed by
- * program.ts. No Certificate is requested here: the guest/captive-portal
- * listener that was the only consumer is gone, leaving the issuer available
+ * program.ts. No Certificate is requested here today: the issuer is available
  * for the next workload that needs TLS.
  */
 export function installCertManager(args: CertManagerArgs): CertManagerResources {

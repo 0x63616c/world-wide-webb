@@ -77,7 +77,7 @@ function loadInitial(): DeviceSettings {
 const store = createStore<DeviceSettings>(loadInitial());
 
 // Optional server sink, registered by useDeviceSettingsSync. Null when unmounted
-// / in tests / Storybook , the store is then local-only.
+// / in tests / a component harness , the store is then local-only.
 let serverSink: ((s: DeviceSettings) => void) | null = null;
 
 /** Register the server pusher; returns an unregister fn. */

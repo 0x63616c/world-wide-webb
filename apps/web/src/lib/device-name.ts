@@ -189,7 +189,7 @@ function snapshotNow(): DeviceNameState {
 const store = createStore<DeviceNameState>(snapshotNow());
 
 // Optional server sink, registered by useDeviceSettingsSync. Null when
-// unmounted / in tests / Storybook , the store is then local-only, same
+// unmounted / in tests / a component harness , the store is then local-only, same
 // pattern as device-settings.ts's serverSink but scoped to just the name.
 let serverSink: ((name: string) => void) | null = null;
 

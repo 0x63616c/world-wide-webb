@@ -41,7 +41,7 @@ export function isNarrowViewport(): boolean {
   return window.matchMedia(QUERY).matches;
 }
 
-/** Server/Storybook snapshot: never narrow, so the panel layout is the default. */
+/** Server snapshot: never narrow, so the panel layout is the default. */
 function getServerSnapshot(): boolean {
   return false;
 }

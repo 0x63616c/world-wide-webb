@@ -147,9 +147,8 @@ export function accessAppsForPrivateWeb(
  * zone-wide access gate (www-cuuw): the `*.<zone>` default-DENY floor. It is OFF
  * by default because the floor's wildcard also catches any currently PUBLIC host
  * that lacks an explicit allow above it (www-b6ad). Nothing on the zone is public
- * any more — the `hooks` receiver, `storybook`, `drizzle`, `plex`, `db-ui`, the
- * Temporal UI and the software-factory / dont-text-your-ex hosts were all
- * retired — so the floor no longer needs a per-host bypass beside it.
+ * any more — every once-public host was retired along with the service behind
+ * it — so the floor no longer needs a per-host bypass beside it.
  *
  * Always returned (safe to apply independent of the floor): the per-product
  * control-center private-route app (it gates the product host itself).

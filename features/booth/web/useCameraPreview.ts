@@ -6,7 +6,7 @@
  * one code path; this hook is preview-only and never uploads (BoothCamera bakes
  * and uploads from the live <video> separately).
  *
- * Failure is a first-class state, not an exception: in Storybook/CI there is no
+ * Failure is a first-class state, not an exception: in CI there is no
  * camera and no permission, so `status` resolves to "denied"/"error"/
  * "unsupported" and the caller paints a styled placeholder rather than a broken
  * black box. Productionized from the throwaway photo-booth-designs prototype.

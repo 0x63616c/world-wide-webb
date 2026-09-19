@@ -1,5 +1,5 @@
 /* Shared design layer , tokens, fonts, animations.
-   Safe to import anywhere (app, Storybook, tests): contains NO document-level
+   Safe to import anywhere (app, tests): contains NO document-level
    reset, so it never imposes scroll/selection behavior on its host. */
 
 @import "tailwindcss";

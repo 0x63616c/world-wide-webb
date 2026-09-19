@@ -9,12 +9,12 @@
  *
  * Presentational , data arrives via props (the `booth-photos` detail wiring runs
  * `boothPhotos.list` and passes the groups + a `photoUrl` builder, exactly as
- * the Activity page's wiring does), so Storybook exercises the populated and
+ * the Activity page's wiring does), so a component harness exercises the populated and
  * empty states without a backend. Delete is optimistic: the group vanishes from
  * the grid immediately and `onRemove` fires the `boothPhotos.remove` mutation.
  *
  * Share is the one native seam: on the Capacitor shell it opens the iOS share
- * sheet, and it is a no-op in a plain browser / Storybook.
+ * sheet, and it is a no-op in a plain browser / a component harness.
  */
 
 import { Capacitor } from "@capacitor/core";
@@ -328,7 +328,7 @@ function Lightbox({
 /**
  * Hand a captured frame to the OS share sheet. On the Capacitor shell this is
  * the real iOS sheet; in a plain browser it falls back to the Web Share API and
- * is otherwise a silent no-op (Storybook / desktop), so a share button that is
+ * is otherwise a silent no-op (a component harness / desktop), so a share button that is
  * part of the fixed lightbox layout never throws where sharing is unavailable.
  *
  * Filters are non-destructive, so a filtered share must flatten the effect into

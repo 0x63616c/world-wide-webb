@@ -3,7 +3,6 @@
  * Zero trpc/data/hook dependencies; all state driven by props. Error state
  * shares the row (checkbox tints, message renders right-aligned) mirroring
  * Field's label-row error so toggling it never reflows the control below.
- * Ported from the captive-portal guest primitives, restyled onto cc tokens.
  */
 
 import type { ReactNode } from "react";

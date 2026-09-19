@@ -111,7 +111,7 @@ const overlayStyle: CSSProperties = {
 
 /**
  * Presentational phone column , no registry, no store, no tRPC. Exported for
- * Storybook and for tests that want to drive the cards directly.
+ * for tests that want to drive the cards directly.
  *
  * Each card keeps the exact aspect ratio its panel tile has (the container
  * passes `aspect` straight from the grid's tile size), so a tile face designed

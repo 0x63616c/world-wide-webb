@@ -32,8 +32,8 @@ export interface CnpgResources {
   cluster: k8s.apiextensions.CustomResource;
 }
 
-// Captive Portal remains retired. Every product database declared here has an
-// InfraNamespaceName and receives the common CNPG lifecycle.
+// Every product database declared here has an InfraNamespaceName and
+// receives the common CNPG lifecycle.
 function productDatabases(): ProductDatabase[] {
   return [controlCenterProductManifest().database];
 }

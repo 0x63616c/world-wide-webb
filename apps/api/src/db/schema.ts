@@ -25,22 +25,19 @@ export {
 // The ctrl App's worker.ts facet owns the light-enforcer and party-mode cycles.
 
 // Global control-center settings, a SINGLETON row (id = SETTINGS_SINGLETON_ID).
-// Holds the wall panel's durable preferences (idle-dim, dev overlays, snap mode)
-// as a single JSON blob so new fields can be added without a column
-// migration. The web client reads/writes the whole Settings object; the shape,
-// defaults, and validation live in services/settings-service.ts. Modeled on the
-// lamp_mode keyed-singleton pattern.
+// Holds the wall panel's durable preferences (PIN, accent, time zone) as a
+// single JSON blob so new fields can be added without a column migration. The
+// web client reads/writes the whole Settings object; the shape, defaults, and
+// validation live in services/settings-service.ts. Modeled on the lamp_mode
+// keyed-singleton pattern.
 export const SETTINGS_SINGLETON_ID = "singleton";
 
 // Kept as a structural type here so the jsonb column is typed; the authoritative
 // Settings shape + Zod schema + defaults live in services/settings-service.ts.
 export interface SettingsValue {
-  idleDimEnabled: boolean;
-  idleDimTimeoutMs: number;
-  idleDimLevel: number;
-  showFps: boolean;
-  showBuildBadge: boolean;
-  snapMode: "proximity" | "mandatory" | "mandatory-settle" | "none" | "spring";
+  pinCode: string;
+  accent: "blue" | "white" | "green" | "orange";
+  timeZone: string;
 }
 
 export const settings = pgTable("settings", {

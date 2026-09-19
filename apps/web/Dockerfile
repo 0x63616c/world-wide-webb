@@ -13,8 +13,6 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/manage/package.json ./apps/manage/package.json
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
-COPY apps/map-provision/package.json ./apps/map-provision/package.json
-COPY apps/storybook/package.json ./apps/storybook/package.json
 COPY packages/api/package.json ./packages/api/package.json
 COPY packages/core/package.json ./packages/core/package.json
 COPY packages/logger/package.json ./packages/logger/package.json
@@ -25,7 +23,6 @@ COPY packages/worker-runtime/package.json ./packages/worker-runtime/package.json
 # bun install needs their manifests in the build context (www-272b).
 COPY infra/package.json ./infra/package.json
 COPY infra/cloudflare/package.json ./infra/cloudflare/package.json
-COPY infra/unifi/package.json ./infra/unifi/package.json
 
 # --ignore-scripts skips the lefthook prepare hook (needs git, not in alpine image).
 RUN bun install --frozen-lockfile --ignore-scripts

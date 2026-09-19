@@ -176,8 +176,8 @@ export type CameraProbeResult = { ok: true } | { ok: false; name: string; messag
  * settings page's "Test camera" action: it exercises the exact getUserMedia
  * call the wake burst makes, and , when the OS permission is still
  * undetermined , it is an on-demand way to raise the TCC prompt instead of
- * waiting for the next idle-dim wake. Logs to the same wake channel so the
- * probe shows up next to real bursts in frontend_log.
+ * waiting for the next idle-dim wake. Failures go to `console.warn` alongside
+ * real burst failures below.
  */
 export async function probeCamera(): Promise<CameraProbeResult> {
   try {

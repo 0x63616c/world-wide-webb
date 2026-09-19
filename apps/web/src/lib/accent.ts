@@ -4,14 +4,9 @@
  * The panel has exactly one accent. Every `--acc*` token in styles/tokens.css
  * derives from it, so switching accents is a matter of restating two hexes and
  * one rgb triple on `:root`; the dim/line/glow tints recompute from
- * `--acc-rgb` on their own.
- *
- * Two consumers, two shapes:
- *   - CSS (nearly everything) reads the vars this module writes onto :root.
- *   - maplibre (the Tesla range circles, the location marker HTML) cannot read
- *     CSS vars , its paint properties want a literal colour string. Those read
- *     `accentPalette()` / `useAccent()` instead, off the SAME table, so the map
- *     can never drift from the board.
+ * `--acc-rgb` on their own. `accentPalette()` is the single source of truth
+ * table; `applyAccent()` below is its only consumer, writing the three
+ * primitives onto an element's CSS vars.
  *
  * The accent KEY is wire contract (@cc/api/settings); the hexes below are a
  * rendering concern and deliberately live here rather than in the API.

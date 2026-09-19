@@ -11,10 +11,8 @@
 // symmetric today, but keeping the lists separate leaves room for the next
 // asymmetric host without reshaping the model.
 //
-// Routes retired by The Simplification and intentionally absent from BOTH:
-// `hooks` (the webhook relay it fronted is gone), `unifi`, `plex`, `db-ui`,
-// the Temporal UI, every software-factory host and every dont-text-your-ex
-// host. The captive portal was never tunneled at all (LAN-only).
+// Every retired host's ingress rule and CNAME were pruned as its backing
+// service was deleted; both legacy lists below are intentionally empty.
 
 import { controlCenterProductManifest, type ProductServiceDeclaration } from "@www/platform";
 
@@ -78,9 +76,8 @@ export type CloudflareRoutes = Readonly<{
 }>;
 
 // LIVE tunnel ingress: no legacy hosts remain (only the product-derived hosts
-// added by productRoutes below). Every retired host (`portainer`, `hooks`,
-// `storybook`, `drizzle`, `plex`, `db-ui`, the Temporal UI, the software-factory
-// and dont-text-your-ex hosts) was pruned from here as its origin went away.
+// added by productRoutes below). Every retired host was pruned from here as
+// its origin went away.
 const LEGACY_INGRESS: Record<string, string> = {};
 
 // LIVE proxied CNAMEs beyond the product-derived ones: none. Every retired

@@ -1,6 +1,6 @@
 import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-// Wake photos (spec docs/specs/2026-07-18-interaction-logging-design.md). The
+// Wake photos. The
 // front-camera burst frames the panel uploads on every undim. The BYTES stay on
 // disk (<MEDIA_STORAGE_DIR>/wake-photos/YYYY/MM/DD/...); this table is the index
 // over them, which the dated directory tree used to serve implicitly.

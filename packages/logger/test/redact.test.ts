@@ -75,16 +75,6 @@ const REDACT_PATHS = [
   "*.headers['x-api-key']",
   "HA_TOKEN",
   "*.HA_TOKEN",
-  "UNIFI_API_KEY",
-  "*.UNIFI_API_KEY",
-  "WIFI_PASSWORD",
-  "*.WIFI_PASSWORD",
-  "SPOTIFY_CLIENT_SECRET",
-  "*.SPOTIFY_CLIENT_SECRET",
-  "SPOTIFY_REFRESH_TOKEN",
-  "*.SPOTIFY_REFRESH_TOKEN",
-  "SPOTIFY_ACCESS_TOKEN",
-  "*.SPOTIFY_ACCESS_TOKEN",
   "accessToken",
   "*.accessToken",
   "refreshToken",
@@ -117,8 +107,6 @@ const REDACT_PATHS = [
   "*.HOME_LAT",
   "HOME_LON",
   "*.HOME_LON",
-  "HOME_PLACE_NAME",
-  "*.HOME_PLACE_NAME",
 ];
 
 type LogLine = Record<string, unknown> & {
@@ -185,13 +173,6 @@ describe("redaction, named secret fields", () => {
     const entry = getFirstLogLine(lines);
     expect(entry.HA_TOKEN).toBe("[REDACTED]");
     expect(entry.msg).toBe("ha config");
-  });
-
-  it("redacts SPOTIFY_ACCESS_TOKEN at top level", () => {
-    const { log, lines } = buildTestLogger();
-    log.info({ SPOTIFY_ACCESS_TOKEN: "spotify-token-value" }, "spotify");
-    const entry = getFirstLogLine(lines);
-    expect(entry.SPOTIFY_ACCESS_TOKEN).toBe("[REDACTED]");
   });
 
   it("redacts DATABASE_URL at top level", () => {
@@ -270,16 +251,12 @@ describe("redaction, auth headers", () => {
 });
 
 describe("redaction, home location fields", () => {
-  it("redacts HOME_LAT, HOME_LON, HOME_PLACE_NAME", () => {
+  it("redacts HOME_LAT, HOME_LON", () => {
     const { log, lines } = buildTestLogger();
-    log.info(
-      { HOME_LAT: "34.0617", HOME_LON: "-118.2836", HOME_PLACE_NAME: "somewhere private" },
-      "home location",
-    );
+    log.info({ HOME_LAT: "34.0617", HOME_LON: "-118.2836" }, "home location");
     const entry = getFirstLogLine(lines);
     expect(entry.HOME_LAT).toBe("[REDACTED]");
     expect(entry.HOME_LON).toBe("[REDACTED]");
-    expect(entry.HOME_PLACE_NAME).toBe("[REDACTED]");
   });
 });
 

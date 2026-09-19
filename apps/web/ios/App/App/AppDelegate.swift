@@ -40,8 +40,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // Wake-photo bursts call getUserMedia from the webview mid-wake, and WebKit
     // denies instantly (NotAllowedError) unless the app-level camera permission
     // is already granted - on the kiosk panel the TCC prompt cannot be answered
-    // mid-wake (frontend_log source=wake, "camera open failed" on every wake).
-    // Requesting up front makes the prompt appear once, deterministically, at
+    // mid-wake ("camera open failed" on every wake, per wake-capture.ts's
+    // console.warn). Requesting up front makes the prompt appear once, deterministically, at
     // app launch where someone standing at the panel can accept it; after that
     // the grant persists across builds. If camera is already denied in Settings
     // this is a silent no-op (no prompt), so the os_log status line is the way

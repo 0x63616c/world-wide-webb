@@ -1,14 +1,15 @@
 # The observability stack is hand-rolled: no Helm, no prometheus-operator, no CRDs
 
 Prometheus, Grafana, Loki, Alloy, node-exporter and kube-state-metrics are declared as
-hand-written `@pulumi/kubernetes` resources in `infra/src/observability/`, exactly like
-`infra/src/temporal.ts` and `infra/src/nvidia.ts`. No Helm chart is rendered or released, no
-operator is installed, and this stack adds no CRDs to the cluster.
+hand-written `@pulumi/kubernetes` resources in `infra/src/observability/`, the same plain-Pulumi
+style used everywhere else in `infra/src/`. No Helm chart is rendered or released, no operator is
+installed, and this stack adds no CRDs to the cluster.
 
 This looked like the expensive option and is not. Dropping the *operator* is what makes
 hand-rolling cheap, and the operator is most of kube-prometheus-stack's bulk: CRDs, a controller,
 ~50 alert rules we do not want, and multi-node assumptions that do not apply to a single Talos
-node. What remains is six workloads and their config, at roughly the size of `temporal.ts`.
+node. What remains is six workloads and their config — a few hundred lines of declarative
+resources, not a controller.
 
 ## What replaces each CRD
 

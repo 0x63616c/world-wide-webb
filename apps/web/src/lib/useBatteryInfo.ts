@@ -5,7 +5,7 @@
  *
  * The wall panel sits on dock power, so the interesting signal is "still
  * charging?" rather than a fast-moving percentage , hence a 15s poll rather
- * than something tighter. In a plain browser / Storybook the plugin has no
+ * than something tighter. In a plain browser / a component harness the plugin has no
  * native side and this resolves to null, which callers render as unavailable.
  * Uses a dynamic import so the Capacitor module
  * stays out of the main bundle path.

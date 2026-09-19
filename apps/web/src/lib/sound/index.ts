@@ -13,7 +13,7 @@
  *    session (AVAudioPlayer, via lib/ui-sound). Real audio, nothing bundled, no
  *    licence to honour , but only on the kiosk.
  *  - `synth` builds the sound with the Web Audio API. It is the fallback for a
- *    browser, Storybook and CI, and the only path for cues iOS has no sound for.
+ *    browser and CI, and the only path for cues iOS has no sound for.
  *
  * How LOUD any of it is is not this module's business. Volume is a property of
  * the device (see lib/panel-volume and the Settings slider), not an in-app gain
@@ -22,7 +22,7 @@
  * output node rather than reaching for `destination` themselves, so if that ever
  * needs to change it changes in one place.
  *
- * Everything is defensive about the runtime. Storybook/CI/jsdom may lack
+ * Everything is defensive about the runtime. CI/jsdom may lack
  * `AudioContext` or block autoplay until a gesture, so a cue that cannot be
  * played is a silent no-op and never throws into whatever it was accompanying.
  */

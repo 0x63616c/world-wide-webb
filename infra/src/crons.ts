@@ -58,12 +58,9 @@ export function postgresBackupCronSpec(
 ): OwnedCronJobSpec {
   return {
     name: backup.name,
-    // DatabaseBackup.product is the full platform ProductSlug (still includes
-    // "captive-portal", kept alive in @www/platform until Task 7+8), but
-    // InfraNamespaceName deliberately excludes it post-Task-6 (its namespace
-    // is gone). This adapter stays generic over any product's backup , the
-    // real deploy path feeds it only product backups with namespaces.
-    namespaceName: backup.product as InfraNamespaceName,
+    // This adapter stays generic over any product's backup — the real deploy
+    // path feeds it only product backups with namespaces.
+    namespaceName: backup.product,
     image: backup.image,
     schedule: backup.schedule,
     command: postgresBackupCommand(backup),
@@ -137,9 +134,6 @@ export function homeAssistantPgBackupCronSpec(args: {
 
 const controlCenterManifest = controlCenterProductManifest();
 const controlCenterBackup = controlCenterManifest.backup;
-// captive-portal's backup CronJob REMOVED (SDD track 0, Task 6) along with
-// its CNPG clusters + namespace; a final pg_dump was taken to the NAS first
-// (captive-portal-final-20260721.dump).
 
 /**
  * @public - the declared CronJob set (pure data). nasNfsServer is threaded into

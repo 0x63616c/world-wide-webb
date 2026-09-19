@@ -5,10 +5,12 @@
 // This test pins the EXACT expected content as a golden snapshot, so any
 // accidental change to env names, vault keys, target Secret names, or target
 // namespaces fails loudly here. Updated deliberately by The Simplification,
-// which deleted the UniFi/Wi-Fi/Spotify/APNs/Withings/GitHub-App/App-Store-
-// Connect service secrets along with the features that read them. The deploy
-// path (eso.ts creates native k8s Secrets from these maps) is unchanged only if
-// these goldens keep matching.
+// which deleted the UniFi/Wi-Fi/Spotify/APNs/Withings/GitHub-App (githubBot)
+// service secrets along with the features that read them. App Store Connect's
+// secrets are UNRELATED and survive (ios-build.yml/fastlane still need them) —
+// do not fold them into this golden by mistake. The deploy path (eso.ts
+// creates native k8s Secrets from these maps) is unchanged only if these
+// goldens keep matching.
 
 import { describe, expect, test } from "vitest";
 import { SERVICE_SECRET_TARGETS, SERVICE_SECRETS } from "../src/secrets-map.ts";

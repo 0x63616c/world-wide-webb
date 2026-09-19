@@ -11,8 +11,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../db/schema";
 
 /**
- * One-way migration from the legacy dated tree to flat ISO-instant names (spec
- * docs/superpowers/specs/2026-07-21-flat-iso-photo-paths-design.md):
+ * One-way migration from the legacy dated tree to flat ISO-instant names:
  *
  *   2026/06/01/1784516886155-0.jpg  ->  2026-06-01T14-28-06.155Z-0.jpg
  *

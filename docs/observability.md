@@ -132,127 +132,7 @@ in the directory, so a dashboard vendored without them fails CI rather than
 rendering blank in the browser.
 
 Currently vendored: cluster and namespace compute resources, node-exporter
-nodes, persistent-volume usage, CloudNativePG/Postgres, and six Temporal
-dashboards (see below).
-
-### Temporal dashboards
-
-`temporal-server`, `temporal-frontend`, `temporal-history`, `temporal-matching`
-and `temporal-worker-service` come from
-[`temporalio/dashboards`](https://github.com/temporalio/dashboards) (`9a3a6f3`),
-adapted rather than copied. Every adaptation is one of these, and re-vendoring a
-newer upstream means redoing them:
-
-- **`namespace` is `exported_namespace` here.** Prometheus scrapes Temporal
-  through the generic `kubernetes-pods` job, so Temporal's own `namespace` label
-  collides with the Kubernetes one and is renamed on ingest. Upstream assumes a
-  relabel to `temporal_namespace`, which does not exist in our TSDB.
-- **1.31 renames.** `memory_num_gc` is a histogram now (`_count` is the counter),
-  `sharditem_acquisition_latency` needs the `_bucket` series for
-  `histogram_quantile`, the mutable-state cache operation is
-  `HistoryCacheGetOrCreateCurrent`, and the per-class `service_errors_*` counters
-  were superseded by `service_error_with_type{error_type=…}`.
-- **Upstream's `$Service`/`$Client` dropdowns were decorative** — the variables
-  appeared only in panel titles, never in the queries, so every panel charted all
-  four roles regardless. They are wired into the queries here.
-- **Dropped: everything that cannot have data.** The Temporal Cloud dashboard
-  (nothing here talks to Temporal Cloud), the Elasticsearch visibility
-  dashboard (we run SQL visibility on Postgres), and the worker service's
-  Replicator (single cluster, no XDC) and executions/history scavenger rows
-  (off by default in 1.31).
-
-25 of the 139 remaining panels read empty, all of them error or terminal-state
-counters — a workflow has not failed, timed out, been terminated or been
-cancelled yet, and Prometheus does not carry a series for a counter that never
-incremented. Those panels fill in the moment the thing they measure happens,
-which is the point of them.
-
-### Software factory `AgentWorkflow`
-
-The factory's reusable agent runtime splits one stage across two workers:
-prompt/model/finalization/lifecycle activities on task queue
-`software-factory`, and the typed `agent.tool` activity on a validated
-generation-affine Session queue. Current `FactoryWorkTicket` executions use
-the per-run sandbox queue; the retained Run Worker foundation uses
-`software-factory-run-worker-<run-id>-g<generation>`. `AgentWorkflow` receives
-a typed target and derives one of those names; it never accepts an arbitrary
-task-queue string. Start with the Temporal execution tree:
-`FactoryWorkTicket` owns synchronous children named
-`agent/<run-id>/<stage>/<turn>`. A child waiting on the main queue is a
-provider-side concern; one waiting on its Session queue is a target/tool
-concern.
-
-The durable forensic record is the factory Store, not container logs. Attempt
-rows hold model, measured usage and outcome. Agent transcripts are assembled as
-immutable blob revisions, returned by `TranscriptRef`, then copied into the
-Attempt record after the Attempt exists. Temporal history contains bounded
-references and routing metadata, not the whole conversation or tool output.
-
-Loki logs include run, stage, turn and tool-call identity where available, but
-must not include prompt, response, tool arguments, tool output or OAuth
-credentials. Provider calls run only in the main worker; seeing provider
-authentication material or a model request in `sandbox-worker` logs is a
-security boundary violation. Cancellation should appear as a cancelled child,
-a cancelled model HTTP request or local tool process, followed by the parent's
-disconnected sandbox cleanup.
-
-The main worker exports `software_factory_agent_model_turns_total`, provider
-latency, input/output token and measured-usage counters, conversation-byte
-histograms, lifecycle outcomes, budget exhaustion and activity retries. Tool
-workers export `software_factory_agent_tool_calls_total`, tool latency,
-conversation bytes and retries. Run Worker pods expose `:9090/metrics` and
-carry the standard Prometheus scrape annotations. Labels are bounded to model,
-effort, outcome, tool, activity, source and budget; workflow IDs, call IDs,
-prompts and outputs are deliberately absent.
-
-V1 transcript revisions contain prepared, completed model/tool and finalized
-events. Failure, cancellation and budget outcomes are authoritative in
-Temporal history plus the content-free lifecycle metrics/logs; terminal
-failure transcript events and context compaction are not claimed by V1.
-
-### SDK metrics (`temporal-sdk-worker`)
-
-Unlike the five server-side dashboards above, `apps/temporal-worker` did not
-emit its SDK-internal metrics at all until #233 — workflow/activity
-completions, task-queue schedule-to-start, sticky-cache hit rate, and poller
-counts are all generated by the Temporal SDK itself (`@temporalio/worker`'s
-Rust core), separately from whatever the application code running on top of
-it emits. Fixing that meant a different mechanism than every other dashboard
-here, so it gets its own note.
-
-The path is: **worker → OTLP/gRPC → `temporal-otel-collector` → Prometheus
-exporter → the generic `kubernetes-pods` scrape job.**
-
-- `apps/temporal-worker/src/index.ts` calls
-  `Runtime.install({ telemetryOptions: { metrics: { otel: { url } } } })`
-  before `Worker.create()`. This is the SDK's own OTel exporter, pointed at
-  `TEMPORAL_OTEL_COLLECTOR_URL` (`packages/platform/env/manifest.ts`) — it is
-  **not** the same listener as `initMetrics()`/`startMetricsServer()` a few
-  lines above it, which serves this worker's own app-level
-  `@www/platform/metrics` series on `METRICS_PORT`. The two are deliberately
-  separate: one is Core's own telemetry, the other is ours.
-- `temporal-otel-collector` (`infra/src/temporal.ts`) is a single-replica
-  `otel/opentelemetry-collector-contrib` pod in the `temporal` namespace,
-  running exactly one pipeline: an OTLP/gRPC receiver in, a Prometheus
-  exporter out. **No dedicated scrape job was added for it** — its pod
-  template carries the same `prometheus.io/scrape` annotations every other
-  workload in this repo uses, and the existing generic `kubernetes-pods` job
-  (§5 below) already discovers any annotated pod in any namespace. A `kubectl
-  -n temporal get pods` distinguishes it from `temporal-worker` by name; both
-  show up as separate targets under that one job.
-- The vendored dashboard is adapted from
-  [`temporalio/dashboards`](https://github.com/temporalio/dashboards)'
-  `sdk/temporal-core-sdks-otel.json` (`9a3a6f3`, same commit as the five
-  server-side dashboards), same category of adaptation as those five:
-  `namespace` renamed to `exported_namespace` for the same
-  `kubernetes-pods`-collision reason, and the upstream `$datasource`/
-  `$namespace` template-variable filters dropped in favour of the fixed
-  `www-prometheus` datasource and unfiltered `exported_namespace` grouping the
-  other Temporal dashboards already use. No metric-name renames were needed —
-  the pinned SDK version (1.21.1, `apps/temporal-worker/package.json`) emits
-  exactly the metric names the upstream dashboard queries (verified against
-  the vendored `sdk-core` Rust source under
-  `node_modules/@temporalio/core-bridge/sdk-core`, not assumed).
+nodes, persistent-volume usage, and CloudNativePG/Postgres.
 
 ---
 
@@ -352,7 +232,7 @@ The label set is exactly:
 | `pod` | pod name |
 | `container` | container name |
 | `app` | `app.kubernetes.io/name` or `app` pod label, best-effort |
-| `service` | pino's `service` base field (api, worker, temporal-worker, …) |
+| `service` | pino's `service` base field (`api`, `worker`) |
 | `level` | pino's numeric `level`, mapped to `trace`/`debug`/`info`/`warn`/`error`/`fatal` |
 
 ```logql

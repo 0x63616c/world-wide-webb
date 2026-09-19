@@ -4,18 +4,8 @@
 // ring excluded). No React, no network , see board-layout.ts. (The saved
 // board_tile_placement override path was removed in Q4 — position is now
 // registry-only.)
-import { describe, expect, it, vi } from "vitest";
-
-// resolveLayout's default registry param reads TILE_REGISTRY, which
-// transitively imports TeslaTile → MapLibre. MapLibre calls
-// window.URL.createObjectURL at import time, which jsdom lacks , stub it the
-// same way placeholder-tiles.test.ts / registry-guards.test.ts do.
-vi.mock("@protomaps/basemaps", () => ({
-  layers: vi.fn().mockReturnValue([]),
-  namedFlavor: vi.fn().mockReturnValue({}),
-}));
-
 import { TILE_REGISTRY } from "@features/_generated/web.gen";
+import { describe, expect, it } from "vitest";
 import { resolveLayout, type TileRegistryEntry } from "./board-layout";
 
 // Assertion helper: registry lookups in these tests are for ids that must

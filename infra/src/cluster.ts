@@ -10,13 +10,7 @@ import type { ProductSlug } from "@www/platform";
 
 export const CLOUDFLARE_NAMESPACE = "cloudflare";
 
-// "captive-portal" EXCLUDED: its namespace + CNPG clusters + pg-backup CronJob
-// were torn down. Its @www/platform identity (productSlugs) may still list it,
-// so this Exclude is what actually stops a "captive-portal" k8s Namespace from
-// being created again.
-export type InfraNamespaceName =
-  | Exclude<ProductSlug, "captive-portal">
-  | typeof CLOUDFLARE_NAMESPACE;
+export type InfraNamespaceName = ProductSlug | typeof CLOUDFLARE_NAMESPACE;
 export type InfraNamespaces = Readonly<Record<InfraNamespaceName, k8s.core.v1.Namespace>>;
 
 // Default kubeconfig context. The prod target is the home-server Talos cluster,
@@ -49,8 +43,8 @@ const K8S_PLUGIN_VERSION = "4.21.0";
 export function makeCluster(context: string = DEFAULT_CONTEXT): ClusterResources {
   const provider = new k8s.Provider("orbstack", { context }, { version: K8S_PLUGIN_VERSION });
   // Namespaces actually created. Hardcoded rather than derived from
-  // productSlugs because productSlugs may still list captive-portal (see the
-  // InfraNamespaceName comment above).
+  // productSlugs so a future second product doesn't get a namespace here
+  // before its own infra module opts it in.
   const namespaceNames = [
     "control-center",
     CLOUDFLARE_NAMESPACE,

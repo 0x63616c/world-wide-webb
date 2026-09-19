@@ -30,9 +30,7 @@ function get<T>(r: pulumi.Resource, prop: string): Promise<T> {
 
 const provider = () => new k8s.Provider("test", { context: "x" });
 
-// Mock vault with the postgres password CNPG uses (CC-k8t7). CAPTIVE_PORTAL_*
-// is gone from the mock too , cnpg.ts no longer reads it (SDD track 0, Task 6
-// removed the captive-portal CNPG cluster + namespace).
+// Mock vault with the postgres password CNPG uses (CC-k8t7).
 const mockVault: Record<string, string> = {
   CONTROL_CENTER_POSTGRES__PASSWORD: "mock-cc-pw",
 };

@@ -17,7 +17,7 @@
  * overflow-y:auto`) holds every mode body , the header and mode switch pin above
  * it, and no mode carries a nested scroller.
  *
- * Presentational: data arrives via props so Storybook exercises every state.
+ * Presentational: data arrives via props so a component harness exercises every state.
  */
 
 import { useMemo, useState } from "react";

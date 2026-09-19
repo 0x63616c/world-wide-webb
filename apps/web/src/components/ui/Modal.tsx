@@ -1,7 +1,7 @@
 /**
  * Modal , dumb presentational overlay + centered fixed-size panel.
  * Zero trpc/data/hook dependencies beyond local effect for Escape; all visible
- * state is driven by props so it can be exercised in isolation/Storybook.
+ * state is driven by props so it can be exercised in isolation.
  *
  * Sized for the fixed 1366x1024 wall panel: the panel is a fixed dialog size
  * (not responsive/fluid) and the overlay covers the whole board.

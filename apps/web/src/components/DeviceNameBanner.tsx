@@ -39,7 +39,7 @@ export function DeviceNameBanner() {
   return <DeviceNameBannerView />;
 }
 
-/** Presentational banner, exported for Storybook. */
+/** Presentational banner, exported for a component harness. */
 function DeviceNameBannerView() {
   // Critical one-time setup nag → assertive so it interrupts.
   return (

@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// A fake one-tile registry so Board can be exercised without loading real tiles
-// (or their transitive deps like maplibre-gl) in jsdom. The fake tile renders an
+// A fake one-tile registry so Board can be exercised without loading real
+// tiles in jsdom. The fake tile renders an
 // inner button so we can prove control taps don't open the detail page.
 vi.mock("@features/_generated/web.gen", () => {
   const fake = {

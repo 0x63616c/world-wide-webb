@@ -14,7 +14,7 @@
  * and app updates and changes only on uninstall+reinstall , which genuinely is a
  * new log source, so that is the right behaviour.
  *
- * Web (browser / Storybook / tests): `web-<8 hex>` minted once and persisted in
+ * Web (browser / a component harness / tests): `web-<8 hex>` minted once and persisted in
  * localStorage. There is no OS identity to lean on, so a persisted random suffix
  * is the stable-enough answer.
  *

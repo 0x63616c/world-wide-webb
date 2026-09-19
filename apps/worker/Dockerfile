@@ -15,8 +15,6 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/manage/package.json apps/manage/
 COPY apps/worker/package.json apps/worker/
-COPY apps/map-provision/package.json apps/map-provision/
-COPY apps/storybook/package.json apps/storybook/
 COPY packages/api/package.json packages/api/
 COPY packages/core/package.json packages/core/
 COPY packages/logger/package.json packages/logger/
@@ -27,7 +25,6 @@ COPY packages/worker-runtime/package.json packages/worker-runtime/
 # bun install needs their manifests in the build context (www-272b).
 COPY infra/package.json infra/
 COPY infra/cloudflare/package.json infra/cloudflare/
-COPY infra/unifi/package.json infra/unifi/
 
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
 RUN bun install --frozen-lockfile --ignore-scripts

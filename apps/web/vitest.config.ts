@@ -42,13 +42,9 @@ export default defineConfig({
       "../../features/**/web*.test.tsx",
       "../../features/*/web/**/*.test.tsx",
     ],
-    // e2e-portal/*.spec.ts are Playwright specs (run via `bun run e2e:portal`
-    // / e2e-portal/playwright.config.ts, not vitest). Vitest's default include
-    // glob matches *.spec.ts too, so without an exclude it collects them and
-    // crashes on their top-level `test.describe`/`test.beforeEach` (the
-    // Playwright `test` fixture, not vitest's). Spread configDefaults.exclude
-    // rather than a bare override, or setting `exclude` drops vitest's own
-    // node_modules/dist/cypress/etc defaults (SDD track 0, Task 4).
-    exclude: [...configDefaults.exclude, "e2e-portal/**"],
+    // Spread configDefaults.exclude rather than a bare override, or setting
+    // `exclude` drops vitest's own node_modules/dist/cypress/etc defaults
+    // (SDD track 0, Task 4).
+    exclude: [...configDefaults.exclude],
   },
 });

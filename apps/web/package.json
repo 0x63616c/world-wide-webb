@@ -6,15 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "dev:portal": "vite --config vite.portal.config.ts",
-    "build:portal": "tsc -b && vite build --config vite.portal.config.ts",
     "preview": "vite preview",
     "cap:sync": "bun run build && bunx cap sync ios",
     "cap:open": "bunx cap open ios",
     "ios:sim": "bunx cap run ios --live-reload --port 4200 --host localhost --target-name \"iPad Pro 13-inch (M5)\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e:portal": "playwright test -c e2e-portal",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
@@ -38,7 +35,6 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.3.1",
-    "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/router-plugin": "^1.167.32",
     "@testing-library/jest-dom": "^6.9.1",

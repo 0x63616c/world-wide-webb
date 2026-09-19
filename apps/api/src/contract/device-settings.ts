@@ -10,9 +10,8 @@
  * settings row is global (id = "singleton") and every panel reads the same one.
  * Volume cannot work that way , it is a property of a specific piece of hardware
  * in a specific room, and two panels at the same level would be a coincidence,
- * not a preference. `pushEnabled` hit the same wall earlier and was solved by
- * keeping it device-local in the web store; that works but is invisible to the
- * server and lost on reinstall. Keying on `device_id` fixes both.
+ * not a preference. A device-local web store alone works but is invisible to
+ * the server and lost on reinstall. Keying on `device_id` fixes both.
  */
 
 // ─── bounds ───────────────────────────────────────────────────────────────────

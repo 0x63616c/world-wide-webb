@@ -63,24 +63,12 @@ const REDACT_PATHS = [
   // Named secret fields if a config/env object is ever logged
   "HA_TOKEN",
   "*.HA_TOKEN",
-  "UNIFI_API_KEY",
-  "*.UNIFI_API_KEY",
-  "WIFI_PASSWORD",
-  "*.WIFI_PASSWORD",
-  "SPOTIFY_CLIENT_SECRET",
-  "*.SPOTIFY_CLIENT_SECRET",
-  "SPOTIFY_REFRESH_TOKEN",
-  "*.SPOTIFY_REFRESH_TOKEN",
-  "SPOTIFY_ACCESS_TOKEN",
-  "*.SPOTIFY_ACCESS_TOKEN",
   "accessToken",
   "*.accessToken",
   "refreshToken",
   "*.refreshToken",
   "OPENROUTER_API_KEY",
   "*.OPENROUTER_API_KEY",
-  "GITHUB_ACTIONS_TOKEN",
-  "*.GITHUB_ACTIONS_TOKEN",
   "DATABASE_URL",
   "*.DATABASE_URL",
   "POSTGRES_PASSWORD",
@@ -111,8 +99,6 @@ const REDACT_PATHS = [
   "*.HOME_LAT",
   "HOME_LON",
   "*.HOME_LON",
-  "HOME_PLACE_NAME",
-  "*.HOME_PLACE_NAME",
 ];
 
 // Process-wide root logger, set by createLogger(), read by getLogger().

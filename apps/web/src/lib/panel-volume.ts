@@ -25,7 +25,7 @@ interface PanelVolumePlugin {
 const plugin = registerPlugin<PanelVolumePlugin>("PanelVolume");
 
 /** Whether this build can actually reach the device volume. False in a browser,
- *  Storybook, CI, and any native build predating the plugin. */
+ *  a component harness, CI, and any native build predating the plugin. */
 export function isPanelVolumeAvailable(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("PanelVolume");
 }
