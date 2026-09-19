@@ -16,7 +16,6 @@ private final class KioskNavigationDelegateProxy: NSObject, WKNavigationDelegate
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        KioskDiagnosticsRecorder.shared.recordWebContentTermination()
         downstream?.webViewWebContentProcessDidTerminate?(webView)
     }
 
@@ -108,8 +107,6 @@ private final class PanelMaintenanceCoverCoordinator {
 class KioskViewController: CAPBridgeViewController {
     private var watchdog: KioskWatchdog?
     private var navigationDelegateProxy: KioskNavigationDelegateProxy?
-    private var observesMemoryPressure = false
-    private var observesMaintenanceRequests = false
     private var nightlyMaintenanceTimer: Timer?
     private var maintenanceCoverFallbackTimer: Timer?
     private let maintenanceConfigurationStore = PanelMaintenanceConfigurationStore()
@@ -139,16 +136,11 @@ class KioskViewController: CAPBridgeViewController {
     // silent no-op this override exists to avoid.
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(UISoundPlugin())
-        bridge?.registerPluginInstance(PanelVolumePlugin())
-        bridge?.registerPluginInstance(KioskDiagnosticsPlugin())
-        bridge?.registerPluginInstance(PanelMaintenancePlugin())
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         installNavigationDelegateProxyIfNeeded()
-        observeMemoryPressureIfNeeded()
-        observeMaintenanceRequestsIfNeeded()
         injectAccessHeadersIfNeeded()
         startWatchdogIfNeeded()
         scheduleNightlyMaintenanceIfNeeded()
@@ -203,42 +195,6 @@ class KioskViewController: CAPBridgeViewController {
         navigationDelegateProxy = proxy
     }
 
-    private func observeMemoryPressureIfNeeded() {
-        guard !observesMemoryPressure else { return }
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(recoverFromMemoryPressure),
-            name: .panelMemoryPressureRecoveryRequested,
-            object: nil
-        )
-        observesMemoryPressure = true
-    }
-
-    private func observeMaintenanceRequestsIfNeeded() {
-        guard !observesMaintenanceRequests else { return }
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(rescheduleNightlyMaintenance),
-            name: .panelMaintenanceConfigurationChanged,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(performManualMaintenance),
-            name: .panelMaintenanceRunRequested,
-            object: nil
-        )
-        observesMaintenanceRequests = true
-    }
-
-    @objc private func recoverFromMemoryPressure() {
-        let nowMs = Int64(Date().timeIntervalSince1970 * 1_000)
-        executeRecovery(
-            memoryPressurePolicy.action(atMs: nowMs),
-            trigger: .memoryWarning
-        )
-    }
-
     private func scheduleNightlyMaintenanceIfNeeded() {
         guard nightlyMaintenanceTimer == nil else { return }
         let configuration = maintenanceConfigurationStore.configuration
@@ -257,36 +213,10 @@ class KioskViewController: CAPBridgeViewController {
 
     private func performNightlyMaintenance() {
         let nowMs = Int64(Date().timeIntervalSince1970 * 1_000)
-        executeRecovery(
-            memoryPressurePolicy.scheduledMaintenanceAction(atMs: nowMs),
-            trigger: .scheduledMaintenance
-        )
+        executeRecovery(memoryPressurePolicy.scheduledMaintenanceAction(atMs: nowMs))
     }
 
-    @objc private func rescheduleNightlyMaintenance() {
-        nightlyMaintenanceTimer?.invalidate()
-        nightlyMaintenanceTimer = nil
-        scheduleNightlyMaintenanceIfNeeded()
-    }
-
-    @objc private func performManualMaintenance() {
-        let nowMs = Int64(Date().timeIntervalSince1970 * 1_000)
-        executeRecovery(
-            memoryPressurePolicy.manualMaintenanceAction(atMs: nowMs),
-            trigger: .manualMaintenance
-        )
-    }
-
-    private func executeRecovery(
-        _ action: PanelMemoryPressureRecoveryAction,
-        trigger: PanelRecoveryTrigger
-    ) {
-        // Persist the decision before navigation so the recovery event survives
-        // even if WebKit or iOS terminates the process during recovery.
-        KioskDiagnosticsRecorder.shared.recordRecovery(
-            trigger: trigger,
-            outcome: action.diagnosticsOutcome
-        )
+    private func executeRecovery(_ action: PanelMemoryPressureRecoveryAction) {
         switch action {
         case .authenticatedOriginReload:
             showMaintenanceCover()

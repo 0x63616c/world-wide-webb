@@ -19,12 +19,7 @@
 		958DCC742DB08A0000EA8C5F /* KioskViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958DCC732DB08A0000EA8C5F /* KioskViewController.swift */; };
 		A781185F97AFAFF10D4FC405 /* KioskWatchdog.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDF3085D97C8694414B645FB /* KioskWatchdog.swift */; };
 		7A1E7FAC0002BDE64C0FA106 /* UISoundPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0001BDE64C0FA106 /* UISoundPlugin.swift */; };
-		7A1E7FAC0004BDE64C0FA106 /* PanelVolumePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0003BDE64C0FA106 /* PanelVolumePlugin.swift */; };
 		7A1E7FAC0006BDE64C0FA106 /* KioskBrowserPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0005BDE64C0FA106 /* KioskBrowserPlugin.swift */; };
-		7A1E7FAC0008BDE64C0FA106 /* KioskDiagnosticsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0007BDE64C0FA106 /* KioskDiagnosticsPlugin.swift */; };
-		7A1E7FAC0010BDE64C0FA106 /* PanelDiagnosticsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC000FBDE64C0FA106 /* PanelDiagnosticsModels.swift */; };
-		7A1E7FAC0012BDE64C0FA106 /* PanelMetricKitCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0011BDE64C0FA106 /* PanelMetricKitCollector.swift */; };
-		7A1E7FAC0014BDE64C0FA106 /* PanelMaintenancePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1E7FAC0013BDE64C0FA106 /* PanelMaintenancePlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,12 +37,7 @@
 		958DCC732DB08A0000EA8C5F /* KioskViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KioskViewController.swift; sourceTree = "<group>"; };
 		EDF3085D97C8694414B645FB /* KioskWatchdog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KioskWatchdog.swift; sourceTree = "<group>"; };
 		7A1E7FAC0001BDE64C0FA106 /* UISoundPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UISoundPlugin.swift; sourceTree = "<group>"; };
-		7A1E7FAC0003BDE64C0FA106 /* PanelVolumePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PanelVolumePlugin.swift; sourceTree = "<group>"; };
 		7A1E7FAC0005BDE64C0FA106 /* KioskBrowserPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KioskBrowserPlugin.swift; sourceTree = "<group>"; };
-		7A1E7FAC0007BDE64C0FA106 /* KioskDiagnosticsPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KioskDiagnosticsPlugin.swift; sourceTree = "<group>"; };
-		7A1E7FAC000FBDE64C0FA106 /* PanelDiagnosticsModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PanelDiagnosticsModels.swift; sourceTree = "<group>"; };
-		7A1E7FAC0011BDE64C0FA106 /* PanelMetricKitCollector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PanelMetricKitCollector.swift; sourceTree = "<group>"; };
-		7A1E7FAC0013BDE64C0FA106 /* PanelMaintenancePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PanelMaintenancePlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,12 +84,7 @@
 				61CC60A5845E8DFAA563722E /* KioskHealth.swift */,
 				EDF3085D97C8694414B645FB /* KioskWatchdog.swift */,
 				7A1E7FAC0001BDE64C0FA106 /* UISoundPlugin.swift */,
-				7A1E7FAC0003BDE64C0FA106 /* PanelVolumePlugin.swift */,
 				7A1E7FAC0005BDE64C0FA106 /* KioskBrowserPlugin.swift */,
-				7A1E7FAC0007BDE64C0FA106 /* KioskDiagnosticsPlugin.swift */,
-				7A1E7FAC000FBDE64C0FA106 /* PanelDiagnosticsModels.swift */,
-				7A1E7FAC0011BDE64C0FA106 /* PanelMetricKitCollector.swift */,
-				7A1E7FAC0013BDE64C0FA106 /* PanelMaintenancePlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -190,12 +175,7 @@
 				6B6DFC2E56D9334EB237C6BA /* KioskHealth.swift in Sources */,
 				A781185F97AFAFF10D4FC405 /* KioskWatchdog.swift in Sources */,
 				7A1E7FAC0002BDE64C0FA106 /* UISoundPlugin.swift in Sources */,
-				7A1E7FAC0004BDE64C0FA106 /* PanelVolumePlugin.swift in Sources */,
 				7A1E7FAC0006BDE64C0FA106 /* KioskBrowserPlugin.swift in Sources */,
-				7A1E7FAC0008BDE64C0FA106 /* KioskDiagnosticsPlugin.swift in Sources */,
-				7A1E7FAC0010BDE64C0FA106 /* PanelDiagnosticsModels.swift in Sources */,
-				7A1E7FAC0012BDE64C0FA106 /* PanelMetricKitCollector.swift in Sources */,
-				7A1E7FAC0014BDE64C0FA106 /* PanelMaintenancePlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
