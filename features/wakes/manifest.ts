@@ -3,8 +3,7 @@ import { WakesTile, WakesTileView } from "./web";
 
 /**
  * The Activity app manifest (Track C, Wave 5 fold). Single-tile: one
- * `defineApp` holds the Activity tile. Board placement copied VERBATIM from
- * the pre-fold `tile_wakes` tile-registry entry , NOT home (the Clock is), NOT
+ * `defineApp` holds the Activity tile. Not home (Controls is) and not
  * guest-exposed (the Activity page is PIN-gated / sensitive).
  */
 export default defineApp({
@@ -16,8 +15,8 @@ export default defineApp({
       label: "Activity",
       component: WakesTile,
       viewComponent: WakesTileView,
-      worldCol: 34,
-      worldRow: 30,
+      worldCol: 28,
+      worldRow: 22,
       cols: 2,
       rows: 2,
     },
