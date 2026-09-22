@@ -1,12 +1,7 @@
-import {
-  getTileDetailEntry,
-  HOME_TILE,
-  type TileRegistryEntry,
-} from "@features/_generated/web.gen";
+import { getTileDetailEntry, type TileRegistryEntry } from "@features/_generated/web.gen";
 import { genId } from "@www/platform";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { attachCamera, type BoardCameraHost, boardCamera } from "../lib/board-camera";
 import { resolveLayout } from "../lib/board-layout";
 import { dimTo, isNativeDisplay, wakeTo } from "../lib/brightness";
 import {
@@ -25,7 +20,7 @@ import { closeTileDetail, openTileDetail } from "../lib/tile-detail-store";
 import { captureWakeBurst } from "../lib/wake-capture";
 import { ConnectionLostBanner } from "./ConnectionLostBanner";
 import { DeviceNameBanner } from "./DeviceNameBanner";
-import { getVisibleTiles, useBoardDragPan, useBoardViewport } from "./hooks/useBoard";
+import { type BoardView, getVisibleTiles } from "./hooks/useBoard";
 import { Icon } from "./Icon";
 import { PlaceholderTile } from "./PlaceholderTile";
 import { SettingsButton } from "./SettingsButton";
@@ -42,29 +37,16 @@ const INTERACTIVE_SELECTOR = 'button, input, a, select, textarea, [role="slider"
 type Rect = { x: number; y: number; w: number; h: number };
 
 // One cell on the board's world lattice. A cell WITH an `entry` is a real,
-// interactive tile (mounts its component, opens a modal + recenters on tap); a
+// interactive tile (mounts its component and opens its detail on tap); a
 // cell WITHOUT one is decorative bento fill (inert, pointer-transparent). Both
-// share identical geometry, so the board positions, windows, snaps, highlights,
-// and centers them through this one shape , there is no separate placeholder
+// share identical geometry, so the board positions and windows them through
+// this one shape; there is no separate placeholder
 // render path. Placeholders genuinely have no component/label and live on
 // world-absolute coords, so they stay out of the registry; the two sources
 // merge HERE into the single list everything downstream consumes.
 type BoardCell = { id: string; rect: Rect; entry?: TileRegistryEntry };
 
-// The cell whose rect contains world point (cx, cy), or undefined in a gap.
-// Real tiles and placeholders never overlap, so the first match is unambiguous.
-// Takes the resolved `cells` list as a parameter rather than closing over a
-// module-load const (real tiles + bento fill merge into it inside Board).
-function cellAt(cells: BoardCell[], cx: number, cy: number): BoardCell | undefined {
-  return cells.find(
-    ({ rect }) => cx >= rect.x && cx <= rect.x + rect.w && cy >= rect.y && cy <= rect.y + rect.h,
-  );
-}
-
-// First-render SEED only. BOARD_W/H center it well enough for the one frame it
-// might be visible before the mount useLayoutEffect below overwrites
-// left/top/vw/vh from the real (full-window) stage size, centered on the home
-// tile's registry position.
+// First-render seed before the mount useLayoutEffect positions the fixed view.
 const INITIAL_VIEW = { left: 0, top: 0, vw: BOARD_W, vh: BOARD_H };
 
 // Fixed banner (same visual language as ConnectionLostBanner) shown when the
@@ -150,34 +132,23 @@ function DimOverlay({ active, onWake }: { active: boolean; onWake: () => void })
 }
 
 /**
- * The pannable canvas board. Tiles are free-placed on a square world far larger
- * than the iPad viewport, on a square-cell lattice; the board opens centered on
- * the home tile (Controls) and idles back to it. Panning is native scroll (won
- * the pan-lab feel test) plus a desktop mouse-drag shim; only tiles near the
- * viewport are mounted (windowing). Zoom is fixed at 1:1.
+ * The fixed panel board. Tiles retain world-cell coordinates, but the viewport
+ * is positioned once around their bounds and never pans. Zoom is fixed at 1:1.
  *
- * Layout comes straight from the tile registry (resolveLayout over
- * TILE_REGISTRY coords, collisions resolved by scanline): adding a tile to the
- * registry places it on the world with no further changes here.
+ * Layout comes straight from the tile registry (resolveLayout over registry
+ * coordinates, collisions resolved by scanline). Tile bounds must fit the
+ * fixed panel viewport.
  */
 export function Board() {
   const stageRef = useRef<HTMLDivElement>(null);
-  // The stage as STATE as well as a ref: effects that must attach listeners to
-  // it (the idle timers, camera binding) need a dep that actually changes when
-  // the element arrives, which a stable ref never does. The callback ref keeps
-  // both in lockstep.
-  const [stageEl, setStageEl] = useState<HTMLDivElement | null>(null);
-  const setStage = useCallback((el: HTMLDivElement | null) => {
-    stageRef.current = el;
-    setStageEl(el);
-  }, []);
+  const [view, setView] = useState<BoardView>(INITIAL_VIEW);
 
   // Idle dimming is native-only: off-device (a browser) there is no backlight
   // to drop, so the whole feature is a no-op rather than a CSS scrim.
   const nativeDisplay = isNativeDisplay();
 
   // The panel session's current phase. "ended" = the idle timeout elapsed:
-  // the panel is dimmed, relocked, and homed. Drives the DimOverlay wake shield
+  // the panel is dimmed and relocked. Drives the DimOverlay wake shield
   // and the backlight below.
   const sessionPhase = panelSession.usePhase();
 
@@ -199,112 +170,33 @@ export function Board() {
     ];
   }, [layout.tiles]);
 
-  const cellAtPoint = useCallback(
-    (cx: number, cy: number) => cellAt(boardCells, cx, cy),
-    [boardCells],
-  );
-
-  // World-pixel center of the home tile (Controls). The board opens here and
-  // idles back here. "home" is the home tile's resolved registry position, not
-  // the geometric world center. Falls back to the registry's HOME_TILE rect if
-  // the resolved list somehow doesn't have it.
-  const homeEntry = useMemo(
-    () => layout.tiles.find((t) => t.id === HOME_TILE.id) ?? HOME_TILE,
-    [layout.tiles],
-  );
-  const homeRect = useMemo(() => tileWorldRect(homeEntry), [homeEntry]);
-  const homeCx = homeRect.x + homeRect.w / 2;
-  const homeCy = homeRect.y + homeRect.h / 2;
-
-  // Mirrors modal-open state into a ref so the memoized pointer handlers can bail
-  // without being re-created. While an overlay is open the board must NOT pan: a
-  // press outside it hits the overlay's own backdrop/chrome, and native scroll is
-  // frozen via the stage style below.
-  //
-  // `useAnyModalOpen()` covers every overlay that registers with
-  // modal-open-store: the full-page tile detail (TileDetailHost), Settings, and
-  // any modal a tile manages on its own, whose portaled backdrop would otherwise
-  // replay presses up the React tree into this stage's drag-pan.
+  // A tile's own portalled modal can replay clicks up the React tree; avoid
+  // opening the tile detail behind it.
   const anyModalOpen = useAnyModalOpen();
   const modalOpen = anyModalOpen;
-  const modalOpenRef = useRef(modalOpen);
-  useEffect(() => {
-    modalOpenRef.current = modalOpen;
-  }, [modalOpen]);
 
-  // Mouse-drag pan state. Created here (not inside useBoardDragPan) so Board
-  // can read the live drag state alongside the hook that writes it.
-  const drag = useRef({ active: false, moved: false, x: 0, y: 0, sl: 0, st: 0 });
-
-  // ── viewport tracking ──────────────────────────────────────────────────────
-  const { view, syncView } = useBoardViewport(stageRef, INITIAL_VIEW);
-
-  // Open centered on the home tile (Controls) using the real client size
-  // (pre-paint, no flash). The layout is static (resolveLayout is a mount-time
-  // const), so homeCx/homeCy never change — this fires exactly once at mount
-  // and never re-centers, which is the intended behavior: open on the home
-  // tile, then leave the board where the user pans it.
+  // Center the whole tile arrangement in the real stage before first paint.
+  // Layout is static, so this is the board's one fixed camera position.
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    stage.scrollLeft = homeCx - stage.clientWidth / 2;
-    stage.scrollTop = homeCy - stage.clientHeight / 2;
-    syncView();
-  }, [syncView, homeCx, homeCy]);
-
-  // rAF-throttle scroll → view state so the mounted-tile set tracks the pan
-  // without a setState per scroll event.
-  const rafRef = useRef(0);
-  const onScroll = useCallback(() => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0;
-      syncView();
+    const rects = layout.tiles.map(tileWorldRect);
+    const left = Math.min(...rects.map((r) => r.x));
+    const right = Math.max(...rects.map((r) => r.x + r.w));
+    const top = Math.min(...rects.map((r) => r.y));
+    const bottom = Math.max(...rects.map((r) => r.y + r.h));
+    setView({
+      left: (left + right - stage.clientWidth) / 2,
+      top: (top + bottom - stage.clientHeight) / 2,
+      vw: stage.clientWidth,
+      vh: stage.clientHeight,
     });
-  }, [syncView]);
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
-
-  // ── board-camera binding ───────────────────────────────────────────────────
-  // The camera singleton (lib/board-camera) owns the two glide moves; it reads
-  // the live home position and tile layout through this host. Kept as
-  // render-updated refs so the camera always sees current values without the
-  // attach effect re-running each render.
-  const homeRef = useRef({ cx: homeCx, cy: homeCy });
-  homeRef.current = { cx: homeCx, cy: homeCy };
-  const layoutTilesRef = useRef(layout.tiles);
-  layoutTilesRef.current = layout.tiles;
-
-  useEffect(() => {
-    if (!stageEl) return;
-    return attachCamera({
-      stage: stageEl,
-      home: () => homeRef.current,
-      tileCenter: (id) => {
-        const t = layoutTilesRef.current.find((x) => x.id === id);
-        if (!t) return undefined;
-        const r = tileWorldRect(t);
-        return { cx: r.x + r.w / 2, cy: r.y + r.h / 2 };
-      },
-    } satisfies BoardCameraHost);
-  }, [stageEl]);
-
-  // ── drag pan ───────────────────────────────────────────────────────────────
-  const { suppressClick, onPointerDown, onPointerMove, endDrag } = useBoardDragPan({
-    stageRef,
-    drag,
-    modalOpenRef,
-  });
-
-  // Glide the camera so `entry` lands dead center (native smooth scroll).
-  const glideToTile = useCallback((entry: TileRegistryEntry) => {
-    const rect = tileWorldRect(entry);
-    boardCamera.panTo({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
-  }, []);
+  }, [layout.tiles]);
 
   // ── panel session ────────────────────────────────────────────────────────────
   // ONE activity clock (lib/panel-session) replaces the old idle-reset + idle-dim
   // timers. Touch is the only activity source; on the idle timeout a single
-  // SESSION END fires (dim → strip overlays → glide home → relock). Native only:
+  // SESSION END fires (dim → strip overlays → relock). Native only:
   // the dim drops the real iPad backlight, so off-device the whole session is
   // inert (no scrim, no auto-lock) , matching the old idle-dim gate.
   // NB the PIN relock rides this same gate: idle-dim off (or off-device) means an
@@ -322,10 +214,7 @@ export function Board() {
     return () => setSessionEnabled(false);
   }, [sessionEnabled]);
 
-  // The session-end fan-out (dim + strip overlays + glide home), registered once.
-  // glideHome is fire-and-forget (native smooth scroll); "strip overlays" means
-  // the wall returns to a clean board , gliding home behind an open Settings
-  // panel would leave the panel up indefinitely.
+  // The session-end fan-out dims and strips overlays, registered once.
   useEffect(
     () =>
       registerSessionEffects({
@@ -334,7 +223,6 @@ export function Board() {
         },
         closeTileDetail: () => closeTileDetail(),
         clearModals: () => dismissAllModals(),
-        glideHome: () => boardCamera.glideHome(),
       }),
     [nativeDisplay],
   );
@@ -378,84 +266,38 @@ export function Board() {
     panelSession.touch();
   }, [nativeDisplay]);
 
-  // Recenter + open the tile's detail, kicked off together. Shared by the
-  // plain-tap and keyboard activation paths. A FACE-ONLY tile (the Clock, both
-  // weather tiles, Climate · A/C) has no Tile View, so the tap recenters and
-  // stops there.
-  const activateTile = useCallback(
-    (entry: TileRegistryEntry) => {
-      glideToTile(entry);
-      if (!getTileDetailEntry(entry.id)) return;
-      openTileDetail(entry.id);
-    },
-    [glideToTile],
-  );
+  // Open a tile's detail on a plain tap or keyboard activation. Face-only
+  // tiles have no Tile View and keep their own interactions.
+  const activateTile = useCallback((entry: TileRegistryEntry) => {
+    if (!getTileDetailEntry(entry.id)) return;
+    openTileDetail(entry.id);
+  }, []);
 
-  // Any click within a tile recenters the camera on that tile , even taps that
-  // land on an inner control (toggle/slider/button). Runs in the capture phase
-  // (wired via onClickCapture) so an inner stopPropagation can't swallow the
-  // recenter. The detail page still opens only for a "plain" tap: a tap on a
-  // control drives that control, so it doesn't also open the tile's detail page.
+  // Inner controls own their taps; plain tile taps open the detail page.
   function onTileClickCapture(entry: TileRegistryEntry, e: React.MouseEvent<HTMLDivElement>) {
-    // Freeze the board while ANY modal is open. The shared <Modal> portals to
-    // <body>, but in the React tree it is still a descendant of this tile
-    // wrapper, so React replays clicks inside the modal up into this capture
-    // handler. Without this bail a tap on a modal control (e.g. the Controls
-    // party/scene buttons) would call glideToTile → a fresh smooth scrollTo of
-    // the board behind the backdrop, so rapid taps visibly jitter the
-    // background. native scroll + drag-pan are already frozen on modalOpen; this
-    // closes the same hole for the programmatic click→glide path.
+    // Portalled modal clicks can replay through this wrapper.
     if (modalOpen) return;
-    if (suppressClick.current) {
-      suppressClick.current = false;
-      return;
-    }
     // A tile's whole face opens its detail page; inner controls own their taps
     // via INTERACTIVE_SELECTOR.
     const controlTap = Boolean((e.target as HTMLElement).closest(INTERACTIVE_SELECTOR));
-    if (controlTap) {
-      glideToTile(entry);
-      return;
-    }
+    if (controlTap) return;
     activateTile(entry);
   }
 
   // One windowed list for the whole board: real tiles and placeholders alike.
   const visibleCells = getVisibleTiles(boardCells, view);
 
-  // The cell under the viewport crosshair (world-space center of the view).
-  // Updates every scroll frame via `view`; null when the center lands in a gap.
-  const centerX = view.left + view.vw / 2;
-  const centerY = view.top + view.vh / 2;
-  const centeredId = cellAtPoint(centerX, centerY)?.id;
-
   return (
     <div
       id="stage"
-      ref={setStage}
-      onScroll={onScroll}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerLeave={endDrag}
-      // pointercancel fires when the OS steals the touch (edge/system gesture,
-      // multi-touch). Without this the held-pointer ref sticks true, which would
-      // freeze drag-pan AND permanently disable the idle reset (it never fires
-      // mid-interaction). Ending the drag here clears that ref on the panel.
-      onPointerCancel={endDrag}
+      ref={stageRef}
       style={{
         position: "fixed",
         inset: 0,
-        // Modal open: freeze native scroll so the board can't pan behind it.
-        // Both touch and trackpad scroll route through this element, so killing
-        // overflow + touchAction here stops every panning vector at once.
-        overflow: modalOpen ? "hidden" : "auto",
+        overflow: "clip",
         background: "var(--bg)",
-        // Pan is one-finger native scroll; no rubber-band past the world edges.
-        touchAction: modalOpen ? "none" : "pan-x pan-y",
+        touchAction: "none",
         overscrollBehavior: "none",
-        cursor: "grab",
-        scrollbarWidth: "none",
       }}
     >
       <div
@@ -463,13 +305,15 @@ export function Board() {
         className="e-root"
         style={{
           position: "relative",
+          left: -view.left,
+          top: -view.top,
           width: WORLD_W,
           height: WORLD_H,
           backgroundColor: "var(--bg)",
         }}
       >
-        {/* ONE render path for every cell. Geometry (position, size, snap target,
-            centered highlight) is written once and shared; a cell with an `entry`
+        {/* ONE render path for every cell. Geometry (position, size) is shared;
+            a cell with an `entry`
             renders an interactive tile, one without renders inert bento fill.
             Placeholders sort first in boardCells so they paint underneath. */}
         {visibleCells.map(({ id, rect, entry }) => {
@@ -480,17 +324,11 @@ export function Board() {
             width: rect.w,
             height: rect.h,
           };
-          const centeredClass = id === centeredId ? "is-centered" : undefined;
-
           // Decorative bento fill: pointer-transparent so it never intercepts
           // taps, no component, no interaction.
           if (!entry) {
             return (
-              <div
-                key={id}
-                className={centeredClass}
-                style={{ ...geometry, pointerEvents: "none" }}
-              >
+              <div key={id} style={{ ...geometry, pointerEvents: "none" }}>
                 <PlaceholderTile />
               </div>
             );
@@ -505,7 +343,6 @@ export function Board() {
             // biome-ignore lint/a11y/useSemanticElements: nested interactive content forbids a <button>
             <div
               key={id}
-              className={centeredClass}
               style={{ ...geometry, cursor: "pointer" }}
               role="button"
               tabIndex={0}

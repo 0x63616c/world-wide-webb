@@ -6,9 +6,7 @@ import { WakesTile, WakesTileView } from "./web";
  * `defineApp` holds the Activity tile. Not home (Controls is) and not
  * guest-exposed (the Activity page is PIN-gated / sensitive).
  *
- * Board Bento (#757): moved into the new bottom row under Sound System,
- * alongside Photo Booth , the two 2x2 tiles fill Sound's 4-wide footprint
- * exactly. See `features/sound/manifest.ts`.
+ * On the fixed board, Activity sits below Photo Booth.
  */
 export default defineApp({
   id: "tile_wakes",
@@ -19,8 +17,8 @@ export default defineApp({
       label: "Activity",
       component: WakesTile,
       viewComponent: WakesTileView,
-      worldCol: 22,
-      worldRow: 30,
+      worldCol: 27,
+      worldRow: 29,
       cols: 2,
       rows: 2,
     },

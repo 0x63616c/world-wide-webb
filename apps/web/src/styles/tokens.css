@@ -84,12 +84,6 @@
 .tile:hover {
   border-color: var(--hair-2);
 }
-/* The tile under the viewport center (set by Board via the wrapper). Placed
-   after :hover so it wins at equal specificity while panning. */
-.is-centered .tile {
-  border-color: var(--hair-3);
-}
-
 /* section label */
 .sec {
   display: flex;

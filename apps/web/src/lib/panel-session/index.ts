@@ -1,15 +1,15 @@
 /**
  * panel-session , the wall panel's session model. One activity clock; on idle
- * timeout a single SESSION END fires (dim + navigate home + camera glides home +
- * PIN relocks + transient UI resets). See session-store.ts for the clock/state
+ * timeout a single SESSION END fires (dim + PIN relock + transient UI resets).
+ * See session-store.ts for the clock/state
  * and session-effects.ts for the end fan-out.
  *
  * The public face is the narrow {@link PanelSession} (`panelSession`); the extra
  * wiring/test exports (`setSessionEnabled`, `registerSessionEffects`, ...) are
- * exported standalone, mirroring board-camera's split.
+ * exported standalone.
  */
 
-export type SessionPhase = "active" | "ended"; // ended = dimmed, locked, home
+export type SessionPhase = "active" | "ended"; // ended = dimmed and locked
 
 export interface PanelSession {
   /** ANY user touch; the only activity source. Wakes an ended session. */

@@ -4,14 +4,14 @@
  * When the activity clock expires the store flips phase active→ended and drops
  * any unlock (the "ended ⇒ locked" invariant, owned by session-store), THEN
  * fires the registered end-listeners. This module IS that listener: it runs the
- * teardown that returns the wall to a clean, home-positioned board:
+ * teardown that returns the wall to a clean board:
  *
  *   dim the backlight → close the open tile-detail page → dismiss every
- *   dismissable modal (Settings, PIN gates, …) → glide the camera home.
+ *   dismissable modal (Settings, PIN gates, …).
  *
  * Every side effect is INJECTED (see {@link SessionEndEffects}) so the fan-out
  * order is unit-testable with spies; the prod wiring (Board) passes the real
- * `dimTo` / `closeTileDetail` / `dismissAllModals` / `boardCamera.glideHome`.
+ * `dimTo` / `closeTileDetail` / `dismissAllModals`.
  *
  * Two things the brief lists as fan-out steps live elsewhere by design:
  *   - "clear unlock" is intrinsic to the store's end transition (it fires before
@@ -30,21 +30,16 @@ export interface SessionEndEffects {
   closeTileDetail(): void;
   /** Dismiss every dismissable modal so the board itself is what's shown. */
   clearModals(): void;
-  /** Glide the board camera back to the home tile. */
-  glideHome(): void;
 }
 
 /**
  * Run the session-end teardown in order. Dim first (the panel is going to
- * sleep), then strip everything off the board, then home the camera behind the
- * now-clear board , gliding home while an overlay is still up would home a board
- * nobody can see.
+ * sleep), then strip everything off the board.
  */
 export function runSessionEnd(fx: SessionEndEffects): void {
   fx.dim();
   fx.closeTileDetail();
   fx.clearModals();
-  fx.glideHome();
 }
 
 /**

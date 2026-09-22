@@ -14,15 +14,14 @@ function spyEffects(order: string[]): SessionEndEffects {
     dim: vi.fn(() => order.push("dim")),
     closeTileDetail: vi.fn(() => order.push("closeTileDetail")),
     clearModals: vi.fn(() => order.push("clearModals")),
-    glideHome: vi.fn(() => order.push("glideHome")),
   };
 }
 
 describe("runSessionEnd", () => {
-  it("dims, then strips overlays, then homes the camera , in that order", () => {
+  it("dims, then strips overlays in that order", () => {
     const order: string[] = [];
     runSessionEnd(spyEffects(order));
-    expect(order).toEqual(["dim", "closeTileDetail", "clearModals", "glideHome"]);
+    expect(order).toEqual(["dim", "closeTileDetail", "clearModals"]);
   });
 });
 
@@ -43,7 +42,7 @@ describe("registerSessionEffects", () => {
 
     vi.advanceTimersByTime(DEFAULT_SESSION_TIMEOUT_MS);
 
-    expect(order).toEqual(["dim", "closeTileDetail", "clearModals", "glideHome"]);
+    expect(order).toEqual(["dim", "closeTileDetail", "clearModals"]);
     expect(fx.dim).toHaveBeenCalledOnce();
     // The fan-out observes an already-locked, ended session.
     expect(panelSession.phase()).toBe("ended");
@@ -56,7 +55,7 @@ describe("registerSessionEffects", () => {
     off();
     setSessionEnabled(true);
     vi.advanceTimersByTime(DEFAULT_SESSION_TIMEOUT_MS);
-    expect(fx.glideHome).not.toHaveBeenCalled();
+    expect(fx.dim).not.toHaveBeenCalled();
   });
 
   it("fires again for each subsequent session (wake then re-idle)", () => {
@@ -68,6 +67,6 @@ describe("registerSessionEffects", () => {
     panelSession.touch(); // wake
     vi.advanceTimersByTime(DEFAULT_SESSION_TIMEOUT_MS);
 
-    expect(fx.glideHome).toHaveBeenCalledTimes(2);
+    expect(fx.dim).toHaveBeenCalledTimes(2);
   });
 });

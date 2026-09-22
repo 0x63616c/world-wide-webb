@@ -58,20 +58,16 @@ describe("Board , pan freeze while a tile's own modal is open", () => {
     render(<Board />);
     const stage = document.getElementById("stage");
     if (!stage) throw new Error("stage missing");
-    // jsdom has no scrollTo; install one so glideToTile takes the smooth-scroll
-    // path (browser behavior) and spy to detect any programmatic glide.
+    // Any programmatic recenter would call scrollTo in a browser.
     stage.scrollTo = () => {};
     const scrollSpy = vi.spyOn(stage, "scrollTo");
 
-    // Open the tile's own modal. (Opening is allowed to recenter , we only care
-    // about what happens AFTER it is open.)
+    // Opening the tile's own modal also leaves the board fixed.
     fireEvent.click(screen.getByRole("button", { name: "open-self-modal" }));
     expect(screen.getByRole("button", { name: "modal-action" })).toBeTruthy();
+    expect(scrollSpy).not.toHaveBeenCalled();
 
-    scrollSpy.mockClear();
-
-    // Click a control INSIDE the open modal. The board must stay frozen , no
-    // glide/scroll behind the backdrop.
+    // Click a control inside the open modal.
     fireEvent.click(screen.getByRole("button", { name: "modal-action" }));
 
     expect(scrollSpy).not.toHaveBeenCalled();

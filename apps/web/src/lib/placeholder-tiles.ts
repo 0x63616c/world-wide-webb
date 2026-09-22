@@ -1,16 +1,13 @@
-// Decorative placeholder tiles , empty tile backgrounds that bento-tile the ENTIRE
-// pannable world around the real tiles, so panning the canvas in any direction
-// reveals a fully populated dashboard (flush tiles, varied sizes, no dotted voids,
-// no empty frontier) rather than empty grid. They carry no content, are
-// non-interactive, and never appear in the real registry.
+// Decorative placeholder tiles bento-tile the world around the real tiles.
+// The fixed viewport shows a subset of this fill. Placeholders carry no
+// content, are non-interactive, and never appear in the real registry.
 //
 // The fill is two layers, produced by `bentoFor(tiles)`:
 //   1. the inner fill , varied bento tiling the inner region (the world minus the
 //      wall ring) AROUND whichever real tiles are passed in. Produced by the
 //      bento-fill generator (fillAround), which carves the fill around the real
 //      tiles' world rects as reserved holes. Because the real tiles are
-//      free-placed (any number, anywhere, any size , and now server-resolved, see
-//      board-layout.ts), this regenerates to fit them with no hand-authored
+//      manifest-placed (see board-layout.ts), this regenerates to fit them with no hand-authored
 //      coordinate tables , move a tile and the bento reflows around it.
 //   2. the WALL ring , a WALL_THICKNESS-cell-thick organic border of varied
 //      2..4-long tiles around the entire world edge, generated once by
@@ -22,7 +19,7 @@
 // asserted gap-free / overlap-free / sliver-free by placeholder-tiles.test.ts.
 // BENTO_TILES below is `bentoFor(clusterWorldCells())` , the static
 // registry defaults , kept as module-load consts for the test and as the
-// initial/fallback fill before the server layout resolves.
+// board's fill.
 
 import { TILE_REGISTRY } from "@features/_generated/web.gen";
 import { fillAround, type Rect } from "./bento-fill";

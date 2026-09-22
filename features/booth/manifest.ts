@@ -8,9 +8,7 @@ import { PhotoBoothTile } from "./web";
  * registry entry used `PhotoBoothTile` for both `component` and
  * `viewComponent`, kept here.
  *
- * Board Bento (#757): moved into the new bottom row under Sound System,
- * alongside Activity , the two 2x2 tiles fill Sound's 4-wide footprint
- * exactly. See `features/sound/manifest.ts`.
+ * On the fixed board, Photo Booth sits between Controls and Sound System.
  */
 export default defineApp({
   id: "tile_booth",
@@ -21,8 +19,8 @@ export default defineApp({
       label: "Photo Booth",
       component: PhotoBoothTile,
       viewComponent: PhotoBoothTile,
-      worldCol: 24,
-      worldRow: 30,
+      worldCol: 27,
+      worldRow: 27,
       cols: 2,
       rows: 2,
     },

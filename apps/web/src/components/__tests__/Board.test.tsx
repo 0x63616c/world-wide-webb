@@ -67,26 +67,46 @@ describe("Board", () => {
     expect(document.getElementById("stage")).not.toBeNull();
   });
 
-  it("renders the pannable #world inside #stage", () => {
+  it("renders the clipped #world inside #stage", () => {
     render(<Board />);
     const stage = document.getElementById("stage");
     const world = document.getElementById("world");
     expect(world).not.toBeNull();
     expect(stage?.contains(world ?? null)).toBe(true);
+    expect(stage?.style.overflow).toBe("clip");
+    expect(stage?.style.touchAction).toBe("none");
   });
 
   it("tapping a tile opens its detail page", () => {
     render(<Board />);
     expect(screen.queryByTestId("fake-detail")).toBeNull();
+    const stage = document.getElementById("stage") as HTMLElement;
+    const start = { left: stage.scrollLeft, top: stage.scrollTop };
+    stage.scrollTo = vi.fn();
 
     fireEvent.click(screen.getByRole("button", { name: "Open Fake Tile" }));
 
     expect(screen.getByTestId("fake-detail").textContent).toContain("fake-detail-content");
+    expect(stage.scrollTo).not.toHaveBeenCalled();
+    expect({ left: stage.scrollLeft, top: stage.scrollTop }).toEqual(start);
   });
 
   it("tapping an inner control does NOT open the detail page", () => {
     render(<Board />);
+    const stage = document.getElementById("stage") as HTMLElement;
+    stage.scrollTo = vi.fn();
     fireEvent.click(screen.getByRole("button", { name: "inner-control" }));
     expect(screen.queryByTestId("fake-detail")).toBeNull();
+    expect(stage.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("does not move on a mouse drag", () => {
+    render(<Board />);
+    const stage = document.getElementById("stage") as HTMLElement;
+    const start = { left: stage.scrollLeft, top: stage.scrollTop };
+    fireEvent.pointerDown(stage, { pointerType: "mouse", button: 0, clientX: 500, clientY: 500 });
+    fireEvent.pointerMove(stage, { pointerType: "mouse", clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(stage);
+    expect({ left: stage.scrollLeft, top: stage.scrollTop }).toEqual(start);
   });
 });

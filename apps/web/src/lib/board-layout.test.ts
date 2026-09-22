@@ -7,6 +7,7 @@
 import { TILE_REGISTRY } from "@features/_generated/web.gen";
 import { describe, expect, it } from "vitest";
 import { resolveLayout, type TileRegistryEntry } from "./board-layout";
+import { BOARD_H, BOARD_W, tileWorldRect } from "./grid-constants";
 
 // Assertion helper: registry lookups in these tests are for ids that must
 // exist; failing loudly beats a non-null assertion.
@@ -16,6 +17,16 @@ function must<T>(value: T | undefined): T {
 }
 
 describe("resolveLayout", () => {
+  it("fits every tile inside one fixed panel viewport", () => {
+    const rects = resolveLayout().tiles.map(tileWorldRect);
+    const left = Math.min(...rects.map((r) => r.x));
+    const right = Math.max(...rects.map((r) => r.x + r.w));
+    const top = Math.min(...rects.map((r) => r.y));
+    const bottom = Math.max(...rects.map((r) => r.y + r.h));
+    expect((BOARD_W - (right - left)) / 2).toBeGreaterThan(17);
+    expect(bottom - top).toBeLessThanOrEqual(BOARD_H);
+  });
+
   it("positions each tile at its registry coordinates with no saved override", () => {
     // Post-Q4: resolveLayout takes no saved-overrides arg (that path is
     // deleted). The registry is authored collision-free, so every tile lands at

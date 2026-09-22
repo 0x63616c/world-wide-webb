@@ -89,24 +89,25 @@ enforced by a Biome `noRestrictedImports` rule.
 on a phone (`useIsMobile()` in `lib/mobile.ts`), chosen once at the route —
 never as a branch inside `Board`. The two share no chrome: `MobileBoard` is a
 scroll column of two tile faces (Controls, Climate · A/C) plus the Settings
-gear; `Board` mounts the camera, the idle-dim session, and the banner stack
+gear; `Board` mounts the fixed tile view, the idle-dim session, and the banner stack
 that a phone must never start.
 
-The panel is a fixed `1366x1024` world, not a responsive layout
+The panel is a fixed `1366x1024` viewport, not a responsive layout
 (`lib/grid-constants.ts`: `BOARD_W = 1366`, `BOARD_H = 1000`, a 64x64-cell
 grid). `PanelFrame.tsx` enforces this on a desktop browser (framing the app
 like a device instead of stretching it) and is a no-op passthrough on native
 and on `MobileBoard`.
 
 - **Tiles**: 8 total (`tiles.gen.ts`) — `tile_ctrl` (Controls, the sole
-  `home: true` tile and the glide-home target), `tile_clock` (Clock,
+  `home: true` tile), `tile_clock` (Clock,
   face-only), `tile_ac` (Climate · A/C, face-only), `tile_weath` /
   `tile_hourly` (Weather, face-only), `tile_booth` (Photo Booth, `private`),
   `tile_wakes` (Activity, `sensitive`), `tile_sound` (Sound System). A Tile
   needs zero or one Tile View, not exactly one — a face-only tile (clock, A/C,
   weather) has no detail surface at all.
-- **Camera**: pointer pan + glide-home only (`lib/board-camera/`). No snap
-  modes, no minimap.
+- **Board position**: centered once on the eight tile bounds. The world is
+  offset inside a clipped stage, which never scrolls or recenters on tile
+  activation.
 - **Idle dim**: hardcoded on, 60000ms timeout, dim level 30
   (`lib/settings.ts`), driving `DimOverlay` (`<DimOverlay
   active={sessionPhase === "ended"} onWake={wake} />`, unconditional — there is no
