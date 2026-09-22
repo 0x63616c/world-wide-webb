@@ -10,6 +10,10 @@ import { ClockTile, ClockTileView } from "./web";
  *
  * It is therefore no longer the board's home tile either: glide-home has to
  * land somewhere actionable, so `home: true` moved to `tile_ctrl` (Controls).
+ *
+ * Board Bento (#757): swapped world-cell position with `tile_ctrl` , the Clock
+ * now sits in Controls' old, smaller 5x3 slot on the right; Controls took the
+ * middle slot this tile used to occupy. See `features/ctrl/manifest.ts`.
  */
 export default defineApp({
   id: "tile_events",
@@ -19,7 +23,7 @@ export default defineApp({
       label: "Clock",
       component: ClockTile,
       viewComponent: ClockTileView,
-      worldCol: 26,
+      worldCol: 31,
       worldRow: 27,
       cols: 5,
       rows: 3,
