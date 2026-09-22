@@ -82,7 +82,7 @@ interface LightState {
 
 /** A grouped on/off control with no `sub` or scene state , the lamp/fixture
  *  room-split controls (bedroom/other lamps, ceiling/cabinet fixtures) and
- *  the all-off control all share this shape. */
+ *  the all-lamps-and-fixtures control all share this shape. */
 type GroupState = LightState;
 
 interface FanState {
@@ -100,10 +100,13 @@ export interface ControlsState {
   otherLamps: GroupState;
   ceiling: GroupState;
   cabinet: GroupState;
-  /** Turns every lamp and fixture off in one tap. Never reports on=true , it
-   *  is an action, not a toggle (there is nothing "the all-off group" can be
-   *  on as, since it never turns anything on). */
-  allOff: GroupState;
+  /** A master toggle over every lamp and fixture. Unlike every other grouped
+   *  control here (`groupOn()`, OR , on if at least one entity is on), this
+   *  one is AND: on only when EVERY lamp and EVERY fixture is on, so it reads
+   *  "All On"/"All Off" as a genuine two-state summary rather than lighting up
+   *  on any partial state. Toggling it sets every lamp and fixture to the
+   *  target `on` value in one tap. */
+  all: GroupState;
 }
 
 export const ControlKey = {
@@ -114,7 +117,7 @@ export const ControlKey = {
   OtherLamps: "otherLamps",
   Ceiling: "ceiling",
   Cabinet: "cabinet",
-  AllOff: "allOff",
+  All: "all",
 } as const;
 export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
 
@@ -259,6 +262,15 @@ function groupOn(
   return entityIds.some((id) => effectiveLight(rowByEntityId.get(id)).on);
 }
 
+/** The All master reads "on" only when EVERY entity in the group is on , the
+ *  inverse convention from `groupOn` above (see `ControlsState.all`). */
+function groupAllOn(
+  entityIds: readonly string[],
+  rowByEntityId: Map<string, typeof deviceState.$inferSelect>,
+): boolean {
+  return entityIds.every((id) => effectiveLight(rowByEntityId.get(id)).on);
+}
+
 // ─── activeScene derivation (from desired colors) ────────────────────────────
 
 function rgbEquals(a: readonly number[] | undefined, b: readonly number[]): boolean {
@@ -379,6 +391,10 @@ export async function getControlsState(
   const otherLampsOn = groupOn(OTHER_LAMP_ENTITY_IDS, rowByEntityId);
   const ceilingOn = groupOn(LIVING_ROOM_FIXTURE_ENTITY_IDS, rowByEntityId);
   const cabinetOn = groupOn(KITCHEN_FIXTURE_ENTITY_IDS, rowByEntityId);
+  // All: AND across every lamp and every fixture (groupAllOn, not groupOn , see
+  // ControlsState.all).
+  const allOn =
+    groupAllOn(LAMP_ENTITY_IDS, rowByEntityId) && groupAllOn(FIXTURE_ENTITY_IDS, rowByEntityId);
 
   return {
     lamps: {
@@ -405,8 +421,7 @@ export async function getControlsState(
     otherLamps: { on: otherLampsOn, pending: false },
     ceiling: { on: ceilingOn, pending: false },
     cabinet: { on: cabinetOn, pending: false },
-    // Always off , it's an action, not a stateful toggle (see ControlsState.allOff).
-    allOff: { on: false, pending: false },
+    all: { on: allOn, pending: false },
   };
 }
 
@@ -584,9 +599,10 @@ async function toggleFixtureGroup(
  * pushes desired→HA within its ~1s cycle (it pushes regardless of policy while the
  * command window is open, so even an `adopt` wall-switch honors the tap). Turning
  * a lamp ON preserves its existing desired color/brightness (the scene survives a
- * toggle). Fan stays the climate fan_mode path (evee parity). AllOff always turns
- * everything off regardless of the `on` argument , it is an action, not a toggle.
- * Throws when HA is unconfigured. Returns the desired-authoritative state.
+ * toggle). Fan stays the climate fan_mode path (evee parity). All sets every
+ * lamp and fixture to the target `on` value in one tap (a real toggle , see
+ * ControlsState.all). Throws when HA is unconfigured. Returns the
+ * desired-authoritative state.
  */
 export async function toggleControl(
   key: ControlKey,
@@ -633,13 +649,14 @@ export async function toggleControl(
       break;
     }
 
-    // Always turns everything off, ignoring `on` , it is an action, not a
-    // toggle (ControlsState.allOff never reports on=true). Ends party like the
-    // full Lamps-off case, since every lamp goes off together.
-    case ControlKey.AllOff: {
-      await clearLampMode();
-      await toggleLampGroup(LAMP_ENTITY_IDS, false, store);
-      await toggleFixtureGroup(FIXTURE_ENTITY_IDS, false, store);
+    // A real toggle over everything (ControlsState.all): sets every lamp and
+    // fixture to the target `on` value. Ends party on the way to off, same as
+    // the full Lamps-off case; leaves it intact on the way to on, same as the
+    // full Lamps-on case (a durable party re-arms when the lamps come back).
+    case ControlKey.All: {
+      if (!on) await clearLampMode();
+      await toggleLampGroup(LAMP_ENTITY_IDS, on, store);
+      await toggleFixtureGroup(FIXTURE_ENTITY_IDS, on, store);
       break;
     }
 

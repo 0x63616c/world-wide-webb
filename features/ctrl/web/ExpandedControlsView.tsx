@@ -170,18 +170,14 @@ export function ExpandedControlsView({
           />
         </section>
 
-        {/* Full toggle grid , reused, not re-inlined. hideMore drops the
-            redundant "more" affordance now that we ARE the more surface. 4x2
-            fits all 8 grouped controls (Lamps/Lights/Fan + the room splits +
-            All Off). */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr 1fr",
-            gridAutoRows: 88,
-            gap: 13,
-          }}
-        >
+        {/* Full toggle surface , reused, not re-inlined. hideMore drops the
+            redundant "more" affordance now that we ARE the more surface, and
+            trims the utility row to just All + Fan. Same utility-row + group-
+            card layout as the compact tile (Option 3, "Group Cards"), just
+            roomier , a fixed height so the cards' (and their ControlTap
+            children's) 100%-height fill resolves, same reasoning as the scene
+            tiles below. */}
+        <div style={{ height: 420 }}>
           <ControlsGridView data={data} onToggle={onToggle} hideMore />
         </div>
 

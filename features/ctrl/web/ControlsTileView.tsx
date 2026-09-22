@@ -4,7 +4,7 @@
  */
 
 import { Icon } from "@/components/Icon";
-import { ControlTap, Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
+import { ControlTap, ControlTapRow, Skeleton, Tile, TileHeader, TileStatus } from "@/components/ui";
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ export const ControlKey = {
   OtherLamps: "otherLamps",
   Ceiling: "ceiling",
   Cabinet: "cabinet",
-  AllOff: "allOff",
+  All: "all",
 } as const;
 export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
 
@@ -58,8 +58,9 @@ export interface ControlsViewData {
   otherLamps: ControlEntry;
   ceiling: ControlEntry;
   cabinet: ControlEntry;
-  /** Always renders off , see ControlKey.AllOff (an action, not a toggle). */
-  allOff: ControlEntry;
+  /** A master toggle over every lamp and fixture , see ControlKey.All and
+   *  service.ts's ControlsState.all for the AND-vs-OR semantics note. */
+  all: ControlEntry;
 }
 
 export type ControlsTileViewProps =
@@ -85,101 +86,171 @@ interface ControlsGridViewProps {
   hideMore?: boolean;
 }
 
+/** One sub-control inside a ControlGroupCard (a room lamp split or a fixture split). */
+interface ControlGroupCardSub {
+  key: ControlKey;
+  icon: "lamp" | "bulb";
+  label: string;
+  entry: ControlEntry;
+}
+
+interface ControlGroupCardProps {
+  icon: "lamp" | "bulb";
+  masterLabel: string;
+  master: ControlEntry;
+  onMasterToggle: () => void;
+  subs: ControlGroupCardSub[];
+  onSubToggle: (key: ControlKey, currentOn: boolean) => void;
+}
+
+/**
+ * A group card , the "Lamps" or "Lights" card in the redesigned Controls grid
+ * (Option 3, "Group Cards"). Groups by containment instead of grid position:
+ * the combined master toggle sits as a full-width header bar (ControlTapRow)
+ * above its two room/fixture sub-controls (plain ControlTap, half-width each),
+ * all on one shared card background.
+ */
+function ControlGroupCard({
+  icon,
+  masterLabel,
+  master,
+  onMasterToggle,
+  subs,
+  onSubToggle,
+}: ControlGroupCardProps) {
+  return (
+    <div
+      style={{
+        background: "var(--tile-2)",
+        border: "1px solid var(--hair)",
+        borderRadius: 15,
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
+      <ControlTapRow
+        icon={icon}
+        label={masterLabel}
+        on={master.on}
+        pending={master.pending}
+        onToggle={onMasterToggle}
+      />
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flex: 1, minHeight: 0 }}
+      >
+        {subs.map((sub) => (
+          <ControlTap
+            key={sub.key}
+            icon={sub.icon}
+            label={sub.label}
+            on={sub.entry.on}
+            pending={sub.entry.pending}
+            onToggle={() => onSubToggle(sub.key, sub.entry.on)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsGridViewProps) {
   return (
-    <>
-      <ControlTap
+    <div style={{ display: "flex", flexDirection: "column", gap: 13, height: "100%" }}>
+      {/* Utility row , All (a real master toggle, see ControlKey.All) plus Fan and,
+          on the compact tile, the "more" affordance. Same ControlTap cell every
+          other quick control uses, so Fan keeps its real sub-label (Auto/On/Off)
+          instead of collapsing to a plain on/off row. */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: hideMore ? "1fr 1fr" : "1fr 1fr 1fr",
+          gap: 13,
+          height: 96,
+          flex: "0 0 auto",
+        }}
+      >
+        <ControlTap
+          icon="bolt"
+          label="All"
+          on={data.all.on}
+          pending={data.all.pending}
+          onToggle={() => onToggle(ControlKey.All, data.all.on)}
+        />
+
+        <ControlTap
+          icon="fan"
+          label="Fan"
+          on={data.fan.on}
+          sub={data.fan.sub}
+          pending={data.fan.pending}
+          onToggle={() => onToggle(ControlKey.Fan, data.fan.on)}
+        />
+
+        {/* "More" affordance , opens the full-page Controls detail. Suppressed via
+            hideMore when this grid is reused inside that page. */}
+        {!hideMore && (
+          <button
+            type="button"
+            onClick={onMore}
+            style={{
+              borderRadius: 15,
+              border: "1.5px dashed var(--hair-2)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              color: "var(--ink-3)",
+              cursor: "pointer",
+              font: "inherit",
+              background: "none",
+            }}
+            aria-label="More"
+          >
+            <Icon name="chevron" s={20} c="var(--ink-3)" />
+            <span style={{ fontSize: 13 }}>more</span>
+          </button>
+        )}
+      </div>
+
+      <ControlGroupCard
         icon="lamp"
-        label="Lamps"
-        on={data.lamps.on}
-        sub={data.lamps.sub}
-        pending={data.lamps.pending}
-        onToggle={() => onToggle(ControlKey.Lamps, data.lamps.on)}
+        masterLabel="Lamps"
+        master={data.lamps}
+        onMasterToggle={() => onToggle(ControlKey.Lamps, data.lamps.on)}
+        subs={[
+          {
+            key: ControlKey.BedroomLamps,
+            icon: "lamp",
+            label: "Bedroom",
+            entry: data.bedroomLamps,
+          },
+          {
+            key: ControlKey.OtherLamps,
+            icon: "lamp",
+            label: "Living Room",
+            entry: data.otherLamps,
+          },
+        ]}
+        onSubToggle={onToggle}
       />
 
-      <ControlTap
+      <ControlGroupCard
         icon="bulb"
-        label="Lights"
-        on={data.lights.on}
-        pending={data.lights.pending}
-        onToggle={() => onToggle(ControlKey.Lights, data.lights.on)}
+        masterLabel="Lights"
+        master={data.lights}
+        onMasterToggle={() => onToggle(ControlKey.Lights, data.lights.on)}
+        subs={[
+          { key: ControlKey.Ceiling, icon: "bulb", label: "Ceiling", entry: data.ceiling },
+          { key: ControlKey.Cabinet, icon: "bulb", label: "Cabinet", entry: data.cabinet },
+        ]}
+        onSubToggle={onToggle}
       />
-
-      <ControlTap
-        icon="fan"
-        label="Fan"
-        on={data.fan.on}
-        sub={data.fan.sub}
-        pending={data.fan.pending}
-        onToggle={() => onToggle(ControlKey.Fan, data.fan.on)}
-      />
-
-      <ControlTap
-        icon="lamp"
-        label="Bedroom"
-        on={data.bedroomLamps.on}
-        pending={data.bedroomLamps.pending}
-        onToggle={() => onToggle(ControlKey.BedroomLamps, data.bedroomLamps.on)}
-      />
-
-      <ControlTap
-        icon="lamp"
-        label="Other Lamps"
-        on={data.otherLamps.on}
-        pending={data.otherLamps.pending}
-        onToggle={() => onToggle(ControlKey.OtherLamps, data.otherLamps.on)}
-      />
-
-      <ControlTap
-        icon="bulb"
-        label="Ceiling"
-        on={data.ceiling.on}
-        pending={data.ceiling.pending}
-        onToggle={() => onToggle(ControlKey.Ceiling, data.ceiling.on)}
-      />
-
-      <ControlTap
-        icon="bulb"
-        label="Cabinet"
-        on={data.cabinet.on}
-        pending={data.cabinet.pending}
-        onToggle={() => onToggle(ControlKey.Cabinet, data.cabinet.on)}
-      />
-
-      <ControlTap
-        icon="bolt"
-        label="All Off"
-        on={data.allOff.on}
-        pending={data.allOff.pending}
-        onToggle={() => onToggle(ControlKey.AllOff, data.allOff.on)}
-      />
-
-      {/* "More" affordance , opens the full-page Controls detail. Suppressed via
-          hideMore when this grid is reused inside that page. */}
-      {!hideMore && (
-        <button
-          type="button"
-          onClick={onMore}
-          style={{
-            borderRadius: 15,
-            border: "1.5px dashed var(--hair-2)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            color: "var(--ink-3)",
-            cursor: "pointer",
-            font: "inherit",
-            background: "none",
-          }}
-          aria-label="More"
-        >
-          <Icon name="chevron" s={22} c="var(--ink-3)" />
-          <span style={{ fontSize: 13 }}>more</span>
-        </button>
-      )}
-    </>
+    </div>
   );
 }
 
@@ -187,12 +258,24 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
 
 function SkeletonGrid() {
   return (
-    <>
-      {Array.from({ length: 9 }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder list, never reordered
-        <Skeleton key={i} w="100%" h={80} borderRadius={15} />
-      ))}
-    </>
+    <div style={{ display: "flex", flexDirection: "column", gap: 13, height: "100%" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: 13,
+          height: 96,
+          flex: "0 0 auto",
+        }}
+      >
+        {Array.from({ length: 3 }, (_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder list, never reordered
+          <Skeleton key={i} w="100%" h="100%" borderRadius={15} />
+        ))}
+      </div>
+      <Skeleton w="100%" h="100%" borderRadius={15} />
+      <Skeleton w="100%" h="100%" borderRadius={15} />
+    </div>
   );
 }
 
@@ -210,13 +293,11 @@ export function ControlsTileView(props: ControlsTileViewProps) {
         style={{
           flex: 1,
           // minHeight:0 prevents the implicit min-height:auto from causing the
-          // grid to overflow the bottom padding when the flex child expands.
+          // content to overflow the bottom padding when the flex child expands.
+          // The utility row + group cards below own their own layout (flex
+          // column), so this wrapper no longer declares a grid itself.
           minHeight: 0,
           position: "relative",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gridTemplateRows: "1fr 1fr 1fr",
-          gap: 13,
         }}
       >
         {props.status === TileStatus.Populated ? (

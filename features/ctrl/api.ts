@@ -90,7 +90,9 @@ const controlsStateSchema = z
     ),
     ceiling: groupStateSchema("True when the ceiling/overhead light is on"),
     cabinet: groupStateSchema("True when the under-cabinet light is on"),
-    allOff: groupStateSchema("Always false , allOff only ever turns everything off"),
+    all: groupStateSchema(
+      "True only when EVERY lamp and EVERY fixture is on (AND, not the OR every other grouped control uses)",
+    ),
   })
   .describe(
     "Snapshot of all controllable entities: lamps, lights, fan, and their room-split groups. Throws SERVICE_UNAVAILABLE when HA is unreachable (tile shimmers via error state).",
@@ -128,13 +130,13 @@ export const controlsRouter = router({
             ControlKey.OtherLamps,
             ControlKey.Ceiling,
             ControlKey.Cabinet,
-            ControlKey.AllOff,
+            ControlKey.All,
           ])
           .describe("Which control group to toggle"),
         on: z
           .boolean()
           .describe(
-            "Desired state: true = on, false = off. Ignored for 'allOff', which always turns everything off",
+            "Desired state: true = on, false = off. For 'all', sets every lamp and fixture to this value",
           ),
       }),
     )

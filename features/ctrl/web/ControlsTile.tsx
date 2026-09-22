@@ -105,19 +105,19 @@ export function useControls(): UseControlsResult {
             return { ...old, ceiling: { ...old.ceiling, on } };
           case "cabinet":
             return { ...old, cabinet: { ...old.cabinet, on } };
-          case "allOff":
-            // Always turns everything off , flip every group's on state too,
-            // not just allOff itself, so the tile face doesn't wait for the
-            // settle refetch to reflect it.
+          case "all":
+            // A real toggle over everything , flip every group's on state to
+            // the same target too, not just all itself, so the tile face
+            // doesn't wait for the settle refetch to reflect it.
             return {
               ...old,
-              lamps: { ...old.lamps, on: false },
-              lights: { ...old.lights, on: false },
-              bedroomLamps: { ...old.bedroomLamps, on: false },
-              otherLamps: { ...old.otherLamps, on: false },
-              ceiling: { ...old.ceiling, on: false },
-              cabinet: { ...old.cabinet, on: false },
-              allOff: { ...old.allOff, on: false },
+              lamps: { ...old.lamps, on },
+              lights: { ...old.lights, on },
+              bedroomLamps: { ...old.bedroomLamps, on },
+              otherLamps: { ...old.otherLamps, on },
+              ceiling: { ...old.ceiling, on },
+              cabinet: { ...old.cabinet, on },
+              all: { ...old.all, on },
             };
           default:
             // Fan: also flip the sub label to the target so it never flashes
@@ -206,7 +206,7 @@ export function useControls(): UseControlsResult {
     otherLamps: { on: data.otherLamps.on, pending: data.otherLamps.pending },
     ceiling: { on: data.ceiling.on, pending: data.ceiling.pending },
     cabinet: { on: data.cabinet.on, pending: data.cabinet.pending },
-    allOff: { on: data.allOff.on, pending: data.allOff.pending },
+    all: { on: data.all.on, pending: data.all.pending },
   };
 
   return {

@@ -246,6 +246,24 @@
   box-shadow: 0 0 10px var(--acc-line);
 }
 
+/* control tap row , horizontal-bar sibling of .tap (group master toggles,
+   compact utility toggles) */
+.tap-row {
+  cursor: pointer;
+  border-radius: 14px;
+  background: var(--tile-2);
+  border: 1px solid var(--hair);
+  transition: all 0.18s ease;
+}
+.tap-row:hover {
+  border-color: var(--hair-2);
+}
+.tap-row.on {
+  border-color: var(--acc-line);
+  background: var(--acc-dim);
+  box-shadow: inset 0 0 0 1px rgb(var(--acc-rgb) / 0.1);
+}
+
 /* range */
 .range {
   color-scheme: dark;
