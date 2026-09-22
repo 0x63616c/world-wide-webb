@@ -246,6 +246,11 @@ export function ExpandedControlsView({
             >
               {savedColors.map((color, index) => {
                 const label = savedColorLabel(index);
+                // Ring + glow when this slot is the lamp's current active color ,
+                // same accent-glow language as .tap.on / .sw.on (box-shadow 0 0
+                // ...px var(--acc-line)) rather than a new visual idiom. Suppressed
+                // while editing so it doesn't fight the edit-mode border.
+                const isActive = color.slot === activeScene && !editingColors;
                 const editColor = () => {
                   setEditingColor({ color, label });
                   setDraftColor(color.hex);
@@ -255,6 +260,7 @@ export function ExpandedControlsView({
                     key={color.slot}
                     type="button"
                     aria-label={`${editingColors ? "Edit" : "Use"} ${label}`}
+                    aria-pressed={isActive}
                     onClick={() => (editingColors ? editColor() : onColor(color.slot))}
                     style={{
                       width: 86,
@@ -262,7 +268,9 @@ export function ExpandedControlsView({
                       borderRadius: "50%",
                       border: editingColors ? "3px solid var(--acc)" : "3px solid var(--hair-2)",
                       background: color.hex,
-                      boxShadow: "inset 0 0 0 1px rgba(255,255,255,.35)",
+                      boxShadow: isActive
+                        ? "inset 0 0 0 1px rgba(255,255,255,.35), 0 0 0 3px var(--acc), 0 0 12px var(--acc-line)"
+                        : "inset 0 0 0 1px rgba(255,255,255,.35)",
                       cursor: "pointer",
                     }}
                   />
