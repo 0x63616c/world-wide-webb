@@ -175,7 +175,7 @@ function EndLabels({ min, max }: { min: number; max: number }) {
 
 // ─── setpoint stepper buttons ──────────────────────────────────────────────────
 
-// Small ± buttons flanking the big setpoint number, additive to the slider
+// ± buttons flanking the big setpoint number, additive to the slider
 // below it, same step (1°) and same onSetTarget/onSetRange path the slider drives.
 function StepperButton({
   direction,
@@ -194,19 +194,19 @@ function StepperButton({
       data-testid={`stepper-${direction}`}
       style={{
         flex: "0 0 auto",
-        width: 40,
-        height: 40,
+        width: 50,
+        height: 50,
         borderRadius: "50%",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "var(--tile-2)",
-        border: "1px solid var(--hair)",
+        background: "var(--bg)",
+        border: "none",
         color: "var(--ink-2)",
         cursor: "pointer",
       }}
     >
-      <Icon name={direction === "up" ? "plus" : "minus"} s={18} />
+      <Icon name={direction === "up" ? "plus" : "minus"} s={20} />
     </button>
   );
 }
@@ -277,7 +277,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
         )}
 
         {(mode === HvacMode.Cool || mode === HvacMode.Heat) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
             <StepperButton
               direction="down"
               label="Decrease target temperature"
