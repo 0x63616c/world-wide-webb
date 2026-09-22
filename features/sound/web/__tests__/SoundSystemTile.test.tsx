@@ -51,7 +51,6 @@ const baseProps: SoundSystemTileViewProps = {
   globalLock: false,
   groupLock: false,
   onFaderChange: vi.fn(),
-  onStep: vi.fn(),
   onToggleGlobalLock: vi.fn(),
   onToggleGroupLock: vi.fn(),
 };
@@ -67,7 +66,6 @@ describe("SoundSystemTileView , loading/error", () => {
         globalLock={false}
         groupLock={false}
         onFaderChange={vi.fn()}
-        onStep={vi.fn()}
         onToggleGlobalLock={vi.fn()}
         onToggleGroupLock={vi.fn()}
       />,
@@ -228,27 +226,14 @@ describe("SoundSystemTileView , group panels (www-xlyf)", () => {
   });
 });
 
-describe("SoundSystemTileView , steppers and calibration", () => {
+describe("SoundSystemTileView , calibration", () => {
   afterEach(cleanup);
 
-  it("renders a +/- stepper per room and reports single-point nudges", () => {
-    const onStep = vi.fn();
-    render(<SoundSystemTileView {...baseProps} onStep={onStep} />);
-    fireEvent.click(screen.getByLabelText("Living Room up"));
-    fireEvent.click(screen.getByLabelText("Living Room down"));
-    expect(onStep).toHaveBeenNthCalledWith(1, "uuid-lr", 1);
-    expect(onStep).toHaveBeenNthCalledWith(2, "uuid-lr", -1);
-  });
-
-  it("steppers never bubble to the tile's open-detail tap", () => {
-    const onTile = vi.fn();
-    render(
-      <button type="button" onClick={onTile}>
-        <SoundSystemTileView {...baseProps} />
-      </button>,
-    );
-    fireEvent.click(screen.getByLabelText("Living Room up"));
-    expect(onTile).not.toHaveBeenCalled();
+  it("keeps room faders without +/- buttons", () => {
+    render(<SoundSystemTileView {...baseProps} />);
+    expect(screen.getByRole("slider", { name: "Living Room volume" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Living Room up" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Living Room down" })).not.toBeInTheDocument();
   });
 
   it("shows a calibrated room's value as a percentage, uncapped past 100", () => {

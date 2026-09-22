@@ -7,11 +7,9 @@
  * idle rooms land in a plain hairline panel. When one side is empty the other
  * spans full width.
  *
- * Each room is a vertical fader with a + above and a − below it: the slider
- * for big moves, the steppers for the one-point nudges a slider can't do with
- * a finger. Values are DISPLAY volumes (percent of the room's calibration
- * baseline, raw when uncalibrated); a calibrated room shows a `%` suffix and
- * may read above 100 when it has been turned up past its calibration.
+ * Each room is a vertical fader. Values are DISPLAY volumes (percent of the
+ * room's calibration baseline, raw when uncalibrated); a calibrated room shows
+ * a `%` suffix and may read above 100 when turned up past its calibration.
  *
  * Tapping the tile surface opens the full-page Sound System detail via the
  * board's tile-detail registry, where calibration and grouping live.
@@ -54,8 +52,6 @@ export interface SoundSystemTileViewProps {
   /** Whether the active group's faders are locked to the same percentage. */
   groupLock: boolean;
   onFaderChange: (uuid: string, value: number) => void;
-  /** +/- stepper: nudge one room by a single point. */
-  onStep: (uuid: string, direction: 1 | -1) => void;
   onToggleGlobalLock: () => void;
   onToggleGroupLock: () => void;
 }
@@ -87,46 +83,6 @@ function clampVolume(v: number): number {
   return Math.round(Math.max(0, Math.min(100, v)));
 }
 
-// ── Stepper ───────────────────────────────────────────────────────────────────
-
-function StepBtn({
-  icon,
-  label,
-  disabled,
-  onPress,
-}: {
-  icon: "plus" | "minus";
-  label: string;
-  disabled: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={(e) => {
-        e.stopPropagation();
-        onPress();
-      }}
-      style={{
-        width: 30,
-        height: 26,
-        borderRadius: 8,
-        display: "grid",
-        placeItems: "center",
-        padding: 0,
-        cursor: disabled ? "default" : "pointer",
-        border: "1px solid var(--hair)",
-        background: "var(--tile-2)",
-        opacity: disabled ? 0.35 : 1,
-      }}
-    >
-      <Icon name={icon} s={13} c="var(--ink-2)" />
-    </button>
-  );
-}
-
 // ── Fader ─────────────────────────────────────────────────────────────────────
 
 interface FaderProps {
@@ -140,10 +96,9 @@ interface FaderProps {
   /** Group coordinator of a real multi-room group , render the name blue (www-a5rl). */
   coord: boolean;
   onChange: (value: number) => void;
-  onStep: (direction: 1 | -1) => void;
 }
 
-function Fader({ room, volume, muted, accent, linked, coord, onChange, onStep }: FaderProps) {
+function Fader({ room, volume, muted, accent, linked, coord, onChange }: FaderProps) {
   const valueColor = muted ? "var(--ink-3)" : accent ? "var(--ink)" : "var(--ink-2)";
   const calibrated = room.baseline !== null;
   const valueStyle: CSSProperties = {
@@ -172,8 +127,6 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange, onStep }:
         {calibrated && <span style={{ fontSize: 10, color: "var(--ink-3)" }}>%</span>}
       </span>
 
-      <StepBtn icon="plus" label={`${room.name} up`} disabled={muted} onPress={() => onStep(1)} />
-
       {/* Vertical fader , the shared Slider rotated (auto-length fills the tile).
           Idle groups + muted rooms dim the whole control rather than swapping to a
           gray rail; locked rooms get the accent ring around the track (www-a5rl). */}
@@ -199,13 +152,6 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange, onStep }:
           onChange={(v) => onChange(clampVolume(v))}
         />
       </div>
-
-      <StepBtn
-        icon="minus"
-        label={`${room.name} down`}
-        disabled={muted}
-        onPress={() => onStep(-1)}
-      />
 
       {/* Room name , display only (a group coordinator's name is blue, www-a5rl). */}
       <div style={{ textAlign: "center", lineHeight: 1.1, maxWidth: "100%" }}>
@@ -246,7 +192,6 @@ interface GroupPanelProps {
   /** Group-lock control , shown in the cap of the accent panel only. */
   lock?: { on: boolean; dimmed: boolean; onToggle: () => void };
   onFaderChange: (uuid: string, value: number) => void;
-  onStep: (uuid: string, direction: 1 | -1) => void;
 }
 
 function GroupPanel({
@@ -260,7 +205,6 @@ function GroupPanel({
   coordUuids,
   lock,
   onFaderChange,
-  onStep,
 }: GroupPanelProps) {
   return (
     <div
@@ -353,7 +297,6 @@ function GroupPanel({
             linked={linked}
             coord={coordUuids.has(room.uuid)}
             onChange={(value) => onFaderChange(room.uuid, value)}
-            onStep={(direction) => onStep(room.uuid, direction)}
           />
         ))}
       </div>
@@ -400,7 +343,6 @@ export function SoundSystemTileView({
   globalLock,
   groupLock,
   onFaderChange,
-  onStep,
   onToggleGlobalLock,
   onToggleGroupLock,
 }: SoundSystemTileViewProps) {
@@ -477,7 +419,6 @@ export function SoundSystemTileView({
                   : undefined
               }
               onFaderChange={onFaderChange}
-              onStep={onStep}
             />
           )}
           {idle.length > 0 && (
@@ -491,7 +432,6 @@ export function SoundSystemTileView({
               linked={globalLock}
               coordUuids={coordUuids}
               onFaderChange={onFaderChange}
-              onStep={onStep}
             />
           )}
         </div>
