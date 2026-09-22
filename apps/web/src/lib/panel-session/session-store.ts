@@ -133,7 +133,7 @@ function setTimeoutMs(ms: number): void {
  * off-device, or layout-edit): the clock stops and, if the panel was already
  * ended, it wakes back to a fresh locked session so nothing stays dimmed with
  * the feature off. Not part of the public {@link PanelSession} face , Board
- * wiring only, mirroring board-camera's extra standalone exports.
+ * wiring only.
  */
 export function setSessionEnabled(on: boolean): void {
   if (enabled === on) {

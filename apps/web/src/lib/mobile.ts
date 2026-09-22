@@ -5,7 +5,7 @@
  * Why this exists at all, given "fixed wall panel, 1366x1024, not responsive":
  * the panel is still the only layout the BOARD targets, and that has not
  * changed. But the same bundle (and the same TestFlight build) also gets opened
- * on an iPhone, where a pannable 1366x1024 world, a "please set your device
+ * on an iPhone, where a fixed 1366x1024 board, a "please set your device
  * name" setup nag and a dock-power fault banner are all noise , none of them
  * are things you can act on from a phone. A phone gets its own deliberately tiny
  * view instead (components/MobileBoard.tsx); this module is the predicate that

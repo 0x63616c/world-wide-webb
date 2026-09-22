@@ -8,11 +8,10 @@
 // all of it. The cell keeps the old column width, so tile WIDTHS are
 // unchanged and only heights grow ~3% (e.g. the Clock goes from 5×2 to 5×3
 // cells).
-// The wall-panel TARGET dimensions (the physical iPad Pro panel). Two real uses:
-// (1) CELL below is sized to fill BOARD_W, so this sets the absolute tile pixel
-// size; (2) it's the fixed size used for board screenshots/smoke tests. The LIVE board does NOT crop
-// to this , its stage is position:fixed/inset:0 (full window), so on a larger
-// screen you simply see more of the world. Not a viewport clip. See Board.tsx.
+// The wall-panel target width and grid-design height. The physical viewport is
+// 1366×1024; BOARD_H remains 1000 for the square-cell sizing. PanelFrame clips
+// desktop rendering to the physical viewport, and Board centers the tile bounds
+// inside it.
 export const BOARD_W = 1366;
 export const BOARD_H = 1000;
 export const GRID_COLS = 12;
@@ -35,20 +34,14 @@ export function tilePixelSize(cols: number, rows: number): { width: number; heig
   };
 }
 
-// ===== Pannable one-world canvas (square) ===================================
-// The world is a large square canvas (WORLD_COLS×WORLD_ROWS cells) that you pan
-// around; the window shows whatever slice fits (~BOARD_W×BOARD_H on the panel,
-// more on a bigger screen , no crop). There is no separate "viewport grid": real
-// tiles are placed ANYWHERE in this world at any size (world-cell coords on each
-// registry entry), and the decorative bento + WALL_THICKNESS-cell wall ring
-// (placeholder-tiles.ts) regenerate to fill every remaining cell around them.
-// 64×64 gives generous room to move/add tiles without re-packing anything.
+// ===== World-cell canvas (square) ============================================
+// Tiles keep world coordinates on a large 64×64 lattice, while Board shows one
+// fixed viewport centered on the tile bounds. Decorative bento tiles fill the
+// remaining world cells. New real tiles must fit in that viewport.
 export const WORLD_COLS = 64;
 export const WORLD_ROWS = 64;
-// Thickness (in world cells) of the decorative wall ring around the pannable
-// world, and the clamp margin real tiles are kept inside of. Shared by
-// placeholder-tiles (draws the ring), board-layout (reports it), and the
-// layout editor (clamps drag/resize to stay inside it).
+// Thickness (in world cells) of the decorative world-edge wall ring and the
+// placement bounds used by board-layout and placeholder-tiles.
 export const WALL_THICKNESS = 2;
 export const WORLD_W = 2 * BOARD_PADDING + WORLD_COLS * CELL + (WORLD_COLS - 1) * GRID_GAP;
 export const WORLD_H = 2 * BOARD_PADDING + WORLD_ROWS * CELL + (WORLD_ROWS - 1) * GRID_GAP;

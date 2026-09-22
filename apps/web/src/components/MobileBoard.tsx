@@ -2,9 +2,9 @@
  * MobileBoard , the phone view. What you get when this app is opened on an
  * iPhone instead of on the wall panel.
  *
- * The board (Board.tsx) is a pannable 1366x1024 world with idle dim, a wall of
+ * The board (Board.tsx) is a fixed 1366x1024 panel with idle dim, a wall of
  * tiles and a banner stack. None of that survives translation to a phone: you
- * cannot pan a 64x64-cell world with a thumb, and the banner that matters on a
+ * cannot use the fixed panel layout with a thumb, and the banner that matters on a
  * docked panel ("set your device name") is a setup nag about the PANEL, shown
  * on a device that is not one. So the phone gets its own screen rather than a
  * squeezed board , a
@@ -15,8 +15,7 @@
  *   - The banner stack. Every banner in it is panel chrome, and the one the
  *     phone view exists to silence self-guards (see DeviceNameBanner), so
  *     mounting it from a phone would still render nothing.
- *   - Drag-pan, the camera glide and idle dim , all are properties of a fixed
- *     panel sitting on a wall, not of a phone in a pocket.
+ *   - Idle dim, a property of a panel sitting on a wall, not a phone in a pocket.
  *
  * Still here, because a phone needs them: the Settings gear (the phone is where
  * you fix a setting you noticed on the panel) and TileDetailHost (the tile

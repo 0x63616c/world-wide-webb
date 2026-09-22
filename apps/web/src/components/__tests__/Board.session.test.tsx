@@ -2,7 +2,7 @@
  * Panel-session integration: the REAL Board wired to the REAL panel-session
  * clock (lib/panel-session). Successor to Board.idle.test.tsx +
  * Board.dim-overlay.test.tsx , the idle-reset and idle-dim timers they covered
- * are now one activity clock whose SESSION END dims + glides home + relocks.
+ * are now one activity clock whose SESSION END dims and relocks.
  *
  * Native display is mocked true so the session is enabled (it is native-only,
  * matching the old idle-dim gate); the panel-session singleton is reset around
@@ -11,13 +11,7 @@
 
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { tileWorldRect } from "../../lib/grid-constants";
 
-const HOME_RECT = tileWorldRect({ worldCol: 26, worldRow: 27, cols: 4, rows: 2 });
-const HOME_CX = HOME_RECT.x + HOME_RECT.w / 2;
-const HOME_CY = HOME_RECT.y + HOME_RECT.h / 2;
-const CLIENT_W = 1366;
-const CLIENT_H = 1024;
 // The idle-dim timeout is a constant now (lib/settings.ts IDLE_DIM_TIMEOUT_MS),
 // not a setting, so the tests run against that exact value.
 const TIMEOUT_MS = 60_000;
@@ -78,22 +72,16 @@ beforeEach(() => {
   vi.useFakeTimers();
   __resetSessionForTests();
   resetSettings();
-  // jsdom has no scrollTo; the glide-home jumpTo calls it directly (no fallback).
-  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
-    configurable: true,
-    writable: true,
-    value: () => {},
-  });
   Object.defineProperty(HTMLElement.prototype, "clientWidth", {
     configurable: true,
     get() {
-      return this.id === "stage" ? CLIENT_W : 0;
+      return this.id === "stage" ? 1366 : 0;
     },
   });
   Object.defineProperty(HTMLElement.prototype, "clientHeight", {
     configurable: true,
     get() {
-      return this.id === "stage" ? CLIENT_H : 0;
+      return this.id === "stage" ? 1024 : 0;
     },
   });
 });
@@ -108,41 +96,23 @@ afterEach(() => {
   tileTap.mockClear();
 });
 
-// Capture the glide-home scrollTo target while still letting scroll writes land.
-function captureScrollTo(stage: HTMLElement) {
-  const calls: Array<{ left: number; top: number }> = [];
-  stage.scrollTo = ((opts: ScrollToOptions) => {
-    if (opts && typeof opts.left === "number" && typeof opts.top === "number") {
-      calls.push({ left: opts.left, top: opts.top });
-      stage.scrollLeft = opts.left;
-      stage.scrollTop = opts.top;
-    }
-  }) as typeof stage.scrollTo;
-  return calls;
-}
-
 describe("Board panel-session wiring", () => {
-  it("ends the session after the idle timeout: dims, glides home, relocks", () => {
+  it("ends the session after the idle timeout: dims and relocks without moving", () => {
     render(<Board />);
     const stage = document.getElementById("stage") as HTMLElement;
-    const calls = captureScrollTo(stage);
+    const start = { left: stage.scrollLeft, top: stage.scrollTop };
 
-    // Unlock the session, then pan away so the glide-home target is non-trivial.
     act(() => panelSession.unlock());
     expect(panelSession.isUnlocked()).toBe(true);
-    stage.scrollLeft = HOME_CX + 4000;
-    stage.scrollTop = HOME_CY + 4000;
 
     act(() => {
       vi.advanceTimersByTime(TIMEOUT_MS);
     });
 
-    // Dimmed (shield up), relocked, and glided back to the home tile.
+    // Dimmed (shield up), relocked, with the fixed camera untouched.
     expect(screen.getByTestId("dim-overlay")).toBeTruthy();
     expect(panelSession.isUnlocked()).toBe(false);
-    const last = calls.at(-1);
-    expect(last?.left).toBeCloseTo(HOME_CX - CLIENT_W / 2, 0);
-    expect(last?.top).toBeCloseTo(HOME_CY - CLIENT_H / 2, 0);
+    expect({ left: stage.scrollLeft, top: stage.scrollTop }).toEqual(start);
   });
 
   it("swallows the wake tap: it never clicks the tile beneath, and rearms", () => {
