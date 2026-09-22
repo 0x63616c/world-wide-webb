@@ -176,8 +176,11 @@ export function ExpandedControlsView({
             card layout as the compact tile (Option 3, "Group Cards"), just
             roomier , a fixed height so the cards' (and their ControlTap
             children's) 100%-height fill resolves, same reasoning as the scene
-            tiles below. */}
-        <div style={{ height: 420 }}>
+            tiles below. 460 (up from 420) gives each group card's sub-cell row
+            (Bedroom/Living Room, Ceiling/Cabinet) the same comfortable height
+            as the compact tile , 420 predates the group-card header bar
+            landing above that row and was squeezing it. */}
+        <div style={{ height: 460 }}>
           <ControlsGridView data={data} onToggle={onToggle} hideMore />
         </div>
 
