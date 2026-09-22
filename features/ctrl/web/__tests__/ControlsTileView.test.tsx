@@ -60,7 +60,13 @@ describe("ControlsTileView , populated state", () => {
     expect(screen.getByLabelText("Living Room")).toBeInTheDocument();
     expect(screen.getByLabelText("Lights")).toBeInTheDocument();
     expect(screen.getByLabelText("Ceiling")).toBeInTheDocument();
-    expect(screen.getByLabelText("Cabinet")).toBeInTheDocument();
+    expect(screen.getByLabelText("Under Cabinet")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Ceiling").querySelector(".lucide-lamp-ceiling"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Under Cabinet").querySelector(".lucide-lamp-wall-down"),
+    ).toBeInTheDocument();
   });
 
   it("utility row shows more label text", () => {
@@ -79,10 +85,10 @@ describe("ControlsTileView , populated state", () => {
     expect(screen.getByLabelText("Living Room")).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("Ceiling and Cabinet reflect off state via aria-pressed", () => {
+  it("Ceiling and Under Cabinet reflect off state via aria-pressed", () => {
     render(<ControlsTileView {...populatedProps} />);
     expect(screen.getByLabelText("Ceiling")).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByLabelText("Cabinet")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("Under Cabinet")).toHaveAttribute("aria-pressed", "false");
   });
 
   it("All reflects on state via aria-pressed (AND across every lamp/fixture)", () => {
@@ -230,10 +236,10 @@ describe("ControlsTileView , onToggle callbacks", () => {
     expect(onToggle).toHaveBeenCalledWith("ceiling", false);
   });
 
-  it("calls onToggle with cabinet key when Cabinet clicked", () => {
+  it("calls onToggle with cabinet key when Under Cabinet clicked", () => {
     const onToggle = vi.fn();
     render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
-    fireEvent.click(screen.getByLabelText("Cabinet"));
+    fireEvent.click(screen.getByLabelText("Under Cabinet"));
     expect(onToggle).toHaveBeenCalledWith("cabinet", false);
   });
 });

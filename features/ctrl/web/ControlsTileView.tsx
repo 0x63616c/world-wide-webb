@@ -89,7 +89,7 @@ interface ControlsGridViewProps {
 /** One sub-control inside a ControlGroupCard (a room lamp split or a fixture split). */
 interface ControlGroupCardSub {
   key: ControlKey;
-  icon: "lamp" | "bulb";
+  icon: "lamp" | "lamp-ceiling" | "lamp-wall-down" | "bulb";
   label: string;
   entry: ControlEntry;
 }
@@ -276,8 +276,13 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
         master={data.lights}
         onMasterToggle={() => onToggle(ControlKey.Lights, data.lights.on)}
         subs={[
-          { key: ControlKey.Ceiling, icon: "bulb", label: "Ceiling", entry: data.ceiling },
-          { key: ControlKey.Cabinet, icon: "bulb", label: "Cabinet", entry: data.cabinet },
+          { key: ControlKey.Ceiling, icon: "lamp-ceiling", label: "Ceiling", entry: data.ceiling },
+          {
+            key: ControlKey.Cabinet,
+            icon: "lamp-wall-down",
+            label: "Under Cabinet",
+            entry: data.cabinet,
+          },
         ]}
         onSubToggle={onToggle}
       />

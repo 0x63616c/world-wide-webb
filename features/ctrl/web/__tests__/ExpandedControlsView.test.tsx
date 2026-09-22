@@ -70,7 +70,7 @@ describe("ExpandedControlsView , content", () => {
     expect(screen.getByLabelText("Bedroom")).toBeInTheDocument();
     expect(screen.getByLabelText("Living Room")).toBeInTheDocument();
     expect(screen.getByLabelText("Ceiling")).toBeInTheDocument();
-    expect(screen.getByLabelText("Cabinet")).toBeInTheDocument();
+    expect(screen.getByLabelText("Under Cabinet")).toBeInTheDocument();
     expect(screen.getByLabelText("All")).toBeInTheDocument();
   });
 });
