@@ -20,6 +20,9 @@ Refs T-
 
 ## Screenshot
 
-<!-- Required for any UI change: include an agent-browser screenshot and say
-     what it demonstrates. Delete this entire section if there is no UI
-     change. -->
+<!-- Required for EVERY PR (see AGENTS.md, Workflow). UI change: a browser
+     screenshot of the real thing running, tile and detail page, and say what
+     it demonstrates. No UI change: a screenshot of the evidence instead (the
+     passing test run, the Grafana panel, the API response). Commit the PNGs
+     under docs/screenshots/<feature>/ and embed them by raw GitHub URL pinned
+     to the commit SHA. -->

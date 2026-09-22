@@ -236,7 +236,8 @@ function RoomRow({ room, rooms, controls }: RoomRowProps) {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "180px 1fr auto",
+        // Fixed side columns so every row's slider is the same length.
+        gridTemplateColumns: "180px 1fr 330px",
         alignItems: "center",
         gap: 20,
         padding: "14px 18px",
@@ -339,7 +340,7 @@ function RoomRow({ room, rooms, controls }: RoomRowProps) {
       </div>
 
       {/* Group moves */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "flex-end" }}>
         {!room.isCoordinator && (
           <Button
             variant="ghost"

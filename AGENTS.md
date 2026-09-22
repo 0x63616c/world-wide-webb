@@ -149,4 +149,12 @@ console or by reproducing locally, not queried from a store.
 - Verify before opening/merging where cheap (`bun run typecheck`, relevant
   tests). On failure, fix forward on the branch and push again — never sit on
   an unpushed or unmerged change.
+- **Every PR description includes a screenshot.** Calum reviews what a change
+  looks like, not a prose description of it. UI changes: screenshot the real
+  thing running (tile face and, if it has one, its detail page) with the
+  browser tooling, at the panel's `1366x1024`. Non-UI changes: screenshot the
+  evidence instead (the passing test run, the Grafana panel, the API
+  response). Commit the PNGs under `docs/screenshots/<feature>/` and embed
+  them with a raw GitHub URL pinned to the commit SHA, so the images survive
+  branch deletion. There is no other image host for PR descriptions.
 - Keep docs current when behavior changes.
