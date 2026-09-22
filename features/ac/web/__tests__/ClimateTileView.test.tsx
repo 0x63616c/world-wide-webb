@@ -177,6 +177,33 @@ describe("ClimateTileView, cool/heat (single setpoint)", () => {
     fireEvent.change(screen.getByTestId("slider"), { target: { value: "75" } });
     expect(onSetTarget).toHaveBeenCalledWith(75);
   });
+
+  it("renders +/- stepper buttons flanking the setpoint", () => {
+    render(<ClimateTileView {...coolProps} />);
+    expect(screen.getByTestId("stepper-down")).toBeInTheDocument();
+    expect(screen.getByTestId("stepper-up")).toBeInTheDocument();
+  });
+
+  it("steps the target down by 1 through the same onSetTarget path", () => {
+    const onSetTarget = vi.fn();
+    render(<ClimateTileView {...coolProps} onSetTarget={onSetTarget} />);
+    fireEvent.click(screen.getByTestId("stepper-down"));
+    expect(onSetTarget).toHaveBeenCalledWith(67);
+  });
+
+  it("steps the target up by 1 through the same onSetTarget path", () => {
+    const onSetTarget = vi.fn();
+    render(<ClimateTileView {...coolProps} onSetTarget={onSetTarget} />);
+    fireEvent.click(screen.getByTestId("stepper-up"));
+    expect(onSetTarget).toHaveBeenCalledWith(69);
+  });
+
+  it("clamps the stepper at MAX/MIN", () => {
+    const onSetTarget = vi.fn();
+    render(<ClimateTileView {...coolProps} target={77} onSetTarget={onSetTarget} />);
+    fireEvent.click(screen.getByTestId("stepper-up"));
+    expect(onSetTarget).toHaveBeenCalledWith(77);
+  });
 });
 
 // ─── heat_cool (dual setpoint) ─────────────────────────────────────────────────
@@ -208,6 +235,12 @@ describe("ClimateTileView, heat_cool (dual setpoint)", () => {
   it("marks heat_cool active", () => {
     render(<ClimateTileView {...heatCoolProps} />);
     expect(screen.getByTestId("chip-heat_cool")).toHaveClass("on");
+  });
+
+  it("has no unambiguous single setpoint, so no steppers render", () => {
+    render(<ClimateTileView {...heatCoolProps} />);
+    expect(screen.queryByTestId("stepper-down")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("stepper-up")).not.toBeInTheDocument();
   });
 
   it("clamps low so it cannot reach high when dragged up", () => {
@@ -259,6 +292,12 @@ describe("ClimateTileView, off", () => {
   it("marks the Off button active", () => {
     render(<ClimateTileView {...offProps} />);
     expect(screen.getByTestId("chip-off")).toHaveClass("on");
+  });
+
+  it("renders no steppers when off (no active setpoint to adjust)", () => {
+    render(<ClimateTileView {...offProps} />);
+    expect(screen.queryByTestId("stepper-down")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("stepper-up")).not.toBeInTheDocument();
   });
 });
 
