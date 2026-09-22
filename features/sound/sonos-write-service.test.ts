@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { sonosGroupJoin, sonosGroupJoinAll, sonosSetVolume } from "./sonos-write-service";
+import {
+  sonosGroupJoin,
+  sonosGroupJoinAll,
+  sonosGroupJoinAllToTv,
+  sonosSetVolume,
+} from "./sonos-write-service";
 
 describe("HA sound writes", () => {
   it("sends volume and grouping commands to Home Assistant", async () => {
@@ -35,5 +40,35 @@ describe("HA sound writes", () => {
       entity_id: "media_player.desk",
       group_members: ["media_player.kitchen", "media_player.bathroom"],
     });
+  });
+
+  it("TV mode puts the TV room on its TV input, then joins the rest onto it", async () => {
+    const callService = vi.fn().mockResolvedValue(undefined);
+
+    await sonosGroupJoinAllToTv(
+      {
+        tvEntityId: "media_player.living_room",
+        memberEntityIds: ["media_player.desk", "media_player.kitchen"],
+      },
+      { callService },
+    );
+
+    expect(callService).toHaveBeenNthCalledWith(1, "media_player", "select_source", {
+      entity_id: "media_player.living_room",
+      source: "TV",
+    });
+    expect(callService).toHaveBeenNthCalledWith(2, "media_player", "join", {
+      entity_id: "media_player.living_room",
+      group_members: ["media_player.desk", "media_player.kitchen"],
+    });
+  });
+
+  it("TV mode with nothing to join only switches the source", async () => {
+    const callService = vi.fn().mockResolvedValue(undefined);
+    await sonosGroupJoinAllToTv(
+      { tvEntityId: "media_player.living_room", memberEntityIds: [] },
+      { callService },
+    );
+    expect(callService).toHaveBeenCalledTimes(1);
   });
 });

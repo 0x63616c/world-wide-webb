@@ -21,6 +21,8 @@
  */
 
 import { type HaEntity, type HomeAssistantClient, haFromConfig } from "@www/core";
+import { baselinesForCalibration, type CalibrationBaselines } from "./calibration";
+import { type CalibrationStore, pgCalibrationStore } from "./calibration-store";
 import { config } from "./config";
 
 // Stable display order for the rooms, so faders never reshuffle between polls. Rooms not in this
@@ -57,8 +59,14 @@ export interface SoundSystemRoom {
   memberUuids: string[];
   /** Whether this room is its own group's coordinator. */
   isCoordinator: boolean;
-  /** This player's own volume, 0-100. */
+  /** This player's own RAW volume, 0-100 (what Home Assistant reports). */
   volume: number;
+  /**
+   * Calibration baseline (the raw volume this room treats as 100%), or null
+   * when the room has never been calibrated. The web displays and drives
+   * `volume` as a percentage of it; see ./calibration.ts.
+   */
+  baseline: number | null;
   /** Whether this player is muted. */
   muted: boolean;
   /** Group transport state from the coordinator: "PLAYING" | "PAUSED_PLAYBACK" | "STOPPED". */
@@ -124,7 +132,10 @@ function transportState(state: string): string {
 }
 
 /** Convert HA's media-player state into the stable UI shape without any Sonos SOAP calls. */
-export function roomFromHaEntity(entity: HaEntity): SoundSystemRoom | null {
+export function roomFromHaEntity(
+  entity: HaEntity,
+  baselines: CalibrationBaselines = {},
+): SoundSystemRoom | null {
   const memberUuids = stringArrayAttr(entity, "group_members");
   // Sonos entities expose group_members. This deliberately excludes TVs and other HA media players.
   if (memberUuids.length === 0) return null;
@@ -146,6 +157,7 @@ export function roomFromHaEntity(entity: HaEntity): SoundSystemRoom | null {
     memberUuids,
     isCoordinator: coordinatorUuid === uuid,
     volume,
+    baseline: baselines[uuid] ?? null,
     muted,
     transportState: transportState(entity.state),
     sourceLabel: SOURCE_LABELS[kind] ?? source,
@@ -170,10 +182,15 @@ export function roomFromHaEntity(entity: HaEntity): SoundSystemRoom | null {
  */
 export async function getSoundSystem(
   client: Pick<HomeAssistantClient, "getEntities" | "isConfigured"> = ha,
+  calibration: Pick<CalibrationStore, "readAll"> = pgCalibrationStore,
 ): Promise<SoundSystemResult> {
   if (!client.isConfigured()) throw new Error("Home Assistant is not configured");
-  const rooms = (await client.getEntities("media_player"))
-    .map(roomFromHaEntity)
+  const [entities, baselines] = await Promise.all([
+    client.getEntities("media_player"),
+    calibration.readAll(),
+  ]);
+  const rooms = entities
+    .map((entity) => roomFromHaEntity(entity, baselines))
     .filter((room): room is SoundSystemRoom => room !== null);
   rooms.sort((a, b) => roomRank(a.name) - roomRank(b.name) || a.name.localeCompare(b.name));
   return {
@@ -187,4 +204,34 @@ export async function getSoundSystem(
           : "Home Assistant returned no Sonos media-player entities",
     },
   };
+}
+
+/**
+ * Calibrate: read a FRESH raw volume for every room from Home Assistant (never
+ * a number the panel painted, which could be stale or already normalised) and
+ * store `raw * 2` as that room's baseline, so each room reads 50% from here
+ * on. A room at raw 0 keeps whatever baseline it already had. Returns the
+ * baselines that were written.
+ */
+export async function calibrateSoundSystem(
+  client: Pick<HomeAssistantClient, "getEntities" | "isConfigured"> = ha,
+  calibration: CalibrationStore = pgCalibrationStore,
+): Promise<CalibrationBaselines> {
+  const { rooms } = await getSoundSystem(client, calibration);
+  const next = baselinesForCalibration(rooms);
+  await calibration.upsertMany(next);
+  return next;
+}
+
+/**
+ * Clear calibration: drop every room's baseline entirely (not zero it), so
+ * the panel falls back to showing raw volume. The web also drops its lock on
+ * success, since matching percentages stop meaning anything with no
+ * calibration behind them.
+ */
+export async function clearSoundSystemCalibration(
+  calibration: CalibrationStore = pgCalibrationStore,
+): Promise<void> {
+  const current = await calibration.readAll();
+  await calibration.deleteMany(Object.keys(current));
 }
