@@ -62,7 +62,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     label: "Controls",
     worldCol: 31,
     worldRow: 27,
-    cols: 4,
+    cols: 5,
     rows: 4,
     home: true,
     sensitive: false,

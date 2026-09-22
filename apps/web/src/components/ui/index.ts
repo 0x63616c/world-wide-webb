@@ -18,6 +18,9 @@ export { ConfirmDialog } from "./ConfirmDialog";
 export type { ControlTapProps } from "./ControlTap";
 export { ControlTap } from "./ControlTap";
 /** @public , shared tile-author primitive surface (www-2nrj). */
+export type { ControlTapRowProps } from "./ControlTapRow";
+export { ControlTapRow } from "./ControlTapRow";
+/** @public , shared tile-author primitive surface (www-2nrj). */
 export type { FieldProps } from "./Field";
 /** @public , shared tile-author primitive surface (www-2nrj). */
 export { Field, fieldErrorId } from "./Field";

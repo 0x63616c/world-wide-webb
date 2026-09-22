@@ -22,7 +22,7 @@ export default defineApp({
       viewComponent: ControlsTileView,
       worldCol: 31,
       worldRow: 27,
-      cols: 4,
+      cols: 5,
       rows: 4,
       home: true,
     },
