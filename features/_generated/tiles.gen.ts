@@ -63,7 +63,7 @@ export const GENERATED_TILES: readonly GeneratedTile[] = [
     worldCol: 31,
     worldRow: 27,
     cols: 4,
-    rows: 3,
+    rows: 4,
     home: true,
     sensitive: false,
     private: false,

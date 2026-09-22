@@ -17,6 +17,11 @@ const populatedProps: ControlsTileViewProps = {
     lamps: { on: true, sub: "On", pending: false },
     lights: { on: false, pending: false },
     fan: { on: true, sub: "Medium", pending: false },
+    bedroomLamps: { on: false, pending: false },
+    otherLamps: { on: true, pending: false },
+    ceiling: { on: false, pending: false },
+    cabinet: { on: false, pending: false },
+    allOff: { on: false, pending: false },
   },
   onToggle: vi.fn(),
 };
@@ -45,18 +50,55 @@ describe("ControlsTileView , loading state", () => {
 // ─── populated state ──────────────────────────────────────────────────────────
 
 describe("ControlsTileView , populated state", () => {
-  it("renders all four grid cells", () => {
+  it("renders all nine grid cells", () => {
     render(<ControlsTileView {...populatedProps} />);
     expect(screen.getByLabelText("Lamps")).toBeInTheDocument();
     expect(screen.getByLabelText("Lights")).toBeInTheDocument();
     expect(screen.getByLabelText("Fan")).toBeInTheDocument();
+    expect(screen.getByLabelText("Bedroom")).toBeInTheDocument();
+    expect(screen.getByLabelText("Other Lamps")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ceiling")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cabinet")).toBeInTheDocument();
+    expect(screen.getByLabelText("All Off")).toBeInTheDocument();
     expect(screen.getByLabelText("More")).toBeInTheDocument();
   });
 
-  it("4th cell shows more label text", () => {
+  it("9th cell shows more label text", () => {
     render(<ControlsTileView {...populatedProps} />);
     expect(screen.getByText("more")).toBeInTheDocument();
     expect(screen.queryByText("Scene")).not.toBeInTheDocument();
+  });
+
+  it("Bedroom reflects off state via aria-pressed", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    expect(screen.getByLabelText("Bedroom")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("Other Lamps reflects on state via aria-pressed", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    expect(screen.getByLabelText("Other Lamps")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("Ceiling and Cabinet reflect off state via aria-pressed", () => {
+    render(<ControlsTileView {...populatedProps} />);
+    expect(screen.getByLabelText("Ceiling")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("Cabinet")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("All Off always renders off, never pressed", () => {
+    const props: ControlsTileViewProps = {
+      ...populatedProps,
+      data: { ...populatedProps.data, allOff: { on: false, pending: false } },
+    } as ControlsTileViewProps;
+    render(<ControlsTileView {...props} />);
+    expect(screen.getByLabelText("All Off")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("calls onToggle with allOff key when All Off is clicked", () => {
+    const onToggle = vi.fn();
+    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByLabelText("All Off"));
+    expect(onToggle).toHaveBeenCalledWith("allOff", false);
   });
 
   it("Lamps reflects on state via aria-pressed", () => {
@@ -160,5 +202,33 @@ describe("ControlsTileView , onToggle callbacks", () => {
     render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
     fireEvent.click(screen.getByLabelText("Fan"));
     expect(onToggle).toHaveBeenCalledWith("fan", true);
+  });
+
+  it("calls onToggle with bedroomLamps key when Bedroom clicked", () => {
+    const onToggle = vi.fn();
+    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByLabelText("Bedroom"));
+    expect(onToggle).toHaveBeenCalledWith("bedroomLamps", false);
+  });
+
+  it("calls onToggle with otherLamps key when Other Lamps clicked", () => {
+    const onToggle = vi.fn();
+    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByLabelText("Other Lamps"));
+    expect(onToggle).toHaveBeenCalledWith("otherLamps", true);
+  });
+
+  it("calls onToggle with ceiling key when Ceiling clicked", () => {
+    const onToggle = vi.fn();
+    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByLabelText("Ceiling"));
+    expect(onToggle).toHaveBeenCalledWith("ceiling", false);
+  });
+
+  it("calls onToggle with cabinet key when Cabinet clicked", () => {
+    const onToggle = vi.fn();
+    render(<ControlsTileView {...populatedProps} onToggle={onToggle} />);
+    fireEvent.click(screen.getByLabelText("Cabinet"));
+    expect(onToggle).toHaveBeenCalledWith("cabinet", false);
   });
 });

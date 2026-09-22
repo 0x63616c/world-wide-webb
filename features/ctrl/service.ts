@@ -10,10 +10,12 @@ import {
   HaError,
   isClimateState,
   LAMP_ENTITY_IDS,
+  LIGHTS,
   type LightColor,
   type LightEntry,
   LightKind,
   mergeDeviceState,
+  Room,
   rgbToXy,
 } from "@www/core";
 import { getLogger } from "@www/logger";
@@ -78,6 +80,11 @@ interface LightState {
   pending: boolean;
 }
 
+/** A grouped on/off control with no `sub` or scene state , the lamp/fixture
+ *  room-split controls (bedroom/other lamps, ceiling/cabinet fixtures) and
+ *  the all-off control all share this shape. */
+type GroupState = LightState;
+
 interface FanState {
   on: boolean;
   /** Sub-label, e.g. "Medium". */
@@ -89,14 +96,53 @@ export interface ControlsState {
   lamps: LampState;
   lights: LightState;
   fan: FanState;
+  bedroomLamps: GroupState;
+  otherLamps: GroupState;
+  ceiling: GroupState;
+  cabinet: GroupState;
+  /** Turns every lamp and fixture off in one tap. Never reports on=true , it
+   *  is an action, not a toggle (there is nothing "the all-off group" can be
+   *  on as, since it never turns anything on). */
+  allOff: GroupState;
 }
 
 export const ControlKey = {
   Lamps: "lamps",
   Lights: "lights",
   Fan: "fan",
+  BedroomLamps: "bedroomLamps",
+  OtherLamps: "otherLamps",
+  Ceiling: "ceiling",
+  Cabinet: "cabinet",
+  AllOff: "allOff",
 } as const;
 export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
+
+// ─── entity-id groups (derived from LIGHTS, not hand-rolled lists) ───────────
+//
+// Bedroom lamps vs. the rest of the apartment's lamps (Living Room + Kitchen),
+// and the two independently-switched kitchen fixture circuits (the Kitchen
+// under-cabinet light vs. the Living-Room-tagged ceiling/overhead light , see
+// packages/core/src/lights/index.ts for the "overhead" entry's room-tag note).
+// Each is a room filter over LIGHTS, the same idiom LAMP_ENTITY_IDS/
+// FIXTURE_ENTITY_IDS already use, so a future light just needs the right
+// room/kind on its LIGHTS entry to join the right group , no new list to edit.
+
+const BEDROOM_LAMP_ENTITY_IDS: readonly string[] = LIGHTS.filter(
+  (l) => l.kind === LightKind.Lamp && l.room === Room.Bedroom,
+).map((l) => l.entityId);
+
+const OTHER_LAMP_ENTITY_IDS: readonly string[] = LIGHTS.filter(
+  (l) => l.kind === LightKind.Lamp && l.room !== Room.Bedroom,
+).map((l) => l.entityId);
+
+const KITCHEN_FIXTURE_ENTITY_IDS: readonly string[] = LIGHTS.filter(
+  (l) => l.kind === LightKind.Fixture && l.room === Room.Kitchen,
+).map((l) => l.entityId);
+
+const LIVING_ROOM_FIXTURE_ENTITY_IDS: readonly string[] = LIGHTS.filter(
+  (l) => l.kind === LightKind.Fixture && l.room === Room.LivingRoom,
+).map((l) => l.entityId);
 
 export const FanMode = {
   On: "on",
@@ -202,6 +248,15 @@ function effectiveLight(row: typeof deviceState.$inferSelect | undefined): Effec
   const state = (merged.state as DeviceLightState | null) ?? null;
   const on = merged.available && (state?.on ?? false);
   return { on, state, available: merged.available, pending: merged.pending };
+}
+
+/** A group reads "on" when at least one entity in it is effectively on , the
+ *  same convention the combined Lamps/Lights controls already use. */
+function groupOn(
+  entityIds: readonly string[],
+  rowByEntityId: Map<string, typeof deviceState.$inferSelect>,
+): boolean {
+  return entityIds.some((id) => effectiveLight(rowByEntityId.get(id)).on);
 }
 
 // ─── activeScene derivation (from desired colors) ────────────────────────────
@@ -318,6 +373,13 @@ export async function getControlsState(
   // with a real `pending` from desired-vs-reported convergence.
   const fan = effectiveFan(rowById.get(CLIMATE_DEVICE_ID));
 
+  // Grouped controls: same "on if at least one entity in the group is on"
+  // convention as Lamps/Lights, desired-authoritative and never pending.
+  const bedroomLampsOn = groupOn(BEDROOM_LAMP_ENTITY_IDS, rowByEntityId);
+  const otherLampsOn = groupOn(OTHER_LAMP_ENTITY_IDS, rowByEntityId);
+  const ceilingOn = groupOn(LIVING_ROOM_FIXTURE_ENTITY_IDS, rowByEntityId);
+  const cabinetOn = groupOn(KITCHEN_FIXTURE_ENTITY_IDS, rowByEntityId);
+
   return {
     lamps: {
       on: anyLampOn,
@@ -339,6 +401,12 @@ export async function getControlsState(
       pending: false,
     },
     fan,
+    bedroomLamps: { on: bedroomLampsOn, pending: false },
+    otherLamps: { on: otherLampsOn, pending: false },
+    ceiling: { on: ceilingOn, pending: false },
+    cabinet: { on: cabinetOn, pending: false },
+    // Always off , it's an action, not a stateful toggle (see ControlsState.allOff).
+    allOff: { on: false, pending: false },
   };
 }
 
@@ -470,28 +538,55 @@ async function writeFanDesired(fanMode: FanMode, store: DeviceStateStore): Promi
   await store.updateDesired({ id: row.id, desired });
 }
 
-/** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */
-function lampEntries(): LightEntry[] {
-  return LAMP_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
+/** LightEntry rows for a list of entity ids, in that order (missing ids dropped). */
+function entriesFor(entityIds: readonly string[]): LightEntry[] {
+  return entityIds.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
 }
 
-/** All fixture LightEntry rows in FIXTURE_ENTITY_IDS order. */
-function fixtureEntries(): LightEntry[] {
-  return FIXTURE_ENTITY_IDS.map((id) => findLight(id)).filter((e): e is LightEntry => !!e);
+/** All lamp LightEntry rows in LAMP_ENTITY_IDS order. */
+function lampEntries(): LightEntry[] {
+  return entriesFor(LAMP_ENTITY_IDS);
+}
+
+/**
+ * Toggle a group of lamps on/off, preserving each lamp's existing desired
+ * color/brightness on ON (the scene survives a toggle) , the same write
+ * `writeDesired` already does for the full Lamps control.
+ */
+async function toggleLampGroup(
+  entityIds: readonly string[],
+  on: boolean,
+  store: DeviceStateStore,
+): Promise<void> {
+  await writeDesired(
+    entriesFor(entityIds),
+    (_entry, prev) => (on ? { ...prev, on: true } : { ...(prev ?? {}), on: false }),
+    store,
+  );
+}
+
+/** Toggle a group of switch-domain fixtures on/off (on/off only, no color state). */
+async function toggleFixtureGroup(
+  entityIds: readonly string[],
+  on: boolean,
+  store: DeviceStateStore,
+): Promise<void> {
+  await writeDesired(entriesFor(entityIds), () => ({ on }), store);
 }
 
 // ─── mutations (write desired; the enforcer actuates HA) ──────────────────────
 
 /**
- * Toggle lamps, lights, or fan on or off.
+ * Toggle any control group on or off.
  *
  * For lamps/lights: writes the on/off intent to device_state DESIRED (+ a command
  * window) and returns , it does NOT actuate HA in the hot path. The light enforcer
  * pushes desired→HA within its ~1s cycle (it pushes regardless of policy while the
  * command window is open, so even an `adopt` wall-switch honors the tap). Turning
  * a lamp ON preserves its existing desired color/brightness (the scene survives a
- * toggle). Fan stays the climate fan_mode path (evee parity). Throws when HA is
- * unconfigured. Returns the desired-authoritative state.
+ * toggle). Fan stays the climate fan_mode path (evee parity). AllOff always turns
+ * everything off regardless of the `on` argument , it is an action, not a toggle.
+ * Throws when HA is unconfigured. Returns the desired-authoritative state.
  */
 export async function toggleControl(
   key: ControlKey,
@@ -508,21 +603,43 @@ export async function toggleControl(
       // silently resurrects on the next lamp-on (www-hu8p). ON leaves the mode
       // intact so a durable party re-arms when the lamps come back.
       if (!on) await clearLampMode();
-      const entries = lampEntries();
-      // Toggle ON preserves the existing desired color/brightness (scene survives
-      // a toggle); OFF just flips on. The desired write is the source of truth; the
-      // enforcer pushes it to HA within the command window.
-      await writeDesired(
-        entries,
-        (_entry, prev) => (on ? { ...prev, on: true } : { ...(prev ?? {}), on: false }),
-        store,
-      );
+      await toggleLampGroup(LAMP_ENTITY_IDS, on, store);
+      break;
+    }
+
+    // Bedroom vs. the rest of the apartment's lamps: a partial group, so unlike
+    // the full Lamps control this never clears party mode , the lamps left on
+    // (in the other group) keep animating (www-hu8p only applies when ALL lamps
+    // go off).
+    case ControlKey.BedroomLamps: {
+      await toggleLampGroup(BEDROOM_LAMP_ENTITY_IDS, on, store);
+      break;
+    }
+    case ControlKey.OtherLamps: {
+      await toggleLampGroup(OTHER_LAMP_ENTITY_IDS, on, store);
       break;
     }
 
     case ControlKey.Lights: {
-      const entries = fixtureEntries();
-      await writeDesired(entries, () => ({ on }), store);
+      await toggleFixtureGroup(FIXTURE_ENTITY_IDS, on, store);
+      break;
+    }
+    case ControlKey.Ceiling: {
+      await toggleFixtureGroup(LIVING_ROOM_FIXTURE_ENTITY_IDS, on, store);
+      break;
+    }
+    case ControlKey.Cabinet: {
+      await toggleFixtureGroup(KITCHEN_FIXTURE_ENTITY_IDS, on, store);
+      break;
+    }
+
+    // Always turns everything off, ignoring `on` , it is an action, not a
+    // toggle (ControlsState.allOff never reports on=true). Ends party like the
+    // full Lamps-off case, since every lamp goes off together.
+    case ControlKey.AllOff: {
+      await clearLampMode();
+      await toggleLampGroup(LAMP_ENTITY_IDS, false, store);
+      await toggleFixtureGroup(FIXTURE_ENTITY_IDS, false, store);
       break;
     }
 

@@ -22,12 +22,22 @@ const allOn: ControlsViewData = {
   },
   lights: { on: true, pending: false },
   fan: { on: true, sub: "Medium", pending: false },
+  bedroomLamps: { on: true, pending: false },
+  otherLamps: { on: true, pending: false },
+  ceiling: { on: true, pending: false },
+  cabinet: { on: true, pending: false },
+  allOff: { on: false, pending: false },
 };
 
 const lampsOff: ControlsViewData = {
   lamps: { on: false, pending: false },
   lights: { on: true, pending: false },
   fan: { on: false, pending: false },
+  bedroomLamps: { on: false, pending: false },
+  otherLamps: { on: false, pending: false },
+  ceiling: { on: true, pending: false },
+  cabinet: { on: false, pending: false },
+  allOff: { on: false, pending: false },
 };
 
 function baseProps(over: Partial<ExpandedControlsViewProps> = {}): ExpandedControlsViewProps {
@@ -53,10 +63,15 @@ const partyActive: ControlsViewData = {
 describe("ExpandedControlsView , content", () => {
   it("renders the toggle grid", () => {
     render(<ExpandedControlsView {...baseProps()} />);
-    // Reuses the grid , Lamps/Lights/Fan toggles are present
+    // Reuses the grid , all eight grouped toggles are present
     expect(screen.getByLabelText("Lamps")).toBeInTheDocument();
     expect(screen.getByLabelText("Lights")).toBeInTheDocument();
     expect(screen.getByLabelText("Fan")).toBeInTheDocument();
+    expect(screen.getByLabelText("Bedroom")).toBeInTheDocument();
+    expect(screen.getByLabelText("Other Lamps")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ceiling")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cabinet")).toBeInTheDocument();
+    expect(screen.getByLabelText("All Off")).toBeInTheDocument();
   });
 });
 

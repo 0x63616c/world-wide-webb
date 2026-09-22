@@ -60,6 +60,19 @@ const lightStateSchema = z.object({
     ),
 });
 
+/** Schema for a grouped on/off control (room-split lamp/fixture groups, all-off):
+ *  same shape as lightStateSchema, with a control-specific `on` description. */
+function groupStateSchema(onDescription: string) {
+  return z.object({
+    on: z.boolean().describe(onDescription),
+    pending: z
+      .boolean()
+      .describe(
+        "Always false , grouped controls are desired-authoritative and never show a pending cue (www-uq58)",
+      ),
+  });
+}
+
 const fanStateSchema = z.object({
   on: z.boolean().describe("True when the fan is running"),
   sub: z.string().describe('Speed label, e.g. "Medium"'),
@@ -71,9 +84,16 @@ const controlsStateSchema = z
     lamps: lampStateSchema,
     lights: lightStateSchema,
     fan: fanStateSchema,
+    bedroomLamps: groupStateSchema("True when at least one Bedroom lamp is on"),
+    otherLamps: groupStateSchema(
+      "True when at least one lamp outside the Bedroom (Living Room + Kitchen) is on",
+    ),
+    ceiling: groupStateSchema("True when the ceiling/overhead light is on"),
+    cabinet: groupStateSchema("True when the under-cabinet light is on"),
+    allOff: groupStateSchema("Always false , allOff only ever turns everything off"),
   })
   .describe(
-    "Snapshot of all controllable entities: lamps, lights, fan. Throws SERVICE_UNAVAILABLE when HA is unreachable (tile shimmers via error state).",
+    "Snapshot of all controllable entities: lamps, lights, fan, and their room-split groups. Throws SERVICE_UNAVAILABLE when HA is unreachable (tile shimmers via error state).",
   );
 
 // ─── router ──────────────────────────────────────────────────────────────────
@@ -100,9 +120,22 @@ export const controlsRouter = router({
     .input(
       z.object({
         key: z
-          .enum([ControlKey.Lamps, ControlKey.Lights, ControlKey.Fan])
+          .enum([
+            ControlKey.Lamps,
+            ControlKey.Lights,
+            ControlKey.Fan,
+            ControlKey.BedroomLamps,
+            ControlKey.OtherLamps,
+            ControlKey.Ceiling,
+            ControlKey.Cabinet,
+            ControlKey.AllOff,
+          ])
           .describe("Which control group to toggle"),
-        on: z.boolean().describe("Desired state: true = on, false = off"),
+        on: z
+          .boolean()
+          .describe(
+            "Desired state: true = on, false = off. Ignored for 'allOff', which always turns everything off",
+          ),
       }),
     )
     .output(controlsStateSchema)

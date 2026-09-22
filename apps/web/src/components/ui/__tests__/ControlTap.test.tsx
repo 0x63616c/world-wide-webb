@@ -115,6 +115,18 @@ describe("ControlTap , bulb glyph swaps by on-state", () => {
   });
 });
 
+// ─── bolt icon (all-off action control) ────────────────────────────────────────
+
+describe("ControlTap , bolt icon", () => {
+  it("renders the bolt glyph for the all-off action control", () => {
+    const { container } = render(
+      <ControlTap icon="bolt" label="All Off" on={false} onToggle={vi.fn()} />,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("class") ?? "").toContain("lucide-zap");
+  });
+});
+
 // ─── swatch variant ───────────────────────────────────────────────────────────
 
 describe("ControlTap , swatch variant", () => {

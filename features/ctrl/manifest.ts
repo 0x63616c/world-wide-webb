@@ -23,7 +23,7 @@ export default defineApp({
       worldCol: 31,
       worldRow: 27,
       cols: 4,
-      rows: 3,
+      rows: 4,
       home: true,
     },
   ],
