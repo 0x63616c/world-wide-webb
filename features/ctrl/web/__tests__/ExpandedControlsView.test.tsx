@@ -179,6 +179,41 @@ describe("ExpandedControlsView , saved colors", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save & use" }));
     expect(onSaveColor).toHaveBeenCalledWith("blue", "#00ff00");
   });
+
+  it("marks the swatch matching the lamp's active color as pressed, and no other", () => {
+    const data: ControlsViewData = {
+      ...allOn,
+      lamps: { ...allOn.lamps, activeScene: "red" },
+    };
+    render(<ExpandedControlsView {...baseProps({ data })} />);
+    expect(screen.getByRole("button", { name: "Use Custom 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    for (const name of ["Use Custom 2", "Use Custom 3"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  it("marks no swatch as pressed when activeScene doesn't match a saved slot", () => {
+    render(<ExpandedControlsView {...baseProps()} />);
+    for (const name of ["Use Custom 1", "Use Custom 2", "Use Custom 3"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  it("suppresses the active-color indicator while editing colors", () => {
+    const data: ControlsViewData = {
+      ...allOn,
+      lamps: { ...allOn.lamps, activeScene: "red" },
+    };
+    render(<ExpandedControlsView {...baseProps({ data })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByRole("button", { name: "Edit Custom 1" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
 });
 
 // ─── full-width party control ────────────────────────────────────────────────────
