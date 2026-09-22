@@ -24,7 +24,6 @@ export function SoundSystemTile() {
       globalLock={c.globalLock}
       groupLock={c.groupLock}
       onFaderChange={c.setVolume}
-      onStep={c.stepVolume}
       onToggleGlobalLock={() => c.setGlobalLock(!c.globalLock)}
       onToggleGroupLock={c.toggleGroupLock}
     />
