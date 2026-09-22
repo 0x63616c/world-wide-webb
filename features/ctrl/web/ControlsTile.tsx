@@ -89,14 +89,43 @@ export function useControls(): UseControlsResult {
       const prev = utils.controls.list.getData({});
       utils.controls.list.setData({}, (old) => {
         if (!old) return old;
-        // Lamps/lights are desired-authoritative and never pending (www-uq58):
-        // flip on instantly, no pending dim.
-        if (key === "lamps") return { ...old, lamps: { ...old.lamps, on } };
-        if (key === "lights") return { ...old, lights: { ...old.lights, on } };
-        // Fan: also flip the sub label to the target so it never flashes the
-        // stale "Auto" mid-toggle (www-qtdh) , the off position writes fanMode
-        // Auto, so without this the old label paints until the settle refetch.
-        return { ...old, fan: { ...old.fan, on, sub: on ? "On" : "Off", pending: true } };
+        // Lamps/lights and the grouped room-split controls are desired-
+        // authoritative and never pending (www-uq58): flip on instantly, no
+        // pending dim.
+        switch (key) {
+          case "lamps":
+            return { ...old, lamps: { ...old.lamps, on } };
+          case "lights":
+            return { ...old, lights: { ...old.lights, on } };
+          case "bedroomLamps":
+            return { ...old, bedroomLamps: { ...old.bedroomLamps, on } };
+          case "otherLamps":
+            return { ...old, otherLamps: { ...old.otherLamps, on } };
+          case "ceiling":
+            return { ...old, ceiling: { ...old.ceiling, on } };
+          case "cabinet":
+            return { ...old, cabinet: { ...old.cabinet, on } };
+          case "allOff":
+            // Always turns everything off , flip every group's on state too,
+            // not just allOff itself, so the tile face doesn't wait for the
+            // settle refetch to reflect it.
+            return {
+              ...old,
+              lamps: { ...old.lamps, on: false },
+              lights: { ...old.lights, on: false },
+              bedroomLamps: { ...old.bedroomLamps, on: false },
+              otherLamps: { ...old.otherLamps, on: false },
+              ceiling: { ...old.ceiling, on: false },
+              cabinet: { ...old.cabinet, on: false },
+              allOff: { ...old.allOff, on: false },
+            };
+          default:
+            // Fan: also flip the sub label to the target so it never flashes
+            // the stale "Auto" mid-toggle (www-qtdh) , the off position writes
+            // fanMode Auto, so without this the old label paints until the
+            // settle refetch.
+            return { ...old, fan: { ...old.fan, on, sub: on ? "On" : "Off", pending: true } };
+        }
       });
       return { prev };
     },
@@ -173,6 +202,11 @@ export function useControls(): UseControlsResult {
     },
     lights: { on: data.lights.on, pending: data.lights.pending },
     fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
+    bedroomLamps: { on: data.bedroomLamps.on, pending: data.bedroomLamps.pending },
+    otherLamps: { on: data.otherLamps.on, pending: data.otherLamps.pending },
+    ceiling: { on: data.ceiling.on, pending: data.ceiling.pending },
+    cabinet: { on: data.cabinet.on, pending: data.cabinet.pending },
+    allOff: { on: data.allOff.on, pending: data.allOff.pending },
   };
 
   return {

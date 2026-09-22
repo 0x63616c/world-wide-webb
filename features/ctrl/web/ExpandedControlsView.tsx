@@ -171,12 +171,14 @@ export function ExpandedControlsView({
         </section>
 
         {/* Full toggle grid , reused, not re-inlined. hideMore drops the
-            redundant "more" affordance now that we ARE the more surface. */}
+            redundant "more" affordance now that we ARE the more surface. 4x2
+            fits all 8 grouped controls (Lamps/Lights/Fan + the room splits +
+            All Off). */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gridTemplateRows: "1fr 1fr",
+            gridTemplateColumns: "1fr 1fr 1fr 1fr",
+            gridAutoRows: 88,
             gap: 13,
           }}
         >

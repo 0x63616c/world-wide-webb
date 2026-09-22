@@ -6,7 +6,7 @@
 import { Icon, type IconName } from "../Icon";
 
 export interface ControlTapProps {
-  icon: "lamp" | "bulb" | "fan";
+  icon: "lamp" | "bulb" | "fan" | "bolt";
   label: string;
   on: boolean;
   sub?: string;

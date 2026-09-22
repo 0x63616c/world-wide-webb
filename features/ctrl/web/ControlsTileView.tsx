@@ -12,6 +12,11 @@ export const ControlKey = {
   Lamps: "lamps",
   Lights: "lights",
   Fan: "fan",
+  BedroomLamps: "bedroomLamps",
+  OtherLamps: "otherLamps",
+  Ceiling: "ceiling",
+  Cabinet: "cabinet",
+  AllOff: "allOff",
 } as const;
 export type ControlKey = (typeof ControlKey)[keyof typeof ControlKey];
 
@@ -49,6 +54,12 @@ export interface ControlsViewData {
   lamps: ControlEntry;
   lights: ControlEntry;
   fan: ControlEntry;
+  bedroomLamps: ControlEntry;
+  otherLamps: ControlEntry;
+  ceiling: ControlEntry;
+  cabinet: ControlEntry;
+  /** Always renders off , see ControlKey.AllOff (an action, not a toggle). */
+  allOff: ControlEntry;
 }
 
 export type ControlsTileViewProps =
@@ -103,6 +114,46 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
         onToggle={() => onToggle(ControlKey.Fan, data.fan.on)}
       />
 
+      <ControlTap
+        icon="lamp"
+        label="Bedroom"
+        on={data.bedroomLamps.on}
+        pending={data.bedroomLamps.pending}
+        onToggle={() => onToggle(ControlKey.BedroomLamps, data.bedroomLamps.on)}
+      />
+
+      <ControlTap
+        icon="lamp"
+        label="Other Lamps"
+        on={data.otherLamps.on}
+        pending={data.otherLamps.pending}
+        onToggle={() => onToggle(ControlKey.OtherLamps, data.otherLamps.on)}
+      />
+
+      <ControlTap
+        icon="bulb"
+        label="Ceiling"
+        on={data.ceiling.on}
+        pending={data.ceiling.pending}
+        onToggle={() => onToggle(ControlKey.Ceiling, data.ceiling.on)}
+      />
+
+      <ControlTap
+        icon="bulb"
+        label="Cabinet"
+        on={data.cabinet.on}
+        pending={data.cabinet.pending}
+        onToggle={() => onToggle(ControlKey.Cabinet, data.cabinet.on)}
+      />
+
+      <ControlTap
+        icon="bolt"
+        label="All Off"
+        on={data.allOff.on}
+        pending={data.allOff.pending}
+        onToggle={() => onToggle(ControlKey.AllOff, data.allOff.on)}
+      />
+
       {/* "More" affordance , opens the full-page Controls detail. Suppressed via
           hideMore when this grid is reused inside that page. */}
       {!hideMore && (
@@ -137,10 +188,10 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
 function SkeletonGrid() {
   return (
     <>
-      <Skeleton w="100%" h={80} borderRadius={15} />
-      <Skeleton w="100%" h={80} borderRadius={15} />
-      <Skeleton w="100%" h={80} borderRadius={15} />
-      <Skeleton w="100%" h={80} borderRadius={15} />
+      {Array.from({ length: 9 }, (_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder list, never reordered
+        <Skeleton key={i} w="100%" h={80} borderRadius={15} />
+      ))}
     </>
   );
 }
@@ -163,8 +214,8 @@ export function ControlsTileView(props: ControlsTileViewProps) {
           minHeight: 0,
           position: "relative",
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gridTemplateRows: "1fr 1fr",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gridTemplateRows: "1fr 1fr 1fr",
           gap: 13,
         }}
       >

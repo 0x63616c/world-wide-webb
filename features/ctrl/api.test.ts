@@ -567,6 +567,82 @@ describe("getControlsState", () => {
     expect(state.lamps.sub).toBe("Off");
     expect(state.lights.on).toBe(false);
     expect(state.fan.on).toBe(false);
+    expect(state.bedroomLamps.on).toBe(false);
+    expect(state.otherLamps.on).toBe(false);
+    expect(state.ceiling.on).toBe(false);
+    expect(state.cabinet.on).toBe(false);
+    expect(state.allOff.on).toBe(false);
+  });
+
+  // ─── grouped controls (bedroom/other lamps, ceiling/cabinet fixtures) ──────
+
+  it("bedroomLamps.on is true when a Bedroom lamp is on, independent of other lamps", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    await seedRows(store, [
+      lampRow("lamp-1", "light.bed_lamp_left", { on: true }),
+      lampRow("lamp-2", "light.living_room_globe", { on: false }),
+    ]);
+
+    const state = await getControlsState(store);
+
+    expect(state.bedroomLamps.on).toBe(true);
+    expect(state.otherLamps.on).toBe(false);
+    // The combined Lamps control still reflects the union.
+    expect(state.lamps.on).toBe(true);
+  });
+
+  it("otherLamps.on is true when a Living Room or Kitchen lamp is on, independent of bedroom lamps", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    await seedRows(store, [
+      lampRow("lamp-1", "light.kitchen_lamp", { on: true }),
+      lampRow("lamp-2", "light.bed_lamp_right", { on: false }),
+      lampRow("lamp-3", "light.mirror", { on: false }),
+    ]);
+
+    const state = await getControlsState(store);
+
+    expect(state.otherLamps.on).toBe(true);
+    expect(state.bedroomLamps.on).toBe(false);
+  });
+
+  it("cabinet.on tracks only the under-cabinet fixture, independent of the ceiling light", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    await seedRows(store, [
+      fixtureRow("fix-1", "switch.under_cabinet", true),
+      fixtureRow("fix-2", "switch.overhead_lights", false),
+    ]);
+
+    const state = await getControlsState(store);
+
+    expect(state.cabinet.on).toBe(true);
+    expect(state.ceiling.on).toBe(false);
+    // The combined Lights control still reflects the union.
+    expect(state.lights.on).toBe(true);
+  });
+
+  it("ceiling.on tracks only the overhead fixture, independent of the under-cabinet light", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    await seedRows(store, [
+      fixtureRow("fix-1", "switch.overhead_lights", true),
+      fixtureRow("fix-2", "switch.under_cabinet", false),
+    ]);
+
+    const state = await getControlsState(store);
+
+    expect(state.ceiling.on).toBe(true);
+    expect(state.cabinet.on).toBe(false);
+  });
+
+  it("allOff.on is always false, even when every light is on", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    await seedRows(store, [
+      lampRow("lamp-1", "light.living_room_globe", { on: true }),
+      fixtureRow("fix-1", "switch.overhead_lights", true),
+    ]);
+
+    const state = await getControlsState(store);
+
+    expect(state.allOff.on).toBe(false);
   });
 
   // ─── activeScene derivation (from desired colors) ──────────────────────────
@@ -797,6 +873,84 @@ describe("toggleControl", () => {
     mockIsConfigured.mockReturnValue(true);
 
     await expect(toggleControl(ControlKey.Fan, true, store)).rejects.toThrow("no climate state");
+  });
+
+  // ─── grouped controls ──────────────────────────────────────────────────────
+
+  it("toggling BedroomLamps ON writes desired (on) only for the bedroom lamps", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await toggleControl(ControlKey.BedroomLamps, true, store);
+
+    const rows = await store.list();
+    const byEntity = new Map(rows.map((r) => [r.entityId, r]));
+    for (const entityId of ["light.bed_lamp_left", "light.bed_lamp_right", "light.mirror"]) {
+      expect(byEntity.get(entityId)?.desiredState).toMatchObject({ on: true });
+    }
+    expect(byEntity.get("light.living_room_globe")).toBeUndefined();
+  });
+
+  it("toggling OtherLamps ON writes desired (on) only for lamps outside the Bedroom", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await toggleControl(ControlKey.OtherLamps, true, store);
+
+    const rows = await store.list();
+    const byEntity = new Map(rows.map((r) => [r.entityId, r]));
+    for (const entityId of ["light.living_room_globe", "light.kitchen_lamp", "light.desk"]) {
+      expect(byEntity.get(entityId)?.desiredState).toMatchObject({ on: true });
+    }
+    expect(byEntity.get("light.bed_lamp_left")).toBeUndefined();
+  });
+
+  it("toggling Cabinet ON writes desired (on) only for the under-cabinet fixture", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await toggleControl(ControlKey.Cabinet, true, store);
+
+    const rows = await store.list();
+    const byEntity = new Map(rows.map((r) => [r.entityId, r]));
+    expect(byEntity.get("switch.under_cabinet")?.desiredState).toMatchObject({ on: true });
+    expect(byEntity.get("switch.overhead_lights")).toBeUndefined();
+  });
+
+  it("toggling Ceiling ON writes desired (on) only for the overhead fixture", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await toggleControl(ControlKey.Ceiling, true, store);
+
+    const rows = await store.list();
+    const byEntity = new Map(rows.map((r) => [r.entityId, r]));
+    expect(byEntity.get("switch.overhead_lights")?.desiredState).toMatchObject({ on: true });
+    expect(byEntity.get("switch.under_cabinet")).toBeUndefined();
+  });
+
+  it("does NOT clear party mode when toggling a partial lamp group off (other lamps keep animating)", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await toggleControl(ControlKey.BedroomLamps, false, store);
+
+    expect(mockDbInsert).not.toHaveBeenCalledWith(lampMode);
+  });
+
+  it("AllOff writes desired (off) for every lamp and every fixture, regardless of `on`", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await toggleControl(ControlKey.AllOff, true, store);
+
+    const rows = await store.list();
+    const byEntity = new Map(rows.map((r) => [r.entityId, r]));
+    for (const entityId of [...LAMP_ENTITY_IDS, ...FIXTURE_ENTITY_IDS]) {
+      expect(byEntity.get(entityId)?.desiredState).toMatchObject({ on: false });
+    }
+  });
+
+  it("AllOff clears party mode, like turning all lamps off", async () => {
+    mockIsConfigured.mockReturnValue(true);
+
+    await toggleControl(ControlKey.AllOff, false, store);
+
+    expect(mockDbInsert).toHaveBeenCalledWith(lampMode);
   });
 });
 
