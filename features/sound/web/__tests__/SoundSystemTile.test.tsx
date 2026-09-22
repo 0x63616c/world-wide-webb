@@ -23,6 +23,7 @@ const baseRooms = [
     name: "Living Room",
     isCoordinator: true,
     volume: 40,
+    baseline: null,
     muted: false,
     transportState: "PLAYING",
     sourceLabel: null,
@@ -35,6 +36,7 @@ const baseRooms = [
     name: "Desk",
     isCoordinator: true,
     volume: 30,
+    baseline: null,
     muted: true,
     transportState: "PAUSED_PLAYBACK",
     sourceLabel: null,
@@ -49,6 +51,7 @@ const baseProps: SoundSystemTileViewProps = {
   globalLock: false,
   groupLock: false,
   onFaderChange: vi.fn(),
+  onStep: vi.fn(),
   onToggleGlobalLock: vi.fn(),
   onToggleGroupLock: vi.fn(),
 };
@@ -64,6 +67,7 @@ describe("SoundSystemTileView , loading/error", () => {
         globalLock={false}
         groupLock={false}
         onFaderChange={vi.fn()}
+        onStep={vi.fn()}
         onToggleGlobalLock={vi.fn()}
         onToggleGroupLock={vi.fn()}
       />,
@@ -221,5 +225,44 @@ describe("SoundSystemTileView , group panels (www-xlyf)", () => {
     );
     fireEvent.click(screen.getByLabelText(/lock group/i));
     expect(onToggleGroupLock).not.toHaveBeenCalled();
+  });
+});
+
+describe("SoundSystemTileView , steppers and calibration", () => {
+  afterEach(cleanup);
+
+  it("renders a +/- stepper per room and reports single-point nudges", () => {
+    const onStep = vi.fn();
+    render(<SoundSystemTileView {...baseProps} onStep={onStep} />);
+    fireEvent.click(screen.getByLabelText("Living Room up"));
+    fireEvent.click(screen.getByLabelText("Living Room down"));
+    expect(onStep).toHaveBeenNthCalledWith(1, "uuid-lr", 1);
+    expect(onStep).toHaveBeenNthCalledWith(2, "uuid-lr", -1);
+  });
+
+  it("steppers never bubble to the tile's open-detail tap", () => {
+    const onTile = vi.fn();
+    render(
+      <button type="button" onClick={onTile}>
+        <SoundSystemTileView {...baseProps} />
+      </button>,
+    );
+    fireEvent.click(screen.getByLabelText("Living Room up"));
+    expect(onTile).not.toHaveBeenCalled();
+  });
+
+  it("shows a calibrated room's value as a percentage, uncapped past 100", () => {
+    const rooms = baseRooms.map((r, i) => ({ ...r, baseline: i === 0 ? 60 : null }));
+    render(
+      <SoundSystemTileView
+        {...baseProps}
+        rooms={rooms}
+        vols={{ "uuid-lr": 120, "uuid-desk": 30 }}
+      />,
+    );
+    expect(screen.getByTestId("vol-uuid-lr")).toHaveTextContent("120%");
+    expect(screen.getByTestId("vol-uuid-desk")).toHaveTextContent("30");
+    expect(screen.getByTestId("vol-uuid-desk")).not.toHaveTextContent("%");
+    expect(screen.getByText("Calibrated")).toBeInTheDocument();
   });
 });

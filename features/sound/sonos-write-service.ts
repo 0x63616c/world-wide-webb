@@ -97,3 +97,23 @@ export async function sonosGrabTvToBeam(
 ): Promise<void> {
   await client.callService("media_player", "select_source", { entity_id: beamIp, source: "TV" });
 }
+
+/**
+ * TV mode: put the TV room on its TV input and pull every other room onto it,
+ * so what the TV is playing plays everywhere. The web picks the TV room (the
+ * room currently on the TV source, else the room named "Living Room", the
+ * Beam) and passes the rooms to join. Selecting the source first means the
+ * joiners receive the TV feed even when the Beam was idle or on something else.
+ */
+export async function sonosGroupJoinAllToTv(
+  { tvEntityId, memberEntityIds }: { tvEntityId: string; memberEntityIds: readonly string[] },
+  client: HaWriter = ha,
+): Promise<void> {
+  await client.callService("media_player", "select_source", {
+    entity_id: tvEntityId,
+    source: "TV",
+  });
+  if (memberEntityIds.length > 0) {
+    await sonosGroupJoinAll({ coordinatorEntityId: tvEntityId, memberEntityIds }, client);
+  }
+}

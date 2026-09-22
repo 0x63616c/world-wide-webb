@@ -7,11 +7,16 @@
 import { defineApi } from "@app-kit";
 import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
-import { getSoundSystem } from "./sonos-sound-system-service";
+import {
+  calibrateSoundSystem,
+  clearSoundSystemCalibration,
+  getSoundSystem,
+} from "./sonos-sound-system-service";
 import {
   sonosGrabTvToBeam,
   sonosGroupJoin,
   sonosGroupJoinAll,
+  sonosGroupJoinAllToTv,
   sonosGroupLeave,
   sonosSetLineIn,
   sonosSetMute,
@@ -27,6 +32,7 @@ const SoundSystemRoomSchema = z.object({
   memberUuids: z.array(z.string()),
   isCoordinator: z.boolean(),
   volume: z.number(),
+  baseline: z.number().nullable(),
   muted: z.boolean(),
   transportState: z.string(),
   sourceLabel: z.string().nullable(),
@@ -98,6 +104,26 @@ const soundRouter = router({
   sonosGrabTvToBeam: publicProcedure
     .input(z.object({ beamIp: z.string(), beamUuid: z.string().min(1) }))
     .mutation(({ input }) => sonosGrabTvToBeam(input)),
+
+  sonosGroupJoinAllToTv: publicProcedure
+    .input(
+      z.object({
+        tvEntityId: z.string().startsWith("media_player."),
+        memberEntityIds: z.array(z.string().startsWith("media_player.")),
+      }),
+    )
+    .mutation(({ input }) => sonosGroupJoinAllToTv(input)),
+
+  // ── Calibration (persisted per room; see ./calibration.ts) ────────────────
+
+  sonosCalibrate: publicProcedure
+    .input(z.object({}).optional())
+    .output(z.record(z.string(), z.number()))
+    .mutation(() => calibrateSoundSystem()),
+
+  sonosClearCalibration: publicProcedure
+    .input(z.object({}).optional())
+    .mutation(() => clearSoundSystemCalibration()),
 });
 
 /**
