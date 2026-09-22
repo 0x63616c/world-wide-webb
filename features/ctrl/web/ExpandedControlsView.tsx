@@ -22,7 +22,7 @@ import type {
   SavedColorSlot,
   SavedLampColorView,
 } from "./ControlsTileView";
-import { ControlsGridView } from "./ControlsTileView";
+import { CONTROLS_GRID_HEIGHT, ControlsGridView } from "./ControlsTileView";
 import type { PartySelection } from "./views/PartySpeedControls";
 import { PartyControl, PartySpeed } from "./views/PartySpeedControls";
 
@@ -173,11 +173,12 @@ export function ExpandedControlsView({
         {/* Full toggle surface , reused, not re-inlined. hideMore drops the
             redundant "more" affordance now that we ARE the more surface, and
             trims the utility row to just All + Fan. Same utility-row + group-
-            card layout as the compact tile (Option 3, "Group Cards"), just
-            roomier , a fixed height so the cards' (and their ControlTap
-            children's) 100%-height fill resolves, same reasoning as the scene
-            tiles below. */}
-        <div style={{ height: 420 }}>
+            card layout as the compact tile (Option 3, "Group Cards"), just a
+            fixed height (CONTROLS_GRID_HEIGHT , every cell inside is now a
+            fixed CELL_H, so this must be tall enough to hold them without a
+            gap at the bottom) since, unlike the compact tile, nothing here
+            sizes this view from a board grid cell. */}
+        <div style={{ height: CONTROLS_GRID_HEIGHT }}>
           <ControlsGridView data={data} onToggle={onToggle} hideMore />
         </div>
 

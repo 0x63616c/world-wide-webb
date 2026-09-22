@@ -104,11 +104,39 @@ interface ControlGroupCardProps {
 }
 
 /**
+ * Every tap/button cell on the tile , the utility row's All/Fan, each group
+ * card's ControlTapRow header, and each group's sub-cell ControlTap , shares
+ * this one height, so the grid reads as a consistent set of buttons instead
+ * of a header bar sitting over shorter or taller cells.
+ *
+ * Derived, not eyeballed: tile_ctrl is a fixed `rows: 5` footprint
+ * (features/ctrl/manifest.ts), which under grid-constants.ts's CELL/GRID_GAP
+ * math gives ControlsGridView's wrapper (Tile minus TileHeader) a measured
+ * 459.4px to fill. That space is 3 flex items (utility row + 2 group cards)
+ * joined by 2 outer 13px gaps, and each card is border-box padding 12 +
+ * border 1 on each side (26) plus its own 10px header/sub-row gap , so five
+ * equal cells of height H solve `5H + 2*13 + 2*(26+10) = 459.4`, i.e.
+ * H ~= 72.3. 72 leaves a hair of slack rather than overflowing.
+ */
+const CELL_H = 72;
+
+/**
+ * Total height ControlsGridView's three cell-rows (utility + two group
+ * cards, each two CELL_H rows) need once none of them flex-grow to fill
+ * leftover space , every cell is a fixed CELL_H now, so the container has to
+ * be at least this tall or the last card visibly floats short of the bottom
+ * edge. Reused by ExpandedControlsView's fixed-height wrapper, which (unlike
+ * the compact tile) isn't itself sized by the board grid.
+ */
+export const CONTROLS_GRID_HEIGHT = CELL_H * 5 + 98;
+
+/**
  * A group card , the "Lamps" or "Lights" card in the redesigned Controls grid
  * (Option 3, "Group Cards"). Groups by containment instead of grid position:
  * the combined master toggle sits as a full-width header bar (ControlTapRow)
  * above its two room/fixture sub-controls (plain ControlTap, half-width each),
- * all on one shared card background.
+ * all on one shared card background. Header and sub-row both stand CELL_H
+ * tall , see that constant for why.
  */
 function ControlGroupCard({
   icon,
@@ -128,20 +156,23 @@ function ControlGroupCard({
         display: "flex",
         flexDirection: "column",
         gap: 10,
-        flex: 1,
-        minHeight: 0,
+        flex: "0 0 auto",
       }}
     >
-      <ControlTapRow
-        icon={icon}
-        label={masterLabel}
-        on={master.on}
-        pending={master.pending}
-        onToggle={onMasterToggle}
-      />
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flex: 1, minHeight: 0 }}
-      >
+      {/* ControlTapRow is content-sized by design (apps/web/src/components/ui/
+          ControlTapRow.tsx); this wrapper's fixed height , plus the default
+          flex-row stretch it gives its only child , is what pins it to
+          CELL_H instead of its natural (shorter) content height. */}
+      <div style={{ height: CELL_H, display: "flex" }}>
+        <ControlTapRow
+          icon={icon}
+          label={masterLabel}
+          on={master.on}
+          pending={master.pending}
+          onToggle={onMasterToggle}
+        />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, height: CELL_H }}>
         {subs.map((sub) => (
           <ControlTap
             key={sub.key}
@@ -169,7 +200,7 @@ export function ControlsGridView({ data, onToggle, onMore, hideMore }: ControlsG
           display: "grid",
           gridTemplateColumns: hideMore ? "1fr 1fr" : "1fr 1fr 1fr",
           gap: 13,
-          height: 96,
+          height: CELL_H,
           flex: "0 0 auto",
         }}
       >
@@ -264,7 +295,7 @@ function SkeletonGrid() {
           display: "grid",
           gridTemplateColumns: "1fr 1fr 1fr",
           gap: 13,
-          height: 96,
+          height: CELL_H,
           flex: "0 0 auto",
         }}
       >
