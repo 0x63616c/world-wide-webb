@@ -1,4 +1,4 @@
-// Kiosk auto-refresh (www-ss8s). The iPad wall panel is a Capacitor WKWebView
+// Kiosk auto-refresh (www-ss8s). The iPad wall panel is an Expo-hosted WKWebView
 // kiosk with the idle timer disabled, so it never reloads on its own and keeps
 // serving whatever bundle it first loaded. OTA web deploys therefore never
 // appear until a manual reload. This polls a build-stamped `version.json`

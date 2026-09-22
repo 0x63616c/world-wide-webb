@@ -47,7 +47,7 @@ platform :ios do
 
     update_code_signing_settings(
       use_automatic_signing: false,
-      path: "App/App.xcodeproj",
+      path: "ios/ControlCenter.xcodeproj",
       team_id: "X9E4HG27NK",
       bundle_identifier: "co.worldwidewebb.theworkflowengine",
       profile_name: ENV["sigh_co.worldwidewebb.theworkflowengine_appstore_profile-name"],
@@ -66,31 +66,19 @@ platform :ios do
     )
     increment_build_number(
       build_number: latest + 1,
-      xcodeproj: "App/App.xcodeproj"
+      xcodeproj: "ios/ControlCenter.xcodeproj"
     )
 
-    # Inject the CF Access service-token client id/secret as build settings so the
-    # Info.plist $(CF_ACCESS_CLIENT_*) substitutions bake them into the bundle
-    # (www-cuuw). Sourced from repo secrets via env in ios-build.yml; absent in a
-    # local/open build, in which case the settings resolve empty and the kiosk
-    # sends no Access headers (identical to today). Quoted to survive secret
-    # characters; never echoed.
-    access_xcargs = [
-      "CF_ACCESS_CLIENT_ID='#{ENV['CF_ACCESS_KIOSK_CLIENT_ID']}'",
-      "CF_ACCESS_CLIENT_SECRET='#{ENV['CF_ACCESS_KIOSK_CLIENT_SECRET']}'"
-    ].join(" ")
-
     build_app(
-      workspace: nil,
-      project: "App/App.xcodeproj",
-      scheme: "App",
+      workspace: "ios/ControlCenter.xcworkspace",
+      project: nil,
+      scheme: "ControlCenter",
       configuration: "Release",
       export_method: "app-store",
       output_directory: "./build",
-      output_name: "TheWorkflowEngine.ipa",
+      output_name: "ControlCenter.ipa",
       clean: true,
-      codesigning_identity: "Apple Distribution",
-      xcargs: access_xcargs
+      codesigning_identity: "Apple Distribution"
     )
 
     upload_to_testflight(

@@ -75,13 +75,22 @@
       "!**/.cmux",
       "!**/experiments",
       "!**/DerivedData",
-      "!**/ios/App/App/public",
-      "!**/ios/App/App/capacitor.config.json"
+      "!**/ios/App/App/public"
     ]
   },
   "overrides": [
     {
       "includes": ["**/api/drizzle.config.ts", "**/web/vite.config.ts", "**/scripts/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/panel/app.config.ts"],
       "linter": {
         "rules": {
           "style": {

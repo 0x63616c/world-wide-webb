@@ -70,13 +70,7 @@ export default defineConfig({
   // ("Vite unexpectedly reloaded a test") on a cold CI cache.
   // (Reproduce the CI condition locally by clearing node_modules/.vite first.)
   optimizeDeps: {
-    include: [
-      "@tanstack/react-router",
-      "@capacitor/app",
-      "@capacitor/core",
-      "@capacitor/status-bar",
-      "@capacitor-community/screen-brightness",
-    ],
+    include: ["@tanstack/react-router"],
   },
   server: {
     host: true,

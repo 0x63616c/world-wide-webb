@@ -5,7 +5,7 @@
  * fill the window.
  *
  * Why this exists: "Fixed wall panel, 1366x1024, not responsive" was only
- * ever true for the native/Capacitor kiosk shell and the physical panel
+ * ever true for the native/Expo kiosk shell and the physical panel
  * hardware, where the OS constrains the viewport. The deployed WEB app had no
  * cap , Board.tsx's stage is `position:fixed;inset:0` (full window) by
  * design (see grid-constants.ts), so a desktop browser simply showed more of
@@ -41,7 +41,7 @@
  * directly to `<html>`, positioned to match body's box exactly but with no
  * overflow clipping of its own.
  *
- * Native passthrough: on Capacitor (the kiosk shell) this renders `children`
+ * Native passthrough: in the Expo kiosk shell this renders `children`
  * completely unwrapped , no extra DOM node, no transform, no `document.body`
  * mutation, no behavior change. The physical panel and the native build are
  * untouched by this file.
@@ -55,10 +55,10 @@
  * is on native.
  */
 
-import { Capacitor } from "@capacitor/core";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useIsMobile } from "../lib/mobile";
+import { isNativeShell } from "../lib/native-bridge";
 
 // The physical wall panel's resolution. Intentionally NOT imported from
 // grid-constants , BOARD_W there is this same 1366, but BOARD_H is 1000 (a
@@ -173,7 +173,7 @@ export function PanelFrame({ children }: { children: ReactNode }) {
   // Called unconditionally , `||` would short-circuit the hook on native and
   // change the hook order between platforms.
   const isMobile = useIsMobile();
-  const passthrough = Capacitor.isNativePlatform() || isMobile;
+  const passthrough = isNativeShell() || isMobile;
 
   // A sibling of `document.body`, appended straight to `<html>`. This is where
   // the Bezel lives (see file header) , NOT a descendant of body, so body's

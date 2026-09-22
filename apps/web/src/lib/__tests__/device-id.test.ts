@@ -34,7 +34,7 @@ function installMemoryLocalStorage(): void {
   Object.defineProperty(window, "localStorage", { value: fake, configurable: true });
 }
 
-/** A fake @capacitor/device plugin , the native happy path without the plugin. */
+/** A fake native-device bridge, exercising the happy path without an iOS host. */
 function fakePlugin(model: string, identifier: string): DeviceIdPlugin {
   return {
     getInfo: async () => ({ model }),

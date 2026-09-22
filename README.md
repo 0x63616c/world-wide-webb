@@ -11,7 +11,8 @@ registration (ADR-0001).
 
 | Path | Purpose |
 | --- | --- |
-| `apps/web` | React board, Capacitor iOS kiosk shell. Main route: `src/routes/index.tsx`. |
+| `apps/web` | React board. Main route: `src/routes/index.tsx`. |
+| `apps/panel` | Expo iOS kiosk shell for the wall panel. |
 | `apps/api` | Bun + tRPC API, routers, DB schema, migrations. |
 | `apps/worker` | Interval workers for reconciliation and ingest. |
 | `apps/manage` | Static nginx bundle framing the small set of ops tools this repo doesn't own. |

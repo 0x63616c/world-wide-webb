@@ -1,6 +1,6 @@
-# Builds the iOS Capacitor kiosk shell (apps/web/ios) and uploads it to TestFlight.
+# Builds the iOS Expo kiosk shell (apps/panel) and uploads it to TestFlight.
 # The app is a thin native wrapper that loads https://app.worldwidewebb.co at
-# runtime (apps/web/capacitor.config.ts), so this only needs to ship when the native
+# runtime (apps/panel/app.config.ts), so this only needs to ship when the native
 # shell changes , plus a monthly cron to refresh the 90-day TestFlight build expiry.
 # It targets the same bundle id as the original "Evee" app, so builds land as updates
 # to the existing TestFlight app (was 1.0, build 48). Signing reuses fastlane match
@@ -10,16 +10,16 @@ name: iOS Build
 on:
   pull_request:
     paths:
-      - "apps/web/ios/**"
-      - "apps/web/capacitor.config.ts"
-      - "apps/web/package.json"
+      - "apps/panel/**"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/ios-build.yml"
   push:
     branches: [main]
     paths:
-      - "apps/web/ios/**"
-      - "apps/web/capacitor.config.ts"
-      - "apps/web/package.json"
+      - "apps/panel/**"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/ios-build.yml"
   schedule:
     - cron: "0 12 1 * *" # 1st of every month at noon UTC , keeps the TestFlight build fresh (90-day expiry)
@@ -47,7 +47,7 @@ concurrency:
 
 jobs:
   # PR gate: compile the native shell WITHOUT signing, secrets or upload, so a
-  # broken Package.swift / missing Capacitor plugin fails the PR instead of
+  # broken Expo prebuild / native module fails the PR instead of
   # surfacing after merge, when main has already deployed. The upload job below
   # is push-only, so TestFlight never sees a PR build.
   verify:
@@ -62,25 +62,19 @@ jobs:
           bun-version: 1.2.19
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Kiosk recovery-logic guard
-        run: ./scripts/test-kiosk-health.sh
-        working-directory: apps/web/ios
-      - name: Build web
-        run: bun run build
-        working-directory: apps/web
-      - name: Capacitor sync
-        run: bunx cap sync ios
-        working-directory: apps/web
-      # Resolves every SPM dependency in CapApp-SPM/Package.swift and compiles
-      # the app target. CODE_SIGNING_ALLOWED=NO keeps it free of match certs,
+      - name: Generate Expo iOS project
+        run: bun run prebuild
+        working-directory: apps/panel
+      # Resolves CocoaPods and compiles the generated app target.
+      # CODE_SIGNING_ALLOWED=NO keeps it free of match certs,
       # the App Store Connect key and the protected `production` environment.
       - name: Compile app target (unsigned)
-        working-directory: apps/web/ios/App
+        working-directory: apps/panel
         run: |
           set -euo pipefail
           xcodebuild \
-            -project App.xcodeproj \
-            -scheme App \
+            -workspace ios/ControlCenter.xcworkspace \
+            -scheme ControlCenter \
             -destination 'generic/platform=iOS' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
@@ -95,7 +89,7 @@ jobs:
     environment: production
     defaults:
       run:
-        working-directory: apps/web/ios
+        working-directory: apps/panel
     steps:
       - uses: actions/checkout@v5
 
@@ -133,11 +127,6 @@ jobs:
           echo "CF_ACCESS_KIOSK_CLIENT_SECRET=$CF_SECRET" >> "$GITHUB_ENV"
           echo "MATCH_GIT_URL=https://github.com/0x63616c/certificates.git" >> "$GITHUB_ENV"
 
-      # Fail fast on a regression in the kiosk recovery logic (www-bwoy) before
-      # the expensive web build + TestFlight upload. Pure swiftc, no deps.
-      - name: Kiosk recovery-logic guard
-        run: ./scripts/test-kiosk-health.sh
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.19
@@ -146,20 +135,15 @@ jobs:
         run: bun install --frozen-lockfile
         working-directory: .
 
-      - name: Build web
-        run: bun run build
-        working-directory: apps/web
-
-      - name: Capacitor sync
-        run: bunx cap sync ios
-        working-directory: apps/web
+      - name: Generate Expo iOS project
+        run: bun run prebuild
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
           bundler-cache: true
-          working-directory: apps/web/ios
+          working-directory: apps/panel
 
       - name: Build and upload to TestFlight
         run: bundle exec fastlane release

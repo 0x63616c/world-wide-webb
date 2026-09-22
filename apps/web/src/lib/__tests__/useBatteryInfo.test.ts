@@ -1,14 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const isNativePlatform = vi.fn(() => true);
-vi.mock("@capacitor/core", () => ({
-  Capacitor: { isNativePlatform: () => isNativePlatform() },
-}));
-
 let getBatteryInfo = vi.fn();
-vi.mock("@capacitor/device", () => ({
-  Device: { getBatteryInfo: () => getBatteryInfo() },
+vi.mock("../native-bridge", () => ({
+  isNativeShell: () => true,
+  nativeRequest: () => getBatteryInfo(),
 }));
 
 const { formatBattery, useBatteryInfo } = await import("../useBatteryInfo");
@@ -26,7 +22,6 @@ describe("formatBattery", () => {
 describe("useBatteryInfo", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    isNativePlatform.mockReturnValue(true);
   });
 
   it("resets to unknown (not a stale reading) when a read comes back unreadable (#201)", async () => {

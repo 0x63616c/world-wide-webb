@@ -14,7 +14,7 @@
 - Shared primitives live in `packages/platform`, enforced by a Biome rule
   banning the raw escape hatch (see sound bus, below).
 - Fixed wall panel, `1366x1024`, not responsive. Enforced by the OS on the
-  native/Capacitor kiosk shell and the physical panel hardware. The web build
+  native/Expo kiosk shell and the physical panel hardware. The web build
   matches it too, via `apps/web/src/components/PanelFrame.tsx`: it caps the
   app to `1366x1024` and, on a desktop browser with room to spare, frames it
   like a device instead of letting the board stretch to fill the window.

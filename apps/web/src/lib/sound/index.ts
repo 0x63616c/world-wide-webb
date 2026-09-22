@@ -2,18 +2,16 @@
  * The panel's sound bus , the single owner of audio output in the app.
  *
  * Anything that wants to make a noise calls `playCue(name)`. Nothing else
- * constructs an AudioContext or reaches for the UISound plugin directly;
+ * constructs an AudioContext or reaches for native audio directly;
  * a Biome rule enforces that, because the alternative is what this replaced ,
  * audio owned by whichever feature happened to need it first, with its own
  * context, its own gain literals, and no shared place to change anything.
  *
- * A cue can have two backends and usually wants both:
+ * A cue can describe two backends:
  *
- *  - `uiSoundPath` plays one of iOS's own recordings through the panel's audio
- *    session (AVAudioPlayer, via lib/ui-sound). Real audio, nothing bundled, no
- *    licence to honour , but only on the kiosk.
- *  - `synth` builds the sound with the Web Audio API. It is the fallback for a
- *    browser and CI, and the only path for cues iOS has no sound for.
+ *  - `uiSoundPath` is retained as cue metadata. The Expo shell deliberately
+ *    does not bridge private iOS sound files.
+ *  - `synth` builds the sound with the Web Audio API and is the active backend.
  *
  * How LOUD any of it is is not this module's business. Volume is a property of
  * the device (the hardware buttons; there is no in-app volume control or

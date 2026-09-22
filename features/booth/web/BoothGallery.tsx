@@ -13,17 +13,16 @@
  * empty states without a backend. Delete is optimistic: the group vanishes from
  * the grid immediately and `onRemove` fires the `boothPhotos.remove` mutation.
  *
- * Share is the one native seam: on the Capacitor shell it opens the iOS share
+ * Share is the one native seam: on the Expo shell it opens the iOS share
  * sheet, and it is a no-op in a plain browser / a component harness.
  */
 
-import { Capacitor } from "@capacitor/core";
-import { Share } from "@capacitor/share";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { groupByDay } from "@/components/gallery/group-by-day";
 import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { ConfirmDialog, PageHeader } from "@/components/ui";
+import { isNativeShell, nativeRequest } from "@/lib/native-bridge";
 import type { RouterOutputs } from "@/lib/trpc";
 import { bakeFilterIntoImage } from "./lib/booth-capture";
 import { filterCssFor } from "./lib/booth-filters";
@@ -326,7 +325,7 @@ function Lightbox({
 // ---- native share seam -----------------------------------------------------
 
 /**
- * Hand a captured frame to the OS share sheet. On the Capacitor shell this is
+ * Hand a captured frame to the OS share sheet. On the Expo shell this is
  * the real iOS sheet; in a plain browser it falls back to the Web Share API and
  * is otherwise a silent no-op (a component harness / desktop), so a share button that is
  * part of the fixed lightbox layout never throws where sharing is unavailable.
@@ -356,8 +355,8 @@ async function shareView(
 
 /** Share a stored file by link (unfiltered path): native sheet, then Web Share. */
 async function shareUrl(url: string): Promise<void> {
-  if (Capacitor.isNativePlatform()) {
-    await Share.share({ title: "Photo booth", url });
+  if (isNativeShell()) {
+    await nativeRequest("share", { url });
   } else if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
     await navigator.share({ title: "Photo booth", url });
   }
@@ -371,11 +370,11 @@ async function shareBakedFilter(rawUrl: string, css: string): Promise<void> {
     await navigator.share({ title: "Photo booth", files: [file] });
     return;
   }
-  // Where the files API is unavailable (the Capacitor shell), hand the baked
+  // Where the files API is unavailable (the Expo shell), hand the baked
   // bytes to the native sheet as a data URL.
   const dataUrl = await blobToDataUrl(blob);
-  if (Capacitor.isNativePlatform()) {
-    await Share.share({ title: "Photo booth", url: dataUrl });
+  if (isNativeShell()) {
+    await nativeRequest("share", { url: dataUrl });
   }
 }
 
