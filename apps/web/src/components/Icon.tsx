@@ -14,6 +14,8 @@ import {
   Fan,
   Globe,
   Lamp,
+  LampCeiling,
+  LampWallDown,
   LayoutGrid,
   Lightbulb,
   LightbulbOff,
@@ -45,6 +47,8 @@ export type IconName =
   | "cloud"
   | "cloud-sun"
   | "lamp"
+  | "lamp-ceiling"
+  | "lamp-wall-down"
   | "bulb"
   | "bulb-off"
   | "fan"
@@ -99,6 +103,8 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   cloud: Cloud,
   "cloud-sun": CloudSun,
   lamp: Lamp,
+  "lamp-ceiling": LampCeiling,
+  "lamp-wall-down": LampWallDown,
   bulb: Lightbulb,
   "bulb-off": LightbulbOff,
   fan: Fan,
