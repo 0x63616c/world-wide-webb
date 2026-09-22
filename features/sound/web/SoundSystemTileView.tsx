@@ -1,22 +1,25 @@
 /**
  * SoundSystemTileView , presentational Sound System 4×3 tile.
  *
- * Chosen design (www-xlyf , "Filled group panel: Line-in boxed, lock in its cap"):
- * a speaker header with a global-lock button, then two side-by-side group panels.
- * Rooms that are playing land in an ACCENT-boxed "active" panel (a group lock sits
- * in its cap and the group coordinator carries a COORD sublabel); idle rooms land
- * in a plain hairline panel. When one side is empty the other spans full width.
+ * A speaker header with a global-lock button, then two side-by-side group
+ * panels. Rooms that are playing land in an ACCENT-boxed "active" panel (a
+ * group lock sits in its cap and a multi-room coordinator's name is blue);
+ * idle rooms land in a plain hairline panel. When one side is empty the other
+ * spans full width.
  *
- * Faders are custom-drawn and pointer/keyboard draggable , a native range can't be
- * styled to the design and (www-tdad) overflows the card in vertical writing mode.
+ * Each room is a vertical fader with a + above and a − below it: the slider
+ * for big moves, the steppers for the one-point nudges a slider can't do with
+ * a finger. Values are DISPLAY volumes (percent of the room's calibration
+ * baseline, raw when uncalibrated); a calibrated room shows a `%` suffix and
+ * may read above 100 when it has been turned up past its calibration.
  *
- * Tapping the tile surface opens the full-page Groups detail via the board's
- * tile-detail registry (the per-room Source picker and the old Mixer modal were
- * both removed , www-tvoff).
+ * Tapping the tile surface opens the full-page Sound System detail via the
+ * board's tile-detail registry, where calibration and grouping live.
  *
  * Pure presentational , no tRPC. The container (SoundSystemTile) wires the data.
  */
 
+import type { CSSProperties } from "react";
 import { Icon } from "@/components/Icon";
 import { Skeleton, Slider, Tile, TileHeader } from "@/components/ui";
 
@@ -30,7 +33,10 @@ export interface SoundSystemRoom {
   memberUuids: string[];
   name: string;
   isCoordinator: boolean;
+  /** Raw volume from the poll; the live display value comes from `vols`. */
   volume: number;
+  /** Calibration baseline, null when uncalibrated. Drives the `%` suffix. */
+  baseline: number | null;
   muted: boolean;
   transportState: string;
   sourceLabel: string | null;
@@ -39,15 +45,17 @@ export interface SoundSystemRoom {
 export interface SoundSystemTileViewProps {
   status: "loading" | "error" | "populated";
   rooms: SoundSystemRoom[];
-  /** Current per-room volumes from useMixer (keyed by room uuid). */
+  /** Current per-room DISPLAY volumes (keyed by room uuid). */
   vols: Record<string, number>;
-  /** Current per-room mutes from useMixer (keyed by room uuid). */
+  /** Current per-room mutes (keyed by room uuid). */
   mutes: Record<string, boolean>;
-  /** Whether all rooms are globally ganged together. */
+  /** Whether all rooms are locked to the same percentage. */
   globalLock: boolean;
-  /** Whether the active group's faders are ganged together. */
+  /** Whether the active group's faders are locked to the same percentage. */
   groupLock: boolean;
   onFaderChange: (uuid: string, value: number) => void;
+  /** +/- stepper: nudge one room by a single point. */
+  onStep: (uuid: string, direction: 1 | -1) => void;
   onToggleGlobalLock: () => void;
   onToggleGroupLock: () => void;
 }
@@ -79,6 +87,46 @@ function clampVolume(v: number): number {
   return Math.round(Math.max(0, Math.min(100, v)));
 }
 
+// ── Stepper ───────────────────────────────────────────────────────────────────
+
+function StepBtn({
+  icon,
+  label,
+  disabled,
+  onPress,
+}: {
+  icon: "plus" | "minus";
+  label: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onPress();
+      }}
+      style={{
+        width: 30,
+        height: 26,
+        borderRadius: 8,
+        display: "grid",
+        placeItems: "center",
+        padding: 0,
+        cursor: disabled ? "default" : "pointer",
+        border: "1px solid var(--hair)",
+        background: "var(--tile-2)",
+        opacity: disabled ? 0.35 : 1,
+      }}
+    >
+      <Icon name={icon} s={13} c="var(--ink-2)" />
+    </button>
+  );
+}
+
 // ── Fader ─────────────────────────────────────────────────────────────────────
 
 interface FaderProps {
@@ -87,15 +135,23 @@ interface FaderProps {
   muted: boolean;
   /** Accent (active group) styling vs. dim (idle group) styling. */
   accent: boolean;
-  /** Ganged with others , draw the accent ring on the thumb. */
+  /** Locked with others , draw the accent ring on the track. */
   linked: boolean;
   /** Group coordinator of a real multi-room group , render the name blue (www-a5rl). */
   coord: boolean;
   onChange: (value: number) => void;
+  onStep: (direction: 1 | -1) => void;
 }
 
-function Fader({ room, volume, muted, accent, linked, coord, onChange }: FaderProps) {
+function Fader({ room, volume, muted, accent, linked, coord, onChange, onStep }: FaderProps) {
   const valueColor = muted ? "var(--ink-3)" : accent ? "var(--ink)" : "var(--ink-2)";
+  const calibrated = room.baseline !== null;
+  const valueStyle: CSSProperties = {
+    fontSize: 13,
+    color: valueColor,
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: 1,
+  };
 
   return (
     <div
@@ -104,22 +160,23 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange }: FaderPr
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 9,
+        gap: 6,
         flex: 1,
         minWidth: 0,
       }}
     >
-      {/* Volume value */}
-      <span
-        className="mono"
-        style={{ fontSize: 13, color: valueColor, fontVariantNumeric: "tabular-nums" }}
-      >
+      {/* Display value. A calibrated room reads as a percentage of its
+          baseline and can honestly exceed 100. */}
+      <span className="mono" style={valueStyle} data-testid={`vol-${room.uuid}`}>
         {volume}
+        {calibrated && <span style={{ fontSize: 10, color: "var(--ink-3)" }}>%</span>}
       </span>
+
+      <StepBtn icon="plus" label={`${room.name} up`} disabled={muted} onPress={() => onStep(1)} />
 
       {/* Vertical fader , the shared Slider rotated (auto-length fills the tile).
           Idle groups + muted rooms dim the whole control rather than swapping to a
-          gray rail; ganged rooms get the accent ring around the track (www-a5rl). */}
+          gray rail; locked rooms get the accent ring around the track (www-a5rl). */}
       <div
         style={{
           flex: 1,
@@ -133,7 +190,7 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange }: FaderPr
         }}
       >
         <Slider
-          value={volume}
+          value={clampVolume(volume)}
           min={0}
           max={100}
           label={`${room.name} volume`}
@@ -143,9 +200,14 @@ function Fader({ room, volume, muted, accent, linked, coord, onChange }: FaderPr
         />
       </div>
 
-      {/* Room name , display only (a group coordinator's name is blue, www-a5rl,
-          replacing the old COORD sublabel). No longer a tap target: the per-room
-          Source picker was removed, and the whole tile now opens the Groups modal. */}
+      <StepBtn
+        icon="minus"
+        label={`${room.name} down`}
+        disabled={muted}
+        onPress={() => onStep(-1)}
+      />
+
+      {/* Room name , display only (a group coordinator's name is blue, www-a5rl). */}
       <div style={{ textAlign: "center", lineHeight: 1.1, maxWidth: "100%" }}>
         <span
           style={{
@@ -177,13 +239,14 @@ interface GroupPanelProps {
   flex: number;
   vols: Record<string, number>;
   mutes: Record<string, boolean>;
-  /** Per-fader linked flag (gang ring). */
+  /** Per-fader linked flag (lock ring). */
   linked: boolean;
   /** UUIDs of group coordinators to blue-mark (www-a5rl). */
   coordUuids: Set<string>;
   /** Group-lock control , shown in the cap of the accent panel only. */
   lock?: { on: boolean; dimmed: boolean; onToggle: () => void };
   onFaderChange: (uuid: string, value: number) => void;
+  onStep: (uuid: string, direction: 1 | -1) => void;
 }
 
 function GroupPanel({
@@ -197,6 +260,7 @@ function GroupPanel({
   coordUuids,
   lock,
   onFaderChange,
+  onStep,
 }: GroupPanelProps) {
   return (
     <div
@@ -219,7 +283,7 @@ function GroupPanel({
           justifyContent: "space-between",
           gap: 8,
           height: 26,
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
         <span
@@ -289,6 +353,7 @@ function GroupPanel({
             linked={linked}
             coord={coordUuids.has(room.uuid)}
             onChange={(value) => onFaderChange(room.uuid, value)}
+            onStep={(direction) => onStep(room.uuid, direction)}
           />
         ))}
       </div>
@@ -335,11 +400,12 @@ export function SoundSystemTileView({
   globalLock,
   groupLock,
   onFaderChange,
+  onStep,
   onToggleGlobalLock,
   onToggleGroupLock,
 }: SoundSystemTileViewProps) {
   // Tapping the tile (outside the faders/lock buttons) bubbles to the board,
-  // which opens the full-page Groups detail via the tile-detail registry.
+  // which opens the full-page Sound System detail via the tile-detail registry.
   if (status !== "populated") {
     return (
       <Tile padding={18} style={{ gap: 0 }}>
@@ -361,13 +427,32 @@ export function SoundSystemTileView({
   // The group lock gangs the active panel's faders , meaningless with a single
   // fader, so hide it when only one room is active (www-a5rl).
   const showGroupLock = active.length > 1;
+  const calibrated = rooms.filter((r) => r.baseline !== null).length;
 
   return (
     <Tile padding={18} style={{ gap: 0 }}>
       <TileHeader
         icon="speaker"
         title="Sound System"
-        right={<GlobalLockBtn on={globalLock} onToggle={onToggleGlobalLock} />}
+        right={
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {calibrated > 0 && (
+              <span
+                title={`${calibrated} of ${rooms.length} rooms calibrated`}
+                style={{
+                  fontSize: 9.5,
+                  fontWeight: 600,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "var(--acc)",
+                }}
+              >
+                Calibrated
+              </span>
+            )}
+            <GlobalLockBtn on={globalLock} onToggle={onToggleGlobalLock} />
+          </div>
+        }
       />
 
       {rooms.length === 0 ? (
@@ -392,6 +477,7 @@ export function SoundSystemTileView({
                   : undefined
               }
               onFaderChange={onFaderChange}
+              onStep={onStep}
             />
           )}
           {idle.length > 0 && (
@@ -405,6 +491,7 @@ export function SoundSystemTileView({
               linked={globalLock}
               coordUuids={coordUuids}
               onFaderChange={onFaderChange}
+              onStep={onStep}
             />
           )}
         </div>

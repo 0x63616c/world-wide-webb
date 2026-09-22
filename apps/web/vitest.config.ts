@@ -40,7 +40,8 @@ export default defineConfig({
     include: [
       "**/*.{test,spec}.?(c|m)[jt]s?(x)",
       "../../features/**/web*.test.tsx",
-      "../../features/*/web/**/*.test.tsx",
+      // .ts too: feature web hooks (features/*/web/hooks) carry plain .test.ts suites.
+      "../../features/*/web/**/*.test.ts?(x)",
     ],
     // Spread configDefaults.exclude rather than a bare override, or setting
     // `exclude` drops vitest's own node_modules/dist/cypress/etc defaults

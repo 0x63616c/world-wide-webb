@@ -1,20 +1,25 @@
 /**
- * useMixer hook , gang-lock algorithm for multi-room volume control (www-51hf.14).
+ * useMixer hook , local volume/mute state plus the lock that moves rooms
+ * together (www-51hf.14, lock semantics reworked to match the Hammerspoon
+ * Sonos panel in dotfiles `hammerspoon/sonos.lua`).
  *
- * Shared by the Sound System tile and Mixer modal. Holds local volume/mute state
- * so the UI responds instantly while tRPC writes propagate asynchronously.
+ * Holds local volume/mute state so the UI responds instantly while tRPC
+ * writes propagate asynchronously. Volumes here are DISPLAY values: the
+ * container converts the polled raw volume through each room's calibration
+ * baseline on the way in and back to raw on the way out (see ../../calibration.ts).
  *
- * Gang-lock algorithm (www-ecc2):
- *  Locks are the ONLY thing that gangs faders:
- *   - globalLock ON  → gang = ALL rooms.
- *   - else groupLock ON → gang = rooms sharing the dragged room's coordinatorUuid.
- *   - else (unlocked) → gang = [uuid] ONLY (solo move, even for a grouped room).
+ * Lock algorithm:
+ *   - globalLock ON  → every room snaps to the SAME displayed percentage as
+ *     the one being moved.
+ *   - else groupLock ON → the rooms sharing the moved room's coordinatorUuid
+ *     snap to the same percentage.
+ *   - else (unlocked) → only the moved room changes.
  *
- *  The gang STOPS when any member would breach 0 or 100 , the delta is clamped
- *  to the tightest headroom across all members, preserving relative offsets.
- *
- *  The `member` map tracks which rooms have been explicitly added to the group
- *  via join() , used by the UI to show group membership.
+ *  Matching PERCENTAGE (not raw volume, and not a preserved offset) is the
+ *  point: once rooms are calibrated, "everything at 50%" is the balanced
+ *  house, and each room reaches it through its own baseline. Without
+ *  calibration the percentage is the raw volume, so the lock still behaves
+ *  sensibly, just without the per-room correction.
  *
  * Why integer clamping: Sonos volume is 0-100 integer; float drift accumulates
  * across successive moves and can cause off-by-one mismatches with the device.
@@ -31,6 +36,7 @@ export interface MixerRoom {
   /** Coordinator UUID of this room's group , rooms sharing it gang together. */
   coordinatorUuid: string;
   name: string;
+  /** Display volume (percent of baseline, or raw when uncalibrated). */
   volume: number;
   muted: boolean;
 }
@@ -41,28 +47,27 @@ function roomKey(r: MixerRoom): string {
 }
 
 export interface MixerState {
-  /** Current volume per room key (uuid), 0-100 integer. */
+  /** Current display volume per room key (uuid), integer. May exceed 100 when
+   *  a room is past its calibrated ceiling; user-driven moves clamp to 0-100. */
   vols: Record<string, number>;
-  /** Gang member set: uuid → true when participating in the group lock. */
-  member: Record<string, boolean>;
-  /** True when ALL rooms are locked together (global gang). */
+  /** True when ALL rooms are locked together. */
   globalLock: boolean;
-  /** True when the group lock is active (locks all known rooms). */
+  /** True when rooms sharing a coordinator are locked together. */
   groupLock: boolean;
-  /** Mute state per coordinatorUuid. */
+  /** Mute state per room key. */
   mutes: Record<string, boolean>;
-  /** Set a fader to a target value; applies gang-lock delta if active. */
-  setRoomVolume: (uuid: string, target: number) => void;
-  /** Add a uuid to the gang member set. */
-  join: (uuid: string) => void;
-  /** Remove a uuid from the gang member set. */
-  leave: (uuid: string) => void;
+  /**
+   * Move a room to a target display volume. Returns the rooms that changed
+   * with their new display values (the moved room plus any locked with it),
+   * so the caller can write each one through its own baseline.
+   */
+  setRoomVolume: (uuid: string, target: number) => Array<{ uuid: string; volume: number }>;
   /** Toggle the group lock on/off. */
   toggleGroupLock: () => void;
   /** Set globalLock explicitly. */
   setGlobalLock: (on: boolean) => void;
-  /** Toggle a room's mute state. */
-  toggleMute: (uuid: string) => void;
+  /** Toggle a room's mute state locally. Returns the new muted value. */
+  toggleMute: (uuid: string) => boolean;
 }
 
 function clamp(v: number): number {
@@ -70,44 +75,7 @@ function clamp(v: number): number {
 }
 
 /**
- * Apply the gang-lock algorithm to a map of volumes.
- * The dragged fader requests `target`; the actual delta is capped so no
- * member exceeds [0, 100]. All gang members move by the same capped integer delta.
- */
-function applyGangDelta(
-  vols: Record<string, number>,
-  gangUuids: string[],
-  draggedUuid: string,
-  target: number,
-): Record<string, number> {
-  const currentDragged = vols[draggedUuid] ?? 0;
-  const rawDelta = Math.round(target) - currentDragged;
-  if (rawDelta === 0) return vols;
-
-  // Find the tightest headroom across all gang members in the direction of movement.
-  let cappedDelta = rawDelta;
-  for (const uuid of gangUuids) {
-    const current = vols[uuid] ?? 0;
-    if (rawDelta > 0) {
-      // Moving up: headroom = 100 - current
-      cappedDelta = Math.min(cappedDelta, 100 - current);
-    } else {
-      // Moving down: headroom = -(current - 0) = -current
-      cappedDelta = Math.max(cappedDelta, -current);
-    }
-  }
-
-  if (cappedDelta === 0) return vols;
-
-  const next = { ...vols };
-  for (const uuid of gangUuids) {
-    next[uuid] = clamp((vols[uuid] ?? 0) + cappedDelta);
-  }
-  return next;
-}
-
-/**
- * @param rooms Polled room snapshot from media.soundSystem.
+ * @param rooms Polled room snapshot (display volumes).
  * @param dataUpdatedAt When that snapshot was FETCHED (react-query dataUpdatedAt,
  *   epoch ms; 0 while no data). Reconciliation is gated on it: a snapshot may
  *   only overwrite a room it was fetched after that room's last local edit.
@@ -119,11 +87,17 @@ export function useMixer(rooms: MixerRoom[], dataUpdatedAt: number): MixerState 
   const [mutes, setMutes] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(rooms.map((r) => [roomKey(r), r.muted])),
   );
-  const [member, setMember] = useState<Record<string, boolean>>({});
   const [groupLock, setGroupLock] = useState(false);
   const [globalLock, setGlobalLockState] = useState(false);
 
-  // roomKey → coordinatorUuid, kept current so setRoomVolume can gang a dragged
+  // Refs mirror the latest state so setRoomVolume can compute its result
+  // synchronously (the caller writes it to the network) without stale closures.
+  const volsRef = useRef(vols);
+  volsRef.current = vols;
+  const mutesRef = useRef(mutes);
+  mutesRef.current = mutes;
+
+  // roomKey → coordinatorUuid, kept current so setRoomVolume can gang a moved
   // fader with its group-mates without re-subscribing the callback. A ref (not
   // state) so updating it never triggers a render , avoiding the www-w6ug loop.
   const groupOf = useRef<Record<string, string>>({});
@@ -144,26 +118,20 @@ export function useMixer(rooms: MixerRoom[], dataUpdatedAt: number): MixerState 
   //    reconcile that a stale snapshot can never win.
   useEffect(() => {
     const currentUuids = new Set(rooms.map((r) => roomKey(r)));
-    setVols((prev) => {
+    const reconcile = <T>(prev: Record<string, T>, pick: (r: MixerRoom) => T) => {
       const next = { ...prev };
       let changed = false;
       for (const r of rooms) {
         const key = roomKey(r);
+        const polled = pick(r);
         if (!(key in next)) {
-          // New room: seed from poll.
-          next[key] = r.volume;
+          next[key] = polled;
           changed = true;
-        } else if (dataUpdatedAt > (lastEditAt.current[key] ?? 0)) {
-          // Existing room, snapshot fetched after the last local edit:
-          // reconcile from poll if value differs.
-          if (next[key] !== r.volume) {
-            next[key] = r.volume;
-            changed = true;
-          }
+        } else if (dataUpdatedAt > (lastEditAt.current[key] ?? 0) && next[key] !== polled) {
+          next[key] = polled;
+          changed = true;
         }
-        // Snapshot older than the local edit: leave the local value untouched.
       }
-      // Prune rooms that are no longer in the prop.
       for (const uuid of Object.keys(next)) {
         if (!currentUuids.has(uuid)) {
           delete next[uuid];
@@ -173,82 +141,47 @@ export function useMixer(rooms: MixerRoom[], dataUpdatedAt: number): MixerState 
       // Return prev UNCHANGED when nothing changed so the state reference stays
       // stable and React skips the re-render (www-w6ug infinite-render guard).
       return changed ? next : prev;
-    });
-    setMutes((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const r of rooms) {
-        const key = roomKey(r);
-        if (!(key in next)) {
-          // New room: seed from poll.
-          next[key] = r.muted;
-          changed = true;
-        } else if (dataUpdatedAt > (lastEditAt.current[key] ?? 0)) {
-          // Existing room, snapshot fetched after the last local edit:
-          // reconcile from poll if value differs.
-          if (next[key] !== r.muted) {
-            next[key] = r.muted;
-            changed = true;
-          }
-        }
-        // Snapshot older than the local edit: leave the local value untouched.
-      }
-      // Prune rooms that are no longer in the prop.
-      for (const uuid of Object.keys(next)) {
-        if (!currentUuids.has(uuid)) {
-          delete next[uuid];
-          changed = true;
-        }
-      }
-      // Same stable-reference guard as setVols above (www-w6ug).
-      return changed ? next : prev;
-    });
+    };
+    setVols((prev) => reconcile(prev, (r) => r.volume));
+    setMutes((prev) => reconcile(prev, (r) => r.muted));
   }, [rooms, dataUpdatedAt]);
 
   const setRoomVolume = useCallback(
     (uuid: string, target: number) => {
-      setVols((prev) => {
-        // www-ecc2: locks are the ONLY thing that gangs faders.
-        // globalLock first, then groupLock (coordinator group only), then solo.
-        let gang: string[];
-        if (globalLock) {
-          gang = Object.keys(prev);
-        } else if (groupLock) {
-          const coord = groupOf.current[uuid];
-          gang = coord ? Object.keys(prev).filter((u) => groupOf.current[u] === coord) : [uuid];
-        } else {
-          // Unlocked , solo move regardless of coordinatorUuid.
-          gang = [uuid];
-        }
+      const prev = volsRef.current;
+      // Locks are the ONLY thing that gangs faders: globalLock first, then
+      // groupLock (coordinator group only), then solo.
+      let gang: string[];
+      if (globalLock) {
+        gang = Object.keys(prev);
+      } else if (groupLock) {
+        const coord = groupOf.current[uuid];
+        gang = coord ? Object.keys(prev).filter((u) => groupOf.current[u] === coord) : [uuid];
+      } else {
+        gang = [uuid];
+      }
+      if (!gang.includes(uuid)) gang.push(uuid);
 
+      const value = clamp(target);
+      const changed: Array<{ uuid: string; volume: number }> = [];
+      const now = Date.now();
+      const next = { ...prev };
+      for (const u of gang) {
+        if (next[u] === value) continue;
+        next[u] = value;
         // www-tavs: stamp lastEditAt for every room actually changed so the
         // [rooms] reconcile effect won't overwrite them during cooldown.
-        const now = Date.now();
-        for (const u of gang) {
-          lastEditAt.current[u] = now;
-        }
-
-        if (gang.length > 1) {
-          return applyGangDelta(prev, gang, uuid, target);
-        }
-        // Solo fader , clamp and update only this room.
-        return { ...prev, [uuid]: clamp(target) };
-      });
+        lastEditAt.current[u] = now;
+        changed.push({ uuid: u, volume: value });
+      }
+      if (changed.length > 0) {
+        volsRef.current = next;
+        setVols(next);
+      }
+      return changed;
     },
     [globalLock, groupLock],
   );
-
-  const join = useCallback((uuid: string) => {
-    setMember((prev) => ({ ...prev, [uuid]: true }));
-  }, []);
-
-  const leave = useCallback((uuid: string) => {
-    setMember((prev) => {
-      const next = { ...prev };
-      delete next[uuid];
-      return next;
-    });
-  }, []);
 
   const toggleGroupLock = useCallback(() => {
     setGroupLock((prev) => !prev);
@@ -262,18 +195,18 @@ export function useMixer(rooms: MixerRoom[], dataUpdatedAt: number): MixerState 
     // www-tavs: stamp lastEditAt so the [rooms] reconcile doesn't overwrite
     // a local mute toggle within the cooldown window.
     lastEditAt.current[uuid] = Date.now();
-    setMutes((prev) => ({ ...prev, [uuid]: !prev[uuid] }));
+    const next = !mutesRef.current[uuid];
+    mutesRef.current = { ...mutesRef.current, [uuid]: next };
+    setMutes(mutesRef.current);
+    return next;
   }, []);
 
   return {
     vols,
-    member,
     globalLock,
     groupLock,
     mutes,
     setRoomVolume,
-    join,
-    leave,
     toggleGroupLock,
     setGlobalLock,
     toggleMute,

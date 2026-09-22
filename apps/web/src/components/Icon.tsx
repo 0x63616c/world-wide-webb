@@ -62,6 +62,7 @@ export type IconName =
   | "dog"
   | "paw"
   | "calendar"
+  | "minus"
   | "plus"
   | "minus"
   | "qr-code"
@@ -116,6 +117,7 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   dog: Dog,
   paw: PawPrint,
   calendar: Calendar,
+  minus: Minus,
   plus: Plus,
   minus: Minus,
   "qr-code": QrCode,
