@@ -20,6 +20,7 @@ import {
   Lock,
   LockOpen,
   MapPin,
+  Minus,
   Moon,
   PawPrint,
   Plus,
@@ -62,6 +63,7 @@ export type IconName =
   | "paw"
   | "calendar"
   | "plus"
+  | "minus"
   | "qr-code"
   | "bell"
   | "chevron"
@@ -115,6 +117,7 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   paw: PawPrint,
   calendar: Calendar,
   plus: Plus,
+  minus: Minus,
   "qr-code": QrCode,
   bell: Bell,
   chevron: ChevronRight,

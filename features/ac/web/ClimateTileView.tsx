@@ -13,6 +13,7 @@
  */
 
 import { useState } from "react";
+import { Icon } from "@/components/Icon";
 import { RangeSlider, Skeleton, Slider, Tile, TileHeader, TileStatus } from "@/components/ui";
 
 // ─── types & constants ──────────────────────────────────────────────────────
@@ -172,6 +173,44 @@ function EndLabels({ min, max }: { min: number; max: number }) {
   );
 }
 
+// ─── setpoint stepper buttons ──────────────────────────────────────────────────
+
+// Small ± buttons flanking the big setpoint number, additive to the slider
+// below it, same step (1°) and same onSetTarget/onSetRange path the slider drives.
+function StepperButton({
+  direction,
+  onClick,
+  label,
+}: {
+  direction: "down" | "up";
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      data-testid={`stepper-${direction}`}
+      style={{
+        flex: "0 0 auto",
+        width: 40,
+        height: 40,
+        borderRadius: "50%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--tile-2)",
+        border: "1px solid var(--hair)",
+        color: "var(--ink-2)",
+        cursor: "pointer",
+      }}
+    >
+      <Icon name={direction === "up" ? "plus" : "minus"} s={18} />
+    </button>
+  );
+}
+
 // ─── ClimateTileView ──────────────────────────────────────────────────────────
 
 export function ClimateTileView(props: ClimateTileViewProps) {
@@ -238,13 +277,25 @@ export function ClimateTileView(props: ClimateTileViewProps) {
         )}
 
         {(mode === HvacMode.Cool || mode === HvacMode.Heat) && (
-          <div
-            className="mono"
-            style={{ fontSize: 92, fontWeight: 700, lineHeight: 0.9, letterSpacing: "-0.04em" }}
-            data-testid="setpoint"
-          >
-            {dragTarget ?? props.target}
-            <span style={{ fontSize: 30, color: "var(--ink-2)" }}>°F</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <StepperButton
+              direction="down"
+              label="Decrease target temperature"
+              onClick={() => onSetTarget(clampTarget((dragTarget ?? props.target) - 1))}
+            />
+            <div
+              className="mono"
+              style={{ fontSize: 92, fontWeight: 700, lineHeight: 0.9, letterSpacing: "-0.04em" }}
+              data-testid="setpoint"
+            >
+              {dragTarget ?? props.target}
+              <span style={{ fontSize: 30, color: "var(--ink-2)" }}>°F</span>
+            </div>
+            <StepperButton
+              direction="up"
+              label="Increase target temperature"
+              onClick={() => onSetTarget(clampTarget((dragTarget ?? props.target) + 1))}
+            />
           </div>
         )}
 
