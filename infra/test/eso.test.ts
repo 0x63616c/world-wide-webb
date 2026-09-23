@@ -33,11 +33,15 @@ const testNamespaces = {
 } as const;
 
 describe("SERVICE_SECRETS", () => {
-  test("worker mirrors api exactly (lockstep, www-51hf.35)", () => {
-    const api = Object.keys(map.SERVICE_SECRETS.api).sort();
+  test("worker mirrors api minus the api-only Wi-Fi delta (lockstep, www-51hf.35)", () => {
+    const apiOnly = new Set(["WIFI_GUEST_SSID", "WIFI_GUEST_PASSWORD"]);
+    const api = Object.keys(map.SERVICE_SECRETS.api)
+      .filter((k) => !apiOnly.has(k))
+      .sort();
     const worker = Object.keys(map.SERVICE_SECRETS.worker).sort();
     expect(worker).toEqual(api);
     for (const [k, v] of Object.entries(map.SERVICE_SECRETS.api)) {
+      if (apiOnly.has(k)) continue;
       expect(map.SERVICE_SECRETS.worker[k]).toBe(v);
     }
   });

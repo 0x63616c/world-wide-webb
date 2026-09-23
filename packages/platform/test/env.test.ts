@@ -42,6 +42,7 @@ const API_REQUIRED: Record<string, string> = {
   WIFI_SSID: "ssid",
   WIFI_PASSWORD: "pw",
   WIFI_GUEST_SSID: "guest",
+  WIFI_GUEST_PASSWORD: "guest-pw",
   HOME_LAT: "34.0537",
   HOME_LON: "-118.2428",
   GITHUB_BOT_WEBHOOK_SECRET: "hook-secret",

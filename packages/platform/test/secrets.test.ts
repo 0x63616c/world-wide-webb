@@ -54,7 +54,7 @@ describe("secret catalog and service usage", () => {
     expect("captive-portal" in secrets).toBe(false);
   });
 
-  test("api and worker declare the exact same secret set (base+delta merge target, ADR-0006)", () => {
+  test("api and worker share one base set; api adds only the guest Wi-Fi delta (ADR-0006)", () => {
     const usages = controlCenterServiceSecretUsages();
     // Shrunk hard by The Simplification (§8): APNs, App Store Connect (moved to
     // CI-only), the GitHub bot, Spotify, UniFi, the WiFi SSIDs, Withings and the
@@ -62,10 +62,15 @@ describe("secret catalog and service usage", () => {
     // deleted — this golden set is what proves nothing was dropped by accident.
     const expectedKeys = ["HA_TOKEN", "HOME_LAT", "HOME_LON", "POSTGRES_PASSWORD"].sort();
 
-    expect(Object.keys(usages.api.secrets).sort()).toEqual(expectedKeys);
     expect(Object.keys(usages.worker.secrets).sort()).toEqual(expectedKeys);
+    expect(Object.keys(usages.api.secrets).sort()).toEqual(
+      [...expectedKeys, "WIFI_GUEST_PASSWORD", "WIFI_GUEST_SSID"].sort(),
+    );
     // Not just the same key NAMES: the same catalog entries (vaultKey/item/field) too.
-    expect(usages.api.secrets).toEqual(usages.worker.secrets);
+    const { WIFI_GUEST_SSID, WIFI_GUEST_PASSWORD, ...apiBase } = usages.api.secrets;
+    expect(apiBase).toEqual(usages.worker.secrets);
+    expect(WIFI_GUEST_SSID?.vaultKey).toBe("WIFI_GUEST_WIFI_SSID");
+    expect(WIFI_GUEST_PASSWORD?.vaultKey).toBe("WIFI_GUEST_WIFI_PASSWORD");
   });
 
   test("product service usages no longer use cc-secrets compatibility names", () => {

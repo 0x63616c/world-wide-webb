@@ -371,14 +371,13 @@ export function controlCenterServiceSecretUsages(): Record<
   } as const;
 
   return {
-    // The guest Wi-Fi pair (secretCatalog.wifiGuest) is deliberately NOT
-    // mounted yet: the vault carries no Wi-Fi credentials since The
-    // Simplification, and vault.ts refuses to deploy on a missing key, which
-    // took the deploy down (#766). Once WIFI_GUEST_WIFI_SSID/_PASSWORD exist in
-    // secrets/vault.yaml, spread them onto the api usage here (api-only delta)
-    // and switch the env manifest's WIFI_GUEST_* back to required; the Wi-Fi
-    // tile shows "Guest network not configured" until then.
-    api: defineServiceSecretUsage(controlCenter, "api", apiWorkerSharedSecrets),
+    // api-only delta: the guest Wi-Fi pair feeds the Wi-Fi QR tile's api
+    // query (features/wifi); the worker never reads it.
+    api: defineServiceSecretUsage(controlCenter, "api", {
+      ...apiWorkerSharedSecrets,
+      WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
+      WIFI_GUEST_PASSWORD: secretCatalog.wifiGuest.password,
+    }),
     worker: defineServiceSecretUsage(controlCenter, "worker", apiWorkerSharedSecrets),
     cloudflared: defineServiceSecretUsage(
       controlCenter,
