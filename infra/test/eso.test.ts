@@ -33,16 +33,13 @@ const testNamespaces = {
 } as const;
 
 describe("SERVICE_SECRETS", () => {
-  test("worker is the shared base of api: every worker secret is in api with the same vault key (www-51hf.35)", () => {
-    // api may carry api-only deltas (the guest Wi-Fi pair behind the Wi-Fi QR
-    // tile); the worker never mounts a secret api doesn't.
-    for (const [k, v] of Object.entries(map.SERVICE_SECRETS.worker)) {
-      expect(map.SERVICE_SECRETS.api[k]).toBe(v);
+  test("worker mirrors api exactly (lockstep, www-51hf.35)", () => {
+    const api = Object.keys(map.SERVICE_SECRETS.api).sort();
+    const worker = Object.keys(map.SERVICE_SECRETS.worker).sort();
+    expect(worker).toEqual(api);
+    for (const [k, v] of Object.entries(map.SERVICE_SECRETS.api)) {
+      expect(map.SERVICE_SECRETS.worker[k]).toBe(v);
     }
-    const apiOnly = Object.keys(map.SERVICE_SECRETS.api).filter(
-      (k) => !(k in map.SERVICE_SECRETS.worker),
-    );
-    expect(apiOnly.sort()).toEqual(["WIFI_GUEST_PASSWORD", "WIFI_GUEST_SSID"]);
   });
 
   test("services with no secrets are absent (web/manage)", () => {

@@ -53,10 +53,12 @@ export const ENV = defineEnv({
 
   // ── Guest Wi-Fi (wifi) ────────────────────────────────────────────────────
   // Feed the board's Wi-Fi QR tile and nothing else: never rendered as text.
-  // Empty in local dev unless the vault carries them (tilt/load-secrets.sh);
-  // while empty the tile renders its "not configured" face instead of a code.
-  WIFI_GUEST_SSID: secret().required().devDefault("").forRuntime("api").forFeatures("wifi"),
-  WIFI_GUEST_PASSWORD: secret().required().devDefault("").forRuntime("api").forFeatures("wifi"),
+  // OPTIONAL until the vault carries the pair (see secretCatalog.wifiGuest in
+  // src/index.ts): unset resolves to undefined and the tile renders its
+  // "not configured" face instead of a code, so neither a prod boot nor the
+  // deploy depends on a credential that does not exist yet.
+  WIFI_GUEST_SSID: secret().optionalSecret().forRuntime("api").forFeatures("wifi"),
+  WIFI_GUEST_PASSWORD: secret().optionalSecret().forRuntime("api").forFeatures("wifi"),
 
   // ── Media storage (booth, wakes) ──────────────────────────────────────────
   MEDIA_STORAGE_DIR: str().default("/mnt/media").forRuntime("api").forFeatures("booth", "wakes"),

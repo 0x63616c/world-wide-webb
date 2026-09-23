@@ -31,7 +31,11 @@ const wifiRouter = router({
         qr: z.string().describe("WIFI: join payload for the guest network, '' when unconfigured"),
       }),
     )
-    .query(() => ({ qr: buildWifiQrPayload(config.WIFI_GUEST_SSID, config.WIFI_GUEST_PASSWORD) })),
+    // Both are optional secrets (undefined until the vault carries them); the
+    // payload builder treats a missing SSID as "not configured".
+    .query(() => ({
+      qr: buildWifiQrPayload(config.WIFI_GUEST_SSID ?? "", config.WIFI_GUEST_PASSWORD ?? ""),
+    })),
 });
 
 /** The branded `api` facet — single top-level key `wifi`. */
