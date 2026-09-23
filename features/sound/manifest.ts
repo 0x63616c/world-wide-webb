@@ -15,7 +15,7 @@ export default defineApp({
       component: SoundSystemTile,
       viewComponent: SoundSystemTileView,
       worldCol: 29,
-      worldRow: 24,
+      worldRow: 27,
       cols: 5,
       rows: 3,
     },

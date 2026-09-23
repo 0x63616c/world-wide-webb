@@ -8,7 +8,7 @@ import { PhotoBoothTile } from "./web";
  * registry entry used `PhotoBoothTile` for both `component` and
  * `viewComponent`, kept here.
  *
- * On the fixed board, Photo Booth sits between Controls and Sound System.
+ * On the fixed board, Photo Booth sits between Controls and Clock.
  */
 export default defineApp({
   id: "tile_booth",

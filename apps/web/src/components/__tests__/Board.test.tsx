@@ -22,8 +22,17 @@ vi.mock("@features/_generated/web.gen", () => {
     home: true,
     access: { requiresSessionUnlock: false, requiresFreshUnlock: false },
   };
+  const privateFake = {
+    ...fake,
+    id: "tile_private",
+    label: "Private Tile",
+    worldCol: 30,
+    cols: 2,
+    home: false,
+    access: { requiresSessionUnlock: false, requiresFreshUnlock: true },
+  };
   return {
-    TILE_REGISTRY: [fake],
+    TILE_REGISTRY: [fake, privateFake],
     HOME_TILE: fake,
     accessFor: () => fake.access,
     registryEntryForTileId: (id: string) => (id === fake.id ? fake : undefined),
@@ -75,6 +84,14 @@ describe("Board", () => {
     expect(stage?.contains(world ?? null)).toBe(true);
     expect(stage?.style.overflow).toBe("clip");
     expect(stage?.style.touchAction).toBe("none");
+  });
+
+  it("renders a private tile's locked face with the shared tile shape", () => {
+    render(<Board />);
+    const privateTile = screen.getByTestId("private-tile-tile_private");
+    expect(privateTile.firstElementChild?.classList.contains("tile")).toBe(true);
+    expect(privateTile.textContent).toContain("Private Tile");
+    expect(privateTile.textContent).not.toContain("tile-body");
   });
 
   it("tapping a tile opens its detail page", () => {

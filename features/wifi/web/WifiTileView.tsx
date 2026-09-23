@@ -14,16 +14,17 @@ export interface WifiTileViewProps {
   qr: string;
 }
 
-// Tighter than the 20–22 the larger tiles use: a 2x2 tile is ~207px square
-// and the body is height-bound (tile minus padding minus the TileHeader), so
-// every pixel the chrome gives up goes straight to QR module size. At 12 the
-// code renders ~147px, about 4px per module with the quiet zone.
+// Keep the QR body at this inset: a 2x2 tile is ~207px square, and at 12 the
+// code renders ~138px, about 3.7px per module for a 37-module code. Inset only
+// the header to match the other tiles without reducing the QR's module pitch.
 const TILE_PADDING = 12;
 
 export function WifiTileView({ status, qr }: WifiTileViewProps) {
   return (
     <Tile padding={TILE_PADDING}>
-      <TileHeader icon="wifi" title="Wi-Fi" />
+      <div style={{ marginInline: 10 }}>
+        <TileHeader icon="wifi" title="Wi-Fi" />
+      </div>
       <div
         style={{
           flex: 1,

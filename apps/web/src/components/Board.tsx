@@ -28,6 +28,7 @@ import { TileDetailHost } from "./tiles/detail/TileDetailHost";
 import { UpdateReloadBanner } from "./UpdateReloadBanner";
 import { BoundedTile } from "./ui/BoundedTile";
 import { NotificationBanner, NotificationBannerStack } from "./ui/NotificationBanner";
+import { Tile } from "./ui/Tile";
 
 // Interactive descendants a tap may land on (toggles, sliders, the Controls
 // "More" button). Taps on these drive the tile's own controls and must NOT also
@@ -347,6 +348,9 @@ export function Board() {
               role="button"
               tabIndex={0}
               aria-label={`Open ${entry.label}`}
+              data-testid={
+                entry.access.requiresFreshUnlock ? `private-tile-${entry.id}` : undefined
+              }
               onClickCapture={(e) => onTileClickCapture(entry, e)}
               onKeyDown={(e) => {
                 // Enter/Space open the tile's detail page like a plain tap
@@ -360,23 +364,17 @@ export function Board() {
             >
               <BoundedTile>
                 {entry.access.requiresFreshUnlock ? (
-                  <div
-                    data-testid={`private-tile-${entry.id}`}
+                  <Tile
                     style={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 10,
-                      background: "var(--tile)",
                       color: "var(--ink-2)",
-                      fontFamily: "var(--ui)",
                     }}
                   >
                     <Icon name="lock" s={24} />
                     <span>{entry.label}</span>
-                  </div>
+                  </Tile>
                 ) : (
                   <TileComponent />
                 )}
