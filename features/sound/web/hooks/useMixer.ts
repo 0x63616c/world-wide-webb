@@ -26,6 +26,33 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createStore, useStore } from "@/lib/store";
+
+const LOCKS_KEY = "cc-sound-locks-v1";
+type Locks = { globalLock: boolean; groupLock: boolean };
+
+function loadLocks(): Locks {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(LOCKS_KEY) ?? "null");
+    if (typeof value?.globalLock === "boolean" && typeof value?.groupLock === "boolean") {
+      return value;
+    }
+  } catch {
+    // Storage may be unavailable on the panel or in tests.
+  }
+  return { globalLock: false, groupLock: false };
+}
+
+const locks = createStore<Locks>(loadLocks());
+
+function setLocks(next: Locks | ((prev: Locks) => Locks)): void {
+  locks.set(next);
+  try {
+    window.localStorage.setItem(LOCKS_KEY, JSON.stringify(locks.get()));
+  } catch {
+    // Keep the live lock state even if persistence is unavailable.
+  }
+}
 
 export interface MixerRoom {
   /**
@@ -87,8 +114,7 @@ export function useMixer(rooms: MixerRoom[], dataUpdatedAt: number): MixerState 
   const [mutes, setMutes] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(rooms.map((r) => [roomKey(r), r.muted])),
   );
-  const [groupLock, setGroupLock] = useState(false);
-  const [globalLock, setGlobalLockState] = useState(false);
+  const { groupLock, globalLock } = useStore(locks);
 
   // Refs mirror the latest state so setRoomVolume can compute its result
   // synchronously (the caller writes it to the network) without stale closures.
@@ -184,11 +210,11 @@ export function useMixer(rooms: MixerRoom[], dataUpdatedAt: number): MixerState 
   );
 
   const toggleGroupLock = useCallback(() => {
-    setGroupLock((prev) => !prev);
+    setLocks((prev) => ({ ...prev, groupLock: !prev.groupLock }));
   }, []);
 
   const setGlobalLock = useCallback((on: boolean) => {
-    setGlobalLockState(on);
+    setLocks((prev) => ({ ...prev, globalLock: on }));
   }, []);
 
   const toggleMute = useCallback((uuid: string) => {

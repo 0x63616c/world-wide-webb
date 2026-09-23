@@ -10,6 +10,15 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useMixer } from "../hooks/useMixer";
 
+beforeEach(() => {
+  const { result, unmount } = twoRoomSetup(50, 60);
+  act(() => {
+    result.current.setGlobalLock(false);
+    if (result.current.groupLock) result.current.toggleGroupLock();
+  });
+  unmount();
+});
+
 function twoRoomSetup(volA: number, volB: number) {
   const rooms = [
     { coordinatorUuid: "uuid-A", name: "Room A", volume: volA, muted: false },
@@ -72,6 +81,50 @@ describe("useMixer , solo moves", () => {
 });
 
 describe("useMixer , locks snap every locked room to the same percentage", () => {
+  it("keeps both locks after unmounting and remounting", () => {
+    const storage = new Map<string, string>();
+    const originalStorage = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+      },
+    });
+    try {
+      const first = twoRoomSetup(50, 60);
+      act(() => {
+        first.result.current.setGlobalLock(true);
+        first.result.current.toggleGroupLock();
+      });
+      first.unmount();
+
+      const second = twoRoomSetup(50, 60);
+      expect(second.result.current.globalLock).toBe(true);
+      expect(second.result.current.groupLock).toBe(true);
+      expect(JSON.parse(storage.get("cc-sound-locks-v1") ?? "null")).toEqual({
+        globalLock: true,
+        groupLock: true,
+      });
+      second.unmount();
+    } finally {
+      if (originalStorage) Object.defineProperty(window, "localStorage", originalStorage);
+    }
+  });
+
+  it("updates another mounted mixer when either lock changes", () => {
+    const tile = twoRoomSetup(50, 60);
+    const page = twoRoomSetup(50, 60);
+    act(() => {
+      page.result.current.setGlobalLock(true);
+      tile.result.current.toggleGroupLock();
+    });
+    expect(tile.result.current.globalLock).toBe(true);
+    expect(page.result.current.groupLock).toBe(true);
+    tile.unmount();
+    page.unmount();
+  });
+
   it("groupLock: group-mates land on the moved room's value, and all are reported", () => {
     const { result } = sameGroupSetup(24, 29);
     act(() => result.current.toggleGroupLock());
