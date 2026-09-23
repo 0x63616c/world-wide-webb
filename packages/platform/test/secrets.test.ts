@@ -54,24 +54,18 @@ describe("secret catalog and service usage", () => {
     expect("captive-portal" in secrets).toBe(false);
   });
 
-  test("api and worker share one base secret set; api adds the guest Wi-Fi delta (ADR-0006)", () => {
+  test("api and worker declare the exact same secret set (base+delta merge target, ADR-0006)", () => {
     const usages = controlCenterServiceSecretUsages();
     // Shrunk hard by The Simplification (§8): APNs, App Store Connect (moved to
     // CI-only), the GitHub bot, Spotify, UniFi, the WiFi SSIDs, Withings and the
     // home place-name all went with their consumers. Deliberately updated, not
     // deleted — this golden set is what proves nothing was dropped by accident.
-    const sharedKeys = ["HA_TOKEN", "HOME_LAT", "HOME_LON", "POSTGRES_PASSWORD"].sort();
-    // The api-only delta: only features/wifi's tRPC slice reads the guest
-    // network pair, so the worker never mounts it.
-    const apiOnlyKeys = ["WIFI_GUEST_PASSWORD", "WIFI_GUEST_SSID"];
+    const expectedKeys = ["HA_TOKEN", "HOME_LAT", "HOME_LON", "POSTGRES_PASSWORD"].sort();
 
-    expect(Object.keys(usages.worker.secrets).sort()).toEqual(sharedKeys);
-    expect(Object.keys(usages.api.secrets).sort()).toEqual([...sharedKeys, ...apiOnlyKeys].sort());
-    // Not just the same key NAMES on the shared base: the same catalog entries
-    // (vaultKey/item/field) too.
-    for (const key of sharedKeys) {
-      expect(usages.api.secrets[key]).toEqual(usages.worker.secrets[key]);
-    }
+    expect(Object.keys(usages.api.secrets).sort()).toEqual(expectedKeys);
+    expect(Object.keys(usages.worker.secrets).sort()).toEqual(expectedKeys);
+    // Not just the same key NAMES: the same catalog entries (vaultKey/item/field) too.
+    expect(usages.api.secrets).toEqual(usages.worker.secrets);
   });
 
   test("product service usages no longer use cc-secrets compatibility names", () => {
