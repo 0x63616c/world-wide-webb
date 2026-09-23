@@ -14,7 +14,7 @@ export default defineApp({
       label: "Sound System",
       component: SoundSystemTile,
       viewComponent: SoundSystemTileView,
-      worldCol: 29,
+      worldCol: 22,
       worldRow: 27,
       cols: 5,
       rows: 3,

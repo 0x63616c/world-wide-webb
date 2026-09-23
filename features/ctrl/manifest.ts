@@ -19,7 +19,7 @@ export default defineApp({
       label: "Controls",
       component: ControlsTile,
       viewComponent: ControlsTileView,
-      worldCol: 22,
+      worldCol: 29,
       worldRow: 24,
       cols: 5,
       rows: 6,
