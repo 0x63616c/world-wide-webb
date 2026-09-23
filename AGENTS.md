@@ -87,6 +87,10 @@ console or by reproducing locally, not queried from a store.
 - CI/deploy is product-aware: per-product path filters build only changed
   product images plus shared-package dependents.
 - Pulumi digest pins use `wwwinfra:imageDigests.*`.
+- The iOS panel shell (`apps/panel`, Expo) needs Xcode 26.4+; CI selects
+  `XCODE_VERSION` in `.github/workflows/ios-build.yml` rather than the runner
+  default. `apps/panel/ios` is prebuild output (gitignored) — change native
+  behavior in `apps/panel/app.config.ts`, never by hand-editing `ios/`.
 - Infra-level cron jobs (backups) live in `infra/src/crons.ts`; app-level
   scheduled work is a plain interval cycle declared in `features/<id>/worker.ts`
   — there is no job queue and no workflow engine. Device-local native-shell
