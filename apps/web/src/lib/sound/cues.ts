@@ -12,11 +12,9 @@
 import { UI_SOUND } from "../ui-sound";
 
 export interface Cue {
-  /** iOS UISounds file path, preferred when the plugin is present. Omit for a
-   *  cue iOS has no equivalent for. */
+  /** iOS UISounds file path retained as metadata. Omit when there is no equivalent. */
   uiSoundPath?: string;
-  /** Web Audio construction , the fallback off-panel, and the only path for a
-   *  cue with no iOS sound. */
+  /** Web Audio construction used by every runtime. */
   // biome-ignore lint/style/noRestrictedGlobals: the sound bus owns the context
   synth: (audio: AudioContext, out: AudioNode, now: number) => void;
 }

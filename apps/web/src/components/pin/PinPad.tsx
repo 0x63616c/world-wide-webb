@@ -60,7 +60,7 @@ export function PinPadView({
       }
       if (e.key === "Backspace" || e.key === "Delete") {
         // Prevent browser/webview back-navigation on Backspace outside a
-        // focused input , this panel runs in a Capacitor shell.
+        // focused input , this panel runs in an Expo WebView shell.
         e.preventDefault();
         onBackspaceRef.current();
       }
@@ -149,7 +149,7 @@ function PadKey({
         border: "none",
         cursor: "pointer",
         // Kills the 300ms double-tap-zoom delay and the grey flash in the iOS
-        // Capacitor shell; the panel is fixed-size so zoom is never wanted.
+        // Expo shell; the panel is fixed-size so zoom is never wanted.
         touchAction: "manipulation",
         WebkitTapHighlightColor: "transparent",
         userSelect: "none",

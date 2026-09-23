@@ -8,8 +8,8 @@
  *     (`(device_id, entry_id)`), so it must not follow a rename and must survive
  *     WebKit evicting script-writable storage.
  *
- * Native (Capacitor): `<model-slug>-<idfv8>` , the model from @capacitor/device
- * `getInfo().model` slugified, plus the first 8 hex of `getId()` (Apple's
+ * Native (Expo): `<model-slug>-<idfv8>` , the model and identifierForVendor
+ * supplied by the panel shell, with the model slugified and the ID shortened
  * identifierForVendor). Both are OS-derived, so the id survives storage eviction
  * and app updates and changes only on uninstall+reinstall , which genuinely is a
  * new log source, so that is the right behaviour.
@@ -25,9 +25,10 @@
  * that early fallback is overwritten by the real OS-derived id the moment
  * `resolveDeviceId` completes, and every later boot reads the persisted real id.
  *
- * The @capacitor/device import is dynamic so the plugin never loads in a plain
- * browser session (mirrors useBatteryInfo.ts).
+ * The shell bridge is absent in a plain browser, preserving the web fallback.
  */
+
+import { isNativeShell, nativeRequest } from "./native-bridge";
 
 const STORAGE_KEY = "cc-device-id";
 
@@ -84,7 +85,7 @@ function randomHex8(): string {
   }
 }
 
-// ─── @capacitor/device plugin (dynamic, unproxied, injectable for tests) ───────
+// ─── Expo shell bridge (injectable for tests) ─────────────────────────────────
 
 /**
  * The two Device operations we use. Typed locally so a test can inject a fake
@@ -100,30 +101,18 @@ let pluginPromise: Promise<DeviceIdPlugin | null> | null = null;
 // The resolved id, cached so the sync getter is free on every log write.
 let cache: string | null = null;
 
-/**
- * Rebind onto a plain object. NEVER resolve a promise with the Capacitor plugin
- * proxy itself: the proxy fabricates a method wrapper for ANY property including
- * `then`, so awaiting it (as resolving a promise with it does) dispatches a
- * native "Device.then" call that rejects and poisons the chain , the exact
- * failure observed on the panel (2026-07-18). A plain object
- * has no `then`, so awaiting it is inert.
- */
-function unproxyDevice(device: DeviceIdPlugin): DeviceIdPlugin {
-  return {
-    getInfo: () => device.getInfo(),
-    getId: () => device.getId(),
-  };
-}
-
 async function loadPlugin(): Promise<DeviceIdPlugin | null> {
-  try {
-    const { Capacitor } = await import("@capacitor/core");
-    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable("Device")) return null;
-    const { Device } = await import("@capacitor/device");
-    return unproxyDevice(Device as unknown as DeviceIdPlugin);
-  } catch {
-    return null;
-  }
+  if (!isNativeShell()) return null;
+  return {
+    getInfo: async () => {
+      const device = await nativeRequest<{ model: string; identifier: string }>("deviceInfo");
+      return { model: device.model };
+    },
+    getId: async () => {
+      const device = await nativeRequest<{ model: string; identifier: string }>("deviceInfo");
+      return { identifier: device.identifier };
+    },
+  };
 }
 
 function getPlugin(): Promise<DeviceIdPlugin | null> {

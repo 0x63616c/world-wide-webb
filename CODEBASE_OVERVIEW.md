@@ -38,8 +38,8 @@ deploy
   feature router.
 - `apps/worker` — the interval-cycle process: desired-state reconciliation,
   weather ingest/purge.
-- `apps/web` — the React board, the Capacitor iOS kiosk shell (`apps/web/ios`),
-  and the phone view.
+- `apps/web` — the React board and phone view.
+- `apps/panel` — the Expo iOS kiosk shell that loads the hosted React board.
 - `apps/manage` — a static nginx bundle at `manage.worldwidewebb.co`: an
   iframe shell over the small set of ops tools this repo doesn't own
   (`apps/manage/src/registry.ts`), gated by Cloudflare Access alone. See
@@ -118,7 +118,7 @@ and on `MobileBoard`.
   (`lib/settings.ts`), driving `DimOverlay` (`<DimOverlay
   active={sessionPhase === "ended"} onWake={wake} />`, unconditional — there is no
   `LockScreenOverlay`). The panel's real backlight is driven the same way
-  through `lib/brightness.ts` / the native `ScreenBrightness` plugin.
+  through `lib/brightness.ts` / Expo Brightness in the panel shell.
 - **PIN**: one shared PIN Session (`components/pin/`) gates every `sensitive`
   App for the rest of the panel session; `private` (Photo Booth) re-prompts on
   every opening. `pinCode` is a synced setting, enforced client-only (ADR-0004

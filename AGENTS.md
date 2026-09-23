@@ -14,7 +14,7 @@
 - Shared primitives live in `packages/platform`, enforced by a Biome rule
   banning the raw escape hatch (see sound bus, below).
 - Fixed wall panel, `1366x1024`, not responsive. Enforced by the OS on the
-  native/Capacitor kiosk shell and the physical panel hardware. The web build
+  native/Expo kiosk shell and the physical panel hardware. The web build
   matches it too, via `apps/web/src/components/PanelFrame.tsx`: it caps the
   app to `1366x1024` and, on a desktop browser with room to spare, frames it
   like a device instead of letting the board stretch to fill the window.
@@ -87,6 +87,10 @@ console or by reproducing locally, not queried from a store.
 - CI/deploy is product-aware: per-product path filters build only changed
   product images plus shared-package dependents.
 - Pulumi digest pins use `wwwinfra:imageDigests.*`.
+- The iOS panel shell (`apps/panel`, Expo) needs Xcode 26.4+; CI selects
+  `XCODE_VERSION` in `.github/workflows/ios-build.yml` rather than the runner
+  default. `apps/panel/ios` is prebuild output (gitignored) — change native
+  behavior in `apps/panel/app.config.ts`, never by hand-editing `ios/`.
 - Infra-level cron jobs (backups) live in `infra/src/crons.ts`; app-level
   scheduled work is a plain interval cycle declared in `features/<id>/worker.ts`
   — there is no job queue and no workflow engine. Device-local native-shell

@@ -1,0 +1,42 @@
+{
+  "name": "@control-center/panel",
+  "version": "0.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "expo": "~57.0.24",
+    "expo-application": "~57.0.3",
+    "expo-audio": "~57.0.5",
+    "expo-battery": "~57.0.3",
+    "expo-brightness": "~57.0.2",
+    "expo-camera": "~57.0.5",
+    "expo-constants": "~57.0.19",
+    "expo-device": "~57.0.2",
+    "expo-keep-awake": "~57.0.2",
+    "expo-screen-orientation": "~57.0.2",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.7",
+    "react-native": "0.86.3",
+    "react-native-webview": "13.16.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios --device 'Tend QA Pro Max'",
+    "prebuild": "expo prebuild --platform ios --clean",
+    "open": "open ios/ControlCenter.xcworkspace",
+    "typecheck": "tsc --noEmit"
+  },
+  "private": true,
+  "expo": {
+    "install": {
+      "exclude": [
+        "react"
+      ]
+    }
+  }
+}

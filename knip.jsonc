@@ -21,22 +21,11 @@
     // registry as a byte-identical validation artifact. Nothing imports them yet
     // (Slice 5 flips runtime consumers), and generated files are opaque to the
     // dead-code detector just as they are to biome (`.gen.ts` is ignored there too).
-    "features/_generated/**",
-    // Capacitor copies the built web bundle in here on `cap sync ios`. It is
-    // gitignored build output, absent from a fresh clone - which is why knip
-    // reports this entry as unused there - but present for anyone who has run
-    // a native build, and then read as a pile of unused files.
-    "**/ios/**/public/**"
+    "features/_generated/**"
   ],
 
   // Real runtime deps with no JS-visible import edge.
   "ignoreDependencies": [
-    // Capacitor plugins loaded by the native iOS runtime via `cap sync`,
-    // declared in capacitor.config.ts / Package.swift, never `import`ed in TS.
-    // (@capacitor/core and screen-brightness are now imported directly, so knip
-    // sees those edges itself and they no longer need ignore entries.)
-    "@capacitor/ios",
-    "@capacitor/status-bar",
     // Loaded on demand by `vitest run --coverage` (ad-hoc local runs only; CI
     // never passes --coverage), per the `coverage.provider` in vitest.config.ts.
     // It's invoked by the vitest CLI, not imported, so knip can't see the edge -
@@ -55,14 +44,10 @@
     "@testing-library/jest-dom",
     "@testing-library/react",
     // features/booth (Track C, final tile fold) hits the same workspace-boundary
-    // quirk: gifenc (client-side GIF encoder, features/booth/web/lib/booth-capture.ts),
-    // lucide-react and @capacitor/{core,share} (features/booth/web/BoothGallery.tsx,
-    // BoothCameraControls.tsx, CameraStage.tsx) are real apps/web deps the feature
-    // folder can't see resolved against.
+    // quirk: gifenc (client-side GIF encoder) and lucide-react are real apps/web
+    // deps the feature folder can't see resolved against.
     "gifenc",
-    "lucide-react",
-    "@capacitor/core",
-    "@capacitor/share"
+    "lucide-react"
   ],
 
   // `tilt` is the dev-stack binary invoked by the root `dev` script; not an npm dep.
@@ -72,7 +57,8 @@
   // config - knip itself flagged it stale.)
   // `kubectl` is spawned by the infra ghcr-pull-secret preflight to read live
   // Secrets during `pulumi up`; a system binary on the deploy runner, not an npm dep.
-  "ignoreBinaries": ["tilt", "kubectl"],
+  // `open` is the macOS CLI behind apps/panel's `open` script (opens the Xcode workspace).
+  "ignoreBinaries": ["tilt", "kubectl", "open"],
 
   "workspaces": {
     ".": {
