@@ -18,6 +18,7 @@ export default defineApp({
       id: "tile_booth",
       label: "Photo Booth",
       component: PhotoBoothTile,
+      lockedComponent: PhotoBoothTile,
       viewComponent: PhotoBoothTile,
       worldCol: 27,
       worldRow: 24,

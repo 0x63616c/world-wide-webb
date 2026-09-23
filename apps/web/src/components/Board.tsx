@@ -335,7 +335,9 @@ export function Board() {
             );
           }
 
-          const TileComponent = entry.component;
+          const FaceComponent = entry.access.requiresFreshUnlock
+            ? entry.lockedComponent
+            : entry.component;
           return (
             // Not a real <button>: the tile body contains its own buttons
             // (toggles, sliders, "More"), and nesting interactive elements is
@@ -363,7 +365,9 @@ export function Board() {
               }}
             >
               <BoundedTile>
-                {entry.access.requiresFreshUnlock ? (
+                {FaceComponent ? (
+                  <FaceComponent />
+                ) : (
                   <Tile
                     style={{
                       alignItems: "center",
@@ -375,8 +379,6 @@ export function Board() {
                     <Icon name="lock" s={24} />
                     <span>{entry.label}</span>
                   </Tile>
-                ) : (
-                  <TileComponent />
                 )}
               </BoundedTile>
             </div>

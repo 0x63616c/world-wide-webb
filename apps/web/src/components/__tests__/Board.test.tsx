@@ -31,8 +31,15 @@ vi.mock("@features/_generated/web.gen", () => {
     home: false,
     access: { requiresSessionUnlock: false, requiresFreshUnlock: true },
   };
+  const privateWithFace = {
+    ...privateFake,
+    id: "tile_private_face",
+    label: "Private Face",
+    worldCol: 32,
+    lockedComponent: () => <div data-testid="safe-locked-face">safe face</div>,
+  };
   return {
-    TILE_REGISTRY: [fake, privateFake],
+    TILE_REGISTRY: [fake, privateFake, privateWithFace],
     HOME_TILE: fake,
     accessFor: () => fake.access,
     registryEntryForTileId: (id: string) => (id === fake.id ? fake : undefined),
@@ -92,6 +99,12 @@ describe("Board", () => {
     expect(privateTile.firstElementChild?.classList.contains("tile")).toBe(true);
     expect(privateTile.textContent).toContain("Private Tile");
     expect(privateTile.textContent).not.toContain("tile-body");
+  });
+
+  it("renders an explicitly safe face for a private tile", () => {
+    render(<Board />);
+    expect(screen.getByTestId("safe-locked-face")).not.toBeNull();
+    expect(screen.getByTestId("private-tile-tile_private_face").textContent).toContain("safe face");
   });
 
   it("tapping a tile opens its detail page", () => {

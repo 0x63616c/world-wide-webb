@@ -4,7 +4,7 @@ import { Tile, TileHeader } from "@/components/ui";
 /**
  * PhotoBoothTile , the board face for the photo-booth feature (2x2, titled). A
  * standard TileHeader ("Photo Booth" + camera glyph) over a quiet body: the
- * camera mark sits inside the house nest chip (the same rounded-square recipe the
+ * lock mark sits inside the house nest chip (the same rounded-square recipe the
  * section-label `.ic` and TileDesign01 use). No status dot: the booth carries no
  * live board state, so nothing should read as one.
  *
@@ -41,7 +41,7 @@ export function PhotoBoothTile() {
             boxShadow: "inset 0 1px 0 0 rgba(255,255,255,.04)",
           }}
         >
-          <Icon name="camera" s={28} c="var(--ink)" sw={1.6} />
+          <Icon name="lock" s={28} c="var(--ink)" sw={1.6} />
         </div>
       </div>
     </Tile>

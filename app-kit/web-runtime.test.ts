@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createWebRegistry } from "./web-runtime";
 
 const TileFace = () => null;
+const LockedFace = () => null;
 const TileView = () => null;
 const detail = { kind: "page" as const, tileId: "tile_clock" };
 
@@ -62,6 +63,7 @@ describe("createWebRegistry", () => {
               id: "tile_booth",
               label: "Booth",
               component: TileFace,
+              lockedComponent: LockedFace,
               viewComponent: TileView,
               worldCol: 5,
               worldRow: 6,
@@ -82,6 +84,7 @@ describe("createWebRegistry", () => {
       requiresSessionUnlock: false,
       requiresFreshUnlock: true,
     });
+    expect(registry.registryEntryForTileId("tile_booth")?.lockedComponent).toBe(LockedFace);
     expect(() => registry.accessFor("tile_missing")).toThrow(/unknown Tile/);
   });
 

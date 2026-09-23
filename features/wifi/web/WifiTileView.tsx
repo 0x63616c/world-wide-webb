@@ -12,17 +12,18 @@ export interface WifiTileViewProps {
   status: TileStatus;
   /** WIFI: join payload; "" when the guest network is not configured. */
   qr: string;
+  onQrClick: () => void;
 }
 
 // Keep the QR body at this inset: a 2x2 tile is ~207px square, and at 12 the
-// code renders ~138px, about 3.7px per module for a 37-module code. Inset only
-// the header to match the other tiles without reducing the QR's module pitch.
+// code remains scannable. Inset the header to match the other tiles without
+// adding horizontal padding around the QR body.
 const TILE_PADDING = 12;
 
-export function WifiTileView({ status, qr }: WifiTileViewProps) {
+export function WifiTileView({ status, qr, onQrClick }: WifiTileViewProps) {
   return (
     <Tile padding={TILE_PADDING}>
-      <div style={{ marginInline: 10 }}>
+      <div style={{ marginInline: 10, marginTop: 10 }}>
         <TileHeader icon="wifi" title="Wi-Fi" />
       </div>
       <div
@@ -38,7 +39,14 @@ export function WifiTileView({ status, qr }: WifiTileViewProps) {
           // Loading and error both shimmer; the query retries on its own.
           <Skeleton w="100%" h="100%" borderRadius={12} />
         ) : qr ? (
-          <WifiQr value={qr} />
+          <button
+            type="button"
+            aria-label="Enlarge Wi-Fi QR code"
+            onClick={onQrClick}
+            style={{ height: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
+          >
+            <WifiQr value={qr} />
+          </button>
         ) : (
           <span style={{ fontSize: 13, color: "var(--ink-3)", textAlign: "center" }}>
             Guest network not configured

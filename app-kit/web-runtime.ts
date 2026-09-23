@@ -13,6 +13,7 @@ export interface TileRegistryEntry {
   readonly id: string;
   readonly label: string;
   readonly component: ComponentType;
+  readonly lockedComponent?: ComponentType;
   /** Optional: a face-only Tile (one with no detail view) may omit it. */
   readonly viewComponent?: ComponentType<never>;
   readonly worldCol: number;
@@ -47,6 +48,7 @@ export function createWebRegistry<TileView extends TileViewDeclaration>(
         id: tile.id,
         label: tile.label,
         component: tile.component,
+        lockedComponent: tile.lockedComponent,
         viewComponent: tile.viewComponent,
         worldCol: tile.worldCol,
         worldRow: tile.worldRow,
