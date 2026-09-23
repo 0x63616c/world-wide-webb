@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kelvinToHex } from "../kelvin";
+import { kelvinToHex, whiteSwatchHex } from "../kelvin";
 
 function rgb(hex: string): [number, number, number] {
   const v = Number.parseInt(hex.slice(1), 16);
@@ -24,5 +24,14 @@ describe("kelvinToHex", () => {
   it("gets bluer monotonically as the temperature rises", () => {
     const blues = [2000, 2700, 3500, 4500, 5500, 6500].map((k) => rgb(kelvinToHex(k))[2]);
     for (let i = 1; i < blues.length; i++) expect(blues[i]).toBeGreaterThanOrEqual(blues[i - 1]);
+  });
+
+  it("whiteSwatchHex is a lighter, less saturated version of the same tint", () => {
+    const raw = rgb(kelvinToHex(2700));
+    const swatch = rgb(whiteSwatchHex(2700));
+    expect(swatch[0]).toBe(255);
+    expect(swatch[2]).toBeGreaterThan(raw[2]);
+    expect(swatch[1]).toBeGreaterThan(raw[1]);
+    expect(swatch[2]).toBeLessThan(swatch[1]);
   });
 });

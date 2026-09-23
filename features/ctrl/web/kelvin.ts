@@ -28,3 +28,15 @@ export function kelvinToHex(kelvin: number): string {
 
   return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }
+
+/**
+ * The White scene swatch for a temperature: kelvinToHex blended halfway to
+ * white. The raw black-body fit for 2700K is a saturated orange, but a 2700K
+ * bulb READS as a warm cream, and the swatch should look like the lamp, not
+ * the physics. 6500K stays near-white either way.
+ */
+export function whiteSwatchHex(kelvin: number): string {
+  const v = Number.parseInt(kelvinToHex(kelvin).slice(1), 16);
+  const mix = (c: number) => toHex(c + (255 - c) * 0.5);
+  return `#${mix((v >> 16) & 255)}${mix((v >> 8) & 255)}${mix(v & 255)}`;
+}

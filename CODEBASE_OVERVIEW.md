@@ -98,14 +98,21 @@ grid). `PanelFrame.tsx` enforces this on a desktop browser (framing the app
 like a device instead of stretching it) and is a no-op passthrough on native
 and on `MobileBoard`.
 
-- **Tiles**: 8 total (`tiles.gen.ts`) — `tile_ctrl` (Controls, the sole
+- **Tiles**: 9 total (`tiles.gen.ts`) — `tile_ctrl` (Controls, the sole
   `home: true` tile), `tile_clock` (Clock,
   face-only), `tile_ac` (Climate · A/C, face-only), `tile_weath` /
   `tile_hourly` (Weather, face-only), `tile_booth` (Photo Booth, `private`),
-  `tile_wakes` (Activity, `sensitive`), `tile_sound` (Sound System). A Tile
-  needs zero or one Tile View, not exactly one — a face-only tile (clock, A/C,
-  weather) has no detail surface at all.
-- **Board position**: centered once on the eight tile bounds. The world is
+  `tile_wakes` (Activity, `sensitive`), `tile_sound` (Sound System),
+  `tile_wifi` (Wi-Fi, face-only: the guest-network join QR drawn straight on
+  the tile, fed by the api's `WIFI_GUEST_SSID`/`WIFI_GUEST_PASSWORD`
+  secrets). A Tile needs zero or one Tile View, not exactly one — a face-only
+  tile (clock, A/C, weather, Wi-Fi) has no detail surface at all.
+- **Board layout** (`features/*/manifest.ts` world coords, 12x9 cells): the
+  top two-thirds are Controls (5x6, left) · Photo Booth / Activity / Wi-Fi
+  (2x2 stacked, middle) · Sound System (5x3) over the Clock (5x3) (right);
+  Controls' bottom edge and Sound's right edge are flush with the Clock. The
+  bottom row is Next 12 Hours · Weather Now · Climate · A/C (4x3 each).
+- **Board position**: centered once on the nine tile bounds. The world is
   offset inside a clipped stage, which never scrolls or recenters on tile
   activation.
 - **Idle dim**: hardcoded on, 60000ms timeout, dim level 30

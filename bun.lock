@@ -6,6 +6,7 @@
       "dependencies": {
         "drizzle-orm": "^0.45.2",
         "react-colorful": "^5.8.1",
+        "uqr": "^0.1.3",
         "zod": "^4.4.2",
       },
       "devDependencies": {
@@ -85,7 +86,6 @@
         "lucide-react": "^1.17.0",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
-        "uqr": "^0.1.3",
       },
       "devDependencies": {
         "@capacitor/cli": "^8.3.1",

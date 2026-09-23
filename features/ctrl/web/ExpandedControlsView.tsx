@@ -23,7 +23,7 @@ import type {
   SavedLampColorView,
 } from "./ControlsTileView";
 import { CONTROLS_CELL_H, CONTROLS_GRID_HEIGHT, ControlsGridView } from "./ControlsTileView";
-import { kelvinToHex } from "./kelvin";
+import { whiteSwatchHex } from "./kelvin";
 import type { PartySelection } from "./views/PartySpeedControls";
 import { PartyControl, PartySpeed } from "./views/PartySpeedControls";
 
@@ -41,7 +41,7 @@ export type LampScene = (typeof LampScene)[keyof typeof LampScene];
 // wiring + tests rely on; matches the API's setLampScene input union. `swatch`
 // is a CSS color previewing the scene at a glance , Mood is a multi-hue gradient
 // because the service paints each lamp a different color. White's swatch is
-// computed from the live color temperature (kelvinToHex) so it warms and cools
+// computed from the live color temperature (whiteSwatchHex) so it warms and cools
 // with the slider below instead of showing one fixed tone.
 const SCENES: { scene: LampScene; label: string; swatch: string | null }[] = [
   { scene: LampScene.White, label: "White", swatch: null },
@@ -230,7 +230,7 @@ export function ExpandedControlsView({
               <ControlTap
                 key={scene}
                 icon="bulb"
-                swatch={swatch ?? kelvinToHex(whiteKelvin)}
+                swatch={swatch ?? whiteSwatchHex(whiteKelvin)}
                 label={label}
                 on={activeScene === scene}
                 onToggle={() => onScene(scene)}
