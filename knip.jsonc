@@ -57,7 +57,8 @@
   // config - knip itself flagged it stale.)
   // `kubectl` is spawned by the infra ghcr-pull-secret preflight to read live
   // Secrets during `pulumi up`; a system binary on the deploy runner, not an npm dep.
-  "ignoreBinaries": ["tilt", "kubectl"],
+  // `open` is the macOS CLI behind apps/panel's `open` script (opens the Xcode workspace).
+  "ignoreBinaries": ["tilt", "kubectl", "open"],
 
   "workspaces": {
     ".": {

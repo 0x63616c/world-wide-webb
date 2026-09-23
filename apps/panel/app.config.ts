@@ -11,6 +11,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "dark",
   backgroundColor: "#101419",
+  // The shell always loads the live site; its JS never ships over the air.
+  updates: { enabled: false },
   ios: {
     bundleIdentifier: "co.worldwidewebb.theworkflowengine",
     entitlements: { "aps-environment": "production" },

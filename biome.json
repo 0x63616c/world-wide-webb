@@ -75,7 +75,9 @@
       "!**/.cmux",
       "!**/experiments",
       "!**/DerivedData",
-      "!**/ios/App/App/public"
+      "!apps/panel/ios",
+      "!apps/panel/android",
+      "!apps/panel/.expo"
     ]
   },
   "overrides": [
