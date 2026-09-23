@@ -64,6 +64,14 @@ describe("MobileBoard", () => {
     expect(screen.getByText("tile_ac-body")).not.toBeNull();
   });
 
+  it("lets Controls grow beyond its panel aspect while Climate keeps its aspect", () => {
+    render(<MobileBoard />);
+    expect(screen.getByRole("button", { name: "Open Controls" }).style.aspectRatio).toBe("");
+    expect(screen.getByRole("button", { name: "Open Climate · A/C" }).style.aspectRatio).not.toBe(
+      "",
+    );
+  });
+
   it("shows nothing else from the board", () => {
     render(<MobileBoard />);
     expect(screen.queryByText("tile_tesla-body")).toBeNull();

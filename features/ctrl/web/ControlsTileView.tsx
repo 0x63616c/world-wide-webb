@@ -321,8 +321,8 @@ function SkeletonGrid() {
           <Skeleton key={i} w="100%" h="100%" borderRadius={15} />
         ))}
       </div>
-      <Skeleton w="100%" h="100%" borderRadius={15} />
-      <Skeleton w="100%" h="100%" borderRadius={15} />
+      <Skeleton w="100%" h={CELL_H * 2 + 36} borderRadius={15} />
+      <Skeleton w="100%" h={CELL_H * 2 + 36} borderRadius={15} />
     </div>
   );
 }

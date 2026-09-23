@@ -112,10 +112,8 @@ const overlayStyle: CSSProperties = {
  * Presentational phone column , no registry, no store, no tRPC. Exported for
  * for tests that want to drive the cards directly.
  *
- * Each card keeps the exact aspect ratio its panel tile has (the container
- * passes `aspect` straight from the grid's tile size), so a tile face designed
- * against a 4x3 board cell renders at the proportions it was designed for ,
- * just narrower. Height therefore follows width, and the column scrolls.
+ * Climate keeps its panel aspect ratio. Controls has fixed-height tap rows, so
+ * its card grows to fit them and the column scrolls to show the whole card.
  */
 function MobileBoardView({ tiles }: { tiles: readonly MobileTileCard[] }) {
   return (
@@ -134,7 +132,7 @@ function MobileBoardView({ tiles }: { tiles: readonly MobileTileCard[] }) {
             tabIndex={0}
             aria-label={`Open ${label}`}
             style={{
-              aspectRatio: aspect,
+              aspectRatio: id === "tile_ctrl" ? undefined : aspect,
               flex: "0 0 auto",
               cursor: onOpen ? "pointer" : "default",
             }}
