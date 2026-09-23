@@ -18,7 +18,7 @@ export default defineApp({
       label: "Climate · A/C",
       component: ClimateTile,
       viewComponent: ClimateTileView,
-      worldCol: 30,
+      worldCol: 22,
       worldRow: 30,
       cols: 4,
       rows: 3,

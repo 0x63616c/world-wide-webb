@@ -28,7 +28,7 @@ export default defineApp({
       label: "Next 12 Hours",
       component: HourlyTile,
       viewComponent: HourlyTileView,
-      worldCol: 22,
+      worldCol: 30,
       worldRow: 30,
       cols: 4,
       rows: 3,

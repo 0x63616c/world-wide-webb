@@ -108,10 +108,9 @@ and on `MobileBoard`.
   secrets, from `secretCatalog.wifiGuest`). A Tile needs zero or one Tile View, not exactly one — a face-only
   tile (clock, A/C, weather, Wi-Fi) has no detail surface at all.
 - **Board layout** (`features/*/manifest.ts` world coords, 12x9 cells): the
-  top two-thirds are Controls (5x6, left) · Photo Booth / Activity / Wi-Fi
-  (2x2 stacked, middle) · Clock (5x3) over Sound System (5x3) (right);
-  Controls' bottom edge and Clock's right edge are flush with Sound. The
-  bottom row is Next 12 Hours · Weather Now · Climate · A/C (4x3 each).
+  top two-thirds are Clock (5x3) over Sound System (5x3) (left) · Photo
+  Booth / Activity / Wi-Fi (2x2 stacked, middle) · Controls (5x6, right).
+  The bottom row is Climate · A/C · Weather Now · Next 12 Hours (4x3 each).
 - **Board position**: centered once on the nine tile bounds. The world is
   offset inside a clipped stage, which never scrolls or recenters on tile
   activation.
