@@ -109,16 +109,17 @@ interface ControlGroupCardProps {
  * this one height, so the grid reads as a consistent set of buttons instead
  * of a header bar sitting over shorter or taller cells.
  *
- * Derived, not eyeballed: tile_ctrl is a fixed `rows: 5` footprint
- * (features/ctrl/manifest.ts), which under grid-constants.ts's CELL/GRID_GAP
- * math gives ControlsGridView's wrapper (Tile minus TileHeader) a measured
- * 459.4px to fill. That space is 3 flex items (utility row + 2 group cards)
- * joined by 2 outer 13px gaps, and each card is border-box padding 12 +
- * border 1 on each side (26) plus its own 10px header/sub-row gap , so five
- * equal cells of height H solve `5H + 2*13 + 2*(26+10) = 459.4`, i.e.
- * H ~= 72.3. 72 leaves a hair of slack rather than overflowing.
+ * Derived, not eyeballed: tile_ctrl is a fixed `rows: 6` footprint
+ * (features/ctrl/manifest.ts, bottom edge flush with the Clock), which under
+ * grid-constants.ts's CELL/GRID_GAP math gives ControlsGridView's wrapper
+ * (Tile minus padding and TileHeader) a measured 571.7px to fill. That space
+ * is 3 flex items (utility row + 2 group cards) joined by 2 outer 13px gaps,
+ * and each card is border-box padding 12 + border 1 on each side (26) plus
+ * its own 10px header/sub-row gap, so five equal cells of height H solve
+ * `5H + 2*13 + 2*(26+10) = 571.7`, i.e. H ~= 94.7. 94 leaves a hair of slack
+ * rather than overflowing.
  */
-const CELL_H = 72;
+const CELL_H = 94;
 
 /**
  * Total height ControlsGridView's three cell-rows (utility + two group

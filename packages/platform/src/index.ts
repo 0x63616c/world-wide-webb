@@ -315,6 +315,13 @@ export const secretCatalog = {
     lat: secret("Home Location", "lat", "HOME_LOCATION__LAT"),
     lon: secret("Home Location", "lon", "HOME_LOCATION__LON"),
   },
+  // The guest network the board's Wi-Fi QR tile encodes (features/wifi). Vault
+  // item + keys match the pre-Simplification "WiFi Guest Wifi" entry so the
+  // values restore from vault history under the same names.
+  wifiGuest: {
+    ssid: secret("WiFi Guest Wifi", "ssid", "WIFI_GUEST_WIFI_SSID"),
+    password: secret("WiFi Guest Wifi", "password", "WIFI_GUEST_WIFI_PASSWORD"),
+  },
 } as const;
 
 export function defineServiceSecretUsage(
@@ -353,12 +360,10 @@ export function controlCenterServiceSecretUsages(): Record<
   ServiceSecretUsage
 > {
   const controlCenter = defineProduct("control-center");
-  // api and worker declare the EXACT SAME secret set today (pinned by
-  // secrets.test.ts's "api and worker declare the exact same secret set"
-  // test): both were hand-kept as two ~25-line lockstep blocks that never
-  // actually diverged, so a single shared base replaces them. If a future
-  // secret is api-only or worker-only, spread this base and add the delta
-  // key(s) on the specific service's object instead of both.
+  // api and worker share one base set (pinned by secrets.test.ts). A secret
+  // only one of them reads is a delta spread onto that service alone, never
+  // added to both: the guest Wi-Fi pair below is api-only because only the
+  // wifi feature's tRPC slice reads it (the worker has no Wi-Fi cycle).
   const apiWorkerSharedSecrets = {
     HA_TOKEN: secretCatalog.homeAssistant.token,
     POSTGRES_PASSWORD: secretCatalog.controlCenter.postgresPassword,
@@ -367,7 +372,11 @@ export function controlCenterServiceSecretUsages(): Record<
   } as const;
 
   return {
-    api: defineServiceSecretUsage(controlCenter, "api", apiWorkerSharedSecrets),
+    api: defineServiceSecretUsage(controlCenter, "api", {
+      ...apiWorkerSharedSecrets,
+      WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
+      WIFI_GUEST_PASSWORD: secretCatalog.wifiGuest.password,
+    }),
     worker: defineServiceSecretUsage(controlCenter, "worker", apiWorkerSharedSecrets),
     cloudflared: defineServiceSecretUsage(
       controlCenter,

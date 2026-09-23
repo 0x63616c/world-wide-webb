@@ -20,7 +20,7 @@ export default defineApp({
       component: PhotoBoothTile,
       viewComponent: PhotoBoothTile,
       worldCol: 27,
-      worldRow: 27,
+      worldRow: 24,
       cols: 2,
       rows: 2,
     },

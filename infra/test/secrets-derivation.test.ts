@@ -15,8 +15,9 @@
 import { describe, expect, test } from "vitest";
 import { SERVICE_SECRET_TARGETS, SERVICE_SECRETS } from "../src/secrets-map.ts";
 
-// The api/worker shared secret set (kept in lockstep, www-51hf.35). Pinned as a
-// single literal so the golden below can't silently drift the two apart.
+// The api/worker shared base secret set (www-51hf.35). Pinned as a single
+// literal so the golden below can't silently drift the two apart; api-only
+// deltas are spread on top, never added to the base.
 const SHARED_API_WORKER_SECRETS = {
   HA_TOKEN: "HOME_ASSISTANT_TOKEN__CREDENTIAL",
   POSTGRES_PASSWORD: "CONTROL_CENTER_POSTGRES__PASSWORD",
@@ -25,8 +26,15 @@ const SHARED_API_WORKER_SECRETS = {
 } as const;
 
 // The exact SERVICE_SECRETS map every workload is expected to mount.
+// The api-only delta: the guest Wi-Fi pair behind the board's Wi-Fi QR tile
+// (features/wifi). The worker has no Wi-Fi cycle, so it never mounts these.
+const API_ONLY_SECRETS = {
+  WIFI_GUEST_SSID: "WIFI_GUEST_WIFI_SSID",
+  WIFI_GUEST_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
+} as const;
+
 const GOLDEN_SERVICE_SECRETS: Record<string, Record<string, string>> = {
-  api: SHARED_API_WORKER_SECRETS,
+  api: { ...SHARED_API_WORKER_SECRETS, ...API_ONLY_SECRETS },
   worker: SHARED_API_WORKER_SECRETS,
   cloudflared: {
     TUNNEL_TOKEN: "CLOUDFLARE_TUNNEL_WORLD_WIDE_WEBB__CONNECTOR_TOKEN",
@@ -54,8 +62,9 @@ describe("secrets derivation (golden equivalence, single-declaration refactor)",
     expect(Object.keys(SERVICE_SECRETS).sort()).toEqual(Object.keys(SERVICE_SECRET_TARGETS).sort());
   });
 
-  test("api/worker secret sets stay in lockstep (www-51hf.35)", () => {
-    expect(SERVICE_SECRETS.worker).toEqual(SERVICE_SECRETS.api);
+  test("the worker secret set is exactly the shared base of the api set (www-51hf.35)", () => {
+    expect(SERVICE_SECRETS.worker).toEqual(SHARED_API_WORKER_SECRETS);
+    expect(SERVICE_SECRETS.api).toEqual({ ...SERVICE_SECRETS.worker, ...API_ONLY_SECRETS });
   });
 
   test("every mounted env name resolves to a VAULT_KEY (ITEM__FIELD, no op:// slash form)", () => {

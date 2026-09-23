@@ -11,6 +11,13 @@
 
 import { Icon, type IconName } from "../Icon";
 
+// Same glyph / label / status scale as ControlTap, so a row header (e.g. the
+// "Lamps" master) sitting over ControlTap sub-cells reads as one family of
+// buttons instead of a smaller bar over bigger cells.
+const ICON_SIZE = 26;
+const LABEL_SIZE = 18;
+const STATUS_SIZE = 12;
+
 export interface ControlTapRowProps {
   icon: "lamp" | "bulb" | "fan" | "bolt";
   label: string;
@@ -72,18 +79,18 @@ export function ControlTapRow({
             animationPlayState: on ? "running" : "paused",
           }}
         >
-          <Icon name="fan" s={18} c={on ? "var(--acc)" : "var(--ink-2)"} />
+          <Icon name="fan" s={ICON_SIZE} c={on ? "var(--acc)" : "var(--ink-2)"} />
         </span>
       ) : (
         <span style={{ flex: "0 0 auto", display: "inline-flex" }}>
-          <Icon name={glyph} s={18} c={on ? "var(--acc)" : "var(--ink-2)"} />
+          <Icon name={glyph} s={ICON_SIZE} c={on ? "var(--acc)" : "var(--ink-2)"} />
         </span>
       )}
-      <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600 }}>{label}</span>
+      <span style={{ flex: 1, fontSize: LABEL_SIZE, fontWeight: 500 }}>{label}</span>
       <span
         className="mono"
         style={{
-          fontSize: 11,
+          fontSize: STATUS_SIZE,
           color: on ? "var(--acc)" : "var(--ink-3)",
           textTransform: "uppercase",
           letterSpacing: ".08em",

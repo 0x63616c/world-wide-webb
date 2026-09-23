@@ -18,7 +18,7 @@ export default defineApp({
       component: WakesTile,
       viewComponent: WakesTileView,
       worldCol: 27,
-      worldRow: 29,
+      worldRow: 26,
       cols: 2,
       rows: 2,
     },
