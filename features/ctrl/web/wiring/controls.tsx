@@ -27,6 +27,7 @@ function useControlsVariants(): { variants: DetailVariant[]; loading: boolean } 
           onToggle={controls.onToggle}
           onScene={controls.onScene}
           onBrightness={controls.onBrightness}
+          onWhiteKelvin={controls.onWhiteKelvin}
           onColor={controls.onColor}
           onSaveColor={controls.onSaveColor}
           speed={controls.speed}

@@ -64,6 +64,7 @@ export type UseControlsResult =
       onToggle: (key: ControlKey, currentOn: boolean) => void;
       onScene: (scene: LampScene) => void;
       onBrightness: (pct: number) => void;
+      onWhiteKelvin: (kelvin: number) => void;
       onColor: (slot: SavedColorSlot) => void;
       onSaveColor: (slot: SavedColorSlot, hex: string) => void;
       speed: PartySpeed;
@@ -156,6 +157,21 @@ export function useControls(): UseControlsResult {
     },
     onSettled: () => utils.controls.list.invalidate({}),
   });
+  const whiteKelvinMutation = trpc.controls.setWhiteKelvin.useMutation({
+    // Same optimistic write as brightness so the slider tracks the drag.
+    onMutate: async ({ kelvin }) => {
+      await utils.controls.list.cancel({});
+      const prev = utils.controls.list.getData({});
+      utils.controls.list.setData({}, (old) =>
+        old ? { ...old, lamps: { ...old.lamps, whiteKelvin: kelvin } } : old,
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev !== undefined) utils.controls.list.setData({}, ctx.prev);
+    },
+    onSettled: () => utils.controls.list.invalidate({}),
+  });
   const colorMutation = trpc.controls.setLampColor.useMutation({
     onSettled: () => utils.controls.list.invalidate({}),
   });
@@ -199,6 +215,7 @@ export function useControls(): UseControlsResult {
       brightness: data.lamps.brightness,
       activeScene: data.lamps.activeScene,
       savedColors: data.lamps.savedColors,
+      whiteKelvin: data.lamps.whiteKelvin,
     },
     lights: { on: data.lights.on, pending: data.lights.pending },
     fan: { on: data.fan.on, sub: data.fan.sub, pending: data.fan.pending },
@@ -215,6 +232,7 @@ export function useControls(): UseControlsResult {
     onToggle: handleToggle,
     onScene: (scene) => sceneMutation.mutate({ scene }),
     onBrightness: (pct) => brightnessMutation.mutate({ pct }),
+    onWhiteKelvin: (kelvin) => whiteKelvinMutation.mutate({ kelvin }),
     onColor: (slot) => colorMutation.mutate({ slot }),
     onSaveColor: (slot, hex) => colorMutation.mutate({ slot, hex }),
     speed: partySpeed,

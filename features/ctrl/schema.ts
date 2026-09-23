@@ -21,6 +21,10 @@ export function lampColorRowId(slot: LampColorSlot): string {
   return `color:${slot}`;
 }
 
+/** The white scene's stored color temperature (kelvin, as text in `mode`),
+ * one more keyed row in lamp_mode's storage beside the saved colors. */
+export const WHITE_KELVIN_ROW_ID = "white:kelvin";
+
 export const lampMode = pgTable("lamp_mode", {
   id: text("id").primaryKey(),
   mode: text("mode").notNull().default("none"),

@@ -48,6 +48,9 @@ interface ControlEntry {
   activeScene?: ActiveScene;
   /** Three user-editable colors shown in the full lamp controls page. */
   savedColors?: SavedLampColorView[];
+  /** The white scene's color temperature (kelvin) , only the lamps entry
+   *  carries this; seeds the detail page's white temperature slider. */
+  whiteKelvin?: number;
 }
 
 export interface ControlsViewData {
@@ -119,7 +122,12 @@ interface ControlGroupCardProps {
  * `5H + 2*13 + 2*(26+10) = 571.7`, i.e. H ~= 94.7. 94 leaves a hair of slack
  * rather than overflowing.
  */
-const CELL_H = 94;
+/**
+ * Height of every tap cell in the Controls grid. Exported so the detail page's
+ * scene tiles can share the same rhythm.
+ */
+export const CONTROLS_CELL_H = 94;
+const CELL_H = CONTROLS_CELL_H;
 
 /**
  * Total height ControlsGridView's three cell-rows (utility + two group

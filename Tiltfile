@@ -69,8 +69,10 @@ local_resource(
         "HOME_LAT": secrets["HOME_LAT"],
         "HOME_LON": secrets["HOME_LON"],
         # Guest Wi-Fi QR (features/wifi); "" when the vault lacks the pair.
-        "WIFI_GUEST_SSID": secrets.get("WIFI_GUEST_SSID", ""),
-        "WIFI_GUEST_PASSWORD": secrets.get("WIFI_GUEST_PASSWORD", ""),
+        # Env overrides let a dev preview the tile with any network before the
+        # vault carries the pair.
+        "WIFI_GUEST_SSID": os.getenv("WIFI_GUEST_SSID", secrets.get("WIFI_GUEST_SSID", "")),
+        "WIFI_GUEST_PASSWORD": os.getenv("WIFI_GUEST_PASSWORD", secrets.get("WIFI_GUEST_PASSWORD", "")),
     },
     readiness_probe=probe(
         http_get=http_get_action(port=port_api, path="/up"),

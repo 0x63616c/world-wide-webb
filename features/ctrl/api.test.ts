@@ -66,11 +66,11 @@ vi.mock("./db", async () => {
 import { router } from "@app-kit/server";
 import { controlsRouter } from "./api";
 import {
+  DEFAULT_WHITE_SCENE_KELVIN,
   LampMode,
   LampModeSpeed,
   LampScene,
   MOOD_PALETTE,
-  WHITE_SCENE_KELVIN,
 } from "./lamp-scenes";
 import { LampColorSlot, lampMode } from "./schema";
 import {
@@ -81,6 +81,7 @@ import {
   setLampColor,
   setLampMode,
   setLampScene,
+  setWhiteKelvin,
   toggleControl,
 } from "./service";
 
@@ -677,18 +678,29 @@ describe("getControlsState", () => {
     expect(state.lamps.activeScene).toBe(LampScene.Blue);
   });
 
-  it("activeScene='white' when on-lamps' desired color is WHITE_SCENE_KELVIN", async () => {
+  it("activeScene='white' when on-lamps' desired color is kelvin-mode (any temperature)", async () => {
     mockIsConfigured.mockReturnValue(true);
     await seedRows(store, [
       lampRow("lamp-1", "light.living_room_globe", {
         on: true,
-        color: { kelvin: WHITE_SCENE_KELVIN },
+        // Not the default: white is "in kelvin mode", at whatever temperature
+        // the panel has set, so detection must not pin a single value.
+        color: { kelvin: DEFAULT_WHITE_SCENE_KELVIN + 800 },
       }),
     ]);
 
     const state = await getControlsState(store);
 
     expect(state.lamps.activeScene).toBe(LampScene.White);
+  });
+
+  it("reports the default white temperature when none is stored", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    await seedRows(store, []);
+
+    const state = await getControlsState(store);
+
+    expect(state.lamps.whiteKelvin).toBe(DEFAULT_WHITE_SCENE_KELVIN);
   });
 
   it("activeScene=null when on-lamps disagree on non-palette colors", async () => {
@@ -1111,6 +1123,56 @@ describe("setLampScene", () => {
       expect(desired?.on).toBe(true);
       expect(typeof desired?.color?.kelvin).toBe("number");
     }
+  });
+
+  it("writes the white scene at the DEFAULT temperature when none is stored", async () => {
+    mockIsConfigured.mockReturnValue(true);
+    const writes = captureDesiredWrites();
+
+    await setLampScene(LampScene.White);
+
+    for (const entityId of LAMP_ENTITY_IDS) {
+      expect(writes.get(entityId)?.desiredState).toMatchObject({
+        color: { kelvin: DEFAULT_WHITE_SCENE_KELVIN },
+      });
+    }
+  });
+
+  describe("setWhiteKelvin", () => {
+    it("throws when HA is unconfigured", async () => {
+      mockIsConfigured.mockReturnValue(false);
+      await expect(setWhiteKelvin(3000)).rejects.toThrow("Home Assistant is not configured");
+    });
+
+    it("stores the (clamped) temperature and, with every lamp off, writes no desired", async () => {
+      mockIsConfigured.mockReturnValue(true);
+      const writes = captureDesiredWrites();
+
+      await setWhiteKelvin(500);
+
+      expect(mockDbInsert).toHaveBeenCalledWith(lampMode);
+      expect(writes.size).toBe(0);
+    });
+
+    it("applies white at the new temperature on every lamp when a lamp is on", async () => {
+      mockIsConfigured.mockReturnValue(true);
+      const store = createInMemoryDeviceStateStore();
+      await seedRows(store, [
+        lampRow("lamp-1", "light.living_room_globe", { on: true, color: { kelvin: 2700 } }),
+      ]);
+
+      await setWhiteKelvin(3400, store);
+
+      expect(mockCallService).not.toHaveBeenCalled();
+      const rows = await store.list();
+      const byEntity = new Map(rows.map((r) => [r.entityId, r]));
+      for (const entityId of LAMP_ENTITY_IDS) {
+        expect(byEntity.get(entityId)?.desiredState).toMatchObject({
+          on: true,
+          color: { kelvin: 3400 },
+        });
+      }
+    });
   });
 
   it("writes a uniform, full-brightness red xy desired on every lamp, NO HA call", async () => {

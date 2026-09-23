@@ -2,7 +2,8 @@
  * Curated lamp scene palette config.
  *
  * Scenes write desired colors for the Enforcer to drive across every lamp:
- *  - white → uniform crisp daylight white via color_temp_kelvin
+ *  - white → uniform white via color_temp_kelvin, at the panel's stored
+ *            temperature (warm by default, adjustable from the Controls page)
  *  - red   → uniform red in the Hue-native xy mode
  *  - blue  → uniform blue in the Hue-native xy mode
  *  - mood  → EACH lamp gets a DIFFERENT color, assigned RANDOMLY from
@@ -21,10 +22,28 @@ export type LampScene = (typeof LampScene)[keyof typeof LampScene];
 
 export type RgbColor = readonly [number, number, number];
 
-/** Clean white used by the "white" scene. 4000K reads as neutral-bright without
- * the cold blue cast 5000K gave (www-7d5b.3.1). activeScene white-detection
- * tolerance tracks this constant, so changing it here keeps detection correct. */
-export const WHITE_SCENE_KELVIN = 4000;
+/**
+ * Color temperature bounds for the "white" scene. Hue white-ambiance lamps
+ * span 2000K (candle) to 6500K (daylight); anything outside is clamped before
+ * it is stored or sent.
+ */
+export const WHITE_KELVIN_MIN = 2000;
+export const WHITE_KELVIN_MAX = 6500;
+
+/**
+ * Starting color temperature for the "white" scene, used until the panel
+ * stores its own (setWhiteKelvin). 2700K is the warm, incandescent "homey"
+ * white: the 4000K it replaced read too sterile in a photo of the lit
+ * apartment from outside, and 5000K before that had a plain blue cast.
+ * activeScene white-detection is "every on-lamp is in kelvin mode" (only the
+ * white scene writes a kelvin color), so no tolerance tracks this value.
+ */
+export const DEFAULT_WHITE_SCENE_KELVIN = 2700;
+
+/** Clamp a requested white temperature into the lamps' supported range, whole kelvin. */
+export function clampWhiteKelvin(kelvin: number): number {
+  return Math.round(Math.min(WHITE_KELVIN_MAX, Math.max(WHITE_KELVIN_MIN, kelvin)));
+}
 
 export const RED_RGB: RgbColor = [255, 0, 0];
 export const BLUE_RGB: RgbColor = [0, 0, 255];

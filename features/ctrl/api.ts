@@ -1,7 +1,13 @@
 import { defineApi } from "@app-kit";
 import { publicProcedure, router } from "@app-kit/server";
 import { z } from "zod";
-import { LampMode, LampModeSpeed, LampScene } from "./lamp-scenes";
+import {
+  LampMode,
+  LampModeSpeed,
+  LampScene,
+  WHITE_KELVIN_MAX,
+  WHITE_KELVIN_MIN,
+} from "./lamp-scenes";
 import { LampColorSlot } from "./schema";
 import {
   ControlKey,
@@ -10,6 +16,7 @@ import {
   setLampColor,
   setLampMode,
   setLampScene,
+  setWhiteKelvin,
   toggleControl,
 } from "./service";
 
@@ -41,6 +48,14 @@ const lampStateSchema = z.object({
     .nullable()
     .describe(
       "The active lamp scene: 'party' when the lamp_mode row is set, else the color scene every on-lamp agrees on (from desired colors; a MOOD_PALETTE color on every lamp reads as 'mood'); null when no mode and lamps disagree, are off, or show a custom color",
+    ),
+  whiteKelvin: z
+    .number()
+    .int()
+    .min(WHITE_KELVIN_MIN)
+    .max(WHITE_KELVIN_MAX)
+    .describe(
+      "The white scene's color temperature in kelvin (stored panel setting or the warm default)",
     ),
   savedColors: z.array(
     z.object({
@@ -176,6 +191,27 @@ export const controlsRouter = router({
     .output(controlsStateSchema)
     .mutation(async ({ input }) => {
       return await setLampColor(input.slot, input.hex);
+    }),
+
+  /**
+   * Set the white scene's color temperature (kelvin). Persists it for every
+   * later White tap and, when any lamp is on, applies white at that
+   * temperature immediately. Returns merged state.
+   */
+  setWhiteKelvin: publicProcedure
+    .input(
+      z.object({
+        kelvin: z
+          .number()
+          .int()
+          .min(WHITE_KELVIN_MIN)
+          .max(WHITE_KELVIN_MAX)
+          .describe("White color temperature in kelvin"),
+      }),
+    )
+    .output(controlsStateSchema)
+    .mutation(async ({ input }) => {
+      return await setWhiteKelvin(input.kelvin);
     }),
 
   /**

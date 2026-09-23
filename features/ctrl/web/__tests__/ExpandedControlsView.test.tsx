@@ -46,6 +46,7 @@ function baseProps(over: Partial<ExpandedControlsViewProps> = {}): ExpandedContr
     onToggle: vi.fn(),
     onScene: vi.fn(),
     onBrightness: vi.fn(),
+    onWhiteKelvin: vi.fn(),
     onColor: vi.fn(),
     onSaveColor: vi.fn(),
     onPartySelect: vi.fn(),
@@ -371,5 +372,40 @@ describe("ExpandedControlsView , brightness slider", () => {
     rerender(<ExpandedControlsView {...baseProps({ data: next })} />);
     expect((screen.getByLabelText("Brightness") as HTMLInputElement).value).toBe("30");
     expect(screen.getByText("30%")).toBeInTheDocument();
+  });
+
+  describe("white temperature", () => {
+    it("renders the slider seeded from data.lamps.whiteKelvin with a kelvin readout", () => {
+      render(
+        <ExpandedControlsView
+          {...baseProps({ data: { ...allOn, lamps: { ...allOn.lamps, whiteKelvin: 3100 } } })}
+        />,
+      );
+      const slider = screen.getByRole("slider", { name: "White temperature" });
+      expect(slider).toHaveValue("3100");
+      expect(document.querySelector("[data-white-kelvin-readout]")?.textContent).toBe("3100K");
+    });
+
+    it("debounces the change into one onWhiteKelvin call with the settled value", () => {
+      vi.useFakeTimers();
+      try {
+        const onWhiteKelvin = vi.fn();
+        render(<ExpandedControlsView {...baseProps({ onWhiteKelvin })} />);
+        const slider = screen.getByRole("slider", { name: "White temperature" });
+        fireEvent.change(slider, { target: { value: "2500" } });
+        fireEvent.change(slider, { target: { value: "4000" } });
+        expect(onWhiteKelvin).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(400);
+        expect(onWhiteKelvin).toHaveBeenCalledTimes(1);
+        expect(onWhiteKelvin).toHaveBeenCalledWith(4000);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("hides the slider when no onWhiteKelvin handler is wired", () => {
+      render(<ExpandedControlsView {...baseProps({ onWhiteKelvin: undefined })} />);
+      expect(screen.queryByRole("slider", { name: "White temperature" })).toBeNull();
+    });
   });
 });

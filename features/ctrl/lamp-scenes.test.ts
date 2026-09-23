@@ -3,13 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   assignMoodColors,
   BLUE_RGB,
+  clampWhiteKelvin,
+  DEFAULT_WHITE_SCENE_KELVIN,
   LAMP_MODE_SPEED_CONFIG,
   LampModeSpeed,
   MOOD_PALETTE,
   PARTY_PALETTE,
   partyColorsAtTick,
   RED_RGB,
-  WHITE_SCENE_KELVIN,
+  WHITE_KELVIN_MAX,
+  WHITE_KELVIN_MIN,
 } from "./lamp-scenes";
 
 const key = (c: readonly number[]) => JSON.stringify(c);
@@ -57,9 +60,17 @@ describe("assignMoodColors", () => {
   });
 });
 
-describe("WHITE_SCENE_KELVIN", () => {
-  it("is the warmer 4000K (down a notch from the old cold 5000K)", () => {
-    expect(WHITE_SCENE_KELVIN).toBe(4000);
+describe("white scene temperature", () => {
+  it("defaults to a warm 2700K (the 4000K before it read sterile from outside)", () => {
+    expect(DEFAULT_WHITE_SCENE_KELVIN).toBe(2700);
+    expect(DEFAULT_WHITE_SCENE_KELVIN).toBeGreaterThanOrEqual(WHITE_KELVIN_MIN);
+    expect(DEFAULT_WHITE_SCENE_KELVIN).toBeLessThanOrEqual(WHITE_KELVIN_MAX);
+  });
+
+  it("clamps requested temperatures into the lamps' 2000..6500K range, whole kelvin", () => {
+    expect(clampWhiteKelvin(1000)).toBe(WHITE_KELVIN_MIN);
+    expect(clampWhiteKelvin(9000)).toBe(WHITE_KELVIN_MAX);
+    expect(clampWhiteKelvin(3000.4)).toBe(3000);
   });
 });
 

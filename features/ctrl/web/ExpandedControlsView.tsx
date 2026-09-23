@@ -22,7 +22,8 @@ import type {
   SavedColorSlot,
   SavedLampColorView,
 } from "./ControlsTileView";
-import { CONTROLS_GRID_HEIGHT, ControlsGridView } from "./ControlsTileView";
+import { CONTROLS_CELL_H, CONTROLS_GRID_HEIGHT, ControlsGridView } from "./ControlsTileView";
+import { kelvinToHex } from "./kelvin";
 import type { PartySelection } from "./views/PartySpeedControls";
 import { PartyControl, PartySpeed } from "./views/PartySpeedControls";
 
@@ -39,16 +40,25 @@ export type LampScene = (typeof LampScene)[keyof typeof LampScene];
 // Scene presets in display order. `label` is the exact accessible name the
 // wiring + tests rely on; matches the API's setLampScene input union. `swatch`
 // is a CSS color previewing the scene at a glance , Mood is a multi-hue gradient
-// because the service paints each lamp a different color. White is a warm tone
-// (#fff4e0) reflecting the warmer 4000K white scene, not a clinical pure white.
-const SCENES: { scene: LampScene; label: string; swatch: string }[] = [
-  { scene: LampScene.White, label: "White", swatch: "#fff4e0" },
+// because the service paints each lamp a different color. White's swatch is
+// computed from the live color temperature (kelvinToHex) so it warms and cools
+// with the slider below instead of showing one fixed tone.
+const SCENES: { scene: LampScene; label: string; swatch: string | null }[] = [
+  { scene: LampScene.White, label: "White", swatch: null },
   {
     scene: LampScene.Mood,
     label: "Mood",
     swatch: "linear-gradient(135deg, #a855f7, #3b82f6 55%, #ec4899)",
   },
 ];
+
+// The white temperature slider's range and fallback seed. Mirrors the api's
+// WHITE_KELVIN_MIN/MAX and DEFAULT_WHITE_SCENE_KELVIN (features/ctrl/
+// lamp-scenes.ts, which the browser bundle can't import); the api clamps too.
+const WHITE_KELVIN_MIN = 2000;
+const WHITE_KELVIN_MAX = 6500;
+const WHITE_KELVIN_STEP = 100;
+const DEFAULT_WHITE_KELVIN = 2700;
 
 const DEFAULT_SAVED_COLORS: SavedLampColorView[] = [
   { slot: "red", label: "Red", hex: "#ff0000" },
@@ -75,6 +85,9 @@ export interface ExpandedControlsViewProps {
   onToggle: (key: ControlKey, currentOn: boolean) => void;
   onScene: (scene: LampScene) => void;
   onBrightness: (pct: number) => void;
+  /** Set the white scene's color temperature (kelvin). Optional so callers/tests
+   *  that predate the control still type-check; the slider hides without it. */
+  onWhiteKelvin?: (kelvin: number) => void;
   onColor?: (slot: SavedColorSlot) => void;
   onSaveColor?: (slot: SavedColorSlot, hex: string) => void;
   /** Current party animation speed , seeds the party control's active segment
@@ -93,6 +106,7 @@ export function ExpandedControlsView({
   onToggle,
   onScene,
   onBrightness,
+  onWhiteKelvin,
   onColor,
   onSaveColor,
   speed,
@@ -123,6 +137,20 @@ export function ExpandedControlsView({
   useEffect(() => {
     return () => {
       if (brightnessDebounceRef.current) clearTimeout(brightnessDebounceRef.current);
+    };
+  }, []);
+
+  // White color temperature: same local-value-during-drag + 400ms debounced
+  // mutation pattern as brightness, seeded from and resynced to the backend's
+  // stored value (data.lamps.whiteKelvin).
+  const [whiteKelvin, setWhiteKelvin] = useState(data.lamps.whiteKelvin ?? DEFAULT_WHITE_KELVIN);
+  useEffect(() => {
+    setWhiteKelvin(data.lamps.whiteKelvin ?? DEFAULT_WHITE_KELVIN);
+  }, [data.lamps.whiteKelvin]);
+  const whiteKelvinDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (whiteKelvinDebounceRef.current) clearTimeout(whiteKelvinDebounceRef.current);
     };
   }, []);
 
@@ -185,15 +213,16 @@ export function ExpandedControlsView({
         {/* Lamp scenes , ControlTap tiles (swatch variant) so scenes share the
             exact tap styling + active highlight as the toggle grid above. The
             active scene's tile lights (on=activeScene===scene). A 2-col grid keeps
-            the same rhythm (gap 13). Each tile is fixed-height so the ControlTap's
-            100%-height fill resolves. Order: White, Mood / Red, Blue. */}
+            the same rhythm (gap 13). Each tile is CONTROLS_CELL_H tall, the same
+            cell as the toggle grid above, so the ControlTap's 100%-height fill
+            resolves and the page reads as one set of buttons. Order: White, Mood / Red, Blue. */}
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <span className="cap">Lamp scene</span>
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gridAutoRows: 88,
+              gridAutoRows: CONTROLS_CELL_H,
               gap: 13,
             }}
           >
@@ -201,13 +230,57 @@ export function ExpandedControlsView({
               <ControlTap
                 key={scene}
                 icon="bulb"
-                swatch={swatch}
+                swatch={swatch ?? kelvinToHex(whiteKelvin)}
                 label={label}
                 on={activeScene === scene}
                 onToggle={() => onScene(scene)}
               />
             ))}
           </div>
+
+          {/* White color temperature , warm (candle) to cool (daylight). Stored
+              by the backend so every later White tap uses it, and applied live
+              while lamps are on. Disabled when lamps are off for the same reason
+              brightness is: HA rejects color changes on an off light, so the
+              value still saves but nothing previews it. */}
+          {onWhiteKelvin && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 6 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span className="cap">White temperature</span>
+                <span
+                  className="mono"
+                  data-white-kelvin-readout=""
+                  style={{
+                    fontSize: 15,
+                    color: lampsOff ? "var(--ink-3)" : "var(--acc)",
+                  }}
+                >
+                  {whiteKelvin}K
+                </span>
+              </div>
+              <Slider
+                value={whiteKelvin}
+                min={WHITE_KELVIN_MIN}
+                max={WHITE_KELVIN_MAX}
+                step={WHITE_KELVIN_STEP}
+                label="White temperature"
+                showHeader={false}
+                size="lg"
+                disabled={lampsOff}
+                onChange={(kelvin) => {
+                  setWhiteKelvin(kelvin);
+                  if (whiteKelvinDebounceRef.current) clearTimeout(whiteKelvinDebounceRef.current);
+                  whiteKelvinDebounceRef.current = setTimeout(() => onWhiteKelvin(kelvin), 400);
+                }}
+              />
+            </div>
+          )}
         </section>
 
         {onColor && onSaveColor && (
