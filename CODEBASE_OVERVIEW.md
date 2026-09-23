@@ -104,9 +104,8 @@ and on `MobileBoard`.
   `tile_hourly` (Weather, face-only), `tile_booth` (Photo Booth, `private`),
   `tile_wakes` (Activity, `sensitive`), `tile_sound` (Sound System),
   `tile_wifi` (Wi-Fi, face-only: the guest-network join QR drawn straight on
-  the tile, fed by the api's optional `WIFI_GUEST_SSID`/`WIFI_GUEST_PASSWORD`
-  secrets; it shows "not configured" until the vault carries the pair, see
-  `secretCatalog.wifiGuest`). A Tile needs zero or one Tile View, not exactly one — a face-only
+  the tile, fed by the api's required `WIFI_GUEST_SSID`/`WIFI_GUEST_PASSWORD`
+  secrets, from `secretCatalog.wifiGuest`). A Tile needs zero or one Tile View, not exactly one — a face-only
   tile (clock, A/C, weather, Wi-Fi) has no detail surface at all.
 - **Board layout** (`features/*/manifest.ts` world coords, 12x9 cells): the
   top two-thirds are Controls (5x6, left) · Photo Booth / Activity / Wi-Fi

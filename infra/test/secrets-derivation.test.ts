@@ -26,7 +26,11 @@ const SHARED_API_WORKER_SECRETS = {
 
 // The exact SERVICE_SECRETS map every workload is expected to mount.
 const GOLDEN_SERVICE_SECRETS: Record<string, Record<string, string>> = {
-  api: SHARED_API_WORKER_SECRETS,
+  api: {
+    ...SHARED_API_WORKER_SECRETS,
+    WIFI_GUEST_SSID: "WIFI_GUEST_WIFI_SSID",
+    WIFI_GUEST_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
+  },
   worker: SHARED_API_WORKER_SECRETS,
   cloudflared: {
     TUNNEL_TOKEN: "CLOUDFLARE_TUNNEL_WORLD_WIDE_WEBB__CONNECTOR_TOKEN",
@@ -54,8 +58,9 @@ describe("secrets derivation (golden equivalence, single-declaration refactor)",
     expect(Object.keys(SERVICE_SECRETS).sort()).toEqual(Object.keys(SERVICE_SECRET_TARGETS).sort());
   });
 
-  test("api/worker secret sets stay in lockstep (www-51hf.35)", () => {
-    expect(SERVICE_SECRETS.worker).toEqual(SERVICE_SECRETS.api);
+  test("api/worker secret sets stay in lockstep apart from the api-only Wi-Fi delta (www-51hf.35)", () => {
+    const { WIFI_GUEST_SSID, WIFI_GUEST_PASSWORD, ...apiBase } = SERVICE_SECRETS.api;
+    expect(SERVICE_SECRETS.worker).toEqual(apiBase);
   });
 
   test("every mounted env name resolves to a VAULT_KEY (ITEM__FIELD, no op:// slash form)", () => {
