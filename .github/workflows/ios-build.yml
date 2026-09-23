@@ -40,6 +40,9 @@ on:
 permissions:
   contents: read
 
+env:
+  XCODE_VERSION: "26.6"
+
 concurrency:
   # Keyed by ref so a PR's verify job cannot cancel a main upload in flight.
   group: ios-build-${{ github.ref }}
@@ -57,6 +60,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+      # Pin the toolchain instead of trusting the runner image's default Xcode.
+      # Expo's expo-modules-jsi headers need Xcode 26.4+ (Swift 6.3); Xcode 26.2
+      # rejects their SWIFT_RETURNS_RETAINED annotations. Bump deliberately.
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app" && xcodebuild -version
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.19
@@ -92,6 +100,12 @@ jobs:
         working-directory: apps/panel
     steps:
       - uses: actions/checkout@v5
+
+      # Pin the toolchain instead of trusting the runner image's default Xcode.
+      # Expo's expo-modules-jsi headers need Xcode 26.4+ (Swift 6.3); Xcode 26.2
+      # rejects their SWIFT_RETURNS_RETAINED annotations. Bump deliberately.
+      - name: Select Xcode
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app" && xcodebuild -version
 
       # Decrypt vault — the only step touching AGE_PRIVATE_KEY. No set -x here.
       - name: Decrypt vault (SOPS+age)
