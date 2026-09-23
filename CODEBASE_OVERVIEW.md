@@ -110,8 +110,8 @@ and on `MobileBoard`.
   tile (clock, A/C, weather, Wi-Fi) has no detail surface at all.
 - **Board layout** (`features/*/manifest.ts` world coords, 12x9 cells): the
   top two-thirds are Controls (5x6, left) · Photo Booth / Activity / Wi-Fi
-  (2x2 stacked, middle) · Sound System (5x3) over the Clock (5x3) (right);
-  Controls' bottom edge and Sound's right edge are flush with the Clock. The
+  (2x2 stacked, middle) · Clock (5x3) over Sound System (5x3) (right);
+  Controls' bottom edge and Clock's right edge are flush with Sound. The
   bottom row is Next 12 Hours · Weather Now · Climate · A/C (4x3 each).
 - **Board position**: centered once on the nine tile bounds. The world is
   offset inside a clipped stage, which never scrolls or recenters on tile

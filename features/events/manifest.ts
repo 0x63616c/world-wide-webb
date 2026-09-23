@@ -17,7 +17,7 @@ export default defineApp({
       component: ClockTile,
       viewComponent: ClockTileView,
       worldCol: 29,
-      worldRow: 27,
+      worldRow: 24,
       cols: 5,
       rows: 3,
     },
