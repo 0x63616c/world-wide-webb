@@ -97,4 +97,30 @@ describe("BorderProgressRing", () => {
     const path = container.querySelector("[data-ring-path]") as SVGPathElement;
     expect(path.getAttribute("style")).toContain("stroke-dashoffset 500ms");
   });
+
+  describe("anchor='center'", () => {
+    function renderCentered(progress: number) {
+      const { container } = render(
+        <BorderProgressRing {...dims} progress={progress} anchor="center" />,
+      );
+      const path = container.querySelector("[data-ring-path]") as SVGPathElement;
+      const [dash, gap] = (path.getAttribute("stroke-dasharray") ?? "").split(" ").map(Number);
+      return { dash, gap, offset: Number(path.getAttribute("stroke-dashoffset")) };
+    }
+
+    it("draws a dash of the filled length, shifted half its length before the start", () => {
+      // 100x100, r=0, stroke 2 -> path box 98x98, perimeter 392.
+      const r = renderCentered(0.25);
+      expect(r.dash).toBeCloseTo(98);
+      expect(r.gap).toBeCloseTo(294);
+      expect(r.offset).toBeCloseTo(49);
+    });
+
+    it("is empty at 0 and full at 1", () => {
+      expect(renderCentered(0).dash).toBe(0);
+      const full = renderCentered(1);
+      expect(full.dash).toBeCloseTo(392);
+      expect(full.gap).toBeCloseTo(0);
+    });
+  });
 });

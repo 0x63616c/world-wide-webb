@@ -30,8 +30,16 @@ export interface BorderProgressRingProps {
    * the transition is dropped on a wrap (progress decreased) so it snaps, not rewinds.
    */
   transitionMs?: number;
-  /** Fill direction. Default "cw". */
+  /** Fill direction. Default "cw". Ignored when `anchor` is "center". */
   direction?: "cw" | "ccw";
+  /**
+   * Where the filled arc grows from. "start" (default) fills from top-center in
+   * `direction`, so a short arc sits to one side of the top. "center" keeps the
+   * arc centered on top-center and grows it both ways at once, so at any
+   * progress it reads as a centered bar (the Clock's seconds ring, which
+   * otherwise looked like an off-center grab handle).
+   */
+  anchor?: "start" | "center";
   /** Override the measured width (px). With `height`, skips auto-measurement. */
   width?: number;
   /** Override the measured height (px). With `width`, skips auto-measurement. */
@@ -107,6 +115,7 @@ export function BorderProgressRing({
   radius,
   transitionMs = 0,
   direction = "cw",
+  anchor = "start",
   width,
   height,
   "data-testid": testId,
@@ -161,7 +170,14 @@ export function BorderProgressRing({
   const drawable = boxW > 0 && boxH > 0;
   const length = drawable ? perimeterLength(boxW, boxH, pathRadius) : 0;
   const d = drawable ? perimeterPath(inset, inset, boxW, boxH, pathRadius, direction) : "";
-  const dashoffset = length * (1 - clamped);
+  // "start": one dash the full perimeter long, slid back by the unfilled part.
+  // "center": a dash of the filled length, shifted half its length BEFORE the
+  // path start; because the path closes on its start point the half that
+  // falls before it wraps onto the path's tail, i.e. the other side of
+  // top-center, so the visible arc stays centered.
+  const filled = length * clamped;
+  const dasharray = anchor === "center" ? `${filled} ${length - filled}` : String(length);
+  const dashoffset = anchor === "center" ? filled / 2 : length * (1 - clamped);
 
   const style: CSSProperties = {
     position: "absolute",
@@ -191,11 +207,13 @@ export function BorderProgressRing({
           stroke={color}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
-          strokeDasharray={String(length)}
+          strokeDasharray={dasharray}
           strokeDashoffset={String(dashoffset)}
           style={{
             transition:
-              isWrap || transitionMs <= 0 ? "none" : `stroke-dashoffset ${transitionMs}ms linear`,
+              isWrap || transitionMs <= 0
+                ? "none"
+                : `stroke-dashoffset ${transitionMs}ms linear, stroke-dasharray ${transitionMs}ms linear`,
           }}
         />
       )}
