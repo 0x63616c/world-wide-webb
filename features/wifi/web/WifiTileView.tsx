@@ -14,9 +14,11 @@ export interface WifiTileViewProps {
   qr: string;
 }
 
-// Tighter than the 20–22 the larger tiles use: a 2x2 tile is ~207px square,
-// and every pixel the chrome gives up goes to QR module size (scannability).
-const TILE_PADDING = 16;
+// Tighter than the 20–22 the larger tiles use: a 2x2 tile is ~207px square
+// and the body is height-bound (tile minus padding minus the TileHeader), so
+// every pixel the chrome gives up goes straight to QR module size. At 12 the
+// code renders ~147px, about 4px per module with the quiet zone.
+const TILE_PADDING = 12;
 
 export function WifiTileView({ status, qr }: WifiTileViewProps) {
   return (
