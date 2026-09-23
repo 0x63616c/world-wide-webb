@@ -51,6 +51,13 @@ export const ENV = defineEnv({
     .forRuntime("api", "worker")
     .forFeatures("weather"),
 
+  // ── Guest Wi-Fi (wifi) ────────────────────────────────────────────────────
+  // Feed the board's Wi-Fi QR tile and nothing else: never rendered as text.
+  // Empty in local dev unless the vault carries them (tilt/load-secrets.sh);
+  // while empty the tile renders its "not configured" face instead of a code.
+  WIFI_GUEST_SSID: secret().required().devDefault("").forRuntime("api").forFeatures("wifi"),
+  WIFI_GUEST_PASSWORD: secret().required().devDefault("").forRuntime("api").forFeatures("wifi"),
+
   // ── Media storage (booth, wakes) ──────────────────────────────────────────
   MEDIA_STORAGE_DIR: str().default("/mnt/media").forRuntime("api").forFeatures("booth", "wakes"),
 });

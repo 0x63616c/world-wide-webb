@@ -29,6 +29,7 @@ const TOUCHED = [
   "WIFI_SSID",
   "WIFI_PASSWORD",
   "WIFI_GUEST_SSID",
+  "WIFI_GUEST_PASSWORD",
   "GITHUB_BOT_WEBHOOK_SECRET",
 ];
 
@@ -43,6 +44,7 @@ const API_REQUIRED: Record<string, string> = {
   WIFI_GUEST_SSID: "guest",
   HOME_LAT: "34.0537",
   HOME_LON: "-118.2428",
+  WIFI_GUEST_PASSWORD: "pw",
   GITHUB_BOT_WEBHOOK_SECRET: "hook-secret",
 };
 

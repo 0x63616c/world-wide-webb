@@ -31,6 +31,7 @@ const mockMutate = vi.fn();
 const mockSceneMutate = vi.fn();
 const mockBrightnessMutate = vi.fn();
 const mockColorMutate = vi.fn();
+const mockWhiteKelvinMutate = vi.fn();
 const mockModeMutate = vi.fn();
 let capturedBrightnessOpts: { onMutate?: (vars: { pct: number }) => unknown } | undefined;
 
@@ -94,6 +95,9 @@ vi.mock("@/lib/trpc", () => ({
             },
           };
         },
+      },
+      setWhiteKelvin: {
+        useMutation: () => ({ mutate: mockWhiteKelvinMutate }),
       },
       setLampColor: {
         useMutation: () => ({ mutate: mockColorMutate }),

@@ -24,5 +24,7 @@ export function ClockSecondsRing() {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  return <BorderProgressRing data-testid="seconds-ring" progress={progress} />;
+  // Centered on the tile's top edge and growing both ways, so early in the
+  // minute it reads as a centered bar rather than a stub off to one side.
+  return <BorderProgressRing data-testid="seconds-ring" progress={progress} anchor="center" />;
 }

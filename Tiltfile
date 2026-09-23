@@ -8,7 +8,9 @@ repo_root = str(local("git rev-parse --show-toplevel", quiet=True)).strip()
 
 port_web = 4200
 port_api = 4201
-port_postgres = 5432
+# Overridable: another project's local Postgres (OrbStack, a second checkout)
+# often owns 5432, and the dev DB is disposable, so any free port will do.
+port_postgres = int(os.getenv("POSTGRES_PORT", "5432"))
 
 os.putenv("POSTGRES_PORT", str(port_postgres))
 
@@ -50,17 +52,27 @@ local_resource(
 )
 
 # api: bun --watch owns the file watch. Tilt orchestrates startup, bun handles reloads.
+# Runs via the package script (cwd apps/api) so bun picks up that package's
+# tsconfig `paths` (/*); from the repo root the alias does not resolve.
 local_resource(
     "api",
-    serve_cmd="cd %s && bun --watch apps/api/src/server.ts" % repo_root,
+    serve_cmd="cd %s && bun run --cwd apps/api dev" % repo_root,
     serve_env={
         "PORT": str(port_api),
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
+        # Overridable: `homeassistant.local` (the manifest default) needs mDNS,
+        # which not every dev machine resolves; the node's IP always works.
+        "HA_URL": os.getenv("HA_URL", "http://homeassistant.local:8123"),
         # Real home location from the vault so local dev matches prod; env.ts
         # falls back to the public LA placeholder if these are absent (www-mqp).
         "HOME_LAT": secrets["HOME_LAT"],
         "HOME_LON": secrets["HOME_LON"],
+        # Guest Wi-Fi QR (features/wifi); "" when the vault lacks the pair.
+        # Env overrides let a dev preview the tile with any network before the
+        # vault carries the pair.
+        "WIFI_GUEST_SSID": os.getenv("WIFI_GUEST_SSID", secrets.get("WIFI_GUEST_SSID", "")),
+        "WIFI_GUEST_PASSWORD": os.getenv("WIFI_GUEST_PASSWORD", secrets.get("WIFI_GUEST_PASSWORD", "")),
     },
     readiness_probe=probe(
         http_get=http_get_action(port=port_api, path="/up"),
@@ -81,10 +93,13 @@ local_resource(
 # URL to poll , bun --watch restarts it on a crash, and Tilt surfaces its logs.
 local_resource(
     "worker",
-    serve_cmd="cd %s && bun --watch apps/worker/src/index.ts" % repo_root,
+    serve_cmd="cd %s && bun run --cwd apps/worker dev" % repo_root,
     serve_env={
         "DATABASE_URL": "postgresql://cc:cc@localhost:%d/controlcenter" % port_postgres,
         "HA_TOKEN": secrets["HA_TOKEN"],
+        # Overridable: `homeassistant.local` (the manifest default) needs mDNS,
+        # which not every dev machine resolves; the node's IP always works.
+        "HA_URL": os.getenv("HA_URL", "http://homeassistant.local:8123"),
         "HOME_LAT": secrets["HOME_LAT"],
         "HOME_LON": secrets["HOME_LON"],
     },

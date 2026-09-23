@@ -19,7 +19,7 @@ export default defineApp({
       component: ClimateTile,
       viewComponent: ClimateTileView,
       worldCol: 30,
-      worldRow: 24,
+      worldRow: 30,
       cols: 4,
       rows: 3,
     },

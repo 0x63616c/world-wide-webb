@@ -25,14 +25,21 @@ import { ha } from "./deps";
 import {
   assignMoodColors,
   BLUE_RGB,
+  clampWhiteKelvin,
+  DEFAULT_WHITE_SCENE_KELVIN,
   LampMode,
   type LampModeSpeed,
   LampScene,
   MOOD_PALETTE,
   RED_RGB,
-  WHITE_SCENE_KELVIN,
 } from "./lamp-scenes";
-import { LAMP_MODE_SINGLETON_ID, LampColorSlot, lampColorRowId, lampMode } from "./schema";
+import {
+  LAMP_MODE_SINGLETON_ID,
+  LampColorSlot,
+  lampColorRowId,
+  lampMode,
+  WHITE_KELVIN_ROW_ID,
+} from "./schema";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -54,6 +61,9 @@ interface LampState {
    */
   activeScene: ActiveScene | null;
   savedColors: SavedLampColor[];
+  /** The white scene's color temperature in kelvin: the stored panel setting
+   *  (setWhiteKelvin) or DEFAULT_WHITE_SCENE_KELVIN until one is stored. */
+  whiteKelvin: number;
 }
 
 interface SavedLampColor {
@@ -192,6 +202,20 @@ async function readSavedLampColors(): Promise<SavedLampColor[]> {
   return DEFAULT_SAVED_COLORS.map((color) => defaults.get(lampColorRowId(color.slot)) ?? color);
 }
 
+/** The stored white-scene temperature, or the default when none is stored (or
+ * the row is unreadable, so the scene still works while the DB is flaky). */
+async function readWhiteKelvin(): Promise<number> {
+  try {
+    const rows = await db.select({ id: lampMode.id, mode: lampMode.mode }).from(lampMode);
+    const row = rows.find((r) => r.id === WHITE_KELVIN_ROW_ID);
+    const parsed = row ? Number.parseInt(row.mode, 10) : Number.NaN;
+    if (Number.isFinite(parsed)) return clampWhiteKelvin(parsed);
+  } catch {
+    // fall through to the default
+  }
+  return DEFAULT_WHITE_SCENE_KELVIN;
+}
+
 /**
  * The "fan" is the AC's climate fan_mode, not a fan.* device (evee parity). It is
  * desired-authoritative now (www-unxz.2): the dashboard writes desired.fanMode on
@@ -292,7 +316,10 @@ const MOOD_XY = MOOD_PALETTE.map(rgbToXy);
  *  RED_RGB/BLUE_RGB are deliberately absent from the palette, so no ambiguity. */
 function colorToScene(color: LightColor | undefined): LampScene | null {
   if (!color) return null;
-  if (color.kelvin === WHITE_SCENE_KELVIN) return LampScene.White;
+  // Only the white scene writes a kelvin-mode color (every other scene and
+  // saved color writes xy), so kelvin mode IS the white signature, at whatever
+  // temperature the panel has set it to.
+  if (color.kelvin != null) return LampScene.White;
   if (xyEquals(color.xy, RED_XY) || rgbEquals(color.rgb, RED_RGB)) return LampScene.Red;
   if (xyEquals(color.xy, BLUE_XY) || rgbEquals(color.rgb, BLUE_RGB)) return LampScene.Blue;
   if (
@@ -380,6 +407,7 @@ export async function getControlsState(
 
   const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));
   const savedColors = await readSavedLampColors();
+  const whiteKelvin = await readWhiteKelvin();
 
   // Fan = the climate row's desired.fanMode (www-unxz.2), desired-authoritative
   // with a real `pending` from desired-vs-reported convergence.
@@ -410,6 +438,7 @@ export async function getControlsState(
       pending: false,
       activeScene,
       savedColors,
+      whiteKelvin,
     },
     lights: {
       on: anyLightOn,
@@ -677,14 +706,14 @@ export async function toggleControl(
  * each lamp a UNIQUE random palette color (different every call). Returned in
  * LAMP_ENTITY_IDS order so it lines up with the lamp entries.
  */
-function sceneColors(scene: LampScene): LightColor[] {
+function sceneColors(scene: LampScene, whiteKelvin: number): LightColor[] {
   switch (scene) {
     case LampScene.Mood:
       return assignMoodColors(LAMP_ENTITY_IDS.length).map((rgb) => ({
         xy: rgbToXy(rgb),
       }));
     case LampScene.White:
-      return LAMP_ENTITY_IDS.map(() => ({ kelvin: WHITE_SCENE_KELVIN }));
+      return LAMP_ENTITY_IDS.map(() => ({ kelvin: whiteKelvin }));
     case LampScene.Red:
       return LAMP_ENTITY_IDS.map(() => ({ xy: RED_XY }));
     case LampScene.Blue:
@@ -713,7 +742,7 @@ export async function setLampScene(
   await clearLampMode();
 
   const entries = lampEntries();
-  const colors = sceneColors(scene);
+  const colors = sceneColors(scene, await readWhiteKelvin());
   // entries are in LAMP_ENTITY_IDS order, so colors[i] lines up with entries[i].
   const colorByEntity = new Map(entries.map((entry, i) => [entry.entityId, colors[i]]));
 
@@ -726,6 +755,43 @@ export async function setLampScene(
     }),
     store,
   );
+
+  return getControlsState(store);
+}
+
+/**
+ * Set the white scene's color temperature. Persists it (the white:kelvin row in
+ * lamp_mode's keyed storage) so every later White tap uses it, and when any
+ * lamp is on applies the white scene at that temperature right away so the
+ * slider is a live preview , the same feel as the brightness slider. With every
+ * lamp off it only stores the value. The value is clamped to the lamps'
+ * supported range. Throws when HA is unconfigured.
+ */
+export async function setWhiteKelvin(
+  kelvin: number,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
+  if (!ha.isConfigured()) throw new HaError(0, "Home Assistant is not configured");
+
+  const clamped = clampWhiteKelvin(kelvin);
+  const stored = String(clamped);
+  await db
+    .insert(lampMode)
+    .values({ id: WHITE_KELVIN_ROW_ID, mode: stored, speed: null, updatedAtUtc: new Date() })
+    .onConflictDoUpdate({
+      target: lampMode.id,
+      set: { mode: stored, speed: null, updatedAtUtc: new Date() },
+    });
+
+  const entries = lampEntries();
+  const rows = await store.list({ entityIds: entries.map((e) => e.entityId) });
+  const anyOn = rows.some((r) => effectiveLight(r).on);
+  if (anyOn) {
+    // A live temperature change is an explicit color intent, so it ends party
+    // for the same reason setLampScene does.
+    await clearLampMode();
+    await writeDesired(entries, () => ({ on: true, color: { kelvin: clamped } }), store);
+  }
 
   return getControlsState(store);
 }

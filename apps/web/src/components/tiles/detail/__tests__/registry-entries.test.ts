@@ -11,7 +11,7 @@
 import { accessFor, getTileDetailEntry, TILE_REGISTRY } from "@features/_generated/web.gen";
 import { describe, expect, it } from "vitest";
 
-const FACE_ONLY = ["tile_clock", "tile_weath", "tile_hourly", "tile_ac"] as const;
+const FACE_ONLY = ["tile_clock", "tile_weath", "tile_hourly", "tile_ac", "tile_wifi"] as const;
 const WITH_DETAIL = ["tile_ctrl", "tile_booth", "tile_wakes", "tile_sound"] as const;
 
 describe("tile detail registry", () => {

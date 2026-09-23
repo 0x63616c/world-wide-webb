@@ -16,3 +16,9 @@ extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
 printf 'HA_TOKEN=%s\n'           "$(extract HOME_ASSISTANT_TOKEN__CREDENTIAL)"
 printf 'HOME_LAT=%s\n'           "$(extract HOME_LOCATION__LAT)"
 printf 'HOME_LON=%s\n'           "$(extract HOME_LOCATION__LON)"
+
+# Optional: the guest Wi-Fi pair behind the board's Wi-Fi QR tile. Absent from
+# the vault until restored, so emit "" rather than fail the whole dev boot.
+extract_optional() { sops -d secrets/vault.yaml | { grep "^$1:" || true; } | cut -d' ' -f2-; }
+printf 'WIFI_GUEST_SSID=%s\n'     "$(extract_optional WIFI_GUEST_WIFI_SSID)"
+printf 'WIFI_GUEST_PASSWORD=%s\n' "$(extract_optional WIFI_GUEST_WIFI_PASSWORD)"
