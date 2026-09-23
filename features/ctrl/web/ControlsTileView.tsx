@@ -158,7 +158,10 @@ function ControlGroupCard({
   return (
     <div
       style={{
-        background: "var(--tile-2)",
+        // No fill of its own: the card is just a hairline around its cells, so
+        // it reads as the same black as the page (detail) or the tile face
+        // (board) instead of a lighter gray slab (Calum, 2026-09-22).
+        background: "transparent",
         border: "1px solid var(--hair)",
         borderRadius: 15,
         padding: 12,
