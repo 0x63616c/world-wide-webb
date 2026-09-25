@@ -4,7 +4,7 @@
 # The full workspace install lives ONLY in this stage; it is discarded. We emit
 # one self-contained JS bundle (server + tRPC + drizzle + pg), so the runtime
 # image ships no node_modules and no build toolchain (drizzle-kit, typescript).
-FROM oven/bun:1.2-alpine AS build
+FROM oven/bun:1.4-alpine AS build
 
 WORKDIR /app
 
@@ -50,7 +50,7 @@ RUN cd apps/api && bun build src/server.ts --target=bun --outfile ../../dist/ser
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
 # Only the bundle and the SQL migration files. bun is the runtime; alpine keeps
 # a shell for on-box debugging of the wall panel.
-FROM oven/bun:1.2-alpine AS runtime
+FROM oven/bun:1.4-alpine AS runtime
 
 # Git SHA of the build; CI passes --build-arg BUILD_HASH=${github.sha} (mirrors
 # the web image). Absent (local docker build) it stays "dev", the env.ts
