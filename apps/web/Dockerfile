@@ -2,7 +2,7 @@
 # Stage 1 builds the bundle with bun; stage 2 serves it via nginx.
 # nginx also reverse-proxies /trpc → api:4201 so there is no CORS surface.
 
-FROM oven/bun:1.2-alpine AS builder
+FROM oven/bun:1.4-alpine AS builder
 
 WORKDIR /app
 
