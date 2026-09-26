@@ -39,7 +39,7 @@ RUN bun run --cwd apps/manage build
 
 
 # Stage 2: nginx serves the static bundle.
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.30-alpine AS runtime
 
 RUN rm /etc/nginx/conf.d/default.conf
 
