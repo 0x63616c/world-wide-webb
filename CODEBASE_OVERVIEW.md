@@ -88,7 +88,7 @@ enforced by a Biome `noRestrictedImports` rule.
 `apps/web/src/routes/index.tsx` renders `Board` on the panel or `MobileBoard`
 on a phone (`useIsMobile()` in `lib/mobile.ts`), chosen once at the route —
 never as a branch inside `Board`. The two share no chrome: `MobileBoard` is a
-scroll column of two tile faces (Controls, Climate · A/C) plus the Settings
+scroll column of three tile faces (Clock, Controls, Climate · A/C) plus the Settings
 gear; `Board` mounts the fixed tile view, the idle-dim session, and the banner stack
 that a phone must never start.
 
@@ -100,14 +100,14 @@ and on `MobileBoard`.
 
 - **Tiles**: 9 total (`tiles.gen.ts`) — `tile_ctrl` (Controls, the sole
   `home: true` tile), `tile_clock` (Clock,
-  face-only), `tile_ac` (Climate · A/C, face-only), `tile_weath` /
+  with an Alarms detail page), `tile_ac` (Climate · A/C, face-only), `tile_weath` /
   `tile_hourly` (Weather, face-only), `tile_booth` (Photo Booth, `private`),
   `tile_wakes` (Activity, `sensitive`), `tile_sound` (Sound System),
   `tile_wifi` (Wi-Fi, face-only: the guest-network join QR drawn straight on
   the tile and enlarged in a local modal when tapped, fed by the api's required
   `WIFI_GUEST_SSID`/`WIFI_GUEST_PASSWORD`
   secrets, from `secretCatalog.wifiGuest`). A Tile needs zero or one Tile View, not exactly one — a face-only
-  tile (clock, A/C, weather, Wi-Fi) has no detail surface at all.
+  tile (A/C, weather, Wi-Fi) has no detail surface at all.
 - **Board layout** (`features/*/manifest.ts` world coords, 12x9 cells): the
   top two-thirds are Clock (5x3) over Sound System (5x3) (left) · Photo
   Booth / Activity / Wi-Fi (2x2 stacked, middle) · Controls (5x6, right).
@@ -142,6 +142,8 @@ migrations, serves with `Bun.serve()`.
 
 - `/up` — liveness.
 - `/health/climate` — live Home Assistant climate reachability.
+- `/api/alarms` (GET/POST), `/api/alarms/action` (POST) — bearer-authenticated
+  Shortcuts/native alarm automation. See `docs/alarms.md`.
 - `/media/wake-photo` (POST) + `/media/wake-photos/*` — the panel's
   wake-from-dim front-camera burst frames.
 - `/trpc/*` — tRPC.
@@ -154,11 +156,11 @@ without bundling backend code.
 
 ## Database
 
-Nine tables survive The Simplification (down from a much larger set; see
+Twelve tables are present (down from a much larger set; see
 ADR-0013 for the full list of what was dropped): `settings`,
 `device_settings`, `lamp_mode`, `booth_photo`, `wake_photo`,
 `weather_reading`, `weather_daily_reading`, `device_state`,
-`integration_sync_status`. The Drizzle schema is
+`integration_sync_status`, `sound_calibration`, `alarm`, and `alarm_ring`. The Drizzle schema is
 `apps/api/src/db/schema.ts` plus each feature's own `schema.ts`, composed
 into `features/_generated/schema.gen.ts`. Both `api` and `worker` run
 migrations at boot, so whichever starts first prepares the schema safely.
@@ -172,10 +174,11 @@ retired key on read rather than erroring.
 
 `apps/worker` owns process lifecycle, metrics, migrations, and graceful
 shutdown; each feature owns its own cadence in `worker.ts`, composed into
-`features/_generated/workers.gen.ts`. Six cycles are registered:
+`features/_generated/workers.gen.ts`. Eight cycles are registered:
 `light-enforcer` (1s), `device-sync` (1s), `party-mode` (2s) — the lamp
 reconciliation loop, untouched by The Simplification — `climate-enforcer`
-(1s), `weather-ingest` (5m), and `weather-purge` (the worker cycle that
+(1s), `alarm-clock` (1s, durable alarm occurrences), `alarm-lights` (1s, independent
+HA delivery/retries), `weather-ingest` (5m), and `weather-purge` (the worker cycle that
 replaced the deleted `WeatherPurgeWorkflow`). `features/sound/worker.ts`
 registers no cycles (`defineWorkerCycles([])`) — there is no
 `sonos-volume-enforcer`. No queue, no scheduler: a feature that needs
