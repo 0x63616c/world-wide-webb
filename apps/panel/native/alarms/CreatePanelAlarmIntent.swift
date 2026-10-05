@@ -10,7 +10,7 @@ struct CreatePanelAlarmIntent: AppIntent {
   @Parameter(title: "Alarm time") var time: Date
   @Parameter(title: "Label", default: "Alarm") var label: String
 
-  static var parameterSummary: some ParameterSummary { Summary("Set \(.$label) for \(.$time)") }
+  static var parameterSummary: some ParameterSummary { Summary("Set \(\.$label) for \(\.$time)") }
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
     try await PanelAlarmCoordinator.shared.create(at: time, label: label)
