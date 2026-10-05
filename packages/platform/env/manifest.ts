@@ -43,6 +43,14 @@ export const ENV = defineEnv({
   HA_TOKEN: secret().required().forRuntime("api", "worker").forFeatures("ac", "ctrl"),
   CLIMATE_ENTITY_ID: str().default("climate.home").forRuntime("api").forFeatures("ac"),
 
+  // ── Clock alarms (events) ─────────────────────────────────────────────────
+  ALARM_API_TOKEN: secret().optionalSecret().forRuntime("api").forFeatures("events"),
+  ALARM_LIGHT_TARGET: str()
+    .default("light.bed_lamp_left,light.bed_lamp_right")
+    .forRuntime("api", "worker")
+    .forFeatures("events"),
+  ALARM_SNOOZE_MINUTES: int().default(9).forRuntime("api", "worker").forFeatures("events"),
+
   // ── Home location (weather) ───────────────────────────────────────────────
   HOME_LAT: num().required().devDefault(34.0537).forRuntime("api", "worker").forFeatures("weather"),
   HOME_LON: num()

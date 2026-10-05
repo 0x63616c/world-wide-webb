@@ -5,6 +5,8 @@ import type { Context } from "./context";
 
 const t = initTRPC.context<Context>().create();
 
+export { TRPCError };
+
 /**
  * Maps Home Assistant outages onto tRPC's standard error channel: the client
  * gets a 503 SERVICE_UNAVAILABLE with a structured cause instead of a 500.

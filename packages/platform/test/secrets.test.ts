@@ -64,10 +64,12 @@ describe("secret catalog and service usage", () => {
 
     expect(Object.keys(usages.worker.secrets).sort()).toEqual(expectedKeys);
     expect(Object.keys(usages.api.secrets).sort()).toEqual(
-      [...expectedKeys, "WIFI_GUEST_PASSWORD", "WIFI_GUEST_SSID"].sort(),
+      [...expectedKeys, "WIFI_GUEST_PASSWORD", "WIFI_GUEST_SSID", "ALARM_API_TOKEN"].sort(),
     );
     // Not just the same key NAMES: the same catalog entries (vaultKey/item/field) too.
-    const { WIFI_GUEST_SSID, WIFI_GUEST_PASSWORD, ...apiBase } = usages.api.secrets;
+    const { WIFI_GUEST_SSID, WIFI_GUEST_PASSWORD, ALARM_API_TOKEN, ...apiBase } =
+      usages.api.secrets;
+    expect(ALARM_API_TOKEN?.vaultKey).toBe("PANEL_ALARMS__TOKEN");
     expect(apiBase).toEqual(usages.worker.secrets);
     expect(WIFI_GUEST_SSID?.vaultKey).toBe("WIFI_GUEST_WIFI_SSID");
     expect(WIFI_GUEST_PASSWORD?.vaultKey).toBe("WIFI_GUEST_WIFI_PASSWORD");

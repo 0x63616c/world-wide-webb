@@ -130,6 +130,17 @@ export class HomeAssistantClient {
     });
   }
 
+  /** Scene activation returns the states HA applied. Consumers that own desired
+   * state can adopt that exact result instead of racing a later /states read. */
+  async activateScene(entityId: string): Promise<HaEntity[]> {
+    return z.array(haEntitySchema).parse(
+      await this.request<unknown>("/api/services/scene/turn_on", {
+        method: "POST",
+        body: JSON.stringify({ entity_id: entityId }),
+      }),
+    );
+  }
+
   /** Render a Jinja2 template against HA state; returns the rendered string. */
   async renderTemplate(template: string): Promise<string> {
     const res = await this.haFetch("/api/template", {

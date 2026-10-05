@@ -5,5 +5,7 @@
 
 /** Global panel settings are owned by the API, but feature routers may read them
  * through this app-kit seam rather than importing app internals directly. */
-export { getSettings } from "../apps/api/src/services/settings-service";
-export { mergeRouters, publicProcedure, router } from "../apps/api/src/trpc/init";
+import { db } from "../apps/api/src/db";
+import { getSettings as readSettings } from "../apps/api/src/services/settings-service";
+export const getSettings = () => readSettings(db);
+export { mergeRouters, publicProcedure, router, TRPCError } from "../apps/api/src/trpc/init";
