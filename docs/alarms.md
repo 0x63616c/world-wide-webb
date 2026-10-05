@@ -178,6 +178,4 @@ Expo prebuilds passed, with module discovery and an explicit widget build
 dependency/embedding checked. The browser exercised real HTTP creation, worker
 firing, panel Snooze, and HTTP Stop.
 
-Screenshots in `docs/screenshots/clock-alarms/` show the real local app/API and
-Postgres at the panel's 1366×1024 viewport, plus a phone view. HA was offline
 for local verification; screenshots do not claim physical device actuation.

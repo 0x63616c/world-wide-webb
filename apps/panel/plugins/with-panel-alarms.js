@@ -48,9 +48,11 @@ const withPanelAlarms = (config) => {
     );
 
     const main = project.getFirstTarget();
-    const source = `${intents}/CreatePanelAlarmIntent.swift`;
-    if (!project.hasFile(source)) {
-      const group = project.addPbxGroup([], intents);
+    // Group path must be the on-disk folder name. Omitting it leaves
+    // path: undefined in the pbxproj, and Xcode resolves the file under ios/undefined/...
+    const source = "CreatePanelAlarmIntent.swift";
+    if (!project.hasFile(`${intents}/${source}`)) {
+      const group = project.addPbxGroup([], intents, intents);
       project.addToPbxGroup(group.uuid, project.getFirstProject().firstProject.mainGroup);
       project.addSourceFile(source, { target: main.uuid }, group.uuid);
     }
