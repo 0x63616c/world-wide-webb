@@ -17,6 +17,13 @@ import type {
   WebViewOpenWindowEvent,
 } from "react-native-webview/lib/WebViewTypes";
 import { panelAlarms } from "./alarms";
+import {
+  bootReportScript,
+  bootTimeoutMs,
+  bootUrl,
+  parseBootReport,
+  recoveryDelayMs,
+} from "./boot-recovery";
 
 type NativeRequest = {
   channel: "control-center-native";
@@ -67,6 +74,42 @@ export default function App() {
   const serverUrl = extra.serverUrl ?? "https://app.worldwidewebb.co";
   const [browserUrl, setBrowserUrl] = useState<string | null>(null);
   const openAlarmsOnLoad = useRef(false);
+  // Each generation is a fresh WebView. A boot that never renders the board
+  // bumps it, see boot-recovery.ts.
+  const [generation, setGeneration] = useState(0);
+  const failedBoots = useRef(0);
+  const bootWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReload = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearBootWatchdog = useCallback(() => {
+    if (bootWatchdog.current) clearTimeout(bootWatchdog.current);
+    bootWatchdog.current = null;
+  }, []);
+
+  const recover = useCallback(() => {
+    clearBootWatchdog();
+    if (pendingReload.current) return;
+    pendingReload.current = setTimeout(() => {
+      pendingReload.current = null;
+      failedBoots.current += 1;
+      setGeneration((current) => current + 1);
+    }, recoveryDelayMs(failedBoots.current));
+  }, [clearBootWatchdog]);
+
+  // Every generation must hear from the page that it rendered. Silence means
+  // the load hung or the report script never ran.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-armed for each new WebView generation
+  useEffect(() => {
+    bootWatchdog.current = setTimeout(recover, bootTimeoutMs(failedBoots.current));
+    return clearBootWatchdog;
+  }, [generation, recover, clearBootWatchdog]);
+
+  useEffect(
+    () => () => {
+      if (pendingReload.current) clearTimeout(pendingReload.current);
+    },
+    [],
+  );
 
   const openAlarms = useCallback(() => {
     mainWebView.current?.injectJavaScript(
@@ -111,6 +154,11 @@ export default function App() {
     };
   }, [extra.cfAccessClientId, extra.cfAccessClientSecret]);
 
+  const source = useMemo(
+    () => ({ uri: bootUrl(serverUrl, generation), headers }),
+    [serverUrl, generation, headers],
+  );
+
   useEffect(() => {
     void Camera.requestCameraPermissionsAsync();
     void setAudioModeAsync({ playsInSilentMode: true });
@@ -136,6 +184,13 @@ export default function App() {
       try {
         if (new URL(event.nativeEvent.url).origin !== new URL(serverUrl).origin) return;
       } catch {
+        return;
+      }
+      const report = parseBootReport(event.nativeEvent.data);
+      if (report) {
+        clearBootWatchdog();
+        if (report.rendered) failedBoots.current = 0;
+        else recover();
         return;
       }
       let request: NativeRequest;
@@ -213,7 +268,7 @@ export default function App() {
         });
       }
     },
-    [respond, serverUrl],
+    [respond, serverUrl, clearBootWatchdog, recover],
   );
 
   const allowMainNavigation = useCallback(
@@ -235,12 +290,21 @@ export default function App() {
     <View style={styles.root}>
       <StatusBar hidden />
       <WebView
+        key={generation}
         ref={mainWebView}
-        source={{ uri: serverUrl, headers }}
+        source={source}
         style={styles.webView}
         originWhitelist={["https://*", "http://localhost:*"]}
         injectedJavaScriptBeforeContentLoaded={shellBootstrap}
+        injectedJavaScript={bootReportScript}
         onMessage={handleRequest}
+        onError={recover}
+        onContentProcessDidTerminate={recover}
+        renderError={() => (
+          <View style={styles.loadError}>
+            <Text style={styles.loadErrorText}>Reconnecting…</Text>
+          </View>
+        )}
         onLoadEnd={() => {
           if (openAlarmsOnLoad.current) {
             openAlarms();
@@ -288,6 +352,13 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#101419" },
   webView: { flex: 1, backgroundColor: "#101419" },
+  loadError: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    backgroundColor: "#101419",
+    justifyContent: "center",
+  },
+  loadErrorText: { color: "rgba(255,255,255,0.6)", fontSize: 17 },
   browser: { flex: 1, backgroundColor: "#000000" },
   browserBar: {
     alignItems: "flex-end",

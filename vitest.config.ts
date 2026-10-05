@@ -29,6 +29,15 @@ export default defineConfig({
           include: ["**/*.test.ts"],
         },
       },
+      // apps/panel: the Expo shell's pure seams (boot recovery). React Native
+      // itself never loads here; the tests import only plain TS modules.
+      {
+        test: {
+          name: "panel",
+          root: "./apps/panel",
+          include: ["*.test.ts"],
+        },
+      },
       // test/scripts/apps-gen: tests for the codegen collector/validator (Track C Slice 3).
       // No package.json/vite config of its own (the production code is a scripts/ subdir, not a
       // workspace package), so it needs an inline project definition rather
