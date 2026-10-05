@@ -26,6 +26,7 @@ vi.mock("../ui-sound", () => ({
 /** A stand-in for the Web Audio nodes a synth builds, recording connections. */
 function fakeAudioContext() {
   const node = () => ({
+    disconnect: vi.fn(),
     connect: vi.fn(function (this: unknown, next: unknown) {
       return next;
     }),
@@ -120,6 +121,22 @@ describe("playCue , cues without an iOS sound", () => {
 });
 
 describe("playCue , hostile runtimes", () => {
+  it("cancels an alarm's already-scheduled beeps without affecting other cues", () => {
+    playUISound.mockReturnValue(false);
+    const stop = playCue("alarmFire");
+    const output = ctx.createGain.mock.results[0]?.value;
+    playCue("countdownTick");
+    stop();
+    expect(output.disconnect).toHaveBeenCalledOnce();
+  });
+  it("does not start a cancelled cue after audio permission resolves", async () => {
+    playUISound.mockReturnValue(false);
+    ctx.state = "suspended";
+    playCue("alarmFire")();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(ctx.createOscillator).not.toHaveBeenCalled();
+  });
   it("is a silent no-op where AudioContext does not exist", () => {
     playUISound.mockReturnValue(false);
     vi.stubGlobal("AudioContext", undefined);

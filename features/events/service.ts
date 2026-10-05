@@ -218,7 +218,7 @@ export function createAlarmService(database: Database, defaults: () => Defaults 
             .values({
               id: genId("alr"),
               alarmId: alarm.id,
-              scheduledAt: alarm.nextFireAt,
+              scheduledAt: plan.scheduledAt,
               label: alarm.definition.label,
               status: plan.ring ? "ringing" : "missed",
               ringAt: now,

@@ -25,6 +25,7 @@ vi.mock("@features/_generated/web.gen", () => {
     };
   }
   const tiles = [
+    fakeTile("tile_clock", "Clock"),
     fakeTile("tile_ctrl", "Controls"),
     fakeTile("tile_ac", "Climate · A/C"),
     // On the board but never on the phone.
@@ -53,10 +54,11 @@ afterEach(() => {
 });
 
 describe("MobileBoard", () => {
-  it("shows the quick Controls and Climate · A/C tiles, in that order", () => {
+  it("shows Clock, Controls and Climate · A/C tiles, in that order", () => {
     render(<MobileBoard />);
     const cards = screen.getAllByRole("button", { name: /^Open / });
     expect(cards.map((c) => c.getAttribute("aria-label"))).toEqual([
+      "Open Clock",
       "Open Controls",
       "Open Climate · A/C",
     ]);

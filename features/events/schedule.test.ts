@@ -68,4 +68,16 @@ describe("alarm calendar", () => {
     expect(plan.ring).toBe(false);
     expect(plan.nextFireAt?.toISOString()).toBe("2026-10-08T16:00:00.000Z");
   });
+  it("recovers today's repetition within the grace window after a multi-day outage", () => {
+    const plan = dueAlarmPlan(
+      {
+        ...schedule({ repeatDays: [1, 2, 3, 4, 5] }),
+        nextFireAt: new Date("2026-10-05T16:00:00Z"),
+      },
+      new Date("2026-10-07T16:10:00Z"),
+    );
+    expect(plan.ring).toBe(true);
+    expect(plan.scheduledAt.toISOString()).toBe("2026-10-07T16:00:00.000Z");
+    expect(plan.nextFireAt?.toISOString()).toBe("2026-10-08T16:00:00.000Z");
+  });
 });

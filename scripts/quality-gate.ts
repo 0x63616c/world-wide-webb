@@ -40,8 +40,10 @@ const commandsByGate = {
   knip: [
     {
       label: "knip",
-      command: "bunx",
-      args: ["knip"],
+      // Bun 1.4 resolves `bunx knip` to the root's same-named script,
+      // recursively invoking this gate. Run the installed CLI explicitly.
+      command: "bun",
+      args: ["./node_modules/knip/bin/knip.js"],
     },
   ],
   gate: [
@@ -57,8 +59,8 @@ const commandsByGate = {
     },
     {
       label: "knip",
-      command: "bunx",
-      args: ["knip"],
+      command: "bun",
+      args: ["./node_modules/knip/bin/knip.js"],
     },
   ],
 } as const satisfies Record<GateName, readonly GateCommand[]>;

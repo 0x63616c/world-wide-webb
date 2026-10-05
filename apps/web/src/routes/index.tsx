@@ -1,3 +1,4 @@
+import { AlarmRuntime } from "@features/events/web/AlarmRuntime";
 import { createFileRoute } from "@tanstack/react-router";
 import { Board } from "@/components/Board";
 import { MobileBoard } from "@/components/MobileBoard";
@@ -15,7 +16,13 @@ import { useIsMobile } from "@/lib/mobile";
  * Choosing here keeps all of that unmounted on a phone.
  */
 function HomeScreen() {
-  return useIsMobile() ? <MobileBoard /> : <Board />;
+  const mobile = useIsMobile();
+  return (
+    <>
+      <AlarmRuntime />
+      {mobile ? <MobileBoard /> : <Board />}
+    </>
+  );
 }
 
 export const Route = createFileRoute("/")({

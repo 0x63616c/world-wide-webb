@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { alarmInputSchema } from "./contract";
+import { alarmIdSchema, alarmInputSchema, occurrenceActionSchema } from "./contract";
 import * as schema from "./schema";
 import { createAlarmService } from "./service";
 
@@ -40,6 +40,7 @@ describe.skipIf(!url)("alarm service against Postgres", () => {
 
   it("creates, edits, disables, enables and deletes durable alarms", async () => {
     const { id } = await make();
+    expect(alarmIdSchema.parse(id)).toBe(id);
     await service.update(
       id,
       definition({ label: "Morning", time: "10:00", repeatDays: [1] }),
@@ -88,6 +89,7 @@ describe.skipIf(!url)("alarm service against Postgres", () => {
     await make();
     await service.claimDue(due);
     const [ring] = (await service.snapshot(due)).active;
+    expect(occurrenceActionSchema.parse(ring)).toEqual({ id: ring.id, version: ring.version });
     const actions = await Promise.allSettled([
       service.act(ring.id, ring.version, "snooze", due),
       service.act(ring.id, ring.version, "snooze", due),

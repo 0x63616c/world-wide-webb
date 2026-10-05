@@ -72,8 +72,16 @@ const MISSED_ALARM_GRACE_MS = 15 * 60_000;
 export const RING_TIMEOUT_MS = 30 * 60_000;
 
 export function dueAlarmPlan(alarm: Schedule & { nextFireAt: Date }, now: Date) {
+  // A long outage can span several repetitions. Recover a RECENT occurrence
+  // even when the persisted next_fire_at still points to yesterday's alarm.
+  const recent = alarm.repeatDays.length
+    ? nextAlarmAt(alarm, new Date(now.getTime() - MISSED_ALARM_GRACE_MS - 1))
+    : null;
+  const scheduledAt =
+    recent && recent <= now && recent >= alarm.nextFireAt ? recent : alarm.nextFireAt;
   return {
-    ring: now.getTime() - alarm.nextFireAt.getTime() <= MISSED_ALARM_GRACE_MS,
+    scheduledAt,
+    ring: now.getTime() - scheduledAt.getTime() <= MISSED_ALARM_GRACE_MS,
     nextFireAt: alarm.repeatDays.length ? nextAlarmAt(alarm, now) : null,
   };
 }

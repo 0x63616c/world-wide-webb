@@ -44,9 +44,11 @@ export const alarmInputSchema = z
   });
 
 export type AlarmInput = z.infer<typeof alarmInputSchema>;
-export const alarmIdSchema = z.string().regex(/^alm_[0-9a-z]{1,32}$/);
+// genId's default suffix is a full UUID (including hyphens); short IDs are
+// accepted too, matching the platform helper's optional length form.
+export const alarmIdSchema = z.string().regex(/^alm_[0-9a-z-]{1,36}$/);
 export const occurrenceActionSchema = z.object({
-  id: z.string().regex(/^alr_[0-9a-z]{1,32}$/),
+  id: z.string().regex(/^alr_[0-9a-z-]{1,36}$/),
   // A stale panel must never snooze/stop a newer ring of this occurrence.
   version: z.number().int().nonnegative(),
 });

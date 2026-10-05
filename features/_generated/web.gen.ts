@@ -13,6 +13,7 @@ import weatherManifest from "../weather/manifest";
 import wifiManifest from "../wifi/manifest";
 import { tileViews as boothTileViews } from "../booth/detail";
 import { tileViews as ctrlTileViews } from "../ctrl/detail";
+import { tileViews as eventsTileViews } from "../events/detail";
 import { tileViews as soundTileViews } from "../sound/detail";
 import { tileViews as wakesTileViews } from "../wakes/detail";
 
@@ -30,6 +31,7 @@ const manifests = [
 const tileViews = [
   ...boothTileViews,
   ...ctrlTileViews,
+  ...eventsTileViews,
   ...soundTileViews,
   ...wakesTileViews,
 ];

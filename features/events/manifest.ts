@@ -4,9 +4,7 @@ import { ClockTile, ClockTileView } from "./web";
 /**
  * The events app manifest. One tile: the Clock face (greeting + seconds ring).
  *
- * FACE-ONLY , the Clock declares no Tile View. The timer, stopwatch, alarm,
- * world clocks and countdown horizon it used to open are gone, and with them
- * the whole time suite. It is face-only; Controls remains the home tile.
+ * Tapping the existing Clock opens its Alarms page. Controls remains home.
  */
 export default defineApp({
   id: "tile_events",

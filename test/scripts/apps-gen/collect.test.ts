@@ -120,16 +120,15 @@ it("collect() sources both weather tiles once from the two-tile feature manifest
 });
 
 // features/events declares ONE tile now: the Clock face. Upcoming went with
-// the events table, and the Clock is FACE-ONLY — it declares no Tile View at
-// all, which is the zero-or-one invariant this collect must allow.
-it("collect() sources the clock tile from the events feature, with no Tile View", () => {
+// the events table; the existing Clock now owns the Alarms detail page.
+it("collect() sources the clock tile and its Alarms view from the events feature", () => {
   const model = collected;
   const events = model.apps.filter((a) => a.id === "tile_events");
   expect(events).toHaveLength(1);
   expect(events[0].source).toBe("feature");
   expect(events[0].tiles.map((t) => t.id)).toEqual(["tile_clock"]);
-  expect(model.features.find((f) => f.dir === "events")?.hasDetail).toBe(false);
-  expect(model.tileViews.map((v) => v.tileId)).not.toContain("tile_clock");
+  expect(model.features.find((f) => f.dir === "events")?.hasDetail).toBe(true);
+  expect(model.tileViews.map((v) => v.tileId)).toContain("tile_clock");
   expect(() => validate(model)).not.toThrow();
 });
 
@@ -142,7 +141,13 @@ it("collect() finds at most one App-owned Tile View per board Tile", () => {
 
   expect(new Set(declared).size).toBe(declared.length);
   for (const tileId of declared) expect(tileIds.has(tileId)).toBe(true);
-  expect(declared.sort()).toEqual(["tile_booth", "tile_ctrl", "tile_sound", "tile_wakes"]);
+  expect(declared.sort()).toEqual([
+    "tile_booth",
+    "tile_clock",
+    "tile_ctrl",
+    "tile_sound",
+    "tile_wakes",
+  ]);
 });
 
 it("collect() sources worker cycles from owning App facets", () => {
@@ -159,6 +164,8 @@ it("collect() sources worker cycles from owning App facets", () => {
   });
   expect(model.features.find((feature) => feature.dir === "weather")?.hasWorker).toBe(true);
   expect(model.workerCycles.map((cycle) => cycle.name).sort()).toEqual([
+    "alarm-clock",
+    "alarm-lights",
     "climate-enforcer",
     "device-sync",
     "light-enforcer",
