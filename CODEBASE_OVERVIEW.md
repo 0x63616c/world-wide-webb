@@ -40,6 +40,11 @@ deploy
   weather ingest/purge.
 - `apps/web` — the React board and phone view.
 - `apps/panel` — the Expo iOS kiosk shell that loads the hosted React board.
+  It remounts the WebView (cache-busted, with backoff) until the page reports
+  that `#root` rendered (`apps/panel/boot-recovery.ts`), so a failed boot
+  never sticks on a blank screen. nginx serves `index.html` `no-cache` and
+  `/assets/` as immutable with no SPA fallback, so a stale entry can't name a
+  bundle a deploy removed.
 - `apps/manage` — a static nginx bundle at `manage.worldwidewebb.co`: an
   iframe shell over the small set of ops tools this repo doesn't own
   (`apps/manage/src/registry.ts`), gated by Cloudflare Access alone. See
