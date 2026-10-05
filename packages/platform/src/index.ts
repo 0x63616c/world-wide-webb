@@ -311,6 +311,9 @@ export const secretCatalog = {
   homeAssistant: {
     token: secret("Home Assistant Token", "credential", "HOME_ASSISTANT_TOKEN__CREDENTIAL"),
   },
+  alarms: {
+    apiToken: secret("Panel Alarms", "token", "PANEL_ALARMS__TOKEN"),
+  },
   homeLocation: {
     lat: secret("Home Location", "lat", "HOME_LOCATION__LAT"),
     lon: secret("Home Location", "lon", "HOME_LOCATION__LON"),
@@ -377,6 +380,7 @@ export function controlCenterServiceSecretUsages(): Record<
       ...apiWorkerSharedSecrets,
       WIFI_GUEST_SSID: secretCatalog.wifiGuest.ssid,
       WIFI_GUEST_PASSWORD: secretCatalog.wifiGuest.password,
+      ALARM_API_TOKEN: secretCatalog.alarms.apiToken,
     }),
     worker: defineServiceSecretUsage(controlCenter, "worker", apiWorkerSharedSecrets),
     cloudflared: defineServiceSecretUsage(

@@ -30,6 +30,7 @@ const GOLDEN_SERVICE_SECRETS: Record<string, Record<string, string>> = {
     ...SHARED_API_WORKER_SECRETS,
     WIFI_GUEST_SSID: "WIFI_GUEST_WIFI_SSID",
     WIFI_GUEST_PASSWORD: "WIFI_GUEST_WIFI_PASSWORD",
+    ALARM_API_TOKEN: "PANEL_ALARMS__TOKEN",
   },
   worker: SHARED_API_WORKER_SECRETS,
   cloudflared: {
@@ -59,7 +60,9 @@ describe("secrets derivation (golden equivalence, single-declaration refactor)",
   });
 
   test("api/worker secret sets stay in lockstep apart from the api-only Wi-Fi delta (www-51hf.35)", () => {
-    const { WIFI_GUEST_SSID, WIFI_GUEST_PASSWORD, ...apiBase } = SERVICE_SECRETS.api;
+    const { WIFI_GUEST_SSID, WIFI_GUEST_PASSWORD, ALARM_API_TOKEN, ...apiBase } =
+      SERVICE_SECRETS.api;
+    expect(ALARM_API_TOKEN).toBe("PANEL_ALARMS__TOKEN");
     expect(SERVICE_SECRETS.worker).toEqual(apiBase);
   });
 

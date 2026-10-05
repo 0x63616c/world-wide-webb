@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./env": "./env/index.ts",
+    "./http-auth": "./http-auth/index.ts",
     "./metrics": "./metrics/index.ts",
     "./metrics/port": "./metrics/port.ts"
   },

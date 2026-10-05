@@ -44,7 +44,7 @@ it("renders the App web runtime as static manifest and Tile View imports", async
   // Tile View import (the zero-or-one invariant, at the emit layer).
   expect(rendered).not.toContain("../ac/detail");
   expect(rendered).not.toContain("../weather/detail");
-  expect(rendered).not.toContain("../events/detail");
+  expect(rendered).toContain("../events/detail");
   expect(tiles).toMatch(/id: "tile_wakes",[\s\S]*?sensitive: true,/);
 });
 

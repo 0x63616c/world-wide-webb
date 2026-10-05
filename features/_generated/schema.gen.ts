@@ -5,6 +5,7 @@
 export * from "../../apps/api/src/db/schema";
 export * from "../booth/schema";
 export * from "../ctrl/schema";
+export * from "../events/schema";
 export * from "../sound/schema";
 export * from "../wakes/schema";
 export * from "../weather/schema";

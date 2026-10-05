@@ -34,7 +34,7 @@ const testNamespaces = {
 
 describe("SERVICE_SECRETS", () => {
   test("worker mirrors api minus the api-only Wi-Fi delta (lockstep, www-51hf.35)", () => {
-    const apiOnly = new Set(["WIFI_GUEST_SSID", "WIFI_GUEST_PASSWORD"]);
+    const apiOnly = new Set(["WIFI_GUEST_SSID", "WIFI_GUEST_PASSWORD", "ALARM_API_TOKEN"]);
     const api = Object.keys(map.SERVICE_SECRETS.api)
       .filter((k) => !apiOnly.has(k))
       .sort();

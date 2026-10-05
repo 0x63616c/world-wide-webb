@@ -12,6 +12,7 @@
 import { UI_SOUND } from "../ui-sound";
 
 export interface Cue {
+  durationMs: number;
   /** iOS UISounds file path retained as metadata. Omit when there is no equivalent. */
   uiSoundPath?: string;
   /** Web Audio construction used by every runtime. */
@@ -78,6 +79,7 @@ export const CUES = {
    * mechanical character without the brightness.
    */
   shutter: {
+    durationMs: 100,
     uiSoundPath: UI_SOUND.photoShutter,
     synth: (audio, out, now) => {
       // Top click , the shutter itself.
@@ -96,6 +98,7 @@ export const CUES = {
    * one pass).
    */
   timerDone: {
+    durationMs: 1000,
     uiSoundPath: UI_SOUND.calendarAlertChord,
     synth: (audio, out, now) => {
       const notes = [659.25, 783.99, 1046.5]; // E5, G5, C6
@@ -124,6 +127,7 @@ export const CUES = {
    * schedule until dismissed; the cue itself is one pass.
    */
   alarmFire: {
+    durationMs: 2400,
     uiSoundPath: UI_SOUND.alarm,
     synth: (audio, out, now) => {
       for (let pair = 0; pair < 4; pair++) {
@@ -149,6 +153,7 @@ export const CUES = {
   /** A single countdown tick: a short, soft sine blip. Synthesized everywhere ,
    *  iOS's stock tick sounds belong to its own UI and read wrong here. */
   countdownTick: {
+    durationMs: 150,
     synth: (audio, out, now) => {
       const osc = audio.createOscillator();
       osc.type = "sine";

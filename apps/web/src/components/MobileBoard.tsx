@@ -8,8 +8,8 @@
  * docked panel ("set your device name") is a setup nag about the PANEL, shown
  * on a device that is not one. So the phone gets its own screen rather than a
  * squeezed board , a
- * scroll column holding just the two things you actually reach for your phone
- * to do: the quick Controls (lamps / lights / fan) and Climate · A/C.
+ * scroll column holding Clock/Alarms, quick Controls (lamps / lights / fan),
+ * and Climate · A/C.
  *
  * Deliberately NOT here, and each for a reason:
  *   - The banner stack. Every banner in it is panel chrome, and the one the
@@ -36,8 +36,7 @@ import { TileDetailHost } from "./tiles/detail/TileDetailHost";
 import { BoundedTile } from "./ui/BoundedTile";
 
 /**
- * The phone view's contents, in display order: quick Controls first, then
- * Climate · A/C.
+ * The phone view's contents, in display order: Clock, Controls, Climate · A/C.
  *
  * A curated ORDERED list, which is why it lives here rather than as a
  * `phone: true` flag on each App manifest (the way `home` and guest exposure
@@ -45,11 +44,11 @@ import { BoundedTile } from "./ui/BoundedTile";
  * anything about the others, but it cannot declare that it comes before Climate.
  * Ordering is a property of this screen, so this screen owns it.
  *
- * Both ids are checked against the live registry by
+ * All ids are checked against the live registry by
  * __tests__/MobileBoard.test.tsx , a typo'd or deleted id fails the suite rather
  * than silently rendering an emptier phone view.
  */
-export const PHONE_TILE_IDS = ["tile_ctrl", "tile_ac"] as const;
+export const PHONE_TILE_IDS = ["tile_clock", "tile_ctrl", "tile_ac"] as const;
 
 /** One card in the phone column: a real tile face, sized and tappable. */
 export interface MobileTileCard {

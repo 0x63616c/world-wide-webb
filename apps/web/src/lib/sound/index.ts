@@ -57,7 +57,7 @@ function audioContext(): AudioContext | null {
   }
   // Browsers suspend a context created before a gesture; most cues are played in
   // response to one, so resuming here lets the first of them actually sound.
-  if (ctx.state === "suspended") void ctx.resume();
+  if (ctx.state === "suspended") void Promise.resolve(ctx.resume()).catch(() => {});
   return ctx;
 }
 
@@ -79,29 +79,45 @@ export function warmAudio(): void {
  * session) where the cue has one and the plugin is present, otherwise
  * synthesizes.
  *
- * Returns nothing on purpose: a caller cannot do anything useful about a cue
- * that did not play, and every call site is decorating an action that must
- * carry on regardless.
+ * Returns a cancellation function. Alarm dismissal disconnects even the beeps
+ * already scheduled inside a cue. Other callers can ignore the return value.
  */
-export function playCue(name: CueName): void {
+export function playCue(name: CueName): () => void {
   // Widened to Cue: the literal registry narrows each entry to its own shape, so
   // a cue without a system sound would not admit the optional field at all.
   const cue: Cue = CUES[name];
-  if (cue.uiSoundPath !== undefined && playUISound(cue.uiSoundPath)) return;
+  if (cue.uiSoundPath !== undefined && playUISound(cue.uiSoundPath)) return () => {};
 
   const audio = audioContext();
-  if (!audio) return;
+  if (!audio) return () => {};
+  let cancelled = false;
+  let output: GainNode | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = () => {
+    cancelled = true;
+    if (timer !== undefined) clearTimeout(timer);
+    output?.disconnect();
+  };
+  const synth = () => {
+    if (cancelled) return;
+    // Unity gain is a disconnectable output, not an in-app volume control.
+    output = audio.createGain();
+    output.connect(audio.destination);
+    cue.synth(audio, output, audio.currentTime);
+    timer = setTimeout(cancel, cue.durationMs + 100);
+  };
   if (audio.state === "suspended") {
     // A store-ticker-fired cue can reach a context that is still autoplay-
     // suspended (no gesture warmed it). Nodes scheduled against a suspended
     // clock would fire bunched-up (or never), so schedule AFTER resume settles
     // , if the browser refuses (still no gesture), the cue stays a silent no-op.
     Promise.resolve(audio.resume())
-      .then(() => cue.synth(audio, audio.destination, audio.currentTime))
+      .then(synth)
       .catch(() => {});
-    return;
+    return cancel;
   }
-  cue.synth(audio, audio.destination, audio.currentTime);
+  synth();
+  return cancel;
 }
 
 /** Test seam: drop the shared context so a case can start from nothing. */

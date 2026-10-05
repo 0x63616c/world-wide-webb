@@ -11,10 +11,17 @@
 import { accessFor, getTileDetailEntry, TILE_REGISTRY } from "@features/_generated/web.gen";
 import { describe, expect, it } from "vitest";
 
-const FACE_ONLY = ["tile_clock", "tile_weath", "tile_hourly", "tile_ac", "tile_wifi"] as const;
-const WITH_DETAIL = ["tile_ctrl", "tile_booth", "tile_wakes", "tile_sound"] as const;
+const FACE_ONLY = ["tile_weath", "tile_hourly", "tile_ac", "tile_wifi"] as const;
+const WITH_DETAIL = ["tile_clock", "tile_ctrl", "tile_booth", "tile_wakes", "tile_sound"] as const;
 
 describe("tile detail registry", () => {
+  it("Clock opens its Alarms page", () => {
+    expect(getTileDetailEntry("tile_clock")).toMatchObject({
+      kind: "page",
+      title: "Alarms",
+      defaultSlug: "alarms",
+    });
+  });
   it("Activity is a PIN-gated (sensitive) page titled 'Activity'", () => {
     const entry = getTileDetailEntry("tile_wakes");
     expect(entry?.kind).toBe("page");

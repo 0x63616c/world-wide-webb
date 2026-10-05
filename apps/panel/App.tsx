@@ -9,13 +9,14 @@ import { useKeepAwake } from "expo-keep-awake";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { AppState, Linking, Modal, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import WebView from "react-native-webview";
 import type {
   WebViewMessageEvent,
   WebViewNavigation,
   WebViewOpenWindowEvent,
 } from "react-native-webview/lib/WebViewTypes";
+import { panelAlarms } from "./alarms";
 
 type NativeRequest = {
   channel: "control-center-native";
@@ -36,6 +37,7 @@ type AppExtra = {
   serverUrl?: string;
   cfAccessClientId?: string;
   cfAccessClientSecret?: string;
+  alarmApiToken?: string;
 };
 
 const shellBootstrap = `
@@ -64,6 +66,42 @@ export default function App() {
   const extra = (Constants.expoConfig?.extra ?? {}) as AppExtra;
   const serverUrl = extra.serverUrl ?? "https://app.worldwidewebb.co";
   const [browserUrl, setBrowserUrl] = useState<string | null>(null);
+  const openAlarmsOnLoad = useRef(false);
+
+  const openAlarms = useCallback(() => {
+    mainWebView.current?.injectJavaScript(
+      'window.dispatchEvent(new Event("control-center-open-alarms")); true;',
+    );
+  }, []);
+
+  useEffect(() => {
+    const handleURL = (url: string | null) => {
+      if (url !== "controlcenter://alarms") return;
+      openAlarmsOnLoad.current = true;
+      openAlarms();
+    };
+    void Linking.getInitialURL().then(handleURL);
+    const subscription = Linking.addEventListener("url", ({ url }) => handleURL(url));
+    return () => subscription.remove();
+  }, [openAlarms]);
+
+  useEffect(() => {
+    if (!panelAlarms) return;
+    const configure = panelAlarms.configure(
+      serverUrl,
+      extra.alarmApiToken ?? "",
+      extra.cfAccessClientId ?? "",
+      extra.cfAccessClientSecret ?? "",
+    );
+    const refresh = () => {
+      void configure.then(() => panelAlarms?.refresh()).catch(() => {});
+    };
+    refresh();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") refresh();
+    });
+    return () => subscription.remove();
+  }, [serverUrl, extra.alarmApiToken, extra.cfAccessClientId, extra.cfAccessClientSecret]);
 
   const headers = useMemo(() => {
     if (!extra.cfAccessClientId || !extra.cfAccessClientSecret) return undefined;
@@ -94,6 +132,12 @@ export default function App() {
 
   const handleRequest = useCallback(
     async (event: WebViewMessageEvent) => {
+      // Privileged bridge messages only come from the hosted board's origin.
+      try {
+        if (new URL(event.nativeEvent.url).origin !== new URL(serverUrl).origin) return;
+      } catch {
+        return;
+      }
       let request: NativeRequest;
       try {
         request = JSON.parse(event.nativeEvent.data) as NativeRequest;
@@ -105,6 +149,12 @@ export default function App() {
       try {
         let result: unknown;
         switch (request.method) {
+          case "syncNextAlarm": {
+            if (!panelAlarms) throw new Error("Alarm native module unavailable");
+            await panelAlarms.syncNextAlarm(JSON.stringify({ next: request.params?.next ?? null }));
+            result = null;
+            break;
+          }
           case "deviceInfo": {
             result = {
               model: Device.modelId ?? Device.modelName ?? "ios",
@@ -163,7 +213,7 @@ export default function App() {
         });
       }
     },
-    [respond],
+    [respond, serverUrl],
   );
 
   const allowMainNavigation = useCallback(
@@ -191,6 +241,12 @@ export default function App() {
         originWhitelist={["https://*", "http://localhost:*"]}
         injectedJavaScriptBeforeContentLoaded={shellBootstrap}
         onMessage={handleRequest}
+        onLoadEnd={() => {
+          if (openAlarmsOnLoad.current) {
+            openAlarms();
+            openAlarmsOnLoad.current = false;
+          }
+        }}
         onOpenWindow={openWindow}
         onShouldStartLoadWithRequest={allowMainNavigation}
         allowsBackForwardNavigationGestures={false}
