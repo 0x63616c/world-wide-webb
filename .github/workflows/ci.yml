@@ -103,8 +103,11 @@ jobs:
             # infra-only changes (the Pulumi program + workload specs) deploy
             # with NO image rebuild: the deploy job runs `pulumi up`, which must
             # converge an infra-only diff (e.g. a resource cap or env change).
+            # The vault feeds workload Secrets via `pulumi up`, so a vault-only
+            # change (a new or rotated key) must redeploy too.
             infra:
               - 'infra/**'
+              - 'secrets/vault.yaml'
             # infra/cloudflare (ticket #52): the Cloudflare edge project (Access
             # apps + tunnel ingress + DNS), separate from the home-server `infra`
             # stack above. Also watch packages/platform/src/index.ts: its
