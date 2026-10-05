@@ -123,6 +123,7 @@ jobs:
           P8=$(extract APP_STORE_CONNECT_API__P8_CONTENT)
           CF_ID=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_ID)
           CF_SECRET=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_SECRET)
+          ALARM_TOKEN=$(extract PANEL_ALARMS__TOKEN)
 
           echo "::add-mask::$MATCH_PWD"
           echo "::add-mask::$GIT_AUTH"
@@ -131,6 +132,7 @@ jobs:
           echo "::add-mask::$P8"
           echo "::add-mask::$CF_ID"
           echo "::add-mask::$CF_SECRET"
+          echo "::add-mask::$ALARM_TOKEN"
 
           echo "MATCH_PASSWORD=$MATCH_PWD" >> "$GITHUB_ENV"
           echo "MATCH_GIT_BASIC_AUTHORIZATION=$GIT_AUTH" >> "$GITHUB_ENV"
@@ -139,6 +141,7 @@ jobs:
           echo "ASC_KEY_CONTENT=$P8" >> "$GITHUB_ENV"
           echo "CF_ACCESS_KIOSK_CLIENT_ID=$CF_ID" >> "$GITHUB_ENV"
           echo "CF_ACCESS_KIOSK_CLIENT_SECRET=$CF_SECRET" >> "$GITHUB_ENV"
+          echo "ALARM_API_TOKEN=$ALARM_TOKEN" >> "$GITHUB_ENV"
           echo "MATCH_GIT_URL=https://github.com/0x63616c/certificates.git" >> "$GITHUB_ENV"
 
       - uses: oven-sh/setup-bun@v2
@@ -171,4 +174,5 @@ jobs:
           ASC_KEY_CONTENT: ${{ env.ASC_KEY_CONTENT }}
           CF_ACCESS_KIOSK_CLIENT_ID: ${{ env.CF_ACCESS_KIOSK_CLIENT_ID }}
           CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ env.CF_ACCESS_KIOSK_CLIENT_SECRET }}
+          ALARM_API_TOKEN: ${{ env.ALARM_API_TOKEN }}
           MATCH_REGENERATE: ${{ inputs.regenerate_profiles }}
