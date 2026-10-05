@@ -38,6 +38,23 @@ platform :ios do
     # change; force: true regenerates the profile only and leaves certs alone.
     regenerate = ENV["MATCH_REGENERATE"] == "true"
     UI.important("MATCH_REGENERATE set , regenerating provisioning profile") if regenerate
+
+    # match mints profiles but never App IDs, so a new target (the
+    # NextAlarmWidget extension) fails with "Couldn't find bundle identifier"
+    # until its App ID exists. Register any missing ones in the same one-off
+    # regenerate run, never on a routine build. Keep in sync with Matchfile.
+    if regenerate
+      ["co.worldwidewebb.theworkflowengine", "co.worldwidewebb.theworkflowengine.NextAlarmWidget"].each do |identifier|
+        next if Spaceship::ConnectAPI::BundleId.find(identifier)
+        UI.important("Registering App ID #{identifier}")
+        Spaceship::ConnectAPI::BundleId.create(
+          name: identifier.split(".").last,
+          platform: Spaceship::ConnectAPI::BundleIdPlatform::IOS,
+          identifier: identifier
+        )
+      end
+    end
+
     match(
       type: "appstore",
       api_key: api_key,
