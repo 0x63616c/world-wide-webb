@@ -1,6 +1,6 @@
 import AppIntents
 import Foundation
-import PanelAlarms
+internal import PanelAlarms
 
 struct CreatePanelAlarmIntent: AppIntent {
   static var title: LocalizedStringResource = "Create panel alarm"
