@@ -41,7 +41,8 @@ deploy
 - `apps/web` — the React board and phone view.
 - `apps/panel` — the Expo iOS kiosk shell that loads the hosted React board.
   Each launch bypasses cached HTML immediately (while retaining immutable asset
-  caching), including entries cached before the server sent `no-cache`.
+  caching), including entries cached before the server sent `no-cache`
+  (`docs/panel-startup.md`).
   It remounts the WebView (cache-busted, with backoff) until the page reports
   that `#root` rendered (`apps/panel/boot-recovery.ts`), so a failed boot
   never sticks on a blank screen. nginx serves `index.html` `no-cache` and
