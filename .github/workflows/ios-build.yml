@@ -14,6 +14,7 @@ on:
       - "package.json"
       - "bun.lock"
       - ".github/workflows/ios-build.yml"
+      - "scripts/test-panel-startup.ts"
   push:
     branches: [main]
     paths:
@@ -70,6 +71,10 @@ jobs:
           bun-version: 1.2.19
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: Install WebKit for cold-start cache regression
+        run: bunx playwright install webkit
+      - name: Verify first-navigation startup with historical cached HTML
+        run: bun run test:panel-startup
       - name: Generate Expo iOS project
         run: bun run prebuild
         working-directory: apps/panel

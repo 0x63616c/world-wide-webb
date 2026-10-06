@@ -24,12 +24,15 @@ export function recoveryDelayMs(attempt: number): number {
   return Math.min(1_000 * 2 ** attempt, 30_000);
 }
 
-// Retries bypass the HTTP cache with a unique query, so a reload can never be
-// served the same stale entry that failed. The first load keeps the plain URL.
-export function bootUrl(serverUrl: string, generation: number): string {
-  if (generation === 0) return serverUrl;
+// Bypass cached HTML on the FIRST navigation too. Older installed shells have
+// already cached entries from before nginx sent no-cache; new response headers
+// cannot repair an entry WebKit never revalidates. Waiting for recovery first
+// costs the 15s render deadline on every cold start. Keep the launch stamp stable
+// across React renders, but distinct across launches and recovery generations.
+// Only the document URL changes: immutable /assets/ URLs still reuse their cache.
+export function bootUrl(serverUrl: string, generation: number, launchedAt: number): string {
   const url = new URL(serverUrl);
-  url.searchParams.set("shellBoot", String(generation));
+  url.searchParams.set("shellBoot", `${launchedAt}-${generation}`);
   return url.toString();
 }
 

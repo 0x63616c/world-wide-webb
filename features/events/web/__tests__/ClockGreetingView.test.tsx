@@ -19,6 +19,11 @@ const baseProps = {
 };
 
 describe("ClockGreetingView", () => {
+  it("keeps the clock face free of an Alarms subtitle or nested button", () => {
+    render(<ClockGreetingView {...baseProps} />);
+    expect(screen.queryByText(/alarms/i)).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
   it("renders greeting text", () => {
     render(<ClockGreetingView {...baseProps} />);
     expect(screen.getByText(/good morning/i)).toBeDefined();

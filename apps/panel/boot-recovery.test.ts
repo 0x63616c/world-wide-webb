@@ -10,15 +10,25 @@ import {
 } from "./boot-recovery";
 
 describe("bootUrl", () => {
-  it("keeps the plain URL for the first load", () => {
-    expect(bootUrl("https://app.worldwidewebb.co", 0)).toBe("https://app.worldwidewebb.co");
+  it("bypasses the historical cached entry on the first load of every launch", () => {
+    expect(bootUrl("https://app.worldwidewebb.co", 0, 100)).toBe(
+      "https://app.worldwidewebb.co/?shellBoot=100-0",
+    );
+    expect(bootUrl("https://app.worldwidewebb.co", 0, 200)).toBe(
+      "https://app.worldwidewebb.co/?shellBoot=200-0",
+    );
   });
 
   it("busts the HTTP cache with a unique query on every retry", () => {
-    expect(bootUrl("https://app.worldwidewebb.co", 1)).toBe(
-      "https://app.worldwidewebb.co/?shellBoot=1",
+    expect(bootUrl("https://app.worldwidewebb.co", 1, 100)).toBe(
+      "https://app.worldwidewebb.co/?shellBoot=100-1",
     );
-    expect(bootUrl("http://localhost:4200/?x=1", 3)).toBe("http://localhost:4200/?x=1&shellBoot=3");
+    expect(bootUrl("http://localhost:4200/path?x=1#clock", 3, 100)).toBe(
+      "http://localhost:4200/path?x=1&shellBoot=100-3#clock",
+    );
+    expect(bootUrl("https://app.worldwidewebb.co/?shellBoot=old", 1, 200)).toBe(
+      "https://app.worldwidewebb.co/?shellBoot=200-1",
+    );
   });
 });
 

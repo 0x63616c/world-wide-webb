@@ -1,7 +1,5 @@
 import { Icon } from "@/components/Icon";
 import { Tile } from "@/components/ui";
-import { warmAudio } from "@/lib/sound";
-import { openTileDetail } from "@/lib/tile-detail-store";
 import { ClockSecondsRing } from "./ClockSecondsRing";
 
 export interface ClockGreetingViewProps {
@@ -79,23 +77,6 @@ export function ClockGreetingView({
         <Icon name="pin" s={15} c="var(--ink-3)" />
         {location}
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          warmAudio();
-          openTileDetail("tile_clock");
-        }}
-        style={{
-          background: "none",
-          border: 0,
-          color: "var(--acc)",
-          fontSize: 14,
-          cursor: "pointer",
-          padding: "4px 16px",
-        }}
-      >
-        Alarms ›
-      </button>
     </Tile>
   );
 }
