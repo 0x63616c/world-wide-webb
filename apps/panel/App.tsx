@@ -77,6 +77,7 @@ export default function App() {
   // Each generation is a fresh WebView. A boot that never renders the board
   // bumps it, see boot-recovery.ts.
   const [generation, setGeneration] = useState(0);
+  const [launchedAt] = useState(() => Date.now());
   const failedBoots = useRef(0);
   const bootWatchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingReload = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,8 +156,8 @@ export default function App() {
   }, [extra.cfAccessClientId, extra.cfAccessClientSecret]);
 
   const source = useMemo(
-    () => ({ uri: bootUrl(serverUrl, generation), headers }),
-    [serverUrl, generation, headers],
+    () => ({ uri: bootUrl(serverUrl, generation, launchedAt), headers }),
+    [serverUrl, generation, launchedAt, headers],
   );
 
   useEffect(() => {

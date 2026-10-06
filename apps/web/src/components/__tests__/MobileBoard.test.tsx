@@ -1,21 +1,32 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // A fake two-tile registry standing in for the real Apps, so the phone view can
 // be exercised in jsdom without loading real tiles. Mirrors Board.test.tsx's
 // fake, with one fake per curated phone id plus a third the phone view must
 // NOT show.
-vi.mock("@features/_generated/web.gen", () => {
+vi.mock("@features/_generated/web.gen", async () => {
+  const { ClockGreetingView } = await import("@features/events/web/ClockGreetingView");
   function fakeTile(id: string, label: string) {
     return {
       id,
       label,
-      component: () => (
-        <div>
-          {`${id}-body`}
-          <button type="button">{`${id}-control`}</button>
-        </div>
-      ),
+      component: () =>
+        id === "tile_clock" ? (
+          <ClockGreetingView
+            greeting="Good morning"
+            hour12={9}
+            minutes="30"
+            ampm="AM"
+            fullDate="Friday, May 29, 2026"
+            location="Los Angeles"
+          />
+        ) : (
+          <div>
+            {`${id}-body`}
+            <button type="button">{`${id}-control`}</button>
+          </div>
+        ),
       viewComponent: () => null,
       worldCol: 30,
       worldRow: 24,
@@ -127,6 +138,28 @@ describe("MobileBoard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "tile_ctrl-control" }));
     expect(screen.getByTestId("detail-target").textContent).toBe("none");
+  });
+
+  it("opens Clock from its unlabeled face and keyboard without an Alarms subtitle", () => {
+    function DetailProbe() {
+      const target = useTileDetail();
+      return <div data-testid="detail-target">{target?.tileId ?? "none"}</div>;
+    }
+    render(
+      <>
+        <MobileBoard />
+        <DetailProbe />
+      </>,
+    );
+    expect(screen.queryByText(/alarms/i)).toBeNull();
+    fireEvent.click(screen.getByText("Los Angeles"));
+    expect(screen.getByTestId("detail-target").textContent).toBe("tile_clock");
+    act(() => closeTileDetail());
+    fireEvent.keyDown(screen.getByRole("button", { name: "Open Clock" }), { key: "Enter" });
+    expect(screen.getByTestId("detail-target").textContent).toBe("tile_clock");
+    act(() => closeTileDetail());
+    fireEvent.keyDown(screen.getByRole("button", { name: "Open Clock" }), { key: " " });
+    expect(screen.getByTestId("detail-target").textContent).toBe("tile_clock");
   });
 });
 
