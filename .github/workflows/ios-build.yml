@@ -14,6 +14,7 @@ on:
       - "package.json"
       - "bun.lock"
       - ".github/workflows/ios-build.yml"
+      - "scripts/test-panel-startup.ts"
   push:
     branches: [main]
     paths:
