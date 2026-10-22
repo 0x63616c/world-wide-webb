@@ -9,6 +9,7 @@ final class GlobalShortcut {
     var action: (() -> Void)?
     private var localMonitor: Any?
     private var activeShortcut: Shortcut?
+    private var keyHeld = false
     init() {
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let handled = MainActor.assumeIsolated {
@@ -24,16 +25,26 @@ final class GlobalShortcut {
             }
             return handled ? nil : event
         }
-        var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
-            guard let context else { return noErr }
+        var events = [
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased))
+        ]
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, context in
+            guard let context, let event else { return noErr }
             let shortcut = Unmanaged<GlobalShortcut>.fromOpaque(context).takeUnretainedValue()
-            Task { @MainActor in shortcut.action?() }
+            let released = GetEventKind(event) == UInt32(kEventHotKeyReleased)
+            Task { @MainActor in
+                if released { shortcut.keyHeld = false }
+                else if !shortcut.keyHeld, shortcut.activeShortcut != nil {
+                    shortcut.keyHeld = true
+                    shortcut.action?()
+                }
+            }
             return noErr
-        }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &handler)
+        }, events.count, &events, Unmanaged.passUnretained(self).toOpaque(), &handler)
     }
     func register(shortcut: Shortcut, enabled: Bool) -> Bool {
-        activeShortcut = nil
+        activeShortcut = nil; keyHeld = false
         if let reference { UnregisterEventHotKey(reference); self.reference = nil }
         guard enabled else { return true }
         let result = RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, EventHotKeyID(signature: 0x434B4550, id: 1), GetApplicationEventTarget(), 0, &reference)

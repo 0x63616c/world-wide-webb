@@ -10,7 +10,7 @@
 <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
 <key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 <key>LSUIElement</key><true/>
-<key>NSMicrophoneUsageDescription</key><string>Callkeep records your microphone as a separate track so you can play back your side of a call.</string>
-<key>NSAudioCaptureUsageDescription</key><string>Callkeep records computer audio so you can play back the other side of a call.</string>
+<key>NSMicrophoneUsageDescription</key><string>Callkeep needs microphone access to record your voice during calls.</string>
+<key>NSAudioCaptureUsageDescription</key><string>Callkeep needs system audio access to record the people you hear.</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
