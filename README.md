@@ -1,97 +1,69 @@
-# Callkeep
+<p align="center">
+  <img src="docs/images/icon.png" width="88" alt="Callkeep icon">
+</p>
 
-A native macOS menu-bar recorder that keeps both sides of a call on your Mac.
+<h1 align="center">Callkeep</h1>
 
-**Version 0.1 · macOS 15 or later · SwiftUI + AppKit · No external dependencies**
+<p align="center">A native macOS call recorder. Audio stays on your Mac.</p>
+<p align="center"><strong>macOS 15+</strong> · SwiftUI + AppKit · Version 0.1</p>
 
-## First version
+![Callkeep recording library](docs/images/library.jpg)
 
-- Start and stop from the menu bar, recording library, or **Hyper–R** (Control–Option–Shift–Command–R).
-- See microphone and computer-audio levels while recording.
-- Browse, search, rename, play, and trash past recordings.
-- Play each call as one recording.
-- Keep original, lossless audio for transcription later.
-- Recover interrupted recordings when reopening the app.
-- Record a custom keyboard shortcut or reset to **HYPR R**.
-- Select multiple calls with Shift-click / Command-click, then move them to Trash.
-- Manage shortcuts and recording access in the main window, with aligned permission states and a draggable app icon when needed.
-- Toggle the sidebar with **Command–B**.
+## Record both sides of a call
 
-Callkeep is a recorder. Transcription, live captions, automatic call detection, and per-app audio selection are future work.
+Callkeep captures your microphone and the audio playing on your Mac. It works alongside your calling app without joining the meeting or adding a bot.
 
-## Run
+- Start or stop from the menu bar, the app, or a keyboard shortcut.
+- Browse and search your recordings, then replay them with a smooth, seekable timeline.
+- Rename a call in place. Select several with Shift-click or Command-click and move them to Trash together.
+- Keep lossless audio locally, ready for transcription later.
+- See permission status automatically, with guided setup when access is missing.
 
-Open `Callkeep.xcodeproj` in Xcode 16 or later, select the Callkeep scheme, and run. The checked-in project needs no generator or package downloads.
+Transcription and live captions are not included in this version.
 
-Or:
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/player.jpg" alt="Callkeep playback with the sidebar hidden"></td>
+    <td width="50%"><img src="docs/images/settings.jpg" alt="Callkeep settings with shortcut and permission controls"></td>
+  </tr>
+  <tr>
+    <td align="center">Playback</td>
+    <td align="center">Settings</td>
+  </tr>
+</table>
+
+<sub>Screenshots show the app with generated sample recordings.</sub>
+
+## Get started
+
+1. Build and open Callkeep using the instructions below.
+2. Open **Settings → Permissions** and enable microphone and system audio access. The app guides you to the relevant macOS controls.
+3. Click **New recording**, then **Stop recording** when the call ends.
+
+Get everyone’s agreement before recording. Callkeep captures audio from all apps, and muting your microphone in a calling app does not mute Callkeep. Headphones avoid recording speaker audio twice.
+
+Closing the window keeps Callkeep running. Open it again from the Dock or menu bar.
+
+## Keyboard shortcuts
+
+| Action | Shortcut |
+| --- | --- |
+| Start / stop recording | **HYPR R** — ⌃⌥⇧⌘R, customizable in Settings |
+| Show / hide sidebar | ⌘B |
+| Open Settings | ⌘, |
+| Rename selected recording | Return |
+| Save / cancel rename | Return / Escape |
+| Move selected recordings to Trash | ⌘⌫ |
+
+## Build
+
+Open `Callkeep.xcodeproj` in Xcode and run the **Callkeep** scheme, or use:
 
 ```sh
 ./Scripts/build.sh
 open build/Build/Products/Release/Callkeep.app
 ```
 
-The default build uses ad-hoc signing for local development. To build with your own Developer ID certificate:
+The checked-in project has no external package dependencies. Local builds use ad-hoc signing by default. This prototype is not a notarized public release; its optional system-audio permission query uses a private macOS API.
 
-```sh
-CALLKEEP_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' ./Scripts/build.sh
-```
-
-A Developer ID signature alone is not notarization. Notarize a distribution build before shipping it to other Macs over the internet. The app is deliberately not sandboxed in this first iteration.
-
-`project.yml` is the XcodeGen source. After changing targets or adding files, run `xcodegen generate` and commit the generated project as well.
-
-## First recording
-
-1. Open Callkeep and click **New recording**.
-2. In **Settings → Permissions**, click **Enable** for any missing permission. Microphone access uses the macOS prompt. System audio opens the relevant System Settings pane with a floating helper: drag Callkeep into **System Audio Recording Only** if missing, then turn it on. Permission indicators update automatically.
-3. Click **New recording** again to start. The waveform shows incoming audio.
-4. Press **Hyper–R** or **Stop recording** to save.
-5. Select the recording in the library and play it. Rename in place with the pencil beside its title, the right-click menu, or Return with one recording selected. Return saves; Escape cancels. Use Shift-click / Command-click to select several, then **… → Move to Trash** or Command–Delete to delete them together.
-
-Callkeep appears in the Dock and Command–Tab as well as the menu bar. Closing the library window keeps the recorder running; click its Dock icon to reopen it. Command–B toggles the sidebar. Quitting saves an active recording. No shortcut remapping tool is needed if you press all four modifiers yourself; an existing Caps Lock → Hyper mapping works too.
-
-## What is recorded
-
-- **Microphone:** the macOS default input device, captured independently of the calling app. Muting in Zoom does **not** mute this recording.
-- **Computer audio:** audio from all applications through a Core Audio process tap. It captures digital audio, including when using headphones; it is not a microphone recording of the speakers.
-- The app does not join calls, access a meeting account, or upload audio. Get agreement from participants before recording.
-- Headphones avoid the remote voice being picked up again by your microphone. Speaker playback can cause doubled voices when listening to both tracks.
-- Changing the default input/output devices or putting the Mac to sleep stops and saves the recording, rather than silently recording from a different source. Restart after changing devices.
-- Playback inside Callkeep is disabled during recording to avoid recording its own playback.
-
-## Where audio lives
-
-`~/Library/Application Support/Callkeep/Recordings/<recording UUID>/`
-
-Each folder contains `microphone.caf`, `system-audio.caf`, and `recording.json`. CAF contains 16-bit PCM at the source sample rate and supports long recordings. Metadata includes the start time, each track's offset from a shared monotonic clock, sample rate, channel count, and actual duration. Files remain usable independently of the app.
-
-At 48 kHz, mono microphone + stereo computer audio uses approximately **1 GB/hour**. There is no automatic deletion. The recorder checks free space every five seconds and stops below 250 MB. Deleted recordings go to the macOS Trash.
-
-Metadata is written atomically and checkpointed during recording. If the app exits unexpectedly, the next launch marks the session interrupted and inspects any surviving audio. A damaged metadata file is reported without deleting its audio. Very early crashes before the first checkpoint may lose precise track offsets.
-
-## Test
-
-```sh
-./Scripts/test.sh
-```
-
-Tests cover audio samples and timing, file reopening, metadata updates, interrupted-session recovery, corrupt metadata isolation, write failures, and audio-format changes. See [validation](docs/VALIDATION.md) for the actual release checks and remaining hardware checks.
-
-## Permissions
-
-Microphone authorization is read from AVFoundation. Core Audio does not provide a public system-audio authorization status query. For this local prototype, `SystemAudioAuthorization` optionally loads the private, read-only `TCCAccessPreflight` function for `kTCCServiceAudioCapture`, following the approach documented in [AudioCap](https://github.com/insidegui/AudioCap/blob/main/AudioCap/ProcessTap/AudioRecordingPermission.swift). Status checks do not capture audio, play a sound, or save files. They refresh while Settings or the setup helper is visible and when the app becomes active.
-
-This private status API is not suitable for an App Store build and may change in macOS. If unavailable or unrecognized, the UI shows a neutral state, never a cached green check. Recording remains available so the public Core Audio capture flow can request consent. Actual recording still uses public Core Audio APIs. The app does not request Screen Recording or Accessibility access.
-
-The floating helper is an independently implemented nonactivating AppKit panel with a native file-URL drag source. Its interaction was informed by [cmux's onboarding panel](https://github.com/manaflow-ai/cmux/blob/a84b7c278b5444820cff5b1f67addcf980f02b90/Sources/App/ComputerUseOnboardingWindowController.swift) and [drag source](https://github.com/manaflow-ai/cmux/blob/a84b7c278b5444820cff5b1f67addcf980f02b90/Sources/App/ComputerUseAppDragSourceView.swift). System Settings keeps focus during the drag. The helper dismisses after access is enabled or the observed Settings window closes.
-
-## Architecture
-
-- `AudioCapture`: Core Audio system tap + AVAudioEngine microphone tap.
-- `TrackWriter`: owned buffer copies, bounded write backlog, serial disk IO, peak levels and silence-gap preservation.
-- `RecordingStore`: atomic JSON metadata, discovery, and crash recovery.
-- `AppModel`: permission flow, start/stop, checkpoints, sleep/device/disk safeguards.
-- `Playback`: timestamp-offset playback of separate tracks behind a single set of playback controls.
-- SwiftUI provides the native split-view library, toolbar, settings and menu-bar panel; Carbon registers the global shortcut without Accessibility access.
-
-All original audio stays local. Future transcription can read these files without changing the capture pipeline.
+[Development and permissions](docs/DEVELOPMENT.md) · [Recording and storage](docs/RECORDING.md) · [Validation](docs/VALIDATION.md)
