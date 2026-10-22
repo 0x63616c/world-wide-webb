@@ -14,6 +14,9 @@ struct CallkeepApp: App {
         .defaultSize(width: 1040, height: 690)
         .windowStyle(.titleBar)
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { model.showSettings() }.keyboardShortcut(",", modifiers: .command)
+            }
             CommandGroup(after: .newItem) {
                 Button(model.isRecording ? "Stop Recording" : "New Recording") { model.toggleRecording() }.keyboardShortcut("r", modifiers: [.command, .shift])
             }
@@ -27,7 +30,6 @@ struct CallkeepApp: App {
                 .accessibilityLabel(model.isRecording ? "Callkeep recording" : "Callkeep")
         }
         .menuBarExtraStyle(.window)
-        Settings { SettingsView(model: model) }
     }
 }
 

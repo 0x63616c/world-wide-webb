@@ -14,7 +14,7 @@ A native macOS menu-bar recorder that keeps both sides of a call on your Mac.
 - Recover interrupted recordings when reopening the app.
 - Record a custom keyboard shortcut, disable it, or reset to **HYPR R**.
 - Select multiple calls with Shift-click / Command-click, then move them to Trash.
-- Review required permissions and open System Settings with a draggable app tile.
+- Manage shortcuts and recording access in the main window, with aligned permission states and a draggable app icon when needed.
 
 Callkeep is a recorder. Transcription, live captions, automatic call detection, and per-app audio selection are future work.
 
@@ -42,10 +42,10 @@ A Developer ID signature alone is not notarization. Notarize a distribution buil
 ## First recording
 
 1. Open Callkeep and click **New recording**.
-2. In **Recording Access**, allow the microphone and choose **Check Access** for system audio. A brief sound checks capture without saving anything. If needed, use **Open System Audio Settings**; a draggable app tile helps when Callkeep is missing from the list.
-3. Close setup and start recording. The waveform shows incoming audio.
+2. In **Settings → Recording Access**, allow the microphone and choose **Check Access** for system audio. A brief sound checks capture without saving anything. **System Settings…** opens the relevant macOS pane; **App Missing?** reveals a draggable app icon.
+3. Click **New recording** again to start. The waveform shows incoming audio.
 4. Press **Hyper–R** or **Stop recording** to save.
-5. Select the recording in the library and play it. Use Shift-click / Command-click to select several, then the Trash button or Command–Delete to delete them together.
+5. Select the recording in the library and play it. Rename with the pencil beside its title, the right-click menu, or Return with one recording selected. Use Shift-click / Command-click to select several, then the Trash button or Command–Delete to delete them together.
 
 Closing the library window keeps the recorder running in the menu bar. Quitting saves an active recording. No shortcut remapping tool is needed if you press all four modifiers yourself; an existing Caps Lock → Hyper mapping works too.
 
@@ -78,7 +78,7 @@ Tests cover audio samples and timing, file reopening, metadata updates, interrup
 
 ## Permissions
 
-Microphone authorization is read from AVFoundation. Core Audio does not provide a public system-audio authorization status query. Callkeep verifies actual audio delivery instead of using private TCC APIs or claiming permission from silence. On later launches, the UI distinguishes **Previously verified** from a fresh check. A denied permission, muted output, or silent source can require another check with audio playing. No audio from the permission check is saved. The app does not request Screen Recording or Accessibility access.
+Microphone authorization is read from AVFoundation. Core Audio does not provide a public system-audio authorization status query. Callkeep verifies actual audio delivery instead of using private TCC APIs or claiming permission from silence. On later launches, the UI distinguishes **Verified before** from a fresh check. A denied permission, muted output, or silent source can require another check with audio playing. No audio from the permission check is saved. The app does not request Screen Recording or Accessibility access.
 
 ## Architecture
 
@@ -86,7 +86,7 @@ Microphone authorization is read from AVFoundation. Core Audio does not provide 
 - `TrackWriter`: owned buffer copies, bounded write backlog, serial disk IO, peak levels and silence-gap preservation.
 - `RecordingStore`: atomic JSON metadata, discovery, and crash recovery.
 - `AppModel`: permission flow, start/stop, checkpoints, sleep/device/disk safeguards.
-- `Playback`: timestamp-offset playback of separate tracks with independent source selection.
+- `Playback`: timestamp-offset playback of separate tracks behind a single set of playback controls.
 - SwiftUI provides the native split-view library, toolbar, settings and menu-bar panel; Carbon registers the global shortcut without Accessibility access.
 
 All original audio stays local. Future transcription can read these files without changing the capture pipeline.

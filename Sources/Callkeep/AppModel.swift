@@ -7,6 +7,8 @@ import CallkeepCore
 final class AppModel {
     var recordings: [Recording] = []
     var selectedIDs: Set<UUID> = []
+    var showingSettings = false
+    var presentLibrary: (() -> Void)?
     var selectedID: UUID? {
         get { selectedIDs.count == 1 ? selectedIDs.first : nil }
         set { selectedIDs = newValue.map { [$0] } ?? [] }
@@ -67,7 +69,8 @@ final class AppModel {
         errorMessage = nil; statusMessage = nil
         playback.stop()
         permissions.refresh()
-        guard permissions.canRecord else { PermissionsWindow.shared.show(permissions); return }
+        guard permissions.canRecord else { showSettings(); return }
+        showingSettings = false
         do {
             try checkDisk()
             let next = (recordings.compactMap { record -> Int? in
@@ -133,6 +136,7 @@ final class AppModel {
         isBusy = false
     }
     func select(_ id: UUID?) {
+        showingSettings = false
         playback.stop(); selectedID = id
         guard let recording = selected, recording.id != active?.id, let store else { return }
         do { try playback.load(recording, folder: store.folder(for: recording)) }
@@ -148,8 +152,19 @@ final class AppModel {
     var selectedRecordings: [Recording] { recordings.filter { selectedIDs.contains($0.id) } }
     var canTrashSelection: Bool { !selectedIDs.isEmpty && !selectedIDs.contains(active?.id ?? UUID()) }
     func selectMany(_ ids: Set<UUID>) {
+        // List may clear its selection while Settings takes focus.
+        if !ids.isEmpty { showingSettings = false }
         playback.stop(); selectedIDs = ids
         if ids.count == 1 { select(ids.first) }
+    }
+    func showSettings() {
+        playback.stop(); selectedIDs = []; showingSettings = true
+        permissions.refresh(); presentLibrary?()
+    }
+    func showRecordings() {
+        showingSettings = false
+        if selectedIDs.isEmpty { select(active?.id ?? recordings.first?.id) }
+        presentLibrary?()
     }
     func trashSelection() {
         guard canTrashSelection, let store else { return }

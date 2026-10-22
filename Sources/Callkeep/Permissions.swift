@@ -32,7 +32,10 @@ final class Permissions {
         guard !checking else { return }
         system = .checking; message = nil
         let tap = SystemAudioTap(); let probe = AudioProbe()
-        defer { tap.stop() }
+        defer {
+            tap.stop()
+            if system == .needsAttention { UserDefaults.standard.set(false, forKey: "systemAudioVerified") }
+        }
         do {
             try tap.start { buffer, _ in probe.receive(buffer) }
             // Give the user time to answer the first OS prompt. No audio is saved.
@@ -56,7 +59,7 @@ final class Permissions {
     var systemLabel: String {
         switch system {
         case .unchecked: "Not checked"
-        case .previouslyVerified: "Previously verified"
+        case .previouslyVerified: "Verified before"
         case .checking: "Checking…"
         case .verified: "Verified"
         case .needsAttention: "Check access"
@@ -64,67 +67,124 @@ final class Permissions {
     }
 }
 
-struct PermissionsView: View {
+
+struct RecordingAccessView: View {
     @Bindable var permissions: Permissions
-    var onDismiss: () -> Void
-    @State private var help = false
+    var recording: Bool
+    @State private var showingHelp = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(spacing: 0) {
-                permissionRow("Microphone", symbol: "mic", status: permissions.microphone == .authorized ? "Allowed" : "Required", granted: permissions.microphone == .authorized) {
-                    if permissions.microphone != .authorized { Button(permissions.microphone == .notDetermined ? "Allow…" : "Open Settings") { Task { await permissions.requestMicrophone() } } }
+        VStack(spacing: 0) {
+            accessRow("Microphone", symbol: "mic", state: microphoneState) {
+                Button(permissions.microphone == .notDetermined ? "Allow…" : "Settings…") {
+                    if permissions.microphone == .authorized { permissions.openSettings(microphone: true) }
+                    else { Task { await permissions.requestMicrophone() } }
                 }
-                Divider().padding(.leading, 42)
-                permissionRow("System Audio", symbol: "speaker.wave.2", status: permissions.systemLabel, granted: permissions.system == .verified) {
-                    Button(permissions.system == .checking ? "Checking…" : "Check Access") { Task { await permissions.checkSystemAudio() } }.disabled(permissions.checking)
-                }
-            }.padding(.horizontal, 16).background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
-            if permissions.checking { Text("Listening for a test sound. Nothing is saved.").font(.callout).foregroundStyle(.secondary) }
-            if let message = permissions.message { Text(message).font(.callout).foregroundStyle(.secondary) }
+            }
+            Divider()
+            accessRow("System Audio", symbol: "speaker.wave.2", state: systemState) {
+                Button(permissions.checking ? "Checking…" : "Check Access") {
+                    Task { await permissions.checkSystemAudio() }
+                }.disabled(permissions.checking)
+            }
+            Divider()
             HStack {
-                Button("Open System Audio Settings") { permissions.openSettings(microphone: false); help = true }.buttonStyle(.link)
+                Button("System Settings…") { permissions.openSettings(microphone: false) }
                 Spacer()
-                Button { help.toggle() } label: { Image(systemName: "questionmark.circle") }.buttonStyle(.plain).help("App missing from Settings?")
+                Button { showingHelp.toggle() } label: { Label("App Missing?", systemImage: "questionmark.circle") }
+            }.buttonStyle(.link).font(.callout).padding(.vertical, 14)
+
+            if permissions.checking {
+                Text("Listening for a test sound. Nothing is saved.")
+                    .font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 14)
             }
-            if help {
-                HStack(spacing: 12) {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)).resizable().frame(width: 40, height: 40)
-                    Text("Callkeep").font(.body.weight(.medium))
-                    Spacer()
-                    Image(systemName: "hand.draw").foregroundStyle(.secondary)
-                }.padding(12).background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
-                    .onDrag { NSItemProvider(object: Bundle.main.bundleURL as NSURL) }
-                    .help("Drag Callkeep into the System Audio Recording Only list")
-                Text("Drag Callkeep into System Audio Recording Only, then turn it on.").font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let message = permissions.message {
+                Label(message, systemImage: "exclamationmark.circle")
+                    .font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 14)
             }
-            HStack { Spacer(); Button("Done") { onDismiss() }.keyboardShortcut(.defaultAction).disabled(permissions.checking) }
-        }.padding(28).frame(width: 450)
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in permissions.refresh() }
+            if showingHelp {
+                HStack(spacing: 16) {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath))
+                        .resizable().frame(width: 48, height: 48)
+                        .onDrag { NSItemProvider(object: Bundle.main.bundleURL as NSURL) }
+                        .accessibilityLabel("Drag Callkeep into System Settings")
+                    Text("Drag Callkeep into System Audio Recording Only, then turn it on.")
+                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.bottom, 14)
+            }
+        }.disabled(recording)
     }
-    private func permissionRow<Actions: View>(_ title: String, symbol: String, status: String, granted: Bool, @ViewBuilder actions: () -> Actions) -> some View {
+
+    private var microphoneState: AccessState {
+        switch permissions.microphone {
+        case .authorized: .allowed("Allowed")
+        case .denied, .restricted: .blocked("Not Allowed")
+        default: .unknown("Required")
+        }
+    }
+    private var systemState: AccessState {
+        switch permissions.system {
+        case .verified: .allowed("Verified")
+        case .previouslyVerified: .previous("Verified before")
+        case .checking: .checking
+        case .needsAttention: .warning("Check Access")
+        case .unchecked: .unknown("Not Checked")
+        }
+    }
+    private func accessRow<Action: View>(_ title: String, symbol: String, state: AccessState, @ViewBuilder action: () -> Action) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).font(.title3).frame(width: 28)
-            VStack(alignment: .leading, spacing: 4) { Text(title).fontWeight(.medium); Text(status).font(.caption).foregroundStyle(granted ? Color.green : Color.secondary) }
-            Spacer()
-            if granted { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
-            actions().controlSize(.small)
-        }.padding(.vertical, 16)
+            Image(systemName: symbol).font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 24)
+            Text(title).frame(maxWidth: .infinity, alignment: .leading)
+            AccessStatus(state: state).frame(width: 126, alignment: .leading)
+            action().frame(width: 104, alignment: .trailing).controlSize(.regular)
+        }.frame(minHeight: 52)
     }
 }
 
-@MainActor
-final class PermissionsWindow {
-    static let shared = PermissionsWindow()
-    private var panel: NSPanel?
-    func show(_ permissions: Permissions) {
-        permissions.refresh()
-        if let panel { panel.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return }
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 506, height: 340), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        panel.title = "Recording Access"; panel.identifier = NSUserInterfaceItemIdentifier("permissions")
-        panel.isReleasedWhenClosed = false; panel.level = .floating
-        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-        panel.contentViewController = NSHostingController(rootView: PermissionsView(permissions: permissions, onDismiss: { [weak self] in self?.panel?.orderOut(nil) }))
-        panel.center(); panel.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
-        self.panel = panel
+private enum AccessState {
+    case allowed(String), blocked(String), unknown(String), previous(String), warning(String), checking
+    var label: String {
+        switch self {
+        case .allowed(let label), .blocked(let label), .unknown(let label), .previous(let label), .warning(let label): label
+        case .checking: "Checking…"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .allowed: "checkmark.circle.fill"
+        case .blocked: "xmark.circle.fill"
+        case .unknown: "minus.circle"
+        case .previous: "clock"
+        case .warning: "exclamationmark.circle.fill"
+        case .checking: "circle.dotted"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .allowed: .green
+        case .blocked: .red
+        case .warning: .orange
+        default: .secondary
+        }
+    }
+}
+
+private struct AccessStatus: View {
+    let state: AccessState
+    var body: some View {
+        HStack(spacing: 7) {
+            if case .checking = state { ProgressView().controlSize(.mini).frame(width: 14) }
+            else { Image(systemName: state.symbol).foregroundStyle(state.color).frame(width: 14) }
+            Text(state.label).foregroundStyle(.secondary)
+        }.font(.callout).accessibilityElement(children: .combine)
+        .help({
+            if case .previous = state { return "Verified in a previous session. Check Access to verify again." }
+            if case .allowed("Verified") = state { return "System audio was received during the latest check." }
+            return state.label
+        }())
     }
 }

@@ -14,6 +14,17 @@ Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
 - The System Audio settings link opened macOS's Screen & System Audio Recording pane, where Callkeep appeared under System Audio Recording Only.
 - Native rendering inspected for the library, playback, selection state, deletion confirmation, Settings, recording-access window, and draggable-app help. The initial recording screen was also exercised before the minimal-UI revision.
 
+## Settings and library redesign
+
+- Settings and recording access now share the main window. The sidebar Settings button and Command-comma open the same page; Recordings returns to the library even when empty.
+- A separate agent critiqued the original UI and two rendered revisions. The final review found no remaining material UX blockers.
+- Inspected normal and compact native layouts, including a 360-point sidebar. The detail pane now enforces a 500-point minimum to keep status and action columns aligned.
+- Verified shortcut capture, reset to HYPR R, and that disabling the shortcut disables the recorder control.
+- Verified rename via the title pencil, recording context menu, and Return. The name field starts focused with its name selected, and the new name survived restarting the app.
+- Shift-click selected two generated audio fixtures; the confirmation showed two recordings, and both were verified in Trash after deletion. These fixtures were generated tones, not microphone captures.
+- Permission states use a green check for current success, red cross for known microphone denial, orange warning for an unsuccessful audio check, and neutral states for unchecked or earlier verification. An unsuccessful check now clears persisted verification.
+- Rebuilt the signed Release app and reran all 10 tests after the redesign. Fresh permission denial/revocation remains in the manual coverage below.
+
 ## Remaining manual coverage
 
 - A real remote Zoom/Meet/Teams call with headphones, including a longer session and route changes.

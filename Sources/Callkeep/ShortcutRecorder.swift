@@ -4,11 +4,13 @@ import Carbon
 import CallkeepCore
 
 struct ShortcutRecorder: NSViewRepresentable {
+    @Environment(\.isEnabled) private var isEnabled
     let shortcut: Shortcut
     let onChange: (Shortcut) -> Void
     let onCaptureChanged: (Bool) -> Void
     func makeNSView(context: Context) -> ShortcutField { let field = ShortcutField(); field.onChange = onChange; field.onCaptureChanged = onCaptureChanged; return field }
-    func updateNSView(_ view: ShortcutField, context: Context) { view.shortcut = shortcut; view.onChange = onChange; view.onCaptureChanged = onCaptureChanged; view.updateTitle() }
+    func updateNSView(_ view: ShortcutField, context: Context) { view.shortcut = shortcut; view.isEnabled = isEnabled; view.onChange = onChange; view.onCaptureChanged = onCaptureChanged; view.updateTitle() }
+    static func dismantleNSView(_ view: ShortcutField, coordinator: ()) { view.endCapture() }
 }
 
 final class ShortcutField: NSButton {
@@ -25,8 +27,9 @@ final class ShortcutField: NSButton {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     func updateTitle() { title = listening ? "Press shortcut…" : shortcut.label; toolTip = "Click to change shortcut" }
-    @objc private func begin() { listening = true; onCaptureChanged?(true); window?.makeFirstResponder(self); updateTitle() }
-    override func resignFirstResponder() -> Bool { listening = false; onCaptureChanged?(false); updateTitle(); return true }
+    @objc private func begin() { guard isEnabled else { return }; listening = true; onCaptureChanged?(true); window?.makeFirstResponder(self); updateTitle() }
+    func endCapture() { guard listening else { return }; listening = false; onCaptureChanged?(false); updateTitle() }
+    override func resignFirstResponder() -> Bool { endCapture(); return true }
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard listening else { return super.performKeyEquivalent(with: event) }
         keyDown(with: event); return true
