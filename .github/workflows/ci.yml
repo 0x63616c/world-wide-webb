@@ -1,0 +1,11 @@
+name: Build and test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run persistence and audio tests
+        run: ./Scripts/test.sh

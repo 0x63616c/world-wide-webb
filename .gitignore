@@ -1,0 +1,9 @@
+.DS_Store
+.build/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcresult
+*.caf
+*.wav
+*.m4a

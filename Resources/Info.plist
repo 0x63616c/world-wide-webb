@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>Callkeep</string>
+<key>CFBundleDisplayName</key><string>Callkeep</string>
+<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+<key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+<key>LSUIElement</key><true/>
+<key>NSMicrophoneUsageDescription</key><string>Callkeep records your microphone as a separate track so you can play back your side of a call.</string>
+<key>NSAudioCaptureUsageDescription</key><string>Callkeep records computer audio so you can play back the other side of a call.</string>
+<key>NSHighResolutionCapable</key><true/>
+</dict></plist>
