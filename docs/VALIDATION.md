@@ -25,3 +25,7 @@ Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
 The system-audio test exposed gaps when Core Audio suspended callbacks during silence. The writer now inserts timestamped silence; the regression test verifies sample positions and duration. Existing recordings made before that fix are not rewritten.
 
 This is a signed local build, not an App Store or notarized public release. Transcription and captions are not part of version 0.1.
+
+## GitHub CI
+
+Run `39790316910` could not start: GitHub reported failed recent account payments or a spending limit requiring attention. This is an account/runner admission blocker, not a compile or test result. Local builds and tests above completed successfully.
