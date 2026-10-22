@@ -15,7 +15,7 @@ struct MenuPanel: View {
                 }
             }
             if model.isRecording { WaveformView(peaks: model.levelHistory, progress: 1, live: true).frame(height: 32) }
-            HStack { RecordButton(model: model); Spacer(); if model.shortcutEnabled { Text(model.shortcutLabel).font(.caption.monospaced()).foregroundStyle(.secondary) } }
+            HStack { RecordButton(model: model); Spacer(); Text(model.shortcutLabel).font(.caption.monospaced()).foregroundStyle(.secondary) }
             if let error = model.errorMessage { Text(error).font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
             Divider()
             Button { model.showRecordings(); openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true) } label: { Label("Recordings", systemImage: "rectangle.stack") }.buttonStyle(.plain)

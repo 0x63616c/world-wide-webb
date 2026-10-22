@@ -6,7 +6,8 @@ struct LibraryView: View {
     @Bindable var model: AppModel
     @Environment(\.openWindow) private var openWindow
     @State private var deleting = false
-    @State private var renaming: Recording?
+    @State private var renamingID: UUID?
+    @State private var showingInfo: Recording?
     var body: some View {
         NavigationSplitView {
             List(selection: Binding(get: { model.selectedIDs }, set: { model.selectMany($0) })) {
@@ -14,7 +15,10 @@ struct LibraryView: View {
                     RecordingRow(recording: recording, live: model.active?.id == recording.id)
                         .tag(recording.id)
                         .contextMenu {
-                            Button("Rename…") { renaming = recording }.disabled(recording.id == model.active?.id)
+                            Button("Rename") {
+                                if model.selectedID != recording.id { model.select(recording.id) }
+                                renamingID = recording.id
+                            }.disabled(recording.id == model.active?.id)
                             Button("Show in Finder") { model.reveal(recording) }
                             Divider()
                             Button("Move to Trash…", role: .destructive) {
@@ -40,7 +44,7 @@ struct LibraryView: View {
             .onDeleteCommand { if model.canTrashSelection { deleting = true } }
             .onKeyPress(.return) {
                 guard let recording = model.selected, recording.id != model.active?.id, !model.showingSettings else { return .ignored }
-                renaming = recording; return .handled
+                renamingID = recording.id; return .handled
             }
             .onCommand(#selector(NSResponder.selectAll(_:))) { model.selectMany(Set(model.filtered.map(\.id))) }
             .safeAreaInset(edge: .bottom) {
@@ -68,18 +72,26 @@ struct LibraryView: View {
                         Button("Move to Trash…", role: .destructive) { deleting = true }.disabled(!model.canTrashSelection)
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if model.isRecording, model.selectedID == model.active?.id { LiveRecordingView(model: model) }
-                else if let recording = model.selected { RecordingDetail(model: model, recording: recording, onRename: { renaming = recording }).id(recording.id) }
+                else if let recording = model.selected { RecordingDetail(model: model, recording: recording, renamingID: $renamingID).id(recording.id) }
                 else { EmptyLibraryView(model: model) }
             }
-            .frame(minWidth: 500)
+            .frame(minWidth: 500, maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
             .navigationTitle("Callkeep")
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     if !model.showingSettings {
-                        Button { deleting = true } label: { Image(systemName: "trash") }
-                            .disabled(!model.canTrashSelection).help("Move selected recordings to Trash")
-                            .keyboardShortcut(.delete, modifiers: .command)
+                        Menu {
+                            if let recording = model.selected {
+                                Button("Rename") { renamingID = recording.id }.disabled(recording.id == model.active?.id)
+                                Button("Show in Finder") { model.reveal(recording) }
+                                Button("Recording Info") { showingInfo = recording }
+                                Divider()
+                            }
+                            Button("Move to Trash…", role: .destructive) { deleting = true }
+                                .disabled(!model.canTrashSelection).keyboardShortcut(.delete, modifiers: .command)
+                        } label: { Label("Recording actions", systemImage: "ellipsis") }
+                            .menuIndicator(.hidden).disabled(model.selectedIDs.isEmpty).help("Recording actions")
                     }
                     RecordButton(model: model)
                 }
@@ -98,9 +110,7 @@ struct LibraryView: View {
             model.presentLibrary = { openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true) }
             if !model.isRecording, model.selectedIDs.count == 1 { model.select(model.selectedID) }
         }
-        .sheet(item: $renaming) { recording in
-            RenameRecordingView(title: recording.title) { model.rename(recording, to: $0) }
-        }
+        .sheet(item: $showingInfo) { RecordingInfoView(model: model, recording: $0) }
         .confirmationDialog(model.selectedIDs.count == 1 ? "Move recording to Trash?" : "Move \(model.selectedIDs.count) recordings to Trash?", isPresented: $deleting, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) { model.trashSelection() }
         }
@@ -111,20 +121,19 @@ struct RecordingRow: View {
     let recording: Recording
     let live: Bool
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: live ? "record.circle.fill" : "waveform")
-                .font(.system(size: 17, weight: .medium)).foregroundStyle(live ? .red : .secondary)
-                .frame(width: 30)
-            VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
                 Text(recording.title).font(.system(size: 13, weight: .medium)).lineLimit(1)
-                HStack(spacing: 6) {
-                    Text(recording.createdAt, format: .dateTime.month(.abbreviated).day())
-                    Spacer()
-                    if recording.state == .interrupted { Image(systemName: "exclamationmark.circle") }
-                    Text(live ? "Recording" : recording.formattedDuration).monospacedDigit()
-                }.font(.caption).foregroundStyle(live ? .red : .secondary)
+                Spacer(minLength: 0)
+                if live { Circle().fill(.red).frame(width: 6, height: 6) }
             }
-        }.padding(.vertical, 8).accessibilityElement(children: .combine)
+            HStack(spacing: 8) {
+                Text(recording.createdAt, format: .dateTime.month(.abbreviated).day())
+                Spacer(minLength: 8)
+                if recording.state == .interrupted { Image(systemName: "exclamationmark.circle") }
+                Text(live ? "Recording" : recording.formattedDuration).monospacedDigit()
+            }.font(.caption).foregroundStyle(.secondary)
+        }.padding(.horizontal, 6).padding(.vertical, 8).accessibilityElement(children: .combine)
     }
 }
 
@@ -154,41 +163,43 @@ struct LiveRecordingView: View {
 struct RecordingDetail: View {
     @Bindable var model: AppModel
     let recording: Recording
-    let onRename: () -> Void
+    @Binding var renamingID: UUID?
     @State private var peaks: [Float] = []
-    @State private var showingInfo = false
+    @State private var editedTitle = ""
+    @FocusState private var nameFocused: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 10) {
-                        Text(recording.title).font(.system(size: 27, weight: .semibold)).lineLimit(2)
-                        Button(action: onRename) { Image(systemName: "pencil").font(.system(size: 14)).foregroundStyle(.secondary).frame(width: 28, height: 28).contentShape(Rectangle()) }
-                            .buttonStyle(.plain).help("Rename Recording").accessibilityLabel("Rename recording")
+                        if renamingID == recording.id {
+                            TextField("Recording name", text: $editedTitle)
+                                .textFieldStyle(.plain).font(.system(size: 27, weight: .semibold))
+                                .focused($nameFocused).onSubmit { finishRename(save: true) }
+                                .onExitCommand { finishRename(save: false) }
+                                .accessibilityLabel("Recording name")
+                        } else {
+                            Text(recording.title).font(.system(size: 27, weight: .semibold)).lineLimit(2)
+                                .onTapGesture(count: 2) { renamingID = recording.id }
+                            Button { renamingID = recording.id } label: { Image(systemName: "pencil").font(.system(size: 14)).foregroundStyle(.secondary).frame(width: 28, height: 28).contentShape(Rectangle()) }
+                                .buttonStyle(.plain).help("Rename Recording").accessibilityLabel("Rename recording")
+                        }
                     }
                     Text(recording.createdAt, format: .dateTime.month(.wide).day().year().hour().minute()).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                Menu {
-                    Button("Rename…", action: onRename)
-                    Button("Show in Finder") { model.reveal(recording) }
-                    Button("Recording Info") { showingInfo = true }
-                } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().help("Recording actions")
             }
             Spacer(minLength: 12)
             VStack(spacing: 24) {
-                WaveformView(peaks: peaks, progress: model.playback.duration > 0 ? model.playback.position / model.playback.duration : 0).frame(height: 104)
-                VStack(spacing: 8) {
-                    Slider(value: Binding(get: { model.playback.position }, set: { model.playback.seek($0) }), in: 0...max(model.playback.duration, 0.01)).accessibilityLabel("Playback position")
-                    HStack { Text(Recording.timeString(model.playback.position)); Spacer(); Text(recording.formattedDuration) }.font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                }.disabled(model.isRecording || recording.duration == 0)
+                PlaybackTimelineView(playback: model.playback, peaks: peaks)
+                    .disabled(model.isRecording || recording.duration == 0)
                 HStack(spacing: 30) {
                     Spacer()
-                    Button { model.playback.seek(model.playback.position - 10) } label: { Image(systemName: "gobackward.10").font(.title2) }.buttonStyle(.plain).help("Back 10 seconds")
+                    Button { model.playback.seek(model.playback.currentPosition - 10) } label: { Image(systemName: "gobackward.10").font(.title2) }.buttonStyle(.plain).help("Back 10 seconds")
                     Button { model.playback.toggle() } label: {
                         Image(systemName: model.playback.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 24, weight: .medium)).frame(width: 64, height: 64).background(.quaternary, in: Circle())
                     }.buttonStyle(.plain).accessibilityLabel(model.playback.isPlaying ? "Pause" : "Play recording")
-                    Button { model.playback.seek(model.playback.position + 10) } label: { Image(systemName: "goforward.10").font(.title2) }.buttonStyle(.plain).help("Forward 10 seconds")
+                    Button { model.playback.seek(model.playback.currentPosition + 10) } label: { Image(systemName: "goforward.10").font(.title2) }.buttonStyle(.plain).help("Forward 10 seconds")
                     Spacer()
                 }.disabled(model.isRecording || recording.duration == 0)
             }
@@ -199,16 +210,16 @@ struct RecordingDetail: View {
             guard let store = model.store else { return }
             peaks = await Self.readPeaks(recording, folder: store.folder(for: recording))
         }
-        .sheet(isPresented: $showingInfo) {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Recording Info").font(.title2.weight(.semibold))
-                LabeledContent("Duration", value: recording.formattedDuration)
-                LabeledContent("Created", value: recording.createdAt.formatted())
-                LabeledContent("Format", value: "Lossless PCM")
-                Button("Show Files in Finder") { model.reveal(recording) }
-                HStack { Spacer(); Button("Done") { showingInfo = false }.keyboardShortcut(.defaultAction) }
-            }.padding(28).frame(width: 380)
+        .onChange(of: renamingID, initial: true) { _, id in
+            if id == recording.id { editedTitle = recording.title; nameFocused = true }
         }
+        .onChange(of: nameFocused) { _, focused in if !focused { finishRename(save: true) } }
+        .onDisappear { finishRename(save: true) }
+    }
+    private func finishRename(save: Bool) {
+        guard renamingID == recording.id else { return }
+        renamingID = nil; nameFocused = false
+        if save { model.rename(recording, to: editedTitle) }
     }
     nonisolated static func readPeaks(_ recording: Recording, folder: URL) async -> [Float] {
         await Task.detached(priority: .utility) {
@@ -232,25 +243,57 @@ struct RecordingDetail: View {
 
 }
 
-private struct RenameRecordingView: View {
+private struct RecordingInfoView: View {
     @Environment(\.dismiss) private var dismiss
-    @State var title: String
-    @FocusState private var nameFocused: Bool
-    let onSave: (String) -> Void
+    let model: AppModel
+    let recording: Recording
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Rename Recording").font(.title2.weight(.semibold))
-            TextField("Name", text: $title).textFieldStyle(.roundedBorder).focused($nameFocused).onSubmit { save() }
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Save") { save() }.keyboardShortcut(.defaultAction).disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        }.padding(24).frame(width: 380).onAppear { nameFocused = true }
+            Text("Recording Info").font(.title2.weight(.semibold))
+            LabeledContent("Duration", value: recording.formattedDuration)
+            LabeledContent("Created", value: recording.createdAt.formatted())
+            LabeledContent("Format", value: "Lossless PCM")
+            Button("Show Files in Finder") { model.reveal(recording) }
+            HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
+        }.padding(28).frame(width: 380)
     }
-    private func save() {
-        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        onSave(title); dismiss()
+}
+
+private struct PlaybackTimelineView: View {
+    let playback: Playback
+    let peaks: [Float]
+    @State private var scrubbing = false
+    @State private var scrubPosition: TimeInterval = 0
+    @State private var resumeAfterScrubbing = false
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !playback.isPlaying)) { _ in
+            let position = scrubbing ? scrubPosition : playback.currentPosition
+            VStack(spacing: 24) {
+                WaveformView(peaks: peaks, progress: playback.duration > 0 ? position / playback.duration : 0).frame(height: 104)
+                VStack(spacing: 8) {
+                    Slider(value: Binding(get: { position }, set: { value in
+                        if scrubbing { scrubPosition = value } else { playback.seek(value) }
+                    }), in: 0...max(playback.duration, 0.01), onEditingChanged: { editing in
+                        if editing {
+                            guard !scrubbing else { return }
+                            scrubPosition = playback.currentPosition
+                            resumeAfterScrubbing = playback.isPlaying
+                            scrubbing = true
+                            playback.pause()
+                        } else {
+                            guard scrubbing else { return }
+                            playback.seek(scrubPosition)
+                            scrubbing = false
+                            if resumeAfterScrubbing && scrubPosition < playback.duration { playback.play() }
+                            resumeAfterScrubbing = false
+                        }
+                    }).accessibilityLabel("Playback position")
+                    HStack { Text(Recording.timeString(position)); Spacer(); Text(Recording.timeString(playback.duration)) }
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 }
 

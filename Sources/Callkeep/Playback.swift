@@ -15,6 +15,10 @@ final class Playback {
     private var started: TimeInterval = 0
     private var record: Recording?
     private var folder: URL?
+    var currentPosition: TimeInterval {
+        guard isPlaying else { return position }
+        return min(duration, basePosition + max(0, ProcessInfo.processInfo.systemUptime - started))
+    }
     func load(_ recording: Recording, folder: URL) throws {
         stop(); self.record = recording; self.folder = folder; duration = recording.duration
         for track in [recording.microphone, recording.systemAudio].compactMap({ $0 }) {
@@ -31,23 +35,34 @@ final class Playback {
     }
     func toggle() { isPlaying ? pause() : play() }
     func play() {
-        guard !players.isEmpty else { return }
+        guard !players.isEmpty, !isPlaying, duration > 0 else { return }
         if position >= duration { position = 0 }
-        basePosition = position; started = ProcessInfo.processInfo.systemUptime
+        // Keep the visual clock aligned with the scheduled audio start.
+        let delay = 0.05
+        basePosition = position; started = ProcessInfo.processInfo.systemUptime + delay
+        let deviceStart = players[0].0.deviceCurrentTime + delay
         for (player, track) in players {
             player.currentTime = max(0, position - track.startOffset)
-            if position < track.startOffset + track.duration { player.play(atTime: player.deviceCurrentTime + max(0, track.startOffset - position) + 0.05) }
+            if position < track.startOffset + track.duration { player.play(atTime: deviceStart + max(0, track.startOffset - position)) }
         }
         isPlaying = true
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        // Only completion needs polling; the timeline renders from the clock at display cadence.
+        timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.isPlaying else { return }
-                self.position = min(self.duration, self.basePosition + ProcessInfo.processInfo.systemUptime - self.started)
-                if self.position >= self.duration { self.pause() }
+                if self.currentPosition >= self.duration { self.pause() }
             }
         }
+        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
-    func pause() { players.forEach { $0.0.pause() }; timer?.invalidate(); timer = nil; isPlaying = false }
-    func seek(_ time: TimeInterval) { let resume = isPlaying; pause(); position = max(0, min(time, duration)); if resume { play() } }
+    func pause() {
+        position = currentPosition
+        players.forEach { $0.0.pause() }; timer?.invalidate(); timer = nil; isPlaying = false
+    }
+    func seek(_ time: TimeInterval) {
+        let resume = isPlaying
+        pause(); position = max(0, min(time, duration))
+        if resume && position < duration { play() }
+    }
     func stop() { pause(); players = []; position = 0; duration = 0 }
 }

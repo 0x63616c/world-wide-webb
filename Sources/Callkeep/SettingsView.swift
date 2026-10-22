@@ -7,51 +7,59 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 26) {
                 Text("Settings").font(.system(size: 24, weight: .semibold))
-
-                settingsSection("Keyboard Shortcut") {
-                    HStack(spacing: 10) {
-                        Text("Start / stop recording").frame(maxWidth: .infinity, alignment: .leading)
-                        ShortcutRecorder(shortcut: model.recordingShortcut, onChange: {
-                            model.recordingShortcut = $0; model.updateShortcut()
-                        }, onCaptureChanged: { model.suspendShortcut($0) })
-                            .frame(width: 138, height: 28).disabled(!model.shortcutEnabled)
-                        Button {
-                            model.recordingShortcut = .default; model.shortcutEnabled = true; model.updateShortcut()
-                        } label: { Image(systemName: "arrow.counterclockwise") }
-                            .buttonStyle(.borderless).frame(width: 24)
-                            .help("Reset to Default").accessibilityLabel("Reset shortcut to default")
-                            .disabled(model.recordingShortcut == .default && model.shortcutEnabled)
-                        Toggle("Keyboard shortcut", isOn: $model.shortcutEnabled).labelsHidden().toggleStyle(.switch).controlSize(.small)
-                            .onChange(of: model.shortcutEnabled) { model.updateShortcut() }
-                    }.frame(minHeight: 52)
-                    if let error = model.shortcutError {
-                        Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).padding(.bottom, 12)
+                section("Recording") {
+                    VStack(spacing: 0) {
+                        HStack(spacing: 12) {
+                            rowIcon("keyboard")
+                            Text("Shortcut").frame(maxWidth: .infinity, alignment: .leading)
+                            ShortcutRecorder(shortcut: model.recordingShortcut, onChange: {
+                                model.recordingShortcut = $0; model.updateShortcut()
+                            }, onCaptureChanged: { model.suspendShortcut($0) })
+                                .frame(width: 126, height: 28)
+                            Button {
+                                model.recordingShortcut = .default; model.updateShortcut()
+                            } label: { Image(systemName: "arrow.counterclockwise").frame(width: 20) }
+                                .buttonStyle(.borderless).help("Reset to Default").accessibilityLabel("Reset shortcut to default")
+                                .disabled(model.recordingShortcut == .default)
+                        }.frame(minHeight: 54).padding(.horizontal, 16)
+                        if let error = model.shortcutError {
+                            Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).padding([.horizontal, .bottom], 16)
+                        }
+                        Divider().padding(.leading, 48)
+                        HStack(spacing: 12) {
+                            rowIcon("folder")
+                            Text("Recordings Folder")
+                            Spacer()
+                            Button("Show in Finder") { if let root = model.store?.root { NSWorkspace.shared.open(root) } }
+                        }.frame(minHeight: 54).padding(.horizontal, 16)
                     }
                 }
-
-                settingsSection("Recording Access") {
-                    RecordingAccessView(permissions: model.permissions, recording: model.isRecording)
-                }
-
-                settingsSection("Storage") {
-                    HStack(spacing: 12) {
-                        Image(systemName: "folder").font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 24)
-                        Text("Recordings")
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Permissions").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Show in Finder") { if let root = model.store?.root { NSWorkspace.shared.open(root) } }
-                    }.frame(minHeight: 52)
+                        Menu("Manage…") {
+                            Button("Microphone…") { model.permissions.openSettings(for: .microphone) }
+                            Button("System Audio…") { model.permissions.openSettings(for: .systemAudio) }
+                        }.menuStyle(.borderlessButton).fixedSize().font(.callout).disabled(model.isRecording)
+                    }
+                    RecordingAccessView(permissions: model.permissions, recording: model.isRecording).modifier(SettingsSurface())
                 }
-
                 HStack {
                     Text("Callkeep \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1")")
                     Spacer()
                     Button("About Recording") { showingInfo = true }.buttonStyle(.link)
-                }.font(.callout).foregroundStyle(.secondary)
-            }.frame(maxWidth: 600).padding(28).frame(maxWidth: .infinity, alignment: .top)
+                }.font(.caption).foregroundStyle(.secondary)
+            }.frame(maxWidth: 560).padding(32).frame(maxWidth: .infinity, alignment: .top)
         }
-        .onAppear { model.permissions.refresh() }
+        .task {
+            while !Task.isCancelled {
+                model.permissions.refresh()
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.permissions.refresh() }
         .sheet(isPresented: $showingInfo) {
             VStack(alignment: .leading, spacing: 18) {
@@ -63,12 +71,20 @@ struct SettingsView: View {
             }.padding(26).frame(width: 380)
         }
     }
-
-    private func settingsSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).padding(.bottom, 8)
-            Divider()
-            content()
+    private func rowIcon(_ name: String) -> some View {
+        Image(systemName: name).font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 24)
+    }
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+            content().modifier(SettingsSurface())
         }
+    }
+}
+
+private struct SettingsSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background(.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
     }
 }

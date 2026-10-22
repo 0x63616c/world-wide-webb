@@ -14,6 +14,11 @@ struct CallkeepApp: App {
         .defaultSize(width: 1040, height: 690)
         .windowStyle(.titleBar)
         .commands {
+            CommandGroup(replacing: .sidebar) {
+                Button("Toggle Sidebar") {
+                    NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+                }.keyboardShortcut("b", modifiers: .command)
+            }
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") { model.showSettings() }.keyboardShortcut(",", modifiers: .command)
             }
@@ -48,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { sender.windows.first { $0.identifier?.rawValue == "library" }?.makeKeyAndOrderFront(nil) }
+        if !flag { model?.presentLibrary?() }
         return true
     }
 }

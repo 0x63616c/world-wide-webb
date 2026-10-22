@@ -12,9 +12,10 @@ A native macOS menu-bar recorder that keeps both sides of a call on your Mac.
 - Play each call as one recording.
 - Keep original, lossless audio for transcription later.
 - Recover interrupted recordings when reopening the app.
-- Record a custom keyboard shortcut, disable it, or reset to **HYPR R**.
+- Record a custom keyboard shortcut or reset to **HYPR R**.
 - Select multiple calls with Shift-click / Command-click, then move them to Trash.
 - Manage shortcuts and recording access in the main window, with aligned permission states and a draggable app icon when needed.
+- Toggle the sidebar with **Command–B**.
 
 Callkeep is a recorder. Transcription, live captions, automatic call detection, and per-app audio selection are future work.
 
@@ -42,12 +43,12 @@ A Developer ID signature alone is not notarization. Notarize a distribution buil
 ## First recording
 
 1. Open Callkeep and click **New recording**.
-2. In **Settings → Recording Access**, allow the microphone and choose **Check Access** for system audio. A brief sound checks capture without saving anything. **System Settings…** opens the relevant macOS pane; **App Missing?** reveals a draggable app icon.
+2. In **Settings → Permissions**, click **Enable** for any missing permission. Microphone access uses the macOS prompt. System audio opens the relevant System Settings pane with a floating helper: drag Callkeep into **System Audio Recording Only** if missing, then turn it on. Permission indicators update automatically.
 3. Click **New recording** again to start. The waveform shows incoming audio.
 4. Press **Hyper–R** or **Stop recording** to save.
-5. Select the recording in the library and play it. Rename with the pencil beside its title, the right-click menu, or Return with one recording selected. Use Shift-click / Command-click to select several, then the Trash button or Command–Delete to delete them together.
+5. Select the recording in the library and play it. Rename in place with the pencil beside its title, the right-click menu, or Return with one recording selected. Return saves; Escape cancels. Use Shift-click / Command-click to select several, then **… → Move to Trash** or Command–Delete to delete them together.
 
-Closing the library window keeps the recorder running in the menu bar. Quitting saves an active recording. No shortcut remapping tool is needed if you press all four modifiers yourself; an existing Caps Lock → Hyper mapping works too.
+Callkeep appears in the Dock and Command–Tab as well as the menu bar. Closing the library window keeps the recorder running; click its Dock icon to reopen it. Command–B toggles the sidebar. Quitting saves an active recording. No shortcut remapping tool is needed if you press all four modifiers yourself; an existing Caps Lock → Hyper mapping works too.
 
 ## What is recorded
 
@@ -78,7 +79,11 @@ Tests cover audio samples and timing, file reopening, metadata updates, interrup
 
 ## Permissions
 
-Microphone authorization is read from AVFoundation. Core Audio does not provide a public system-audio authorization status query. Callkeep verifies actual audio delivery instead of using private TCC APIs or claiming permission from silence. On later launches, the UI distinguishes **Verified before** from a fresh check. A denied permission, muted output, or silent source can require another check with audio playing. No audio from the permission check is saved. The app does not request Screen Recording or Accessibility access.
+Microphone authorization is read from AVFoundation. Core Audio does not provide a public system-audio authorization status query. For this local prototype, `SystemAudioAuthorization` optionally loads the private, read-only `TCCAccessPreflight` function for `kTCCServiceAudioCapture`, following the approach documented in [AudioCap](https://github.com/insidegui/AudioCap/blob/main/AudioCap/ProcessTap/AudioRecordingPermission.swift). Status checks do not capture audio, play a sound, or save files. They refresh while Settings or the setup helper is visible and when the app becomes active.
+
+This private status API is not suitable for an App Store build and may change in macOS. If unavailable or unrecognized, the UI shows a neutral state, never a cached green check. Recording remains available so the public Core Audio capture flow can request consent. Actual recording still uses public Core Audio APIs. The app does not request Screen Recording or Accessibility access.
+
+The floating helper is an independently implemented nonactivating AppKit panel with a native file-URL drag source. Its interaction was informed by [cmux's onboarding panel](https://github.com/manaflow-ai/cmux/blob/a84b7c278b5444820cff5b1f67addcf980f02b90/Sources/App/ComputerUseOnboardingWindowController.swift) and [drag source](https://github.com/manaflow-ai/cmux/blob/a84b7c278b5444820cff5b1f67addcf980f02b90/Sources/App/ComputerUseAppDragSourceView.swift). System Settings keeps focus during the drag. The helper dismisses after access is enabled or the observed Settings window closes.
 
 ## Architecture
 

@@ -9,7 +9,6 @@
 <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
 <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
 <key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-<key>LSUIElement</key><true/>
 <key>NSMicrophoneUsageDescription</key><string>Callkeep needs microphone access to record your voice during calls.</string>
 <key>NSAudioCaptureUsageDescription</key><string>Callkeep needs system audio access to record the people you hear.</string>
 <key>NSHighResolutionCapable</key><true/>

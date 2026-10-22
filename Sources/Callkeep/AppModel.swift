@@ -25,7 +25,6 @@ final class AppModel {
     var shortcutError: String?
     var search = ""
     var recordingShortcut = (UserDefaults.standard.data(forKey: "recordingShortcut").flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) }) ?? .default
-    var shortcutEnabled = UserDefaults.standard.object(forKey: "shortcutEnabled") as? Bool ?? true
     let playback = Playback()
     private(set) var store: RecordingStore?
     private let capture = AudioCapture()
@@ -48,12 +47,11 @@ final class AppModel {
         updateShortcut()
     }
     func suspendShortcut(_ suspended: Bool) {
-        _ = shortcut.register(shortcut: recordingShortcut, enabled: shortcutEnabled && !suspended)
+        _ = shortcut.register(shortcut: recordingShortcut, enabled: !suspended)
     }
     func updateShortcut() {
         UserDefaults.standard.set(try? JSONEncoder().encode(recordingShortcut), forKey: "recordingShortcut")
-        UserDefaults.standard.set(shortcutEnabled, forKey: "shortcutEnabled")
-        shortcutError = shortcut.register(shortcut: recordingShortcut, enabled: shortcutEnabled) ? nil : "That shortcut is already in use. Choose another key."
+        shortcutError = shortcut.register(shortcut: recordingShortcut, enabled: true) ? nil : "That shortcut is already in use. Choose another key."
     }
     func reload(recover: Bool = false) throws {
         recordings = try store?.load(recover: recover) ?? []
@@ -143,8 +141,8 @@ final class AppModel {
         catch { errorMessage = "Couldn’t play this recording: \(error.localizedDescription)" }
     }
     func rename(_ recording: Recording, to title: String) {
-        guard let store else { return }
-        var updated = recording
+        guard let store, recording.id != active?.id,
+              var updated = recordings.first(where: { $0.id == recording.id }) else { return }
         updated.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !updated.title.isEmpty else { return }
         do { try store.save(updated); try reload() } catch { errorMessage = error.localizedDescription }
@@ -152,6 +150,7 @@ final class AppModel {
     var selectedRecordings: [Recording] { recordings.filter { selectedIDs.contains($0.id) } }
     var canTrashSelection: Bool { !selectedIDs.isEmpty && !selectedIDs.contains(active?.id ?? UUID()) }
     func selectMany(_ ids: Set<UUID>) {
+        guard ids != selectedIDs || showingSettings else { return }
         // List may clear its selection while Settings takes focus.
         if !ids.isEmpty { showingSettings = false }
         playback.stop(); selectedIDs = ids

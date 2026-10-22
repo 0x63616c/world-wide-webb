@@ -9,7 +9,7 @@ struct RecordButton: View {
         }
         .buttonStyle(.borderedProminent).tint(model.isRecording ? .red : .accentColor)
         .disabled(model.isBusy || model.store == nil)
-        .help(model.shortcutEnabled ? "\(model.shortcutLabel) to start or stop" : "Record microphone and computer audio")
+        .help("\(model.shortcutLabel) to start or stop")
     }
 }
 
