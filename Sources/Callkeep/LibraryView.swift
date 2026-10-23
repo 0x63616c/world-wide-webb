@@ -154,7 +154,7 @@ struct LiveRecordingView: View {
         VStack(spacing: 38) {
             HStack(spacing: 8) { Circle().fill(.red).frame(width: 7, height: 7); Text("Recording").font(.callout).foregroundStyle(.secondary) }
             Text(Recording.timeString(model.elapsed)).font(.system(size: 64, weight: .light)).monospacedDigit()
-            WaveformView(peaks: model.levelHistory, progress: 1, live: true).frame(height: 90).padding(.horizontal, 30)
+            LiveWaveformView(samples: model.levelHistory).frame(height: 90).padding(.horizontal, 30)
             RecordButton(model: model).controlSize(.large)
         }.padding(40).frame(maxWidth: 650, maxHeight: .infinity)
     }
@@ -300,17 +300,56 @@ private struct PlaybackTimelineView: View {
 struct WaveformView: View {
     let peaks: [Float]
     let progress: Double
-    var live = false
     var body: some View {
         Canvas { context, size in
             let values = peaks.isEmpty ? Array(repeating: Float(0), count: 160) : peaks
-            let maximum = live ? 1 : max(values.max() ?? 0, 0.01)
+            let maximum = max(values.max() ?? 0, 0.01)
             let spacing = size.width / Double(values.count)
             for (index, peak) in values.enumerated() {
                 let height = max(3, Double(sqrt(min(peak / maximum, 1))) * size.height)
                 let rect = CGRect(x: Double(index) * spacing, y: (size.height - height) / 2, width: max(1, spacing - 2), height: height)
-                context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Double(index) / Double(values.count) <= progress ? (live ? .red : .accentColor) : .secondary.opacity(0.3)))
+                context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Double(index) / Double(values.count) <= progress ? .accentColor : .secondary.opacity(0.3)))
             }
-        }.accessibilityLabel(live ? "Live audio level" : "Recorded audio waveform")
+        }.accessibilityLabel("Recorded audio waveform")
+    }
+}
+
+
+struct LiveWaveformView: View {
+    let samples: [LevelSample]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion)) { _ in
+            let now = reduceMotion ? (samples.last?.time ?? 0) + 0.1 : ProcessInfo.processInfo.systemUptime
+            Canvas { context, size in
+                let spacing = size.width / 120
+                // A quiet baseline stays still; actual samples travel continuously
+                // by age rather than jumping one array index every 100 ms.
+                for index in 0..<120 {
+                    let dot = CGRect(x: Double(index) * spacing, y: size.height / 2 - 1.5, width: max(1, spacing - 2), height: 3)
+                    context.fill(Path(roundedRect: dot, cornerRadius: 2), with: .color(.red.opacity(0.3)))
+                }
+                if reduceMotion {
+                    let level = Double(min(max(samples.last?.level ?? 0, 0), 1))
+                    for index in -2...2 {
+                        let height = max(3, sqrt(level) * size.height * (1 - Double(abs(index)) * 0.2))
+                        let rect = CGRect(x: size.width / 2 + Double(index) * 6 - 2, y: (size.height - height) / 2, width: 4, height: height)
+                        context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(.red))
+                    }
+                }
+                for sample in reduceMotion ? [] : samples {
+                    guard sample.level > 0.001 else { continue }
+                    let age = max(0, now - sample.time)
+                    let entrance = min(1, age / 0.1)
+                    let eased = entrance * entrance * (3 - 2 * entrance)
+                    let x = size.width - age / 0.1 * spacing
+                    guard x > -spacing, x < size.width else { continue }
+                    let height = max(3, sqrt(Double(min(max(sample.level, 0), 1))) * size.height * eased)
+                    let rect = CGRect(x: x, y: (size.height - height) / 2, width: max(1, spacing - 2), height: height)
+                    context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(.red.opacity(eased)))
+                }
+            }.clipped()
+        }.accessibilityLabel("Live audio level")
     }
 }

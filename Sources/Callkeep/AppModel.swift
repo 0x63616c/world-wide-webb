@@ -14,7 +14,7 @@ final class AppModel {
         set { selectedIDs = newValue.map { [$0] } ?? [] }
     }
     let permissions = Permissions()
-    var levelHistory: [Float] = Array(repeating: 0, count: 120)
+    var levelHistory: [LevelSample] = []
     var active: Recording?
     var isBusy = false
     var elapsed: TimeInterval = 0
@@ -78,7 +78,7 @@ final class AppModel {
             let recording = Recording(title: "Recording \(next)")
             try store.save(recording)
             epoch = ProcessInfo.processInfo.systemUptime
-            levelHistory = Array(repeating: 0, count: 120)
+            levelHistory = []
             do { try capture.start(folder: store.folder(for: recording), epoch: epoch) }
             catch {
                 var interrupted = recording; interrupted.state = .interrupted; interrupted.note = error.localizedDescription
@@ -102,10 +102,14 @@ final class AppModel {
         guard var active else { return }
         elapsed = ProcessInfo.processInfo.systemUptime - epoch
         let mic = capture.microphone?.snapshot; let system = capture.system?.snapshot
-        micLevel = mic?.level ?? 0; systemLevel = system?.level ?? 0
-        levelHistory.append(max(micLevel, systemLevel)); levelHistory.removeFirst()
-        if elapsed > 2 && !capture.microphoneRunning { stopRecording(reason: "Microphone disconnected. Your recording was saved."); return }
-        if let error = mic?.error ?? system?.error { stopRecording(reason: error); return }
+        micLevel = capture.microphone?.takeLevel() ?? 0; systemLevel = capture.system?.takeLevel() ?? 0
+        levelHistory.append(LevelSample(time: ProcessInfo.processInfo.systemUptime, level: max(micLevel, systemLevel)))
+        if levelHistory.count > 122 { levelHistory.removeFirst(levelHistory.count - 122) }
+        if elapsed > 2 {
+            do { try capture.recoverMicrophoneIfNeeded() }
+            catch { stopRecording(reason: error.localizedDescription); return }
+        }
+        if let error = mic?.error ?? system?.error ?? capture.error { stopRecording(reason: error); return }
         if elapsed - checkpoint >= 5 {
             checkpoint = elapsed
             if AudioCapture.currentDeviceIDs != capture.deviceIDs {
@@ -123,6 +127,7 @@ final class AppModel {
         guard var recording = active else { return }
         isBusy = true; timer?.invalidate(); timer = nil
         let tracks = capture.stop()
+        let reason = reason ?? tracks.error
         recording.microphone = tracks.microphone; recording.systemAudio = tracks.system
         recording.duration = max(tracks.microphone.map { $0.startOffset + $0.duration } ?? 0, tracks.system.map { $0.startOffset + $0.duration } ?? 0)
         recording.state = reason == nil && tracks.microphone != nil && tracks.system != nil ? .saved : .interrupted

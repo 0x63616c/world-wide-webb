@@ -14,7 +14,7 @@ struct MenuPanel: View {
                     Text(Recording.timeString(model.elapsed)).font(.body.monospacedDigit())
                 }
             }
-            if model.isRecording { WaveformView(peaks: model.levelHistory, progress: 1, live: true).frame(height: 32) }
+            if model.isRecording { LiveWaveformView(samples: model.levelHistory).frame(height: 32) }
             HStack { RecordButton(model: model); Spacer(); Text(model.shortcutLabel).font(.caption.monospaced()).foregroundStyle(.secondary) }
             if let error = model.errorMessage { Text(error).font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
             Divider()

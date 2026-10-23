@@ -1,6 +1,12 @@
 import Foundation
 import AVFoundation
 
+public struct LevelSample: Sendable {
+    public let time: TimeInterval
+    public let level: Float
+    public init(time: TimeInterval, level: Float) { self.time = time; self.level = level }
+}
+
 public struct AudioTrack: Codable, Equatable, Sendable {
     public var file: String
     public var startOffset: TimeInterval

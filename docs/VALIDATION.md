@@ -1,8 +1,20 @@
-# Validation — 0.1.0
+# Validation — 0.1.1
 
 Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
 
-## Passed
+## Audio and live waveform fixes — 0.1.1
+
+- System capture now reads the aggregate device's actual input format, rather than assuming the tap description matches the callback. The aggregate contains only the tap, so a duplex output device cannot insert microphone channels ahead of system audio.
+- Microphone capture enables Apple's voice processing and automatic gain control, selects the processed uplink for mono storage, and retries a stopped engine after hardware format changes. This addresses the very quiet raw microphone-array behavior described in [Mozilla's investigation](https://bugzilla.mozilla.org/show_bug.cgi?id=1896938#c22). [Apple documents](https://developer.apple.com/documentation/avfaudio/avaudioengineconfigurationchangenotification) that channel-count/sample-rate changes can stop the engine.
+- New audio is converted to a stable 48 kHz format off the render callback. Converter latency is kept separate from actual missing input, and its tail is flushed without adding padding to recording duration.
+- 17 XCTest tests pass. Added regressions for 3,072-frame 44.1 kHz callbacks (continuous output, correct 440 Hz pitch and duration), format changes with a real gap, a 44.1→48→44.1 kHz format cycle, auxiliary-channel exclusion, and right-channel metering.
+- Live bars use timestamp-based positions rendered at up to 60 Hz, with a 100 ms entrance. Silent input keeps a stationary baseline; Reduce Motion uses a stationary meter. Both main-window and menu-bar waveforms share this renderer.
+- Inspected the native waveform with synthetic levels in a disposable preview. A separate agent reviewed the waveform and audio changes; its findings were addressed.
+- The tap-only aggregate was created and inspected on this Mac without starting an IO callback: Core Audio reported stereo 48 kHz input. No microphone or system-audio samples were captured by this probe.
+- Signed Release build succeeded; code-signature verification passed.
+- **Pending hardware validation:** the revised microphone/aggregate setup has not yet been exercised during a live FaceTime call. Unit tests establish sample conversion and timing, not real-device compatibility. The earlier live-capture result below applies to 0.1.0.
+
+## Earlier checks (0.1.0)
 
 - Debug build and 12 XCTest tests: sample integrity, offsets, silence-gap preservation, file reopen/rename, interrupted-session recovery, corrupt metadata isolation, write failures, format changes, shortcut storage/display, and system-audio authorization mapping including unavailable/unknown results.
 - Release build with Developer ID signing; `codesign --verify --deep --strict` passed.

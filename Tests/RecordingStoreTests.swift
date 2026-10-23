@@ -102,6 +102,122 @@ final class RecordingStoreTests: XCTestCase {
         try file.read(into: buffer)
         XCTAssertGreaterThan((0..<1000).map { abs(buffer.floatChannelData![0][$0]) }.max() ?? 0, 0.49)
     }
+    func test44100CaptureResamplesWithoutPeriodicSilentGapsOrPitchChange() throws {
+        let url = root.appendingPathComponent("resampled.caf")
+        let destination = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let source = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2))
+        let writer = TrackWriter(url: url, epoch: 100, format: destination)
+        // Reproduce the FaceTime callback size and rate that the old code
+        // mislabeled as 48 kHz, inserting 271/272 zero frames every callback.
+        for block in 0..<32 {
+            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: source, frameCapacity: 3072))
+            buffer.frameLength = 3072
+            for channel in 0..<2 {
+                for frame in 0..<3072 {
+                    buffer.floatChannelData![channel][frame] = 0.5 * sin(Float(block * 3072 + frame) * 2 * .pi * 440 / 44100)
+                }
+            }
+            writer.append(buffer, at: 100 + Double(block * 3072) / 44100)
+        }
+        let track = try XCTUnwrap(writer.finish())
+        XCTAssertNil(writer.snapshot.error)
+        XCTAssertEqual(track.sampleRate, 48000)
+        XCTAssertEqual(track.duration, Double(32 * 3072) / 44100, accuracy: 0.002)
+        let file = try AVAudioFile(forReading: url)
+        let audio = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: UInt32(file.length)))
+        try file.read(into: audio)
+        let data = audio.floatChannelData![0]
+        var silentRun = 0, longestSilence = 0, risingCrossings = 0
+        for frame in 200..<Int(audio.frameLength) - 200 {
+            silentRun = data[frame] == 0 ? silentRun + 1 : 0
+            longestSilence = max(longestSilence, silentRun)
+            if data[frame - 1] <= 0 && data[frame] > 0 { risingCrossings += 1 }
+        }
+        XCTAssertLessThan(longestSilence, 5)
+        let frequency = Double(risingCrossings) / (Double(Int(audio.frameLength) - 400) / 48000)
+        XCTAssertEqual(frequency, 440, accuracy: 1)
+    }
+
+    func testFormatChangeCanContinueInOneStableFile() throws {
+        let url = root.appendingPathComponent("reconfigured.caf")
+        let destination = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        let writer = TrackWriter(url: url, epoch: 100, format: destination)
+        writer.append(try tone(frames: 4800), at: 100)
+        let changedFormat = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1))
+        let changed = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: changedFormat, frameCapacity: 4410))
+        changed.frameLength = 4410
+        for frame in 0..<4410 { changed.floatChannelData![0][frame] = 0.25 }
+        writer.append(changed, at: 100.2)
+        let track = try XCTUnwrap(writer.finish())
+        XCTAssertNil(writer.snapshot.error)
+        XCTAssertEqual(track.channels, 1)
+        XCTAssertEqual(track.sampleRate, 48000)
+        XCTAssertEqual(track.duration, 0.3, accuracy: 0.002)
+        let file = try AVAudioFile(forReading: url)
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 100))
+        file.framePosition = 7000; try file.read(into: buffer)
+        XCTAssertEqual(buffer.floatChannelData![0][0], 0)
+        file.framePosition = 11000; try file.read(into: buffer)
+        XCTAssertEqual(buffer.floatChannelData![0][0], 0.25, accuracy: 0.001)
+    }
+
+    func testMeterIncludesRightChannelAndClearsBetweenSamples() throws {
+        let writer = TrackWriter(url: root.appendingPathComponent("stereo.caf"), epoch: 0)
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 100))
+        buffer.frameLength = 100
+        for frame in 0..<100 { buffer.floatChannelData![0][frame] = 0; buffer.floatChannelData![1][frame] = 0.75 }
+        writer.append(buffer, at: 0)
+        _ = writer.finish()
+        XCTAssertEqual(writer.takeLevel(), 0.75)
+        XCTAssertEqual(writer.takeLevel(), 0)
+    }
+
+    func testResamplerResetsAcrossPassThroughFormatCycle() throws {
+        let url = root.appendingPathComponent("cycle.caf")
+        let target = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        let writer = TrackWriter(url: url, epoch: 0, format: target)
+        for (index, rate) in [44100.0, 48000.0, 44100.0].enumerated() {
+            let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1))
+            let count = UInt32(rate / 10)
+            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: count))
+            buffer.frameLength = count
+            for frame in 0..<Int(count) { buffer.floatChannelData![0][frame] = index == 0 ? 0.5 : 0 }
+            writer.append(buffer, at: Double(index) * 0.1)
+        }
+        let track = try XCTUnwrap(writer.finish())
+        XCTAssertNil(writer.snapshot.error)
+        XCTAssertEqual(track.duration, 0.3, accuracy: 1 / 48000)
+        let file = try AVAudioFile(forReading: url)
+        file.framePosition = 9600
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4800))
+        try file.read(into: buffer)
+        XCTAssertEqual((0..<Int(buffer.frameLength)).map { abs(buffer.floatChannelData![0][$0]) }.max(), 0)
+    }
+
+    func testMonoUplinkDoesNotMixAuxiliaryChannelsIntoSpeech() throws {
+        let url = root.appendingPathComponent("uplink.caf")
+        let layout = try XCTUnwrap(AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_DiscreteInOrder | 3))
+        let source = AVAudioFormat(standardFormatWithSampleRate: 48000, channelLayout: layout)
+        let target = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
+        let writer = TrackWriter(url: url, epoch: 0, format: target, channelMap: [0])
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: source, frameCapacity: 4800))
+        buffer.frameLength = 4800
+        for frame in 0..<4800 {
+            buffer.floatChannelData![0][frame] = 0.25
+            buffer.floatChannelData![1][frame] = -0.75
+            buffer.floatChannelData![2][frame] = 0.9
+        }
+        writer.append(buffer, at: 0)
+        XCTAssertEqual(writer.finish()?.channels, 1)
+        let file = try AVAudioFile(forReading: url)
+        let result = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4800))
+        try file.read(into: result)
+        XCTAssertEqual(result.frameLength, 4800)
+        XCTAssertEqual(result.floatChannelData![0][2400], 0.25, accuracy: 0.0001)
+        XCTAssertNil(writer.snapshot.error)
+    }
+
     private func tone(frames: UInt32) throws -> AVAudioPCMBuffer {
         let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
         let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)); buffer.frameLength = frames
