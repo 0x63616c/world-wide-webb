@@ -14,15 +14,15 @@ struct SettingsView: View {
                         HStack(spacing: 12) {
                             rowIcon("keyboard")
                             Text("Shortcut").frame(maxWidth: .infinity, alignment: .leading)
-                            ShortcutRecorder(shortcut: model.recordingShortcut, onChange: {
-                                model.recordingShortcut = $0; model.updateShortcut()
-                            }, onCaptureChanged: { model.suspendShortcut($0) })
-                                .frame(width: 126, height: 28)
                             Button {
                                 model.recordingShortcut = .default; model.updateShortcut()
                             } label: { Image(systemName: "arrow.counterclockwise").frame(width: 20) }
                                 .buttonStyle(.borderless).help("Reset to Default").accessibilityLabel("Reset shortcut to default")
                                 .disabled(model.recordingShortcut == .default)
+                            ShortcutRecorder(shortcut: model.recordingShortcut, onChange: {
+                                model.recordingShortcut = $0; model.updateShortcut()
+                            }, onCaptureChanged: { model.suspendShortcut($0) })
+                                .frame(width: 126, height: 28)
                         }.frame(minHeight: 54).padding(.horizontal, 16)
                         if let error = model.shortcutError {
                             Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).padding([.horizontal, .bottom], 16)
