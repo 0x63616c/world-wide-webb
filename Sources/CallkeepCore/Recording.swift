@@ -3,8 +3,11 @@ import AVFoundation
 
 public struct LevelSample: Sendable {
     public let time: TimeInterval
-    public let level: Float
-    public init(time: TimeInterval, level: Float) { self.time = time; self.level = level }
+    public let microphone: Float
+    public let systemAudio: Float
+    public init(time: TimeInterval, microphone: Float, systemAudio: Float) {
+        self.time = time; self.microphone = microphone; self.systemAudio = systemAudio
+    }
 }
 
 public struct AudioTrack: Codable, Equatable, Sendable {
@@ -33,6 +36,13 @@ public struct Recording: Identifiable, Codable, Equatable, Sendable {
     public init(id: UUID = UUID(), title: String, createdAt: Date = .now) {
         self.id = id; self.title = title; self.createdAt = createdAt
         duration = 0; state = .recording
+    }
+    public var interruptionDetail: String? {
+        // Older releases mistook an engine configuration change for a disconnect.
+        if note == "Microphone disconnected. Your recording was saved." {
+            return "The microphone input stopped. Audio captured before the interruption was saved."
+        }
+        return note
     }
     public var formattedDuration: String { Self.timeString(duration) }
     public static func timeString(_ duration: TimeInterval) -> String {

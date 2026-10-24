@@ -18,7 +18,7 @@ struct LibraryView: View {
                             Button("Rename") {
                                 if model.selectedID != recording.id { model.select(recording.id) }
                                 renamingID = recording.id
-                            }.disabled(recording.id == model.active?.id)
+                            }
                             Button("Show in Finder") { model.reveal(recording) }
                             Divider()
                             Button("Move to Trash…", role: .destructive) {
@@ -43,7 +43,7 @@ struct LibraryView: View {
             }
             .onDeleteCommand { if model.canTrashSelection { deleting = true } }
             .onKeyPress(.return) {
-                guard let recording = model.selected, recording.id != model.active?.id, !model.showingSettings else { return .ignored }
+                guard let recording = model.selected, !model.showingSettings else { return .ignored }
                 renamingID = recording.id; return .handled
             }
             .onCommand(#selector(NSResponder.selectAll(_:))) { model.selectMany(Set(model.filtered.map(\.id))) }
@@ -71,7 +71,7 @@ struct LibraryView: View {
                         Text("\(model.selectedIDs.count) Recordings").font(.title2.weight(.medium))
                         Button("Move to Trash…", role: .destructive) { deleting = true }.disabled(!model.canTrashSelection)
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if model.isRecording, model.selectedID == model.active?.id { LiveRecordingView(model: model) }
+                } else if model.isRecording, model.selectedID == model.active?.id { LiveRecordingView(model: model, renamingID: $renamingID) }
                 else if let recording = model.selected { RecordingDetail(model: model, recording: recording, renamingID: $renamingID).id(recording.id) }
                 else { EmptyLibraryView(model: model) }
             }
@@ -83,7 +83,7 @@ struct LibraryView: View {
                     if !model.showingSettings {
                         Menu {
                             if let recording = model.selected {
-                                Button("Rename") { renamingID = recording.id }.disabled(recording.id == model.active?.id)
+                                Button("Rename") { renamingID = recording.id }
                                 Button("Show in Finder") { model.reveal(recording) }
                                 Button("Recording Info") { showingInfo = recording }
                                 Divider()
@@ -130,7 +130,7 @@ struct RecordingRow: View {
             HStack(spacing: 8) {
                 Text(recording.createdAt, format: .dateTime.month(.abbreviated).day())
                 Spacer(minLength: 8)
-                if recording.state == .interrupted { Image(systemName: "exclamationmark.circle") }
+                if recording.state == .interrupted { Image(systemName: "exclamationmark.circle").help("Recording interrupted").accessibilityLabel("Recording interrupted") }
                 Text(live ? "Recording" : recording.formattedDuration).monospacedDigit()
             }.font(.caption).foregroundStyle(.secondary)
         }.padding(.horizontal, 6).padding(.vertical, 8).accessibilityElement(children: .combine)
@@ -150,13 +150,62 @@ struct EmptyLibraryView: View {
 
 struct LiveRecordingView: View {
     @Bindable var model: AppModel
+    @Binding var renamingID: UUID?
     var body: some View {
-        VStack(spacing: 38) {
-            HStack(spacing: 8) { Circle().fill(.red).frame(width: 7, height: 7); Text("Recording").font(.callout).foregroundStyle(.secondary) }
+        VStack(spacing: 24) {
+            if let recording = model.active {
+                HStack(spacing: 10) {
+                    Circle().fill(.red).frame(width: 7, height: 7).accessibilityLabel("Recording")
+                    RecordingTitleView(model: model, recording: recording, renamingID: $renamingID,
+                                       font: .system(size: 22, weight: .semibold), alignment: .center)
+                }.frame(maxWidth: 500)
+            }
             Text(Recording.timeString(model.elapsed)).font(.system(size: 64, weight: .light)).monospacedDigit()
-            LiveWaveformView(samples: model.levelHistory).frame(height: 90).padding(.horizontal, 30)
+            VStack(spacing: 16) {
+                WaveformLegend()
+                LiveWaveformView(samples: model.levelHistory).frame(height: 126)
+            }
             RecordButton(model: model).controlSize(.large)
-        }.padding(40).frame(maxWidth: 650, maxHeight: .infinity)
+        }.padding(32).frame(maxWidth: 850, maxHeight: .infinity)
+    }
+}
+
+/// Shared editor keeps the same Return/Escape and focus behavior during and after a call.
+struct RecordingTitleView: View {
+    let model: AppModel
+    let recording: Recording
+    @Binding var renamingID: UUID?
+    var font: Font = .system(size: 27, weight: .semibold)
+    var alignment: TextAlignment = .leading
+    @State private var editedTitle = ""
+    @FocusState private var nameFocused: Bool
+    var body: some View {
+        HStack(spacing: 10) {
+            if renamingID == recording.id {
+                TextField("Recording name", text: $editedTitle)
+                    .textFieldStyle(.plain).font(font).multilineTextAlignment(alignment)
+                    .focused($nameFocused).onSubmit { finishRename(save: true) }
+                    .onExitCommand { finishRename(save: false) }
+                    .accessibilityLabel("Recording name")
+            } else {
+                Text(recording.title).font(font).lineLimit(2).multilineTextAlignment(alignment)
+                    .onTapGesture(count: 2) { renamingID = recording.id }
+                Button { renamingID = recording.id } label: {
+                    Image(systemName: "pencil").font(.system(size: 14)).foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28).contentShape(Rectangle())
+                }.buttonStyle(.plain).help("Rename Recording").accessibilityLabel("Rename recording")
+            }
+        }
+        .onChange(of: renamingID, initial: true) { _, id in
+            if id == recording.id { editedTitle = recording.title; nameFocused = true }
+        }
+        .onChange(of: nameFocused) { _, focused in if !focused { finishRename(save: true) } }
+        .onDisappear { finishRename(save: true) }
+    }
+    private func finishRename(save: Bool) {
+        guard renamingID == recording.id else { return }
+        renamingID = nil; nameFocused = false
+        if save { model.rename(recording, to: editedTitle) }
     }
 }
 
@@ -165,26 +214,11 @@ struct RecordingDetail: View {
     let recording: Recording
     @Binding var renamingID: UUID?
     @State private var peaks: [Float] = []
-    @State private var editedTitle = ""
-    @FocusState private var nameFocused: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 10) {
-                        if renamingID == recording.id {
-                            TextField("Recording name", text: $editedTitle)
-                                .textFieldStyle(.plain).font(.system(size: 27, weight: .semibold))
-                                .focused($nameFocused).onSubmit { finishRename(save: true) }
-                                .onExitCommand { finishRename(save: false) }
-                                .accessibilityLabel("Recording name")
-                        } else {
-                            Text(recording.title).font(.system(size: 27, weight: .semibold)).lineLimit(2)
-                                .onTapGesture(count: 2) { renamingID = recording.id }
-                            Button { renamingID = recording.id } label: { Image(systemName: "pencil").font(.system(size: 14)).foregroundStyle(.secondary).frame(width: 28, height: 28).contentShape(Rectangle()) }
-                                .buttonStyle(.plain).help("Rename Recording").accessibilityLabel("Rename recording")
-                        }
-                    }
+                    RecordingTitleView(model: model, recording: recording, renamingID: $renamingID)
                     Text(recording.createdAt, format: .dateTime.month(.wide).day().year().hour().minute()).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
@@ -204,22 +238,11 @@ struct RecordingDetail: View {
                 }.disabled(model.isRecording || recording.duration == 0)
             }
             Spacer(minLength: 12)
-            if let note = recording.note { Label(note, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.secondary) }
         }.padding(40).frame(maxWidth: 850, maxHeight: .infinity)
         .task(id: recording.id) {
             guard let store = model.store else { return }
             peaks = await Self.readPeaks(recording, folder: store.folder(for: recording))
         }
-        .onChange(of: renamingID, initial: true) { _, id in
-            if id == recording.id { editedTitle = recording.title; nameFocused = true }
-        }
-        .onChange(of: nameFocused) { _, focused in if !focused { finishRename(save: true) } }
-        .onDisappear { finishRename(save: true) }
-    }
-    private func finishRename(save: Bool) {
-        guard renamingID == recording.id else { return }
-        renamingID = nil; nameFocused = false
-        if save { model.rename(recording, to: editedTitle) }
     }
     nonisolated static func readPeaks(_ recording: Recording, folder: URL) async -> [Float] {
         await Task.detached(priority: .utility) {
@@ -253,6 +276,12 @@ private struct RecordingInfoView: View {
             LabeledContent("Duration", value: recording.formattedDuration)
             LabeledContent("Created", value: recording.createdAt.formatted())
             LabeledContent("Format", value: "Lossless PCM")
+            if let detail = recording.interruptionDetail {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Interrupted", systemImage: "exclamationmark.circle").font(.callout.weight(.medium))
+                    Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
             Button("Show Files in Finder") { model.reveal(recording) }
             HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
         }.padding(28).frame(width: 380)
@@ -311,45 +340,5 @@ struct WaveformView: View {
                 context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Double(index) / Double(values.count) <= progress ? .accentColor : .secondary.opacity(0.3)))
             }
         }.accessibilityLabel("Recorded audio waveform")
-    }
-}
-
-
-struct LiveWaveformView: View {
-    let samples: [LevelSample]
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: reduceMotion)) { _ in
-            let now = reduceMotion ? (samples.last?.time ?? 0) + 0.1 : ProcessInfo.processInfo.systemUptime
-            Canvas { context, size in
-                let spacing = size.width / 120
-                // A quiet baseline stays still; actual samples travel continuously
-                // by age rather than jumping one array index every 100 ms.
-                for index in 0..<120 {
-                    let dot = CGRect(x: Double(index) * spacing, y: size.height / 2 - 1.5, width: max(1, spacing - 2), height: 3)
-                    context.fill(Path(roundedRect: dot, cornerRadius: 2), with: .color(.red.opacity(0.3)))
-                }
-                if reduceMotion {
-                    let level = Double(min(max(samples.last?.level ?? 0, 0), 1))
-                    for index in -2...2 {
-                        let height = max(3, sqrt(level) * size.height * (1 - Double(abs(index)) * 0.2))
-                        let rect = CGRect(x: size.width / 2 + Double(index) * 6 - 2, y: (size.height - height) / 2, width: 4, height: height)
-                        context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(.red))
-                    }
-                }
-                for sample in reduceMotion ? [] : samples {
-                    guard sample.level > 0.001 else { continue }
-                    let age = max(0, now - sample.time)
-                    let entrance = min(1, age / 0.1)
-                    let eased = entrance * entrance * (3 - 2 * entrance)
-                    let x = size.width - age / 0.1 * spacing
-                    guard x > -spacing, x < size.width else { continue }
-                    let height = max(3, sqrt(Double(min(max(sample.level, 0), 1))) * size.height * eased)
-                    let rect = CGRect(x: x, y: (size.height - height) / 2, width: max(1, spacing - 2), height: height)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(.red.opacity(eased)))
-                }
-            }.clipped()
-        }.accessibilityLabel("Live audio level")
     }
 }

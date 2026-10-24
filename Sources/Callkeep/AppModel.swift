@@ -103,7 +103,7 @@ final class AppModel {
         elapsed = ProcessInfo.processInfo.systemUptime - epoch
         let mic = capture.microphone?.snapshot; let system = capture.system?.snapshot
         micLevel = capture.microphone?.takeLevel() ?? 0; systemLevel = capture.system?.takeLevel() ?? 0
-        levelHistory.append(LevelSample(time: ProcessInfo.processInfo.systemUptime, level: max(micLevel, systemLevel)))
+        levelHistory.append(LevelSample(time: ProcessInfo.processInfo.systemUptime, microphone: micLevel, systemAudio: systemLevel))
         if levelHistory.count > 122 { levelHistory.removeFirst(levelHistory.count - 122) }
         if elapsed > 2 {
             do { try capture.recoverMicrophoneIfNeeded() }
@@ -120,6 +120,7 @@ final class AppModel {
                 active.duration = elapsed
                 active.microphone = capture.microphone?.track; active.systemAudio = capture.system?.track
                 try store?.save(active)
+                self.active = active
             } catch { stopRecording(reason: error.localizedDescription) }
         }
     }
@@ -146,11 +147,18 @@ final class AppModel {
         catch { errorMessage = "Couldn’t play this recording: \(error.localizedDescription)" }
     }
     func rename(_ recording: Recording, to title: String) {
-        guard let store, recording.id != active?.id,
-              var updated = recordings.first(where: { $0.id == recording.id }) else { return }
+        guard let store, let index = recordings.firstIndex(where: { $0.id == recording.id }) else { return }
+        var updated = recordings[index]
+        if let active, active.id == recording.id { updated = active }
         updated.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !updated.title.isEmpty else { return }
-        do { try store.save(updated); try reload() } catch { errorMessage = error.localizedDescription }
+        do {
+            try store.save(updated)
+            // The live session is the source for checkpoints and the final save.
+            // Updating only the library would revert the name on the next save.
+            if active?.id == updated.id { active = updated }
+            recordings[index] = updated
+        } catch { errorMessage = error.localizedDescription }
     }
     var selectedRecordings: [Recording] { recordings.filter { selectedIDs.contains($0.id) } }
     var canTrashSelection: Bool { !selectedIDs.isEmpty && !selectedIDs.contains(active?.id ?? UUID()) }

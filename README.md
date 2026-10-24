@@ -15,11 +15,14 @@ Callkeep captures your microphone and the audio playing on your Mac. It works al
 
 - Start or stop from the menu bar, the app, or a keyboard shortcut.
 - Browse and search your recordings, then replay them with a smooth, seekable timeline.
-- Rename a call in place. Select several with Shift-click or Command-click and move them to Trash together.
+- Watch your voice and call audio together in a smooth, two-color waveform.
+- Rename a call in place, including while recording. Select several with Shift-click or Command-click and move them to Trash together.
 - Keep lossless audio locally, ready for transcription later.
 - See permission status automatically, with guided setup when access is missing.
 
 Transcription and live captions are not included in this version.
+
+![Live recording with separate voice and call-audio colors](docs/images/recording.jpg)
 
 <table>
   <tr>

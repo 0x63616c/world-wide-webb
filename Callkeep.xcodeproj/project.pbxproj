@@ -11,6 +11,7 @@
 		04098BB31D579A50FC6BDCC8 /* CallkeepApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7542DA656FBC47BB0CA9002B /* CallkeepApp.swift */; };
 		047DA84D0009F06D887ED7D5 /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69752A40FF5626FDEA8FF563 /* AudioCapture.swift */; };
 		0FAE31E232ECAC6B157A3BB2 /* PermissionCompanion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92D25477D52AAA4AABE6EBE1 /* PermissionCompanion.swift */; };
+		0FB828C1A749DB7114F96BA5 /* LiveWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4847AE4847619A6601673247 /* LiveWaveformView.swift */; };
 		1360CD0D7D9C91FC3C8D8C15 /* Playback.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7229F5A66E86168A9CEF3F2 /* Playback.swift */; };
 		1EAD69EAF52EFB82186BFA5D /* GlobalShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112C11C04737DF2A43C9DB94 /* GlobalShortcut.swift */; };
 		2704E853662A7829B290F94C /* CallkeepCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A090D9242A6FE8C3DD86B606 /* CallkeepCore.framework */; };
@@ -86,6 +87,7 @@
 		25FD9BD4C466BDD0E45AB8C5 /* Callkeep.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Callkeep.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30990E66EDCEC08168227223 /* Shortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcut.swift; sourceTree = "<group>"; };
 		375F5EECFD9623DA6E597C6A /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		4847AE4847619A6601673247 /* LiveWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWaveformView.swift; sourceTree = "<group>"; };
 		60BA2C81057F45CB6466C6F8 /* Callkeep.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Callkeep.entitlements; sourceTree = "<group>"; };
 		69752A40FF5626FDEA8FF563 /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
 		6DB795ADE05522CE5797AB66 /* MenuPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuPanel.swift; sourceTree = "<group>"; };
@@ -158,6 +160,7 @@
 				A18387A524ED8CB20F841FA1 /* Components.swift */,
 				112C11C04737DF2A43C9DB94 /* GlobalShortcut.swift */,
 				375F5EECFD9623DA6E597C6A /* LibraryView.swift */,
+				4847AE4847619A6601673247 /* LiveWaveformView.swift */,
 				6DB795ADE05522CE5797AB66 /* MenuPanel.swift */,
 				92D25477D52AAA4AABE6EBE1 /* PermissionCompanion.swift */,
 				22EA22B4247390EC38DACF88 /* Permissions.swift */,
@@ -346,6 +349,7 @@
 				CE12071C3C08D0A41386E038 /* Components.swift in Sources */,
 				1EAD69EAF52EFB82186BFA5D /* GlobalShortcut.swift in Sources */,
 				B11B031B338A4391DF91B75F /* LibraryView.swift in Sources */,
+				0FB828C1A749DB7114F96BA5 /* LiveWaveformView.swift in Sources */,
 				E3E20D894F9B439E9B5DAA62 /* MenuPanel.swift in Sources */,
 				0FAE31E232ECAC6B157A3BB2 /* PermissionCompanion.swift in Sources */,
 				ED36662D11F574E44B72984A /* Permissions.swift in Sources */,

@@ -9,6 +9,14 @@
 - Changes to the microphone engine’s format are retried automatically, preserving the pause on the recording timeline. Changing the default input/output devices or putting the Mac to sleep stops and saves the recording, rather than silently recording from a different source. Restart after changing devices.
 - Playback inside Callkeep is disabled during recording to avoid recording its own playback.
 
+## During a recording
+
+The live waveform overlays your microphone in purple and computer audio in teal. Both use the same timeline; overlapping activity blends together. The colors identify audio sources, not individual remote speakers.
+
+Click the recording title’s pencil to rename it without stopping. Return saves, Escape cancels, and leaving the field saves the edit. The name is kept through checkpoints and the final save.
+
+Interrupted recordings have a small indicator in the library. Open **Recording actions → Recording Info** for the reason. New recording failures still appear as a dismissible alert.
+
 ## Files
 
 `~/Library/Application Support/Callkeep/Recordings/<recording UUID>/`

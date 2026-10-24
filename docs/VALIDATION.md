@@ -1,6 +1,17 @@
-# Validation — 0.1.1
+# Validation — 0.1.2
 
 Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
+
+## Live waveform and renaming — 0.1.2
+
+- Independent microphone and system-audio levels now feed the same shared renderer in the main window and menu bar: purple for You, teal for Call audio, with blended overlap. Source values are sampled together and retain the existing smooth timestamp-based movement and Reduce Motion behavior.
+- All 17 XCTest tests passed after these changes.
+- Exercised the actual app views and recording lifecycle in a separate preview build with an isolated library and an audio-capture replacement that generates PCM. No microphone or system-audio device was opened. The README recording screenshot comes from this preview.
+- Renamed while recording, observed the title in both the live view and sidebar, then inspected an on-disk checkpoint after 15 seconds: the new name and both audio tracks were retained. Escape discarded another edit. Clicking Stop with an unsubmitted name saved the latest edit; both audio tracks and the final name persisted after restarting the preview.
+- Historical interruption notes no longer occupy the player. A synthetic interrupted fixture reopened with its sidebar indicator and a clean player; its detail is available in Recording Info. Legacy “Microphone disconnected” wording is displayed as “The microphone input stopped” without rewriting stored notes.
+- A separate agent reviewed the changes and rendered preview; no material blockers remained.
+- Release 0.1.2 (build 3) built with Developer ID signing; code-signature verification passed before and after packaging. The updated app reopened the existing library with the historical note removed from the player.
+- Live FaceTime validation of the 0.1.1 audio-capture fix is still pending. This iteration validates the UI and generated-audio lifecycle, not real microphone quality.
 
 ## Audio and live waveform fixes — 0.1.1
 
