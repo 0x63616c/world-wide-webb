@@ -67,7 +67,7 @@ describe("serviceSpecs image digest pinning", () => {
 
   test("the upstream cloudflared image is never digest-pinned by this map", () => {
     const specs = specsWith();
-    expect(imageOf(specs, "cloudflare-cloudflared")).toBe("cloudflare/cloudflared:2025.10.1");
+    expect(imageOf(specs, "cloudflare-cloudflared")).toBe("cloudflare/cloudflared:2026.10.3");
   });
 
   test("rejects old component-only digest keys to prevent product collisions", () => {

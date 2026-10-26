@@ -138,7 +138,7 @@ describe("renderWorkload", () => {
   test("replicas are honored (cloudflared HA = 2)", () => {
     const cf: WorkloadSpec = {
       name: "cloudflared",
-      image: "cloudflare/cloudflared:2025.10.1",
+      image: "cloudflare/cloudflared:2026.10.3",
       replicas: 2,
     };
     expect(renderWorkload(cf).deployment.spec.replicas).toBe(2);
