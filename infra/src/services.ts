@@ -400,7 +400,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       legacyLogicalName: "platform-cloudflared",
       name: "cloudflared",
       namespaceName: "cloudflare",
-      image: "cloudflare/cloudflared:2025.10.1",
+      image: "cloudflare/cloudflared:2026.10.3",
       replicas: cloudflaredReplicas, // HA (2) at cutover; 0 pre-cutover so it
       // does not hold the live tunnel token alongside Swarm (www-j934.9 / §7).
       resources: { memory: "128M", reserveCpus: "0.25" },
