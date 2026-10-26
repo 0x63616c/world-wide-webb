@@ -5,7 +5,7 @@
 # worker imports domain cycles from generated App facets and API-owned migration/
 # queue infrastructure, so this stage needs both source trees; bun bundles the
 # runtime image ships no node_modules and no build toolchain (www-xjba).
-FROM oven/bun:1.2-alpine AS build
+FROM oven/bun:1.4-alpine AS build
 
 WORKDIR /app
 
@@ -48,7 +48,7 @@ RUN cd apps/worker && bun build src/index.ts --target=bun --outfile ../../dist/w
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
 # The bundle and SQL migration files ship with the Bun runtime; Alpine keeps a
 # shell for on-box debugging.
-FROM oven/bun:1.2-alpine AS runtime
+FROM oven/bun:1.4-alpine AS runtime
 
 WORKDIR /app
 
