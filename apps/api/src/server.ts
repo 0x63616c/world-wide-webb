@@ -93,6 +93,7 @@ const CORS_HEADERS: Record<string, string> = {
 function routeLabel(method: string, pathname: string): string {
   if (pathname.startsWith("/trpc")) return "/trpc";
   if (pathname === "/up") return "/up";
+  if (pathname === "/healthz") return "/healthz";
   return findRoute(GENERATED_ROUTES, method, pathname)?.path ?? "other";
 }
 
@@ -110,6 +111,19 @@ async function handle(req: Request, url: URL): Promise<Response> {
     const res = await route.handler(req, url);
     for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
     return res;
+  }
+
+  // Liveness/readiness target: proves the DB pool can still hand out a working
+  // connection. A wedged pool fails this, so Kubernetes restarts the pod
+  // instead of nginx returning 502s for hours.
+  if (url.pathname === "/healthz") {
+    try {
+      await db.$client.query("SELECT 1");
+      return new Response("OK", { status: 200, headers: CORS_HEADERS });
+    } catch (err) {
+      log.error({ err }, "healthz: database check failed");
+      return new Response("database unavailable", { status: 503, headers: CORS_HEADERS });
+    }
   }
 
   if (url.pathname === "/up") {
