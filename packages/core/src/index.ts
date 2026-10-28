@@ -17,4 +17,5 @@ export * from "./integration-sync/pg";
 export * from "./integration-sync/schema";
 export * from "./integration-sync/store";
 export * from "./lights";
+export * from "./media-guard";
 export * from "./media-path";

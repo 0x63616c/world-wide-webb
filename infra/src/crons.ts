@@ -16,18 +16,102 @@
 // which renders the k8s CronJob with one-shot semantics (Forbid + Never). The
 // pure declaration lives here; the Pulumi instantiation is the thin wrapper.
 
-import type * as k8s from "@pulumi/kubernetes";
+import * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
 import { controlCenterProductManifest, type DatabaseBackup } from "@www/platform";
 import type { InfraNamespaceName } from "./cluster.ts";
-import type { CronJobSpec } from "./component.ts";
+import type { CronJobSpec, VolumeSpec } from "./component.ts";
 import { ScheduledJob } from "./component.ts";
 
 export type OwnedCronJobSpec = CronJobSpec & { namespaceName: InfraNamespaceName };
 
 const TZ = "America/Los_Angeles";
 
-function postgresBackupCommand(backup: DatabaseBackup): string[] {
+/**
+ * Wall-clock cap on one backup Job (#790, #793). A pod that can't mount its
+ * target (the NAS offline) used to sit in ContainerCreating for 11 days, and
+ * under concurrencyPolicy: Forbid that one wedged run blocked every later run.
+ * With a deadline the Job fails after 30 minutes, kube-controller-manager
+ * deletes its pod, and the next scheduled run gets a fresh attempt. A healthy
+ * dump takes well under a minute.
+ */
+export const PG_BACKUP_ACTIVE_DEADLINE_SECONDS = 1800;
+
+/**
+ * Local fallback target for pg-backups while the NAS is switched off
+ * (wwwinfra:nasEnabled=false, #793). A local-lvm PVC on the node SSD, one per
+ * backup namespace. It sits on the same disk as the database, so it guards
+ * against logical damage (a bad migration, a dropped table), not disk loss.
+ * Copy the dumps to the NAS once it is back.
+ */
+export const PG_BACKUP_FALLBACK_CLAIM = "pg-backup-fallback";
+export const PG_BACKUP_FALLBACK_SIZE = "5Gi";
+/** Fallback dumps older than this many days are pruned, so the PVC can't fill. */
+const PG_BACKUP_FALLBACK_KEEP_DAYS = 3;
+
+/** Where the NAS is and whether to mount it at all. */
+export interface NasTarget {
+  server: string;
+  /** false while the NAS is down: back up to the local fallback PVC instead. */
+  enabled: boolean;
+}
+
+function backupVolume(
+  nas: NasTarget,
+  mountPath: string,
+  nasExportPath: string,
+  nasSubPath: string,
+): VolumeSpec {
+  const nfsVolume: VolumeSpec = {
+    mountPath,
+    nfs: { server: nas.server, path: nasExportPath },
+    subPath: nasSubPath,
+  };
+  // NAS off: detached keeps the NFS PV/PVC declared (a pod wedged on the dead
+  // mount still pins that PVC, so deleting it would hang the deploy) and mounts
+  // the local fallback claim instead.
+  return nas.enabled
+    ? nfsVolume
+    : { ...nfsVolume, detached: true, claim: PG_BACKUP_FALLBACK_CLAIM };
+}
+
+/** Prune line appended to the dump script in fallback mode only. */
+function fallbackPrune(nas: NasTarget, mountPath: string): string[] {
+  if (nas.enabled) return [];
+  return [
+    `find ${mountPath} -maxdepth 1 -name '*.sql.gz' -mtime +${PG_BACKUP_FALLBACK_KEEP_DAYS - 1} -delete`,
+  ];
+}
+
+/**
+ * @public - the local-lvm fallback PVC a backup CronJob mounts while the NAS is
+ * switched off. skipAwait: local-lvm is WaitForFirstConsumer, so the claim stays
+ * Pending until the next scheduled run, and an awaited apply would hang on it.
+ */
+export function pgBackupFallbackClaim(
+  namespace: pulumi.Input<string>,
+  logicalName: string,
+  opts: pulumi.CustomResourceOptions,
+): k8s.core.v1.PersistentVolumeClaim {
+  return new k8s.core.v1.PersistentVolumeClaim(
+    logicalName,
+    {
+      metadata: {
+        name: PG_BACKUP_FALLBACK_CLAIM,
+        namespace,
+        annotations: { "pulumi.com/skipAwait": "true" },
+      },
+      spec: {
+        accessModes: ["ReadWriteOnce"],
+        storageClassName: "local-lvm",
+        resources: { requests: { storage: PG_BACKUP_FALLBACK_SIZE } },
+      },
+    },
+    opts,
+  );
+}
+
+function postgresBackupCommand(backup: DatabaseBackup, nas: NasTarget): string[] {
   return [
     // bash, NOT sh: the image's /bin/sh is dash, which lacks `set -o pipefail`
     // (the cloudnative-pg image is Debian-based and ships bash).
@@ -44,6 +128,7 @@ function postgresBackupCommand(backup: DatabaseBackup): string[] {
       `out="${backup.backupMountPath}/${backup.filenamePrefix}$(date +${backup.dateFormat}).sql.gz"`,
       `pg_dump -h ${backup.serviceHost} -U ${backup.owner} -d ${backup.databaseName} | gzip -c > "$out"`,
       'echo "wrote $out"',
+      ...fallbackPrune(nas, backup.backupMountPath),
     ].join("\n"),
   ];
 }
@@ -55,7 +140,9 @@ function postgresBackupCommand(backup: DatabaseBackup): string[] {
 export function postgresBackupCronSpec(
   backup: DatabaseBackup,
   nasNfsServer: string,
+  nasEnabled = true,
 ): OwnedCronJobSpec {
+  const nas: NasTarget = { server: nasNfsServer, enabled: nasEnabled };
   return {
     name: backup.name,
     // This adapter stays generic over any product's backup — the real deploy
@@ -63,16 +150,11 @@ export function postgresBackupCronSpec(
     namespaceName: backup.product,
     image: backup.image,
     schedule: backup.schedule,
-    command: postgresBackupCommand(backup),
+    command: postgresBackupCommand(backup, nas),
     env: { TZ },
+    activeDeadlineSeconds: PG_BACKUP_ACTIVE_DEADLINE_SECONDS,
     extraSecretMounts: [{ secretName: backup.authSecretName, mountPath: backup.authMountPath }],
-    volumes: [
-      {
-        mountPath: backup.backupMountPath,
-        nfs: { server: nasNfsServer, path: backup.nasExportPath },
-        subPath: backup.nasSubPath,
-      },
-    ],
+    volumes: [backupVolume(nas, backup.backupMountPath, backup.nasExportPath, backup.nasSubPath)],
   };
 }
 
@@ -98,8 +180,11 @@ export function homeAssistantPgBackupCronSpec(args: {
   databaseName: string;
   owner: string;
   authSecretName: string;
+  /** false while the NAS is down (#793): back up to the local fallback PVC. */
+  nasEnabled?: boolean;
 }): CronJobSpec {
   const { nasNfsServer, serviceHost, databaseName, owner, authSecretName } = args;
+  const nas: NasTarget = { server: nasNfsServer, enabled: args.nasEnabled ?? true };
   const authMountPath = "/run/pgauth";
   const backupMountPath = "/backup";
   return {
@@ -118,16 +203,19 @@ export function homeAssistantPgBackupCronSpec(args: {
         `out="${backupMountPath}/${databaseName}-$(date +%Y%m%d).sql.gz"`,
         `pg_dump -h ${serviceHost} -U ${owner} -d ${databaseName} | gzip -c > "$out"`,
         'echo "wrote $out"',
+        ...fallbackPrune(nas, backupMountPath),
       ].join("\n"),
     ],
     env: { TZ },
+    activeDeadlineSeconds: PG_BACKUP_ACTIVE_DEADLINE_SECONDS,
     extraSecretMounts: [{ secretName: authSecretName, mountPath: authMountPath }],
     volumes: [
-      {
-        mountPath: backupMountPath,
-        nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
-        subPath: `${NAS_BACKUP_ROOT}/home-assistant/postgres`,
-      },
+      backupVolume(
+        nas,
+        backupMountPath,
+        "/volume1/Homelab",
+        `${NAS_BACKUP_ROOT}/home-assistant/postgres`,
+      ),
     ],
   };
 }
@@ -141,11 +229,11 @@ const controlCenterBackup = controlCenterManifest.backup;
  * (www-j934.17); the NAS LAN IP by default. Consumed by deployCrons + the unit
  * tests; no other internal consumer.
  */
-export function cronSpecs(nasNfsServer: string): OwnedCronJobSpec[] {
+export function cronSpecs(nasNfsServer: string, nasEnabled = true): OwnedCronJobSpec[] {
   return [
     // Control Center stays on the compatibility backup path until that live path
     // migration gets explicit review. New product backups use the platform path.
-    postgresBackupCronSpec(controlCenterBackup, nasNfsServer),
+    postgresBackupCronSpec(controlCenterBackup, nasNfsServer, nasEnabled),
   ];
 }
 
@@ -156,10 +244,14 @@ export interface CronsArgs {
   // the PV from the node netns (reaches the LAN on home-server, DESIGN §5b); the
   // pod-egress no-route limit (§5c) does not apply to PV mounts. www-j934.17.
   nasNfsServer: string;
+  // wwwinfra:nasEnabled (#793). false: back up to the local fallback PVC
+  // instead of mounting the NAS. Defaults to true.
+  nasEnabled?: boolean;
 }
 
 export interface CronsResources {
   jobs: ScheduledJob[];
+  fallbackClaims: k8s.core.v1.PersistentVolumeClaim[];
 }
 
 /**
@@ -167,10 +259,19 @@ export interface CronsResources {
  * cluster program (program.ts); no other internal consumer in this ticket.
  */
 export function deployCrons(args: CronsArgs): CronsResources {
-  const { provider, namespaces, nasNfsServer } = args;
-  const jobs = cronSpecs(nasNfsServer).map(
+  const { provider, namespaces, nasNfsServer, nasEnabled = true } = args;
+  const specs = cronSpecs(nasNfsServer, nasEnabled);
+  const fallbackClaims = nasEnabled
+    ? []
+    : [...new Set(specs.map((s) => s.namespaceName))].map((ns) =>
+        pgBackupFallbackClaim(namespaces[ns], `${ns}-${PG_BACKUP_FALLBACK_CLAIM}`, { provider }),
+      );
+  const jobs = specs.map(
     ({ namespaceName, ...spec }) =>
-      new ScheduledJob({ ...spec, provider, namespace: namespaces[namespaceName] }, { provider }),
+      new ScheduledJob(
+        { ...spec, provider, namespace: namespaces[namespaceName] },
+        { provider, dependsOn: fallbackClaims },
+      ),
   );
-  return { jobs };
+  return { jobs, fallbackClaims };
 }

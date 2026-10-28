@@ -15,6 +15,11 @@ config:
   # context in its KUBECONFIG__B64 blob (the tailnet kubeconfig), so this value
   # only governs local applies.
   wwwinfra:kubeContext: home-server
+  # NAS switch (#793). "false" while the Synology (192.168.0.218) is offline:
+  # api/worker media goes to a pod-local emptyDir and the pg-backups to a local
+  # fallback PVC, so a deploy can't add a mount that hangs pods. Set back to
+  # "true" once the NAS answers, then copy the fallback dumps to the NAS.
+  wwwinfra:nasEnabled: "false"
   # CI pins per-service image digests here (`pulumi config set --path
   # wwwinfra:imageDigests.<svc>`); empty on a local apply falls back to :main.
   wwwinfra:imageDigests: {}
