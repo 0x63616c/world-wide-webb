@@ -6,8 +6,30 @@ import { Pool } from "pg";
 // when the env registry took ownership of env end-to-end (design spec §3).
 // pool.ts keeps only the pure connectionString -> Pool factory; it reads no env.
 export function createPool(url: string): Pool {
-  return new Pool({ connectionString: url, max: MAX_POOL_CONNECTIONS });
+  const pool = new Pool({
+    connectionString: url,
+    max: MAX_POOL_CONNECTIONS,
+    // Without these, node-postgres waits forever for a connection and keeps
+    // dead sockets in the pool: on Oct 27 2026 the api hung for ~10 hours
+    // ("Connection terminated unexpectedly", Postgres "canceling authentication
+    // due to timeout") and every request 502'd until the pod was restarted.
+    connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
+    idleTimeoutMillis: POOL_IDLE_TIMEOUT_MS,
+    keepAlive: true,
+  });
+  // An idle client dying (Postgres restart, network blip) emits `error` on the
+  // pool; unhandled, that crashes the process. The pool already discards the
+  // client, so just record it.
+  pool.on("error", (err) => {
+    console.error("pg pool idle client error", err);
+  });
+  return pool;
 }
+
+/** Fail a checkout after 5s instead of queueing forever. */
+export const POOL_CONNECTION_TIMEOUT_MS = 5_000;
+/** Recycle idle clients so a half-dead socket is not reused hours later. */
+export const POOL_IDLE_TIMEOUT_MS = 30_000;
 
 // Live-checked ceiling, not a guess: `show max_connections;` on the
 // control-center CNPG cluster (control-center-1) reads 100, with

@@ -332,6 +332,9 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         },
       ],
       ports: [{ containerPort: 4201, expose: "cluster" }],
+      // Startup/readiness/liveness probes on /healthz (SELECT 1 through the
+      // pool), so a wedged DB pool restarts the pod instead of 502ing for hours.
+      health: { path: "/healthz", port: 4201 },
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
       // #214. The metrics listener is a SEPARATE port from the 4201 above and
       // is deliberately absent from `ports`: anything listed in `ports` gets a
