@@ -128,10 +128,58 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
     const r = renderCronJob(backup() as CronJobSpec);
     expect(r.persistentVolumes).toHaveLength(1);
     const pv = r.persistentVolumes[0];
-    expect(pv.spec.mountOptions).toEqual(["nfsvers=4.0", "nolock"]);
+    // soft + short timeo/retrans (#793): a dead NAS returns EIO, not a hang.
+    expect(pv.spec.mountOptions).toEqual([
+      "nfsvers=4.0",
+      "nolock",
+      "soft",
+      "timeo=50",
+      "retrans=2",
+    ]);
     // The DS420+ exports only /volume1/Homelab; subPath lands in a backups dir.
     expect(pv.spec.nfs.server).toBe(NAS);
     expect(pv.spec.nfs.path).toBe("/volume1/Homelab");
+  });
+
+  test("caps the Job wall-clock so an unmountable target fails fast (#790, #793)", () => {
+    const r = renderCronJob(backup() as CronJobSpec);
+    expect(r.cronJob.spec.jobTemplate.spec.activeDeadlineSeconds).toBe(
+      crons.PG_BACKUP_ACTIVE_DEADLINE_SECONDS,
+    );
+  });
+
+  test("nasEnabled=false backs up to the local fallback PVC with pruning, NFS PV kept but unmounted (#793)", () => {
+    const spec = byName(crons.cronSpecs(NAS, false), "pg-backup") as CronJobSpec;
+    const r = renderCronJob(spec);
+    const on = renderCronJob(backup() as CronJobSpec);
+    // The NFS PV/PVC keep their names (no delete/replace of a PVC a wedged pod pins).
+    expect(r.persistentVolumes.map((pv) => pv.metadata.name)).toEqual(
+      on.persistentVolumes.map((pv) => pv.metadata.name),
+    );
+    expect(spec.volumes?.[0]).toMatchObject({
+      claim: crons.PG_BACKUP_FALLBACK_CLAIM,
+      detached: true,
+    });
+    const podVolumes = r.cronJob.spec.jobTemplate.spec.template.spec.volumes;
+    expect(podVolumes).toContainEqual(
+      expect.objectContaining({
+        persistentVolumeClaim: { claimName: crons.PG_BACKUP_FALLBACK_CLAIM },
+      }),
+    );
+    for (const pv of r.persistentVolumes) {
+      expect(podVolumes).not.toContainEqual(
+        expect.objectContaining({ persistentVolumeClaim: { claimName: pv.metadata.name } }),
+      );
+    }
+    const cmd = spec.command?.join(" ") ?? "";
+    expect(cmd).toContain("pg_dump");
+    expect(cmd).toMatch(/find \S+ -maxdepth 1 -name '\*\.sql\.gz' -mtime \+\d+ -delete/);
+  });
+
+  test("nasEnabled=true keeps the NAS target and never prunes it", () => {
+    const spec = byName(crons.cronSpecs(NAS, true), "pg-backup") as CronJobSpec;
+    expect(spec.command?.join(" ")).not.toContain("-delete");
+    expect(spec.volumes?.[0]?.nfs?.server).toBe(NAS);
   });
 
   test("threads the configurable NAS server into the NFS PV (www-j934.17)", () => {
@@ -152,6 +200,21 @@ describe("deployCrons (Pulumi wiring)", () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
     const res = crons.deployCrons({ provider, namespaces: testNamespaces, nasNfsServer: NAS });
     expect(res.jobs).toHaveLength(crons.cronSpecs(NAS).length);
+  });
+
+  test("creates one fallback PVC per backup namespace only when the NAS is off (#793)", async () => {
+    const provider = new (await import("@pulumi/kubernetes")).Provider("test-fallback", {
+      context: "x",
+    });
+    const on = crons.deployCrons({ provider, namespaces: testNamespaces, nasNfsServer: NAS });
+    expect(on.fallbackClaims).toHaveLength(0);
+    const off = crons.deployCrons({
+      provider,
+      namespaces: testNamespaces,
+      nasNfsServer: NAS,
+      nasEnabled: false,
+    });
+    expect(off.fallbackClaims).toHaveLength(1);
   });
 
   test("instantiates CronJobs in their owning namespaces", async () => {

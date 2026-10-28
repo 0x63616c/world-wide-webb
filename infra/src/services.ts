@@ -13,7 +13,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { controlCenterProductManifest, defineProduct, type ProductSlug } from "@www/platform";
 import { DEFAULT_METRICS_PORT } from "@www/platform/metrics/port";
 import type { InfraNamespaceName } from "./cluster.ts";
-import type { WorkloadSpec } from "./component.ts";
+import type { VolumeSpec, WorkloadSpec } from "./component.ts";
 import { ExternalService, HostBackedService, Workload } from "./component.ts";
 import { GHCR_PULL_SECRET_NAME, GHCR_PULL_SECRET_NAMESPACES } from "./ghcr-pull-secrets.ts";
 import { SERVICE_SECRET_TARGETS, SERVICE_SECRETS, type ServiceSecretName } from "./secrets-map.ts";
@@ -288,6 +288,10 @@ const mountSecrets = (service: ServiceSecretName) =>
 export interface ServiceSpecOptions {
   cloudflaredReplicas: number;
   nasNfsServer: string;
+  // wwwinfra:nasEnabled (#793). false swaps the api/worker NAS media mount for a
+  // pod-local emptyDir, so a NAS outage can't keep pods from starting. Defaults
+  // to true.
+  nasEnabled?: boolean;
   imageDigests?: ImageDigests;
   requireImageDigestPins?: boolean;
 }
@@ -297,11 +301,23 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
   const {
     cloudflaredReplicas,
     nasNfsServer,
+    nasEnabled = true,
     imageDigests: digests = {},
     requireImageDigestPins = false,
   } = opts;
   validateImageDigests(digests);
   if (requireImageDigestPins) validateRequiredImageDigests(digests);
+  // The api/worker media share. NAS on: the Synology export, soft-mounted (see
+  // NFS_MOUNT_OPTIONS in component.ts). NAS off: detached, so the pod gets a
+  // pod-local emptyDir (photos written during the outage live only as long as
+  // the pod) while the NFS PV/PVC stay declared. The app's media guard keeps a
+  // slow mount off the request path either way (#793).
+  const mediaVolume: VolumeSpec = {
+    mountPath: "/app/media",
+    nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
+    subPath: "media",
+    ...(nasEnabled ? {} : { detached: true }),
+  };
   return [
     {
       logicalName: "control-center-api",
@@ -324,13 +340,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
         ...haEnv,
         MEDIA_STORAGE_DIR: "/app/media",
       },
-      volumes: [
-        {
-          mountPath: "/app/media",
-          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
-          subPath: "media",
-        },
-      ],
+      volumes: [mediaVolume],
       ports: [{ containerPort: 4201, expose: "cluster" }],
       // Startup/readiness/liveness probes on /healthz (SELECT 1 through the
       // pool), so a wedged DB pool restarts the pod instead of 502ing for hours.
@@ -361,13 +371,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       // /volume1/Homelab (not its subdirs), so mount that export and subPath
       // into media/. nfsvers=4.0 is enforced by the render layer (the Talos node
       // does in-kernel NFSv4 mounts only; NFSv4 is enabled on the DS420+).
-      volumes: [
-        {
-          mountPath: "/app/media",
-          nfs: { server: nasNfsServer, path: "/volume1/Homelab" },
-          subPath: "media",
-        },
-      ],
+      volumes: [mediaVolume],
       imagePullSecrets: [GHCR_PULL_SECRET_NAME],
       // #214: the worker serves no other HTTP, so this is its only listener.
       scrape: { port: DEFAULT_METRICS_PORT },
@@ -433,6 +437,8 @@ export interface ServicesArgs {
   // NFS server for the media share: NAS LAN IP by default; kubelet mounts the PV
   // from the node netns, which reaches the LAN on home-server (DESIGN 5b/5c, www-j934.17).
   nasNfsServer: string;
+  // wwwinfra:nasEnabled (#793): see ServiceSpecOptions.
+  nasEnabled?: boolean;
   // Per-service image digest pins from CI (name -> sha256:…); see ghcr().
   imageDigests?: ImageDigests;
   // Prod stack guard against rendering app Deployments with mutable :main images.
@@ -487,6 +493,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
     namespaces,
     cloudflaredReplicas,
     nasNfsServer,
+    nasEnabled,
     imageDigests,
     requireImageDigestPins,
     target = { substrate: "orbstack" },
@@ -567,6 +574,7 @@ export function deployServices(args: ServicesArgs): ServicesResources {
   const workloads = serviceSpecs({
     cloudflaredReplicas,
     nasNfsServer,
+    nasEnabled,
     imageDigests,
     requireImageDigestPins,
   }).map(

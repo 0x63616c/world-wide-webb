@@ -1,4 +1,5 @@
 import { defineHttp } from "@app-kit";
+import { isMediaUnavailable } from "@www/core";
 import { db } from "./db";
 import {
   BOOTH_FILTER_PATTERN,
@@ -72,6 +73,10 @@ export const routes = defineHttp([
         });
         return Response.json(saved, { status: 201 });
       } catch (err) {
+        // NAS down or slow (#793): a retryable 503, not a client error.
+        if (isMediaUnavailable(err)) {
+          return new Response("media storage unavailable", { status: 503 });
+        }
         return new Response(err instanceof Error ? err.message : "invalid booth photo", {
           status: 400,
         });
@@ -87,7 +92,18 @@ export const routes = defineHttp([
     match: "prefix",
     handler: async (_req, url) => {
       const rel = decodeURIComponent(url.pathname.slice("/media/booth-photos/".length));
-      const photo = await readBoothPhoto(rel);
+      let photo: Awaited<ReturnType<typeof readBoothPhoto>>;
+      try {
+        photo = await readBoothPhoto(rel);
+      } catch (err) {
+        if (isMediaUnavailable(err)) {
+          return new Response("media storage unavailable", {
+            status: 503,
+            headers: { "Retry-After": "30" },
+          });
+        }
+        throw err;
+      }
       if (!photo) {
         return new Response("Not Found", { status: 404 });
       }

@@ -43,6 +43,13 @@ export interface VolumeSpec {
   mountPath: string;
   claim?: string;
   nfs?: { server: string; path: string };
+  // With `nfs`: keep the NFS PV/PVC declared but do NOT mount it. The pod gets
+  // `claim` if set, else a pod-local emptyDir. Used while the NAS is switched
+  // off (wwwinfra:nasEnabled=false, #793) so pods never wait on a mount that
+  // can't succeed. The PV/PVC stay declared on purpose: dropping them would
+  // make Pulumi delete a PVC that a pod wedged on the dead mount still pins
+  // (pvc-protection), and that delete would hang the deploy.
+  detached?: boolean;
   subPath?: string;
   readOnly?: boolean;
 }
@@ -182,6 +189,7 @@ interface PodVolume {
   name: string;
   secret?: { secretName: string; items?: { key: string; path: string }[] };
   persistentVolumeClaim?: { claimName: string };
+  emptyDir?: Record<string, never>;
 }
 
 interface Container {
@@ -313,7 +321,16 @@ export interface RenderedCronJob {
 // helper path), so v3 mounts fail with "incorrect mount option". NFSv4.0 is
 // enabled on the DS420+ and mounts cleanly. `nolock` stays (Talos has no
 // rpc.statd); bare `tcp` is dropped (NFSv4 is TCP-only by default).
-const NFS_MOUNT_OPTIONS = ["nfsvers=4.0", "nolock"];
+//
+// `soft,timeo=50,retrans=2` (#793): with the default HARD mount, a NAS that
+// drops off the network leaves every process touching the mount in
+// uninterruptible sleep forever. The Oct 2026 outage wedged the api's I/O
+// threads that way, which starved its Postgres auth and 502'd the dashboard
+// for 7 hours. Soft makes the kernel give up and return EIO after
+// timeo (5s, in deciseconds) x retrans retries, which the app's media guard
+// turns into a fast 503. The cost (a write can fail with EIO mid-outage) is
+// the right trade for photo/backup files.
+export const NFS_MOUNT_OPTIONS = ["nfsvers=4.0", "nolock", "soft", "timeo=50", "retrans=2"];
 
 /**
  * Declared capacity for statically-provisioned NFS PVs (pg-backup, media
@@ -436,7 +453,9 @@ function buildPod(
       ...(vol.subPath ? { subPath: vol.subPath } : {}),
     });
     if (vol.nfs) {
-      const pvName = `${p.name}-${volName}${NFS_PV_NAME_SUFFIX}`;
+      // Named from the positional name, not volName: a detached volume with a
+      // fallback claim must keep the PV/PVC it had while mounted.
+      const pvName = `${p.name}-${fallbackVolName}${NFS_PV_NAME_SUFFIX}`;
       persistentVolumes.push({
         metadata: { name: pvName },
         spec: {
@@ -456,7 +475,15 @@ function buildPod(
           resources: { requests: { storage: NFS_PV_CAPACITY } },
         },
       });
-      podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: pvName } });
+      if (!vol.detached) {
+        podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: pvName } });
+      } else if (vol.claim) {
+        if (!existingClaimVolumeName) {
+          podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
+        }
+      } else {
+        podVolumes.push({ name: volName, emptyDir: {} });
+      }
     } else if (vol.claim && !existingClaimVolumeName) {
       podVolumes.push({ name: volName, persistentVolumeClaim: { claimName: vol.claim } });
     }

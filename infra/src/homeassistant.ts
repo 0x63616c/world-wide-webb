@@ -24,7 +24,11 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { ScheduledJob, Workload } from "./component.ts";
-import { homeAssistantPgBackupCronSpec } from "./crons.ts";
+import {
+  homeAssistantPgBackupCronSpec,
+  PG_BACKUP_FALLBACK_CLAIM,
+  pgBackupFallbackClaim,
+} from "./crons.ts";
 
 export const HOME_ASSISTANT_NAMESPACE = "home-assistant";
 
@@ -66,6 +70,13 @@ export interface HomeAssistantArgs {
   // NAS NFS server for the HA config-backup sidecar and home_assistant-postgres
   // backup cron (same knob services.ts/crons.ts thread through for every backup).
   nasNfsServer: string;
+  // wwwinfra:nasEnabled (#793). false: the pg-backup cron writes to a local
+  // fallback PVC. The config-backup SIDECAR keeps its NFS mount on purpose:
+  // changing its volumes would roll the Home Assistant pod, and a pod with a
+  // wedged NFS mount may never finish terminating, which would hold the
+  // ReadWriteOnce ha-config volume and keep HA down. Its PV gets the soft
+  // mount options instead.
+  nasEnabled?: boolean;
 }
 
 export interface HomeAssistantResources {
@@ -142,7 +153,7 @@ function createCluster(
  * Consumed by program.ts, gated to the "talos" substrate.
  */
 export function installHomeAssistant(args: HomeAssistantArgs): HomeAssistantResources {
-  const { provider, cnpgOperator, vault, nasNfsServer } = args;
+  const { provider, cnpgOperator, vault, nasNfsServer, nasEnabled = true } = args;
   const opts = { provider };
 
   const namespace = new k8s.core.v1.Namespace(
@@ -261,11 +272,21 @@ export function installHomeAssistant(args: HomeAssistantArgs): HomeAssistantReso
     { ...opts, dependsOn: [configClaim] },
   );
 
+  const backupFallbackClaims = nasEnabled
+    ? []
+    : [
+        pgBackupFallbackClaim(namespaceName, `home-assistant-${PG_BACKUP_FALLBACK_CLAIM}`, {
+          ...opts,
+          dependsOn: [namespace],
+        }),
+      ];
+
   const backupJobs = [
     new ScheduledJob(
       {
         ...homeAssistantPgBackupCronSpec({
           nasNfsServer,
+          nasEnabled,
           serviceHost: CNPG_RW_SERVICE_NAME,
           databaseName: DATABASE_NAME,
           owner: DATABASE_OWNER,
@@ -274,7 +295,7 @@ export function installHomeAssistant(args: HomeAssistantArgs): HomeAssistantReso
         provider,
         namespace: namespaceName,
       },
-      { ...opts, dependsOn: [cluster] },
+      { ...opts, dependsOn: [cluster, ...backupFallbackClaims] },
     ),
   ];
 
