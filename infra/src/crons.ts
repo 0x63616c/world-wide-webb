@@ -37,6 +37,33 @@ const TZ = "America/Los_Angeles";
  */
 export const PG_BACKUP_ACTIVE_DEADLINE_SECONDS = 1800;
 
+// The CNPG image Dockerfile explicitly sets USER 26 (postgres). fsGroup lets
+// kubelet make a fresh local-lvm filesystem group-writable before starting it.
+// Keep the same identity on NFS; its server-side directory ACL must allow GID 26
+// (NFS root squash means kubelet cannot repair a NAS directory's permissions).
+const PG_BACKUP_SECURITY_CONTEXT = {
+  runAsUser: 26,
+  runAsGroup: 26,
+  runAsNonRoot: true,
+  fsGroup: 26,
+  fsGroupChangePolicy: "OnRootMismatch",
+} as const;
+
+/** Publish only a complete gzip stream containing a non-trivial SQL dump. */
+function verifiedDump(dump: string): string[] {
+  return [
+    'tmp="$out.partial"',
+    `trap 'rm -f "$tmp"' EXIT`,
+    `${dump} | gzip -c > "$tmp"`,
+    'gzip -t "$tmp"',
+    // Read the whole stream: head/grep -q would SIGPIPE gzip under pipefail.
+    'bytes=$(gzip -dc "$tmp" | wc -c)',
+    '[ "$bytes" -ge 1024 ] || { echo "SQL dump smaller than 1024 bytes" >&2; exit 1; }',
+    'mv -f "$tmp" "$out"',
+    'echo "verified $out ($bytes SQL bytes)"',
+  ];
+}
+
 /**
  * Local fallback target for pg-backups while the NAS is switched off
  * (wwwinfra:nasEnabled=false, #793). A local-lvm PVC on the node SSD, one per
@@ -126,8 +153,9 @@ function postgresBackupCommand(backup: DatabaseBackup, nas: NasTarget): string[]
       "set -eo pipefail",
       `export PGPASSWORD="$(cat ${backup.authMountPath}/password)"`,
       `out="${backup.backupMountPath}/${backup.filenamePrefix}$(date +${backup.dateFormat}).sql.gz"`,
-      `pg_dump -h ${backup.serviceHost} -U ${backup.owner} -d ${backup.databaseName} | gzip -c > "$out"`,
-      'echo "wrote $out"',
+      ...verifiedDump(
+        `pg_dump -h ${backup.serviceHost} -U ${backup.owner} -d ${backup.databaseName}`,
+      ),
       ...fallbackPrune(nas, backup.backupMountPath),
     ].join("\n"),
   ];
@@ -153,6 +181,8 @@ export function postgresBackupCronSpec(
     command: postgresBackupCommand(backup, nas),
     env: { TZ },
     activeDeadlineSeconds: PG_BACKUP_ACTIVE_DEADLINE_SECONDS,
+    backoffLimit: 1,
+    securityContext: PG_BACKUP_SECURITY_CONTEXT,
     extraSecretMounts: [{ secretName: backup.authSecretName, mountPath: backup.authMountPath }],
     volumes: [backupVolume(nas, backup.backupMountPath, backup.nasExportPath, backup.nasSubPath)],
   };
@@ -201,13 +231,14 @@ export function homeAssistantPgBackupCronSpec(args: {
         "set -eo pipefail",
         `export PGPASSWORD="$(cat ${authMountPath}/password)"`,
         `out="${backupMountPath}/${databaseName}-$(date +%Y%m%d).sql.gz"`,
-        `pg_dump -h ${serviceHost} -U ${owner} -d ${databaseName} | gzip -c > "$out"`,
-        'echo "wrote $out"',
+        ...verifiedDump(`pg_dump -h ${serviceHost} -U ${owner} -d ${databaseName}`),
         ...fallbackPrune(nas, backupMountPath),
       ].join("\n"),
     ],
     env: { TZ },
     activeDeadlineSeconds: PG_BACKUP_ACTIVE_DEADLINE_SECONDS,
+    backoffLimit: 1,
+    securityContext: PG_BACKUP_SECURITY_CONTEXT,
     extraSecretMounts: [{ secretName: authSecretName, mountPath: authMountPath }],
     volumes: [
       backupVolume(

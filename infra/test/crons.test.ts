@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import {
   defineDatabaseBackup,
@@ -261,4 +265,84 @@ describe("homeAssistantPgBackupCronSpec (Task 4)", () => {
     const nfsVol = spec.volumes?.find((v) => v.nfs);
     expect(nfsVol?.subPath).toBe("backups/world-wide-webb/home-assistant/postgres");
   });
+});
+
+describe("backup storage identity and verification (#790)", () => {
+  const ha = (nasEnabled: boolean) =>
+    crons.homeAssistantPgBackupCronSpec({
+      nasNfsServer: NAS,
+      serviceHost: "home-assistant-postgres-rw",
+      databaseName: "home_assistant",
+      owner: "postgres",
+      authSecretName: "home-assistant-postgres-auth",
+      nasEnabled,
+    });
+
+  for (const nasEnabled of [false, true]) {
+    test(`both backups render writable non-root storage and bounded retries (NAS=${nasEnabled})`, () => {
+      for (const spec of [crons.cronSpecs(NAS, nasEnabled)[0], ha(nasEnabled)]) {
+        const job = renderCronJob(spec).cronJob.spec;
+        expect(job.concurrencyPolicy).toBe("Forbid");
+        expect(job.jobTemplate.spec).toMatchObject({
+          activeDeadlineSeconds: 1800,
+          backoffLimit: 1,
+          template: {
+            spec: {
+              restartPolicy: "Never",
+              securityContext: {
+                runAsUser: 26,
+                runAsGroup: 26,
+                fsGroup: 26,
+                runAsNonRoot: true,
+                fsGroupChangePolicy: "OnRootMismatch",
+              },
+            },
+          },
+        });
+      }
+    });
+  }
+
+  for (const target of ["control-center", "home-assistant"]) {
+    for (const outcome of ["valid", "empty", "small", "dump-failure", "corrupt-gzip"]) {
+      test(`${target}: ${outcome} only publishes a verified dump`, () => {
+        const dir = mkdtempSync(join(tmpdir(), "pg-backup-"));
+        try {
+          const spec = target === "control-center" ? crons.cronSpecs(NAS, false)[0] : ha(false);
+          const out = join(dir, "backup.sql.gz");
+          writeFileSync(out, "previous verified backup");
+          const dump = join(dir, "pg_dump");
+          const body =
+            outcome === "empty"
+              ? "exit 0"
+              : outcome === "small"
+                ? "echo small"
+                : `printf '%2048s' x; exit ${outcome === "dump-failure" ? 1 : 0}`;
+          writeFileSync(dump, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
+          if (outcome === "corrupt-gzip") {
+            writeFileSync(
+              join(dir, "gzip"),
+              '#!/bin/bash\nif [ "$1" = "-c" ]; then cat >/dev/null; echo corrupt; else exec /usr/bin/gzip "$@"; fi\n',
+              { mode: 0o755 },
+            );
+          }
+          const script = (spec.command?.[2] ?? "")
+            .replace(/^export PGPASSWORD=.*$/m, "")
+            .replace(/^out=.*$/m, `out="${out}"`)
+            .replace(/^find .*$/m, "");
+          const result = spawnSync("bash", ["-c", script], {
+            env: { PATH: `${dir}:/usr/bin:/bin` },
+            encoding: "utf8",
+          });
+          expect(result.status, result.stderr).toBe(outcome === "valid" ? 0 : 1);
+          expect(readFileSync(out).toString() === "previous verified backup").toBe(
+            outcome !== "valid",
+          );
+          expect(spawnSync("test", ["-e", `${out}.partial`]).status).toBe(1);
+        } finally {
+          rmSync(dir, { recursive: true, force: true });
+        }
+      });
+    }
+  }
 });

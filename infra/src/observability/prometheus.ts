@@ -146,6 +146,13 @@ export function installPrometheus(args: PrometheusArgs): PrometheusResources {
             // still using the old config.
             annotations: {
               "checksum/config": createHash("sha256").update(configYaml).digest("hex"),
+              ...(rulesConfigMap
+                ? {
+                    "checksum/rules": rulesConfigMap.data.apply((data) =>
+                      createHash("sha256").update(JSON.stringify(data)).digest("hex"),
+                    ),
+                  }
+                : {}),
             },
           },
           spec: {
