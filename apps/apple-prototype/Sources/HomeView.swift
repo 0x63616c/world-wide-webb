@@ -59,6 +59,9 @@ struct HomeView: View {
                 }
                 .allowsHitTesting(selected == nil && !transitioning)
                 .accessibilityHidden(selected != nil)
+                if selected == nil {
+                    VStack { Spacer(); Text("Fixture data").font(.system(size: 11)).opacity(0.4).padding(.bottom, 12) }.allowsHitTesting(false)
+                }
                 if let tile = selected {
                     ZStack {
                         GlassSurface(radius: contentVisible ? 0 : 38)
@@ -77,6 +80,9 @@ struct HomeView: View {
             }.foregroundStyle(.white)
                 .environment(\.colorScheme, .dark)
                 .onKeyPress(.escape) { if selected != nil { dismiss(); return .handled }; return .ignored }
+                #if os(macOS)
+                .onExitCommand(perform: dismiss)
+                #endif
                 .task {
                     if let initialTile { try? await Task.sleep(for: .milliseconds(250)); open(initialTile) }
                     if demo && !reduceMotion {
@@ -97,6 +103,7 @@ struct HomeView: View {
         let gap: CGFloat = 14
         let cellW = (size.width - margin * 2 - gap * 5) / 6
         let cellH = (size.height - margin * 2 - gap * 3) / 4
+        let contentScale = min(1, min(cellW / 198, cellH / 222))
         return ZStack(alignment: .topLeading) {
             ForEach(HomeTile.allCases) { tile in
                 let c = tile.cells
@@ -104,15 +111,21 @@ struct HomeView: View {
                 let height = cellH * Double(c.h) + gap * Double(c.h - 1)
                 ZStack {
                     if selected != tile {
-                        GlassSurface(on: tileOn(tile), radius: min(40, cellH * 0.19))
+                        TileFace(tile: tile, store: store, open: { open(tile) })
+                            .frame(width: width / contentScale, height: height / contentScale)
+                            .scaleEffect(contentScale)
+                            .frame(width: width, height: height)
+                            .homeGlass(on: tileOn(tile), radius: min(40, cellH * 0.19))
                             .matchedGeometryEffect(id: tile.id, in: zoom)
+                            .transition(.opacity)
+                    } else {
+                        Color.clear
                     }
-                    TileFace(tile: tile, store: store, open: { open(tile) })
-                        .opacity(selected == tile ? 0 : 1)
                 }
                 .frame(width: width, height: height)
                 .contentShape(Rectangle())
                 .onTapGesture { open(tile) }
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("tile-\(tile.id)")
                 .accessibilityAction(named: "Open \(tile.title)") { open(tile) }
                 .offset(x: Double(c.x) * (cellW + gap), y: Double(c.y) * (cellH + gap))

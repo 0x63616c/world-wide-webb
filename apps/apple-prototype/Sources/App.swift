@@ -19,6 +19,10 @@ import SwiftUI
             HomeView(store: store, initialTile: openTile, demo: demo)
                 .frame(minWidth: 960, minHeight: 720)
                 .preferredColorScheme(.dark)
+                #if os(iOS)
+                .statusBarHidden(true)
+                .persistentSystemOverlays(.hidden)
+                #endif
         }
         .defaultSize(width: 1366, height: 1024)
         #if os(macOS)

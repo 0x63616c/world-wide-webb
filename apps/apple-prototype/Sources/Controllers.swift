@@ -15,7 +15,7 @@ struct ControllerHost: View {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in Text(fixtureTime(store.now)).font(.system(size: 27, weight: .medium)) }
                 }
             }.frame(height: 62).padding(.horizontal, 38).padding(.top, 30).opacity(headerVisible ? 1 : 0)
-            Group {
+            ControllerCanvas {
                 switch tile {
                 case .all, .fan, .lamps, .lights: ControlsController(store: store)
                 case .climate: ClimateController(store: store)
@@ -29,6 +29,7 @@ struct ControllerHost: View {
             Text("Fixture data").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.42)).padding(.bottom, 16)
         }
         .foregroundStyle(.white).tint(.white)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("controller-\(tile.id)")
     }
 }
@@ -180,7 +181,7 @@ struct ControlsController: View {
                 Spacer(minLength: 0)
                 if store.pending.contains(key.rawValue) { ProgressView() }
             }.padding(.horizontal, 16).frame(height: 67).foregroundStyle(on ? Palette.ink : .white)
-        }.buttonStyle(.plain).background { GlassSurface(on: on, radius: 23) }
+        }.buttonStyle(.plain).homeGlass(on: on, radius: 23)
             .accessibilityLabel("Toggle \(key.name)").accessibilityIdentifier("controller-toggle-\(key.rawValue)")
     }
     private func scene(_ name: String, colors: [Color]) -> some View {
@@ -230,3 +231,21 @@ struct ControllerPreview: View {
 #Preview("Climate · Cool", traits: .fixedLayout(width: 1366, height: 1024)) { ControllerPreview(tile: .climate) }
 #Preview("Climate · Heat·Cool", traits: .fixedLayout(width: 1366, height: 1024)) { ControllerPreview(tile: .climate, mode: .heatCool) }
 #Preview("Guest Wi-Fi", traits: .fixedLayout(width: 1366, height: 1024)) { ControllerPreview(tile: .wifi) }
+#Preview("Climate · Heat", traits: .fixedLayout(width: 1366, height: 1024)) { ControllerPreview(tile: .climate, mode: .heat) }
+#Preview("Climate · Off", traits: .fixedLayout(width: 1366, height: 1024)) { ControllerPreview(tile: .climate, mode: .off) }
+#Preview("Wi-Fi · Open", traits: .fixedLayout(width: 1366, height: 1024)) { WifiController(wifi: .open).background(Palette.teal) }
+#Preview("Wi-Fi · Not configured", traits: .fixedLayout(width: 1366, height: 1024)) { WifiController(wifi: .unconfigured).background(Palette.teal) }
+
+// Preserve the panel's generous control layout as a desktop window gets smaller.
+// At iPad / panel dimensions this is a 1:1 layout, with no scaling.
+struct ControllerCanvas<Content: View>: View {
+    @ViewBuilder let content: Content
+    var body: some View {
+        GeometryReader { proxy in
+            let scale = min(1, min(proxy.size.width / 1280, proxy.size.height / 790))
+            content.frame(width: proxy.size.width / scale, height: proxy.size.height / scale)
+                .scaleEffect(scale)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+    }
+}

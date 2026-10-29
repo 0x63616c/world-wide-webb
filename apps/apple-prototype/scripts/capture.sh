@@ -10,7 +10,7 @@ capture() {
   shift
   xcrun simctl terminate "$udid" "$bundle" >/dev/null 2>&1 || true
   xcrun simctl launch "$udid" "$bundle" "$@"
-  sleep 2
+  sleep 4
   xcrun simctl io "$udid" screenshot "$out/screenshots/$name.png"
 }
 capture home

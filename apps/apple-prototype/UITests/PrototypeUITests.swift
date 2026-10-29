@@ -1,6 +1,10 @@
 import XCTest
 
 @MainActor final class PrototypeUITests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+    }
     func testEveryTileOpensAndCloses() throws {
         let app = XCUIApplication()
         app.launch()
@@ -33,6 +37,16 @@ import XCTest
         XCTAssertTrue(app.buttons["climate-fan"].label.contains("Off"))
         app.buttons["mode-heat_cool"].tap()
         XCTAssertTrue(app.staticTexts["Temperature range"].exists)
+    }
+    func testSwipeDownReturnsToSource() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-openTile", "climate"]
+        app.launch()
+        XCTAssertTrue(app.buttons["close-controller"].waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 0.6)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.07))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
+        XCTAssertTrue(app.otherElements["tile-climate"].waitForExistence(timeout: 4))
     }
     func testWifiFixturesHaveNoQR() throws {
         let app = XCUIApplication()

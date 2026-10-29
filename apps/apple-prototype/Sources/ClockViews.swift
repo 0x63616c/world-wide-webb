@@ -11,7 +11,7 @@ struct ClockController: View {
             HStack(spacing: 65) {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     VStack(alignment: .leading, spacing: 20) {
-                        Text("Good afternoon").font(.system(size: 30)).opacity(0.7)
+                        Text(greeting).font(.system(size: 30)).opacity(0.7)
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(fixtureTime(store.now)).font(.system(size: 124, weight: .ultraLight)).monospacedDigit()
                             Text(fixtureTime(store.now, format: "a")).font(.system(size: 26)).opacity(0.65)
@@ -23,7 +23,7 @@ struct ClockController: View {
                             VStack(alignment: .leading, spacing: 13) {
                                 SectionLabel(text: "Next alarm")
                                 Text(next.0.label).font(.system(size: 28, weight: .medium))
-                                Text(next.1.formatted(.dateTime.weekday(.wide).hour().minute().timeZone())).font(.system(size: 21)).opacity(0.7)
+                                Text(nextDescription(next.1, zone: next.0.timeZone)).font(.system(size: 21)).opacity(0.7)
                             }.padding(26).frame(maxWidth: .infinity, alignment: .leading)
                                 .glassEffect(.regular, in: .rect(cornerRadius: 30))
                         } else {
@@ -63,6 +63,16 @@ struct ClockController: View {
                 Button("Cancel", role: .cancel) { deleting = nil }
             }
         }
+    }
+    private var greeting: String {
+        let hour = Int(fixtureTime(store.now, format: "H")) ?? 15
+        return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
+    }
+    private func nextDescription(_ date: Date, zone: String) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: zone)
+        formatter.dateFormat = "EEEE, h:mm a z"
+        return formatter.string(from: date)
     }
     private var nextAlarm: (Alarm, Date)? {
         store.alarms.compactMap { alarm in alarm.next(after: store.now).map { (alarm, $0) } }.min { $0.1 < $1.1 }

@@ -81,7 +81,7 @@ struct HourlyChart: View {
                         Text(hour.time).font(.system(size: compact ? 12 : 21)).opacity(0.65)
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture { if !compact { selected = selected == hour.id ? nil : hour.id } }
+                    .gesture(TapGesture().onEnded { selected = selected == hour.id ? nil : hour.id }, including: compact ? .none : .all)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(hour.time), \(hour.temperature) degrees, feels like \(hour.feels)")
                 }

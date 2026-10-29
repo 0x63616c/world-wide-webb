@@ -25,20 +25,25 @@ struct Wallpaper: View {
         GeometryReader { proxy in
             let size = proxy.size
             ZStack {
-                LinearGradient(colors: [Color(hex: "#176d68"), Color(hex: "#064440"), Color(hex: "#328f84")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                ForEach(0..<7) { i in
-                    RoundedRectangle(cornerRadius: 70, style: .continuous)
-                        .fill(LinearGradient(colors: [Color(hex: "#8ad1bc").opacity(0.38), Color(hex: "#023d3d").opacity(0.6)], startPoint: .leading, endPoint: .trailing))
-                        .frame(width: size.width * 0.75, height: size.height * 0.18)
-                        .rotationEffect(.degrees(-48))
-                        .position(x: size.width * (0.08 + Double(i) * 0.19), y: size.height * (i.isMultiple(of: 2) ? 0.2 : 0.72))
+                LinearGradient(colors: [Color(hex: "#338b80"), Color(hex: "#064440"), Color(hex: "#2f9e8d")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                // Oversized folded ribbons: authored geometry, not a bundled image.
+                ForEach(0..<5) { i in
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .fill(LinearGradient(stops: [
+                            .init(color: Color(hex: "#9be0c9").opacity(0.72), location: 0),
+                            .init(color: Color(hex: "#45ad9d").opacity(0.55), location: 0.48),
+                            .init(color: Color(hex: "#01332f").opacity(0.9), location: 0.52),
+                            .init(color: Color(hex: "#0b6c61").opacity(0.6), location: 1)
+                        ], startPoint: .top, endPoint: .bottom))
+                        .frame(width: size.width * 1.3, height: size.height * 0.26)
+                        .rotationEffect(.degrees(-43))
+                        .position(x: size.width * (Double(i) * 0.30 - 0.12), y: size.height * 0.45)
                 }
-                Ellipse().fill(Color(hex: "#8acbbb").opacity(0.28))
-                    .frame(width: size.width * 0.75, height: size.height * 0.65)
-                    .rotationEffect(.degrees(-40)).offset(x: -size.width * 0.3, y: size.height * 0.36)
+                Circle().strokeBorder(LinearGradient(colors: [Color(hex: "#ade5ce").opacity(0.45), Color(hex: "#003f3b")], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: size.width * 0.11)
+                    .frame(width: size.width * 0.65, height: size.width * 0.65)
+                    .position(x: size.width * 0.05, y: size.height * 1.1)
             }
-            .blur(radius: 14).drawingGroup()
-            .overlay(Color.black.opacity(0.08))
+            .blur(radius: 9).drawingGroup()
         }.ignoresSafeArea()
     }
 }
@@ -73,7 +78,7 @@ struct Choice: View {
                 .foregroundStyle(selected ? Palette.ink : .white)
         }
         .buttonStyle(.plain)
-        .background { GlassSurface(on: selected, radius: 24) }
+        .homeGlass(on: selected, radius: 24)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
@@ -119,4 +124,14 @@ func fixtureTime(_ date: Date, format: String = "h:mm") -> String {
     formatter.timeZone = TimeZone(identifier: "America/Los_Angeles")
     formatter.dateFormat = format
     return formatter.string(from: date)
+}
+
+// Apply the effect to the content as a unit. A separate glass sibling in a
+// GlassEffectContainer can refract the labels themselves on the iOS simulator.
+extension View {
+    func homeGlass(on: Bool = false, radius: CGFloat = 38) -> some View {
+        self.background(on ? Color.white.opacity(0.58) : Color.white.opacity(0.035), in: .rect(cornerRadius: radius, style: .continuous))
+            .glassEffect(.regular.tint(on ? .white.opacity(0.5) : .clear).interactive(), in: .rect(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(.white.opacity(on ? 0.4 : 0.16), lineWidth: 0.8).allowsHitTesting(false))
+    }
 }
