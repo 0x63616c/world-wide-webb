@@ -19,10 +19,10 @@ Use a task-named branch in the worktree. Source `.job.env` if present before
 running checks, and run the relevant checks described in `AGENTS.md`.
 
 PR titles must be Conventional Commits ending with a Tickets key, for example
-`feat(app): add thing [WWW-12]`. Start the body with `Closes WWW-12`, or
-`Refs WWW-12` to link without closing. Include a summary, changes, testing,
+`feat(app): add thing [WWW-12]`. Start the body with the linked ticket,
+`Closes [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)`, or `Refs [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)` to link without closing. Include a summary, changes, testing,
 and the screenshot required by the PR template. The PR conventions workflow
-checks the title; bots are exempt from the ticket-key check.
+checks the title key and that the body links the same ticket (it prints the exact line to add); bots are exempt from the ticket-key check.
 
 The Tickets GitHub webhook links the PR and moves the ticket to In review
 when the PR opens and to Done on merge. Tickets API documentation lives in

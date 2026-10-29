@@ -41,13 +41,31 @@ jobs:
     timeout-minutes: 5
     if: github.event.pull_request.user.type != 'Bot'
     steps:
-      - name: Require a Tickets key like [WWW-12] at the end of the PR title
+      - name: Require a Tickets key in the title and a linked ticket in the body
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if printf '%s' "$PR_TITLE" | grep -Eq '\[[A-Z]{1,10}-[0-9]+\][[:space:]]*$'; then
-            echo "Ticket key found."
+          key=$(printf '%s' "$PR_TITLE" | grep -Eo '\[[A-Z]{1,10}-[0-9]+\][[:space:]]*$' | grep -Eo '[A-Z]{1,10}-[0-9]+' || true)
+          if [ -z "$key" ]; then
+            echo "::error title=Missing ticket key::PR title must end with a Tickets key, e.g. 'feat(app): add thing [WWW-12]'. See CONTRIBUTING.md."
+            exit 1
+          fi
+          url="https://tickets.worldwidewebb.co/t/$key"
+          line="Closes [$key]($url)"
+          pattern="(^|[^[:alnum:]])([Cc]loses|[Ff]ixes|[Rr]esolves|[Rr]efs|CLOSES|FIXES|RESOLVES|REFS):?[*_]{0,2}:?[[:space:]]+\[$key\]\(https://tickets\.worldwidewebb\.co/t/$key/?\)"
+          if printf '%s' "$PR_BODY" | tr -d '\r' | grep -Eq "$pattern"; then
+            echo "Ticket $key is in the title and linked in the body."
           else
-            echo "::error::PR title must end with a Tickets key, e.g. 'feat(app): add thing [WWW-12]', and the body should say 'Closes WWW-12'. See CONTRIBUTING.md."
+            echo "::error title=Missing ticket link::The PR description must link $key. Add this line to the description: $line (use 'Refs' instead of 'Closes' if this PR should not close the ticket)."
+            {
+              echo "### Missing ticket link"
+              echo "Add this line to the PR description:"
+              echo
+              echo '```'
+              echo "$line"
+              echo '```'
+              echo "Use \`Refs\` instead of \`Closes\` if this PR should not close $key."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi

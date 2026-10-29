@@ -7,8 +7,8 @@
   work across all projects; this repo uses the `WWW` prefix. GitHub issues and
   Projects boards are retired. Track dependencies with Tickets dependency edges.
 - PR titles are Conventional Commits ending with the ticket key, for example
-  `feat(app): add thing [WWW-12]`. Start the body with `Closes WWW-12` (or
-  `Refs WWW-12` to link without closing). The Tickets GitHub webhook links the
+  `feat(app): add thing [WWW-12]`. Start the body with the linked ticket,
+  `Closes [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)` (or `Refs [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)` to link without closing); CI checks it. The Tickets GitHub webhook links the
   PR, moves the ticket to In review on opening, and to Done on merge.
 - On the box, start work with `P=$(job new world-wide-webb WWW-12 [slug]); source "$P/.job.env"`.
   Source an existing `.job.env` before running checks. Model labels remain
