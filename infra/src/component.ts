@@ -161,6 +161,14 @@ export interface CronJobSpec {
   // that leaves it stuck forever, #<TBD>) blocks every future scheduled run
   // under concurrencyPolicy: Forbid until someone manually deletes it.
   activeDeadlineSeconds?: number;
+  backoffLimit?: number;
+  securityContext?: {
+    runAsUser: number;
+    runAsGroup: number;
+    runAsNonRoot: boolean;
+    fsGroup: number;
+    fsGroupChangePolicy?: "OnRootMismatch" | "Always";
+  };
   extraSecretMounts?: {
     secretName: string;
     mountPath: string;
@@ -292,10 +300,12 @@ interface CronJobArgs {
     jobTemplate: {
       spec: {
         activeDeadlineSeconds?: number;
+        backoffLimit?: number;
         template: {
           metadata: { labels: Record<string, string> };
           spec: {
             containers: Container[];
+            securityContext?: CronJobSpec["securityContext"];
             volumes: PodVolume[];
             restartPolicy: "Never";
             automountServiceAccountToken: boolean;
@@ -700,6 +710,7 @@ export function renderCronJob(c: CronJobSpec): RenderedCronJob {
       failedJobsHistoryLimit: 1,
       jobTemplate: {
         spec: {
+          ...(c.backoffLimit !== undefined ? { backoffLimit: c.backoffLimit } : {}),
           ...(c.activeDeadlineSeconds !== undefined
             ? { activeDeadlineSeconds: c.activeDeadlineSeconds }
             : {}),
@@ -707,6 +718,7 @@ export function renderCronJob(c: CronJobSpec): RenderedCronJob {
             metadata: { labels },
             spec: {
               containers: [container],
+              ...(c.securityContext ? { securityContext: c.securityContext } : {}),
               volumes: podVolumes,
               restartPolicy: "Never",
               automountServiceAccountToken: false,
