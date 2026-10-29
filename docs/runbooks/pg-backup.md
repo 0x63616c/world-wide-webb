@@ -24,8 +24,12 @@ PVC. It shares the database SSD and does not protect against disk loss. The NAS
 setting is intentionally unchanged by this fix. Fallback dumps older than three
 days are pruned only after a verified backup is published.
 
-The script writes a `.partial` file, checks the gzip checksum and at least 1024
-uncompressed SQL bytes, then renames it to the dated `.sql.gz` name. Failed runs
+The script writes a `.partial` file, checks the gzip checksum, reads the whole
+decompressed stream, and requires `-- PostgreSQL database dump complete` as its
+final non-empty line. It also requires at least 1024 SQL bytes for control-center
+and 512 for Home Assistant: HA has no user tables until recorder cutover, so a
+complete empty-schema dump is about 720 bytes. Only then does it rename the file
+to the dated `.sql.gz` name. Failed runs
 remove their partial file and cannot replace a previously verified dump. SIGKILL
 or node loss can leave a partial file; inspect and remove these during recovery.
 These cheap checks detect empty/truncated output; they do not prove restorability.

@@ -304,7 +304,16 @@ describe("backup storage identity and verification (#790)", () => {
   }
 
   for (const target of ["control-center", "home-assistant"]) {
-    for (const outcome of ["valid", "empty", "small", "dump-failure", "corrupt-gzip"]) {
+    for (const outcome of [
+      "valid",
+      "complete-empty",
+      "empty",
+      "small",
+      "truncated",
+      "trailing-content",
+      "dump-failure",
+      "corrupt-gzip",
+    ]) {
       test(`${target}: ${outcome} only publishes a verified dump`, () => {
         const dir = mkdtempSync(join(tmpdir(), "pg-backup-"));
         try {
@@ -312,12 +321,20 @@ describe("backup storage identity and verification (#790)", () => {
           const out = join(dir, "backup.sql.gz");
           writeFileSync(out, "previous verified backup");
           const dump = join(dir, "pg_dump");
+          const trailer = "-- PostgreSQL database dump complete";
           const body =
             outcome === "empty"
               ? "exit 0"
               : outcome === "small"
-                ? "echo small"
-                : `printf '%2048s' x; exit ${outcome === "dump-failure" ? 1 : 0}`;
+                ? `printf '%s\n' '${trailer}'`
+                : [
+                    `printf '%${outcome === "complete-empty" ? 680 : 1048576}s\n' x`,
+                    outcome === "truncated" ? "" : `printf '%s\n\n' '${trailer}'`,
+                    outcome === "trailing-content" ? "echo unexpected" : "",
+                    `exit ${outcome === "dump-failure" ? 1 : 0}`,
+                  ].join("\n");
+          const passes =
+            outcome === "valid" || (target === "home-assistant" && outcome === "complete-empty");
           writeFileSync(dump, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
           if (outcome === "corrupt-gzip") {
             writeFileSync(
@@ -334,10 +351,14 @@ describe("backup storage identity and verification (#790)", () => {
             env: { PATH: `${dir}:/usr/bin:/bin` },
             encoding: "utf8",
           });
-          expect(result.status, result.stderr).toBe(outcome === "valid" ? 0 : 1);
-          expect(readFileSync(out).toString() === "previous verified backup").toBe(
-            outcome !== "valid",
-          );
+          expect(result.status, result.stderr).toBe(passes ? 0 : 1);
+          expect(readFileSync(out).toString() === "previous verified backup").toBe(!passes);
+          if (outcome === "complete-empty" && target === "control-center") {
+            expect(result.stderr).toContain("SQL dump smaller than 1024 bytes");
+          }
+          if (outcome === "truncated" || outcome === "trailing-content") {
+            expect(result.stderr).toContain("SQL dump missing final completion trailer");
+          }
           expect(spawnSync("test", ["-e", `${out}.partial`]).status).toBe(1);
         } finally {
           rmSync(dir, { recursive: true, force: true });

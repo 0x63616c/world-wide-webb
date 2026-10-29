@@ -49,8 +49,8 @@ const PG_BACKUP_SECURITY_CONTEXT = {
   fsGroupChangePolicy: "OnRootMismatch",
 } as const;
 
-/** Publish only a complete gzip stream containing a non-trivial SQL dump. */
-function verifiedDump(dump: string): string[] {
+/** Publish only a complete gzip stream containing a finished plain-format SQL dump. */
+function verifiedDump(dump: string, minimumSqlBytes: number): string[] {
   return [
     'tmp="$out.partial"',
     `trap 'rm -f "$tmp"' EXIT`,
@@ -58,7 +58,9 @@ function verifiedDump(dump: string): string[] {
     'gzip -t "$tmp"',
     // Read the whole stream: head/grep -q would SIGPIPE gzip under pipefail.
     'bytes=$(gzip -dc "$tmp" | wc -c)',
-    '[ "$bytes" -ge 1024 ] || { echo "SQL dump smaller than 1024 bytes" >&2; exit 1; }',
+    `[ "$bytes" -ge ${minimumSqlBytes} ] || { echo "SQL dump smaller than ${minimumSqlBytes} bytes" >&2; exit 1; }`,
+    // awk consumes every line, avoiding SIGPIPE even for large dumps under pipefail.
+    `gzip -dc "$tmp" | awk 'NF { last = $0 } END { exit(last != "-- PostgreSQL database dump complete") }' || { echo "SQL dump missing final completion trailer" >&2; exit 1; }`,
     'mv -f "$tmp" "$out"',
     'echo "verified $out ($bytes SQL bytes)"',
   ];
@@ -155,6 +157,7 @@ function postgresBackupCommand(backup: DatabaseBackup, nas: NasTarget): string[]
       `out="${backup.backupMountPath}/${backup.filenamePrefix}$(date +${backup.dateFormat}).sql.gz"`,
       ...verifiedDump(
         `pg_dump -h ${backup.serviceHost} -U ${backup.owner} -d ${backup.databaseName}`,
+        1024,
       ),
       ...fallbackPrune(nas, backup.backupMountPath),
     ].join("\n"),
@@ -231,7 +234,8 @@ export function homeAssistantPgBackupCronSpec(args: {
         "set -eo pipefail",
         `export PGPASSWORD="$(cat ${authMountPath}/password)"`,
         `out="${backupMountPath}/${databaseName}-$(date +%Y%m%d).sql.gz"`,
-        ...verifiedDump(`pg_dump -h ${serviceHost} -U ${owner} -d ${databaseName}`),
+        // Empty DB until HA recorder cutover: its complete dump is about 720 bytes.
+        ...verifiedDump(`pg_dump -h ${serviceHost} -U ${owner} -d ${databaseName}`, 512),
         ...fallbackPrune(nas, backupMountPath),
       ].join("\n"),
     ],
