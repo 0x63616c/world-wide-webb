@@ -1,3 +1,8 @@
+<!-- Tickets is the source of truth: https://tickets.worldwidewebb.co.
+     Use a Conventional Commit title ending in [WWW-12].
+     Start with Closes WWW-12, or Refs WWW-12 to link without closing. -->
+Closes WWW-
+
 ## What changed
 
 <!-- One or two lines describing the user-visible or behavioral change. Name
@@ -6,10 +11,9 @@
 
 ## Why / linked Ticket
 
-<!-- Explain why this change is needed, then reference the related factory
-     Ticket as Refs T-<id>. The merge webhook records the Ticket as done. -->
-
-Refs T-
+<!-- Explain why this change is needed. Track dependencies with Tickets
+     dependency edges. The GitHub webhook links the PR and moves the ticket
+     to In review on opening and Done on merge. -->
 
 ## How it was verified
 

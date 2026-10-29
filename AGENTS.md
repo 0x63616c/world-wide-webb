@@ -3,8 +3,17 @@
 ## Start here
 
 - Read `CODEBASE_OVERVIEW.md` first — it's the map; this file is the rules.
-- There is no ticket tracker in this repo. Nothing files or tracks work items
-  here; a request becomes a worktree, a branch, and a PR, directly.
+- [Tickets](https://tickets.worldwidewebb.co) is the sole source of truth for
+  work across all projects; this repo uses the `WWW` prefix. GitHub issues and
+  Projects boards are retired. Track dependencies with Tickets dependency edges.
+- PR titles are Conventional Commits ending with the ticket key, for example
+  `feat(app): add thing [WWW-12]`. Start the body with `Closes WWW-12` (or
+  `Refs WWW-12` to link without closing). The Tickets GitHub webhook links the
+  PR, moves the ticket to In review on opening, and to Done on merge.
+- On the box, start work with `P=$(job new world-wide-webb WWW-12 [slug]); source "$P/.job.env"`.
+  Source an existing `.job.env` before running checks. Model labels remain
+  `model:astra` (`-m gpt-6-astra -c model_reasoning_effort=xhigh`) and
+  `model:sol` (`-m gpt-6.1-sol`).
 
 ## Invariants
 

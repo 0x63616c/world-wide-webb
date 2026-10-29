@@ -1,0 +1,53 @@
+name: PR conventions
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: pr-conventions-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    permissions:
+      pull-requests: read
+    name: Conventional Commit title
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            chore
+            docs
+            test
+            ci
+            perf
+          requireScope: false
+          subjectPattern: ^\S.*$
+
+  ticket-key:
+    # Tickets (https://tickets.worldwidewebb.co) is the system of record. Bots (Renovate, Dependabot) are exempt.
+    name: Ticket key
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: github.event.pull_request.user.type != 'Bot'
+    steps:
+      - name: Require a Tickets key like [WWW-12] at the end of the PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if printf '%s' "$PR_TITLE" | grep -Eq '\[[A-Z]{1,10}-[0-9]+\][[:space:]]*$'; then
+            echo "Ticket key found."
+          else
+            echo "::error::PR title must end with a Tickets key, e.g. 'feat(app): add thing [WWW-12]', and the body should say 'Closes WWW-12'. See CONTRIBUTING.md."
+            exit 1
+          fi
