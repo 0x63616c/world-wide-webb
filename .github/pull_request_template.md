@@ -1,7 +1,7 @@
 <!-- Tickets is the source of truth: https://tickets.worldwidewebb.co.
      Use a Conventional Commit title ending in [WWW-12].
-     Start with Closes WWW-12, or Refs WWW-12 to link without closing. -->
-Closes WWW-
+     Start with the linked ticket (CI checks it), or use Refs instead of Closes to link without closing. -->
+Closes [WWW-N](https://tickets.worldwidewebb.co/t/WWW-N)
 
 ## What changed
 
