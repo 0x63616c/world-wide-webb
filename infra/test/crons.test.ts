@@ -306,6 +306,7 @@ describe("backup storage identity and verification (#790)", () => {
   for (const target of ["control-center", "home-assistant"]) {
     for (const outcome of [
       "valid",
+      "valid-pg18-unrestrict",
       "complete-empty",
       "empty",
       "small",
@@ -329,12 +330,17 @@ describe("backup storage identity and verification (#790)", () => {
                 ? `printf '%s\n' '${trailer}'`
                 : [
                     `printf '%${outcome === "complete-empty" ? 680 : 1048576}s\n' x`,
-                    outcome === "truncated" ? "" : `printf '%s\n\n' '${trailer}'`,
+                    outcome === "truncated" ? "" : `printf '%s\n' '--' '${trailer}' '--' ''`,
+                    outcome === "valid-pg18-unrestrict" || outcome === "complete-empty"
+                      ? "printf '%s\\n' '\\unrestrict abc123XYZ'"
+                      : "",
                     outcome === "trailing-content" ? "echo unexpected" : "",
                     `exit ${outcome === "dump-failure" ? 1 : 0}`,
                   ].join("\n");
           const passes =
-            outcome === "valid" || (target === "home-assistant" && outcome === "complete-empty");
+            outcome === "valid" ||
+            outcome === "valid-pg18-unrestrict" ||
+            (target === "home-assistant" && outcome === "complete-empty");
           writeFileSync(dump, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
           if (outcome === "corrupt-gzip") {
             writeFileSync(

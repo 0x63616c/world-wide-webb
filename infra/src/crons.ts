@@ -60,7 +60,10 @@ function verifiedDump(dump: string, minimumSqlBytes: number): string[] {
     'bytes=$(gzip -dc "$tmp" | wc -c)',
     `[ "$bytes" -ge ${minimumSqlBytes} ] || { echo "SQL dump smaller than ${minimumSqlBytes} bytes" >&2; exit 1; }`,
     // awk consumes every line, avoiding SIGPIPE even for large dumps under pipefail.
-    `gzip -dc "$tmp" | awk 'NF { last = $0 } END { exit(last != "-- PostgreSQL database dump complete") }' || { echo "SQL dump missing final completion trailer" >&2; exit 1; }`,
+    // pg_dump >= 17.6/18 appends `\unrestrict <key>` after the completion comment
+    // (CVE-2025-8714), so only comment separators, blank lines and that one
+    // meta-command may follow the trailer.
+    `gzip -dc "$tmp" | awk '$0 == "-- PostgreSQL database dump complete" { done = 1; next } done && !($0 == "" || $0 == "--" || $0 ~ /^\\\\unrestrict [A-Za-z0-9]+$/) { done = 0 } END { exit(!done) }' || { echo "SQL dump missing final completion trailer" >&2; exit 1; }`,
     'mv -f "$tmp" "$out"',
     'echo "verified $out ($bytes SQL bytes)"',
   ];
