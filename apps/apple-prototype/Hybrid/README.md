@@ -37,16 +37,24 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`walk`, `reminders`, `calendar`, and `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
-overrides the launch's UserDefaults; invalid values fall back to `web`.
+`walk`, `reminders`, `calendar`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
+`weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
+module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
+A native flag still shows the web board until that module's live provider has data.
+For example, `-moduleFlag.lights native` overrides the launch's UserDefaults; `default`
+uses the shipped value and invalid values fall back to `web`.
+
+Flip back without a rebuild: iOS Settings > Panel > "Web board only" sends every module
+to the web board (`hybrid.webOnly`), and each module has Default/Native/Web. Changes apply
+on the next launch. The in-app "Web board" button returns to the full board at any time.
 `all` always means the complete web board, even if its flag is set to `native`.
 
 `HybridRouter.route(for:hasLiveData:)` selects native only when the individual
 flag is `native` **and** a native implementation has live data. The generic
 `HybridModuleHost` receives an optional live view and a web fallback closure;
 nil data, a missing implementation, or a `web` flag selects the fallback.
-The root retains one WKWebView across native navigation. With all flags at their
-`web` default, it renders the same full-screen board with no native navigation and
+The root retains one WKWebView across native navigation. With all flags set to
+`web`, it renders the same full-screen board with no native navigation and
 starts no providers. With flags enabled, it initially selects the first enabled
 module in registry order; that selection stays on the board until its provider
 supplies data. A module strip offers the available native modules and **Web board**.
@@ -158,7 +166,7 @@ receive this same provider via `LiveHomeDataSource` and `HybridNativeModule`.
 The page lists today and upcoming events, with dates on entries outside today;
 Up Next prefers ongoing/upcoming timed events, then all-day events. Completed
 events remain visible on today's list. Empty or denied/unavailable data routes
-to the retained web board. Every flag still defaults to `web`; the default launch
+to the retained web board. Calendar still defaults to `web`; the default launch
 does not open EventKit, read events or prompt. When explicitly enabled, permission
 is requested only if undetermined. Denied/restricted/write-only states do not
 prompt repeatedly. Foreground polling every 10 seconds catches edits, midnight,
@@ -190,7 +198,8 @@ The Calendar fixture store reads `Fixtures/calendar/events.json` at a fixed
 `-hybridUnavailable` exercises the web fallback with a denied source. To check
 real calendars, configure Calendar accounts on the device, then relaunch Panel
 with **`-moduleFlag.calendar native`**, without `-hybridFixtures`, and grant the
-system Calendar request. Validate the tile and Details against Calendar, then
+system Calendar request. Select Calendar in the module strip (other live modules
+may also be enabled). Validate the tile and Details against Calendar, then
 revoke access in Settings and confirm web fallback. Restore the wall's default
 with `-moduleFlag.calendar web` (or remove the native override). Do not persist a
 native override on the wall until that device check passes.

@@ -16,6 +16,38 @@ final class ModuleFlagsTests: XCTestCase {
         XCTAssertEqual(router.route(for: .walk, hasLiveData: true), .native(.walk))
     }
 
+    func testShippedDefaultsAreNativeOnlyForLiveVerifiedModules() {
+        let flags = ModuleFlags(nativeByDefault: ModuleFlags.shippedNative)
+        for module in [PanelModule.lights, .climate, .fan, .wifi, .sonos, .weather, .walk] {
+            XCTAssertEqual(flags[module], .native, module.rawValue)
+        }
+        XCTAssertEqual(flags[.all], .web)
+        let router = HybridRouter(flags: flags)
+        XCTAssertEqual(router.route(for: .lights, hasLiveData: false), .webBoard)
+        XCTAssertEqual(router.route(for: .lights, hasLiveData: true), .native(.lights))
+    }
+
+    func testFlipBackPerModuleAndWebOnlySwitch() {
+        let perModule = ModuleFlags(overrides: ["moduleFlag.lights": "web", "moduleFlag.fan": "default",
+                                                "moduleFlag.sonos": "bogus"],
+                                    nativeByDefault: ModuleFlags.shippedNative)
+        XCTAssertEqual(perModule[.lights], .web)
+        XCTAssertEqual(perModule[.fan], .native)
+        XCTAssertEqual(perModule[.sonos], .web)
+        let webOnly = ModuleFlags(overrides: ["moduleFlag.climate": "native"],
+                                  nativeByDefault: ModuleFlags.shippedNative, webOnly: true)
+        for module in PanelModule.allCases { XCTAssertEqual(webOnly[module], .web) }
+    }
+
+    func testWebOnlySwitchIsReadFromUserDefaults() throws {
+        let name = "PanelTests.webOnly"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        XCTAssertEqual(ModuleFlags(defaults: defaults, nativeByDefault: ModuleFlags.shippedNative)[.weather], .native)
+        defaults.set(true, forKey: ModuleFlags.webOnlyKey)
+        XCTAssertEqual(ModuleFlags(defaults: defaults, nativeByDefault: ModuleFlags.shippedNative)[.weather], .web)
+    }
+
     func testOverridesAreIndependentAndInvalidValuesFailToWeb() {
         let flags = ModuleFlags(overrides: ["moduleFlag.lights": "native", "moduleFlag.fan": "web",
                                            "moduleFlag.weather": "NATIVE", "moduleFlag.unknown": "native"])

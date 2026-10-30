@@ -6,6 +6,11 @@ import XCTest
 @testable import Panel
 
 @MainActor final class LiveCalendarRoutingTests: XCTestCase {
+    func testCalendarIsWebByDefaultInShippedBuilds() {
+        XCTAssertFalse(ModuleFlags.shippedNative.contains(.calendar))
+        XCTAssertEqual(ModuleFlags(nativeByDefault: ModuleFlags.shippedNative)[.calendar], .web)
+    }
+
     func testCalendarSurfacesRenderAtPanelSize() async throws {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let store = LiveHomeDataSource(configuration: nil,

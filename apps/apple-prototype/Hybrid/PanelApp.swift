@@ -28,7 +28,14 @@ struct PanelRoot: View {
         #else
         _detail = State(initialValue: false)
         #endif
-        let flags = ModuleFlags(defaults: .standard)
+        // Fixture runs keep the all-web default so UI tests opt in per module.
+        #if DEBUG
+        let shipped: Set<PanelModule> = ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
+            ? [] : ModuleFlags.shippedNative
+        #else
+        let shipped = ModuleFlags.shippedNative
+        #endif
+        let flags = ModuleFlags(defaults: .standard, nativeByDefault: shipped)
         router = HybridRouter(flags: flags)
         requested = Set(PanelModule.allCases.filter { $0 != .all && flags[$0] == .native })
         _selection = State(initialValue: PanelModule.allCases.first { $0 != .all && flags[$0] == .native } ?? .all)
