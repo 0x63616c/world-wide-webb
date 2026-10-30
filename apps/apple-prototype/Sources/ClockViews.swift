@@ -2,12 +2,14 @@ import SwiftUI
 
 struct ClockController: View {
     let store: any HomeDataSource
+    var newAlarm = Alarm()
+    var save: ((Alarm) async throws -> Void)? = nil
     @State private var editing: Alarm?
     @State private var deleting: Alarm?
     @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
         if let alarm = editing {
-            AlarmEditor(initial: alarm, store: store) { editing = nil }.id(alarm.id)
+            AlarmEditor(initial: alarm, store: store, save: save) { editing = nil }.id(alarm.id)
         } else if sizeClass == .compact {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -21,7 +23,7 @@ struct ClockController: View {
                     HStack {
                         Text("Alarms").font(.title2.bold())
                         Spacer()
-                        Button("Add", systemImage: "plus") { editing = Alarm() }.buttonStyle(.glass)
+                        Button("Add", systemImage: "plus") { editing = newAlarm }.buttonStyle(.glass)
                     }
                     ForEach(store.alarms) { alarm in
                         VStack(spacing: 16) {
@@ -77,7 +79,7 @@ struct ClockController: View {
                     HStack {
                         Text("Alarms").font(.system(size: 30, weight: .semibold))
                         Spacer()
-                        Button("Add alarm", systemImage: "plus") { editing = Alarm() }.buttonStyle(.glass)
+                        Button("Add alarm", systemImage: "plus") { editing = newAlarm }.buttonStyle(.glass)
                     }
                     ScrollView {
                         VStack(spacing: 18) {
@@ -117,7 +119,7 @@ struct ClockController: View {
         return formatter.string(from: date)
     }
     private var nextAlarm: (Alarm, Date)? {
-        store.alarms.compactMap { alarm in alarm.next(after: store.now).map { (alarm, $0) } }.min { $0.1 < $1.1 }
+        store.upcomingAlarm(at: store.now).map { ($0.alarm, $0.due) }
     }
     private func days(_ values: Set<Int>) -> String {
         values.isEmpty ? "Once" : values.sorted().map { ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][$0] }.joined(separator: " · ")
@@ -126,11 +128,13 @@ struct ClockController: View {
 struct AlarmEditor: View {
     let store: any HomeDataSource
     let close: () -> Void
+    let save: ((Alarm) async throws -> Void)?
+    @State private var saving = false
     @State private var alarm: Alarm
     @State private var error: String?
     @Environment(\.horizontalSizeClass) private var sizeClass
-    init(initial: Alarm, store: any HomeDataSource, close: @escaping () -> Void) {
-        self.store = store; self.close = close; _alarm = State(initialValue: initial)
+    init(initial: Alarm, store: any HomeDataSource, save: ((Alarm) async throws -> Void)? = nil, close: @escaping () -> Void) {
+        self.store = store; self.save = save; self.close = close; _alarm = State(initialValue: initial)
     }
     var body: some View {
         let fields = sizeClass == .compact ? AnyLayout(VStackLayout(spacing: 18)) : AnyLayout(HStackLayout(spacing: 28))
@@ -163,8 +167,15 @@ struct AlarmEditor: View {
                     Spacer()
                     Button("Save alarm") {
                         if let validation = alarm.validationError { error = validation }
-                        else { store.send(.saveAlarm(alarm)); close() }
-                    }.keyboardShortcut(.defaultAction)
+                        else if let save {
+                            saving = true
+                            Task { @MainActor in
+                                defer { saving = false }
+                                do { try await save(alarm); close() }
+                                catch { self.error = error.localizedDescription }
+                            }
+                        } else { store.send(.saveAlarm(alarm)); close() }
+                    }.keyboardShortcut(.defaultAction).disabled(saving)
                 }.buttonStyle(.glass).controlSize(.large)
             }.padding(sizeClass == .compact ? 24 : 42).frame(maxWidth: 1000)
         }

@@ -75,7 +75,11 @@ targets:
   WorldWideWebbTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [Tests]
+    sources:
+      - path: Tests
+      - path: PanelKit/Tests/PanelKitTests/Fixtures
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: WorldWideWebb-iPad
       - package: PanelKit
@@ -161,6 +165,15 @@ targets:
       base:
         PRODUCT_MODULE_NAME: PanelUITests
 schemes:
+  Panel-Alarms:
+    build:
+      targets:
+        Panel: [test]
+        WorldWideWebb-iPad: [test]
+    test:
+      targets:
+        - PanelTests
+        - WorldWideWebbTests
   Panel-Smoke:
     build:
       targets:

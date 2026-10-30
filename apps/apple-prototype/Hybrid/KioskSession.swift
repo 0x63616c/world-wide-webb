@@ -11,6 +11,8 @@ final class KioskSession {
     var browser: BrowserDestination?
     var share: ShareDestination?
     let launchedAt: Int64
+    let nativeAlarms: NativeAlarmsRuntime
+    private let nativeAlarmsRequested: Bool
 
     @ObservationIgnored weak var webView: WKWebView?
     @ObservationIgnored private let alarms: PanelAlarms
@@ -20,9 +22,12 @@ final class KioskSession {
     @ObservationIgnored private var rendered = false
     @ObservationIgnored private var pendingAlarms = false
 
-    init(configuration: PanelConfiguration, alarms: PanelAlarms = PanelAlarms()) {
+    init(configuration: PanelConfiguration, alarms: PanelAlarms = PanelAlarms(), nativeAlarmsRequested: Bool = false,
+         nativeAlarms: NativeAlarmsRuntime = NativeAlarmsRuntime()) {
         self.configuration = configuration
         self.alarms = alarms
+        self.nativeAlarms = nativeAlarms
+        self.nativeAlarmsRequested = nativeAlarmsRequested
         launchedAt = Int64(Date().timeIntervalSince1970 * 1000)
         alarms.configure(serverURL: configuration.serverURL, token: configuration.alarmAPIToken,
                          cfID: configuration.cfAccessClientID, cfSecret: configuration.cfAccessClientSecret)
@@ -34,7 +39,7 @@ final class KioskSession {
         // Equivalent to Expo's playsInSilentMode; WebKit owns media playback.
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
-        Task { await alarms.refresh() }
+        if !nativeAlarmsRequested { Task { await alarms.refresh() } }
     }
 
     func startBoot() {
@@ -140,11 +145,41 @@ final class KioskSession {
             openBrowser(url)
         case "closeBrowser": browser = nil
         case "syncNextAlarm":
+            if nativeAlarms.ownsRinging { return .success(id: request.id) }
             do { try await alarms.sync(next: request.params?["next"] ?? .null) }
             catch { return fail("Could not sync the next alarm") }
         default: return fail("Unknown native method: \(request.method)")
         }
         return .success(id: request.id)
+    }
+
+    func reconcileAlarms(_ provider: LiveAlarmsProvider) async {
+        await nativeAlarms.reconcile(snapshot: provider.snapshot, available: provider.availability == .live,
+            configured: !configuration.alarmAPIToken.isEmpty || isAlarmFixture,
+            handoff: { await self.setAlarmOwner($0) }, syncWidget: { next in
+                if self.isAlarmFixture { return }
+                let value = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(next))
+                try await self.alarms.sync(next: value)
+            })
+    }
+
+    private var isAlarmFixture: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
+        #else
+        false
+        #endif
+    }
+
+    func setAlarmOwner(_ native: Bool) async -> Bool {
+        if isAlarmFixture { return true }
+        guard let webView, KioskURLPolicy.isTrusted(webView.url, serverURL: configuration.serverURL) else { return false }
+        let expected = generation
+        do {
+            let result = try await webView.callAsyncJavaScript(KioskScripts.alarmOwnership,
+                arguments: ["native": native, "serverURL": configuration.serverURL.absoluteString], in: nil, in: .page)
+            return expected == generation && (result as? Bool == true)
+        } catch { return false }
     }
 
     private static var hardwareModel: String {

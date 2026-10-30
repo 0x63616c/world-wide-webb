@@ -11,6 +11,7 @@
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key><true/>
+    <key>NSAlarmKitUsageDescription</key><string>Control Center schedules your next alarm so it can ring while the panel is locked.</string>
     <key>NSSupportsLiveActivities</key><true/>
     <key>UILaunchScreen</key><dict/>
     <key>UIRequiresFullScreen</key><true/>

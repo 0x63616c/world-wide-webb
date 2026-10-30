@@ -10,8 +10,8 @@ private actor AlarmProviderTransport: PanelTransport {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !fixtures.isEmpty else { throw URLError(.notConnectedToInternet) }
-        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/alarms/\(fixtures.removeFirst()).json")
+        let url = Bundle(for: LiveAlarmsProviderTests.self).resourceURL!
+            .appendingPathComponent("Fixtures/alarms/\(fixtures.removeFirst()).json")
         return (try Data(contentsOf: url), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
     }
 }
