@@ -321,3 +321,15 @@ panel Lamps glyph and title on one line and give the 88-point-wide fader an
 explicit 208-point height. Preserve the percentage, mixed-state explanation,
 phone layout, full-screen Lamps page, Climate and materials. This tests only the
 remaining instrument proportion from 7h. No acceptance claimed before review.
+
+Iteration 3 capture checkpoint: all five scheme builds PASS. All twelve live
+independent-relaunch pairs validate and pass determinism; maximum RGB MAE is
+0.000627/255. Against archived pass-7g captures, the eleven non-target states
+differ by at most 0.000619/255; Home changes only its Lamps instrument and
+nearby material rendering. All evidence stays outside Git in
+`/workspace/wwwebb-ui/prototype/v2/www54/iteration-3/`. Three cold reviews use
+the unchanged prompt/script/reference hashes; transient connection retries
+remain in their original logs. Final iPad unit tests pass; the rest of the
+verification is running. The superseded iteration-2 Panel unit phase passed;
+its slow Panel-Smoke run was interrupted to release resources for the final
+candidate and is not claimed as passing. No design acceptance yet.
