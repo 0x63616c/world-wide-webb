@@ -5,6 +5,7 @@ import PanelKit
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    let mediaProvider: LiveMediaProvider
     let camerasProvider: LiveCamerasProvider
     let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
@@ -31,14 +32,15 @@ import PanelKit
     var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { unavailable }
     var cameras: any CamerasProvider { camerasProvider }
-    var media: any MediaProvider { unavailable }
+    var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { unavailable }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
-         remindersAPI: any RemindersServing = RemindersAPI(),
+         remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
+        mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
         clock = now
         calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
@@ -61,6 +63,7 @@ import PanelKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .media: mediaProvider.availability == .live && !mediaProvider.items.isEmpty
         case .cameras: camerasProvider.availability == .live && !camerasProvider.feeds.isEmpty
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
@@ -176,6 +179,7 @@ import PanelKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .media: await mediaProvider.refresh()
         case .cameras: await camerasProvider.refresh()
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
@@ -211,6 +215,7 @@ import PanelKit
     }
 
     func stop() {
+        mediaProvider.stop()
         camerasProvider.stop()
         alarmsProvider.stop()
         lightsProvider.stop()
