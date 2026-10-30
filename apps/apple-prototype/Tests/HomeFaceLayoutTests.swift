@@ -15,7 +15,7 @@ final class HomeFaceLayoutTests: XCTestCase {
             XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
             XCTAssertEqual(item.frame.minY.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
         }
-        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 3)
+        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 1)
         }
     }
 
@@ -36,6 +36,14 @@ final class HomeFaceLayoutTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testPhoneBottomShowsTheWholeMusicCardAboveTheRoundControls() {
+        let layout = HomeFaceLayout.phone(in: CGSize(width: 402, height: 778))
+        let music = layout.items.first { $0.tile == .sound }!
+        let visible = music.frame.offsetBy(dx: 0, dy: -layout.bottomScrollOffset)
+        XCTAssertGreaterThanOrEqual(visible.minY, layout.margin)
+        XCTAssertLessThanOrEqual(visible.maxY, layout.viewport.height - layout.pagerBand - layout.margin)
     }
 
     func testEveryModuleAndAccessoryIsReachableOnBothDeviceLayouts() {

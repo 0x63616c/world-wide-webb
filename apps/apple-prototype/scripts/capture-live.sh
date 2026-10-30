@@ -20,7 +20,7 @@ prepare() {
   xcrun simctl bootstatus "$device" -b
   local orientation=portrait
   [[ "$device" == "$ipad" ]] && orientation=landscapeLeft
-  xcrun devicectl device orientation set --device "$device" "$orientation" --timeout 15
+  xcrun devicectl device orientation set --device "$device" "$orientation" --timeout 45
   xcrun simctl ui "$device" appearance dark
   xcrun simctl ui "$device" increase_contrast disabled
   xcrun simctl ui "$device" content_size large

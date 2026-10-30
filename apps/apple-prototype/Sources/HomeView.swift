@@ -4,7 +4,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
     case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos, dogwalk
-    static let homeFace: [HomeTile] = [.climate, .sound, .ceiling, .lamps, .weather, .fan, .tesla, .calendar, .wifi]
+    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
     static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
@@ -91,7 +91,7 @@ struct HomeView: View {
                 Group {
                     if facePage == 2 { Color.black.ignoresSafeArea() }
                     else if facePage == 3 { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
-                    else { Wallpaper() }
+                    else { Wallpaper(asset: "ForestPhoto") }
                 }
                 homeFace(size: proxy.size)
                     .safeAreaBar(edge: .bottom, spacing: 0) {
@@ -257,7 +257,7 @@ struct HomeFaceGrid: View {
             ForEach(layout.items) { item in
                 MixedHomeTile(tile: item.tile, store: store, open: { open(item.tile) })
                     .frame(width: item.frame.width, height: item.frame.height)
-                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos, .cameras].contains(item.tile), redesigned: !controls))
+                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos, .cameras].contains(item.tile)))
                     .glassEffectID("\(controls)-\(item.id)", in: zoom)
                     .matchedTransitionSource(id: "\(controls ? 1 : 0)-\(item.id)", in: zoom)
                     .position(x: item.frame.midX, y: item.frame.midY)

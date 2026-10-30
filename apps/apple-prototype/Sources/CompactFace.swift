@@ -31,7 +31,7 @@ struct CompactFace: View {
                         LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
                             .frame(height: 8)
                         Rectangle()
-                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .clear, location: 0.5), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
                             .frame(height: 8)
                     }
                 }
@@ -42,7 +42,7 @@ struct CompactFace: View {
     private func tile(_ tile: HomeTile, width: CGFloat, height: CGFloat, round: Bool = false) -> some View {
         MixedHomeTile(tile: tile, store: store, open: { open(tile) })
             .frame(width: width, height: height)
-            .modifier(MixedTileMaterial(round: round, on: tile == .fan ? store.climate.fanOn && store.climate.mode != .off : tile.accessory.map { store.lamps.isOn($0) } ?? false, imageContent: [.weather, .photos, .cameras].contains(tile), redesigned: !controls))
+            .modifier(MixedTileMaterial(round: round, on: tile == .fan ? store.climate.fanOn && store.climate.mode != .off : tile.accessory.map { store.lamps.isOn($0) } ?? false, imageContent: [.weather, .photos, .cameras].contains(tile)))
             .glassEffectID("\(controls ? "controls" : "home")-\(tile.id)", in: zoom)
             .matchedTransitionSource(id: "\(controls ? 1 : 0)-\(tile.id)", in: zoom)
     }

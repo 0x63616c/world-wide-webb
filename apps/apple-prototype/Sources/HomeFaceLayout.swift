@@ -44,7 +44,7 @@ struct HomeFaceLayout {
 
     /// `size` already excludes hardware safe areas, but includes the pager band.
     static func phone(in size: CGSize, controls: Bool = false) -> Self {
-        let gap: CGFloat = 16, margin: CGFloat = 24
+        let gap: CGFloat = 24, margin: CGFloat = 24
         let cell = floor((size.width - 2 * margin - gap) / 2 / 8) * 8
         let width = cell * 2 + gap, left = (size.width - width) / 2
         let header = CGRect(x: left, y: margin, width: width, height: 40)
@@ -62,13 +62,13 @@ struct HomeFaceLayout {
             }
         } else {
             add(.climate, width: width, height: 240); y += 240 + gap
-            add(.weather, width: width, height: 160); y += 160 + gap
-            add(.calendar, width: width, height: 168); y += 168 + gap
+            add(.weather, width: width, height: 152); y += 152 + gap
+            add(.calendar, width: width, height: 144); y += 144 + gap
             add(.lamps, width: cell, height: 2 * cell + gap)
             add(.ceiling, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
             add(.fan, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
-            add(.sound, width: width, height: 144); y += 144 + gap
-            add(.tesla, width: width, height: 152); y += 152 + gap
+            add(.sound, width: width, height: 120); y += 120 + gap
+            add(.tesla, width: width, height: 136); y += 136 + gap
         }
         add(.clock, width: cell, height: cell, round: true)
         add(.wifi, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
