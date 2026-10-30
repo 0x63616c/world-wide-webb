@@ -225,7 +225,8 @@ import PanelKit
         store.send(.saveAlarm(Alarm()))
         store.send(.playMedia("fixture", 0))
         store.send(.seek("unknown", 30))
-        store.toggleWalk()
+        // Walk views receive the guarded server-time adapter from HybridNativeModule.
+        HybridWalkDataSource(store: store).toggleWalk()
         await Task.yield()
         let requests = await transport.requests
         XCTAssertTrue(requests.isEmpty)
