@@ -16,6 +16,7 @@ struct PanelRoot: View {
     @Environment(\.scenePhase) private var scenePhase
     // Configuration and flags are intentional launch-time snapshots.
     @State private var session: KioskSession
+    @State private var updateChecker: UpdateChecker
     @State private var store: LiveHomeDataSource
     @State private var selection: PanelModule
     @State private var detail: Bool
@@ -25,6 +26,7 @@ struct PanelRoot: View {
     private let requested: Set<PanelModule>
 
     init() {
+        _updateChecker = State(initialValue: UpdateChecker.live(configuration: PanelConfiguration()))
         #if DEBUG
         _detail = State(initialValue: ProcessInfo.processInfo.arguments.contains("-hybridDetail"))
         #else
@@ -183,6 +185,15 @@ struct PanelRoot: View {
             }
         }
         .onChange(of: store.alarmsProvider.snapshot?.active) { _, _ in ringHidden = false }
+        .overlay(alignment: .top) {
+            if let build = updateChecker.availableBuild {
+                UpdateBanner(build: build).padding(.top, 72).padding(.horizontal, 24)
+            }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await updateChecker.run()
+        }
         .onDisappear { session.stop(); store.stop() }
     }
 

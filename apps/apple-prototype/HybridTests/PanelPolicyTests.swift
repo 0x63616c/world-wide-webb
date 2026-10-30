@@ -5,7 +5,7 @@ import XCTest
 final class ModuleFlagsTests: XCTestCase {
     func testEveryModuleDefaultsToWeb() {
         let flags = ModuleFlags()
-        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather", "photos", "walk", "reminders", "alarms", "calendar", "media"])
+        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather", "photos", "walk", "reminders", "alarms", "calendar", "media", "tesla", "cameras"])
         for module in PanelModule.allCases { XCTAssertEqual(flags[module], .web) }
     }
 
@@ -24,6 +24,7 @@ final class ModuleFlagsTests: XCTestCase {
         XCTAssertEqual(flags[.all], .web)
         XCTAssertEqual(flags[.photos], .web)
         XCTAssertEqual(flags[.alarms], .web)
+        XCTAssertEqual(flags[.cameras], .web)
         let router = HybridRouter(flags: flags)
         XCTAssertEqual(router.route(for: .photos, hasLiveData: true), .webBoard)
         XCTAssertEqual(router.route(for: .lights, hasLiveData: false), .webBoard)

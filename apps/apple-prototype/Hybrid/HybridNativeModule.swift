@@ -4,6 +4,7 @@ extension PanelModule {
     var title: String {
         switch self {
         case .media: "Media"
+        case .cameras: "Cameras"
         case .reminders: "Reminders"
         case .all: "Web board"
         case .lights: "Lights"
@@ -16,6 +17,7 @@ extension PanelModule {
         case .calendar: "Calendar"
         case .alarms: "Clock & Alarms"
         case .walk: "Dog Walk"
+        case .tesla: "Car"
         }
     }
 }
@@ -56,7 +58,9 @@ struct HybridNativeModule: View {
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .alarms: HybridClockFace(store: store, open: open)
+        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
+        case .tesla: TeslaTile(provider: store.teslaProvider)
         case .walk:
             DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
                 .disabled(store.walkProvider.isMutating)
@@ -84,7 +88,9 @@ struct HybridNativeModule: View {
             ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
                             timeZone: .current, locationLabel: TimeZone.current.identifier)
                 .disabled(store.alarmsProvider.pending)
+        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
+        case .tesla: TeslaModule(provider: store.teslaProvider)
         case .walk:
             DogWalkPage(store: HybridWalkDataSource(store: store))
                 .disabled(store.walkProvider.isMutating)

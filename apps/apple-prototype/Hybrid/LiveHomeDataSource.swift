@@ -7,6 +7,7 @@ import CryptoKit
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
     let mediaProvider: LiveMediaProvider
+    let camerasProvider: LiveCamerasProvider
     let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
@@ -15,6 +16,7 @@ import CryptoKit
     let weatherProvider: LiveWeatherProvider
     let alarmsProvider: LiveAlarmsProvider
     let sonosProvider: LiveSonosProvider
+    let teslaProvider: LiveTeslaProvider
     let photosProvider: LivePhotosProvider
     let calendarProvider: LiveCalendarProvider
     let walkProvider: LiveWalkProvider
@@ -30,10 +32,10 @@ import CryptoKit
         _ = calendarProvider.referenceDate
         return clock()
     }
-    var tesla: any TeslaProvider { unavailable }
+    var tesla: any TeslaProvider { teslaProvider }
     var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { photosProvider }
-    var cameras: any CamerasProvider { unavailable }
+    var cameras: any CamerasProvider { camerasProvider }
     var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { walkProvider }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
@@ -44,6 +46,7 @@ import CryptoKit
          calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil) {
         mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
+        camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
         clock = now
         calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
@@ -58,6 +61,7 @@ import CryptoKit
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
+        teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()
         let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -75,9 +79,11 @@ import CryptoKit
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
         case .media: mediaProvider.availability == .live && !mediaProvider.items.isEmpty
+        case .cameras: camerasProvider.availability == .live && !camerasProvider.feeds.isEmpty
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
+        case .tesla: teslaProvider.hasLiveData
         case .photos: photosProvider.availability == .live && !photosProvider.frames.isEmpty
         case .lights: lightsProvider.availability == .live
         case .climate: climateProvider.availability == .live && climateProvider.climate != nil
@@ -191,9 +197,11 @@ import CryptoKit
     func refresh(_ module: PanelModule) async {
         switch module {
         case .media: await mediaProvider.refresh()
+        case .cameras: await camerasProvider.refresh()
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
+        case .tesla: await teslaProvider.refresh()
         case .photos: await photosProvider.refresh()
         case .lights: await lightsProvider.refresh()
         case .climate: await climateProvider.refresh()
@@ -249,8 +257,10 @@ import CryptoKit
     func stop() {
         walkRunID = nil
         walkProvider.setSceneActive(false)
+        teslaProvider.stop()
         photosProvider.lock()
         mediaProvider.stop()
+        camerasProvider.stop()
         alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()
