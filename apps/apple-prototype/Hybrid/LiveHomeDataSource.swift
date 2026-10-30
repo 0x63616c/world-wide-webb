@@ -35,13 +35,16 @@ import CryptoKit
         session.urlCache = nil
         session.httpCookieStorage = nil
         session.urlCredentialStorage = nil
-        let transport = transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
+        let photoAPI = transport.map {
+            PhotosAPI(client: PanelAPIClient(configuration: configuration, transport: $0))
+        } ?? PhotosAPI(configuration: configuration)
+        let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()
         let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PanelPhotos").appendingPathComponent(namespace)
-        photosProvider = LivePhotosProvider(api: PhotosAPI(client: client), cache: PhotoCache(directory: cacheRoot))
+        photosProvider = LivePhotosProvider(api: photoAPI, cache: PhotoCache(directory: cacheRoot))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))
         fanProvider = LiveFanProvider(api: FanAPI(client: client))
