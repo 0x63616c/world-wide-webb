@@ -393,3 +393,34 @@ Provider clocks, write paths, assertions and the separate real-time alarm tests
 remain unchanged. Normal/release rendering and the scored prototype are unchanged.
 The affected native builds and fixture tests are being reverified. This is a
 verification harness fix, not a fourth design iteration or an accepted redesign.
+
+
+### WWW-54 final checkpoint — no eligible design; smoke blocked
+
+The three allowed design iterations are complete and rejected (Home medians
+8.4, 8.3, 8.2). All visual changes are reverted in new commits. Retained Home
+is the historical accepted 8.5 state, pixel-identical to archived main; no new
+restored-state review score or design improvement is claimed.
+
+All five scheme builds pass. Both prototype schemes pass their unit and hosted
+render suites. All eight UI tours have passing results: navigation and Lamps
+power required unchanged serial retries, with the original failures retained.
+Panel unit tests pass, including 94 refreshed PanelTests after the DEBUG fixture
+motion change. Branch CI at 50112381 is green.
+
+Panel-Smoke does not pass as a complete suite. The first restored run passes
+10/11 cases, with the multi-module web-return idle timeout described above.
+After the fixture motion fix, a full retry fails five cases with simulator
+launch/automation resource errors (including “Resource temporarily unavailable”).
+A further unchanged full retry stalls before its first assertion: after over
+18 minutes, XCTest reports “Unable to monitor event loop” and xcodebuild is idle.
+Stop only this task's stalled run; leave other sessions and global settings alone.
+The unused task prototype simulator was already shut down under www8-simlock.
+
+Raw captures, determinism checks, three cold runs per candidate and verification
+logs are archived outside Git under /workspace/wwwebb-ui/prototype/v2/www54/.
+No screenshot binaries are committed. The mandatory pre-PR Panel-Smoke gate is
+unmet, so no PR is opened, no merge is performed and no TestFlight release is
+claimed. The design goal remains unmet. Resume with a healthy shared simulator
+host to finish verification; do not attempt a fourth design iteration under this
+brief. The branch preserves all experiment/revert history without rewriting.
