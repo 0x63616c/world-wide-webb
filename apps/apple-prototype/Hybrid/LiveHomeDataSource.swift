@@ -5,6 +5,7 @@ import PanelKit
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    let mediaProvider: LiveMediaProvider
     let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
@@ -31,14 +32,15 @@ import PanelKit
     var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { unavailable }
     var cameras: any CamerasProvider { unavailable }
-    var media: any MediaProvider { unavailable }
+    var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { walkProvider }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
-         remindersAPI: any RemindersServing = RemindersAPI(),
+         remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil) {
+        mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         clock = now
         calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
@@ -61,6 +63,7 @@ import PanelKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .media: mediaProvider.availability == .live && !mediaProvider.items.isEmpty
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
@@ -175,6 +178,7 @@ import PanelKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .media: await mediaProvider.refresh()
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
@@ -222,6 +226,7 @@ import PanelKit
 
     func stop() {
         walkProvider.setSceneActive(false)
+        mediaProvider.stop()
         alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()

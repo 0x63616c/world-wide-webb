@@ -184,6 +184,28 @@
 				<string>web</string>
 			</array>
 		</dict>
+		<dict>
+			<key>DefaultValue</key>
+			<string>default</string>
+			<key>Key</key>
+			<string>moduleFlag.media</string>
+			<key>Title</key>
+			<string>Media</string>
+			<key>Titles</key>
+			<array>
+				<string>Default</string>
+				<string>Native</string>
+				<string>Web</string>
+			</array>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Values</key>
+			<array>
+				<string>default</string>
+				<string>native</string>
+				<string>web</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

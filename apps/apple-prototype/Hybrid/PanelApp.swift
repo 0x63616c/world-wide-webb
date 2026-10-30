@@ -61,9 +61,11 @@ struct PanelRoot: View {
                 alarmScenario: ringing ? "ringing" : "scheduled",
                 walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"))
             _store = State(initialValue: LiveHomeDataSource(
-                configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
+                configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
+                    accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
                 transport: transport, remindersAPI: HybridRemindersFixture(
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
+                mediaAPI: HybridMediaFixture(unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
                 calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"))),
                 now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }))

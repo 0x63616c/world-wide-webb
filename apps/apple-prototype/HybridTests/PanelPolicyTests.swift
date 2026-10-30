@@ -5,7 +5,7 @@ import XCTest
 final class ModuleFlagsTests: XCTestCase {
     func testEveryModuleDefaultsToWeb() {
         let flags = ModuleFlags()
-        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather", "walk", "reminders", "alarms", "calendar"])
+        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather", "walk", "reminders", "alarms", "calendar", "media"])
         for module in PanelModule.allCases { XCTAssertEqual(flags[module], .web) }
     }
 

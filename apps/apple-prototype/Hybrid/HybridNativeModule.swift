@@ -3,6 +3,7 @@ import SwiftUI
 extension PanelModule {
     var title: String {
         switch self {
+        case .media: "Media"
         case .reminders: "Reminders"
         case .all: "Web board"
         case .lights: "Lights"
@@ -44,6 +45,7 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var face: some View {
         switch module {
+        case .media: MediaModule(provider: store.mediaProvider, detail: false, open: open)
         case .lights: AccessoryFace(key: .lamps, store: store, open: open)
         case .fan: fan
         case .climate: TileFace(tile: .climate, store: store, open: open)
@@ -62,6 +64,7 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var controller: some View {
         switch module {
+        case .media: MediaModule(provider: store.mediaProvider, detail: true, open: open)
         case .lights: ControlsController(store: store, fanIsOn: store.hasLiveData(for: .fan) ? store.fanProvider.fanOn : nil)
         case .climate: ClimateController(store: store)
         case .fan:
