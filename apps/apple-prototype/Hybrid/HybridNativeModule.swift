@@ -61,8 +61,10 @@ struct HybridNativeModule: View {
         case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         case .tesla: TeslaTile(provider: store.teslaProvider)
-        // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
-        case .walk, .all: EmptyView()
+        case .walk:
+            DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
+                .disabled(store.walkProvider.isMutating)
+        case .all: EmptyView()
         }
     }
 
@@ -89,7 +91,10 @@ struct HybridNativeModule: View {
         case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         case .tesla: TeslaModule(provider: store.teslaProvider)
-        case .walk, .all: EmptyView()
+        case .walk:
+            DogWalkPage(store: HybridWalkDataSource(store: store))
+                .disabled(store.walkProvider.isMutating)
+        case .all: EmptyView()
         }
     }
 

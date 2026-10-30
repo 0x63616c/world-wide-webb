@@ -5,7 +5,7 @@ final class HybridModuleTests: XCTestCase {
     func testEveryNativeModuleTileAndDetailUsesProviderFixtures() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
-        let modules = ["lights", "climate", "fan", "weather", "wifi", "sonos"]
+        let modules = ["lights", "climate", "fan", "weather", "wifi", "sonos", "walk"]
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for module in modules {
             app.launchArguments = ["-hybridFixtures", "-moduleFlag.\(module)", "native"]
@@ -13,17 +13,43 @@ final class HybridModuleTests: XCTestCase {
             let tile = app.descendants(matching: .any)["native-\(module)-tile"].firstMatch
             XCTAssertTrue(tile.waitForExistence(timeout: 30), module)
             XCTAssertGreaterThan(app.frame.width, app.frame.height)
+            if module == "walk" { XCTAssertTrue(app.buttons["Start walking Zero"].exists) }
             for other in modules where other != module { XCTAssertFalse(app.buttons["module-\(other)"].exists) }
             capture("\(module)-tile")
             app.buttons["module-detail"].tap()
             let detail = app.descendants(matching: .any)["native-\(module)-detail"].firstMatch
             XCTAssertTrue(detail.waitForExistence(timeout: 10), module)
+            if module == "walk" {
+                XCTAssertTrue(app.staticTexts["Zero’s walks"].exists)
+                XCTAssertTrue(app.staticTexts["Walk history"].exists)
+            }
             capture("\(module)-detail")
             app.buttons["module-all"].tap()
-            XCTAssertFalse(detail.exists)
-            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists)
+            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
+            let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                object: app.buttons["module-detail"])
+            XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 10), .completed)
+            capture("\(module)-web-return")
             app.terminate()
         }
+    }
+
+    @MainActor
+    func testActiveWalkOpensExistingDetailAndFailedWriteReturnsToWeb() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-hybridWalkActive", "-moduleFlag.walk", "native"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Stop walking Zero"].waitForExistence(timeout: 30))
+        capture("walk-active-tile")
+        app.buttons["module-detail"].tap()
+        XCTAssertTrue(app.buttons["End walk"].waitForExistence(timeout: 10))
+        capture("walk-active-detail")
+        app.buttons["End walk"].tap() // Fixture writes fail closed, exercising live error routing.
+        XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["module-detail"].exists)
+        app.terminate()
     }
 
     @MainActor
@@ -34,12 +60,15 @@ final class HybridModuleTests: XCTestCase {
         for arguments in [
             ["-hybridFixtures"],
             ["-hybridFixtures", "-hybridUnavailable", "-moduleFlag.lights", "native"],
+            ["-hybridFixtures", "-hybridUnavailable", "-moduleFlag.walk", "native"],
+            ["-hybridFixtures", "-moduleFlag.walk", "web"],
             ["-hybridFixtures", "-moduleFlag.all", "native"]
         ] {
             app.launchArguments = arguments
             app.launch()
-            XCTAssertTrue(app.staticTexts["Reconnecting…"].waitForExistence(timeout: 30))
-            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists)
+            // Reconnecting text comes and goes with WebKit retries; the fallback
+            // contract is the accessible web surface with no native controls.
+            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
             XCTAssertFalse(app.buttons["module-detail"].exists)
             capture(arguments.contains("-hybridUnavailable") ? "unavailable-web-fallback" : "default-web-board")
             app.terminate()

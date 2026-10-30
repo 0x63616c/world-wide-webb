@@ -60,7 +60,8 @@ struct PanelRoot: View {
             else { fixtureNow = Date.init }
             let transport = HybridFixtureTransport(root: root,
                 unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"),
-                alarmScenario: ringing ? "ringing" : "scheduled")
+                alarmScenario: ringing ? "ringing" : "scheduled",
+                walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"))
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
                     accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),

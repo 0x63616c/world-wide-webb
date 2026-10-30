@@ -19,6 +19,7 @@ import CryptoKit
     let teslaProvider: LiveTeslaProvider
     let photosProvider: LivePhotosProvider
     let calendarProvider: LiveCalendarProvider
+    let walkProvider: LiveWalkProvider
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     var alarms: [Alarm] { alarmsProvider.alarms }
@@ -36,13 +37,14 @@ import CryptoKit
     var photos: any PhotosProvider { photosProvider }
     var cameras: any CamerasProvider { camerasProvider }
     var media: any MediaProvider { mediaProvider }
-    var walks: any WalkProvider { unavailable }
+    var walks: any WalkProvider { walkProvider }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
+    @ObservationIgnored private var walkRunID: UUID?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
          remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
-         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
+         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil) {
         mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
         clock = now
@@ -58,6 +60,7 @@ import CryptoKit
         } ?? PhotosAPI(configuration: configuration)
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
+        walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()
@@ -89,7 +92,7 @@ import CryptoKit
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
         case .calendar: calendarProvider.availability == .live && !calendarProvider.events.isEmpty
-        case .walk: false // Dog Walk owns its live state via LiveWalkProvider.
+        case .walk: walkProvider.availability == .live
         }
     }
 
@@ -207,7 +210,7 @@ import CryptoKit
         case .weather: await weatherProvider.refresh()
         case .sonos: await sonosProvider.refresh()
         case .calendar: await calendarProvider.refresh()
-        case .walk: break
+        case .walk: await walkProvider.refresh()
         }
     }
 
@@ -223,6 +226,27 @@ import CryptoKit
     }
 
     private func poll(_ module: PanelModule) async {
+        if module == .walk {
+            guard !Task.isCancelled else { return }
+            // Dog Walk already owns its four-second cadence, backoff and stale-read
+            // guards. Keep its coordinator alive only for this foreground task.
+            let runID = UUID()
+            walkRunID = runID
+            walkProvider.setSceneActive(false)
+            walkProvider.setSceneActive(true)
+            defer {
+                // A cancelled old scene task must not stop a newer foreground run.
+                if walkRunID == runID {
+                    walkRunID = nil
+                    walkProvider.setSceneActive(false)
+                }
+            }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(3600)) }
+                catch { return }
+            }
+            return
+        }
         while !Task.isCancelled {
             await refresh(module)
             do { try await Task.sleep(for: module == .weather ? .seconds(600) : module == .photos ? .seconds(60) : module == .alarms ? .seconds(1) : .seconds(10)) }
@@ -231,6 +255,8 @@ import CryptoKit
     }
 
     func stop() {
+        walkRunID = nil
+        walkProvider.setSceneActive(false)
         teslaProvider.stop()
         photosProvider.lock()
         mediaProvider.stop()

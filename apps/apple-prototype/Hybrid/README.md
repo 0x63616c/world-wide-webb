@@ -127,7 +127,7 @@ The exact edits are:
 ### Deterministic fixture mode
 
 Debug builds accept `-hybridFixtures`. This is an explicit transport injection,
-not a mock HomeDataSource: all six real providers decode their existing PanelKit
+not a mock HomeDataSource: the HTTP providers decode their existing PanelKit
 JSON fixtures from the bundled `Fixtures` folder. It uses a fixed loopback URL for
 WebKit and a transport with no network fallback. No runtime configuration,
 Keychain credentials, or home services are read. `-hybridUnavailable` additionally
@@ -499,13 +499,47 @@ fresh PIN gate and unavailable fallback using the launch arguments above.
 See `docs/screenshots/photos-live/` at the repository root. Authenticated home
 photos and physical-panel behavior were not tested.
 
-## WWW-38 state synchronization
+## Dog Walk composition (WWW-49)
 
 The shared PanelKit coordinator and walk provider adoption are documented in
-[../PanelKit/SYNC.md](../PanelKit/SYNC.md). `-moduleFlag.walk native` reserves the
-opt-in; this base has no native walk registration, so it still falls back to web.
-The flag remains `web` by default. Follow the documented live-data/lifecycle gate
-when adding the walk provider to WWW-44 composition.
+[../PanelKit/SYNC.md](../PanelKit/SYNC.md). `LiveHomeDataSource` now constructs
+`LiveWalkProvider` with the same PanelKit configuration and memory-only transport
+as the other modules, and identifies starts as `ipad`. `walks` exposes that provider.
+Only `.live` state enables the native route; an idle state and empty history are
+valid. An absent endpoint, missing configuration, or failed state refresh returns
+to the retained web board even when the provider retains its last known walk.
+A later successful refresh restores the selected native surface.
+
+`refresh(.walk)` refreshes state/history. `run(modules:)` activates the existing
+four-second SyncCoordinator only when walks are requested, retaining its bounded
+backoff. Cancellation or `stop()` deactivates it; returning to the foreground reads
+immediately. Submitted mutations keep their existing provider-owned lifecycle.
+
+`HybridNativeModule` reuses `DogWalkTile` and `DogWalkPage` unchanged, disabling
+their controls during pending writes. `HybridWalkDataSource` projects only those
+views onto server time and converts command dates back to local time before the
+provider applies its offset. Other modules keep the local clock. No `Sources/`
+files, prototype views, or flag defaults change. `ModuleFlags()` and fixture runs
+still default to web; the shipped native set established by WWW-48 still includes
+walk. The route requires both a native flag and live data.
+
+Check with synthetic data and no credentials or home-service access:
+
+```sh
+xcrun simctl launch <own-walk-simulator-id> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.walk native
+# Add -hybridDetail for the page, -hybridWalkActive for an active walk,
+# or -hybridUnavailable for the web fallback.
+```
+
+The fixture transport uses `walks/state-idle.json` (or `state-active.json`) and
+`walks/hybrid-history.json` from PanelKit fixtures. Unknown mutations fail closed.
+After that check, launch against the configured API with **`-moduleFlag.walk native`**
+and no fixture arguments. Force rollback with **`-moduleFlag.walk web`**, or the
+existing Settings > Panel > Web board only switch. No defaults are persisted by
+this work. Authenticated home-service behavior and physical wall-device acceptance
+remain device checks; simulator evidence uses only synthetic records. No backend
+change or PR is needed.
 
 ### Reminders (WWW-32)
 
