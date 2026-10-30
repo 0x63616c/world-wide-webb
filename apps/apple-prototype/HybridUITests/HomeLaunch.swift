@@ -26,6 +26,17 @@ extension XCUIApplication {
         }
     }
 
+    @MainActor func returnHomeFromModule() {
+        let qr = buttons["wifi-fullscreen-qr"]
+        if qr.exists && qr.isHittable {
+            qr.tap()
+            XCTAssertTrue(qr.waitForNonExistence(timeout: 10))
+        }
+        buttons["module-home"].tap()
+        let pager = buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "face-page-")).firstMatch
+        XCTAssertTrue(pager.waitForExistence(timeout: 30))
+    }
+
     @MainActor func openHomeModule(_ module: String) {
         let tiles = ["lights": "lamps", "climate": "climate", "fan": "fan", "wifi": "wifi",
                      "sonos": "sound", "weather": "weather", "photos": "photos", "walk": "dogwalk",
