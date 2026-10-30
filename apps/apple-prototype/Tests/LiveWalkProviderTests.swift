@@ -218,6 +218,7 @@ import PanelKit
         await provider.refresh()
         provider.start(at: serverDate)
         try await waitUntil { driver.states.contains { if case .walking = $0 { true } else { false } } }
+        try await waitFor(transport, "walks.start")
         await transport.release("walks.start")
         try await waitUntil { !provider.isMutating && driver.states.last == .idle }
         XCTAssertNil(sync.unavailableReason)
