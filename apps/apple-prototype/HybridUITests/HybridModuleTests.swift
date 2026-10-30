@@ -25,8 +25,8 @@ final class HybridModuleTests: XCTestCase {
             }
             capture("\(module)-detail")
             app.buttons["module-all"].tap()
+            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
             XCTAssertFalse(detail.exists)
-            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists)
             app.terminate()
         }
     }
