@@ -16,6 +16,14 @@ struct NotificationBanners: View {
     let source: (String) -> NotificationSource
     let open: (NotificationItem) -> Bool
 
+    private var pauseTimers: Bool {
+        #if DEBUG
+        voiceOver || ProcessInfo.processInfo.arguments.contains("-notificationHold")
+        #else
+        voiceOver
+        #endif
+    }
+
     private var visible: [NotificationGroup] { Array(center.bannerGroups.prefix(typeSize.isAccessibilitySize ? 1 : 3)) }
 
     var body: some View {
@@ -45,7 +53,7 @@ struct NotificationBanners: View {
         .sensoryFeedback(.impact(weight: .light), trigger: center.arrivalFeedback)
         .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: center.dismissFeedback)
         .sensoryFeedback(.selection, trigger: center.openFeedback)
-        .task(id: [scenePhase == .active, voiceOver, typeSize.isAccessibilitySize]) {
+        .task(id: [scenePhase == .active, pauseTimers, typeSize.isAccessibilitySize]) {
             guard scenePhase == .active else { return }
             let clock = ContinuousClock()
             var previous = clock.now
@@ -55,7 +63,7 @@ struct NotificationBanners: View {
                 let elapsed = previous.duration(to: instant).components
                 previous = instant
                 center.advanceBanners(by: Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18,
-                    visibleSources: Set(visible.map(\.id)), paused: voiceOver)
+                    visibleSources: Set(visible.map(\.id)), paused: pauseTimers)
             }
         }
     }
@@ -112,7 +120,7 @@ private struct NotificationBanner: View {
             Button("Dismiss", systemImage: "xmark", action: dismiss)
                 .labelStyle(.iconOnly).font(.caption.weight(.semibold))
                 .frame(width: 44, height: 44).contentShape(.rect)
-                .buttonStyle(.plain)
+                .buttonStyle(NotificationTouchStyle(touch: { pressed = $0 }))
                 .accessibilityIdentifier("notification-dismiss-\(item.sourceModule)")
         }
         .foregroundStyle(.primary)

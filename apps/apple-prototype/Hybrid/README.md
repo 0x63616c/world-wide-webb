@@ -1213,6 +1213,7 @@ Debug-only, synthetic captures (no notification API traffic):
 -hybridFixtures -moduleFlag.lights native -moduleFlag.climate native -notificationSamples -notificationStack
 ```
 
+`-notificationHold` pauses banner timers for deterministic captures.
 `-notificationReduceMotion` exercises reduced-motion presentation without changing
 shared simulator settings. `-UIPreferredContentSizeCategoryName
 UICTContentSizeCategoryAccessibilityXXXL` exercises accessibility text.

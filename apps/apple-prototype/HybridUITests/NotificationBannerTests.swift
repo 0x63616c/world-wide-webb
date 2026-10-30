@@ -5,7 +5,7 @@ final class NotificationBannerTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native"]
+        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native", "-notificationHold"]
         app.launch()
         XCTAssertTrue(app.buttons["module-lights"].waitForExistence(timeout: 20))
         capture("notification-baseline", app)
@@ -38,7 +38,7 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testAutoTimeoutAndCriticalRemainOnWebFallback() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-notificationSamples", "-notificationStack"]
+        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationStack"]
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-climate"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForNonExistence(timeout: 40))
@@ -49,7 +49,7 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testReduceMotionAndAccessibilityText() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-notificationSamples", "-notificationStack", "-notificationReduceMotion",
+        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationStack", "-notificationReduceMotion", "-notificationHold",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         let banner = app.buttons["notification-banner-climate"]

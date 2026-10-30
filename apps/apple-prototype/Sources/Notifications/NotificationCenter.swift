@@ -61,7 +61,7 @@ struct NotificationGroup: Identifiable, Equatable {
     var history: [NotificationItem] { items.values.sorted(by: Self.ordered) }
     var groups: [NotificationGroup] { group(history) }
     var unreadCount: Int { items.values.filter { $0.readAt == nil }.count }
-    var bannerGroups: [NotificationGroup] { group(history.filter { banners.contains($0.id) }) }
+    var bannerGroups: [NotificationGroup] { group(banners.compactMap { items[$0] }.sorted(by: Self.ordered)) }
 
     @discardableResult
     func post(sourceModule: String, title: String, body: String, deepLink: String,
