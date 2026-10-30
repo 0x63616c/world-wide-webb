@@ -199,8 +199,9 @@ platform :ios do
         xcargs: "CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM=X9E4HG27NK CURRENT_PROJECT_VERSION=#{latest + 1} MARKETING_VERSION=#{version}",
         output_directory: "./build",
         output_name: "Panel.ipa",
-        clean: true,
-        codesigning_identity: "Apple Distribution"
+        # Targets are signed above; a command-line identity would also hit the
+        # automatically signed local PanelKit package and fail the archive.
+        clean: true
       )
       upload_to_testflight(
         api_key: api_key,
