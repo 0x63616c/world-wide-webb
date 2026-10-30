@@ -97,7 +97,7 @@ targets:
     deploymentTarget: '26.0'
     sources:
       - path: Hybrid
-        excludes: [Config, Info.plist, README.md]
+        excludes: [Config, Info.plist, README.md, Verification]
     configFiles:
       Debug: Hybrid/Config/Panel.xcconfig
       Release: Hybrid/Config/Panel.xcconfig
