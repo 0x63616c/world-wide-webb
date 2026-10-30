@@ -130,10 +130,15 @@ platform :ios do
       key_content: ENV.fetch("ASC_KEY_CONTENT"),
       is_key_content_base64: true
     )
+    # The NextAlarmWidget extension (WWW-47) is signed only when the native ref has it.
+    widget_target = "NextAlarmWidget"
+    widget_identifier = "#{identifier}.NextAlarmWidget"
+    has_widget = File.read(File.join(native_root, "project.yml")).match?(/^  #{widget_target}:\s*$/)
+    identifiers = has_widget ? [identifier, widget_identifier] : [identifier]
     regenerate = ENV["MATCH_REGENERATE"] == "true"
     match(
       type: "appstore",
-      app_identifier: [identifier],
+      app_identifier: identifiers,
       api_key: api_key,
       readonly: !regenerate,
       force: regenerate
@@ -161,6 +166,18 @@ platform :ios do
         profile_name: ENV.fetch("sigh_#{identifier}_appstore_profile-name"),
         code_sign_identity: "Apple Distribution"
       )
+      if has_widget
+        update_code_signing_settings(
+          use_automatic_signing: false,
+          path: project,
+          targets: [widget_target],
+          team_id: "X9E4HG27NK",
+          bundle_identifier: widget_identifier,
+          profile_name: ENV.fetch("sigh_#{widget_identifier}_appstore_profile-name"),
+          code_sign_identity: "Apple Distribution"
+        )
+      end
+      profiles = identifiers.to_h { |id| [id, ENV.fetch("sigh_#{id}_appstore_profile-name")] }
 
       # Use the same marketing version as the Expo app, not the prototype's 0.1.0.
       expo_config = File.read(File.expand_path("../app.config.ts", __dir__))
@@ -177,9 +194,7 @@ platform :ios do
         scheme: "Panel",
         configuration: "Release",
         export_method: "app-store",
-        export_options: { provisioningProfiles: {
-          identifier => ENV.fetch("sigh_#{identifier}_appstore_profile-name")
-        } },
+        export_options: { provisioningProfiles: profiles },
         xcargs: "CODE_SIGNING_ALLOWED=YES CURRENT_PROJECT_VERSION=#{latest + 1} MARKETING_VERSION=#{version}",
         output_directory: "./build",
         output_name: "Panel.ipa",
