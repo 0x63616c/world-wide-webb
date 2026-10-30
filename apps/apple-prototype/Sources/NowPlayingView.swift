@@ -20,22 +20,22 @@ struct NowPlayingView: View {
                             Spacer()
                             VStack(spacing: 5) {
                                 Text(room.name).font(.system(size: compact ? 20 : 25, weight: .semibold))
-                                HStack(spacing: 10) { Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 18)).foregroundStyle(.secondary); PlayingEqualizer(playing: room.playing) }
+                                HStack(spacing: 10) { Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 18)).foregroundStyle(.secondary); PlayingEqualizer(playing: room.playing).scaleEffect(0.65).frame(width: 24, height: 20) }
                             }
                             Spacer()
                             CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: compact ? 44 : 64) { choosingRoom = true }
                         }.padding(.horizontal, compact ? 20 : 40).padding(.top, compact ? 16 : 32)
                         Spacer(minLength: 18)
-                        artwork(room).frame(width: compact ? min(proxy.size.width - 80, proxy.size.height * 0.31) : 400, height: compact ? min(proxy.size.width - 80, proxy.size.height * 0.31) : 400)
+                        artwork(room).frame(width: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 480, height: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 480)
                             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                             .shadow(color: .black.opacity(0.28), radius: 36, y: 20)
                         VStack(alignment: .leading, spacing: 7) {
                             Text(room.trackTitle ?? room.sourceLabel ?? "Nothing playing")
-                                .font(.system(size: compact ? 28 : 32, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                                .font(.system(size: compact ? 25 : 32, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                             Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 23)).foregroundStyle(.secondary)
-                        }.frame(width: compact ? proxy.size.width - 48 : 400, alignment: .leading).padding(.top, 28)
+                        }.frame(width: compact ? proxy.size.width - 48 : 480, alignment: .leading).padding(.top, compact ? 16 : 20)
                         PlaybackScrubber(store: store, room: room)
-                            .frame(width: compact ? proxy.size.width - 48 : 400).padding(.top, 22)
+                            .frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, compact ? 14 : 18)
                         HStack(spacing: compact ? 30 : 76) {
                             transport("backward.fill", label: "Previous track", command: .previous, room: room)
                             transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
@@ -55,8 +55,8 @@ struct NowPlayingView: View {
                                 Spacer()
                                 Text("\(room.rawVolume)%").monospacedDigit()
                             }.font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
-                        }.frame(width: compact ? proxy.size.width - 48 : 400).padding(.top, 8)
-                        Spacer(minLength: compact ? 36 : 50)
+                        }.frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, 8)
+                        Spacer(minLength: compact ? 16 : 24)
                     }
                 }.frame(width: proxy.size.width, height: proxy.size.height)
             } else {
@@ -106,8 +106,8 @@ struct NowPlayingView: View {
     }
     private func transport(_ symbol: String, label: String, command: SonosTransport, room: SoundRoom, large: Bool = false) -> some View {
         Button { store.send(.transport(room.id, command)) } label: {
-            Image(systemName: symbol).font(.system(size: large ? 53 : 39, weight: .semibold))
-                .frame(width: 90, height: 86)
+            Image(systemName: symbol).font(.system(size: large ? (compact ? 44 : 53) : (compact ? 30 : 39), weight: .semibold))
+                .frame(width: compact ? 76 : 90, height: compact ? 64 : 76)
         }.buttonStyle(.plain).accessibilityLabel(label)
     }
 }

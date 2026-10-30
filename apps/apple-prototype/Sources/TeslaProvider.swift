@@ -4,7 +4,6 @@ import SwiftUI
 struct TeslaData: Equatable {
     var name = "Model Y"
     var nick = "Car"
-    var locked = true
     var place = "Home"
     var lat: Double? = nil
     var lon: Double? = nil
@@ -18,7 +17,7 @@ struct TeslaData: Equatable {
     var climate = 64
 }
 enum TeslaAvailability: String, CaseIterable { case online, asleep, offline }
-enum TeslaCommand { case setLock(Bool), setCharging(Bool), setPreconditioning(Bool) }
+enum TeslaCommand { case setCharging(Bool), setPreconditioning(Bool) }
 
 @MainActor protocol TeslaProvider: AnyObject, Observable {
     var data: TeslaData { get }
@@ -36,7 +35,6 @@ enum TeslaCommand { case setLock(Bool), setCharging(Bool), setPreconditioning(Bo
     func send(_ command: TeslaCommand) {
         guard availability == .online else { return }
         switch command {
-        case .setLock(let locked): data.locked = locked
         case .setCharging(let on):
             // A disconnected/no-power vehicle cannot begin a charge session.
             guard !on || !["disconnected", "no_power", ""].contains(data.chargingState) else { return }
@@ -125,13 +123,6 @@ struct TeslaController: View {
                 VStack(spacing: 0) {
                     Toggle("Charge", isOn: Binding(get: { provider.data.charging }, set: { provider.send(.setCharging($0)) }))
                         .padding(.vertical, 18)
-                    Divider()
-                    HStack {
-                        Label(provider.data.locked ? "Locked" : "Unlocked", systemImage: provider.data.locked ? "lock.fill" : "lock.open.fill")
-                        Spacer()
-                        Button(provider.data.locked ? "Unlock" : "Lock") { provider.send(.setLock(!provider.data.locked)) }
-                            .buttonStyle(.glass).controlSize(.large)
-                    }.padding(.vertical, 18)
                     Divider()
                     Toggle(isOn: Binding(get: { provider.data.preconditioning }, set: { provider.send(.setPreconditioning($0)) })) {
                         VStack(alignment: .leading, spacing: 6) {
