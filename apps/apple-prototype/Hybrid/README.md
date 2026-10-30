@@ -304,3 +304,34 @@ Only Xcode 27 is installed on the mini; an Xcode 26.x build was not run there.
 Build and test output screenshots are in `Verification/` (excluded from Panel's
 resources), within this ticket's allowed paths. They document build and test
 results, not authenticated Live Activity rendering on the wall.
+
+### Reminders (WWW-32)
+
+No reminders/todo router exists in `apps/api` or `features`; the source is the
+panel device's EventKit Reminders database. No backend change is required.
+`PanelKit/RemindersAPI.swift` requests full reminders access only when the
+opted-in module first refreshes. It lists incomplete reminders across accessible
+lists, completes by EventKit's stable calendar-item identifier (writable lists
+only), and adds to the device's default writable reminders list. It never creates
+accounts/lists or uploads, logs, or persists reminder data. EventKit owns sync.
+Full access is required by Apple's API for reading reminders:
+https://developer.apple.com/documentation/eventkit/accessing-the-event-store.
+
+The new protocol, live provider, and preview mock live in
+`Sources/Live/LiveRemindersProvider.swift`; existing design files are untouched.
+Hybrid injects that provider into `RemindersModule` for both tile and detail.
+The module defaults to web. Opt in at launch with `-moduleFlag.reminders native`
+(or `defaults write co.worldwidewebb.theworkflowengine moduleFlag.reminders native`
+on an appropriate device defaults domain). Remove that override to restore web.
+Grant the system Reminders prompt; denied/restricted/unavailable/fetch or write
+failure immediately selects the existing web board, with no mock substitution.
+A successful empty list is live data and permits adding the first reminder.
+Every opted-in foreground poll refreshes permission and data; other launches
+never request Reminders permission. The prototype targets do not start this provider.
+
+Debug `-hybridFixtures -moduleFlag.reminders native` injects synthetic reminders
+without touching EventKit or personal data. Add `-hybridUnavailable` to verify
+fallback. Fixture writes intentionally fail closed. Unit fixtures separately
+exercise successful list/complete/add, empty success, denial/recovery and read-only
+completion. Real permission UI, iCloud sync, default-list availability and physical
+wall behavior require on-device verification; simulator fixtures do not prove them.
