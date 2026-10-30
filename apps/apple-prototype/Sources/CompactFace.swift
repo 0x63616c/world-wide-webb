@@ -12,7 +12,7 @@ struct CompactFace: View {
             ScrollView {
                 GlassEffectContainer(spacing: 8) {
                     ZStack(alignment: .topLeading) {
-                        Text(controls ? "Controls" : "Home").font(.largeTitle.bold())
+                        Text(controls ? "Home · More" : "Home").font(.largeTitle.bold())
                             .frame(width: layout.header.width, height: layout.header.height, alignment: .leading)
                             .position(x: layout.header.midX, y: layout.header.midY)
                         ForEach(layout.items) { item in
@@ -22,6 +22,7 @@ struct CompactFace: View {
                     }.frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 }
             }.scrollIndicators(.hidden)
+                .scrollEdgeEffectStyle(.soft, for: .top)
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
 
         }

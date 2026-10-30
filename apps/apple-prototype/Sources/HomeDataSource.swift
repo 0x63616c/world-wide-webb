@@ -123,10 +123,10 @@ struct WeatherState {
     let solarLabel = "Sunset"
     let solarValue = "6:14 PM"
     let hours: [HourForecast] = (0..<12).map { index in
-        HourForecast(id: index, time: ["4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p", "12a", "1a", "2a", "3a"][index],
+        HourForecast(id: index, time: ["11a", "12p", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p"][index],
                      temperature: [64, 63, 62, 61, 60, 59, 58, 58, 57, 57, 56, 56][index],
                      feels: [63, 62, 60, 59, 58, 57, 56, 56, 55, 55, 54, 54][index],
-                     symbol: index < 3 ? "cloud.sun.fill" : "cloud.moon.fill")
+                     symbol: index < 7 ? "cloud.sun.fill" : "cloud.moon.fill")
     }
 }
 struct Alarm: Identifiable, Equatable {
@@ -236,6 +236,7 @@ enum HomeCommand {
     case mode(ClimateMode), target(Int), low(Int), high(Int), shiftRange(Int)
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
     case snoozeAlarm(Int, Int), stopAlarm(Int, Int)
+    case playMedia(String, Int)
     case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int)
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
@@ -245,6 +246,10 @@ enum HomeCommand {
     var wifi: WifiState { get }
     var weather: WeatherState { get }
     var tesla: any TeslaProvider { get }
+    var calendar: any CalendarProvider { get }
+    var photos: any PhotosProvider { get }
+    var cameras: any CamerasProvider { get }
+    var media: any MediaProvider { get }
     var alarms: [Alarm] { get }
     var occurrence: AlarmOccurrence? { get }
     var rooms: [SoundRoom] { get }
@@ -275,6 +280,10 @@ extension HomeDataSource {
     private(set) var wifi = WifiState()
     let weather = WeatherState()
     let tesla: any TeslaProvider = MockTeslaProvider()
+    let calendar: any CalendarProvider = MockCalendarProvider()
+    let photos: any PhotosProvider = MockPhotosProvider()
+    let cameras: any CamerasProvider = MockCamerasProvider()
+    let media: any MediaProvider = MockMediaProvider()
     private(set) var alarms = [Alarm(id: 1, label: "Morning", time: "07:00", repeatDays: [1,2,3,4,5]), Alarm(id: 2, label: "Weekend", time: "09:00", repeatDays: [0,6], enabled: false)]
     private(set) var rooms = [
         SoundRoom(name: "Living Room", rawVolume: 24, baseline: 60, coordinator: "Desk", playing: true),
@@ -377,6 +386,13 @@ extension HomeDataSource {
         case .stopAlarm(let id, let version):
             guard let active = occurrence, active.alarm.id == id, active.version == version, active.isRinging(at: now) else { return }
             occurrence = nil; markPending("alarms")
+        case .playMedia(let id, let trackIndex):
+            guard FixtureTrack.queue.indices.contains(trackIndex), let room = rooms.first(where: { $0.id == id }) else { return }
+            for i in rooms.indices where rooms[i].coordinator == room.coordinator {
+                rooms[i].trackIndex = trackIndex; rooms[i].playing = true
+                rooms[i].sourceKind = .other; rooms[i].sourceLabel = "Fixture library"
+                rooms[i].positionSeconds = 0; rooms[i].positionUpdatedAt = now
+            }; markPending("sound")
         case .transport(let id, let command):
             guard let room = rooms.first(where: { $0.id == id }) else { return }
             for i in rooms.indices where rooms[i].coordinator == room.coordinator {
