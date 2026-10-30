@@ -1,0 +1,7 @@
+{
+  "error": {
+    "message": "No procedure found",
+    "code": -32004,
+    "data": { "code": "NOT_FOUND", "httpStatus": 404 }
+  }
+}

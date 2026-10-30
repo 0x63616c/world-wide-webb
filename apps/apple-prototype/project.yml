@@ -166,6 +166,17 @@ targets:
       base:
         PRODUCT_MODULE_NAME: PanelUITests
 schemes:
+  Panel-Cameras:
+    build:
+      targets:
+        Panel: [test]
+        WorldWideWebb-iPad: [test]
+        PanelUITests: [test]
+    test:
+      targets:
+        - PanelTests
+        - WorldWideWebbTests
+        - PanelUITests
   Panel-Alarms:
     build:
       targets:

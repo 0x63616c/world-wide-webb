@@ -5,6 +5,7 @@ import PanelKit
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    let camerasProvider: LiveCamerasProvider
     let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
@@ -23,13 +24,14 @@ import PanelKit
     var tesla: any TeslaProvider { unavailable }
     var calendar: any CalendarProvider { unavailable }
     var photos: any PhotosProvider { unavailable }
-    var cameras: any CamerasProvider { unavailable }
+    var cameras: any CamerasProvider { camerasProvider }
     var media: any MediaProvider { unavailable }
     var walks: any WalkProvider { unavailable }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
          remindersAPI: any RemindersServing = RemindersAPI(), now: @escaping () -> Date = Date.init) {
+        camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
         clock = now
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
         // Guest credentials and Access sessions must remain memory-only.
@@ -50,6 +52,7 @@ import PanelKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .cameras: camerasProvider.availability == .live && !camerasProvider.feeds.isEmpty
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
@@ -163,6 +166,7 @@ import PanelKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .cameras: await camerasProvider.refresh()
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
@@ -196,6 +200,7 @@ import PanelKit
     }
 
     func stop() {
+        camerasProvider.stop()
         alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()

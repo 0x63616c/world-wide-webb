@@ -3,6 +3,7 @@ import SwiftUI
 extension PanelModule {
     var title: String {
         switch self {
+        case .cameras: "Cameras"
         case .reminders: "Reminders"
         case .all: "Web board"
         case .lights: "Lights"
@@ -50,6 +51,7 @@ struct HybridNativeModule: View {
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
         case .alarms: HybridClockFace(store: store, open: open)
+        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
         case .walk, .all: EmptyView()
@@ -73,6 +75,7 @@ struct HybridNativeModule: View {
             ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
                             timeZone: .current, locationLabel: TimeZone.current.identifier)
                 .disabled(store.alarmsProvider.pending)
+        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         case .walk, .all: EmptyView()
         }
