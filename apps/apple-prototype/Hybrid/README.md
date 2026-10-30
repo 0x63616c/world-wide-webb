@@ -46,7 +46,7 @@ uses the shipped value and invalid values fall back to `web`.
 
 Flip back without a rebuild: iOS Settings > Panel > "Web board only" sends every module
 to the web board (`hybrid.webOnly`), and each module has Default/Native/Web. Changes apply
-on the next launch. The in-app "Web board" button returns to the full board at any time.
+on the next launch. The Classic tile at the end of Home opens the full board.
 
 Photos remains `web` by default and is excluded from `shippedNative`.
 `all` always means the complete web board, even if its flag is set to `native`.
@@ -57,9 +57,8 @@ flag is `native` **and** a native implementation has live data. The generic
 nil data, a missing implementation, or a `web` flag selects the fallback.
 The root retains one WKWebView across native navigation. With all flags set to
 `web`, it renders the same full-screen board with no native navigation and
-starts no providers. With flags enabled, it initially selects the first enabled
-module in registry order; that selection stays on the board until its provider
-supplies data. A module strip offers the available native modules and **Web board**.
+starts no providers. With flags enabled, it opens Home. A module strip offers Home and the available native modules;
+the Classic tile on Home opens the complete legacy board.
 Each native module opens on its existing tile; **Details** opens its existing
 controller. A failed selected provider immediately returns to the board, and a
 successful subsequent poll restores the native selection. Alarm deep links open native details when the alarms flag, live data, and ringer
@@ -1155,3 +1154,26 @@ Panel -only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveSonosProvide
 run passed 94 Panel + 16 provider tests on the job-owned iPad simulator. Captures
 live under `docs/screenshots/WWW-30/` in the repo root; they use synthetic transport
 responses, not the wall.
+
+## Classic dashboard (WWW-63)
+
+When at least one module is configured native, Panel launches a native Home grid
+built from `PanelModule` registry order. **Classic** (`safari`) is always last,
+with the same tile material as the other module launchers. The prototype's
+`Sources/HomeView.swift` and its fixture face geometry are unchanged. Panel is
+still iPad-only; this does not enable an iPhone target.
+
+Home opens each module through the existing flag/live-data router. Web-only or
+unavailable modules continue to use the retained `KioskWebView`. Classic always
+selects the complete legacy board. The web route hides the module strip and adds
+a top-leading, safe-area-aware glass **Home** button (minimum 56-point height).
+It remains visible through loading and reconnects. Native modules have a Home
+button in their module strip; the former **Web board** entry is removed. The
+all-web Settings rollback still opens directly on the legacy board with no native
+navigation. Alarm deep links and ringing can leave Home for their existing route.
+
+`ClassicHomeUITests` exercises Home → Classic → Home, a web-only module fallback,
+and a native module round trip using synthetic fixtures. Fixture web routes
+intentionally reconnect to an unavailable loopback origin; they do not validate
+authenticated production dashboard rendering. Captures are XCTest attachments,
+not committed binaries.

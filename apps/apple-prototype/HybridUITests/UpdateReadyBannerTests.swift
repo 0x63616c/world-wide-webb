@@ -8,7 +8,7 @@ final class UpdateReadyBannerTests: XCTestCase {
         for native in [true, false] {
             app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "999999", "-updateCheckIntervalSeconds", "2"]
             if native { app.launchArguments += ["-moduleFlag.lights", "native"] }
-            app.launch()
+            app.launchModuleFromHome()
             let banner = app.buttons["update-ready-banner"]
             XCTAssertTrue(banner.waitForExistence(timeout: 30))
             XCTAssertTrue(app.staticTexts["Update ready: build 999999"].exists)

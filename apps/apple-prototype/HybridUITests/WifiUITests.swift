@@ -10,7 +10,7 @@ import XCTest
     func testPasswordRevealAndFullScreenDismissal() {
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.wifi", "native"]
-        app.launch()
+        app.launchModuleFromHome()
         let password = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@",
             "Reveal password", "fake-password-123")).firstMatch
         XCTAssertTrue(password.waitForExistence(timeout: 15))
@@ -37,7 +37,7 @@ import XCTest
     func testQRClosesAfterSixtySeconds() {
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.wifi", "native", "-hybridDetail"]
-        app.launch()
+        app.launchModuleFromHome()
         let qr = app.buttons["wifi-fullscreen-qr"]
         XCTAssertTrue(qr.waitForExistence(timeout: 15))
         XCTAssertTrue(qr.waitForNonExistence(timeout: 65))
@@ -47,7 +47,7 @@ import XCTest
     func testUnavailableProviderKeepsWebFallback() {
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.wifi", "native", "-hybridUnavailable"]
-        app.launch()
+        app.launchModuleFromHome()
         XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Tap to scan")).firstMatch.exists)
     }
