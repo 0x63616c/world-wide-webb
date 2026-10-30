@@ -34,7 +34,7 @@ final class KioskSession {
         // Equivalent to Expo's playsInSilentMode; WebKit owns media playback.
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
-        alarms.refresh()
+        Task { await alarms.refresh() }
     }
 
     func startBoot() {
@@ -107,7 +107,7 @@ final class KioskSession {
         browser = BrowserDestination(url: url)
     }
 
-    func handle(_ request: NativeRequest, in webView: WKWebView) -> NativeResponse {
+    func handle(_ request: NativeRequest, in webView: WKWebView) async -> NativeResponse {
         func fail(_ message: String) -> NativeResponse { .failure(id: request.id, message: message) }
         switch request.method {
         case "deviceInfo":
@@ -140,9 +140,8 @@ final class KioskSession {
             openBrowser(url)
         case "closeBrowser": browser = nil
         case "syncNextAlarm":
-            do { try alarms.sync(next: request.params?["next"] ?? .null) }
-            catch { return fail("Could not store the pending alarm snapshot") }
-            return fail(PanelAlarms.unavailableMessage)
+            do { try await alarms.sync(next: request.params?["next"] ?? .null) }
+            catch { return fail("Could not sync the next alarm") }
         default: return fail("Unknown native method: \(request.method)")
         }
         return .success(id: request.id)

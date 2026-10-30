@@ -63,14 +63,19 @@ struct KioskWebView: UIViewRepresentable {
                 pageURL: webView.url, serverURL: session.configuration.serverURL) else { return }
             if let report = BootReport.parse(raw) { session.receive(report); return }
             guard let request = NativeRequest.parse(raw) else { return }
-            let response = session.handle(request, in: webView)
-            guard let json = try? response.encoded() else { return }
-            // Recheck location in JavaScript too: navigation can race the
-            // asynchronous evaluation even after native origin validation.
-            webView.callAsyncJavaScript(KioskScripts.respond, arguments: [
-                "responseJSON": json, "serverURL": session.configuration.serverURL.absoluteString
-            ],
-                                        in: message.frameInfo, in: .page, completionHandler: nil)
+            let frame = message.frameInfo
+            Task {
+                guard isCurrent,
+                      KioskURLPolicy.isTrusted(webView.url, serverURL: session.configuration.serverURL) else { return }
+                let response = await session.handle(request, in: webView)
+                guard isCurrent, let json = try? response.encoded() else { return }
+                // Recheck location in JavaScript too: navigation can race the
+                // asynchronous evaluation even after native origin validation.
+                webView.callAsyncJavaScript(KioskScripts.respond, arguments: [
+                    "responseJSON": json, "serverURL": session.configuration.serverURL.absoluteString
+                ],
+                                            in: frame, in: .page, completionHandler: nil)
+            }
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,

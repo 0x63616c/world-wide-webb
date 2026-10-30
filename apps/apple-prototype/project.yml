@@ -97,18 +97,20 @@ targets:
     deploymentTarget: '26.0'
     sources:
       - path: Hybrid
-        excludes: [Config, Info.plist, README.md]
+        excludes: [Config, Info.plist, README.md, Verification]
       - path: Sources
         excludes: [App.swift, Media, Assets.xcassets]
       - path: Shared
       - path: PanelKit/Tests/PanelKitTests/Fixtures
         type: folder
         buildPhase: resources
-    dependencies:
-      - package: PanelKit
     configFiles:
       Debug: Hybrid/Config/Panel.xcconfig
       Release: Hybrid/Config/Panel.xcconfig
+    dependencies:
+      - package: PanelKit
+      - target: NextAlarmWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine
@@ -121,6 +123,24 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+  NextAlarmWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: '26.0'
+    sources:
+      - path: NextAlarmWidget
+        excludes: [Info.plist]
+      - path: Hybrid/Alarms/NextAlarmAttributes.swift
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: NextAlarmWidget
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine.NextAlarmWidget
+        TARGETED_DEVICE_FAMILY: '1,2'
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: NextAlarmWidget/Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        CODE_SIGNING_ALLOWED: NO
   PanelTests:
     type: bundle.unit-test
     platform: iOS
