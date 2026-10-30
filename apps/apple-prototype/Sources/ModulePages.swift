@@ -51,7 +51,7 @@ struct WeatherPage: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 12) {
-                        Image(systemName: "cloud.sun.fill").font(.system(size: compact ? 40 : 72)).symbolRenderingMode(.multicolor)
+                        Image(systemName: weather.symbol).font(.system(size: compact ? 40 : 72)).symbolRenderingMode(.multicolor)
                         Text(weather.condition).font(.system(size: compact ? 18 : 28, weight: .medium))
                         Text("High \(weather.high)° · Low \(weather.low)°").font(.system(size: compact ? 15 : 22))
                     }

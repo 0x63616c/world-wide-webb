@@ -30,7 +30,11 @@ import PanelKit
     @ObservationIgnored private var lifecycle = 0
     @ObservationIgnored private var refreshing = false
 
-    init(api: LightsAPI) { self.api = api }
+    init(api: LightsAPI, initialLamps: LampState = LampState()) {
+        self.api = api
+        lamps = initialLamps
+        confirmedLamps = initialLamps
+    }
 
     deinit {
         mutationTask?.cancel()

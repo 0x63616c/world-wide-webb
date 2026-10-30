@@ -333,7 +333,8 @@ struct AccessoryFace: View {
     let key: Accessory
     let store: any HomeDataSource
     let open: () -> Void
-    var on: Bool { key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key) }
+    var fanIsOn: Bool? = nil
+    var on: Bool { key == .fan ? (fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off)) : store.lamps.isOn(key) }
     var title: String { key == .bedroom ? "Bedroom" : key == .livingRoom ? "Living Room" : key == .ceiling ? "Ceiling" : key.name }
     var subtitle: String {
         switch key {
