@@ -3,31 +3,8 @@
 ## Start here
 
 - Read `CODEBASE_OVERVIEW.md` first — it's the map; this file is the rules.
-- [Tickets](https://tickets.worldwidewebb.co) is the sole source of truth for
-  work across all projects; this repo uses the `WWW` prefix. GitHub issues and
-  Projects boards are retired. Track dependencies with Tickets dependency edges.
-- PR titles are Conventional Commits ending with the ticket key, for example
-  `feat(app): add thing [WWW-12]`. Start the body with the linked ticket,
-  `Closes [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)` (or `Refs [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)` to link without closing); CI checks it. The Tickets GitHub webhook links the
-  PR, moves the ticket to In review on opening, and to Done on merge.
-- On the box, start work with `P=$(job new world-wide-webb WWW-12 [slug]); source "$P/.job.env"`.
-  Source an existing `.job.env` before running checks. Model labels remain
-  `model:astra` (`-m gpt-6-astra -c model_reasoning_effort=xhigh`) and
-  `model:sol` (`-m gpt-6.1-sol`).
-
-## Agent skills
-
-- Repo skills live in `.agents/skills/` (Codex discovers them automatically;
-  sources, pinned commits and licenses are in `.agents/skills/SOURCES.md`).
-- For any SwiftUI / Apple-platform UI work (e.g. `apps/apple-prototype/`), use
-  them: `swiftui-liquid-glass` (iOS/iPadOS) and `liquid-glass` (macOS) for the
-  real Liquid Glass APIs, never hand-rolled blur or fake glass;
-  `swiftui-expert-skill` for modern SwiftUI; `swiftui-patterns` for macOS
-  scenes and windows; `animation-patterns` for springs, phase/keyframe
-  animators, transitions, symbol effects, `TimelineView` and `MeshGradient`; `apple-hig` for HIG rules and exact
-  measurements.
-- Vendored skills are copied verbatim; update by re-copying from upstream and
-  bumping the pinned commit in `SOURCES.md`, not by editing in place.
+- There is no ticket tracker in this repo. Nothing files or tracks work items
+  here; a request becomes a worktree, a branch, and a PR, directly.
 
 ## Invariants
 

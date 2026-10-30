@@ -1,2 +1,0 @@
-// The private file is optional: a clean checkout must build without secrets.
-#include? "Secrets.xcconfig"

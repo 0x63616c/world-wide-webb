@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-import { isMediaUnavailable, nextFreeName, parsePhotoFileName, withMediaIo } from "@www/core";
+import { nextFreeName, parsePhotoFileName } from "@www/core";
 import { getLogger } from "@www/logger";
 import { desc } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -83,17 +83,12 @@ export async function saveWakePhoto(
   if (bytes.length < JPEG_MAGIC.length || !JPEG_MAGIC.every((b, i) => bytes[i] === b)) {
     throw new Error("wake photo is not a JPEG");
   }
-  // Bounded and circuit-broken (#793): a dead NAS fails this fast with
-  // MediaUnavailableError instead of parking the request on the mount.
-  const relPath = await withMediaIo("wake-photo save", async () => {
-    await mkdir(root, { recursive: true });
-    // Burst frames share a wake but not a timestamp (each frame stamps its own
-    // capture time), so collisions only happen on a same-ms retry , suffix with
-    // the first free counter so every frame keeps a distinct path.
-    const rel = await nextFreeName(root, meta.capturedAt, "jpg");
-    await writeFile(join(root, rel), bytes);
-    return rel;
-  });
+  await mkdir(root, { recursive: true });
+  // Burst frames share a wake but not a timestamp (each frame stamps its own
+  // capture time), so collisions only happen on a same-ms retry , suffix with
+  // the first free counter so every frame keeps a distinct path.
+  const relPath = await nextFreeName(root, meta.capturedAt, "jpg");
+  await writeFile(join(root, relPath), bytes);
 
   await db
     .insert(wakePhoto)
@@ -132,22 +127,15 @@ async function walkPhotoFiles(
 
   let names: string[];
   try {
-    names = await withMediaIo("wake-photo backfill readdir", () => readdir(root));
-  } catch (err) {
-    // A sick NAS must surface (the boot hook logs it), not read as "empty".
-    if (isMediaUnavailable(err)) throw err;
+    names = await readdir(root);
+  } catch {
     return out;
   }
 
   for (const name of names) {
     const parsed = parsePhotoFileName(name);
     if (parsed?.ext !== "jpg") continue;
-    const s = await withMediaIo("wake-photo backfill stat", () => stat(join(root, name))).catch(
-      (err) => {
-        if (isMediaUnavailable(err)) throw err;
-        return null;
-      },
-    );
+    const s = await stat(join(root, name)).catch(() => null);
     if (!s?.isFile()) continue;
     out.push({ path: name, capturedAt: parsed.capturedAt, bytes: s.size });
   }
@@ -241,10 +229,8 @@ export async function readWakePhoto(
   const abs = resolve(root, relPath);
   if (abs !== resolve(root) && !abs.startsWith(resolve(root) + sep)) return null;
   try {
-    return { bytes: new Uint8Array(await withMediaIo("wake-photo read", () => readFile(abs))) };
-  } catch (err) {
-    // Missing file: 404. Sick NAS: rethrow so the route answers 503.
-    if (isMediaUnavailable(err)) throw err;
+    return { bytes: new Uint8Array(await readFile(abs)) };
+  } catch {
     return null;
   }
 }

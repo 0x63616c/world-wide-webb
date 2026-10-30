@@ -161,21 +161,7 @@ function productRoutes(): CloudflareRoutes {
     },
   ];
 
-  const routes = cloudflareRoutesForExposures(sources);
-  return {
-    ...routes,
-    // Narrow paths precede the app's catch-all. Access still gates this same
-    // hostname; POST additionally checks the existing automation bearer.
-    // Route directly because web nginx only forwards the legacy alarms path.
-    ingressRules: [
-      {
-        hostname: cc.app.exposure.hostname,
-        path: "^/api/releases/latest$",
-        service: "http://api.control-center.svc.cluster.local:4201",
-      },
-      ...routes.ingressRules,
-    ],
-  };
+  return cloudflareRoutesForExposures(sources);
 }
 
 /** The live tunnel ingress rules for zone `<zone>` (adopt-only import target). */

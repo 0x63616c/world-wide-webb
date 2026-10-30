@@ -42,11 +42,9 @@ export const ENV = defineEnv({
   HA_URL: url().default("http://homeassistant.local:8123"),
   HA_TOKEN: secret().required().forRuntime("api", "worker").forFeatures("ac", "ctrl"),
   CLIMATE_ENTITY_ID: str().default("climate.home").forRuntime("api").forFeatures("ac"),
-  // JSON entity mapping; unset until the existing HA Tesla integration is configured.
-  TESLA_ENTITIES: str().optional().forRuntime("api").forFeatures("tesla"),
 
   // ── Clock alarms (events) ─────────────────────────────────────────────────
-  ALARM_API_TOKEN: secret().optionalSecret().forRuntime("api").forFeatures("events", "releases"),
+  ALARM_API_TOKEN: secret().optionalSecret().forRuntime("api").forFeatures("events"),
   ALARM_LIGHT_TARGET: str()
     .default("light.bed_lamp_left,light.bed_lamp_right")
     .forRuntime("api", "worker")
