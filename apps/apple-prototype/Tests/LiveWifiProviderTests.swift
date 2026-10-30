@@ -38,6 +38,7 @@ import XCTest
     func testExplicitRefreshMapsFixturesAndUnconfiguredClearsCredentials() async throws {
         let transport = WifiProviderTransport(replies: try ["wpa", "open", "escaped", "unconfigured"].map(fixture))
         let provider = makeProvider(transport)
+        XCTAssertNil(provider.qrPayload)
         XCTAssertNil(provider.wifi.ssid)
         XCTAssertEqual(provider.availability, .loading)
         let initialCount = await transport.count
@@ -46,6 +47,7 @@ import XCTest
             await provider.refresh()
             XCTAssertEqual(provider.availability, .live)
             XCTAssertEqual(WifiQRCode.payload(for: provider.wifi) ?? "", try fixture(name))
+            XCTAssertEqual(provider.qrPayload, name == "unconfigured" ? nil : try fixture(name))
         }
     }
 
@@ -58,6 +60,7 @@ import XCTest
             await provider.refresh()
             XCTAssertNil(provider.wifi.ssid)
             XCTAssertNil(provider.wifi.password)
+            XCTAssertNil(provider.qrPayload)
             XCTAssertEqual(provider.availability, .unavailable("Guest Wi-Fi is unavailable."))
         }
         await provider.refresh()
@@ -73,6 +76,25 @@ import XCTest
         await task.value
         XCTAssertNil(provider.wifi.ssid)
         XCTAssertNil(provider.wifi.password)
+    }
+
+    func testStopClearsCredentialsAndRejectsInFlightResponse() async throws {
+        let transport = WifiProviderTransport(replies: try [fixture("wpa"), fixture("open")], delay: .milliseconds(40))
+        let provider = makeProvider(transport)
+        let task = Task { await provider.refresh() }
+        while await transport.count == 0 { await Task.yield() }
+        provider.stop()
+        await task.value
+        XCTAssertNil(provider.qrPayload)
+        XCTAssertNil(provider.wifi.ssid)
+        XCTAssertNil(provider.wifi.password)
+        XCTAssertEqual(provider.availability, .unavailable("Guest Wi-Fi is unavailable."))
+        await provider.refresh()
+        XCTAssertEqual(provider.availability, .live)
+        XCTAssertNotNil(provider.qrPayload)
+        provider.stop()
+        XCTAssertNil(provider.qrPayload)
+        XCTAssertNil(provider.wifi.ssid)
     }
 
     func testMockProviderRemainsOffline() async {
@@ -104,10 +126,12 @@ import XCTest
 private actor WifiProviderTransport: PanelTransport {
     let replies: [String?]
     private(set) var count = 0
-    init(replies: [String?]) { self.replies = replies }
+    let delay: Duration
+    init(replies: [String?], delay: Duration = .zero) { self.replies = replies; self.delay = delay }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let index = count
         count += 1
+        try await Task.sleep(for: delay)
         guard replies.indices.contains(index), let qr = replies[index] else { throw URLError(.notConnectedToInternet) }
         let data = try JSONSerialization.data(withJSONObject: ["result": ["data": ["qr": qr]]])
         return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)

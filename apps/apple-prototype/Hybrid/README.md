@@ -37,7 +37,7 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`photos`, `walk`, `reminders`, `alarms`, `calendar`, `media`, `cameras`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
+`photos`, `walk`, `reminders`, `alarms`, `calendar`, `media`, `cameras`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `sonos`,
 `weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
 module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
 A native flag still shows the web board until that module's live provider has data.
@@ -1014,3 +1014,53 @@ that page safe at the smallest phone size needs a design-view layout change.
 Enabling family `1` would expose clipped content and an incomplete module set. Compact navigation and smallest-phone validation remain follow-up work; the
 design worker's Sources and UITests are unchanged. No new snapshot/UI suite is
 added because these tests are not run by the existing CI.
+
+## Guest Wi-Fi full-screen QR (WWW-29)
+
+Wi-Fi stays **web by default**, including shipped builds. WWW-29 removes Wi-Fi
+from the inherited `shippedNative` list; every other module keeps its existing
+default. The existing WWW-14 `WifiAPI` / `LiveWifiProvider` and WWW-44 composition
+already handle `wifi.guestQr`, polling, SSID parsing and unavailable fallback.
+No backend change is needed. No design-worker view is changed.
+
+`Hybrid/WifiModule.swift` displays the live SSID with a password button hidden
+until tapped (tap again to hide). Open networks say “No password required”. Tap
+the tile to open a system full-screen cover with a CoreImage QR, white quiet
+zone and no panel navigation over it. The QR encodes the original validated
+server payload, preserving optional fields. Brightness is set to 1 on the
+containing window's screen and restored on tap, the 60-second timeout,
+backgrounding, provider changes or removal. Returning from background never
+reopens the QR or reveals the password. Failed/absent endpoints, malformed
+payloads and empty configuration keep the retained web board. Credentials stay
+in memory and are never logged or persisted.
+
+The only touched `Sources` file is `Live/LiveWifiProvider.swift`: add a read-only
+optional `qrPayload`, publish the original payload after successful parsing, and
+clear it on unconfigured/error/cancelled responses. Add `stop()` to clear
+credentials and invalidate in-flight results on backgrounding; Hybrid calls it
+with the other providers. Its protocol, mock, parsed
+state and existing initializers are unchanged. All presentation is injected from
+Hybrid. The `Panel-Wifi` scheme selects the existing Panel, app and UI test targets
+for one build; use `-only-testing` to restrict execution to the relevant tests.
+
+Check using a simulator owned by this job (Debug only):
+
+```sh
+xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.wifi native
+# Add -hybridDetail to open the QR, or -hybridUnavailable for web fallback.
+```
+
+`-hybridFixtures` uses `Fixtures/wifi/hybrid.json`, a synthetic secured network;
+no home configuration or credentials are read. Routing tests also cover open,
+unconfigured, malformed and missing-endpoint responses. CoreImage decodes the QR
+and compares it with the original payload without logging credentials.
+
+Before opting in on the wall, launch with `-moduleFlag.wifi native` **without**
+`-hybridFixtures`, check the SSID, reveal/hide, scan from a phone, and verify
+brightness restoration after tap, 60 seconds and backgrounding. Then set iOS
+Settings > Panel > Wi-Fi > Native and relaunch. Equivalent launch override:
+`-moduleFlag.wifi native`. Rollback: `-moduleFlag.wifi web`, or Settings > Panel >
+Wi-Fi > Web, then relaunch. Do not persist the wall override until that device
+check passes. Simulator tests cannot establish physical backlight or phone
+joining behavior; the wall check remains a rollout step.

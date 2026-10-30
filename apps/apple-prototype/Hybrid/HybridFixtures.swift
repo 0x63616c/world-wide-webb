@@ -44,7 +44,7 @@ actor HybridFixtureTransport: PanelTransport {
             case "tesla.state": file = "tesla/ready.json"
             case "controls.list": file = "all-on.json"
             case "climate.get": file = "climate/cool.json"
-            case "wifi.guestQr": file = "wifi/wpa.json"
+            case "wifi.guestQr": file = "wifi/hybrid.json"
             case "weather.now": file = "weather/now.json"
             case "weather.hourly": file = "weather/hourly.json"
             case "sound.soundSystem": file = "sonos/rooms.json"
