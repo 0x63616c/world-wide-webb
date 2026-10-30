@@ -8,4 +8,5 @@ export * from "../ctrl/schema";
 export * from "../events/schema";
 export * from "../sound/schema";
 export * from "../wakes/schema";
+export * from "../walks/schema";
 export * from "../weather/schema";
