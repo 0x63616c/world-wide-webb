@@ -46,7 +46,7 @@ export const ENV = defineEnv({
   TESLA_ENTITIES: str().optional().forRuntime("api").forFeatures("tesla"),
 
   // ── Clock alarms (events) ─────────────────────────────────────────────────
-  ALARM_API_TOKEN: secret().optionalSecret().forRuntime("api").forFeatures("events"),
+  ALARM_API_TOKEN: secret().optionalSecret().forRuntime("api").forFeatures("events", "releases"),
   ALARM_LIGHT_TARGET: str()
     .default("light.bed_lamp_left,light.bed_lamp_right")
     .forRuntime("api", "worker")
