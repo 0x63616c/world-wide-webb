@@ -153,11 +153,12 @@ import PanelKit
                     guard let details = self?.roomDetails else { return }
                     try await operation.perform(api, details: details)
                     try Task.checkCancellation()
+                    guard self?.lifecycle == generation else { return }
+                    if case .clearCalibration = operation { self?.globalLock = false }
                     // Sonos writes return void, not state. Only a fresh query confirms it.
                     let state = try await api.soundSystem()
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
                     self.queue.removeFirst()
-                    if case .clearCalibration = operation { self.globalLock = false }
                     self.accept(state)
                     self.availability = .live
                     if self.queue.isEmpty { self.mutationTask = nil }

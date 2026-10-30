@@ -43,7 +43,8 @@ public struct SonosRoom: Decodable, Sendable, Equatable, Identifiable {
     }
 
     public func rawVolume(forDisplay percent: Int) -> Int {
-        let value = Double(percent) * ((baseline ?? 0) > 0 ? baseline! / 100 : 1)
+        let scale = baseline.flatMap { $0 > 0 ? $0 / 100 : nil } ?? 1
+        let value = Double(percent) * scale
         return Int(min(100, max(0, value)).rounded())
     }
 }

@@ -148,6 +148,17 @@ import XCTest
         XCTAssertEqual(count, 2)
     }
 
+    func testAcknowledgedClearUnlocksEvenWhenFollowupQueryFails() async throws {
+        let provider = makeProvider(SonosProviderStub([.state(), .void, .unavailable]))
+        defer { provider.stop() }
+        await provider.refresh()
+        provider.send(.globalLock)
+        provider.send(.clearCalibration)
+        try await settled(provider)
+        XCTAssertFalse(provider.globalLock)
+        guard case .unavailable = provider.availability else { return XCTFail("Expected unavailable") }
+    }
+
     func testStaleRefreshCannotOverwriteMutationAndStopCancelsPendingWork() async throws {
         let transport = SonosProviderStub([.state(), .state(alphaVolume: 1), .void, .state(alphaVolume: 36), .void], held: [1, 4])
         let provider = makeProvider(transport)
