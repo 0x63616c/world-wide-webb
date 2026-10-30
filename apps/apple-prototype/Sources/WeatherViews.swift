@@ -76,7 +76,7 @@ struct HourlyChart: View {
                                 .offset(y: -chartHeight * (Double(hour.feels) - minTemp) / (maxTemp - minTemp))
                             Text("\(hour.temperature)°").font(.system(size: compact ? 12 : 22, weight: .medium))
                                 .offset(y: -chartHeight * (Double(hour.temperature) - minTemp) / (maxTemp - minTemp) - (compact ? 2 : 8))
-                        }.frame(maxWidth: .infinity).frame(height: chartHeight)
+                        }.frame(maxWidth: .infinity).frame(height: chartHeight, alignment: .bottom)
                         Image(systemName: hour.symbol).font(.system(size: compact ? 14 : 29))
                         Text(hour.time).font(.system(size: compact ? 12 : 21)).opacity(0.65)
                     }

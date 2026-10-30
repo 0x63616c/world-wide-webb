@@ -242,7 +242,7 @@ struct ControllerCanvas<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
         GeometryReader { proxy in
-            let scale = min(1, min(proxy.size.width / 1280, proxy.size.height / 790))
+            let scale = max(0.01, min(1, min(proxy.size.width / 1280, proxy.size.height / 790)))
             content.frame(width: proxy.size.width / scale, height: proxy.size.height / scale)
                 .scaleEffect(scale)
                 .frame(width: proxy.size.width, height: proxy.size.height)

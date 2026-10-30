@@ -302,6 +302,7 @@ enum HomeCommand {
             for i in rooms.indices { rooms[i].coordinator = name; rooms[i].playing = true }; markPending("sound")
         case .join(let id, let coordinator):
             guard let leader = rooms.first(where: { $0.name == coordinator }), let i = rooms.firstIndex(where: { $0.id == id }) else { return }
+            guard rooms[i].coordinator != leader.coordinator else { return }
             detachCoordinator(id)
             rooms[i].coordinator = leader.coordinator; rooms[i].playing = leader.playing; markPending("sound")
         case .leave(let id):

@@ -94,6 +94,9 @@ import XCTest
     }
     func testSoundLockCalibrationAndGroups() async {
         let store = MockHomeDataSource(latency: .zero)
+        store.send(.join("Desk", "Living Room"))
+        XCTAssertEqual(store.rooms[0].coordinator, "Desk")
+        XCTAssertEqual(store.rooms[1].coordinator, "Desk")
         store.send(.calibrate)
         XCTAssertTrue(store.rooms.allSatisfy { $0.displayVolume == 50 })
         store.send(.groupLock)

@@ -93,3 +93,11 @@ xcrun simctl launch <UDID> co.worldwidewebb.prototype.ipad -demo
 Use `scripts/capture.sh <UDID> <output-directory>` on the Mac for screenshots and a recording. Use `xcrun simctl io <UDID> screenshot` or `recordVideo` for individual captures. Every controller has a 1366×1024 preview. The wallpaper is procedural SwiftUI gradients and shapes; copyrighted references are never bundled.
 
 Design API reference: [Apple — Liquid Glass for custom views](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views).
+
+## Verification on the build mini
+
+Built with Xcode 27.0 (27A266a), using the dedicated **WWW iPad 13** simulator on iOS 26.3. Ten unit tests and four UI tests pass, including every tile's open/close path, direct toggling, climate modes, all guest Wi-Fi variants and swipe-down dismissal. Run the UI suite once before scripted capture to set the simulator to landscape.
+
+The delivered screenshots and 20-second recording were captured from the running simulator and visually reviewed. The macOS Release app builds and passes strict ad-hoc signature verification. Its runtime, Escape handling and window resizing still need an on-device check on macOS 26+; the build mini runs macOS 15.6 and cannot launch it.
+
+The prototype is intentionally in-memory: it doesn't ring alarms, play Sonos audio or actuate lights. Party stores its selected speed; Mood assigns fixture palette colors. Those device effects await a real data-source implementation.
