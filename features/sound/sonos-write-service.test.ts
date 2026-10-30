@@ -3,10 +3,33 @@ import {
   sonosGroupJoin,
   sonosGroupJoinAll,
   sonosGroupJoinAllToTv,
+  sonosSeek,
   sonosSetVolume,
 } from "./sonos-write-service";
 
 describe("HA sound writes", () => {
+  it.each([
+    0, 12.5, 3600,
+  ])("seeks to %s seconds through the same HA client", async (positionSeconds) => {
+    const callService = vi.fn().mockResolvedValue(undefined);
+    await expect(
+      sonosSeek({ room: "media_player.example", positionSeconds }, { callService }),
+    ).resolves.toBeUndefined();
+    expect(callService).toHaveBeenCalledExactlyOnceWith("media_player", "media_seek", {
+      entity_id: "media_player.example",
+      seek_position: positionSeconds,
+    });
+  });
+
+  it("propagates seek failures without claiming success or retrying", async () => {
+    const error = new Error("seek unsupported");
+    const callService = vi.fn().mockRejectedValue(error);
+    await expect(
+      sonosSeek({ room: "media_player.example", positionSeconds: 10 }, { callService }),
+    ).rejects.toBe(error);
+    expect(callService).toHaveBeenCalledOnce();
+  });
+
   it("sends volume and grouping commands to Home Assistant", async () => {
     const callService = vi.fn().mockResolvedValue(undefined);
     const ha = { callService };
