@@ -25,6 +25,7 @@ struct DogWalkScreen: View {
                 Text("Fixture data").font(.system(size: 12)).foregroundStyle(.secondary)
                     .padding(.vertical, 12).frame(maxWidth: .infinity)
             }
+            .background { Color.black.ignoresSafeArea() }
     }
 }
 
@@ -42,8 +43,11 @@ struct DogWalkTile: View {
                             .font(.system(size: compact ? 22 : 32, weight: .semibold))
                         Spacer(minLength: 8)
                         if let walk = store.walks.activeWalk {
-                            Text("Elapsed \(walkElapsed(walk.duration(at: store.now)))")
-                                .font(.system(size: compact ? 22 : 32, weight: .medium, design: .rounded)).monospacedDigit()
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("Elapsed").font(.system(size: compact ? 16 : 20, weight: .medium))
+                                Text(walkElapsed(walk.duration(at: store.now)))
+                                    .font(.system(size: compact ? 26 : 40, weight: .medium, design: .rounded)).monospacedDigit()
+                            }
                             Text("Started on \(walk.startedBy.rawValue)")
                                 .font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary)
                                 .padding(.top, 4)
@@ -84,10 +88,23 @@ struct DogWalkPage: View {
                 VStack(alignment: .leading, spacing: 24) {
                     hero
                     let summary = store.walks.summary(at: store.now)
-                    HStack(spacing: compact ? 12 : 56) {
-                        metric("This week", value: "\(summary.weeklyMinutes)", unit: "min")
-                        metric("3-week average", value: "\(summary.averageMinutes)", unit: "min")
-                        metric("Streak", value: "\(summary.streak)", unit: "days")
+                    Group {
+                        if compact {
+                            HStack(spacing: 12) {
+                                metric("This week", value: "\(summary.weeklyMinutes)", unit: "min")
+                                metric("Average walk", value: "\(summary.averageMinutes)", unit: "min")
+                                metric("Streak", value: "\(summary.streak)", unit: "days")
+                            }
+                        } else {
+                            HStack(spacing: 24) {
+                                HStack(spacing: 24) {
+                                    metric("This week", value: "\(summary.weeklyMinutes)", unit: "min")
+                                    metric("Average per walk", value: "\(summary.averageMinutes)", unit: "min")
+                                }.padding(.horizontal, 28).frame(maxWidth: .infinity)
+                                metric("Streak", value: "\(summary.streak)", unit: "days")
+                                    .padding(.horizontal, 28).frame(width: 384)
+                            }
+                        }
                     }.padding(.vertical, 8)
                     let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 24)) : AnyLayout(HStackLayout(alignment: .top, spacing: 24))
                     layout {
@@ -113,12 +130,12 @@ struct DogWalkPage: View {
                             .font(.system(size: 64, weight: .medium, design: .rounded)).monospacedDigit()
                             .accessibilityIdentifier("walk-elapsed")
                         Text("Started on \(walk.startedBy.rawValue)")
-                            .font(.system(size: compact ? 18 : 24)).foregroundStyle(.secondary)
+                            .font(.system(size: compact ? 18 : 24)).foregroundStyle(.primary)
                     } else {
                         Label("Zero’s walks", systemImage: "pawprint.fill")
                             .font(.system(size: compact ? 32 : 48, weight: .semibold))
                         Text(store.walks.lastWalkLabel(at: store.now))
-                            .font(.system(size: compact ? 20 : 24)).foregroundStyle(.secondary)
+                            .font(.system(size: compact ? 20 : 24)).foregroundStyle(.primary)
                     }
                 }.frame(height: 144, alignment: .center)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -127,7 +144,8 @@ struct DogWalkPage: View {
                 store.toggleWalk()
             }
             .font(.system(size: compact ? 18 : 24, weight: .semibold))
-            .buttonStyle(.glassProminent).tint(.green).controlSize(.large)
+            .foregroundStyle(.black)
+            .buttonStyle(.glassProminent).tint(.green).controlSize(compact ? .large : .extraLarge)
         }
     }
 
@@ -183,7 +201,7 @@ struct DogWalkPage: View {
                     .frame(height: 288)
                     .scrollEdgeEffectStyle(.soft, for: .all)
             }
-            Text("\(store.walks.history.count) walks · Last 3 weeks")
+            Text(compact ? "\(store.walks.history.count) walks · Last 3 weeks" : "\(store.walks.history.count) walks · Scroll for more")
                 .font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }.padding(compact ? 24 : 28)
@@ -215,7 +233,7 @@ struct DogWalkPage: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title).font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
             HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(value).font(.system(size: compact ? 34 : 56, weight: .medium, design: .rounded)).monospacedDigit()
+                Text(value).font(.system(size: compact ? 34 : 48, weight: .medium, design: .rounded)).monospacedDigit()
                 Text(unit).font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
             }
         }.frame(maxWidth: .infinity, alignment: .leading)

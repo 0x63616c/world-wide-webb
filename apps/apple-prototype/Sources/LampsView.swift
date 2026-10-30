@@ -10,16 +10,19 @@ struct LampsController: View {
         ScrollView {
             GlassEffectContainer(spacing: 24) {
                 VStack(spacing: 24) {
+                    brightnessHeading
                     if compact {
-                        brightnessInstrument
+                        LampBrightness(store: store).frame(width: 168, height: 320)
+                        brightnessScope
                         room(.bedroom)
                         room(.livingRoom)
                     } else {
                         HStack(alignment: .center, spacing: 64) {
                             room(.bedroom).frame(width: 280)
-                            brightnessInstrument.frame(width: 320)
+                            LampBrightness(store: store).frame(width: 224, height: 384)
                             room(.livingRoom).frame(width: 280)
                         }
+                        brightnessScope
                     }
                     Button { showingEffects = true } label: {
                         Label("All lamps · Color & Effects", systemImage: "paintpalette.fill")
@@ -44,40 +47,40 @@ struct LampsController: View {
                 }.presentationSizing(.fitted).preferredColorScheme(.dark)
             }
     }
-    private var brightnessInstrument: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 4) {
-                Text("Global brightness").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                Text("\(store.lamps.brightness)%")
-                    .font(.system(size: compact ? 72 : 96, weight: .regular, design: .rounded)).monospacedDigit()
-                    .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
-                    .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
-                Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 22, weight: .medium))
-            }
-            LampBrightness(store: store).frame(width: compact ? 168 : 224, height: compact ? 320 : 384)
-            Text(store.lamps.anyOn ? "Adjusting turns all 8 lamps on" : "Turn on lamps to adjust")
-                .font(.system(size: compact ? 17 : 22)).foregroundStyle(.primary)
-                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+    private var brightnessHeading: some View {
+        VStack(spacing: 4) {
+            Text("Global brightness").font(.system(size: compact ? 22 : 28, weight: .semibold))
+            Text("\(store.lamps.brightness)%")
+                .font(.system(size: compact ? 72 : 96, weight: .regular, design: .rounded)).monospacedDigit()
+                .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
+                .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
+            Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 22, weight: .medium))
         }
+    }
+    private var brightnessScope: some View {
+        Text(store.lamps.anyOn ? "Adjusting turns all 8 lamps on" : "Turn on lamps to adjust")
+            .font(.system(size: compact ? 17 : 22)).foregroundStyle(.primary)
+            .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
     }
     private func room(_ key: Accessory) -> some View {
         let on = store.lamps.isOn(key)
-        return VStack(alignment: .leading, spacing: 24) {
-            HStack {
-                Image(systemName: key.symbol).symbolRenderingMode(.hierarchical)
-                    .font(.system(size: 48)).foregroundStyle(on ? .orange : .secondary)
-                Spacer()
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Text(key.name).font(.system(size: 24, weight: .semibold))
+                    .lineLimit(1).minimumScaleFactor(0.92)
+                Spacer(minLength: 0)
                 Toggle("Power", isOn: Binding(get: { store.lamps.isOn(key) }, set: { requested in
                     if store.lamps.isOn(key) != requested { store.send(.toggle(key)) }
                 }))
                     .labelsHidden().toggleStyle(.switch).tint(.orange)
                     .accessibilityLabel("\(key.name) power")
                     .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Text(key.name).font(.system(size: compact ? 24 : 28, weight: .semibold))
+            }.frame(minHeight: 64)
+            HStack(spacing: 8) {
+                Image(systemName: key.symbol).symbolRenderingMode(.hierarchical)
+                    .font(.system(size: 28)).foregroundStyle(on ? .orange : .secondary)
                 Text(on ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps" : "Off · \(LampState.members(key).count) lamps")
-                    .font(.system(size: compact ? 18 : 22)).foregroundStyle(.primary)
+                    .font(.system(size: 20)).foregroundStyle(.primary)
             }
             DisclosureGroup("Show lamps") {
                 ForEach(Array(LampState.members(key)), id: \.self) { index in
@@ -86,7 +89,7 @@ struct LampsController: View {
                         Text(store.lamps.on[index] ? "On" : "Off").foregroundStyle(.secondary)
                     }.padding(.vertical, 4)
                 }
-            }.font(.system(size: compact ? 17 : 20))
+            }.font(.system(size: compact ? 17 : 20)).frame(minHeight: 48)
         }.padding(32).foregroundStyle(on ? .black : .white)
             .glassEffect(on ? .regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular, in: .rect(cornerRadius: 40))
             .containerShape(.rect(cornerRadius: 40))

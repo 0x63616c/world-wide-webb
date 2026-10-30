@@ -29,10 +29,10 @@ struct CompactFace: View {
                 .mask {
                     VStack(spacing: 0) {
                         LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                            .frame(height: 16)
+                            .frame(height: 8)
                         Rectangle()
                         LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                            .frame(height: 16)
+                            .frame(height: 8)
                     }
                 }
                 PhoneFaceBar(selection: faceSelection)

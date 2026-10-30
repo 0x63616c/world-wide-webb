@@ -27,7 +27,27 @@ struct ModuleTile: View {
         }.buttonStyle(.plain).clipShape(ConcentricRectangle()).containerShape(.rect(cornerRadius: radius))
             .accessibilityLabel("Open \(tile.title)")
     }
-    private var weather: some View {
+    @ViewBuilder private var weather: some View {
+        if compact { compactWeather } else { panelWeather }
+    }
+    private var compactWeather: some View {
+        ZStack {
+            WeatherSky(condition: store.weather.condition).saturation(0.75).brightness(-0.08)
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(store.weather.city).font(.system(size: 18, weight: .medium))
+                    Text("\(store.weather.temperature)°").font(.system(size: 64, weight: .light)).monospacedDigit()
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 8) {
+                    Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(.system(size: 30))
+                    Text(store.weather.condition).font(.system(size: 16, weight: .medium))
+                    Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: 15))
+                }
+            }.padding(24)
+        }
+    }
+    private var panelWeather: some View {
         ZStack {
             WeatherSky(condition: store.weather.condition).saturation(0.65).brightness(-0.12)
             VStack(alignment: .leading, spacing: compact ? 6 : 4) {
@@ -43,7 +63,27 @@ struct ModuleTile: View {
             }.padding(compact ? 16 : 24).frame(maxWidth: .infinity, alignment: .leading)
         }
     }
-    private var calendar: some View {
+    @ViewBuilder private var calendar: some View {
+        if compact { compactCalendar } else { panelCalendar }
+    }
+    private var compactCalendar: some View {
+        HStack(alignment: .top, spacing: 24) {
+            VStack(spacing: 0) {
+                Text(fixtureTime(store.now, format: "EEE").uppercased()).font(.system(size: 14, weight: .semibold)).foregroundStyle(.red)
+                Text(fixtureTime(store.now, format: "d")).font(.system(size: 44, weight: .light))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("UP NEXT").font(.system(size: 11, weight: .semibold))
+                if let event = store.calendar.next(at: store.now) {
+                    Text(event.title).font(.system(size: 20, weight: .semibold)).lineLimit(1)
+                    Text("\(event.time) \(event.period)").font(.system(size: 16))
+                    Text(event.location).font(.system(size: 15)).lineLimit(1)
+                } else { Text("Nothing else today").font(.title3) }
+            }
+            Spacer(minLength: 0)
+        }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+    private var panelCalendar: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 12) {
             Text(fixtureTime(store.now, format: "EEE d").uppercased())
                 .font(.system(size: compact ? 13 : 20, weight: .semibold)).foregroundStyle(.red)
@@ -101,8 +141,9 @@ private struct HomeCameraTile: View {
                     Image(feed.asset).resizable().scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .scaleEffect(1.025 + sin(t / 8) * 0.015)
-                    LinearGradient(stops: [.init(color: .black.opacity(0.62), location: 0),
-                                           .init(color: .black.opacity(0.10), location: 0.52),
+                    LinearGradient(stops: [.init(color: .black.opacity(0.65), location: 0),
+                                           .init(color: .black.opacity(0.55), location: 0.40),
+                                           .init(color: .black.opacity(0.05), location: 0.60),
                                            .init(color: .black.opacity(0.65), location: 1)],
                                    startPoint: .top, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 12) {

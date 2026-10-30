@@ -83,10 +83,10 @@ struct PresenceClockFace: View {
                     Circle().trim(from: 0, to: Double(store.tesla.data.pct) / 100)
                         .stroke(.green, style: StrokeStyle(lineWidth: 5, lineCap: .round)).rotationEffect(.degrees(-90))
                     HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text("\(store.tesla.data.pct)").font(.system(size: 28, weight: .semibold, design: .rounded))
-                        Text("%").font(.system(size: 14, weight: .medium))
+                        Text("\(store.tesla.data.pct)").font(.system(size: 36, weight: .semibold, design: .rounded))
+                        Text("%").font(.system(size: 16, weight: .medium))
                     }
-                }.frame(width: 80, height: 80)
+                }.frame(width: 96, height: 96)
                 Text(store.tesla.data.charging ? "Car · Charging" : "Car")
                     .font(.system(size: compact ? 14 : 20))
             }.frame(width: compact ? 144 : 224, alignment: .leading)
@@ -114,7 +114,7 @@ struct GreenClockDial: View {
     let date: Date
     var numeralsOnly = false
     /// Physical clearance, not a ratio alone, also protects the smaller phone dial.
-    static func maximumHandLength(side: CGFloat) -> CGFloat { max(0, side * 0.38 - 24) }
+    static func maximumHandLength(side: CGFloat) -> CGFloat { max(0, side * 0.385 - 24) }
     var body: some View {
         GeometryReader { proxy in
             let s = min(proxy.size.width, proxy.size.height)
@@ -125,7 +125,7 @@ struct GreenClockDial: View {
             ZStack {
                 if !numeralsOnly {
                     ForEach(0..<60, id: \.self) { tick in
-                        Capsule().fill(tick.isMultiple(of: 5) ? .white : .white.opacity(0.36))
+                        Capsule().fill(tick.isMultiple(of: 5) ? .white : .white.opacity(0.45))
                             .frame(width: tick.isMultiple(of: 5) ? s * 0.005 : s * 0.0025,
                                    height: tick.isMultiple(of: 5) ? s * 0.028 : s * 0.014)
                             .offset(y: -s * 0.48).rotationEffect(.degrees(Double(tick) * 6))
@@ -136,9 +136,9 @@ struct GreenClockDial: View {
                 numeral("6", side: s, x: 0.50, y: 0.92)
                 numeral("9", side: s, x: 0.08, y: 0.50)
                 if !numeralsOnly {
-                    hand(length: length * 0.68, width: s * 0.016, degrees: hours * 30, color: .white)
-                    hand(length: length * 0.95, width: s * 0.011, degrees: minutes * 6, color: .white)
-                    hand(length: length, width: max(1.5, s * 0.003), degrees: seconds * 6, color: .green)
+                    hand(length: length * 0.74, width: s * 0.016, degrees: hours * 30, color: .white)
+                    hand(length: length, width: s * 0.011, degrees: minutes * 6, color: .white)
+                    hand(length: length * 0.98, width: max(1.5, s * 0.003), degrees: seconds * 6, color: .green)
                     Circle().fill(.white).frame(width: s * 0.026, height: s * 0.026)
                     Circle().fill(.green).frame(width: s * 0.012, height: s * 0.012)
                 }

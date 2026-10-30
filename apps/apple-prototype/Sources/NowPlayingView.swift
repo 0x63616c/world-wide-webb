@@ -20,7 +20,7 @@ struct NowPlayingView: View {
                             Spacer()
                             VStack(spacing: 5) {
                                 Text(room.name).font(.system(size: compact ? 20 : 25, weight: .semibold))
-                                HStack(spacing: 10) { Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 18)).foregroundStyle(.secondary); PlayingEqualizer(playing: room.playing).scaleEffect(0.65).frame(width: 24, height: 20) }
+                                HStack(spacing: 10) { Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 20)).foregroundStyle(.primary); PlayingEqualizer(playing: room.playing).scaleEffect(0.65).frame(width: 24, height: 20) }
                             }
                             Spacer()
                             CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: compact ? 44 : 64) { choosingRoom = true }
@@ -32,7 +32,7 @@ struct NowPlayingView: View {
                         VStack(alignment: .leading, spacing: 7) {
                             Text(room.trackTitle ?? room.sourceLabel ?? "Nothing playing")
                                 .font(.system(size: compact ? 25 : 32, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                            Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 23)).foregroundStyle(.secondary)
+                            Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 24)).foregroundStyle(.primary)
                         }.frame(width: compact ? proxy.size.width - 48 : 440, alignment: .leading).padding(.top, compact ? 16 : 20)
                         PlaybackScrubber(store: store, room: room)
                             .frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, compact ? 14 : 18)
