@@ -52,14 +52,22 @@ struct PanelRoot: View {
                 nativeAlarms: NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())))
             let root = Bundle.main.resourceURL!.appendingPathComponent("Fixtures")
             let ringing = ProcessInfo.processInfo.arguments.contains("-hybridAlarmRinging")
+            let fixtureNow: () -> Date
+            if ringing { fixtureNow = { AlarmDate.parse("2099-01-01T07:00:01Z")! } }
+            else if flags[.calendar] == .native { fixtureNow = { HybridCalendarFixtureStore.now } }
+            else { fixtureNow = Date.init }
             let transport = HybridFixtureTransport(root: root,
                 unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"),
                 alarmScenario: ringing ? "ringing" : "scheduled")
             _store = State(initialValue: LiveHomeDataSource(
-                configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
+                configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
+                    accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
                 transport: transport, remindersAPI: HybridRemindersFixture(
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
-                now: ringing ? { AlarmDate.parse("2099-01-01T07:00:01Z")! } : Date.init))
+                mediaAPI: HybridMediaFixture(unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
+                calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
+                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"))),
+                now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }))
             return
         }
         #endif

@@ -5,6 +5,7 @@ import PanelKit
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    let mediaProvider: LiveMediaProvider
     let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
@@ -14,24 +15,34 @@ import PanelKit
     let alarmsProvider: LiveAlarmsProvider
     let sonosProvider: LiveSonosProvider
     let teslaProvider: LiveTeslaProvider
+    let calendarProvider: LiveCalendarProvider
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     var alarms: [Alarm] { alarmsProvider.alarms }
     let occurrence: AlarmOccurrence? = nil
     func upcomingAlarm(at date: Date) -> UpcomingAlarm? { alarmsProvider.upcoming(at: date) }
     @ObservationIgnored private let clock: () -> Date
-    var now: Date { clock() }
+    var now: Date {
+        // Calendar refreshes invalidate time-based labels, without freezing the
+        // shared Home clock at the last event read for other modules.
+        _ = calendarProvider.referenceDate
+        return clock()
+    }
     var tesla: any TeslaProvider { teslaProvider }
-    var calendar: any CalendarProvider { unavailable }
+    var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { unavailable }
     var cameras: any CamerasProvider { unavailable }
-    var media: any MediaProvider { unavailable }
+    var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { unavailable }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
-         remindersAPI: any RemindersServing = RemindersAPI(), now: @escaping () -> Date = Date.init) {
+         remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
+         calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
+         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
+        mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         clock = now
+        calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
         // Guest credentials and Access sessions must remain memory-only.
         let session = URLSessionConfiguration.ephemeral
@@ -52,6 +63,7 @@ import PanelKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .media: mediaProvider.availability == .live && !mediaProvider.items.isEmpty
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
@@ -62,6 +74,7 @@ import PanelKit
         case .wifi: wifiProvider.availability == .live && !(wifiProvider.wifi.ssid ?? "").isEmpty
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
+        case .calendar: calendarProvider.availability == .live && !calendarProvider.events.isEmpty
         case .walk: false // Dog Walk owns its live state via LiveWalkProvider.
         }
     }
@@ -166,6 +179,7 @@ import PanelKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .media: await mediaProvider.refresh()
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
@@ -176,6 +190,7 @@ import PanelKit
         case .wifi: await wifiProvider.refresh()
         case .weather: await weatherProvider.refresh()
         case .sonos: await sonosProvider.refresh()
+        case .calendar: await calendarProvider.refresh()
         case .walk: break
         }
     }
@@ -201,11 +216,13 @@ import PanelKit
 
     func stop() {
         teslaProvider.stop()
+        mediaProvider.stop()
         alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()
         weatherProvider.stop()
         sonosProvider.stop()
+        calendarProvider.stop()
         fanMutation?.cancel()
         fanMutation = nil
     }

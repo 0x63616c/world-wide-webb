@@ -3,6 +3,7 @@ import SwiftUI
 extension PanelModule {
     var title: String {
         switch self {
+        case .media: "Media"
         case .reminders: "Reminders"
         case .all: "Web board"
         case .lights: "Lights"
@@ -11,6 +12,7 @@ extension PanelModule {
         case .wifi: "Wi-Fi"
         case .sonos: "Sonos"
         case .weather: "Weather"
+        case .calendar: "Calendar"
         case .alarms: "Clock & Alarms"
         case .walk: "Dog Walk"
         case .tesla: "Car"
@@ -44,12 +46,14 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var face: some View {
         switch module {
+        case .media: MediaModule(provider: store.mediaProvider, detail: false, open: open)
         case .lights: AccessoryFace(key: .lamps, store: store, open: open)
         case .fan: fan
         case .climate: TileFace(tile: .climate, store: store, open: open)
         case .wifi: TileFace(tile: .wifi, store: store, open: open)
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
+        case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .alarms: HybridClockFace(store: store, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         case .tesla: TeslaTile(provider: store.teslaProvider)
@@ -60,6 +64,7 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var controller: some View {
         switch module {
+        case .media: MediaModule(provider: store.mediaProvider, detail: true, open: open)
         case .lights: ControlsController(store: store, fanIsOn: store.hasLiveData(for: .fan) ? store.fanProvider.fanOn : nil)
         case .climate: ClimateController(store: store)
         case .fan:
@@ -71,6 +76,7 @@ struct HybridNativeModule: View {
         // This existing page has grouping and volume, with no fixture artwork,
         // media library or seek UI (the live API supplies no playback position).
         case .sonos: SonosRoomsPage(store: store)
+        case .calendar: AgendaPage(provider: store.calendar, now: store.now)
         case .alarms:
             ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
                             timeZone: .current, locationLabel: TimeZone.current.identifier)

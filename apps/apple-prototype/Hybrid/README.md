@@ -37,7 +37,7 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`walk`, `reminders`, `alarms`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
+`walk`, `reminders`, `alarms`, `calendar`, `media`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
 `weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
 module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
 A native flag still shows the web board until that module's live provider has data.
@@ -53,8 +53,8 @@ on the next launch. The in-app "Web board" button returns to the full board at a
 flag is `native` **and** a native implementation has live data. The generic
 `HybridModuleHost` receives an optional live view and a web fallback closure;
 nil data, a missing implementation, or a `web` flag selects the fallback.
-The root retains one WKWebView across native navigation. With all flags at their
-`web` default, it renders the same full-screen board with no native navigation and
+The root retains one WKWebView across native navigation. With all flags set to
+`web`, it renders the same full-screen board with no native navigation and
 starts no providers. With flags enabled, it initially selects the first enabled
 module in registry order; that selection stays on the board until its provider
 supplies data. A module strip offers the available native modules and **Web board**.
@@ -71,6 +71,9 @@ snapshot, or at least one available Sonos room where applicable. An off light,
 fan, or thermostat is still real data. A successful empty response is not enough
 for Wi-Fi, weather, or Sonos. Provider errors never fall through to a mock, even
 when the provider retains its last successful snapshot internally.
+
+Media's production adapter currently reports unavailable because the backend has
+no catalogue or playable video route. See the WWW-33 section below.
 
 The legacy `HomeDataSource` has nonoptional numeric fields. Unavailable fields
 therefore use neutral zero/false values, empty collections, nil credentials and
@@ -182,6 +185,85 @@ temperature/power also falls back instead of rendering invented values.
 Location/name metadata is deliberately absent; the label is simply Tesla.
 Production HA integration presence and real vehicle command execution remain
 rollout checks, not claims made by fixture tests.
+
+## Live Calendar (WWW-31)
+
+Source decision: `apps/api/src/trpc/routers/index.ts`, the generated feature
+router, and `features/*/api.ts` have no calendar event feed (the settings calendar
+time zone is unrelated). Calendar therefore reads **on-device EventKit** from
+the calendars already configured on the iPad. No backend, web, Expo, credentials,
+or server-side calendar integration changes are needed.
+
+`PanelKit/CalendarAPI.swift` owns the read-only value boundary and actor-isolated
+EventKit adapter. Apple requires **full access** to read existing events; there
+is no read-only permission level. The API exposes no save/delete operations.
+Only `Hybrid/Info.plist` gains `NSCalendarsFullAccessUsageDescription`. The
+prototype targets keep their mock providers and do not request access.
+`project.yml` is unchanged; its `Panel` scheme already includes `PanelTests` and
+`WorldWideWebbTests` for one simulator test invocation.
+See [Apple's EventKit access guide](https://developer.apple.com/documentation/eventkit/accessing-calendar-using-eventkit-and-eventkitui).
+
+`LiveCalendarProvider` conforms to the existing `CalendarProvider`. It reads
+from local midnight through the next seven calendar days in the device time
+zone, including events that overlap midnight. Calendar arithmetic handles DST;
+all-day events have an explicit label, timed events retain actual durations,
+and recurring occurrences use the EventKit item ID plus occurrence start.
+Canceled events are omitted. No notes, attendees, URLs, account identifiers or
+credentials are read. Event values stay in memory and are never logged.
+
+The existing Home **Up Next** tile (`ModuleTile`) and Calendar page (`AgendaPage`)
+receive this same provider via `LiveHomeDataSource` and `HybridNativeModule`.
+The page lists today and upcoming events, with dates on entries outside today;
+Up Next prefers ongoing/upcoming timed events, then all-day events. Completed
+events remain visible on today's list. Empty or denied/unavailable data routes
+to the retained web board. Calendar still defaults to `web`; the default launch
+does not open EventKit, read events or prompt. When explicitly enabled, permission
+is requested only if undetermined. Denied/restricted/write-only states do not
+prompt repeatedly. Foreground polling every 10 seconds catches edits, midnight,
+time-zone and permission changes. Backgrounding clears events and invalidates
+in-flight results; foregrounding reads and checks access again.
+
+Minimal presentation injection seams (no layout, style or hierarchy changes):
+
+- `Sources/ModuleProviders.swift`: optional time/period/duration labels on
+  `AgendaEvent`, plus provider heading/date formatting requirements with defaults
+  matching the mock's original labels and fixture time zone.
+- `Sources/ModulePages.swift`: the Calendar heading, date and duration texts read
+  those injected values.
+- `Sources/ModuleTiles.swift`: the Calendar tile's weekday/day texts use the
+  provider's date formatter.
+- `Sources/Live/LiveCalendarProvider.swift`: new live implementation; no existing
+  live provider is edited.
+
+Check first using the dedicated simulator and synthetic fixtures (Debug only):
+
+```sh
+xcrun simctl launch <own-calendar-simulator-id> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.calendar native
+# Calendar page: add -hybridDetail. Denied feed: add -hybridUnavailable.
+```
+
+The Calendar fixture store reads `Fixtures/calendar/events.json` at a fixed
+2026-10-30 10:30 PDT. It never creates EventKit or contacts home services.
+`-hybridUnavailable` exercises the web fallback with a denied source. To check
+real calendars, configure Calendar accounts on the device, then relaunch Panel
+with **`-moduleFlag.calendar native`**, without `-hybridFixtures`, and grant the
+system Calendar request. Select Calendar in the module strip (other live modules
+may also be enabled). Validate the tile and Details against Calendar, then
+revoke access in Settings and confirm web fallback. Restore the wall's default
+with `-moduleFlag.calendar web` (or remove the native override). Do not persist a
+native override on the wall until that device check passes.
+
+Fixture checks cannot establish account sync or actual iPad consent behavior;
+those remain a physical-device acceptance check. No backend PR is needed.
+
+Verified on the shared mini on 2026-10-30 with Xcode 27: PanelKit's **40 Swift
+Testing tests and 2 XCTest tests passed**. One `xcodebuild test -scheme Panel`
+invocation passed **50 Panel tests and 27 app tests**, including all 9
+`LiveCalendarProviderTests`, the existing mock Calendar test, routing/fallback,
+and real SwiftUI render captures at 1366×1024. The app test selection was
+`LiveCalendarProviderTests`, `ModuleProviderTests`, and `HomeDataSourceTests`.
+Screenshots live at the repository root under `docs/screenshots/calendar-live/`.
 
 ## Kiosk and bridge behavior
 
@@ -540,3 +622,125 @@ waiting for an unrelated network-status message.
 Repository typecheck, Biome, Knip, privacy guards and Gitleaks passed. The web
 compatibility PR #820 passed 23 targeted tests plus CI and was subsequently merged
 by `@0x63616c`; this job did not issue a merge. Physical wall checks remain pending.
+
+## WWW-33 media capability and playback
+
+The source investigation found **no current video library**. `features/booth/http.ts`
+and `features/wakes/http.ts` serve still photos from the NAS-backed media volume;
+`features/sound/api.ts` controls Sonos but supplies no playable stream. Plex and the
+former media feature were removed in ADR-0013. `apps/web` has no surviving library
+caller. The NAS mount in `infra/src/services.ts` is storage, not a catalogue API.
+
+[WWW-50](https://tickets.worldwidewebb.co/t/WWW-50) records the missing additive
+endpoints and blocks WWW-33's production completion:
+
+- A catalogue query (proposed `media.list`) with stable IDs, real titles, types and
+  availability, backed by a selected NAS directory or existing service.
+- Playback resolution (proposed `media.playback({id})`) to a same-origin relative
+  progressive MP4 stream, with H.264/AAC-compatible content.
+- `GET/HEAD /media/library/<id>/stream` with bounded NAS I/O, correct byte ranges
+  (`206`, `Content-Range`, `416`), `video/mp4`, no redirects, and explicit missing/
+  unavailable responses. Upstream credentials and filesystem paths stay server-side.
+
+These names are proposals, **not existing endpoints or an invented wire contract**.
+No backend change or backend PR accompanies this app change. `MediaAPI.videos()`
+reports `sourceUnavailable` without making a speculative request. Replace that
+adapter and add fixtures matching the eventual zod contract when WWW-50 lands.
+`PanelMediaVideo` is only the client-side capability model; the synthetic MP4 and
+injected Swift values are playback fixtures, not alleged production API responses.
+
+`LiveMediaProvider` implements the existing `MediaProvider`, starts empty, validates
+unique IDs and stream origins, and clears stale data on failure, cancellation or
+stop. The prototype `MockMediaProvider` and all existing `Sources` views remain
+unchanged. The only new Sources file is `Live/LiveMediaProvider.swift`. Hybrid uses
+its own small adapter because the prototype MediaPage assumes fixture music,
+artwork and room playback. Video selection opens a full-page system `VideoPlayer`;
+returning to the library, leaving the module or backgrounding stops its player and
+resource requests. A failed stream shows “Video unavailable”.
+
+`MediaPlayback` retains an `AVAssetResourceLoaderDelegate` and serves progressive
+MP4 data in at most 256 KiB requests. It uses a memory-only URLSession, accepts
+only the configured origin (HTTPS, or loopback HTTP for development), attaches a
+complete Access header pair to every range request, refuses redirects and rejects
+login HTML, incorrect ranges and changing lengths. Credentials never enter a URL
+or diagnostic. It does not use the unsupported `AVURLAssetHTTPHeaderFieldsKey`.
+See [Apple's resource loader API](https://developer.apple.com/documentation/avfoundation/avassetresourceloader)
+and [Apple's header-key guidance](https://developer.apple.com/forums/thread/671139).
+HLS, transcoding, album/playlist playback, Sonos library commands, AirPlay and
+background playback are outside this capability. External playback is disabled.
+
+### Flag check and rollback
+
+Media always defaults to **web**, including shipped builds. It appears natively
+only when `moduleFlag.media == native` **and** the provider has validated, nonempty
+current data. Today's production source therefore stays on the web board even
+with the flag enabled. No wall configuration has been changed.
+
+For an eventual real source, launch with `-moduleFlag.media native` or select
+Settings > Panel > Media > Native and relaunch. Select Media in the module strip.
+Rollback is `-moduleFlag.media web`, Settings > Panel > Media > Web, or the shared
+Web board only switch. Do not enable on the wall until authenticated playback and
+seek have been checked on the physical iPad with the real source.
+
+For the explicit debug check, use only an owned simulator and checkout:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
+cd ~/wwwebb-media-live
+# Separate terminal, foreground process; serves only an 8-second synthetic clip.
+python3 PanelKit/Tests/PanelKitTests/Fixtures/media/server.py
+# Substitute the ID returned when creating the owned WWW-33 Media iPad simulator.
+xcrun simctl launch <own-UDID> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.media native
+# Library:
+xcrun simctl launch --terminate-running-process <own-UDID> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.media native -hybridDetail
+# Playback (debug-only switch, gated by -hybridFixtures):
+xcrun simctl launch --terminate-running-process <own-UDID> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.media native -hybridDetail -hybridMediaPlay
+# Absent-source fallback:
+xcrun simctl launch --terminate-running-process <own-UDID> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.media native -hybridUnavailable
+# Flag-off fallback with available fixture data:
+xcrun simctl launch --terminate-running-process <own-UDID> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.media web
+```
+
+Fixture mode injects a loopback-only media capability with **synthetic** Access
+header values that the test server requires; it reads no runtime secrets or home
+services. Other providers continue to use the network-free fixture transport.
+`GET http://127.0.0.1:18733/stats` returns only request counts. The MP4 is generated
+from FFmpeg's `testsrc2`, has no personal content and is never a production fallback.
+The localhost server is a verification tool, not an additive backend implementation.
+
+Verification commands (one Xcode build at a time on the shared mini):
+
+```sh
+cd ~/wwwebb-media-live/PanelKit && swift test
+cd ~/wwwebb-media-live && /opt/homebrew/bin/xcodegen generate
+xcodebuild test -scheme Panel -destination 'platform=iOS Simulator,id=<own-UDID>' \
+  -derivedDataPath ~/wwwebb-media-live-dd -parallel-testing-enabled NO -jobs 2 \
+  -only-testing:PanelTests \
+  -only-testing:WorldWideWebbTests/LiveMediaProviderTests \
+  -only-testing:WorldWideWebbTests/ModuleProviderTests
+```
+
+PanelKit tests include a loopback server on an OS-assigned port to verify actual
+header delivery, denial of partial credentials and redirect refusal. The iPad test
+feeds the same MP4 through the resource loader, asserts playback time advances,
+seeks to five seconds and stops. Provider tests cover unavailable/empty/duplicate/
+foreign data, recovery and late results after stop. This evidence does not establish
+real NAS availability, production Cloudflare Access playback or physical wall parity.
+
+Verified on the mini on 2026-10-30 with Xcode 27.0: **11 XCTest + 41 Swift Testing
+PanelKit tests passed**. The full requested iPad run passed **56 Panel tests + 8
+selected app tests**. A focused incremental run after the stream-URL observation
+fix passed **4 media Panel tests + all 6 LiveMediaProvider tests**, including the
+new replacement-URL regression. Both runs built the Panel and prototype iPad
+hosts. Repository typecheck, tracked-file lint, Knip and privacy/secret guards
+passed. Real Panel captures at 1366×1024 points (@2x PNGs) show the tile, library,
+AVKit playing the test pattern, and both web fallbacks. The unavailable web
+captures show the reconnecting overlay against an intentionally unavailable
+loopback page, not an authenticated production board. The flag was explicitly
+flipped only in this synthetic simulator check; physical-iPad and real-source
+validation remain outstanding under WWW-50.

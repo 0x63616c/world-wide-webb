@@ -27,6 +27,7 @@
     <dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
     <key>NSCameraUsageDescription</key><string>Control Center uses the camera for photo booth and wake photos.</string>
     <key>NSMicrophoneUsageDescription</key><string>Control Center uses the microphone when you capture media.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key><string>Control Center reads your calendars to show today's and upcoming events on this panel.</string>
     <key>NSAppTransportSecurity</key>
     <dict><key>NSAllowsLocalNetworking</key><true/></dict>
     <key>CFBundleURLTypes</key>
