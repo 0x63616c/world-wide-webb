@@ -22,7 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Verify suite selection and result gate
-        run: python3 -B .github/scripts/apple-prototype-changes-test.py
+        run: |
+          python3 -B .github/scripts/apple-prototype-changes-test.py
+          python3 -B .github/scripts/apple-prototype-unit-schemes-test.py
       - name: Select affected suites
         id: filter
         env:
@@ -75,6 +77,7 @@ jobs:
         if: matrix.suite != 'panelkit'
         run: |
           brew install xcodegen
+          # shellcheck disable=SC2016
           ruby -ryaml -e '
             spec = YAML.load_file("apps/apple-prototype/project.yml")
             panel = spec.fetch("targets").fetch("Panel") { abort "Project has no Panel target." }
@@ -91,7 +94,9 @@ jobs:
       - name: Generate Xcode project
         if: matrix.suite != 'panelkit'
         working-directory: apps/apple-prototype
-        run: xcodegen generate
+        run: |
+          xcodegen generate
+          python3 ../../.github/scripts/apple-prototype-unit-schemes.py WorldWideWebb.xcodeproj
 
       - name: Select available iPad simulator
         id: simulator
