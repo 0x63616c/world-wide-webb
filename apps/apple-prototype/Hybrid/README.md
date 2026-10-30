@@ -113,7 +113,8 @@ not a mock HomeDataSource: all six real providers decode their existing PanelKit
 JSON fixtures from the bundled `Fixtures` folder. It uses a fixed loopback URL for
 WebKit and a transport with no network fallback. No runtime configuration,
 Keychain credentials, or home services are read. `-hybridUnavailable` additionally
-makes every provider fail, for fallback checks. Unknown writes fail closed; this
+makes every provider fail, for fallback checks. `-hybridDetail` opens the selected
+module directly on its detail page for simctl captures. Unknown writes fail closed; this
 is a capture harness, not an interactive home-service simulator. Release builds
 compile out the fixture transport and launch switches.
 

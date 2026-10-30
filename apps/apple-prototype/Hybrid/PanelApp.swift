@@ -18,11 +18,16 @@ struct PanelRoot: View {
     @State private var session: KioskSession
     @State private var store: LiveHomeDataSource
     @State private var selection: PanelModule
-    @State private var detail = false
+    @State private var detail: Bool
     private let router: HybridRouter
     private let requested: Set<PanelModule>
 
     init() {
+        #if DEBUG
+        _detail = State(initialValue: ProcessInfo.processInfo.arguments.contains("-hybridDetail"))
+        #else
+        _detail = State(initialValue: false)
+        #endif
         let flags = ModuleFlags(defaults: .standard)
         router = HybridRouter(flags: flags)
         requested = Set(PanelModule.allCases.filter { $0 != .all && flags[$0] == .native })
