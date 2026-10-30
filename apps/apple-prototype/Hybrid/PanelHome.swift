@@ -33,6 +33,7 @@ struct PanelHome: View {
     var body: some View {
         HomeView(store: presentation.store)
             .environment(\.homeIntegration, presentation)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("native-home")
             .overlay(alignment: .bottomTrailing) {
                 Button(action: presentation.navigation.openClassic) {
