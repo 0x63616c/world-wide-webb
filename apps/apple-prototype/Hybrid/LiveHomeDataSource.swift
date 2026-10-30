@@ -60,6 +60,7 @@ import PanelKit
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
         case .calendar: calendarProvider.availability == .live && !calendarProvider.events.isEmpty
+        case .walk: false // Dog Walk owns its live state via LiveWalkProvider.
         }
     }
 
@@ -170,6 +171,7 @@ import PanelKit
         case .weather: await weatherProvider.refresh()
         case .sonos: await sonosProvider.refresh()
         case .calendar: await calendarProvider.refresh()
+        case .walk: break
         }
     }
 

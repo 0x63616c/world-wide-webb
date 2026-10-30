@@ -5,8 +5,15 @@ import XCTest
 final class ModuleFlagsTests: XCTestCase {
     func testEveryModuleDefaultsToWeb() {
         let flags = ModuleFlags()
-        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather", "reminders", "calendar"])
+        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather", "walk", "reminders", "calendar"])
         for module in PanelModule.allCases { XCTAssertEqual(flags[module], .web) }
+    }
+
+    func testWalkFlagRequiresLiveDataAndDefaultsToWeb() {
+        XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .walk, hasLiveData: true), .webBoard)
+        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.walk": "native"]))
+        XCTAssertEqual(router.route(for: .walk, hasLiveData: false), .webBoard)
+        XCTAssertEqual(router.route(for: .walk, hasLiveData: true), .native(.walk))
     }
 
     func testOverridesAreIndependentAndInvalidValuesFailToWeb() {
