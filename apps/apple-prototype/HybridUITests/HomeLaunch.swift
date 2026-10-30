@@ -32,7 +32,11 @@ extension XCUIApplication {
                      "alarms": "clock", "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
         let tile = tiles[module]!
         XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
-        buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-1" : "face-page-0"].tap()
+        // Home's Classic button stays in the covered host's AX tree. The pager
+        // returns only after the selected controller has finished dismissing.
+        let page = buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-1" : "face-page-0"]
+        XCTAssertTrue(page.waitForExistence(timeout: 30))
+        page.tap()
         let container = descendants(matching: .any)["tile-\(tile)"].firstMatch
         XCTAssertTrue(container.waitForExistence(timeout: 15))
         if !launchArguments.contains("-hybridUnavailable") {
