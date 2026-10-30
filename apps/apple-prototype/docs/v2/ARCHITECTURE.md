@@ -27,11 +27,14 @@ Packages/
                        (CoreImage qrCodeGenerator, WIFI:T:WPA;S:…;P:…;; payload) with name + password below; tile/complications: no QR
     ClockApp/          time, date, greeting, seconds ring; Alarms (label, time, date, tz, snooze, lights);
                        next-alarm ring view (calum_4 style); idle big-numeral face (calum_6 style)
-    WeatherApp/        Weather Now (4 metrics) + Next 12 Hours
+    WeatherApp/        MOCKED: animated Home tile; Weather Now (4 metrics) + Next 12 Hours
     SonosApp/          Sound System: rooms, per-room volume, mute, grouping/join, global + group lock,
                        calibrate/clear, transport (play/pause/next/previous), Now Playing (calum_5 style)
-    TeslaApp/          PLANNED-REVIVAL: car battery %, range, charging, lock, cabin climate (prior features/tesla, see §7a)
-    MediaApp/          PLANNED: browse and play music on Sonos; play video on the panel (AVKit)
+    TeslaApp/          MOCKED (live revival is follow-up): car battery %, range, charging, cabin climate (prior features/tesla, see §7a)
+    CalendarApp/       MOCKED: next-event tile and day timeline
+    CamerasApp/        MOCKED: animated licensed demo feeds and camera grid
+    PhotosApp/         MOCKED: rotating tile and full-bleed frame
+    MediaApp/          MOCKED: browse and play music on Sonos; play video on the panel (AVKit)
   Providers/
     MockProviders/     fixtures for every provider protocol (what the prototype ships with)
     LiveProviders/     later: the tRPC client against apps/api, one provider per app
@@ -196,7 +199,7 @@ Backed by features/sound/api.ts:
 - **Production follow-up required:** current backend response/schema lacks position/duration/timestamp and a seek mutation. Add them from UPnP AVTransport GetPositionInfo or HA `media_position`, `media_duration`, `media_position_updated_at`, plus seek transport. Do not imply the prototype scrubber is connected to production. This supersedes the earlier no-scrubber rule.
 - Mocked in the prototype: one fixture track with generated placeholder artwork.
 
-## 7. Media module (PLANNED, new capability, not in today's web panel)
+## 7. Media module (fixture prototype; live backend remains a follow-up)
 Purpose: actually choose and start things to play, not just control what's already playing.
 - **Music on Sonos:**
   - Browse Sonos favourites, playlists and recent items, then pick a room or group, then play.
@@ -209,7 +212,7 @@ Purpose: actually choose and start things to play, not just control what's alrea
   - `MediaProvider`: `browse(path) async -> [MediaItem]`, `play(item, on: SonosTarget)`, `localPlayback(item) -> AVPlayerItem`.
   - `MediaApp` supports a `large` tile (recents grid), a `rectangular` complication ("Continue: …") and a full-screen browser.
   - Now Playing stays in SonosApp. MediaApp hands off to it after `play`.
-- **Prototype scope:** none beyond the mocked Now Playing (SonosApp). MediaApp gets a stub package with the protocol and mock fixtures only when its backend ticket is approved.
+- **Prototype scope:** browsable original fixture albums/playlists dispatch play to the selected Sonos room and coordinator group. A bundled, silent 12-second licensed landscape study plays in an AVKit sheet. This is functional in-memory playback state; no production integration or audio recording is implied.
 
 
 ## 7a. Tesla module (TeslaApp): revival of the deleted `features/tesla`
@@ -221,7 +224,6 @@ Purpose: actually choose and start things to play, not just control what's alrea
 ```swift
 public struct TeslaState: Codable, Equatable {
     var name: String; var nick: String
-    var locked: Bool
     var place: String; var lat: Double?; var lon: Double?   // the panel shows `place` only; no coordinates in fixtures
     var charging: Bool; var chargingState: ChargeState       // starting|charging|stopped|complete|disconnected|no_power
     var preconditioning: Bool
@@ -235,8 +237,8 @@ public struct TeslaState: Codable, Equatable {
 ```
 - **HA entities (Tesla Fleet integration, prefix = `TESLA_ENTITY_PREFIX`):**
   - sensor: `_battery_level`, `_charging`, `_charge_rate`, `_battery_range`, `_odometer`, `_inside_temperature`
-  - `lock._lock`, `device_tracker._location`, `climate._climate`, `switch._charge`
-- **Commands (old tRPC):** `tesla.setLock(locked)`, `tesla.setCharging(on)`, `tesla.setPreconditioning(on)`. Dead HA states (unavailable/unknown/none) map to asleep/unavailable.
+  - `device_tracker._location`, `climate._climate`, `switch._charge`
+- **Commands (old tRPC):** `tesla.setCharging(on)`, `tesla.setPreconditioning(on)`. Dead HA states (unavailable/unknown/none) map to asleep/unavailable.
 
 **PanelApp surface:**
 - **Tile** (small/medium):
@@ -247,11 +249,9 @@ public struct TeslaState: Codable, Equatable {
 - **Complications:** circular = charge-% ring; corner/inline = "78%"; rectangular = % + range + charging.
 - **Full screen:**
   - big battery gauge with charge status, rate and the start/stop charge toggle
-  - lock/unlock button (confirmation for unlock)
   - cabin climate: cabin temperature plus a precondition on/off toggle
   - place ("Home") and odometer
   - no map: the map was deleted with maplibre, so it's not revived in the prototype
-- **Private:** a candidate for `private: true` (PIN gate) because it can unlock the car.
 - **Backend:** reviving needs `features/tesla` (api + service) restored from 9d7c6c23^ (a ticket). The prototype uses `MockTeslaProvider` only.
 
 ## 8. Migration from the current prototype (apps/apple-prototype/Sources, about 1.7k lines, single target)
@@ -270,3 +270,11 @@ Cheap steps, in order. Each is a mechanical move with tests staying green:
 - What is the presence source on real hardware (existing wake capture vs proximity)?
 - Where does video come from for MediaApp?
 - Track position and seek are now required; schedule the backend fields/mutation follow-up described in §6.
+
+## Pass 5 modules and implemented face data
+
+The source remains in one prototype target per §8; names above describe logical Apps, each behind its provider seam. CalendarProvider, CamerasProvider, PhotosProvider and MediaProvider ship with mock implementations; WeatherState and Sonos commands reuse HomeDataSource. No access-control module, fixture, entity or vehicle access command is included. Sonos global/group volume lock remains a volume setting.
+
+Home and Home · More both use the same five-column/three-row HomeFaceLayout solver. Home: Climate (0,0) 2×2, Lamps (2,0) 1×2, Weather (3,0) 2×1, Tesla (3,1) 2×1, Calendar (0,2) 2×1, Now Playing (2,2) 2×1, Fan (4,2) circle. More: Cameras (0,0) 2×2, Photos (2,0) 2×1, Media (2,1) 2×1, Sonos Rooms (4,0) 1×2; Clock/Ceiling/Cabinet/Wi-Fi/All lights form five bottom circles. Both have 24-pt gutters and equal 80-pt outer margins on the target panel. Phone uses separate two-column scroll compositions with 16-pt gutters and 24-pt bottom clearance. Geometry tests exercise both faces at every phone width, including scroll ends.
+
+Weather combines four current metrics and 12 hourly entries. Calendar uses generic public-place events; Media has no real recordings. Camera previews use licensed landscapes with LIVE, Demo feed and simulated-camera labels; they are never represented as real property cameras. Photos cycles three licensed images every 12 seconds with a 1.2-second crossfade, paused under Reduce Motion. The photo frame has a small clock/date; all media stays bundled and works offline.

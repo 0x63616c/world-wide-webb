@@ -92,13 +92,13 @@ private struct GreenClockDial: View {
             let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
             let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
             ZStack {
-                numeral("12", size: s * 0.46, x: s * 0.5, y: s * 0.13)
+                numeral("12", size: s * 0.46, x: s * 0.5, y: s * 0.15)
                 numeral("9", size: s * 0.46, x: s * 0.14, y: s * 0.49)
                 numeral("3", size: s * 0.46, x: s * 0.86, y: s * 0.49)
-                numeral("6", size: s * 0.46, x: s * 0.5, y: s * 0.81)
+                numeral("6", size: s * 0.46, x: s * 0.5, y: s * 0.85)
                 hand(length: s * 0.26, width: s * 0.012, degrees: hours * 30)
                 hand(length: s * 0.38, width: s * 0.010, degrees: minutes * 6)
-                hand(length: s * 0.42, width: max(1, s * 0.002), degrees: seconds * 6).opacity(0.6)
+                hand(length: s * 0.42, width: max(1.5, s * 0.0028), degrees: seconds * 6).opacity(0.85)
                 Circle().fill(.white).frame(width: s * 0.024, height: s * 0.024)
                 Circle().fill(.black).frame(width: s * 0.009, height: s * 0.009)
             }.frame(width: s, height: s)

@@ -26,3 +26,13 @@ capture "$ipad" nowplaying -face music
 capture "$phone" iphone-home -face home
 capture "$phone" iphone-home-bottom -face home -homeScrollBottom
 capture "$phone" iphone-nowplaying -face music
+capture "$ipad" weather -face home
+capture "$ipad" weather-full -openTile weather
+capture "$ipad" calendar-full -openTile calendar
+capture "$ipad" media-full -openTile media
+capture "$ipad" video -openTile media -showVideo
+capture "$ipad" sonos-rooms -openTile sonosRooms
+capture "$ipad" cameras-full -openTile cameras
+capture "$ipad" photos-face -openTile photos
+capture "$phone" iphone-more -face controls
+capture "$phone" iphone-more-bottom -face controls -homeScrollBottom

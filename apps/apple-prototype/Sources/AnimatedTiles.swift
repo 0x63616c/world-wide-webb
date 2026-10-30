@@ -76,26 +76,18 @@ struct WeatherSky: View {
                     ], colors: raining
                         ? [.gray, .gray, .blue.mix(with: .black, by: 0.6), .gray, .blue.mix(with: .gray, by: 0.6), .gray, .blue.mix(with: .black, by: 0.5), .gray, .gray]
                         : [.blue.mix(with: .black, by: 0.45), .blue, .cyan, .blue, .blue.mix(with: .cyan, by: 0.3), .cyan, .blue.mix(with: .black, by: 0.25), .blue, .cyan.mix(with: .white, by: 0.2)])
-                    if !raining {
-                        Circle().fill(RadialGradient(colors: [.white, .yellow.opacity(0.2), .clear], center: .center, startRadius: 0, endRadius: proxy.size.width * 0.16))
-                            .frame(width: proxy.size.width * 0.34).position(x: proxy.size.width * 0.77, y: proxy.size.height * 0.22)
-                        Circle().fill(.white.opacity(0.9)).frame(width: proxy.size.width * 0.075)
-                            .blur(radius: 2).position(x: proxy.size.width * 0.77, y: proxy.size.height * 0.22)
+                    if cloudy {
+                        Image("CloudPhoto").resizable().scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                            .scaleEffect(1.08).offset(x: sin(t / 24) * 10)
+                            .saturation(raining ? 0.15 : 0.80)
+                            .overlay(.black.opacity(raining ? 0.50 : 0.18))
+                    } else {
+                        Circle().fill(.white.opacity(0.9)).frame(width: proxy.size.width * 0.06)
+                            .blur(radius: 1).position(x: proxy.size.width * 0.78, y: proxy.size.height * 0.23)
                     }
-                    Canvas { context, size in
-                        if cloudy {
-                            for i in 0..<3 {
-                                let offset = sin(t / 18 + Double(i)) * size.width * 0.06
-                                let rect = CGRect(x: size.width * (0.36 + Double(i) * 0.18) + offset, y: size.height * (0.25 + Double(i % 2) * 0.10), width: size.width * 0.40, height: size.height * 0.085)
-                                var cloud = context
-                                cloud.addFilter(.blur(radius: 5))
-                                var shape = Path(ellipseIn: rect)
-                                shape.addEllipse(in: CGRect(x: rect.midX - rect.width * 0.18, y: rect.minY - rect.height * 0.55, width: rect.width * 0.40, height: rect.height * 1.25))
-                                shape.addEllipse(in: CGRect(x: rect.minX + rect.width * 0.08, y: rect.minY - rect.height * 0.18, width: rect.width * 0.38, height: rect.height))
-                                cloud.fill(shape, with: .linearGradient(Gradient(colors: [.white.opacity(0.6), .white.opacity(0.16)]), startPoint: CGPoint(x: rect.midX, y: rect.minY - rect.height * 0.55), endPoint: CGPoint(x: rect.midX, y: rect.maxY)))
-                            }
-                        }
-                        if raining {
+                    if raining {
+                        Canvas { context, size in
                             for i in 0..<32 {
                                 let x = Double((i * 43) % 100) / 100 * size.width
                                 let y = (Double(i) / 32 + t * 0.18).truncatingRemainder(dividingBy: 1) * size.height
