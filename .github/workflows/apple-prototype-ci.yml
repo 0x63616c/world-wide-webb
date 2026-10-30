@@ -1,0 +1,136 @@
+name: Apple Prototype CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/apple-prototype/**"
+      - ".github/workflows/apple-prototype-ci.yml"
+  push:
+    branches: [WWW-8-apple-prototype, main]
+    paths:
+      - "apps/apple-prototype/**"
+      - ".github/workflows/apple-prototype-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-prototype-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select newest Xcode 26.x
+        run: |
+          set -euo pipefail
+          XCODE_APP=$(python3 - <<'PYCODE'
+          import glob, re
+          candidates = []
+          for path in glob.glob('/Applications/Xcode*.app'):
+              import subprocess
+              version = subprocess.check_output([path + '/Contents/Developer/usr/bin/xcodebuild', '-version'], text=True)
+              match = re.search(r'Xcode (26(?:\.\d+)*)', version)
+              if match:
+                  candidates.append((tuple(map(int, match[1].split('.'))), path))
+          if not candidates:
+              raise SystemExit('No Xcode 26.x installed; update the runner image for the native SDK requirement.')
+          print(max(candidates)[1])
+          PYCODE
+          )
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install XcodeGen and check native SDK requirements
+        run: |
+          brew install xcodegen
+          ruby -ryaml -e '
+            spec = YAML.load_file("apps/apple-prototype/project.yml")
+            panel = spec.fetch("targets").fetch("Panel") { abort "Project has no Panel target." }
+            required = panel["deploymentTarget"] || spec.dig("options", "deploymentTarget", "iOS")
+            sdk = `xcrun --sdk iphoneos --show-sdk-version`.strip
+            abort "Native Panel requires iOS #{required}, but installed SDK is #{sdk}; update the runner/Xcode image." if Gem::Version.new(required.to_s) > Gem::Version.new(sdk)
+          '
+
+      - name: Test PanelKit
+        working-directory: apps/apple-prototype/PanelKit
+        run: swift test
+
+      - name: Generate Xcode project
+        if: ${{ !cancelled() }}
+        working-directory: apps/apple-prototype
+        run: xcodegen generate
+
+      - name: Select available iPad simulator
+        id: simulator
+        if: ${{ !cancelled() }}
+        run: |
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
+          python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
+          import json, os
+          with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
+              devices = json.load(source)['devices']
+          for runtime in sorted(devices, reverse=True):
+              if '.iOS-' not in runtime:
+                  continue
+              for device in devices[runtime]:
+                  if device['name'].startswith('iPad') and device.get('isAvailable'):
+                      print('destination=platform=iOS Simulator,id=' + device['udid'])
+                      raise SystemExit(0)
+          raise SystemExit('No available iPad simulator installed.')
+          PYCODE
+
+      - name: Build macOS app
+        if: ${{ !cancelled() }}
+        working-directory: apps/apple-prototype
+        run: >-
+          xcodebuild build -project WorldWideWebb.xcodeproj
+          -scheme WorldWideWebb -destination 'platform=macOS'
+          CODE_SIGNING_ALLOWED=NO
+
+      - name: Build iPad app
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        working-directory: apps/apple-prototype
+        env:
+          DESTINATION: ${{ steps.simulator.outputs.destination }}
+        run: >-
+          xcodebuild build -project WorldWideWebb.xcodeproj
+          -scheme WorldWideWebb-iPad -destination "$DESTINATION"
+          CODE_SIGNING_ALLOWED=NO
+
+      - name: Build Panel app
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        working-directory: apps/apple-prototype
+        env:
+          DESTINATION: ${{ steps.simulator.outputs.destination }}
+        run: >-
+          xcodebuild build -project WorldWideWebb.xcodeproj
+          -scheme Panel -destination "$DESTINATION"
+          CODE_SIGNING_ALLOWED=NO
+
+      # project.yml has no macOS unit-test target. PanelKit runs on macOS above.
+      # Limit the iPad scheme to unit tests; its UI tests are a separate suite.
+      - name: Test iPad app units
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        working-directory: apps/apple-prototype
+        env:
+          DESTINATION: ${{ steps.simulator.outputs.destination }}
+        run: >-
+          xcodebuild test -project WorldWideWebb.xcodeproj
+          -scheme WorldWideWebb-iPad -destination "$DESTINATION"
+          -only-testing:WorldWideWebbTests CODE_SIGNING_ALLOWED=NO
+
+      - name: Test Panel app units
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        working-directory: apps/apple-prototype
+        env:
+          DESTINATION: ${{ steps.simulator.outputs.destination }}
+        run: >-
+          xcodebuild test -project WorldWideWebb.xcodeproj
+          -scheme Panel -destination "$DESTINATION"
+          -only-testing:PanelTests CODE_SIGNING_ALLOWED=NO

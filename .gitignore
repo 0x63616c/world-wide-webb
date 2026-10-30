@@ -72,3 +72,6 @@ infra/talos/clusterconfig/
 # Local prod DB dumps taken during the #111 postgres migration. Multi-MB
 # snapshots of real data — never commit them.
 .pg-snapshots/
+
+# Native panel machine credentials (never bundled as a resource).
+apps/apple-prototype/Hybrid/Config/Secrets.xcconfig

@@ -156,6 +156,7 @@ struct HomeView: View {
                 ControllerHost(tile: tile, store: store, close: { selected = nil })
             }
         }.preferredColorScheme(.dark).foregroundStyle(.primary)
+            .task { await signalSnapshotReady() }
             #if os(iOS)
             .statusBarHidden(true).persistentSystemOverlays(.hidden)
             #endif
