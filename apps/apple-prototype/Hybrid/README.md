@@ -952,3 +952,12 @@ error recovery and cancellation. Notification tests cover authorized/provisional
 states, denied/undetermined/ephemeral states, persistence across restarts, retries
 and overlapping checks. API tests decode the exact tRPC fixture and reject bad
 builds, mismatched app IDs, invalid timestamps, missing endpoints and Access HTML.
+
+The focused `Panel-Smoke` UI check `PanelUITests/UpdateReadyBannerTests` passed,
+asserting the exact build label and a 1366×1024-point app frame on both native and
+web routes. Direct `simctl` screenshots are in `Verification/WWW-53-banner.png`
+and `Verification/WWW-53-banner-web.png` (@2x, 2732×2048 pixels). The native capture
+uses the synthetic Lights fixture; the web capture intentionally shows the local
+unavailable board reconnecting. It verifies the Banner's placement, not production
+Cloudflare Access rendering. No physical TestFlight handoff or permission prompt
+was used for simulator verification.
