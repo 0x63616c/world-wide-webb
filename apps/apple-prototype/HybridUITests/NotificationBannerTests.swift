@@ -29,8 +29,11 @@ final class NotificationBannerTests: XCTestCase {
         app.buttons["notification-banner-climate"].swipeUp()
         XCTAssertTrue(app.buttons["notification-banner-climate"].waitForNonExistence(timeout: 5))
         app.buttons["notification-banner-lights"].swipeLeft()
-        XCTAssertTrue(app.buttons["notification-banner-lights"].exists) // Next item in the group.
+        let count = app.staticTexts["notification-count-lights"].firstMatch
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", "2 notifications from Lights"), object: count)], timeout: 10), .completed)
         app.buttons["notification-dismiss-lights"].tap()
+        XCTAssertTrue(count.waitForNonExistence(timeout: 10))
         app.buttons["notification-dismiss-lights"].tap()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForNonExistence(timeout: 5))
         capture("notification-stack-after-dismiss", app)

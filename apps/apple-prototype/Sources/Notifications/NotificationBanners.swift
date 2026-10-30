@@ -50,7 +50,7 @@ struct NotificationBanners: View {
             .padding(.horizontal, 24).padding(.top, 12)
         }
         .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: typeSize.isAccessibilitySize ? 768 : 528)
+        .frame(width: typeSize.isAccessibilitySize ? 768 : 528)
         .allowsHitTesting(!visible.isEmpty || center.lastError != nil)
         .onAppear { center.registerPresenter(presenterID) }
         .onDisappear { center.unregisterPresenter(presenterID) }
