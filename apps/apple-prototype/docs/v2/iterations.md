@@ -274,3 +274,10 @@ Climate, Lamps, materials and wallpaper retain main's implementation. Existing
 geometry and shared-state UI tests follow the moved controls without weakening
 margin, gutter, reachability or state assertions. Capture and median review are
 pending; no acceptance is claimed.
+
+Iteration 2 is rejected: the first two completed cold runs score Home 8.2 and
+8.3, making the three-run median mathematically below its 8.5 floor regardless
+of the final run. Restore the main Home/More spans, specification and geometry
+anchors in a new commit, including the Music hit-area follow-up that only served
+the rejected layout. Retain the asynchronous fan-state assertion correction.
+The full twelve-screen median table follows when the final cold run completes.

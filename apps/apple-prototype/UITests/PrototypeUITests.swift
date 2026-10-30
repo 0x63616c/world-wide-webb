@@ -25,7 +25,7 @@ import XCTest
             let window = app.windows.firstMatch.frame
             // The button's full rectangular surface reports its painted bounds;
             // round controls expose their content bounds, so use their center.
-            let moduleID = controls ? "cameras" : "sound"
+            let moduleID = controls ? "cameras" : "calendar"
             let tile = app.descendants(matching: .any).matching(identifier: "tile-\(moduleID)").firstMatch
             XCTAssertTrue(tile.waitForExistence(timeout: 10))
             let full = tile.frame
@@ -79,9 +79,9 @@ import XCTest
         XCTAssertTrue(all.waitForExistence(timeout: 30), app.debugDescription)
         all.tap()
         waitForValue(all, "On")
+        waitForValue(app.buttons["toggle-ceiling"], "On")
         app.buttons["face-page-0"].tap()
         XCTAssertTrue(app.buttons["toggle-fan"].waitForExistence(timeout: 10), app.debugDescription)
-        waitForValue(app.buttons["toggle-ceiling"], "On")
         XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
         app.buttons["face-page-1"].tap()
         waitForValue(all, "On")

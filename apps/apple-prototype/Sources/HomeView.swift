@@ -4,8 +4,8 @@ enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
     case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos, dogwalk
-    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .sound, .clock, .ceiling, .fan]
-    static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .calendar, .cabinet, .wifi, .all]
+    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
+    static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
         switch self {

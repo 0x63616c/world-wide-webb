@@ -10,7 +10,8 @@ enum MixedHomeLayout {
             case .photos: (2, 0, 2, 1)
             case .media: (2, 1, 2, 1)
             case .sonosRooms: (4, 0, 1, 2)
-            case .calendar: (0, 2, 2, 1)
+            case .clock: (0, 2, 1, 1)
+            case .ceiling: (1, 2, 1, 1)
             case .cabinet: (2, 2, 1, 1)
             case .wifi: (3, 2, 1, 1)
             default: (4, 2, 1, 1)
@@ -21,9 +22,8 @@ enum MixedHomeLayout {
         case .lamps: (2, 0, 1, 2)
         case .weather: (3, 0, 2, 1)
         case .tesla: (3, 1, 2, 1)
-        case .sound: (0, 2, 2, 1)
-        case .clock: (2, 2, 1, 1)
-        case .ceiling: (3, 2, 1, 1)
+        case .calendar: (0, 2, 2, 1)
+        case .sound: (2, 2, 2, 1)
         default: (4, 2, 1, 1)
         }
     }
@@ -158,7 +158,6 @@ struct MixedHomeTile: View {
                     Spacer(minLength: 0)
                 }
             }.padding(compact ? 16 : 32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .contentShape(.rect(cornerRadius: compact ? 36 : 56))
         }.buttonStyle(.plain)
     }
     private var car: some View {
