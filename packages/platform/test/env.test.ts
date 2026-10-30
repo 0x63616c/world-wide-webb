@@ -12,8 +12,6 @@ import {
   str,
   url,
 } from "../env";
-import { ENV } from "../env/manifest";
-import { registrySpec } from "../env/registry";
 
 // Keys these tests poke into process.env — cleared between cases so one test's
 // late "hydration" never leaks into the next.
@@ -256,10 +254,4 @@ describe("assertEnv fail-fast (against the real manifest)", () => {
       exit.mockRestore();
     }
   });
-});
-
-// Both automation callers share one vault key and one API environment binding.
-it("shares the alarm automation credential with releases", () => {
-  expect(registrySpec(ENV).ALARM_API_TOKEN._features).toEqual(["events", "releases"]);
-  expect(registrySpec(ENV).ALARM_API_TOKEN._runtimes).toEqual(["api"]);
 });

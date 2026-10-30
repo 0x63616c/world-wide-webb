@@ -14,7 +14,6 @@ import {
   type DeviceStateStore,
   FIXTURE_ENTITY_IDS,
   LAMP_ENTITY_IDS,
-  LIGHTS,
   rgbToXy,
 } from "@www/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -151,14 +150,10 @@ function makeSelectChain(rows: unknown[]): SelectChain {
  * Lets a test set the persistent lamp mode without colliding with the device-row
  * read in the same getControlsState call.
  */
-function mockSelectWithMode(
-  deviceRows: unknown[],
-  mode: string | null,
-  speed: string | null = null,
-): void {
+function mockSelectWithMode(deviceRows: unknown[], mode: string | null): void {
   mockDbSelect.mockImplementation((projection?: unknown) => {
     if (projection !== undefined) {
-      return makeSelectChain(mode === null ? [] : [{ mode, speed }]);
+      return makeSelectChain(mode === null ? [] : [{ mode }]);
     }
     return makeSelectChain(deviceRows);
   });
@@ -1573,151 +1568,5 @@ describe("controlsRouter.setLampMode", () => {
     await expect(caller.controls.setLampMode({ mode: "party" })).rejects.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
     });
-  });
-});
-
-describe("native panel lamp fields", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    mockIsConfigured.mockReturnValue(true);
-    mockDbSelect.mockReturnValue(makeSelectChain([]));
-  });
-
-  it("returns stable lamp IDs, names and effective state through the output schema", async () => {
-    const rows = [
-      makeDeviceRow({
-        entityId: LAMP_ENTITY_IDS[0],
-        desiredState: { on: true, brightness: 128, color: { xy: [0.3, 0.4] } },
-        reportedState: { on: false, brightness: 0, color: { kelvin: 2700 } },
-      }),
-      lampRow("off", LAMP_ENTITY_IDS[1], { on: false, brightness: 51 }),
-      lampRow("unavailable", LAMP_ENTITY_IDS[2], { on: true, brightness: 255 }, false),
-      makeDeviceRow({
-        entityId: LAMP_ENTITY_IDS[3],
-        reportedState: { on: true, brightness: 255, color: { rgb: [1, 2, 3] } },
-      }),
-      lampRow("white", LAMP_ENTITY_IDS[4], { on: true, color: { kelvin: 3000 } }),
-      fixtureRow("fixture", FIXTURE_ENTITY_IDS[0], true),
-    ];
-    mockSelectWithMode(rows, LampMode.None);
-    const { lamps } = await buildCaller().controls.list();
-    expect(lamps.perLamp).toEqual(
-      rows.slice(0, 5).map((row, index) => ({
-        id: LIGHTS.find((light) => light.entityId === row.entityId)?.id,
-        name: LIGHTS.find((light) => light.entityId === row.entityId)?.label,
-        on: [true, false, false, true, true][index],
-        brightness: [50, 20, 100, 100, 0][index],
-        ...[
-          { color: { xy: [0.3, 0.4] } },
-          {},
-          {},
-          { color: { rgb: [1, 2, 3] } },
-          { color: { kelvin: 3000 } },
-        ][index],
-      })),
-    );
-    expect(lamps).toMatchObject({ on: true, count: 3, brightness: 50 });
-    expect(lamps.perLamp?.[1]).not.toHaveProperty("color");
-    expect(mockGetEntities).not.toHaveBeenCalled();
-  });
-
-  it("omits perLamp on device-state read failure but preserves the aggregate fallback", async () => {
-    const store = createInMemoryDeviceStateStore();
-    vi.spyOn(store, "list").mockRejectedValue(new Error("unavailable"));
-    const { lamps } = await getControlsState(store);
-    expect(lamps).not.toHaveProperty("perLamp");
-    expect(lamps).toMatchObject({ on: false, count: 0, brightness: 0 });
-  });
-
-  it("returns an empty perLamp array when no lamp state has been observed", async () => {
-    const { lamps } = await buildCaller().controls.list();
-    expect(lamps.perLamp).toEqual([]);
-    expect(lamps).not.toHaveProperty("speed");
-    expect(lamps).not.toHaveProperty("colorSlot");
-  });
-
-  it.each([
-    "slow",
-    "medium",
-    "fast",
-    null,
-    "invalid",
-  ])("exposes the worker's effective party speed for %s", async (speed) => {
-    mockSelectWithMode([], LampMode.Party, speed);
-    const { lamps } = await buildCaller().controls.list();
-    expect(lamps.speed).toBe(speed === "slow" || speed === "fast" ? speed : "medium");
-    expect(lamps.activeScene).toBe("party");
-    expect(lamps).not.toHaveProperty("colorSlot");
-  });
-
-  it.each([null, LampMode.None])("omits party speed when mode is %s", async (mode) => {
-    mockSelectWithMode([], mode, "fast");
-    expect((await buildCaller().controls.list()).lamps).not.toHaveProperty("speed");
-  });
-
-  it("omits speed and preserves color-derived scene when the mode read fails", async () => {
-    mockDbSelect.mockImplementation(() => {
-      throw new Error("unavailable");
-    });
-    const store = createInMemoryDeviceStateStore();
-    await seedRows(store, [
-      lampRow("example", LAMP_ENTITY_IDS[0], { on: true, color: { kelvin: 2700 } }),
-    ]);
-    const { lamps } = await getControlsState(store);
-    expect(lamps.activeScene).toBe("white");
-    expect(lamps).not.toHaveProperty("speed");
-  });
-
-  it.each([
-    ["red", [255, 0, 0]],
-    ["blue", [0, 102, 255]],
-    ["custom", [139, 92, 246]],
-  ] as const)("exposes the uniquely matching saved %s slot for rgb and xy", async (slot, rgb) => {
-    mockSelectWithMode(
-      [
-        lampRow("first", LAMP_ENTITY_IDS[0], { on: true, color: { rgb } }),
-        lampRow("second", LAMP_ENTITY_IDS[1], { on: true, color: { xy: rgbToXy(rgb) } }),
-        lampRow("off", LAMP_ENTITY_IDS[2], { on: false, color: { kelvin: 2700 } }),
-      ],
-      LampMode.None,
-    );
-    expect((await buildCaller().controls.list()).lamps.colorSlot).toBe(slot);
-  });
-
-  it("matches edited saved colors, but omits an ambiguous slot", async () => {
-    const rows = [
-      lampRow("example", LAMP_ENTITY_IDS[0], { on: true, color: { xy: rgbToXy([0, 255, 0]) } }),
-    ];
-    let colors = [{ id: "color:custom", mode: "#00ff00" }];
-    mockDbSelect.mockImplementation((projection?: unknown) =>
-      makeSelectChain(projection ? colors : rows),
-    );
-    expect((await buildCaller().controls.list()).lamps.colorSlot).toBe("custom");
-    colors = [...colors, { id: "color:blue", mode: "#00ff00" }];
-    expect((await buildCaller().controls.list()).lamps).not.toHaveProperty("colorSlot");
-  });
-
-  it.each([
-    [{ on: false, color: { rgb: [255, 0, 0] } }],
-    [{ on: true }],
-    [{ on: true, color: { kelvin: 2700 } }],
-    [
-      { on: true, color: { rgb: [255, 0, 0] } },
-      { on: true, color: { rgb: [0, 102, 255] } },
-    ],
-  ])("omits the slot for off, unknown, white or mixed colors: %j", async (...states) => {
-    mockSelectWithMode(
-      states.map((state, index) => lampRow(`example-${index}`, LAMP_ENTITY_IDS[index], state)),
-      LampMode.None,
-    );
-    expect((await buildCaller().controls.list()).lamps).not.toHaveProperty("colorSlot");
-  });
-
-  it("omits the saved slot during party even if desired colors match", async () => {
-    mockSelectWithMode(
-      [lampRow("example", LAMP_ENTITY_IDS[0], { on: true, color: { rgb: [255, 0, 0] } })],
-      LampMode.Party,
-    );
-    expect((await buildCaller().controls.list()).lamps).not.toHaveProperty("colorSlot");
   });
 });

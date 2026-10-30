@@ -153,21 +153,12 @@ migrations, serves with `Bun.serve()`.
 - `/media/wake-photo` (POST) + `/media/wake-photos/*` — the panel's
   wake-from-dim front-camera burst frames.
 - `/trpc/*` — tRPC.
-- `/api/notifications` plus `/read`, `/dismiss`, `/dismiss-all` and `/stream` —
-  durable shared panel notifications with a revision cursor and SSE delivery.
-  The `features/notifications` service exports `createNotification()` for backend
-  producers; its hourly worker prunes rows dismissed over 30 days ago. See
-  [the HTTP/Swift contract](docs/notifications-api.md).
 
 The tRPC root router (`apps/api/src/trpc/routers/index.ts`) merges a small
 `baseRouter` (health, settings, device-settings) with the generated
 `featureAppRouter` (one slice per feature in `features/*/api.ts`).
 `packages/api` re-exports only the `AppRouter` type, so `web` gets typed tRPC
 without bundling backend code.
-
-Native clients can read optional per-lamp state, party speed/colour selection,
-and Sonos playback position, and seek with `sound.sonosSeek`. Wire semantics and
-backward-compatible HTTP fixtures live in `docs/contracts/native-panel/`.
 
 ## Database
 
@@ -177,8 +168,7 @@ ADR-0013 for the full list of what was dropped): `settings`,
 `weather_reading`, `weather_daily_reading`, `device_state`,
 `integration_sync_status`. The Drizzle schema is
 `apps/api/src/db/schema.ts` plus each feature's own `schema.ts`, composed
-into `features/_generated/schema.gen.ts`. The additive `notifications` table and `notification_revision` sequence are owned
-by `features/notifications/schema.ts`. Both `api` and `worker` run
+into `features/_generated/schema.gen.ts`. Both `api` and `worker` run
 migrations at boot, so whichever starts first prepares the schema safely.
 
 `settings` and `device_settings` are each a single JSONB blob

@@ -108,15 +108,6 @@ export const LampModeSpeed = {
 } as const;
 export type LampModeSpeed = (typeof LampModeSpeed)[keyof typeof LampModeSpeed];
 
-/** Shared by the party worker and API so the reported speed matches execution. */
-export function coerceLampModeSpeed(speed: string | null | undefined): LampModeSpeed {
-  return speed === LampModeSpeed.Slow ||
-    speed === LampModeSpeed.Fast ||
-    speed === LampModeSpeed.Medium
-    ? speed
-    : LampModeSpeed.Medium;
-}
-
 export interface LampModeSpeedConfig {
   /** ms between color-advance ticks. */
   intervalMs: number;

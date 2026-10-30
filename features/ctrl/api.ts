@@ -29,38 +29,6 @@ import {
 // ─── output schemas ──────────────────────────────────────────────────────────
 
 const lampStateSchema = z.object({
-  perLamp: z
-    .array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        on: z.boolean(),
-        brightness: z.number().int().min(0).max(100),
-        color: z
-          .union([
-            z.object({ rgb: z.tuple([z.number(), z.number(), z.number()]).readonly() }),
-            z.object({ xy: z.tuple([z.number(), z.number()]).readonly() }),
-            z.object({ kelvin: z.number() }),
-          ])
-          .optional(),
-      }),
-    )
-    .optional()
-    .describe(
-      "Known lamps in registry order, from the same effective state as the aggregate; omitted on device-state read failure",
-    ),
-  speed: z
-    .enum([LampModeSpeed.Slow, LampModeSpeed.Medium, LampModeSpeed.Fast])
-    .optional()
-    .describe(
-      "Effective party speed, including the worker's medium default; omitted outside party mode",
-    ),
-  colorSlot: z
-    .enum([LampColorSlot.Red, LampColorSlot.Blue, LampColorSlot.Custom])
-    .optional()
-    .describe(
-      "Saved color uniquely matching every on-lamp; omitted during party or when no unique match is known",
-    ),
   on: z.boolean().describe("True when at least one lamp is on"),
   count: z.number().int().min(0).describe("Number of lamp entities currently on"),
   brightness: z

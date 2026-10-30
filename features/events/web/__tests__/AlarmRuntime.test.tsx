@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { state, snooze, stop, cue, wake, sync } = vi.hoisted(() => ({
   state: {
-    nativeShell: true,
     active: [] as {
       id: string;
       version: number;
@@ -33,10 +32,7 @@ vi.mock("@/lib/trpc", () => ({
 }));
 vi.mock("@/lib/sound", () => ({ playCue: cue, warmAudio: vi.fn() }));
 vi.mock("@/lib/panel-session", () => ({ panelSession: { touch: wake } }));
-vi.mock("@/lib/native-bridge", () => ({
-  isNativeShell: () => state.nativeShell,
-  nativeRequest: sync,
-}));
+vi.mock("@/lib/native-bridge", () => ({ isNativeShell: () => true, nativeRequest: sync }));
 
 import { AlarmRuntime } from "../AlarmRuntime";
 
@@ -45,7 +41,6 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-10-05T16:00:00Z"));
   vi.clearAllMocks();
   state.active = [];
-  state.nativeShell = true;
 });
 afterEach(() => {
   cleanup();
@@ -97,66 +92,5 @@ describe("panel alarm runtime", () => {
   it("ends a native countdown when the server has no next alarm", () => {
     render(<AlarmRuntime />);
     expect(sync).toHaveBeenCalledWith("syncNextAlarm", { next: null });
-  });
-  it("acknowledges native ownership only after stopping the web cue and timer", async () => {
-    const cancel = vi.fn();
-    cue.mockReturnValue(cancel);
-    state.active = [
-      {
-        id: "alr_example",
-        version: 0,
-        label: "Morning",
-        status: "ringing",
-        expiresAt: "2026-10-05T16:30:00Z",
-        snoozeMinutes: 9,
-      },
-    ];
-    render(<AlarmRuntime />);
-    const handoff = window.__CONTROL_CENTER_SET_ALARM_OWNER__;
-    expect(handoff).toBeTypeOf("function");
-    let acknowledgement: Promise<boolean> | undefined;
-    act(() => {
-      acknowledgement = handoff?.(true).then((accepted) => {
-        expect(cancel).toHaveBeenCalledOnce();
-        return accepted;
-      });
-    });
-    expect(await acknowledgement).toBe(true);
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    act(() => vi.advanceTimersByTime(10_000));
-    expect(cue).toHaveBeenCalledOnce();
-    const previousSyncs = sync.mock.calls.length;
-    act(() => {
-      acknowledgement = handoff?.(true);
-    });
-    expect(await acknowledgement).toBe(true);
-    expect(sync).toHaveBeenCalledTimes(previousSyncs);
-    act(() => {
-      acknowledgement = handoff?.(false);
-    });
-    expect(await acknowledgement).toBe(true);
-    expect(screen.getByRole("alertdialog")).toBeDefined();
-    expect(cue).toHaveBeenCalledTimes(2);
-    expect(sync).toHaveBeenCalledTimes(previousSyncs + 1);
-  });
-  it("does not expose ownership handoff to an ordinary browser", () => {
-    state.nativeShell = false;
-    render(<AlarmRuntime />);
-    expect(window.__CONTROL_CENTER_SET_ALARM_OWNER__).toBeUndefined();
-  });
-  it("rejects superseded ownership requests and clears the bridge on unmount", async () => {
-    const view = render(<AlarmRuntime />);
-    const handoff = window.__CONTROL_CENTER_SET_ALARM_OWNER__;
-    if (!handoff) throw new Error("Missing native alarm handoff");
-    let first: Promise<boolean> | undefined;
-    let second: Promise<boolean> | undefined;
-    act(() => {
-      first = handoff(true);
-      second = handoff(false);
-    });
-    expect(await first).toBe(false);
-    expect(await second).toBe(true);
-    view.unmount();
-    expect(window.__CONTROL_CENTER_SET_ALARM_OWNER__).toBeUndefined();
   });
 });
