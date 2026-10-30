@@ -5,6 +5,7 @@ import PanelKit
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
     let fanProvider: LiveFanProvider
@@ -27,10 +28,12 @@ import PanelKit
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
+         remindersAPI: any RemindersServing = RemindersAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
         clock = now
         calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
+        remindersProvider = LiveRemindersProvider(api: remindersAPI)
         // Guest credentials and Access sessions must remain memory-only.
         let session = URLSessionConfiguration.ephemeral
         session.urlCache = nil
@@ -48,6 +51,7 @@ import PanelKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .reminders: remindersProvider.availability == .live
         case .all: false
         case .lights: lightsProvider.availability == .live
         case .climate: climateProvider.availability == .live && climateProvider.climate != nil
@@ -157,6 +161,7 @@ import PanelKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .reminders: await remindersProvider.refresh()
         case .all: break
         case .lights: await lightsProvider.refresh()
         case .climate: await climateProvider.refresh()

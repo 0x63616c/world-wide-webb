@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelModule: String, CaseIterable, Codable, Sendable {
-    case all, lights, climate, fan, wifi, sonos, weather, calendar
+    case all, lights, climate, fan, wifi, sonos, weather, reminders, calendar
 }
 
 enum ModuleFlag: String, Codable, Sendable {

@@ -45,7 +45,8 @@ struct PanelRoot: View {
                 unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"))
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
-                transport: transport,
+                transport: transport, remindersAPI: HybridRemindersFixture(
+                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
                 calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"))),
                 now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar }))
