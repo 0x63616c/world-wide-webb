@@ -37,8 +37,16 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`walk`, `reminders`, and `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
-overrides the launch's UserDefaults; invalid values fall back to `web`.
+`walk`, `reminders`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
+`weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
+module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
+A native flag still shows the web board until that module's live provider has data.
+For example, `-moduleFlag.lights native` overrides the launch's UserDefaults; `default`
+uses the shipped value and invalid values fall back to `web`.
+
+Flip back without a rebuild: iOS Settings > Panel > "Web board only" sends every module
+to the web board (`hybrid.webOnly`), and each module has Default/Native/Web. Changes apply
+on the next launch. The in-app "Web board" button returns to the full board at any time.
 `all` always means the complete web board, even if its flag is set to `native`.
 
 `HybridRouter.route(for:hasLiveData:)` selects native only when the individual
