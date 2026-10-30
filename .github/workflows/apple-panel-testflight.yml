@@ -2,6 +2,17 @@
 name: Apple Panel TestFlight
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/apple-panel-testflight.yml"
+      - "apps/apple-prototype/**"
+      - "apps/panel/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apple-panel-testflight.yml"
+      - "apps/apple-prototype/**"
+      - "apps/panel/**"
   workflow_dispatch:
     inputs:
       ref:
@@ -9,6 +20,10 @@ on:
         type: string
         default: main
         required: true
+      smoke_only:
+        description: Run the simulator launch check without signing or uploading
+        type: boolean
+        default: false
       regenerate_profiles:
         description: Regenerate signing profiles once after an App ID capability change
         type: boolean
@@ -18,11 +33,136 @@ permissions:
   contents: read
 
 concurrency:
-  group: apple-panel-testflight
+  group: apple-panel-testflight-${{ github.event_name == 'workflow_dispatch' && 'release' || github.ref }}
   cancel-in-progress: false
 
 jobs:
+  smoke:
+    runs-on: macos-26
+    timeout-minutes: 15
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+      - name: Record tested source commit
+        id: source
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git rev-parse HEAD:apps/apple-prototype)" >> "$GITHUB_OUTPUT"
+
+      - name: Select newest Xcode 26.x
+        run: |
+          set -euo pipefail
+          XCODE_APP=$(python3 - <<'PYCODE'
+          import glob, re
+          candidates = []
+          for path in glob.glob('/Applications/Xcode*.app'):
+              import subprocess
+              version = subprocess.check_output([path + '/Contents/Developer/usr/bin/xcodebuild', '-version'], text=True)
+              match = re.search(r'Xcode (26(?:\.\d+)*)', version)
+              if match:
+                  candidates.append((tuple(map(int, match[1].split('.'))), path))
+          if not candidates:
+              raise SystemExit('No Xcode 26.x installed; update the runner image for the native SDK requirement.')
+          print(max(candidates)[1])
+          PYCODE
+          )
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Generate simulator project
+        working-directory: apps/apple-prototype
+        run: |
+          # Fail closed on refs predating WWW-64; Xcode accepts an empty test filter.
+          if [[ ! -f HybridUITests/HomeViewLaunchTests.swift ]]; then
+            echo "::error::Selected ref predates WWW-64: HomeViewLaunchTests.swift is required."
+            exit 1
+          fi
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Boot 1366x1024 iPad simulator
+        id: simulator
+        run: |
+          xcrun simctl list --json > "$RUNNER_TEMP/simulators.json"
+          python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
+          import json, os, subprocess
+          with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
+              catalog = json.load(source)
+          # 12.9-inch iPad Pro is 1366x1024 points; the newer 13-inch is 1376x1032.
+          device_type = next(device['identifier'] for device in catalog['devicetypes']
+                             if '12.9-inch' in device['name'] and '6th generation' in device['name'])
+          runtime = max((runtime for runtime in catalog['runtimes']
+                         if runtime.get('isAvailable') and '.iOS-26' in runtime['identifier']),
+                        key=lambda runtime: tuple(map(int, runtime['version'].split('.'))))
+          device_id = subprocess.check_output(
+              ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
+          print('id=' + device_id)
+          PYCODE
+      - name: Identify simulator toolchain
+        id: toolchain
+        run: echo "version=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      # Products only: test-without-building needs no compiler intermediates.
+      # Exact source tree + toolchain + architecture; never restore a partial match.
+      # Main push checks populate the default-branch cache before release dispatch.
+      - name: Restore simulator test products
+        id: products
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/panel-smoke-build/Build/Products
+          key: panel-launch-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}
+
+      - name: Start simulator while compiling
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: xcrun simctl boot "$SIMULATOR_ID"
+
+      - name: Build only the Panel launch UI suite
+        if: steps.products.outputs.cache-hit != 'true'
+        working-directory: apps/apple-prototype
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project WorldWideWebb.xcodeproj \
+            -scheme Panel-Smoke -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
+            -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
+
+      - name: Assert Panel launches into HomeView
+        working-directory: apps/apple-prototype
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project WorldWideWebb.xcodeproj \
+            -scheme Panel-Smoke -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
+            -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
+            -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
+            -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-test.log"
+
+      - name: Save launch test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-launch-smoke
+          path: |
+            ${{ runner.temp }}/panel-launch.xcresult
+            ${{ runner.temp }}/panel-smoke-*.log
+          retention-days: 7
+
   upload:
+    needs: smoke
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only }}
     runs-on: macos-26
     timeout-minutes: 45
     environment: production
@@ -32,7 +172,7 @@ jobs:
           ref: main
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.smoke.outputs.source_sha }}
           path: native
 
       - name: Select newest Xcode 26.x
