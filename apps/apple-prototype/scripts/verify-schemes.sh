@@ -9,6 +9,12 @@ mkdir -p "$out"
 /opt/homebrew/bin/xcodegen generate > "$out/generate.log" || exit 1
 status=0
 destination='platform=iOS Simulator,id=A0ECBA0E-5E14-4DE2-ACD7-7C2A5EA0AFBF'
+destination_for() {
+  case "$1" in
+    Panel|Panel-Smoke) echo "${WWW8_PANEL_DESTINATION:-$destination}" ;;
+    *) echo "$destination" ;;
+  esac
+}
 derived_data() {
   if [[ -n "${WWW8_DD_ROOT:-}" ]]; then
     case "$1" in
@@ -26,7 +32,7 @@ derived_data() {
 }
 for scheme in WorldWideWebb WorldWideWebb-iPad WorldWideWebb-Snapshots Panel Panel-Smoke; do
   dd=$(derived_data "$scheme")
-  build_args=(-destination "$destination" -parallel-testing-enabled NO build-for-testing)
+  build_args=(-destination "$(destination_for "$scheme")" -parallel-testing-enabled NO build-for-testing)
   [[ "$scheme" == WorldWideWebb ]] && build_args=(-destination 'generic/platform=macOS' build)
   if xcodebuild -jobs 2 -project WorldWideWebb.xcodeproj -scheme "$scheme" \
     -derivedDataPath "$dd" CODE_SIGNING_ALLOWED=NO "${build_args[@]}" > "$out/$scheme-build.log" 2>&1; then
@@ -43,7 +49,7 @@ run_test() {
   shift 2
   dd=$(derived_data "$scheme")
   if "$HOME/bin/www8-simlock" xcodebuild -jobs 2 -project WorldWideWebb.xcodeproj \
-    -scheme "$scheme" -derivedDataPath "$dd" -destination "$destination" \
+    -scheme "$scheme" -derivedDataPath "$dd" -destination "$(destination_for "$scheme")" \
     -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO "$@" test-without-building > "$out/$scheme-$phase.log" 2>&1; then
     echo "$scheme / $phase: test PASS"
   else
