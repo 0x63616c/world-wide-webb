@@ -122,6 +122,7 @@ targets:
         TARGETED_DEVICE_FAMILY: '2'
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Hybrid/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: '6.0'
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGNING_ALLOWED: NO
@@ -170,10 +171,12 @@ schemes:
       targets:
         Panel: [test]
         WorldWideWebb-iPad: [test]
+        PanelUITests: [test]
     test:
       targets:
         - PanelTests
         - WorldWideWebbTests
+        - PanelUITests
   Panel-Smoke:
     build:
       targets:
@@ -189,6 +192,7 @@ schemes:
     test:
       targets:
         - PanelTests
+        - WorldWideWebbTests
   WorldWideWebb:
     build:
       targets:

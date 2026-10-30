@@ -30,7 +30,14 @@ struct PanelRoot: View {
         #else
         _detail = State(initialValue: false)
         #endif
-        let flags = ModuleFlags(defaults: .standard)
+        // Fixture runs keep the all-web default so UI tests opt in per module.
+        #if DEBUG
+        let shipped: Set<PanelModule> = ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
+            ? [] : ModuleFlags.shippedNative
+        #else
+        let shipped = ModuleFlags.shippedNative
+        #endif
+        let flags = ModuleFlags(defaults: .standard, nativeByDefault: shipped)
         router = HybridRouter(flags: flags)
         requested = Set(PanelModule.allCases.filter { $0 != .all && flags[$0] == .native })
         _selection = State(initialValue: PanelModule.allCases.first { $0 != .all && flags[$0] == .native } ?? .all)
@@ -50,7 +57,9 @@ struct PanelRoot: View {
                 alarmScenario: ringing ? "ringing" : "scheduled")
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
-                transport: transport, now: ringing ? { AlarmDate.parse("2099-01-01T07:00:01Z")! } : Date.init))
+                transport: transport, remindersAPI: HybridRemindersFixture(
+                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
+                now: ringing ? { AlarmDate.parse("2099-01-01T07:00:01Z")! } : Date.init))
             return
         }
         #endif

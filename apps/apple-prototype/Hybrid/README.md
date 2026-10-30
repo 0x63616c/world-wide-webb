@@ -37,8 +37,16 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`alarms`, and `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
-overrides the launch's UserDefaults; invalid values fall back to `web`.
+`walk`, `reminders`, `alarms`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
+`weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
+module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
+A native flag still shows the web board until that module's live provider has data.
+For example, `-moduleFlag.lights native` overrides the launch's UserDefaults; `default`
+uses the shipped value and invalid values fall back to `web`.
+
+Flip back without a rebuild: iOS Settings > Panel > "Web board only" sends every module
+to the web board (`hybrid.webOnly`), and each module has Default/Native/Web. Changes apply
+on the next launch. The in-app "Web board" button returns to the full board at any time.
 `all` always means the complete web board, even if its flag is set to `native`.
 
 `HybridRouter.route(for:hasLiveData:)` selects native only when the individual
@@ -304,6 +312,59 @@ Only Xcode 27 is installed on the mini; an Xcode 26.x build was not run there.
 Build and test output screenshots are in `Verification/` (excluded from Panel's
 resources), within this ticket's allowed paths. They document build and test
 results, not authenticated Live Activity rendering on the wall.
+
+## WWW-38 state synchronization
+
+The shared PanelKit coordinator and walk provider adoption are documented in
+[../PanelKit/SYNC.md](../PanelKit/SYNC.md). `-moduleFlag.walk native` reserves the
+opt-in; this base has no native walk registration, so it still falls back to web.
+The flag remains `web` by default. Follow the documented live-data/lifecycle gate
+when adding the walk provider to WWW-44 composition.
+
+### Reminders (WWW-32)
+
+No reminders/todo router exists in `apps/api` or `features`; the source is the
+panel device's EventKit Reminders database. No backend change is required.
+`PanelKit/RemindersAPI.swift` requests full reminders access only when the
+opted-in module first refreshes. It lists incomplete reminders across accessible
+lists, completes by EventKit's stable calendar-item identifier (writable lists
+only), and adds to the device's default writable reminders list. It never creates
+accounts/lists or uploads, logs, or persists reminder data. EventKit owns sync.
+Full access is required by Apple's API for reading reminders:
+https://developer.apple.com/documentation/eventkit/accessing-the-event-store.
+
+The new protocol, live provider, and preview mock live in
+`Sources/Live/LiveRemindersProvider.swift`; existing design files are untouched.
+Hybrid injects that provider into `RemindersModule` for both tile and detail.
+The module defaults to web. Opt in at launch with `-moduleFlag.reminders native`
+(or `defaults write co.worldwidewebb.theworkflowengine moduleFlag.reminders native`
+on an appropriate device defaults domain). Remove that override to restore web.
+Grant the system Reminders prompt; denied/restricted/unavailable/fetch or write
+failure immediately selects the existing web board, with no mock substitution.
+A successful empty list is live data and permits adding the first reminder.
+Every opted-in foreground poll refreshes permission and data; other launches
+never request Reminders permission. The prototype targets do not start this provider.
+
+Debug `-hybridFixtures -moduleFlag.reminders native` injects synthetic reminders
+without touching EventKit or personal data. Add `-hybridUnavailable` to verify
+fallback. Fixture writes intentionally fail closed. Unit fixtures separately
+exercise successful list/complete/add, empty success, denial/recovery and read-only
+completion. Real permission UI, iCloud sync, default-list availability and physical
+wall behavior require on-device verification; simulator fixtures do not prove them.
+
+WWW-32 verification (2026-10-30, Xcode 27.0): `cd PanelKit && swift test`
+passed 2 XCTest tests and 35 Swift Testing tests. One `xcodebuild test -scheme Panel
+-only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveRemindersProviderTests
+-parallel-testing-enabled NO` run passed all 48 Panel tests and 4 provider tests
+on the owned iOS 26.3 simulator, with derived data in
+`~/wwwebb-reminders-live-dd`. The Panel scheme includes the app unit-test target
+so the two relevant suites can run in one build. Repository typecheck and push
+checks passed. Captures use an owned 13-inch M4 iPad simulator (1376×1032 points) and the
+real Panel app with explicit synthetic source injection. The exact-size
+12.9-inch simulator (1366×1024 points) stalled on the OS boot spinner, including
+a restart; it was removed without touching other jobs. The simulator display remained portrait, so its unmodified screenshots show
+the landscape app letterboxed. Exact panel-size and physical landscape visual
+verification remain gaps.
 
 
 ### WWW-37: live Clock & Alarms

@@ -11,16 +11,16 @@ import PanelKit
     private(set) var historyAvailability: LiveAvailability = .loading
     private(set) var isMutating = false
     private(set) var hasLoadedState = false
-    private(set) var serverTimeOffset: TimeInterval = 0
-    private(set) var lastSyncedAt: Date?
+    var serverTimeOffset: TimeInterval { sync.serverTimeOffset }
+    var lastSyncedAt: Date? { sync.lastSyncedAt }
     private(set) var hasAttemptedMutation = false
 
     @ObservationIgnored private let api: WalksAPI
     @ObservationIgnored private let device: WalkDevice
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let makeID: () -> UUID
-    @ObservationIgnored private let pollInterval: Duration
-    @ObservationIgnored private var confirmedWalk: DogWalk?
+    private let sync: SyncCoordinator<WalksState>
+    private var confirmedWalk: DogWalk? { sync.lastKnown?.active.map(Self.map) }
     @ObservationIgnored private var confirmedHistory: [DogWalk] = []
     @ObservationIgnored private var stateUpdatedAt: Date?
     @ObservationIgnored private var historyDirty = true
@@ -28,36 +28,29 @@ import PanelKit
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var refreshID: UUID?
     @ObservationIgnored private var historyRequestID: UUID?
-    @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var mutationTask: Task<Void, Never>?
 
     init(api: WalksAPI, device: WalkDevice, now: @escaping () -> Date = Date.init,
-         makeID: @escaping () -> UUID = UUID.init, pollInterval: Duration = .seconds(5)) {
-        precondition(pollInterval > .zero)
-        self.api = api; self.device = device; self.now = now
-        self.makeID = makeID; self.pollInterval = pollInterval
+         makeID: @escaping () -> UUID = UUID.init, pollInterval: Duration = .seconds(4),
+         clock: SyncClock? = nil) {
+        let clock = clock ?? .continuous(now: now)
+        self.api = api; self.device = device; self.now = clock.now
+        self.makeID = makeID
+        sync = SyncCoordinator(interval: pollInterval, maximumBackoff: max(pollInterval, .seconds(60)), clock: clock)
     }
 
-    deinit { pollingTask?.cancel(); mutationTask?.cancel() }
+    deinit { mutationTask?.cancel() }
 
-    func serverNow(at localDate: Date) -> Date { localDate.addingTimeInterval(serverTimeOffset) }
+    func serverNow(at localDate: Date) -> Date { sync.serverNow(at: localDate) }
 
-    /// An immediate state/history refresh on foreground, then state polling every five seconds.
+    /// An immediate state/history refresh on foreground, then short active polls.
     /// Backgrounding stops reads but lets an already submitted start/stop finish.
     func setSceneActive(_ active: Bool) {
-        pollingTask?.cancel()
-        pollingTask = nil
+        guard active != sync.isSceneActive else { return }
         refreshID = nil
-        guard active else { return }
-        historyDirty = true
-        let interval = pollInterval
-        pollingTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard self != nil else { return }
-                await self?.refresh()
-                do { try await Task.sleep(for: interval) } catch { return }
-            }
-        }
+        historyRequestID = nil
+        if active { historyDirty = true }
+        sync.setSceneActive(active) { [weak self] in await self?.refresh() }
     }
 
     func refresh() async {
@@ -74,6 +67,7 @@ import PanelKit
             availability = .live
         } catch {
             guard !Task.isCancelled, revision == version, refreshID == token else { return }
+            sync.recordFailure()
             availability = .unavailable(Self.failureMessage(error))
             return // Preserve the last known walk and history while offline.
         }
@@ -134,18 +128,13 @@ import PanelKit
     }
 
     private func accept(_ state: WalksState, sentAt: Date) {
-        let receivedAt = now()
-        // Midpoint estimate bounds the usual network latency error to roughly half a round trip.
-        let midpoint = sentAt.addingTimeInterval(receivedAt.timeIntervalSince(sentAt) / 2)
-        serverTimeOffset = state.serverTime.timeIntervalSince(midpoint)
         let walk = state.active.map(Self.map)
         // updatedAt has millisecond precision, so also compare the active record.
         if stateUpdatedAt != state.updatedAt || confirmedWalk != walk { historyDirty = true }
         stateUpdatedAt = state.updatedAt
-        confirmedWalk = walk
+        sync.accept(state, serverTime: state.serverTime, sentAt: sentAt)
         activeWalk = confirmedWalk
         hasLoadedState = true
-        lastSyncedAt = receivedAt
         if state.active != nil { retryStartID = nil }
     }
 
