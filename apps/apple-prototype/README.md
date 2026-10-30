@@ -153,3 +153,6 @@ Pass 7d trials the existing CoastPhoto wallpaper: [Sunset by Luca Bravo](https:/
 
 
 Pass 7e restores the existing **LakeWallpaper**, [Boathouse on a mountain lake by Luca Bravo](https://unsplash.com/photos/brown-house-near-body-of-water-zAjdgNXsMeg), under the [Unsplash Licence](https://unsplash.com/license), already verified 2026-10-29. Bundled at 2752 pixels wide, JPEG quality 85. Home applies 65% saturation and 62% global dimming without global blur; native clear glass supplies refraction. No new image is downloaded. This supersedes the forest/coast Home trials; other licensed photo uses remain.
+
+
+Pass 7f retains the recorded licensed LakeWallpaper and restores its 2-point blur/28% dimming; the 7e strong-dimming trial is removed. There are no new assets. Home’s module regrouping and wide Sonos summary use the same fixtures and full-screen destinations.

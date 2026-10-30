@@ -4,7 +4,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
     case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos, dogwalk
-    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
+    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .ceiling, .tesla, .calendar, .sound, .fan]
     static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
@@ -91,7 +91,7 @@ struct HomeView: View {
                 Group {
                     if facePage == 2 { Color.black.ignoresSafeArea() }
                     else if facePage == 3 { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
-                    else { Wallpaper(saturation: 0.65, dimming: 0.62, blurRadius: 0) }
+                    else { Wallpaper() }
                 }
                 homeFace(size: proxy.size)
                     .safeAreaBar(edge: .bottom, spacing: 0) {

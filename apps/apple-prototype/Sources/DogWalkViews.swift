@@ -49,7 +49,7 @@ struct DogWalkTile: View {
 
                             }
                             Text("Started on \(walk.startedBy.rawValue)")
-                                .font(.system(size: compact ? 15 : 17)).foregroundStyle(.white.opacity(0.82))
+                                .font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary)
                                 .padding(.top, 8)
                         } else {
                             Text("\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min")

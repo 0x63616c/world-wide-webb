@@ -30,6 +30,18 @@ struct ModuleTile: View {
     private var weather: some View {
         ZStack {
             WeatherSky(condition: store.weather.condition).saturation(0.55).brightness(-0.12)
+            if !compact {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(store.weather.city).font(.system(size: 20, weight: .medium)).lineLimit(1)
+                    HStack {
+                        Text("\(store.weather.temperature)°").font(.system(size: 64, weight: .light)).monospacedDigit()
+                        Spacer(minLength: 8)
+                        Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(.system(size: 30))
+                    }
+                    Text(store.weather.condition).font(.system(size: 20, weight: .medium)).lineLimit(1)
+                    Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: 20)).lineLimit(1)
+                }.padding(24)
+            } else {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.weather.city).font(.system(size: compact ? 18 : 23, weight: .medium))
@@ -42,6 +54,7 @@ struct ModuleTile: View {
                     Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: compact ? 15 : 24))
                 }
             }.padding(compact ? 24 : 32)
+            }
         }
     }
     private var calendar: some View {
@@ -75,17 +88,20 @@ struct ModuleTile: View {
     }
     private var rooms: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(.system(size: compact ? 20 : 24, weight: .semibold))
-            ForEach(store.rooms.prefix(compact ? 2 : 4)) { room in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(room.name).font(.system(size: compact ? 17 : 22, weight: .medium)).lineLimit(1)
-                    Text("\(room.playing ? "Playing" : "Paused") · \(room.displayVolume)%")
-                        .font(.system(size: compact ? 15 : 20)).monospacedDigit().foregroundStyle(.white.opacity(0.82))
+            Label("Sonos Rooms", systemImage: "hifispeaker.fill")
+                .font(.system(size: compact ? 20 : 28, weight: .semibold))
+            HStack(alignment: .top, spacing: 24) {
+                ForEach(store.rooms.prefix(2)) { room in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(room.name).font(.system(size: compact ? 17 : 22, weight: .medium)).lineLimit(1)
+                        Text("\(room.playing ? "Playing" : "Paused") · \(room.displayVolume)%")
+                            .font(.system(size: compact ? 15 : 20)).monospacedDigit().foregroundStyle(.white.opacity(0.82))
+                    }.frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            if !compact { Spacer(minLength: 0) }
-            Text("All 5 rooms ›").font(.system(size: compact ? 16 : 20, weight: .medium)).foregroundStyle(.primary)
-        }.padding(.horizontal, 24).padding(.top, 24).padding(.bottom, compact ? 24 : 32)
+            Spacer(minLength: 0)
+            Text("All 5 rooms ›").font(.system(size: compact ? 16 : 20, weight: .medium))
+        }.padding(compact ? 24 : 32)
     }
 }
 

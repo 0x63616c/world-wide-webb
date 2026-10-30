@@ -312,3 +312,6 @@ Pass 7c restores the seven-module primary grid above after the nine-module candi
 
 
 Pass 7e compact order: Climate → Lamps with Ceiling/Fan → Weather → Up Next → Music → Tesla → quick actions. The shared frame solver keeps the 24-point gutter and page-band reservation; tests protect first-viewport control availability and the lower Music contour. System clear glass is used over the dimmed photo; active light surfaces remain native regular/tinted glass. No provider, backend or protected page changes.
+
+
+Pass 7f solver regrouping: Home Weather is 1×1 with Ceiling beside it. More Sonos is 2×1 at the bottom left; Clock and Ceiling take the vacated right column. Its two room columns route through the existing five-room provider and detail page. Every module/accessory remains reachable; shared geometry tests cover both face arrays and phone boundaries.
