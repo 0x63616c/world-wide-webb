@@ -98,6 +98,14 @@ targets:
     sources:
       - path: Hybrid
         excludes: [Config, Info.plist, README.md]
+      - path: Sources
+        excludes: [App.swift, Media, Assets.xcassets]
+      - path: Shared
+      - path: PanelKit/Tests/PanelKitTests/Fixtures
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: PanelKit
     configFiles:
       Debug: Hybrid/Config/Panel.xcconfig
       Release: Hybrid/Config/Panel.xcconfig
@@ -119,6 +127,7 @@ targets:
     sources: [HybridTests]
     dependencies:
       - target: Panel
+      - package: PanelKit
     settings:
       base:
         PRODUCT_MODULE_NAME: PanelTests
