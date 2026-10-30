@@ -4,7 +4,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
     case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos, dogwalk
-    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .ceiling, .tesla, .calendar, .sound, .fan]
+    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
     static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
@@ -232,8 +232,10 @@ struct HomeGlassFace: View {
         if sizeClass == .compact {
             CompactFace(store: store, controls: controls, zoom: zoom, open: open, faceSelection: faceSelection)
         } else {
-            GlassEffectContainer(spacing: 12) {
-                HomeFaceGrid(store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)
+            GeometryReader { _ in
+                GlassEffectContainer(spacing: 12) {
+                    HomeFaceGrid(store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)
+                }
             }
         }
     }

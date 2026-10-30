@@ -106,9 +106,9 @@ struct LampBrightness: View {
                 Color.primary.opacity(0.10)
                 Rectangle().fill(.white)
                     .frame(height: proxy.size.height * Double(store.lamps.brightness) / 100)
-                Image(systemName: "sun.max.fill").font(.system(size: 44, weight: .medium))
+                Image(systemName: "sun.max.fill").font(.system(size: min(44, proxy.size.width / 2), weight: .medium))
                     .foregroundStyle(store.lamps.brightness > 14 ? .black : .white)
-                    .frame(maxWidth: .infinity).padding(.bottom, 34)
+                    .frame(maxWidth: .infinity).padding(.bottom, proxy.size.width <= 64 ? 16 : 34)
             }
             .clipShape(ConcentricRectangle())
             .containerShape(.rect(cornerRadius: 66))

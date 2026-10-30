@@ -156,3 +156,5 @@ Pass 7e restores the existing **LakeWallpaper**, [Boathouse on a mountain lake b
 
 
 Pass 7f retains the recorded licensed LakeWallpaper and restores its 2-point blur/28% dimming; the 7e strong-dimming trial is removed. There are no new assets. Home’s module regrouping and wide Sonos summary use the same fixtures and full-screen destinations.
+
+Pass 7g restores the accepted seven-module Home and tall Sonos summary after the 7f candidate regressed. The live panel grid now anchors to its page container; scroll visibility removes offscreen glass contributors on iPhone. New live-window and visible-tile checks supplement the solver geometry suite. LakeWallpaper and its recorded Unsplash licence remain unchanged. See docs/v2/redesign-7g.md and external v2/pass-7g for evidence.

@@ -7,6 +7,7 @@ struct CompactFace: View {
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
     var faceSelection: Binding<Int> = .constant(0)
+    @State private var visibleTiles: Set<HomeTile>?
     var body: some View {
         GeometryReader { proxy in
             let layout = HomeFaceLayout.phone(in: proxy.size, controls: controls)
@@ -17,13 +18,18 @@ struct CompactFace: View {
                         Text(controls ? "Home · More" : "Home").font(.largeTitle.bold())
                             .frame(width: layout.header.width, height: layout.header.height, alignment: .leading)
                             .position(x: layout.header.midX, y: layout.header.midY)
-                        ForEach(layout.items) { item in
+                        ForEach(layout.items.filter { visibleTiles?.contains($0.tile) ?? true }) { item in
                             tile(item.tile, width: item.frame.width, height: item.frame.height, round: item.round)
                                 .position(x: item.frame.midX, y: item.frame.midY)
                         }
                     }.frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 }
-            }.scrollIndicators(.hidden)
+            }.onScrollGeometryChange(for: Set<HomeTile>.self) { geometry in
+                    layout.visibleTiles(in: geometry.visibleRect)
+                } action: { _, tiles in
+                    visibleTiles = tiles
+                }
+                .scrollIndicators(.hidden)
                 .scrollEdgeEffectHidden(true, for: .all)
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
                 .mask {

@@ -15,7 +15,7 @@ final class HomeFaceLayoutTests: XCTestCase {
             XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
             XCTAssertEqual(item.frame.minY.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
         }
-        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 2)
+        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 1)
         }
     }
 
@@ -51,9 +51,18 @@ final class HomeFaceLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(previousBottom, 4)
     }
 
-    func testPhoneFirstViewportIncludesClimateAndAccessoryControls() {
+    func testPhoneBottomRemovesOffscreenGlassWithoutMovingVisibleCards() {
         let layout = HomeFaceLayout.phone(in: CGSize(width: 402, height: 778))
-        for tile in [HomeTile.climate, .lamps, .ceiling, .fan] {
+        let viewport = CGRect(x: 0, y: layout.bottomScrollOffset, width: 402, height: 698)
+        let visible = layout.visibleTiles(in: viewport)
+        XCTAssertEqual(visible, [.sound, .tesla, .clock, .wifi, .all, .cabinet])
+        XCTAssertFalse(visible.contains(.lamps))
+        XCTAssertFalse(visible.contains(.fan))
+    }
+
+    func testPhoneFirstViewportIncludesClimateWeatherAndAgenda() {
+        let layout = HomeFaceLayout.phone(in: CGSize(width: 402, height: 778))
+        for tile in [HomeTile.climate, .weather, .calendar] {
             let frame = layout.items.first { $0.tile == tile }!.frame
             XCTAssertLessThanOrEqual(frame.maxY, layout.viewport.height - layout.pagerBand - layout.margin)
         }

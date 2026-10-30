@@ -61,12 +61,12 @@ struct HomeFaceLayout {
                 add(tile, width: width, height: height); y += height + gap
             }
         } else {
-            add(.climate, width: width, height: 216); y += 216 + gap
+            add(.climate, width: width, height: 240); y += 240 + gap
+            add(.weather, width: width, height: 152); y += 152 + gap
+            add(.calendar, width: width, height: 144); y += 144 + gap
             add(.lamps, width: cell, height: 2 * cell + gap)
             add(.ceiling, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
             add(.fan, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
-            add(.weather, width: width, height: 152); y += 152 + gap
-            add(.calendar, width: width, height: 144); y += 144 + gap
             add(.sound, width: width, height: 120); y += 120 + gap
             add(.tesla, width: width, height: 136); y += 136 + gap
         }
@@ -77,6 +77,14 @@ struct HomeFaceLayout {
         let height = y + cell + margin
         return Self(items: items, contentSize: CGSize(width: size.width, height: height), header: header,
                     gutter: gap, margin: margin, pagerBand: phonePagerBand, viewport: size)
+    }
+
+    /// Exclude modules hidden by the scroll edge's clear strip. Keeping their
+    /// glass in the render tree lets offscreen refraction bleed into the viewport.
+    func visibleTiles(in rect: CGRect, clearEdge: CGFloat = 4) -> Set<HomeTile> {
+        Set(items.filter {
+            $0.frame.maxY > rect.minY + clearEdge && $0.frame.minY < rect.maxY - clearEdge
+        }.map(\.tile))
     }
 
     /// Frames at either end of the phone scroll range, used to test the last row

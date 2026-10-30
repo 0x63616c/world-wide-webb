@@ -315,3 +315,14 @@ Pass 7e compact order: Climate → Lamps with Ceiling/Fan → Weather → Up Nex
 
 
 Pass 7f solver regrouping: Home Weather is 1×1 with Ceiling beside it. More Sonos is 2×1 at the bottom left; Clock and Ceiling take the vacated right column. Its two room columns route through the existing five-room provider and detail page. Every module/accessory remains reachable; shared geometry tests cover both face arrays and phone boundaries.
+
+
+## Pass 7g current Home composition
+
+This supersedes the rejected Home/More material and regrouping trials in 7c–7f. Restore the seven-module Home: a 2×2 Climate hero, 1×2 Lamps control, wide Weather/Tesla/Calendar/Music and one Fan circle. More restores its tall Sonos Rooms summary and the five round shortcuts. Native regular glass uses dark inactive and warm light active appearance; image modules retain clear glass. LakeWallpaper stays at 2-point blur and 28% dimming, with no new assets.
+
+The panel grid is anchored to the top of the page container so the live TabView preserves the solver's equal 80-point outer margins on the 1376×1032 canvas. A live-window UI test checks the actual header/side/bottom edges above the 80-point pager. The layout solver continues to enforce all 24-point gutters and circle separation.
+
+Phone returns to Climate, Weather and Up Next in its first viewport, with 240/152/144-point heights. The two-column Lamps/Ceiling/Fan group follows; Music and Tesla preserve their complete bottom-scroll contours. The 24-point gutters/margins, 80-point pager band and eight-point scroll fade remain. Fully occluded modules are removed from the render tree so their system glass cannot reflect above the visible Music card. The 64-point phone fader uses a 32-point sun symbol with a 16-point bottom inset; the full-screen instrument is unchanged.
+
+Full-screen Lamps, Clock, Music and Walk retain their accepted compositions. The Walk tile restores its explicit elapsed label and originating-device line. This section describes implementation, not a review score or acceptance claim.

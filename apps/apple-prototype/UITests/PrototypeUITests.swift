@@ -16,6 +16,33 @@ import XCTest
         XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 10), .completed,
                        "Expected \(value); observed \(String(describing: element.value)). \(element.debugDescription)", file: file, line: line)
     }
+    func testPanelOuterMarginsInLiveWindow() throws {
+        for controls in [false, true] {
+            let app = launch(["-face", controls ? "controls" : "home"])
+            let page = controls ? 1 : 0
+            XCTAssertTrue(app.buttons["face-page-\(page)"].waitForExistence(timeout: 30))
+            waitForValue(app.buttons["face-page-\(page)"], "Selected")
+            let window = app.windows.firstMatch.frame
+            // The button's full rectangular surface reports its painted bounds;
+            // round controls expose their content bounds, so use their center.
+            let moduleID = controls ? "cameras" : "calendar"
+            let tile = app.descendants(matching: .any).matching(identifier: "tile-\(moduleID)").firstMatch
+            XCTAssertTrue(tile.waitForExistence(timeout: 10))
+            let full = tile.frame
+            let last = app.descendants(matching: .any).matching(identifier: "tile-\(controls ? "all" : "fan")").firstMatch.frame
+            let heading = app.staticTexts[controls ? "Home · More" : "Home"].firstMatch.frame
+            let left = full.minX - window.minX
+            let right = window.maxX - (last.midX + full.height / 2)
+            let top = heading.minY - window.minY
+            let bottom = window.maxY - 80 - (last.midY + full.height / 2)
+            print("LIVE_PANEL_GEOMETRY controls=\(controls) window=\(window) heading=\(heading) margins=\(left),\(top),\(right),\(bottom)")
+            XCTAssertEqual(left, right, accuracy: 0.5)
+            XCTAssertEqual(top, left, accuracy: 0.5)
+            XCTAssertEqual(bottom, left, accuracy: 0.5)
+            app.terminate()
+        }
+    }
+
     func testHomeNavigationFromBothFaces() throws {
         let app = launch()
         XCTAssertTrue(app.buttons["open-climate"].waitForExistence(timeout: 30), app.debugDescription)
