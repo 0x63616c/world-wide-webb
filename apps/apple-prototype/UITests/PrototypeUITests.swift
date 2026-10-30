@@ -11,6 +11,10 @@ import XCTest
         app.launch()
         return app
     }
+    private func waitForValue(_ element: XCUIElement, _ value: String, file: StaticString = #filePath, line: UInt = #line) {
+        let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 10), .completed, file: file, line: line)
+    }
     func testHomeNavigationFromBothFaces() throws {
         let app = launch()
         XCTAssertTrue(app.buttons["open-climate"].waitForExistence(timeout: 30), app.debugDescription)
@@ -46,13 +50,13 @@ import XCTest
         let all = app.buttons["toggle-all"]
         XCTAssertTrue(all.waitForExistence(timeout: 30), app.debugDescription)
         all.tap()
-        XCTAssertEqual(all.value as? String, "On")
-        XCTAssertEqual(app.buttons["toggle-ceiling"].value as? String, "On")
+        waitForValue(all, "On")
+        waitForValue(app.buttons["toggle-ceiling"], "On")
         app.buttons["face-page-0"].tap()
         XCTAssertTrue(app.buttons["toggle-fan"].waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
         app.buttons["face-page-1"].tap()
-        XCTAssertEqual(all.value as? String, "On")
+        waitForValue(all, "On")
     }
     func testLampGlobalBrightnessAndRoomPower() throws {
         let app = launch(["-openTile", "lamps"])
@@ -66,10 +70,13 @@ import XCTest
         let value = Int((brightness.value as? String ?? "").replacingOccurrences(of: "%", with: "")) ?? -1
         XCTAssertTrue((75...85).contains(value))
         XCTAssertEqual(livingRoom.value as? String, "1")
-        app.switches["controller-toggle-bedroom"].tap()
+        let bedroom = app.switches["controller-toggle-bedroom"]
+        bedroom.tap()
+        waitForValue(bedroom, "0")
         livingRoom.tap()
-        XCTAssertFalse(brightness.isEnabled)
-        XCTAssertEqual(livingRoom.value as? String, "0")
+        waitForValue(livingRoom, "0")
+        let disabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false"), object: brightness)
+        XCTAssertEqual(XCTWaiter.wait(for: [disabled], timeout: 10), .completed)
     }
     func testRemoteWalkCanBeStoppedFromHistory() throws {
         let app = launch(["-openTile", "dogwalk", "-walkStartedRemotely"])

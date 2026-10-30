@@ -80,25 +80,42 @@ struct MixedHomeTile: View {
             }.buttonStyle(.plain).accessibilityIdentifier("open-climate")
             Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
                 .font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
-            Spacer(minLength: 0)
-            Button(action: open) {
-                Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
-                    .font(.system(size: compact ? 88 : 170, weight: .regular)).monospacedDigit()
-                    .minimumScaleFactor(0.6).lineLimit(1).frame(maxWidth: .infinity)
-            }.buttonStyle(.plain)
-            Spacer(minLength: 0)
-            HStack {
-                step("minus", delta: -1)
-                Spacer()
-                Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "Heat · Cool" : "Set to \(store.climate.target)°").font(.system(size: compact ? 16 : 22, weight: .medium))
-                Spacer()
-                step("plus", delta: 1)
+            if compact {
+                HStack(spacing: 8) {
+                    step("minus", delta: -1)
+                    climateValue
+                    step("plus", delta: 1)
+                }
+                setpointLabel.frame(maxWidth: .infinity)
+            } else {
+                Spacer(minLength: 0)
+                climateValue
+                Spacer(minLength: 0)
+                HStack {
+                    step("minus", delta: -1)
+                    Spacer()
+                    setpointLabel
+                    Spacer()
+                    step("plus", delta: 1)
+                }
             }
         }.padding(compact ? 24 : 32)
     }
+    private var climateValue: some View {
+        Button(action: open) {
+            Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
+                .font(.system(size: compact ? 88 : 170, weight: .regular)).monospacedDigit()
+                .minimumScaleFactor(compact && store.climate.mode != .heatCool ? 1 : 0.6)
+                .lineLimit(1).frame(maxWidth: .infinity)
+        }.buttonStyle(.plain)
+    }
+    private var setpointLabel: some View {
+        Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "Heat · Cool" : "Set to \(store.climate.target)°")
+            .font(.system(size: compact ? 16 : 22, weight: .medium))
+    }
     private func step(_ symbol: String, delta: Int) -> some View {
         Button { store.send(store.climate.mode == .heatCool ? .shiftRange(delta) : .target(store.climate.target + delta)) } label: {
-            Image(systemName: symbol).font(.system(size: compact ? 24 : 32, weight: .medium)).frame(width: 48, height: 48)
+            Image(systemName: symbol).font(.system(size: compact ? 24 : 32, weight: .medium)).frame(width: 48, height: 48).contentShape(.rect)
         }.buttonStyle(.plain).disabled(store.climate.mode == .off)
             .accessibilityLabel(delta < 0 ? "Lower setpoint" : "Raise setpoint")
     }
@@ -163,7 +180,7 @@ struct MixedHomeTile: View {
                     if tile == .fan { FanSymbol(on: store.climate.fanOn && store.climate.mode != .off) }
                     else { Image(systemName: tile.accessory?.symbol ?? "wifi") }
                 }.font(.system(size: compact ? 32 : 46, weight: .regular)).symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isOn ? .orange : .white).frame(width: 64, height: 64)
+                    .foregroundStyle(isOn ? .orange : .white).frame(width: 64, height: 64).contentShape(.rect)
             }.buttonStyle(.plain).accessibilityLabel(tile == .wifi ? "Open Guest Wi-Fi" : "Toggle \(tile.title)")
                 .accessibilityIdentifier("toggle-\(tile.id)").accessibilityValue(isOn ? "On" : "Off")
             Button(action: open) {
