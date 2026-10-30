@@ -56,13 +56,14 @@ import PanelKit
         XCTAssertEqual(store.tesla.availability, .offline)
     }
 
-    func testAllSixProvidersProjectExistingFixtures() async throws {
+    func testAllProvidersProjectExistingFixtures() async throws {
         let store = source(try fixtureTransport())
         await refreshAll(store)
-        // Dog Walk owns its live state via LiveWalkProvider and is not wired into the hybrid shell yet (WWW-49).
-        for module in PanelModule.allCases where module != .all && module != .walk { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }
+        for module in PanelModule.allCases where module != .all { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }
         XCTAssertFalse(store.hasLiveData(for: .all))
-        XCTAssertFalse(store.hasLiveData(for: .walk))
+        XCTAssertTrue(store.walks === store.walkProvider)
+        XCTAssertNil(store.walks.activeWalk)
+        XCTAssertFalse(store.walks.history.isEmpty)
         XCTAssertEqual(store.lamps.onCount(), 8)
         XCTAssertEqual(store.lamps.brightness, 65)
         XCTAssertEqual(store.lamps.kelvin, 2700)
@@ -102,7 +103,7 @@ import PanelKit
             XCTAssertEqual(defaults.route(for: module, hasLiveData: store.hasLiveData(for: module)), .webBoard)
             let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.\(module.rawValue)": "native"]))
             for candidate in PanelModule.allCases {
-                let expected: HybridRouter.Route = candidate == module && candidate != .all && candidate != .walk ? .native(candidate) : .webBoard
+                let expected: HybridRouter.Route = candidate == module && candidate != .all ? .native(candidate) : .webBoard
                 XCTAssertEqual(router.route(for: candidate, hasLiveData: store.hasLiveData(for: candidate)), expected)
             }
         }

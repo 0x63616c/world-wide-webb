@@ -53,8 +53,10 @@ struct HybridNativeModule: View {
         case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .alarms: HybridClockFace(store: store, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
-        // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
-        case .walk, .all: EmptyView()
+        case .walk:
+            DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
+                .disabled(store.walkProvider.isMutating)
+        case .all: EmptyView()
         }
     }
 
@@ -77,7 +79,10 @@ struct HybridNativeModule: View {
                             timeZone: .current, locationLabel: TimeZone.current.identifier)
                 .disabled(store.alarmsProvider.pending)
         case .reminders: RemindersModule(provider: store.remindersProvider)
-        case .walk, .all: EmptyView()
+        case .walk:
+            DogWalkPage(store: HybridWalkDataSource(store: store))
+                .disabled(store.walkProvider.isMutating)
+        case .all: EmptyView()
         }
     }
 

@@ -14,6 +14,7 @@ import PanelKit
     let alarmsProvider: LiveAlarmsProvider
     let sonosProvider: LiveSonosProvider
     let calendarProvider: LiveCalendarProvider
+    let walkProvider: LiveWalkProvider
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     var alarms: [Alarm] { alarmsProvider.alarms }
@@ -31,13 +32,13 @@ import PanelKit
     var photos: any PhotosProvider { unavailable }
     var cameras: any CamerasProvider { unavailable }
     var media: any MediaProvider { unavailable }
-    var walks: any WalkProvider { unavailable }
+    var walks: any WalkProvider { walkProvider }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
          remindersAPI: any RemindersServing = RemindersAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
-         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
+         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil) {
         clock = now
         calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
@@ -48,6 +49,7 @@ import PanelKit
         session.urlCredentialStorage = nil
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
+        walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
         alarmsProvider = LiveAlarmsProvider(api: AlarmsAPI(client: client))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))
@@ -69,7 +71,7 @@ import PanelKit
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
         case .calendar: calendarProvider.availability == .live && !calendarProvider.events.isEmpty
-        case .walk: false // Dog Walk owns its live state via LiveWalkProvider.
+        case .walk: walkProvider.availability == .live
         }
     }
 
@@ -183,7 +185,7 @@ import PanelKit
         case .weather: await weatherProvider.refresh()
         case .sonos: await sonosProvider.refresh()
         case .calendar: await calendarProvider.refresh()
-        case .walk: break
+        case .walk: await walkProvider.refresh()
         }
     }
 
@@ -199,6 +201,18 @@ import PanelKit
     }
 
     private func poll(_ module: PanelModule) async {
+        if module == .walk {
+            guard !Task.isCancelled else { return }
+            // Dog Walk already owns its four-second cadence, backoff and stale-read
+            // guards. Keep its coordinator alive only for this foreground task.
+            walkProvider.setSceneActive(true)
+            defer { walkProvider.setSceneActive(false) }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(3600)) }
+                catch { return }
+            }
+            return
+        }
         while !Task.isCancelled {
             await refresh(module)
             do { try await Task.sleep(for: module == .weather ? .seconds(600) : module == .alarms ? .seconds(1) : .seconds(10)) }
@@ -207,6 +221,7 @@ import PanelKit
     }
 
     func stop() {
+        walkProvider.setSceneActive(false)
         alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()

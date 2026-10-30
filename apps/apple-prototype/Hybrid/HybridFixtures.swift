@@ -8,10 +8,12 @@ actor HybridFixtureTransport: PanelTransport {
     private let root: URL
     private let unavailable: Bool
     private let alarmScenario: String
+    private let walkActive: Bool
     private var overrides: [String: String] = [:]
     private(set) var requests: [URLRequest] = []
 
-    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled") {
+    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false) {
+        self.walkActive = walkActive
         self.alarmScenario = alarmScenario
         self.root = root
         self.unavailable = unavailable
@@ -34,6 +36,8 @@ actor HybridFixtureTransport: PanelTransport {
             case "weather.now": file = "weather/now.json"
             case "weather.hourly": file = "weather/hourly.json"
             case "sound.soundSystem": file = "sonos/rooms.json"
+            case "walks.state": file = walkActive ? "walks/state-active.json" : "walks/state-idle.json"
+            case "walks.history": file = "walks/hybrid-history.json"
             default: throw URLError(.unsupportedURL)
             }
         }
