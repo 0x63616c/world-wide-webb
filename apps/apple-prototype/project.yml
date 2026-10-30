@@ -91,7 +91,62 @@ targets:
     settings:
       base:
         PRODUCT_MODULE_NAME: WorldWideWebbUITests
+  Panel:
+    type: application
+    platform: iOS
+    deploymentTarget: '26.0'
+    sources:
+      - path: Hybrid
+        excludes: [Config, Info.plist, README.md]
+    configFiles:
+      Debug: Hybrid/Config/Panel.xcconfig
+      Release: Hybrid/Config/Panel.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine
+        PRODUCT_MODULE_NAME: Panel
+        TARGETED_DEVICE_FAMILY: '2'
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Hybrid/Info.plist
+        SWIFT_VERSION: '6.0'
+        SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGNING_ALLOWED: NO
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+  PanelTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [HybridTests]
+    dependencies:
+      - target: Panel
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: PanelTests
+  PanelUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [HybridUITests]
+    dependencies:
+      - target: Panel
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: PanelUITests
 schemes:
+  Panel-Smoke:
+    build:
+      targets:
+        Panel: [test]
+        PanelUITests: [test]
+    test:
+      targets:
+        - PanelUITests
+  Panel:
+    build:
+      targets:
+        Panel: all
+    test:
+      targets:
+        - PanelTests
   WorldWideWebb:
     build:
       targets:
