@@ -281,3 +281,11 @@ of the final run. Restore the main Home/More spans, specification and geometry
 anchors in a new commit, including the Music hit-area follow-up that only served
 the rejected layout. Retain the asynchronous fan-state assertion correction.
 The full twelve-screen median table follows when the final cold run completes.
+
+## WWW-54 — iteration 3: taller Home Lamps fader
+
+Final permitted iteration: restore main's Home/More composition, then put the
+panel Lamps glyph and title on one line and give the 88-point-wide fader an
+explicit 208-point height. Preserve the percentage, mixed-state explanation,
+phone layout, full-screen Lamps page, Climate and materials. This tests only the
+remaining instrument proportion from 7h. No acceptance claimed before review.
