@@ -119,7 +119,7 @@ struct PanelRoot: View {
             VStack(spacing: 0) {
                 if !homeVisible && nativeVisible {
                     HStack(spacing: 18) {
-                        Button("Home") { showingHome = true; detail = false }
+                        Button("Home", action: returnHome)
                             .buttonStyle(.glass).accessibilityIdentifier("module-home")
                         ForEach(nativeModules, id: \.self) { module in
                             Button(module.title) { pendingNativeAlarmLink = false; selection = module; detail = false }
@@ -144,7 +144,7 @@ struct PanelRoot: View {
             }
             if !homeVisible && !nativeVisible && !requested.isEmpty {
                 VStack {
-                    HStack { ClassicHomeButton { showingHome = true; detail = false }; Spacer() }
+                    HStack { ClassicHomeButton(action: returnHome); Spacer() }
                     Spacer()
                 }
             }
@@ -220,6 +220,12 @@ struct PanelRoot: View {
             await updateChecker.run()
         }
         .onDisappear { session.stop(); store.stop() }
+    }
+
+    private func returnHome() {
+        pendingNativeAlarmLink = false
+        detail = false
+        showingHome = true
     }
 
     private func openNativeAlarms() {
