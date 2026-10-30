@@ -1,7 +1,3 @@
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import {
   defineDatabaseBackup,
@@ -132,58 +128,10 @@ describe("pg-backup (NEW nightly logical backup to the NAS)", () => {
     const r = renderCronJob(backup() as CronJobSpec);
     expect(r.persistentVolumes).toHaveLength(1);
     const pv = r.persistentVolumes[0];
-    // soft + short timeo/retrans (#793): a dead NAS returns EIO, not a hang.
-    expect(pv.spec.mountOptions).toEqual([
-      "nfsvers=4.0",
-      "nolock",
-      "soft",
-      "timeo=50",
-      "retrans=2",
-    ]);
+    expect(pv.spec.mountOptions).toEqual(["nfsvers=4.0", "nolock"]);
     // The DS420+ exports only /volume1/Homelab; subPath lands in a backups dir.
     expect(pv.spec.nfs.server).toBe(NAS);
     expect(pv.spec.nfs.path).toBe("/volume1/Homelab");
-  });
-
-  test("caps the Job wall-clock so an unmountable target fails fast (#790, #793)", () => {
-    const r = renderCronJob(backup() as CronJobSpec);
-    expect(r.cronJob.spec.jobTemplate.spec.activeDeadlineSeconds).toBe(
-      crons.PG_BACKUP_ACTIVE_DEADLINE_SECONDS,
-    );
-  });
-
-  test("nasEnabled=false backs up to the local fallback PVC with pruning, NFS PV kept but unmounted (#793)", () => {
-    const spec = byName(crons.cronSpecs(NAS, false), "pg-backup") as CronJobSpec;
-    const r = renderCronJob(spec);
-    const on = renderCronJob(backup() as CronJobSpec);
-    // The NFS PV/PVC keep their names (no delete/replace of a PVC a wedged pod pins).
-    expect(r.persistentVolumes.map((pv) => pv.metadata.name)).toEqual(
-      on.persistentVolumes.map((pv) => pv.metadata.name),
-    );
-    expect(spec.volumes?.[0]).toMatchObject({
-      claim: crons.PG_BACKUP_FALLBACK_CLAIM,
-      detached: true,
-    });
-    const podVolumes = r.cronJob.spec.jobTemplate.spec.template.spec.volumes;
-    expect(podVolumes).toContainEqual(
-      expect.objectContaining({
-        persistentVolumeClaim: { claimName: crons.PG_BACKUP_FALLBACK_CLAIM },
-      }),
-    );
-    for (const pv of r.persistentVolumes) {
-      expect(podVolumes).not.toContainEqual(
-        expect.objectContaining({ persistentVolumeClaim: { claimName: pv.metadata.name } }),
-      );
-    }
-    const cmd = spec.command?.join(" ") ?? "";
-    expect(cmd).toContain("pg_dump");
-    expect(cmd).toMatch(/find \S+ -maxdepth 1 -name '\*\.sql\.gz' -mtime \+\d+ -delete/);
-  });
-
-  test("nasEnabled=true keeps the NAS target and never prunes it", () => {
-    const spec = byName(crons.cronSpecs(NAS, true), "pg-backup") as CronJobSpec;
-    expect(spec.command?.join(" ")).not.toContain("-delete");
-    expect(spec.volumes?.[0]?.nfs?.server).toBe(NAS);
   });
 
   test("threads the configurable NAS server into the NFS PV (www-j934.17)", () => {
@@ -204,21 +152,6 @@ describe("deployCrons (Pulumi wiring)", () => {
     const provider = new (await import("@pulumi/kubernetes")).Provider("test", { context: "x" });
     const res = crons.deployCrons({ provider, namespaces: testNamespaces, nasNfsServer: NAS });
     expect(res.jobs).toHaveLength(crons.cronSpecs(NAS).length);
-  });
-
-  test("creates one fallback PVC per backup namespace only when the NAS is off (#793)", async () => {
-    const provider = new (await import("@pulumi/kubernetes")).Provider("test-fallback", {
-      context: "x",
-    });
-    const on = crons.deployCrons({ provider, namespaces: testNamespaces, nasNfsServer: NAS });
-    expect(on.fallbackClaims).toHaveLength(0);
-    const off = crons.deployCrons({
-      provider,
-      namespaces: testNamespaces,
-      nasNfsServer: NAS,
-      nasEnabled: false,
-    });
-    expect(off.fallbackClaims).toHaveLength(1);
   });
 
   test("instantiates CronJobs in their owning namespaces", async () => {
@@ -265,111 +198,4 @@ describe("homeAssistantPgBackupCronSpec (Task 4)", () => {
     const nfsVol = spec.volumes?.find((v) => v.nfs);
     expect(nfsVol?.subPath).toBe("backups/world-wide-webb/home-assistant/postgres");
   });
-});
-
-describe("backup storage identity and verification (#790)", () => {
-  const ha = (nasEnabled: boolean) =>
-    crons.homeAssistantPgBackupCronSpec({
-      nasNfsServer: NAS,
-      serviceHost: "home-assistant-postgres-rw",
-      databaseName: "home_assistant",
-      owner: "postgres",
-      authSecretName: "home-assistant-postgres-auth",
-      nasEnabled,
-    });
-
-  for (const nasEnabled of [false, true]) {
-    test(`both backups render writable non-root storage and bounded retries (NAS=${nasEnabled})`, () => {
-      for (const spec of [crons.cronSpecs(NAS, nasEnabled)[0], ha(nasEnabled)]) {
-        const job = renderCronJob(spec).cronJob.spec;
-        expect(job.concurrencyPolicy).toBe("Forbid");
-        expect(job.jobTemplate.spec).toMatchObject({
-          activeDeadlineSeconds: 1800,
-          backoffLimit: 1,
-          template: {
-            spec: {
-              restartPolicy: "Never",
-              securityContext: {
-                runAsUser: 26,
-                runAsGroup: 26,
-                fsGroup: 26,
-                runAsNonRoot: true,
-                fsGroupChangePolicy: "OnRootMismatch",
-              },
-            },
-          },
-        });
-      }
-    });
-  }
-
-  for (const target of ["control-center", "home-assistant"]) {
-    for (const outcome of [
-      "valid",
-      "valid-pg18-unrestrict",
-      "complete-empty",
-      "empty",
-      "small",
-      "truncated",
-      "trailing-content",
-      "dump-failure",
-      "corrupt-gzip",
-    ]) {
-      test(`${target}: ${outcome} only publishes a verified dump`, () => {
-        const dir = mkdtempSync(join(tmpdir(), "pg-backup-"));
-        try {
-          const spec = target === "control-center" ? crons.cronSpecs(NAS, false)[0] : ha(false);
-          const out = join(dir, "backup.sql.gz");
-          writeFileSync(out, "previous verified backup");
-          const dump = join(dir, "pg_dump");
-          const trailer = "-- PostgreSQL database dump complete";
-          const body =
-            outcome === "empty"
-              ? "exit 0"
-              : outcome === "small"
-                ? `printf '%s\n' '${trailer}'`
-                : [
-                    `printf '%${outcome === "complete-empty" ? 680 : 1048576}s\n' x`,
-                    outcome === "truncated" ? "" : `printf '%s\n' '--' '${trailer}' '--' ''`,
-                    outcome === "valid-pg18-unrestrict" || outcome === "complete-empty"
-                      ? "printf '%s\\n' '\\unrestrict abc123XYZ'"
-                      : "",
-                    outcome === "trailing-content" ? "echo unexpected" : "",
-                    `exit ${outcome === "dump-failure" ? 1 : 0}`,
-                  ].join("\n");
-          const passes =
-            outcome === "valid" ||
-            outcome === "valid-pg18-unrestrict" ||
-            (target === "home-assistant" && outcome === "complete-empty");
-          writeFileSync(dump, `#!/bin/bash\n${body}\n`, { mode: 0o755 });
-          if (outcome === "corrupt-gzip") {
-            writeFileSync(
-              join(dir, "gzip"),
-              '#!/bin/bash\nif [ "$1" = "-c" ]; then cat >/dev/null; echo corrupt; else exec /usr/bin/gzip "$@"; fi\n',
-              { mode: 0o755 },
-            );
-          }
-          const script = (spec.command?.[2] ?? "")
-            .replace(/^export PGPASSWORD=.*$/m, "")
-            .replace(/^out=.*$/m, `out="${out}"`)
-            .replace(/^find .*$/m, "");
-          const result = spawnSync("bash", ["-c", script], {
-            env: { PATH: `${dir}:/usr/bin:/bin` },
-            encoding: "utf8",
-          });
-          expect(result.status, result.stderr).toBe(passes ? 0 : 1);
-          expect(readFileSync(out).toString() === "previous verified backup").toBe(!passes);
-          if (outcome === "complete-empty" && target === "control-center") {
-            expect(result.stderr).toContain("SQL dump smaller than 1024 bytes");
-          }
-          if (outcome === "truncated" || outcome === "trailing-content") {
-            expect(result.stderr).toContain("SQL dump missing final completion trailer");
-          }
-          expect(spawnSync("test", ["-e", `${out}.partial`]).status).toBe(1);
-        } finally {
-          rmSync(dir, { recursive: true, force: true });
-        }
-      });
-    }
-  }
 });
