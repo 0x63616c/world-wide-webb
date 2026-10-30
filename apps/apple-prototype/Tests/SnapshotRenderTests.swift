@@ -19,9 +19,11 @@ import XCTest
                 LampsBackdrop()
                 ControllerHost(tile: .bedroom, store: store, close: {})
             })),
+            ("wifi", AnyView(ControllerHost(tile: .wifi, store: store, close: {}).background(HomeTile.wifi.fill(store)))),
             ("clock-idle", AnyView(SnapshotClock(store: store, near: false))),
             ("clock-near", AnyView(SnapshotClock(store: store, near: true))),
             ("alarm", AnyView(AlarmRingView(store: store, close: {}, edit: {}))),
+            ("alarm-ringing", AnyView(AlarmRingView(store: MockHomeDataSource(latency: .zero, fixedNow: store.now, ringing: true), close: {}, edit: {}))),
             ("nowplaying", AnyView(ZStack {
                 NowPlayingView(store: store, close: {})
                 VStack { Spacer(); FacePicker(selection: .constant(3)).padding(.bottom, 10) }
@@ -83,10 +85,8 @@ private struct SnapshotFace: View {
     var body: some View {
         ZStack {
             Wallpaper()
-            GlassEffectContainer(spacing: 12) {
-                HomeFaceGrid(store: store, size: CGSize(width: 1376, height: 1032),
-                             controls: controls, zoom: zoom, open: { _ in })
-            }
+            HomeGlassFace(store: store, size: CGSize(width: 1376, height: 1032),
+                          controls: controls, zoom: zoom, open: { _ in })
             VStack {
                 Spacer()
                 FacePicker(selection: .constant(controls ? 1 : 0)).padding(.bottom, 10)

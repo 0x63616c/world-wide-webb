@@ -11,7 +11,7 @@ struct PresenceClockFace: View {
             ZStack {
                 Color(hex: "#43a66a")
                 TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30)) { _ in
-                    GreenClockDial(date: store.now)
+                    GreenClockDial(date: store.now, near: near)
                 }.allowsHitTesting(false)
                 Color.clear.contentShape(Rectangle()).onTapGesture { togglePresence() }
                     .accessibilityLabel(near ? "Hide clock complications" : "Show clock complications")
@@ -20,13 +20,13 @@ struct PresenceClockFace: View {
                 if near {
                     VStack {
                         HStack {
-                            complication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Climate", detail: store.climate.action, tile: .climate)
+                            complication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Climate · Inside", detail: store.climate.action, tile: .climate)
                             Spacer()
                             complication(symbol: "cloud.sun.fill", value: "\(store.weather.temperature)°", label: "Weather", detail: store.weather.condition, tile: .weather)
                         }
                         Spacer()
                         HStack {
-                            complication(symbol: "lamp.table.fill", value: store.lamps.anyOn ? "On" : "Off", label: "Lamps", detail: "\(store.lamps.on.filter { $0 }.count) lamps on", tile: .lamps)
+                            complication(symbol: "lamp.table.fill", value: store.lamps.anyOn ? "On" : "Off", label: "Lamps", detail: store.lamps.countLabel(), tile: .lamps)
                             Spacer()
                             complication(symbol: "wifi", value: "Guest", label: "Wi-Fi", detail: store.wifi.ssid ?? "Not configured", tile: .wifi)
                         }
@@ -39,7 +39,7 @@ struct PresenceClockFace: View {
                                 .font(.system(size: 23, weight: .semibold))
                                 .padding(.horizontal, 24).frame(height: 56)
                         }.buttonStyle(.plain)
-                            .background(.black.opacity(0.28), in: .capsule)
+                            .background(Color(hex: "#153e28"), in: .capsule)
                             .glassEffect(.clear.interactive(), in: .capsule)
                             .accessibilityLabel("Open next alarm, \(alarmCaption)")
                             .padding(.bottom, 83)
@@ -69,7 +69,7 @@ struct PresenceClockFace: View {
                 Text(label).font(.system(size: 26, weight: .semibold))
                 Text(detail).font(.system(size: 20)).opacity(0.75).lineLimit(1)
             }.frame(width: 238, alignment: .leading).padding(26)
-                .background(.black.opacity(0.40), in: .rect(cornerRadius: 42))
+                .background(Color(hex: "#153e28"), in: .rect(cornerRadius: 42))
                 .glassEffect(.clear.interactive(), in: .rect(cornerRadius: 42))
                 .overlay(RoundedRectangle(cornerRadius: 42).strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
         }.buttonStyle(.plain).foregroundStyle(.white)
@@ -79,6 +79,7 @@ struct PresenceClockFace: View {
 
 private struct GreenClockDial: View {
     let date: Date
+    let near: Bool
     var body: some View {
         GeometryReader { proxy in
             let w = proxy.size.width
@@ -87,13 +88,13 @@ private struct GreenClockDial: View {
             let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
             let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
             ZStack {
-                numeral("12", size: h * 0.61, x: w * 0.5, y: h * 0.21)
-                numeral("9", size: h * 0.66, x: w * 0.16, y: h * 0.48)
-                numeral("3", size: h * 0.66, x: w * 0.84, y: h * 0.48)
-                numeral("6", size: h * 0.65, x: w * 0.5, y: h * 0.84)
-                hand(length: h * 0.27, width: 22, degrees: hours * 30)
-                hand(length: h * 0.40, width: 18, degrees: minutes * 6)
-                hand(length: h * 0.43, width: 2, degrees: seconds * 6).opacity(0.7)
+                numeral("12", size: h * (near ? 0.48 : 0.61), x: w * 0.5, y: h * (near ? 0.24 : 0.21))
+                numeral("9", size: h * (near ? 0.52 : 0.66), x: w * 0.16, y: h * 0.48)
+                numeral("3", size: h * (near ? 0.52 : 0.66), x: w * 0.84, y: h * 0.48)
+                numeral("6", size: h * (near ? 0.48 : 0.65), x: w * 0.5, y: h * (near ? 0.77 : 0.84))
+                hand(length: h * (near ? 0.24 : 0.27), width: 22, degrees: hours * 30)
+                hand(length: h * (near ? 0.35 : 0.40), width: 18, degrees: minutes * 6)
+                hand(length: h * (near ? 0.38 : 0.43), width: 2, degrees: seconds * 6).opacity(0.7)
                 Circle().fill(.white).frame(width: 30, height: 30)
                 Circle().fill(Color(hex: "#24533a")).frame(width: 10, height: 10)
             }.frame(width: w, height: h).clipped()

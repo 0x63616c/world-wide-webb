@@ -72,9 +72,13 @@ struct LampsBackdrop: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                LinearGradient(colors: [Color(hex: "#8d470f"), Color(hex: "#b77322"), Color(hex: "#713309")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                RadialGradient(colors: [Color(hex: "#f5b84d").opacity(0.62), Color(hex: "#dc8e28").opacity(0.19), .clear], center: UnitPoint(x: 0.27, y: 0.54), startRadius: 20, endRadius: proxy.size.width * 0.57)
-                RadialGradient(colors: [Color(hex: "#f8c377").opacity(0.12), .clear], center: .topTrailing, startRadius: 0, endRadius: proxy.size.height * 0.75)
+                LinearGradient(colors: [Color(hex: "#562805"), Color(hex: "#a65e13"), Color(hex: "#4c2108")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                RadialGradient(colors: [Color(hex: "#ffd17b").opacity(0.78), Color(hex: "#e39328").opacity(0.35), .clear], center: UnitPoint(x: 0.23, y: 0.52), startRadius: 35, endRadius: proxy.size.width * 0.5)
+                Ellipse().fill(Color(hex: "#f2b24c").opacity(0.15))
+                    .frame(width: proxy.size.width * 0.76, height: proxy.size.height * 0.3)
+                    .rotationEffect(.degrees(-38)).blur(radius: 55)
+                    .offset(x: proxy.size.width * 0.23, y: -proxy.size.height * 0.20)
+                RadialGradient(colors: [Color(hex: "#f8c377").opacity(0.25), .clear], center: .topTrailing, startRadius: 0, endRadius: proxy.size.height * 0.75)
             }
         }.ignoresSafeArea()
     }
@@ -184,22 +188,28 @@ extension View {
     func faceGlass(on: Bool = false, radius: CGFloat = 54) -> some View {
         // Capture-only A/B switch. Clear is the shipping treatment for this patterned face.
         let glass: Glass = ProcessInfo.processInfo.arguments.contains("-regularFaceGlass") ? .regular : .clear
-        return self.background(on ? Color.white.opacity(0.23) : Color.white.opacity(0.015), in: .rect(cornerRadius: radius, style: .continuous))
+        return self.background(on ? Color.white.opacity(0.14) : Color.white.opacity(0.015), in: .rect(cornerRadius: radius, style: .continuous))
             .glassEffect(glass.tint(.white.opacity(0.035)).interactive(), in: .rect(cornerRadius: radius, style: .continuous))
+            .overlay { FaceSpecularEdge(radius: radius) }
             .overlay {
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(LinearGradient(stops: [
-                        .init(color: .white.opacity(0.90), location: 0),
-                        .init(color: .white.opacity(0.28), location: 0.32),
-                        .init(color: .white.opacity(0.12), location: 0.62)
-                    ], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 2.0)
-                    .allowsHitTesting(false)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: radius - 1, style: .continuous).inset(by: 1.5)
+                RoundedRectangle(cornerRadius: radius - 1, style: .continuous).inset(by: 3)
                     .strokeBorder(LinearGradient(colors: [.clear, .white.opacity(0.03), .white.opacity(0.19)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.7)
                     .allowsHitTesting(false)
             }
             .shadow(color: .black.opacity(0.27), radius: 30, x: 0, y: 16)
+    }
+}
+
+struct FaceSpecularEdge: View {
+    let radius: CGFloat
+    var body: some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .strokeBorder(LinearGradient(stops: [
+                .init(color: .white, location: 0),
+                .init(color: Color(white: 0.78), location: 0.22),
+                .init(color: Color(white: 0.38), location: 0.6),
+                .init(color: Color(white: 0.68), location: 1)
+            ], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
+            .allowsHitTesting(false)
     }
 }

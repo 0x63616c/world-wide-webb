@@ -27,6 +27,24 @@ import XCTest
         XCTAssertEqual(Array(store.lamps.on[3..<8]), Array(repeating: true, count: 5))
         XCTAssertEqual(LampState.names.last, "Kitchen Lamp")
     }
+    func testLampCountsFollowRoomMembershipAndCommands() async {
+        let store = MockHomeDataSource(latency: .zero)
+        XCTAssertEqual(store.lamps.onCount(.bedroom), 3)
+        XCTAssertEqual(store.lamps.onCount(.livingRoom), 0)
+        XCTAssertEqual(store.lamps.countLabel(), "3 lamps on")
+        store.send(.toggle(.cabinet))
+        store.send(.toggle(.ceiling))
+        XCTAssertEqual(store.lamps.onCount(), 3)
+        store.send(.toggle(.livingRoom))
+        XCTAssertEqual(store.lamps.onCount(), 8)
+        store.send(.toggle(.bedroom))
+        XCTAssertEqual(store.lamps.onCount(), 5)
+        XCTAssertEqual(store.lamps.onCount(), store.lamps.onCount(.bedroom) + store.lamps.onCount(.livingRoom))
+        store.send(.toggle(.lamps))
+        XCTAssertEqual(store.lamps.countLabel(), "0 lamps on")
+        XCTAssertFalse(store.lamps.isOn(.bedroom))
+        XCTAssertFalse(store.lamps.isOn(.livingRoom))
+    }
     func testFanOffWhenClimateOffAndAllDoesNotChangeFan() async {
         let store = MockHomeDataSource(latency: .zero)
         XCTAssertEqual(store.climate.fanLabel, "Auto")

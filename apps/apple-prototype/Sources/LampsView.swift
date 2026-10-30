@@ -4,10 +4,10 @@ struct LampsController: View {
     let store: any HomeDataSource
     @State private var showingEffects = false
     var body: some View {
-        HStack(alignment: .center, spacing: 70) {
-            HStack(spacing: 38) {
+        HStack(alignment: .center, spacing: 62) {
+            HStack(spacing: 32) {
                 LampBrightness(store: store)
-                    .frame(width: 220, height: 560)
+                    .frame(width: 244, height: 610)
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text("\(store.lamps.brightness)").font(.system(size: 116, weight: .regular)).monospacedDigit()
@@ -17,21 +17,21 @@ struct LampsController: View {
                     Text(store.lamps.anyOn ? "Brightness" : "Turn on lamps to adjust")
                         .font(.system(size: 20)).foregroundStyle(.white.opacity(0.65))
                     // The real command turns on every lamp, including an off room.
-                    Text("Applies to both rooms")
+                    Text("Both rooms · \(store.lamps.countLabel())")
                         .font(.system(size: 19)).foregroundStyle(.white.opacity(0.7)).padding(.top, 6)
-                }.frame(width: 254, alignment: .leading)
+                }.frame(width: 280, alignment: .leading)
             }
             VStack(spacing: 48) {
-                HStack(alignment: .top, spacing: 28) {
-                    room(.bedroom, members: "Bed Left · Bed Right\nMirror")
-                    room(.livingRoom, members: "Globe · Corner Lamp\nFloor Lamp · Desk\nKitchen Lamp")
+                HStack(alignment: .top, spacing: 24) {
+                    room(.bedroom)
+                    room(.livingRoom)
                 }
                 Button { showingEffects = true } label: {
                     Label("Color & Effects", systemImage: "paintpalette.fill")
                         .font(.system(size: 24, weight: .semibold))
                         .padding(.horizontal, 26).frame(height: 70)
                 }.buttonStyle(.plain).faceGlass(radius: 35).accessibilityIdentifier("color-effects")
-            }.frame(width: 456)
+            }.frame(width: 484)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .sheet(isPresented: $showingEffects) {
                 VStack(spacing: 28) {
@@ -51,24 +51,35 @@ struct LampsController: View {
                     .environment(\.colorScheme, .dark)
             }
     }
-    private func room(_ key: Accessory, members: String) -> some View {
+    private func room(_ key: Accessory) -> some View {
         let on = store.lamps.isOn(key)
         return VStack(spacing: 12) {
             Button { store.send(.toggle(key)) } label: {
-                Image(systemName: key.symbol).font(.system(size: 64))
-                    .foregroundStyle(on ? Color(hex: "#ffcd65") : .white)
-                    .frame(width: 164, height: 164)
-                    .faceGlass(on: on, radius: 82)
+                Image(systemName: key.symbol).font(.system(size: 82, weight: .regular))
+                    .foregroundStyle(on ? Color(hex: "#fff2cc") : .white.opacity(0.8))
+                    .shadow(color: on ? Color(hex: "#ffba45").opacity(0.7) : .clear, radius: 18)
+                    .frame(width: 204, height: 204)
+                    .background {
+                        Circle().fill(RadialGradient(colors: on
+                            ? [Color(hex: "#ffd48b").opacity(0.65), Color(hex: "#b86715").opacity(0.7)]
+                            : [Color(hex: "#542306").opacity(0.3), Color(hex: "#542306").opacity(0.6)],
+                            center: .topLeading, startRadius: 0, endRadius: 220))
+                    }
+                    .faceGlass(radius: 102)
                     .overlay { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white) } }
             }.buttonStyle(.plain)
                 .accessibilityLabel("Toggle \(key.name)")
                 .accessibilityValue(on ? "On" : "Off")
                 .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
             Text(key.name).font(.system(size: 28, weight: .semibold))
-            Text(on ? "On" : "Off").font(.system(size: 21)).opacity(0.75)
-            Text(members).font(.system(size: 19)).foregroundStyle(.white.opacity(0.72))
-                .multilineTextAlignment(.center).lineSpacing(5).padding(.top, 8)
-        }.frame(width: 214)
+            Text(store.lamps.countLabel(key)).font(.system(size: 21)).opacity(0.8)
+            VStack(spacing: 5) {
+                ForEach(Array(LampState.members(key)), id: \.self) { index in
+                    Text(LampState.names[index]).font(.system(size: 19))
+                        .foregroundStyle(.white.opacity(store.lamps.on[index] ? 0.95 : 0.58))
+                }
+            }.padding(.top, 8)
+        }.frame(width: 230)
     }
 }
 
@@ -79,18 +90,22 @@ struct LampBrightness: View {
             let enabled = store.lamps.anyOn
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 66, style: .continuous)
-                    .fill(.white.opacity(0.08))
+                    .fill(.black.opacity(0.22))
                     .glassEffect(.clear, in: .rect(cornerRadius: 66, style: .continuous))
-                Rectangle().fill(.white)
+                Rectangle().fill(LinearGradient(colors: [.white, Color(hex: "#ffe9bd")], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(height: proxy.size.height * Double(store.lamps.brightness) / 100)
+                    .overlay(alignment: .top) {
+                        Capsule().fill(Color(hex: "#a96620").opacity(0.3))
+                            .frame(width: 56, height: 5).padding(.top, 15)
+                    }
                 Image(systemName: "sun.max.fill").font(.system(size: 44, weight: .medium))
                     .foregroundStyle(store.lamps.brightness > 14 ? Palette.amber : .white.opacity(0.7))
                     .frame(maxWidth: .infinity).padding(.bottom, 34)
             }
             .clipShape(RoundedRectangle(cornerRadius: 66, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 66, style: .continuous)
-                .strokeBorder(.white.opacity(0.4), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.1), radius: 24, y: 12)
+                .strokeBorder(LinearGradient(colors: [.white.opacity(0.85), .white.opacity(0.1), .white.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5))
+            .shadow(color: .black.opacity(0.27), radius: 30, y: 18)
             .opacity(enabled ? 1 : 0.4)
             .contentShape(RoundedRectangle(cornerRadius: 66, style: .continuous))
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in

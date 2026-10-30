@@ -71,12 +71,26 @@ struct LampState {
     var party: PartySpeed = .off
     var lampColors = Array(repeating: "#ffe0b2", count: 8)
     var anyOn: Bool { on.contains(true) }
+    static func members(_ key: Accessory) -> Range<Int> {
+        switch key {
+        case .bedroom: 0..<3
+        case .livingRoom: 3..<names.count
+        case .lamps: 0..<names.count
+        default: 0..<0
+        }
+    }
+    func onCount(_ key: Accessory = .lamps) -> Int {
+        Self.members(key).count { on[$0] }
+    }
+    func countLabel(_ key: Accessory = .lamps) -> String {
+        let count = onCount(key)
+        return "\(count) \(count == 1 ? "lamp" : "lamps") on"
+    }
     func isOn(_ key: Accessory) -> Bool {
         switch key {
         case .all: on.allSatisfy { $0 } && ceiling && cabinet
         case .lamps: anyOn
-        case .bedroom: on[0..<3].contains(true)
-        case .livingRoom: on[3..<8].contains(true)
+        case .bedroom, .livingRoom: onCount(key) > 0
         case .lights: ceiling || cabinet
         case .ceiling: ceiling
         case .cabinet: cabinet

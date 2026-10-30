@@ -136,25 +136,29 @@ struct ControlsController: View {
 struct WifiController: View {
     let wifi: WifiState
     var body: some View {
-        VStack(spacing: 36) {
-            Spacer()
-            Image(systemName: "wifi").font(.system(size: 85, weight: .light)).opacity(0.85)
+        GeometryReader { proxy in
             if let ssid = wifi.ssid, !ssid.isEmpty {
-                VStack(spacing: 12) {
-                    Text("Network").font(.system(size: 23)).opacity(0.6)
-                    Text(ssid).font(.system(size: 86, weight: .light)).textSelection(.enabled)
-                }
-                VStack(spacing: 14) {
-                    Text(wifi.password?.isEmpty == false ? "Password" : "Open network").font(.system(size: 23)).opacity(0.6)
+                VStack(spacing: 16) {
+                    if let image = WifiQRCode.render(wifi) {
+                        WifiQRHero(image: image)
+                            .frame(width: proxy.size.height * 0.66, height: proxy.size.height * 0.66)
+                            .padding(.bottom, 10)
+                    }
+                    Text(ssid).font(.system(size: 54, weight: .bold)).textSelection(.enabled)
+                        .lineLimit(1).minimumScaleFactor(0.6)
                     Text(wifi.password.flatMap { $0.isEmpty ? nil : $0 } ?? "No password")
-                        .font(.system(size: 48, weight: .medium, design: .monospaced)).textSelection(.enabled)
-                }.padding(.horizontal, 45).padding(.vertical, 30)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 34))
+                        .font(.system(size: 38, weight: .medium, design: .monospaced))
+                        .textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.5)
+                    Text(wifi.password?.isEmpty == false ? "Scan to join" : "Scan to join · Open network")
+                        .font(.system(size: 25, weight: .medium)).opacity(0.7)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 40)
             } else {
-                Text("Guest network not configured").font(.system(size: 48, weight: .light))
+                VStack(spacing: 36) {
+                    Image(systemName: "wifi").font(.system(size: 85, weight: .light)).opacity(0.85)
+                    Text("Guest network not configured").font(.system(size: 48, weight: .light))
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Spacer()
-        }.padding(40)
+        }
     }
 }
 struct ControllerPreview: View {

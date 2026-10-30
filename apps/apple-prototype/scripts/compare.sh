@@ -16,7 +16,8 @@ rows = [
     [(refs/'calum_6_green_clock_face.png', 'calum_6'), (out/'clock-near.png', 'clock-near'),
      (refs/'calum_5_music_player.png', 'calum_5'), (out/'nowplaying.png', 'nowplaying'),
      (refs/'calum_4_timer_orange_ring.png', 'calum_4'), (out/'alarm.png', 'alarm')],
-    [(out/'controls-face.png', 'controls-face'), (out/'clock-idle.png', 'clock-idle')]
+    [(out/'controls-face.png', 'controls-face'), (out/'clock-idle.png', 'clock-idle'),
+     (out/'wifi.png', 'wifi'), (out/'alarm-ringing.png', 'alarm-ringing')]
 ]
 width, cell_height = 3600, 660
 canvas = Image.new('RGB', (width, cell_height * len(rows)), '#172320')

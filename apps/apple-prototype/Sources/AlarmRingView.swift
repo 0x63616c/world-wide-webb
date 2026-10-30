@@ -13,7 +13,10 @@ struct AlarmRingView: View {
                 ZStack {
                     Color.black
                     AlarmTicks(fraction: next?.ringFraction(at: now) ?? 0, ringing: next?.ringing ?? false)
-                        .padding(.horizontal, 88).padding(.vertical, 80)
+                        .background {
+                            ContainerRelativeShape().stroke(orange.opacity(0.045), lineWidth: 1)
+                        }
+                        .padding(AlarmPerimeter.edgeInset)
                     VStack(spacing: 22) {
                         Text(next?.ringing == true ? "Alarm" : next?.snoozed == true ? "Snoozed" : "Next alarm")
                             .font(.system(size: 28, weight: .medium)).foregroundStyle(.white.opacity(0.55))
@@ -40,10 +43,10 @@ struct AlarmRingView: View {
                         Spacer()
                         Button("Alarms", systemImage: "alarm", action: edit)
                             .font(.system(size: 22, weight: .medium)).buttonStyle(.glass)
-                    }.frame(maxHeight: .infinity, alignment: .top).padding(32)
+                    }.frame(maxHeight: .infinity, alignment: .top).padding(74)
                     Text("Fixture data").font(.system(size: 12)).opacity(0.4)
                         .position(x: proxy.size.width / 2, y: proxy.size.height - 22)
-                }
+                }.containerShape(.rect(cornerRadius: AlarmPerimeter.displayCornerRadius, style: .circular))
             }
         }.foregroundStyle(.white).tint(orange).ignoresSafeArea()
     }
@@ -59,35 +62,64 @@ private struct AlarmTicks: View {
     let ringing: Bool
     var body: some View {
         Canvas { context, size in
-            // Sample the superellipse by arc length so the ticks stay evenly spaced.
-            let a = size.width / 2 - 5, b = size.height / 2 - 5
-            let samples: [CGPoint] = (0...2400).map { index in
-                let angle = Double(index) / 2400 * 2 * .pi - .pi / 2
-                return CGPoint(x: a * copysign(pow(abs(cos(angle)), 0.5), cos(angle)),
-                               y: b * copysign(pow(abs(sin(angle)), 0.5), sin(angle)))
-            }
-            var distances = [CGFloat](repeating: 0, count: samples.count)
-            for i in 1..<samples.count {
-                distances[i] = distances[i - 1] + hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y)
-            }
-            let perimeter = distances.last!
-            var index = 1
-            for tick in 0..<80 {
-                let distance = perimeter * Double(tick) / 80
-                while index < samples.count - 1 && distances[index] < distance { index += 1 }
-                let span = distances[index] - distances[index - 1]
-                let t = span > 0 ? (distance - distances[index - 1]) / span : 0
-                let p = CGPoint(x: samples[index - 1].x + (samples[index].x - samples[index - 1].x) * t,
-                                y: samples[index - 1].y + (samples[index].y - samples[index - 1].y) * t)
-                // The gradient of x^4/a^4 + y^4/b^4 gives the true outward normal.
-                let nx = pow(p.x / a, 3) / a, ny = pow(p.y / b, 3) / b
-                let length = hypot(nx, ny)
-                let outer = CGPoint(x: size.width / 2 + p.x, y: size.height / 2 + p.y)
-                let inner = CGPoint(x: outer.x - nx / length * 30, y: outer.y - ny / length * 30)
+            let perimeter = AlarmPerimeter(size: size)
+            let tickCount = 180
+            for tick in 0..<tickCount {
+                let progress = Double(tick) / Double(tickCount)
+                let sample = perimeter.sample(at: perimeter.length * progress)
+                let outer = sample.point
+                let tickLength: CGFloat = tick.isMultiple(of: 5) ? 28 : 16
+                let inner = CGPoint(x: outer.x - sample.normal.dx * tickLength,
+                                    y: outer.y - sample.normal.dy * tickLength)
                 var path = Path(); path.move(to: inner); path.addLine(to: outer)
-                let active = ringing || Double(tick) / 80 < fraction
-                context.stroke(path, with: .color(Color(hex: "#ff9f24").opacity(active ? 1 : 0.19)), style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                let active = ringing || progress < min(1, max(0, fraction))
+                context.stroke(path, with: .color(Color(hex: "#ff9f24").opacity(active ? 1 : 0.19)), style: StrokeStyle(lineWidth: 5, lineCap: .round))
             }
         }.accessibilityHidden(true)
+    }
+}
+
+// Exact arc-length sampler: four straight edges and four circular corners.
+// The contour is concentric with the explicit display container above; progress
+// starts at top centre and travels clockwise, including through every corner.
+struct AlarmPerimeter {
+    static let displayCornerRadius: CGFloat = 56
+    static let edgeInset: CGFloat = 28
+    let size: CGSize
+    var radius: CGFloat { min(Self.displayCornerRadius - Self.edgeInset, min(size.width, size.height) / 2) }
+    var length: CGFloat { 2 * (size.width + size.height - 4 * radius) + 2 * .pi * radius }
+
+    struct Sample {
+        let point: CGPoint
+        let normal: CGVector
+    }
+
+    func sample(at distance: CGFloat) -> Sample {
+        let r = radius, w = size.width, h = size.height
+        let horizontal = w - 2 * r, vertical = h - 2 * r
+        let arc = .pi * r / 2
+        var remaining = (distance.truncatingRemainder(dividingBy: length) + length).truncatingRemainder(dividingBy: length)
+        let lengths = [horizontal / 2, arc, vertical, arc, horizontal, arc, vertical, arc, horizontal / 2]
+        for (index, segment) in lengths.enumerated() {
+            if remaining <= segment {
+                switch index {
+                case 0: return Sample(point: CGPoint(x: w / 2 + remaining, y: 0), normal: CGVector(dx: 0, dy: -1))
+                case 2: return Sample(point: CGPoint(x: w, y: r + remaining), normal: CGVector(dx: 1, dy: 0))
+                case 4: return Sample(point: CGPoint(x: w - r - remaining, y: h), normal: CGVector(dx: 0, dy: 1))
+                case 6: return Sample(point: CGPoint(x: 0, y: h - r - remaining), normal: CGVector(dx: -1, dy: 0))
+                case 8: return Sample(point: CGPoint(x: r + remaining, y: 0), normal: CGVector(dx: 0, dy: -1))
+                default:
+                    let corner = (index - 1) / 2
+                    let centres = [CGPoint(x: w - r, y: r), CGPoint(x: w - r, y: h - r),
+                                   CGPoint(x: r, y: h - r), CGPoint(x: r, y: r)]
+                    let angle = CGFloat(corner - 1) * .pi / 2 + remaining / r
+                    let normal = CGVector(dx: cos(angle), dy: sin(angle))
+                    return Sample(point: CGPoint(x: centres[corner].x + normal.dx * r,
+                                                 y: centres[corner].y + normal.dy * r), normal: normal)
+                }
+            }
+            remaining -= segment
+        }
+        return Sample(point: CGPoint(x: w / 2, y: 0), normal: CGVector(dx: 0, dy: -1))
     }
 }

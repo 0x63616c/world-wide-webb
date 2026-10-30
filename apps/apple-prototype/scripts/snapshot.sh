@@ -45,5 +45,9 @@ xcodebuild "${args[@]}" -only-testing:WorldWideWebbTests/SnapshotRenderTests \
 if [[ -n "${snapshot_check_pid:-}" ]]; then wait "$snapshot_check_pid"; fi
 snapshot_container=$(xcrun simctl get_app_container "$snapshot_device" co.worldwidewebb.prototype.ipad data)
 cp "$snapshot_container/Documents/Snapshots/"*.png "$snapshot_output/"
+# Includes the full-screen QR hero; fail if a requested scene was not rendered.
+for snapshot_name in home controls-face lamps wifi clock-idle clock-near alarm alarm-ringing nowplaying; do
+    test -s "$snapshot_output/$snapshot_name.png"
+done
 echo "Render loop: $((SECONDS - snapshot_started))s"
 echo "PNGs: $snapshot_output"

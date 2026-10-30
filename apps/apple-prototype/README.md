@@ -1,8 +1,8 @@
 # World Wide Webb — Apple prototype
 
-Native SwiftUI HomeView-style study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8). macOS 26+ and iPadOS 26+, built with Xcode 27. No backend, networking, bundled photos, QR codes, or production credentials. All device/weather/network/alarm values are **fixtures** and reset on launch.
+Native SwiftUI HomeView-style study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8). macOS 26+ and iPadOS 26+, built with Xcode 27. No backend, networking, bundled photos, or production credentials. All device/weather/network/alarm values are **fixtures** and reset on launch.
 
-## v2 iteration 2 — Home, Controls, Clock and Music
+## v2 iteration 2b — Wi-Fi QR hero and face fixes
 
 Home is a near-square six-complication face at the center of the 1376×1032-point
 canvas. Climate spans 2×2 cells, with Clock and Guest Wi-Fi at right; Bedroom
@@ -14,20 +14,40 @@ Climate uses regular-weight numerals. Large procedural teal fan blades and arcs,
 clear Liquid Glass, white specular edges, soft shadows and translucent ON states
 carry the Home treatment. No reference images are bundled.
 
-Lamps retains its global 220×560-point vertical brightness control, honestly
-labelled **All lamps**. Its amber field now has a radial light behind the fader;
-room names are 28-point semibold, member captions 19-point, and the two room
-buttons are 164 points across. Color & Effects contains the existing supported
-lamp controls; individual member names remain captions.
+Lamps uses a global 244×610-point vertical brightness control, honestly
+labelled **All lamps**, with a stronger track and warm white fill. A layered
+amber field lights the fader and two 204-point room buttons. Room counts and
+member captions use the same fixture membership as Home and Clock; the default
+three lamps on are Bed Left, Bed Right and Mirror in Bedroom. Color & Effects
+contains the existing supported lamp controls; individual member names remain captions.
 
-The green Clock face uses enormous black numerals and white hands. Tap its
+The Home clock has a circular glass surface and the Climate chevrons are 62-point
+semibold. ON glass is less opaque. A neutral specular edge sits above the native
+glass compositor, sharing the face grid geometry in both the live view and snapshot.
+
+Guest Wi-Fi opens a centred CoreImage QR hero with level-M correction and a
+standard escaped Wi-Fi payload built from the current fixture SSID and password.
+The white rounded card occupies about 58% of the full screen height; integer
+pixel scaling, nearest-neighbour interpolation and a quiet zone preserve scan
+quality. The SSID, readable password and **Scan to join** sit below. Open networks
+use `nopass`; unconfigured networks keep the empty state. QR codes appear only
+in this full-screen controller, never on the Home tile or Clock complication.
+
+The green Clock face uses enormous black numerals and white hands. Near mode
+shrinks the dial slightly and uses dark, opaque-backed glass complications;
+Climate explicitly labels its value **Inside**. Tap its
 background to simulate approach: Climate, Lamps, Guest Wi-Fi and current Weather
 complications fade/scale in over 240 ms. Reduced Motion disables the transition.
 `-face clock -presence near|far` selects either state; this is a prototype presence
 input, not a sensor or automatic idle policy. The alarm complication and Home
 clock open the full-screen next-alarm ring. Its orange ticks represent the final
 24 hours before the next occurrence, depleting as time passes. Alarms farther away
-show a full ring. The existing alarm editor is reached with **Alarms**.
+show a full ring. The ring follows a rounded rectangle inset 28 points evenly
+from the display, with a 28-point corner radius concentric with the explicit
+56-point display container. Exact arc-length samples place 180 perpendicular
+ticks around the straight edges and circular corners, every fifth tick longer.
+Progress begins at top centre and travels clockwise. The existing alarm editor
+is reached with **Alarms**.
 `-openTile alarm -alarmRinging` demonstrates the supported Snooze and Stop actions;
 snooze uses that alarm's minutes and stale occurrence versions are rejected.
 There is no timer feature and the prototype never actuates a real alarm.
@@ -43,6 +63,7 @@ cycle a small explicit fixture queue; no Sonos connection exists.
 Screenshots: [Home](docs/screenshots/v2/home.png) ·
 [Controls](docs/screenshots/v2/controls-face.png) ·
 [Lamps](docs/screenshots/v2/lamps.png) ·
+[Guest Wi-Fi](docs/screenshots/v2/wifi.png) ·
 [Clock idle](docs/screenshots/v2/clock-idle.png) ·
 [Clock near](docs/screenshots/v2/clock-near.png) ·
 [Next alarm](docs/screenshots/v2/alarm.png) ·
@@ -64,13 +85,13 @@ bash scripts/snapshot.sh --glass-check # optional one-time native screen compari
 
 `WorldWideWebb-Snapshots` excludes the UI-test target. The script uses fixed warm
 `~/wwwebb-proto-dd`, then runs only `WorldWideWebbTests/SnapshotRenderTests` with
-`test-without-building`. It renders all seven scenes at 1376×1032 points, scale 2,
-with a fixed fixture clock. It saves both SwiftUI ImageRenderer output (suffix
+`test-without-building`. It renders all nine scenes (including Wi-Fi and the
+ringing alarm) at 1376×1032 points, scale 2, with a fixed fixture clock. It saves both SwiftUI ImageRenderer output (suffix
 `-imagerenderer`) and native `UIHostingController`/`drawHierarchy` output in one
 persistent XCTest window. The latter is the delivered glass-preserving path,
 checked once against `simctl io screenshot` during that same test. No app tour,
 manual simulator launch, or UI tests are involved. Output is in
-`~/wwwebb-proto-snapshots/`; copy the seven PNGs back immediately. Only the test
+`~/wwwebb-proto-snapshots/`; copy the PNGs back immediately. Only the test
 host runs, using the existing simulator session.
 
 Compose a labelled local review with:
@@ -90,6 +111,8 @@ DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer xcodebuild \
   -destination 'platform=iOS Simulator,id=A0ECBA0E-5E14-4DE2-ACD7-7C2A5EA0AFBF' \
   -derivedDataPath "$HOME/wwwebb-proto-dd" -parallel-testing-enabled NO \
   -only-testing:WorldWideWebbTests/HomeDataSourceTests \
+  -only-testing:WorldWideWebbTests/WifiQRCodeTests \
+  -only-testing:WorldWideWebbTests/AlarmPerimeterTests \
   CODE_SIGNING_ALLOWED=NO test-without-building
 ```
 
@@ -122,7 +145,7 @@ xcodebuild -project WorldWideWebb.xcodeproj -scheme WorldWideWebb-iPad \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
 ```
 
-Unit tests cover master semantics, membership, fan/climate state, bounds/deadband, disabled lamp controls, color validation, pending command convergence, Wi-Fi fixtures, alarms and calibrated sound behavior. UI tests open/close the nine Home complications, verify glyph taps stay on the face, drag global brightness and check both room states, verify disabled brightness, exercise the effects sheet, switch climate modes, and inspect every Wi-Fi fixture.
+Unit tests cover Wi-Fi payload escaping/open networks and QR decode round trips, rounded-rectangle arc length and normals, lamp counts, master semantics, membership, fan/climate state, bounds/deadband, disabled lamp controls, color validation, pending command convergence, Wi-Fi fixtures, alarms and calibrated sound behavior. UI tests open/close the nine Home complications, verify glyph taps stay on the face, drag global brightness and check both room states, verify disabled brightness, exercise the effects sheet, switch climate modes, and inspect every Wi-Fi fixture.
 
 ## Open the delivered Mac app
 
@@ -145,7 +168,7 @@ ditto -c -k --keepParent "$HOME/wwwebb-proto-dd/Build/Products/Release/WorldWide
 | --- | --- |
 | `features/ctrl/web/ControlsTileView.tsx`, `ExpandedControlsView.tsx`, `service.ts` | All; Fan; Lamps master with Bedroom and Living Room; Lights master with Ceiling and Under Cabinet. Brightness 0–100%, White/Mood, 2000–6500 K in 100 K steps, Custom 1/2/3 with hex Edit / Cancel / Save & use, Party Off/Slow/Med/Fast. |
 | `features/ac/web/ClimateTileView.tsx` | Climate 2×2 tile with direct 1° chevrons; Cool / Heat / Heat·Cool / Off; 67–77 °F, 2° deadband; Now and action; same A/C fan in controller. |
-| `features/wifi/web/WifiTileView.tsx` | Guest Wi-Fi / SSID complication. Full-screen SSID and password; open and unconfigured variants. No QR. |
+| `features/wifi/web/WifiTileView.tsx` | Guest Wi-Fi / SSID complication. Full-screen QR hero, SSID and password; open and unconfigured variants. Tile remains glyph + SSID. |
 | `features/events/web/ClockGreetingView.tsx`, `AlarmsPage.tsx`, `contract.ts` | Analog tile with smooth seconds; full-screen time, greeting, date, location, next alarm, enable/edit/delete/add; Label, Time, Date, Time zone, repeating days, Snooze minutes, Light entities or scene. |
 | `features/weather/web/WeatherNowView.tsx`, `Next12HoursView.tsx` | Current conditions, high/low, Feels / Humidity / Wind / Sunset; 12 hourly temperature bars with feels marks, icon and time. |
 | `features/sound/web/SoundSystemTileView.tsx`, `SoundSystemPage.tsx`, `hooks/useMixer.ts`, `calibration.ts` | Five rooms, Playing/Idle panels, blue coordinator, volume/mute, global/group locks, ±1 steppers, group moves, join all to Desk/TV, Calibrate/Clear. |

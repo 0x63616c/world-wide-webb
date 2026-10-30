@@ -148,8 +148,8 @@ struct HomeView: View {
     @ViewBuilder private func homeFace(size: CGSize) -> some View {
         #if os(iOS)
         TabView(selection: $facePage) {
-            GlassEffectContainer(spacing: 12) { faceGrid(size: size, controls: false) }.tag(0)
-            GlassEffectContainer(spacing: 12) { faceGrid(size: size, controls: true) }.tag(1)
+            faceGrid(size: size, controls: false).tag(0)
+            faceGrid(size: size, controls: true).tag(1)
             PresenceClockFace(store: store, near: $presenceNear, open: open).tag(2)
             NowPlayingView(store: store) { facePage = 0 }.tag(3)
         }
@@ -159,7 +159,7 @@ struct HomeView: View {
         Group {
             if facePage == 2 { PresenceClockFace(store: store, near: $presenceNear, open: open) }
             else if facePage == 3 { NowPlayingView(store: store) { facePage = 0 } }
-            else { GlassEffectContainer(spacing: 12) { faceGrid(size: size, controls: facePage == 1) } }
+            else { faceGrid(size: size, controls: facePage == 1) }
         }.gesture(DragGesture(minimumDistance: 60).onEnded { value in
                 if abs(value.translation.width) > abs(value.translation.height) {
                     facePage = min(3, max(0, facePage + (value.translation.width < 0 ? 1 : -1)))
@@ -168,7 +168,7 @@ struct HomeView: View {
         #endif
     }
     private func faceGrid(size: CGSize, controls: Bool) -> some View {
-        HomeFaceGrid(store: store, size: size, controls: controls, selected: selected == .alarm ? .clock : selected, zoom: zoom, open: open)
+        HomeGlassFace(store: store, size: size, controls: controls, selected: selected == .alarm ? .clock : selected, zoom: zoom, open: open)
     }
     private func open(_ tile: HomeTile) {
         guard selected == nil, !transitioning else { return }
@@ -215,6 +215,24 @@ struct FacePicker: View {
         }
     }
 }
+struct HomeGlassFace: View {
+    let store: any HomeDataSource
+    let size: CGSize
+    let controls: Bool
+    var selected: HomeTile?
+    let zoom: Namespace.ID
+    let open: (HomeTile) -> Void
+    var body: some View {
+        GlassEffectContainer(spacing: 12) {
+            HomeFaceGrid(store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)
+        }.overlay {
+            // Native glass compositing can draw its colored bevel over in-container
+            // decorations. Keep the neutral specular edge above that compositor.
+            HomeFaceGrid(store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open, specularOnly: true)
+                .allowsHitTesting(false).accessibilityHidden(true)
+        }
+    }
+}
 struct HomeFaceGrid: View {
     let store: any HomeDataSource
     let size: CGSize
@@ -222,6 +240,7 @@ struct HomeFaceGrid: View {
     var selected: HomeTile?
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
+    var specularOnly = false
     var body: some View {
         let faceH = size.height - 96
         let faceW = min(size.width - 80, faceH * 1.10)
@@ -230,7 +249,7 @@ struct HomeFaceGrid: View {
         let cellH = (faceH - gap * 2) / 3
         let contentScale = cellH / 297.33
         return ZStack(alignment: .topLeading) {
-            if controls {
+            if controls && !specularOnly {
                 Text("Controls").font(.system(size: 40 * contentScale, weight: .semibold))
                     .frame(width: faceW).offset(y: cellH * 0.62)
             }
@@ -238,16 +257,21 @@ struct HomeFaceGrid: View {
                 let c = tile.cells
                 let width = cellW * Double(c.w) + gap * Double(c.w - 1)
                 let height = cellH * Double(c.h) + gap * Double(c.h - 1)
+                let surfaceWidth = tile == .clock ? min(width, height) : width
                 let radius = tile == .clock ? height / 2 : 54 * contentScale
                 ZStack {
                     if selected != tile {
-                        TileFace(tile: tile, store: store, open: { open(tile) })
-                            .frame(width: width / contentScale, height: height / contentScale)
-                            .scaleEffect(contentScale)
-                            .frame(width: width, height: height)
-                            .faceGlass(on: tileOn(tile), radius: radius)
-                            .matchedGeometryEffect(id: tile.id, in: zoom)
-                            .transition(.opacity)
+                        if specularOnly {
+                            FaceSpecularEdge(radius: radius).frame(width: surfaceWidth, height: height)
+                        } else {
+                            TileFace(tile: tile, store: store, open: { open(tile) })
+                                .frame(width: surfaceWidth / contentScale, height: height / contentScale)
+                                .scaleEffect(contentScale)
+                                .frame(width: surfaceWidth, height: height)
+                                .faceGlass(on: tileOn(tile), radius: radius)
+                                .matchedGeometryEffect(id: tile.id, in: zoom)
+                                .transition(.opacity)
+                        }
                     } else {
                         Color.clear
                     }
@@ -322,8 +346,8 @@ struct TileFace: View {
     }
     private func setpointButton(_ symbol: String, label: String, delta: Int) -> some View {
         Button { step(delta) } label: {
-            Image(systemName: symbol).font(.system(size: 33, weight: .medium))
-                .frame(width: 70, height: 70).contentShape(Circle())
+            Image(systemName: symbol).font(.system(size: 62, weight: .semibold))
+                .frame(width: 92, height: 92).contentShape(Circle())
         }.buttonStyle(.plain)
             .disabled(store.climate.mode == .off)
             .accessibilityLabel(label)
@@ -344,8 +368,8 @@ struct AccessoryFace: View {
         case .all: "Everything"
         case .fan: "A/C · \(store.climate.fanLabel)"
         case .lamps, .lights: on ? "On" : "Off"
-        case .bedroom: "Bedroom"
-        case .livingRoom: "Living Room"
+        case .bedroom: "Bedroom · \(store.lamps.onCount(.bedroom)) on"
+        case .livingRoom: "Living Room · \(store.lamps.onCount(.livingRoom)) on"
         case .ceiling: "Ceiling"
         case .cabinet: "Kitchen"
         }
