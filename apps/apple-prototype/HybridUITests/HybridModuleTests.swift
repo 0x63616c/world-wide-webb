@@ -24,7 +24,12 @@ final class HybridModuleTests: XCTestCase {
                 XCTAssertTrue(app.staticTexts["Walk history"].exists)
             }
             capture("\(module)-detail")
-            app.buttons["module-home"].tap()
+            if module == "wifi" {
+                // Wi-Fi details use the existing full-screen QR presentation.
+                let qr = app.buttons["wifi-fullscreen-qr"]
+                if qr.waitForExistence(timeout: 5) { qr.tap() }
+            }
+            app.returnHomeFromModule()
             app.buttons["home-classic"].tap()
             XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
             let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
@@ -84,10 +89,10 @@ final class HybridModuleTests: XCTestCase {
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.climate", "native", "-moduleFlag.wifi", "native"]
         app.launchModuleFromHome()
         XCTAssertTrue(app.descendants(matching: .any)["native-climate-tile"].firstMatch.waitForExistence(timeout: 30))
-        app.buttons["module-home"].tap()
+        app.returnHomeFromModule()
         app.openHomeModule("wifi")
         XCTAssertTrue(app.descendants(matching: .any)["native-wifi-detail"].firstMatch.waitForExistence(timeout: 10))
-        app.buttons["module-home"].tap()
+        app.returnHomeFromModule()
         app.openHomeModule("climate")
         XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 10))
         capture("mixed-flags")

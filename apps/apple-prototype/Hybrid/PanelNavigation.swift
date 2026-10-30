@@ -56,5 +56,7 @@ struct PanelStatusOverlays: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .top) { PanelNotificationOverlay() }
     }
 }

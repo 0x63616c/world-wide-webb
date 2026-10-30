@@ -17,6 +17,7 @@ struct PanelRoot: View {
     // Configuration and flags are intentional launch-time snapshots.
     @State private var session: KioskSession
     @State private var updateChecker: UpdateChecker
+    @State private var notifications: NotificationCenter
     @State private var store: LiveHomeDataSource
     @State private var navigation = PanelNavigation()
     private let webOnly: Bool
@@ -24,6 +25,7 @@ struct PanelRoot: View {
     private let requested: Set<PanelModule>
 
     init() {
+        _notifications = State(initialValue: PanelNotifications.make())
         _updateChecker = State(initialValue: UpdateChecker.live(configuration: PanelConfiguration()))
         // Fixture runs keep the all-web default so UI tests opt in per module.
         #if DEBUG
@@ -180,6 +182,16 @@ struct PanelRoot: View {
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await updateChecker.run()
+        }
+        .environment(notifications)
+        .onAppear {
+            notifications.setOpenHandler { [store, session, navigation, router] item in
+                PanelNotifications.open(item, store: store, session: session, navigation: navigation, router: router)
+            }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await notifications.run()
         }
         .onDisappear { session.stop(); store.stop() }
     }

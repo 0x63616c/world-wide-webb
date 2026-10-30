@@ -1170,3 +1170,75 @@ Panel -only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveSonosProvide
 run passed 94 Panel + 16 provider tests on the job-owned iPad simulator. Captures
 live under `docs/screenshots/WWW-30/` in the repo root; they use synthetic transport
 responses, not the wall.
+
+## Shared in-app notifications (WWW-59)
+
+Panel owns one `@Observable NotificationCenter`, injected by type at the root.
+Modules can post without permission prompts or a backend dependency:
+
+```swift
+@Environment(NotificationCenter.self) private var notifications
+// After a real module event:
+notifications.post(sourceModule: "lights", title: "Scene ready",
+    body: "Reading lights are ready.", deepLink: "module/lights",
+    priority: .normal, dedupeKey: "reading-scene")
+```
+
+Local items are memory-only; this slice does not POST them to the server.
+Remote items use `PanelKit.NotificationsAPI` and the existing authenticated tRPC
+transport (the equivalent WWW-58 procedures in `docs/notifications-api.md`).
+Unfiltered pages drain immediately, followed by a five-second revision poll.
+An absent endpoint/network failure retains received history and local posting,
+retrying every 30 seconds. Scene backgrounding cancels polling. After 30 days
+without a successful sync, the next successful initial fetch replaces remote
+history because server dismissal tombstones may have expired. Payloads and
+credentials are never logged or persisted by the service.
+
+History combines both origins, deduplicating `(sourceModule, dedupeKey)`;
+null keys remain independent. A matching server echo replaces the local identity
+without a second arrival or resetting its remaining reading time. Groups and
+history sort by priority, newest creation time, then stable ID. Higher revisions
+replace remote rows; dismissed tombstones remove them. Read changes hide the
+banner. `history`, `groups`, `bannerGroups`, `unreadCount`, `markRead`, `dismiss`,
+`clear(sourceModule:)` and `clear()` are the shared seam for WWW-60/WWW-61.
+Clear preserves local posts arriving during the server request; failed remote
+actions retain history and show an error. No pull-down history screen is added.
+
+The shared status overlay shows banners on Home, Classic and presented native
+controllers; the Wi-Fi QR presentation also hosts it. These surfaces share the
+same environment service. A presentation stack gives only the top visible surface
+ownership of auto-dismiss timing and haptics. Root-injected navigation callbacks
+resolve source taps through `PanelNavigation`, including dismissal of Home's
+current full-screen destination. Unknown routes keep their banner and unread state.
+
+The overlay uses native Liquid Glass and source glyph/name, title, body and
+relative time. Up to three source groups appear, or one at accessibility text
+sizes. Same-source arrivals stack, with the highest-priority/newest item exposed.
+Tap opens that module's existing Hybrid detail route and marks the item read;
+disabled or unavailable native modules keep the router's web-board fallback.
+Alarms retain their existing web deep link. Unknown/malformed routes leave the
+item available and never open external URLs. Optional nested paths currently
+resolve to module detail (with `module/events/alarms` mapped to Alarms).
+
+Swipe up/sideways or the accessible Dismiss button dismisses the exposed item,
+revealing the next in its group. Normal/low banners last five visible seconds,
+high lasts ten, critical remains until acted on. Timeout hides only the banner,
+leaving unread history intact. Hidden/queued items do not consume reading time;
+touch, VoiceOver and backgrounding pause it. Reduce Motion uses a short fade in
+place of the spring/drop. Arrival, explicit dismissal and navigation use native
+`sensoryFeedback`; physical haptics depend on device support.
+
+Debug-only, synthetic captures (no notification API traffic):
+
+```text
+-hybridFixtures -moduleFlag.lights native -notificationSamples
+-hybridFixtures -moduleFlag.lights native -moduleFlag.climate native -notificationSamples -notificationStack
+```
+
+`-notificationHold` pauses banner timers for deterministic captures.
+`-notificationReduceMotion` exercises reduced-motion presentation without changing
+shared simulator settings. `-UIPreferredContentSizeCategoryName
+UICTContentSizeCategoryAccessibilityXXXL` exercises accessibility text.
+`PanelUITests/NotificationBannerTests` captures the banner, destination, stack,
+cleared overlay and accessibility presentation as retained XCTest attachments.
+The inbox itself is covered by unit tests; its history UI belongs to WWW-60.
