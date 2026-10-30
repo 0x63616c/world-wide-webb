@@ -1,5 +1,6 @@
 import ActivityKit
 import Foundation
+import PanelKit
 import Security
 
 private struct AlarmCredentials: Codable {
@@ -72,9 +73,9 @@ public actor PanelAlarmCoordinator {
     return try JSONDecoder().decode(AlarmCredentials.self, from: data)
   }
 
-  private func request(method: String, body: Data? = nil, key: String? = nil) async throws -> Data {
+  private func request(method: String, body: Data? = nil, key: String? = nil, action: Bool = false) async throws -> Data {
     let auth = try credentials()
-    let endpoint = auth.url.appendingPathComponent("api/alarms")
+    let endpoint = auth.url.appendingPathComponent(action ? "api/alarms/action" : "api/alarms")
     var request = URLRequest(url: endpoint, timeoutInterval: 12)
     request.httpMethod = method
     request.httpBody = body
@@ -104,6 +105,25 @@ public actor PanelAlarmCoordinator {
     }
     // Creation succeeded even if ActivityKit is unavailable/disabled.
     try? await refresh()
+  }
+
+  func act(delivery: AlarmDelivery, snooze: Bool) async throws {
+    // The worker may not have materialized the occurrence at the exact instant
+    // AlarmKit alerts. Wait briefly for that exact ring, never act on a newer one.
+    var ring: ActiveAlarm?
+    for attempt in 0..<4 {
+      let snapshot = try JSONDecoder().decode(AlarmsSnapshot.self, from: await request(method: "GET"))
+      ring = snapshot.active.first { delivery.matches($0) && $0.isRinging(at: Date()) }
+      if ring != nil { break }
+      if attempt < 3 { try await Task.sleep(for: .seconds(1)) }
+    }
+    guard let ring else { throw NativeAlarmFailure.unavailable }
+    let body = try JSONSerialization.data(withJSONObject: ["id": ring.id, "version": ring.version, "action": snooze ? "snooze" : "stop"])
+    _ = try await request(method: "POST", body: body, action: true)
+    let data = try await request(method: "GET")
+    let snapshot = try JSONDecoder().decode(AlarmsSnapshot.self, from: data)
+    try await NativeAlarmScheduler.shared.sync(snapshot)
+    try await sync(json: String(decoding: data, as: UTF8.self))
   }
 
   public func refresh() async throws {

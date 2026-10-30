@@ -7,10 +7,12 @@ import PanelKit
 actor HybridFixtureTransport: PanelTransport {
     private let root: URL
     private let unavailable: Bool
+    private let alarmScenario: String
     private var overrides: [String: String] = [:]
     private(set) var requests: [URLRequest] = []
 
-    init(root: URL, unavailable: Bool = false) {
+    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled") {
+        self.alarmScenario = alarmScenario
         self.root = root
         self.unavailable = unavailable
     }
@@ -25,6 +27,7 @@ actor HybridFixtureTransport: PanelTransport {
         if let override = overrides[procedure] { file = override }
         else {
             switch procedure {
+            case "alarms.list": file = "alarms/\(alarmScenario).json"
             case "controls.list": file = "all-on.json"
             case "climate.get": file = "climate/cool.json"
             case "wifi.guestQr": file = "wifi/wpa.json"

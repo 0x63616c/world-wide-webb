@@ -72,6 +72,7 @@ struct SectionLabel: View {
     var body: some View { Text(text).font(.system(size: 19, weight: .semibold)).foregroundStyle(.white.opacity(0.7)) }
 }
 struct AnalogClock: View {
+    var timeZone = TimeZone(identifier: "America/Los_Angeles")!
     let date: Date
     var minimal = false
     var body: some View {
@@ -79,7 +80,7 @@ struct AnalogClock: View {
             let side = min(proxy.size.width, proxy.size.height)
             var calendar: Calendar {
                 var value = Calendar(identifier: .gregorian)
-                value.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+                value.timeZone = timeZone
                 return value
             }
             let seconds = date.timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
@@ -106,10 +107,10 @@ struct AnalogClock: View {
         Capsule().fill(.white).frame(width: width, height: length).offset(y: -length / 2 + 5).rotationEffect(.degrees(angle))
     }
 }
-func fixtureTime(_ date: Date, format: String = "h:mm") -> String {
+func fixtureTime(_ date: Date, format: String = "h:mm", timeZone: TimeZone = TimeZone(identifier: "America/Los_Angeles")!) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US")
-    formatter.timeZone = TimeZone(identifier: "America/Los_Angeles")
+    formatter.timeZone = timeZone
     formatter.dateFormat = format
     return formatter.string(from: date)
 }
