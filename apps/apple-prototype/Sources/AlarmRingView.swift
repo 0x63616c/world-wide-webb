@@ -4,6 +4,7 @@ struct AlarmRingView: View {
     let store: any HomeDataSource
     let close: () -> Void
     let edit: () -> Void
+    var dataCaption = "Fixture data"
     private let orange = Color.orange
     var body: some View {
         TimelineView(.periodic(from: store.now, by: 1)) { _ in
@@ -41,7 +42,7 @@ struct AlarmRingView: View {
                         Button("Alarms", systemImage: "alarm", action: edit)
                             .font(.system(size: 22, weight: .medium)).buttonStyle(.glass)
                     }.frame(maxHeight: .infinity, alignment: .top).padding(74)
-                    Text("Fixture data").font(.system(size: 12)).opacity(0.4)
+                    Text(dataCaption).font(.system(size: 12)).opacity(0.4)
                         .position(x: proxy.size.width / 2, y: proxy.size.height - 22)
                 }.containerShape(.rect(cornerRadius: AlarmPerimeter.faceCornerRadius, style: .circular))
             }

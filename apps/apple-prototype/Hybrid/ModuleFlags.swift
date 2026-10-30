@@ -1,7 +1,7 @@
 import Foundation
 
 enum PanelModule: String, CaseIterable, Codable, Sendable {
-    case all, lights, climate, fan, wifi, sonos, weather
+    case all, lights, climate, fan, wifi, sonos, weather, photos, walk, reminders, alarms, calendar, media, tesla, cameras
 }
 
 enum ModuleFlag: String, Codable, Sendable {
@@ -9,20 +9,30 @@ enum ModuleFlag: String, Codable, Sendable {
 }
 
 struct ModuleFlags: Equatable, Sendable {
+    /// Live and verified on the wall (WWW-48): these default to native in shipped builds.
+    /// Every other module, and any module whose live data is missing, keeps the web board.
+    static let shippedNative: Set<PanelModule> = [.lights, .climate, .fan, .weather, .walk]
+    /// iOS Settings > Panel > "Web board only": one switch that sends every module back to web.
+    static let webOnlyKey = "hybrid.webOnly"
+
     private let values: [PanelModule: ModuleFlag]
 
-    init(overrides: [String: String] = [:]) {
-        values = Dictionary(uniqueKeysWithValues: PanelModule.allCases.map {
-            ($0, ModuleFlag(rawValue: overrides["moduleFlag.\($0.rawValue)"] ?? "") ?? .web)
+    /// `native`/`web` win; missing or `default` takes the default; anything else fails to web.
+    init(overrides: [String: String] = [:], nativeByDefault: Set<PanelModule> = [], webOnly: Bool = false) {
+        values = Dictionary(uniqueKeysWithValues: PanelModule.allCases.map { module in
+            let fallback: ModuleFlag = module != .all && nativeByDefault.contains(module) ? .native : .web
+            let raw = overrides["moduleFlag.\(module.rawValue)"] ?? "default"
+            let flag = webOnly ? .web : raw == "default" ? fallback : ModuleFlag(rawValue: raw) ?? .web
+            return (module, flag)
         })
     }
 
-    init(defaults: UserDefaults) {
+    init(defaults: UserDefaults, nativeByDefault: Set<PanelModule> = []) {
         // UserDefaults includes NSArgumentDomain: -moduleFlag.lights native.
         self.init(overrides: Dictionary(uniqueKeysWithValues: PanelModule.allCases.compactMap { module in
             let key = "moduleFlag.\(module.rawValue)"
             return defaults.string(forKey: key).map { (key, $0) }
-        }))
+        }), nativeByDefault: nativeByDefault, webOnly: defaults.bool(forKey: Self.webOnlyKey))
     }
 
     subscript(module: PanelModule) -> ModuleFlag { values[module] ?? .web }

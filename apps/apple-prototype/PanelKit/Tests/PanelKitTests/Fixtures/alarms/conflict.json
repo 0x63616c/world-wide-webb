@@ -1,0 +1,10 @@
+{
+  "error": {
+    "message": "This alarm has changed. Refresh and try again.",
+    "code": -32009,
+    "data": {
+      "code": "CONFLICT",
+      "httpStatus": 409
+    }
+  }
+}

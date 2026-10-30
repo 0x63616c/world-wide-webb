@@ -6,6 +6,11 @@ the existing app and previews still use `MockHomeDataSource`. Constructing the
 adapter does not start requests; call `refresh()` or `startPolling(every:)`.
 Polling defaults to 30 seconds. Call `stop()` when the owner stops using it.
 
+## State synchronization
+
+[SYNC.md](SYNC.md) documents the shared `SyncCoordinator`, fake-clock tests,
+`LiveWalkProvider` adoption, lifecycle/cache rules and hybrid rollout limits.
+
 ## Configuration
 
 Set `WWW_PANEL_API_URL` to the API origin, for example

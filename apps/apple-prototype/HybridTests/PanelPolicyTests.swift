@@ -5,8 +5,53 @@ import XCTest
 final class ModuleFlagsTests: XCTestCase {
     func testEveryModuleDefaultsToWeb() {
         let flags = ModuleFlags()
-        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather"])
+        XCTAssertEqual(Set(PanelModule.allCases.map(\.rawValue)), ["all", "lights", "climate", "fan", "wifi", "sonos", "weather", "photos", "walk", "reminders", "alarms", "calendar", "media", "tesla", "cameras"])
         for module in PanelModule.allCases { XCTAssertEqual(flags[module], .web) }
+    }
+
+    func testWalkFlagRequiresLiveDataAndDefaultsToWeb() {
+        XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .walk, hasLiveData: true), .webBoard)
+        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.walk": "native"]))
+        XCTAssertEqual(router.route(for: .walk, hasLiveData: false), .webBoard)
+        XCTAssertEqual(router.route(for: .walk, hasLiveData: true), .native(.walk))
+    }
+
+    func testShippedDefaultsAreNativeOnlyForLiveVerifiedModules() {
+        let flags = ModuleFlags(nativeByDefault: ModuleFlags.shippedNative)
+        for module in [PanelModule.lights, .climate, .fan, .weather, .walk] {
+            XCTAssertEqual(flags[module], .native, module.rawValue)
+        }
+        XCTAssertEqual(flags[.all], .web)
+        XCTAssertEqual(flags[.sonos], .web)
+        XCTAssertEqual(flags[.wifi], .web)
+        XCTAssertEqual(flags[.photos], .web)
+        XCTAssertEqual(flags[.alarms], .web)
+        XCTAssertEqual(flags[.cameras], .web)
+        let router = HybridRouter(flags: flags)
+        XCTAssertEqual(router.route(for: .photos, hasLiveData: true), .webBoard)
+        XCTAssertEqual(router.route(for: .lights, hasLiveData: false), .webBoard)
+        XCTAssertEqual(router.route(for: .lights, hasLiveData: true), .native(.lights))
+    }
+
+    func testFlipBackPerModuleAndWebOnlySwitch() {
+        let perModule = ModuleFlags(overrides: ["moduleFlag.lights": "web", "moduleFlag.fan": "default",
+                                                "moduleFlag.sonos": "bogus"],
+                                    nativeByDefault: ModuleFlags.shippedNative)
+        XCTAssertEqual(perModule[.lights], .web)
+        XCTAssertEqual(perModule[.fan], .native)
+        XCTAssertEqual(perModule[.sonos], .web)
+        let webOnly = ModuleFlags(overrides: ["moduleFlag.climate": "native"],
+                                  nativeByDefault: ModuleFlags.shippedNative, webOnly: true)
+        for module in PanelModule.allCases { XCTAssertEqual(webOnly[module], .web) }
+    }
+
+    func testWebOnlySwitchIsReadFromUserDefaults() throws {
+        let name = "PanelTests.webOnly"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        XCTAssertEqual(ModuleFlags(defaults: defaults, nativeByDefault: ModuleFlags.shippedNative)[.weather], .native)
+        defaults.set(true, forKey: ModuleFlags.webOnlyKey)
+        XCTAssertEqual(ModuleFlags(defaults: defaults, nativeByDefault: ModuleFlags.shippedNative)[.weather], .web)
     }
 
     func testOverridesAreIndependentAndInvalidValuesFailToWeb() {

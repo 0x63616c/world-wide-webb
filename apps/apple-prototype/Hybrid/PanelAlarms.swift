@@ -1,26 +1,46 @@
 import Foundation
 
-/// Explicit temporary gap until WWW-26 supplies the native alarm/widget target.
-/// The Expo coordinator mirrors ActivityKit; it does not schedule AlarmKit alarms.
-/// Never acknowledge a snapshot as scheduled when no native delivery exists.
+protocol PanelAlarmCoordinating: Sendable {
+    func configure(url: String, token: String, clientID: String, clientSecret: String) async throws
+    func refresh() async throws
+    func sync(json: String) async throws
+}
+
+extension PanelAlarmCoordinator: PanelAlarmCoordinating {}
+
+/// Mirrors the server's next alarm into ActivityKit. Web-mode snapshots and
+/// the opted-in native provider share this widget path; NativeAlarmsRuntime
+/// separately owns the AlarmKit/web ringer handoff.
 @MainActor
 final class PanelAlarms {
-    static let unavailableMessage = "Native alarm sync is unavailable in Panel until WWW-26. The snapshot was stored locally; no native alarm or Live Activity was scheduled."
-    private let defaults: UserDefaults
+    private let coordinator: any PanelAlarmCoordinating
+    private var configuration: Task<Void, any Error>?
 
-    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    init(coordinator: any PanelAlarmCoordinating = PanelAlarmCoordinator.shared) {
+        self.coordinator = coordinator
+    }
 
     func configure(serverURL: URL, token: String, cfID: String, cfSecret: String) {
-        // Deliberate no-op. Do not persist transport credentials until there is
-        // a native consumer. Keep this seam for the future coordinator port.
+        guard !token.isEmpty else { return }
+        configuration = Task {
+            try await coordinator.configure(url: serverURL.absoluteString, token: token,
+                                            clientID: cfID, clientSecret: cfSecret)
+        }
     }
 
-    func refresh() {
-        // Foreground hook retained; there is no native delivery to refresh yet.
+    func refresh() async {
+        guard let configuration else { return }
+        // Foreground refresh must wait for launch-time Keychain storage.
+        // Like Expo, an unavailable server must not interrupt the board.
+        do {
+            try await configuration.value
+            try await coordinator.refresh()
+        } catch {}
     }
 
-    func sync(next: JSONValue) throws {
+    func sync(next: JSONValue) async throws {
         let snapshot = JSONValue.object(["next": next])
-        defaults.set(try JSONEncoder().encode(snapshot), forKey: "panel.pendingAlarmSnapshot")
+        let json = String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self)
+        try await coordinator.sync(json: json)
     }
 }

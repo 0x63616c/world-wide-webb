@@ -15,12 +15,8 @@ import PanelKit
 
 /// Explicit opt-in only. Construct with runtime PanelConfiguration; no networking in init.
 ///
-/// Integration contract: SoundRoom.id is hardcoded to `name`, and its track metadata
-/// is hardcoded to FixtureTrack.queue. This projection therefore uses UUIDs as names
-/// and idle as its source to suppress fixture titles. Render labels/source/track/art
-/// from roomDetails[room.id], never the fixture-derived properties. Hide the scrubber
-/// when supportsPlaybackPosition is false. Zero duration also prevents its clock
-/// from inventing progress if a projection reaches an existing fixture view.
+/// Playback is projected from the current coordinator. Missing or partial samples
+/// remain unavailable; writes are serialized and confirmed by a fresh query.
 @MainActor @Observable final class LiveSonosProvider: SonosProvider {
     private(set) var rooms: [SoundRoom] = []
     private(set) var roomDetails: [String: SonosRoom] = [:]
@@ -29,8 +25,22 @@ import PanelKit
     private(set) var pending: Set<String> = []
     private(set) var globalLock = false
     private(set) var groupLock = false
-    let supportsPlaybackPosition = false
+    var supportsPlaybackPosition: Bool { rooms.contains { playback(for: $0.id) != nil } }
 
+    func playback(for id: String) -> SonosPlaybackPosition? {
+        guard availability == .live, let room = availableRoom(id),
+              let leader = availableRoom(room.coordinatorUuid) else { return nil }
+        return leader.playbackPosition
+    }
+
+    enum SourceAction { case lineIn, tv, joinAllToTV }
+
+    @discardableResult func selectSource(_ action: SourceAction, room id: String) -> Bool {
+        guard availability == .live, availableRoom(id) != nil else { return false }
+        return enqueue(.source(id, action))
+    }
+
+    @ObservationIgnored private let lockDefaults: UserDefaults?
     @ObservationIgnored private let api: SonosAPI
     @ObservationIgnored private var confirmedRooms: [SoundRoom] = []
     @ObservationIgnored private var queue: [Operation] = []
@@ -40,7 +50,17 @@ import PanelKit
     @ObservationIgnored private var lifecycle = 0
     @ObservationIgnored private var refreshing = false
 
-    init(api: SonosAPI) { self.api = api }
+    init(api: SonosAPI, lockDefaults: UserDefaults? = nil) {
+        self.api = api
+        self.lockDefaults = lockDefaults
+        globalLock = lockDefaults?.bool(forKey: "sonos.globalVolumeLock") ?? false
+        groupLock = lockDefaults?.bool(forKey: "sonos.groupVolumeLock") ?? false
+    }
+
+    private func persistLocks() {
+        lockDefaults?.set(globalLock, forKey: "sonos.globalVolumeLock")
+        lockDefaults?.set(groupLock, forKey: "sonos.groupVolumeLock")
+    }
 
     deinit {
         mutationTask?.cancel()
@@ -87,10 +107,11 @@ import PanelKit
     }
 
     @discardableResult func send(_ command: HomeCommand) -> Bool {
+        guard availability == .live else { return false }
         let operation: Operation
         switch command {
-        case .globalLock: globalLock.toggle(); return true
-        case .groupLock: groupLock.toggle(); return true
+        case .globalLock: globalLock.toggle(); persistLocks(); return true
+        case .groupLock: groupLock.toggle(); persistLocks(); return true
         case .volume(let id, let value):
             guard let room = availableRoom(id) else { return false }
             let ids = confirmedRooms.compactMap { candidate -> String? in
@@ -109,6 +130,9 @@ import PanelKit
         case .transport(let id, let command):
             guard availableRoom(id) != nil, let value = SonosTransportCommand(rawValue: command.rawValue) else { return false }
             operation = .transport(id, value)
+        case .seek(let id, let seconds):
+            guard seconds.isFinite, let sample = playback(for: id) else { return false }
+            operation = .seek(id, min(sample.duration, max(0, seconds)))
         case .join(let id, let target):
             guard id != target, availableRoom(id) != nil, availableRoom(target) != nil else { return false }
             operation = .join(id, target)
@@ -125,9 +149,13 @@ import PanelKit
             guard !roomDetails.isEmpty else { return false }
             operation = .clearCalibration
         // A false result must not fall through to MockHomeDataSource for live Sonos commands.
-        // Seek and fixture-library playback have no backend procedure.
+        // Fixture-library playback has no backend procedure.
         default: return false
         }
+        return enqueue(operation)
+    }
+
+    private func enqueue(_ operation: Operation) -> Bool {
         // Collapse consecutive slider updates behind the in-flight operation. Retain
         // ordering across mute, topology and calibration changes.
         if queue.count > 1, case .volume(let ids, _, let raw) = operation,
@@ -154,7 +182,7 @@ import PanelKit
                     try await operation.perform(api, details: details)
                     try Task.checkCancellation()
                     guard self?.lifecycle == generation else { return }
-                    if case .clearCalibration = operation { self?.globalLock = false }
+                    if case .clearCalibration = operation { self?.globalLock = false; self?.persistLocks() }
                     // Sonos writes return void, not state. Only a fresh query confirms it.
                     let state = try await api.soundSystem()
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
@@ -185,11 +213,17 @@ import PanelKit
         diagnostics = state.diagnostics
         var seen: Set<String> = []
         confirmedRooms = state.rooms.filter { seen.insert($0.uuid).inserted }.map { room in
-            SoundRoom(name: room.uuid, rawVolume: Int(room.volume.rounded()),
+            let leader = roomDetails[room.coordinatorUuid]
+            let sample = leader?.availability == .available ? leader?.playbackPosition : nil
+            return SoundRoom(metadata: .init(id: room.uuid, title: leader?.trackTitle, artist: leader?.trackArtist,
+                                             coordinatorName: leader?.name),
+                      name: room.name, rawVolume: Int(room.volume.rounded()),
                       baseline: room.baseline.map { Int($0.rounded()) }, muted: room.muted,
-                      coordinator: room.coordinatorUuid, playing: room.transportState == "PLAYING",
-                      positionSeconds: 0, durationSeconds: 0, positionUpdatedAt: .distantPast,
-                      sourceKind: .idle, sourceLabel: room.sourceLabel, albumArtUri: room.albumArtUri)
+                      coordinator: room.coordinatorUuid, playing: leader?.transportState == "PLAYING",
+                      positionSeconds: sample?.position ?? 0, durationSeconds: sample?.duration ?? 0,
+                      positionUpdatedAt: sample?.updatedAt ?? .distantPast,
+                      sourceKind: SoundSource(rawValue: leader?.sourceKind.rawValue ?? "idle") ?? .other,
+                      sourceLabel: leader?.sourceLabel, albumArtUri: leader?.albumArtUri)
         }
         render()
     }
@@ -223,15 +257,16 @@ import PanelKit
     private enum Operation {
         case volume([String], Int, raw: Bool), mute(String, Bool)
         case transport(String, SonosTransportCommand), join(String, String), joinAll(String), leave(String)
+        case seek(String, Double), source(String, SourceAction)
         case calibrate, clearCalibration
 
         func affectedIDs(details: [String: SonosRoom]) -> Set<String> {
             switch self {
             case .volume(let ids, _, _): Set(ids)
             case .mute(let id, _), .leave(let id): [id]
-            case .transport(let id, _):
+            case .transport(let id, _), .seek(let id, _):
                 Set(details.values.filter { $0.coordinatorUuid == details[id]?.coordinatorUuid }.map(\.uuid))
-            case .join, .joinAll, .calibrate, .clearCalibration: Set(details.keys)
+            case .join, .joinAll, .source, .calibrate, .clearCalibration: Set(details.keys)
             }
         }
 
@@ -269,6 +304,25 @@ import PanelKit
             case .leave(let id):
                 let member = try room(id)
                 try await api.leave(memberIp: member.deviceIp, memberUuid: member.uuid)
+            case .seek(let id, let seconds):
+                let leader = try room(room(id).coordinatorUuid)
+                guard let sample = leader.playbackPosition else {
+                    throw PanelAPIError.server(code: "SERVICE_UNAVAILABLE", message: "Position unavailable.", httpStatus: 503)
+                }
+                try await api.seek(room: leader.uuid, positionSeconds: min(sample.duration, seconds))
+            case .source(let id, let action):
+                let target = try room(id)
+                switch action {
+                case .lineIn: try await api.setLineIn(deviceIp: target.deviceIp, sourceUuid: target.uuid)
+                case .tv: try await api.grabTV(beamIp: target.deviceIp, beamUuid: target.uuid)
+                case .joinAllToTV:
+                    // Switching a follower to TV makes it the leader; rejoin its old group too.
+                    let members = details.values.filter {
+                        $0.availability == .available && $0.uuid != target.uuid &&
+                        (!target.isCoordinator || $0.coordinatorUuid != target.uuid)
+                    }.map(\.deviceIp).sorted()
+                    try await api.joinAllToTV(tvEntityId: target.deviceIp, memberEntityIds: members)
+                }
             case .calibrate: _ = try await api.calibrate()
             case .clearCalibration: try await api.clearCalibration()
             }

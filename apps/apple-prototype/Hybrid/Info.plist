@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>Show, complete, and add reminders on this panel.</string>
     <key>CFBundleDevelopmentRegion</key><string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
@@ -11,6 +15,9 @@
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key><true/>
+    <key>ITSAppUsesNonExemptEncryption</key><false/>
+    <key>NSAlarmKitUsageDescription</key><string>Control Center schedules your next alarm so it can ring while the panel is locked.</string>
+    <key>NSSupportsLiveActivities</key><true/>
     <key>UILaunchScreen</key><dict/>
     <key>UIRequiresFullScreen</key><true/>
     <key>UIStatusBarHidden</key><true/>
@@ -21,6 +28,7 @@
     <dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
     <key>NSCameraUsageDescription</key><string>Control Center uses the camera for photo booth and wake photos.</string>
     <key>NSMicrophoneUsageDescription</key><string>Control Center uses the microphone when you capture media.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key><string>Control Center reads your calendars to show today's and upcoming events on this panel.</string>
     <key>NSAppTransportSecurity</key>
     <dict><key>NSAllowsLocalNetworking</key><true/></dict>
     <key>CFBundleURLTypes</key>

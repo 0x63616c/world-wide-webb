@@ -40,8 +40,8 @@ import XCTest
         XCTAssertEqual(provider.roomDetails[offline]?.availability, .unavailable)
         XCTAssertEqual(provider.diagnostics?.controlPlane, "home-assistant")
         for room in provider.rooms {
-            XCTAssertNil(room.trackTitle)
-            XCTAssertNil(room.trackArtist)
+            XCTAssertEqual(room.trackTitle, "Synthetic Track")
+            XCTAssertEqual(room.trackArtist, "Fixture Artist")
             XCTAssertEqual(room.positionSeconds, 0)
             XCTAssertEqual(room.durationSeconds, 0)
             XCTAssertEqual(room.position(at: .distantFuture), 0)
@@ -229,6 +229,78 @@ import XCTest
         XCTAssertEqual(before, after)
     }
 
+    func testSeekUsesCoordinatorSampleClampsAndConfirmsWithoutInventingProgress() async throws {
+        let transport = SonosProviderStub([.state(playback: true), .void, .state(playback: true)])
+        let provider = makeProvider(transport)
+        defer { provider.stop() }
+        await provider.refresh()
+        XCTAssertTrue(provider.supportsPlaybackPosition)
+        XCTAssertEqual(provider.rooms[1].positionSeconds, 12.5)
+        XCTAssertEqual(provider.rooms[1].durationSeconds, 200)
+        let date = try XCTUnwrap(provider.playback(for: beta)?.updatedAt)
+        XCTAssertEqual(provider.rooms[1].position(at: date.addingTimeInterval(10)), 22.5)
+        XCTAssertFalse(provider.send(.seek(gamma, 10)))
+        XCTAssertFalse(provider.send(.seek(beta, .nan)))
+        XCTAssertTrue(provider.send(.seek(beta, 500)))
+        try await settled(provider)
+        try await assertRequest(transport, at: 1, path: "sonosSeek", json: #"{"room":"media_player.test_alpha","positionSeconds":200}"#)
+        XCTAssertEqual(provider.rooms[1].positionSeconds, 12.5, "Only a server sample confirms progress.")
+    }
+
+    func testSourceActionsTargetChosenRoomAndTVRejoinsFollowers() async throws {
+        let cases: [(LiveSonosProvider.SourceAction, String, String)] = [
+            (.lineIn, "sonosSetLineIn", #"{"deviceIp":"media_player.test_beta","sourceUuid":"media_player.test_beta"}"#),
+            (.tv, "sonosGrabTvToBeam", #"{"beamIp":"media_player.test_beta","beamUuid":"media_player.test_beta"}"#),
+            (.joinAllToTV, "sonosGroupJoinAllToTv", #"{"tvEntityId":"media_player.test_beta","memberEntityIds":["media_player.test_alpha","media_player.test_gamma"]}"#)
+        ]
+        for (action, path, json) in cases {
+            let transport = SonosProviderStub([.state(), .void, .state()])
+            let provider = makeProvider(transport)
+            defer { provider.stop() }
+            await provider.refresh()
+            XCTAssertFalse(provider.selectSource(action, room: offline))
+            XCTAssertTrue(provider.selectSource(action, room: beta))
+            try await settled(provider)
+            try await assertRequest(transport, at: 1, path: path, json: json)
+        }
+    }
+
+    func testFailedSeekMakesProviderUnavailableAndNeverRetries() async throws {
+        let transport = SonosProviderStub([.state(playback: true), .unavailable])
+        let provider = makeProvider(transport)
+        defer { provider.stop() }
+        await provider.refresh()
+        provider.send(.seek(beta, 20))
+        try await settled(provider)
+        guard case .unavailable = provider.availability else { return XCTFail("Expected fallback") }
+        XCTAssertFalse(provider.supportsPlaybackPosition)
+        let count = await transport.count
+        XCTAssertEqual(count, 2)
+    }
+
+    func testVolumeLocksPersistAndClearingCalibrationPersistsUnlock() async throws {
+        let name = "LiveSonosProviderTests.locks"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defaults.removePersistentDomain(forName: name)
+        defer { defaults.removePersistentDomain(forName: name) }
+        func make(_ replies: [SonosProviderStub.Reply]) -> LiveSonosProvider {
+            LiveSonosProvider(api: SonosAPI(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                transport: SonosProviderStub(replies)), lockDefaults: defaults)
+        }
+        let first = make([.state()])
+        await first.refresh()
+        first.send(.globalLock); first.send(.groupLock); first.stop()
+        let next = make([.state(), .void, .state(alphaBaseline: nil)])
+        defer { next.stop() }
+        XCTAssertTrue(next.globalLock); XCTAssertTrue(next.groupLock)
+        await next.refresh()
+        next.send(.clearCalibration)
+        try await settled(next)
+        let reloaded = make([])
+        XCTAssertFalse(reloaded.globalLock)
+        XCTAssertTrue(reloaded.groupLock)
+    }
+
     private func makeProvider(_ transport: SonosProviderStub) -> LiveSonosProvider {
         LiveSonosProvider(api: SonosAPI(configuration: PanelConfiguration(
             baseURL: URL(string: "https://panel.example.invalid")!
@@ -266,7 +338,7 @@ import XCTest
 
 private actor SonosProviderStub: PanelTransport {
     enum Reply: Sendable {
-        case state(alphaVolume: Int = 60, alphaBaseline: Int? = 120)
+        case state(alphaVolume: Int = 60, alphaBaseline: Int? = 120, playback: Bool = false)
         case void, calibration, unavailable, empty
 
         var json: String {
@@ -276,7 +348,7 @@ private actor SonosProviderStub: PanelTransport {
             case .unavailable:
                 return #"{"error":{"message":"Synthetic failure","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"#
             case .empty: return envelope("[]")
-            case .state(let volume, let baseline):
+            case .state(let volume, let baseline, let playback):
                 // Synthetic contract from features/sound/api.ts; legacy IP/UUID fields are HA IDs.
                 let specifications: [(String, String, Int, Int?, Bool, Bool)] = [
                     ("alpha", "alpha", volume, baseline, false, true),
@@ -294,7 +366,9 @@ private actor SonosProviderStub: PanelTransport {
                      "sourceLabel":"Spotify","sourceKind":"spotify","trackTitle":"Synthetic Track",
                      "trackArtist":"Fixture Artist","albumArtUri":"https://example.invalid/art/test.png",
                      "availability":"\(available ? "available" : "unavailable")",
-                     "groupStatus":"\(id == coordinator ? "Standalone" : "Following test_alpha")"}
+                     "groupStatus":"\(id == coordinator ? "Standalone" : "Following test_alpha")"
+                     \(playback && id == "alpha" ? #", "position":12.5,"duration":200,"positionAt":"2026-01-01T00:00:00Z""# : "")}
+
                     """
                 }.joined(separator: ",")
                 return envelope("[\(rooms)]")

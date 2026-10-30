@@ -2,26 +2,30 @@ import SwiftUI
 
 struct ClockController: View {
     let store: any HomeDataSource
+    var newAlarm = Alarm()
+    var save: ((Alarm) async throws -> Void)? = nil
+    var timeZone = TimeZone(identifier: "America/Los_Angeles")!
+    var locationLabel = "San Francisco"
     @State private var editing: Alarm?
     @State private var deleting: Alarm?
     @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
         if let alarm = editing {
-            AlarmEditor(initial: alarm, store: store) { editing = nil }.id(alarm.id)
+            AlarmEditor(initial: alarm, store: store, save: save) { editing = nil }.id(alarm.id)
         } else if sizeClass == .compact {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     TimelineView(.periodic(from: store.now, by: 1)) { _ in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(greeting).font(.title3).foregroundStyle(.secondary)
-                            Text(fixtureTime(store.now)).font(.system(size: 72, weight: .light)).monospacedDigit()
-                            Text(fixtureTime(store.now, format: "EEEE, MMMM d")).foregroundStyle(.secondary)
+                            Text(fixtureTime(store.now, timeZone: timeZone)).font(.system(size: 72, weight: .light)).monospacedDigit()
+                            Text(fixtureTime(store.now, format: "EEEE, MMMM d", timeZone: timeZone)).foregroundStyle(.secondary)
                         }
                     }
                     HStack {
                         Text("Alarms").font(.title2.bold())
                         Spacer()
-                        Button("Add", systemImage: "plus") { editing = Alarm() }.buttonStyle(.glass)
+                        Button("Add", systemImage: "plus") { editing = newAlarm }.buttonStyle(.glass)
                     }
                     ForEach(store.alarms) { alarm in
                         VStack(spacing: 16) {
@@ -55,11 +59,11 @@ struct ClockController: View {
                     VStack(alignment: .leading, spacing: 20) {
                         Text(greeting).font(.system(size: 30)).opacity(0.7)
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(fixtureTime(store.now)).font(.system(size: 124, weight: .ultraLight)).monospacedDigit()
-                            Text(fixtureTime(store.now, format: "a")).font(.system(size: 26)).opacity(0.65)
+                            Text(fixtureTime(store.now, timeZone: timeZone)).font(.system(size: 124, weight: .ultraLight)).monospacedDigit()
+                            Text(fixtureTime(store.now, format: "a", timeZone: timeZone)).font(.system(size: 26)).opacity(0.65)
                         }
-                        Text(fixtureTime(store.now, format: "EEEE, MMMM d, yyyy")).font(.system(size: 24))
-                        Label("San Francisco", systemImage: "location.fill").font(.system(size: 20)).opacity(0.6)
+                        Text(fixtureTime(store.now, format: "EEEE, MMMM d, yyyy", timeZone: timeZone)).font(.system(size: 24))
+                        Label(locationLabel, systemImage: "location.fill").font(.system(size: 20)).opacity(0.6)
                         Spacer().frame(height: 30)
                         if let next = nextAlarm {
                             VStack(alignment: .leading, spacing: 13) {
@@ -77,7 +81,7 @@ struct ClockController: View {
                     HStack {
                         Text("Alarms").font(.system(size: 30, weight: .semibold))
                         Spacer()
-                        Button("Add alarm", systemImage: "plus") { editing = Alarm() }.buttonStyle(.glass)
+                        Button("Add alarm", systemImage: "plus") { editing = newAlarm }.buttonStyle(.glass)
                     }
                     ScrollView {
                         VStack(spacing: 18) {
@@ -107,7 +111,7 @@ struct ClockController: View {
         }
     }
     private var greeting: String {
-        let hour = Int(fixtureTime(store.now, format: "H")) ?? 15
+        let hour = Int(fixtureTime(store.now, format: "H", timeZone: timeZone)) ?? 15
         return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
     }
     private func nextDescription(_ date: Date, zone: String) -> String {
@@ -117,7 +121,7 @@ struct ClockController: View {
         return formatter.string(from: date)
     }
     private var nextAlarm: (Alarm, Date)? {
-        store.alarms.compactMap { alarm in alarm.next(after: store.now).map { (alarm, $0) } }.min { $0.1 < $1.1 }
+        store.upcomingAlarm(at: store.now).map { ($0.alarm, $0.due) }
     }
     private func days(_ values: Set<Int>) -> String {
         values.isEmpty ? "Once" : values.sorted().map { ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][$0] }.joined(separator: " · ")
@@ -126,11 +130,13 @@ struct ClockController: View {
 struct AlarmEditor: View {
     let store: any HomeDataSource
     let close: () -> Void
+    let save: ((Alarm) async throws -> Void)?
+    @State private var saving = false
     @State private var alarm: Alarm
     @State private var error: String?
     @Environment(\.horizontalSizeClass) private var sizeClass
-    init(initial: Alarm, store: any HomeDataSource, close: @escaping () -> Void) {
-        self.store = store; self.close = close; _alarm = State(initialValue: initial)
+    init(initial: Alarm, store: any HomeDataSource, save: ((Alarm) async throws -> Void)? = nil, close: @escaping () -> Void) {
+        self.store = store; self.save = save; self.close = close; _alarm = State(initialValue: initial)
     }
     var body: some View {
         let fields = sizeClass == .compact ? AnyLayout(VStackLayout(spacing: 18)) : AnyLayout(HStackLayout(spacing: 28))
@@ -163,8 +169,15 @@ struct AlarmEditor: View {
                     Spacer()
                     Button("Save alarm") {
                         if let validation = alarm.validationError { error = validation }
-                        else { store.send(.saveAlarm(alarm)); close() }
-                    }.keyboardShortcut(.defaultAction)
+                        else if let save {
+                            saving = true
+                            Task { @MainActor in
+                                defer { saving = false }
+                                do { try await save(alarm); close() }
+                                catch { self.error = error.localizedDescription }
+                            }
+                        } else { store.send(.saveAlarm(alarm)); close() }
+                    }.keyboardShortcut(.defaultAction).disabled(saving)
                 }.buttonStyle(.glass).controlSize(.large)
             }.padding(sizeClass == .compact ? 24 : 42).frame(maxWidth: 1000)
         }

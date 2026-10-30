@@ -4,11 +4,18 @@ struct NowPlayingView: View {
     let store: any HomeDataSource
     let close: () -> Void
     var isFace = false
+    // Defaults retain the prototype; Hybrid injects real playback, art and calibrated volume.
+    var selectedRoomID: String? = nil
+    var showsPlaybackPosition: (SoundRoom) -> Bool = { _ in true }
+    var volumeValue: (SoundRoom) -> Int = { $0.rawVolume }
+    var volumeCommand: (String, Int) -> HomeCommand = { .rawVolume($0, $1) }
+    var artworkContent: ((SoundRoom) -> AnyView)? = nil
+    var openRooms: (() -> Void)? = nil
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     @State private var roomID = "Living Room"
     @State private var choosingRoom = false
-    private var room: SoundRoom? { store.rooms.first { $0.id == roomID } ?? store.rooms.first }
+    private var room: SoundRoom? { store.rooms.first { $0.id == (selectedRoomID ?? roomID) } ?? store.rooms.first }
     var body: some View {
         GeometryReader { proxy in
             if let room {
@@ -23,7 +30,7 @@ struct NowPlayingView: View {
                                 HStack(spacing: 10) { Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 20)).foregroundStyle(.primary); PlayingEqualizer(playing: room.playing).scaleEffect(0.65).frame(width: 24, height: 20) }
                             }
                             Spacer()
-                            CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: compact ? 44 : 64) { choosingRoom = true }
+                            CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: compact ? 44 : 64) { if let openRooms { openRooms() } else { choosingRoom = true } }
                         }.padding(.horizontal, compact ? 20 : 40).padding(.top, compact ? 16 : 32)
                         Spacer(minLength: 18)
                         artwork(room).frame(width: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 440, height: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 440)
@@ -34,8 +41,10 @@ struct NowPlayingView: View {
                                 .font(.system(size: compact ? 25 : 32, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                             Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 24)).foregroundStyle(.primary)
                         }.frame(width: compact ? proxy.size.width - 48 : 440, alignment: .leading).padding(.top, compact ? 16 : 20)
-                        PlaybackScrubber(store: store, room: room)
-                            .frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, compact ? 14 : 18)
+                        if showsPlaybackPosition(room) {
+                            PlaybackScrubber(store: store, room: room)
+                                .frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, compact ? 14 : 18)
+                        }
                         HStack(spacing: compact ? 30 : 76) {
                             transport("backward.end.fill", label: "Previous track", command: .previous, room: room)
                             transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
@@ -46,14 +55,14 @@ struct NowPlayingView: View {
                                 Button { store.send(.mute(room.id)) } label: {
                                     Image(systemName: room.muted ? "speaker.slash.fill" : "speaker.fill").font(.system(size: 27)).frame(width: 48, height: 48)
                                 }.buttonStyle(.plain).accessibilityLabel(room.muted ? "Unmute \(room.name)" : "Mute \(room.name)")
-                                Slider(value: Binding(get: { Double(room.rawVolume) }, set: { store.send(.rawVolume(room.id, Int($0))) }), in: 0...100, step: 1)
+                                Slider(value: Binding(get: { Double(volumeValue(room)) }, set: { store.send(volumeCommand(room.id, Int($0))) }), in: 0...100, step: 1)
                                     .tint(.white).accessibilityLabel("\(room.name) volume")
                                 Image(systemName: "speaker.wave.3.fill").font(.system(size: 27)).frame(width: 48, height: 48)
                             }
                             HStack {
                                 Text(room.muted ? "Muted" : "Volume")
                                 Spacer()
-                                Text("\(room.rawVolume)%").monospacedDigit()
+                                Text("\(volumeValue(room))%").monospacedDigit()
                             }.font(.system(size: 20, weight: .medium)).foregroundStyle(.primary)
                         }.frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, 8)
                         Spacer(minLength: compact ? 16 : 24)
@@ -97,7 +106,8 @@ struct NowPlayingView: View {
             }
     }
     @ViewBuilder private func artwork(_ room: SoundRoom) -> some View {
-        if let uri = room.albumArtUri, let url = URL(string: uri) {
+        if let artworkContent { artworkContent(room) }
+        else if let uri = room.albumArtUri, let url = URL(string: uri) {
             AsyncImage(url: url) { phase in
                 if let image = phase.image { image.resizable().scaledToFill() }
                 else { FixtureArtwork(tint: room.artworkTint) }
