@@ -91,20 +91,33 @@ Mixed-module geometry and native views are intentionally deferred.
 
 ## Before wall install
 
-1. **Native alarms are not implemented.** `origin/main`'s Expo coordinator uses
-   ActivityKit, not AlarmKit, and relies on NextAlarmWidget. WWW-26 owns that
-   extension. `syncNextAlarm` stores the latest `{next}` snapshot in local
-   UserDefaults and returns protocol-level `ok:false` with an explicit message.
-   It never schedules an alarm or starts a Live Activity. Configure and
-   foreground refresh seams are present but deliberately no-op; the token is
-   not persisted or used. Web/server alarm management continues in the board.
+1. **Native alarm parity is implemented (WWW-47).** The Expo ActivityKit
+   coordinator is ported into `Hybrid/Alarms` without its Expo wrapper.
+   `syncNextAlarm` awaits sync and returns `ok:true` on success (including
+   `next:null`); malformed snapshots or ActivityKit errors return `ok:false`.
+   Launch configuration stores the alarm transport in Keychain only when an
+   alarm token is present, using `PanelConfiguration`'s server and Access fields.
+   Every foreground refresh waits for configuration before fetching `/api/alarms`.
+   Without a token, native transport is skipped; web snapshots still sync.
+   The Keychain service/account and device-only after-first-unlock accessibility
+   match Expo. The coordinator retains Expo's explicit empty-token revocation
+   API; skipping configuration does not delete previously stored credentials.
+   Redirects never receive these credentials. The embedded `NextAlarmWidget`
+   shares `NextAlarmAttributes` with Panel; `NSSupportsLiveActivities` is enabled
+   and the Expo plugin adds no alarm-specific entitlements to copy.
+   `CreatePanelAlarmIntent` / `PanelAlarmShortcuts` create alarms through the same
+   coordinator. ActivityKit start/update/end behavior, countdowns, stale state,
+   and `controlcenter://alarms` links match Expo. Ringing and alarm management
+   remain in the web board; this is not an AlarmKit scheduler.
 2. A release lane must sign/archive Panel, provide a production app icon and
    private settings, and set a build number above the existing TestFlight build.
    The Expo push/monthly release workflow still owns the same bundle ID and must
    be switched before installing this shell, or a later Expo release can replace it.
 3. Validate on the wall device with credentials: Access session/redirects, actual
    board rendering, wake-photo camera permission, audio, backlight dim/wake,
-   sharing, and foreground/background recovery. Simulator checks without secrets
+   sharing, and foreground/background recovery. Verify a real alarm's Live Activity
+   appears, updates, and ends; its deep link opens the web alarms; and the creation
+   Shortcut succeeds. Confirm web ringing still works. Simulator checks without secrets
    cannot establish authenticated end-to-end or physical hardware parity.
 
 ## Verification
@@ -149,3 +162,43 @@ interrupted. No UI smoke assertions ran. The mini was under heavy load, and its
 Xcode installation has no Simulator GUI app. After restarting only the dedicated
 simulator, the final unit run succeeded. Simulator evidence is captured directly
 with `simctl`; authenticated board and physical wall checks remain outstanding.
+
+
+### WWW-47 alarm verification
+
+Use `~/wwwebb-hybrid-47/`, derived data `~/wwwebb-hybrid-47-dd/`, and the dedicated
+`WWW-47 Hybrid iPad` simulator for this ticket. Do not use `~/wwwebb-proto`.
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
+cd ~/wwwebb-hybrid-47
+/opt/homebrew/bin/xcodegen generate
+xcodebuild build -scheme Panel -destination 'generic/platform=iOS' \
+  -derivedDataPath ~/wwwebb-hybrid-47-dd CODE_SIGNING_ALLOWED=NO
+xcodebuild test -scheme Panel \
+  -destination 'platform=iOS Simulator,name=WWW-47 Hybrid iPad' \
+  -derivedDataPath ~/wwwebb-hybrid-47-dd -parallel-testing-enabled NO
+```
+
+Alarm unit tests decode the actual snapshot contract (next present/null/malformed)
+and exercise bridge success/error responses with an injected coordinator, plus
+configuration/refresh ordering. They require no credentials or live alarms.
+Panel and the extension both target iOS 26.0. The port uses ActivityKit 16.2,
+WidgetKit, and App Intents APIs available before iOS 26; no iOS 27 API is needed.
+The widget source and shared attributes match Expo; intent metadata uses immutable
+static properties for Swift 6 concurrency checking.
+
+
+Verified on 2026-10-30 with Xcode 27.0: the unsigned iOS device build passed with
+`NextAlarmWidget.appex` embedded and validated, and App Intent metadata generated.
+Both built products report `MinimumOSVersion=26.0`. **All 35 PanelTests passed**
+on the dedicated iOS 26.3 iPad simulator. The initial runner launch failed before
+any tests ran (Mach error -308); after restarting only that simulator,
+`xcodebuild test-without-building` passed. The SSH connection later reset, but the
+completed `PanelTests-retry.xcresult` and `test-retry.log` confirmed success.
+Repository typecheck, tracked-file lint, Knip, privacy guards, and Gitleaks passed.
+Only Xcode 27 is installed on the mini; an Xcode 26.x build was not run there.
+
+Build and test output screenshots are in `Verification/` (excluded from Panel's
+resources), within this ticket's allowed paths. They document build and test
+results, not authenticated Live Activity rendering on the wall.
