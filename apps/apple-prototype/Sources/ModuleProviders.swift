@@ -8,13 +8,23 @@ struct AgendaEvent: Identifiable, Equatable {
     let hour: Int
     let minute: Int
     let duration: Int
+    var timeLabel: String? = nil
+    var periodLabel: String? = nil
+    var durationLabel: String? = nil
     var minutes: Int { hour * 60 + minute }
-    var time: String { String(format: "%d:%02d", hour > 12 ? hour - 12 : hour, minute) }
-    var period: String { hour >= 12 ? "PM" : "AM" }
+    var time: String { timeLabel ?? String(format: "%d:%02d", hour > 12 ? hour - 12 : hour, minute) }
+    var period: String { periodLabel ?? (hour >= 12 ? "PM" : "AM") }
+    var durationText: String { durationLabel ?? "\(duration) min" }
 }
 @MainActor protocol CalendarProvider: AnyObject, Observable {
     var events: [AgendaEvent] { get }
+    var heading: String { get }
+    func dateText(at date: Date, format: String) -> String
     func next(at date: Date) -> AgendaEvent?
+}
+extension CalendarProvider {
+    var heading: String { "Today" }
+    func dateText(at date: Date, format: String) -> String { fixtureTime(date, format: format) }
 }
 @MainActor @Observable final class MockCalendarProvider: CalendarProvider {
     let events = [
