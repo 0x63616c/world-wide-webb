@@ -1,4 +1,7 @@
 name: WorldWideWebb
+packages:
+  PanelKit:
+    path: PanelKit
 options:
   bundleIdPrefix: co.worldwidewebb.prototype
   deploymentTarget:
@@ -19,6 +22,8 @@ targets:
     type: application
     platform: macOS
     sources: [Sources, Shared]
+    dependencies:
+      - package: PanelKit
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: ''
@@ -30,6 +35,7 @@ targets:
     platform: iOS
     sources: [Sources, Shared]
     dependencies:
+      - package: PanelKit
       - target: WalkActivityExtension
         embed: true
     info:
@@ -72,6 +78,7 @@ targets:
     sources: [Tests]
     dependencies:
       - target: WorldWideWebb-iPad
+      - package: PanelKit
     settings:
       base:
         PRODUCT_MODULE_NAME: WorldWideWebbTests
