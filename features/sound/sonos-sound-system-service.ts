@@ -21,6 +21,7 @@
  */
 
 import { type HaEntity, type HomeAssistantClient, haFromConfig } from "@www/core";
+import { z } from "zod";
 import { baselinesForCalibration, type CalibrationBaselines } from "./calibration";
 import { type CalibrationStore, pgCalibrationStore } from "./calibration-store";
 import { config } from "./config";
@@ -83,6 +84,11 @@ export interface SoundSystemRoom {
   availability: "available" | "unavailable" | "unknown";
   /** `Standalone` or the room this player follows. Never rendered as ambiguous “off”. */
   groupStatus: string;
+  /** Position/duration in seconds, omitted when HA has no valid sample. */
+  position?: number;
+  duration?: number;
+  /** ISO UTC time when HA sampled position (not the API's polling time). */
+  positionAt?: string;
 }
 
 export interface SoundSystemResult {
@@ -131,6 +137,27 @@ function transportState(state: string): string {
   }
 }
 
+const positionTimeSchema = z.iso.datetime({ offset: true });
+
+function playbackPosition(
+  entity: HaEntity,
+): Pick<SoundSystemRoom, "position" | "duration" | "positionAt"> {
+  // Unavailable players can retain stale attributes; do not present them as a live sample.
+  if (entity.state === "unavailable" || entity.state === "unknown" || entity.state === "off")
+    return {};
+  const position = entity.attributes.media_position;
+  const duration = entity.attributes.media_duration;
+  const time = positionTimeSchema.safeParse(entity.attributes.media_position_updated_at);
+  const hasPosition = typeof position === "number" && Number.isFinite(position) && position >= 0;
+  return {
+    ...(hasPosition ? { position } : {}),
+    ...(typeof duration === "number" && Number.isFinite(duration) && duration >= 0
+      ? { duration }
+      : {}),
+    ...(hasPosition && time.success ? { positionAt: new Date(time.data).toISOString() } : {}),
+  };
+}
+
 /** Convert HA's media-player state into the stable UI shape without any Sonos SOAP calls. */
 export function roomFromHaEntity(
   entity: HaEntity,
@@ -172,6 +199,7 @@ export function roomFromHaEntity(
           ? "unknown"
           : "available",
     groupStatus: coordinatorUuid === uuid ? "Standalone" : `Following ${coordinatorName}`,
+    ...playbackPosition(entity),
   };
 }
 

@@ -160,6 +160,10 @@ The tRPC root router (`apps/api/src/trpc/routers/index.ts`) merges a small
 `packages/api` re-exports only the `AppRouter` type, so `web` gets typed tRPC
 without bundling backend code.
 
+Native clients can read optional per-lamp state, party speed/colour selection,
+and Sonos playback position, and seek with `sound.sonosSeek`. Wire semantics and
+backward-compatible HTTP fixtures live in `docs/contracts/native-panel/`.
+
 ## Database
 
 Nine tables survive The Simplification (down from a much larger set; see
