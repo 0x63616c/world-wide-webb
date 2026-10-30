@@ -12,7 +12,7 @@ struct UpdateBanner: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.down.circle")
-                Text("Update ready: build \(build)")
+                Text("Update ready: build \(String(build))")
                 Image(systemName: "arrow.up.right").font(.callout)
             }
             .font(.headline)

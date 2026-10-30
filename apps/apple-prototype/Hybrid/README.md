@@ -927,3 +927,28 @@ Debug builds support explicit, launch-only verification overrides:
 The two update-check overrides are compiled out of Release builds. No flag changes
 the installed build number. Backend and upload recording live in additive
 [PR #836](https://github.com/0x63616c/world-wide-webb/pull/836), targeting main.
+
+The exact HTTP release path is sent to the API by the Cloudflare tunnel;
+[PR #837](https://github.com/0x63616c/world-wide-webb/pull/837) adds that narrow
+route without changing web nginx or the existing Access policy.
+
+Verified on the shared Mac with Xcode 27.0 on 2026-10-30: PanelKit passed
+**15 XCTest + 62 Swift Testing tests**. One serial `xcodebuild test` of scheme
+`Panel` passed **81 PanelTests + 140 app unit tests**, with no failures:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
+cd ~/wwwebb-update-ready/PanelKit && swift test
+cd .. && /opt/homebrew/bin/xcodegen generate
+xcodebuild test -scheme Panel -destination 'platform=iOS Simulator,id=<owned-UDID>' \
+  -derivedDataPath ~/wwwebb-update-ready-dd -parallel-testing-enabled NO -jobs 2 \
+  -only-testing:PanelTests -only-testing:WorldWideWebbTests CODE_SIGNING_ALLOWED=NO
+```
+
+Repository typecheck and Biome passed. Comparison tests cover equal, newer, older
+and nonnumeric installed builds. Injected polling tests verify immediate launch
+and foreground checks, the default 900-second interval, a shorter debug interval,
+error recovery and cancellation. Notification tests cover authorized/provisional
+states, denied/undetermined/ephemeral states, persistence across restarts, retries
+and overlapping checks. API tests decode the exact tRPC fixture and reject bad
+builds, mismatched app IDs, invalid timestamps, missing endpoints and Access HTML.
