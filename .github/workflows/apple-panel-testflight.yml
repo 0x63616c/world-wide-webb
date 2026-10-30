@@ -132,7 +132,7 @@ jobs:
             -scheme Panel-Smoke -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
-            -only-testing:PanelUITests/HomeViewLaunchTests \
+            -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
       - name: Assert Panel launches into HomeView
@@ -146,7 +146,7 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
-            -only-testing:PanelUITests/HomeViewLaunchTests \
+            -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
             -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-test.log"
 

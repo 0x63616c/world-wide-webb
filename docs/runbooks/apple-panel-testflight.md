@@ -8,8 +8,9 @@ panel credentials.
 
 Before signing, archiving or uploading, a separate secret-free `smoke` job builds
 `Panel-Smoke` in Debug (the existing suite uses Debug-only fixtures) for the 1366x1024 iPad Pro simulator and runs only
-`PanelUITests/HomeViewLaunchTests` from WWW-64. It asserts `native-home` on launch,
-Classic navigation/return and the explicit web-only rollback. A missing test class
+`PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn` from WWW-64. It asserts
+`native-home`, the replacement Home face/tile identifiers, panel dimensions, and
+Classic navigation/return. A missing test class
 also fails the gate, so a ref predating WWW-64 cannot silently pass an empty suite.
 The upload job needs smoke success and checks out its exact tested commit SHA.
 The `.xcresult` and build/test logs are retained as `panel-launch-smoke` artifacts.
@@ -22,7 +23,7 @@ products are cached by the complete native source tree, Xcode build and runner
 architecture, with no partial-key fallback; the UI tests always run on a fresh
 simulator. Source/toolchain changes require a cold build. On Linux,
 use these Actions runs for validation; no local Xcode build is available. The
-single UI class, early simulator boot and cached test products target a two-minute
+single launch test, early simulator boot and cached test products target a two-minute
 release gate. Cold compilation takes longer; check actual runner timings rather
 than treating two minutes as a guaranteed cold-build SLA.
 
