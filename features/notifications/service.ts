@@ -36,7 +36,7 @@ export function createNotificationService(database: typeof db) {
       return locked(async (tx) => {
         const [row] = await tx
           .insert(notifications)
-          .values({ id: genId("ntf"), ...input })
+          .values({ id: genId("ntf", { length: 32 }), ...input })
           .onConflictDoUpdate({
             target: [notifications.source_module, notifications.dedupe_key],
             targetWhere: sql`${notifications.dismissed_at} IS NULL`,

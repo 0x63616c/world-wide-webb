@@ -3,7 +3,7 @@ import { genId } from "@www/platform";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { notificationInputSchema, notificationListSchema } from "./contract";
+import { notificationIdSchema, notificationInputSchema, notificationListSchema } from "./contract";
 import * as schema from "./schema";
 import { createNotificationService } from "./service";
 
@@ -41,6 +41,7 @@ describe.skipIf(!url)("notifications against Postgres", () => {
 
   it("deduplicates concurrent writes across service instances, re-marks unread and bumps time", async () => {
     const row = await service.create(input);
+    expect(notificationIdSchema.parse({ id: row.id })).toEqual({ id: row.id });
     await service.act(row.id, "read");
     const results = await Promise.all(
       Array.from({ length: 8 }, (_, i) =>
