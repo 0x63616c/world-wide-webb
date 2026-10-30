@@ -18,7 +18,12 @@ import PanelKit
     let alarms: [Alarm] = []
     let occurrence: AlarmOccurrence? = nil
     @ObservationIgnored private let clock: () -> Date
-    var now: Date { calendarProvider.availability == .live ? calendarProvider.referenceDate : clock() }
+    var now: Date {
+        // Calendar refreshes invalidate time-based labels, without freezing the
+        // shared Home clock at the last event read for other modules.
+        _ = calendarProvider.referenceDate
+        return clock()
+    }
     var tesla: any TeslaProvider { unavailable }
     var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { unavailable }

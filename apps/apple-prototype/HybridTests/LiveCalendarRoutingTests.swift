@@ -58,8 +58,9 @@ import XCTest
     func testCalendarOptInRequiresNonemptyCurrentFeedAndRecovers() async throws {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let fixture = HybridCalendarFixtureStore(root: root)
+        var now = HybridCalendarFixtureStore.now
         let store = LiveHomeDataSource(configuration: nil, calendarAPI: CalendarAPI(store: fixture),
-                                       now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
+                                       now: { now }, calendar: { HybridCalendarFixtureStore.calendar })
         let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.calendar": "native"]))
         func route() -> HybridRouter.Route { router.route(for: .calendar, hasLiveData: store.hasLiveData(for: .calendar)) }
         await store.run(modules: [])
@@ -70,6 +71,8 @@ import XCTest
         XCTAssertEqual(route(), .native(.calendar))
         XCTAssertEqual(store.calendar.next(at: store.now)?.title, "Design workshop")
         XCTAssertEqual(store.calendar.events.count, 7)
+        now = now.addingTimeInterval(1)
+        XCTAssertEqual(store.now, now, "The Home clock must advance between Calendar polls.")
         XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .calendar, hasLiveData: true), .webBoard)
         await fixture.setUnavailable(true)
         await store.refresh(.calendar)
