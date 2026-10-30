@@ -53,5 +53,9 @@ import PanelKit
     init(items: [PanelReminder] = []) { self.items = items }
     func refresh() async {}
     func complete(id: String) async { items.removeAll { $0.id == id } }
-    func add(title: String) async {} // Preview source never writes to EventKit.
+    func add(title: String) async {
+        let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return }
+        items.append(.init(id: UUID().uuidString, title: title, list: "Preview", writable: true))
+    } // Preview source never writes to EventKit.
 }

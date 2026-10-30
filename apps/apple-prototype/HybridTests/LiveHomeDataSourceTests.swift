@@ -14,7 +14,7 @@ import PanelKit
 
     private func source(_ transport: HybridFixtureTransport) -> LiveHomeDataSource {
         LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
-            baseURL: URL(string: "https://fixtures.example.invalid")!), transport: transport)
+            baseURL: URL(string: "https://fixtures.example.invalid")!), transport: transport, remindersAPI: HybridRemindersFixture(unavailable: false))
     }
 
     private func refreshAll(_ store: LiveHomeDataSource) async {

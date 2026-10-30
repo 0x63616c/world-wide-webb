@@ -6,10 +6,12 @@ import PanelKit
     final class Fixture: RemindersServing {
         var rows = [PanelReminder(id: "fixture_one", title: "Synthetic task", list: "Test list", writable: true)]
         var fail = false
+        var failWrite = false
         enum Failure: Error { case denied }
         func list() async throws -> [PanelReminder] { if fail { throw Failure.denied }; return rows }
-        func complete(id: String) async throws { rows.removeAll { $0.id == id } }
+        func complete(id: String) async throws { if failWrite { throw Failure.denied }; rows.removeAll { $0.id == id } }
         func add(title: String) async throws {
+            if failWrite { throw Failure.denied }
             rows.append(.init(id: "fixture_added", title: title, list: "Test list", writable: true))
         }
     }
@@ -37,6 +39,16 @@ import PanelKit
         api.fail = false
         await provider.refresh()
         XCTAssertEqual(provider.availability, .live)
+    }
+    func testWriteFailureClearsSnapshot() async {
+        let api = Fixture()
+        let provider = LiveRemindersProvider(api: api)
+        await provider.refresh()
+        api.failWrite = true
+        await provider.complete(id: "fixture_one")
+        XCTAssertTrue(provider.items.isEmpty)
+        XCTAssertNotEqual(provider.availability, .live)
+        XCTAssertEqual(api.rows.count, 1)
     }
     func testReadOnlyCompletionDoesNotWrite() async {
         let api = Fixture()
