@@ -1,0 +1,114 @@
+{
+  "result": {
+    "data": [
+      {
+        "t": "Now",
+        "temp": 62.5,
+        "feels": 60.2,
+        "ic": "cloud-sun",
+        "isDay": true,
+        "isoTime": "2026-10-29T12:00:00.000Z",
+        "weatherCode": 2
+      },
+      {
+        "t": "1",
+        "temp": 61.5,
+        "feels": 59.2,
+        "ic": "cloud-sun",
+        "isDay": true,
+        "isoTime": "2026-10-29T13:00:00.000Z",
+        "weatherCode": 3
+      },
+      {
+        "t": "2",
+        "temp": 60.5,
+        "feels": 58.2,
+        "ic": "cloud-sun",
+        "isDay": true,
+        "isoTime": "2026-10-29T14:00:00.000Z",
+        "weatherCode": 45
+      },
+      {
+        "t": "3",
+        "temp": 59.5,
+        "feels": 57.2,
+        "ic": "cloud-sun",
+        "isDay": true,
+        "isoTime": "2026-10-29T15:00:00.000Z",
+        "weatherCode": 61
+      },
+      {
+        "t": "4",
+        "temp": 58.5,
+        "feels": 56.2,
+        "ic": "cloud-sun",
+        "isDay": true,
+        "isoTime": "2026-10-29T16:00:00.000Z",
+        "weatherCode": 71
+      },
+      {
+        "t": "5",
+        "temp": 57.5,
+        "feels": 55.2,
+        "ic": "cloud-sun",
+        "isDay": true,
+        "isoTime": "2026-10-29T17:00:00.000Z",
+        "weatherCode": 95
+      },
+      {
+        "t": "6",
+        "temp": 56.5,
+        "feels": 54.2,
+        "ic": "moon",
+        "isDay": false,
+        "isoTime": "2026-10-29T18:00:00.000Z",
+        "weatherCode": 2
+      },
+      {
+        "t": "7",
+        "temp": 55.5,
+        "feels": 53.2,
+        "ic": "moon",
+        "isDay": false,
+        "isoTime": "2026-10-29T19:00:00.000Z",
+        "weatherCode": 3
+      },
+      {
+        "t": "8",
+        "temp": 54.5,
+        "feels": 52.2,
+        "ic": "moon",
+        "isDay": false,
+        "isoTime": "2026-10-29T20:00:00.000Z",
+        "weatherCode": 45
+      },
+      {
+        "t": "9",
+        "temp": 53.5,
+        "feels": 51.2,
+        "ic": "moon",
+        "isDay": false,
+        "isoTime": "2026-10-29T21:00:00.000Z",
+        "weatherCode": 61
+      },
+      {
+        "t": "10",
+        "temp": 52.5,
+        "feels": 50.2,
+        "ic": "moon",
+        "isDay": false,
+        "isoTime": "2026-10-29T22:00:00.000Z",
+        "weatherCode": 71
+      },
+      {
+        "t": "11",
+        "temp": 51.5,
+        "feels": 49.2,
+        "ic": "moon",
+        "isDay": false,
+        "isoTime": "2026-10-29T23:00:00.000Z",
+        "weatherCode": 95
+      }
+    ]
+  }
+}
