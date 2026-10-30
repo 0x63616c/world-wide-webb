@@ -17,6 +17,7 @@ struct PanelRoot: View {
     // Configuration and flags are intentional launch-time snapshots.
     @State private var session: KioskSession
     @State private var updateChecker: UpdateChecker
+    @State private var notifications: NotificationCenter
     @State private var store: LiveHomeDataSource
     @State private var selection: PanelModule
     @State private var detail: Bool
@@ -26,6 +27,7 @@ struct PanelRoot: View {
     private let requested: Set<PanelModule>
 
     init() {
+        _notifications = State(initialValue: PanelNotifications.make())
         _updateChecker = State(initialValue: UpdateChecker.live(configuration: PanelConfiguration()))
         #if DEBUG
         _detail = State(initialValue: ProcessInfo.processInfo.arguments.contains("-hybridDetail"))
@@ -127,6 +129,14 @@ struct PanelRoot: View {
                 }
             }
         }
+        .overlay(alignment: .top) {
+            NotificationBanners(source: PanelNotifications.source, open: openNotification)
+        }
+        .environment(notifications)
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await notifications.run()
+        }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
         .background { PanelWindowAttachment().allowsHitTesting(false) }
         .statusBarHidden()
@@ -197,6 +207,25 @@ struct PanelRoot: View {
             await updateChecker.run()
         }
         .onDisappear { session.stop(); store.stop() }
+    }
+
+    private func openNotification(_ item: NotificationItem) -> Bool {
+        guard let module = PanelNotifications.module(for: item.deepLink) else { return false }
+        if router.route(for: module, hasLiveData: hasLiveData(for: module)) == .native(module) {
+            pendingNativeAlarmLink = false
+            selection = module
+            detail = true
+            return true
+        }
+        if module == .alarms {
+            selection = .all
+            session.open(URL(string: "controlcenter://alarms")!)
+            return true
+        }
+        // Keep the existing router’s web-board fallback for disabled/unavailable modules.
+        selection = module
+        detail = true
+        return true
     }
 
     private func openNativeAlarms() {
