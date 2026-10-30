@@ -282,6 +282,38 @@ anchors in a new commit, including the Music hit-area follow-up that only served
 the rejected layout. Retain the asynchronous fan-state assertion correction.
 The full twelve-screen median table follows when the final cold run completes.
 
+### WWW-54 iteration 2 final medians — REJECT
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 8.8 | 8.8/8.8/9.0 | fail ≥9.0 | -0.3 |
+| main-controls.png | 8.1 | 8.1/8.2/8.1 | fail ≥8.5 | -0.3 |
+| main-dogwalk-full-running.png | 8.6 | 8.7/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-full.png | 8.5 | 8.6/8.5/8.4 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-remote.png | 8.6 | 8.7/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-tile-running.png | 8.2 | 8.2/8.1/8.2 | fail ≥8.5 | -0.2 |
+| main-dogwalk-tile.png | 8.1 | 8.1/8.2/8.1 | fail ≥8.5 | -0.3 |
+| main-home.png | 8.3 | 8.3/8.2/8.3 | fail ≥9.0 | -0.2 |
+| main-iphone-home-bottom.png | 8.6 | 8.6/8.5/8.7 | PASS ≥8.5 | +0.3 |
+| main-iphone-home.png | 8.5 | 8.5/8.6/8.5 | fail ≥9.0 | +0.1 |
+| main-lamps.png | 8.6 | 8.6/8.6/8.5 | fail ≥9.0 | -0.4 |
+| main-nowplaying.png | 8.8 | 8.7/8.8/8.8 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+Home 8.3 is 0.2 below its floor; More and both Walk tiles also regress. The
+source restoration is committed; all twelve published floors remain unchanged.
+Other screen bodies are unchanged; their repeat-score movement is not accepted
+as a new baseline. All twelve independent relaunch pairs pass determinism,
+maximum RGB MAE 0.000564/255. Evidence:
+`/workspace/wwwebb-ui/prototype/v2/www54/iteration-2/`.
+
+All five builds and both 149-unit-plus-hosted-render prototype suites pass. Six
+of eight UI tours pass; live margins expose the Music button's content-only
+accessibility bounds (removed with the rejected row), and the fan toggle test
+reads asynchronous feedback too early (now uses the existing value-wait helper).
+Panel verification is still running. No acceptance or TestFlight claim.
+
 ## WWW-54 — iteration 3: taller Home Lamps fader
 
 Final permitted iteration: restore main's Home/More composition, then put the
