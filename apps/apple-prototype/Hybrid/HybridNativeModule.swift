@@ -10,6 +10,7 @@ extension PanelModule {
         case .wifi: "Wi-Fi"
         case .sonos: "Sonos"
         case .weather: "Weather"
+        case .calendar: "Calendar"
         }
     }
 }
@@ -46,6 +47,7 @@ struct HybridNativeModule: View {
         case .wifi: TileFace(tile: .wifi, store: store, open: open)
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
+        case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .all: EmptyView()
         }
     }
@@ -63,6 +65,7 @@ struct HybridNativeModule: View {
         // This existing page has grouping and volume, with no fixture artwork,
         // media library or seek UI (the live API supplies no playback position).
         case .sonos: SonosRoomsPage(store: store)
+        case .calendar: AgendaPage(provider: store.calendar, now: store.now)
         case .all: EmptyView()
         }
     }

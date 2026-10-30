@@ -11,20 +11,26 @@ import PanelKit
     let wifiProvider: LiveWifiProvider
     let weatherProvider: LiveWeatherProvider
     let sonosProvider: LiveSonosProvider
+    let calendarProvider: LiveCalendarProvider
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     let alarms: [Alarm] = []
     let occurrence: AlarmOccurrence? = nil
-    var now: Date { Date() }
+    @ObservationIgnored private let clock: () -> Date
+    var now: Date { calendarProvider.availability == .live ? calendarProvider.referenceDate : clock() }
     var tesla: any TeslaProvider { unavailable }
-    var calendar: any CalendarProvider { unavailable }
+    var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { unavailable }
     var cameras: any CamerasProvider { unavailable }
     var media: any MediaProvider { unavailable }
     var walks: any WalkProvider { unavailable }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
-    init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil) {
+    init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
+         calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
+         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
+        clock = now
+        calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
         // Guest credentials and Access sessions must remain memory-only.
         let session = URLSessionConfiguration.ephemeral
         session.urlCache = nil
@@ -49,6 +55,7 @@ import PanelKit
         case .wifi: wifiProvider.availability == .live && !(wifiProvider.wifi.ssid ?? "").isEmpty
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
+        case .calendar: calendarProvider.availability == .live && !calendarProvider.events.isEmpty
         }
     }
 
@@ -157,6 +164,7 @@ import PanelKit
         case .wifi: await wifiProvider.refresh()
         case .weather: await weatherProvider.refresh()
         case .sonos: await sonosProvider.refresh()
+        case .calendar: await calendarProvider.refresh()
         }
     }
 
@@ -184,6 +192,7 @@ import PanelKit
         climateProvider.stop()
         weatherProvider.stop()
         sonosProvider.stop()
+        calendarProvider.stop()
         fanMutation?.cancel()
         fanMutation = nil
     }

@@ -36,7 +36,7 @@ use `localhost` (ATS local networking is enabled).
 
 ## Module seam
 
-`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, and
+`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, `calendar`, and
 `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
 overrides the launch's UserDefaults; invalid values fall back to `web`.
 `all` always means the complete web board, even if its flag is set to `native`.
@@ -127,6 +127,76 @@ compile out the fixture transport and launch switches.
 xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
   -hybridFixtures -moduleFlag.weather native
 ```
+
+## Live Calendar (WWW-31)
+
+Source decision: `apps/api/src/trpc/routers/index.ts`, the generated feature
+router, and `features/*/api.ts` have no calendar event feed (the settings calendar
+time zone is unrelated). Calendar therefore reads **on-device EventKit** from
+the calendars already configured on the iPad. No backend, web, Expo, credentials,
+or server-side calendar integration changes are needed.
+
+`PanelKit/CalendarAPI.swift` owns the read-only value boundary and actor-isolated
+EventKit adapter. Apple requires **full access** to read existing events; there
+is no read-only permission level. The API exposes no save/delete operations.
+Only `Hybrid/Info.plist` gains `NSCalendarsFullAccessUsageDescription`. The
+prototype targets keep their mock providers and do not request access. The only
+`project.yml` change is the additive `Panel-Calendar` verification scheme combining
+`PanelTests` and `WorldWideWebbTests` into one simulator test invocation.
+See [Apple's EventKit access guide](https://developer.apple.com/documentation/eventkit/accessing-calendar-using-eventkit-and-eventkitui).
+
+`LiveCalendarProvider` conforms to the existing `CalendarProvider`. It reads
+from local midnight through the next seven calendar days in the device time
+zone, including events that overlap midnight. Calendar arithmetic handles DST;
+all-day events have an explicit label, timed events retain actual durations,
+and recurring occurrences use the EventKit item ID plus occurrence start.
+Canceled events are omitted. No notes, attendees, URLs, account identifiers or
+credentials are read. Event values stay in memory and are never logged.
+
+The existing Home **Up Next** tile (`ModuleTile`) and Calendar page (`AgendaPage`)
+receive this same provider via `LiveHomeDataSource` and `HybridNativeModule`.
+The page lists today and upcoming events, with dates on entries outside today;
+Up Next prefers ongoing/upcoming timed events, then all-day events. Completed
+events remain visible on today's list. Empty or denied/unavailable data routes
+to the retained web board. Every flag still defaults to `web`; the default launch
+does not open EventKit, read events or prompt. When explicitly enabled, permission
+is requested only if undetermined. Denied/restricted/write-only states do not
+prompt repeatedly. Foreground polling every 10 seconds catches edits, midnight,
+time-zone and permission changes. Backgrounding clears events and invalidates
+in-flight results; foregrounding reads and checks access again.
+
+Minimal presentation injection seams (no layout, style or hierarchy changes):
+
+- `Sources/ModuleProviders.swift`: optional time/period/duration labels on
+  `AgendaEvent`, plus provider heading/date formatting requirements with defaults
+  matching the mock's original labels and fixture time zone.
+- `Sources/ModulePages.swift`: the Calendar heading, date and duration texts read
+  those injected values.
+- `Sources/ModuleTiles.swift`: the Calendar tile's weekday/day texts use the
+  provider's date formatter.
+- `Sources/Live/LiveCalendarProvider.swift`: new live implementation; no existing
+  live provider is edited.
+
+Check first using the dedicated simulator and synthetic fixtures (Debug only):
+
+```sh
+xcrun simctl launch <own-calendar-simulator-id> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.calendar native
+# Calendar page: add -hybridDetail. Denied feed: add -hybridUnavailable.
+```
+
+The Calendar fixture store reads `Fixtures/calendar/events.json` at a fixed
+2026-10-30 10:30 PDT. It never creates EventKit or contacts home services.
+`-hybridUnavailable` exercises the web fallback with a denied source. To check
+real calendars, configure Calendar accounts on the device, then relaunch Panel
+with **`-moduleFlag.calendar native`**, without `-hybridFixtures`, and grant the
+system Calendar request. Validate the tile and Details against Calendar, then
+revoke access in Settings and confirm web fallback. Restore the wall's default
+with `-moduleFlag.calendar web` (or remove the native override). Do not persist a
+native override on the wall until that device check passes.
+
+Fixture checks cannot establish account sync or actual iPad consent behavior;
+those remain a physical-device acceptance check. No backend PR is needed.
 
 ## Kiosk and bridge behavior
 

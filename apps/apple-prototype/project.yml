@@ -161,6 +161,15 @@ targets:
       base:
         PRODUCT_MODULE_NAME: PanelUITests
 schemes:
+  Panel-Calendar:
+    build:
+      targets:
+        Panel: [test]
+        WorldWideWebb-iPad: [test]
+    test:
+      targets:
+        - PanelTests
+        - WorldWideWebbTests
   Panel-Smoke:
     build:
       targets:
