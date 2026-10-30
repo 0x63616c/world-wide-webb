@@ -2,6 +2,44 @@
 
 Native SwiftUI HomeView-style study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8). macOS 26+ and iPadOS 26+, built with Xcode 27. No backend, networking, bundled photos, QR codes, or production credentials. All device/weather/network/alarm values are **fixtures** and reset on launch.
 
+## v2 iteration 1 — Home face and Lamps
+
+The default screen is now a single Home face: a 4×3 grid, 40-point outer margins,
+24-point gutters and nine complications. Climate occupies 2×2 cells; an analog
+clock and Guest Wi-Fi sit above separate Bedroom and Living Room Lamps. Ceiling,
+Under Cabinet, Fan and All occupy the bottom row. Small tiles are approximately
+306×301 points on the 1376×1032 iPad. SF type uses a thin dominant temperature,
+26-point semibold names and 20-point subtitles. Clear Liquid Glass, specular edges,
+soft shadows and a procedural blurred teal wallpaper replace the folded ribbons.
+ON accessories use bright frosted glass, dark text and amber glyphs.
+
+The iPad face is in a paged TabView. Only Home exists in this iteration, so page
+indicators are hidden until there are actual additional faces. Weather and Sound
+controllers remain available by launch argument; their future faces are not built.
+
+Bedroom and Living Room open the new Lamps controller from their own source tile.
+A 220×560-point vertical brightness control supports dragging and VoiceOver
+adjustment. It is labelled **All lamps**: `features/ctrl/api.ts` and `service.ts`
+apply brightness globally and turn on every lamp, including the other room.
+Room buttons toggle the two supported groups. Members are captions, never invented
+individual controls. `packages/core/src/lights/index.ts` confirms Under Cabinet is
+in Kitchen. Color & Effects opens one sheet with the existing White/Mood, white
+temperature, three editable saved colors and Party controls. The fixture store,
+other full-screen controllers and their supported features are preserved.
+
+Final iteration screenshots: [Home](docs/screenshots/v2/home.png) ·
+[Lamps](docs/screenshots/v2/lamps.png). The labelled reference comparison and critique
+live outside the repository at `/workspace/wwwebb-ui/prototype/v2/`; reference
+photos are never committed. Existing screenshots and packaging below document v1.
+
+Validation on WWW iPad 13 / iOS 26.3 / Xcode 27.0: 10 store tests and 6 UI tests
+pass. The nine-tile open/close loop and global brightness test also pass after the
+final pager safe-area change. Three simulator render/review passes were used;
+only the final Home and Lamps captures are delivered for this iteration. Xcode's
+optional simulator diagnostics collector reports a missing `simctl` in its own
+subprocess; the test runs themselves report **TEST SUCCEEDED**, and direct
+`simctl` captures succeed with the selected Xcode developer directory.
+
 ## Build
 
 Install Xcode 27 and XcodeGen, then from this directory:
@@ -31,7 +69,7 @@ xcodebuild -project WorldWideWebb.xcodeproj -scheme WorldWideWebb-iPad \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
 ```
 
-Unit tests cover master semantics, membership, fan/climate state, bounds/deadband, disabled lamp controls, color validation, pending command convergence, Wi-Fi fixtures, alarms and calibrated sound behavior. UI tests open/close every tile, check glyph taps don't expand, switch climate modes, and inspect every Wi-Fi fixture.
+Unit tests cover master semantics, membership, fan/climate state, bounds/deadband, disabled lamp controls, color validation, pending command convergence, Wi-Fi fixtures, alarms and calibrated sound behavior. UI tests open/close the nine Home complications, verify glyph taps stay on the face, drag global brightness and check both room states, verify disabled brightness, exercise the effects sheet, switch climate modes, and inspect every Wi-Fi fixture.
 
 ## Open the delivered Mac app
 
@@ -54,7 +92,7 @@ ditto -c -k --keepParent "$HOME/wwwebb-proto-dd/Build/Products/Release/WorldWide
 | --- | --- |
 | `features/ctrl/web/ControlsTileView.tsx`, `ExpandedControlsView.tsx`, `service.ts` | All; Fan; Lamps master with Bedroom and Living Room; Lights master with Ceiling and Under Cabinet. Brightness 0–100%, White/Mood, 2000–6500 K in 100 K steps, Custom 1/2/3 with hex Edit / Cancel / Save & use, Party Off/Slow/Med/Fast. |
 | `features/ac/web/ClimateTileView.tsx` | Climate 2×2 tile with direct 1° chevrons; Cool / Heat / Heat·Cool / Off; 67–77 °F, 2° deadband; Now and action; same A/C fan in controller. |
-| `features/wifi/web/WifiTileView.tsx` | Small Wi-Fi / Guest tile. Full-screen SSID and password; open and unconfigured variants. No QR. |
+| `features/wifi/web/WifiTileView.tsx` | Guest Wi-Fi / SSID complication. Full-screen SSID and password; open and unconfigured variants. No QR. |
 | `features/events/web/ClockGreetingView.tsx`, `AlarmsPage.tsx`, `contract.ts` | Analog tile with smooth seconds; full-screen time, greeting, date, location, next alarm, enable/edit/delete/add; Label, Time, Date, Time zone, repeating days, Snooze minutes, Light entities or scene. |
 | `features/weather/web/WeatherNowView.tsx`, `Next12HoursView.tsx` | Current conditions, high/low, Feels / Humidity / Wind / Sunset; 12 hourly temperature bars with feels marks, icon and time. |
 | `features/sound/web/SoundSystemTileView.tsx`, `SoundSystemPage.tsx`, `hooks/useMixer.ts`, `calibration.ts` | Five rooms, Playing/Idle panels, blue coordinator, volume/mute, global/group locks, ±1 steppers, group moves, join all to Desk/TV, Calibrate/Clear. |
@@ -65,7 +103,7 @@ Photo Booth, Activity, PIN, settings, dim overlay, banners and confetti are excl
 
 The grid remains mounted under a ZStack controller. `matchedGeometryEffect` pairs each tile's glass surface with its full-window surface. A 0.45 s zero-bounce spring moves it; content cross-fades and title/time arrive last. Close with the glass ×, Escape on Mac, or a downward swipe starting in the top header. Dismiss reverses to the same tile. Reduced Motion removes animated transitions and suppresses the demo.
 
-Accessory glyphs toggle; the title or tile padding expands. Lamps and Lights use the brief's allowed medium group tile variant. Their room/fixture sub-buttons toggle directly; the surrounding group surface opens the shared Controls controller. Climate chevrons step directly. Sound's faders, mute and locks also work directly on its tile.
+Accessory glyphs toggle; the title or tile padding expands. Each room and fixture has its own complication. Each Lamps complication zooms into its room-titled controller, while global brightness and effects remain explicitly shared. Climate chevrons step directly. The other existing full-screen controllers retain their v1 behavior.
 
 `@MainActor protocol HomeDataSource` is the integration seam. Views read its observable states and issue typed `HomeCommand`s. `MockHomeDataSource` performs optimistic updates and maintains a latest-command pending indicator for 150 ms, avoiding old completions clearing a new command's pending state. No transport exists. Later implementation can replace this store without changing the view hierarchy.
 
@@ -85,16 +123,16 @@ xcrun simctl launch <UDID> co.worldwidewebb.prototype.ipad -openTile wifi -wifiF
 xcrun simctl launch <UDID> co.worldwidewebb.prototype.ipad -demo
 ```
 
-`-openTile`: climate, clock, all, fan, lamps, lights, wifi, weather, hourly, sound.
+`-openTile`: climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all. Existing controller links lamps, lights, weather, hourly and sound still work.
 `-climateMode`: cool, heat, heat_cool, off.
 `-wifiFixture`: secured (default), open, unconfigured.
-`-demo`: a roughly 20 s tour opening and closing all ten source tiles.
+`-demo`: a tour opening and closing the nine Home complications.
 
 Use `scripts/capture.sh <UDID> <output-directory>` on the Mac for screenshots and a recording. Use `xcrun simctl io <UDID> screenshot` or `recordVideo` for individual captures. Every controller has a 1366×1024 preview. The wallpaper is procedural SwiftUI gradients and shapes; copyrighted references are never bundled.
 
 Design API reference: [Apple — Liquid Glass for custom views](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views).
 
-## Verification on the build mini
+## v1 verification on the build mini
 
 Built with Xcode 27.0 (27A266a), using the dedicated **WWW iPad 13** simulator on iOS 26.3. Ten unit tests and four UI tests pass, including every tile's open/close path, direct toggling, climate modes, all guest Wi-Fi variants and swipe-down dismissal. Run the UI suite once before scripted capture to set the simulator to landscape.
 

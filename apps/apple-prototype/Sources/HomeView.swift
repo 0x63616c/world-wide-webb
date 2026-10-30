@@ -1,37 +1,58 @@
 import SwiftUI
 
 enum HomeTile: String, CaseIterable, Identifiable {
-    case climate, clock, all, fan, lamps, lights, wifi, weather, hourly, sound
+    case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
+    // Existing controllers stay available by launch argument for later faces.
+    case lamps, lights, weather, hourly, sound
+    static let homeFace: [HomeTile] = [.climate, .clock, .wifi, .bedroom, .livingRoom, .ceiling, .cabinet, .fan, .all]
     var id: String { rawValue }
     var title: String {
         switch self {
         case .climate: "Climate · A/C"
         case .clock: "Clock"
-        case .all, .fan, .lamps, .lights: "Controls"
+        case .bedroom: "Bedroom Lamps"
+        case .livingRoom: "Living Room Lamps"
+        case .lamps: "Lamps"
+        case .ceiling: "Ceiling"
+        case .cabinet: "Under Cabinet"
+        case .all, .fan, .lights: "Controls"
         case .wifi: "Guest Wi-Fi"
         case .weather: "Weather Now"
         case .hourly: "Next 12 Hours"
         case .sound: "Sound System"
         }
     }
+    var accessory: Accessory? {
+        switch self {
+        case .bedroom: .bedroom
+        case .livingRoom: .livingRoom
+        case .ceiling: .ceiling
+        case .cabinet: .cabinet
+        case .fan: .fan
+        case .all: .all
+        case .lamps: .lamps
+        case .lights: .lights
+        default: nil
+        }
+    }
     var cells: (x: Int, y: Int, w: Int, h: Int) {
         switch self {
         case .climate: (0,0,2,2)
-        case .clock: (2,0,2,2)
-        case .all: (4,0,1,1)
-        case .fan: (5,0,1,1)
-        case .lamps: (4,1,2,1)
-        case .wifi: (0,2,1,1)
-        case .weather: (1,2,3,1)
-        case .lights: (4,2,2,1)
-        case .hourly: (0,3,3,1)
-        case .sound: (3,3,3,1)
+        case .clock: (2,0,1,1)
+        case .wifi: (3,0,1,1)
+        case .bedroom: (2,1,1,1)
+        case .livingRoom: (3,1,1,1)
+        case .ceiling: (0,2,1,1)
+        case .cabinet: (1,2,1,1)
+        case .fan: (2,2,1,1)
+        case .all: (3,2,1,1)
+        default: (0,0,1,1)
         }
     }
     @MainActor func fill(_ store: any HomeDataSource) -> Color {
         switch self {
         case .climate: store.climate.mode.color
-        case .all, .fan, .lamps, .lights: Palette.amber
+        case .all, .fan, .lamps, .lights, .bedroom, .livingRoom, .ceiling, .cabinet: Palette.amber
         case .clock: Color(hex: "#235e60")
         case .wifi: Color(hex: "#08746d")
         case .weather, .hourly: Color(hex: "#327b9f")
@@ -54,13 +75,11 @@ struct HomeView: View {
         GeometryReader { proxy in
             ZStack {
                 Wallpaper()
-                GlassEffectContainer(spacing: 8) {
-                    homeGrid(size: proxy.size)
-                }
+                homeFace(size: proxy.size)
                 .allowsHitTesting(selected == nil && !transitioning)
                 .accessibilityHidden(selected != nil)
                 if selected == nil {
-                    VStack { Spacer(); Text("Fixture data").font(.system(size: 11)).opacity(0.4).padding(.bottom, 12) }.allowsHitTesting(false)
+                    VStack { Spacer(); Text("Fixture data").font(.system(size: 11)).opacity(0.4).padding(.bottom, 10) }.allowsHitTesting(false)
                 }
                 if let tile = selected {
                     ZStack {
@@ -87,7 +106,7 @@ struct HomeView: View {
                     if let initialTile { try? await Task.sleep(for: .milliseconds(250)); open(initialTile) }
                     if demo && !reduceMotion {
                         try? await Task.sleep(for: .seconds(2))
-                        for tile in HomeTile.allCases {
+                        for tile in HomeTile.homeFace {
                             if Task.isCancelled { break }
                             open(tile)
                             try? await Task.sleep(for: .milliseconds(1100))
@@ -98,14 +117,26 @@ struct HomeView: View {
                 }
         }.ignoresSafeArea()
     }
+    @ViewBuilder private func homeFace(size: CGSize) -> some View {
+        // Only one face in iteration 1. Do not imply that unfinished pages exist.
+        #if os(iOS)
+        TabView {
+            GlassEffectContainer(spacing: 12) { homeGrid(size: size) }.tag(0)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .ignoresSafeArea()
+        #else
+        GlassEffectContainer(spacing: 12) { homeGrid(size: size) }
+        #endif
+    }
     private func homeGrid(size: CGSize) -> some View {
-        let margin = max(24, min(size.width, size.height) * 0.045)
-        let gap: CGFloat = 14
-        let cellW = (size.width - margin * 2 - gap * 5) / 6
-        let cellH = (size.height - margin * 2 - gap * 3) / 4
-        let contentScale = min(1, min(cellW / 198, cellH / 222))
+        let margin: CGFloat = 40
+        let gap: CGFloat = 24
+        let cellW = (size.width - margin * 2 - gap * 3) / 4
+        let cellH = (size.height - margin * 2 - gap * 2) / 3
+        let contentScale = min(1, min(cellW / 306, cellH / 301))
         return ZStack(alignment: .topLeading) {
-            ForEach(HomeTile.allCases) { tile in
+            ForEach(HomeTile.homeFace) { tile in
                 let c = tile.cells
                 let width = cellW * Double(c.w) + gap * Double(c.w - 1)
                 let height = cellH * Double(c.h) + gap * Double(c.h - 1)
@@ -115,7 +146,7 @@ struct HomeView: View {
                             .frame(width: width / contentScale, height: height / contentScale)
                             .scaleEffect(contentScale)
                             .frame(width: width, height: height)
-                            .homeGlass(on: tileOn(tile), radius: min(40, cellH * 0.19))
+                            .faceGlass(on: tileOn(tile), radius: 42)
                             .matchedGeometryEffect(id: tile.id, in: zoom)
                             .transition(.opacity)
                     } else {
@@ -123,7 +154,7 @@ struct HomeView: View {
                     }
                 }
                 .frame(width: width, height: height)
-                .contentShape(Rectangle())
+                .contentShape(RoundedRectangle(cornerRadius: 42, style: .continuous))
                 .onTapGesture { open(tile) }
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("tile-\(tile.id)")
@@ -134,13 +165,8 @@ struct HomeView: View {
             .padding(margin)
     }
     private func tileOn(_ tile: HomeTile) -> Bool {
-        switch tile {
-        case .all: store.lamps.isOn(.all)
-        case .fan: store.climate.fanOn && store.climate.mode != .off
-        case .lamps: store.lamps.anyOn
-        case .lights: store.lamps.isOn(.lights)
-        default: false
-        }
+        guard let key = tile.accessory else { return false }
+        return key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key)
     }
     private func open(_ tile: HomeTile) {
         guard selected == nil, !transitioning else { return }
@@ -170,55 +196,51 @@ struct TileFace: View {
     let store: any HomeDataSource
     let open: () -> Void
     var body: some View {
-        switch tile {
-        case .all: AccessoryFace(key: .all, store: store, open: open)
-        case .fan: AccessoryFace(key: .fan, store: store, open: open)
-        case .lamps: GroupFace(master: .lamps, members: [.bedroom, .livingRoom], store: store, open: open)
-        case .lights: GroupFace(master: .lights, members: [.ceiling, .cabinet], store: store, open: open)
-        case .climate: climate
-        case .clock:
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { _ in
-                VStack(spacing: 16) {
-                    AnalogClock(date: store.now).aspectRatio(1, contentMode: .fit).padding(.horizontal, 22)
-                    Text(fixtureTime(store.now, format: "EEEE, MMMM d")).font(.system(size: 21, weight: .medium))
-                }.padding(26)
+        if let key = tile.accessory {
+            AccessoryFace(key: key, store: store, open: open)
+        } else {
+            switch tile {
+            case .climate: climate
+            case .clock:
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { _ in
+                    AnalogClock(date: store.now, minimal: true)
+                        .aspectRatio(1, contentMode: .fit).padding(24)
+                }
+            case .wifi:
+                VStack(spacing: 0) {
+                    Image(systemName: "wifi").font(.system(size: 50, weight: .regular))
+                        .frame(height: 88).padding(.bottom, 20)
+                    Text("Guest Wi-Fi").font(.system(size: 26, weight: .semibold))
+                    Text(store.wifi.ssid.flatMap { $0.isEmpty ? nil : $0 } ?? "Not configured")
+                        .font(.system(size: 20)).foregroundStyle(.white.opacity(0.6)).padding(.top, 7)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            default: EmptyView()
             }
-        case .wifi:
-            VStack(spacing: 12) {
-                Image(systemName: "wifi").font(.system(size: 43, weight: .medium)).padding(.bottom, 4)
-                Text("Wi-Fi").font(.system(size: 23, weight: .semibold))
-                Text("Guest").font(.system(size: 17)).foregroundStyle(.white.opacity(0.6))
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .weather: WeatherFace(weather: store.weather)
-        case .hourly:
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Next 12 Hours").font(.system(size: 21, weight: .semibold))
-                HourlyChart(weather: store.weather, compact: true)
-            }.padding(24)
-        case .sound: SoundFace(store: store)
         }
     }
     private var climate: some View {
         GeometryReader { proxy in
             VStack(alignment: .leading, spacing: 0) {
                 Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)" : "\(store.climate.target)")
-                    .font(.system(size: proxy.size.height * (store.climate.mode == .heatCool ? 0.26 : 0.43), weight: .light))
-                    .minimumScaleFactor(0.5).lineLimit(1).padding(.top, 5)
+                    .font(.system(size: proxy.size.height * (store.climate.mode == .heatCool ? 0.29 : 0.44), weight: .thin))
+                    .tracking(-8).minimumScaleFactor(0.5).lineLimit(1)
+                    .padding(.top, 12).padding(.leading, 10)
                 Spacer()
                 HStack(alignment: .center) {
-                    Button { step(-1) } label: { Image(systemName: "chevron.down").font(.system(size: 28, weight: .medium)).frame(width: 48, height: 56) }
-                        .accessibilityLabel("Lower setpoint").accessibilityIdentifier("tile-climate-down")
+                    CircleButton(symbol: "chevron.down", label: "Lower setpoint", size: 64, clearGlass: true) { step(-1) }
+                        .accessibilityIdentifier("tile-climate-down")
                     Spacer(minLength: 0)
-                    VStack(spacing: 6) {
-                        Text("Climate").font(.system(size: 25, weight: .semibold))
-                        Text("A/C").font(.system(size: 19)).opacity(0.6)
+                    VStack(spacing: 8) {
+                        Text("Climate").font(.system(size: 28, weight: .semibold))
+                        Text("A/C · \(store.climate.mode == .off ? "Off" : store.climate.action)")
+                            .font(.system(size: 21)).opacity(0.6)
                     }
                     Spacer(minLength: 0)
-                    Button { step(1) } label: { Image(systemName: "chevron.up").font(.system(size: 28, weight: .medium)).frame(width: 48, height: 56) }
-                        .accessibilityLabel("Raise setpoint").accessibilityIdentifier("tile-climate-up")
-                }.buttonStyle(.plain).disabled(store.climate.mode == .off)
-            }.padding(30)
-                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(22) } }
+                    CircleButton(symbol: "chevron.up", label: "Raise setpoint", size: 64, clearGlass: true) { step(1) }
+                        .accessibilityIdentifier("tile-climate-up")
+                }.disabled(store.climate.mode == .off)
+            }.padding(38)
+                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(26) } }
         }
     }
     private func step(_ delta: Int) {
@@ -230,66 +252,34 @@ struct AccessoryFace: View {
     let store: any HomeDataSource
     let open: () -> Void
     var on: Bool { key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key) }
+    var title: String { key == .bedroom || key == .livingRoom ? "Lamps" : key.name }
     var subtitle: String {
         switch key {
         case .all: "Everything"
-        case .fan: store.climate.fanLabel
+        case .fan: "A/C · \(store.climate.fanLabel)"
         case .lamps, .lights: on ? "On" : "Off"
-        case .bedroom, .livingRoom: "Lamps"
-        case .ceiling, .cabinet: "Lights"
+        case .bedroom: "Bedroom"
+        case .livingRoom: "Living Room"
+        case .ceiling: "Lights"
+        case .cabinet: "Kitchen"
         }
     }
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             Button { store.send(.toggle(key)) } label: {
-                Image(systemName: key.symbol).font(.system(size: 39, weight: .regular))
-                    .foregroundStyle(on && key != .fan && key != .all ? Color(hex: "#d89b17") : on ? Palette.ink : .white)
-                    .frame(width: 72, height: 70)
-                    .overlay { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white) } }
-            }.buttonStyle(.plain).accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
+                Image(systemName: key.symbol).font(.system(size: 50, weight: .regular))
+                    .foregroundStyle(on ? Color(hex: "#d49108") : .white)
+                    .frame(width: 100, height: 88)
+                    .overlay(alignment: .topTrailing) { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white) } }
+            }.buttonStyle(.plain).padding(.bottom, 20)
+                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
             Button(action: open) {
                 VStack(spacing: 7) {
-                    Text(key.name).font(.system(size: 23, weight: .semibold))
-                    Text(subtitle).font(.system(size: 17)).opacity(0.6)
+                    Text(title).font(.system(size: 26, weight: .semibold))
+                    Text(subtitle).font(.system(size: 20)).opacity(0.6)
                 }.frame(maxWidth: .infinity)
             }.buttonStyle(.plain).accessibilityLabel("Open \(key.name)")
         }.foregroundStyle(on ? Palette.ink : .white).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-struct GroupFace: View {
-    let master: Accessory
-    let members: [Accessory]
-    let store: any HomeDataSource
-    let open: () -> Void
-    var on: Bool { store.lamps.isOn(master) }
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 12) {
-                Button { store.send(.toggle(master)) } label: {
-                    Image(systemName: master.symbol).font(.system(size: 29)).foregroundStyle(on ? Color(hex: "#ce9014") : .white).frame(width: 48, height: 48)
-                }.buttonStyle(.plain).accessibilityLabel("Toggle \(master.name)").accessibilityIdentifier("toggle-\(master.rawValue)")
-                Button(action: open) {
-                    HStack {
-                        Text(master.name).font(.system(size: 24, weight: .semibold))
-                        Spacer()
-                        if store.pending.contains(master.rawValue) { ProgressView() }
-                        Text(on ? "On" : "Off").font(.system(size: 18)).opacity(0.6)
-                    }
-                }.buttonStyle(.plain).accessibilityLabel("Open \(master.name)")
-            }
-            HStack(spacing: 12) {
-                ForEach(members) { member in
-                    Button { store.send(.toggle(member)) } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: member.symbol).font(.system(size: 20))
-                            Text(member.name).font(.system(size: 16, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
-                        }.frame(maxWidth: .infinity, minHeight: 54)
-                            .background(store.lamps.isOn(member) ? .white.opacity(0.6) : .black.opacity(0.09), in: .rect(cornerRadius: 19))
-                            .opacity(store.pending.contains(member.rawValue) ? 0.5 : 1)
-                    }.buttonStyle(.plain).accessibilityLabel("Toggle \(member.name)").accessibilityValue(store.lamps.isOn(member) ? "On" : "Off").accessibilityIdentifier("toggle-\(member.rawValue)")
-                }
-            }
-        }.padding(24).foregroundStyle(on ? Palette.ink : .white)
-    }
-}
-#Preview("Home · 1366 × 1024", traits: .fixedLayout(width: 1366, height: 1024)) { HomeView(store: MockHomeDataSource()) }
+#Preview("Home face · 1376 × 1032", traits: .fixedLayout(width: 1376, height: 1032)) { HomeView(store: MockHomeDataSource()) }

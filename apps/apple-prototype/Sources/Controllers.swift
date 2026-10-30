@@ -10,14 +10,15 @@ struct ControllerHost: View {
             ZStack {
                 Text(tile.title).font(.system(size: 25, weight: .semibold))
                 HStack {
-                    CircleButton(symbol: "xmark", label: "Close", action: close).accessibilityIdentifier("close-controller")
+                    CircleButton(symbol: "xmark", label: "Close", clearGlass: [.lamps, .bedroom, .livingRoom].contains(tile), action: close).accessibilityIdentifier("close-controller")
                     Spacer()
                     TimelineView(.periodic(from: .now, by: 1)) { _ in Text(fixtureTime(store.now)).font(.system(size: 27, weight: .medium)) }
                 }
             }.frame(height: 62).padding(.horizontal, 38).padding(.top, 30).opacity(headerVisible ? 1 : 0)
             ControllerCanvas {
                 switch tile {
-                case .all, .fan, .lamps, .lights: ControlsController(store: store)
+                case .all, .fan, .lights, .ceiling, .cabinet: ControlsController(store: store)
+                case .lamps, .bedroom, .livingRoom: LampsController(store: store)
                 case .climate: ClimateController(store: store)
                 case .wifi: WifiController(wifi: store.wifi)
                 case .clock: ClockController(store: store)
@@ -92,9 +93,6 @@ struct ClimateController: View {
 }
 struct ControlsController: View {
     let store: any HomeDataSource
-    @State private var editingSlot: Int?
-    @State private var editingColors = false
-    @State private var draftHex = ""
     var body: some View {
         GeometryReader { proxy in
             HStack(alignment: .center, spacing: 54) {
@@ -114,59 +112,8 @@ struct ControlsController: View {
                         }
                     }
                 }.frame(width: proxy.size.width * 0.43)
-                VStack(alignment: .leading, spacing: 24) {
-                    SectionLabel(text: "Lamp scene")
-                    HStack(spacing: 16) {
-                        scene("White", colors: [Color(hex: "#ffe3b7"), .white])
-                        scene("Mood", colors: [Color(hex: "#a855f7"), Color(hex: "#3b82f6"), Color(hex: "#ec4899")])
-                    }
-                    VStack(spacing: 10) {
-                        HStack { SectionLabel(text: "White temperature"); Spacer(); Text("\(store.lamps.kelvin) K").font(.system(size: 22)) }
-                        Slider(value: Binding(get: { Double(store.lamps.kelvin) }, set: { store.send(.kelvin(Int($0))) }), in: 2000...6500, step: 100).accessibilityLabel("White temperature")
-                        HStack { Text("2000 K"); Spacer(); Text("6500 K") }.font(.system(size: 15)).opacity(0.6)
-                    }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
-                    HStack {
-                        SectionLabel(text: "Colors"); Spacer()
-                        Button(editingColors ? "Done" : "Edit") { editingColors.toggle() }.buttonStyle(.glass)
-                    }
-                    HStack(spacing: 28) {
-                        ForEach(0..<3) { slot in
-                            Button {
-                                if editingColors { draftHex = store.lamps.colors[slot]; editingSlot = slot }
-                                else { store.send(.color(slot, nil)) }
-                            } label: {
-                                VStack(spacing: 12) {
-                                    Circle().fill(Color(hex: store.lamps.colors[slot])).frame(width: 72, height: 72)
-                                        .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: store.lamps.activeColor == slot ? 4 : 1))
-                                        .overlay { if editingColors { Image(systemName: "pencil").font(.system(size: 24)) } }
-                                    Text("Custom \(slot + 1)").font(.system(size: 17, weight: .medium))
-                                }.frame(maxWidth: .infinity)
-                            }.buttonStyle(.plain).accessibilityLabel("\(editingColors ? "Edit" : "Use") Custom \(slot + 1)")
-                        }
-                    }
-                    SectionLabel(text: "Party")
-                    HStack(spacing: 12) {
-                        ForEach(PartySpeed.allCases, id: \.self) { speed in
-                            Choice(title: speed.rawValue, selected: store.lamps.party == speed) { store.send(.party(speed)) }
-                        }
-                    }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
-                }.frame(maxWidth: .infinity)
+                LampEffectsView(store: store).frame(maxWidth: .infinity)
             }.padding(.horizontal, 64).padding(.vertical, 38)
-        }
-        .sheet(isPresented: Binding(get: { editingSlot != nil }, set: { if !$0 { editingSlot = nil } })) {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("Edit Custom \((editingSlot ?? 0) + 1)").font(.system(size: 28, weight: .semibold))
-                RoundedRectangle(cornerRadius: 24).fill(Color(hex: draftHex)).frame(height: 120)
-                TextField("Hex color", text: $draftHex).textFieldStyle(.roundedBorder).font(.system(size: 24)).accessibilityLabel("Hex color")
-                Text("Use a six-digit hex color, such as #0066ff.").foregroundStyle(.secondary)
-                HStack {
-                    Button("Cancel") { editingSlot = nil }.keyboardShortcut(.cancelAction)
-                    Spacer()
-                    Button("Save & use") {
-                        if let slot = editingSlot { store.send(.color(slot, draftHex)) }; editingSlot = nil
-                    }.disabled(draftHex.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) == nil).keyboardShortcut(.defaultAction)
-                }.buttonStyle(.glass)
-            }.padding(32).frame(width: 440)
         }
     }
     private func toggle(_ key: Accessory) -> some View {
@@ -183,16 +130,6 @@ struct ControlsController: View {
             }.padding(.horizontal, 16).frame(height: 67).foregroundStyle(on ? Palette.ink : .white)
         }.buttonStyle(.plain).homeGlass(on: on, radius: 23)
             .accessibilityLabel("Toggle \(key.name)").accessibilityIdentifier("controller-toggle-\(key.rawValue)")
-    }
-    private func scene(_ name: String, colors: [Color]) -> some View {
-        Button { store.send(.scene(name)) } label: {
-            HStack(spacing: 12) {
-                Circle().fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 32, height: 32)
-                Text(name).font(.system(size: 21, weight: .semibold))
-                Spacer()
-                if store.lamps.scene == name && store.lamps.party == .off { Image(systemName: "checkmark") }
-            }.padding(17)
-        }.buttonStyle(.glass)
     }
 }
 struct WifiController: View {
