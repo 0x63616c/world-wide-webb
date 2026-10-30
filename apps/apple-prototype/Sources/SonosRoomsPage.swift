@@ -53,7 +53,7 @@ struct SonosRoomsPage: View {
                 }
                 Button("Make standalone") { store.send(.leave(room.id)) }
             } label: {
-                Label(room.coordinator == room.id ? "Group" : room.coordinator, systemImage: "speaker.wave.2.bubble")
+                Label(room.coordinator == room.id ? "Group" : room.coordinatorLabel, systemImage: "speaker.wave.2.bubble")
                     .font(.system(size: 16)).frame(width: compact ? nil : 150, alignment: .leading)
             }.menuStyle(.borderlessButton)
         }.padding(24).glassEffect(.regular, in: .rect(cornerRadius: 32))

@@ -4,7 +4,8 @@ import UIKit
 #endif
 import Observation
 
-// All data in this file is FIXTURE data. No device discovery, credentials, or networking.
+// Presentation models default to fixtures for the prototype; live hosts inject values.
+// No device discovery, credentials, or networking belongs in these models.
 enum Accessory: String, CaseIterable, Identifiable {
     case all, fan, lamps, bedroom, livingRoom, lights, ceiling, cabinet
     var id: String { rawValue }
@@ -44,9 +45,12 @@ struct ClimateState {
     var high = 74
     var ambient = 72
     var fanOn = false
-    var fanLabel: String { mode == .off ? "Off" : fanOn ? "On" : "Auto" }
+    var reportedFanLabel: String? = nil
+    var reportedAction: String? = nil
+    var fanLabel: String { reportedFanLabel ?? (mode == .off ? "Off" : fanOn ? "On" : "Auto") }
     var action: String {
-        switch mode {
+        if let reportedAction { return reportedAction }
+        return switch mode {
         case .off: "Idle"
         case .cool: ambient > target ? "Cooling" : "Idle"
         case .heat: ambient < target ? "Heating" : "Idle"
@@ -115,17 +119,18 @@ struct HourForecast: Identifiable {
     let symbol: String
 }
 struct WeatherState {
-    let city = "San Francisco"
-    let temperature = 64
+    var city = "San Francisco"
+    var temperature = 64
     var condition = "Partly cloudy"
-    let high = 67
-    let low = 56
-    let feels = 63
-    let humidity = 72
-    let wind = 8
-    let solarLabel = "Sunset"
-    let solarValue = "6:14 PM"
-    let hours: [HourForecast] = (0..<12).map { index in
+    var symbol = "cloud.sun.fill"
+    var high = 67
+    var low = 56
+    var feels = 63
+    var humidity = 72
+    var wind = 8
+    var solarLabel = "Sunset"
+    var solarValue = "6:14 PM"
+    var hours: [HourForecast] = (0..<12).map { index in
         HourForecast(id: index, time: ["11a", "12p", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p"][index],
                      temperature: [64, 63, 62, 61, 60, 59, 58, 58, 57, 57, 56, 56][index],
                      feels: [63, 62, 60, 59, 58, 57, 56, 56, 55, 55, 54, 54][index],
@@ -211,7 +216,17 @@ struct UpcomingAlarm {
     func ringFraction(at now: Date) -> Double { min(1, remaining(at: now) / 86_400) }
 }
 struct SoundRoom: Identifiable {
-    var id: String { name }
+    /// nil preserves prototype fixtures; a supplied value (including nil metadata)
+    /// is authoritative for live rooms and keeps identity separate from display names.
+    struct Metadata {
+        let id: String
+        let title: String?
+        let artist: String?
+        var coordinatorName: String? = nil
+        var tint: String = "#303030"
+    }
+    var metadata: Metadata? = nil
+    var id: String { metadata?.id ?? name }
     let name: String
     var rawVolume: Int
     var baseline: Int?
@@ -228,9 +243,19 @@ struct SoundRoom: Identifiable {
     var sourceKind: SoundSource = .spotify
     var sourceLabel: String? = "Spotify"
     var albumArtUri: String? = nil
-    var trackTitle: String? { sourceKind == .idle ? nil : FixtureTrack.queue[trackIndex].title }
-    var trackArtist: String? { sourceKind == .idle ? nil : FixtureTrack.queue[trackIndex].artist }
-    var artworkTint: String { FixtureTrack.queue[trackIndex].tint }
+    var trackTitle: String? {
+        if let metadata { return metadata.title }
+        return sourceKind == .idle ? nil : FixtureTrack.queue[trackIndex].title
+    }
+    var trackArtist: String? {
+        if let metadata { return metadata.artist }
+        return sourceKind == .idle ? nil : FixtureTrack.queue[trackIndex].artist
+    }
+    var artworkTint: String { metadata?.tint ?? FixtureTrack.queue[trackIndex].tint }
+    var coordinatorLabel: String {
+        if let metadata { return metadata.coordinatorName ?? "Unavailable" }
+        return coordinator
+    }
     var transportState: String { playing ? "PLAYING" : "PAUSED_PLAYBACK" }
     var displayVolume: Int { baseline.map { $0 > 0 ? Int((Double(rawVolume) / Double($0) * 100).rounded()) : rawVolume } ?? rawVolume }
 }

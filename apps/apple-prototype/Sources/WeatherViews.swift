@@ -10,7 +10,7 @@ struct WeatherFace: View {
                 Text(weather.city).font(.system(size: 15)).opacity(0.6)
             }
             HStack(spacing: 18) {
-                Image(systemName: "cloud.sun.fill").font(.system(size: 42))
+                Image(systemName: weather.symbol).font(.system(size: 42))
                 Text("\(weather.temperature)°").font(.system(size: 57, weight: .light))
                 VStack(alignment: .leading, spacing: 5) {
                     Text(weather.condition).font(.system(size: 18))
@@ -46,7 +46,7 @@ struct WeatherController: View {
             Spacer()
             Text(weather.city).font(.system(size: 28)).opacity(0.7)
             HStack(spacing: 45) {
-                Image(systemName: "cloud.sun.fill").font(.system(size: 110, weight: .light))
+                Image(systemName: weather.symbol).font(.system(size: 110, weight: .light))
                 Text("\(weather.temperature)°").font(.system(size: 220, weight: .ultraLight))
             }
             Text(weather.condition).font(.system(size: 32))
