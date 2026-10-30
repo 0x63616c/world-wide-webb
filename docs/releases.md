@@ -9,7 +9,9 @@ both the build and timestamp untouched. No new secret or deployment target exist
 Panel reads use Cloudflare Access alone, like the other panel queries:
 `GET /api/releases/latest?app=panel` or `releases.latest({app: "panel"})` over tRPC.
 Both return `{app, build, updatedAt}` or 404 before the first upload. Reads are not
-cached. A build is a positive PostgreSQL integer; app IDs are bounded lowercase
+cached. The Cloudflare tunnel sends the exact `/api/releases/latest` path directly
+to the API before the app catch-all, under the same Access policy; web nginx and
+all other paths remain unchanged. A build is a positive PostgreSQL integer; app IDs are bounded lowercase
 identifiers. POST returns 503 when automation is unconfigured, 401 for bad bearer
 credentials, and 400 for invalid input.
 
