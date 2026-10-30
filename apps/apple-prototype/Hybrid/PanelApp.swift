@@ -88,6 +88,7 @@ struct PanelRoot: View {
                                 .buttonStyle(.glass).accessibilityIdentifier("module-detail")
                         }
                     }.padding(16).foregroundStyle(.white)
+                        .environment(\.colorScheme, .dark)
                 }
                 HybridModuleHost(router: router, module: selection,
                     liveView: store.hasLiveData(for: selection)

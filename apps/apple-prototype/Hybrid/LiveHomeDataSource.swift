@@ -87,7 +87,8 @@ import PanelKit
         guard sonosProvider.availability == .live else { return [] }
         return sonosProvider.rooms.compactMap { projection in
             guard let room = sonosProvider.roomDetails[projection.id], room.availability == .available else { return nil }
-            return SoundRoom(metadata: .init(id: room.uuid, title: room.trackTitle, artist: room.trackArtist),
+            return SoundRoom(metadata: .init(id: room.uuid, title: room.trackTitle, artist: room.trackArtist,
+                                             coordinatorName: sonosProvider.roomDetails[room.coordinatorUuid]?.name),
                              name: room.name, rawVolume: projection.rawVolume, baseline: projection.baseline,
                              muted: projection.muted, coordinator: room.coordinatorUuid, playing: projection.playing,
                              positionSeconds: 0, durationSeconds: 0, positionUpdatedAt: .distantPast,

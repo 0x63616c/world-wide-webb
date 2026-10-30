@@ -98,13 +98,15 @@ The exact edits are:
 - `HomeDataSource.swift`: weather fields become initializer-injectable `var`s,
   with the same fixture defaults; add an injectable weather symbol. Add optional
   reported climate action/fan label, and optional Sonos metadata with a stable ID
-  and nullable track fields. Nil overrides preserve all prototype behavior.
+  and nullable track fields/coordinator name. Nil overrides preserve all prototype behavior.
 - `HomeView.swift`: `AccessoryFace` accepts optional `fanIsOn`, defaulting to its
   original calculation, so a live fan does not require an invented HVAC mode.
 - `Live/LiveLightsProvider.swift`: its initializer accepts `initialLamps`, defaulting
   to the existing fixture state; Panel supplies neutral unavailable state instead.
 - `WeatherViews.swift`: the two current-condition glyphs read the injected symbol.
 - `ModulePages.swift`: `WeatherPage`'s current-condition glyph reads that symbol.
+- `SonosRoomsPage.swift`: the group label reads the injected coordinator display
+  name; grouping commands continue using stable backend IDs.
 
 ### Deterministic fixture mode
 
@@ -256,7 +258,9 @@ hosted unit run stalled before executing tests and was interrupted; the UI runne
 was killed before establishing its test connection, so no UI assertions ran.
 The module captures use the actual Panel app launched directly with `simctl`,
 `-hybridFixtures`, each `-moduleFlag.<module> native`, and `-hybridDetail` for the
-controller. Authenticated home-service and physical wall-device checks remain
+controller. `scripts/capture-hybrid.sh <own-UDID> <output>` waits for a marker from
+mounted fixture content before each capture, including the two web fallback cases.
+Authenticated home-service and physical wall-device checks remain
 outside this fixture verification.
 
 ### WWW-47 alarm verification

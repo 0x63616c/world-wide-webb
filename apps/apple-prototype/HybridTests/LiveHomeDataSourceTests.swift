@@ -75,6 +75,8 @@ import PanelKit
         XCTAssertEqual(store.rooms.count, 4) // Unknown/unavailable devices are not actionable.
         XCTAssertEqual(store.rooms[0].name, store.rooms[1].name)
         XCTAssertNotEqual(store.rooms[0].id, store.rooms[1].id)
+        XCTAssertEqual(store.rooms[1].coordinator, store.rooms[0].id)
+        XCTAssertEqual(store.rooms[1].coordinatorLabel, "Test Room")
         XCTAssertEqual(store.rooms[0].trackTitle, "Synthetic Track")
         XCTAssertEqual(store.rooms[0].trackArtist, "Fixture Artist")
         XCTAssertEqual(store.rooms[0].displayVolume, 50)

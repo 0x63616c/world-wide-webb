@@ -222,6 +222,7 @@ struct SoundRoom: Identifiable {
         let id: String
         let title: String?
         let artist: String?
+        var coordinatorName: String? = nil
         var tint: String = "#303030"
     }
     var metadata: Metadata? = nil
@@ -251,6 +252,10 @@ struct SoundRoom: Identifiable {
         return sourceKind == .idle ? nil : FixtureTrack.queue[trackIndex].artist
     }
     var artworkTint: String { metadata?.tint ?? FixtureTrack.queue[trackIndex].tint }
+    var coordinatorLabel: String {
+        if let metadata { return metadata.coordinatorName ?? "Unavailable" }
+        return coordinator
+    }
     var transportState: String { playing ? "PLAYING" : "PAUSED_PLAYBACK" }
     var displayVolume: Int { baseline.map { $0 > 0 ? Int((Double(rawVolume) / Double($0) * 100).rounded()) : rawVolume } ?? rawVolume }
 }
