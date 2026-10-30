@@ -36,7 +36,7 @@ struct MixedTileMaterial: ViewModifier {
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var radius: CGFloat { sizeClass == .compact ? 36 : 56 }
     func body(content: Content) -> some View {
-        let glass = imageContent ? Glass.clear : on ? Glass.regular.tint(.orange.opacity(0.12)) : Glass.regular.tint(.white.opacity(0.05))
+        let glass = imageContent ? Glass.clear : on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90).opacity(0.65)) : Glass.regular.tint(.white.opacity(0.05))
         Group {
         if round {
             content.glassEffect(glass.interactive(), in: .circle)
@@ -70,16 +70,7 @@ struct MixedHomeTile: View {
     }
     private var climate: some View {
         VStack(alignment: .leading, spacing: compact ? 16 : 8) {
-            Button(action: open) {
-                HStack {
-                    Label("Climate", systemImage: "air.conditioner.horizontal.fill")
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 18, weight: .semibold))
-                }.font(.system(size: compact ? 19 : 26, weight: .semibold))
-                    .contentShape(.rect)
-            }.buttonStyle(.plain).accessibilityIdentifier("open-climate")
-            Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
-                .font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
+            climateHeader
             if compact {
                 HStack(spacing: 8) {
                     step("minus", delta: -1)
@@ -100,6 +91,20 @@ struct MixedHomeTile: View {
                 }
             }
         }.padding(compact ? 24 : 32)
+    }
+    private var climateHeader: some View {
+        VStack(alignment: .leading, spacing: compact ? 4 : 8) {
+            Button(action: open) {
+                HStack {
+                    Label("Climate", systemImage: "air.conditioner.horizontal.fill")
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 18, weight: .semibold))
+                }.font(.system(size: compact ? 19 : 26, weight: .semibold))
+                    .contentShape(.rect)
+            }.buttonStyle(.plain).accessibilityIdentifier("open-climate")
+            Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
+                .font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
+        }
     }
     private var climateValue: some View {
         Button(action: open) {

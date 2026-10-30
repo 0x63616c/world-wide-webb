@@ -187,8 +187,8 @@ struct PhoneFaceBar: View {
     var body: some View {
         VStack(spacing: 6) {
             FacePicker(selection: $selection)
-                .frame(width: 200, height: 56)
-                .glassEffect(.clear, in: .capsule)
+                .padding(.horizontal, 12).frame(height: 56)
+                .glassEffect(.regular, in: .capsule)
             Text("Fixture data").font(.system(size: 10)).foregroundStyle(.secondary)
         }.frame(height: HomeFaceLayout.phonePagerBand)
     }
@@ -199,7 +199,7 @@ struct FacePicker: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        HStack(spacing: sizeClass == .compact ? 4 : 10) {
+        HStack(spacing: 10) {
             ForEach(0..<4) { page in
                 Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { selection = page } } label: {
                     Circle().fill(.white.opacity(selection == page ? 0.95 : 0.3))

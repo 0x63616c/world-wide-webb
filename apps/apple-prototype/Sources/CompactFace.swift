@@ -24,7 +24,7 @@ struct CompactFace: View {
                     }.frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 }
             }.scrollIndicators(.hidden)
-                .scrollEdgeEffectHidden(true, for: .all)
+                .scrollEdgeEffectStyle(.soft, for: .all)
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
                 .mask {
                     VStack(spacing: 0) {

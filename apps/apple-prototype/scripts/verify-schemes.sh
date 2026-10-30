@@ -42,6 +42,9 @@ run_test() {
   else
     tail -40 "$out/$scheme-$phase.log"; status=1
   fi
+  # The shared lock polls every two seconds. Leave a complete polling interval
+  # between phases so a queued capture can acquire it before our next test.
+  sleep 3
 }
 for scheme in WorldWideWebb-iPad WorldWideWebb-Snapshots; do
   run_test "$scheme" unit -only-testing:WorldWideWebbTests -skip-testing:WorldWideWebbTests/SnapshotRenderTests

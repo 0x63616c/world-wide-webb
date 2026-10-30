@@ -18,6 +18,12 @@ prepare() {
   local device="$1"
   xcrun simctl boot "$device" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "$device" -b
+  local orientation=portrait
+  [[ "$device" == "$ipad" ]] && orientation=landscapeLeft
+  xcrun devicectl device orientation set --device "$device" "$orientation" --timeout 15
+  xcrun simctl ui "$device" appearance dark
+  xcrun simctl ui "$device" increase_contrast disabled
+  xcrun simctl ui "$device" content_size large
   if [[ "$device" != "$ipad" || "${ipad_installed:-0}" != 1 ]]; then
     xcrun simctl install "$device" "$HOME/wwwebb-proto-dd/Build/Products/Debug-iphonesimulator/WorldWideWebb-iPad.app"
   fi
@@ -45,7 +51,18 @@ capture_once() {
   fi
   sleep 3
   xcrun simctl io "$device" screenshot "$out/sim-$name.png"
-  "$HOME/bin/www8-validate-png" "$out/sim-$name.png" "$out/.springboard-$device.png"
+  "$HOME/bin/www8-validate-png" "$out/sim-$name.png" "$out/.springboard-$device.png" || return 1
+  # A nonblank portrait letterbox is still invalid panel evidence.
+  python3 - "$out/sim-$name.png" "$device" "$ipad" <<'PYDIM'
+import struct, sys
+with open(sys.argv[1], "rb") as image:
+    image.seek(16)
+    width, height = struct.unpack(">II", image.read(8))
+landscape = sys.argv[2] == sys.argv[3]
+if (width > height) != landscape:
+    print(f"INVALID {sys.argv[1]}: wrong orientation {width}x{height}", file=sys.stderr)
+    sys.exit(1)
+PYDIM
 }
 capture_pair() {
   local device="$1" name="$2" mean

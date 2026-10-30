@@ -13,7 +13,8 @@ import XCTest
     }
     private func waitForValue(_ element: XCUIElement, _ value: String, file: StaticString = #filePath, line: UInt = #line) {
         let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 10), .completed, file: file, line: line)
+        XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 10), .completed,
+                       "Expected \(value); observed \(String(describing: element.value)). \(element.debugDescription)", file: file, line: line)
     }
     func testHomeNavigationFromBothFaces() throws {
         let app = launch()

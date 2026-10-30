@@ -67,7 +67,11 @@ struct LampsController: View {
                         Text(on ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps" : "Off · \(LampState.members(key).count) lamps").font(.system(size: compact ? 16 : 22)).foregroundStyle(.primary)
                     }
                     Spacer()
-                    Toggle("Power", isOn: Binding(get: { store.lamps.isOn(key) }, set: { _ in store.send(.toggle(key)) }))
+                    Toggle("Power", isOn: Binding(get: { store.lamps.isOn(key) }, set: { requested in
+                        // A control may resend its value while its glass/theme
+                        // updates. Apply the requested state exactly once.
+                        if store.lamps.isOn(key) != requested { store.send(.toggle(key)) }
+                    }))
                         .labelsHidden().toggleStyle(.switch).tint(.orange)
                         .accessibilityLabel("\(key.name) power")
                         .accessibilityIdentifier("controller-toggle-\(key.rawValue)")

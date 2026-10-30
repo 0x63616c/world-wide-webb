@@ -86,7 +86,7 @@ struct DogWalkPage: View {
                     let summary = store.walks.summary(at: store.now)
                     HStack(spacing: compact ? 12 : 56) {
                         metric("This week", value: "\(summary.weeklyMinutes)", unit: "min")
-                        metric("Average per walk", value: "\(summary.averageMinutes)", unit: "min")
+                        metric("3-week average", value: "\(summary.averageMinutes)", unit: "min")
                         metric("Streak", value: "\(summary.streak)", unit: "days")
                     }.padding(.vertical, 8)
                     let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 24)) : AnyLayout(HStackLayout(alignment: .top, spacing: 24))
@@ -113,34 +113,21 @@ struct DogWalkPage: View {
                             .font(.system(size: 64, weight: .medium, design: .rounded)).monospacedDigit()
                             .accessibilityIdentifier("walk-elapsed")
                         Text("Started on \(walk.startedBy.rawValue)")
-                            .font(.system(size: 24, weight: .medium)).foregroundStyle(.white)
+                            .font(.system(size: compact ? 18 : 24)).foregroundStyle(.secondary)
                     } else {
                         Label("Zero’s walks", systemImage: "pawprint.fill")
                             .font(.system(size: compact ? 32 : 48, weight: .semibold))
                         Text(store.walks.lastWalkLabel(at: store.now))
-                            .font(.system(size: 24, weight: .medium)).foregroundStyle(.white)
+                            .font(.system(size: compact ? 20 : 24)).foregroundStyle(.secondary)
                     }
                 }.frame(height: 144, alignment: .center)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button {
+            Button(store.walks.activeWalk == nil ? "Start walk" : "End walk", systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill") {
                 store.toggleWalk()
-            } label: {
-                Label(store.walks.activeWalk == nil ? "Start walk" : "End walk", systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
-                    .font(.system(size: 24, weight: .semibold)).foregroundStyle(.black)
             }
+            .font(.system(size: compact ? 18 : 24, weight: .semibold))
             .buttonStyle(.glassProminent).tint(.green).controlSize(.large)
-        }.background {
-            // Local photo treatment for essential status; no extra glass layer.
-            LinearGradient(stops: [.init(color: .black.opacity(0.48), location: 0),
-                                   .init(color: .black.opacity(0.30), location: 0.55),
-                                   .init(color: .clear, location: 1)],
-                           startPoint: .leading, endPoint: .trailing)
-                .mask(LinearGradient(stops: [.init(color: .clear, location: 0),
-                                             .init(color: .black, location: 0.12),
-                                             .init(color: .black, location: 0.88),
-                                             .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
-                .padding(.horizontal, -24).padding(.vertical, -16)
         }
     }
 

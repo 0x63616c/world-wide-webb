@@ -55,6 +55,15 @@ import SwiftUI
     guard ProcessInfo.processInfo.arguments.contains("-snapshot") else { return }
     do {
         try await Task.sleep(for: .seconds(ProcessInfo.processInfo.arguments.contains("-showVideo") ? 5 : 2))
+        #if os(iOS)
+        // Tests can leave the device in portrait. Pin the fixture's window
+        // orientation before declaring readiness, including presented pages.
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            let orientation: UIInterfaceOrientationMask = UIDevice.current.userInterfaceIdiom == .pad ? .landscapeLeft : .portrait
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: orientation))
+            try await Task.sleep(for: .seconds(1))
+        }
+        #endif
     } catch { return }
     let marker = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("capture-ready")

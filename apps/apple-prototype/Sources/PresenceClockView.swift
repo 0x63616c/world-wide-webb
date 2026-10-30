@@ -51,13 +51,13 @@ struct PresenceClockFace: View {
                     HStack(alignment: .firstTextBaseline) {
                         if !compact {
                             Text(fixtureTime(store.now, format: "EEE d").uppercased())
-                                .font(.system(size: 20, weight: .medium)).foregroundStyle(.white)
+                                .font(.system(size: 22, weight: .semibold)).foregroundStyle(.black)
                         }
                         Spacer()
                         if near {
                             Button { open(.alarm) } label: {
                                 Label(alarmCaption, systemImage: "alarm.fill")
-                                    .font(.system(size: compact ? 17 : 20, weight: .medium)).foregroundStyle(.white)
+                                    .font(.system(size: compact ? 17 : 22, weight: .medium))
                             }.buttonStyle(.plain)
                         }
                     }.padding(.horizontal, compact ? 24 : 64)
@@ -97,11 +97,8 @@ struct PresenceClockFace: View {
     }
 }
 
-struct GreenClockDial: View {
+private struct GreenClockDial: View {
     let date: Date
-    // Also lets geometry tests measure the glyphs without the hand/hub pixels.
-    var showsHands = true
-    static let maximumHandFraction: CGFloat = 0.175
     var body: some View {
         GeometryReader { proxy in
             let s = min(proxy.size.width, proxy.size.height)
@@ -109,19 +106,15 @@ struct GreenClockDial: View {
             let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
             let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
             ZStack {
-                numeral("12", size: s * 0.42, x: s * 0.5, y: s * 0.10)
-                numeral("9", size: s * 0.42, x: s * 0.12, y: s * 0.49)
-                numeral("3", size: s * 0.42, x: s * 0.88, y: s * 0.49)
-                numeral("6", size: s * 0.42, x: s * 0.5, y: s * 0.90)
-                if showsHands {
-                // Keep the entire sweep inside the numeral-free center, including
-                // the seconds hand pointing directly at 6 in the fixed fixture.
-                hand(length: s * 0.14, width: s * 0.012, degrees: hours * 30)
-                hand(length: s * Self.maximumHandFraction, width: s * 0.010, degrees: minutes * 6)
-                hand(length: s * Self.maximumHandFraction, width: max(1.5, s * 0.0028), degrees: seconds * 6).opacity(0.85)
+                numeral("12", size: s * 0.46, x: s * 0.5, y: s * 0.15)
+                numeral("9", size: s * 0.46, x: s * 0.14, y: s * 0.49)
+                numeral("3", size: s * 0.46, x: s * 0.86, y: s * 0.49)
+                numeral("6", size: s * 0.46, x: s * 0.5, y: s * 0.85)
+                hand(length: s * 0.26, width: s * 0.012, degrees: hours * 30)
+                hand(length: s * 0.38, width: s * 0.010, degrees: minutes * 6)
+                hand(length: s * 0.42, width: max(1.5, s * 0.0028), degrees: seconds * 6).opacity(0.85)
                 Circle().fill(.white).frame(width: s * 0.024, height: s * 0.024)
                 Circle().fill(.black).frame(width: s * 0.009, height: s * 0.009)
-                }
             }.frame(width: s, height: s)
         }.accessibilityElement(children: .ignore).accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
     }

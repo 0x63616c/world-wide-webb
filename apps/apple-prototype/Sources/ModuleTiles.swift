@@ -67,7 +67,7 @@ struct ModuleTile: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Media").font(.system(size: compact ? 22 : 28, weight: .semibold))
                 Text("Music & films").font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
-                Label("Browse library", systemImage: "play.fill").font(.system(size: compact ? 14 : 20))
+                Text("Browse library ›").font(.system(size: compact ? 14 : 20))
             }
             Spacer(minLength: 0)
         }.padding(compact ? 24 : 32)
