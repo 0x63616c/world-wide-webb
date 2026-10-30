@@ -133,6 +133,11 @@ struct PanelRoot: View {
             NotificationBanners(source: PanelNotifications.source, open: openNotification)
         }
         .environment(notifications)
+        #if DEBUG
+        .transformEnvironment(\.accessibilityReduceMotion) { value in
+            if ProcessInfo.processInfo.arguments.contains("-notificationReduceMotion") { value = true }
+        }
+        #endif
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await notifications.run()

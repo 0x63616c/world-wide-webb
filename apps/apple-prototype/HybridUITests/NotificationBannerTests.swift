@@ -31,7 +31,7 @@ final class NotificationBannerTests: XCTestCase {
         capture("notification-stack-after-dismiss", app)
     }
 
-    @MainActor func testNormalTimeoutAndCriticalRemainOnWebFallback() {
+    @MainActor func testAutoTimeoutAndCriticalRemainOnWebFallback() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-notificationSamples", "-notificationStack"]
         app.launch()
@@ -40,6 +40,20 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(app.buttons["notification-banner-climate"].exists)
         app.buttons["notification-dismiss-climate"].tap()
         XCTAssertTrue(app.buttons["notification-banner-climate"].waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor func testReduceMotionAndAccessibilityText() {
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-notificationSamples", "-notificationStack", "-notificationReduceMotion",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let banner = app.buttons["notification-banner-climate"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 20))
+        XCTAssertTrue(banner.isHittable)
+        capture("notification-accessibility-reduce-motion", app)
+        app.buttons["notification-dismiss-climate"].tap()
+        XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["notification-banner-lights"].isHittable)
     }
 
     @MainActor private func capture(_ name: String, _ app: XCUIApplication) {

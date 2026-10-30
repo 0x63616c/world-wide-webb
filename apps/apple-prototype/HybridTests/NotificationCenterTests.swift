@@ -5,7 +5,7 @@ import PanelKit
 
 @MainActor final class NotificationCenterTests: XCTestCase {
     func testLocalOrderingGroupingDedupeAndClear() async {
-        let center = NotificationCenter()
+        let center = Panel.NotificationCenter()
         let first = center.post(sourceModule: "lights", title: "First", body: "", deepLink: "module/lights", dedupeKey: "scene")
         let duplicate = center.post(sourceModule: "lights", title: "Updated", body: "", deepLink: "module/lights", dedupeKey: "scene")
         XCTAssertEqual(first, duplicate)
@@ -21,7 +21,7 @@ import PanelKit
     }
 
     func testTimingTouchQueueAndCriticalPersistence() async {
-        let center = NotificationCenter()
+        let center = Panel.NotificationCenter()
         let normal = center.post(sourceModule: "lights", title: "Normal", body: "", deepLink: "module/lights")
         _ = center.post(sourceModule: "climate", title: "High", body: "", deepLink: "module/climate", priority: .high)
         _ = center.post(sourceModule: "alarms", title: "Critical", body: "", deepLink: "module/alarms", priority: .critical)
@@ -48,7 +48,7 @@ import PanelKit
         let api = NotificationStub(pages: [NotificationPage(items: [row], cursor: "1", hasMore: true),
             NotificationPage(items: [read], cursor: "2", hasMore: false),
             NotificationPage(items: [dismissed], cursor: "3", hasMore: false)], row: dismissed)
-        let center = NotificationCenter(api: api)
+        let center = Panel.NotificationCenter(api: api)
         center.post(sourceModule: "lights", title: "Remote", body: "Body", deepLink: "module/lights", dedupeKey: "scene")
         await center.refresh()
         XCTAssertEqual(center.history.count, 1)
@@ -64,7 +64,7 @@ import PanelKit
 
     func testAbsentEndpointKeepsLocalServiceAndClearWorking() async throws {
         let api = NotificationStub(pages: [], row: try notificationRow(revision: "1"))
-        let center = NotificationCenter(api: api)
+        let center = Panel.NotificationCenter(api: api)
         center.post(sourceModule: "lights", title: "Local", body: "", deepLink: "module/lights")
         await center.refresh()
         XCTAssertEqual(center.connection, .unavailable)
@@ -76,11 +76,52 @@ import PanelKit
     func testFailedDismissRestoresBannerAndError() async throws {
         let api = NotificationStub(pages: [NotificationPage(items: [try notificationRow(revision: "1")], cursor: "1", hasMore: false)],
             row: nil)
-        let center = NotificationCenter(api: api)
+        let center = Panel.NotificationCenter(api: api)
         await center.refresh()
         await center.dismiss("ntf_synthetic")
         XCTAssertEqual(center.bannerGroups.count, 1)
         XCTAssertNotNil(center.lastError)
+    }
+
+    func testSameRevisionDoesNotReplayAndRecoveryRetainsHistory() async throws {
+        let row = try notificationRow(revision: "1")
+        let api = NotificationStub(pages: [NotificationPage(items: [row], cursor: "1", hasMore: false)], row: row)
+        let center = Panel.NotificationCenter(api: api)
+        await center.refresh()
+        center.hideBanner(row.id)
+        await center.refresh() // absent endpoint, retain already received history
+        XCTAssertEqual(center.connection, .unavailable)
+        XCTAssertEqual(center.history.count, 1)
+        await api.append(NotificationPage(items: [row], cursor: "1", hasMore: false))
+        await center.refresh()
+        XCTAssertEqual(center.connection, .connected)
+        XCTAssertTrue(center.bannerGroups.isEmpty)
+        XCTAssertEqual(center.arrivalFeedback, 1)
+    }
+
+    func testRetentionResetsCursorAndRemoteCacheButKeepsLocal() async throws {
+        let clock = NotificationTestClock()
+        let row = try notificationRow(revision: "1")
+        let api = NotificationStub(pages: [NotificationPage(items: [row], cursor: "1", hasMore: false),
+            NotificationPage(items: [], cursor: "0", hasMore: false)], row: row)
+        let center = Panel.NotificationCenter(api: api, now: { clock.date })
+        await center.refresh()
+        center.post(sourceModule: "climate", title: "Local", body: "", deepLink: "module/climate")
+        clock.date = clock.date.addingTimeInterval(31 * 86_400)
+        await center.refresh()
+        XCTAssertEqual(center.history.map(\.sourceModule), ["climate"])
+        let cursors = await api.cursors
+        XCTAssertEqual(cursors, [nil, nil])
+    }
+
+    func testSourceDedupeIsolationAndTimeOrdering() {
+        let clock = NotificationTestClock()
+        let center = Panel.NotificationCenter(now: { clock.date })
+        center.post(sourceModule: "lights", title: "Older", body: "", deepLink: "module/lights", dedupeKey: "same")
+        clock.date = clock.date.addingTimeInterval(1)
+        center.post(sourceModule: "climate", title: "Newer", body: "", deepLink: "module/climate", dedupeKey: "same")
+        XCTAssertEqual(center.history.map(\.title), ["Newer", "Older"])
+        XCTAssertEqual(center.groups.count, 2)
     }
 
     func testRoutesAndGestures() {
@@ -110,6 +151,7 @@ private actor NotificationStub: NotificationsServing {
     var cursors: [String?] = []
     let row: PanelNotification?
     init(pages: [NotificationPage], row: PanelNotification?) { self.pages = pages; self.row = row }
+    func append(_ page: NotificationPage) { pages.append(page) }
     func list(since: String?) async throws -> NotificationPage {
         cursors.append(since)
         guard !pages.isEmpty else { throw PanelAPIError.http(status: 404) }
@@ -119,3 +161,5 @@ private actor NotificationStub: NotificationsServing {
     func dismiss(id: String) throws -> PanelNotification { guard let row else { throw PanelAPIError.http(status: 503) }; return row }
     func dismissAll() throws -> Int { throw PanelAPIError.http(status: 404) }
 }
+
+@MainActor private final class NotificationTestClock { var date = Date(timeIntervalSince1970: 1_800_000_000) }

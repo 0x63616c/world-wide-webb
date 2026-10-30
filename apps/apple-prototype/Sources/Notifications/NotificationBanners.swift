@@ -64,6 +64,8 @@ private struct NotificationBanner: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var translation = CGSize.zero
+    @State private var pressed = false
+    @GestureState private var dragging = false
     let item: NotificationItem
     let count: Int
     let source: NotificationSource
@@ -100,7 +102,7 @@ private struct NotificationBanner: View {
                 .padding(.leading, 18).padding(.vertical, 16)
                 .contentShape(.rect)
             }
-            .buttonStyle(NotificationTouchStyle(touch: touch))
+            .buttonStyle(NotificationTouchStyle(touch: { pressed = $0 }))
             .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
             .accessibilityHint("Opens \(source.name)")
             .accessibilityAction(named: "Dismiss", dismiss)
@@ -129,17 +131,21 @@ private struct NotificationBanner: View {
         .padding(.bottom, count > 2 ? 13 : count > 1 ? 7 : 0)
         .offset(translation)
         .highPriorityGesture(DragGesture(minimumDistance: 12)
+            .updating($dragging) { _, active, _ in active = true }
             .onChanged { value in
-                touch(true)
                 translation = CGSize(width: value.translation.width, height: min(0, value.translation.height))
             }
             .onEnded { value in
-                touch(false)
                 if NotificationBannerGesture.dismisses(x: value.translation.width, y: value.translation.height) {
                     dismiss()
                 }
                 withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { translation = .zero }
             })
+        .onChange(of: pressed || dragging) { _, active in touch(active) }
+        .onChange(of: dragging) { _, active in
+            // GestureState also resets on cancellation (backgrounding/system gesture).
+            if !active { withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { translation = .zero } }
+        }
         .onDisappear { touch(false) }
     }
 }
