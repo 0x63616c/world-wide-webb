@@ -25,23 +25,16 @@ struct CamerasModule: View {
                     }
                 }
             }
-            ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 24),
-                                         count: detail && selected == nil ? 2 : 1), spacing: 24) {
-                    ForEach(visibleFeeds) { feed in
-                        Button {
-                            if detail { selected = feed.id } else { open() }
-                        } label: {
-                            frame(feed).aspectRatio(4.0 / 3, contentMode: .fit)
+            if detail && selected == nil {
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 24), count: 2), spacing: 24) {
+                        ForEach(visibleFeeds) { feed in
+                            cameraButton(feed).aspectRatio(4.0 / 3, contentMode: .fit)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Open \(feed.name)")
-                        .accessibilityValue(provider.updatedAt[feed.id].map {
-                            "Updated \($0.formatted(date: .omitted, time: .standard))"
-                        } ?? "Snapshot unavailable")
-                        .accessibilityIdentifier("camera-\(feed.id)")
                     }
                 }
+            } else if let feed = visibleFeeds.first {
+                cameraButton(feed)
             }
             Text(selected == nil ? "Snapshots · Refresh every 3 seconds" : "Live view · Refresh every second")
                 .font(.subheadline).foregroundStyle(.secondary)
@@ -58,6 +51,18 @@ struct CamerasModule: View {
         .onChange(of: provider.feeds.map(\.id)) { _, ids in
             if let selected, !ids.contains(selected) { self.selected = nil }
         }
+    }
+
+    private func cameraButton(_ feed: CameraFeed) -> some View {
+        Button {
+            if detail { selected = feed.id } else { open() }
+        } label: { frame(feed) }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(feed.name)")
+        .accessibilityValue(provider.updatedAt[feed.id].map {
+            "Updated \($0.formatted(date: .omitted, time: .standard))"
+        } ?? "Snapshot unavailable")
+        .accessibilityIdentifier("camera-\(feed.id)")
     }
 
     private func frame(_ feed: CameraFeed) -> some View {
