@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleDisplayName</key><string>Control Center</string>
+    <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>LSRequiresIPhoneOS</key><true/>
+    <key>UILaunchScreen</key><dict/>
+    <key>UIRequiresFullScreen</key><true/>
+    <key>UIStatusBarHidden</key><true/>
+    <key>UIViewControllerBasedStatusBarAppearance</key><false/>
+    <key>UISupportedInterfaceOrientations</key>
+    <array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+    <key>UIApplicationSceneManifest</key>
+    <dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
+    <key>NSCameraUsageDescription</key><string>Control Center uses the camera for photo booth and wake photos.</string>
+    <key>NSMicrophoneUsageDescription</key><string>Control Center uses the microphone when you capture media.</string>
+    <key>NSAppTransportSecurity</key>
+    <dict><key>NSAllowsLocalNetworking</key><true/></dict>
+    <key>CFBundleURLTypes</key>
+    <array><dict><key>CFBundleURLName</key><string>co.worldwidewebb.panel</string>
+        <key>CFBundleURLSchemes</key><array><string>controlcenter</string></array>
+    </dict></array>
+    <key>PanelServerURL</key><string>$(PANEL_SERVER_URL)</string>
+    <key>PanelCFAccessClientID</key><string>$(PANEL_CF_ACCESS_CLIENT_ID)</string>
+    <key>PanelCFAccessClientSecret</key><string>$(PANEL_CF_ACCESS_CLIENT_SECRET)</string>
+    <key>PanelAlarmAPIToken</key><string>$(PANEL_ALARM_API_TOKEN)</string>
+</dict>
+</plist>
