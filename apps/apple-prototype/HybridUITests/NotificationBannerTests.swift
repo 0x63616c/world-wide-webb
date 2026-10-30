@@ -40,12 +40,12 @@ final class NotificationBannerTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native",
+        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native",
             "-notificationSamples", "-notificationHold"]
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
-        app.openHomeModule("lights")
-        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 20))
+        app.openHomeModule("climate")
+        XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 20))
         let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.isHittable)
         capture("notification-presented-controller", app)
