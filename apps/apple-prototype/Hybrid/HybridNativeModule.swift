@@ -4,6 +4,7 @@ extension PanelModule {
     var title: String {
         switch self {
         case .media: "Media"
+        case .cameras: "Cameras"
         case .reminders: "Reminders"
         case .all: "Web board"
         case .lights: "Lights"
@@ -57,6 +58,7 @@ struct HybridNativeModule: View {
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .alarms: HybridClockFace(store: store, open: open)
+        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         case .tesla: TeslaTile(provider: store.teslaProvider)
         // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
@@ -84,6 +86,7 @@ struct HybridNativeModule: View {
             ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
                             timeZone: .current, locationLabel: TimeZone.current.identifier)
                 .disabled(store.alarmsProvider.pending)
+        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         case .tesla: TeslaModule(provider: store.teslaProvider)
         case .walk, .all: EmptyView()

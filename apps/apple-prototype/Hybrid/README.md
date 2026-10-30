@@ -37,7 +37,7 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`photos`, `walk`, `reminders`, `alarms`, `calendar`, `media`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
+`photos`, `walk`, `reminders`, `alarms`, `calendar`, `media`, `cameras`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
 `weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
 module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
 A native flag still shows the web board until that module's live provider has data.
@@ -801,6 +801,166 @@ captures show the reconnecting overlay against an intentionally unavailable
 loopback page, not an authenticated production board. The flag was explicitly
 flipped only in this synthetic simulator check; physical-iPad and real-source
 validation remain outstanding under WWW-50.
+
+### Cameras (WWW-34)
+
+Home Assistant `camera.*` entities are the source. The additive backend PR is
+[#828](https://github.com/0x63616c/world-wide-webb/pull/828), targeting `main` and
+left unmerged. It adds `cameras.list` (`[{id,name,state}]`) and
+`GET /media/cameras/:id/snapshot`, backed by HA's authenticated camera proxy.
+The device uses the existing Panel server/Access configuration; HA credentials
+and camera URLs stay server-side. Either deployment order is safe: a missing
+procedure, malformed response, empty/offline camera list or fetch failure marks
+the provider unavailable and retains the existing web route.
+
+`LiveCamerasProvider` conforms to the existing `CamerasProvider`. It preserves
+HA entity IDs, omits off/unknown/unavailable feeds, and keeps decoded frames only
+in memory. `Hybrid/CamerasModule` owns the live tile, overview and enlarged view;
+all existing design-worker `Sources/` views and the mock are untouched. The only
+new `Sources/` file is `Live/LiveCamerasProvider.swift`; its empty asset field is
+never rendered through the prototype's mock `CameraPreview`.
+
+Discovery follows the existing 10-second foreground polling. Snapshot tasks
+belong to the visible camera view: every 3 seconds on the tile/overview and
+every second for the selected enlarged feed, after the prior request completes.
+Tap the tile to open the overview; tap a camera to enter its full-page live view;
+**All cameras** returns to the overview. Only visible selections request images.
+Navigation/background cancels those tasks; background also clears frames. A
+failed image removes the prior frame and timestamp and shows “Snapshot
+unavailable”; it does not present a stale image as current. Frames are downsampled
+to 2048 pixels. There is no video/audio streaming session: HA/camera caching may
+limit the source's actual update rate.
+
+The camera transport is an ephemeral URLSession without disk cache, cookies or
+credential storage. It rejects HTTP redirects (including Access login redirects)
+rather than forwarding custom Access headers. It accepts only validated camera
+IDs and JPEG/PNG/WebP responses; ImageIO rejects undecodable image data. The
+server sets `private, no-store`. No camera images are written to disk by the app.
+
+#### Opt in after checking
+
+Cameras remains **web by default**, including in shipped defaults. After the
+backend is deployed and the existing private Access configuration is installed,
+check list availability, real snapshot updates, tapping/enlarging, background
+and foreground, network failure/recovery and rollback on the target iPad.
+Then launch with **`-moduleFlag.cameras native`** and choose **Cameras** in the
+module strip. To restore the web route, launch
+with **`-moduleFlag.cameras web`** (or use the existing **Web board only** setting).
+No wall configuration or code default was flipped by this work.
+
+Debug simulator check: **`-hybridFixtures -moduleFlag.cameras native`** uses
+synthetic JSON and an explicitly labeled color-bar PNG with the real API decoder
+and provider. Add `-hybridDetail` for the overview or `-hybridUnavailable` for
+fallback. No home imagery, configuration or credentials are read in fixture mode.
+
+#### Verification
+
+Use only `~/wwwebb-cameras-live/`, `~/wwwebb-cameras-live-dd/`, and the owned
+`WWW-34 Cameras iPad` simulator. `Panel-Cameras` groups both unit-test targets
+and the camera UI check for one serial build:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
+cd ~/wwwebb-cameras-live/PanelKit
+~/bin/www8-simlock swift test
+cd ..
+/opt/homebrew/bin/xcodegen generate
+~/bin/www8-simlock xcodebuild test -scheme Panel-Cameras \
+  -destination 'platform=iOS Simulator,name=WWW-34 Cameras iPad' \
+  -derivedDataPath ~/wwwebb-cameras-live-dd -parallel-testing-enabled NO -jobs 2 \
+  -only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveCamerasProviderTests \
+  -only-testing:WorldWideWebbTests/ModuleProviderTests \
+  -only-testing:PanelUITests/HybridCamerasTests CODE_SIGNING_ALLOWED=NO
+```
+
+Fixture checks cannot establish physical-camera availability, production Access
+configuration, source caching or wall-device performance; those remain deployment
+checks before enabling this module on the wall.
+
+Verification (2026-10-30, Xcode 27.0, including the Calendar/Media/Photos base):
+**54 Swift Testing + 15 XCTest PanelKit tests**, **70 PanelTests**, and **7 app
+tests** (4 camera provider + 3 existing module provider tests) passed. The camera
+UI test passed at **1366×1024 points**, checking snapshot updates, tile-to-overview
+navigation, tap-to-enlarge, continued live refresh, return navigation, default-web
+routing and unavailable-backend fallback. The test explicitly opts into native
+with the launch arguments above; the production default remains web.
+
+On the shared Mac, coordinate exclusive simulator UI access for this check. The
+two-slot capture helper allowed overlapping automation; those runs missed taps.
+The same built test passed with both existing capture locks held, without touching
+other simulators. Earlier resource-limit launch failures were environmental.
+Screenshots in `docs/screenshots/cameras-native/` at the repository root are direct
+XCTest captures (2732×2048 pixels, @2x) from the passing run, with synthetic imagery
+only. The fallback assertions check routing with an intentionally unavailable
+fixture origin; they do not validate rendering of the authenticated production
+web board.
+
+## Update ready Banner (WWW-53)
+
+Hybrid checks `releases.latest({app: "panel"})` on launch, whenever the scene
+becomes active, and every 15 minutes while active. The shared PanelKit transport
+uses the configured server and complete Cloudflare Access header pair. It compares
+the positive integer build with `CFBundleVersion`; equal/older builds, missing
+releases, malformed responses and network errors clear the Banner. Cancelling a
+foreground task prevents a late response from publishing.
+
+The persistent **Update ready: build N** Banner is root-level Board Chrome, above
+both the native modules and KioskWebView fallback. Tap it to open `itms-beta://`.
+No Apple ID is assumed and no URL-scheme query permission is required: the app
+opens the URL directly without `canOpenURL`.
+
+A local notification is scheduled only when authorization is already authorized
+or provisional. The app never requests notification permission. Successful
+scheduling saves `panel.update.lastNotifiedBuild` in UserDefaults; retries, older
+builds and app restarts do not notify again. A scheduling failure can retry on the
+next check. The system may suppress foreground notification presentation; the
+persistent Banner is the in-app notice.
+
+Debug builds support explicit, launch-only verification overrides:
+
+- `-updateCheckFakeBuild 999999` substitutes a server build without making a
+  releases request.
+- `-updateCheckIntervalSeconds 2` shortens the foreground polling interval.
+- `-hybridFixtures -moduleFlag.lights native` renders synthetic native content
+  without home service access for a Banner capture.
+
+The two update-check overrides are compiled out of Release builds. No flag changes
+the installed build number. Backend and upload recording live in additive
+[PR #836](https://github.com/0x63616c/world-wide-webb/pull/836), targeting main.
+
+The exact HTTP release path is sent to the API by the Cloudflare tunnel;
+[PR #837](https://github.com/0x63616c/world-wide-webb/pull/837) adds that narrow
+route without changing web nginx or the existing Access policy.
+
+Verified on the shared Mac with Xcode 27.0 on 2026-10-30: PanelKit passed
+**15 XCTest + 62 Swift Testing tests**. One serial `xcodebuild test` of scheme
+`Panel` passed **81 PanelTests + 140 app unit tests**, with no failures:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
+cd ~/wwwebb-update-ready/PanelKit && swift test
+cd .. && /opt/homebrew/bin/xcodegen generate
+xcodebuild test -scheme Panel -destination 'platform=iOS Simulator,id=<owned-UDID>' \
+  -derivedDataPath ~/wwwebb-update-ready-dd -parallel-testing-enabled NO -jobs 2 \
+  -only-testing:PanelTests -only-testing:WorldWideWebbTests CODE_SIGNING_ALLOWED=NO
+```
+
+Repository typecheck and Biome passed. Comparison tests cover equal, newer, older
+and nonnumeric installed builds. Injected polling tests verify immediate launch
+and foreground checks, the default 900-second interval, a shorter debug interval,
+error recovery and cancellation. Notification tests cover authorized/provisional
+states, denied/undetermined/ephemeral states, persistence across restarts, retries
+and overlapping checks. API tests decode the exact tRPC fixture and reject bad
+builds, mismatched app IDs, invalid timestamps, missing endpoints and Access HTML.
+
+The focused `Panel-Smoke` UI check `PanelUITests/UpdateReadyBannerTests` passed,
+asserting the exact build label and a 1366×1024-point app frame on both native and
+web routes. Direct `simctl` screenshots are in `Verification/WWW-53-banner.png`
+and `Verification/WWW-53-banner-web.png` (@2x, 2732×2048 pixels). The native capture
+uses the synthetic Lights fixture; the web capture intentionally shows the local
+unavailable board reconnecting. It verifies the Banner's placement, not production
+Cloudflare Access rendering. No physical TestFlight handoff or permission prompt
+was used for simulator verification.
 
 ## Mac window policy (WWW-39)
 

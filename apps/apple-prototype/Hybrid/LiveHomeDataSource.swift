@@ -7,6 +7,7 @@ import CryptoKit
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
     let mediaProvider: LiveMediaProvider
+    let camerasProvider: LiveCamerasProvider
     let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
@@ -33,7 +34,7 @@ import CryptoKit
     var tesla: any TeslaProvider { teslaProvider }
     var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { photosProvider }
-    var cameras: any CamerasProvider { unavailable }
+    var cameras: any CamerasProvider { camerasProvider }
     var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { unavailable }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
@@ -43,6 +44,7 @@ import CryptoKit
          calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
         mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
+        camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
         clock = now
         calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
@@ -74,6 +76,7 @@ import CryptoKit
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
         case .media: mediaProvider.availability == .live && !mediaProvider.items.isEmpty
+        case .cameras: camerasProvider.availability == .live && !camerasProvider.feeds.isEmpty
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
@@ -191,6 +194,7 @@ import CryptoKit
     func refresh(_ module: PanelModule) async {
         switch module {
         case .media: await mediaProvider.refresh()
+        case .cameras: await camerasProvider.refresh()
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
@@ -230,6 +234,7 @@ import CryptoKit
         teslaProvider.stop()
         photosProvider.lock()
         mediaProvider.stop()
+        camerasProvider.stop()
         alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()
