@@ -10,26 +10,26 @@ final class HybridCamerasTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["native-cameras-tile"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
-        let first = app.buttons["camera-camera.test_a"]
+        let first = app.buttons["Open Test Camera A"]
         waitForImage(first)
         capture("cameras-tile")
-        app.buttons["camera-camera.test_a"].tap()
+        first.tap()
         XCTAssertTrue(app.descendants(matching: .any)["native-cameras-detail"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["camera-camera.test_b"].exists)
-        waitForImage(app.buttons["camera-camera.test_b"])
+        XCTAssertTrue(app.buttons["Open Test Camera B"].exists)
+        waitForImage(app.buttons["Open Test Camera B"])
         capture("cameras-overview")
-        app.buttons["camera-camera.test_b"].tap()
-        XCTAssertTrue(app.buttons["cameras-back"].waitForExistence(timeout: 10))
+        app.buttons["Open Test Camera B"].tap()
+        XCTAssertTrue(app.buttons["All cameras"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Live view · Refresh every second"].exists)
-        let selected = app.buttons["camera-camera.test_b"]
+        let selected = app.buttons["Open Test Camera B"]
         waitForImage(selected)
         let before = selected.value as? String ?? ""
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value != %@ AND value BEGINSWITH %@", before, "Updated "),
             object: selected)], timeout: 8), .completed)
         capture("cameras-live")
-        app.buttons["cameras-back"].tap()
-        XCTAssertTrue(app.buttons["camera-camera.test_a"].exists)
+        app.buttons["All cameras"].tap()
+        XCTAssertTrue(app.buttons["Open Test Camera A"].exists)
         app.terminate()
 
         for arguments in [
