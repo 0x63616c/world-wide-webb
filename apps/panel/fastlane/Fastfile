@@ -189,13 +189,14 @@ platform :ios do
         version: version,
         initial_build_number: 48
       )
+      # Command-line signing also reaches the local PanelKit package, which needs a team.
       build_app(
         project: project,
         scheme: "Panel",
         configuration: "Release",
         export_method: "app-store",
         export_options: { provisioningProfiles: profiles },
-        xcargs: "CODE_SIGNING_ALLOWED=YES CURRENT_PROJECT_VERSION=#{latest + 1} MARKETING_VERSION=#{version}",
+        xcargs: "CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM=X9E4HG27NK CURRENT_PROJECT_VERSION=#{latest + 1} MARKETING_VERSION=#{version}",
         output_directory: "./build",
         output_name: "Panel.ipa",
         clean: true,
