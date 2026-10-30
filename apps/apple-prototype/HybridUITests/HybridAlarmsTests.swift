@@ -8,7 +8,7 @@ final class HybridAlarmsTests: XCTestCase {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.alarms", "native"]
-        app.launch()
+        app.launchModuleFromHome()
         XCTAssertTrue(app.descendants(matching: .any)["native-alarms-tile"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
@@ -23,7 +23,7 @@ final class HybridAlarmsTests: XCTestCase {
         app.terminate()
 
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.alarms", "native", "-hybridAlarmRinging"]
-        app.launch()
+        app.launchModuleFromHome()
         XCTAssertTrue(app.buttons["Stop"].waitForExistence(timeout: 30))
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Snooze")).firstMatch.exists)
         capture("ringing")
@@ -34,7 +34,7 @@ final class HybridAlarmsTests: XCTestCase {
             ["-hybridFixtures", "-moduleFlag.alarms", "native", "-hybridUnavailable"]
         ] {
             app.launchArguments = arguments
-            app.launch()
+            app.launchModuleFromHome()
             XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
             XCTAssertFalse(app.buttons["module-alarms"].exists)
             XCTAssertFalse(app.buttons["module-detail"].exists)

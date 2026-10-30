@@ -34,36 +34,52 @@ local environment UI for sensitive development overrides; avoid shell history.
 Configuration and flags are read once at launch. For local HTTP development,
 use `localhost` (ATS local networking is enabled).
 
-## Module seam
+## Home launch and Classic (WWW-64; Refs WWW-63)
 
-`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`photos`, `walk`, `reminders`, `alarms`, `calendar`, `media`, `cameras`, and `all`. Shipped builds default `lights`, `climate`, `fan`,
-`weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
-module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
-A native flag still shows the web board until that module's live provider has data.
-For example, `-moduleFlag.lights native` overrides the launch's UserDefaults; `default`
-uses the shipped value and invalid values fall back to `web`.
+Panel launches the approved `Sources/HomeView.swift` with `LiveHomeDataSource`
+on every normal launch, including when every module flag is Web. This is the
+same wallpaper, four faces, FacePicker and zoom presentation used by the design
+app. The separate prototype target still uses fixtures. Panel never instantiates
+`MockHomeDataSource`.
 
-Flip back without a rebuild: iOS Settings > Panel > "Web board only" sends every module
-to the web board (`hybrid.webOnly`), and each module has Default/Native/Web. Changes apply
-on the next launch. The in-app "Web board" button returns to the full board at any time.
+Home starts every provider represented by `HomeTile.panelProviders`, independently
+of controller flags: lights, climate, fan, Wi-Fi, weather, Sonos, photos, walk,
+alarms, calendar, media, Tesla and cameras. Reminders has no Home tile and does not
+start. Reads stop with the scene lifecycle. Provider failure shows **Unavailable**,
+empty collections or a missing complication rather than invented readings.
+Photos is a locked launcher; the existing live photo controller requires a fresh
+PIN. The Home music face uses the production Sonos artwork/playback adapter.
+Only LakeWallpaper and CloudPhoto image sets are linked into Hybrid's asset
+catalogue; prototype photo fixtures and local video stay out of Panel.
 
-Photos remains `web` by default and is excluded from `shippedNative`.
-`all` always means the complete web board, even if its flag is set to `native`.
+The small bottom-trailing **Classic** entry (`safari`) opens the full legacy web
+board. The existing WKWebView remains mounted behind Home and native controllers.
+Classic and module fallbacks hide the module strip and always show a top-leading
+glass **Home** button, including during loading and reconnection. No rollout flag
+is needed. iOS Settings > Panel > **Web board only** (`hybrid.webOnly`) restores
+launch directly into the web board, starts no Home providers and hides Home
+navigation. Settings changes take effect on next launch.
 
-`HybridRouter.route(for:hasLiveData:)` selects native only when the individual
-flag is `native` **and** a native implementation has live data. The generic
-`HybridModuleHost` receives an optional live view and a web fallback closure;
-nil data, a missing implementation, or a `web` flag selects the fallback.
-The root retains one WKWebView across native navigation. With all flags set to
-`web`, it renders the same full-screen board with no native navigation and
-starts no providers. With flags enabled, it initially selects the first enabled
-module in registry order; that selection stays on the board until its provider
-supplies data. A module strip offers the available native modules and **Web board**.
-Each native module opens on its existing tile; **Details** opens its existing
-controller. A failed selected provider immediately returns to the board, and a
-successful subsequent poll restores the native selection. Alarm deep links open native details when the alarms flag, live data, and ringer
-ownership are ready; otherwise they deliver the existing web alarm event.
+Module flags still select controllers: shipped native defaults remain lights,
+climate, fan, weather and walk (`ModuleFlags.shippedNative`). Other controllers
+use the web fallback unless opted into native. A native controller also requires
+current live data; alarms additionally require native ringer ownership. A failed
+provider returns its open controller to Classic. `all` always means the complete
+web board. `-moduleFlag.lights native` overrides the launch's UserDefaults;
+`default` uses the shipped value and invalid values fall back to `web`.
+
+`HomeIntegration` supplies optional tile and destination hooks. Hybrid owns live
+adapters, Classic, the alarm ring overlay, deep links and UpdateBanner; Sources
+keeps the design layout and zoom transitions. Ringing and updates are also shown
+above Home's full-screen controllers. `controlcenter://alarms` retains its native
+ownership/live-data check and existing web event fallback. XCTest unit-test hosts
+still render `Color.clear` without starting WebKit or providers.
+
+`HomeViewLaunchTests` covers launch → HomeView → Classic → Home, unavailable
+readings and the Settings rollback. Existing Hybrid UI suites enter from Home
+before exercising their provider/controller paths. `Panel-Smoke` reaches the real
+offline recovery screen through Classic. Captures are synthetic XCTest attachments,
+not committed binaries; authenticated production rendering remains a device check.
 
 ### Live composition (WWW-44)
 
@@ -79,8 +95,7 @@ no catalogue or playable video route. See the WWW-33 section below.
 
 The legacy `HomeDataSource` has nonoptional numeric fields. Unavailable fields
 therefore use neutral zero/false values, empty collections, nil credentials and
-explicit “Unavailable” text; the router prevents those module placeholders from
-being rendered as readings. Climate and fan labels use independently reported
+explicit “Unavailable” text; Home replaces unavailable tiles before they can render those values as readings. Climate and fan labels use independently reported
 values, including “Unavailable” for a missing fan. Off-mode null setpoints stay
 zero instead of inheriting prototype temperatures. Unimplemented providers are
 empty and inert. Commands without a live backend (media-library playback) do nothing; they never mutate fixtures.
@@ -95,7 +110,7 @@ unambiguous.
 Lights retain the existing provider's group projection; the API does not report
 individual lamp RGB or party speed. Unreported lamp colors use neutral values.
 
-Only requested providers poll: every 10 seconds, 10 minutes for weather, or one second for alarms.
+Every Home provider polls while Home is enabled: every 10 seconds, 10 minutes for weather, or one second for alarms.
 Controls and Climate also read Fan because their existing controllers include it;
 The fan's on/off state is injected independently of HVAC mode. This data dependency
 does not enable the Fan route. Structured polling tasks cancel when Panel

@@ -48,6 +48,7 @@ struct MixedTileMaterial: ViewModifier {
     }
 }
 struct MixedHomeTile: View {
+    @Environment(\.homeIntegration) private var integration
     let tile: HomeTile
     let store: any HomeDataSource
     let open: () -> Void
@@ -55,7 +56,8 @@ struct MixedHomeTile: View {
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
         Group {
-            if tile == .climate { climate }
+            if let replacement = integration?.tile(tile, open: open) { replacement }
+            else if tile == .climate { climate }
             else if tile == .lamps { lamps }
             else if tile == .dogwalk { DogWalkTile(store: store, open: open) }
             else if tile == .sound { music }
