@@ -138,6 +138,9 @@ struct PanelRoot: View {
         }
         .ignoresSafeArea()
         .accessibilityIdentifier("web-board")
+        .task(id: session.reconnecting && !nativeVisible) {
+            if session.reconnecting && !nativeVisible { await signalSnapshotReady() }
+        }
     }
 }
 
