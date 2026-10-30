@@ -7,7 +7,7 @@ final class NotificationBannerTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native", "-notificationHold"]
         app.launch()
-        XCTAssertTrue(app.buttons["module-lights"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["home-classic"].waitForExistence(timeout: 30))
         capture("notification-baseline", app)
         app.terminate()
         app.launchArguments += ["-notificationSamples"]
@@ -34,6 +34,24 @@ final class NotificationBannerTests: XCTestCase {
         app.buttons["notification-dismiss-lights"].tap()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForNonExistence(timeout: 5))
         capture("notification-stack-after-dismiss", app)
+    }
+
+    @MainActor func testBannerAbovePresentedHomeController() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native",
+            "-notificationSamples", "-notificationHold"]
+        app.launch()
+        XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
+        app.openHomeModule("lights")
+        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 20))
+        let banner = app.buttons["notification-banner-lights"]
+        XCTAssertTrue(banner.isHittable)
+        capture("notification-presented-controller", app)
+        banner.tap()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 10))
     }
 
     @MainActor func testAutoTimeoutAndCriticalRemainOnWebFallback() {

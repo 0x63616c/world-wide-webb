@@ -14,7 +14,7 @@ struct NotificationBanners: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
     let source: (String) -> NotificationSource
-    let open: (NotificationItem) -> Bool
+    @State private var presenterID = UUID()
 
     private var pauseTimers: Bool {
         #if DEBUG
@@ -33,9 +33,9 @@ struct NotificationBanners: View {
                     if let item = group.items.first {
                         NotificationBanner(item: item, count: group.items.count,
                             source: source(group.sourceModule), open: {
-                                if open(item) { Task { await center.open(item.id) } }
+                                Task { await center.open(item.id) }
                             }, dismiss: { Task { await center.dismiss(item.id) } },
-                            touch: { center.setTouched(group.sourceModule, $0) })
+                            touch: { if center.isActivePresenter(presenterID) { center.setTouched(group.sourceModule, $0) } })
                             .id(item.id)
                             .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                     }
@@ -49,13 +49,17 @@ struct NotificationBanners: View {
             .frame(maxWidth: typeSize.isAccessibilitySize ? 720 : 480)
             .padding(.horizontal, 24).padding(.top, 12)
         }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: typeSize.isAccessibilitySize ? 768 : 528)
         .allowsHitTesting(!visible.isEmpty || center.lastError != nil)
+        .onAppear { center.registerPresenter(presenterID) }
+        .onDisappear { center.unregisterPresenter(presenterID) }
         .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.36, bounce: 0.15), value: visible)
-        .sensoryFeedback(.impact(weight: .light), trigger: center.arrivalFeedback)
-        .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: center.dismissFeedback)
-        .sensoryFeedback(.selection, trigger: center.openFeedback)
-        .task(id: [scenePhase == .active, pauseTimers, typeSize.isAccessibilitySize]) {
-            guard scenePhase == .active else { return }
+        .sensoryFeedback(.impact(weight: .light), trigger: center.arrivalFeedback) { _, _ in center.isActivePresenter(presenterID) }
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: center.dismissFeedback) { _, _ in center.isActivePresenter(presenterID) }
+        .sensoryFeedback(.selection, trigger: center.openFeedback) { _, _ in center.isActivePresenter(presenterID) }
+        .task(id: [scenePhase == .active, pauseTimers, typeSize.isAccessibilitySize, visible.isEmpty]) {
+            guard scenePhase == .active, !visible.isEmpty else { return }
             let clock = ContinuousClock()
             var previous = clock.now
             while !Task.isCancelled {
@@ -63,6 +67,7 @@ struct NotificationBanners: View {
                 let instant = clock.now
                 let elapsed = previous.duration(to: instant).components
                 previous = instant
+                guard center.isActivePresenter(presenterID) else { continue }
                 center.advanceBanners(by: Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18,
                     visibleSources: Set(visible.map(\.id)), paused: pauseTimers)
             }

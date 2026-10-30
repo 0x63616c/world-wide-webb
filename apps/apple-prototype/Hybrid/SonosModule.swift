@@ -6,6 +6,7 @@ import SwiftUI
 struct SonosModule: View {
     let store: LiveHomeDataSource
     var close: () -> Void = {}
+    var isFace = false
     @State private var roomsOpen = false
     @State private var selectedID: String?
 
@@ -13,7 +14,7 @@ struct SonosModule: View {
         if roomsOpen {
             SonosRoomsModule(store: store, select: { selectedID = $0; roomsOpen = false }, close: { roomsOpen = false })
         } else {
-            NowPlayingView(store: store, close: close, selectedRoomID: selectedID,
+            NowPlayingView(store: store, close: close, isFace: isFace, selectedRoomID: selectedID,
                 showsPlaybackPosition: { store.sonosProvider.playback(for: $0.id) != nil },
                 volumeValue: { $0.displayVolume }, volumeCommand: { .volume($0, $1) },
                 artworkContent: { AnyView(SonosArtwork(room: $0, api: store.sonosArtwork)) },
@@ -75,7 +76,7 @@ struct SonosRoomsModule: View {
     }
 }
 
-private struct SonosArtwork: View {
+struct SonosArtwork: View {
     let room: SoundRoom
     let api: SonosArtworkAPI
     @State private var image: UIImage?

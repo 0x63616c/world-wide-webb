@@ -19,21 +19,14 @@ struct PanelRoot: View {
     @State private var updateChecker: UpdateChecker
     @State private var notifications: NotificationCenter
     @State private var store: LiveHomeDataSource
-    @State private var selection: PanelModule
-    @State private var detail: Bool
-    @State private var ringHidden = false
-    @State private var pendingNativeAlarmLink = false
+    @State private var navigation = PanelNavigation()
+    private let webOnly: Bool
     private let router: HybridRouter
     private let requested: Set<PanelModule>
 
     init() {
         _notifications = State(initialValue: PanelNotifications.make())
         _updateChecker = State(initialValue: UpdateChecker.live(configuration: PanelConfiguration()))
-        #if DEBUG
-        _detail = State(initialValue: ProcessInfo.processInfo.arguments.contains("-hybridDetail"))
-        #else
-        _detail = State(initialValue: false)
-        #endif
         // Fixture runs keep the all-web default so UI tests opt in per module.
         #if DEBUG
         let shipped: Set<PanelModule> = ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
@@ -42,9 +35,9 @@ struct PanelRoot: View {
         let shipped = ModuleFlags.shippedNative
         #endif
         let flags = ModuleFlags(defaults: .standard, nativeByDefault: shipped)
+        webOnly = UserDefaults.standard.bool(forKey: ModuleFlags.webOnlyKey)
         router = HybridRouter(flags: flags)
-        requested = Set(PanelModule.allCases.filter { $0 != .all && flags[$0] == .native })
-        _selection = State(initialValue: PanelModule.allCases.first { $0 != .all && flags[$0] == .native } ?? .all)
+        requested = webOnly ? [] : HomeTile.panelProviders
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") {
             let defaults = UserDefaults(suiteName: "Panel.FixtureConfiguration")!
@@ -95,36 +88,43 @@ struct PanelRoot: View {
         }
     }
 
+    private var homeVisible: Bool { navigation.showingHome && !webOnly }
+
     private var nativeVisible: Bool {
-        router.route(for: selection, hasLiveData: hasLiveData(for: selection)) == .native(selection)
+        !homeVisible && router.route(for: navigation.selection, hasLiveData: hasLiveData(for: navigation.selection)) == .native(navigation.selection)
     }
 
     var body: some View {
         @Bindable var session = session
         ZStack {
             webBoard
-                .opacity(nativeVisible ? 0 : 1)
-                .allowsHitTesting(!nativeVisible)
-                .accessibilityHidden(nativeVisible)
+                .opacity(nativeVisible || homeVisible ? 0 : 1)
+                .allowsHitTesting(!nativeVisible && !homeVisible)
+                .accessibilityHidden(nativeVisible || homeVisible)
+            if homeVisible {
+                PanelHome(store: store, session: session, router: router, navigation: navigation, updates: updateChecker)
+            }
             VStack(spacing: 0) {
-                if !nativeModules.isEmpty {
+                if !homeVisible && nativeVisible {
                     HStack(spacing: 18) {
+                        Button("Home", action: navigation.returnHome).buttonStyle(.glass)
+                            .accessibilityIdentifier("module-home")
                         ForEach([PanelModule.all] + nativeModules, id: \.self) { module in
-                            Button(module.title) { pendingNativeAlarmLink = false; selection = module; detail = false }
+                            Button(module.title) { navigation.pendingNativeAlarmLink = false; navigation.selection = module; navigation.detail = false }
                                 .buttonStyle(.glass)
                                 .accessibilityIdentifier("module-\(module.rawValue)")
                         }
                         Spacer()
                         if nativeVisible {
-                            Button(detail ? "Tile" : "Details") { detail.toggle() }
+                            Button(navigation.detail ? "Tile" : "Details") { navigation.detail.toggle() }
                                 .buttonStyle(.glass).accessibilityIdentifier("module-detail")
                         }
                     }.padding(16).foregroundStyle(.white)
                         .environment(\.colorScheme, .dark)
                 }
-                HybridModuleHost(router: router, module: selection,
-                    liveView: hasLiveData(for: selection)
-                        ? HybridNativeModule(module: selection, store: store, detail: detail, open: { detail = true }, close: { detail = false }) : nil) {
+                HybridModuleHost(router: router, module: navigation.selection,
+                    liveView: !homeVisible && hasLiveData(for: navigation.selection)
+                        ? HybridNativeModule(module: navigation.selection, store: store, detail: navigation.detail, open: { navigation.detail = true }, close: { navigation.detail = false }) : nil) {
                     Color.clear.allowsHitTesting(false)
                 }
             }
@@ -143,12 +143,13 @@ struct PanelRoot: View {
         }
         .onOpenURL { url in
             guard url.absoluteString == "controlcenter://alarms" else { return }
-            pendingNativeAlarmLink = router.flags[.alarms] == .native
-            if pendingNativeAlarmLink && hasLiveData(for: .alarms) { openNativeAlarms() }
-            else { selection = .all; session.open(url) }
+            navigation.showingHome = false
+            navigation.pendingNativeAlarmLink = router.flags[.alarms] == .native
+            if navigation.pendingNativeAlarmLink && hasLiveData(for: .alarms) { navigation.openNativeAlarms() }
+            else { navigation.selection = .all; session.open(url) }
         }
         .onChange(of: hasLiveData(for: .alarms)) { _, ready in
-            if ready && pendingNativeAlarmLink { openNativeAlarms() }
+            if ready && navigation.pendingNativeAlarmLink { navigation.openNativeAlarms() }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active { session.activate() }
@@ -160,12 +161,12 @@ struct PanelRoot: View {
             // The unchanged Controls and Climate controllers contain a fan control.
             // Read its real data even when the independent Fan route remains web.
             if !providers.isDisjoint(with: [.lights, .climate]) { providers.insert(.fan) }
-            providers.remove(.alarms)
+            if router.flags[.alarms] == .native { providers.remove(.alarms) }
             await store.run(modules: providers)
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
-            if !requested.contains(.alarms) {
+            if router.flags[.alarms] != .native {
                 await session.nativeAlarms.release(handoff: { await session.setAlarmOwner($0) })
                 return
             }
@@ -176,32 +177,18 @@ struct PanelRoot: View {
                 do { try await Task.sleep(for: .seconds(1)) } catch { return }
             }
         }
-        .overlay {
-            if !ringHidden, hasLiveData(for: .alarms), !store.alarmsProvider.ringing(at: store.now).isEmpty {
-                AlarmRingView(store: store, close: { ringHidden = true; selection = .alarms; detail = true },
-                              edit: { ringHidden = true; selection = .alarms; detail = true }, dataCaption: "")
-                    .disabled(store.alarmsProvider.pending)
-            }
-        }
-        .overlay(alignment: .bottom) {
-            if nativeVisible, selection == .alarms, let message = store.alarmsProvider.errorMessage {
-                Text(message).padding().background(.regularMaterial).accessibilityAddTraits(.updatesFrequently)
-            }
-        }
-        .onChange(of: store.alarmsProvider.snapshot?.active) { _, _ in ringHidden = false }
-        .overlay(alignment: .top) {
-            if let build = updateChecker.availableBuild {
-                UpdateBanner(build: build).padding(.top, 72).padding(.horizontal, 24)
-            }
-        }
+        .overlay { statusOverlays }
+        .onChange(of: store.alarmsProvider.snapshot?.active) { _, _ in navigation.ringHidden = false }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await updateChecker.run()
         }
-        .overlay(alignment: .top) {
-            NotificationBanners(source: PanelNotifications.source, open: openNotification)
-        }
         .environment(notifications)
+        .onAppear {
+            notifications.setOpenHandler { [store, session, navigation, router] item in
+                PanelNotifications.open(item, store: store, session: session, navigation: navigation, router: router)
+            }
+        }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await notifications.run()
@@ -209,50 +196,14 @@ struct PanelRoot: View {
         .onDisappear { session.stop(); store.stop() }
     }
 
-    private func openNotification(_ item: NotificationItem) -> Bool {
-        guard let module = PanelNotifications.module(for: item.deepLink) else { return false }
-        if router.route(for: module, hasLiveData: hasLiveData(for: module)) == .native(module) {
-            pendingNativeAlarmLink = false
-            selection = module
-            detail = true
-            return true
-        }
-        if module == .alarms {
-            selection = .all
-            session.open(URL(string: "controlcenter://alarms")!)
-            return true
-        }
-        // Keep the existing router’s web-board fallback for disabled/unavailable modules.
-        selection = module
-        detail = true
-        return true
-    }
-
-    private func openNativeAlarms() {
-        pendingNativeAlarmLink = false
-        ringHidden = true
-        selection = .alarms
-        detail = true
+    private var statusOverlays: some View {
+        PanelStatusOverlays(store: store, session: session, navigation: navigation, updates: updateChecker)
     }
 
     private var webBoard: some View {
-        ZStack {
-            Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255)
-            KioskWebView(session: session).id(session.generation)
-            if session.reconnecting {
-                Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255)
-                Text("Reconnecting…")
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .accessibilityAddTraits(.updatesFrequently)
-            }
-        }
-        .ignoresSafeArea()
-        .accessibilityIdentifier("web-board")
-        .task(id: session.reconnecting && !nativeVisible) {
-            if session.reconnecting && !nativeVisible { await signalSnapshotReady() }
-        }
+        PanelClassicBoard(session: session, home: webOnly ? nil : { navigation.returnHome() })
     }
+
 }
 
 /// WWW-11…16 can pass an existing Sources view *only after* a live provider

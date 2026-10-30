@@ -138,6 +138,39 @@ import PanelKit
         XCTAssertEqual(center.groups.count, 2)
     }
 
+    func testPresenterOwnershipReturnsToUnderlyingSurface() {
+        let center = Panel.NotificationCenter()
+        let root = UUID(), cover = UUID()
+        center.registerPresenter(root)
+        XCTAssertTrue(center.isActivePresenter(root))
+        center.registerPresenter(cover)
+        XCTAssertFalse(center.isActivePresenter(root))
+        XCTAssertTrue(center.isActivePresenter(cover))
+        center.setTouched("lights", true)
+        center.unregisterPresenter(cover)
+        XCTAssertTrue(center.isActivePresenter(root))
+        center.post(sourceModule: "lights", title: "Ready", body: "", deepLink: "module/lights")
+        center.advanceBanners(by: 5, visibleSources: ["lights"])
+        XCTAssertTrue(center.bannerGroups.isEmpty) // Disappearing touched surfaces cannot leave timers paused.
+        center.unregisterPresenter(root)
+        XCTAssertFalse(center.isActivePresenter(root))
+    }
+
+    func testOpenHandlerKeepsUnknownRoutesUnread() async {
+        let center = Panel.NotificationCenter()
+        let id = center.post(sourceModule: "unknown", title: "Ready", body: "", deepLink: "module/unknown")
+        center.setOpenHandler { _ in false }
+        await center.open(id)
+        XCTAssertEqual(center.unreadCount, 1)
+        XCTAssertEqual(center.bannerGroups.count, 1)
+        XCTAssertEqual(center.openFeedback, 0)
+        center.setOpenHandler { _ in true }
+        await center.open(id)
+        XCTAssertEqual(center.unreadCount, 0)
+        XCTAssertTrue(center.bannerGroups.isEmpty)
+        XCTAssertEqual(center.openFeedback, 1)
+    }
+
     func testRoutesAndGestures() {
         XCTAssertEqual(PanelNotifications.module(for: "module/events/alarms"), .alarms)
         XCTAssertEqual(PanelNotifications.module(for: "module/ctrl"), .lights)

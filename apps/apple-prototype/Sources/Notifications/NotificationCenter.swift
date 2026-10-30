@@ -50,6 +50,8 @@ struct NotificationGroup: Identifiable, Equatable {
     @ObservationIgnored private var pausedSources: Set<String> = []
     @ObservationIgnored private var revisions: [String: Int64] = [:]
     @ObservationIgnored private var refreshing = false
+    @ObservationIgnored private var openHandler: ((NotificationItem) -> Bool)?
+    @ObservationIgnored private var presenters: [UUID] = []
     @ObservationIgnored private var lastSync: Date?
     @ObservationIgnored private let api: (any NotificationsServing)?
     @ObservationIgnored private let now: () -> Date
@@ -127,7 +129,23 @@ struct NotificationGroup: Identifiable, Equatable {
         } catch { lastError = "Couldn’t mark the notification as read. Try again." }
     }
 
+    func setOpenHandler(_ handler: @escaping (NotificationItem) -> Bool) { openHandler = handler }
+
+    func registerPresenter(_ id: UUID) {
+        presenters.removeAll { $0 == id }
+        presenters.append(id)
+        pausedSources.removeAll()
+    }
+
+    func unregisterPresenter(_ id: UUID) {
+        if isActivePresenter(id) { pausedSources.removeAll() }
+        presenters.removeAll { $0 == id }
+    }
+
+    func isActivePresenter(_ id: UUID) -> Bool { presenters.last == id }
+
     func open(_ id: String) async {
+        guard let item = items[id], openHandler?(item) != false else { return }
         hideBanner(id)
         openFeedback += 1
         await markRead(id)

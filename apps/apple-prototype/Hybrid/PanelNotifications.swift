@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import PanelKit
 
 /// Composition and module identity stay in Hybrid; the inbox has no routing dependency.
@@ -26,6 +27,24 @@ import PanelKit
         return NotificationCenter(api: NotificationsAPI(client: PanelAPIClient(configuration: PanelKit.PanelConfiguration(
             baseURL: config.serverURL, accessClientID: config.accessHeaders["CF-Access-Client-Id"],
             accessClientSecret: config.accessHeaders["CF-Access-Client-Secret"]))))
+    }
+
+    static func open(_ item: NotificationItem, store: LiveHomeDataSource, session: KioskSession,
+                     navigation: PanelNavigation, router: HybridRouter) -> Bool {
+        guard let module = module(for: item.deepLink) else { return false }
+        let ready = store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
+        if module == .alarms && router.route(for: module, hasLiveData: ready) == .native(module) {
+            navigation.openNativeAlarms()
+        } else if module == .alarms {
+            navigation.openClassic()
+            session.open(URL(string: "controlcenter://alarms")!)
+        } else {
+            navigation.pendingNativeAlarmLink = false
+            navigation.showingHome = false
+            navigation.selection = module
+            navigation.detail = true
+        }
+        return true
     }
 
     static func module(for deepLink: String) -> PanelModule? {
@@ -68,5 +87,13 @@ import PanelKit
         default: symbol = "app.fill"
         }
         return NotificationSource(name: module?.title ?? id.capitalized, symbol: symbol)
+    }
+}
+
+/// Also used inside Home's full-screen destinations; isolated previews/tests need no service.
+struct PanelNotificationOverlay: View {
+    @Environment(NotificationCenter.self) private var center: NotificationCenter?
+    var body: some View {
+        if center != nil { NotificationBanners(source: PanelNotifications.source) }
     }
 }
