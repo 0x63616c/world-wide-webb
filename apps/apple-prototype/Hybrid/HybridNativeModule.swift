@@ -17,6 +17,7 @@ extension PanelModule {
         case .calendar: "Calendar"
         case .alarms: "Clock & Alarms"
         case .walk: "Dog Walk"
+        case .tesla: "Car"
         }
     }
 }
@@ -59,6 +60,7 @@ struct HybridNativeModule: View {
         case .alarms: HybridClockFace(store: store, open: open)
         case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
+        case .tesla: TeslaTile(provider: store.teslaProvider)
         // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
         case .walk, .all: EmptyView()
         }
@@ -86,6 +88,7 @@ struct HybridNativeModule: View {
                 .disabled(store.alarmsProvider.pending)
         case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
+        case .tesla: TeslaModule(provider: store.teslaProvider)
         case .walk, .all: EmptyView()
         }
     }

@@ -16,6 +16,7 @@ import CryptoKit
     let weatherProvider: LiveWeatherProvider
     let alarmsProvider: LiveAlarmsProvider
     let sonosProvider: LiveSonosProvider
+    let teslaProvider: LiveTeslaProvider
     let photosProvider: LivePhotosProvider
     let calendarProvider: LiveCalendarProvider
     private let unavailable = UnavailableHomeProviders()
@@ -30,7 +31,7 @@ import CryptoKit
         _ = calendarProvider.referenceDate
         return clock()
     }
-    var tesla: any TeslaProvider { unavailable }
+    var tesla: any TeslaProvider { teslaProvider }
     var calendar: any CalendarProvider { calendarProvider }
     var photos: any PhotosProvider { photosProvider }
     var cameras: any CamerasProvider { camerasProvider }
@@ -57,6 +58,7 @@ import CryptoKit
         } ?? PhotosAPI(configuration: configuration)
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
+        teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
             .map { String(format: "%02x", $0) }.joined()
         let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -78,6 +80,7 @@ import CryptoKit
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
+        case .tesla: teslaProvider.hasLiveData
         case .photos: photosProvider.availability == .live && !photosProvider.frames.isEmpty
         case .lights: lightsProvider.availability == .live
         case .climate: climateProvider.availability == .live && climateProvider.climate != nil
@@ -195,6 +198,7 @@ import CryptoKit
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
+        case .tesla: await teslaProvider.refresh()
         case .photos: await photosProvider.refresh()
         case .lights: await lightsProvider.refresh()
         case .climate: await climateProvider.refresh()
@@ -227,6 +231,7 @@ import CryptoKit
     }
 
     func stop() {
+        teslaProvider.stop()
         photosProvider.lock()
         mediaProvider.stop()
         camerasProvider.stop()

@@ -1,0 +1,10 @@
+{
+  "error": {
+    "message": "PIN not accepted.",
+    "code": -32003,
+    "data": {
+      "code": "FORBIDDEN",
+      "httpStatus": 403
+    }
+  }
+}

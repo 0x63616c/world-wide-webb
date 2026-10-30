@@ -39,6 +39,7 @@ actor HybridFixtureTransport: PanelTransport {
             case "cameras.list": file = "cameras/list.json"
             case "snapshot" where url.path.hasPrefix("/media/cameras/camera."): file = "cameras/snapshot.png"
             case "alarms.list": file = "alarms/\(alarmScenario).json"
+            case "tesla.state": file = "tesla/ready.json"
             case "controls.list": file = "all-on.json"
             case "climate.get": file = "climate/cool.json"
             case "wifi.guestQr": file = "wifi/wpa.json"
