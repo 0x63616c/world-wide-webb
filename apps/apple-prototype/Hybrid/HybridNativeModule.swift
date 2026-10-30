@@ -11,6 +11,7 @@ extension PanelModule {
         case .wifi: "Wi-Fi"
         case .sonos: "Sonos"
         case .weather: "Weather"
+        case .walk: "Dog Walk"
         }
     }
 }
@@ -48,7 +49,8 @@ struct HybridNativeModule: View {
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
         case .reminders: RemindersModule(provider: store.remindersProvider)
-        case .all: EmptyView()
+        // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
+        case .walk, .all: EmptyView()
         }
     }
 
@@ -66,7 +68,7 @@ struct HybridNativeModule: View {
         // media library or seek UI (the live API supplies no playback position).
         case .sonos: SonosRoomsPage(store: store)
         case .reminders: RemindersModule(provider: store.remindersProvider)
-        case .all: EmptyView()
+        case .walk, .all: EmptyView()
         }
     }
 

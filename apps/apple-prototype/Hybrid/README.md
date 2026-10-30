@@ -36,8 +36,8 @@ use `localhost` (ATS local networking is enabled).
 
 ## Module seam
 
-`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, `reminders`, and
-`all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
+`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
+`walk`, `reminders`, and `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
 overrides the launch's UserDefaults; invalid values fall back to `web`.
 `all` always means the complete web board, even if its flag is set to `native`.
 
@@ -304,6 +304,14 @@ Only Xcode 27 is installed on the mini; an Xcode 26.x build was not run there.
 Build and test output screenshots are in `Verification/` (excluded from Panel's
 resources), within this ticket's allowed paths. They document build and test
 results, not authenticated Live Activity rendering on the wall.
+
+## WWW-38 state synchronization
+
+The shared PanelKit coordinator and walk provider adoption are documented in
+[../PanelKit/SYNC.md](../PanelKit/SYNC.md). `-moduleFlag.walk native` reserves the
+opt-in; this base has no native walk registration, so it still falls back to web.
+The flag remains `web` by default. Follow the documented live-data/lifecycle gate
+when adding the walk provider to WWW-44 composition.
 
 ### Reminders (WWW-32)
 
