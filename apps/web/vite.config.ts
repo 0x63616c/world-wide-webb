@@ -76,6 +76,7 @@ export default defineConfig({
     host: true,
     port: Number(process.env.PORT ?? 4200),
     proxy: {
+      "/api/notifications": { target: `http://localhost:${apiPort}`, changeOrigin: true },
       "/api/alarms": { target: `http://localhost:${apiPort}`, changeOrigin: true },
       // Match production nginx for photo uploads and stored media as well as artwork.
       "/media/progress": { target: `http://localhost:${apiPort}`, changeOrigin: true },
