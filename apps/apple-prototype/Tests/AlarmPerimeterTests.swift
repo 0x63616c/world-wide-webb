@@ -5,7 +5,7 @@ final class AlarmPerimeterTests: XCTestCase {
     private let path = AlarmPerimeter(size: CGSize(width: 1320, height: 976))
 
     func testConcentricCornersAndClockwiseCardinalPoints() {
-        XCTAssertEqual(path.radius + AlarmPerimeter.edgeInset, AlarmPerimeter.displayCornerRadius)
+        XCTAssertEqual(path.radius + AlarmPerimeter.edgeInset, AlarmPerimeter.faceCornerRadius)
         let expected = [CGPoint(x: 660, y: 0), CGPoint(x: 1320, y: 488),
                         CGPoint(x: 660, y: 976), CGPoint(x: 0, y: 488), CGPoint(x: 660, y: 0)]
         for (index, point) in expected.enumerated() {

@@ -10,7 +10,7 @@ struct PresenceClockFace: View {
     var body: some View {
         GeometryReader { proxy in
             let compact = sizeClass == .compact
-            let dialSide = compact ? proxy.size.width - 24 : min(proxy.size.height * (near ? 0.78 : 0.96), proxy.size.width * 0.82)
+            let dialSide = compact ? proxy.size.width - 24 : min(proxy.size.height * (near ? 0.76 : 0.88), proxy.size.width * 0.82)
             ZStack {
                 Palette.clock
                 VStack(spacing: compact ? 24 : 0) {
@@ -29,7 +29,7 @@ struct PresenceClockFace: View {
                         }
                     }
                     if compact { Spacer(minLength: 24) }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity).offset(y: compact ? -20 : -32)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity).offset(y: compact ? -20 : (near ? -32 : 0))
                 if near && !compact {
                     VStack {
                         HStack(alignment: .top) {

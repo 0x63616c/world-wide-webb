@@ -94,7 +94,8 @@ struct LampBrightness: View {
                     .foregroundStyle(store.lamps.brightness > 14 ? Palette.amber : .white.opacity(0.7))
                     .frame(maxWidth: .infinity).padding(.bottom, 34)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 66, style: .continuous))
+            .clipShape(ConcentricRectangle())
+            .containerShape(.rect(cornerRadius: 66))
             .shadow(color: .black.opacity(0.27), radius: 30, y: 18)
             .opacity(enabled ? 1 : 0.4)
             .contentShape(RoundedRectangle(cornerRadius: 66, style: .continuous))

@@ -114,7 +114,7 @@ struct HourForecast: Identifiable {
 struct WeatherState {
     let city = "San Francisco"
     let temperature = 64
-    let condition = "Partly cloudy"
+    var condition = "Partly cloudy"
     let high = 67
     let low = 56
     let feels = 63
@@ -238,7 +238,7 @@ enum HomeCommand {
     var climate: ClimateState { get }
     var wifi: WifiState { get }
     var weather: WeatherState { get }
-    var tesla: MockTeslaProvider { get }
+    var tesla: any TeslaProvider { get }
     var alarms: [Alarm] { get }
     var occurrence: AlarmOccurrence? { get }
     var rooms: [SoundRoom] { get }
@@ -268,7 +268,7 @@ extension HomeDataSource {
     private(set) var climate = ClimateState()
     private(set) var wifi = WifiState()
     let weather = WeatherState()
-    let tesla = MockTeslaProvider()
+    let tesla: any TeslaProvider = MockTeslaProvider()
     private(set) var alarms = [Alarm(id: 1, label: "Morning", time: "07:00", repeatDays: [1,2,3,4,5]), Alarm(id: 2, label: "Weekend", time: "09:00", repeatDays: [0,6], enabled: false)]
     private(set) var rooms = [
         SoundRoom(name: "Living Room", rawVolume: 24, baseline: 60, coordinator: "Desk", playing: true),

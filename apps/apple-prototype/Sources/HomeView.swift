@@ -59,10 +59,10 @@ enum HomeTile: String, CaseIterable, Identifiable {
         switch self {
         case .climate: store.climate.mode.color
         case .all, .fan, .lamps, .lights, .bedroom, .livingRoom, .ceiling, .cabinet: Palette.amber
-        case .clock: Color(hex: "#235e60")
-        case .wifi: Color(hex: "#08746d")
-        case .weather, .hourly: Color(hex: "#327b9f")
-        case .sound: Color(hex: "#244a64")
+        case .clock: Palette.teal
+        case .wifi: Palette.teal
+        case .weather, .hourly: Color.blue.mix(with: .black, by: 0.45)
+        case .sound: Color.purple.mix(with: .black, by: 0.65)
         case .alarm, .tesla: .black
         }
     }
@@ -107,6 +107,7 @@ struct HomeView: View {
                         open(initialTile)
                     }
                     if ProcessInfo.processInfo.arguments.contains("-demoAutoPage") && !reduceMotion {
+                        if !store.climate.fanOn { store.send(.toggle(.fan)) }
                         try? await Task.sleep(for: .seconds(5))
                         withAnimation(.smooth) { facePage = 1 }
                         try? await Task.sleep(for: .seconds(5))
@@ -217,7 +218,7 @@ struct HomeFaceGrid: View {
                             .frame(width: surfaceWidth / contentScale, height: height / contentScale)
                             .scaleEffect(contentScale)
                             .frame(width: surfaceWidth, height: height)
-                            .faceGlass(on: tileOn(tile), radius: radius)
+                            .modifier(FaceMaterial(tile: tile, on: tileOn(tile), radius: radius))
                             .matchedTransitionSource(id: tile.id, in: zoom)
                     } else {
                         Color.clear
@@ -315,15 +316,15 @@ struct AccessoryFace: View {
     let store: any HomeDataSource
     let open: () -> Void
     var on: Bool { key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key) }
-    var title: String { key == .bedroom || key == .livingRoom ? "Lamps" : key == .ceiling ? "Lights" : key.name }
+    var title: String { key == .bedroom ? "Bedroom" : key == .livingRoom ? "Living Room" : key == .ceiling ? "Ceiling" : key.name }
     var subtitle: String {
         switch key {
         case .all: "Everything"
         case .fan: "A/C · \(store.climate.fanLabel)"
         case .lamps, .lights: on ? "On" : "Off"
-        case .bedroom: "Bedroom · \(store.lamps.onCount(.bedroom)) on"
-        case .livingRoom: "Living Room · \(store.lamps.onCount(.livingRoom)) on"
-        case .ceiling: "Ceiling"
+        case .bedroom: "\(store.lamps.onCount(.bedroom)) lamps on"
+        case .livingRoom: store.lamps.isOn(.livingRoom) ? "\(store.lamps.onCount(.livingRoom)) lamps on" : "Lamps off"
+        case .ceiling: on ? "Lights on" : "Lights off"
         case .cabinet: "Kitchen"
         }
     }

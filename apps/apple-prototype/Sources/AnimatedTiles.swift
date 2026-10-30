@@ -22,7 +22,7 @@ struct LampGlow: View {
         }
     }
     private var glow: some View {
-        RadialGradient(colors: [.orange, .yellow.opacity(0.25), .clear], center: .center, startRadius: 0, endRadius: 120)
+        RadialGradient(colors: [.orange, .yellow.opacity(0.25), .clear], center: .center, startRadius: 0, endRadius: 120).mask(Circle().fill(.white).blur(radius: 24))
     }
 }
 
@@ -74,17 +74,19 @@ struct WeatherSky: View {
                         ? [.gray, .gray, .blue.mix(with: .black, by: 0.6), .gray, .blue.mix(with: .gray, by: 0.6), .gray, .blue.mix(with: .black, by: 0.5), .gray, .gray]
                         : [.blue.mix(with: .black, by: 0.45), .blue, .cyan, .blue, .blue.mix(with: .cyan, by: 0.3), .cyan, .blue.mix(with: .black, by: 0.25), .blue, .cyan.mix(with: .white, by: 0.2)])
                     if !raining {
-                        Circle().fill(.yellow.opacity(0.9)).frame(width: proxy.size.width * 0.22)
-                            .blur(radius: 2).position(x: proxy.size.width * 0.75, y: proxy.size.height * 0.25)
-                            .shadow(color: .yellow.opacity(0.45), radius: 35)
+                        Circle().fill(RadialGradient(colors: [.white, .yellow.opacity(0.75), .yellow.opacity(0)], center: .center, startRadius: 0, endRadius: proxy.size.width * 0.13))
+                            .frame(width: proxy.size.width * 0.30).position(x: proxy.size.width * 0.75, y: proxy.size.height * 0.25)
                     }
                     Canvas { context, size in
                         if cloudy {
                             for i in 0..<4 {
                                 let offset = sin(t / 18 + Double(i)) * size.width * 0.06
                                 let rect = CGRect(x: size.width * (0.15 + Double(i) * 0.19) + offset, y: size.height * (0.20 + Double(i % 2) * 0.12), width: size.width * 0.5, height: size.height * 0.14)
-                                context.addFilter(.blur(radius: 20))
-                                context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.22)))
+                                var cloud = context
+                                cloud.addFilter(.blur(radius: 12))
+                                var shape = Path(ellipseIn: rect)
+                                shape.addEllipse(in: rect.offsetBy(dx: -rect.width * 0.16, dy: -rect.height * 0.25).insetBy(dx: rect.width * 0.18, dy: 0))
+                                cloud.fill(shape, with: .color(.white.opacity(0.32)))
                             }
                         }
                         if raining {

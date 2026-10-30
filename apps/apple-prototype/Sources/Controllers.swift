@@ -9,7 +9,7 @@ struct ControllerHost: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                Text(tile.title).font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
+                Text([HomeTile.bedroom, .livingRoom].contains(tile) ? "Lamps" : tile.title).font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
                 HStack {
                     CircleButton(symbol: "xmark", label: "Close", clearGlass: [.lamps, .bedroom, .livingRoom].contains(tile), action: close).accessibilityIdentifier("close-controller")
                     Spacer()

@@ -73,19 +73,9 @@ struct Wallpaper: View {
 struct LampsBackdrop: View {
     var body: some View {
         ZStack {
-            Color.black
-            RadialGradient(colors: [.orange.opacity(0.28), .orange.opacity(0.08), .clear], center: UnitPoint(x: 0.3, y: 0.55), startRadius: 60, endRadius: 1000)
+            Color(white: 0.055)
+            RadialGradient(colors: [.orange.opacity(0.13), .clear], center: UnitPoint(x: 0.28, y: 0.58), startRadius: 0, endRadius: 500)
         }.ignoresSafeArea()
-    }
-}
-struct GlassSurface: View {
-    var on = false
-    var radius: CGFloat = 38
-    var body: some View {
-        RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(on ? Color.white.opacity(0.58) : Color.white.opacity(0.035))
-            .glassEffect(.regular.tint(on ? .white.opacity(0.5) : .clear).interactive(), in: .rect(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(.white.opacity(on ? 0.4 : 0.16), lineWidth: 0.8))
     }
 }
 struct CircleButton: View {
@@ -174,6 +164,19 @@ extension View {
         self.glassEffect(.regular.tint(on ? .orange.opacity(0.2) : .clear).interactive(), in: .rect(cornerRadius: radius))
     }
     func faceGlass(on: Bool = false, radius: CGFloat = 56) -> some View {
-        self.glassEffect(.clear.tint(on ? .orange.opacity(0.12) : .clear).interactive(), in: .rect(cornerRadius: radius))
+        self.glassEffect(.regular.tint(on ? .orange.opacity(0.12) : .white.opacity(0.025)).interactive(), in: .rect(cornerRadius: radius))
+    }
+}
+
+struct FaceMaterial: ViewModifier {
+    let tile: HomeTile
+    let on: Bool
+    let radius: CGFloat
+    func body(content: Content) -> some View {
+        if tile == .weather || tile == .sound {
+            content.clipShape(.rect(cornerRadius: radius))
+        } else {
+            content.faceGlass(on: on, radius: radius)
+        }
     }
 }

@@ -46,7 +46,7 @@ struct AlarmRingView: View {
                     }.frame(maxHeight: .infinity, alignment: .top).padding(74)
                     Text("Fixture data").font(.system(size: 12)).opacity(0.4)
                         .position(x: proxy.size.width / 2, y: proxy.size.height - 22)
-                }.containerShape(.rect(cornerRadius: AlarmPerimeter.displayCornerRadius, style: .circular))
+                }.containerShape(.rect(cornerRadius: AlarmPerimeter.faceCornerRadius, style: .circular))
             }
         }.foregroundStyle(.white).tint(orange).ignoresSafeArea()
     }
@@ -87,10 +87,10 @@ struct AlarmPerimeter {
     // https://github.com/kylebshr/ScreenCorners
     static let reportedIPadCornerRadius: CGFloat = 18
     // Deliberate rounded FACE boundary from calum_4, not a hardware claim.
-    static let displayCornerRadius: CGFloat = 112
+    static let faceCornerRadius: CGFloat = 112
     static let edgeInset: CGFloat = 32
     let size: CGSize
-    var radius: CGFloat { min(Self.displayCornerRadius - Self.edgeInset, min(size.width, size.height) / 2) }
+    var radius: CGFloat { min(Self.faceCornerRadius - Self.edgeInset, min(size.width, size.height) / 2) }
     var length: CGFloat { 2 * (size.width + size.height - 4 * radius) + 2 * .pi * radius }
 
     struct Sample {

@@ -95,7 +95,7 @@ struct TeslaController: View {
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
         ScrollView {
-            VStack(spacing: compact ? 28 : 40) {
+            VStack(spacing: compact ? 28 : 28) {
                 VStack(spacing: 8) {
                     Image(systemName: "car.side.fill").font(.system(size: compact ? 44 : 64)).foregroundStyle(.secondary)
                     Text(provider.data.name).font(.system(size: compact ? 28 : 36, weight: .semibold))
@@ -103,12 +103,12 @@ struct TeslaController: View {
                 }
                 VStack(spacing: 12) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(provider.data.pct)").font(.system(size: compact ? 92 : 132, weight: .regular, design: .rounded)).monospacedDigit()
+                        Text("\(provider.data.pct)").font(.system(size: compact ? 92 : 112, weight: .regular, design: .rounded)).monospacedDigit()
                         Text("%").font(.system(size: compact ? 36 : 48)).foregroundStyle(.secondary)
                     }
-                    Gauge(value: Double(provider.data.pct), in: 0...100) { Text("Battery") }
+                    Gauge(value: Double(provider.data.pct), in: 0...100) { EmptyView() }
                         .gaugeStyle(.linearCapacity).tint(.green).labelsHidden()
-                        .scaleEffect(y: 2).padding(.vertical, 8)
+                        .padding(.vertical, 8)
                     HStack {
                         Label(provider.data.chargingState.replacingOccurrences(of: "_", with: " ").capitalized, systemImage: provider.data.charging ? "bolt.fill" : "battery.75percent")
                         Spacer()
