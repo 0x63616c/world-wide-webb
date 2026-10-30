@@ -3,7 +3,8 @@ import XCTest
 
 final class HomeFaceLayoutTests: XCTestCase {
     func testPanelHasEqualGuttersAndSafeMarginsAbovePager() {
-        let layout = HomeFaceLayout.panel(in: CGSize(width: 1376, height: 1032))
+        for controls in [false, true] {
+        let layout = HomeFaceLayout.panel(in: CGSize(width: 1376, height: 1032), controls: controls)
         checkFrames(layout)
         let lastEdge = layout.items.map(\.frame.maxY).max()!
         let bottomMargin = layout.viewport.height - layout.pagerBand - lastEdge
@@ -14,7 +15,8 @@ final class HomeFaceLayoutTests: XCTestCase {
             XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
             XCTAssertEqual(item.frame.minY.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
         }
-        XCTAssertEqual(layout.items.filter(\.round).count, 5)
+        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 1)
+        }
     }
 
     func testPhoneScrollEndsWithLastRowClearOfPageBand() {
@@ -24,7 +26,7 @@ final class HomeFaceLayoutTests: XCTestCase {
             for controls in [false, true] {
                 let layout = HomeFaceLayout.phone(in: CGSize(width: width, height: 778), controls: controls)
                 checkFrames(layout)
-                let lastRow = layout.items.filter { $0.tile == .clock || $0.tile == .wifi }
+                let lastRow = layout.items.filter { $0.tile == .all || $0.tile == .cabinet }
                 for item in lastRow {
                     let visible = item.frame.offsetBy(dx: 0, dy: -layout.bottomScrollOffset)
                     XCTAssertGreaterThanOrEqual(visible.minY, layout.margin)
@@ -34,6 +36,17 @@ final class HomeFaceLayoutTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testEveryModuleAndAccessoryIsReachableOnBothDeviceLayouts() {
+        let required: Set<HomeTile> = [.climate, .lamps, .weather, .calendar, .sound, .tesla, .fan,
+                                       .cameras, .photos, .media, .sonosRooms, .dogwalk, .clock, .ceiling, .cabinet, .wifi, .all]
+        let size = CGSize(width: 1376, height: 1032)
+        let panel = [false, true].flatMap { HomeFaceLayout.panel(in: size, controls: $0).items.map(\.tile) }
+        let phone = [false, true].flatMap { HomeFaceLayout.phone(in: CGSize(width: 402, height: 778), controls: $0).items.map(\.tile) }
+        XCTAssertEqual(Set(panel), required)
+        XCTAssertEqual(Set(phone), required)
+        XCTAssertEqual(panel.count, Set(panel).count)
     }
 
     private func checkFrames(_ layout: HomeFaceLayout, file: StaticString = #filePath, line: UInt = #line) {

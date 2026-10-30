@@ -2,9 +2,9 @@
 
 Native SwiftUI study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8), targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
-## Iteration 4
+## Iteration 5b
 
-The iPad canvas is 1376×1032 points. Home uses a five-column, three-row composition: 2×2 Climate, 1×2 Lamps with a global brightness control, 2×1 Music and Car, and circular Clock, Ceiling, Fan, Guest Wi-Fi and All lights. Cells and gutters snap to eight points. Every tile opens its full-screen controller with native zoom; accessory glyphs also toggle. Controls retains Weather, Car, Sonos, Under Cabinet, Fan and All. The other faces are Clock and Music.
+The iPad canvas is 1376×1032 points. Two Home pages use mixed 2×2, 2×1, 1×2 and circular 1×1 spans with 24-point gutters. The first shows Climate, global Lamps brightness, Weather, Tesla, Calendar, Now Playing and Fan. Home · More shows Cameras, Walk Zero, Photos, Media, Sonos Rooms and all five remaining round accessory shortcuts. Every tile opens a full-screen page with native zoom; accessory glyphs also toggle. Clock and Music remain separate faces.
 
 The Mac window has a fixed 1376×1032 content frame, hidden title bar and `.windowResizability(.contentSize)`. Compact horizontal size classes use a separate two-column phone face and scrolling controllers. The iPhone target is portrait; iPad is landscape.
 
@@ -12,9 +12,9 @@ Native Liquid Glass supplies tile refraction, highlights and button chrome, with
 
 Lamps has an All lamps brightness fader, room power controls, expandable members and Color & Effects. The next-alarm face has 120 uniformly weighted ticks around an arc-length sampled rounded rectangle. The design corner radius is 112 points, with an 80-point inset ring radius. It is **not a measured iPad 13-inch hardware radius**: Apple does not publish that measurement in the available resources. The separate 18-point research token describes older documented iPad models and is not misrepresented as current hardware.
 
-Tesla preserves the retired service's field names and types: `name`, `nick`, `locked`, `place`, optional `lat`/`lon`, `charging`, `chargingState`, `preconditioning`, `rate`, `pct`, `range`, `odo` and `climate`. Online/asleep/offline availability is separate. The fixture is Model Y / Car, Home, 78%, 241 mi, charging at 11 kW, locked, cabin 64°F, with no coordinates. Only setLock, setCharging and setPreconditioning are exposed. Unavailable vehicles ignore commands; disconnected/no-power vehicles cannot start charging. There is no map.
+Tesla preserves the retired service's field names and types: `name`, `nick`, `place`, optional `lat`/`lon`, `charging`, `chargingState`, `preconditioning`, `rate`, `pct`, `range`, `odo` and `climate`. Online/asleep/offline availability is separate. The fixture is Model Y / Car, Home, 78%, 241 mi, charging at 11 kW, cabin 64°F, with no coordinates. Only setCharging and setPreconditioning are exposed. Unavailable vehicles ignore commands; disconnected/no-power vehicles cannot start charging. There is no map.
 
-Weather uses a condition-driven MeshGradient and Canvas, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses through KeyframeAnimator only while charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
+Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses through KeyframeAnimator only while charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
 
 The research specification, reference images, independent reviews, comparison sheets, live log and motion proof remain outside this repository at `/workspace/wwwebb-ui/prototype/v2/`. Reference images are never bundled or committed. Images under `docs/screenshots/v2/` document the previous iteration, not this pass. `mac-home.png` is explicitly an **iOS-hosted Mac layout render**; the build mini runs macOS 15.6 and cannot launch a macOS 26 app.
 
@@ -41,6 +41,8 @@ xcodebuild -project WorldWideWebb.xcodeproj -scheme WorldWideWebb-Snapshots \
   -only-testing:WorldWideWebbTests/WifiQRCodeTests \
   -only-testing:WorldWideWebbTests/AlarmPerimeterTests \
   -only-testing:WorldWideWebbTests/TeslaProviderTests \
+  -only-testing:WorldWideWebbTests/HomeFaceLayoutTests \
+  -only-testing:WorldWideWebbTests/ModuleProviderTests \
   CODE_SIGNING_ALLOWED=NO test-without-building
 ```
 
@@ -90,4 +92,38 @@ The iPad simulator screenshots and 10–15-second `simctl io recordVideo --codec
 
 Photo: [Boathouse on a mountain lake](https://unsplash.com/photos/brown-house-near-body-of-water-zAjdgNXsMeg) by Luca Bravo, used under the [Unsplash Licence](https://unsplash.com/license). Bundled at 2752 pixels wide, JPEG quality 85. Full source and processing notes: [docs/v2/sources.md](docs/v2/sources.md). Apple and Calum references are neither bundled nor committed.
 
-Run `bash scripts/verify-live.sh` on the mini to build, run all unit tests (including layout and playback), and capture the live screens. For capture only, run `bash scripts/capture-live.sh` after building to install and deterministically launch Home, Lamps, near Clock, Controls and Now Playing on the iPad, plus Home and Now Playing on iPhone 17 Pro (iOS 26.3). Independent pass reviews use only these live `sim-*.png` captures. The phone face scrolls with the page controls in a reserved 64-point bottom safe-area inset and a 24-point margin above it at the scroll end. `-homeScrollBottom` deterministically captures that boundary. `HomeFaceLayoutTests` checks both layouts for overlap, equal gutters and safe margins. At 1376×1032, the panel uses 224-point cells, 24-point gutters, 80-point outer margins and an 80-point pager band.
+Run `bash scripts/verify-live.sh` on the mini to build, run all unit tests (including layout and playback), and capture the live screens. For capture only, run `bash scripts/capture-live.sh` after building to install and deterministically launch Home, Lamps, near Clock, Controls and Now Playing on the iPad, plus Home and Now Playing on iPhone 17 Pro (iOS 26.3). Independent pass reviews use only these live `sim-*.png` captures. The phone face scrolls with the page controls in a reserved 80-point bottom safe-area inset and a 24-point margin above it at the scroll end. `-homeScrollBottom` deterministically captures that boundary. `HomeFaceLayoutTests` checks both layouts for overlap, equal gutters and safe margins. At 1376×1032, the panel uses 224-point cells, 24-point gutters, 80-point outer margins and an 80-point pager band.
+
+## Pass 5: two Home pages and fixture modules
+
+Home adds Weather and Calendar; swipe to Home · More for Cameras, Photos, Media and Sonos Rooms. All tiles open their full-screen controllers with native zoom. The shared layout solver tests both pages and both phone scroll boundaries. Tesla offers charging and cabin preconditioning only. Sonos volume locks remain.
+
+Weather: four current metrics and 12 hours. Calendar: generic fixture day agenda. Media: choose an album/playlist and a Sonos room, or play the bundled silent lake film in AVKit. Sonos Rooms: per-room calibrated volume, mute, grouping. Cameras: two animated stock-photo feeds, explicitly marked Demo feed / Simulated camera. Photos: three bundled photos crossfade every 12 seconds; Reduce Motion disables automatic changes. All providers and commands are in-memory fixtures.
+
+Launch the new pages with `-openTile weather|calendar|media|sonosRooms|cameras|photos`; use `-openTile media -showVideo` for deterministic video review. `-face controls` opens Home · More.
+
+## Pass 5 bundled media
+
+All downloaded 2026-10-29. No Apple or Calum reference image is bundled.
+
+| Asset | Source / author | Licence | Processing / use |
+| --- | --- | --- | --- |
+| ForestPhoto | [Pathway of trees during daytime](https://unsplash.com/photos/pathway-of-trees-during-daytime-P1Iz3unD6Po), Johannes Plenio | [Unsplash Licence](https://unsplash.com/license) | 2752×1548 JPEG, quality 85; Photos and explicitly simulated Woodland feed |
+| CoastPhoto | [Sunset](https://unsplash.com/photos/sunset-CA5mR_jecac), Luca Bravo | [Unsplash Licence](https://unsplash.com/license) | 1823×2752 JPEG, quality 85; Photos |
+| LakeStudy.mp4 | Existing LakeWallpaper, Luca Bravo (source above) | Unsplash Licence | Local FFmpeg slow zoom, silent 12-second H.264 at 1280×720/25 fps; AVKit demo film |
+
+Camera scenes are stock landscapes, not photographs of a user's home. Music covers, track names, albums and playlists are original authored fixtures; the prototype does not bundle recordings or imply real music output.
+
+CloudPhoto: [Blue sky with white clouds](https://unsplash.com/photos/blue-sky-with-white-clouds-xtgONQzGgOE) by uriel (@xaze), [Unsplash Licence](https://unsplash.com/license). Downloaded 2026-10-29, JPEG quality 85, longest edge 2752 px. Weather condition artwork with slow TimelineView drift; clear skies use original SwiftUI sky/sun, rain adds original particles and desaturation.
+
+## Pass 5b: Walk Zero
+
+DogWalkApp adds a wide Walk Zero tile on Home · More, a full-screen history with weekly total, per-walk average, streak and 7/30-day Swift Charts, and a reserved lower-left Clock complication. The tile starts/stops a walk inline and its title opens the history. Idle reads “Last walk 3h ago · 32 min”. Cameras now occupies (0,0) 2×1 and Walk Zero (0,1) 2×1; the remaining spans and all five round controls are unchanged. Every module is reachable on both panel and phone Home pages, verified by the layout tests.
+
+`WalkProvider` exposes `activeWalk`, `history`, `start(at:)` and `stop(at:)`. A walk has `{id, startedAt, startedBy device, endedAt?}`. Elapsed time is derived from `startedAt` in TimelineView; there is no local counter. `MockWalkBackend` owns one active record and a 3-week fixture log; multiple device providers share that backend. Starting twice is idempotent. Stopping from either client ends the shared record and appends history once. `-walkStartedRemotely` injects an iPhone start 12:04 earlier; `-walkRunning` starts locally. The mocks model server synchronization in memory, and do not connect the two separately launched simulator processes over a real network.
+
+**Production follow-up:** persist the walk log and active walk in the backend (new table with stable ID, dog ID, startedAt, startedBy device and endedAt; enforce one active walk transactionally). Add tRPC start/stop/active/history procedures, with idempotent commands and a subscription or polling for cross-device updates. The backend owns timestamps and completion. Retain ActivityKit push-to-update tokens per device/walk so stopping on iPad also ends the iPhone Live Activity. Reconcile the current active record when either app launches or reconnects; never reset the start time locally.
+
+The iOS app embeds `WalkActivityExtension` via project.yml. Lock Screen, compact/minimal and expanded Dynamic Island content use the shared startedAt and deep-link to history. Local observation synchronizes ActivityKit when the active record changes. The simulator preview is explicitly labelled and is not represented as a SpringBoard capture. Backend persistence, cross-device networking and push tokens remain follow-ups, matching the Sonos seek limitation in §6.
+
+Validation: DogWalkProviderTests covers elapsed time, negative-clock clamping, remote start/stop, two clients sharing one active record, idempotent completion, fixture history and chart summaries. HomeFaceLayoutTests covers both faces, every module's reachability, safe margins, equal gutters and no overlapping frames on iPad and iPhone.

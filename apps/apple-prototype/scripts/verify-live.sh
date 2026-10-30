@@ -6,7 +6,7 @@ export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode-27.0.app/Contents/Deve
 verification_output="$HOME/wwwebb-proto-snapshots"
 mkdir -p "$verification_output"
 /opt/homebrew/bin/xcodegen generate > "$verification_output/generate.log"
-args=(-project WorldWideWebb.xcodeproj -scheme WorldWideWebb-Snapshots
+args=(-jobs 2 -project WorldWideWebb.xcodeproj -scheme WorldWideWebb-Snapshots
       -destination 'platform=iOS Simulator,id=A0ECBA0E-5E14-4DE2-ACD7-7C2A5EA0AFBF'
       -derivedDataPath "$HOME/wwwebb-proto-dd" -parallel-testing-enabled NO
       CODE_SIGNING_ALLOWED=NO)

@@ -14,15 +14,17 @@ struct LampsController: View {
                 VStack(spacing: 24) {
                     VStack(spacing: 4) {
                         Text("Global brightness").font(.system(size: compact ? 22 : 28, weight: .semibold))
+                        HStack(alignment: .firstTextBaseline, spacing: 16) {
                         Text("\(store.lamps.brightness)%")
-                            .font(.system(size: compact ? 72 : 104, weight: .regular, design: .rounded)).monospacedDigit()
+                            .font(.system(size: compact ? 72 : 96, weight: .regular, design: .rounded)).monospacedDigit()
                             .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
                             .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
-                        Text(store.lamps.anyOn ? "All 8 lamps · Both rooms" : "Turn on lamps to adjust")
+                        Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 18, weight: .medium)).foregroundStyle(.secondary)
+                        }
+                        Text(store.lamps.anyOn ? "Adjust to turn all 8 lamps on" : "Turn on lamps to adjust")
                             .font(.system(size: compact ? 17 : 22)).foregroundStyle(.secondary)
                     }
-                    LampBrightness(store: store).frame(width: compact ? 156 : 224, height: compact ? 300 : 348)
-                    Text("Adjusting turns all lamps on").font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary)
+                    LampBrightness(store: store).frame(width: compact ? 156 : 224, height: compact ? 300 : 350)
                 }.frame(width: compact ? nil : 340)
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Rooms").font(.system(size: compact ? 22 : 28, weight: .semibold))
@@ -33,7 +35,7 @@ struct LampsController: View {
                             .font(.system(size: compact ? 18 : 24, weight: .medium)).frame(maxWidth: .infinity).padding(.vertical, 18)
                     }.buttonStyle(.glass).accessibilityIdentifier("color-effects").padding(.top, 12)
                 }.frame(width: compact ? nil : 460)
-            }.padding(compact ? 24 : 40).frame(maxWidth: .infinity)
+            }.padding(compact ? 24 : 40).padding(.top, compact ? 0 : 56).frame(maxWidth: .infinity)
             }
         }.scrollIndicators(.hidden)
             .sheet(isPresented: $showingEffects) {
@@ -53,22 +55,22 @@ struct LampsController: View {
     private func room(_ key: Accessory) -> some View {
         let on = store.lamps.isOn(key)
         return VStack(alignment: .leading, spacing: 0) {
-            Button { store.send(.toggle(key)) } label: {
-                HStack(spacing: 24) {
+                HStack(spacing: compact ? 16 : 24) {
                     Image(systemName: key.symbol).symbolRenderingMode(.hierarchical)
                         .font(.system(size: compact ? 38 : 48)).foregroundStyle(on ? .orange : .secondary)
-                        .frame(width: 72, height: 84)
+                        .frame(width: compact ? 48 : 72, height: compact ? 64 : 84)
                         .background { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 150, height: 150) }
                     VStack(alignment: .leading, spacing: 8) {
                         Text(key.name).font(.system(size: compact ? 21 : 28, weight: .semibold))
                         Text(on ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps" : "Off · \(LampState.members(key).count) lamps").font(.system(size: compact ? 16 : 22)).foregroundStyle(.primary)
                     }
                     Spacer()
-                    Image(systemName: "power").font(.system(size: 24)).foregroundStyle(on ? .orange : .secondary)
-                }.padding(24)
-            }.buttonStyle(.plain)
-                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off")
-                .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
+                    Toggle("Power", isOn: Binding(get: { store.lamps.isOn(key) }, set: { _ in store.send(.toggle(key)) }))
+                        .labelsHidden().toggleStyle(.switch).tint(.orange)
+                        .accessibilityLabel("\(key.name) power")
+                        .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
+                }.padding(compact ? 20 : 24)
+            Divider().padding(.horizontal, 24).padding(.bottom, 16)
             DisclosureGroup("Show lamps") {
                 ForEach(Array(LampState.members(key)), id: \.self) { index in
                     HStack { Text(LampState.names[index]); Spacer(); Text(store.lamps.on[index] ? "On" : "Off").foregroundStyle(.secondary) }
@@ -76,7 +78,9 @@ struct LampsController: View {
                 }
             }.font(.system(size: compact ? 15 : 19)).foregroundStyle(.primary)
                 .padding(.horizontal, 24).padding(.bottom, 20)
-        }.homeGlass(radius: 32)
+        }.foregroundStyle(on ? .black : .white)
+            .glassEffect(on ? .regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular.tint(.white.opacity(0.08)), in: .rect(cornerRadius: 32))
+            .environment(\.colorScheme, on ? .light : .dark)
     }
 }
 
@@ -95,7 +99,7 @@ struct LampBrightness: View {
             }
             .clipShape(ConcentricRectangle())
             .containerShape(.rect(cornerRadius: 66))
-            .shadow(color: .black.opacity(0.27), radius: 30, y: 18)
+
             .opacity(enabled ? 1 : 0.4)
             .contentShape(RoundedRectangle(cornerRadius: 66, style: .continuous))
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in

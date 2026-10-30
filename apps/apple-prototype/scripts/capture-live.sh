@@ -6,10 +6,13 @@ phone=BC914470-C6AF-4F53-9F85-5B0967309F68
 app=co.worldwidewebb.prototype.ipad
 out="$HOME/wwwebb-proto-snapshots"
 mkdir -p "$out"
-for device in "$ipad" "$phone"; do
+prepare() {
+  local device="$1"
+  xcrun simctl boot "$device" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "$device" -b
   xcrun simctl install "$device" "$HOME/wwwebb-proto-dd/Build/Products/Debug-iphonesimulator/WorldWideWebb-iPad.app"
   xcrun simctl status_bar "$device" override --time '10:10' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
- done
+}
 capture() {
   local device="$1" name="$2"
   shift 2
@@ -18,11 +21,36 @@ capture() {
   sleep 3
   xcrun simctl io "$device" screenshot "$out/sim-$name.png"
 }
+# Keep our own simulators serial on the shared build mini.
+xcrun simctl shutdown "$phone" >/dev/null 2>&1 || true
+prepare "$ipad"
 capture "$ipad" home -face home
 capture "$ipad" lamps -openTile lamps
 capture "$ipad" clock-near -face clock -presence near
 capture "$ipad" controls -face controls
 capture "$ipad" nowplaying -face music
+capture "$ipad" weather -face home
+capture "$ipad" weather-full -openTile weather
+capture "$ipad" calendar-full -openTile calendar
+capture "$ipad" media-full -openTile media
+capture "$ipad" video -openTile media -showVideo
+capture "$ipad" sonos-rooms -openTile sonosRooms
+capture "$ipad" cameras-full -openTile cameras
+capture "$ipad" photos-face -openTile photos
+capture "$ipad" dogwalk-tile -face controls
+capture "$ipad" dogwalk-tile-running -face controls -walkRunning
+capture "$ipad" dogwalk-full -openTile dogwalk
+capture "$ipad" dogwalk-full-running -openTile dogwalk -walkRunning
+capture "$ipad" dogwalk-remote -openTile dogwalk -walkStartedRemotely
+xcrun simctl shutdown "$ipad"
+prepare "$phone"
 capture "$phone" iphone-home -face home
 capture "$phone" iphone-home-bottom -face home -homeScrollBottom
 capture "$phone" iphone-nowplaying -face music
+capture "$phone" iphone-more -face controls
+capture "$phone" iphone-more-bottom -face controls -homeScrollBottom
+capture "$phone" iphone-liveactivity -walkActivityPreview
+capture "$phone" iphone-dogwalk -openTile dogwalk
+xcrun simctl shutdown "$phone"
+xcrun simctl boot "$ipad"
+xcrun simctl bootstatus "$ipad" -b

@@ -1,4 +1,7 @@
 import Foundation
+#if os(iOS)
+import UIKit
+#endif
 import Observation
 
 // All data in this file is FIXTURE data. No device discovery, credentials, or networking.
@@ -123,10 +126,10 @@ struct WeatherState {
     let solarLabel = "Sunset"
     let solarValue = "6:14 PM"
     let hours: [HourForecast] = (0..<12).map { index in
-        HourForecast(id: index, time: ["4p", "5p", "6p", "7p", "8p", "9p", "10p", "11p", "12a", "1a", "2a", "3a"][index],
+        HourForecast(id: index, time: ["11a", "12p", "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p", "10p"][index],
                      temperature: [64, 63, 62, 61, 60, 59, 58, 58, 57, 57, 56, 56][index],
                      feels: [63, 62, 60, 59, 58, 57, 56, 56, 55, 55, 54, 54][index],
-                     symbol: index < 3 ? "cloud.sun.fill" : "cloud.moon.fill")
+                     symbol: index < 7 ? "cloud.sun.fill" : "cloud.moon.fill")
     }
 }
 struct Alarm: Identifiable, Equatable {
@@ -236,6 +239,7 @@ enum HomeCommand {
     case mode(ClimateMode), target(Int), low(Int), high(Int), shiftRange(Int)
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
     case snoozeAlarm(Int, Int), stopAlarm(Int, Int)
+    case playMedia(String, Int)
     case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int)
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
@@ -245,6 +249,12 @@ enum HomeCommand {
     var wifi: WifiState { get }
     var weather: WeatherState { get }
     var tesla: any TeslaProvider { get }
+    var calendar: any CalendarProvider { get }
+    var photos: any PhotosProvider { get }
+    var cameras: any CamerasProvider { get }
+    var media: any MediaProvider { get }
+    var walks: any WalkProvider { get }
+    var walkActivity: WalkLiveActivityManager { get }
     var alarms: [Alarm] { get }
     var occurrence: AlarmOccurrence? { get }
     var rooms: [SoundRoom] { get }
@@ -255,6 +265,11 @@ enum HomeCommand {
     func send(_ command: HomeCommand)
 }
 extension HomeDataSource {
+    func toggleWalk() {
+        if walks.activeWalk == nil { walks.start(at: now) }
+        else { walks.stop(at: now) }
+        walkActivity.synchronize(walk: walks.activeWalk, now: now)
+    }
     func upcomingAlarm(at date: Date) -> UpcomingAlarm? {
         let scheduled = alarms.compactMap { alarm in
             alarm.next(after: date).map { UpcomingAlarm(alarm: alarm, due: $0, ringing: false, version: nil, snoozed: false) }
@@ -275,6 +290,12 @@ extension HomeDataSource {
     private(set) var wifi = WifiState()
     let weather = WeatherState()
     let tesla: any TeslaProvider = MockTeslaProvider()
+    let calendar: any CalendarProvider = MockCalendarProvider()
+    let photos: any PhotosProvider = MockPhotosProvider()
+    let cameras: any CamerasProvider = MockCamerasProvider()
+    let media: any MediaProvider = MockMediaProvider()
+    let walks: any WalkProvider
+    let walkActivity = WalkLiveActivityManager()
     private(set) var alarms = [Alarm(id: 1, label: "Morning", time: "07:00", repeatDays: [1,2,3,4,5]), Alarm(id: 2, label: "Weekend", time: "09:00", repeatDays: [0,6], enabled: false)]
     private(set) var rooms = [
         SoundRoom(name: "Living Room", rawVolume: 24, baseline: 60, coordinator: "Desk", playing: true),
@@ -297,6 +318,17 @@ extension HomeDataSource {
     init(latency: Duration = .milliseconds(150), wifiFixture: String = "secured", mode: ClimateMode = .cool, fixedNow: Date? = nil, ringing: Bool = false) {
         self.latency = latency
         self.fixedNow = fixedNow
+        #if os(iOS)
+        let device: WalkDevice = UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
+        #else
+        let device: WalkDevice = .mac
+        #endif
+        let walks = MockWalkProvider(now: fixedNow ?? ISO8601DateFormatter().date(from: "2026-10-29T22:41:00Z")!, device: device)
+        self.walks = walks
+        if ProcessInfo.processInfo.arguments.contains("-walkStartedRemotely") {
+            walks.simulateRemoteStart(at: now.addingTimeInterval(-724))
+        }
+        if ProcessInfo.processInfo.arguments.contains("-walkRunning") { walks.start(at: now.addingTimeInterval(-754)) }
         if ringing { occurrence = AlarmOccurrence(alarm: alarms[0], due: fixedNow ?? fixtureDate) }
         if wifiFixture == "open" { wifi = .open }
         if wifiFixture == "unconfigured" { wifi = .unconfigured }
@@ -377,6 +409,13 @@ extension HomeDataSource {
         case .stopAlarm(let id, let version):
             guard let active = occurrence, active.alarm.id == id, active.version == version, active.isRinging(at: now) else { return }
             occurrence = nil; markPending("alarms")
+        case .playMedia(let id, let trackIndex):
+            guard FixtureTrack.queue.indices.contains(trackIndex), let room = rooms.first(where: { $0.id == id }) else { return }
+            for i in rooms.indices where rooms[i].coordinator == room.coordinator {
+                rooms[i].trackIndex = trackIndex; rooms[i].playing = true
+                rooms[i].sourceKind = .other; rooms[i].sourceLabel = "Fixture library"
+                rooms[i].positionSeconds = 0; rooms[i].positionUpdatedAt = now
+            }; markPending("sound")
         case .transport(let id, let command):
             guard let room = rooms.first(where: { $0.id == id }) else { return }
             for i in rooms.indices where rooms[i].coordinator == room.coordinator {

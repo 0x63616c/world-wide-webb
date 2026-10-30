@@ -1,4 +1,7 @@
 name: WorldWideWebb
+packages:
+  PanelKit:
+    path: PanelKit
 options:
   bundleIdPrefix: co.worldwidewebb.prototype
   deploymentTarget:
@@ -18,7 +21,9 @@ targets:
   WorldWideWebb:
     type: application
     platform: macOS
-    sources: [Sources]
+    sources: [Sources, Shared]
+    dependencies:
+      - package: PanelKit
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: ''
@@ -28,7 +33,17 @@ targets:
   WorldWideWebb-iPad:
     type: application
     platform: iOS
-    sources: [Sources]
+    sources: [Sources, Shared]
+    dependencies:
+      - package: PanelKit
+      - target: WalkActivityExtension
+        embed: true
+    info:
+      path: GeneratedAppInfo.plist
+      properties:
+        NSSupportsLiveActivities: true
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [www-prototype]
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: ''
@@ -41,12 +56,29 @@ targets:
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_UIStatusBarHidden: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+  WalkActivityExtension:
+    type: app-extension
+    platform: iOS
+    sources: [WalkActivity, Shared]
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: WalkActivityExtension
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.prototype.ipad.walkactivity
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    info:
+      path: GeneratedWidgetInfo.plist
+      properties:
+        CFBundleDisplayName: Walk Zero
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
   WorldWideWebbTests:
     type: bundle.unit-test
     platform: iOS
     sources: [Tests]
     dependencies:
       - target: WorldWideWebb-iPad
+      - package: PanelKit
     settings:
       base:
         PRODUCT_MODULE_NAME: WorldWideWebbTests
