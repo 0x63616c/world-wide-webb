@@ -1,14 +1,15 @@
 import SwiftUI
 
-/// A phone owns its scrolling composition. The root reserves the pager's safe area.
+/// A phone owns its scrolling composition and the native pager bar.
 struct CompactFace: View {
     let store: any HomeDataSource
     let controls: Bool
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
+    var faceSelection: Binding<Int> = .constant(0)
     var body: some View {
         GeometryReader { proxy in
-            let layout = HomeFaceLayout.phone(in: CGSize(width: proxy.size.width, height: proxy.size.height + HomeFaceLayout.phonePagerBand), controls: controls)
+            let layout = HomeFaceLayout.phone(in: proxy.size, controls: controls)
             ScrollView {
                 GlassEffectContainer(spacing: 8) {
                     ZStack(alignment: .topLeading) {
@@ -23,9 +24,10 @@ struct CompactFace: View {
                 }
             }.scrollIndicators(.hidden)
                 .scrollEdgeEffectStyle(.soft, for: .all)
-                .scrollClipDisabled()
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
-
+                .safeAreaBar(edge: .bottom, spacing: 0) {
+                    PhoneFaceBar(selection: faceSelection)
+                }
         }
     }
     private func tile(_ tile: HomeTile, width: CGFloat, height: CGFloat, round: Bool = false) -> some View {

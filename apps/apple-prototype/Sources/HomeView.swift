@@ -94,14 +94,9 @@ struct HomeView: View {
                     else { Wallpaper() }
                 }
                 homeFace(size: proxy.size)
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if sizeClass == .compact {
-                            VStack(spacing: 0) {
-                                FacePicker(selection: $facePage).padding(.horizontal, 16)
-                                Text("Fixture data").font(.system(size: 10)).foregroundStyle(.secondary)
-                            }.padding(.vertical, 8)
-                                .glassEffect(.regular, in: .capsule)
-                                .frame(height: HomeFaceLayout.phonePagerBand)
+                    .safeAreaBar(edge: .bottom, spacing: 0) {
+                        if sizeClass == .compact && facePage >= 2 {
+                            PhoneFaceBar(selection: $facePage)
                         }
                     }
                 if selected == nil && sizeClass != .compact {
@@ -146,7 +141,9 @@ struct HomeView: View {
             if [.lamps, .bedroom, .livingRoom].contains(tile) { LampsBackdrop() }
             else if [.calendar, .media, .sonosRooms, .cameras, .dogwalk].contains(tile) { Wallpaper().overlay(.black.opacity(0.18)).ignoresSafeArea() }
             else { tile.fill(store).ignoresSafeArea() }
-            if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos, .dogwalk].contains(tile) {
+            if tile == .dogwalk {
+                DogWalkScreen(store: store, close: { selected = nil })
+            } else if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos].contains(tile) {
                 ModulePage(tile: tile, store: store, close: { selected = nil })
             } else if tile == .alarm {
                 AlarmRingView(store: store, close: { selected = nil }) { selected = .clock }
@@ -179,10 +176,21 @@ struct HomeView: View {
         #endif
     }
     private func faceGrid(size: CGSize, controls: Bool) -> some View {
-        HomeGlassFace(store: store, size: size, controls: controls, zoom: zoom, open: open)
+        HomeGlassFace(store: store, size: size, controls: controls, zoom: zoom, open: open, faceSelection: $facePage)
     }
     private func open(_ tile: HomeTile) {
         selected = tile == .clock ? .alarm : tile
+    }
+}
+struct PhoneFaceBar: View {
+    @Binding var selection: Int
+    var body: some View {
+        VStack(spacing: 0) {
+            FacePicker(selection: $selection).padding(.horizontal, 16)
+            Text("Fixture data").font(.system(size: 10)).foregroundStyle(.secondary)
+        }.padding(.vertical, 8)
+            .glassEffect(.regular, in: .capsule)
+            .frame(height: HomeFaceLayout.phonePagerBand)
     }
 }
 // Shared by the live pager and the fast snapshot target; no duplicate visual layout.
@@ -217,10 +225,11 @@ struct HomeGlassFace: View {
     var selected: HomeTile?
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
+    var faceSelection: Binding<Int> = .constant(0)
     @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
         if sizeClass == .compact {
-            CompactFace(store: store, controls: controls, zoom: zoom, open: open)
+            CompactFace(store: store, controls: controls, zoom: zoom, open: open, faceSelection: faceSelection)
         } else {
             GlassEffectContainer(spacing: 12) {
                 HomeFaceGrid(store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)

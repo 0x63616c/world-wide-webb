@@ -1,6 +1,33 @@
 import SwiftUI
 import Charts
 
+/// The native bars reserve their own space and register scroll-edge effects.
+/// Keeping them on the scrolling screen prevents chart content crossing the
+/// fixture footer on compact displays.
+struct DogWalkScreen: View {
+    let store: any HomeDataSource
+    let close: () -> Void
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    var body: some View {
+        DogWalkPage(store: store)
+            .safeAreaBar(edge: .top, spacing: 0) {
+                ZStack {
+                    Text("Walk Zero").font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
+                    HStack {
+                        CircleButton(symbol: "xmark", label: "Close Walk Zero", action: close)
+                        Spacer()
+                    }
+                }.frame(height: 62)
+                    .padding(.horizontal, sizeClass == .compact ? 24 : 38)
+                    .padding(.top, sizeClass == .compact ? 8 : 30)
+            }
+            .safeAreaBar(edge: .bottom, spacing: 0) {
+                Text("Fixture data").font(.system(size: 12)).foregroundStyle(.secondary)
+                    .padding(.vertical, 12).frame(maxWidth: .infinity)
+            }
+    }
+}
+
 struct DogWalkTile: View {
     let store: any HomeDataSource
     let open: () -> Void
@@ -35,8 +62,8 @@ struct DogWalkPage: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
-        GlassEffectContainer(spacing: 24) {
         ScrollView {
+            GlassEffectContainer(spacing: 24) {
             VStack(alignment: .leading, spacing: 32) {
                 let headerLayout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 20)) : AnyLayout(HStackLayout(alignment: .center))
                 headerLayout {
@@ -104,8 +131,8 @@ struct DogWalkPage: View {
                     }.frame(width: compact ? nil : 320)
                 }
             }.padding(compact ? 24 : 56).frame(maxWidth: 1280).frame(maxWidth: .infinity)
-        }
-    }
+            }
+        }.scrollEdgeEffectStyle(.soft, for: .all)
     }
     private func metric(_ title: String, value: String, unit: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
