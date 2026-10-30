@@ -33,28 +33,30 @@ final class KioskSessionTests: XCTestCase {
     }
 
     @MainActor
-    func testAlarmFallbackStoresSnapshotAndReturnsFailure() throws {
+    func testAlarmBridgeSyncsNullSnapshotAndReturnsSuccess() async throws {
         let name = "PanelTests.alarms"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
-        let alarms = PanelAlarms(defaults: defaults)
+        let coordinator = AlarmCoordinatorSpy()
+        let alarms = PanelAlarms(coordinator: coordinator)
         let session = KioskSession(configuration: PanelConfiguration(info: [:], defaults: defaults, environment: [:]), alarms: alarms)
         defer { session.stop() }
         let request = try XCTUnwrap(NativeRequest.parse(#"{"channel":"control-center-native","id":"request-test","method":"syncNextAlarm","params":{"next":null}}"#))
-        let response = session.handle(request, in: WKWebView())
-        XCTAssertFalse(response.ok)
-        XCTAssertEqual(response.error, PanelAlarms.unavailableMessage)
-        let data = try XCTUnwrap(defaults.data(forKey: "panel.pendingAlarmSnapshot"))
-        XCTAssertEqual(try JSONDecoder().decode(JSONValue.self, from: data), .object(["next": .null]))
+        let response = await session.handle(request, in: WKWebView())
+        XCTAssertEqual(response, .success(id: "request-test"))
+        let snapshots = await coordinator.snapshots
+        XCTAssertEqual(snapshots, [.object(["next": .null])])
+        XCTAssertNil(defaults.data(forKey: "panel.pendingAlarmSnapshot"))
     }
 
     @MainActor
-    func testBridgeRejectsUnsupportedMethodAndUnsafeBrowserURL() throws {
+    func testBridgeRejectsUnsupportedMethodAndUnsafeBrowserURL() async throws {
         let session = try makeSession()
         defer { session.stop() }
         for raw in [#"{"channel":"control-center-native","id":"request-test","method":"unknown"}"#,
                     #"{"channel":"control-center-native","id":"request-test","method":"openBrowser","params":{"url":"javascript:alert(1)"}}"#] {
-            XCTAssertFalse(session.handle(try XCTUnwrap(NativeRequest.parse(raw)), in: WKWebView()).ok)
+            let response = await session.handle(try XCTUnwrap(NativeRequest.parse(raw)), in: WKWebView())
+            XCTAssertFalse(response.ok)
         }
         XCTAssertNil(session.browser)
     }
