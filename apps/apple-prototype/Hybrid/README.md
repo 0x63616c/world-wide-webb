@@ -347,7 +347,9 @@ logged. A network connection is required for backend Stop/Snooze; after an offli
 system action, reconnect and confirm the server state in the app.
 
 `controlcenter://alarms` opens native details only after native ownership is ready;
-otherwise it opens the web alarms page (including cold launches awaiting data).
+otherwise it opens the web alarms page. With the native flag, a cold-launch link
+also remains pending until live data and ownership are ready, then opens native
+details. Explicit module navigation cancels that pending request.
 The ring view uses occurrence snapshot labels/snooze settings, not edited definition
 values, and the editor waits for server acknowledgement before closing.
 

@@ -20,6 +20,7 @@ struct PanelRoot: View {
     @State private var selection: PanelModule
     @State private var detail: Bool
     @State private var ringHidden = false
+    @State private var pendingNativeAlarmLink = false
     private let router: HybridRouter
     private let requested: Set<PanelModule>
 
@@ -86,7 +87,7 @@ struct PanelRoot: View {
                 if !nativeModules.isEmpty {
                     HStack(spacing: 18) {
                         ForEach([PanelModule.all] + nativeModules, id: \.self) { module in
-                            Button(module.title) { selection = module; detail = false }
+                            Button(module.title) { pendingNativeAlarmLink = false; selection = module; detail = false }
                                 .buttonStyle(.glass)
                                 .accessibilityIdentifier("module-\(module.rawValue)")
                         }
@@ -118,8 +119,12 @@ struct PanelRoot: View {
         }
         .onOpenURL { url in
             guard url.absoluteString == "controlcenter://alarms" else { return }
-            if router.flags[.alarms] == .native && hasLiveData(for: .alarms) { ringHidden = true; selection = .alarms; detail = true }
+            pendingNativeAlarmLink = router.flags[.alarms] == .native
+            if pendingNativeAlarmLink && hasLiveData(for: .alarms) { openNativeAlarms() }
             else { selection = .all; session.open(url) }
+        }
+        .onChange(of: hasLiveData(for: .alarms)) { _, ready in
+            if ready && pendingNativeAlarmLink { openNativeAlarms() }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active { session.activate() }
@@ -161,6 +166,13 @@ struct PanelRoot: View {
         }
         .onChange(of: store.alarmsProvider.snapshot?.active) { _, _ in ringHidden = false }
         .onDisappear { session.stop(); store.stop() }
+    }
+
+    private func openNativeAlarms() {
+        pendingNativeAlarmLink = false
+        ringHidden = true
+        selection = .alarms
+        detail = true
     }
 
     private var webBoard: some View {
