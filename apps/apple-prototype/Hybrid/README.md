@@ -36,7 +36,7 @@ use `localhost` (ATS local networking is enabled).
 
 ## Module seam
 
-`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, and
+`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, `reminders`, and
 `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
 overrides the launch's UserDefaults; invalid values fall back to `web`.
 `all` always means the complete web board, even if its flag is set to `native`.
@@ -335,3 +335,13 @@ fallback. Fixture writes intentionally fail closed. Unit fixtures separately
 exercise successful list/complete/add, empty success, denial/recovery and read-only
 completion. Real permission UI, iCloud sync, default-list availability and physical
 wall behavior require on-device verification; simulator fixtures do not prove them.
+
+WWW-32 verification (2026-10-30, Xcode 27.0): `PanelKit && swift test`
+passed 2 XCTest tests and 35 Swift Testing tests. One `xcodebuild test -scheme Panel
+-only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveRemindersProviderTests
+-parallel-testing-enabled NO` run passed all 48 Panel tests and 4 provider tests
+on the owned iOS 26.3 simulator, with derived data in
+`~/wwwebb-reminders-live-dd`. The Panel scheme includes the app unit-test target
+so the two relevant suites can run in one build. Repository typecheck and push
+checks passed. Captures use a separate owned 12.9-inch iPad simulator (1366×1024
+points) and the real Panel app with explicit synthetic source injection.
