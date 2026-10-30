@@ -4,9 +4,10 @@ struct LampsController: View {
     let store: any HomeDataSource
     @State private var showingEffects = false
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
-        let layout = compact ? AnyLayout(VStackLayout(spacing: 32)) : AnyLayout(HStackLayout(alignment: .center, spacing: 120))
+        let layout = compact ? AnyLayout(VStackLayout(spacing: 32)) : AnyLayout(HStackLayout(alignment: .top, spacing: 120))
         ScrollView {
             layout {
                 VStack(spacing: 24) {
@@ -15,6 +16,7 @@ struct LampsController: View {
                         Text("\(store.lamps.brightness)%")
                             .font(.system(size: compact ? 72 : 104, weight: .regular, design: .rounded)).monospacedDigit()
                             .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
+                            .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
                         Text(store.lamps.anyOn ? "Brightness" : "Turn on lamps to adjust")
                             .font(.system(size: compact ? 17 : 22)).foregroundStyle(.secondary)
                     }
@@ -48,13 +50,13 @@ struct LampsController: View {
     }
     private func room(_ key: Accessory) -> some View {
         let on = store.lamps.isOn(key)
-        return VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 0) {
             Button { store.send(.toggle(key)) } label: {
                 HStack(spacing: 24) {
                     Image(systemName: key.symbol).symbolRenderingMode(.hierarchical)
                         .font(.system(size: compact ? 38 : 48)).foregroundStyle(on ? .orange : .secondary)
                         .frame(width: 72, height: 84)
-                        .background { LampGlow(on: on, brightness: store.lamps.brightness) }
+                        .background { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 150, height: 150) }
                     VStack(alignment: .leading, spacing: 8) {
                         Text(key.name).font(.system(size: compact ? 21 : 28, weight: .semibold))
                         Text(store.lamps.countLabel(key)).font(.system(size: compact ? 16 : 22)).foregroundStyle(.secondary)
@@ -62,7 +64,7 @@ struct LampsController: View {
                     Spacer()
                     Image(systemName: "power").font(.system(size: 24)).foregroundStyle(on ? .orange : .secondary)
                 }.padding(24)
-            }.buttonStyle(.plain).homeGlass(on: on, radius: 32)
+            }.buttonStyle(.plain)
                 .accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off")
                 .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
             DisclosureGroup("\(LampState.members(key).count) lamps") {
@@ -70,8 +72,9 @@ struct LampsController: View {
                     HStack { Text(LampState.names[index]); Spacer(); Text(store.lamps.on[index] ? "On" : "Off").foregroundStyle(.secondary) }
                         .padding(.vertical, 4)
                 }
-            }.font(.system(size: compact ? 15 : 19)).foregroundStyle(.secondary).padding(.horizontal, 12)
-        }
+            }.font(.system(size: compact ? 15 : 19)).foregroundStyle(.secondary)
+                .padding(.horizontal, 24).padding(.bottom, 20)
+        }.homeGlass(radius: 32)
     }
 }
 
@@ -87,7 +90,7 @@ struct LampBrightness: View {
                 Rectangle().fill(.white)
                     .frame(height: proxy.size.height * Double(store.lamps.brightness) / 100)
                 Image(systemName: "sun.max.fill").font(.system(size: 44, weight: .medium))
-                    .foregroundStyle(store.lamps.brightness > 14 ? Palette.amber : .white.opacity(0.7))
+                    .foregroundStyle(store.lamps.brightness > 14 ? .black : .white)
                     .frame(maxWidth: .infinity).padding(.bottom, 34)
             }
             .clipShape(ConcentricRectangle())
@@ -119,6 +122,7 @@ struct LampBrightness: View {
 
 struct LampEffectsView: View {
     let store: any HomeDataSource
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var editingSlot: Int?
     @State private var editingColors = false
     @State private var draftHex = ""
@@ -173,7 +177,7 @@ struct LampEffectsView: View {
                         if let slot = editingSlot { store.send(.color(slot, draftHex)) }; editingSlot = nil
                     }.disabled(draftHex.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) == nil).keyboardShortcut(.defaultAction)
                 }.buttonStyle(.glass)
-            }.padding(32).frame(width: 440)
+            }.padding(24).frame(width: sizeClass == .compact ? nil : 440)
         }
     }
     private func scene(_ name: String, colors: [Color]) -> some View {

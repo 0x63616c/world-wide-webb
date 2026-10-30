@@ -14,7 +14,7 @@ struct PresenceClockFace: View {
             ZStack {
                 Palette.clock
                 VStack(spacing: compact ? 24 : 0) {
-                    if compact { Spacer(minLength: 70) }
+                    if compact { Spacer(minLength: 24) }
                     ZStack {
                         TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
                             GreenClockDial(date: store.now)
@@ -23,12 +23,12 @@ struct PresenceClockFace: View {
                             .buttonStyle(.plain).accessibilityLabel(near ? "Hide clock complications" : "Show clock complications")
                     }.frame(width: dialSide, height: dialSide)
                     if compact && near {
-                        HStack(spacing: 44) {
+                        HStack(spacing: 24) {
                             smallComplication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Inside", tile: .climate)
                             Button { open(.tesla) } label: { TeslaChargeComplication(provider: store.tesla, accented: true) }.buttonStyle(.plain)
                         }
                     }
-                    if compact { Spacer(minLength: 24) }
+                    if compact { Spacer(minLength: 100) }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).offset(y: compact ? -20 : (near ? -32 : 0))
                 if near && !compact {
                     VStack {
@@ -75,9 +75,9 @@ struct PresenceClockFace: View {
         Button { open(tile) } label: {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: symbol).font(.system(size: 28, weight: .medium)).symbolRenderingMode(.hierarchical)
-                Text(value).font(.system(size: 44, weight: .medium, design: .rounded)).monospacedDigit()
-                Text(label).font(.system(size: 20, weight: .medium)).foregroundStyle(.secondary)
-            }.frame(width: 180, alignment: .leading)
+                Text(value).font(.system(size: sizeClass == .compact ? 34 : 44, weight: .medium, design: .rounded)).monospacedDigit()
+                Text(label).font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
+            }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading)
         }.buttonStyle(.plain).foregroundStyle(.white)
             .accessibilityLabel("\(label), \(value)")
     }
@@ -96,10 +96,10 @@ private struct GreenClockDial: View {
                 numeral("9", size: s * 0.56, x: s * 0.16, y: s * 0.49)
                 numeral("3", size: s * 0.56, x: s * 0.84, y: s * 0.49)
                 numeral("6", size: s * 0.55, x: s * 0.5, y: s * 0.80)
-                hand(length: s * 0.26, width: s * 0.02, degrees: hours * 30)
-                hand(length: s * 0.38, width: s * 0.016, degrees: minutes * 6)
+                hand(length: s * 0.26, width: s * 0.016, degrees: hours * 30)
+                hand(length: s * 0.38, width: s * 0.013, degrees: minutes * 6)
                 hand(length: s * 0.42, width: max(1, s * 0.002), degrees: seconds * 6).opacity(0.6)
-                Circle().fill(.white).frame(width: s * 0.03, height: s * 0.03)
+                Circle().fill(.white).frame(width: s * 0.024, height: s * 0.024)
                 Circle().fill(.black).frame(width: s * 0.009, height: s * 0.009)
             }.frame(width: s, height: s)
         }.accessibilityElement(children: .ignore).accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))

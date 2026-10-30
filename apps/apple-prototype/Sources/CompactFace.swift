@@ -6,6 +6,8 @@ struct CompactFace: View {
     let controls: Bool
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.motionPhase) private var phase
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -27,7 +29,7 @@ struct CompactFace: View {
                     ForEach(controls ? HomeTile.controlsFace : [.clock, .wifi, .bedroom, .livingRoom, .ceiling, .tesla]) { tile in
                         Button { open(tile) } label: {
                             compactTile(tile).frame(maxWidth: .infinity).frame(height: 144)
-                        }.buttonStyle(.plain).faceGlass(radius: 32)
+                        }.buttonStyle(.plain).faceGlass(on: tile.accessory.map(isOn) ?? false, radius: 32)
                             .matchedTransitionSource(id: tile.id, in: zoom)
                     }
                 }
@@ -36,11 +38,15 @@ struct CompactFace: View {
     }
     @ViewBuilder private func compactTile(_ tile: HomeTile) -> some View {
         if tile == .clock {
-            TimelineView(.animation(minimumInterval: 1)) { _ in AnalogClock(date: store.now, minimal: true).padding(20) }
+            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in AnalogClock(date: store.now, minimal: true).padding(20) }
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 if let key = tile.accessory {
-                    Image(systemName: key.symbol).font(.system(size: 32)).foregroundStyle(store.lamps.isOn(key) ? .orange : .white)
+                    Group {
+                        if key == .fan { FanSymbol(on: isOn(key)) }
+                        else { Image(systemName: key.symbol) }
+                    }.font(.system(size: 32)).foregroundStyle(isOn(key) ? .orange : .white)
+                        .background { if key != .fan { LampGlow(on: isOn(key), brightness: store.lamps.brightness).frame(width: 80, height: 80) } }
                     Text(key.name).font(.system(size: 19, weight: .semibold)).lineLimit(2)
                     Text(key == .fan ? store.climate.fanLabel : store.lamps.isOn(key) ? "On" : "Off").font(.subheadline).foregroundStyle(.secondary)
                 } else if tile == .tesla {
@@ -60,7 +66,11 @@ struct CompactFace: View {
                     Text("Guest Wi-Fi").font(.system(size: 19, weight: .semibold))
                     Text(store.wifi.ssid ?? "Not configured").font(.subheadline).foregroundStyle(.secondary)
                 }
-            }.padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            }.foregroundStyle(tile.accessory.map(isOn) == true ? Color.black : .white)
+                .padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
+    }
+    private func isOn(_ key: Accessory) -> Bool {
+        key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key)
     }
 }

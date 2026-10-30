@@ -74,6 +74,7 @@ struct TeslaTile: View {
 struct TeslaChargeComplication: View {
     let provider: any TeslaProvider
     var accented = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
         VStack(spacing: 8) {
             Gauge(value: Double(provider.data.pct), in: 0...100) {
@@ -81,10 +82,10 @@ struct TeslaChargeComplication: View {
             } currentValueLabel: {
                 Text("\(provider.data.pct)").font(.system(size: 24, weight: .semibold, design: .rounded))
             }.gaugeStyle(.accessoryCircular).tint(accented ? .white : .green)
-                .scaleEffect(1.5).frame(width: 92, height: 92)
-            Text(provider.availability == .online ? "Car · \(provider.data.pct)%" : provider.availability.rawValue.capitalized)
-                .font(.system(size: 20, weight: .medium)).foregroundStyle(.secondary)
-        }.frame(width: 180, alignment: .leading).accessibilityElement(children: .ignore)
+                .scaleEffect(sizeClass == .compact ? 1.0 : 1.2).frame(width: sizeClass == .compact ? 64 : 80, height: sizeClass == .compact ? 64 : 80)
+            Text(provider.availability == .online ? "Car" : provider.availability.rawValue.capitalized)
+                .font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
+        }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading).accessibilityElement(children: .ignore)
             .accessibilityLabel("Car charge \(provider.data.pct) percent, \(provider.availability.rawValue)")
     }
 }
@@ -113,16 +114,16 @@ struct TeslaController: View {
                         Label(provider.data.chargingState.replacingOccurrences(of: "_", with: " ").capitalized, systemImage: provider.data.charging ? "bolt.fill" : "battery.75percent")
                         Spacer()
                         Text(provider.data.charging ? "\(provider.data.rate.formatted()) kW" : "\(provider.data.range) mi")
-                    }.font(.system(size: compact ? 18 : 26, weight: .medium)).foregroundStyle(.green)
+                    }.font(.system(size: compact ? 18 : 26, weight: .medium)).foregroundStyle(.primary)
                     if provider.availability != .online {
                         Text("\(provider.availability.rawValue.capitalized) · Last reported values")
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("\(provider.data.range) mi range").foregroundStyle(.secondary)
+                        Text("\(provider.data.range) mi range").font(.system(size: compact ? 20 : 28, weight: .medium)).foregroundStyle(.primary)
                     }
                 }
                 VStack(spacing: 0) {
-                    Toggle("Charging", isOn: Binding(get: { provider.data.charging }, set: { provider.send(.setCharging($0)) }))
+                    Toggle("Charge", isOn: Binding(get: { provider.data.charging }, set: { provider.send(.setCharging($0)) }))
                         .padding(.vertical, 18)
                     Divider()
                     HStack {

@@ -57,6 +57,7 @@ import XCTest
             // Faithful fallback: render the same view in one persistent unit-test window.
             // drawHierarchy includes native glass/backdrop compositing, unlike ImageRenderer.
             let host = UIHostingController(rootView: content)
+            host.traitOverrides.userInterfaceIdiom = name == "mac-home" ? .mac : .pad
             host.safeAreaRegions = []
             host.view.backgroundColor = .clear
             window.rootViewController = host

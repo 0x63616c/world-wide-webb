@@ -4,9 +4,51 @@ struct ClockController: View {
     let store: any HomeDataSource
     @State private var editing: Alarm?
     @State private var deleting: Alarm?
+    @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
         if let alarm = editing {
             AlarmEditor(initial: alarm, store: store) { editing = nil }.id(alarm.id)
+        } else if sizeClass == .compact {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(greeting).font(.title3).foregroundStyle(.secondary)
+                            Text(fixtureTime(store.now)).font(.system(size: 72, weight: .light)).monospacedDigit()
+                            Text(fixtureTime(store.now, format: "EEEE, MMMM d")).foregroundStyle(.secondary)
+                        }
+                    }
+                    HStack {
+                        Text("Alarms").font(.title2.bold())
+                        Spacer()
+                        Button("Add", systemImage: "plus") { editing = Alarm() }.buttonStyle(.glass)
+                    }
+                    ForEach(store.alarms) { alarm in
+                        VStack(spacing: 16) {
+                            HStack {
+                                Button { editing = alarm } label: {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(alarm.time).font(.system(size: 40, weight: .light))
+                                        Text(alarm.label).font(.headline)
+                                        Text(alarm.date.isEmpty ? days(alarm.repeatDays) : alarm.date).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }.buttonStyle(.plain)
+                                Spacer()
+                                Toggle("Enable \(alarm.label)", isOn: Binding(get: { alarm.enabled }, set: { store.send(.enableAlarm(alarm.id, $0)) })).labelsHidden().tint(.green)
+                            }
+                            HStack {
+                                Text(alarm.timeZone).font(.caption).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Delete", role: .destructive) { deleting = alarm }.font(.subheadline).buttonStyle(.glass)
+                            }
+                        }.padding(20).homeGlass(radius: 28)
+                    }
+                    if store.alarms.isEmpty { Text("No alarms yet").foregroundStyle(.secondary) }
+                }.padding(24)
+            }.confirmationDialog("Delete \(deleting?.label ?? "alarm")?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+                Button("Delete alarm", role: .destructive) { if let alarm = deleting { store.send(.deleteAlarm(alarm.id)) }; deleting = nil }
+                Button("Cancel", role: .cancel) { deleting = nil }
+            }
         } else {
             HStack(spacing: 65) {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
@@ -86,24 +128,26 @@ struct AlarmEditor: View {
     let close: () -> Void
     @State private var alarm: Alarm
     @State private var error: String?
+    @Environment(\.horizontalSizeClass) private var sizeClass
     init(initial: Alarm, store: any HomeDataSource, close: @escaping () -> Void) {
         self.store = store; self.close = close; _alarm = State(initialValue: initial)
     }
     var body: some View {
+        let fields = sizeClass == .compact ? AnyLayout(VStackLayout(spacing: 18)) : AnyLayout(HStackLayout(spacing: 28))
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 Text(alarm.id == 0 ? "New alarm" : "Edit alarm").font(.system(size: 34, weight: .semibold))
-                HStack(spacing: 28) {
+                fields {
                     field("Label", text: $alarm.label)
                     field("Time", text: $alarm.time, hint: "07:00")
                 }
-                HStack(spacing: 28) {
+                fields {
                     field("Date", text: $alarm.date, hint: "YYYY-MM-DD · blank for next occurrence")
                     field("Time zone", text: $alarm.timeZone)
                 }
                 if alarm.date.isEmpty {
                     SectionLabel(text: "Repeat · no days selected means once")
-                    HStack(spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 8)], spacing: 12) {
                         ForEach(0..<7) { day in
                             Choice(title: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day], selected: alarm.repeatDays.contains(day)) {
                                 if alarm.repeatDays.contains(day) { alarm.repeatDays.remove(day) } else { alarm.repeatDays.insert(day) }
@@ -122,7 +166,7 @@ struct AlarmEditor: View {
                         else { store.send(.saveAlarm(alarm)); close() }
                     }.keyboardShortcut(.defaultAction)
                 }.buttonStyle(.glass).controlSize(.large)
-            }.padding(42).frame(maxWidth: 1000)
+            }.padding(sizeClass == .compact ? 24 : 42).frame(maxWidth: 1000)
         }
     }
     private func field(_ title: String, text: Binding<String>, hint: String = "") -> some View {

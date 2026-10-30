@@ -123,6 +123,8 @@ struct HomeView: View {
             else { tile.fill(store).ignoresSafeArea() }
             if tile == .alarm {
                 AlarmRingView(store: store, close: { selected = nil }) { selected = .clock }
+            } else if tile == .sound {
+                NowPlayingView(store: store, close: { selected = nil })
             } else {
                 ControllerHost(tile: tile, store: store, close: { selected = nil })
             }
@@ -162,7 +164,7 @@ struct FacePicker: View {
             ForEach(0..<4) { page in
                 Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { selection = page } } label: {
                     Circle().fill(.white.opacity(selection == page ? 0.95 : 0.3))
-                        .frame(width: 8, height: 8).frame(width: 30, height: 34)
+                        .frame(width: 8, height: 8).frame(width: sizeClass == .compact ? 44 : 30, height: sizeClass == .compact ? 44 : 34)
                 }.buttonStyle(.plain)
                     .accessibilityLabel(["Home face", "Controls face", "Clock face", "Music face"][page])
                     .accessibilityValue(selection == page ? "Selected" : "")
@@ -312,7 +314,9 @@ struct TileFace: View {
             .accessibilityIdentifier(delta < 0 ? "tile-climate-down" : "tile-climate-up")
     }
     private func step(_ delta: Int) {
-        store.send(store.climate.mode == .heatCool ? .shiftRange(delta) : .target(store.climate.target + delta))
+        withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
+            store.send(store.climate.mode == .heatCool ? .shiftRange(delta) : .target(store.climate.target + delta))
+        }
     }
 }
 struct AccessoryFace: View {
@@ -323,13 +327,13 @@ struct AccessoryFace: View {
     var title: String { key == .bedroom ? "Bedroom" : key == .livingRoom ? "Living Room" : key == .ceiling ? "Ceiling" : key.name }
     var subtitle: String {
         switch key {
-        case .all: "Everything"
+        case .all: on ? "All lights on" : "Some lights off"
         case .fan: "A/C · \(store.climate.fanLabel)"
         case .lamps, .lights: on ? "On" : "Off"
         case .bedroom: "\(store.lamps.onCount(.bedroom)) lamps on"
         case .livingRoom: store.lamps.isOn(.livingRoom) ? "\(store.lamps.onCount(.livingRoom)) lamps on" : "Lamps off"
         case .ceiling: on ? "Lights on" : "Lights off"
-        case .cabinet: "Kitchen"
+        case .cabinet: on ? "Kitchen · On" : "Kitchen · Off"
         }
     }
     var body: some View {

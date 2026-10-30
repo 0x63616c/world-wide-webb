@@ -74,7 +74,7 @@ struct LampsBackdrop: View {
     var body: some View {
         ZStack {
             Color(white: 0.055)
-            RadialGradient(colors: [.orange.opacity(0.13), .clear], center: UnitPoint(x: 0.28, y: 0.58), startRadius: 0, endRadius: 500)
+            RadialGradient(colors: [.orange.opacity(0.04), .clear], center: UnitPoint(x: 0.28, y: 0.58), startRadius: 0, endRadius: 360)
         }.ignoresSafeArea()
     }
 }
@@ -160,7 +160,7 @@ extension View {
         self.glassEffect(.regular.tint(on ? .orange.opacity(0.04) : .clear).interactive(), in: .rect(cornerRadius: radius))
     }
     func faceGlass(on: Bool = false, radius: CGFloat = 56) -> some View {
-        self.glassEffect((on ? Glass.regular.tint(.white.opacity(0.6)) : Glass.clear.tint(.white.opacity(0.12))).interactive(), in: .rect(cornerRadius: radius))
+        self.glassEffect((on ? Glass.regular.tint(.white.opacity(0.75)) : Glass.clear).interactive(), in: .rect(cornerRadius: radius))
             .environment(\.colorScheme, on ? .light : .dark)
     }
 }
