@@ -299,3 +299,5 @@ Phone Home keeps its 80-point reserved pager band but the visible glass capsule 
 Walk Zero exposes a visible History affordance separately from its 72-point circular Start/End action. The full-screen active state labels its 64-point elapsed value and places the origin device on a separate line. The provider and backend ownership described in §5b are unchanged.
 
 `verify-schemes.sh` generates the project and builds all five explicit schemes. It runs every available test action, with the simulator phase under www8-simlock and isolated Panel/Panel-Smoke build products (a smoke build otherwise strips the unit-test plugin). The macOS application scheme has no test action.
+
+Pass 6b: DogWalkPage holds the status region at 144 points across shared-walk states and uses matched-height chart/history reading surfaces. The complete history remains available in its own scroll on iPad and the page scroll on iPhone. Compact Home span heights are 240-point Climate and 160-point Weather; the same solver/reachability/gutter tests remain authoritative.

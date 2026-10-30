@@ -58,8 +58,9 @@ struct ModuleTile: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("UP NEXT").font(.system(size: compact ? 11 : 13, weight: .semibold)).foregroundStyle(.primary)
                 if let event = store.calendar.next(at: store.now) {
-                    Text(event.title).font(.system(size: compact ? 20 : 25, weight: .semibold)).lineLimit(2)
-                    Text("\(event.time) \(event.period) · \(event.location)").font(.system(size: compact ? 15 : 24)).foregroundStyle(.primary).lineLimit(2)
+                    Text(event.title).font(.system(size: compact ? 20 : 32, weight: .semibold)).lineLimit(1)
+                    Text("\(event.time) \(event.period)").font(.system(size: compact ? 16 : 24))
+                    Text(event.location).font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary).lineLimit(1)
                 } else { Text("Nothing else today").font(.title3) }
             }
             Spacer(minLength: 0)
@@ -82,11 +83,11 @@ struct ModuleTile: View {
             ForEach(store.rooms.prefix(compact ? 2 : 4)) { room in
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
-                        Text(room.name).font(.system(size: compact ? 16 : 19, weight: .medium))
+                        Text(room.name).font(.system(size: compact ? 16 : 22, weight: .semibold))
                         Spacer(minLength: 0)
                         Text("\(room.displayVolume)%").font(.system(size: compact ? 14 : 20)).monospacedDigit()
                     }
-                    Text(room.playing ? "Playing" : "Paused").font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
+                    Text(room.playing ? "Playing" : "Paused").font(.system(size: compact ? 14 : 20)).foregroundStyle(.secondary)
                 }
             }
             if !compact { Spacer(minLength: 0) }

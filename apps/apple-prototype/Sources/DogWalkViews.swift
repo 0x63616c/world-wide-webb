@@ -37,20 +37,24 @@ struct DogWalkTile: View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             HStack(spacing: compact ? 16 : 24) {
                 Button(action: open) {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 0) {
                         Label("Walk Zero", systemImage: "pawprint.fill")
                             .font(.system(size: compact ? 22 : 28, weight: .semibold))
+                        Spacer(minLength: 8)
                         if let walk = store.walks.activeWalk {
                             Text("Elapsed \(walkElapsed(walk.duration(at: store.now)))")
                                 .font(.system(size: compact ? 22 : 32, weight: .medium, design: .rounded)).monospacedDigit()
                             Text("Started on \(walk.startedBy.rawValue)")
-                                .font(.system(size: compact ? 15 : 24))
+                                .font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary)
+                                .padding(.top, 4)
                         } else {
                             Text("\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min")
                                 .font(.system(size: compact ? 16 : 24)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                         }
+                        Spacer(minLength: 8)
                         Text("History ›").font(.system(size: compact ? 16 : 20, weight: .medium))
-                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .contentShape(.rect)
                 }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")
                 VStack(spacing: 6) {
                     Button { store.toggleWalk() } label: {
@@ -71,97 +75,142 @@ struct DogWalkPage: View {
     @State private var range = 7
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
+    // Idle, local and remote walks share the same reading coordinates.
+    private let panelCardHeight: CGFloat = 448
+
     var body: some View {
         ScrollView {
             GlassEffectContainer(spacing: 24) {
-            VStack(alignment: .leading, spacing: compact ? 24 : 32) {
-                let active = store.walks.activeWalk != nil
-                let headerLayout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout(alignment: .center, spacing: 32))
-                headerLayout {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if !compact && !active {
-                            Label("Zero’s walks", systemImage: "pawprint.fill")
-                                .font(.system(size: 48, weight: .bold))
-                        }
-                        TimelineView(.periodic(from: .now, by: 1)) { _ in
-                            if let walk = store.walks.activeWalk {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Elapsed").font(.system(size: 20, weight: .medium))
-                                    Text(walkElapsed(walk.duration(at: store.now)))
-                                        .font(.system(size: 64, weight: .medium, design: .rounded)).monospacedDigit()
-                                        .accessibilityIdentifier("walk-elapsed")
-                                    Text("Started on \(walk.startedBy.rawValue)")
-                                        .font(.system(size: compact ? 18 : 24))
-                                }
-                            } else {
-                                Text(store.walks.lastWalkLabel(at: store.now))
-                                    .font(.system(size: compact ? 20 : 24))
-                            }
-                        }
+                VStack(alignment: .leading, spacing: 24) {
+                    hero
+                    let summary = store.walks.summary(at: store.now)
+                    HStack(spacing: compact ? 12 : 56) {
+                        metric("This week", value: "\(summary.weeklyMinutes)", unit: "min")
+                        metric("3-week average", value: "\(summary.averageMinutes)", unit: "min")
+                        metric("Streak", value: "\(summary.streak)", unit: "days")
+                    }.padding(.vertical, 8)
+                    let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 24)) : AnyLayout(HStackLayout(alignment: .top, spacing: 24))
+                    layout {
+                        chartCard
+                        historyCard
                     }
-                    if !compact { Spacer() }
-                    Button(active ? "End walk" : "Start walk", systemImage: active ? "stop.fill" : "play.fill") { store.toggleWalk() }
-                        .font(.system(size: compact ? 18 : 24, weight: .semibold))
-                        .buttonStyle(.glassProminent).tint(.green).controlSize(.large)
-                }
-                if let reason = store.walkActivity.unavailableReason { Text(reason).font(.callout).foregroundStyle(.secondary) }
-                let summary = store.walks.summary(at: store.now)
-                HStack(spacing: compact ? 12 : 56) {
-                    metric("This week", value: "\(summary.weeklyMinutes)", unit: "min")
-                    metric("3-week average", value: "\(summary.averageMinutes)", unit: "min")
-                    metric("Streak", value: "\(summary.streak)", unit: "days")
-                }.padding(.vertical, 8)
-                let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 32)) : AnyLayout(HStackLayout(alignment: .top, spacing: 48))
-                layout {
-                    VStack(alignment: .leading, spacing: 24) {
-                        let chartHeader = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout())
-                        chartHeader {
-                            Text("Time outdoors").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                            if !compact { Spacer() }
-                            Picker("Chart period", selection: $range) {
-                                Text("7 days").tag(7)
-                                Text("30 days").tag(30)
-                            }.pickerStyle(.segmented).controlSize(.extraLarge)
-                                .frame(width: compact ? 200 : 240, height: 48)
-                        }
-                        Text("Minutes per day").font(.system(size: compact ? 16 : 20)).foregroundStyle(.primary)
-                        Chart(store.walks.days(range, ending: store.now)) { day in
-                            BarMark(x: .value("Day", day.date, unit: .day), y: .value("Minutes", day.minutes))
-                                .foregroundStyle(.green.gradient).cornerRadius(5)
-                                .accessibilityLabel(fixtureTime(day.date, format: "EEEE, MMMM d"))
-                                .accessibilityValue("\(Int(day.minutes)) minutes")
-                        }
-                        .chartXAxis {
-                            AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : 5)) {
-                                AxisValueLabel(format: range == 7 ? .dateTime.weekday(.abbreviated) : .dateTime.day(), centered: true)
-                                    .font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
-                            }
-                        }
-                        .chartYAxis { AxisMarks(position: .leading, values: [0, 15, 30, 45, 60]) { AxisGridLine(); AxisValueLabel().font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary) } }
-                        .chartYScale(domain: 0...60)
-                        .frame(height: compact ? 220 : active ? 264 : 320)
-                    }.frame(maxWidth: .infinity).padding(compact ? 20 : 28)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 32))
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Walk history").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                            .frame(height: compact ? 28 : 48, alignment: .leading)
-                        ForEach(store.walks.history) { walk in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(fixtureTime(walk.startedAt, format: "EEE, MMM d")).font(.system(size: 19, weight: .medium))
-                                    Text(fixtureTime(walk.startedAt, format: "h:mm a")).font(.system(size: compact ? 17 : 20)).foregroundStyle(.primary)
-                                }
-                                Spacer()
-                                Text("\(Int(walk.duration(at: store.now) / 60)) min").font(.system(size: 21, weight: .medium, design: .rounded)).monospacedDigit()
-                            }.padding(.vertical, 10)
-                            Divider()
-                        }
-                    }.padding(.top, compact ? 0 : 28).frame(width: compact ? nil : 320)
-                }
-            }.padding(compact ? 24 : 56).frame(maxWidth: 1280).frame(maxWidth: .infinity)
+                    if let reason = store.walkActivity.unavailableReason {
+                        Text(reason).font(.callout).foregroundStyle(.secondary)
+                    }
+                }.padding(compact ? 24 : 48).frame(maxWidth: 1280).frame(maxWidth: .infinity)
             }
         }.scrollEdgeEffectStyle(.soft, for: .all)
     }
+
+    private var hero: some View {
+        let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout(alignment: .center, spacing: 32))
+        return layout {
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                VStack(alignment: .leading, spacing: 6) {
+                    if let walk = store.walks.activeWalk {
+                        Text("Elapsed").font(.system(size: 20, weight: .medium))
+                        Text(walkElapsed(walk.duration(at: store.now)))
+                            .font(.system(size: 64, weight: .medium, design: .rounded)).monospacedDigit()
+                            .accessibilityIdentifier("walk-elapsed")
+                        Text("Started on \(walk.startedBy.rawValue)")
+                            .font(.system(size: compact ? 18 : 24)).foregroundStyle(.secondary)
+                    } else {
+                        Label("Zero’s walks", systemImage: "pawprint.fill")
+                            .font(.system(size: compact ? 32 : 48, weight: .semibold))
+                        Text(store.walks.lastWalkLabel(at: store.now))
+                            .font(.system(size: compact ? 20 : 24)).foregroundStyle(.secondary)
+                    }
+                }.frame(height: 144, alignment: .center)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button(store.walks.activeWalk == nil ? "Start walk" : "End walk", systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill") {
+                store.toggleWalk()
+            }
+            .font(.system(size: compact ? 18 : 24, weight: .semibold))
+            .buttonStyle(.glassProminent).tint(.green).controlSize(.large)
+        }
+    }
+
+    private var chartCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout())
+            layout {
+                Text("Time outdoors").font(.system(size: compact ? 22 : 28, weight: .semibold))
+                if !compact { Spacer(minLength: 8) }
+                Picker("Chart period", selection: $range) {
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                }.pickerStyle(.segmented).controlSize(.extraLarge)
+                    .frame(width: compact ? 200 : 216, height: 48)
+            }.frame(height: compact ? nil : 48)
+            Text("Minutes per day").font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+            Chart(store.walks.days(range, ending: store.now)) { day in
+                BarMark(x: .value("Day", day.date, unit: .day), y: .value("Minutes", day.minutes))
+                    .foregroundStyle(.green.gradient).cornerRadius(5)
+                    .accessibilityLabel(fixtureTime(day.date, format: "EEEE, MMMM d"))
+                    .accessibilityValue("\(Int(day.minutes)) minutes")
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : 5)) {
+                    AxisValueLabel(format: range == 7 ? .dateTime.weekday(.abbreviated) : .dateTime.day(), centered: true)
+                        .font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [0, 15, 30, 45, 60]) {
+                    AxisGridLine()
+                    AxisValueLabel().font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
+                }
+            }
+            .chartYScale(domain: 0...60)
+            .frame(height: compact ? 220 : 288)
+        }.padding(compact ? 24 : 28)
+            .frame(maxWidth: .infinity)
+            .frame(height: compact ? nil : panelCardHeight)
+            .background(.regularMaterial, in: .rect(cornerRadius: 32))
+            .accessibilityIdentifier("walk-chart")
+    }
+
+    private var historyCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Walk history").font(.system(size: compact ? 22 : 28, weight: .semibold))
+                .frame(height: compact ? 32 : 48, alignment: .leading)
+            if compact {
+                historyRows
+            } else {
+                ScrollView { historyRows }
+                    .scrollIndicators(.visible)
+                    .frame(height: 288)
+                    .scrollEdgeEffectStyle(.soft, for: .all)
+            }
+            Text("\(store.walks.history.count) walks · Last 3 weeks")
+                .font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(compact ? 24 : 28)
+            .frame(width: compact ? nil : 384, height: compact ? nil : panelCardHeight, alignment: .topLeading)
+            .background(.regularMaterial, in: .rect(cornerRadius: 32))
+            .accessibilityIdentifier("walk-history")
+    }
+
+    private var historyRows: some View {
+        LazyVStack(spacing: 0) {
+            ForEach(store.walks.history) { walk in
+                HStack {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(fixtureTime(walk.startedAt, format: "EEE, MMM d"))
+                            .font(.system(size: 20, weight: .medium))
+                        Text(fixtureTime(walk.startedAt, format: "h:mm a"))
+                            .font(.system(size: 20)).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 16)
+                    Text("\(Int(walk.duration(at: store.now) / 60)) min")
+                        .font(.system(size: 24, weight: .medium, design: .rounded)).monospacedDigit()
+                }.frame(height: 96)
+                    .overlay(alignment: .bottom) { Divider() }
+            }
+        }
+    }
+
     private func metric(_ title: String, value: String, unit: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title).font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)

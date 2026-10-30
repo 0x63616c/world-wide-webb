@@ -83,7 +83,7 @@ struct MixedHomeTile: View {
             Spacer(minLength: 0)
             Button(action: open) {
                 Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
-                    .font(.system(size: compact ? 96 : 170, weight: .regular)).monospacedDigit()
+                    .font(.system(size: compact ? 88 : 170, weight: .regular)).monospacedDigit()
                     .minimumScaleFactor(0.6).lineLimit(1).frame(maxWidth: .infinity)
             }.buttonStyle(.plain)
             Spacer(minLength: 0)
@@ -114,7 +114,7 @@ struct MixedHomeTile: View {
             LampBrightness(store: store).frame(width: compact ? 64 : 88)
             VStack(spacing: 4) {
                 Text("\(store.lamps.onCount(.lamps)) of 8 on").fontWeight(.medium)
-                Text("Turns all lamps on").font(.system(size: compact ? 12 : 15))
+                Text("Adjust to turn\nall 8 on").font(.system(size: compact ? 12 : 16)).multilineTextAlignment(.center)
             }.font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
         }.padding(compact ? 20 : 24)
     }

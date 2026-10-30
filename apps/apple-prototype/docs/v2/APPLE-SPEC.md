@@ -157,3 +157,9 @@ Lamps centres the brightness value over its 224-point fader, with the partial-on
 The ship gate includes iPhone Home at ≥9.0 along with iPad Home, Lamps and clock-near. Other owned pages/states require ≥8.5. Captures must use the shared simulator lock and pass the blank/SpringBoard validator. Independent review uses the unchanged REVIEW-PROMPT-orch.txt.
 
 Pager dots retain their small visual marks inside 44×44-point rectangular hit targets. A tile header’s complete row is tappable, including the space between its label and disclosure.
+
+## Pass 6b refinement
+
+Dog Walk uses a fixed 144-point status region for idle, local and remote states; statistics and equal-height chart/history panels remain stationary. Reading panels use native regular material, 28-point panel padding and 96-point history rows with 20-point timestamps. The panel history scrolls independently to retain the complete three-week log.
+
+Phone Home reduces Climate to 240 points and Weather to 160, preserving the 88-point setpoint and 48-point actions. Both scroll edges fade over 16 points into the continuous wallpaper; the reserved pager band remains 80 points. Calendar separates the 32-point event, 24-point time and 20-point venue. Sonos room names use 22-point semibold and states use 20-point secondary text. Walk tile title and History remain pinned to the same top/bottom insets in both states. Previous/next commands use endpoint symbols at 42 points in 72-point targets. Lamps explicitly labels the global effects scope. Clock date/alarm use a shared 20-point medium white baseline; numeral positions and hand lengths reserve a clear central sweep. These are prototype design choices, not claims of required HIG dimensions.

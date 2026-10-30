@@ -29,7 +29,7 @@ struct LampsController: View {
                     room(.bedroom)
                     room(.livingRoom)
                     Button { showingEffects = true } label: {
-                        Label("Color & Effects", systemImage: "paintpalette.fill")
+                        Label("All lamps · Color & Effects", systemImage: "paintpalette.fill")
                             .font(.system(size: compact ? 18 : 24, weight: .medium)).frame(maxWidth: .infinity).padding(.vertical, 18)
                     }.buttonStyle(.glass).accessibilityIdentifier("color-effects").padding(.top, 12)
                 }.frame(width: compact ? nil : 460)

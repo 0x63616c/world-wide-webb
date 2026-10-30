@@ -61,8 +61,8 @@ struct HomeFaceLayout {
                 add(tile, width: width, height: height); y += height + gap
             }
         } else {
-            add(.climate, width: width, height: 264); y += 264 + gap
-            add(.weather, width: width, height: 176); y += 176 + gap
+            add(.climate, width: width, height: 240); y += 240 + gap
+            add(.weather, width: width, height: 160); y += 160 + gap
             add(.calendar, width: width, height: 168); y += 168 + gap
             add(.lamps, width: cell, height: 2 * cell + gap)
             add(.ceiling, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap

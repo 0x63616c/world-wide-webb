@@ -37,9 +37,9 @@ struct NowPlayingView: View {
                         PlaybackScrubber(store: store, room: room)
                             .frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, compact ? 14 : 18)
                         HStack(spacing: compact ? 30 : 76) {
-                            transport("backward.fill", label: "Previous track", command: .previous, room: room)
+                            transport("backward.end.fill", label: "Previous track", command: .previous, room: room)
                             transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
-                            transport("forward.fill", label: "Next track", command: .next, room: room)
+                            transport("forward.end.fill", label: "Next track", command: .next, room: room)
                         }.padding(.top, 10)
                         VStack(spacing: 10) {
                             HStack(spacing: 22) {
@@ -106,8 +106,8 @@ struct NowPlayingView: View {
     }
     private func transport(_ symbol: String, label: String, command: SonosTransport, room: SoundRoom, large: Bool = false) -> some View {
         Button { store.send(.transport(room.id, command)) } label: {
-            Image(systemName: symbol).font(.system(size: large ? (compact ? 44 : 53) : (compact ? 30 : 39), weight: .semibold))
-                .frame(width: compact ? 76 : 90, height: compact ? 64 : 76)
+            Image(systemName: symbol).font(.system(size: large ? (compact ? 44 : 53) : (compact ? 30 : 42), weight: .semibold))
+                .frame(width: compact ? 64 : 72, height: compact ? 64 : 72)
         }.buttonStyle(.plain).accessibilityLabel(label)
     }
 }
