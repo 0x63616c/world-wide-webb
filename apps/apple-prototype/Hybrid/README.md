@@ -754,3 +754,20 @@ captures show the reconnecting overlay against an intentionally unavailable
 loopback page, not an authenticated production board. The flag was explicitly
 flipped only in this synthetic simulator check; physical-iPad and real-source
 validation remain outstanding under WWW-50.
+
+## Mac window policy (WWW-39)
+
+The existing Panel iOS target runs on Apple Silicon as Designed for iPad; Catalyst
+remains off. On `isiOSAppOnMac` only, `PanelWindowAttachment` applies equal minimum
+and maximum scene sizes of **1366 × 1024 points**, matching the wall panel in
+landscape. The app's landscape-only Info.plist and full-screen requirement are
+covered by a hosted PanelTests assertion. Mac keeps automatic system overlays for
+pointer access; the wall iPad keeps its hidden kiosk overlays. No module flags are
+changed by this policy and no launch argument is required.
+
+iPhone support is deferred: Panel remains device family `2`. Hybrid's native tile
+and Fan detail use fixed 660 × 520 frames, and Dog Walk has no live hybrid view.
+Enabling family `1` would therefore expose clipped content and an incomplete module
+set. Compact navigation and smallest-phone validation remain follow-up work; the
+design worker's Sources and UITests are unchanged. No new snapshot/UI suite is
+added because these tests are not run by the existing CI.

@@ -124,8 +124,9 @@ struct PanelRoot: View {
             }
         }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
+        .background { PanelWindowAttachment().allowsHitTesting(false) }
         .statusBarHidden()
-        .persistentSystemOverlays(.hidden)
+        .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
         .sheet(item: $session.browser) { destination in
             PanelBrowser(url: destination.url) { session.browser = nil }
                 .id(destination.id)
