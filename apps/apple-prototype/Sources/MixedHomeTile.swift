@@ -158,6 +158,7 @@ struct MixedHomeTile: View {
                     Spacer(minLength: 0)
                 }
             }.padding(compact ? 16 : 32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .contentShape(.rect(cornerRadius: compact ? 36 : 56))
         }.buttonStyle(.plain)
     }
     private var car: some View {
