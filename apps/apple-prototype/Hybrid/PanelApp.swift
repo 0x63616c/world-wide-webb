@@ -20,6 +20,7 @@ struct PanelRoot: View {
     @State private var store: LiveHomeDataSource
     @State private var selection: PanelModule
     @State private var detail: Bool
+    @State private var showingHome = true
     @State private var ringHidden = false
     @State private var pendingNativeAlarmLink = false
     private let router: HybridRouter
@@ -93,7 +94,10 @@ struct PanelRoot: View {
         }
     }
 
+    private var homeVisible: Bool { showingHome && !requested.isEmpty }
+
     private var nativeVisible: Bool {
+        !homeVisible &&
         router.route(for: selection, hasLiveData: hasLiveData(for: selection)) == .native(selection)
     }
 
@@ -101,13 +105,23 @@ struct PanelRoot: View {
         @Bindable var session = session
         ZStack {
             webBoard
-                .opacity(nativeVisible ? 0 : 1)
-                .allowsHitTesting(!nativeVisible)
-                .accessibilityHidden(nativeVisible)
+                .opacity(nativeVisible || homeVisible ? 0 : 1)
+                .allowsHitTesting(!nativeVisible && !homeVisible)
+                .accessibilityHidden(nativeVisible || homeVisible)
+            if homeVisible {
+                HybridHome { module in
+                    pendingNativeAlarmLink = false
+                    selection = module
+                    detail = false
+                    showingHome = false
+                }
+            }
             VStack(spacing: 0) {
-                if !nativeModules.isEmpty {
+                if !homeVisible && nativeVisible {
                     HStack(spacing: 18) {
-                        ForEach([PanelModule.all] + nativeModules, id: \.self) { module in
+                        Button("Home", action: returnHome)
+                            .buttonStyle(.glass).accessibilityIdentifier("module-home")
+                        ForEach(nativeModules, id: \.self) { module in
                             Button(module.title) { pendingNativeAlarmLink = false; selection = module; detail = false }
                                 .buttonStyle(.glass)
                                 .accessibilityIdentifier("module-\(module.rawValue)")
@@ -120,10 +134,18 @@ struct PanelRoot: View {
                     }.padding(16).foregroundStyle(.white)
                         .environment(\.colorScheme, .dark)
                 }
-                HybridModuleHost(router: router, module: selection,
-                    liveView: hasLiveData(for: selection)
-                        ? HybridNativeModule(module: selection, store: store, detail: detail, open: { detail = true }, close: { detail = false }) : nil) {
-                    Color.clear.allowsHitTesting(false)
+                if !homeVisible {
+                    HybridModuleHost(router: router, module: selection,
+                        liveView: hasLiveData(for: selection)
+                            ? HybridNativeModule(module: selection, store: store, detail: detail, open: { detail = true }, close: { detail = false }) : nil) {
+                        Color.clear.allowsHitTesting(false)
+                    }
+                }
+            }
+            if !homeVisible && !nativeVisible && !requested.isEmpty {
+                VStack {
+                    HStack { ClassicHomeButton(action: returnHome); Spacer() }
+                    Spacer()
                 }
             }
         }
@@ -141,6 +163,7 @@ struct PanelRoot: View {
         }
         .onOpenURL { url in
             guard url.absoluteString == "controlcenter://alarms" else { return }
+            showingHome = false
             pendingNativeAlarmLink = router.flags[.alarms] == .native
             if pendingNativeAlarmLink && hasLiveData(for: .alarms) { openNativeAlarms() }
             else { selection = .all; session.open(url) }
@@ -176,8 +199,8 @@ struct PanelRoot: View {
         }
         .overlay {
             if !ringHidden, hasLiveData(for: .alarms), !store.alarmsProvider.ringing(at: store.now).isEmpty {
-                AlarmRingView(store: store, close: { ringHidden = true; selection = .alarms; detail = true },
-                              edit: { ringHidden = true; selection = .alarms; detail = true }, dataCaption: "")
+                AlarmRingView(store: store, close: { showingHome = false; ringHidden = true; selection = .alarms; detail = true },
+                              edit: { showingHome = false; ringHidden = true; selection = .alarms; detail = true }, dataCaption: "")
                     .disabled(store.alarmsProvider.pending)
             }
         }
@@ -199,7 +222,14 @@ struct PanelRoot: View {
         .onDisappear { session.stop(); store.stop() }
     }
 
+    private func returnHome() {
+        pendingNativeAlarmLink = false
+        detail = false
+        showingHome = true
+    }
+
     private func openNativeAlarms() {
+        showingHome = false
         pendingNativeAlarmLink = false
         ringHidden = true
         selection = .alarms
