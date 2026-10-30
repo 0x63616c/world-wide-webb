@@ -1,0 +1,17 @@
+{
+  "result": {
+    "data": [
+      {
+        "id": "ses_fixture",
+        "startedAt": 1799999999000,
+        "endedAt": 1800000000000,
+        "durationMs": 1000,
+        "eventCount": 1,
+        "endReason": "idle",
+        "deviceName": "Fixture panel",
+        "photoPaths": ["2027-01-15T08:00:00.000Z-0.jpg"],
+        "digest": null
+      }
+    ]
+  }
+}
