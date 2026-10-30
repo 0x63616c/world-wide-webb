@@ -67,6 +67,31 @@ public struct PanelAPIClient: Sendable {
         try await perform(path, method: "POST", input: encode(input), as: Output.self)
     }
 
+    /// Only media paths on the configured origin may receive Access credentials.
+    public func photoData(collection: String, path: String) async throws -> Data {
+        guard let configuration, PanelConfiguration.isValidBaseURL(configuration.baseURL),
+              configuration.requestTimeout.isFinite, configuration.requestTimeout > 0,
+              ["booth-photos", "wake-photos"].contains(collection),
+              !path.isEmpty, !path.contains(".."), !path.contains("%"),
+              path.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "-_.:/".contains($0)) }),
+              !path.hasPrefix("/"), !path.contains("://") else {
+            throw PanelAPIError.transport("Invalid photo path.")
+        }
+        let url = configuration.baseURL.appendingPathComponent("media/" + collection + "/" + path)
+        var request = URLRequest(url: url, timeoutInterval: configuration.requestTimeout)
+        if let id = configuration.accessClientID, let secret = configuration.accessClientSecret {
+            request.setValue(id, forHTTPHeaderField: "CF-Access-Client-Id")
+            request.setValue(secret, forHTTPHeaderField: "CF-Access-Client-Secret")
+        }
+        let (data, response) = try await transport.send(request)
+        try Task.checkCancellation()
+        guard response.statusCode == 200 else { throw PanelAPIError.http(status: response.statusCode) }
+        guard response.mimeType?.hasPrefix("image/") == true, data.count <= 20 * 1024 * 1024 else {
+            throw PanelAPIError.decoding("Invalid photo response.")
+        }
+        return data
+    }
+
     private func encode<Input: Encodable>(_ input: Input) throws -> Data {
         do { return try JSONEncoder().encode(input) }
         catch { throw PanelAPIError.decoding("Could not encode request JSON.") }
