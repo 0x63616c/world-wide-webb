@@ -176,6 +176,7 @@ schemes:
     test:
       targets:
         - PanelTests
+        - WorldWideWebbTests
   WorldWideWebb:
     build:
       targets:
