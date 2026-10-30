@@ -7,10 +7,11 @@ struct LampsController: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
-        let layout = compact ? AnyLayout(VStackLayout(spacing: 32)) : AnyLayout(HStackLayout(alignment: .top, spacing: 120))
+        let layout = compact ? AnyLayout(VStackLayout(spacing: 32)) : AnyLayout(HStackLayout(alignment: .top, spacing: 64))
         ScrollView {
             GlassEffectContainer(spacing: 16) {
-            layout {
+            VStack(spacing: 32) {
+              layout {
                 VStack(spacing: 24) {
                     VStack(spacing: 4) {
                         Text("Global brightness").font(.system(size: compact ? 22 : 28, weight: .semibold))
@@ -23,17 +24,20 @@ struct LampsController: View {
                             .font(.system(size: compact ? 17 : 22)).foregroundStyle(.secondary)
                     }
                     LampBrightness(store: store).frame(width: compact ? 156 : 224, height: compact ? 300 : 350)
-                }.frame(width: compact ? nil : 340)
+                }.frame(width: compact ? nil : 320)
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Rooms").font(.system(size: compact ? 22 : 28, weight: .semibold))
                     room(.bedroom)
                     room(.livingRoom)
-                    Button { showingEffects = true } label: {
-                        Label("All lamps · Color & Effects", systemImage: "paintpalette.fill")
-                            .font(.system(size: compact ? 18 : 24, weight: .medium)).frame(maxWidth: .infinity).padding(.vertical, 18)
-                    }.buttonStyle(.glass).accessibilityIdentifier("color-effects").padding(.top, 12)
-                }.frame(width: compact ? nil : 460)
-            }.padding(compact ? 24 : 40).padding(.top, compact ? 0 : 56).frame(maxWidth: .infinity)
+                }.frame(width: compact ? nil : 472)
+              }
+              Button { showingEffects = true } label: {
+                  Label("All lamps · Color & Effects", systemImage: "paintpalette.fill")
+                      .font(.system(size: compact ? 18 : 24, weight: .medium))
+                      .frame(maxWidth: .infinity).frame(height: 64)
+              }.buttonStyle(.glass).accessibilityIdentifier("color-effects")
+            }.frame(maxWidth: compact ? .infinity : 856)
+                .padding(compact ? 24 : 40).padding(.top, compact ? 0 : 56).frame(maxWidth: .infinity)
             }
         }.scrollIndicators(.hidden)
             .sheet(isPresented: $showingEffects) {

@@ -11,7 +11,7 @@ struct ClockController: View {
         } else if sizeClass == .compact {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    TimelineView(.periodic(from: store.now, by: 1)) { _ in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(greeting).font(.title3).foregroundStyle(.secondary)
                             Text(fixtureTime(store.now)).font(.system(size: 72, weight: .light)).monospacedDigit()
@@ -51,7 +51,7 @@ struct ClockController: View {
             }
         } else {
             HStack(spacing: 65) {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.periodic(from: store.now, by: 1)) { _ in
                     VStack(alignment: .leading, spacing: 20) {
                         Text(greeting).font(.system(size: 30)).opacity(0.7)
                         HStack(alignment: .firstTextBaseline, spacing: 8) {

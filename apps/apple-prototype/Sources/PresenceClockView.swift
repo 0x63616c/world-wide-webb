@@ -71,7 +71,7 @@ struct PresenceClockFace: View {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: "pawprint.fill").font(.system(size: 28, weight: .medium))
                 Text("Zero").font(.system(size: sizeClass == .compact ? 26 : 36, weight: .medium, design: .rounded))
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.periodic(from: store.now, by: 1)) { _ in
                     Text(store.walks.activeWalk.map { "Walking · \(walkElapsed($0.duration(at: store.now)))" } ?? store.walks.lastWalkLabel(at: store.now))
                         .font(.system(size: sizeClass == .compact ? 13 : 19)).monospacedDigit().fixedSize()
                 }
@@ -97,8 +97,11 @@ struct PresenceClockFace: View {
     }
 }
 
-private struct GreenClockDial: View {
+struct GreenClockDial: View {
     let date: Date
+    // Also lets geometry tests measure the glyphs without the hand/hub pixels.
+    var showsHands = true
+    static let maximumHandFraction: CGFloat = 0.175
     var body: some View {
         GeometryReader { proxy in
             let s = min(proxy.size.width, proxy.size.height)
@@ -110,11 +113,15 @@ private struct GreenClockDial: View {
                 numeral("9", size: s * 0.42, x: s * 0.12, y: s * 0.49)
                 numeral("3", size: s * 0.42, x: s * 0.88, y: s * 0.49)
                 numeral("6", size: s * 0.42, x: s * 0.5, y: s * 0.90)
-                hand(length: s * 0.17, width: s * 0.012, degrees: hours * 30)
-                hand(length: s * 0.23, width: s * 0.010, degrees: minutes * 6)
-                hand(length: s * 0.23, width: max(1.5, s * 0.0028), degrees: seconds * 6).opacity(0.85)
+                if showsHands {
+                // Keep the entire sweep inside the numeral-free center, including
+                // the seconds hand pointing directly at 6 in the fixed fixture.
+                hand(length: s * 0.14, width: s * 0.012, degrees: hours * 30)
+                hand(length: s * Self.maximumHandFraction, width: s * 0.010, degrees: minutes * 6)
+                hand(length: s * Self.maximumHandFraction, width: max(1.5, s * 0.0028), degrees: seconds * 6).opacity(0.85)
                 Circle().fill(.white).frame(width: s * 0.024, height: s * 0.024)
                 Circle().fill(.black).frame(width: s * 0.009, height: s * 0.009)
+                }
             }.frame(width: s, height: s)
         }.accessibilityElement(children: .ignore).accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
     }

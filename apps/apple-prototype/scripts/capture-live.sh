@@ -9,8 +9,9 @@ export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
 ipad=A0ECBA0E-5E14-4DE2-ACD7-7C2A5EA0AFBF
 phone=BC914470-C6AF-4F53-9F85-5B0967309F68
 app=co.worldwidewebb.prototype.ipad
-out="$HOME/wwwebb-proto-snapshots"
-mkdir -p "$out"
+out="${WWW8_CAPTURE_OUT:-$HOME/wwwebb-proto-snapshots}"
+mkdir -p "$out/repeat"
+[[ -f "$out/determinism.tsv" ]] || printf 'screen\tmean_absolute_diff_255\tresult\n' > "$out/determinism.tsv"
 ipad_installed=0
 [[ "${1:-}" == --ipad-installed ]] && ipad_installed=1
 prepare() {
@@ -46,6 +47,20 @@ capture_once() {
   xcrun simctl io "$device" screenshot "$out/sim-$name.png"
   "$HOME/bin/www8-validate-png" "$out/sim-$name.png" "$out/.springboard-$device.png"
 }
+capture_pair() {
+  local device="$1" name="$2" mean
+  shift 2
+  capture_once "$device" "$name" "$@" || return 1
+  capture_once "$device" "$name-repeat" "$@" || return 1
+  mv "$out/sim-$name-repeat.png" "$out/repeat/sim-$name.png"
+  if mean=$(python3 "$(dirname "$0")/pixel-diff.py" "$out/sim-$name.png" "$out/repeat/sim-$name.png"); then
+    printf '%s\t%s\tPASS\n' "sim-$name.png" "$mean" >> "$out/determinism.tsv"
+  else
+    printf '%s\t%s\tFAIL\n' "sim-$name.png" "$mean" >> "$out/determinism.tsv"
+    echo "Capture not deterministic: $name ($mean/255)" >&2
+    return 1
+  fi
+}
 capture() {
   # Optional named subset for rechecking a changed screen. The same lock,
   # mounted-view readiness and PNG validator still apply to every capture.
@@ -54,7 +69,7 @@ capture() {
   fi
   local attempt
   for attempt in 1 2 3; do
-    if capture_once "$@"; then return 0; fi
+    if capture_pair "$@"; then return 0; fi
     echo "Capture retry $attempt for $2" >&2
     sleep 5
   done
@@ -62,6 +77,7 @@ capture() {
   return 1
 }
 # Keep our own simulators serial on the shared build mini.
+if [[ "${WWW8_CAPTURE_DEVICE:-both}" != phone ]]; then
 xcrun simctl shutdown "$phone" >/dev/null 2>&1 || true
 prepare "$ipad"
 capture "$ipad" home -face home
@@ -82,7 +98,9 @@ capture "$ipad" dogwalk-tile-running -face controls -walkRunning
 capture "$ipad" dogwalk-full -openTile dogwalk
 capture "$ipad" dogwalk-full-running -openTile dogwalk -walkRunning
 capture "$ipad" dogwalk-remote -openTile dogwalk -walkStartedRemotely
-xcrun simctl shutdown "$ipad"
+fi
+if [[ "${WWW8_CAPTURE_DEVICE:-both}" != ipad ]]; then
+xcrun simctl shutdown "$ipad" >/dev/null 2>&1 || true
 prepare "$phone"
 capture "$phone" iphone-home -face home
 capture "$phone" iphone-home-bottom -face home -homeScrollBottom
@@ -94,3 +112,4 @@ capture "$phone" iphone-dogwalk -openTile dogwalk
 xcrun simctl shutdown "$phone"
 xcrun simctl boot "$ipad"
 xcrun simctl bootstatus "$ipad" -b
+fi

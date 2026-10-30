@@ -69,4 +69,15 @@ import XCTest
         XCTAssertEqual(walkElapsed(754), "12:34")
         XCTAssertEqual(walkElapsed(3674), "1:01:14")
     }
+    func testSnapshotClockAndMoodOrderingAreRepeatableAcrossFreshStores() {
+        let first = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
+        let second = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
+        first.send(.scene("Mood"))
+        second.send(.scene("Mood"))
+        XCTAssertEqual(first.now, second.now)
+        XCTAssertEqual(fixtureTime(first.now, format: "yyyy-MM-dd HH:mm:ss"), "2026-10-29 10:10:30")
+        XCTAssertEqual(first.lamps.lampColors, second.lamps.lampColors)
+        XCTAssertEqual(first.walks.history, second.walks.history)
+        XCTAssertEqual(first.rooms.first?.position(at: first.now), 107)
+    }
 }

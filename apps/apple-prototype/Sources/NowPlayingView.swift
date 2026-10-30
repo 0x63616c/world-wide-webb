@@ -54,7 +54,7 @@ struct NowPlayingView: View {
                                 Text(room.muted ? "Muted" : "Volume")
                                 Spacer()
                                 Text("\(room.rawVolume)%").monospacedDigit()
-                            }.font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
+                            }.font(.system(size: 20, weight: .medium)).foregroundStyle(.primary)
                         }.frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, 8)
                         Spacer(minLength: compact ? 16 : 24)
                     }.padding(.bottom, isFace && !compact ? HomeFaceLayout.panelPagerBand : 0)

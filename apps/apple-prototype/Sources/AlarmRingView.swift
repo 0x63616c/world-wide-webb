@@ -6,7 +6,7 @@ struct AlarmRingView: View {
     let edit: () -> Void
     private let orange = Color.orange
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
+        TimelineView(.periodic(from: store.now, by: 1)) { _ in
             let now = store.now
             let next = store.upcomingAlarm(at: now)
             GeometryReader { proxy in

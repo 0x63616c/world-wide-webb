@@ -34,18 +34,18 @@ struct DogWalkTile: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
+        TimelineView(.periodic(from: store.now, by: 1)) { _ in
             HStack(spacing: compact ? 16 : 24) {
                 Button(action: open) {
                     VStack(alignment: .leading, spacing: 0) {
                         Label("Walk Zero", systemImage: "pawprint.fill")
-                            .font(.system(size: compact ? 22 : 28, weight: .semibold))
+                            .font(.system(size: compact ? 22 : 32, weight: .semibold))
                         Spacer(minLength: 8)
                         if let walk = store.walks.activeWalk {
                             Text("Elapsed \(walkElapsed(walk.duration(at: store.now)))")
                                 .font(.system(size: compact ? 22 : 32, weight: .medium, design: .rounded)).monospacedDigit()
                             Text("Started on \(walk.startedBy.rawValue)")
-                                .font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary)
+                                .font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary)
                                 .padding(.top, 4)
                         } else {
                             Text("\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min")
@@ -59,7 +59,7 @@ struct DogWalkTile: View {
                 VStack(spacing: 6) {
                     Button { store.toggleWalk() } label: {
                         Image(systemName: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
-                            .font(.system(size: 24)).frame(width: 72, height: 72)
+                            .font(.system(size: 24, weight: .semibold)).foregroundStyle(.black).frame(width: 72, height: 72)
                             .glassEffect(.regular.tint(.green).interactive(), in: .circle)
                     }.buttonStyle(.plain)
                         .accessibilityLabel(store.walks.activeWalk == nil ? "Start walking Zero" : "Stop walking Zero")
@@ -86,7 +86,7 @@ struct DogWalkPage: View {
                     let summary = store.walks.summary(at: store.now)
                     HStack(spacing: compact ? 12 : 56) {
                         metric("This week", value: "\(summary.weeklyMinutes)", unit: "min")
-                        metric("3-week average", value: "\(summary.averageMinutes)", unit: "min")
+                        metric("Average per walk", value: "\(summary.averageMinutes)", unit: "min")
                         metric("Streak", value: "\(summary.streak)", unit: "days")
                     }.padding(.vertical, 8)
                     let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 24)) : AnyLayout(HStackLayout(alignment: .top, spacing: 24))
@@ -105,7 +105,7 @@ struct DogWalkPage: View {
     private var hero: some View {
         let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout(alignment: .center, spacing: 32))
         return layout {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
+            TimelineView(.periodic(from: store.now, by: 1)) { _ in
                 VStack(alignment: .leading, spacing: 6) {
                     if let walk = store.walks.activeWalk {
                         Text("Elapsed").font(.system(size: 20, weight: .medium))
@@ -113,21 +113,34 @@ struct DogWalkPage: View {
                             .font(.system(size: 64, weight: .medium, design: .rounded)).monospacedDigit()
                             .accessibilityIdentifier("walk-elapsed")
                         Text("Started on \(walk.startedBy.rawValue)")
-                            .font(.system(size: compact ? 18 : 24)).foregroundStyle(.secondary)
+                            .font(.system(size: 24, weight: .medium)).foregroundStyle(.white)
                     } else {
                         Label("Zero’s walks", systemImage: "pawprint.fill")
                             .font(.system(size: compact ? 32 : 48, weight: .semibold))
                         Text(store.walks.lastWalkLabel(at: store.now))
-                            .font(.system(size: compact ? 20 : 24)).foregroundStyle(.secondary)
+                            .font(.system(size: 24, weight: .medium)).foregroundStyle(.white)
                     }
                 }.frame(height: 144, alignment: .center)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button(store.walks.activeWalk == nil ? "Start walk" : "End walk", systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill") {
+            Button {
                 store.toggleWalk()
+            } label: {
+                Label(store.walks.activeWalk == nil ? "Start walk" : "End walk", systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
+                    .font(.system(size: 24, weight: .semibold)).foregroundStyle(.black)
             }
-            .font(.system(size: compact ? 18 : 24, weight: .semibold))
             .buttonStyle(.glassProminent).tint(.green).controlSize(.large)
+        }.background {
+            // Local photo treatment for essential status; no extra glass layer.
+            LinearGradient(stops: [.init(color: .black.opacity(0.48), location: 0),
+                                   .init(color: .black.opacity(0.30), location: 0.55),
+                                   .init(color: .clear, location: 1)],
+                           startPoint: .leading, endPoint: .trailing)
+                .mask(LinearGradient(stops: [.init(color: .clear, location: 0),
+                                             .init(color: .black, location: 0.12),
+                                             .init(color: .black, location: 0.88),
+                                             .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+                .padding(.horizontal, -24).padding(.vertical, -16)
         }
     }
 
@@ -232,7 +245,7 @@ struct WalkActivityPreviewPage: View {
                 Text("Live Activity preview").font(.largeTitle.bold())
                 Text("Walking Zero · Fixture data").font(.subheadline).foregroundStyle(.secondary)
                 Text("Lock Screen").font(.headline)
-                WalkActivityContent(name: "Zero", startedAt: .now, previewElapsed: "12:34")
+                WalkActivityContent(name: "Zero", startedAt: FixtureClock.now, previewElapsed: "12:34")
                     .glassEffect(.regular, in: .rect(cornerRadius: 28))
                 Text("Dynamic Island · Expanded").font(.headline)
                 VStack(spacing: 18) {

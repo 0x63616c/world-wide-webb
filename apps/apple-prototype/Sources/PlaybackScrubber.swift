@@ -7,7 +7,7 @@ struct PlaybackScrubber: View {
     @State private var dragPosition: Double?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
+        TimelineView(.periodic(from: store.now, by: 1)) { _ in
             let position = dragPosition ?? room.position(at: store.now)
             VStack(spacing: 0) {
                 GeometryReader { proxy in
@@ -30,7 +30,7 @@ struct PlaybackScrubber: View {
                     Text(Self.time(position))
                     Spacer()
                     Text("−" + Self.time(room.durationSeconds - position))
-                }.font(.system(size: 15, weight: .medium)).monospacedDigit().foregroundStyle(.secondary)
+                }.font(.system(size: 20, weight: .medium)).monospacedDigit().foregroundStyle(.primary)
             }.accessibilityElement(children: .ignore)
                 .accessibilityLabel("Track position")
                 .accessibilityValue("\(Self.time(position)) of \(Self.time(room.durationSeconds))")

@@ -370,7 +370,10 @@ extension HomeDataSource {
             guard ["White", "Mood"].contains(value) else { return }
             lamps.scene = value; lamps.activeColor = nil; lamps.party = .off
             lamps.on = Array(repeating: true, count: 8)
-            if value == "Mood" { lamps.lampColors = ["#a855f7", "#3b82f6", "#ec4899", "#f59e0b", "#14b8a6", "#ef4444", "#6366f1", "#84cc16"].shuffled() }
+            if value == "Mood" {
+                let colors = ["#a855f7", "#3b82f6", "#ec4899", "#f59e0b", "#14b8a6", "#ef4444", "#6366f1", "#84cc16"]
+                lamps.lampColors = fixedNow == nil ? colors.shuffled() : colors
+            }
             markPending("scene")
         case .color(let slot, let hex):
             guard lamps.colors.indices.contains(slot) else { return }

@@ -29,7 +29,7 @@ struct Wallpaper: View {
             Image("LakeWallpaper").resizable().scaledToFill()
                 .blur(radius: 2)
                 .frame(width: proxy.size.width, height: proxy.size.height).clipped()
-                .overlay(.black.opacity(0.18))
+                .overlay(.black.opacity(0.28))
         }.ignoresSafeArea()
     }
 }

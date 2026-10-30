@@ -8,6 +8,7 @@ import ActivityKit
     private(set) var unavailableReason: String?
     private var activeID: String?
     func synchronize(walk: DogWalk?, now: Date) {
+        guard !ProcessInfo.processInfo.arguments.contains("-snapshot") else { return }
         guard walk?.id != activeID else { return }
         activeID = walk?.id
         guard let walk else { end(); return }

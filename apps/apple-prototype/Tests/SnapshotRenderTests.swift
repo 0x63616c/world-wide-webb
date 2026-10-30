@@ -11,7 +11,7 @@ import XCTest
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Snapshots", isDirectory: true)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        let store = MockHomeDataSource(latency: .zero, fixedNow: ISO8601DateFormatter().date(from: "2026-10-29T17:10:30Z")!)
+        let store = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
         let scenes: [(String, AnyView)] = [
             ("home", AnyView(SnapshotFace(store: store, controls: false))),
             ("mac-home", AnyView(SnapshotFace(store: store, controls: false).environment(\.desktopLayout, true))),
