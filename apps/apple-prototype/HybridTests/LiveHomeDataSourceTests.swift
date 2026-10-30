@@ -25,6 +25,22 @@ import PanelKit
         for module in PanelModule.allCases { await store.refresh(module) }
     }
 
+    func testPhotosRequiresOptInAndNonemptyLiveListings() async throws {
+        let transport = try fixtureTransport()
+        let store = source(transport)
+        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.photos": "native"]))
+        XCTAssertEqual(router.route(for: .photos, hasLiveData: store.hasLiveData(for: .photos)), .webBoard)
+        await store.refresh(.photos)
+        XCTAssertEqual(store.photos.photos.count, 2)
+        XCTAssertEqual(router.route(for: .photos, hasLiveData: store.hasLiveData(for: .photos)), .native(.photos))
+        XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .photos, hasLiveData: true), .webBoard)
+        await transport.setFixture("photos/empty-booth.json", for: "boothPhotos.list")
+        await transport.setFixture("photos/empty-wakes.json", for: "wakePhotos.list")
+        await store.refresh(.photos)
+        XCTAssertFalse(store.hasLiveData(for: .photos))
+        XCTAssertEqual(router.route(for: .photos, hasLiveData: store.hasLiveData(for: .photos)), .webBoard)
+    }
+
     func testInitializationAndWebDefaultsStartNoProviders() async throws {
         let transport = try fixtureTransport()
         let store = source(transport)
@@ -56,7 +72,7 @@ import PanelKit
         XCTAssertEqual(store.tesla.availability, .offline)
     }
 
-    func testAllProvidersProjectExistingFixtures() async throws {
+    func testAllLiveProvidersProjectExistingFixtures() async throws {
         let store = source(try fixtureTransport())
         await refreshAll(store)
         for module in PanelModule.allCases where module != .all { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }

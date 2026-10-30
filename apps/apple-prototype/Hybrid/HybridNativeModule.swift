@@ -12,6 +12,7 @@ extension PanelModule {
         case .wifi: "Wi-Fi"
         case .sonos: "Sonos"
         case .weather: "Weather"
+        case .photos: "Photos"
         case .calendar: "Calendar"
         case .alarms: "Clock & Alarms"
         case .walk: "Dog Walk"
@@ -52,6 +53,7 @@ struct HybridNativeModule: View {
         case .wifi: TileFace(tile: .wifi, store: store, open: open)
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
+        case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .alarms: HybridClockFace(store: store, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
@@ -76,6 +78,7 @@ struct HybridNativeModule: View {
         // This existing page has grouping and volume, with no fixture artwork,
         // media library or seek UI (the live API supplies no playback position).
         case .sonos: SonosRoomsPage(store: store)
+        case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: AgendaPage(provider: store.calendar, now: store.now)
         case .alarms:
             ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
