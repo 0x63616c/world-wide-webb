@@ -198,6 +198,14 @@ native override on the wall until that device check passes.
 Fixture checks cannot establish account sync or actual iPad consent behavior;
 those remain a physical-device acceptance check. No backend PR is needed.
 
+Verified on the shared mini on 2026-10-30 with Xcode 27: PanelKit's **40 Swift
+Testing tests and 2 XCTest tests passed**. One `xcodebuild test -scheme Panel`
+invocation passed **50 Panel tests and 27 app tests**, including all 9
+`LiveCalendarProviderTests`, the existing mock Calendar test, routing/fallback,
+and real SwiftUI render captures at 1366×1024. The app test selection was
+`LiveCalendarProviderTests`, `ModuleProviderTests`, and `HomeDataSourceTests`.
+Screenshots live at the repository root under `docs/screenshots/calendar-live/`.
+
 ## Kiosk and bridge behavior
 
 - New launch / recovery URLs carry `boot=<generation>-<launchedAtMs>`, preserving
