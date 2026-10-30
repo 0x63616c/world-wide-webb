@@ -21,7 +21,10 @@ import SwiftUI
     var body: some Scene {
         WindowGroup {
             Group {
-                if ProcessInfo.processInfo.arguments.contains("-walkActivityPreview") { WalkActivityPreviewPage() }
+                // Unit tests own their fixtures and snapshot window; avoid
+                // mounting a second animated dashboard in the test host.
+                if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { Color.clear }
+                else if ProcessInfo.processInfo.arguments.contains("-walkActivityPreview") { WalkActivityPreviewPage() }
                 else { HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace, initialPresence: presenceNear) }
             }
                 #if os(macOS)

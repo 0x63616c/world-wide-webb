@@ -2,9 +2,9 @@
 
 Native SwiftUI study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8), targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
-## Iteration 5
+## Iteration 5b
 
-The iPad canvas is 1376×1032 points. Two Home pages use mixed 2×2, 2×1, 1×2 and circular 1×1 spans with 24-point gutters. The first shows Climate, global Lamps brightness, Weather, Tesla, Calendar, Now Playing and Fan. Home · More shows Cameras, Photos, Media, Sonos Rooms and the remaining accessory shortcuts. Every tile opens a full-screen page with native zoom; accessory glyphs also toggle. Clock and Music remain separate faces.
+The iPad canvas is 1376×1032 points. Two Home pages use mixed 2×2, 2×1, 1×2 and circular 1×1 spans with 24-point gutters. The first shows Climate, global Lamps brightness, Weather, Tesla, Calendar, Now Playing and Fan. Home · More shows Cameras, Walk Zero, Photos, Media, Sonos Rooms and all five remaining round accessory shortcuts. Every tile opens a full-screen page with native zoom; accessory glyphs also toggle. Clock and Music remain separate faces.
 
 The Mac window has a fixed 1376×1032 content frame, hidden title bar and `.windowResizability(.contentSize)`. Compact horizontal size classes use a separate two-column phone face and scrolling controllers. The iPhone target is portrait; iPad is landscape.
 
@@ -92,7 +92,7 @@ The iPad simulator screenshots and 10–15-second `simctl io recordVideo --codec
 
 Photo: [Boathouse on a mountain lake](https://unsplash.com/photos/brown-house-near-body-of-water-zAjdgNXsMeg) by Luca Bravo, used under the [Unsplash Licence](https://unsplash.com/license). Bundled at 2752 pixels wide, JPEG quality 85. Full source and processing notes: [docs/v2/sources.md](docs/v2/sources.md). Apple and Calum references are neither bundled nor committed.
 
-Run `bash scripts/verify-live.sh` on the mini to build, run all unit tests (including layout and playback), and capture the live screens. For capture only, run `bash scripts/capture-live.sh` after building to install and deterministically launch Home, Lamps, near Clock, Controls and Now Playing on the iPad, plus Home and Now Playing on iPhone 17 Pro (iOS 26.3). Independent pass reviews use only these live `sim-*.png` captures. The phone face scrolls with the page controls in a reserved 64-point bottom safe-area inset and a 24-point margin above it at the scroll end. `-homeScrollBottom` deterministically captures that boundary. `HomeFaceLayoutTests` checks both layouts for overlap, equal gutters and safe margins. At 1376×1032, the panel uses 224-point cells, 24-point gutters, 80-point outer margins and an 80-point pager band.
+Run `bash scripts/verify-live.sh` on the mini to build, run all unit tests (including layout and playback), and capture the live screens. For capture only, run `bash scripts/capture-live.sh` after building to install and deterministically launch Home, Lamps, near Clock, Controls and Now Playing on the iPad, plus Home and Now Playing on iPhone 17 Pro (iOS 26.3). Independent pass reviews use only these live `sim-*.png` captures. The phone face scrolls with the page controls in a reserved 80-point bottom safe-area inset and a 24-point margin above it at the scroll end. `-homeScrollBottom` deterministically captures that boundary. `HomeFaceLayoutTests` checks both layouts for overlap, equal gutters and safe margins. At 1376×1032, the panel uses 224-point cells, 24-point gutters, 80-point outer margins and an 80-point pager band.
 
 ## Pass 5: two Home pages and fixture modules
 

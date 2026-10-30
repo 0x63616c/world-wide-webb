@@ -20,6 +20,15 @@ import ActivityKit
             unavailableReason = "Live Activities are disabled on this device."
             return
         }
+        if let existing = Activity<WalkActivityAttributes>.activities.first(where: { $0.attributes.walkID == walkID }) {
+            let activityID = existing.id
+            Task.detached {
+                if let activity = Activity<WalkActivityAttributes>.activities.first(where: { $0.id == activityID }) {
+                    await activity.update(ActivityContent(state: .init(startedAt: startedAt), staleDate: nil))
+                }
+            }
+            return
+        }
         do {
             _ = try Activity.request(attributes: WalkActivityAttributes(dogName: "Zero", walkID: walkID), content: ActivityContent(state: .init(startedAt: startedAt), staleDate: nil), pushType: nil)
             unavailableReason = nil
@@ -28,8 +37,11 @@ import ActivityKit
     }
     func end() {
         #if os(iOS)
+        // Capture only the activities that existed when this walk stopped, so
+        // an immediate new start cannot be ended by this asynchronous task.
+        let endingIDs = Set(Activity<WalkActivityAttributes>.activities.map(\.id))
         Task.detached {
-            for activity in Activity<WalkActivityAttributes>.activities {
+            for activity in Activity<WalkActivityAttributes>.activities where endingIDs.contains(activity.id) {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
         }
