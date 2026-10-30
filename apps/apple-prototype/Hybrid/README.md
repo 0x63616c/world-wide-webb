@@ -218,3 +218,30 @@ interrupted. No UI smoke assertions ran. The mini was under heavy load, and its
 Xcode installation has no Simulator GUI app. After restarting only the dedicated
 simulator, the final unit run succeeded. Simulator evidence is captured directly
 with `simctl`; authenticated board and physical wall checks remain outstanding.
+
+
+### WWW-44 checks
+
+The composition suite can also run without a simulator on the mini's macOS 15.6:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer \
+  bash scripts/test-hybrid-models.sh
+```
+
+This generates a temporary macOS framework/test project and executes the same
+`HybridTests/LiveHomeDataSourceTests.swift` against the original composition,
+provider, and model sources. The only extraction is the unchanged model prefix
+of `TeslaProvider.swift`, whose unrelated views require macOS 26. Set
+`WWW_HYBRID_CHECK_DIR` to an owned directory to retain/reuse the generated project,
+derived data and result bundle. It does not modify the production project.
+
+Verified on 2026-10-30: all **12 composition tests passed**, PanelKit's **1 XCTest
+and 26 Swift Testing tests passed**, and both `Panel` (iOS Simulator) and the
+existing `WorldWideWebb` (macOS) app built. `Panel-Smoke` also built. The simulator
+hosted unit run stalled before executing tests and was interrupted; the UI runner
+was killed before establishing its test connection, so no UI assertions ran.
+The module captures use the actual Panel app launched directly with `simctl`,
+`-hybridFixtures`, each `-moduleFlag.<module> native`, and `-hybridDetail` for the
+controller. Authenticated home-service and physical wall-device checks remain
+outside this fixture verification.
