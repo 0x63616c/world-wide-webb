@@ -68,6 +68,15 @@ enum WalkActivityState: Equatable, Sendable {
         #if os(iOS)
         guard UIDevice.current.userInterfaceIdiom == .phone,
               !ProcessInfo.processInfo.arguments.contains("-snapshot"), state != .unknown else { return }
+        try await Self.reconcileActivities(state)
+        #endif
+    }
+
+    #if os(iOS)
+    /// Activity is not Sendable and update/end run concurrently in the SDK. Keep
+    /// every Activity reference inside this nonisolated operation; only our value
+    /// snapshot crosses from MainActor. WalkActivitySync serializes these calls.
+    nonisolated private static func reconcileActivities(_ state: WalkActivityState) async throws {
         let walkID: String?
         if case .walking(let id, _) = state { walkID = id } else { walkID = nil }
         // Adopt an existing activity on relaunch; clean up orphaned/duplicate activities first.
@@ -84,8 +93,8 @@ enum WalkActivityState: Equatable, Sendable {
             _ = try Activity.request(attributes: WalkActivityAttributes(dogName: "Zero", walkID: id),
                                      content: content, pushType: nil)
         }
-        #endif
     }
+    #endif
 
     private enum ActivityFailure: Error { case disabled }
 }
