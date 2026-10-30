@@ -63,7 +63,7 @@ import XCTest
         XCTAssertTrue(fan.waitForExistence(timeout: 30), app.debugDescription)
         fan.tap()
         XCTAssertFalse(app.buttons["close-controller"].exists)
-        XCTAssertEqual(fan.value as? String, "On")
+        waitForValue(fan, "On")
         app.terminate()
         app.launchArguments = ["-snapshot", "-openTile", "climate"]
         app.launch()
