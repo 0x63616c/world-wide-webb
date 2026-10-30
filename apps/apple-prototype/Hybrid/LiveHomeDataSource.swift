@@ -35,6 +35,7 @@ import PanelKit
     var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { walkProvider }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
+    @ObservationIgnored private var walkRunID: UUID?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
          remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
@@ -209,8 +210,17 @@ import PanelKit
             guard !Task.isCancelled else { return }
             // Dog Walk already owns its four-second cadence, backoff and stale-read
             // guards. Keep its coordinator alive only for this foreground task.
+            let runID = UUID()
+            walkRunID = runID
+            walkProvider.setSceneActive(false)
             walkProvider.setSceneActive(true)
-            defer { walkProvider.setSceneActive(false) }
+            defer {
+                // A cancelled old scene task must not stop a newer foreground run.
+                if walkRunID == runID {
+                    walkRunID = nil
+                    walkProvider.setSceneActive(false)
+                }
+            }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(3600)) }
                 catch { return }
@@ -225,6 +235,7 @@ import PanelKit
     }
 
     func stop() {
+        walkRunID = nil
         walkProvider.setSceneActive(false)
         mediaProvider.stop()
         alarmsProvider.stop()

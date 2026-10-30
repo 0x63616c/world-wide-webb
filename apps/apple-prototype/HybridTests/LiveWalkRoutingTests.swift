@@ -167,6 +167,29 @@ import XCTest
         }
     }
 
+    func testCancellingOldSceneTaskDoesNotStopNewForegroundRun() async throws {
+        let transport = try transport()
+        let clock = HybridWalkClock(date: localNow)
+        let store = source(transport, clock: clock.value)
+        let old = Task { await store.run(modules: [.walk]) }
+        defer { old.cancel(); store.stop() }
+        try await waitFor { store.hasLiveData(for: .walk) && clock.waiting }
+        store.stop()
+        try await waitFor { !clock.waiting }
+        await transport.setFixture("walks/state-active.json", for: "walks.state")
+        let foreground = Task { await store.run(modules: [.walk]) }
+        defer { foreground.cancel(); store.stop() }
+        try await waitFor { store.walks.activeWalk != nil && clock.waiting }
+        old.cancel()
+        await old.value
+        await transport.setFixture("walks/stop.json", for: "walks.state")
+        clock.advance()
+        try await waitFor { store.walks.activeWalk == nil && clock.waiting }
+        foreground.cancel()
+        await foreground.value
+        try await waitFor { !clock.waiting }
+    }
+
     private func waitFor(_ condition: () -> Bool) async throws {
         for _ in 0..<200 {
             if condition() { return }
