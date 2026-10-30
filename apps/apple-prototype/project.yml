@@ -127,7 +127,7 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGNING_ALLOWED: NO
         SUPPORTS_MACCATALYST: NO
-        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
   NextAlarmWidget:
     type: app-extension
     platform: iOS
