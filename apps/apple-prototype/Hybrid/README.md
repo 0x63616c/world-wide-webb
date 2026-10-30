@@ -36,7 +36,7 @@ use `localhost` (ATS local networking is enabled).
 
 ## Module seam
 
-`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, and
+`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, `photos`, and
 `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
 overrides the launch's UserDefaults; invalid values fall back to `web`.
 `all` always means the complete web board, even if its flag is set to `native`.
@@ -304,3 +304,49 @@ Only Xcode 27 is installed on the mini; an Xcode 26.x build was not run there.
 Build and test output screenshots are in `Verification/` (excluded from Panel's
 resources), within this ticket's allowed paths. They document build and test
 results, not authenticated Live Activity rendering on the wall.
+
+### WWW-35 Photos
+
+`photos` defaults to `web`. Opt in with `-moduleFlag.photos native`; remove the
+argument or use `-moduleFlag.photos web` to return to the complete web board.
+Native routing requires successful `boothPhotos.list`, `wakePhotos.list` and
+`sessions.list` reads with at least one photo. Empty/unavailable listings keep
+WebKit mounted. Only opted-in Photos polls (60 seconds).
+
+The native frame cycles captures every 12 seconds, pausing automatic rotation
+for Reduce Motion. Previous/Next remain available. Details show the capture,
+remove/clear-filter controls for booth groups, and read-only Activity sessions.
+Wake photos have no delete or clear endpoint, and expose no such actions.
+Remove acts on the entire booth group, with confirmation; clear means the
+existing non-destructive `boothPhotos.clearFilter`, never a collection-wide wipe.
+
+Because this combined surface includes private booth captures, **every opening**
+(including the frame) requires the synced six-digit panel PIN from `settings.get`.
+No PIN default is embedded in native code. Like the web (ADR-0004), this is a
+client-side gate. It deliberately applies booth's stricter private policy to
+wake photos too; it does not import or extend WebKit's shared Activity PIN
+session. Closing, switching face/details, backgrounding, or losing live data
+relocks it. The prototype and its mock provider are unchanged.
+
+Images use `PanelAPIClient` media requests with paired CF Access headers, a
+redirect-rejecting ephemeral transport, and a bounded memory/disk cache (24
+images). Source bytes remain immutable, protected on disk and excluded from
+backup; no credentials are cached. Removal purges the cache. No backend changes.
+GIF captures currently display their first frame; four-frame/burst captures
+cycle as individual frames. Native capture/upload and session event drill-down
+remain on the web. Stored booth color effects are applied at display time;
+Core Image hue/color processing may differ slightly from browser CSS.
+
+For credential-free fixture checks, launch Panel with:
+
+```sh
+-moduleFlag.photos native -hybridFixtures -photosFixturePIN 135790
+# Add -hybridDetail for the detail page; omit -photosFixturePIN to check the gate.
+# Add -hybridUnavailable to check fallback. The PIN above is synthetic fixture data.
+```
+
+The debug-only fixture argument submits the supplied PIN through the actual gate
+against bundled `settings.get` data. Fixture mode fixes the server/transport to
+local data. It cannot unlock a configured live server. Never pass a real PIN or
+Access token via a shell command. Physical-panel/authenticated production checks
+require local configuration and are separate from these fixture checks.

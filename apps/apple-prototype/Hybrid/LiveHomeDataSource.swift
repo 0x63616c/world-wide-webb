@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PanelKit
+import CryptoKit
 
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
@@ -11,6 +12,7 @@ import PanelKit
     let wifiProvider: LiveWifiProvider
     let weatherProvider: LiveWeatherProvider
     let sonosProvider: LiveSonosProvider
+    let photosProvider: LivePhotosProvider
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     let alarms: [Alarm] = []
@@ -18,7 +20,7 @@ import PanelKit
     var now: Date { Date() }
     var tesla: any TeslaProvider { unavailable }
     var calendar: any CalendarProvider { unavailable }
-    var photos: any PhotosProvider { unavailable }
+    var photos: any PhotosProvider { photosProvider }
     var cameras: any CamerasProvider { unavailable }
     var media: any MediaProvider { unavailable }
     var walks: any WalkProvider { unavailable }
@@ -30,8 +32,13 @@ import PanelKit
         session.urlCache = nil
         session.httpCookieStorage = nil
         session.urlCredentialStorage = nil
-        let transport = transport ?? URLSession(configuration: session)
+        let transport = transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
+        let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("PanelPhotos").appendingPathComponent(namespace)
+        photosProvider = LivePhotosProvider(api: PhotosAPI(client: client), cache: PhotoCache(directory: cacheRoot))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))
         fanProvider = LiveFanProvider(api: FanAPI(client: client))
@@ -43,6 +50,7 @@ import PanelKit
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
         case .all: false
+        case .photos: photosProvider.availability == .live && !photosProvider.frames.isEmpty
         case .lights: lightsProvider.availability == .live
         case .climate: climateProvider.availability == .live && climateProvider.climate != nil
         case .fan: fanProvider.availability == .live && fanProvider.fanOn != nil
@@ -151,6 +159,7 @@ import PanelKit
     func refresh(_ module: PanelModule) async {
         switch module {
         case .all: break
+        case .photos: await photosProvider.refresh()
         case .lights: await lightsProvider.refresh()
         case .climate: await climateProvider.refresh()
         case .fan: await fanProvider.refresh()
@@ -174,12 +183,13 @@ import PanelKit
     private func poll(_ module: PanelModule) async {
         while !Task.isCancelled {
             await refresh(module)
-            do { try await Task.sleep(for: module == .weather ? .seconds(600) : .seconds(10)) }
+            do { try await Task.sleep(for: module == .weather ? .seconds(600) : module == .photos ? .seconds(60) : .seconds(10)) }
             catch { return }
         }
     }
 
     func stop() {
+        photosProvider.lock()
         lightsProvider.stop()
         climateProvider.stop()
         weatherProvider.stop()

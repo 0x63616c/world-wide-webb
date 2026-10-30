@@ -47,7 +47,16 @@ public struct PhotoSession: Decodable, Sendable, Identifiable {
 }
 public struct PhotosAPI: Sendable {
     private let client: PanelAPIClient
+    /// Injected media transports must reject redirects to keep Access headers on-origin.
     public init(client: PanelAPIClient) { self.client = client }
+    public init(configuration: PanelConfiguration?) {
+        let session = URLSessionConfiguration.ephemeral
+        session.urlCache = nil
+        session.httpCookieStorage = nil
+        session.urlCredentialStorage = nil
+        client = PanelAPIClient(configuration: configuration,
+            transport: URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil))
+    }
     public func booth() async throws -> BoothPhotoListing {
         try await client.query("boothPhotos.list", as: BoothPhotoListing.self)
     }

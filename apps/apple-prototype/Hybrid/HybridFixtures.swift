@@ -20,11 +20,20 @@ actor HybridFixtureTransport: PanelTransport {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !unavailable, let url = request.url else { throw URLError(.notConnectedToInternet) }
+        if url.path.hasPrefix("/media/") {
+            let data = try Data(contentsOf: root.appendingPathComponent("photos/image.png"))
+            return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": "image/png"])!)
+        }
         let procedure = url.lastPathComponent
         let file: String
         if let override = overrides[procedure] { file = override }
         else {
             switch procedure {
+            case "settings.get": file = "photos/settings.json"
+            case "boothPhotos.list": file = "photos/booth.json"
+            case "wakePhotos.list": file = "photos/wakes.json"
+            case "sessions.list": file = "photos/sessions.json"
             case "controls.list": file = "all-on.json"
             case "climate.get": file = "climate/cool.json"
             case "wifi.guestQr": file = "wifi/wpa.json"

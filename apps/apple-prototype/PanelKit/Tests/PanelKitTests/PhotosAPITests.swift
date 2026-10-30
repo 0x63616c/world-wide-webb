@@ -90,8 +90,7 @@ private actor PhotosTestTransport: PanelTransport {
         case "boothPhotos.list": name = "booth"
         case "wakePhotos.list": name = "wakes"
         case "sessions.list": name = "sessions"
-        case "settings.get":
-            return reply(Data(#"{"result":{"data":{"pinCode":"135790"}}}"#.utf8), url: url)
+        case "settings.get": name = "settings"
         case "boothPhotos.remove": return reply(Data(#"{"result":{"data":{"removed":1}}}"#.utf8), url: url)
         case "boothPhotos.clearFilter": return reply(Data(#"{"result":{"data":{"cleared":1}}}"#.utf8), url: url)
         default:
