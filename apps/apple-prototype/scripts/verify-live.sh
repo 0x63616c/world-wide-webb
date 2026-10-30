@@ -17,5 +17,5 @@ xcodebuild "${args[@]}" -skip-testing:WorldWideWebbTests/SnapshotRenderTests \
     test-without-building > "$verification_output/tests.log" 2>&1 || {
     tail -60 "$verification_output/tests.log"; exit 1;
 }
-bash scripts/capture-live.sh
+bash scripts/capture-live.sh --ipad-installed
 tail -10 "$verification_output/tests.log"

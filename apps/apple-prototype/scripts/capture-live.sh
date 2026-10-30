@@ -6,19 +6,34 @@ phone=BC914470-C6AF-4F53-9F85-5B0967309F68
 app=co.worldwidewebb.prototype.ipad
 out="$HOME/wwwebb-proto-snapshots"
 mkdir -p "$out"
+ipad_installed=0
+[[ "${1:-}" == --ipad-installed ]] && ipad_installed=1
 prepare() {
   local device="$1"
   xcrun simctl boot "$device" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "$device" -b
-  xcrun simctl install "$device" "$HOME/wwwebb-proto-dd/Build/Products/Debug-iphonesimulator/WorldWideWebb-iPad.app"
+  if [[ "$device" != "$ipad" || "${ipad_installed:-0}" != 1 ]]; then
+    xcrun simctl install "$device" "$HOME/wwwebb-proto-dd/Build/Products/Debug-iphonesimulator/WorldWideWebb-iPad.app"
+  fi
   xcrun simctl status_bar "$device" override --time '10:10' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
 }
 capture() {
   local device="$1" name="$2"
   shift 2
-  xcrun simctl terminate "$device" "$app" >/dev/null 2>&1 || true
-  xcrun simctl launch "$device" "$app" "$@" -snapshot
-  sleep 3
+  local data marker ready=0
+  data=$(xcrun simctl get_app_container "$device" "$app" data)
+  marker="$data/Documents/capture-ready"
+  rm -f "$marker"
+  xcrun simctl launch --terminate-running-process "$device" "$app" "$@" -snapshot
+  for attempt in {1..90}; do
+    if [[ -f "$marker" ]]; then ready=1; break; fi
+    sleep 1
+  done
+  if [[ "$ready" != 1 ]]; then
+    echo "Capture failed: $name never reached app readiness" >&2
+    return 1
+  fi
+  sleep 1
   xcrun simctl io "$device" screenshot "$out/sim-$name.png"
 }
 # Keep our own simulators serial on the shared build mini.
