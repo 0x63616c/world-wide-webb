@@ -894,3 +894,36 @@ XCTest captures (2732×2048 pixels, @2x) from the passing run, with synthetic im
 only. The fallback assertions check routing with an intentionally unavailable
 fixture origin; they do not validate rendering of the authenticated production
 web board.
+
+## Update ready Banner (WWW-53)
+
+Hybrid checks `releases.latest({app: "panel"})` on launch, whenever the scene
+becomes active, and every 15 minutes while active. The shared PanelKit transport
+uses the configured server and complete Cloudflare Access header pair. It compares
+the positive integer build with `CFBundleVersion`; equal/older builds, missing
+releases, malformed responses and network errors clear the Banner. Cancelling a
+foreground task prevents a late response from publishing.
+
+The persistent **Update ready: build N** Banner is root-level Board Chrome, above
+both the native modules and KioskWebView fallback. Tap it to open `itms-beta://`.
+No Apple ID is assumed and no URL-scheme query permission is required: the app
+opens the URL directly without `canOpenURL`.
+
+A local notification is scheduled only when authorization is already authorized
+or provisional. The app never requests notification permission. Successful
+scheduling saves `panel.update.lastNotifiedBuild` in UserDefaults; retries, older
+builds and app restarts do not notify again. A scheduling failure can retry on the
+next check. The system may suppress foreground notification presentation; the
+persistent Banner is the in-app notice.
+
+Debug builds support explicit, launch-only verification overrides:
+
+- `-updateCheckFakeBuild 999999` substitutes a server build without making a
+  releases request.
+- `-updateCheckIntervalSeconds 2` shortens the foreground polling interval.
+- `-hybridFixtures -moduleFlag.lights native` renders synthetic native content
+  without home service access for a Banner capture.
+
+The two update-check overrides are compiled out of Release builds. No flag changes
+the installed build number. Backend and upload recording live in additive
+[PR #836](https://github.com/0x63616c/world-wide-webb/pull/836), targeting main.
