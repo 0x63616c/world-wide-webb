@@ -102,7 +102,9 @@ import XCTest
             add(attachment)
             if detail {
                 try assertDecodes(XCTUnwrap(store.wifiProvider.qrPayload), image: XCTUnwrap(image.cgImage))
+                #if !targetEnvironment(simulator)
                 XCTAssertEqual(scene.screen.brightness, 1, accuracy: 0.01)
+                #endif // Simulator UIScreen always reports 0.5; the injected lease verifies writes.
             }
         }
         window.rootViewController = nil

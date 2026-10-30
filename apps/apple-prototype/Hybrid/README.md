@@ -1036,7 +1036,9 @@ in memory and are never logged or persisted.
 
 The only touched `Sources` file is `Live/LiveWifiProvider.swift`: add a read-only
 optional `qrPayload`, publish the original payload after successful parsing, and
-clear it on unconfigured/error/cancelled responses. Its protocol, mock, parsed
+clear it on unconfigured/error/cancelled responses. Add `stop()` to clear
+credentials and invalidate in-flight results on backgrounding; Hybrid calls it
+with the other providers. Its protocol, mock, parsed
 state and existing initializers are unchanged. All presentation is injected from
 Hybrid. The `Panel-Wifi` scheme selects the existing Panel, app and UI test targets
 for one build; use `-only-testing` to restrict execution to the relevant tests.

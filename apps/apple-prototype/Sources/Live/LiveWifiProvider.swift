@@ -24,25 +24,38 @@ import PanelKit
     private(set) var availability: LiveAvailability = .loading
     @ObservationIgnored private let api: WifiAPI
     @ObservationIgnored private var refreshing = false
+    @ObservationIgnored private var generation = 0
 
     init(api: WifiAPI) { self.api = api }
 
     func refresh() async {
         guard !refreshing else { return }
         refreshing = true
-        defer { refreshing = false }
+        let requestGeneration = generation
+        defer { if requestGeneration == generation { refreshing = false } }
         do {
             let response = try await api.guestQr()
             try Task.checkCancellation()
+            guard requestGeneration == generation else { return }
             wifi = try Self.parse(response.qr)
             qrPayload = wifi.ssid == nil ? nil : response.qr
             availability = .live
         } catch {
+            guard requestGeneration == generation else { return }
             // Clear stale join credentials, including when the caller cancels.
             wifi = .unconfigured
             qrPayload = nil
             availability = .unavailable("Guest Wi-Fi is unavailable.")
         }
+    }
+
+    /// Forget credentials on backgrounding and reject any response from the old scene.
+    func stop() {
+        generation += 1
+        refreshing = false
+        wifi = .unconfigured
+        qrPayload = nil
+        availability = .unavailable("Guest Wi-Fi is unavailable.")
     }
 
     /// Split only on unescaped delimiters, then unescape exactly once. The server

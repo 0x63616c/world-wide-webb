@@ -267,6 +267,7 @@ import CryptoKit
         weatherProvider.stop()
         sonosProvider.stop()
         calendarProvider.stop()
+        wifiProvider.stop()
         fanMutation?.cancel()
         fanMutation = nil
     }
