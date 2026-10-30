@@ -2,11 +2,17 @@ import XCTest
 @testable import Panel
 
 final class ClassicHomeTests: XCTestCase {
-    func testClassicIsLastAndEachModuleAppearsOnce() {
-        XCTAssertEqual(PanelModule.homeTiles.last, .all)
-        XCTAssertEqual(Set(PanelModule.homeTiles), Set(PanelModule.allCases))
-        XCTAssertEqual(PanelModule.homeTiles.count, PanelModule.allCases.count)
-        XCTAssertEqual(PanelModule.all.homeSymbol, "safari")
+    @MainActor func testClassicAndHomeClearPendingNativeSelection() {
+        let navigation = PanelNavigation()
+        navigation.openNativeAlarms()
+        navigation.pendingNativeAlarmLink = true
+        navigation.openClassic()
+        XCTAssertEqual(navigation.selection, .all)
+        XCTAssertFalse(navigation.showingHome)
+        XCTAssertFalse(navigation.detail)
+        XCTAssertFalse(navigation.pendingNativeAlarmLink)
+        navigation.returnHome()
+        XCTAssertTrue(navigation.showingHome)
     }
 
     func testClassicAndWebModulesKeepWebRouting() {

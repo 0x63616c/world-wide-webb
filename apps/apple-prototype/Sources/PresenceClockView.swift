@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Original watch-inspired composition: the dial is content, not a glass card.
 struct PresenceClockFace: View {
+    @Environment(\.homeIntegration) private var integration
     let store: any HomeDataSource
     @Binding var near: Bool
     let open: (HomeTile) -> Void
@@ -33,9 +34,9 @@ struct PresenceClockFace: View {
                 if near && !compact {
                     VStack {
                         HStack(alignment: .top) {
-                            complication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Inside", tile: .climate)
+                            complication(symbol: "thermometer.medium", value: available(.climate) ? "\(store.climate.ambient)°" : "Unavailable", label: "Inside", tile: .climate)
                             Spacer()
-                            complication(symbol: "cloud.sun.fill", value: "\(store.weather.temperature)°", label: "Partly cloudy", tile: .weather)
+                            complication(symbol: "cloud.sun.fill", value: available(.weather) ? "\(store.weather.temperature)°" : "Unavailable", label: store.weather.condition, tile: .weather)
                         }
                         Spacer()
                         HStack(alignment: .bottom) {
@@ -83,7 +84,7 @@ struct PresenceClockFace: View {
                     Circle().trim(from: 0, to: Double(store.tesla.data.pct) / 100)
                         .stroke(.green, style: StrokeStyle(lineWidth: 5, lineCap: .round)).rotationEffect(.degrees(-90))
                     HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text("\(store.tesla.data.pct)").font(.system(size: 36, weight: .semibold, design: .rounded))
+                        Text(available(.tesla) ? "\(store.tesla.data.pct)" : "—").font(.system(size: 36, weight: .semibold, design: .rounded))
                         Text("%").font(.system(size: 16, weight: .medium))
                     }
                 }.frame(width: 96, height: 96)
@@ -93,9 +94,10 @@ struct PresenceClockFace: View {
         }.buttonStyle(.plain).foregroundStyle(.white)
     }
     private var alarmCaption: String {
-        guard let next = store.upcomingAlarm(at: store.now) else { return "No upcoming alarms" }
+        guard let next = store.upcomingAlarm(at: store.now) else { return available(.alarm) ? "No upcoming alarms" : "Alarms unavailable" }
         return next.ringing ? "\(next.alarm.label) · Ringing" : "\(next.alarm.label) · \(next.alarm.time)"
     }
+    private func available(_ tile: HomeTile) -> Bool { integration?.available(tile) ?? true }
     private func togglePresence() {
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) { near.toggle() }
     }

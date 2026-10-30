@@ -9,9 +9,8 @@ final class PanelSmokeTests: XCTestCase {
         // No service, authentication, or fixture board: exercise real load failure.
         app.launchEnvironment["PANEL_SERVER_URL"] = "http://localhost:1"
         app.launch()
-        let classic = app.buttons["home-classic"]
-        XCTAssertTrue(classic.waitForExistence(timeout: 30))
-        classic.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native-home"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["home-classic"].tap()
         XCTAssertTrue(app.staticTexts["Reconnecting…"].waitForExistence(timeout: 40))
         XCTAssertGreaterThan(app.frame.width, app.frame.height)
         let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())

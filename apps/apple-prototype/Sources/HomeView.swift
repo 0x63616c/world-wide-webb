@@ -75,6 +75,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
 }
 struct HomeView: View {
     let store: any HomeDataSource
+    @Environment(\.homeIntegration) private var integration
     var initialTile: HomeTile?
     var demo = false
     var initialFace = 0
@@ -137,6 +138,12 @@ struct HomeView: View {
         }.ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
     }
     @ViewBuilder private func destination(_ tile: HomeTile) -> some View {
+        Group {
+            if let integration { integration.destination(tile, close: { selected = nil }) }
+            else { prototypeDestination(tile) }
+        }
+    }
+    private func prototypeDestination(_ tile: HomeTile) -> some View {
         ZStack {
             if [.lamps, .bedroom, .livingRoom].contains(tile) { LampsBackdrop() }
             else if [.calendar, .media, .sonosRooms, .cameras, .dogwalk].contains(tile) { Wallpaper().overlay(.black.opacity(0.18)).ignoresSafeArea() }
@@ -165,7 +172,7 @@ struct HomeView: View {
             faceGrid(size: size, controls: false).tag(0)
             faceGrid(size: size, controls: true).tag(1)
             PresenceClockFace(store: store, near: $presenceNear, open: open).tag(2)
-            NowPlayingView(store: store, close: { facePage = 0 }, isFace: true).tag(3)
+            musicFace.tag(3)
         }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
         #else
         Group {
@@ -174,6 +181,10 @@ struct HomeView: View {
             else { faceGrid(size: size, controls: facePage == 1) }
         }
         #endif
+    }
+    @ViewBuilder private var musicFace: some View {
+        if let integration { integration.musicFace(close: { facePage = 0 }) }
+        else { NowPlayingView(store: store, close: { facePage = 0 }, isFace: true) }
     }
     private func faceGrid(size: CGSize, controls: Bool) -> some View {
         HomeGlassFace(store: store, size: size, controls: controls, zoom: zoom, open: open, faceSelection: $facePage)
@@ -195,6 +206,7 @@ struct PhoneFaceBar: View {
 }
 // Shared by the live pager and the fast snapshot target; no duplicate visual layout.
 struct FacePicker: View {
+    @Environment(\.homeIntegration) private var integration
     @Binding var selection: Int
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -213,7 +225,7 @@ struct FacePicker: View {
         }
         .overlay(alignment: .trailing) {
             if sizeClass != .compact {
-                Text("Fixture data").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text(integration?.caption ?? "Fixture data").font(.system(size: 11)).foregroundStyle(.secondary)
                     .fixedSize().offset(x: 110).allowsHitTesting(false)
             }
         }
