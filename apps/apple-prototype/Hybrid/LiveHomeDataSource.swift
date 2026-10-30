@@ -5,6 +5,7 @@ import PanelKit
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    let mediaProvider: LiveMediaProvider
     let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
@@ -21,12 +22,13 @@ import PanelKit
     var calendar: any CalendarProvider { unavailable }
     var photos: any PhotosProvider { unavailable }
     var cameras: any CamerasProvider { unavailable }
-    var media: any MediaProvider { unavailable }
+    var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { unavailable }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
-         remindersAPI: any RemindersServing = RemindersAPI()) {
+         remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI()) {
+        mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
         // Guest credentials and Access sessions must remain memory-only.
         let session = URLSessionConfiguration.ephemeral
@@ -45,6 +47,7 @@ import PanelKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .media: mediaProvider.availability == .live && !mediaProvider.items.isEmpty
         case .reminders: remindersProvider.availability == .live
         case .all: false
         case .lights: lightsProvider.availability == .live
@@ -155,6 +158,7 @@ import PanelKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .media: await mediaProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
         case .lights: await lightsProvider.refresh()
@@ -187,6 +191,7 @@ import PanelKit
     }
 
     func stop() {
+        mediaProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()
         weatherProvider.stop()
