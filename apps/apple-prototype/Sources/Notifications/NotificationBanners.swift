@@ -24,6 +24,8 @@ struct NotificationBanners: View {
         #endif
     }
 
+    private var isActivePresenter: Bool { center.isActivePresenter(presenterID) }
+
     private var visible: [NotificationGroup] { Array(center.bannerGroups.prefix(typeSize.isAccessibilitySize ? 1 : 3)) }
 
     var body: some View {
@@ -51,7 +53,9 @@ struct NotificationBanners: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(width: typeSize.isAccessibilitySize ? 768 : 528)
-        .allowsHitTesting(!visible.isEmpty || center.lastError != nil)
+        .opacity(isActivePresenter ? 1 : 0)
+        .accessibilityHidden(!isActivePresenter)
+        .allowsHitTesting(isActivePresenter && (!visible.isEmpty || center.lastError != nil))
         .onAppear { center.registerPresenter(presenterID) }
         .onDisappear { center.unregisterPresenter(presenterID) }
         .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.36, bounce: 0.15), value: visible)
@@ -80,7 +84,7 @@ private struct NotificationBanner: View {
     private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var translation = CGSize.zero
-    @State private var pressed = false
+    @State private var touchState = NotificationBannerTouchState()
     @GestureState private var dragging = false
     let item: NotificationItem
     let count: Int
@@ -118,7 +122,10 @@ private struct NotificationBanner: View {
                 .padding(.leading, 18).padding(.vertical, 16)
                 .contentShape(.rect)
             }
-            .buttonStyle(NotificationTouchStyle(touch: { pressed = $0 }))
+            .buttonStyle(NotificationTouchStyle(touch: {
+                    touchState.pressed = $0
+                    touch(touchState.pressed || touchState.dragging)
+                }))
             .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
             .accessibilityHint("Opens \(source.name)")
             .accessibilityAction(named: "Dismiss", dismiss)
@@ -126,7 +133,10 @@ private struct NotificationBanner: View {
             Button("Dismiss", systemImage: "xmark", action: dismiss)
                 .labelStyle(.iconOnly).font(.caption.weight(.semibold))
                 .frame(width: 44, height: 44).contentShape(.rect)
-                .buttonStyle(NotificationTouchStyle(touch: { pressed = $0 }))
+                .buttonStyle(NotificationTouchStyle(touch: {
+                    touchState.pressed = $0
+                    touch(touchState.pressed || touchState.dragging)
+                }))
                 .accessibilityIdentifier("notification-dismiss-\(item.sourceModule)")
         }
         .foregroundStyle(.primary)
@@ -157,12 +167,17 @@ private struct NotificationBanner: View {
                 }
                 withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { translation = .zero }
             })
-        .onChange(of: pressed || dragging) { _, active in touch(active) }
         .onChange(of: dragging) { _, active in
+            touchState.dragging = active
+            touch(touchState.pressed || active)
             // GestureState also resets on cancellation (backgrounding/system gesture).
             if !active { withAnimation(reduceMotion ? nil : .spring(duration: 0.25)) { translation = .zero } }
         }
-        .onDisappear { touch(false) }
+        .onDisappear {
+            touchState.pressed = false
+            touchState.dragging = false
+            touch(false)
+        }
     }
 }
 
@@ -185,4 +200,10 @@ private enum NotificationMotion {
         system
         #endif
     }
+}
+
+/// Press bookkeeping must not redraw the button between touch-down and touch-up.
+@MainActor private final class NotificationBannerTouchState {
+    var pressed = false
+    var dragging = false
 }

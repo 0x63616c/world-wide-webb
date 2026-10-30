@@ -51,7 +51,7 @@ struct NotificationGroup: Identifiable, Equatable {
     @ObservationIgnored private var revisions: [String: Int64] = [:]
     @ObservationIgnored private var refreshing = false
     @ObservationIgnored private var openHandler: ((NotificationItem) -> Bool)?
-    @ObservationIgnored private var presenters: [UUID] = []
+    private var presenters: [UUID] = []
     @ObservationIgnored private var lastSync: Date?
     @ObservationIgnored private let api: (any NotificationsServing)?
     @ObservationIgnored private let now: () -> Date

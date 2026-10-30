@@ -50,7 +50,8 @@ final class NotificationBannerTests: XCTestCase {
         app.openHomeModule("climate")
         XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 20))
         let banner = app.buttons["notification-banner-lights"]
-        XCTAssertTrue(banner.isHittable)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == YES"), object: banner)], timeout: 10), .completed)
         capture("notification-presented-controller", app)
         banner.tap()
         XCTAssertTrue(banner.waitForNonExistence(timeout: 10))
