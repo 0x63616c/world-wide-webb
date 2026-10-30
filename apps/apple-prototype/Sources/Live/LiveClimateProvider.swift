@@ -13,6 +13,7 @@ import PanelKit
 /// Opt-in only. No networking at initialization and no invented initial readings.
 @MainActor @Observable final class LiveClimateProvider: ClimateProvider {
     private(set) var climate: ClimateState?
+    private(set) var serverState: ClimateAPIState?
     private(set) var reportedAction: ClimateAction?
     private(set) var ambientFahrenheit: Double?
     private(set) var availability: LiveAvailability = .loading
@@ -120,11 +121,15 @@ import PanelKit
             mapped.target = Int((Double(low + high) / 2).rounded())
         case .off(let target, let low, let high):
             if let target { mapped.target = Int(target.rounded()) }
-            if let low, let high { mapped.low = Int(low.rounded()); mapped.high = Int(high.rounded()) }
+            if let low, let high {
+                mapped.low = Int(low.rounded()); mapped.high = Int(high.rounded())
+                if target == nil { mapped.target = Int(((low + high) / 2).rounded()) }
+            }
             else if let target { (mapped.low, mapped.high) = Self.range(around: Int(target.rounded())) }
         }
         // fanOn is not exposed by climate.get; do not infer fan activity from HVAC action.
         climate = mapped
+        serverState = state
         reportedAction = state.action
         ambientFahrenheit = state.ambient
         lastError = nil
