@@ -1,0 +1,26 @@
+# Iteration 7 — structural study, before implementation
+
+## Fresh reference critique
+
+Viewed the retained iPad Home 26, Control Center 26 and watch Infograph PNGs against the live pass-6c Home, Lamps, clock and phone. Also inspected the retained Weather/Music references. Reference imagery is review-only and is never bundled.
+
+Home still reads as a dashboard of prose cards: the huge climate value, tall textual Lamps card and wide Weather card compete, while a lone Fan circle has no group. Apple's Control Center uses a small vocabulary of instruments, information modules and repeated circular actions. Apple Home separates the quick power action from accessory details. The change is structural: keep the tested 5×3 lattice, but make Climate the only 2×2 hero, put music across the upper middle, place the brightness instrument below it, stack square Weather and Up Next modules beside the instrument, and collect Ceiling/Fan/Wi-Fi into a trailing vertical rail. Tesla stays wide beneath Climate. The useful toggle rail is visible on the first face; all remaining modules remain on More. These are intentional quick-access duplicates, not duplicate IDs within a face.
+
+Lamps still reads as a settings form with two large row cards. Apple accessory detail makes the directly manipulated instrument dominant. Centre one large vertical brightness pill and its value; flank it with equal compact room controls. Each room keeps an actual switch and a separate membership disclosure. Put the shared Color & Effects action beneath the central instrument and keep the global scope explicit. The three-part arrangement replaces the old left instrument/right list hierarchy.
+
+Clock currently reads as four oversized poster characters surrounding disconnected short hands. Infograph has a complete circular time-reading instrument; complications occupy the space outside it and follow a consistent vocabulary. Replace the poster with a black full-screen face, a legible 60-mark dial, four restrained rounded cardinal numerals, differentiated hour/minute/seconds hands, and four corner complications. A single green accent ties dial and complication data together; time-reading stays highest contrast. Hide the app pager on Clock; horizontal page swipes remain available. Date/alarm stay on one clear lower baseline. Numeral and hand geometry must be tested over the entire sweep, including the fixed 10:10:30 fixture, not merely at a flattering angle.
+
+Phone applies the same information grouping without scaling the panel: compact Climate hero, paired Weather/Up Next, a tall Lamps instrument beside Ceiling/Fan, followed by wide Music/Tesla and round quick actions. Keep 24-pt margins, 16-pt gutters and the separate 80-pt pager band. The scroll boundary uses one bounded 16-pt fade rather than stacked effects.
+
+## Current Apple research and application
+
+- [WWDC25 Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/): use the material as a coherent interactive layer, preserve contextual adaptation and avoid drawn imitation. Regular system glass remains the text-bearing control surface; rich image modules use clear glass.
+- [WWDC25 Build a SwiftUI app with the new design](https://developer.apple.com/videos/play/wwdc2025/323/): adopt system structures and supported transitions. Retain native zoom sources, shared GlassEffectContainer, and standard switches/buttons rather than recreating those controls.
+- [WWDC26 Platforms State of the Union](https://developer.apple.com/videos/play/wwdc2026/102/): the current OS refines diffusion, edge definition and material personalization automatically. Do not paint a competing border or compensate for system material with custom opaque tile fills. Our 26+ API usage stays valid on the installed SDK.
+- [Apple HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials), [Layout](https://developer.apple.com/design/human-interface-guidelines/layout), and [Designing for watchOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-watchos): group by task, make glanceable values primary, and separate interactive surfaces from content. These support the proposed hierarchy; exact point values here are prototype decisions, not Apple mandates.
+- [Apple Home accessory controls](https://support.apple.com/en-sa/guide/ipad/ipad82770048/ipados): icon toggles and accessory-name detail actions are distinct. Preserve both behaviors and test them.
+- [Apple Watch faces](https://developer.apple.com/design/human-interface-guidelines/watch-faces): the in-app clock is an original composition inspired by Infograph, not a claim to ship a watchOS face or use private fonts.
+
+## Acceptance and evidence
+
+Before changes: restore rejected 6c screens and commit a tested checkpoint. Baseline is the per-screen accepted maximum in baseline3/main-baseline-median.md. Pass-7 captures use live simulator, fixed fixture clock/motion/state, landscape/portrait validator and independent double launch with RGB MAE ≤0.5/255. Review uses exactly tools/review3.sh, unchanged fixed prompt and the five retained references. Accept each redesign only at or above its baseline; one refinement is allowed for a promising redesign at most 0.1 below. No gate claim until all required medians pass. Full-size captures stay outside Git.

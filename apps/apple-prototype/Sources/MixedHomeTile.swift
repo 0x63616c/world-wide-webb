@@ -19,11 +19,13 @@ enum MixedHomeLayout {
         }
         return switch tile {
         case .climate: (0, 0, 2, 2)
-        case .lamps: (2, 0, 1, 2)
-        case .weather: (3, 0, 2, 1)
-        case .tesla: (3, 1, 2, 1)
-        case .calendar: (0, 2, 2, 1)
-        case .sound: (2, 2, 2, 1)
+        case .sound: (2, 0, 2, 1)
+        case .ceiling: (4, 0, 1, 1)
+        case .lamps: (2, 1, 1, 2)
+        case .weather: (3, 1, 1, 1)
+        case .fan: (4, 1, 1, 1)
+        case .tesla: (0, 2, 2, 1)
+        case .calendar: (3, 2, 1, 1)
         default: (4, 2, 1, 1)
         }
     }
@@ -33,10 +35,12 @@ struct MixedTileMaterial: ViewModifier {
     let round: Bool
     let on: Bool
     var imageContent = false
+    var redesigned = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var radius: CGFloat { sizeClass == .compact ? 36 : 56 }
     func body(content: Content) -> some View {
-        let glass = imageContent ? Glass.clear : on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90).opacity(0.65)) : Glass.regular.tint(.white.opacity(0.05))
+        let activeTint = Color.orange.mix(with: .white, by: 0.90).opacity(redesigned ? 1 : 0.65)
+        let glass = imageContent ? Glass.clear : on ? Glass.regular.tint(activeTint) : redesigned ? Glass.regular : Glass.regular.tint(.white.opacity(0.05))
         Group {
         if round {
             content.glassEffect(glass.interactive(), in: .circle)
@@ -109,7 +113,7 @@ struct MixedHomeTile: View {
     private var climateValue: some View {
         Button(action: open) {
             Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
-                .font(.system(size: compact ? 76 : 170, weight: .regular)).monospacedDigit()
+                .font(.system(size: compact ? 76 : 152, weight: .regular)).monospacedDigit()
                 .minimumScaleFactor(compact && store.climate.mode != .heatCool ? 1 : 0.6)
                 .lineLimit(1).frame(maxWidth: .infinity)
         }.buttonStyle(.plain)
@@ -128,15 +132,14 @@ struct MixedHomeTile: View {
         VStack(spacing: 12) {
             Button(action: open) {
                 VStack(spacing: 8) {
-                    Image(systemName: "lamp.table.fill").font(.system(size: compact ? 32 : 40)).foregroundStyle(.orange)
                     Text("All lamps").font(.system(size: compact ? 19 : 26, weight: .semibold))
-                    Text("\(store.lamps.brightness)%").font(.system(size: compact ? 30 : 44, weight: .medium, design: .rounded)).monospacedDigit()
+                    Text("\(store.lamps.brightness)%").font(.system(size: compact ? 36 : 56, weight: .medium, design: .rounded)).monospacedDigit()
                 }.frame(maxWidth: .infinity)
             }.buttonStyle(.plain)
-            LampBrightness(store: store).frame(width: compact ? 64 : 88)
+            LampBrightness(store: store).frame(width: compact ? 72 : 104)
             VStack(spacing: 16) {
                 Text("\(store.lamps.onCount(.lamps)) of 8 on").fontWeight(.medium)
-                Text("Adjusting turns\nall 8 on.").font(.system(size: compact ? 14 : 20)).multilineTextAlignment(.center)
+                Text(store.lamps.anyOn ? "Turns all 8 on" : "Turn on a room first").font(.system(size: compact ? 14 : 20)).multilineTextAlignment(.center)
             }.font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
         }.padding(compact ? 20 : 24)
     }

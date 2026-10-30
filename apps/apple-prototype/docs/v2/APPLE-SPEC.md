@@ -182,3 +182,11 @@ All live captures launch with `-snapshot`: 2026-10-29 10:10:30 Pacific, motion p
 ## Iteration 7 clean checkpoint
 
 The 6c median decision supersedes its candidate measurements above: retain Home 8.5, Controls 8.4 and idle Walk tile 8.4; restore the pass-6 Clock composition (8.6) and pass-6b Walk detail / compact-bottom treatments. Deterministic fixture-clock routing, capture orientation checks and the room switch's idempotent state binding remain. This is a source recovery checkpoint, not a passing design gate. The structural proposals are recorded separately in redesign-7.md before implementation.
+
+## Iteration 7 candidate compositions
+
+This section supersedes earlier visual layout/type prescriptions for the three redesign candidates. Home now uses a single 2×2 Climate hero, wide Music/Tesla, tall Lamps brightness, square Weather/Up Next, and a trailing Ceiling/Fan/Wi-Fi circle rail. The 5×3 lattice, 24-pt panel gutters and 80-pt outer margins remain. Repeated quick-access shortcuts across Home and More share provider state and have unique IDs within each face. Phone pairs Weather and Up Next above the instrument/accessory group; wide media/car controls and all remaining round shortcuts remain scroll-reachable.
+
+Lamps centres its 224×384-pt brightness instrument between equal 280-pt room controls with standard switches and separate member disclosures. The global effects action is centred below it. Clock replaces the green poster-number composition with a black circular watch-inspired instrument, restrained green cardinal numerals, 60 minute marks, white hour/minute hands and a green seconds hand. Four complications occupy dedicated corners, with date/alarm on the lower baseline. The dial replaces the older ultralight numeral exception. No app pager is painted on Clock; horizontal face swipes remain available. Native SF Rounded, no private fonts, and full-sweep 24-pt glyph clearance tests apply.
+
+These are candidates until three independent cold-review medians meet or exceed each screen's accepted floor.

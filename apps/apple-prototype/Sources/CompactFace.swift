@@ -24,7 +24,7 @@ struct CompactFace: View {
                     }.frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 }
             }.scrollIndicators(.hidden)
-                .scrollEdgeEffectStyle(.soft, for: .all)
+                .scrollEdgeEffectHidden(true, for: .all)
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
                 .mask {
                     VStack(spacing: 0) {
@@ -42,8 +42,8 @@ struct CompactFace: View {
     private func tile(_ tile: HomeTile, width: CGFloat, height: CGFloat, round: Bool = false) -> some View {
         MixedHomeTile(tile: tile, store: store, open: { open(tile) })
             .frame(width: width, height: height)
-            .modifier(MixedTileMaterial(round: round, on: tile == .fan ? store.climate.fanOn && store.climate.mode != .off : tile.accessory.map { store.lamps.isOn($0) } ?? false, imageContent: [.weather, .photos, .cameras].contains(tile)))
+            .modifier(MixedTileMaterial(round: round, on: tile == .fan ? store.climate.fanOn && store.climate.mode != .off : tile.accessory.map { store.lamps.isOn($0) } ?? false, imageContent: [.weather, .photos, .cameras].contains(tile), redesigned: !controls))
             .glassEffectID("\(controls ? "controls" : "home")-\(tile.id)", in: zoom)
-            .matchedTransitionSource(id: tile.id, in: zoom)
+            .matchedTransitionSource(id: "\(controls ? 1 : 0)-\(tile.id)", in: zoom)
     }
 }

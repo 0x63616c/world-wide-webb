@@ -29,37 +29,32 @@ struct ModuleTile: View {
     }
     private var weather: some View {
         ZStack {
-            WeatherSky(condition: store.weather.condition).saturation(0.75).brightness(-0.08)
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.weather.city).font(.system(size: compact ? 18 : 23, weight: .medium))
-                    Text("\(store.weather.temperature)°").font(.system(size: compact ? 64 : 88, weight: .light)).monospacedDigit()
+            WeatherSky(condition: store.weather.condition).saturation(0.65).brightness(-0.12)
+            VStack(alignment: .leading, spacing: compact ? 6 : 4) {
+                Text(store.weather.city).font(.system(size: compact ? 15 : 20, weight: .medium)).lineLimit(1)
+                HStack(alignment: .center, spacing: 4) {
+                    Text("\(store.weather.temperature)°").font(.system(size: compact ? 52 : 72, weight: .light)).monospacedDigit()
+                    Spacer(minLength: 0)
+                    Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor)
+                        .font(.system(size: compact ? 24 : 32))
                 }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 8) {
-                    Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(.system(size: compact ? 30 : 40))
-                    Text(store.weather.condition).font(.system(size: compact ? 16 : 24, weight: .medium))
-                    Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: compact ? 15 : 24))
-                }
-            }.padding(compact ? 24 : 32)
+                Text(store.weather.condition).font(.system(size: compact ? 14 : 20, weight: .medium)).lineLimit(1)
+                Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: compact ? 14 : 20))
+            }.padding(compact ? 16 : 24).frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     private var calendar: some View {
-        HStack(alignment: .top, spacing: 24) {
-            VStack(spacing: 0) {
-                Text(fixtureTime(store.now, format: "EEE").uppercased()).font(.system(size: compact ? 14 : 20, weight: .semibold)).foregroundStyle(.red)
-                Text(fixtureTime(store.now, format: "d")).font(.system(size: compact ? 44 : 60, weight: .light))
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Text("UP NEXT").font(.system(size: compact ? 11 : 13, weight: .semibold)).foregroundStyle(.primary)
-                if let event = store.calendar.next(at: store.now) {
-                    Text(event.title).font(.system(size: compact ? 20 : 32, weight: .semibold)).lineLimit(1)
-                    Text("\(event.time) \(event.period)").font(.system(size: compact ? 16 : 24))
-                    Text(event.location).font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary).lineLimit(1)
-                } else { Text("Nothing else today").font(.title3) }
-            }
-            Spacer(minLength: 0)
-        }.padding(compact ? 24 : 32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        VStack(alignment: .leading, spacing: compact ? 8 : 12) {
+            Text(fixtureTime(store.now, format: "EEE d").uppercased())
+                .font(.system(size: compact ? 13 : 20, weight: .semibold)).foregroundStyle(.red)
+            if let event = store.calendar.next(at: store.now) {
+                Text(event.title).font(.system(size: compact ? 19 : 28, weight: .semibold))
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                Text("\(event.time) \(event.period)").font(.system(size: compact ? 15 : 22, weight: .medium))
+                Text(event.location).font(.system(size: compact ? 13 : 18)).foregroundStyle(.primary)
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            } else { Text("Nothing else today").font(.title3) }
+        }.padding(compact ? 16 : 24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
     private var media: some View {
         HStack(spacing: 24) {

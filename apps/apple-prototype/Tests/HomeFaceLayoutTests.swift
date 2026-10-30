@@ -15,7 +15,7 @@ final class HomeFaceLayoutTests: XCTestCase {
             XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
             XCTAssertEqual(item.frame.minY.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
         }
-        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 1)
+        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 3)
         }
     }
 
@@ -46,7 +46,12 @@ final class HomeFaceLayoutTests: XCTestCase {
         let phone = [false, true].flatMap { HomeFaceLayout.phone(in: CGSize(width: 402, height: 778), controls: $0).items.map(\.tile) }
         XCTAssertEqual(Set(panel), required)
         XCTAssertEqual(Set(phone), required)
-        XCTAssertEqual(panel.count, Set(panel).count)
+        // Quick-access duplicates across pages are intentional; identity is unique
+        // within each face and the same provider backs both presentations.
+        for controls in [false, true] {
+            let tiles = HomeFaceLayout.panel(in: size, controls: controls).items.map(\.tile)
+            XCTAssertEqual(tiles.count, Set(tiles).count)
+        }
     }
 
     private func checkFrames(_ layout: HomeFaceLayout, file: StaticString = #filePath, line: UInt = #line) {

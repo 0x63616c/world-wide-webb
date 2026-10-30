@@ -4,7 +4,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
     case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos, dogwalk
-    static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
+    static let homeFace: [HomeTile] = [.climate, .sound, .ceiling, .lamps, .weather, .fan, .tesla, .calendar, .wifi]
     static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
@@ -89,17 +89,17 @@ struct HomeView: View {
         GeometryReader { proxy in
             ZStack {
                 Group {
-                    if facePage == 2 { Palette.clock.ignoresSafeArea() }
+                    if facePage == 2 { Color.black.ignoresSafeArea() }
                     else if facePage == 3 { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
                     else { Wallpaper() }
                 }
                 homeFace(size: proxy.size)
                     .safeAreaBar(edge: .bottom, spacing: 0) {
-                        if sizeClass == .compact && facePage >= 2 {
+                        if sizeClass == .compact && facePage == 3 {
                             PhoneFaceBar(selection: $facePage)
                         }
                     }
-                if selected == nil && sizeClass != .compact {
+                if selected == nil && sizeClass != .compact && facePage != 2 {
                     VStack { Spacer(); FacePicker(selection: $facePage).frame(height: HomeFaceLayout.panelPagerBand) }
                 }
                 #if os(macOS)
@@ -110,7 +110,7 @@ struct HomeView: View {
                 #if os(iOS)
                 .fullScreenCover(item: $selected) { tile in
                     if reduceMotion { destination(tile) }
-                    else { destination(tile).navigationTransition(.zoom(sourceID: tile == .alarm ? HomeTile.clock.id : tile.id, in: zoom)) }
+                    else { destination(tile).navigationTransition(.zoom(sourceID: "\(facePage)-\(tile == .alarm ? HomeTile.clock.id : tile.id)", in: zoom)) }
                 }
                 #else
                 .onExitCommand { selected = nil }
@@ -187,7 +187,7 @@ struct PhoneFaceBar: View {
     var body: some View {
         VStack(spacing: 6) {
             FacePicker(selection: $selection)
-                .padding(.horizontal, 12).frame(height: 56)
+                .frame(width: 200, height: 56)
                 .glassEffect(.regular, in: .capsule)
             Text("Fixture data").font(.system(size: 10)).foregroundStyle(.secondary)
         }.frame(height: HomeFaceLayout.phonePagerBand)
@@ -199,7 +199,7 @@ struct FacePicker: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: sizeClass == .compact ? 4 : 10) {
             ForEach(0..<4) { page in
                 Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { selection = page } } label: {
                     Circle().fill(.white.opacity(selection == page ? 0.95 : 0.3))
@@ -257,9 +257,9 @@ struct HomeFaceGrid: View {
             ForEach(layout.items) { item in
                 MixedHomeTile(tile: item.tile, store: store, open: { open(item.tile) })
                     .frame(width: item.frame.width, height: item.frame.height)
-                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos, .cameras].contains(item.tile)))
+                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos, .cameras].contains(item.tile), redesigned: !controls))
                     .glassEffectID("\(controls)-\(item.id)", in: zoom)
-                    .matchedTransitionSource(id: item.id, in: zoom)
+                    .matchedTransitionSource(id: "\(controls ? 1 : 0)-\(item.id)", in: zoom)
                     .position(x: item.frame.midX, y: item.frame.midY)
             }
         }.frame(width: size.width, height: size.height)

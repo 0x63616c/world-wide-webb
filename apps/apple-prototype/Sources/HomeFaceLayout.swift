@@ -35,7 +35,7 @@ struct HomeFaceLayout {
                                                   y: top + heading + headingGap + CGFloat(c.y) * (cell + gap),
                                                   width: cell * CGFloat(c.w) + gap * CGFloat(c.w - 1),
                                                   height: cell * CGFloat(c.h) + gap * CGFloat(c.h - 1)),
-                        round: c.w == 1 && c.h == 1)
+                        round: c.w == 1 && c.h == 1 && ![HomeTile.weather, .calendar].contains(tile))
         }
         return Self(items: items, contentSize: size,
                     header: CGRect(x: left, y: top, width: width, height: heading),
@@ -62,8 +62,8 @@ struct HomeFaceLayout {
             }
         } else {
             add(.climate, width: width, height: 240); y += 240 + gap
-            add(.weather, width: width, height: 160); y += 160 + gap
-            add(.calendar, width: width, height: 168); y += 168 + gap
+            add(.weather, width: cell, height: 192)
+            add(.calendar, x: cell + gap, width: cell, height: 192); y += 192 + gap
             add(.lamps, width: cell, height: 2 * cell + gap)
             add(.ceiling, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
             add(.fan, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
