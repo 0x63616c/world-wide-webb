@@ -28,4 +28,4 @@ def affected_suites(paths):
 
 
 if __name__ == "__main__":
-    print("suites=" + json.dumps(affected_suites(sys.stdin.read().splitlines()), separators=(",", ":")))
+    print("suites=" + json.dumps(affected_suites(sys.stdin.read().split("\0")), separators=(",", ":")))

@@ -25,10 +25,13 @@ host on a separate runner, while the iPad scheme also builds UI automation.
 The checked-in project configuration and all selected unit tests stay intact.
 
 Each iOS lane chooses one available iPad simulator and the runner's architecture,
-runs `build-for-testing` into a known DerivedData directory, then passes the
+starts booting it and runs `build-for-testing` against the generic simulator SDK
+into a known DerivedData directory, then passes the
 resulting `.xctestrun` file directly to `test-without-building`. This avoids
-reloading the project and package graph for test execution. Xcode boots that one
-destination; there is no separate simulator boot/migration step. PanelKit shares
+reloading the project and package graph for test execution. The generic build destination
+avoids waiting for the booting device during build setup, allowing compilation
+and simulator migration to overlap. Execution uses that one concrete destination
+without an additional boot/migration step. PanelKit shares
 the short macOS build lane to reduce demand on the macOS runner pool.
 
 XCTest parallel testing is explicitly disabled: these unit bundles execute in
@@ -49,7 +52,8 @@ parallelism without paying for extra XCTest simulator clones.
 
 PRs compare the base SHA to the checked-out merge result. Pushes compare the
 previous SHA to HEAD. A missing/zero baseline runs everything. A failed fetch or
-diff fails planning rather than silently skipping work. Deleted paths are included.
+diff fails planning rather than silently skipping work. Deleted paths are included; NUL-delimited input preserves Unicode and newline
+characters in filenames.
 When adding targets, keep the dependency map conservative; unknown paths default
 to all suites. Planning runs the dependency-map tests and all 32 combinations of
 planner/suite/selection outcomes for the final gate.

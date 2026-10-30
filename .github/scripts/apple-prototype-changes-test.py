@@ -26,6 +26,11 @@ class ChangesTests(unittest.TestCase):
         for path in [".github/workflows/apple-prototype-ci.yml", ".github/scripts/apple-prototype-changes.py"]:
             self.assertEqual(changes.affected_suites([path]), changes.ALL)
 
+    def test_git_paths_preserve_unicode_and_newlines(self):
+        script = Path(__file__).with_name("apple-prototype-changes.py")
+        result = subprocess.run(["python3", "-B", str(script)], input="apps/apple-prototype/Hybrid/café\nview.swift\0README.md\0", text=True, capture_output=True, check=True)
+        self.assertEqual(result.stdout.strip(), 'suites=["panel"]')
+
     def test_union_is_stable_and_deduplicated(self):
         self.assertEqual(changes.affected_suites(["apps/apple-prototype/HybridTests/a.swift", "apps/apple-prototype/Tests/b.swift", "apps/apple-prototype/Hybrid/a.swift"]), ["ipad", "panel"])
 
