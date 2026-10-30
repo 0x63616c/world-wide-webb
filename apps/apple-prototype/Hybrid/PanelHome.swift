@@ -102,8 +102,14 @@ struct PanelHome: View {
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
                 .disabled(store.walkProvider.isMutating))
+        case .clock:
+            return AnyView(PanelTileLauncher(label: "Open Clock and Alarms", open: open) {
+                TileFace(tile: .clock, store: self.store, open: open)
+            })
         case .cameras:
-            return AnyView(CamerasModule(provider: store.camerasProvider, detail: false, open: open))
+            return AnyView(PanelTileLauncher(label: "Open Cameras", open: open) {
+                CamerasModule(provider: self.store.camerasProvider, detail: false, open: open)
+            })
         case .photos:
             return AnyView(Button(action: open) {
                 Label("Photos", systemImage: "lock.fill").font(.title2)
