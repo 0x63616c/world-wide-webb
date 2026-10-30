@@ -52,7 +52,7 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var controller: some View {
         switch module {
-        case .lights: ControlsController(store: store)
+        case .lights: ControlsController(store: store, fanIsOn: store.hasLiveData(for: .fan) ? store.fanProvider.fanOn : nil)
         case .climate: ClimateController(store: store)
         case .fan:
             fan.frame(width: 660, height: 520)

@@ -100,6 +100,7 @@ struct ClimateController: View {
 }
 struct ControlsController: View {
     let store: any HomeDataSource
+    var fanIsOn: Bool? = nil
     var body: some View {
         GeometryReader { proxy in
             HStack(alignment: .center, spacing: 54) {
@@ -124,7 +125,7 @@ struct ControlsController: View {
         }
     }
     private func toggle(_ key: Accessory) -> some View {
-        let on = key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key)
+        let on = key == .fan ? (fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off)) : store.lamps.isOn(key)
         return Button { store.send(.toggle(key)) } label: {
             HStack(spacing: 12) {
                 Image(systemName: key.symbol).font(.system(size: 23)).foregroundStyle(on ? Palette.amber : .white)

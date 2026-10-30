@@ -119,7 +119,6 @@ struct PanelRoot: View {
             // The unchanged Controls and Climate controllers contain a fan control.
             // Read its real data even when the independent Fan route remains web.
             if !providers.isDisjoint(with: [.lights, .climate]) { providers.insert(.fan) }
-            if providers.contains(.lights) { providers.insert(.climate) }
             await store.run(modules: providers)
         }
         .onDisappear { session.stop(); store.stop() }

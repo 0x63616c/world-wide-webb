@@ -83,8 +83,8 @@ individual lamp RGB or party speed. Unreported lamp colors use neutral values.
 
 Only requested providers poll: every 10 seconds, or 10 minutes for weather.
 Controls and Climate also read Fan because their existing controllers include it;
-Controls reads Climate for its fan-state presentation. These data dependencies do
-not enable the other modules' routes. Structured polling tasks cancel when Panel
+The fan's on/off state is injected independently of HVAC mode. This data dependency
+does not enable the Fan route. Structured polling tasks cancel when Panel
 leaves the foreground. Writes are owned/cancelled by the existing providers. API
 configuration comes from the same launch snapshot as WebKit; Access headers are
 sent only as a complete pair. The shared transport is an ephemeral URLSession with
@@ -99,8 +99,9 @@ The exact edits are:
   with the same fixture defaults; add an injectable weather symbol. Add optional
   reported climate action/fan label, and optional Sonos metadata with a stable ID
   and nullable track fields/coordinator name. Nil overrides preserve all prototype behavior.
-- `HomeView.swift`: `AccessoryFace` accepts optional `fanIsOn`, defaulting to its
-  original calculation, so a live fan does not require an invented HVAC mode.
+- `HomeView.swift` and `Controllers.swift`: `AccessoryFace` and `ControlsController`
+  accept optional `fanIsOn`, defaulting to their original calculations, so a live
+  fan does not require an invented HVAC mode.
 - `Live/LiveLightsProvider.swift`: its initializer accepts `initialLamps`, defaulting
   to the existing fixture state; Panel supplies neutral unavailable state instead.
 - `WeatherViews.swift`: the two current-condition glyphs read the injected symbol.
