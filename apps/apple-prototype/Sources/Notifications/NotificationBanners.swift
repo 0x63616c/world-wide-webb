@@ -8,7 +8,8 @@ struct NotificationSource: Equatable {
 /// A bounded overlay; only the cards intercept input, leaving the board usable.
 struct NotificationBanners: View {
     @Environment(NotificationCenter.self) private var center
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
@@ -44,7 +45,7 @@ struct NotificationBanners: View {
         .sensoryFeedback(.impact(weight: .light), trigger: center.arrivalFeedback)
         .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: center.dismissFeedback)
         .sensoryFeedback(.selection, trigger: center.openFeedback)
-        .task(id: scenePhase) {
+        .task(id: [scenePhase == .active, voiceOver, typeSize.isAccessibilitySize]) {
             guard scenePhase == .active else { return }
             let clock = ContinuousClock()
             var previous = clock.now
@@ -61,7 +62,8 @@ struct NotificationBanners: View {
 }
 
 private struct NotificationBanner: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var translation = CGSize.zero
     @State private var pressed = false
@@ -118,13 +120,13 @@ private struct NotificationBanner: View {
         .background {
             // Real glass surfaces form the stack; no duplicate payload or accessibility nodes.
             if count > 1 {
-                Color.clear.padding(.horizontal, 10).offset(y: 7)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 24))
+                    .padding(.horizontal, 10).offset(y: 7)
                     .accessibilityHidden(true).allowsHitTesting(false)
             }
             if count > 2 {
-                Color.clear.padding(.horizontal, 20).offset(y: 13)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 24))
+                    .padding(.horizontal, 20).offset(y: 13)
                     .accessibilityHidden(true).allowsHitTesting(false)
             }
         }
@@ -159,4 +161,14 @@ private struct NotificationTouchStyle: ButtonStyle {
 
 enum NotificationBannerGesture {
     static func dismisses(x: Double, y: Double) -> Bool { abs(x) >= 70 || y <= -45 }
+}
+
+private enum NotificationMotion {
+    static func isReduced(_ system: Bool) -> Bool {
+        #if DEBUG
+        system || ProcessInfo.processInfo.arguments.contains("-notificationReduceMotion")
+        #else
+        system
+        #endif
+    }
 }

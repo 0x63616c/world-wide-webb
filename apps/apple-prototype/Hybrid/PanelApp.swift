@@ -129,19 +129,6 @@ struct PanelRoot: View {
                 }
             }
         }
-        .overlay(alignment: .top) {
-            NotificationBanners(source: PanelNotifications.source, open: openNotification)
-        }
-        .environment(notifications)
-        #if DEBUG
-        .transformEnvironment(\.accessibilityReduceMotion) { value in
-            if ProcessInfo.processInfo.arguments.contains("-notificationReduceMotion") { value = true }
-        }
-        #endif
-        .task(id: scenePhase) {
-            guard scenePhase == .active else { return }
-            await notifications.run()
-        }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
         .background { PanelWindowAttachment().allowsHitTesting(false) }
         .statusBarHidden()
@@ -210,6 +197,14 @@ struct PanelRoot: View {
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
             await updateChecker.run()
+        }
+        .overlay(alignment: .top) {
+            NotificationBanners(source: PanelNotifications.source, open: openNotification)
+        }
+        .environment(notifications)
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            await notifications.run()
         }
         .onDisappear { session.stop(); store.stop() }
     }

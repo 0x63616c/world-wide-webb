@@ -114,6 +114,20 @@ import PanelKit
         XCTAssertEqual(cursors, [nil, nil])
     }
 
+    func testDedupeUpdateInSameMillisecondPresentsChangedContent() async throws {
+        let api = NotificationStub(pages: [
+            NotificationPage(items: [try notificationRow(revision: "1")], cursor: "1", hasMore: false),
+            NotificationPage(items: [try notificationRow(revision: "2", title: "Updated")], cursor: "2", hasMore: false)
+        ], row: nil)
+        let center = Panel.NotificationCenter(api: api)
+        await center.refresh()
+        center.hideBanner("ntf_synthetic")
+        await center.refresh()
+        XCTAssertEqual(center.history.count, 1)
+        XCTAssertEqual(center.bannerGroups.first?.items.first?.title, "Updated")
+        XCTAssertEqual(center.arrivalFeedback, 2)
+    }
+
     func testSourceDedupeIsolationAndTimeOrdering() {
         let clock = NotificationTestClock()
         let center = Panel.NotificationCenter(now: { clock.date })
@@ -137,9 +151,9 @@ import PanelKit
     }
 }
 
-private func notificationRow(revision: String, read: Bool = false, dismissed: Bool = false) throws -> PanelNotification {
+private func notificationRow(revision: String, read: Bool = false, dismissed: Bool = false, title: String = "Remote") throws -> PanelNotification {
     let date = "2026-10-30T12:00:00.000Z"
-    let json: [String: Any] = ["id": "ntf_synthetic", "source_module": "lights", "title": "Remote", "body": "Body",
+    let json: [String: Any] = ["id": "ntf_synthetic", "source_module": "lights", "title": title, "body": "Body",
         "deep_link": "module/lights", "priority": "normal", "dedupe_key": "scene", "created_at": date,
         "updated_at": date, "read_at": read ? date as Any : NSNull(),
         "dismissed_at": dismissed ? date as Any : NSNull(), "revision": revision]

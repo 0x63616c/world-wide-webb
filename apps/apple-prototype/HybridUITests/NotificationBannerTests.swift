@@ -5,7 +5,12 @@ final class NotificationBannerTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native", "-notificationSamples"]
+        app.launchArguments = ["-hybridFixtures", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native"]
+        app.launch()
+        XCTAssertTrue(app.buttons["module-lights"].waitForExistence(timeout: 20))
+        capture("notification-baseline", app)
+        app.terminate()
+        app.launchArguments += ["-notificationSamples"]
         app.launch()
         let lights = app.buttons["notification-banner-lights"]
         XCTAssertTrue(lights.waitForExistence(timeout: 20))

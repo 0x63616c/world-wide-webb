@@ -202,7 +202,10 @@ struct NotificationGroup: Identifiable, Equatable {
                 banners.insert(row.id)
                 remaining[row.id] = oldRemaining
             }
-        } else if previous == nil || row.createdAt > previous!.createdAt {
+        } else if previous == nil || previous.map({
+            row.createdAt > $0.createdAt || row.title != $0.title || row.body != $0.body
+                || row.deepLink != $0.deepLink || row.priority != $0.priority || $0.readAt != nil
+        }) == true {
             present(row.id)
         }
     }
