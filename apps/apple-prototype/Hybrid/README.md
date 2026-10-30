@@ -830,16 +830,20 @@ Fixture checks cannot establish physical-camera availability, production Access
 configuration, source caching or wall-device performance; those remain deployment
 checks before enabling this module on the wall.
 
-Verification status (2026-10-30, Xcode 27.0): the final PanelKit tree passed
-**54 Swift Testing + 11 XCTest tests**. The first iPad run passed **65 PanelTests
-and 7 app tests** (4 camera provider + 3 existing module provider tests). Its UI
-check rendered updating snapshots at 1366×1024 points, but failed to find the
-camera by its control identifier. The test now queries the exposed accessibility
-label. After integrating the updated Media base, the app compiled, but the
-shared Mac rejected simulator boot with “insufficient system resources”
-(`maxUserProcs=1333`, `runningUserProcs=1291`, `enforcedProcBuffer=183`). The final
-integrated simulator rerun (including the subsequent Photos merge), tap/enlargement check and detail/fallback captures
-remain pending until simulator capacity is available. No other simulator was
-stopped. The tile evidence in `docs/screenshots/cameras-native/` at the repository
-root is a frame from the actual first-run XCTest screen recording, rotated into
-landscape without resizing (2732×2048 pixels); it contains synthetic imagery only.
+Verification (2026-10-30, Xcode 27.0, including the Calendar/Media/Photos base):
+**54 Swift Testing + 15 XCTest PanelKit tests**, **70 PanelTests**, and **7 app
+tests** (4 camera provider + 3 existing module provider tests) passed. The camera
+UI test passed at **1366×1024 points**, checking snapshot updates, tile-to-overview
+navigation, tap-to-enlarge, continued live refresh, return navigation, default-web
+routing and unavailable-backend fallback. The test explicitly opts into native
+with the launch arguments above; the production default remains web.
+
+On the shared Mac, coordinate exclusive simulator UI access for this check. The
+two-slot capture helper allowed overlapping automation; those runs missed taps.
+The same built test passed with both existing capture locks held, without touching
+other simulators. Earlier resource-limit launch failures were environmental.
+Screenshots in `docs/screenshots/cameras-native/` at the repository root are direct
+XCTest captures (2732×2048 pixels, @2x) from the passing run, with synthetic imagery
+only. The fallback assertions check routing with an intentionally unavailable
+fixture origin; they do not validate rendering of the authenticated production
+web board.
