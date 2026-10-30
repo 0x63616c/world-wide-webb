@@ -14,8 +14,6 @@ export function createPool(url: string): Pool {
     // ("Connection terminated unexpectedly", Postgres "canceling authentication
     // due to timeout") and every request 502'd until the pod was restarted.
     connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
-    // Server-side cap so one stuck query can't hold a pooled client forever.
-    statement_timeout: POOL_STATEMENT_TIMEOUT_MS,
     idleTimeoutMillis: POOL_IDLE_TIMEOUT_MS,
     keepAlive: true,
   });
@@ -30,8 +28,6 @@ export function createPool(url: string): Pool {
 
 /** Fail a checkout after 5s instead of queueing forever. */
 export const POOL_CONNECTION_TIMEOUT_MS = 5_000;
-/** Postgres cancels any single statement that runs longer than 60s. */
-export const POOL_STATEMENT_TIMEOUT_MS = 60_000;
 /** Recycle idle clients so a half-dead socket is not reused hours later. */
 export const POOL_IDLE_TIMEOUT_MS = 30_000;
 

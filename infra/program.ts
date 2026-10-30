@@ -93,11 +93,6 @@ installCertManager({
 
 // The NAS NFS server, shared by the worker media share and the pg-backup target.
 const nasNfsServer = cfg.get("nasNfsServer") ?? "192.168.0.218";
-// nasEnabled (#793): false while the NAS is offline. The api/worker media
-// mount becomes a pod-local emptyDir and the pg-backup crons write to a local
-// fallback PVC, so a deploy never adds a mount that can't succeed. Flip back
-// with `pulumi config set wwwinfra:nasEnabled true` once the NAS answers.
-const nasEnabled = cfg.getBoolean("nasEnabled") ?? true;
 const imageDigests = cfg.getObject<Record<string, string>>("imageDigests") ?? {};
 
 // coldStart: a one-time escape hatch for the FIRST `pulumi up` against a brand
@@ -132,7 +127,6 @@ const services = deployServices({
   namespaces,
   cloudflaredReplicas: cfg.getNumber("cloudflaredReplicas") ?? 2,
   nasNfsServer,
-  nasEnabled,
   requireImageDigestPins: shouldRequireImageDigestPins(stackName) && !coldStart,
   imageDigests,
   target,
@@ -149,7 +143,6 @@ const crons = deployCrons({
   provider: cluster.provider,
   namespaces,
   nasNfsServer,
-  nasEnabled,
 });
 
 // Task 4 (Talos migration): local-path-provisioner, MetalLB, and the Home
@@ -178,7 +171,6 @@ if (target.substrate === "talos") {
     cnpgOperator: cnpg.operator,
     vault,
     nasNfsServer,
-    nasEnabled,
   });
 }
 

@@ -163,41 +163,6 @@ describe("decideEnforcement", () => {
     if (d.kind === "push") expect(d.desired).toBe(desired);
   });
 
-  it("enforce + external turn_off -> adopt off (never forced back on, #789)", () => {
-    const d = decideEnforcement(
-      dev({ control: LightControl.Enforce, desiredState: { on: true, color: { kelvin: 3100 } } }),
-      { reported: { on: false }, available: true },
-    );
-    expect(d.kind).toBe("adopt");
-    if (d.kind === "adopt") expect(d.desired).toEqual({ on: false });
-  });
-
-  it("enforce + external turn_on -> adopt on", () => {
-    const reported: DeviceLightState = { on: true, brightness: 120 };
-    const d = decideEnforcement(
-      dev({ control: LightControl.Enforce, desiredState: { on: false } }),
-      { reported, available: true },
-    );
-    expect(d.kind).toBe("adopt");
-    if (d.kind === "adopt") expect(d.desired).toEqual(reported);
-  });
-
-  it("app command window still pushes on/off over an external change", () => {
-    const now = new Date("2026-01-01T00:00:05Z");
-    const desired: DeviceLightState = { on: true };
-    const d = decideEnforcement(
-      dev({
-        control: LightControl.Enforce,
-        desiredState: desired,
-        desiredUntilUtc: new Date("2026-01-01T00:00:10Z"),
-      }),
-      { reported: { on: false }, available: true },
-      false,
-      now,
-    );
-    expect(d.kind).toBe("push");
-  });
-
   it("adopt + drift -> set desired = reported (no push)", () => {
     const reported: DeviceLightState = { on: true, color: { rgb: [0, 0, 255] } };
     const d = decideEnforcement(

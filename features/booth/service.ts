@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-import { isMediaUnavailable, nextFreeName, withMediaIo } from "@www/core";
+import { nextFreeName } from "@www/core";
 import { getLogger } from "@www/logger";
 import { genId } from "@www/platform";
 import { and, desc, eq, isNull } from "drizzle-orm";
@@ -170,17 +170,12 @@ export async function saveBoothPhoto(
   const mimeType = isGif ? "image/gif" : "image/jpeg";
   const ext = isGif ? "gif" : "jpg";
 
-  // Bounded and circuit-broken (#793): a dead NAS fails this fast with
-  // MediaUnavailableError instead of parking the request on the mount.
-  const relPath = await withMediaIo("booth-photo save", async () => {
-    await mkdir(root, { recursive: true });
-    // Frames of one capture stamp their own times but can collide on a same-ms
-    // capture or retry; suffix with the first free counter so every frame keeps a
-    // distinct path.
-    const rel = await nextFreeName(root, meta.capturedAt, ext);
-    await writeFile(join(root, rel), bytes);
-    return rel;
-  });
+  await mkdir(root, { recursive: true });
+  // Frames of one capture stamp their own times but can collide on a same-ms
+  // capture or retry; suffix with the first free counter so every frame keeps a
+  // distinct path.
+  const relPath = await nextFreeName(root, meta.capturedAt, ext);
+  await writeFile(join(root, relPath), bytes);
 
   const id = newBoothPhotoId();
   await db.insert(boothPhoto).values({
@@ -318,10 +313,8 @@ export async function readBoothPhoto(
   const abs = resolve(root, relPath);
   if (abs !== resolve(root) && !abs.startsWith(resolve(root) + sep)) return null;
   try {
-    return { bytes: new Uint8Array(await withMediaIo("booth-photo read", () => readFile(abs))) };
-  } catch (err) {
-    // Missing file: 404. Sick NAS: rethrow so the route answers 503.
-    if (isMediaUnavailable(err)) throw err;
+    return { bytes: new Uint8Array(await readFile(abs)) };
+  } catch {
     return null;
   }
 }

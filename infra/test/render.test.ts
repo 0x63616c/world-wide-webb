@@ -115,7 +115,7 @@ describe("renderWorkload", () => {
     expect(renderWorkload(worker).services).toHaveLength(0);
   });
 
-  test("an NFS volume emits mountOptions [nfsvers=4.0, nolock, soft, timeo=50, retrans=2] (Talos in-kernel NFSv4 only, §5b; soft per #793)", () => {
+  test("an NFS volume emits mountOptions [nfsvers=4.0, nolock] (Talos does in-kernel NFSv4 only, §5b)", () => {
     const media: WorkloadSpec = {
       name: "worker",
       image: "ghcr.io/0x63616c/www-control-center-worker:main",
@@ -130,13 +130,7 @@ describe("renderWorkload", () => {
     const r = renderWorkload(media);
     expect(r.persistentVolumes).toHaveLength(1);
     const pv = r.persistentVolumes[0];
-    expect(pv.spec.mountOptions).toEqual([
-      "nfsvers=4.0",
-      "nolock",
-      "soft",
-      "timeo=50",
-      "retrans=2",
-    ]);
+    expect(pv.spec.mountOptions).toEqual(["nfsvers=4.0", "nolock"]);
     expect(pv.spec.nfs.server).toBe("192.168.0.218");
     expect(pv.spec.nfs.path).toBe("/volume1/Homelab/media");
   });
@@ -282,35 +276,6 @@ describe("serviceSpecs (replica + NFS knobs, www-j934.17 / www-j934.18)", () => 
     expect(worker?.resources?.memory).toBe("512M");
     expect(worker?.env?.MEDIA_STORAGE_DIR).toBe("/app/media");
     expect(worker?.volumes?.[0]?.mountPath).toBe("/app/media");
-  });
-
-  test("NAS media is soft-mounted with short timeo/retrans so a dead NAS can't wedge pods (#793)", () => {
-    const r = renderWorkload(specOf(serviceSpecs(baseOpts), "api") as WorkloadSpec);
-    const opts = r.persistentVolumes[0]?.spec.mountOptions ?? [];
-    expect(opts).toEqual(expect.arrayContaining(["soft", "timeo=50", "retrans=2", "nfsvers=4.0"]));
-    expect(opts).not.toContain("hard");
-  });
-
-  test("nasEnabled=false mounts an emptyDir at /app/media but keeps the NFS PV/PVC declared (#793)", () => {
-    const enabled = serviceSpecs(baseOpts);
-    const specs = serviceSpecs({ ...baseOpts, nasEnabled: false });
-    for (const name of ["api", "worker"]) {
-      const spec = specOf(specs, name) as WorkloadSpec;
-      expect(spec.volumes?.[0]).toMatchObject({ mountPath: "/app/media", detached: true });
-      expect(spec.env?.MEDIA_STORAGE_DIR).toBe("/app/media");
-      const r = renderWorkload(spec);
-      const on = renderWorkload(specOf(enabled, name) as WorkloadSpec);
-      // Same PV/PVC names as when mounted, so Pulumi neither deletes nor replaces them.
-      expect(r.persistentVolumes.map((pv) => pv.metadata.name)).toEqual(
-        on.persistentVolumes.map((pv) => pv.metadata.name),
-      );
-      expect(r.persistentVolumeClaims).toHaveLength(1);
-      const podSpec = r.deployment.spec.template.spec;
-      expect(podSpec.volumes.some((v) => v.persistentVolumeClaim)).toBe(false);
-      const mount = podSpec.containers[0].volumeMounts?.find((m) => m.mountPath === "/app/media");
-      expect(mount).toBeDefined();
-      expect(podSpec.volumes.find((v) => v.name === mount?.name)?.emptyDir).toEqual({});
-    }
   });
 
   test("media-worker is no longer a declared workload", () => {

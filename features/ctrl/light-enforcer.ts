@@ -4,9 +4,7 @@
  * Desired state is the source of truth; HA is an actuator. Each cycle this
  * reconciles every managed light's desired vs HA-reported state and, on
  * steady-state divergence, branches on the device's `control` policy:
- *   enforce → push desired back onto HA for brightness/color drift (Hue lamps
- *             win, so scenes/party persist); an external ON/OFF change is
- *             always adopted, never fought (GH #789)
+ *   enforce → push desired back onto HA (Hue lamps win, so scenes/party persist)
  *   adopt   → set desired = reported (absorb the external change; switch fixtures
  *             with real wall switches keep working , never fought)
  * Seeding: a device whose desired is null copies reported → desired once (adopt
@@ -142,17 +140,6 @@ export function decideEnforcement(
   // Inside the app-command window: the freshly-set desired wins regardless of
   // policy until it converges or the window expires.
   if (windowOpen(device, now)) return { kind: "push", desired: device.desiredState };
-
-  // An on/off change made OUTSIDE the app (HA UI/API, Hue app, a switch, voice)
-  // is a deliberate human choice: adopt it as the new desired state for every
-  // policy instead of forcing the lamp back (GH #789 , at 1 AM on Oct 28 2026
-  // the enforcer turned every lamp back on ~1s after they were switched off in
-  // HA). `enforce` still re-asserts brightness/color drift. Party mode keeps
-  // enforcing on/off so the wave stays lit; the app's own commands are
-  // covered by the command window above.
-  if (!partyActive && device.desiredState.on !== reported.on) {
-    return { kind: "adopt", desired: reported };
-  }
 
   return lightControl(device) === LightControl.Enforce
     ? { kind: "push", desired: device.desiredState }
