@@ -10,7 +10,7 @@ final class HybridModuleTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for module in modules {
             app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.\(module)", "native"]
-            app.launch()
+            app.launchModuleFromHome()
             let tile = app.descendants(matching: .any)["native-\(module)-tile"].firstMatch
             XCTAssertTrue(tile.waitForExistence(timeout: 30), module)
             XCTAssertGreaterThan(app.frame.width, app.frame.height)
@@ -25,7 +25,8 @@ final class HybridModuleTests: XCTestCase {
                 XCTAssertTrue(app.staticTexts["Walk history"].exists)
             }
             capture("\(module)-detail")
-            app.buttons["module-all"].tap()
+            app.buttons["module-home"].tap()
+            app.buttons["home-classic"].tap()
             XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
             let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
                 object: app.buttons["module-detail"])
@@ -41,7 +42,7 @@ final class HybridModuleTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridWalkActive", "-moduleFlag.walk", "native"]
-        app.launch()
+        app.launchModuleFromHome()
         XCTAssertTrue(app.buttons["Stop walking Zero"].waitForExistence(timeout: 30))
         capture("walk-active-tile")
         app.buttons["module-detail"].tap()
@@ -66,7 +67,7 @@ final class HybridModuleTests: XCTestCase {
             ["-hybridFixtures", "-hybridStill", "-moduleFlag.all", "native"]
         ] {
             app.launchArguments = arguments
-            app.launch()
+            app.launchModuleFromHome()
             // Reconnecting text comes and goes with WebKit retries; the fallback
             // contract is the accessible web surface with no native controls.
             XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
@@ -82,14 +83,14 @@ final class HybridModuleTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.climate", "native", "-moduleFlag.wifi", "native"]
-        app.launch()
-        XCTAssertTrue(app.buttons["module-climate"].waitForExistence(timeout: 30))
-        XCTAssertTrue(app.buttons["module-wifi"].waitForExistence(timeout: 30))
-        XCTAssertFalse(app.buttons["module-lights"].exists)
-        app.buttons["module-wifi"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["native-wifi-tile"].firstMatch.waitForExistence(timeout: 10))
-        app.buttons["module-climate"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["native-climate-tile"].firstMatch.waitForExistence(timeout: 10))
+        app.launchModuleFromHome()
+        XCTAssertTrue(app.descendants(matching: .any)["native-climate-tile"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["module-home"].tap()
+        app.openHomeModule("wifi")
+        XCTAssertTrue(app.descendants(matching: .any)["native-wifi-detail"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["module-home"].tap()
+        app.openHomeModule("climate")
+        XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 10))
         capture("mixed-flags")
         app.terminate()
     }

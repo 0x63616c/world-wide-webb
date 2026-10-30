@@ -6,7 +6,7 @@ final class HybridCamerasTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.cameras", "native"]
-        app.launch()
+        app.launchModuleFromHome()
         XCTAssertTrue(app.descendants(matching: .any)["native-cameras-tile"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
@@ -37,7 +37,7 @@ final class HybridCamerasTests: XCTestCase {
             ["-hybridFixtures", "-moduleFlag.cameras", "native", "-hybridUnavailable"]
         ] {
             app.launchArguments = arguments
-            app.launch()
+            app.launchModuleFromHome()
             XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
             XCTAssertFalse(app.buttons["module-cameras"].exists)
             XCTAssertFalse(app.buttons["module-detail"].exists)
