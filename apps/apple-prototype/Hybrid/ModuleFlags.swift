@@ -11,7 +11,7 @@ enum ModuleFlag: String, Codable, Sendable {
 struct ModuleFlags: Equatable, Sendable {
     /// Live and verified on the wall (WWW-48): these default to native in shipped builds.
     /// Every other module, and any module whose live data is missing, keeps the web board.
-    static let shippedNative: Set<PanelModule> = [.lights, .climate, .fan, .sonos, .weather, .walk]
+    static let shippedNative: Set<PanelModule> = [.lights, .climate, .fan, .weather, .walk]
     /// iOS Settings > Panel > "Web board only": one switch that sends every module back to web.
     static let webOnlyKey = "hybrid.webOnly"
 

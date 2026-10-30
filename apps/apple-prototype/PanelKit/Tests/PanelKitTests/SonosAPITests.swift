@@ -63,6 +63,10 @@ import Testing
         try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: ["media_player.test_beta"])
         try await api.leave(memberIp: "media_player.test_beta", memberUuid: "media_player.test_beta")
         try await api.clearCalibration()
+        try await api.seek(room: "media_player.test_alpha", positionSeconds: 42.5)
+        try await api.setLineIn(deviceIp: "media_player.test_beta", sourceUuid: "media_player.test_beta")
+        try await api.grabTV(beamIp: "media_player.test_beta", beamUuid: "media_player.test_beta")
+        try await api.joinAllToTV(tvEntityId: "media_player.test_beta", memberEntityIds: [])
         let expected: [(String, String)] = [
             ("sonosSetVolume", #"{"deviceIp":"media_player.test_alpha","volume":42}"#),
             ("sonosSetMute", #"{"deviceIp":"media_player.test_beta","muted":true}"#)
@@ -72,7 +76,11 @@ import Testing
             ("sonosGroupJoin", #"{"memberIp":"media_player.test_beta","coordinatorUuid":"media_player.test_alpha"}"#),
             ("sonosGroupJoinAll", #"{"coordinatorEntityId":"media_player.test_alpha","memberEntityIds":["media_player.test_beta"]}"#),
             ("sonosGroupLeave", #"{"memberIp":"media_player.test_beta","memberUuid":"media_player.test_beta"}"#),
-            ("sonosClearCalibration", "{}")
+            ("sonosClearCalibration", "{}"),
+            ("sonosSeek", #"{"room":"media_player.test_alpha","positionSeconds":42.5}"#),
+            ("sonosSetLineIn", #"{"deviceIp":"media_player.test_beta","sourceUuid":"media_player.test_beta"}"#),
+            ("sonosGrabTvToBeam", #"{"beamIp":"media_player.test_beta","beamUuid":"media_player.test_beta"}"#),
+            ("sonosGroupJoinAllToTv", #"{"tvEntityId":"media_player.test_beta","memberEntityIds":[]}"#)
         ]
         let requests = await transport.requests
         #expect(requests.count == expected.count)
@@ -106,6 +114,10 @@ import Testing
         await #expect(throws: PanelAPIError.self) { try await api.joinAll(coordinatorEntityId: "192.0.2.10", memberEntityIds: ["media_player.test_beta"]) }
         await #expect(throws: PanelAPIError.self) { try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: []) }
         await #expect(throws: PanelAPIError.self) { try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: ["invalid"]) }
+        for position in [-1, Double.infinity, Double.nan] {
+            await #expect(throws: PanelAPIError.self) { try await api.seek(room: "media_player.test_alpha", positionSeconds: position) }
+        }
+        await #expect(throws: PanelAPIError.self) { try await api.seek(room: "media_player.x?bad", positionSeconds: 0) }
         #expect(await transport.requests.isEmpty)
     }
 
@@ -128,6 +140,32 @@ import Testing
         await #expect(throws: PanelAPIError.self) { _ = try await api(SonosAPIStub(try fixture("void"))).soundSystem() }
         await #expect(throws: PanelAPIError.self) { _ = try await api(SonosAPIStub(try fixture("void"))).calibrate() }
         await #expect(throws: PanelAPIError.notConfigured) { _ = try await SonosAPI(configuration: nil).soundSystem() }
+    }
+
+    @Test func playbackRequiresCompleteRealSampleAndSeekableSource() throws {
+        let envelope = try JSONSerialization.jsonObject(with: fixture("rooms")) as! [String: Any]
+        let data = (envelope["result"] as! [String: Any])["data"] as! [String: Any]
+        var room = (data["rooms"] as! [[String: Any]])[0]
+        func decode(_ value: [String: Any]) throws -> SonosRoom {
+            try JSONDecoder().decode(SonosRoom.self, from: JSONSerialization.data(withJSONObject: value))
+        }
+        #expect(try decode(room).playbackPosition == nil)
+        room["position"] = 12.5; room["duration"] = 200; room["positionAt"] = "2026-01-01T00:00:00.123Z"
+        let sample = try #require(decode(room).playbackPosition)
+        #expect(sample.position == 12.5)
+        #expect(sample.duration == 200)
+        for key in ["position", "duration", "positionAt"] {
+            var partial = room; partial.removeValue(forKey: key)
+            #expect(try decode(partial).playbackPosition == nil)
+        }
+        for (key, value) in [("position", -1 as Any), ("duration", 0), ("positionAt", "invalid"),
+                             ("sourceKind", "tv"), ("sourceKind", "line-in"), ("availability", "unavailable"),
+                             ("transportState", "STOPPED")] {
+            var invalid = room; invalid[key] = value
+            #expect(try decode(invalid).playbackPosition == nil)
+        }
+        room["position"] = 250
+        #expect(try decode(room).playbackPosition?.position == 200)
     }
 
     private func fixture(_ name: String) throws -> Data {

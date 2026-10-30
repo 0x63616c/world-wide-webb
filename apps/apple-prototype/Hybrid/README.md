@@ -37,7 +37,7 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`photos`, `walk`, `reminders`, `alarms`, `calendar`, `media`, `cameras`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `sonos`,
+`photos`, `walk`, `reminders`, `alarms`, `calendar`, `media`, `cameras`, and `all`. Shipped builds default `lights`, `climate`, `fan`,
 `weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
 module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
 A native flag still shows the web board until that module's live provider has data.
@@ -83,14 +83,15 @@ explicit “Unavailable” text; the router prevents those module placeholders f
 being rendered as readings. Climate and fan labels use independently reported
 values, including “Unavailable” for a missing fan. Off-mode null setpoints stay
 zero instead of inheriting prototype temperatures. Unimplemented providers are
-empty and inert. Commands without a live backend (media-library playback,
-seeking) do nothing; they never mutate fixtures.
+empty and inert. Commands without a live backend (media-library playback) do nothing; they never mutate fixtures.
 
 Sonos identity uses backend IDs independently of room display names. Unknown or
-unavailable rooms are omitted. Missing metadata stays nil, and duration/position
-stay zero. The native controller is `SonosRoomsPage`, which supports grouping and
-volume without the prototype's fixture artwork or unsupported playback scrubber.
-Name-based prototype group shortcuts only resolve when the name is unambiguous.
+unavailable rooms are not actionable. Missing metadata stays nil. Now Playing
+uses a complete coordinator position/duration/sample-time tuple when present;
+otherwise its scrubber is hidden. The full-screen Rooms controller includes
+join/leave/join all, TV/Beam and line-in actions, per-room mute and calibrated
+volume. See WWW-30 below. Name-based prototype shortcuts only resolve when
+unambiguous.
 Lights retain the existing provider's group projection; the API does not report
 individual lamp RGB or party speed. Unreported lamp colors use neutral values.
 
@@ -1064,3 +1065,86 @@ Settings > Panel > Wi-Fi > Native and relaunch. Equivalent launch override:
 Wi-Fi > Web, then relaunch. Do not persist the wall override until that device
 check passes. Simulator tests cannot establish physical backlight or phone
 joining behavior; the wall check remains a rollout step.
+
+
+## Native Sonos now playing and rooms (WWW-30)
+
+Sonos is **web by default**, including shipped builds. Only an explicit native
+flag plus a successful current provider snapshot with an available room routes
+native. Errors/empty responses return to the web board; recovery restores the
+selected native module. Other module routes, including Tesla, Walk, Cameras,
+Wi-Fi and Media, retain their existing providers.
+
+`Hybrid/SonosModule.swift` injects the design worker's `NowPlayingView` with real
+coordinator metadata and artwork, calibrated volume and full-screen Rooms
+navigation. Now Playing's volume uses `.volume`, preserving global/group locks,
+per-room baselines, uncapped displayed percentages and the raw 0–100 write cap.
+Calibration still comes from the server; clear-calibration releases the global
+lock only after acknowledgement. Locks persist in device defaults across
+launches, independently of the web board's local storage.
+
+WWW-42 [API PR #811](https://github.com/0x63616c/world-wide-webb/pull/811) already
+supplies optional `position`, `duration`, `positionAt` and
+`sound.sonosSeek({ room, positionSeconds })`. `positionAt` is the HA sample time,
+not fetch time. The provider resolves the coordinator, requires a complete valid
+sample with positive duration and playing/paused transport, and excludes TV and
+line-in. Old/missing fields hide the scrubber; no fake progress. Playing samples
+advance from their server timestamp and clamp to duration; paused ones stay put.
+Seek targets the current coordinator, clamps to duration, and never retries.
+A missing or failing seek route makes the provider unavailable and returns to web.
+
+Artwork uses the additive [API PR #840](https://github.com/0x63616c/world-wide-webb/pull/840):
+`GET /media/sonos/<coordinator entity ID>/artwork`. HA tokens remain on the server;
+native requests use the same configured Access headers and an ephemeral session
+that refuses redirects. No private HA URL is fetched directly. Missing artwork
+or an absent artwork route shows “Artwork unavailable”, while room controls keep
+working. No fixture cover is substituted. This app PR does not depend on the
+artwork PR merging first.
+
+Room actions use stable IDs and the provider's serialized command queue. TV mode
+on a follower selects TV on that chosen room and rejoins all other available
+rooms under it. No room name is assumed to identify the Beam; choose the room
+wired to the TV. Line-in availability likewise depends on the chosen hardware.
+
+### Exact presentation seams
+
+- `Sources/NowPlayingView.swift`: add defaulted inputs for selected room ID,
+  scrubber visibility, volume value/command, artwork content and Rooms action.
+  Existing callers keep the same mock defaults, layout, styling and sheet.
+- `Sources/Live/LiveSonosProvider.swift`: extend the existing live provider with
+  coordinator playback projection, seek/source operations and optional persisted
+  volume locks. This is provider logic, with no design-worker view changes.
+
+No other `Sources/` files, `UITests/`, design docs, scripts or iterations changed.
+
+### Wall verification and flag flip
+
+Before enabling on the wall, verify art/track and each transport button; position
+and seek on a seekable track; no scrubber on TV/line-in or legacy responses;
+individual and locked calibrated volume; mute; join/leave/join all; TV/Beam and
+line-in; calibration/clear; and recovery after a disconnected backend. The wall
+check is still outstanding; this change does not flip its flag or ship a build.
+
+After that check, use launch argument `-moduleFlag.sonos native`, or iPad Settings
+> Panel > Sonos > Native and relaunch. Rollback: `-moduleFlag.sonos web`, or the
+same setting set to Web. For an iPad app running on Mac:
+
+```sh
+defaults write co.worldwidewebb.theworkflowengine moduleFlag.sonos -string native
+# Relaunch. Rollback:
+defaults write co.worldwidewebb.theworkflowengine moduleFlag.sonos -string web
+```
+
+Synthetic smoke launches (no live network or speaker writes):
+
+```text
+-hybridFixtures -moduleFlag.sonos native
+-hybridFixtures -hybridSonosPlayback -hybridDetail -moduleFlag.sonos native
+-hybridFixtures -hybridUnavailable -moduleFlag.sonos native
+```
+
+The first uses the legacy response without position, the second a paused sampled
+track, and the third verifies web fallback. Fixture writes fail closed unless a
+unit test explicitly supplies an acknowledgement. Unit tests cover decoding,
+exact mutations, coordinator seeking, TV regrouping, calibration/locks, failed
+writes and recovery. `HybridModuleTests` captures native screens at 1366×1024.

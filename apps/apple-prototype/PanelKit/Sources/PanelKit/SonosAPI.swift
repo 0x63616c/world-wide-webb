@@ -35,6 +35,21 @@ public struct SonosRoom: Decodable, Sendable, Equatable, Identifiable {
     public let albumArtUri: String?
     public let availability: SonosAvailability
     public let groupStatus: String
+    // WWW-42: all are optional so old servers still decode without invented progress.
+    public let position: Double?
+    public let duration: Double?
+    public let positionAt: String?
+
+    public var playbackPosition: SonosPlaybackPosition? {
+        guard availability == .available, sourceKind != .tv, sourceKind != .lineIn,
+              transportState == "PLAYING" || transportState == "PAUSED_PLAYBACK",
+              let position, position.isFinite, position >= 0,
+              let duration, duration.isFinite, duration > 0, let positionAt else { return nil }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = fractional.date(from: positionAt) ?? ISO8601DateFormatter().date(from: positionAt) else { return nil }
+        return SonosPlaybackPosition(position: min(position, duration), duration: duration, updatedAt: date)
+    }
 
     /// Like features/sound/calibration.ts: display can exceed 100; raw writes cannot.
     public var displayVolume: Double {
@@ -47,6 +62,12 @@ public struct SonosRoom: Decodable, Sendable, Equatable, Identifiable {
         let value = Double(percent) * scale
         return Int(min(100, max(0, value)).rounded())
     }
+}
+
+public struct SonosPlaybackPosition: Sendable, Equatable {
+    public let position: Double
+    public let duration: Double
+    public let updatedAt: Date
 }
 
 public struct SonosSoundSystem: Decodable, Sendable, Equatable {
@@ -109,6 +130,33 @@ public struct SonosAPI: Sendable {
         try await write("sonosGroupLeave", Input(memberIp: memberIp, memberUuid: memberUuid))
     }
 
+    public func seek(room: String, positionSeconds: Double) async throws {
+        guard room.range(of: "^media_player\\.[a-z0-9_]+$", options: .regularExpression) != nil,
+              positionSeconds.isFinite, positionSeconds >= 0 else { throw Self.invalid("Invalid seek target.") }
+        struct Input: Encodable, Sendable { let room: String; let positionSeconds: Double }
+        try await write("sonosSeek", Input(room: room, positionSeconds: positionSeconds))
+    }
+
+    public func setLineIn(deviceIp: String, sourceUuid: String) async throws {
+        guard !sourceUuid.isEmpty else { throw Self.invalid("A source is required.") }
+        struct Input: Encodable, Sendable { let deviceIp: String; let sourceUuid: String }
+        try await write("sonosSetLineIn", Input(deviceIp: deviceIp, sourceUuid: sourceUuid))
+    }
+
+    public func grabTV(beamIp: String, beamUuid: String) async throws {
+        guard !beamUuid.isEmpty else { throw Self.invalid("A TV room is required.") }
+        struct Input: Encodable, Sendable { let beamIp: String; let beamUuid: String }
+        try await write("sonosGrabTvToBeam", Input(beamIp: beamIp, beamUuid: beamUuid))
+    }
+
+    public func joinAllToTV(tvEntityId: String, memberEntityIds: [String]) async throws {
+        guard tvEntityId.hasPrefix("media_player."), memberEntityIds.allSatisfy({ $0.hasPrefix("media_player.") }) else {
+            throw Self.invalid("TV grouping requires media_player entity IDs.")
+        }
+        struct Input: Encodable, Sendable { let tvEntityId: String; let memberEntityIds: [String] }
+        try await write("sonosGroupJoinAllToTv", Input(tvEntityId: tvEntityId, memberEntityIds: memberEntityIds))
+    }
+
     public func calibrate() async throws -> [String: Double] {
         try await client.mutation("sound.sonosCalibrate", input: EmptyInput(), as: [String: Double].self)
     }
@@ -138,14 +186,15 @@ private struct SonosAcknowledgement: Decodable, Sendable {
 }
 
 /// tRPC serializes an undefined mutation result as {"result":{}}. WWW-11's
-/// generic envelope requires `data`. Normalize only the seven known void routes;
+/// generic envelope requires `data`. Normalize only the known void routes;
 /// errors and malformed success envelopes must still fail in PanelAPIClient.
 private struct SonosVoidTransport: PanelTransport {
     let base: any PanelTransport
     private static let procedures: Set<String> = [
         "sound.sonosSetVolume", "sound.sonosSetMute", "sound.sonosTransport",
         "sound.sonosGroupJoin", "sound.sonosGroupJoinAll", "sound.sonosGroupLeave",
-        "sound.sonosClearCalibration"
+        "sound.sonosClearCalibration", "sound.sonosSeek", "sound.sonosSetLineIn",
+        "sound.sonosGrabTvToBeam", "sound.sonosGroupJoinAllToTv"
     ]
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
