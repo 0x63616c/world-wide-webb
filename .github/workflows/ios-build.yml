@@ -1,7 +1,10 @@
 # Builds the iOS Expo kiosk shell (apps/panel) and uploads it to TestFlight.
 # The app is a thin native wrapper that loads https://app.worldwidewebb.co at
 # runtime (apps/panel/app.config.ts), so this only needs to ship when the native
-# shell changes , plus a monthly cron to refresh the 90-day TestFlight build expiry.
+# shell changes. Uploads are MANUAL ONLY (workflow_dispatch): the native SwiftUI
+# hybrid app (apps/apple-prototype, WWW-18/WWW-26) ships on the same bundle id, and
+# an automatic Expo upload on push or cron would replace it on the wall (WWW-45).
+# Dispatch this workflow to roll the wall back to the Expo shell.
 # It targets the same bundle id as the original "Evee" app, so builds land as updates
 # to the existing TestFlight app (was 1.0, build 48). Signing reuses fastlane match
 # against github.com/0x63616c/certificates. Secrets from SOPS vault (CC-k8t7).
@@ -15,15 +18,6 @@ on:
       - "bun.lock"
       - ".github/workflows/ios-build.yml"
       - "scripts/test-panel-startup.ts"
-  push:
-    branches: [main]
-    paths:
-      - "apps/panel/**"
-      - "package.json"
-      - "bun.lock"
-      - ".github/workflows/ios-build.yml"
-  schedule:
-    - cron: "0 12 1 * *" # 1st of every month at noon UTC , keeps the TestFlight build fresh (90-day expiry)
   workflow_dispatch:
     inputs:
       regenerate_profiles:
@@ -53,7 +47,7 @@ jobs:
   # PR gate: compile the native shell WITHOUT signing, secrets or upload, so a
   # broken Expo prebuild / native module fails the PR instead of
   # surfacing after merge, when main has already deployed. The upload job below
-  # is push-only, so TestFlight never sees a PR build.
+  # is manual-only (workflow_dispatch), so TestFlight never sees a PR build.
   verify:
     name: Verify native build (no signing)
     if: github.event_name == 'pull_request'
@@ -95,7 +89,8 @@ jobs:
 
   build:
     name: Build & Upload to TestFlight
-    if: github.event_name != 'pull_request'
+    # Manual only (WWW-45): never overwrite the native panel build automatically.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-26
     timeout-minutes: 20
     # Protected environment: AGE_PRIVATE_KEY is gated here (CC-k8t7).

@@ -7,7 +7,7 @@ import {
   tunnelCnameTarget,
 } from "../src/routes.ts";
 
-// These pin the LIVE state exactly. Ingress and CNAMEs are now symmetric: the
+// These pin the live hosts. Narrow API paths share the app hostname; the
 // stray hooks-test CNAME (which had no ingress rule) was deleted alongside the
 // evee-webhooks tunnel in #127.
 // dashboard.worldwidewebb.co removed in CC-2ff. The flattened
@@ -206,4 +206,31 @@ describe("tunnelCnameTarget", () => {
   test("builds the cfargotunnel host", () => {
     expect(tunnelCnameTarget("t-xyz")).toBe("t-xyz.cfargotunnel.com");
   });
+});
+
+test("releases reaches API before the app catch-all without changing other paths or DNS", () => {
+  const routes = desiredIngressRules(ZONE);
+  const resolve = (path: string) =>
+    routes.find(
+      (route) =>
+        route.hostname === "app.worldwidewebb.co" &&
+        (!route.path ||
+          new RegExp(route.path).test(new URL(path, "https://app.worldwidewebb.co").pathname)),
+    );
+  for (const path of ["/api/releases/latest", "/api/releases/latest?app=panel"]) {
+    expect(resolve(path)?.service).toBe("http://api.control-center.svc.cluster.local:4201");
+    expect(resolve(path)?.path).toBe("^/api/releases/latest$");
+  }
+  for (const path of [
+    "/",
+    "/trpc/releases.latest",
+    "/api/alarms",
+    "/api/releases/latest/other",
+    "/api/releases/latest-other",
+  ]) {
+    expect(resolve(path)?.service).toBe("http://web.control-center.svc.cluster.local:80");
+  }
+  expect(
+    desiredCnames(ZONE).filter((route) => route.hostname === "app.worldwidewebb.co"),
+  ).toHaveLength(1);
 });

@@ -1,0 +1,140 @@
+# Manual native replacement for the Expo kiosk, using the existing TestFlight app.
+name: Apple Panel TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Native source ref (must contain the hybrid Panel target)
+        type: string
+        default: WWW-8-apple-prototype
+        required: true
+      regenerate_profiles:
+        description: Regenerate signing profiles once after an App ID capability change
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-panel-testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: macos-26
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          path: native
+
+      - name: Select newest Xcode 26.x
+        run: |
+          set -euo pipefail
+          XCODE_APP=$(python3 - <<'PYCODE'
+          import glob, re
+          candidates = []
+          for path in glob.glob('/Applications/Xcode*.app'):
+              import subprocess
+              version = subprocess.check_output([path + '/Contents/Developer/usr/bin/xcodebuild', '-version'], text=True)
+              match = re.search(r'Xcode (26(?:\.\d+)*)', version)
+              if match:
+                  candidates.append((tuple(map(int, match[1].split('.'))), path))
+          if not candidates:
+              raise SystemExit('No Xcode 26.x installed; update the runner image for the native SDK requirement.')
+          print(max(candidates)[1])
+          PYCODE
+          )
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install XcodeGen and check native SDK requirements
+        run: |
+          brew install xcodegen
+          ruby -ryaml -e '
+            spec = YAML.load_file("native/apps/apple-prototype/project.yml")
+            panel = spec.fetch("targets").fetch("Panel") { abort "Selected ref has no Panel target; use WWW-18-hybrid-shell until it merges into WWW-8-apple-prototype." }
+            required = panel["deploymentTarget"] || spec.dig("options", "deploymentTarget", "iOS")
+            sdk = `xcrun --sdk iphoneos --show-sdk-version`.strip
+            abort "Native Panel requires iOS #{required}, but installed SDK is #{sdk}; update the runner/Xcode image." if Gem::Version.new(required.to_s) > Gem::Version.new(sdk)
+          '
+
+      # Decrypt vault — the only step touching AGE_PRIVATE_KEY. No set -x here.
+      - name: Decrypt vault (SOPS+age)
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        run: |
+          brew install sops age 2>/dev/null || true
+
+          extract() { sops -d "$GITHUB_WORKSPACE/secrets/vault.yaml" | grep "^$1:" | cut -d' ' -f2-; }
+
+          MATCH_PWD=$(extract APP_STORE_CONNECT_API__MATCH_PASSWORD)
+          GIT_AUTH=$(extract MATCH_GIT_BASIC_AUTHORIZATION)
+          KEY_ID=$(extract APP_STORE_CONNECT_API__KEY_ID)
+          ISSUER_ID=$(extract APP_STORE_CONNECT_API__ISSUER_ID)
+          P8=$(extract APP_STORE_CONNECT_API__P8_CONTENT)
+          CF_ID=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_ID)
+          CF_SECRET=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_SECRET)
+          ALARM_TOKEN=$(extract PANEL_ALARMS__TOKEN)
+
+          echo "::add-mask::$MATCH_PWD"
+          echo "::add-mask::$GIT_AUTH"
+          echo "::add-mask::$KEY_ID"
+          echo "::add-mask::$ISSUER_ID"
+          echo "::add-mask::$P8"
+          echo "::add-mask::$CF_ID"
+          echo "::add-mask::$CF_SECRET"
+          echo "::add-mask::$ALARM_TOKEN"
+
+          echo "MATCH_PASSWORD=$MATCH_PWD" >> "$GITHUB_ENV"
+          echo "MATCH_GIT_BASIC_AUTHORIZATION=$GIT_AUTH" >> "$GITHUB_ENV"
+          echo "ASC_KEY_ID=$KEY_ID" >> "$GITHUB_ENV"
+          echo "ASC_ISSUER_ID=$ISSUER_ID" >> "$GITHUB_ENV"
+          echo "ASC_KEY_CONTENT=$P8" >> "$GITHUB_ENV"
+          echo "CF_ACCESS_KIOSK_CLIENT_ID=$CF_ID" >> "$GITHUB_ENV"
+          echo "CF_ACCESS_KIOSK_CLIENT_SECRET=$CF_SECRET" >> "$GITHUB_ENV"
+          echo "ALARM_API_TOKEN=$ALARM_TOKEN" >> "$GITHUB_ENV"
+          echo "MATCH_GIT_URL=https://github.com/0x63616c/certificates.git" >> "$GITHUB_ENV"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/panel
+
+      - name: Build and upload native Panel to TestFlight
+        working-directory: apps/panel
+        run: bundle exec fastlane release_native
+        env:
+          NATIVE_ROOT: ${{ github.workspace }}/native/apps/apple-prototype
+          MATCH_PASSWORD: ${{ env.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_URL: ${{ env.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ env.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ env.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ env.ASC_KEY_CONTENT }}
+          CF_ACCESS_KIOSK_CLIENT_ID: ${{ env.CF_ACCESS_KIOSK_CLIENT_ID }}
+          CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ env.CF_ACCESS_KIOSK_CLIENT_SECRET }}
+          ALARM_API_TOKEN: ${{ env.ALARM_API_TOKEN }}
+          MATCH_REGENERATE: ${{ inputs.regenerate_profiles }}
+
+      - name: Record uploaded panel build
+        run: |
+          if ! curl -fsS --retry 3 --connect-timeout 10 --max-time 30 \
+            -H "CF-Access-Client-Id: $CF_ACCESS_KIOSK_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_KIOSK_CLIENT_SECRET" \
+            -H "Authorization: Bearer $ALARM_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data "{\"app\":\"panel\",\"build\":$PANEL_UPLOADED_BUILD}" \
+            https://app.worldwidewebb.co/api/releases/latest; then
+            echo "::warning::TestFlight upload succeeded, but recording the latest panel build failed."
+          fi

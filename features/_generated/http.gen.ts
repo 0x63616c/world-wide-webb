@@ -5,12 +5,18 @@
 import type { HttpRoute } from "@app-kit";
 import { routes as acHttp } from "../ac/http";
 import { routes as boothHttp } from "../booth/http";
+import { routes as camerasHttp } from "../cameras/http";
 import { routes as eventsHttp } from "../events/http";
+import { routes as releasesHttp } from "../releases/http";
+import { routes as soundHttp } from "../sound/http";
 import { routes as wakesHttp } from "../wakes/http";
 
 export const GENERATED_ROUTES: readonly HttpRoute[] = [
   ...acHttp,
   ...boothHttp,
+  ...camerasHttp,
   ...eventsHttp,
+  ...releasesHttp,
+  ...soundHttp,
   ...wakesHttp,
 ];

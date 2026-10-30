@@ -12,6 +12,17 @@ const ha = haFromConfig(config);
 
 type HaWriter = Pick<HomeAssistantClient, "callService">;
 
+/** Seek through the same HA client and error path as the other transport commands. */
+export async function sonosSeek(
+  { room, positionSeconds }: { room: string; positionSeconds: number },
+  client: HaWriter = ha,
+): Promise<void> {
+  await client.callService("media_player", "media_seek", {
+    entity_id: room,
+    seek_position: positionSeconds,
+  });
+}
+
 export async function sonosSetVolume(
   { deviceIp, volume }: { deviceIp: string; volume: number },
   client: HaWriter = ha,

@@ -18,6 +18,7 @@ import {
   sonosGroupJoinAll,
   sonosGroupJoinAllToTv,
   sonosGroupLeave,
+  sonosSeek,
   sonosSetLineIn,
   sonosSetMute,
   sonosSetVolume,
@@ -42,6 +43,20 @@ const SoundSystemRoomSchema = z.object({
   albumArtUri: z.string().nullable(),
   availability: z.enum(["available", "unavailable", "unknown"]),
   groupStatus: z.string(),
+  position: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("Media position in seconds from Home Assistant"),
+  duration: z
+    .number()
+    .nonnegative()
+    .optional()
+    .describe("Media duration in seconds from Home Assistant"),
+  positionAt: z.iso
+    .datetime()
+    .optional()
+    .describe("UTC timestamp when the media position was sampled by Home Assistant"),
 });
 
 const SoundSystemSchema = z.object({
@@ -79,6 +94,23 @@ const soundRouter = router({
       }),
     )
     .mutation(({ input }) => sonosTransport(input)),
+
+  sonosSeek: publicProcedure
+    .input(
+      z.object({
+        room: z
+          .string()
+          .regex(/^media_player\.[a-z0-9_]+$/)
+          .describe(
+            "Room HA entity ID (soundSystem room.uuid; coordinatorUuid for group playback)",
+          ),
+        positionSeconds: z
+          .number()
+          .nonnegative()
+          .describe("Absolute media position in seconds; fractional seconds are accepted"),
+      }),
+    )
+    .mutation(({ input }) => sonosSeek(input)),
 
   sonosGroupJoin: publicProcedure
     .input(z.object({ memberIp: z.string(), coordinatorUuid: z.string().min(1) }))

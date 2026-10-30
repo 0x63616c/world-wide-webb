@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createMemoryCalibrationStore } from "./calibration-store";
 import {
   calibrateSoundSystem,
@@ -22,6 +22,113 @@ const bedroom = {
 };
 
 describe("Home Assistant sound-system snapshot", () => {
+  it("reads optional playback fields from the existing snapshot, preserving fractional seconds and sample time", async () => {
+    const getEntities = vi.fn().mockResolvedValue([
+      {
+        ...bedroom,
+        attributes: {
+          ...bedroom.attributes,
+          media_position: 12.5,
+          media_duration: 180.75,
+          media_position_updated_at: "2026-01-01T13:00:00+01:00",
+        },
+      },
+    ]);
+    const { rooms } = await getSoundSystem(
+      { isConfigured: () => true, getEntities },
+      createMemoryCalibrationStore(),
+    );
+    expect(rooms[0]).toMatchObject({
+      position: 12.5,
+      duration: 180.75,
+      positionAt: "2026-01-01T12:00:00.000Z",
+    });
+    expect(getEntities).toHaveBeenCalledExactlyOnceWith("media_player");
+  });
+
+  it("omits playback fields when the source has none (including line-in)", () => {
+    const room = roomFromHaEntity(bedroom);
+    for (const field of ["position", "duration", "positionAt"])
+      expect(room).not.toHaveProperty(field);
+  });
+
+  it.each([
+    undefined,
+    null,
+    "12",
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])("omits invalid numeric playback attributes: %s", (value) => {
+    const room = roomFromHaEntity({
+      ...bedroom,
+      attributes: {
+        ...bedroom.attributes,
+        media_position: value,
+        media_duration: value,
+        media_position_updated_at: "2026-01-01T12:00:00Z",
+      },
+    });
+    for (const field of ["position", "duration", "positionAt"])
+      expect(room).not.toHaveProperty(field);
+  });
+
+  it.each([
+    undefined,
+    null,
+    "invalid",
+    "2026-01-01T12:00:00",
+    "2026-02-30T12:00:00Z",
+  ])("keeps valid position/duration without inventing a timestamp: %s", (time) => {
+    const room = roomFromHaEntity({
+      ...bedroom,
+      state: "paused",
+      attributes: {
+        ...bedroom.attributes,
+        media_position: 0,
+        media_duration: 0,
+        media_position_updated_at: time,
+      },
+    });
+    expect(room).toMatchObject({ position: 0, duration: 0 });
+    expect(room).not.toHaveProperty("positionAt");
+  });
+
+  it("keeps position and duration independently optional", () => {
+    const positionOnly = roomFromHaEntity({
+      ...bedroom,
+      attributes: { ...bedroom.attributes, media_position: 10 },
+    });
+    expect(positionOnly?.position).toBe(10);
+    expect(positionOnly).not.toHaveProperty("duration");
+    const durationOnly = roomFromHaEntity({
+      ...bedroom,
+      attributes: { ...bedroom.attributes, media_duration: 100 },
+    });
+    expect(durationOnly?.duration).toBe(100);
+    expect(durationOnly).not.toHaveProperty("position");
+    expect(durationOnly).not.toHaveProperty("positionAt");
+  });
+
+  it.each([
+    "unavailable",
+    "unknown",
+    "off",
+  ])("omits stale playback fields for %s players", (state) => {
+    const room = roomFromHaEntity({
+      ...bedroom,
+      state,
+      attributes: {
+        ...bedroom.attributes,
+        media_position: 12,
+        media_duration: 180,
+        media_position_updated_at: "2026-01-01T12:00:00Z",
+      },
+    });
+    for (const field of ["position", "duration", "positionAt"])
+      expect(room).not.toHaveProperty(field);
+  });
+
   it("uses HA entity identity and distinguishes idle from unavailable", async () => {
     const snapshot = await getSoundSystem(
       {

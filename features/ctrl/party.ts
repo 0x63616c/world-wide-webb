@@ -24,24 +24,16 @@ import { eq } from "drizzle-orm";
 import { db, deviceStateStore } from "./db";
 import { ha } from "./deps";
 import {
+  coerceLampModeSpeed,
   LAMP_MODE_SPEED_CONFIG,
   LampMode,
-  LampModeSpeed,
+  type LampModeSpeed,
   partyColorsAtTick,
   type RgbColor,
 } from "./lamp-scenes";
 import { LAMP_MODE_SINGLETON_ID, lampMode } from "./schema";
 
 // ─── pure helpers ──────────────────────────────────────────────────────────────
-
-/** Coerce a stored speed string to a valid LampModeSpeed, defaulting to Medium. */
-function coerceSpeed(speed: string | null | undefined): LampModeSpeed {
-  return speed === LampModeSpeed.Slow ||
-    speed === LampModeSpeed.Fast ||
-    speed === LampModeSpeed.Medium
-    ? speed
-    : LampModeSpeed.Medium;
-}
 
 /** Build the `light.turn_on` params for one lamp in the party wave. */
 export function partyTurnOnParams(
@@ -85,7 +77,7 @@ export function decidePartyAction(
 
   if (!wantParty) return status.running ? { kind: "stop" } : { kind: "noop" };
 
-  const speed = coerceSpeed(row.speed);
+  const speed = coerceLampModeSpeed(row.speed);
   if (status.running && status.speed === speed) return { kind: "noop" };
   return { kind: "start", speed };
 }

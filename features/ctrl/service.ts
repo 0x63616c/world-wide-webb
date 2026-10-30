@@ -26,6 +26,7 @@ import {
   assignMoodColors,
   BLUE_RGB,
   clampWhiteKelvin,
+  coerceLampModeSpeed,
   DEFAULT_WHITE_SCENE_KELVIN,
   LampMode,
   type LampModeSpeed,
@@ -44,6 +45,16 @@ import {
 // ─── types ───────────────────────────────────────────────────────────────────
 
 interface LampState {
+  perLamp?: {
+    /** Stable registry ID and display label, independent of database row IDs. */
+    id: string;
+    name: string;
+    on: boolean;
+    brightness: number;
+    color?: LightColor;
+  }[];
+  speed?: LampModeSpeed;
+  colorSlot?: LampColorSlot;
   on: boolean;
   /** Number of lamp entities currently on. */
   count: number;
@@ -350,6 +361,22 @@ function deriveSceneFromDesired(onLampStates: (DeviceLightState | null)[]): Lamp
   return scene;
 }
 
+/** A slot is selected only when its saved color uniquely matches every on-lamp. */
+function deriveColorSlot(
+  onLampStates: (DeviceLightState | null)[],
+  savedColors: SavedLampColor[],
+): LampColorSlot | undefined {
+  if (onLampStates.length === 0) return undefined;
+  const matches = savedColors.filter(({ hex }) => {
+    const rgb = hexToRgb(hex);
+    const xy = rgbToXy(rgb);
+    return onLampStates.every(
+      (state) => rgbEquals(state?.color?.rgb, rgb) || xyEquals(state?.color?.xy, xy),
+    );
+  });
+  return matches.length === 1 ? matches[0]?.slot : undefined;
+}
+
 // ─── public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -373,8 +400,10 @@ export async function getControlsState(
 
   // Lamp/light/fan state is all read from device_state (desired-authoritative).
   let deviceRows: (typeof deviceState.$inferSelect)[] = [];
+  let devicesRead = false;
   try {
     deviceRows = await store.list();
+    devicesRead = true;
   } catch (err) {
     // DB unreachable , no rows; every managed device reads unavailable (shimmer).
     getLogger().warn({ err }, "getControlsState: DB read failed, devices appear unavailable");
@@ -405,9 +434,27 @@ export async function getControlsState(
 
   const anyLightOn = fixtureEffectives.some((e) => e.on);
 
-  const activeScene = await resolveActiveScene(lampsOn.map((e) => e.state));
+  const mode = await readLampMode();
+  const onLampStates = lampsOn.map((e) => e.state);
+  const activeScene =
+    mode.mode === LampMode.Party ? LampMode.Party : deriveSceneFromDesired(onLampStates);
   const savedColors = await readSavedLampColors();
   const whiteKelvin = await readWhiteKelvin();
+  const colorSlot =
+    mode.mode === LampMode.Party ? undefined : deriveColorSlot(onLampStates, savedColors);
+  const perLamp = lampEntries().flatMap((entry, index) => {
+    const effective = lampEffectives[index];
+    if (!effective?.state) return [];
+    return [
+      {
+        id: entry.id,
+        name: entry.label,
+        on: effective.on,
+        brightness: Math.min(100, Math.max(0, brightnessRawToPct(effective.state.brightness))),
+        ...(effective.state.color ? { color: effective.state.color } : {}),
+      },
+    ];
+  });
 
   // Fan = the climate row's desired.fanMode (www-unxz.2), desired-authoritative
   // with a real `pending` from desired-vs-reported convergence.
@@ -426,6 +473,9 @@ export async function getControlsState(
 
   return {
     lamps: {
+      ...(devicesRead ? { perLamp } : {}),
+      ...(mode.speed ? { speed: mode.speed } : {}),
+      ...(colorSlot ? { colorSlot } : {}),
       on: anyLampOn,
       count: lampsOn.length,
       brightness: avgBrightness,
@@ -452,21 +502,6 @@ export async function getControlsState(
     cabinet: { on: cabinetOn, pending: false },
     all: { on: allOn, pending: false },
   };
-}
-
-/**
- * Resolve the active scene. The persistent lamp_mode row wins: a non-"none" mode
- * (e.g. "party") is reported directly , the animation is owned by the worker, so
- * the API can't read it from memory and must take it from the DB row (www-7d5b.3.4).
- * Otherwise it falls back to the color scene the on-lamps' desired colors agree
- * on (www-7d5b.2.4).
- */
-async function resolveActiveScene(
-  onLampStates: (DeviceLightState | null)[],
-): Promise<ActiveScene | null> {
-  const mode = await readLampMode();
-  if (mode !== LampMode.None) return mode;
-  return deriveSceneFromDesired(onLampStates);
 }
 
 /**
@@ -499,17 +534,19 @@ async function clearLampMode(): Promise<void> {
 }
 
 /** Read the persistent lamp_mode (the singleton row); "none" when absent/unreadable. */
-async function readLampMode(): Promise<LampMode> {
+async function readLampMode(): Promise<{ mode: LampMode; speed?: LampModeSpeed }> {
   try {
     const rows = await db
-      .select({ mode: lampMode.mode })
+      .select({ mode: lampMode.mode, speed: lampMode.speed })
       .from(lampMode)
       .where(eq(lampMode.id, LAMP_MODE_SINGLETON_ID))
       .limit(1);
-    const mode = rows[0]?.mode;
-    return mode === LampMode.Party ? LampMode.Party : LampMode.None;
+    const row = rows[0];
+    return row?.mode === LampMode.Party
+      ? { mode: LampMode.Party, speed: coerceLampModeSpeed(row.speed) }
+      : { mode: LampMode.None };
   } catch {
-    return LampMode.None;
+    return { mode: LampMode.None };
   }
 }
 
