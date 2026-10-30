@@ -51,8 +51,8 @@ struct ModuleTile: View {
     private var calendar: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(spacing: 0) {
-                Text(fixtureTime(store.now, format: "EEE").uppercased()).font(.system(size: compact ? 13 : 16, weight: .semibold)).foregroundStyle(.red)
-                Text(fixtureTime(store.now, format: "d")).font(.system(size: compact ? 44 : 60, weight: .light))
+                Text(store.calendar.dateText(at: store.now, format: "EEE").uppercased()).font(.system(size: compact ? 13 : 16, weight: .semibold)).foregroundStyle(.red)
+                Text(store.calendar.dateText(at: store.now, format: "d")).font(.system(size: compact ? 44 : 60, weight: .light))
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("UP NEXT").font(.system(size: compact ? 11 : 13, weight: .semibold)).foregroundStyle(.secondary)
