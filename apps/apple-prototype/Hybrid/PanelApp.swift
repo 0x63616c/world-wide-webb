@@ -3,11 +3,20 @@ import PanelKit
 
 @main
 struct PanelApp: App {
+    private var fixtureMotionPhase: Double? {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.contains("-hybridFixtures") && arguments.contains("-hybridStill") ? 0 : nil
+        #else
+        return nil
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
                 Color.clear // Unit-test hosting must not start WebKit or provider networking.
-            } else { PanelRoot() }
+            } else { PanelRoot().environment(\.motionPhase, fixtureMotionPhase) }
         }
     }
 }

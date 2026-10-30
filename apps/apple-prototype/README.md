@@ -34,6 +34,11 @@ evidence off the mini before removing both directories. `compare.sh <images>
 <references> <iteration> home` makes only the Home/Lamps reference row when the
 other historical comparison screens are outside the follow-up's scope.
 
+`-hybridFixtures -hybridStill` freezes decorative motion through the existing
+`motionPhase` environment in DEBUG Panel builds. Provider clocks and write paths
+are unchanged. Functional module tours use it to avoid perpetual fan/sky effects
+blocking XCTest idle detection; alarm timing tours retain live motion.
+
 Use Xcode 27 and XcodeGen on the build mini:
 
 ```sh

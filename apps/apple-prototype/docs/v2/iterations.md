@@ -373,3 +373,23 @@ verification and deterministic Home recapture are running on the restored
 source. The remaining branch changes are harness isolation, focused comparison
 support, a fan feedback wait in the UI test, and this experiment log. The design
 score goal remains unmet; no merge or TestFlight upload is claimed.
+
+### WWW-54 restored verification — fixture harness follow-up
+
+All five restored builds, both prototype unit/render suites and the full Panel
+unit scheme pass. Restored Home is pixel-identical to archived main (RGB MAE
+0.000000/255); its independent relaunch pair passes at 0.027648/255. Live margins
+pass. The navigation tour initially misses More after dismissing Climate; its
+activity trace shows Home still selected. Preserve the failure and retry the
+unchanged test serially after the other tours. No assertion is weakened.
+
+Panel-Smoke completes 10/11 cases successfully on the correct 1366×1024 device.
+The multi-module case times out waiting for the detail toolbar to disappear
+on returning to web, after repeated 60-second app-idle waits. Its Climate portion
+alone consumes over twelve minutes while continuous decorative effects run.
+Add DEBUG-only `-hybridFixtures -hybridStill`, reusing the existing `motionPhase`
+environment to stop decorative fan/sky effects in functional module tours.
+Provider clocks, write paths, assertions and the separate real-time alarm tests
+remain unchanged. Normal/release rendering and the scored prototype are unchanged.
+The affected native builds and fixture tests are being reverified. This is a
+verification harness fix, not a fourth design iteration or an accepted redesign.

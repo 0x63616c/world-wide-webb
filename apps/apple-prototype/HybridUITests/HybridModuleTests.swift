@@ -5,10 +5,11 @@ final class HybridModuleTests: XCTestCase {
     func testEveryNativeModuleTileAndDetailUsesProviderFixtures() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
+        // Functional fixture tours keep decorative effects still so XCTest can reach idle.
         let modules = ["lights", "climate", "fan", "weather", "wifi", "sonos", "walk"]
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for module in modules {
-            app.launchArguments = ["-hybridFixtures", "-moduleFlag.\(module)", "native"]
+            app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.\(module)", "native"]
             app.launch()
             let tile = app.descendants(matching: .any)["native-\(module)-tile"].firstMatch
             XCTAssertTrue(tile.waitForExistence(timeout: 30), module)
@@ -39,7 +40,7 @@ final class HybridModuleTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridWalkActive", "-moduleFlag.walk", "native"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridWalkActive", "-moduleFlag.walk", "native"]
         app.launch()
         XCTAssertTrue(app.buttons["Stop walking Zero"].waitForExistence(timeout: 30))
         capture("walk-active-tile")
@@ -58,11 +59,11 @@ final class HybridModuleTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for arguments in [
-            ["-hybridFixtures"],
-            ["-hybridFixtures", "-hybridUnavailable", "-moduleFlag.lights", "native"],
-            ["-hybridFixtures", "-hybridUnavailable", "-moduleFlag.walk", "native"],
-            ["-hybridFixtures", "-moduleFlag.walk", "web"],
-            ["-hybridFixtures", "-moduleFlag.all", "native"]
+            ["-hybridFixtures", "-hybridStill"],
+            ["-hybridFixtures", "-hybridStill", "-hybridUnavailable", "-moduleFlag.lights", "native"],
+            ["-hybridFixtures", "-hybridStill", "-hybridUnavailable", "-moduleFlag.walk", "native"],
+            ["-hybridFixtures", "-hybridStill", "-moduleFlag.walk", "web"],
+            ["-hybridFixtures", "-hybridStill", "-moduleFlag.all", "native"]
         ] {
             app.launchArguments = arguments
             app.launch()
@@ -80,7 +81,7 @@ final class HybridModuleTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-moduleFlag.climate", "native", "-moduleFlag.wifi", "native"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.climate", "native", "-moduleFlag.wifi", "native"]
         app.launch()
         XCTAssertTrue(app.buttons["module-climate"].waitForExistence(timeout: 30))
         XCTAssertTrue(app.buttons["module-wifi"].waitForExistence(timeout: 30))
