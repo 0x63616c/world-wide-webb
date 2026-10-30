@@ -767,7 +767,9 @@ changed by this policy and no launch argument is required.
 
 iPhone support is deferred: Panel remains device family `2`. Hybrid's native tile
 and Fan detail use fixed 660 × 520 frames, and Dog Walk has no live hybrid view.
-Enabling family `1` would therefore expose clipped content and an incomplete module
-set. Compact navigation and smallest-phone validation remain follow-up work; the
+The reused `SonosRoomsPage` in `Sources/SoundViews.swift` also lays out both
+groups and their room controls in horizontal rows without a compact branch; making
+that page safe at the smallest phone size needs a design-view layout change.
+Enabling family `1` would expose clipped content and an incomplete module set. Compact navigation and smallest-phone validation remain follow-up work; the
 design worker's Sources and UITests are unchanged. No new snapshot/UI suite is
 added because these tests are not run by the existing CI.
