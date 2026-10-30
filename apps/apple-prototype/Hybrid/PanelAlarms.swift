@@ -8,8 +8,9 @@ protocol PanelAlarmCoordinating: Sendable {
 
 extension PanelAlarmCoordinator: PanelAlarmCoordinating {}
 
-/// Mirrors the server's next alarm into ActivityKit. Ringing and management
-/// remain in the web board, just as they do in the Expo shell.
+/// Mirrors the server's next alarm into ActivityKit. Web-mode snapshots and
+/// the opted-in native provider share this widget path; NativeAlarmsRuntime
+/// separately owns the AlarmKit/web ringer handoff.
 @MainActor
 final class PanelAlarms {
     private let coordinator: any PanelAlarmCoordinating
