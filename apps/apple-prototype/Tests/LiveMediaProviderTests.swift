@@ -1,4 +1,5 @@
 import XCTest
+import Observation
 import PanelKit
 @testable import WorldWideWebb
 
@@ -53,6 +54,21 @@ import PanelKit
         provider.stop()
         XCTAssertTrue(provider.items.isEmpty)
         XCTAssertNil(provider.videoURL)
+    }
+
+    func testNewStreamForSameIDInvalidatesPlaybackInput() async {
+        let api = Fixture()
+        let provider = LiveMediaProvider(api: api, configuration: config)
+        await provider.refresh()
+        let changed = expectation(description: "Playback observes a replacement URL")
+        withObservationTracking {
+            _ = provider.stream(for: "video_one")?.url
+        } onChange: { changed.fulfill() }
+        await api.setRows([.init(id: "video_one", title: "Synthetic clip", subtitle: "Test video",
+                                url: URL(string: "https://media.example.invalid/replacement.mp4")!)])
+        await provider.refresh()
+        await fulfillment(of: [changed], timeout: 1)
+        XCTAssertEqual(provider.stream(for: "video_one")?.url.lastPathComponent, "replacement.mp4")
     }
 
     func testEmptyDuplicateAndForeignStreamsFailClosed() async {
