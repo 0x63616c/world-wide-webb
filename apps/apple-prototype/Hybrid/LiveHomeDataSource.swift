@@ -13,6 +13,7 @@ import PanelKit
     let weatherProvider: LiveWeatherProvider
     let alarmsProvider: LiveAlarmsProvider
     let sonosProvider: LiveSonosProvider
+    let teslaProvider: LiveTeslaProvider
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     var alarms: [Alarm] { alarmsProvider.alarms }
@@ -20,7 +21,7 @@ import PanelKit
     func upcomingAlarm(at date: Date) -> UpcomingAlarm? { alarmsProvider.upcoming(at: date) }
     @ObservationIgnored private let clock: () -> Date
     var now: Date { clock() }
-    var tesla: any TeslaProvider { unavailable }
+    var tesla: any TeslaProvider { teslaProvider }
     var calendar: any CalendarProvider { unavailable }
     var photos: any PhotosProvider { unavailable }
     var cameras: any CamerasProvider { unavailable }
@@ -39,6 +40,7 @@ import PanelKit
         session.urlCredentialStorage = nil
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
+        teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         alarmsProvider = LiveAlarmsProvider(api: AlarmsAPI(client: client))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))
@@ -53,6 +55,7 @@ import PanelKit
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
+        case .tesla: teslaProvider.hasLiveData
         case .lights: lightsProvider.availability == .live
         case .climate: climateProvider.availability == .live && climateProvider.climate != nil
         case .fan: fanProvider.availability == .live && fanProvider.fanOn != nil
@@ -166,6 +169,7 @@ import PanelKit
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
+        case .tesla: await teslaProvider.refresh()
         case .lights: await lightsProvider.refresh()
         case .climate: await climateProvider.refresh()
         case .fan: await fanProvider.refresh()
@@ -196,6 +200,7 @@ import PanelKit
     }
 
     func stop() {
+        teslaProvider.stop()
         alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()

@@ -184,6 +184,14 @@
 				<string>web</string>
 			</array>
 		</dict>
+		<dict>
+			<key>DefaultValue</key><string>web</string>
+			<key>Key</key><string>moduleFlag.tesla</string>
+			<key>Title</key><string>Car</string>
+			<key>Type</key><string>PSMultiValueSpecifier</string>
+			<key>Titles</key><array><string>Web</string><string>Native</string></array>
+			<key>Values</key><array><string>web</string><string>native</string></array>
+		</dict>
 	</array>
 </dict>
 </plist>
