@@ -85,8 +85,8 @@ jobs:
           with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
               catalog = json.load(source)
           # 12.9-inch iPad Pro is 1366x1024 points; the newer 13-inch is 1376x1032.
-          device_type = next(device['identifier'] for device in reversed(catalog['devicetypes'])
-                             if 'iPad Pro' in device['name'] and '12.9-inch' in device['name'])
+          device_type = next(device['identifier'] for device in catalog['devicetypes']
+                             if '12.9-inch' in device['name'] and '6th generation' in device['name'])
           runtime = max((runtime for runtime in catalog['runtimes']
                          if runtime.get('isAvailable') and '.iOS-26' in runtime['identifier']),
                         key=lambda runtime: tuple(map(int, runtime['version'].split('.'))))
