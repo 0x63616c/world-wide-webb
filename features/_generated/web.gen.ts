@@ -8,6 +8,7 @@ import boothManifest from "../booth/manifest";
 import camerasManifest from "../cameras/manifest";
 import ctrlManifest from "../ctrl/manifest";
 import eventsManifest from "../events/manifest";
+import releasesManifest from "../releases/manifest";
 import soundManifest from "../sound/manifest";
 import wakesManifest from "../wakes/manifest";
 import walksManifest from "../walks/manifest";
@@ -25,6 +26,7 @@ const manifests = [
   camerasManifest,
   ctrlManifest,
   eventsManifest,
+  releasesManifest,
   soundManifest,
   wakesManifest,
   walksManifest,

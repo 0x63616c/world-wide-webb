@@ -126,3 +126,15 @@ jobs:
           CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ env.CF_ACCESS_KIOSK_CLIENT_SECRET }}
           ALARM_API_TOKEN: ${{ env.ALARM_API_TOKEN }}
           MATCH_REGENERATE: ${{ inputs.regenerate_profiles }}
+
+      - name: Record uploaded panel build
+        run: |
+          if ! curl -fsS --retry 3 --connect-timeout 10 --max-time 30 \
+            -H "CF-Access-Client-Id: $CF_ACCESS_KIOSK_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_KIOSK_CLIENT_SECRET" \
+            -H "Authorization: Bearer $ALARM_API_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data "{\"app\":\"panel\",\"build\":$PANEL_UPLOADED_BUILD}" \
+            https://app.worldwidewebb.co/api/releases/latest; then
+            echo "::warning::TestFlight upload succeeded, but recording the latest panel build failed."
+          fi
