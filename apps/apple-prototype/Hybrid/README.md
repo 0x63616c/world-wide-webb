@@ -80,7 +80,10 @@ still render `Color.clear` without starting WebKit or providers.
 readings and the Settings rollback. Existing Hybrid UI suites enter from Home
 before exercising their provider/controller paths. `Panel-Smoke` reaches the real
 offline recovery screen through Classic. Fixture runs freeze decorative animation through the existing `motionPhase` seam
-while keeping interactive transitions. Captures are synthetic XCTest attachments,
+while keeping interactive transitions. Fixture alarm ownership ignores retries of
+the deliberately unreachable loopback web board. Wi-Fi purges credentials on
+backgrounding and keeps its controller mounted behind a loading state until the
+foreground read finishes. Captures are synthetic XCTest attachments,
 not committed binaries; authenticated production rendering remains a device check.
 
 ### Live composition (WWW-44)

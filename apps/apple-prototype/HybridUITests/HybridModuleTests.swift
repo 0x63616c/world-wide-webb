@@ -17,6 +17,11 @@ final class HybridModuleTests: XCTestCase {
             for other in modules where other != module { XCTAssertFalse(app.buttons["module-\(other)"].exists) }
             capture("\(module)-tile")
             app.buttons["module-detail"].tap()
+            if module == "wifi" {
+                let qr = app.buttons["wifi-fullscreen-qr"]
+                XCTAssertTrue(qr.waitForExistence(timeout: 15))
+                qr.tap()
+            }
             let detail = app.descendants(matching: .any)["native-\(module)-detail"].firstMatch
             XCTAssertTrue(detail.waitForExistence(timeout: 10), module)
             if module == "walk" {

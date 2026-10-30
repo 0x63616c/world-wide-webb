@@ -139,9 +139,13 @@ struct PanelHomeDestination: View {
         store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
     }
 
+    private var awaitingWifi: Bool {
+        module == .wifi && store.wifiProvider.availability == .loading
+    }
+
     var body: some View {
         Group {
-            if router.route(for: module, hasLiveData: ready) == .native(module) {
+            if router.route(for: module, hasLiveData: ready || awaitingWifi) == .native(module) {
                 VStack(spacing: 0) {
                     HStack {
                         Button("Home", systemImage: "chevron.backward", action: close)
@@ -152,6 +156,14 @@ struct PanelHomeDestination: View {
                     }.buttonStyle(.glass).padding(16)
                     HybridNativeModule(module: module, store: store, detail: detail,
                         open: { detail = true }, close: close)
+                        // Keep the controller's privacy state while its credentials
+                        // are cleared and reloaded across a scene suspension.
+                        .opacity(awaitingWifi ? 0 : 1)
+                        .allowsHitTesting(!awaitingWifi)
+                        .accessibilityHidden(awaitingWifi)
+                        .overlay {
+                            if awaitingWifi { ProgressView("Refreshing Wi-Fi") }
+                        }
                 }
             } else {
                 Color.clear.task { close(); classic() }

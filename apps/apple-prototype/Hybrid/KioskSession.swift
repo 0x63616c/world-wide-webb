@@ -171,6 +171,13 @@ final class KioskSession {
         #endif
     }
 
+    /// Fixture WebKit deliberately never boots and cannot own a web ringer.
+    /// Its loopback retries must not revoke the synthetic native ownership.
+    func prepareNativeAlarmNavigation() throws {
+        guard !isAlarmFixture else { return }
+        try nativeAlarms.prepareNavigation()
+    }
+
     func setAlarmOwner(_ native: Bool) async -> Bool {
         if isAlarmFixture { return true }
         guard let webView, KioskURLPolicy.isTrusted(webView.url, serverURL: configuration.serverURL) else { return false }

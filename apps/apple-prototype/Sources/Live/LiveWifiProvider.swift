@@ -55,7 +55,9 @@ import PanelKit
         refreshing = false
         wifi = .unconfigured
         qrPayload = nil
-        availability = .unavailable("Guest Wi-Fi is unavailable.")
+        // A stopped scene has no usable credentials; the next foreground read
+        // decides whether they are live or unavailable.
+        availability = .loading
     }
 
     /// Split only on unescaped delimiters, then unescape exactly once. The server

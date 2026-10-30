@@ -17,9 +17,6 @@ extension XCUIApplication {
         let native = launchArguments.firstIndex(of: "-moduleFlag.\(module)")
             .map { launchArguments[$0 + 1] == "native" } ?? false
         if native && !launchArguments.contains("-hybridUnavailable") && !launchArguments.contains("-hybridDetail") {
-            if module == "wifi", buttons["wifi-fullscreen-qr"].waitForExistence(timeout: 5) {
-                buttons["wifi-fullscreen-qr"].tap()
-            }
             let toggle = buttons["module-detail"]
             XCTAssertTrue(toggle.waitForExistence(timeout: 30))
             toggle.tap() // Existing suites exercise both the leaf tile and its controller.
@@ -32,7 +29,15 @@ extension XCUIApplication {
                      "alarms": "clock", "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
         let tile = tiles[module]!
         XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
-        buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-1" : "face-page-0"].tap()
+        let page = buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-1" : "face-page-0"]
+        XCTAssertTrue(page.waitForExistence(timeout: 15))
+        page.tap()
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
+        if XCTWaiter.wait(for: [selected], timeout: 5) != .completed {
+            page.tap() // Replay an absolute selection if a system interruption consumed the tap.
+            let retried = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
+            XCTAssertEqual(XCTWaiter.wait(for: [retried], timeout: 5), .completed)
+        }
         let container = descendants(matching: .any)["tile-\(tile)"].firstMatch
         XCTAssertTrue(container.waitForExistence(timeout: 15))
         if !launchArguments.contains("-hybridUnavailable") {
@@ -41,5 +46,13 @@ extension XCUIApplication {
         if module == "fan" && !launchArguments.contains("-hybridUnavailable") {
             container.buttons.element(boundBy: 1).tap()
         } else { container.buttons.firstMatch.tap() }
+        if module == "wifi", !launchArguments.contains("-hybridUnavailable"),
+           !launchArguments.contains("-hybridDetail"),
+           let index = launchArguments.firstIndex(of: "-moduleFlag.wifi"),
+           launchArguments[index + 1] == "native" {
+            let qr = buttons["wifi-fullscreen-qr"]
+            XCTAssertTrue(qr.waitForExistence(timeout: 15))
+            qr.tap() // Inspect the controller beneath its initial QR presentation.
+        }
     }
 }
