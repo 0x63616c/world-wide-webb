@@ -85,6 +85,8 @@ final class NotificationBannerTests: XCTestCase {
     @MainActor private func capture(_ name: String, _ app: XCUIApplication) {
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
+        let banners = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).allElementsBoundByIndex
+        for banner in banners where banner.isHittable { XCTAssertGreaterThanOrEqual(banner.frame.width, 300) }
         let screenshot = XCUIScreen.main.screenshot()
         XCTAssertEqual(screenshot.image.size.width / screenshot.image.size.height, 1366.0 / 1024.0, accuracy: 0.01)
         let attachment = XCTAttachment(screenshot: screenshot)
