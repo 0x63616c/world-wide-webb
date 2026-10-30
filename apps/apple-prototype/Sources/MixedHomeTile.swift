@@ -81,15 +81,15 @@ struct MixedHomeTile: View {
                 setpointLabel.frame(maxWidth: .infinity)
             } else {
                 Spacer(minLength: 0)
-                climateValue
-                Spacer(minLength: 0)
-                HStack {
-                    step("minus", delta: -1)
-                    Spacer()
+                VStack(spacing: 24) {
+                    HStack(spacing: 8) {
+                        step("minus", delta: -1)
+                        climateValue
+                        step("plus", delta: 1)
+                    }
                     setpointLabel
-                    Spacer()
-                    step("plus", delta: 1)
-                }
+                }.frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
             }
         }.padding(compact ? 24 : 32)
     }
@@ -110,7 +110,7 @@ struct MixedHomeTile: View {
     private var climateValue: some View {
         Button(action: open) {
             Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
-                .font(.system(size: compact ? 76 : 170, weight: .regular)).monospacedDigit()
+                .font(.system(size: compact ? 76 : 152, weight: .regular)).monospacedDigit()
                 .minimumScaleFactor(compact && store.climate.mode != .heatCool ? 1 : 0.6)
                 .lineLimit(1).frame(maxWidth: .infinity)
         }.buttonStyle(.plain)
@@ -121,7 +121,7 @@ struct MixedHomeTile: View {
     }
     private func step(_ symbol: String, delta: Int) -> some View {
         Button { store.send(store.climate.mode == .heatCool ? .shiftRange(delta) : .target(store.climate.target + delta)) } label: {
-            Image(systemName: symbol).font(.system(size: compact ? 24 : 32, weight: .medium)).frame(width: 48, height: 48).contentShape(.rect)
+            Image(systemName: symbol).font(.system(size: compact ? 24 : 32, weight: .medium)).frame(width: compact ? 48 : 64, height: compact ? 48 : 64).contentShape(.rect)
         }.buttonStyle(.plain).disabled(store.climate.mode == .off)
             .accessibilityLabel(delta < 0 ? "Lower setpoint" : "Raise setpoint")
     }
@@ -138,7 +138,7 @@ struct MixedHomeTile: View {
                 .padding(8).background(.regularMaterial, in: .capsule).environment(\.colorScheme, .dark)
             VStack(spacing: 16) {
                 Text("\(store.lamps.onCount(.lamps)) of 8 on").fontWeight(.medium)
-                Text("Adjusting turns\nall 8 on.").font(.system(size: compact ? 14 : 20)).multilineTextAlignment(.center)
+                Text(store.lamps.anyOn ? "Adjusting turns\nall 8 on." : "Turn on a room first").font(.system(size: compact ? 14 : 20)).multilineTextAlignment(.center)
             }.font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
         }.padding(compact ? 20 : 24)
     }

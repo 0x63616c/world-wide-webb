@@ -28,7 +28,7 @@ struct CompactFace: View {
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
                 .mask {
                     VStack(spacing: 0) {
-                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .clear, location: 0.5), .init(color: .black, location: 1)], startPoint: .top, endPoint: .bottom)
                             .frame(height: 8)
                         Rectangle()
                         LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .clear, location: 0.5), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)

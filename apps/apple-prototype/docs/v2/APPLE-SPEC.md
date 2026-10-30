@@ -204,3 +204,12 @@ Home and More now trial the bundled licensed ForestPhoto as their shared backdro
 Phone keeps full-width Climate/Weather/Calendar followed by tall Lamps/round controls, wide Music/Tesla, and round quick actions. Its one gutter is 24 pt, with minimum 24-pt outer margins and the existing 80-pt pager reservation. Compact heights are Climate 240, Weather 152, Calendar 144, Music 120 and Tesla 136 pt. These proportions preserve the full Music contour at the bottom scroll anchor on iPhone 17 Pro; a frame test verifies its top clearance. The bounded 8-pt bottom fade reaches zero opacity before the following tile’s material edge.
 
 All lights distinguishes a mixed state with an orange glyph and explicit “Some on” text; the existing glyph command and full-screen detail behavior stay intact. More uses 32-pt wide headings, 24-pt room names, 20-pt secondary metadata and footer links aligned 32 pt above their shared lower edge. Walk’s elapsed value is 44-pt rounded monospaced, with subordinate elapsed/origin labels and the 72-pt action preserved. Full-screen Walk, Music, Lamps and Clock content are unchanged in this pass.
+
+
+## Pass 7d material and tile corrections
+
+The ForestPhoto background trial is removed. Home/More now trial the existing licensed CoastPhoto with its crop anchored at the top, photographic saturation at 75%, and the existing 2-pt blur/28% dimming. All control surfaces remain native regular glass; active lighting retains its native warm tint. This supersedes the forest backdrop paragraph above. The recovered seven-module lattice and 24-pt gutters remain.
+
+The panel thermostat groups 64-pt minus/plus targets beside its 152-pt value, with the setpoint caption 24 pt below. The phone keeps its 76-pt value and 48-pt targets. Home Photos and Cameras share 32-pt headings and insets, 24-pt descriptive metadata, 20-pt bottom captions and feathered photographic text contrast. Home Photos still crossfades its licensed collection and stops automatic changes in Reduce Motion or snapshot mode; full-screen pages remain independent. Walk’s 44-pt timer now begins at the same leading edge as its origin/history, with a small trailing elapsed label.
+
+The phone’s existing 8-pt top fade starts with a 4-pt clear strip; at the lower anchor, a geometry assertion keeps the preceding tile entirely in this strip while Music retains its complete contour. The 80-pt pager reservation and safe margins stay intact.

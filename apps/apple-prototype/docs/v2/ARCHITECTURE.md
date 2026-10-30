@@ -177,6 +177,8 @@ A face is pure data, saved as JSON (Application Support, later synced per device
 - **Zoom host:** native matchedTransitionSource/navigationTransition(.zoom), with stable glassEffectID identities in the face namespace; any slot zooms to its app's `fullScreen`. Dismiss with × or a swipe down.
 - **Edit mode (later):** long-press a face to get a jiggle/scale-down carousel of faces. Tap "Edit" to show slot outlines. Tap a slot to get an app picker filtered by compatible size or family, plus a config picker (e.g. which lamp group or Sonos room). Then save the JSON. Add a face from the style gallery, delete a face, reorder faces.
 
+Home owns `HomePhotoTile` and `HomeCameraTile` in `ModuleTiles.swift`: shared photo-caption scrim, title/metadata alignment, provider-driven content and snapshot/reduced-motion behavior. Full-screen Photos/Cameras rendering stays independent. The phone edge mask and solver jointly keep the preceding tile inside a 4-point clear strip at the bottom anchor, covered by the layout test.
+
 ## 6. Sonos: current controls and prototype playback-position extension
 Backed by features/sound/api.ts:
 - **Per-room state:** name, volume (with the baseline/calibration mapping), muted, transportState, sourceLabel/sourceKind (spotify, airplay, tv, line-in, idle), trackTitle, trackArtist, albumArtUri, group (coordinator/members), availability.
@@ -306,4 +308,4 @@ Iteration 7 composition: the shared solver retains 1×1, 2×1, 1×2 and 2×2 spa
 
 Pass 7b: phone solver restores full-width Weather/Calendar rows after median rejection of the paired candidate. Panel mixed spans and duplicate-source identity remain as designed in pass 7. No provider schema or native hybrid behavior changes.
 
-Pass 7c restores the seven-module primary grid above after the nine-module candidate failed its allowed refinement. More retains all other modules/round shortcuts. Phone uses 24-point gutters and measured row heights; the Music card is fully contained at the captured bottom scroll position. `Wallpaper.asset` defaults to the lake for existing detail pages, while the shell explicitly selects ForestPhoto for Home and More. Native hybrid targets and providers are unchanged.
+Pass 7c restores the seven-module primary grid above after the nine-module candidate failed its allowed refinement. More retains all other modules/round shortcuts. Phone uses 24-point gutters and measured row heights; the Music card is fully contained at the captured bottom scroll position. `Wallpaper.asset` defaults to the lake for existing detail pages. Pass 7d replaces the rejected forest trial with a top-anchored, 75%-saturation CoastPhoto for Home and More; regular glass protects text contrast. Native hybrid targets and providers are unchanged.

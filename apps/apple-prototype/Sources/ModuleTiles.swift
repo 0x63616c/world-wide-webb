@@ -13,7 +13,7 @@ struct ModuleTile: View {
                 switch tile {
                 case .weather: weather
                 case .calendar: calendar
-                case .photos: PhotoRotation(provider: store.photos, now: store.now, fullScreen: false)
+                case .photos: HomePhotoTile(provider: store.photos)
                 case .cameras:
                     if let feed = store.cameras.feeds.first {
                         HomeCameraTile(feed: feed, count: store.cameras.feeds.count, now: store.now)
@@ -90,6 +90,61 @@ struct ModuleTile: View {
 }
 
 
+private struct HomePhotoScrim: View {
+    var body: some View {
+        LinearGradient(stops: [.init(color: .black.opacity(0.65), location: 0),
+                                       .init(color: .black.opacity(0.55), location: 0.40),
+                                       .init(color: .black.opacity(0.05), location: 0.60),
+                                       .init(color: .black.opacity(0.55), location: 0.78),
+                                       .init(color: .black.opacity(0.70), location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+    }
+}
+
+/// Home owns its caption arrangement; full-screen photo composition is separate.
+private struct HomePhotoTile: View {
+    let provider: any PhotosProvider
+    @Environment(\.motionPhase) private var phase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var index = 1
+    private var compact: Bool { sizeClass == .compact }
+    private var selected: PhotoItem? {
+        guard !provider.photos.isEmpty else { return nil }
+        return provider.photos[index % provider.photos.count]
+    }
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                ForEach(provider.photos) { photo in
+                    Image(photo.asset).resizable().scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                        .opacity(selected?.id == photo.id ? 1 : 0)
+                        .accessibilityHidden(true)
+                }
+                HomePhotoScrim()
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Photos", systemImage: "photo.on.rectangle.angled")
+                        .font(.system(size: compact ? 20 : 32, weight: .semibold))
+                    Text("\(provider.photos.count) photos")
+                        .font(.system(size: compact ? 16 : 24))
+                    Spacer(minLength: 8)
+                    Text(selected?.title ?? "No photos")
+                        .font(.system(size: compact ? 17 : 20, weight: .medium))
+                }.frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(compact ? 24 : 32).foregroundStyle(.white)
+            }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
+        }.task(id: reduceMotion) {
+            guard !reduceMotion, phase == nil, provider.photos.count > 1 else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(12)) } catch { return }
+                guard !provider.photos.isEmpty else { return }
+                withAnimation(.easeInOut(duration: 1.2)) { index = (index + 1) % provider.photos.count }
+            }
+        }
+    }
+}
+
 /// Home owns its caption arrangement; full-screen feed composition is separate.
 private struct HomeCameraTile: View {
     let feed: CameraFeed
@@ -107,12 +162,7 @@ private struct HomeCameraTile: View {
                     Image(feed.asset).resizable().scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .scaleEffect(1.025 + sin(t / 8) * 0.015)
-                    LinearGradient(stops: [.init(color: .black.opacity(0.65), location: 0),
-                                           .init(color: .black.opacity(0.55), location: 0.40),
-                                           .init(color: .black.opacity(0.05), location: 0.60),
-                                           .init(color: .black.opacity(0.55), location: 0.78),
-                                           .init(color: .black.opacity(0.70), location: 1)],
-                                   startPoint: .top, endPoint: .bottom)
+                    HomePhotoScrim()
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Label("Cameras", systemImage: "video.fill")
@@ -120,7 +170,7 @@ private struct HomeCameraTile: View {
                             Spacer()
                             HStack(spacing: 6) {
                                 Circle().fill(.red).frame(width: 7, height: 7)
-                                Text("LIVE").font(.system(size: 14, weight: .bold))
+                                Text("LIVE").font(.system(size: compact ? 14 : 16, weight: .bold))
                             }
                         }
                         Text("\(count) demo feeds").font(.system(size: compact ? 16 : 24))

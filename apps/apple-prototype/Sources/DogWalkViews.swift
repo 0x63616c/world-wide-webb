@@ -44,9 +44,9 @@ struct DogWalkTile: View {
                         Spacer(minLength: 0)
                         if let walk = store.walks.activeWalk {
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                Text("Elapsed").font(.system(size: compact ? 16 : 18, weight: .medium)).foregroundStyle(.white.opacity(0.82))
                                 Text(walkElapsed(walk.duration(at: store.now)))
                                     .font(.system(size: compact ? 26 : 44, weight: .medium, design: .rounded)).monospacedDigit()
+                                Text("Elapsed").font(.system(size: compact ? 16 : 18, weight: .medium)).foregroundStyle(.white.opacity(0.82))
                             }
                             Text("Started on \(walk.startedBy.rawValue)")
                                 .font(.system(size: compact ? 15 : 20)).foregroundStyle(.white.opacity(0.82))

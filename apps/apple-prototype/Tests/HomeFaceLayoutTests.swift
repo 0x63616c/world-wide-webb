@@ -44,6 +44,11 @@ final class HomeFaceLayoutTests: XCTestCase {
         let visible = music.frame.offsetBy(dx: 0, dy: -layout.bottomScrollOffset)
         XCTAssertGreaterThanOrEqual(visible.minY, layout.margin)
         XCTAssertLessThanOrEqual(visible.maxY, layout.viewport.height - layout.pagerBand - layout.margin)
+        // A preceding tile may end in the mask's clear 4-pt strip, but must
+        // never leave an isolated glass rim in the visible fade.
+        let previousBottom = layout.items.filter { $0.frame.maxY < music.frame.minY }
+            .map { $0.frame.maxY - layout.bottomScrollOffset }.max()!
+        XCTAssertLessThanOrEqual(previousBottom, 4)
     }
 
     func testEveryModuleAndAccessoryIsReachableOnBothDeviceLayouts() {

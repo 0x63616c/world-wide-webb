@@ -25,11 +25,13 @@ extension ClimateMode {
 // Luca Bravo / Unsplash. Full attribution and licence in docs/v2/sources.md.
 struct Wallpaper: View {
     var asset = "LakeWallpaper"
+    var alignment: Alignment = .center
+    var saturation = 1.0
     var body: some View {
         GeometryReader { proxy in
             Image(asset).resizable().scaledToFill()
-                .blur(radius: 2)
-                .frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                .saturation(saturation).blur(radius: 2)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: alignment).clipped()
                 .overlay(.black.opacity(0.28))
         }.ignoresSafeArea()
     }

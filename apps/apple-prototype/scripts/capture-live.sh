@@ -41,7 +41,7 @@ capture_once() {
   marker="$data/Documents/capture-ready"
   rm -f "$marker"
   xcrun simctl launch --terminate-running-process "$device" "$app" "$@" -snapshot
-  for attempt in {1..300}; do
+  for attempt in {1..90}; do
     if [[ -f "$marker" ]]; then ready=1; break; fi
     sleep 1
   done

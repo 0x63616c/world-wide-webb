@@ -35,3 +35,8 @@ Pass 5b adds no downloaded imagery. Walk Zero uses SF Symbols, native Swift Char
 ## Pass 7c Home/More wallpaper trial
 
 Home and More reuse the existing **ForestPhoto**, [Pathway of trees during daytime](https://unsplash.com/photos/pathway-of-trees-during-daytime-P1Iz3unD6Po) by Johannes Plenio, under the [Unsplash Licence](https://unsplash.com/license). The original page explicitly identifies the free Unsplash licence; source/licence rechecked 2026-10-30. Existing bundled file: `Sources/Assets.xcassets/ForestPhoto.imageset/photo.jpg`, 2752×1548 JPEG, quality 85. The shell crops it to fill, blurs by 2 pt and dims 28%; regular glass supplies refraction. No new image downloaded. Other detail backgrounds retain their existing lake default.
+
+
+## Pass 7d Home/More wallpaper trial
+
+The rejected ForestPhoto backdrop is replaced in this candidate by the already-bundled **CoastPhoto**, [Sunset](https://unsplash.com/photos/sunset-CA5mR_jecac) by Luca Bravo, [Unsplash Licence](https://unsplash.com/license). Source and licence rechecked 2026-10-30. Existing file `Sources/Assets.xcassets/CoastPhoto.imageset/photo.jpg`: 1823×2752 JPEG, quality 85. The shell uses a top-anchored fill crop, 75% photographic saturation, 2-pt blur and 28% dimming. No new image, asset edit or simulated glass. Home’s Photos tile reuses the existing photo collection; the parallel full-screen renderer is unchanged.
