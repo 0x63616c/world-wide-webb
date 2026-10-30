@@ -1,0 +1,58 @@
+[
+  {
+    "id": "fixture_overnight@1793340000",
+    "title": "Overnight maintenance",
+    "location": "Example Studio",
+    "start": "2026-10-30T05:00:00Z",
+    "end": "2026-10-30T08:00:00Z",
+    "isAllDay": false
+  },
+  {
+    "id": "fixture_all_day@1793343600",
+    "title": "Community day",
+    "location": null,
+    "start": "2026-10-30T07:00:00Z",
+    "end": "2026-10-31T07:00:00Z",
+    "isAllDay": true
+  },
+  {
+    "id": "fixture_series@1793358000",
+    "title": "Morning planning",
+    "location": "Example Studio",
+    "start": "2026-10-30T16:00:00Z",
+    "end": "2026-10-30T17:00:00Z",
+    "isAllDay": false
+  },
+  {
+    "id": "fixture_workshop@1793383200",
+    "title": "Design workshop",
+    "location": "Community Studio",
+    "start": "2026-10-30T18:00:00Z",
+    "end": "2026-10-30T19:30:00Z",
+    "isAllDay": false
+  },
+  {
+    "id": "fixture_series@1793472000",
+    "title": "Morning planning",
+    "location": "Example Studio",
+    "start": "2026-10-31T16:00:00Z",
+    "end": "2026-10-31T17:00:00Z",
+    "isAllDay": false
+  },
+  {
+    "id": "fixture_dst@1793518200",
+    "title": "Clock change check",
+    "location": "Example Lab",
+    "start": "2026-11-01T08:30:00Z",
+    "end": "2026-11-01T10:30:00Z",
+    "isAllDay": false
+  },
+  {
+    "id": "fixture_missing@1793642400",
+    "title": null,
+    "location": "  ",
+    "start": "2026-11-02T18:00:00Z",
+    "end": "2026-11-02T18:30:00Z",
+    "isAllDay": false
+  }
+]
