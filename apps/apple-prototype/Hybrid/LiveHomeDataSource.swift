@@ -49,6 +49,7 @@ import PanelKit
         case .wifi: wifiProvider.availability == .live && !(wifiProvider.wifi.ssid ?? "").isEmpty
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
+        case .walk: false // Dog Walk owns its live state via LiveWalkProvider.
         }
     }
 
@@ -157,6 +158,7 @@ import PanelKit
         case .wifi: await wifiProvider.refresh()
         case .weather: await weatherProvider.refresh()
         case .sonos: await sonosProvider.refresh()
+        case .walk: break
         }
     }
 
