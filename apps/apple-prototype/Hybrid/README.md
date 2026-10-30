@@ -2,8 +2,10 @@
 
 `Panel` is the iPad-only iOS 26+ replacement shell for `apps/panel`, with bundle
 ID `co.worldwidewebb.theworkflowengine` and display name **Control Center**.
-It is unsigned here. The existing prototype targets are unchanged and none of
-their fixture-backed views are compiled into Panel.
+It is unsigned here. The prototype targets still default to their fixtures. Panel
+compiles their shared presentation models and views, excludes `Sources/App.swift`,
+and injects `LiveHomeDataSource` at its own router. No mock source is instantiated
+by the Panel root.
 
 ## Run and configure
 
@@ -43,16 +45,88 @@ overrides the launch's UserDefaults; invalid values fall back to `web`.
 flag is `native` **and** a native implementation has live data. The generic
 `HybridModuleHost` receives an optional live view and a web fallback closure;
 nil data, a missing implementation, or a `web` flag selects the fallback.
-The current root hosts `all` with no native registrations, so even flipping an
-individual flag cannot display prototype fixtures.
+The root retains one WKWebView across native navigation. With all flags at their
+`web` default, it renders the same full-screen board with no native navigation and
+starts no providers. With flags enabled, it initially selects the first enabled
+module in registry order; that selection stays on the board until its provider
+supplies data. A module strip offers the available native modules and **Web board**.
+Each native module opens on its existing tile; **Details** opens its existing
+controller. A failed selected provider immediately returns to the board, and a
+successful subsequent poll restores the native selection. Deep links select the
+web board before delivering the existing alarm event.
 
-WWW-11…16 can add provider-backed views to Panel's target (including selected
-files from `Sources` via `project.yml`, excluding `Sources/App.swift`). Their
-composition owns which module is visible and retains **one** web board for the
-remaining modules. Pass a live view only after a successful provider read;
-remove it when the provider cannot supply real data. Do not create one full
-WKWebView per module or treat a native flag as proof of data availability.
-Mixed-module geometry and native views are intentionally deferred.
+### Live composition (WWW-44)
+
+`LiveHomeDataSource` composes the six existing live providers. `hasLiveData(for:)`
+requires a successful current provider state, plus a nonempty guest SSID, weather
+snapshot, or at least one available Sonos room where applicable. An off light,
+fan, or thermostat is still real data. A successful empty response is not enough
+for Wi-Fi, weather, or Sonos. Provider errors never fall through to a mock, even
+when the provider retains its last successful snapshot internally.
+
+The legacy `HomeDataSource` has nonoptional numeric fields. Unavailable fields
+therefore use neutral zero/false values, empty collections, nil credentials and
+explicit “Unavailable” text; the router prevents those module placeholders from
+being rendered as readings. Climate and fan labels use independently reported
+values, including “Unavailable” for a missing fan. Off-mode null setpoints stay
+zero instead of inheriting prototype temperatures. Unimplemented providers are
+empty and inert. Commands without a live backend (alarms, media-library playback,
+seeking) do nothing; they never mutate fixtures.
+
+Sonos identity uses backend IDs independently of room display names. Unknown or
+unavailable rooms are omitted. Missing metadata stays nil, and duration/position
+stay zero. The native controller is `SonosRoomsPage`, which supports grouping and
+volume without the prototype's fixture artwork or unsupported playback scrubber.
+Name-based prototype group shortcuts only resolve when the name is unambiguous.
+Lights retain the existing provider's group projection; the API does not report
+individual lamp RGB or party speed. Unreported lamp colors use neutral values.
+
+Only requested providers poll: every 10 seconds, or 10 minutes for weather.
+Controls and Climate also read Fan because their existing controllers include it;
+The fan's on/off state is injected independently of HVAC mode. This data dependency
+does not enable the Fan route. Structured polling tasks cancel when Panel
+leaves the foreground. Writes are owned/cancelled by the existing providers. API
+configuration comes from the same launch snapshot as WebKit; Access headers are
+sent only as a complete pair. The shared transport is an ephemeral URLSession with
+no disk URL cache, credential storage, or cookie storage.
+
+### Small presentation injection seams
+
+No view layout, spacing, hierarchy, animation, or styling under `Sources/` changes.
+The exact edits are:
+
+- `HomeDataSource.swift`: weather fields become initializer-injectable `var`s,
+  with the same fixture defaults; add an injectable weather symbol. Add optional
+  reported climate action/fan label, and optional Sonos metadata with a stable ID
+  and nullable track fields/coordinator name. Nil overrides preserve all prototype behavior.
+- `HomeView.swift` and `Controllers.swift`: `AccessoryFace` and `ControlsController`
+  accept optional `fanIsOn`, defaulting to their original calculations, so a live
+  fan does not require an invented HVAC mode.
+- `Live/LiveLightsProvider.swift`: its initializer accepts `initialLamps`, defaulting
+  to the existing fixture state; Panel supplies neutral unavailable state instead.
+  Each snapshot resets a missing scene/color slot to that injected fallback, so
+  later null fields cannot retain a previous scene or saved color.
+- `WeatherViews.swift`: the two current-condition glyphs read the injected symbol.
+- `ModulePages.swift`: `WeatherPage`'s current-condition glyph reads that symbol.
+- `SonosRoomsPage.swift`: the group label reads the injected coordinator display
+  name; grouping commands continue using stable backend IDs.
+
+### Deterministic fixture mode
+
+Debug builds accept `-hybridFixtures`. This is an explicit transport injection,
+not a mock HomeDataSource: all six real providers decode their existing PanelKit
+JSON fixtures from the bundled `Fixtures` folder. It uses a fixed loopback URL for
+WebKit and a transport with no network fallback. No runtime configuration,
+Keychain credentials, or home services are read. `-hybridUnavailable` additionally
+makes every provider fail, for fallback checks. `-hybridDetail` opens the selected
+module directly on its detail page for simctl captures. Unknown writes fail closed; this
+is a capture harness, not an interactive home-service simulator. Release builds
+compile out the fixture transport and launch switches.
+
+```sh
+xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
+  -hybridFixtures -moduleFlag.weather native
+```
 
 ## Kiosk and bridge behavior
 
@@ -123,19 +197,19 @@ Mixed-module geometry and native views are intentionally deferred.
 ## Verification
 
 Source the worktree's `.job.env` before checks on the box. Use a separate checkout
-on the Mac mini (`~/wwwebb-hybrid`) and derived data (`~/wwwebb-hybrid-dd`), never
+on the Mac mini (`~/wwwebb-hybrid-44`) and derived data (`~/wwwebb-hybrid-44-dd`), never
 the design worker's directories or simulator. With
 `DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer`:
 
 ```sh
 /opt/homebrew/bin/xcodegen generate
 xcodebuild test -scheme Panel \
-  -destination 'platform=iOS Simulator,name=WWW-18 Hybrid iPad' \
-  -derivedDataPath ~/wwwebb-hybrid-dd -parallel-testing-enabled NO
+  -destination 'platform=iOS Simulator,name=WWW-44 Hybrid iPad' \
+  -derivedDataPath ~/wwwebb-hybrid-44-dd -parallel-testing-enabled NO
 xcodebuild build -scheme WorldWideWebb-iPad \
-  -destination 'generic/platform=iOS Simulator' -derivedDataPath ~/wwwebb-hybrid-dd
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath ~/wwwebb-hybrid-44-dd
 xcodebuild build -scheme WorldWideWebb \
-  -destination 'platform=macOS' -derivedDataPath ~/wwwebb-hybrid-dd
+  -destination 'platform=macOS' -derivedDataPath ~/wwwebb-hybrid-44-dd
 ```
 
 `PanelTests` covers flags, native/live-data routing, navigation and bridge origin
@@ -150,8 +224,8 @@ simulator screenshot. It does not authenticate or use a fixture board.
 
 ```sh
 xcodebuild test -scheme Panel-Smoke \
-  -destination 'platform=iOS Simulator,name=WWW-18 Hybrid iPad' \
-  -derivedDataPath ~/wwwebb-hybrid-dd -parallel-testing-enabled NO
+  -destination 'platform=iOS Simulator,name=WWW-44 Hybrid iPad' \
+  -derivedDataPath ~/wwwebb-hybrid-44-dd -parallel-testing-enabled NO
 ```
 
 Verified on the mini on 2026-10-29: **27 Panel tests passed**, and both existing
@@ -163,6 +237,34 @@ Xcode installation has no Simulator GUI app. After restarting only the dedicated
 simulator, the final unit run succeeded. Simulator evidence is captured directly
 with `simctl`; authenticated board and physical wall checks remain outstanding.
 
+
+### WWW-44 checks
+
+The composition suite can also run without a simulator on the mini's macOS 15.6:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer \
+  bash scripts/test-hybrid-models.sh
+```
+
+This generates a temporary macOS framework/test project and executes the same
+`HybridTests/LiveHomeDataSourceTests.swift` against the original composition,
+provider, and model sources. The only extraction is the unchanged model prefix
+of `TeslaProvider.swift`, whose unrelated views require macOS 26. Set
+`WWW_HYBRID_CHECK_DIR` to an owned directory to retain/reuse the generated project,
+derived data and result bundle. It does not modify the production project.
+
+Verified on 2026-10-30: all **12 composition tests passed**, PanelKit's **1 XCTest
+and 26 Swift Testing tests passed**, and both `Panel` (iOS Simulator) and the
+existing `WorldWideWebb` (macOS) app built. `Panel-Smoke` also built. The simulator
+hosted unit run stalled before executing tests and was interrupted; the UI runner
+was killed before establishing its test connection, so no UI assertions ran.
+The module captures use the actual Panel app launched directly with `simctl`,
+`-hybridFixtures`, each `-moduleFlag.<module> native`, and `-hybridDetail` for the
+controller. `scripts/capture-hybrid.sh <own-UDID> <output>` waits for a marker from
+mounted fixture content before each capture, including the two web fallback cases.
+Authenticated home-service and physical wall-device checks remain
+outside this fixture verification.
 
 ### WWW-47 alarm verification
 
