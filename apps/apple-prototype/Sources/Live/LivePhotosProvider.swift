@@ -119,7 +119,7 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
                 await cache.clear()
             }
             await refresh()
-        } catch { error = "Could not update this capture. Try again." }
+        } catch { self.error = "Could not update this capture. Try again." }
     }
     private enum AccessError: Error { case locked }
 }
