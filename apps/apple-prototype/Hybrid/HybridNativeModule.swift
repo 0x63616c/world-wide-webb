@@ -11,6 +11,7 @@ extension PanelModule {
         case .wifi: "Wi-Fi"
         case .sonos: "Sonos"
         case .weather: "Weather"
+        case .alarms: "Clock & Alarms"
         case .walk: "Dog Walk"
         }
     }
@@ -48,6 +49,7 @@ struct HybridNativeModule: View {
         case .wifi: TileFace(tile: .wifi, store: store, open: open)
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
+        case .alarms: HybridClockFace(store: store, open: open)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
         case .walk, .all: EmptyView()
@@ -67,6 +69,10 @@ struct HybridNativeModule: View {
         // This existing page has grouping and volume, with no fixture artwork,
         // media library or seek UI (the live API supplies no playback position).
         case .sonos: SonosRoomsPage(store: store)
+        case .alarms:
+            ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
+                            timeZone: .current, locationLabel: TimeZone.current.identifier)
+                .disabled(store.alarmsProvider.pending)
         case .reminders: RemindersModule(provider: store.remindersProvider)
         case .walk, .all: EmptyView()
         }

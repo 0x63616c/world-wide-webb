@@ -288,6 +288,7 @@ enum HomeCommand {
     var pending: Set<String> { get }
     var now: Date { get }
     func send(_ command: HomeCommand)
+    func upcomingAlarm(at date: Date) -> UpcomingAlarm?
 }
 extension HomeDataSource {
     func toggleWalk() {

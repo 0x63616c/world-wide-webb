@@ -37,7 +37,7 @@ use `localhost` (ATS local networking is enabled).
 ## Module seam
 
 `ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
-`walk`, `reminders`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
+`walk`, `reminders`, `alarms`, and `all`. Shipped builds default `lights`, `climate`, `fan`, `wifi`, `sonos`,
 `weather`, and `walk` to `native` (`ModuleFlags.shippedNative`, WWW-48); every other
 module defaults to `web`, and `-hybridFixtures` runs keep every default at `web`.
 A native flag still shows the web board until that module's live provider has data.
@@ -60,8 +60,8 @@ module in registry order; that selection stays on the board until its provider
 supplies data. A module strip offers the available native modules and **Web board**.
 Each native module opens on its existing tile; **Details** opens its existing
 controller. A failed selected provider immediately returns to the board, and a
-successful subsequent poll restores the native selection. Deep links select the
-web board before delivering the existing alarm event.
+successful subsequent poll restores the native selection. Alarm deep links open native details when the alarms flag, live data, and ringer
+ownership are ready; otherwise they deliver the existing web alarm event.
 
 ### Live composition (WWW-44)
 
@@ -78,7 +78,7 @@ explicit “Unavailable” text; the router prevents those module placeholders f
 being rendered as readings. Climate and fan labels use independently reported
 values, including “Unavailable” for a missing fan. Off-mode null setpoints stay
 zero instead of inheriting prototype temperatures. Unimplemented providers are
-empty and inert. Commands without a live backend (alarms, media-library playback,
+empty and inert. Commands without a live backend (media-library playback,
 seeking) do nothing; they never mutate fixtures.
 
 Sonos identity uses backend IDs independently of room display names. Unknown or
@@ -89,7 +89,7 @@ Name-based prototype group shortcuts only resolve when the name is unambiguous.
 Lights retain the existing provider's group projection; the API does not report
 individual lamp RGB or party speed. Unreported lamp colors use neutral values.
 
-Only requested providers poll: every 10 seconds, or 10 minutes for weather.
+Only requested providers poll: every 10 seconds, 10 minutes for weather, or one second for alarms.
 Controls and Climate also read Fan because their existing controllers include it;
 The fan's on/off state is injected independently of HVAC mode. This data dependency
 does not enable the Fan route. Structured polling tasks cancel when Panel
@@ -190,7 +190,7 @@ xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
    `CreatePanelAlarmIntent` / `PanelAlarmShortcuts` create alarms through the same
    coordinator. ActivityKit start/update/end behavior, countdowns, stale state,
    and `controlcenter://alarms` links match Expo. Ringing and alarm management
-   remain in the web board; this is not an AlarmKit scheduler.
+   remain in the web board by default. WWW-37 adds the opt-in AlarmKit scheduler below.
 2. A release lane must sign/archive Panel, provide a production app icon and
    private settings, and set a build number above the existing TestFlight build.
    The Expo push/monthly release workflow still owns the same bundle ID and must
@@ -365,3 +365,131 @@ real Panel app with explicit synthetic source injection. The exact-size
 a restart; it was removed without touching other jobs. The simulator display remained portrait, so its unmodified screenshots show
 the landscape app letterboxed. Exact panel-size and physical landscape visual
 verification remain gaps.
+
+
+### WWW-37: live Clock & Alarms
+
+`-moduleFlag.alarms native` enables the live alarm provider; its code default is
+still `web`. The API adapter implements `alarms.list/create/update/setEnabled/
+delete/snooze/stop` without any backend changes. Occurrence IDs and versions stay
+separate from definition IDs. Polling is every second while active, successful
+writes refetch, stale polls cannot replace writes, and conflicts refresh rather
+than replay a mutation. The server's `next` is authoritative, including snoozes,
+exact dates and DST; the native clock does not compute a competing schedule.
+
+The module becomes native only with current live data, configured native alarm
+transport, AlarmKit authorization, and a successful web ownership acknowledgement.
+An empty alarm list is valid live data. Missing endpoints, malformed responses,
+transport errors, denied authorization, or an old web bundle keep the web fallback.
+The backward-compatible web seam is PR
+[#820](https://github.com/0x63616c/world-wide-webb/pull/820), merged into main by
+`@0x63616c` during verification. This job did not issue a merge. It changes
+`features/events/web`, not `apps/web` or
+`apps/panel`. Either deployment order is safe: an old bundle has no handoff and
+the app cannot activate its native ringer.
+
+There is one audible owner: the web promise acknowledges after its sound cue and
+repeat timer have stopped, then the app schedules AlarmKit. Releasing ownership
+cancels AlarmKit before resuming the web. Main-frame navigation cancels native
+scheduling before the next document runs; a failed cancellation rejects navigation.
+The native UI has no separate audio loop. AlarmKit schedules the server's next
+absolute instant and can alert while locked. Existing NextAlarmWidget/ActivityKit
+receives that same live snapshot, and web `syncNextAlarm` updates are ignored while
+native owns alarms. The scheduled system UUID is persisted for replacement and
+cleanup across launches; it is never used as a backend ID.
+
+System Stop/Snooze intents use the existing Keychain transport and
+`/api/alarms/action`. They resolve only the exact scheduled occurrence and send its
+current version. A brief worker-claim delay is tolerated; a later occurrence is
+never substituted. API errors are surfaced by the intent rather than being
+reported as success. The API token must be configured through the existing local
+configuration mechanism for these background actions. No values are committed or
+logged. A network connection is required for backend Stop/Snooze; after an offline
+system action, reconnect and confirm the server state in the app.
+
+`controlcenter://alarms` opens native details only after native ownership is ready;
+otherwise it opens the web alarms page. With the native flag, a cold-launch link
+also remains pending until live data and ownership are ready, then opens native
+details. Explicit module navigation cancels that pending request.
+The ring view uses occurrence snapshot labels/snooze settings, not edited definition
+values, and the editor waits for server acknowledgement before closing.
+
+#### Presentation seams
+
+Existing `Sources/` edits are limited to:
+
+- `HomeDataSource.swift`: make the existing `upcomingAlarm(at:)` default implementation
+  a protocol requirement so live sources can provide the server result.
+- `ClockViews.swift`: inject a new-alarm seed and optional async save handler, both
+  retaining prototype defaults; inject clock timezone/location text and read next-alarm
+  display through the provider method. With
+  the injected save handler, keep the editor open on errors and disable duplicate
+  saves while pending.
+- `Design.swift`: inject the timezone into `AnalogClock` and `fixtureTime`, retaining
+  their original prototype timezone defaults. Panel uses the device timezone, also
+  the initial timezone for a new alarm; existing alarms retain their backend timezone.
+- `AlarmRingView.swift`: inject the caption, defaulting to `Fixture data`; Panel
+  supplies an empty caption. No layout or styling changes.
+- `Live/LiveAlarmsProvider.swift` is new. Hybrid composes the existing clock dial and
+  controllers and supplies all live data; no mock source is used by Panel.
+
+#### Opt-in and wall check
+
+After deploying #820, configure the existing server, Access headers and alarm token
+privately. In Xcode's launch arguments use **`-moduleFlag.alarms native`**. Grant the
+AlarmKit prompt on the wall. No code default is changed. To roll back, relaunch with
+**`-moduleFlag.alarms web`**; startup cancels any persisted native schedule before
+returning ringing to the web runtime.
+
+Before enabling the flag on the wall, verify: create/edit/enable/delete; real next
+alarm and Live Activity; lock and wait for the system alert; snooze/re-ring/stop from
+both the lock screen and native page; two concurrent occurrences; no web sound
+while native owns alarms; deep link; network loss and recovery; and rollback to web.
+A locked/suspended app mirrors only its last fetched next instant. Changes made by
+another client while it is suspended are reconciled on foreground, not by a push
+channel. Device authorization, signed installation, and physical wall behavior
+cannot be established by fixture tests.
+
+For isolated simulator captures, Debug accepts `-hybridFixtures -moduleFlag.alarms
+native`, plus `-hybridDetail` for the page or `-hybridAlarmRinging` for the ring state.
+These switches use synthetic JSON, a fixture clock for the ring, and a no-op system
+scheduler; they read no credentials and schedule no real alarm. Release builds do
+not include these switches or the fixture scheduler.
+
+#### Verification commands
+
+Use only `~/wwwebb-alarms-native/`, `~/wwwebb-alarms-native-dd/`, and the job's own
+`WWW-37 Alarms iPad` / `WWW-37 Alarms 1366` simulators. The `Panel-Alarms` scheme groups the Panel unit tests
+and prototype-hosted provider tests into one serial run. Run with Xcode 27:
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
+cd ~/wwwebb-alarms-native/PanelKit
+swift test
+cd ..
+/opt/homebrew/bin/xcodegen generate
+~/bin/www8-simlock xcodebuild test -scheme Panel-Alarms \
+  -destination 'platform=iOS Simulator,name=WWW-37 Alarms iPad' \
+  -derivedDataPath ~/wwwebb-alarms-native-dd -parallel-testing-enabled NO -jobs 2 \
+  -only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveAlarmsProviderTests \
+  -only-testing:WorldWideWebbTests/HomeDataSourceTests \
+  -only-testing:WorldWideWebbTests/AlarmPerimeterTests CODE_SIGNING_ALLOWED=NO
+~/bin/www8-simlock xcodebuild test -scheme Panel-Smoke \
+  -destination 'platform=iOS Simulator,name=WWW-37 Alarms 1366' \
+  -derivedDataPath ~/wwwebb-alarms-native-dd -parallel-testing-enabled NO -jobs 2 \
+  -only-testing:PanelUITests/HybridAlarmsTests CODE_SIGNING_ALLOWED=NO
+```
+
+Verified on 2026-10-30 with Xcode 27 and iOS 26.3: **56 PanelTests and 23 app
+unit tests passed** (6 live-alarm provider, 15 existing HomeDataSource, 2 existing
+alarm perimeter tests). PanelKit passed **39 Swift Testing tests and 1 XCTest**.
+The landscape UI smoke test passed: clock, cold native deep link, ring controls,
+default web mode and unavailable-data fallback. Original 1366×1024-point captures
+are in `docs/screenshots/alarms-native/` at the repository root. Earlier UI runs
+exposed a cold-launch link arriving before native ownership; the pending-link
+handoff fixes that race. A stale simulator URL confirmation required a simulator
+restart, and the fallback assertion now checks the web route directly rather than
+waiting for an unrelated network-status message.
+Repository typecheck, Biome, Knip, privacy guards and Gitleaks passed. The web
+compatibility PR #820 passed 23 targeted tests plus CI and was subsequently merged
+by `@0x63616c`; this job did not issue a merge. Physical wall checks remain pending.

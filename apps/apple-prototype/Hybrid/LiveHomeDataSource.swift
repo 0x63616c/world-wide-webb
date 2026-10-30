@@ -11,12 +11,15 @@ import PanelKit
     let fanProvider: LiveFanProvider
     let wifiProvider: LiveWifiProvider
     let weatherProvider: LiveWeatherProvider
+    let alarmsProvider: LiveAlarmsProvider
     let sonosProvider: LiveSonosProvider
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
-    let alarms: [Alarm] = []
+    var alarms: [Alarm] { alarmsProvider.alarms }
     let occurrence: AlarmOccurrence? = nil
-    var now: Date { Date() }
+    func upcomingAlarm(at date: Date) -> UpcomingAlarm? { alarmsProvider.upcoming(at: date) }
+    @ObservationIgnored private let clock: () -> Date
+    var now: Date { clock() }
     var tesla: any TeslaProvider { unavailable }
     var calendar: any CalendarProvider { unavailable }
     var photos: any PhotosProvider { unavailable }
@@ -26,7 +29,8 @@ import PanelKit
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
-         remindersAPI: any RemindersServing = RemindersAPI()) {
+         remindersAPI: any RemindersServing = RemindersAPI(), now: @escaping () -> Date = Date.init) {
+        clock = now
         remindersProvider = LiveRemindersProvider(api: remindersAPI)
         // Guest credentials and Access sessions must remain memory-only.
         let session = URLSessionConfiguration.ephemeral
@@ -35,6 +39,7 @@ import PanelKit
         session.urlCredentialStorage = nil
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
+        alarmsProvider = LiveAlarmsProvider(api: AlarmsAPI(client: client))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))
         fanProvider = LiveFanProvider(api: FanAPI(client: client))
@@ -45,6 +50,7 @@ import PanelKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
         case .all: false
         case .lights: lightsProvider.availability == .live
@@ -104,7 +110,7 @@ import PanelKit
     var globalLock: Bool { hasLiveData(for: .sonos) && sonosProvider.globalLock }
     var groupLock: Bool { hasLiveData(for: .sonos) && sonosProvider.groupLock }
     var pending: Set<String> {
-        var result: Set<String> = []
+        var result: Set<String> = alarmsProvider.pending ? ["alarms"] : []
         if hasLiveData(for: .lights) {
             for key in lightsProvider.pending {
                 switch key {
@@ -123,6 +129,8 @@ import PanelKit
 
     func send(_ command: HomeCommand) {
         switch command {
+        case .saveAlarm, .deleteAlarm, .enableAlarm, .snoozeAlarm, .stopAlarm:
+            if hasLiveData(for: .alarms) { alarmsProvider.send(command) }
         case .toggle(.fan):
             guard hasLiveData(for: .fan), fanMutation == nil else { return }
             fanMutation = Task { [weak self] in
@@ -141,7 +149,7 @@ import PanelKit
             }
         case .transport, .rawVolume, .volume, .mute, .globalLock, .groupLock, .calibrate, .clearCalibration, .leave:
             if hasLiveData(for: .sonos) { sonosProvider.send(command) }
-        default: break // Alarms, seek and fixture-library playback have no live implementation.
+        default: break // Seeking and fixture-library playback have no live implementation.
         }
     }
 
@@ -155,6 +163,7 @@ import PanelKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
         case .all: break
         case .lights: await lightsProvider.refresh()
@@ -181,12 +190,13 @@ import PanelKit
     private func poll(_ module: PanelModule) async {
         while !Task.isCancelled {
             await refresh(module)
-            do { try await Task.sleep(for: module == .weather ? .seconds(600) : .seconds(10)) }
+            do { try await Task.sleep(for: module == .weather ? .seconds(600) : module == .alarms ? .seconds(1) : .seconds(10)) }
             catch { return }
         }
     }
 
     func stop() {
+        alarmsProvider.stop()
         lightsProvider.stop()
         climateProvider.stop()
         weatherProvider.stop()

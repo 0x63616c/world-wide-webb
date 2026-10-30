@@ -93,6 +93,8 @@ struct KioskWebView: UIViewRepresentable {
                 return
             }
             if navigationAction.targetFrame?.isMainFrame == true {
+                do { try session.nativeAlarms.prepareNavigation() }
+                catch { decisionHandler(.cancel); return }
                 // Main-frame requests get credentials only for the exact board
                 // origin, even when the kiosk allow-list permits another host.
                 var request = navigationAction.request

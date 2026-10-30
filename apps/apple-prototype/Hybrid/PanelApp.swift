@@ -19,6 +19,8 @@ struct PanelRoot: View {
     @State private var store: LiveHomeDataSource
     @State private var selection: PanelModule
     @State private var detail: Bool
+    @State private var ringHidden = false
+    @State private var pendingNativeAlarmLink = false
     private let router: HybridRouter
     private let requested: Set<PanelModule>
 
@@ -46,33 +48,41 @@ struct PanelRoot: View {
             let config = PanelConfiguration(info: [:], defaults: defaults,
                 environment: ["PANEL_SERVER_URL": "http://localhost:1", "PANEL_CF_ACCESS_CLIENT_ID": "",
                               "PANEL_CF_ACCESS_CLIENT_SECRET": "", "PANEL_ALARM_API_TOKEN": ""])
-            _session = State(initialValue: KioskSession(configuration: config))
+            _session = State(initialValue: KioskSession(configuration: config, nativeAlarmsRequested: flags[.alarms] == .native,
+                nativeAlarms: NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())))
             let root = Bundle.main.resourceURL!.appendingPathComponent("Fixtures")
+            let ringing = ProcessInfo.processInfo.arguments.contains("-hybridAlarmRinging")
             let transport = HybridFixtureTransport(root: root,
-                unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"))
+                unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"),
+                alarmScenario: ringing ? "ringing" : "scheduled")
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
                 transport: transport, remindersAPI: HybridRemindersFixture(
-                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"))))
+                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
+                now: ringing ? { AlarmDate.parse("2099-01-01T07:00:01Z")! } : Date.init))
             return
         }
         #endif
         let config = PanelConfiguration()
-        _session = State(initialValue: KioskSession(configuration: config))
+        _session = State(initialValue: KioskSession(configuration: config, nativeAlarmsRequested: flags[.alarms] == .native))
         _store = State(initialValue: LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
             baseURL: config.serverURL,
             accessClientID: config.accessHeaders["CF-Access-Client-Id"],
             accessClientSecret: config.accessHeaders["CF-Access-Client-Secret"])))
     }
 
+    private func hasLiveData(for module: PanelModule) -> Bool {
+        store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
+    }
+
     private var nativeModules: [PanelModule] {
         PanelModule.allCases.filter {
-            router.route(for: $0, hasLiveData: store.hasLiveData(for: $0)) == .native($0)
+            router.route(for: $0, hasLiveData: hasLiveData(for: $0)) == .native($0)
         }
     }
 
     private var nativeVisible: Bool {
-        router.route(for: selection, hasLiveData: store.hasLiveData(for: selection)) == .native(selection)
+        router.route(for: selection, hasLiveData: hasLiveData(for: selection)) == .native(selection)
     }
 
     var body: some View {
@@ -86,7 +96,7 @@ struct PanelRoot: View {
                 if !nativeModules.isEmpty {
                     HStack(spacing: 18) {
                         ForEach([PanelModule.all] + nativeModules, id: \.self) { module in
-                            Button(module.title) { selection = module; detail = false }
+                            Button(module.title) { pendingNativeAlarmLink = false; selection = module; detail = false }
                                 .buttonStyle(.glass)
                                 .accessibilityIdentifier("module-\(module.rawValue)")
                         }
@@ -99,7 +109,7 @@ struct PanelRoot: View {
                         .environment(\.colorScheme, .dark)
                 }
                 HybridModuleHost(router: router, module: selection,
-                    liveView: store.hasLiveData(for: selection)
+                    liveView: hasLiveData(for: selection)
                         ? HybridNativeModule(module: selection, store: store, detail: detail, open: { detail = true }) : nil) {
                     Color.clear.allowsHitTesting(false)
                 }
@@ -116,7 +126,15 @@ struct PanelRoot: View {
         .sheet(item: $session.share) { destination in
             PanelShareSheet(url: destination.url)
         }
-        .onOpenURL { selection = .all; session.open($0) }
+        .onOpenURL { url in
+            guard url.absoluteString == "controlcenter://alarms" else { return }
+            pendingNativeAlarmLink = router.flags[.alarms] == .native
+            if pendingNativeAlarmLink && hasLiveData(for: .alarms) { openNativeAlarms() }
+            else { selection = .all; session.open(url) }
+        }
+        .onChange(of: hasLiveData(for: .alarms)) { _, ready in
+            if ready && pendingNativeAlarmLink { openNativeAlarms() }
+        }
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active { session.activate() }
             else { store.stop() }
@@ -127,9 +145,43 @@ struct PanelRoot: View {
             // The unchanged Controls and Climate controllers contain a fan control.
             // Read its real data even when the independent Fan route remains web.
             if !providers.isDisjoint(with: [.lights, .climate]) { providers.insert(.fan) }
+            providers.remove(.alarms)
             await store.run(modules: providers)
         }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            if !requested.contains(.alarms) {
+                await session.nativeAlarms.release(handoff: { await session.setAlarmOwner($0) })
+                return
+            }
+            while !Task.isCancelled {
+                await store.refresh(.alarms)
+                if Task.isCancelled { return }
+                await session.reconcileAlarms(store.alarmsProvider)
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            }
+        }
+        .overlay {
+            if !ringHidden, hasLiveData(for: .alarms), !store.alarmsProvider.ringing(at: store.now).isEmpty {
+                AlarmRingView(store: store, close: { ringHidden = true; selection = .alarms; detail = true },
+                              edit: { ringHidden = true; selection = .alarms; detail = true }, dataCaption: "")
+                    .disabled(store.alarmsProvider.pending)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if nativeVisible, selection == .alarms, let message = store.alarmsProvider.errorMessage {
+                Text(message).padding().background(.regularMaterial).accessibilityAddTraits(.updatesFrequently)
+            }
+        }
+        .onChange(of: store.alarmsProvider.snapshot?.active) { _, _ in ringHidden = false }
         .onDisappear { session.stop(); store.stop() }
+    }
+
+    private func openNativeAlarms() {
+        pendingNativeAlarmLink = false
+        ringHidden = true
+        selection = .alarms
+        detail = true
     }
 
     private var webBoard: some View {

@@ -28,6 +28,17 @@ enum KioskScripts {
     true;
     """
 
+    // The runtime returns only after React has cleaned up its sound loop.
+    // Old deployments have no function and cannot enable native ringing.
+    static let alarmOwnership = """
+    if (window.location.origin !== new URL(serverURL).origin) return false;
+    if (typeof window.__CONTROL_CENTER_SET_ALARM_OWNER__ !== "function") return false;
+    return await Promise.race([
+      window.__CONTROL_CENTER_SET_ALARM_OWNER__(native),
+      new Promise(resolve => setTimeout(() => resolve(false), 2000))
+    ]);
+    """
+
     static let openAlarms = """
     window.dispatchEvent(new Event("control-center-open-alarms")); true;
     """
