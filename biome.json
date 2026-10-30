@@ -71,6 +71,7 @@
       "!.worktrees",
       "!**/coverage",
       "!**/.claude",
+      "!.agents/skills",
       "!**/.superpowers",
       "!**/.cmux",
       "!**/experiments",
