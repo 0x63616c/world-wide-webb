@@ -6,6 +6,7 @@ import CryptoKit
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    let remindersProvider: LiveRemindersProvider
     let lightsProvider: LiveLightsProvider
     let climateProvider: LiveClimateProvider
     let fanProvider: LiveFanProvider
@@ -26,7 +27,9 @@ import CryptoKit
     var walks: any WalkProvider { unavailable }
     @ObservationIgnored private var fanMutation: Task<Void, Never>?
 
-    init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil) {
+    init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
+         remindersAPI: any RemindersServing = RemindersAPI()) {
+        remindersProvider = LiveRemindersProvider(api: remindersAPI)
         // Guest credentials and Access sessions must remain memory-only.
         let session = URLSessionConfiguration.ephemeral
         session.urlCache = nil
@@ -49,6 +52,7 @@ import CryptoKit
 
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
+        case .reminders: remindersProvider.availability == .live
         case .all: false
         case .photos: photosProvider.availability == .live && !photosProvider.frames.isEmpty
         case .lights: lightsProvider.availability == .live
@@ -158,6 +162,7 @@ import CryptoKit
 
     func refresh(_ module: PanelModule) async {
         switch module {
+        case .reminders: await remindersProvider.refresh()
         case .all: break
         case .photos: await photosProvider.refresh()
         case .lights: await lightsProvider.refresh()

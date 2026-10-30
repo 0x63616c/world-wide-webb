@@ -49,4 +49,14 @@ actor HybridFixtureTransport: PanelTransport {
         return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
     }
 }
+@MainActor final class HybridRemindersFixture: RemindersServing {
+    let unavailable: Bool
+    init(unavailable: Bool) { self.unavailable = unavailable }
+    func list() async throws -> [PanelReminder] {
+        if unavailable { throw URLError(.notConnectedToInternet) }
+        return [.init(id: "fixture_reminder", title: "Water the plants", list: "Demo list", writable: true)]
+    }
+    func complete(id: String) async throws { throw URLError(.unsupportedURL) }
+    func add(title: String) async throws { throw URLError(.unsupportedURL) }
+}
 #endif
