@@ -64,7 +64,9 @@ final class NotificationBannerTests: XCTestCase {
     @MainActor private func capture(_ name: String, _ app: XCUIApplication) {
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let screenshot = XCUIScreen.main.screenshot()
+        XCTAssertEqual(screenshot.image.size.width / screenshot.image.size.height, 1366.0 / 1024.0, accuracy: 0.01)
+        let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
