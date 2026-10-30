@@ -13,12 +13,9 @@ struct AlarmRingView: View {
                 ZStack {
                     Color.black
                     AlarmTicks(fraction: next?.ringFraction(at: now) ?? 0, ringing: next?.ringing ?? false)
-                        .background {
-                            ContainerRelativeShape().stroke(orange.opacity(0.045), lineWidth: 1)
-                        }
-                        .padding(AlarmPerimeter.edgeInset)
+                        .padding(AlarmPerimeter.edgeInset - 3)
                     VStack(spacing: 22) {
-                        Text(next?.ringing == true ? "Alarm" : next?.snoozed == true ? "Snoozed" : "Next alarm")
+                        Text(next?.ringing == true ? "Alarm" : next?.snoozed == true ? "Snoozed" : "Next alarm in")
                             .font(.system(size: 28, weight: .medium)).foregroundStyle(.white.opacity(0.55))
                         Text(next.map { countdown($0.remaining(at: now)) } ?? "—")
                             .font(.system(size: min(proxy.size.width * 0.13, 176), weight: .regular, design: .rounded)).monospacedDigit().fontWidth(.condensed)
@@ -62,12 +59,12 @@ private struct AlarmTicks: View {
     let ringing: Bool
     var body: some View {
         Canvas { context, size in
-            let perimeter = AlarmPerimeter(size: size)
+            let perimeter = AlarmPerimeter(size: CGSize(width: size.width - 6, height: size.height - 6))
             let tickCount = 120
             for tick in 0..<tickCount {
                 let progress = Double(tick) / Double(tickCount)
                 let sample = perimeter.sample(at: perimeter.length * progress)
-                let outer = sample.point
+                let outer = CGPoint(x: sample.point.x + 3, y: sample.point.y + 3)
                 let tickLength: CGFloat = tick.isMultiple(of: 5) ? 28 : 16
                 let inner = CGPoint(x: outer.x - sample.normal.dx * tickLength,
                                     y: outer.y - sample.normal.dy * tickLength)

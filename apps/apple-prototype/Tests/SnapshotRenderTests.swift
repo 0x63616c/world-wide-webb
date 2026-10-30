@@ -17,6 +17,7 @@ import XCTest
             ("mac-home", AnyView(SnapshotFace(store: store, controls: false).environment(\.desktopLayout, true))),
             ("tesla", AnyView(ControllerHost(tile: .tesla, store: store, close: {}).background(.black))),
             ("tesla-tile", AnyView(TeslaTile(provider: store.tesla).frame(width: 328, height: 296).faceGlass().frame(maxWidth: .infinity, maxHeight: .infinity).background(Wallpaper()))),
+            ("anim-lamps", AnyView(LampGlow(on: true, brightness: 65).frame(width: 240, height: 240).background(.black))),
             ("anim-weather", AnyView(WeatherTile(weather: store.weather).frame(width: 680, height: 616).frame(maxWidth: .infinity, maxHeight: .infinity).background(.black))),
             ("controls-face", AnyView(SnapshotFace(store: store, controls: true))),
             ("lamps", AnyView(ZStack {
@@ -29,7 +30,7 @@ import XCTest
             ("alarm", AnyView(AlarmRingView(store: store, close: {}, edit: {}))),
             ("alarm-ringing", AnyView(AlarmRingView(store: MockHomeDataSource(latency: .zero, fixedNow: store.now, ringing: true), close: {}, edit: {}))),
             ("nowplaying", AnyView(ZStack {
-                NowPlayingView(store: store, close: {})
+                NowPlayingView(store: store, close: {}, isFace: true)
                 VStack { Spacer(); FacePicker(selection: .constant(3)).padding(.bottom, 10) }
             }))
         ]

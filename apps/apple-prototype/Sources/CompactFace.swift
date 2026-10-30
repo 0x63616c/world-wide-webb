@@ -9,7 +9,7 @@ struct CompactFace: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text(controls ? "Controls" : "Home").font(.largeTitle.bold()).padding(.top, 64)
+                Text(controls ? "Controls" : "Home").font(.largeTitle.bold()).padding(.top, 12)
                 if !controls {
                     Button { open(.climate) } label: {
                         HStack {
@@ -26,7 +26,7 @@ struct CompactFace: View {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
                     ForEach(controls ? HomeTile.controlsFace : [.clock, .wifi, .bedroom, .livingRoom, .ceiling, .tesla]) { tile in
                         Button { open(tile) } label: {
-                            compactTile(tile).frame(maxWidth: .infinity).frame(height: 168)
+                            compactTile(tile).frame(maxWidth: .infinity).frame(height: 144)
                         }.buttonStyle(.plain).faceGlass(radius: 32)
                             .matchedTransitionSource(id: tile.id, in: zoom)
                     }

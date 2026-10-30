@@ -53,7 +53,7 @@ struct TeslaTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "car.side.fill").font(.system(size: 30)).foregroundStyle(.secondary)
+                Label(provider.data.nick, systemImage: "car.side.fill").font(.system(size: 22, weight: .medium))
                 Spacer()
                 if provider.availability != .online {
                     Text(provider.availability.rawValue.capitalized).font(.system(size: 16, weight: .medium))
@@ -83,8 +83,8 @@ struct TeslaChargeComplication: View {
             }.gaugeStyle(.accessoryCircular).tint(accented ? .white : .green)
                 .scaleEffect(1.5).frame(width: 92, height: 92)
             Text(provider.availability == .online ? "Car · \(provider.data.pct)%" : provider.availability.rawValue.capitalized)
-                .font(.system(size: 20, weight: .medium))
-        }.accessibilityElement(children: .ignore)
+                .font(.system(size: 20, weight: .medium)).foregroundStyle(.secondary)
+        }.frame(width: 180, alignment: .leading).accessibilityElement(children: .ignore)
             .accessibilityLabel("Car charge \(provider.data.pct) percent, \(provider.availability.rawValue)")
     }
 }

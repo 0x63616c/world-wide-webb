@@ -28,16 +28,16 @@ struct Wallpaper: View {
         GeometryReader { proxy in
             let size = proxy.size
             ZStack {
-                LinearGradient(colors: [Color(hex: "#216f68"), Color(hex: "#07514e"), Color(hex: "#26796e")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [Color(hex: "#265c55"), Color(hex: "#063c39"), Color(hex: "#326e61")], startPoint: .topLeading, endPoint: .bottomTrailing)
                 Canvas { context, canvas in
                     func point(_ x: Double, _ y: Double) -> CGPoint {
                         CGPoint(x: canvas.width * x, y: canvas.height * y)
                     }
-                    // Six oversized fan blades, rather than a field of repeating stripes.
+                    // Ten oversized fan blades, rather than a field of repeating stripes.
                     let hub = point(0.16, 0.26)
                     let radius = canvas.height * 0.77
-                    for index in 0..<6 {
-                        let angle = Double(index) * .pi / 3 - 0.4
+                    for index in 0..<10 {
+                        let angle = Double(index) * .pi / 5 - 0.4
                         func polar(_ a: Double, _ r: Double) -> CGPoint {
                             CGPoint(x: hub.x + cos(a) * r, y: hub.y + sin(a) * r)
                         }
@@ -49,7 +49,7 @@ struct Wallpaper: View {
                         blade.addQuadCurve(to: polar(angle + 0.65, radius * 0.87), control: polar(angle + 0.28, radius * 1.06))
                         blade.addCurve(to: hub, control1: polar(angle + 0.22, radius * 0.65), control2: polar(angle + 0.55, radius * 0.2))
                         context.fill(blade, with: .linearGradient(
-                            Gradient(colors: [Color(hex: "#75b3a3").opacity(0.27), Color(hex: "#003f40").opacity(0.26)]),
+                            Gradient(colors: [Color(hex: "#a4c0a9").opacity(0.40), Color(hex: "#002625").opacity(0.52)]),
                             startPoint: polar(angle, radius), endPoint: hub))
                     }
                     var fold = Path()
@@ -64,7 +64,7 @@ struct Wallpaper: View {
                     var arc = Path()
                     arc.addArc(center: point(0.82, 1.08), radius: canvas.height * 0.69, startAngle: .degrees(190), endAngle: .degrees(305), clockwise: false)
                     context.stroke(arc, with: .color(Color(hex: "#0a4645").opacity(0.22)), style: StrokeStyle(lineWidth: canvas.height * 0.11))
-                }.blur(radius: 3)
+                }.blur(radius: 1)
                 RadialGradient(colors: [Color(hex: "#91bbad").opacity(0.08), .clear], center: .topLeading, startRadius: 0, endRadius: size.width * 0.7)
             }
         }.ignoresSafeArea()
@@ -81,15 +81,11 @@ struct LampsBackdrop: View {
 struct CircleButton: View {
     let symbol: String
     let label: String
-    var size: CGFloat = 56
+    var size: CGFloat = 64
     var clearGlass = false
     let action: () -> Void
     var body: some View {
-        if clearGlass {
-            button.buttonStyle(.plain).faceGlass(radius: size / 2)
-        } else {
-            button.buttonStyle(.glass).buttonBorderShape(.circle)
-        }
+        button.buttonStyle(.glass).buttonBorderShape(.circle)
     }
     private var button: some View {
         Button(action: action) {
@@ -161,10 +157,11 @@ func fixtureTime(_ date: Date, format: String = "h:mm") -> String {
 // Native glass supplies edge lighting and refraction; no painted specular overlay.
 extension View {
     func homeGlass(on: Bool = false, radius: CGFloat = 38) -> some View {
-        self.glassEffect(.regular.tint(on ? .orange.opacity(0.2) : .clear).interactive(), in: .rect(cornerRadius: radius))
+        self.glassEffect(.regular.tint(on ? .orange.opacity(0.04) : .clear).interactive(), in: .rect(cornerRadius: radius))
     }
     func faceGlass(on: Bool = false, radius: CGFloat = 56) -> some View {
-        self.glassEffect(.regular.tint(on ? .orange.opacity(0.12) : .white.opacity(0.025)).interactive(), in: .rect(cornerRadius: radius))
+        self.glassEffect((on ? Glass.regular.tint(.white.opacity(0.6)) : Glass.clear.tint(.white.opacity(0.12))).interactive(), in: .rect(cornerRadius: radius))
+            .environment(\.colorScheme, on ? .light : .dark)
     }
 }
 

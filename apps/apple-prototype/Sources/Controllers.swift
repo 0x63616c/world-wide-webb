@@ -145,18 +145,18 @@ struct WifiController: View {
         GeometryReader { proxy in
             if let ssid = wifi.ssid, !ssid.isEmpty {
                 VStack(spacing: 16) {
+                    Text("Scan to join").font(.system(size: min(28, proxy.size.width * 0.065), weight: .medium)).padding(.bottom, 8)
                     if let image = WifiQRCode.render(wifi) {
                         WifiQRHero(image: image)
                             .frame(width: min(proxy.size.width - 48, proxy.size.height * 0.66), height: min(proxy.size.width - 48, proxy.size.height * 0.66))
                             .padding(.bottom, 10)
                     }
-                    Text(ssid).font(.system(size: 54, weight: .bold)).textSelection(.enabled)
+                    Text(ssid).font(.system(size: min(44, proxy.size.width * 0.09), weight: .semibold)).textSelection(.enabled)
                         .lineLimit(1).minimumScaleFactor(0.6)
+                    Text("Password").font(.system(size: 18)).foregroundStyle(.secondary)
                     Text(wifi.password.flatMap { $0.isEmpty ? nil : $0 } ?? "No password")
-                        .font(.system(size: 38, weight: .medium, design: .monospaced))
+                        .font(.system(size: min(28, proxy.size.width * 0.06), weight: .medium, design: .monospaced))
                         .textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.5)
-                    Text(wifi.password?.isEmpty == false ? "Scan to join" : "Scan to join · Open network")
-                        .font(.system(size: 25, weight: .medium)).opacity(0.7)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 40)
             } else {
                 VStack(spacing: 36) {

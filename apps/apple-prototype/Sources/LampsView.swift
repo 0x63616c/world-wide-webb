@@ -65,7 +65,7 @@ struct LampsController: View {
             }.buttonStyle(.plain).homeGlass(on: on, radius: 32)
                 .accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off")
                 .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
-            DisclosureGroup("Lamps in \(key.name)") {
+            DisclosureGroup("\(LampState.members(key).count) lamps") {
                 ForEach(Array(LampState.members(key)), id: \.self) { index in
                     HStack { Text(LampState.names[index]); Spacer(); Text(store.lamps.on[index] ? "On" : "Off").foregroundStyle(.secondary) }
                         .padding(.vertical, 4)
@@ -86,10 +86,6 @@ struct LampBrightness: View {
                     .glassEffect(.clear, in: .rect(cornerRadius: 66, style: .continuous))
                 Rectangle().fill(.white)
                     .frame(height: proxy.size.height * Double(store.lamps.brightness) / 100)
-                    .overlay(alignment: .top) {
-                        Capsule().fill(.black.opacity(0.18))
-                            .frame(width: 56, height: 5).padding(.top, 15)
-                    }
                 Image(systemName: "sun.max.fill").font(.system(size: 44, weight: .medium))
                     .foregroundStyle(store.lamps.brightness > 14 ? Palette.amber : .white.opacity(0.7))
                     .frame(maxWidth: .infinity).padding(.bottom, 34)

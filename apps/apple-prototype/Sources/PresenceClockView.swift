@@ -10,7 +10,7 @@ struct PresenceClockFace: View {
     var body: some View {
         GeometryReader { proxy in
             let compact = sizeClass == .compact
-            let dialSide = compact ? proxy.size.width - 24 : min(proxy.size.height * (near ? 0.76 : 0.88), proxy.size.width * 0.82)
+            let dialSide = compact ? proxy.size.width - 24 : min(proxy.size.height * (near ? 0.70 : 0.88), proxy.size.width * 0.82)
             ZStack {
                 Palette.clock
                 VStack(spacing: compact ? 24 : 0) {
@@ -92,7 +92,7 @@ private struct GreenClockDial: View {
             let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
             let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
             ZStack {
-                numeral("12", size: s * 0.51, x: s * 0.5, y: s * 0.18)
+                numeral("12", size: s * 0.46, x: s * 0.5, y: s * 0.18)
                 numeral("9", size: s * 0.56, x: s * 0.16, y: s * 0.49)
                 numeral("3", size: s * 0.56, x: s * 0.84, y: s * 0.49)
                 numeral("6", size: s * 0.55, x: s * 0.5, y: s * 0.80)

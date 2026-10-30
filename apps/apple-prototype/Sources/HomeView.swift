@@ -73,6 +73,7 @@ struct HomeView: View {
     var demo = false
     var initialFace = 0
     var initialPresence = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var presenceNear = false
     @State private var facePage = 0
     @Namespace private var zoom
@@ -84,7 +85,7 @@ struct HomeView: View {
                 Wallpaper()
                 homeFace(size: proxy.size)
                 if selected == nil {
-                    VStack { Spacer(); FacePicker(selection: $facePage).padding(.bottom, 10) }
+                    VStack { Spacer(); FacePicker(selection: $facePage).padding(.horizontal, sizeClass == .compact ? 12 : 0).background { if sizeClass == .compact { Capsule().fill(.regularMaterial) } }.padding(.bottom, sizeClass == .compact ? 24 : 10) }
                 }
                 #if os(macOS)
                 if let selected { destination(selected) }
@@ -134,12 +135,12 @@ struct HomeView: View {
             faceGrid(size: size, controls: false).tag(0)
             faceGrid(size: size, controls: true).tag(1)
             PresenceClockFace(store: store, near: $presenceNear, open: open).tag(2)
-            NowPlayingView(store: store) { facePage = 0 }.tag(3)
+            NowPlayingView(store: store, close: { facePage = 0 }, isFace: true).tag(3)
         }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea()
         #else
         Group {
             if facePage == 2 { PresenceClockFace(store: store, near: $presenceNear, open: open) }
-            else if facePage == 3 { NowPlayingView(store: store) { facePage = 0 } }
+            else if facePage == 3 { NowPlayingView(store: store, close: { facePage = 0 }, isFace: true) }
             else { faceGrid(size: size, controls: facePage == 1) }
         }
         #endif
@@ -154,6 +155,7 @@ struct HomeView: View {
 // Shared by the live pager and the fast snapshot target; no duplicate visual layout.
 struct FacePicker: View {
     @Binding var selection: Int
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         HStack(spacing: 10) {
@@ -168,8 +170,10 @@ struct FacePicker: View {
             }
         }
         .overlay(alignment: .trailing) {
-            Text("Fixture data").font(.system(size: 11)).opacity(0.4)
-                .fixedSize().offset(x: 110).allowsHitTesting(false)
+            if sizeClass != .compact {
+                Text("Fixture data").font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize().offset(x: 110).allowsHitTesting(false)
+            }
         }
     }
 }
@@ -234,7 +238,7 @@ struct HomeFaceGrid: View {
             }
         }
         .frame(width: faceW, height: faceH, alignment: .topLeading)
-        .frame(width: size.width, height: size.height - 16, alignment: .center)
+        .frame(width: size.width, height: size.height, alignment: .center)
         .frame(width: size.width, height: size.height, alignment: .top)
     }
     private func tileOn(_ tile: HomeTile) -> Bool {
@@ -347,7 +351,7 @@ struct AccessoryFace: View {
                     Text(subtitle).font(.system(size: 24)).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity)
             }.buttonStyle(.plain).accessibilityLabel("Open \(key.name)")
-        }.foregroundStyle(.primary).frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.foregroundStyle(on ? Color.black : Color.white).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 #Preview("Home face · 1376 × 1032", traits: .fixedLayout(width: 1376, height: 1032)) { HomeView(store: MockHomeDataSource()) }
