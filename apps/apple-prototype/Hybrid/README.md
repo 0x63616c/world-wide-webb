@@ -128,3 +128,14 @@ xcodebuild build -scheme WorldWideWebb \
 checks, boot URLs/backoff, request/response encoding, configuration precedence,
 brightness validation, and the actual JavaScript boot scripts in JavaScriptCore.
 These tests do not require network or secrets.
+
+The optional `Panel-Smoke` scheme runs `HybridUITests` on the dedicated simulator:
+it rotates the device to landscape, launches the actual app against an unavailable
+local URL, checks the recovery overlay and landscape window, and attaches a real
+simulator screenshot. It does not authenticate or use a fixture board.
+
+```sh
+xcodebuild test -scheme Panel-Smoke \
+  -destination 'platform=iOS Simulator,name=WWW-18 Hybrid iPad' \
+  -derivedDataPath ~/wwwebb-hybrid-dd -parallel-testing-enabled NO
+```

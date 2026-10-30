@@ -90,7 +90,24 @@ targets:
     settings:
       base:
         PRODUCT_MODULE_NAME: PanelTests
+  PanelUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [HybridUITests]
+    dependencies:
+      - target: Panel
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: PanelUITests
 schemes:
+  Panel-Smoke:
+    build:
+      targets:
+        Panel: [test]
+        PanelUITests: [test]
+    test:
+      targets:
+        - PanelUITests
   Panel:
     build:
       targets:
