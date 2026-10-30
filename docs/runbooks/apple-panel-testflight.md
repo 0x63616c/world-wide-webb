@@ -2,10 +2,24 @@
 
 Run **Apple Panel TestFlight** manually from Actions on `main`. It uses the
 Fastlane lane from `main` and the native sources from the supplied `ref` (default
-`WWW-8-apple-prototype`). The selected ref must contain the hybrid `Panel` target;
-until WWW-18 merges, use `WWW-18-hybrid-shell`. Only dispatch trusted source refs:
+`main`). Only dispatch trusted source refs:
 the native build runs in the protected `production` environment with signing and
 panel credentials.
+
+Before signing, archiving or uploading, a separate secret-free `smoke` job builds
+`Panel-Smoke` in Release for the 1366x1024 iPad Pro simulator and runs only
+`PanelUITests/HomeViewLaunchTests` from WWW-64. It asserts `native-home` on launch,
+Classic navigation/return and the explicit web-only rollback. A missing test class
+also fails the gate, so a ref predating WWW-64 cannot silently pass an empty suite.
+The upload job needs smoke success and checks out its exact tested commit SHA.
+The `.xcresult` and build/test logs are retained as `panel-launch-smoke` artifacts.
+
+To verify without uploading, dispatch with `smoke_only: true`; the production job
+is skipped entirely, including vault decryption and signing. Pull requests that
+change this workflow or Panel sources also run only the simulator check. On Linux,
+use these Actions runs for validation; no local Xcode build is available. The
+single UI class and early simulator boot keep the gate small; check actual runner
+timings rather than treating the two-minute target as a guaranteed cold-build SLA.
 
 The workflow selects the newest installed Xcode 26.x and checks the Panel iOS
 deployment target against its SDK. A newer SDK/API requirement requires updating
