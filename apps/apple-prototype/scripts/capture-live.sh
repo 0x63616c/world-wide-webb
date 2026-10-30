@@ -25,7 +25,7 @@ capture() {
   marker="$data/Documents/capture-ready"
   rm -f "$marker"
   xcrun simctl launch --terminate-running-process "$device" "$app" "$@" -snapshot
-  for attempt in {1..90}; do
+  for attempt in {1..300}; do
     if [[ -f "$marker" ]]; then ready=1; break; fi
     sleep 1
   done
@@ -33,7 +33,7 @@ capture() {
     echo "Capture failed: $name never reached app readiness" >&2
     return 1
   fi
-  sleep 1
+  sleep 3
   xcrun simctl io "$device" screenshot "$out/sim-$name.png"
 }
 # Keep our own simulators serial on the shared build mini.
