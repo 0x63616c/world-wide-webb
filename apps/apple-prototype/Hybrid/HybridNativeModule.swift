@@ -29,6 +29,7 @@ struct HybridNativeModule: View {
     let store: LiveHomeDataSource
     let detail: Bool
     let open: () -> Void
+    var close: () -> Void = {}
 
     var body: some View {
         Group {
@@ -79,9 +80,7 @@ struct HybridNativeModule: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .wifi: WifiModule(provider: store.wifiProvider, openOnAppear: true)
         case .weather: WeatherPage(weather: store.weather)
-        // This existing page has grouping and volume, with no fixture artwork,
-        // media library or seek UI (the live API supplies no playback position).
-        case .sonos: SonosRoomsPage(store: store)
+        case .sonos: SonosModule(store: store, close: close)
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: AgendaPage(provider: store.calendar, now: store.now)
         case .alarms:

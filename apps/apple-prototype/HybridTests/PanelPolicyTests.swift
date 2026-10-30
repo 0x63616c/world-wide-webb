@@ -18,10 +18,11 @@ final class ModuleFlagsTests: XCTestCase {
 
     func testShippedDefaultsAreNativeOnlyForLiveVerifiedModules() {
         let flags = ModuleFlags(nativeByDefault: ModuleFlags.shippedNative)
-        for module in [PanelModule.lights, .climate, .fan, .sonos, .weather, .walk] {
+        for module in [PanelModule.lights, .climate, .fan, .weather, .walk] {
             XCTAssertEqual(flags[module], .native, module.rawValue)
         }
         XCTAssertEqual(flags[.all], .web)
+        XCTAssertEqual(flags[.sonos], .web)
         XCTAssertEqual(flags[.wifi], .web)
         XCTAssertEqual(flags[.photos], .web)
         XCTAssertEqual(flags[.alarms], .web)

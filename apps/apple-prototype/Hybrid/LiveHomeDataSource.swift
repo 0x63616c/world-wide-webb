@@ -15,6 +15,7 @@ import CryptoKit
     let wifiProvider: LiveWifiProvider
     let weatherProvider: LiveWeatherProvider
     let alarmsProvider: LiveAlarmsProvider
+    let sonosArtwork: SonosArtworkAPI
     let sonosProvider: LiveSonosProvider
     let teslaProvider: LiveTeslaProvider
     let photosProvider: LivePhotosProvider
@@ -43,7 +44,7 @@ import CryptoKit
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
          remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
-         calendarAPI: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
+         calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil) {
         mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
@@ -58,6 +59,7 @@ import CryptoKit
         let photoAPI = transport.map {
             PhotosAPI(client: PanelAPIClient(configuration: configuration, transport: $0))
         } ?? PhotosAPI(configuration: configuration)
+        sonosArtwork = SonosArtworkAPI(configuration: configuration, transport: transport)
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
@@ -73,7 +75,7 @@ import CryptoKit
         fanProvider = LiveFanProvider(api: FanAPI(client: client))
         wifiProvider = LiveWifiProvider(api: WifiAPI(client: client))
         weatherProvider = LiveWeatherProvider(api: WeatherAPI(client: client))
-        sonosProvider = LiveSonosProvider(api: SonosAPI(configuration: configuration, transport: transport))
+        sonosProvider = LiveSonosProvider(api: SonosAPI(configuration: configuration, transport: transport), lockDefaults: sonosLockDefaults)
     }
 
     func hasLiveData(for module: PanelModule) -> Bool {
@@ -129,17 +131,9 @@ import CryptoKit
 
     var rooms: [SoundRoom] {
         guard sonosProvider.availability == .live else { return [] }
-        return sonosProvider.rooms.compactMap { projection in
-            guard let room = sonosProvider.roomDetails[projection.id], room.availability == .available else { return nil }
-            return SoundRoom(metadata: .init(id: room.uuid, title: room.trackTitle, artist: room.trackArtist,
-                                             coordinatorName: sonosProvider.roomDetails[room.coordinatorUuid]?.name),
-                             name: room.name, rawVolume: projection.rawVolume, baseline: projection.baseline,
-                             muted: projection.muted, coordinator: room.coordinatorUuid, playing: projection.playing,
-                             positionSeconds: 0, durationSeconds: 0, positionUpdatedAt: .distantPast,
-                             sourceKind: SoundSource(rawValue: room.sourceKind.rawValue) ?? .other,
-                             sourceLabel: room.sourceLabel, albumArtUri: room.albumArtUri)
-        }
+        return sonosProvider.rooms.filter { sonosProvider.roomDetails[$0.id]?.availability == .available }
     }
+
     var globalLock: Bool { hasLiveData(for: .sonos) && sonosProvider.globalLock }
     var groupLock: Bool { hasLiveData(for: .sonos) && sonosProvider.groupLock }
     var pending: Set<String> {
@@ -180,9 +174,9 @@ import CryptoKit
             if let member = roomID(member), let target = roomID(target), hasLiveData(for: .sonos) {
                 sonosProvider.send(.join(member, target))
             }
-        case .transport, .rawVolume, .volume, .mute, .globalLock, .groupLock, .calibrate, .clearCalibration, .leave:
+        case .transport, .seek, .rawVolume, .volume, .mute, .globalLock, .groupLock, .calibrate, .clearCalibration, .leave:
             if hasLiveData(for: .sonos) { sonosProvider.send(command) }
-        default: break // Seeking and fixture-library playback have no live implementation.
+        default: break // Fixture-library playback has no live implementation.
         }
     }
 

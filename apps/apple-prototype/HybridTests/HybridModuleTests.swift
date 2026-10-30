@@ -112,6 +112,85 @@ import XCTest
         XCTAssertEqual(scene.screen.brightness, originalBrightness, accuracy: 0.01)
     }
 
+    func testSonosDefaultFallbackPlaybackAndSeekRouting() async throws {
+        XCTAssertFalse(ModuleFlags.shippedNative.contains(.sonos))
+        let (store, transport) = try fixtureStore()
+        defer { store.stop() }
+        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.sonos": "native"]))
+        func route() -> HybridRouter.Route { router.route(for: .sonos, hasLiveData: store.hasLiveData(for: .sonos)) }
+        XCTAssertEqual(route(), .webBoard)
+        await store.refresh(.sonos)
+        XCTAssertEqual(route(), .native(.sonos))
+        XCTAssertFalse(store.sonosProvider.supportsPlaybackPosition)
+        await transport.setFixture("sonos/playback.json", for: "sound.soundSystem")
+        await store.refresh(.sonos)
+        XCTAssertTrue(store.sonosProvider.supportsPlaybackPosition)
+        XCTAssertEqual(store.rooms[1].positionSeconds, 72.5)
+        XCTAssertEqual(store.rooms[1].position(at: .distantFuture), 72.5, "Paused positions do not advance.")
+        await transport.setFixture("sonos/void.json", for: "sound.sonosSeek")
+        store.send(.seek("media_player.test_beta", 32))
+        for _ in 0..<1000 {
+            if store.sonosProvider.pending.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        let requests = await transport.requests
+        let seek = try XCTUnwrap(requests.first { $0.url?.lastPathComponent == "sound.sonosSeek" })
+        let input = try JSONSerialization.jsonObject(with: XCTUnwrap(seek.httpBody)) as! [String: Any]
+        XCTAssertEqual(input["room"] as? String, "media_player.test_alpha")
+        XCTAssertEqual(input["positionSeconds"] as? Double, 32)
+        for file in ["sonos/empty.json", "sonos/unavailable.json"] {
+            await transport.setFixture(file, for: "sound.soundSystem")
+            await store.refresh(.sonos)
+            XCTAssertEqual(route(), .webBoard)
+        }
+        await transport.setFixture("sonos/playback.json", for: "sound.soundSystem")
+        await store.refresh(.sonos)
+        XCTAssertEqual(route(), .native(.sonos))
+        for module in [PanelModule.tesla, .walk, .cameras, .wifi, .media] {
+            XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: module, hasLiveData: true), .webBoard)
+        }
+    }
+
+    func testSonosSurfacesRenderAtPanelSize() async throws {
+        let (store, transport) = try fixtureStore()
+        defer { store.stop() }
+        await transport.setFixture("sonos/playback.json", for: "sound.soundSystem")
+        await store.refresh(.sonos)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let canvas = CGSize(width: 1366, height: 1024)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(origin: .zero, size: canvas)
+        window.windowLevel = .alert + 1
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SonosVerification")
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let views: [(String, AnyView)] = [
+            ("tile", AnyView(HybridNativeModule(module: .sonos, store: store, detail: false, open: {}))),
+            ("now-playing", AnyView(HybridNativeModule(module: .sonos, store: store, detail: true, open: {}))),
+            ("rooms", AnyView(SonosRoomsModule(store: store, select: { _ in }, close: {})
+                .foregroundStyle(.white).tint(.white).background(Color.black).environment(\.colorScheme, .dark))),
+            ("now-playing-legacy", AnyView(HybridNativeModule(module: .sonos, store: store, detail: true, open: {})))
+        ]
+        for (name, view) in views {
+            if name == "now-playing-legacy" {
+                await transport.setFixture("sonos/rooms.json", for: "sound.soundSystem")
+                await store.refresh(.sonos)
+            }
+            window.rootViewController = UIHostingController(rootView: view)
+            window.makeKeyAndVisible()
+            try await Task.sleep(for: .seconds(1))
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1
+            let image = UIGraphicsImageRenderer(size: canvas, format: format).image { _ in
+                window.drawHierarchy(in: CGRect(origin: .zero, size: canvas), afterScreenUpdates: true)
+            }
+            try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("\(name).png"))
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "sonos-\(name)"; attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     private func assertDecodes(_ payload: String, image: CGImage? = nil) throws {
         let code = try XCTUnwrap(image ?? GuestWifiCode.render(payload: payload))
         let source = CIImage(cgImage: code)

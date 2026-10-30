@@ -61,7 +61,8 @@ struct PanelRoot: View {
             let transport = HybridFixtureTransport(root: root,
                 unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"),
                 alarmScenario: ringing ? "ringing" : "scheduled",
-                walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"))
+                walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"),
+                sonosPlayback: ProcessInfo.processInfo.arguments.contains("-hybridSonosPlayback"))
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
                     accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
@@ -79,7 +80,7 @@ struct PanelRoot: View {
         _store = State(initialValue: LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
             baseURL: config.serverURL,
             accessClientID: config.accessHeaders["CF-Access-Client-Id"],
-            accessClientSecret: config.accessHeaders["CF-Access-Client-Secret"])))
+            accessClientSecret: config.accessHeaders["CF-Access-Client-Secret"]), sonosLockDefaults: .standard))
     }
 
     private func hasLiveData(for module: PanelModule) -> Bool {
@@ -121,7 +122,7 @@ struct PanelRoot: View {
                 }
                 HybridModuleHost(router: router, module: selection,
                     liveView: hasLiveData(for: selection)
-                        ? HybridNativeModule(module: selection, store: store, detail: detail, open: { detail = true }) : nil) {
+                        ? HybridNativeModule(module: selection, store: store, detail: detail, open: { detail = true }, close: { detail = false }) : nil) {
                     Color.clear.allowsHitTesting(false)
                 }
             }
