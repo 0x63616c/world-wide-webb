@@ -1,0 +1,10 @@
+{
+  "result": {
+    "data": {
+      "mode": "heat",
+      "target": 73,
+      "ambient": 70.5,
+      "action": "Heating"
+    }
+  }
+}

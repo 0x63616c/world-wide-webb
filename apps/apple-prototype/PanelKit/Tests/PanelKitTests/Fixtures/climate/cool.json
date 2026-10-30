@@ -1,0 +1,10 @@
+{
+  "result": {
+    "data": {
+      "mode": "cool",
+      "target": 70,
+      "ambient": 72.5,
+      "action": "Cooling"
+    }
+  }
+}
