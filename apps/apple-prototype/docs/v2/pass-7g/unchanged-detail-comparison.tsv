@@ -1,0 +1,7 @@
+screen	comparison	mean_absolute_diff_255
+lamps	pass-7b	0.000000
+clock-near	pass-7b	0.000000
+nowplaying	pass-7b	0.004590
+dogwalk-full	pass-7b	0.000003
+dogwalk-full-running	pass-7b	0.000002
+dogwalk-remote	pass-7b	0.000003

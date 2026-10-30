@@ -1,0 +1,12 @@
+{
+  "result": {
+    "data": {
+      "mode": "off",
+      "target": 71.5,
+      "targetLow": 68.5,
+      "targetHigh": 74.5,
+      "ambient": 72,
+      "action": "Idle"
+    }
+  }
+}

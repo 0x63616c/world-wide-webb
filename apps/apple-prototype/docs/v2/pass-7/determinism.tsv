@@ -1,0 +1,13 @@
+screen	mean_absolute_diff_255	result
+sim-home.png	0.000000	PASS
+sim-lamps.png	0.000000	PASS
+sim-clock-near.png	0.000000	PASS
+sim-controls.png	0.000000	PASS
+sim-nowplaying.png	0.000000	PASS
+sim-dogwalk-tile.png	0.000654	PASS
+sim-dogwalk-full.png	0.000008	PASS
+sim-dogwalk-full-running.png	0.000000	PASS
+sim-dogwalk-remote.png	0.000007	PASS
+sim-dogwalk-tile-running.png	0.000963	PASS
+sim-iphone-home.png	0.002355	PASS
+sim-iphone-home-bottom.png	0.000004	PASS

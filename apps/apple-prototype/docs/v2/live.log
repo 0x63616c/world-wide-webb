@@ -1,0 +1,759 @@
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/alarm-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing.png | pass-3 hosted native glass | builder 7.5/10 | reviewer pending/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/alarm.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 7/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather.png | pass-3 hosted native glass | builder 7.5/10 | reviewer pending/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 4.5/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/clock-near-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:08 PT | /workspace/wwwebb-ui/prototype/v2/clock-near.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 7/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/controls-face-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/controls-face.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 6/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/home-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/._home-simulator-check.png | pass-3 hosted native glass | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/home-simulator-check.png | pass-3 hosted native glass | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/home.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 6.5/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/lamps-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/lamps.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 5.5/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/mac-home-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/mac-home.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 6.5/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 7.5/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/tesla-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 6.5/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/tesla.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 5/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/wifi-imagerenderer.png | pass-3 ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:09 PT | /workspace/wwwebb-ui/prototype/v2/wifi.png | pass-3 hosted native glass | builder 7.5/10 | reviewer 7.5/10
+20:16 PT | /workspace/wwwebb-ui/prototype/v2/alarm-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:16 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:16 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing.png | pass-3b hosted native glass | builder 7.5/10 | reviewer pending/10
+20:16 PT | /workspace/wwwebb-ui/prototype/v2/alarm.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 7/10
+20:16 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather.png | pass-3b hosted native glass | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 8/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/clock-near-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/clock-near.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 7.5/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/iphone-home.png | simulator capture | builder 8/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/iphone-clock-near.png | simulator capture | builder 8/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/controls-face-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/controls-face.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 6/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/home-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/._home-simulator-check.png | pass-3b hosted native glass | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/home-simulator-check.png | pass-3b hosted native glass | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/home.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 6.5/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/lamps-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/lamps.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 7/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/mac-home-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/mac-home.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 6.5/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 7.5/10
+20:17 PT | /workspace/wwwebb-ui/prototype/v2/tesla-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:18 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:18 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 7/10
+20:18 PT | /workspace/wwwebb-ui/prototype/v2/tesla.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 7/10
+20:18 PT | /workspace/wwwebb-ui/prototype/v2/wifi-imagerenderer.png | pass-3b ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:18 PT | /workspace/wwwebb-ui/prototype/v2/wifi.png | pass-3b hosted native glass | builder 7.5/10 | reviewer 8/10
+20:30 PT | /workspace/wwwebb-ui/prototype/v2/alarm-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:30 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:30 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:30 PT | /workspace/wwwebb-ui/prototype/v2/alarm.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:30 PT | /workspace/wwwebb-ui/prototype/v2/anim-lamps-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:30 PT | /workspace/wwwebb-ui/prototype/v2/anim-lamps.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:31 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:31 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:31 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:31 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:31 PT | /workspace/wwwebb-ui/prototype/v2/clock-near-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:31 PT | /workspace/wwwebb-ui/prototype/v2/clock-near.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:31 PT | /workspace/wwwebb-ui/prototype/v2/controls-face-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/controls-face.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/home-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/._home-simulator-check.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/home.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/._iphone-clock-near.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/iphone-clock-near.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/._iphone-home.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/iphone-home.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:32 PT | /workspace/wwwebb-ui/prototype/v2/lamps-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:33 PT | /workspace/wwwebb-ui/prototype/v2/lamps.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:33 PT | /workspace/wwwebb-ui/prototype/v2/mac-home-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:33 PT | /workspace/wwwebb-ui/prototype/v2/mac-home.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:33 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:33 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:33 PT | /workspace/wwwebb-ui/prototype/v2/tesla-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:34 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:34 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:34 PT | /workspace/wwwebb-ui/prototype/v2/tesla.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:34 PT | /workspace/wwwebb-ui/prototype/v2/wifi-imagerenderer.png | pass-3c ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:34 PT | /workspace/wwwebb-ui/prototype/v2/wifi.png | pass-3c hosted native glass | builder 7.5/10 | reviewer pending/10
+20:46 PT | /workspace/wwwebb-ui/prototype/v2/alarm-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:46 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:46 PT | /workspace/wwwebb-ui/prototype/v2/alarm-ringing.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:46 PT | /workspace/wwwebb-ui/prototype/v2/alarm.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:46 PT | /workspace/wwwebb-ui/prototype/v2/anim-lamps-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:46 PT | /workspace/wwwebb-ui/prototype/v2/anim-lamps.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/anim-weather.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/clock-idle.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/clock-near-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/clock-near.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/controls-face-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:47 PT | /workspace/wwwebb-ui/prototype/v2/controls-face.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:48 PT | /workspace/wwwebb-ui/prototype/v2/home-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:48 PT | /workspace/wwwebb-ui/prototype/v2/._home-simulator-check.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:48 PT | /workspace/wwwebb-ui/prototype/v2/home.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:48 PT | /workspace/wwwebb-ui/prototype/v2/._iphone-clock-near.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:48 PT | /workspace/wwwebb-ui/prototype/v2/iphone-clock-near.png | pass-3d iPhone simulator capture | builder 7.5/10 | reviewer pending/10
+20:48 PT | /workspace/wwwebb-ui/prototype/v2/._iphone-home.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:49 PT | /workspace/wwwebb-ui/prototype/v2/iphone-home.png | pass-3d iPhone simulator capture | builder 7.5/10 | reviewer pending/10
+20:49 PT | /workspace/wwwebb-ui/prototype/v2/lamps-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:49 PT | /workspace/wwwebb-ui/prototype/v2/lamps.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:49 PT | /workspace/wwwebb-ui/prototype/v2/mac-home-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:49 PT | /workspace/wwwebb-ui/prototype/v2/mac-home.png | pass-3d Mac layout render, iOS host with Mac idiom traits | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/nowplaying.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/._sim-clock-near.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/sim-clock-near.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/._sim-home.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/sim-home.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/._sim-lamps.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/sim-lamps.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/tesla-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/tesla-tile.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/tesla.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/wifi-imagerenderer.png | pass-3d ImageRenderer geometry | builder 7.5/10 | reviewer pending/10
+20:50 PT | /workspace/wwwebb-ui/prototype/v2/wifi.png | pass-3d hosted native glass | builder 7.5/10 | reviewer pending/10
+20:51 PT | /workspace/wwwebb-ui/prototype/v2/anim-home.png | Motion video frame at 1.5s, live state | builder 7.5/10 | reviewer pending/10
+20:51 PT | /workspace/wwwebb-ui/prototype/v2/anim-controls.png | Motion video frame at 7.5s, live state | builder 7.5/10 | reviewer pending/10
+20:51 PT | /workspace/wwwebb-ui/prototype/v2/anim-sonos.png | Motion video frame at 11.5s, live state | builder 7.5/10 | reviewer pending/10
+20:52 PT | /workspace/wwwebb-ui/prototype/v2/overlay-home.png | Equal display-area height; perspective retained | builder 8/10 | reviewer pending/10
+20:52 PT | /workspace/wwwebb-ui/prototype/v2/overlay-clock-near.png | Equal display-area height; perspective retained | builder 8/10 | reviewer pending/10
+20:52 PT | /workspace/wwwebb-ui/prototype/v2/overlay-alarm.png | Equal display-area height; perspective retained | builder 8/10 | reviewer pending/10
+20:52 PT | /workspace/wwwebb-ui/prototype/v2/overlay-nowplaying.png | Equal display-area height; perspective retained | builder 8/10 | reviewer pending/10
+20:52 PT | /workspace/wwwebb-ui/prototype/v2/overlay-lamps.png | Equal brightness-control height; preserved aspect ratios | builder 8/10 | reviewer pending/10
+20:52 PT | /workspace/wwwebb-ui/prototype/v2/iter-3.png | Iteration 3 combined review sheet | builder 8/10 | reviewer pending/10
+21:03 PT | /workspace/wwwebb-ui/prototype/v2/sim-home.png | simulator capture | builder 8/10 | reviewer pending/10
+21:03 PT | /workspace/wwwebb-ui/prototype/v2/sim-lamps.png | simulator capture | builder 8/10 | reviewer pending/10
+21:04 PT | /workspace/wwwebb-ui/prototype/v2/sim-home.png | simulator capture | builder 8/10 | reviewer pending/10
+21:04 PT | /workspace/wwwebb-ui/prototype/v2/sim-lamps.png | simulator capture | builder 8/10 | reviewer pending/10
+21:04 PT | /workspace/wwwebb-ui/prototype/v2/sim-clock-near.png | simulator capture | builder 8/10 | reviewer pending/10
+21:04 PT | /workspace/wwwebb-ui/prototype/v2/sim-nowplaying.png | simulator capture | builder 8/10 | reviewer pending/10
+21:04 PT | /workspace/wwwebb-ui/prototype/v2/sim-iphone-home.png | simulator capture | builder 8/10 | reviewer pending/10
+21:05 PT | /workspace/wwwebb-ui/prototype/v2/sim-iphone-nowplaying.png | simulator capture | builder 8/10 | reviewer pending/10
+21:05 PT | /workspace/wwwebb-ui/prototype/v2/sim-controls.png | simulator capture | builder 8/10 | reviewer pending/10
+21:06 PT | /workspace/wwwebb-ui/prototype/v2/sim-home.png | simulator capture | builder 8/10 | reviewer pending/10
+21:06 PT | /workspace/wwwebb-ui/prototype/v2/sim-lamps.png | simulator capture | builder 8/10 | reviewer pending/10
+21:06 PT | /workspace/wwwebb-ui/prototype/v2/sim-clock-near.png | simulator capture | builder 8/10 | reviewer pending/10
+21:06 PT | /workspace/wwwebb-ui/prototype/v2/sim-controls.png | simulator capture | builder 8/10 | reviewer pending/10
+21:06 PT | /workspace/wwwebb-ui/prototype/v2/sim-nowplaying.png | simulator capture | builder 8/10 | reviewer pending/10
+21:06 PT | /workspace/wwwebb-ui/prototype/v2/sim-iphone-home.png | simulator capture | builder 8/10 | reviewer pending/10
+21:06 PT | /workspace/wwwebb-ui/prototype/v2/sim-iphone-nowplaying.png | simulator capture | builder 8/10 | reviewer pending/10
+21:16 PT | /workspace/wwwebb-ui/prototype/v2/pass-4/sim-home.png | pass-4 live simulator; mixed spans, licensed photo, native glass, fixture seek | builder 8/10 | reviewer 7.5/10
+21:16 PT | /workspace/wwwebb-ui/prototype/v2/pass-4/sim-lamps.png | pass-4 live simulator; mixed spans, licensed photo, native glass, fixture seek | builder 8/10 | reviewer 8.5/10
+21:16 PT | /workspace/wwwebb-ui/prototype/v2/pass-4/sim-clock-near.png | pass-4 live simulator; mixed spans, licensed photo, native glass, fixture seek | builder 8/10 | reviewer 8.2/10
+21:16 PT | /workspace/wwwebb-ui/prototype/v2/pass-4/sim-controls.png | pass-4 live simulator; mixed spans, licensed photo, native glass, fixture seek | builder 8/10 | reviewer 6.5/10
+21:16 PT | /workspace/wwwebb-ui/prototype/v2/pass-4/sim-iphone-home.png | pass-4 live simulator; mixed spans, licensed photo, native glass, fixture seek | builder 8/10 | reviewer 7.2/10
+21:16 PT | /workspace/wwwebb-ui/prototype/v2/pass-4/sim-nowplaying.png | pass-4 live simulator; mixed spans, licensed photo, native glass, fixture seek | builder 8/10 | reviewer 8.0/10
+21:16 PT | /workspace/wwwebb-ui/prototype/v2/pass-4/sim-iphone-nowplaying.png | pass-4 live simulator; mixed spans, licensed photo, native glass, fixture seek | builder 8/10 | reviewer 7.3/10
+21:24 PT | /workspace/wwwebb-ui/prototype/v2/sim-home.png | simulator capture | builder 8/10 | reviewer pending/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-clock-near.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 8.8/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-controls.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 7.8/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-home.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 8.3/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-iphone-home-bottom.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 8.0/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-iphone-home.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 8.0/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-iphone-nowplaying.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 8.4/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-lamps.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 8.2/10
+21:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-4b/sim-nowplaying.png | pass-4b live simulator; tested gutters and pager margins; native regular glass, neutral Lamps | builder 8.5/10 | reviewer 8.1/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-calendar-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.6/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-cameras-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.6/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-clock-near.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 9/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-controls.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.2/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-home.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.5/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-home-bottom.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.5/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-home.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.3/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-more-bottom.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.3/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-more.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.2/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-nowplaying.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.7/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-lamps.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.7/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-media-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-nowplaying.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.6/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-photos-face.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 9/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-sonos-rooms.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.2/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-video.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-weather-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.3/10
+22:20 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-weather.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.5/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-calendar-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.6/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-cameras-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.6/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-clock-near.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 9/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-controls.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.2/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-home.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.5/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-home-bottom.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.5/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-home.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.3/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-more-bottom.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.3/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-more.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.2/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-iphone-nowplaying.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.7/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-lamps.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.7/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-media-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-nowplaying.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.6/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-photos-face.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 9/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-sonos-rooms.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.2/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-video.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-weather-full.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.3/10
+22:35 PT | /workspace/wwwebb-ui/prototype/v2/pass-5/sim-weather.png | pass-5 live simulator capture; fixture modules and tested Home geometry | builder 8.5/10 | reviewer 8.5/10
+23:01 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/checkpoint/sim-home.png | 5b checkpoint: live Home before final contrast refinements; shared-walk tests pass | builder 8.5/10 | reviewer pending/10
+23:18 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-home.png | 5b INVALID CAPTURE: SpringBoard after app exited; excluded from review, replacement required | builder unscored/10 | reviewer unscored/10
+23:23 PT | pages-1/sim-weather-full.png | pages-1 rejected: black startup frame after simulator migration failure; recapturing | builder 0/10 | reviewer pending/10
+23:24 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-home.png | 5b valid replacement: live app after launch settled; inspected full 2752x2064 capture | builder 8.8/10 | reviewer 8.6/10
+23:34 PT | pages-1/sim-weather-full.png | pages-1 valid landscape render; forecast aligns, header clipping remains | builder 8.5/10 | reviewer pending/10
+23:33 PT | pages-1/sim-calendar-full.png | pages-1 live landscape capture | builder 8.8/10 | reviewer pending/10
+23:33 PT | pages-1/sim-media-full.png | pages-1 live landscape capture | builder 8.0/10 | reviewer pending/10
+23:33 PT | pages-1/sim-video.png | pages-1 live landscape capture | builder 9.0/10 | reviewer pending/10
+23:34 PT | pages-1/sim-sonos-rooms.png | pages-1 live landscape capture | builder 8.5/10 | reviewer pending/10
+23:34 PT | pages-1/sim-cameras-full.png | pages-1 blank startup surface; recapturing | builder 0/10 | reviewer pending/10
+23:34 PT | pages-1/sim-photos-face.png | pages-1 live landscape capture | builder 9.0/10 | reviewer pending/10
+00:07 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-lamps.png | 5b valid live replacement: app completed initial presentation under simulator load | builder 8.8/10 | reviewer 9.0/10
+00:08 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-clock-near.png | 5b live clock: Zero complication in lower-left safe corner | builder 9.0/10 | reviewer 8.8/10
+00:12 PT | pages-1/capture-ipad-retry.log | pages-1 simulator recovered; UI test is waiting for Weather before live capture; earlier failed startup images rejected | builder pending/10 | reviewer pending/10
+00:18 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-home.png | Replaced cold-launch white frame with valid later sim-weather capture: same -face home launch and fixture state, unchanged pixels | builder 8.8/10 | reviewer 8.6/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-calendar-full.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.4/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-cameras-full.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.6/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-clock-near.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 9.0/10 | reviewer 8.8/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-controls.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.5/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-full-running.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 7.8/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-full.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.4/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-remote.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 7.8/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-tile-running.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.6/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-tile.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.5/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-home.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.8/10 | reviewer 8.6/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-lamps.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.8/10 | reviewer 9.0/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-media-full.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.3/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-nowplaying.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.6/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-photos-face.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 9.1/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-sonos-rooms.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.1/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-video.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 7.7/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-weather-full.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.5/10 | reviewer 8.2/10
+00:19 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-weather.png | 5b inspected live iPad evidence; Home/Weather share the same captured Home face | builder 8.8/10 | reviewer 8.6/10
+00:12 PT | pages-1/sim-weather-full.png | pages-1 UI-verified live capture | builder 8.5/10 | reviewer pending/10
+00:14 PT | pages-1/sim-calendar-full.png | pages-1 UI-verified live capture | builder 8.8/10 | reviewer pending/10
+00:14 PT | pages-1/sim-media-full.png | pages-1 UI-verified live capture | builder 8/10 | reviewer pending/10
+00:15 PT | pages-1/sim-video.png | pages-1 UI-verified live capture | builder 9/10 | reviewer pending/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-calendar-full.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.4/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-cameras-full.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.6/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-clock-near.png | pass 5b: Live simulator compositor; fixture state | builder 9.0/10 | reviewer 8.8/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-controls.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.5/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-full-running.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 7.8/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-full.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.4/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-remote.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 7.8/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-tile-running.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.6/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-dogwalk-tile.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.5/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-home.png | pass 5b: Live simulator compositor; fixture state | builder 8.8/10 | reviewer 8.6/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-iphone-dogwalk.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 6.8/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-iphone-home-bottom.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.5/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-iphone-home.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.2/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-iphone-liveactivity.png | pass 5b: Labelled shared WidgetKit preview in live simulator | builder 8.5/10 | reviewer 8.6/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-iphone-more-bottom.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.5/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-iphone-more.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.2/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-iphone-nowplaying.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.8/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-lamps.png | pass 5b: Live simulator compositor; fixture state | builder 8.8/10 | reviewer 9.0/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-media-full.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.3/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-nowplaying.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.6/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-photos-face.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 9.1/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-sonos-rooms.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.1/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-video.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 7.7/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-weather-full.png | pass 5b: Live simulator compositor; fixture state | builder 8.5/10 | reviewer 8.2/10
+00:25 PT | /workspace/wwwebb-ui/prototype/v2/pass-5b/sim-weather.png | pass 5b: Live simulator compositor; fixture state | builder 8.8/10 | reviewer 8.6/10
+00:25 PT | pages-1/sim-sonos-rooms.png | pages-1 verified live simctl capture | builder 8.5/10 | reviewer pending/10
+00:25 PT | pages-1/sim-cameras-full.png | pages-1 verified live simctl capture | builder 8.8/10 | reviewer pending/10
+00:27 PT | pages-1/sim-photos-face.png | pages-1 verified live simctl capture | builder 9/10 | reviewer pending/10
+00:34 PT | pages-2/sim-calendar-full.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+00:34 PT | pages-2/sim-cameras-full.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+00:35 PT | pages-2/sim-iphone-weather-full.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+00:34 PT | pages-2/sim-media-full.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+00:34 PT | pages-2/sim-photos-face.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+00:34 PT | pages-2/sim-sonos-rooms.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+00:34 PT | pages-2/sim-video.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+00:34 PT | pages-2/sim-weather-full.png | pages-2 destination-verified live capture | builder 9/10 | reviewer pending/10
+01:00 PT | v2/pages-3/sim-weather-full.png | pages-3 seamless chrome and reserved playback area | builder 8.8/10 | reviewer pending/10
+01:01 PT | v2/pages-3/sim-calendar-full.png | pages-3 seamless chrome and reserved playback area | builder 8.9/10 | reviewer pending/10
+01:02 PT | v2/pages-3/sim-media-full.png | pages-3 seamless chrome and reserved playback area | builder 8.5/10 | reviewer pending/10
+01:02 PT | v2/pages-3/sim-video.png | pages-3 seamless chrome and reserved playback area | builder 9.0/10 | reviewer pending/10
+01:11 PT | v2/pages-3/sim-sonos-rooms.png | pages-3 locked and validated live capture | builder 8.8/10 | reviewer pending/10
+01:12 PT | v2/pages-3/sim-cameras-full.png | pages-3 locked and validated live capture | builder 8.8/10 | reviewer pending/10
+01:12 PT | v2/pages-3/sim-photos-face.png | pages-3 locked and validated live capture | builder 9.0/10 | reviewer pending/10
+01:13 PT | v2/pages-3/sim-iphone-weather-full.png | pages-3 locked and validated live capture | builder 8.5/10 | reviewer pending/10
+01:13 PT | v2/pages-3/sim-iphone-calendar-full.png | pages-3 locked and validated live capture | builder 8.6/10 | reviewer pending/10
+01:14 PT | v2/pages-3/sim-iphone-media-full.png | pages-3 locked and validated live capture | builder 8.2/10 | reviewer pending/10
+01:14 PT | v2/pages-3/sim-iphone-video.png | pages-3 locked and validated live capture | builder 8.7/10 | reviewer pending/10
+01:14 PT | v2/pages-3/sim-iphone-sonos-rooms.png | pages-3 locked and validated live capture | builder 8.5/10 | reviewer pending/10
+01:15 PT | v2/pages-3/sim-iphone-cameras-full.png | pages-3 locked and validated live capture | builder 8.5/10 | reviewer pending/10
+01:18 PT | pass-6/sim-home.png | pass 6 live: reduced photo blur, 24-pt metadata, native regular glass | builder 8.8/10 | reviewer pending/10
+01:18 PT | pass-6/sim-lamps.png | pass 6 live: value centred above fader; separate count and scope | builder 9.0/10 | reviewer pending/10
+01:15 PT | v2/pages-3/sim-iphone-photos-face.png | pages-3 validated iPhone capture | builder 8.5/10 | reviewer pending/10
+01:17 PT | v2/pass-6/sim-calendar-full.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:17 PT | v2/pass-6/sim-cameras-full.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:16 PT | v2/pass-6/sim-clock-near.png | aligned date/alarm baseline and explicit charge percent | builder 9.0/10 | reviewer pending/10
+01:16 PT | v2/pass-6/sim-controls.png | 72-pt Walk action, History affordance and clearer Sonos footer | builder 8.8/10 | reviewer pending/10
+01:18 PT | v2/pass-6/sim-dogwalk-full-running.png | 64-pt elapsed timer; chart clearance refresh pending | builder 8.5/10 | reviewer pending/10
+01:18 PT | v2/pass-6/sim-dogwalk-full.png | larger chart labels and history timestamps | builder 8.7/10 | reviewer pending/10
+01:19 PT | v2/pass-6/sim-dogwalk-remote.png | shared iPhone origin separated from elapsed duration | builder 8.5/10 | reviewer pending/10
+01:18 PT | v2/pass-6/sim-dogwalk-tile-running.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:18 PT | v2/pass-6/sim-dogwalk-tile.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:15 PT | v2/pass-6/sim-home.png | 24-pt tile metadata; reduced wallpaper blur; regular system glass | builder 8.8/10 | reviewer pending/10
+01:21 PT | v2/pass-6/sim-iphone-dogwalk.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:20 PT | v2/pass-6/sim-iphone-home-bottom.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:20 PT | v2/pass-6/sim-iphone-home.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:21 PT | v2/pass-6/sim-iphone-liveactivity.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:20 PT | v2/pass-6/sim-iphone-more-bottom.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:20 PT | v2/pass-6/sim-iphone-more.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:20 PT | v2/pass-6/sim-iphone-nowplaying.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:15 PT | v2/pass-6/sim-lamps.png | centred fader value and separate on-count; scope wording refresh pending | builder 9.0/10 | reviewer pending/10
+01:17 PT | v2/pass-6/sim-media-full.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:16 PT | v2/pass-6/sim-nowplaying.png | 440-pt artwork and pager clearance | builder 8.8/10 | reviewer pending/10
+01:18 PT | v2/pass-6/sim-photos-face.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:17 PT | v2/pass-6/sim-sonos-rooms.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:17 PT | v2/pass-6/sim-video.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:16 PT | v2/pass-6/sim-weather-full.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:16 PT | v2/pass-6/sim-weather.png | locked and validated live simulator capture | builder 8.6/10 | reviewer pending/10
+01:39 PT | v2/pages-3/sim-calendar-full.png | pages-3 cold review complete | builder see capture entry | reviewer 8.1/10
+01:39 PT | v2/pages-3/sim-cameras-full.png | pages-3 cold review complete | builder see capture entry | reviewer 8.2/10
+01:39 PT | v2/pages-3/sim-iphone-calendar-full.png | pages-3 cold review complete | builder see capture entry | reviewer 7.5/10
+01:39 PT | v2/pages-3/sim-iphone-cameras-full.png | pages-3 cold review complete | builder see capture entry | reviewer 6.8/10
+01:39 PT | v2/pages-3/sim-iphone-media-full.png | pages-3 cold review complete | builder see capture entry | reviewer 6.9/10
+01:39 PT | v2/pages-3/sim-iphone-photos-face.png | pages-3 cold review complete | builder see capture entry | reviewer 8.1/10
+01:39 PT | v2/pages-3/sim-iphone-sonos-rooms.png | pages-3 cold review complete | builder see capture entry | reviewer 7.1/10
+01:39 PT | v2/pages-3/sim-iphone-video.png | pages-3 cold review complete | builder see capture entry | reviewer 8.3/10
+01:39 PT | v2/pages-3/sim-iphone-weather-full.png | pages-3 cold review complete | builder see capture entry | reviewer 7.4/10
+01:39 PT | v2/pages-3/sim-media-full.png | pages-3 cold review complete | builder see capture entry | reviewer 7.8/10
+01:39 PT | v2/pages-3/sim-photos-face.png | pages-3 cold review complete | builder see capture entry | reviewer 8.6/10
+01:39 PT | v2/pages-3/sim-sonos-rooms.png | pages-3 cold review complete | builder see capture entry | reviewer 8.0/10
+01:39 PT | v2/pages-3/sim-video.png | pages-3 cold review complete | builder see capture entry | reviewer 8.5/10
+01:39 PT | v2/pages-3/sim-weather-full.png | pages-3 cold review complete | builder see capture entry | reviewer 8.2/10
+01:43 PT | v2/pages-4/ | pages-4 build passed; waiting for shared simulator lock, no render yet | builder pending/10 | reviewer pending/10
+01:40 PT | v2/pass-6/sim-lamps.png | validated refresh: chart/footer clearance and aligned headings; lamp scope wording | builder 8.8/10 | reviewer pending/10
+01:41 PT | v2/pass-6/sim-dogwalk-full.png | validated refresh: chart/footer clearance and aligned headings; lamp scope wording | builder 8.8/10 | reviewer pending/10
+01:41 PT | v2/pass-6/sim-dogwalk-full-running.png | validated refresh: chart/footer clearance and aligned headings; lamp scope wording | builder 8.8/10 | reviewer pending/10
+01:42 PT | v2/pass-6/sim-dogwalk-remote.png | validated refresh: chart/footer clearance and aligned headings; lamp scope wording | builder 8.8/10 | reviewer pending/10
+01:43 PT | v2/pass-6/sim-iphone-dogwalk.png | validated refresh: chart/footer clearance and aligned headings; lamp scope wording | builder 8.8/10 | reviewer pending/10
+
+01:46 PT | pages-4 capture remains queued on www8-simlock; Mac reported load 256.21 at 01:44. Isolated build passed; no bypass or peer-process changes.
+02:03 PT | v2/pass-6/sim-home.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.5/10
+02:03 PT | v2/pass-6/sim-lamps.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 9.0/10
+02:03 PT | v2/pass-6/sim-clock-near.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.8/10
+02:03 PT | v2/pass-6/sim-controls.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.4/10
+02:03 PT | v2/pass-6/sim-nowplaying.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.8/10
+02:03 PT | v2/pass-6/sim-dogwalk-full.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 7.8/10
+02:03 PT | v2/pass-6/sim-dogwalk-full-running.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 7.6/10
+02:03 PT | v2/pass-6/sim-dogwalk-remote.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 7.6/10
+02:03 PT | v2/pass-6/sim-dogwalk-tile.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.4/10
+02:03 PT | v2/pass-6/sim-dogwalk-tile-running.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.2/10
+02:03 PT | v2/pass-6/sim-iphone-home.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.3/10
+02:03 PT | v2/pass-6/sim-iphone-home-bottom.png | authoritative pass-6 cold review; checkpoint before 6b | builder 8.8/10 | reviewer 8.1/10
+02:01 PT | v2/pages-4/sim-weather-full.png | pages-4 larger metadata and complete content surfaces | builder 8.8/10 | reviewer pending/10
+02:02 PT | v2/pages-4/sim-calendar-full.png | pages-4 larger metadata and complete content surfaces | builder 8.8/10 | reviewer pending/10
+02:03 PT | v2/pages-4/sim-media-full.png | pages-4 larger metadata and complete content surfaces | builder 8.8/10 | reviewer pending/10
+02:04 PT | v2/pages-4/sim-video.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:04 PT | v2/pages-4/sim-sonos-rooms.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:05 PT | v2/pages-4/sim-cameras-full.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:06 PT | v2/pages-4/sim-photos-face.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:07 PT | v2/pages-4/sim-iphone-weather-full.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:07 PT | v2/pages-4/sim-iphone-calendar-full.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:08 PT | v2/pages-4/sim-iphone-media-full.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:08 PT | v2/pages-4/sim-iphone-video.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:08 PT | v2/pages-4/sim-iphone-sonos-rooms.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:09 PT | v2/pages-4/sim-iphone-cameras-full.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:09 PT | v2/pages-4/sim-iphone-photos-face.png | pages-4 clearer controls, complete phone content, compact header | builder 8.8/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/._iphone-calendar-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/._iphone-media-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/._iphone-sonosRooms-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/._iphone-weather-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/iphone-calendar-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/iphone-media-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/iphone-sonosRooms-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:15 PT | v2/pages-4-accessibility/accessibility/iphone-weather-accessibility-medium.png | pages-4 accessibility-medium reflow, shared lock and PNG/marker validation | builder 8.7/10 | reviewer pending/10
+02:23 PT | v2/pass-6b/ | all scheme builds/tests PASS; capture queued on shared simulator lock | builder pending/10 | reviewer pending/10
+02:24 PT | v2/pages-4/sim-calendar-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.4/10
+02:24 PT | v2/pages-4/sim-cameras-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.5/10
+02:24 PT | v2/pages-4/sim-iphone-calendar-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.5/10
+02:24 PT | v2/pages-4/sim-iphone-cameras-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.3/10
+02:24 PT | v2/pages-4/sim-iphone-media-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 7.8/10
+02:24 PT | v2/pages-4/sim-iphone-photos-face.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.2/10
+02:24 PT | v2/pages-4/sim-iphone-sonos-rooms.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 7.6/10
+02:24 PT | v2/pages-4/sim-iphone-video.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.5/10
+02:24 PT | v2/pages-4/sim-iphone-weather-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 7.9/10
+02:24 PT | v2/pages-4/sim-media-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.3/10
+02:24 PT | v2/pages-4/sim-photos-face.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.6/10
+02:24 PT | v2/pages-4/sim-sonos-rooms.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.2/10
+02:24 PT | v2/pages-4/sim-video.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.5/10
+02:24 PT | v2/pages-4/sim-weather-full.png | pages-4 exact-rubric cold review | builder 8.8/10 | reviewer 8.4/10
+02:26 PT | v2/pass-6b/sim-home.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:26 PT | v2/pass-6b/sim-lamps.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:26 PT | v2/pass-6b/sim-clock-near.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:26 PT | v2/pass-6b/sim-controls.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:27 PT | v2/pass-6b/sim-nowplaying.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:27 PT | v2/pass-6b/sim-dogwalk-tile.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:27 PT | v2/pass-6b/sim-dogwalk-tile-running.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:27 PT | v2/pass-6b/sim-dogwalk-full.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:27 PT | v2/pass-6b/sim-dogwalk-full-running.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:28 PT | v2/pass-6b/sim-dogwalk-remote.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:28 PT | v2/pass-6b/sim-clock-near.png | first capture rejected by builder: simulator installed prior clock proportions; rebuild and validated replacement required before review | builder 8.5/10 | reviewer pending/10
+02:29 PT | v2/pass-6b/sim-iphone-home.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:29 PT | v2/pass-6b/sim-iphone-home-bottom.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:30 PT | v2/pass-6b/sim-iphone-more.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:30 PT | v2/pass-6b/sim-iphone-nowplaying.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:30 PT | v2/pass-6b/sim-iphone-more-bottom.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:30 PT | v2/pass-6b/sim-iphone-liveactivity.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:31 PT | v2/pass-6b/sim-iphone-dogwalk.png | live sim capture passed shared validator; fixed state geometry and hierarchy | builder 9.0/10 | reviewer pending/10
+02:31 PT | v2/pages-5/sim-weather-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:32 PT | v2/pages-5/sim-calendar-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:32 PT | v2/pages-5/sim-media-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:33 PT | v2/pages-5/sim-video.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:33 PT | v2/pages-5/sim-sonos-rooms.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:34 PT | v2/pages-5/sim-cameras-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:34 PT | v2/pages-5/sim-photos-face.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:35 PT | v2/pages-5/sim-iphone-weather-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:35 PT | v2/pages-5/sim-iphone-calendar-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:35 PT | v2/pages-5/sim-iphone-media-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:36 PT | v2/pages-5/sim-iphone-video.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:36 PT | v2/pages-5/sim-iphone-sonos-rooms.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:36 PT | v2/pages-5/sim-iphone-cameras-full.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:37 PT | v2/pages-5/sim-iphone-photos-face.png | pages-5 density, hierarchy and alignment fixes | builder 8.9/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/._iphone-calendar-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/._iphone-media-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/._iphone-sonosRooms-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/._iphone-weather-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/iphone-calendar-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/iphone-media-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/iphone-sonosRooms-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+02:44 PT | v2/pages-5-accessibility/accessibility/iphone-weather-accessibility-medium.png | pages-5 accessibility-medium validated | builder 8.7/10 | reviewer pending/10
+03:00 PT | v2/pages-5/sim-calendar-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.0/10
+03:00 PT | v2/pages-5/sim-cameras-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.5/10
+03:00 PT | v2/pages-5/sim-iphone-calendar-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 7.9/10
+03:00 PT | v2/pages-5/sim-iphone-cameras-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.5/10
+03:00 PT | v2/pages-5/sim-iphone-media-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 7.3/10
+03:00 PT | v2/pages-5/sim-iphone-photos-face.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.2/10
+03:00 PT | v2/pages-5/sim-iphone-sonos-rooms.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 7.1/10
+03:00 PT | v2/pages-5/sim-iphone-video.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.5/10
+03:00 PT | v2/pages-5/sim-iphone-weather-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.5/10
+03:00 PT | v2/pages-5/sim-media-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 7.9/10
+03:00 PT | v2/pages-5/sim-photos-face.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.6/10
+03:00 PT | v2/pages-5/sim-sonos-rooms.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.1/10
+03:00 PT | v2/pages-5/sim-video.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.5/10
+03:00 PT | v2/pages-5/sim-weather-full.png | pages-5 exact-rubric cold review | builder 8.9/10 | reviewer 8.6/10
+03:22 PT | v2/pass-6c/sim-home.png | 6c preflight; exact repeat; active tint contrast rejected by builder, correction pending | builder 6.5/10 | reviewer pending/10
+03:22 PT | v2/pass-6c/sim-lamps.png | 6c live; exact repeat; shared effects row and centered columns | builder 9.0/10 | reviewer pending/10
+03:22 PT | v2/pass-6c/sim-clock-near.png | 6c live; exact repeat; fixed 10:10:30 and full hand-sweep clearance | builder 8.7/10 | reviewer pending/10
+03:24 PT | pages-6/sim-weather-full.png | pages-6 fixed snapshot; double-launch RGB diff 0.000000/255 | builder 8.6/10 | reviewer pending/10
+03:25 PT | pages-6/sim-calendar-full.png | pages-6 event-first hierarchy; double-launch RGB diff 0.000000/255 | builder 8.7/10 | reviewer pending/10
+03:26 PT | pages-6/sim-media-full.png | pages-6 endpoint transport; double-launch RGB diff 0.000053/255 | builder 8.7/10 | reviewer pending/10
+03:27 PT | pages-6/sim-video.png | pages-6 validated and deterministic | builder 8.6/10 | reviewer pending/10
+03:27 PT | pages-6/sim-sonos-rooms.png | pages-6 validated and deterministic | builder 8.6/10 | reviewer pending/10
+03:28 PT | pages-6/sim-cameras-full.png | pages-6 validated; double-launch RGB diff 0.000000/255 | builder 8.7/10 | reviewer pending/10
+03:28 PT | pages-6/sim-photos-face.png | pages-6 validated; double-launch RGB diff 0.000000/255 | builder 8.9/10 | reviewer pending/10
+03:29 PT | pages-6/sim-iphone-weather-full.png | pages-6 validated; double-launch RGB diff 0.000128/255 | builder 8.4/10 | reviewer pending/10
+03:33 PT | pages-6/sim-iphone-calendar-full.png | pages-6 validated; double-launch RGB diff 0.000032/255; phone mask recapture queued | builder 8.7/10 | reviewer pending/10
+03:34 PT | v2/pass-6c/sim-controls.png | 6c preflight; MAE 0.000354/255; active accessory tint correction pending | builder 8.0/10 | reviewer pending/10
+03:34 PT | v2/pass-6c/sim-dogwalk-tile.png | 6c preflight; exact repeat; dark green-action glyph; active accessory tint pending | builder 8.1/10 | reviewer pending/10
+03:34 PT | v2/pass-6c/sim-dogwalk-tile-running.png | 6c preflight; exact repeat; fixed title/history anchors; active accessory tint pending | builder 8.2/10 | reviewer pending/10
+03:34 PT | v2/pass-6c/sim-nowplaying.png | 6c live; exact repeat; 20-point playback/volume labels | builder 9.0/10 | reviewer pending/10
+03:34 PT | v2/pass-6c/sim-dogwalk-full.png | 6c live; exact repeat; protected history and localized status scrim | builder 8.7/10 | reviewer pending/10
+03:38 PT | pages-6/sim-iphone-weather-full.png | pages-6 native mask pinned; validated double launch | builder 8.4/10 | reviewer pending/10
+03:38 PT | pages-6/sim-iphone-calendar-full.png | pages-6 native mask pinned; validated double launch | builder 8.7/10 | reviewer pending/10
+03:38 PT | pages-6/sim-iphone-media-full.png | pages-6 native mask pinned; validated double launch | builder 8.7/10 | reviewer pending/10
+03:42 PT | pages-6/sim-iphone-video.png | pages-6 native 16:9 AVKit frame; deterministic pair | builder 8.6/10 | reviewer pending/10
+03:42 PT | pages-6/sim-iphone-sonos-rooms.png | pages-6 complete room list and volume locks; deterministic pair | builder 8.6/10 | reviewer pending/10
+03:42 PT | pages-6/sim-iphone-cameras-full.png | pages-6 two 16:9 demo feeds; deterministic pair | builder 8.7/10 | reviewer pending/10
+03:42 PT | pages-6/sim-iphone-photos-face.png | pages-6 full resolution woodland and locally backed credit; deterministic pair | builder 8.8/10 | reviewer pending/10
+03:39 PT | v2/pass-6c/preflight/sim-dogwalk-full-running.png | 6c preflight; MAE 0.000006/255; fixed elapsed and dark action label; final scrim feather pending | builder 8.6/10 | reviewer pending/10
+03:39 PT | v2/pass-6c/preflight/sim-dogwalk-remote.png | 6c preflight; exact repeat; shared remote origin; final scrim feather pending | builder 8.6/10 | reviewer pending/10
+03:39 PT | v2/pass-6c/preflight/sim-iphone-home.png | 6c preflight; MAE 0.000017/255; compact pager and 76-point climate; final header rhythm pending | builder 8.5/10 | reviewer pending/10
+03:39 PT | v2/pass-6c/preflight/sim-iphone-home-bottom.png | 6c preflight; MAE 0.000017/255; 16-point scroll fade; active tint correction pending | builder 8.0/10 | reviewer pending/10
+03:51 PT | pages-6-accessibility/sim-iphone-weather-full.png | pages-6 accessibility-medium reflow and deterministic capture sanity | builder 8.5/10 | reviewer pending/10
+03:51 PT | pages-6-accessibility/sim-iphone-calendar-full.png | pages-6 accessibility-medium reflow and deterministic capture sanity | builder 8.5/10 | reviewer pending/10
+03:51 PT | pages-6-accessibility/sim-iphone-media-full.png | pages-6 accessibility-medium reflow and deterministic capture sanity | builder 8.5/10 | reviewer pending/10
+03:51 PT | pages-6-accessibility/sim-iphone-sonos-rooms.png | pages-6 accessibility-medium reflow and deterministic capture sanity | builder 8.5/10 | reviewer pending/10
+04:01 PT | pages-7/sim-weather-full.png | pages-7 white forecast labels, quieter metric cards; paired diff zero | builder 8.7/10 | reviewer pending/10
+04:01 PT | pages-7/sim-calendar-full.png | pages-7 tighter first row and NOW band; clearer upcoming venues | builder 8.7/10 | reviewer pending/10
+04:04 PT | pages-7/sim-media-full.png | pages-7 cleaner heading and larger player metadata; status equalizer separated from transport | builder 8.8/10 | reviewer pending/10
+04:04 PT | pages-7/sim-video.png | pages-7 unchanged AVKit aspect ratio and dismissal; new validated pair | builder 8.6/10 | reviewer pending/10
+04:04 PT | pages-7/sim-sonos-rooms.png | pages-7 larger playback states, native action separation and clustered lock scopes | builder 8.7/10 | reviewer pending/10
+04:11 PT | pages-7/sim-iphone-weather-full.png | pages-7 four complete forecast columns and stronger metric labels | builder 8.7/10 | reviewer pending/10
+04:11 PT | pages-7/sim-iphone-calendar-full.png | pages-7 compact agenda rhythm with 24-point outer margin | builder 8.7/10 | reviewer pending/10
+04:11 PT | pages-7/sim-iphone-media-full.png | pages-7 clean covers with trailing playback controls and matching film alignment | builder 8.8/10 | reviewer pending/10
+04:11 PT | pages-7/sim-iphone-video.png | pages-7 unchanged aspect-correct video; new paired capture | builder 8.6/10 | reviewer pending/10
+04:11 PT | pages-7/sim-iphone-cameras-full.png | pages-7 quieter heading and clearer native expand controls | builder 8.7/10 | reviewer pending/10
+04:11 PT | pages-7/sim-iphone-photos-face.png | pages-7 three-line clock/date/credit hierarchy; credit remains 16 pt | builder 8.9/10 | reviewer pending/10
+04:11 PT | pages-7/sim-cameras-full.png | pages-7 validated paired capture | builder 8.7/10 | reviewer pending/10
+04:11 PT | pages-7/sim-photos-face.png | pages-7 validated paired capture | builder 8.9/10 | reviewer pending/10
+04:21 PT | pages-6/sim-calendar-full.png | pages-6 three-run median; decision in iterations.md | builder 8.7/10 | reviewer 8.3/10
+04:21 PT | pages-6/sim-cameras-full.png | pages-6 three-run median; decision in iterations.md | builder 8.7/10 | reviewer 8.5/10
+04:21 PT | pages-6/sim-iphone-calendar-full.png | pages-6 three-run median; decision in iterations.md | builder 8.7/10 | reviewer 8.2/10
+04:21 PT | pages-6/sim-iphone-cameras-full.png | pages-6 three-run median; decision in iterations.md | builder 8.7/10 | reviewer 8.4/10
+04:21 PT | pages-6/sim-iphone-media-full.png | pages-6 three-run median; decision in iterations.md | builder 8.7/10 | reviewer 8.1/10
+04:21 PT | pages-6/sim-iphone-photos-face.png | pages-6 three-run median; decision in iterations.md | builder 8.8/10 | reviewer 8.5/10
+04:21 PT | pages-6/sim-iphone-sonos-rooms.png | pages-6 three-run median; decision in iterations.md | builder 8.6/10 | reviewer 7.7/10
+04:21 PT | pages-6/sim-iphone-video.png | pages-6 three-run median; decision in iterations.md | builder 8.6/10 | reviewer 8.5/10
+04:21 PT | pages-6/sim-iphone-weather-full.png | pages-6 three-run median; decision in iterations.md | builder 8.4/10 | reviewer 8.2/10
+04:21 PT | pages-6/sim-media-full.png | pages-6 three-run median; decision in iterations.md | builder 8.7/10 | reviewer 8.4/10
+04:21 PT | pages-6/sim-photos-face.png | pages-6 three-run median; decision in iterations.md | builder 8.9/10 | reviewer 8.7/10
+04:21 PT | pages-6/sim-sonos-rooms.png | pages-6 three-run median; decision in iterations.md | builder 8.6/10 | reviewer 8.1/10
+04:21 PT | pages-6/sim-video.png | pages-6 three-run median; decision in iterations.md | builder 8.6/10 | reviewer 8.5/10
+04:21 PT | pages-6/sim-weather-full.png | pages-6 three-run median; decision in iterations.md | builder 8.6/10 | reviewer 8.3/10
+04:24 PT | v2/pass-6c/sim-home.png | corrected native active tint; landscape pinned and validated; exact repeat MAE 0.000000/255 | builder 8.7/10 | reviewer pending/10
+04:33 PT | v2/pass-6c/sim-lamps.png | final validated landscape pair; MAE 0.000095/255; centered columns and global effects row | builder 9.0/10 | reviewer pending/10
+04:33 PT | v2/pass-6c/sim-clock-near.png | final validated landscape pair; MAE 0.057623/255; fixed 10:10:30 and 24-point all-angle clearance | builder 8.7/10 | reviewer pending/10
+04:42 PT | v2/pass-6c/sim-controls.png | final live pair validated; MAE 0.000000/255; dark action glyph, clear footer and corrected native active tint | builder 8.7/10 | reviewer pending/10
+04:42 PT | v2/pass-6c/sim-dogwalk-tile.png | final live pair validated; MAE 0.000007/255; dark action glyph, clear footer and corrected native active tint | builder 8.7/10 | reviewer pending/10
+04:42 PT | v2/pass-6c/sim-dogwalk-tile-running.png | final live pair validated; MAE 0.000007/255; dark action glyph, clear footer and corrected native active tint | builder 8.7/10 | reviewer pending/10
+04:47 PT | v2/pass-6c/sim-nowplaying.png | final live pair validated; MAE 0.004586/255; clear 20-point time and volume metadata | builder 9.0/10 | reviewer pending/10
+04:47 PT | v2/pass-6c/sim-dogwalk-full.png | final live pair validated; MAE 0.000000/255; legible fixed hero and aligned cards; builder still finds status scrim visually heavy | builder 8.3/10 | reviewer pending/10
+04:52 PT | v2/pass-6c/sim-dogwalk-full-running.png | final live pair validated; MAE 0.000006/255; clear elapsed/origin hierarchy; status scrim remains visually heavy | builder 8.3/10 | reviewer pending/10
+04:52 PT | v2/pass-6c/sim-dogwalk-remote.png | final live pair validated; MAE 0.000006/255; clear elapsed/origin hierarchy; status scrim remains visually heavy | builder 8.3/10 | reviewer pending/10
+04:54 PT | v2/pass-6c/sim-iphone-home.png | final portrait pair validated; exact repeat MAE 0.000000/255; compact climate rhythm, 16-point fade and separated pager | builder 8.6/10 | reviewer pending/10
+04:54 PT | v2/pass-6c/sim-iphone-home-bottom.png | final portrait pair validated; exact repeat MAE 0.000000/255; compact climate rhythm, 16-point fade and separated pager | builder 8.6/10 | reviewer pending/10
+05:14 PT | pages-7/sim-sonos-rooms.png | pages-7 corrected Sonos pair, RGB MAE 0.000000/255 | builder 8.0/10 | reviewer pending/10
+05:14 PT | pages-7/sim-iphone-sonos-rooms.png | pages-7 corrected Sonos pair, RGB MAE 0.000000/255 | builder 8.0/10 | reviewer pending/10
+05:19 PT | pages-8/sim-calendar-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:21 PT | pages-8/sim-iphone-weather-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:20 PT | pages-8/sim-media-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:19 PT | pages-8/sim-weather-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:22 PT | pages-8/sim-sonos-rooms.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:23 PT | pages-8/sim-iphone-calendar-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:23 PT | pages-8/sim-iphone-calendar-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:26 PT | pages-8/sim-iphone-media-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:20 PT | pages-8/sim-media-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:27 PT | pages-8/sim-iphone-sonos-rooms.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:22 PT | pages-8/sim-sonos-rooms.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:29 PT | v2/pass-7/sim-home.png | New instrument / information / round-accessory grouping; preflight capture | builder 8.8/10 | reviewer pending/10
+05:29 PT | v2/pass-7/sim-lamps.png | Centred brightness hero with equal room controls; preflight capture | builder 9.0/10 | reviewer pending/10
+05:29 PT | v2/pass-7/sim-clock-near.png | Circular watch-inspired dial; fixed seconds hand clears 6; preflight capture | builder 9.0/10 | reviewer pending/10
+05:29 PT | pages-8/sim-media-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:30 PT | pages-8/sim-sonos-rooms.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:31 PT | pages-8/sim-iphone-calendar-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:31 PT | pages-8/sim-iphone-media-full.png | pages-8 structural redesign, deterministic validated pair | builder 8.5/10 | reviewer pending/10
+05:32 PT | pages-8-accessibility/sim-iphone-weather-full.png | pages-8 accessibility-medium sanity; percentage-wrap fix pending for Sonos | builder 8.0/10 | reviewer pending/10
+05:33 PT | pages-8-accessibility/sim-iphone-calendar-full.png | pages-8 accessibility-medium sanity; percentage-wrap fix pending for Sonos | builder 8.0/10 | reviewer pending/10
+05:34 PT | pages-8-accessibility/sim-iphone-media-full.png | pages-8 accessibility-medium sanity; percentage-wrap fix pending for Sonos | builder 8.0/10 | reviewer pending/10
+05:36 PT | pages-8-accessibility/sim-iphone-sonos-rooms.png | pages-8 accessibility-medium sanity; percentage-wrap fix pending for Sonos | builder 8.0/10 | reviewer pending/10
+05:38 PT | pages-8-axfix/sim-iphone-sonos-rooms.png | pages-8 accessibility percentage-width fix, deterministic pair | builder 8.5/10 | reviewer pending/10
+05:39 PT | pages-8-equivalence/sim-sonos-rooms.png | pages-8 large-text fix leaves reviewed standard-size pixels unchanged (MAE 0) | builder 8.5/10 | reviewer pending/10
+05:40 PT | pages-8-equivalence/sim-iphone-sonos-rooms.png | pages-8 large-text fix leaves reviewed standard-size pixels unchanged (MAE 0) | builder 8.5/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-clock-near.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 9/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-controls.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-full-running.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-full.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-remote.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-tile-running.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-tile.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-home.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-iphone-home-bottom.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-iphone-home.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-lamps.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 9/10 | reviewer pending/10
+05:43 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-nowplaying.png | pass 7 validated live simulator pair; fixed snapshot; median review running | builder 8.7/10 | reviewer pending/10
+05:48 PT | pages-8-restored/sim-weather-full.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:48 PT | pages-8-restored/sim-iphone-weather-full.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:48 PT | pages-8-restored/sim-calendar-full.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:49 PT | pages-8-restored/sim-media-full.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:50 PT | pages-8-restored/sim-sonos-rooms.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:51 PT | pages-8-restored/sim-iphone-calendar-full.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:52 PT | pages-8-restored/sim-iphone-media-full.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:53 PT | pages-8-restored/sim-iphone-sonos-rooms.png | pages-8 rejected redesign reverted to retained source; validated deterministic pair | builder 8.0/10 | reviewer pending/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-clock-near.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.8/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-controls.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.2/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-full-running.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 7.9/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-full.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.0/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-remote.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 7.9/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-tile-running.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.3/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-dogwalk-tile.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.2/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-home.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.4/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-iphone-home-bottom.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.3/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-iphone-home.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.0/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-lamps.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.7/10
+05:57 PT | /workspace/wwwebb-ui/prototype/v2/pass-7/sim-nowplaying.png | pass 7 three-run median; acceptance decision in iterations.md | builder 8.7/10 | reviewer 8.7/10
+06:00 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-full.png | 7b preflight: stable dark detail surface and readable action; validated deterministic pair | builder 8.8/10 | reviewer pending/10
+06:00 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-full-running.png | 7b preflight: stable dark detail surface and readable action; validated deterministic pair | builder 8.8/10 | reviewer pending/10
+06:00 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-remote.png | 7b preflight: stable dark detail surface and readable action; validated deterministic pair | builder 8.8/10 | reviewer pending/10
+06:05 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-home.png | 7b final core capture; validated landscape; independent repeat MAE 0.000000/255 | builder 9.0/10 | reviewer pending/10
+06:05 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-lamps.png | 7b final core capture; validated landscape; independent repeat MAE 0.000000/255 | builder 9.0/10 | reviewer pending/10
+06:05 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-clock-near.png | 7b final core capture; validated landscape; independent repeat MAE 0.000000/255 | builder 9.0/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-clock-near.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-controls.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-full-running.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-full.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-remote.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-tile-running.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-tile.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-home.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-iphone-home-bottom.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-iphone-home.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-lamps.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:10 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-nowplaying.png | pass 7b final validated double capture; three cold reviews running | builder 8.9/10 | reviewer pending/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-clock-near.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 9.1/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-controls.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.3/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-full-running.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.6/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-full.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.5/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-remote.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.6/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-tile-running.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.4/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-dogwalk-tile.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.3/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-home.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.3/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-iphone-home-bottom.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.2/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-iphone-home.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.3/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-lamps.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 9.0/10
+06:29 PT | /workspace/wwwebb-ui/prototype/v2/pass-7b/sim-nowplaying.png | pass 7b three-run median; accept/revert decision in iterations.md | builder 8.9/10 | reviewer 8.8/10
+06:45 PT | /workspace/wwwebb-ui/prototype/v2/pass-7c/sim-home.png | restored Home layout, woodland backdrop, native fader surround; live pair validated | builder 8.8/10 | reviewer pending/10
+06:49 PT | /workspace/wwwebb-ui/prototype/v2/pass-7c/sim-controls.png | 7c woodland glass, aligned footers and mixed-light distinction; validated live pair | builder 8.7/10 | reviewer pending/10
+06:49 PT | /workspace/wwwebb-ui/prototype/v2/pass-7c/sim-dogwalk-tile.png | 7c woodland glass, aligned footers and mixed-light distinction; validated live pair | builder 8.7/10 | reviewer pending/10
+06:58 PT | pass-7c/verification.log | all five schemes built; 84 unit tests and render tests passed for both prototype schemes; simulator launchd failures interrupted interaction checks; targeted device recovery queued | builder —/10 | reviewer —/10
+07:02 PT | pass-7c/verification-final.log | all five final scheme builds PASS; assigned-device restart completed under lock in 112 seconds; fresh test phase waiting for runner on heavily loaded mini (load average 26.12); no invalid PNG accepted | builder —/10 | reviewer —/10
+07:06 PT | pass-7c/sim-home.png | final contrast revision; validator/orientation PASS; independent relaunch MAE 0.000000/255 | builder 8.7/10 | reviewer pending/10
+07:06 PT | pass-7c/sim-controls.png | final contrast revision; validator/orientation PASS; independent relaunch MAE 0.000746/255 | builder 8.7/10 | reviewer pending/10
+07:06 PT | pass-7c/sim-dogwalk-tile.png | final contrast revision; validator/orientation PASS; independent relaunch MAE 0.000393/255 | builder 8.7/10 | reviewer pending/10
+07:06 PT | pass-7c/sim-dogwalk-tile-running.png | final contrast revision; validator/orientation PASS; independent relaunch MAE 0.000001/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-iphone-home.png | live validator/orientation PASS; independent relaunch MAE 0.000977/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-iphone-home-bottom.png | live validator/orientation PASS; independent relaunch MAE 0.000032/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-lamps.png | live validator/orientation PASS; independent relaunch MAE 0.000065/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-clock-near.png | live validator/orientation PASS; independent relaunch MAE 0.000000/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-nowplaying.png | live validator/orientation PASS; independent relaunch MAE 0.000000/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-dogwalk-full.png | live validator/orientation PASS; independent relaunch MAE 0.000000/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-dogwalk-full-running.png | live validator/orientation PASS; independent relaunch MAE 0.000000/255 | builder 8.7/10 | reviewer pending/10
+07:13 PT | pass-7c/sim-dogwalk-remote.png | live validator/orientation PASS; independent relaunch MAE 0.000000/255 | builder 8.7/10 | reviewer pending/10
+07:25 PT | pass-7c/sim-clock-near.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 9.0/10
+07:25 PT | pass-7c/sim-controls.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 7.9/10
+07:25 PT | pass-7c/sim-dogwalk-full-running.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.6/10
+07:25 PT | pass-7c/sim-dogwalk-full.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.5/10
+07:25 PT | pass-7c/sim-dogwalk-remote.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.6/10
+07:25 PT | pass-7c/sim-dogwalk-tile-running.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.0/10
+07:25 PT | pass-7c/sim-dogwalk-tile.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 7.9/10
+07:25 PT | pass-7c/sim-home.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.0/10
+07:25 PT | pass-7c/sim-iphone-home-bottom.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 7.8/10
+07:25 PT | pass-7c/sim-iphone-home.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.2/10
+07:25 PT | pass-7c/sim-lamps.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.6/10
+07:25 PT | pass-7c/sim-nowplaying.png | three-run median; rejected forest trial, retained published floors | builder 8.7/10 | reviewer 8.7/10
+07:58 PT | pass-7d/preflight/sim-home.png | live native-material development comparison; regular retained for text contrast; validator/double-launch PASS | builder 8.8/10 | reviewer not scored/10
+07:58 PT | pass-7d/preflight/sim-controls.png | live native-material development comparison; regular retained for text contrast; validator/double-launch PASS | builder 8.8/10 | reviewer not scored/10
+07:58 PT | pass-7d/clear-preflight/sim-home.png | live native-material development comparison; regular retained for text contrast; validator/double-launch PASS | builder 7.5/10 | reviewer not scored/10
+07:58 PT | pass-7d/clear-preflight/sim-controls.png | live native-material development comparison; regular retained for text contrast; validator/double-launch PASS | builder 7.5/10 | reviewer not scored/10
+07:58 PT | pass-7d/sim-iphone-home.png | final live portrait capture; validator and independent relaunch PASS; MAE 0.000645/255; upper tile remnant removed | builder 8.8/10 | reviewer pending/10
+07:58 PT | pass-7d/sim-iphone-home-bottom.png | final live portrait capture; validator and independent relaunch PASS; MAE 0.000541/255; upper tile remnant removed | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-home.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000000/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-controls.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000194/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-dogwalk-tile.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000744/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-lamps.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000000/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-clock-near.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000000/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-dogwalk-tile-running.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000006/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-nowplaying.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000000/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-dogwalk-full.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000005/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-dogwalk-full-running.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000004/255 | builder 8.8/10 | reviewer pending/10
+08:05 PT | pass-7d/sim-dogwalk-remote.png | final live capture; validator/orientation and relaunch PASS; MAE 0.000004/255 | builder 8.8/10 | reviewer pending/10
+08:22 PT | v2/pass-7d/sim-home.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.3/10
+08:22 PT | v2/pass-7d/sim-lamps.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.6/10
+08:22 PT | v2/pass-7d/sim-clock-near.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.8/10
+08:22 PT | v2/pass-7d/sim-controls.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.1/10
+08:22 PT | v2/pass-7d/sim-nowplaying.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.8/10
+08:22 PT | v2/pass-7d/sim-dogwalk-full.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.4/10
+08:22 PT | v2/pass-7d/sim-dogwalk-full-running.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.5/10
+08:22 PT | v2/pass-7d/sim-dogwalk-remote.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.5/10
+08:22 PT | v2/pass-7d/sim-dogwalk-tile.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.1/10
+08:22 PT | v2/pass-7d/sim-dogwalk-tile-running.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.2/10
+08:22 PT | v2/pass-7d/sim-iphone-home.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.2/10
+08:22 PT | v2/pass-7d/sim-iphone-home-bottom.png | three-run median; rejected regressions, floors retained | builder 8.5/10 | reviewer 8.3/10
+08:30 PT | v2/pass-7e/sim-home.png | final clear-glass candidate; validator and paired determinism pass | builder 8.6/10 | reviewer pending
+08:30 PT | v2/pass-7e/sim-controls.png | final clear-glass candidate; validator and paired determinism pass | builder 8.6/10 | reviewer pending
+08:34 PT | v2/pass-7e/sim-lamps.png | final candidate; validator pass; paired capture MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:34 PT | v2/pass-7e/sim-clock-near.png | final candidate; validator pass; paired capture MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:34 PT | v2/pass-7e/sim-dogwalk-tile.png | final candidate; validator pass; paired capture MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-home.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-controls.png | final capture accepted by validator; paired RGB MAE 0.000576/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-dogwalk-tile.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-lamps.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-clock-near.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-dogwalk-tile-running.png | final capture accepted by validator; paired RGB MAE 0.000057/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-nowplaying.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-dogwalk-full.png | final capture accepted by validator; paired RGB MAE 0.000005/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-dogwalk-full-running.png | final capture accepted by validator; paired RGB MAE 0.000004/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-dogwalk-remote.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-iphone-home.png | final capture accepted by validator; paired RGB MAE 0.008497/255 | builder 8.6/10 | reviewer pending
+08:39 PT | v2/pass-7e/sim-iphone-home-bottom.png | final capture accepted by validator; paired RGB MAE 0.000151/255 | builder 8.6/10 | reviewer pending
+08:49 PT | v2/pass-7e/determinism.tsv | all five builds and required tests complete; candidate commit; three cold reviews pending | builder 8.6/10 | reviewer pending
+08:56 PT | v2/pass-7e/sim-home.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.1/10
+08:56 PT | v2/pass-7e/sim-lamps.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.6/10
+08:56 PT | v2/pass-7e/sim-clock-near.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.8/10
+08:56 PT | v2/pass-7e/sim-controls.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8/10
+08:56 PT | v2/pass-7e/sim-nowplaying.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.8/10
+08:56 PT | v2/pass-7e/sim-dogwalk-full.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.5/10
+08:56 PT | v2/pass-7e/sim-dogwalk-full-running.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.6/10
+08:56 PT | v2/pass-7e/sim-dogwalk-remote.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.6/10
+08:56 PT | v2/pass-7e/sim-dogwalk-tile.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8/10
+08:56 PT | v2/pass-7e/sim-dogwalk-tile-running.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8/10
+08:56 PT | v2/pass-7e/sim-iphone-home.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.2/10
+08:56 PT | v2/pass-7e/sim-iphone-home-bottom.png | three-run median; decision in review-7e.md; floors retained | builder 8.6/10 | reviewer 8.3/10
+09:08 PT | v2/pass-7f/preflight/sim-home.png | validated live preflight; thermostat optical frame correction required before scoring | builder 8.5/10 | reviewer pending
+09:08 PT | v2/pass-7f/preflight/sim-controls.png | validated live preflight; thermostat optical frame correction required before scoring | builder 8.5/10 | reviewer pending
+09:16 PT | v2/pass-7f/sim-home.png | corrected final numeral; validated; paired MAE0.000000/255 | builder 8.7/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-home.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-controls.png | final capture accepted by validator; paired RGB MAE 0.000023/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-dogwalk-tile.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-lamps.png | final capture accepted by validator; paired RGB MAE 0.000065/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-clock-near.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-dogwalk-tile-running.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-nowplaying.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-dogwalk-full.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-dogwalk-full-running.png | final capture accepted by validator; paired RGB MAE 0.000002/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-dogwalk-remote.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-iphone-home.png | final capture accepted by validator; paired RGB MAE 0.000018/255 | builder 8.6/10 | reviewer pending
+09:23 PT | v2/pass-7f/sim-iphone-home-bottom.png | final capture accepted by validator; paired RGB MAE 0.000227/255 | builder 8.6/10 | reviewer pending
+09:28 PT | v2/pass-7f/determinism.tsv | final all-five verification PASS; local candidate commit; three cold reviews running | builder 8.7/10 | reviewer pending
+09:45 PT | v2/pass-7f/sim-home.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.2/10
+09:45 PT | v2/pass-7f/sim-controls.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.2/10
+09:45 PT | v2/pass-7f/sim-dogwalk-tile.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.2/10
+09:45 PT | v2/pass-7f/sim-dogwalk-tile-running.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.3/10
+09:45 PT | v2/pass-7f/sim-iphone-home.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.1/10
+09:45 PT | v2/pass-7f/sim-iphone-home-bottom.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 7.9/10
+09:45 PT | v2/pass-7f/sim-lamps.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.4/10
+09:45 PT | v2/pass-7f/sim-clock-near.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.8/10
+09:45 PT | v2/pass-7f/sim-nowplaying.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.7/10
+09:45 PT | v2/pass-7f/sim-dogwalk-full.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.5/10
+09:45 PT | v2/pass-7f/sim-dogwalk-full-running.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.6/10
+09:45 PT | v2/pass-7f/sim-dogwalk-remote.png | three-run median; candidate rejected where below baseline | builder 8.6/10 | reviewer 8.6/10
+09:58 PT | v2/pass-7g/sim-home.png | preflight validates at MAE 0.000000/255; live margin check rejects unchanged 12.5-point pager offset; final page-level safe-area fix pending verification | builder 8.3/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-home.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-controls.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-dogwalk-tile.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-lamps.png | final capture accepted by validator; paired RGB MAE 0.000065/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-clock-near.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-dogwalk-tile-running.png | final capture accepted by validator; paired RGB MAE 0.000001/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-nowplaying.png | final capture accepted by validator; paired RGB MAE 0.004590/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-dogwalk-full.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-dogwalk-full-running.png | final capture accepted by validator; paired RGB MAE 0.000004/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-dogwalk-remote.png | final capture accepted by validator; paired RGB MAE 0.000004/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-iphone-home.png | final capture accepted by validator; paired RGB MAE 0.000571/255 | builder 8.6/10 | reviewer pending
+10:01 PT | v2/pass-7g/sim-iphone-home-bottom.png | final capture accepted by validator; paired RGB MAE 0.000442/255 | builder 8.6/10 | reviewer pending
+10:07 PT | v2/pass-7g/preflight/sim-home.png | preflight only, not submitted for review; final GeometryReader fix passes live Home and More margin assertions | builder 8.3/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-home.png | final capture accepted by validator; paired RGB MAE 0.000075/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-controls.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-dogwalk-tile.png | final capture accepted by validator; paired RGB MAE 0.000019/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-lamps.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-clock-near.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-dogwalk-tile-running.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-nowplaying.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-dogwalk-full.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-dogwalk-full-running.png | final capture accepted by validator; paired RGB MAE 0.000004/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-dogwalk-remote.png | final capture accepted by validator; paired RGB MAE 0.000000/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-iphone-home.png | final capture accepted by validator; paired RGB MAE 0.000564/255 | builder 8.6/10 | reviewer pending
+10:15 PT | v2/pass-7g/sim-iphone-home-bottom.png | final capture accepted by validator; paired RGB MAE 0.000440/255 | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-home.png | final GeometryReader candidate, validator and paired MAE 0.000075/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-controls.png | final GeometryReader candidate, validator and paired MAE 0.000000/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-dogwalk-tile.png | final GeometryReader candidate, validator and paired MAE 0.000019/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-lamps.png | final GeometryReader candidate, validator and paired MAE 0.000000/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-clock-near.png | final GeometryReader candidate, validator and paired MAE 0.000000/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-dogwalk-tile-running.png | final GeometryReader candidate, validator and paired MAE 0.000000/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-nowplaying.png | final GeometryReader candidate, validator and paired MAE 0.000000/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-dogwalk-full.png | final GeometryReader candidate, validator and paired MAE 0.000000/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-dogwalk-full-running.png | final GeometryReader candidate, validator and paired MAE 0.000004/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-dogwalk-remote.png | final GeometryReader candidate, validator and paired MAE 0.000000/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-iphone-home.png | final GeometryReader candidate, validator and paired MAE 0.000564/255 PASS; all checks complete | builder 8.6/10 | reviewer pending
+10:21 PT | v2/pass-7g/sim-iphone-home-bottom.png | final GeometryReader candidate, validator and paired MAE 0.000440/255 PASS; all checks complete | builder 8.6/10 | reviewer pending

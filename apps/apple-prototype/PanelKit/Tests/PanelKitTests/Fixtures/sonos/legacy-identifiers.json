@@ -1,0 +1,32 @@
+{
+  "result": {
+    "data": {
+      "rooms": [
+        {
+          "name": "Legacy Test",
+          "uuid": "RINCON_00000000000101400",
+          "deviceIp": "192.0.2.10",
+          "coordinatorUuid": "RINCON_00000000000101400",
+          "memberUuids": ["RINCON_00000000000101400"],
+          "isCoordinator": true,
+          "volume": 22,
+          "baseline": null,
+          "muted": false,
+          "transportState": "STOPPED",
+          "sourceLabel": null,
+          "sourceKind": "other",
+          "trackTitle": null,
+          "trackArtist": null,
+          "albumArtUri": null,
+          "availability": "available",
+          "groupStatus": "Standalone"
+        }
+      ],
+      "diagnostics": {
+        "controlPlane": "home-assistant",
+        "queriedAt": "2026-01-01T00:00:00.000Z",
+        "message": "1 synthetic rooms"
+      }
+    }
+  }
+}

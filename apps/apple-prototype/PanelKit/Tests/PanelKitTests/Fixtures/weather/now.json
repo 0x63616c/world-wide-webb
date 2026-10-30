@@ -1,0 +1,22 @@
+{
+  "result": {
+    "data": {
+      "temp": 62.5,
+      "cond": "Partly Cloudy",
+      "ic": "cloud-sun",
+      "hi": 68,
+      "lo": 51,
+      "feels": 60.2,
+      "hum": 70,
+      "wind": 9.5,
+      "uvIndex": 3.2,
+      "precipProbability": 20,
+      "sunsetIso": "2026-10-29T18:10",
+      "sunriseIso": "2026-10-29T07:20",
+      "tomorrowSunriseIso": "2026-10-30T07:21",
+      "solarLabel": "Sunset",
+      "solarValue": "6:10 PM",
+      "city": "Example City"
+    }
+  }
+}

@@ -1,0 +1,237 @@
+name: WorldWideWebb
+packages:
+  PanelKit:
+    path: PanelKit
+options:
+  bundleIdPrefix: co.worldwidewebb.prototype
+  deploymentTarget:
+    macOS: '26.0'
+    iOS: '26.0'
+settings:
+  base:
+    ASSETCATALOG_COMPILER_APPICON_NAME: ''
+    SWIFT_VERSION: '6.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    GENERATE_INFOPLIST_FILE: YES
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: '1'
+    CODE_SIGNING_ALLOWED: NO
+    PRODUCT_MODULE_NAME: WorldWideWebb
+targets:
+  WorldWideWebb:
+    type: application
+    platform: macOS
+    sources: [Sources, Shared]
+    dependencies:
+      - package: PanelKit
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: ''
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.prototype.mac
+        INFOPLIST_KEY_CFBundleDisplayName: World Wide Webb
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.lifestyle
+  WorldWideWebb-iPad:
+    type: application
+    platform: iOS
+    sources: [Sources, Shared]
+    dependencies:
+      - package: PanelKit
+      - target: WalkActivityExtension
+        embed: true
+    info:
+      path: GeneratedAppInfo.plist
+      properties:
+        NSSupportsLiveActivities: true
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [www-prototype]
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: ''
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.prototype.ipad
+        TARGETED_DEVICE_FAMILY: '1,2'
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_CFBundleDisplayName: World Wide Webb
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        INFOPLIST_KEY_UIStatusBarHidden: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+  WalkActivityExtension:
+    type: app-extension
+    platform: iOS
+    sources: [WalkActivity, Shared]
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: WalkActivityExtension
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.prototype.ipad.walkactivity
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    info:
+      path: GeneratedWidgetInfo.plist
+      properties:
+        CFBundleDisplayName: Walk Zero
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+  WorldWideWebbTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+      - path: PanelKit/Tests/PanelKitTests/Fixtures
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: WorldWideWebb-iPad
+      - package: PanelKit
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: WorldWideWebbTests
+  WorldWideWebbUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: WorldWideWebb-iPad
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: WorldWideWebbUITests
+  Panel:
+    type: application
+    platform: iOS
+    deploymentTarget: '26.0'
+    sources:
+      - path: Hybrid
+        excludes: [Config, Info.plist, README.md, Verification]
+      - path: Sources
+        excludes: [App.swift, Media, Assets.xcassets]
+      - path: Shared
+      - path: PanelKit/Tests/PanelKitTests/Fixtures
+        type: folder
+        buildPhase: resources
+    configFiles:
+      Debug: Hybrid/Config/Panel.xcconfig
+      Release: Hybrid/Config/Panel.xcconfig
+    dependencies:
+      - package: PanelKit
+      - target: NextAlarmWidget
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine
+        PRODUCT_MODULE_NAME: Panel
+        TARGETED_DEVICE_FAMILY: '2'
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Hybrid/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: '6.0'
+        SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGNING_ALLOWED: NO
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
+  NextAlarmWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: '26.0'
+    sources:
+      - path: NextAlarmWidget
+        excludes: [Info.plist]
+      - path: Hybrid/Alarms/NextAlarmAttributes.swift
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: NextAlarmWidget
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine.NextAlarmWidget
+        TARGETED_DEVICE_FAMILY: '1,2'
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: NextAlarmWidget/Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        CODE_SIGNING_ALLOWED: NO
+  PanelTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [HybridTests]
+    dependencies:
+      - target: Panel
+      - package: PanelKit
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: PanelTests
+  PanelUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [HybridUITests]
+    dependencies:
+      - target: Panel
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: PanelUITests
+schemes:
+  Panel-Wifi:
+    build:
+      targets:
+        Panel: [test]
+        WorldWideWebb-iPad: [test]
+        PanelUITests: [test]
+    test:
+      targets:
+        - PanelTests
+        - WorldWideWebbTests
+        - PanelUITests
+  Panel-Cameras:
+    build:
+      targets:
+        Panel: [test]
+        WorldWideWebb-iPad: [test]
+        PanelUITests: [test]
+    test:
+      targets:
+        - PanelTests
+        - WorldWideWebbTests
+        - PanelUITests
+  Panel-Alarms:
+    build:
+      targets:
+        Panel: [test]
+        WorldWideWebb-iPad: [test]
+        PanelUITests: [test]
+    test:
+      targets:
+        - PanelTests
+        - WorldWideWebbTests
+        - PanelUITests
+  Panel-Smoke:
+    build:
+      targets:
+        Panel: [test]
+        PanelUITests: [test]
+    test:
+      targets:
+        - PanelUITests
+  Panel:
+    build:
+      targets:
+        Panel: all
+    test:
+      targets:
+        - PanelTests
+        - WorldWideWebbTests
+  WorldWideWebb:
+    build:
+      targets:
+        WorldWideWebb: all
+  WorldWideWebb-iPad:
+    build:
+      targets:
+        WorldWideWebb-iPad: all
+    test:
+      targets:
+        - WorldWideWebbTests
+        - WorldWideWebbUITests
+  WorldWideWebb-Snapshots:
+    build:
+      targets:
+        WorldWideWebb-iPad: [test]
+        WorldWideWebbTests: [test]
+    test:
+      targets:
+        - WorldWideWebbTests
