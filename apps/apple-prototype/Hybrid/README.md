@@ -398,7 +398,7 @@ not include these switches or the fixture scheduler.
 #### Verification commands
 
 Use only `~/wwwebb-alarms-native/`, `~/wwwebb-alarms-native-dd/`, and the job's own
-`WWW-37 Alarms iPad` simulator. The `Panel-Alarms` scheme groups the Panel unit tests
+`WWW-37 Alarms iPad` / `WWW-37 Alarms 1366` simulators. The `Panel-Alarms` scheme groups the Panel unit tests
 and prototype-hosted provider tests into one serial run. Run with Xcode 27:
 
 ```sh
@@ -413,11 +413,22 @@ cd ..
   -only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveAlarmsProviderTests \
   -only-testing:WorldWideWebbTests/HomeDataSourceTests \
   -only-testing:WorldWideWebbTests/AlarmPerimeterTests CODE_SIGNING_ALLOWED=NO
+~/bin/www8-simlock xcodebuild test -scheme Panel-Smoke \
+  -destination 'platform=iOS Simulator,name=WWW-37 Alarms 1366' \
+  -derivedDataPath ~/wwwebb-alarms-native-dd -parallel-testing-enabled NO -jobs 2 \
+  -only-testing:PanelUITests/HybridAlarmsTests CODE_SIGNING_ALLOWED=NO
 ```
 
 Verified on 2026-10-30 with Xcode 27 and iOS 26.3: **56 PanelTests and 23 app
 unit tests passed** (6 live-alarm provider, 15 existing HomeDataSource, 2 existing
 alarm perimeter tests). PanelKit passed **39 Swift Testing tests and 1 XCTest**.
+The landscape UI smoke test passed: clock, cold native deep link, ring controls,
+default web mode and unavailable-data fallback. Original 1366×1024-point captures
+are in `docs/screenshots/alarms-native/` at the repository root. Earlier UI runs
+exposed a cold-launch link arriving before native ownership; the pending-link
+handoff fixes that race. A stale simulator URL confirmation required a simulator
+restart, and the fallback assertion now checks the web route directly rather than
+waiting for an unrelated network-status message.
 Repository typecheck, Biome, Knip, privacy guards and Gitleaks passed. The web
 compatibility PR #820 passed 23 targeted tests plus CI and was subsequently merged
 by `@0x63616c`; this job did not issue a merge. Physical wall checks remain pending.

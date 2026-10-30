@@ -35,9 +35,9 @@ final class HybridAlarmsTests: XCTestCase {
         ] {
             app.launchArguments = arguments
             app.launch()
-            XCTAssertTrue(app.staticTexts["Reconnecting…"].waitForExistence(timeout: 30))
+            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
             XCTAssertFalse(app.buttons["module-alarms"].exists)
-            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists)
+            XCTAssertFalse(app.buttons["module-detail"].exists)
             capture(arguments.contains("-hybridUnavailable") ? "web-fallback" : "web-default")
             app.terminate()
         }
