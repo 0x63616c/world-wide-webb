@@ -9,12 +9,16 @@ import PanelKit
     private(set) var message: String?
     private let scheduler: any NativeAlarmScheduling
     private var epoch = 0
+    private var reconciling = false
     private var synchronizedNext: AlarmNext?
     private var didSyncNext = false
     init(scheduler: any NativeAlarmScheduling = NativeAlarmScheduler.shared) { self.scheduler = scheduler }
 
     func reconcile(snapshot: AlarmsSnapshot?, available: Bool, configured: Bool,
                    handoff: (Bool) async -> Bool, syncWidget: (AlarmNext?) async throws -> Void) async {
+        guard !reconciling else { return }
+        reconciling = true
+        defer { reconciling = false }
         let expected = epoch
         guard available, configured, let snapshot else {
             await release(handoff: handoff)
@@ -25,7 +29,10 @@ import PanelKit
             guard expected == epoch else { return }
             if !ownsRinging {
                 guard await handoff(true), expected == epoch else {
-                    message = "Waiting for a compatible web alarm runtime."
+                    // A timed-out response can still have muted the web. Undo
+                    // the attempt before falling back, even without ownership.
+                    if expected == epoch { _ = await handoff(false) }
+                    message = "Native alarms are not ready. Using the web alarms page."
                     return
                 }
                 ownsRinging = true

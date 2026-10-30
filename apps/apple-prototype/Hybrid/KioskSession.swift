@@ -175,11 +175,16 @@ final class KioskSession {
         if isAlarmFixture { return true }
         guard let webView, KioskURLPolicy.isTrusted(webView.url, serverURL: configuration.serverURL) else { return false }
         let expected = generation
-        do {
-            let result = try await webView.callAsyncJavaScript(KioskScripts.alarmOwnership,
-                arguments: ["native": native, "serverURL": configuration.serverURL.absoluteString], in: nil, in: .page)
-            return expected == generation && (result as? Bool == true)
-        } catch { return false }
+        let acknowledged = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            webView.callAsyncJavaScript(KioskScripts.alarmOwnership,
+                arguments: ["native": native, "serverURL": configuration.serverURL.absoluteString], in: nil, in: .page) { result in
+                    switch result {
+                    case .success(let value): continuation.resume(returning: value as? Bool == true)
+                    case .failure: continuation.resume(returning: false)
+                    }
+                }
+        }
+        return expected == generation && acknowledged
     }
 
     private static var hardwareModel: String {

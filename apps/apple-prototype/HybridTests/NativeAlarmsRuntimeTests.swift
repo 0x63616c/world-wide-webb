@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+import WebKit
 @testable import Panel
 
 @MainActor private final class AlarmSchedulerSpy: NativeAlarmScheduling {
@@ -76,6 +77,21 @@ import XCTest
         await runtime.reconcile(snapshot: value, available: false, configured: true,
             handoff: { native in XCTAssertFalse(native); return true }, syncWidget: { _ in XCTFail() })
         XCTAssertFalse(runtime.ownsRinging)
+    }
+
+    func testNativeOwnershipIgnoresCompetingWebWidgetSnapshots() async throws {
+        let runtime = NativeAlarmsRuntime(scheduler: AlarmSchedulerSpy())
+        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
+            handoff: { _ in true }, syncWidget: { _ in })
+        let coordinator = AlarmCoordinatorSpy()
+        let session = KioskSession(configuration: PanelConfiguration(info: [:], environment: [:]),
+            alarms: PanelAlarms(coordinator: coordinator), nativeAlarmsRequested: true, nativeAlarms: runtime)
+        defer { session.stop() }
+        let request = NativeRequest(channel: "control-center-native", id: "test", method: "syncNextAlarm", params: ["next": .null])
+        let response = await session.handle(request, in: WKWebView())
+        XCTAssertTrue(response.ok)
+        let snapshots = await coordinator.snapshots
+        XCTAssertTrue(snapshots.isEmpty)
     }
 
     func testDeliveryUsesServerNextAndMatchesOnlyExactOccurrence() async throws {

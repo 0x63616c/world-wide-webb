@@ -4,6 +4,8 @@ struct ClockController: View {
     let store: any HomeDataSource
     var newAlarm = Alarm()
     var save: ((Alarm) async throws -> Void)? = nil
+    var timeZone = TimeZone(identifier: "America/Los_Angeles")!
+    var locationLabel = "San Francisco"
     @State private var editing: Alarm?
     @State private var deleting: Alarm?
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -16,8 +18,8 @@ struct ClockController: View {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(greeting).font(.title3).foregroundStyle(.secondary)
-                            Text(fixtureTime(store.now)).font(.system(size: 72, weight: .light)).monospacedDigit()
-                            Text(fixtureTime(store.now, format: "EEEE, MMMM d")).foregroundStyle(.secondary)
+                            Text(fixtureTime(store.now, timeZone: timeZone)).font(.system(size: 72, weight: .light)).monospacedDigit()
+                            Text(fixtureTime(store.now, format: "EEEE, MMMM d", timeZone: timeZone)).foregroundStyle(.secondary)
                         }
                     }
                     HStack {
@@ -57,11 +59,11 @@ struct ClockController: View {
                     VStack(alignment: .leading, spacing: 20) {
                         Text(greeting).font(.system(size: 30)).opacity(0.7)
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(fixtureTime(store.now)).font(.system(size: 124, weight: .ultraLight)).monospacedDigit()
-                            Text(fixtureTime(store.now, format: "a")).font(.system(size: 26)).opacity(0.65)
+                            Text(fixtureTime(store.now, timeZone: timeZone)).font(.system(size: 124, weight: .ultraLight)).monospacedDigit()
+                            Text(fixtureTime(store.now, format: "a", timeZone: timeZone)).font(.system(size: 26)).opacity(0.65)
                         }
-                        Text(fixtureTime(store.now, format: "EEEE, MMMM d, yyyy")).font(.system(size: 24))
-                        Label("San Francisco", systemImage: "location.fill").font(.system(size: 20)).opacity(0.6)
+                        Text(fixtureTime(store.now, format: "EEEE, MMMM d, yyyy", timeZone: timeZone)).font(.system(size: 24))
+                        Label(locationLabel, systemImage: "location.fill").font(.system(size: 20)).opacity(0.6)
                         Spacer().frame(height: 30)
                         if let next = nextAlarm {
                             VStack(alignment: .leading, spacing: 13) {
@@ -109,7 +111,7 @@ struct ClockController: View {
         }
     }
     private var greeting: String {
-        let hour = Int(fixtureTime(store.now, format: "H")) ?? 15
+        let hour = Int(fixtureTime(store.now, format: "H", timeZone: timeZone)) ?? 15
         return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
     }
     private func nextDescription(_ date: Date, zone: String) -> String {

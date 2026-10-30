@@ -66,7 +66,8 @@ struct HybridNativeModule: View {
         // media library or seek UI (the live API supplies no playback position).
         case .sonos: SonosRoomsPage(store: store)
         case .alarms:
-            ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save)
+            ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
+                            timeZone: .current, locationLabel: TimeZone.current.identifier)
                 .disabled(store.alarmsProvider.pending)
         case .all: EmptyView()
         }

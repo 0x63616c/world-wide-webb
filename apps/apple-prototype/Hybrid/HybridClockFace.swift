@@ -7,7 +7,10 @@ struct HybridClockFace: View {
     let open: () -> Void
     var body: some View {
         VStack(spacing: 16) {
-            TileFace(tile: .clock, store: store, open: open)
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                AnalogClock(timeZone: .current, date: store.now, minimal: true)
+                    .aspectRatio(1, contentMode: .fit).padding(20)
+            }
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let next = store.upcomingAlarm(at: store.now)
                 Button(action: open) {

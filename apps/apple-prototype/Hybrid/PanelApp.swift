@@ -118,7 +118,7 @@ struct PanelRoot: View {
         }
         .onOpenURL { url in
             guard url.absoluteString == "controlcenter://alarms" else { return }
-            if router.flags[.alarms] == .native && hasLiveData(for: .alarms) { selection = .alarms; detail = true }
+            if router.flags[.alarms] == .native && hasLiveData(for: .alarms) { ringHidden = true; selection = .alarms; detail = true }
             else { selection = .all; session.open(url) }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in

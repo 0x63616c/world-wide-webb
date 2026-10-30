@@ -36,7 +36,7 @@ use `localhost` (ATS local networking is enabled).
 
 ## Module seam
 
-`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, and
+`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`,
 `alarms`, and `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
 overrides the launch's UserDefaults; invalid values fall back to `web`.
 `all` always means the complete web board, even if its flag is set to `native`.
@@ -357,9 +357,13 @@ Existing `Sources/` edits are limited to:
 - `HomeDataSource.swift`: make the existing `upcomingAlarm(at:)` default implementation
   a protocol requirement so live sources can provide the server result.
 - `ClockViews.swift`: inject a new-alarm seed and optional async save handler, both
-  retaining prototype defaults; next-alarm display reads the provider method. With
+  retaining prototype defaults; inject clock timezone/location text and read next-alarm
+  display through the provider method. With
   the injected save handler, keep the editor open on errors and disable duplicate
   saves while pending.
+- `Design.swift`: inject the timezone into `AnalogClock` and `fixtureTime`, retaining
+  their original prototype timezone defaults. Panel uses the device timezone, also
+  the initial timezone for a new alarm; existing alarms retain their backend timezone.
 - `AlarmRingView.swift`: inject the caption, defaulting to `Fixture data`; Panel
   supplies an empty caption. No layout or styling changes.
 - `Live/LiveAlarmsProvider.swift` is new. Hybrid composes the existing clock dial and
