@@ -9,9 +9,10 @@ import { api as ctrlApi } from "../ctrl/api";
 import { api as eventsApi } from "../events/api";
 import { api as releasesApi } from "../releases/api";
 import { api as soundApi } from "../sound/api";
+import { api as teslaApi } from "../tesla/api";
 import { api as wakesApi } from "../wakes/api";
 import { api as walksApi } from "../walks/api";
 import { api as weatherApi } from "../weather/api";
 import { api as wifiApi } from "../wifi/api";
 
-export const featureAppRouter = mergeRouters(acApi, boothApi, ctrlApi, eventsApi, releasesApi, soundApi, wakesApi, walksApi, weatherApi, wifiApi);
+export const featureAppRouter = mergeRouters(acApi, boothApi, ctrlApi, eventsApi, releasesApi, soundApi, teslaApi, wakesApi, walksApi, weatherApi, wifiApi);
