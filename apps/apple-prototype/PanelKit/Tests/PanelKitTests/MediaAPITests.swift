@@ -88,6 +88,45 @@ final class MediaAPITests: XCTestCase {
         XCTAssertTrue(requests.allSatisfy { $0.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "synthetic-secret" })
         XCTAssertTrue(requests.allSatisfy { $0.value(forHTTPHeaderField: "Range") != nil })
     }
+
+    #if os(macOS)
+    func testRealHTTPRangesRequireHeadersAndNeverFollowRedirects() async throws {
+        let script = try XCTUnwrap(Bundle.module.url(forResource: "server", withExtension: "py", subdirectory: "Fixtures/media"))
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [script.path, "0"] // OS-assigned port; never another job's server.
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        defer { process.terminate(); process.waitUntilExit() }
+        let line = output.fileHandleForReading.availableData
+        let port = try XCTUnwrap(Int(String(decoding: line, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)))
+        let base = URL(string: "http://127.0.0.1:\(port)")!
+        let config = PanelConfiguration(baseURL: base, accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret")
+        let transport = MediaHTTPTransport()
+        let request = try MediaStream(url: base.appendingPathComponent("synthetic.mp4"), configuration: config)
+            .request(offset: 16, length: 128)
+        let (data, response) = try await transport.send(request)
+        XCTAssertEqual(data.count, 128)
+        XCTAssertEqual(response.statusCode, 206)
+        let partial = PanelConfiguration(baseURL: base, accessClientID: "synthetic-id")
+        let denied = try MediaStream(url: base.appendingPathComponent("synthetic.mp4"), configuration: partial)
+            .request(offset: 0, length: 2)
+        do { _ = try await transport.send(denied); XCTFail("Incomplete credentials must fail") }
+        catch { XCTAssertEqual(error as? MediaError, .invalidResponse) }
+        let redirect = try MediaStream(url: base.appendingPathComponent("redirect"), configuration: config)
+            .request(offset: 0, length: 2)
+        do { _ = try await transport.send(redirect); XCTFail("Redirect must fail") }
+        catch { XCTAssertEqual(error as? MediaError, .invalidResponse) }
+        let (statsData, _) = try await URLSession.shared.data(from: base.appendingPathComponent("stats"))
+        let stats = try JSONDecoder().decode([String: Int].self, from: statsData)
+        XCTAssertEqual(stats["authenticated_ranges"], 1)
+        XCTAssertEqual(stats["denied"], 1)
+        XCTAssertEqual(stats["redirects"], 1)
+        XCTAssertEqual(stats["redirect_followed"], 0)
+    }
+    #endif
 }
 
 private actor SyntheticMediaBytes: MediaByteTransport {
