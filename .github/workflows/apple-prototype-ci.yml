@@ -1,15 +1,10 @@
 name: Apple Prototype CI
 
+# Always report build-and-test, including PRs with no native changes.
 on:
   pull_request:
-    paths:
-      - "apps/apple-prototype/**"
-      - ".github/workflows/apple-prototype-ci.yml"
   push:
     branches: [WWW-8-apple-prototype, main]
-    paths:
-      - "apps/apple-prototype/**"
-      - ".github/workflows/apple-prototype-ci.yml"
 
 permissions:
   contents: read
@@ -19,9 +14,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      suites: ${{ steps.filter.outputs.suites }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select affected suites
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            echo '.github/workflows/apple-prototype-ci.yml' > "$RUNNER_TEMP/changed-paths"
+          else
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git diff --name-only "$BASE_SHA" HEAD > "$RUNNER_TEMP/changed-paths"
+          fi
+          python3 .github/scripts/apple-prototype-changes.py < "$RUNNER_TEMP/changed-paths" >> "$GITHUB_OUTPUT"
+
+  suites:
+    needs: changes
+    if: needs.changes.outputs.suites != '[]'
+    name: Apple / ${{ matrix.suite }}
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.changes.outputs.suites) }}
     steps:
       - uses: actions/checkout@v5
 
@@ -47,6 +70,7 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
 
       - name: Install XcodeGen and check native SDK requirements
+        if: matrix.suite != 'panelkit'
         run: |
           brew install xcodegen
           ruby -ryaml -e '
@@ -58,17 +82,18 @@ jobs:
           '
 
       - name: Test PanelKit
+        if: matrix.suite == 'panelkit'
         working-directory: apps/apple-prototype/PanelKit
         run: swift test
 
       - name: Generate Xcode project
-        if: ${{ !cancelled() }}
+        if: matrix.suite != 'panelkit'
         working-directory: apps/apple-prototype
         run: xcodegen generate
 
       - name: Select available iPad simulator
         id: simulator
-        if: ${{ !cancelled() }}
+        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
         run: |
           xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
           python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
@@ -81,56 +106,74 @@ jobs:
               for device in devices[runtime]:
                   if device['name'].startswith('iPad') and device.get('isAvailable'):
                       print('destination=platform=iOS Simulator,id=' + device['udid'])
+                      print('udid=' + device['udid'])
                       raise SystemExit(0)
           raise SystemExit('No available iPad simulator installed.')
           PYCODE
 
+      # Boot the actual test destination during compilation. Disabling XCTest
+      # cloning avoids a second, cold simulator boot for these short unit suites.
+      - name: Boot test simulator
+        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: xcrun simctl boot "$SIMULATOR_UDID"
+
       - name: Build macOS app
-        if: ${{ !cancelled() }}
+        if: matrix.suite == 'macos'
         working-directory: apps/apple-prototype
         run: >-
           xcodebuild build -project WorldWideWebb.xcodeproj
           -scheme WorldWideWebb -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO
 
-      - name: Build iPad app
-        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+      # Build the app and its unit bundle together, once. Keep the same test
+      # selectors as before: UI suites belong to their separate workflows.
+      - name: Build for testing
+        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
         working-directory: apps/apple-prototype
         env:
           DESTINATION: ${{ steps.simulator.outputs.destination }}
+          SCHEME: ${{ matrix.suite == 'ipad' && 'WorldWideWebb-iPad' || 'Panel' }}
+          TEST_TARGET: ${{ matrix.suite == 'ipad' && 'WorldWideWebbTests' || 'PanelTests' }}
         run: >-
-          xcodebuild build -project WorldWideWebb.xcodeproj
-          -scheme WorldWideWebb-iPad -destination "$DESTINATION"
-          CODE_SIGNING_ALLOWED=NO
+          xcodebuild build-for-testing -project WorldWideWebb.xcodeproj
+          -scheme "$SCHEME" -destination "$DESTINATION"
+          -only-testing:"$TEST_TARGET" CODE_SIGNING_ALLOWED=NO
 
-      - name: Build Panel app
-        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
-        working-directory: apps/apple-prototype
+      - name: Wait for test simulator
+        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
         env:
-          DESTINATION: ${{ steps.simulator.outputs.destination }}
-        run: >-
-          xcodebuild build -project WorldWideWebb.xcodeproj
-          -scheme Panel -destination "$DESTINATION"
-          CODE_SIGNING_ALLOWED=NO
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
-      # project.yml has no macOS unit-test target. PanelKit runs on macOS above.
-      # Limit the iPad scheme to unit tests; its UI tests are a separate suite.
-      - name: Test iPad app units
-        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+      - name: Test without building
+        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
         working-directory: apps/apple-prototype
         env:
           DESTINATION: ${{ steps.simulator.outputs.destination }}
+          SCHEME: ${{ matrix.suite == 'ipad' && 'WorldWideWebb-iPad' || 'Panel' }}
+          TEST_TARGET: ${{ matrix.suite == 'ipad' && 'WorldWideWebbTests' || 'PanelTests' }}
         run: >-
-          xcodebuild test -project WorldWideWebb.xcodeproj
-          -scheme WorldWideWebb-iPad -destination "$DESTINATION"
-          -only-testing:WorldWideWebbTests CODE_SIGNING_ALLOWED=NO
+          xcodebuild test-without-building -project WorldWideWebb.xcodeproj
+          -scheme "$SCHEME" -destination "$DESTINATION"
+          -parallel-testing-enabled NO
+          -only-testing:"$TEST_TARGET" CODE_SIGNING_ALLOWED=NO
 
-      - name: Test Panel app units
-        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
-        working-directory: apps/apple-prototype
+  # Preserve the original check name and fail closed if planning or any suite
+  # fails. An empty matrix is an intentional success, not a missing check.
+  build-and-test:
+    needs: [changes, suites]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all affected suites
         env:
-          DESTINATION: ${{ steps.simulator.outputs.destination }}
-        run: >-
-          xcodebuild test -project WorldWideWebb.xcodeproj
-          -scheme Panel -destination "$DESTINATION"
-          -only-testing:PanelTests CODE_SIGNING_ALLOWED=NO
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          SUITES_RESULT: ${{ needs.suites.result }}
+          SUITES: ${{ needs.changes.outputs.suites }}
+        run: |
+          [[ "$CHANGES_RESULT" == success ]] &&
+          { [[ "$SUITES_RESULT" == success ]] ||
+            { [[ "$SUITES" == '[]' ]] && [[ "$SUITES_RESULT" == skipped ]]; }; }
