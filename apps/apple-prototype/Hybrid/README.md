@@ -343,5 +343,9 @@ passed 2 XCTest tests and 35 Swift Testing tests. One `xcodebuild test -scheme P
 on the owned iOS 26.3 simulator, with derived data in
 `~/wwwebb-reminders-live-dd`. The Panel scheme includes the app unit-test target
 so the two relevant suites can run in one build. Repository typecheck and push
-checks passed. Captures use a separate owned 12.9-inch iPad simulator (1366×1024
-points) and the real Panel app with explicit synthetic source injection.
+checks passed. Captures use an owned 13-inch M4 iPad simulator (1376×1032 points) and the
+real Panel app with explicit synthetic source injection. The exact-size
+12.9-inch simulator (1366×1024 points) stalled on the OS boot spinner, including
+a restart; it was removed without touching other jobs. The simulator display remained portrait, so its unmodified screenshots show
+the landscape app letterboxed. Exact panel-size and physical landscape visual
+verification remain gaps.
