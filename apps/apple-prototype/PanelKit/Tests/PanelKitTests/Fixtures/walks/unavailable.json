@@ -1,0 +1,11 @@
+{
+  "error": {
+    "message": "Walk service unavailable",
+    "code": -32603,
+    "data": {
+      "code": "SERVICE_UNAVAILABLE",
+      "httpStatus": 503,
+      "path": "walks.state"
+    }
+  }
+}
