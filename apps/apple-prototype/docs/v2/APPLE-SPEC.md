@@ -66,9 +66,9 @@ Native shadows first; one modest external shadow where needed for separation (no
 
 Controls: Weather as a 2×2 content tile, Tesla as the upper right 1×1, Sonos below it, and Under Cabinet/Fan/All on the bottom row. This preserves six complications and makes Controls useful rather than an empty field.
 
-Tesla mirrors the retired contract exactly: name String, nick String, locked Bool, place String, lat/lon Double?, charging Bool, chargingState String (including empty for unavailable legacy entity), preconditioning Bool, rate Double, pct Int, range Int, odo String, climate Int (°F). Provider availability online/asleep/offline is separate. Only setLock, setCharging, setPreconditioning commands. Fixtures Model Y / Car / Home / 78% / 241 mi / 11 kW / locked / 64°F, no coordinates; odometer is an explicitly invented fixture. Unavailable states show pill and disable commands; stale values are labelled.
+Tesla mirrors the retired contract exactly: name String, nick String, place String, lat/lon Double?, charging Bool, chargingState String (including empty for unavailable legacy entity), preconditioning Bool, rate Double, pct Int, range Int, odo String, climate Int (°F). Provider availability online/asleep/offline is separate. Only setCharging, setPreconditioning commands. Fixtures Model Y / Car / Home / 78% / 241 mi / 11 kW / 64°F, no coordinates; odometer is an explicitly invented fixture. Unavailable states show pill and disable commands; stale values are labelled.
 
-Detail: one large native battery Gauge; charge state/rate and start/stop; lock/unlock; cabin °F and precondition; place and odometer. No map. Clock near adds a circular charge gauge and an inline charge label in its reserved corner area. Never cover 6 or let hands intersect complications.
+Detail: one large native battery Gauge; charge state/rate and start/stop; cabin °F and precondition; place and odometer. No map. Clock near adds a circular charge gauge and an inline charge label in its reserved corner area. Never cover 6 or let hands intersect complications.
 
 ## Platforms
 
@@ -127,3 +127,11 @@ All pass-4 reviews score LIVE SIMULATOR `sim-*.png` captures, not ImageRenderer/
 
 
 Pass 4b makes the Home solver explicit: 224-point panel cells, 24-point gutters, 472-point two-cell spans, and 80-point top/side/bottom content margins before a separate 80-point pager band at the specified canvas. Phone has a 24-point content margin and 64-point pager band outside its scroll view. Text-bearing controls use native regular glass; active controls use a light native warm tint with dark foreground. These are prototype composition choices, not claimed HIG measurements.
+
+## Pass 5 scope (supersedes earlier layouts and module exclusions)
+
+Two mixed Home faces use the tested 5×3 solver, with one GlassEffectContainer per face. The primary face adds wide animated Weather and Up Next beside Climate, tall global Lamps, wide Tesla and Now Playing, plus a round Fan. Home · More adds Cameras (2×2), Photos and Media (2×1), tall Sonos Rooms and round Clock/Ceiling/Cabinet/Wi-Fi/All lights. Phone compositions scroll with the reserved page-dot band and every shortcut remains available.
+
+Every new tile opens its full-screen page: Weather has four metrics and 12 hours; Up Next opens a day agenda; Media browses fixture albums/playlists for a selected Sonos room and a bundled silent AVKit film; Sonos Rooms reuses calibrated volume/mute/group commands; Cameras shows two animated licensed demo feeds; Photos auto-advances full-bleed licensed photos with a small time/date complication. Reduce Motion stops decorative motion and automatic photo changes. Fixture identity remains visible. No property-access module, entity, state or vehicle-access action is in scope. Sonos volume lock is retained.
+
+Pass 5 reviews use live simulator captures for every page. Gates: Home, Lamps and clock-near ≥9 each; every newly added page ≥8.5. Keep reviewing and committing each pass until all gates pass.

@@ -2,12 +2,10 @@ import XCTest
 @testable import WorldWideWebb
 
 @MainActor final class TeslaProviderTests: XCTestCase {
-    func testFixtureAndThreeCommandsPreserveTelemetry() {
+    func testFixtureAndCommandsPreserveTelemetry() {
         let provider = MockTeslaProvider()
         XCTAssertNil(provider.data.lat); XCTAssertNil(provider.data.lon)
         XCTAssertEqual(provider.data.name, "Model Y"); XCTAssertEqual(provider.data.nick, "Car")
-        provider.send(.setLock(false))
-        XCTAssertFalse(provider.data.locked)
         provider.send(.setCharging(false))
         XCTAssertFalse(provider.data.charging)
         XCTAssertEqual(provider.data.chargingState, "stopped"); XCTAssertEqual(provider.data.rate, 0)
@@ -23,7 +21,7 @@ import XCTest
         for availability in [TeslaAvailability.asleep, .offline] {
             let provider = MockTeslaProvider(availability: availability)
             let before = provider.data
-            provider.send(.setLock(false)); provider.send(.setCharging(false)); provider.send(.setPreconditioning(true))
+            provider.send(.setCharging(false)); provider.send(.setPreconditioning(true))
             XCTAssertEqual(provider.data, before)
         }
     }
