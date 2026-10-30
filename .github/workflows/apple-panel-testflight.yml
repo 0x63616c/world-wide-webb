@@ -69,27 +69,30 @@ jobs:
         working-directory: apps/apple-prototype
         run: |
           # Fail closed on refs predating WWW-64; Xcode accepts an empty test filter.
-          test -f HybridUITests/HomeViewLaunchTests.swift
+          if [[ ! -f HybridUITests/HomeViewLaunchTests.swift ]]; then
+            echo "::error::Selected ref predates WWW-64: HomeViewLaunchTests.swift is required."
+            exit 1
+          fi
           brew install xcodegen
           xcodegen generate
 
       - name: Boot 1366x1024 iPad simulator
         id: simulator
         run: |
-          xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
+          xcrun simctl list --json > "$RUNNER_TEMP/simulators.json"
           python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
-          import json, os
+          import json, os, subprocess
           with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
-              devices = json.load(source)['devices']
-          for runtime in sorted(devices, reverse=True):
-              if '.iOS-' not in runtime:
-                  continue
-              for device in devices[runtime]:
-                  # HomeViewLaunchTests asserts the physical panel's point dimensions.
-                  if device['name'] == 'iPad Pro 13-inch (M4)' and device.get('isAvailable'):
-                      print('id=' + device['udid'])
-                      raise SystemExit(0)
-          raise SystemExit('No 1366x1024 iPad Pro 13-inch (M4) simulator installed.')
+              catalog = json.load(source)
+          # 12.9-inch iPad Pro is 1366x1024 points; the newer 13-inch is 1376x1032.
+          device_type = next(device['identifier'] for device in reversed(catalog['devicetypes'])
+                             if 'iPad Pro' in device['name'] and '12.9-inch' in device['name'])
+          runtime = max((runtime for runtime in catalog['runtimes']
+                         if runtime.get('isAvailable') and '.iOS-26' in runtime['identifier']),
+                        key=lambda runtime: tuple(map(int, runtime['version'].split('.'))))
+          device_id = subprocess.check_output(
+              ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
+          print('id=' + device_id)
           PYCODE
       - name: Start simulator while compiling
         env:
