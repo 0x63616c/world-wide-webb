@@ -3,9 +3,9 @@ import SwiftUI
 enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
-    case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos
+    case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos, dogwalk
     static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
-    static let controlsFace: [HomeTile] = [.cameras, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
+    static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -28,6 +28,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .sonosRooms: "Sonos Rooms"
         case .cameras: "Cameras"
         case .photos: "Photos"
+        case .dogwalk: "Walk Zero"
         }
     }
     var accessory: Accessory? {
@@ -68,7 +69,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .wifi: Palette.teal
         case .weather, .hourly: Color.blue.mix(with: .black, by: 0.45)
         case .sound: Color.purple.mix(with: .black, by: 0.65)
-        case .alarm, .tesla, .calendar, .media, .sonosRooms, .cameras, .photos: .black
+        case .alarm, .tesla, .calendar, .media, .sonosRooms, .cameras, .photos, .dogwalk: .black
         }
     }
 }
@@ -98,7 +99,7 @@ struct HomeView: View {
                             VStack(spacing: 0) {
                                 FacePicker(selection: $facePage).padding(.horizontal, 16)
                                 Text("Fixture data").font(.system(size: 10)).foregroundStyle(.secondary)
-                            }
+                            }.padding(.vertical, 8)
                                 .glassEffect(.regular, in: .capsule)
                                 .frame(height: HomeFaceLayout.phonePagerBand)
                         }
@@ -119,6 +120,10 @@ struct HomeView: View {
                 #else
                 .onExitCommand { selected = nil }
                 #endif
+                .onOpenURL { url in if url.host == "dogwalk" { open(.dogwalk) } }
+                .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
+                    store.walkActivity.synchronize(walk: walk, now: store.now)
+                }
                 .task {
                     facePage = initialFace
                     presenceNear = initialPresence
@@ -139,9 +144,9 @@ struct HomeView: View {
     @ViewBuilder private func destination(_ tile: HomeTile) -> some View {
         ZStack {
             if [.lamps, .bedroom, .livingRoom].contains(tile) { LampsBackdrop() }
-            else if [.calendar, .media, .sonosRooms, .cameras].contains(tile) { Wallpaper().overlay(.black.opacity(0.18)).ignoresSafeArea() }
+            else if [.calendar, .media, .sonosRooms, .cameras, .dogwalk].contains(tile) { Wallpaper().overlay(.black.opacity(0.18)).ignoresSafeArea() }
             else { tile.fill(store).ignoresSafeArea() }
-            if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos].contains(tile) {
+            if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos, .dogwalk].contains(tile) {
                 ModulePage(tile: tile, store: store, close: { selected = nil })
             } else if tile == .alarm {
                 AlarmRingView(store: store, close: { selected = nil }) { selected = .clock }
@@ -241,7 +246,7 @@ struct HomeFaceGrid: View {
             ForEach(layout.items) { item in
                 MixedHomeTile(tile: item.tile, store: store, open: { open(item.tile) })
                     .frame(width: item.frame.width, height: item.frame.height)
-                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile)))
+                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos, .cameras].contains(item.tile)))
                     .glassEffectID("\(controls)-\(item.id)", in: zoom)
                     .matchedTransitionSource(id: item.id, in: zoom)
                     .position(x: item.frame.midX, y: item.frame.midY)

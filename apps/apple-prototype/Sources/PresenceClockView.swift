@@ -24,7 +24,7 @@ struct PresenceClockFace: View {
                     }.frame(width: dialSide, height: dialSide)
                     if compact && near {
                         HStack(spacing: 24) {
-                            smallComplication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Inside", tile: .climate)
+                            walkComplication
                             Button { open(.tesla) } label: { TeslaChargeComplication(provider: store.tesla, accented: true) }.buttonStyle(.plain)
                         }
                     }
@@ -39,7 +39,7 @@ struct PresenceClockFace: View {
                         }
                         Spacer()
                         HStack(alignment: .bottom) {
-                            smallComplication(symbol: "lamp.table.fill", value: "\(store.lamps.onCount(.lamps)) on", label: "Lamps", tile: .lamps)
+                            walkComplication
                             Spacer()
                             Button { open(.tesla) } label: { TeslaChargeComplication(provider: store.tesla, accented: true).frame(width: 180) }.buttonStyle(.plain)
                         }
@@ -63,6 +63,18 @@ struct PresenceClockFace: View {
                 }
             }.clipped()
         }.ignoresSafeArea()
+    }
+    private var walkComplication: some View {
+        Button { open(.dogwalk) } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: "pawprint.fill").font(.system(size: 28, weight: .medium))
+                Text("Zero").font(.system(size: sizeClass == .compact ? 26 : 36, weight: .medium, design: .rounded))
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    Text(store.walks.activeWalk.map { "Walking · \(walkElapsed($0.duration(at: store.now)))" } ?? store.walks.lastWalkLabel(at: store.now))
+                        .font(.system(size: sizeClass == .compact ? 13 : 19)).monospacedDigit().fixedSize()
+                }
+            }.frame(width: sizeClass == .compact ? 140 : 200, alignment: .leading)
+        }.buttonStyle(.plain).foregroundStyle(.white)
     }
     private var alarmCaption: String {
         guard let next = store.upcomingAlarm(at: store.now) else { return "No upcoming alarms" }

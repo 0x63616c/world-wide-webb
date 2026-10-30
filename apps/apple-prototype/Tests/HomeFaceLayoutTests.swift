@@ -38,6 +38,17 @@ final class HomeFaceLayoutTests: XCTestCase {
         }
     }
 
+    func testEveryModuleAndAccessoryIsReachableOnBothDeviceLayouts() {
+        let required: Set<HomeTile> = [.climate, .lamps, .weather, .calendar, .sound, .tesla, .fan,
+                                       .cameras, .photos, .media, .sonosRooms, .dogwalk, .clock, .ceiling, .cabinet, .wifi, .all]
+        let size = CGSize(width: 1376, height: 1032)
+        let panel = [false, true].flatMap { HomeFaceLayout.panel(in: size, controls: $0).items.map(\.tile) }
+        let phone = [false, true].flatMap { HomeFaceLayout.phone(in: CGSize(width: 402, height: 778), controls: $0).items.map(\.tile) }
+        XCTAssertEqual(Set(panel), required)
+        XCTAssertEqual(Set(phone), required)
+        XCTAssertEqual(panel.count, Set(panel).count)
+    }
+
     private func checkFrames(_ layout: HomeFaceLayout, file: StaticString = #filePath, line: UInt = #line) {
         let frames = layout.items.map(\.frame)
         for (index, item) in layout.items.enumerated() {

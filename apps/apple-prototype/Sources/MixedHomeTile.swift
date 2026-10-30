@@ -5,7 +5,8 @@ enum MixedHomeLayout {
     static func cells(_ tile: HomeTile, controls: Bool = false) -> (x: Int, y: Int, w: Int, h: Int) {
         if controls {
             return switch tile {
-            case .cameras: (0, 0, 2, 2)
+            case .cameras: (0, 0, 2, 1)
+            case .dogwalk: (0, 1, 2, 1)
             case .photos: (2, 0, 2, 1)
             case .media: (2, 1, 2, 1)
             case .sonosRooms: (4, 0, 1, 2)
@@ -31,8 +32,9 @@ enum MixedHomeLayout {
 struct MixedTileMaterial: ViewModifier {
     let round: Bool
     let on: Bool
+    var imageContent = false
     func body(content: Content) -> some View {
-        let glass = on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90)) : Glass.regular
+        let glass = imageContent ? Glass.clear : on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90)) : Glass.regular
         Group {
         if round {
             content.glassEffect(glass.interactive(), in: .circle)
@@ -53,6 +55,7 @@ struct MixedHomeTile: View {
         Group {
             if tile == .climate { climate }
             else if tile == .lamps { lamps }
+            else if tile == .dogwalk { DogWalkTile(store: store, open: open) }
             else if tile == .sound { music }
             else if tile == .tesla { car }
             else if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos].contains(tile) { ModuleTile(tile: tile, store: store, open: open) }
@@ -105,9 +108,9 @@ struct MixedHomeTile: View {
             }.buttonStyle(.plain)
             LampBrightness(store: store).frame(width: compact ? 64 : 88)
             VStack(spacing: 4) {
-                Text("\(store.lamps.onCount(.lamps)) of 8 on")
-                Text("Adjust to turn all on").font(.system(size: compact ? 10 : 13))
-            }.font(.system(size: compact ? 13 : 17)).foregroundStyle(.secondary)
+                Text("\(store.lamps.onCount(.lamps)) of 8 on").fontWeight(.medium)
+                Text("Turns all lamps on").font(.system(size: compact ? 12 : 15))
+            }.font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
         }.padding(compact ? 20 : 24)
     }
     private var music: some View {

@@ -24,3 +24,5 @@ All downloaded 2026-10-29. No Apple or Calum reference image is bundled.
 Camera scenes are stock landscapes, not photographs of a user's home. Music covers, track names, albums and playlists are original authored fixtures; the prototype does not bundle recordings or imply real music output.
 
 CloudPhoto: [Blue sky with white clouds](https://unsplash.com/photos/blue-sky-with-white-clouds-xtgONQzGgOE) by uriel (@xaze), [Unsplash Licence](https://unsplash.com/license). Downloaded 2026-10-29, JPEG quality 85, longest edge 2752 px. Weather condition artwork with slow TimelineView drift; clear skies use original SwiftUI sky/sun, rain adds original particles and desaturation.
+
+Pass 5b adds no downloaded imagery. Walk Zero uses SF Symbols, native Swift Charts and authored generic walk fixtures. Its surfaces reuse the licensed LakeWallpaper above. ActivityKit implementation reference: https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities ; custom glass: https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views .

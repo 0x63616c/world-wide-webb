@@ -14,7 +14,14 @@ struct ModuleTile: View {
                 case .calendar: calendar
                 case .photos: PhotoRotation(provider: store.photos, now: store.now, fullScreen: false)
                 case .cameras:
-                    if let feed = store.cameras.feeds.first { CameraPreview(feed: feed, now: store.now) }
+                    if let feed = store.cameras.feeds.first {
+                        CameraPreview(feed: feed, now: store.now)
+                            .overlay(alignment: .topLeading) {
+                                Label("Cameras · \(store.cameras.feeds.count) feeds", systemImage: "video.fill")
+                                    .font(.system(size: compact ? 18 : 22, weight: .semibold))
+                                    .padding(24).padding(.top, 28)
+                            }
+                    }
                 case .media: media
                 case .sonosRooms: rooms
                 default: EmptyView()
@@ -71,7 +78,7 @@ struct ModuleTile: View {
     private var rooms: some View {
         VStack(alignment: .leading, spacing: compact ? 16 : 24) {
             Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(.system(size: compact ? 20 : 23, weight: .semibold))
-            ForEach(store.rooms.prefix(compact ? 2 : 3)) { room in
+            ForEach(store.rooms.prefix(compact ? 2 : 4)) { room in
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
                         Text(room.name).font(.system(size: compact ? 16 : 19, weight: .medium))
@@ -81,7 +88,8 @@ struct ModuleTile: View {
                     Text(room.playing ? "Playing" : "Paused").font(.system(size: compact ? 13 : 16)).foregroundStyle(.secondary)
                 }
             }
-            if !compact { Spacer(minLength: 0); Text("5 rooms").font(.system(size: 17)).foregroundStyle(.secondary) }
+            if !compact { Spacer(minLength: 0) }
+            Text("5 rooms · Manage audio").font(.system(size: compact ? 13 : 17)).foregroundStyle(.secondary)
         }.padding(compact ? 24 : 24)
     }
 }

@@ -18,7 +18,7 @@ struct HomeFaceLayout {
     let viewport: CGSize
 
     static let panelPagerBand: CGFloat = 80
-    static let phonePagerBand: CGFloat = 64
+    static let phonePagerBand: CGFloat = 80
 
     static func panel(in size: CGSize, controls: Bool = false) -> Self {
         let gap: CGFloat = 24, minimumMargin: CGFloat = 48
@@ -54,9 +54,11 @@ struct HomeFaceLayout {
             items.append(Item(tile: tile, frame: CGRect(x: left + x, y: y, width: width, height: height), round: round))
         }
         if controls {
-            add(.cameras, width: width, height: 2 * cell + gap); y += 2 * cell + 2 * gap
+            add(.cameras, width: width, height: 184); y += 184 + gap
+            add(.dogwalk, width: width, height: 184); y += 184 + gap
             for tile in [HomeTile.photos, .media, .sonosRooms] {
-                add(tile, width: width, height: 184); y += 184 + gap
+                let height: CGFloat = tile == .sonosRooms ? 216 : 184
+                add(tile, width: width, height: height); y += height + gap
             }
         } else {
             add(.climate, width: width, height: 264); y += 264 + gap

@@ -22,7 +22,8 @@ struct CompactFace: View {
                     }.frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 }
             }.scrollIndicators(.hidden)
-                .scrollEdgeEffectStyle(.soft, for: .top)
+                .scrollEdgeEffectStyle(.soft, for: .all)
+                .scrollClipDisabled()
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
 
         }
@@ -30,7 +31,7 @@ struct CompactFace: View {
     private func tile(_ tile: HomeTile, width: CGFloat, height: CGFloat, round: Bool = false) -> some View {
         MixedHomeTile(tile: tile, store: store, open: { open(tile) })
             .frame(width: width, height: height)
-            .modifier(MixedTileMaterial(round: round, on: tile == .fan ? store.climate.fanOn && store.climate.mode != .off : tile.accessory.map { store.lamps.isOn($0) } ?? false))
+            .modifier(MixedTileMaterial(round: round, on: tile == .fan ? store.climate.fanOn && store.climate.mode != .off : tile.accessory.map { store.lamps.isOn($0) } ?? false, imageContent: [.weather, .photos, .cameras].contains(tile)))
             .glassEffectID("\(controls ? "controls" : "home")-\(tile.id)", in: zoom)
             .matchedTransitionSource(id: tile.id, in: zoom)
     }

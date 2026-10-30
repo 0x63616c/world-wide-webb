@@ -135,3 +135,13 @@ Two mixed Home faces use the tested 5×3 solver, with one GlassEffectContainer p
 Every new tile opens its full-screen page: Weather has four metrics and 12 hours; Up Next opens a day agenda; Media browses fixture albums/playlists for a selected Sonos room and a bundled silent AVKit film; Sonos Rooms reuses calibrated volume/mute/group commands; Cameras shows two animated licensed demo feeds; Photos auto-advances full-bleed licensed photos with a small time/date complication. Reduce Motion stops decorative motion and automatic photo changes. Fixture identity remains visible. No property-access module, entity, state or vehicle-access action is in scope. Sonos volume lock is retained.
 
 Pass 5 reviews use live simulator captures for every page. Gates: Home, Lamps and clock-near ≥9 each; every newly added page ≥8.5. Keep reviewing and committing each pass until all gates pass.
+
+## Pass 5b Dog Walk and layout update
+
+Home · More retains every round accessory shortcut and adds Walk Zero as a 2×1 tile below a 2×1 Cameras tile. Idle shows the last walk age and duration; running shows elapsed time and the originating device. Title opens full-screen history; the separate start/stop button changes the shared active walk. The clock's lower-left complication now shows Zero and “Last walk 3h ago”, clear of hands/numerals.
+
+DogWalkApp has generic three-week fixture history, weekly minutes/average/streak, a 7/30-day Swift Charts bar chart, and an ActivityKit widget extension for Lock Screen and Dynamic Island. `-walkStartedRemotely` shows a walk started on iPhone; time derives from the shared start timestamp, not a local counter. Cross-device start/stop is simulated through the mock backend; production persistence, subscriptions and ActivityKit push updates are follow-ups. `sim-iphone-liveactivity.png` is explicitly labelled simulator preview evidence if SpringBoard is unavailable.
+
+Home, Lamps and clock-near retain the >=9 review gate. Dog Walk tile/history, remote state and Live Activity preview require >=8.5 along with the newly added module pages. Full-screen Weather/Calendar/Media/Sonos/Cameras/Photos are being refined independently; their Home tiles remain part of this pass.
+
+Pass 5b phone chrome reserves an 80-point pager band (supersedes 64), with 8-point inner top/bottom caption padding; the solver keeps the final content margin above that band. Room power uses a standard Toggle, separate from member disclosure. The global brightness value includes the partial-on count.

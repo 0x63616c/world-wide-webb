@@ -20,7 +20,10 @@ import SwiftUI
     }
     var body: some Scene {
         WindowGroup {
-            HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace, initialPresence: presenceNear)
+            Group {
+                if ProcessInfo.processInfo.arguments.contains("-walkActivityPreview") { WalkActivityPreviewPage() }
+                else { HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace, initialPresence: presenceNear) }
+            }
                 #if os(macOS)
                 .frame(width: 1376, height: 1032)
                 .environment(\.desktopLayout, true)

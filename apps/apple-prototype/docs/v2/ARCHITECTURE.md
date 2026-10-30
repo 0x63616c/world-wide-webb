@@ -31,7 +31,8 @@ Packages/
     SonosApp/          Sound System: rooms, per-room volume, mute, grouping/join, global + group lock,
                        calibrate/clear, transport (play/pause/next/previous), Now Playing (calum_5 style)
     TeslaApp/          MOCKED (live revival is follow-up): car battery %, range, charging, cabin climate (prior features/tesla, see §7a)
-    CalendarApp/       MOCKED: next-event tile and day timeline
+    DogWalkApp/             # Walk Zero: shared active walk, history, Live Activity
+      CalendarApp/       MOCKED: next-event tile and day timeline
     CamerasApp/        MOCKED: animated licensed demo feeds and camera grid
     PhotosApp/         MOCKED: rotating tile and full-bleed frame
     MediaApp/          MOCKED: browse and play music on Sonos; play video on the panel (AVKit)
@@ -278,3 +279,15 @@ The source remains in one prototype target per §8; names above describe logical
 Home and Home · More both use the same five-column/three-row HomeFaceLayout solver. Home: Climate (0,0) 2×2, Lamps (2,0) 1×2, Weather (3,0) 2×1, Tesla (3,1) 2×1, Calendar (0,2) 2×1, Now Playing (2,2) 2×1, Fan (4,2) circle. More: Cameras (0,0) 2×2, Photos (2,0) 2×1, Media (2,1) 2×1, Sonos Rooms (4,0) 1×2; Clock/Ceiling/Cabinet/Wi-Fi/All lights form five bottom circles. Both have 24-pt gutters and equal 80-pt outer margins on the target panel. Phone uses separate two-column scroll compositions with 16-pt gutters and 24-pt bottom clearance. Geometry tests exercise both faces at every phone width, including scroll ends.
 
 Weather combines four current metrics and 12 hourly entries. Calendar uses generic public-place events; Media has no real recordings. Camera previews use licensed landscapes with LIVE, Demo feed and simulated-camera labels; they are never represented as real property cameras. Photos cycles three licensed images every 12 seconds with a 1.2-second crossfade, paused under Reduce Motion. The photo frame has a small clock/date; all media stays bundled and works offline.
+
+## Pass 5b: DogWalkApp and shared walk state
+
+DogWalkApp adds a wide Walk Zero tile on Home · More, a full-screen history with weekly total, per-walk average, streak and 7/30-day Swift Charts, and a reserved lower-left Clock complication. The tile starts/stops a walk inline and its title opens the history. Idle reads “Last walk 3h ago · 32 min”. Cameras now occupies (0,0) 2×1 and Walk Zero (0,1) 2×1; the remaining spans and all five round controls are unchanged. Every module is reachable on both panel and phone Home pages, verified by the layout tests.
+
+`WalkProvider` exposes `activeWalk`, `history`, `start(at:)` and `stop(at:)`. A walk has `{id, startedAt, startedBy device, endedAt?}`. Elapsed time is derived from `startedAt` in TimelineView; there is no local counter. `MockWalkBackend` owns one active record and a 3-week fixture log; multiple device providers share that backend. Starting twice is idempotent. Stopping from either client ends the shared record and appends history once. `-walkStartedRemotely` injects an iPhone start 12:04 earlier; `-walkRunning` starts locally. The mocks model server synchronization in memory, and do not connect the two separately launched simulator processes over a real network.
+
+**Production follow-up:** persist the walk log and active walk in the backend (new table with stable ID, dog ID, startedAt, startedBy device and endedAt; enforce one active walk transactionally). Add tRPC start/stop/active/history procedures, with idempotent commands and a subscription or polling for cross-device updates. The backend owns timestamps and completion. Retain ActivityKit push-to-update tokens per device/walk so stopping on iPad also ends the iPhone Live Activity. Reconcile the current active record when either app launches or reconnects; never reset the start time locally.
+
+The iOS app embeds `WalkActivityExtension` via project.yml. Lock Screen, compact/minimal and expanded Dynamic Island content use the shared startedAt and deep-link to history. Local observation synchronizes ActivityKit when the active record changes. The simulator preview is explicitly labelled and is not represented as a SpringBoard capture. Backend persistence, cross-device networking and push tokens remain follow-ups, matching the Sonos seek limitation in §6.
+
+Validation: DogWalkProviderTests covers elapsed time, negative-clock clamping, remote start/stop, two clients sharing one active record, idempotent completion, fixture history and chart summaries. HomeFaceLayoutTests covers both faces, every module's reachability, safe margins, equal gutters and no overlapping frames on iPad and iPhone.
