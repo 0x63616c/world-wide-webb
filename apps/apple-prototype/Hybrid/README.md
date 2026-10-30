@@ -187,3 +187,18 @@ Panel and the extension both target iOS 26.0. The port uses ActivityKit 16.2,
 WidgetKit, and App Intents APIs available before iOS 26; no iOS 27 API is needed.
 The widget source and shared attributes match Expo; intent metadata uses immutable
 static properties for Swift 6 concurrency checking.
+
+
+Verified on 2026-10-30 with Xcode 27.0: the unsigned iOS device build passed with
+`NextAlarmWidget.appex` embedded and validated, and App Intent metadata generated.
+Both built products report `MinimumOSVersion=26.0`. **All 35 PanelTests passed**
+on the dedicated iOS 26.3 iPad simulator. The initial runner launch failed before
+any tests ran (Mach error -308); after restarting only that simulator,
+`xcodebuild test-without-building` passed. The SSH connection later reset, but the
+completed `PanelTests-retry.xcresult` and `test-retry.log` confirmed success.
+Repository typecheck, tracked-file lint, Knip, privacy guards, and Gitleaks passed.
+Only Xcode 27 is installed on the mini; an Xcode 26.x build was not run there.
+
+Build and test output screenshots are in `Verification/` (excluded from Panel's
+resources), within this ticket's allowed paths. They document build and test
+results, not authenticated Live Activity rendering on the wall.
