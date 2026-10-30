@@ -24,8 +24,12 @@ import PanelKit
             let store = LiveHomeDataSource(configuration: configuration,
                 transport: HybridFixtureTransport(root: root, unavailable: unavailable),
                 mediaAPI: HybridMediaFixture(unavailable: unavailable),
-                calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root, unavailable: unavailable)))
-            for module in HomeTile.panelProviders { await store.refresh(module) }
+                calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root, unavailable: unavailable)),
+                now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
+            for module in HomeTile.panelProviders {
+                await store.refresh(module)
+                if !unavailable { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }
+            }
             let runtime = NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())
             await runtime.reconcile(snapshot: store.alarmsProvider.snapshot,
                 available: store.hasLiveData(for: .alarms), configured: true,
