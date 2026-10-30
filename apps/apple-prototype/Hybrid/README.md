@@ -336,7 +336,7 @@ exercise successful list/complete/add, empty success, denial/recovery and read-o
 completion. Real permission UI, iCloud sync, default-list availability and physical
 wall behavior require on-device verification; simulator fixtures do not prove them.
 
-WWW-32 verification (2026-10-30, Xcode 27.0): `PanelKit && swift test`
+WWW-32 verification (2026-10-30, Xcode 27.0): `cd PanelKit && swift test`
 passed 2 XCTest tests and 35 Swift Testing tests. One `xcodebuild test -scheme Panel
 -only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveRemindersProviderTests
 -parallel-testing-enabled NO` run passed all 48 Panel tests and 4 provider tests
