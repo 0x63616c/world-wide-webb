@@ -14,6 +14,10 @@ import XCTest
         let store = MockHomeDataSource(latency: .zero, fixedNow: ISO8601DateFormatter().date(from: "2026-10-29T17:10:30Z")!)
         let scenes: [(String, AnyView)] = [
             ("home", AnyView(SnapshotFace(store: store, controls: false))),
+            ("mac-home", AnyView(SnapshotFace(store: store, controls: false).environment(\.desktopLayout, true))),
+            ("tesla", AnyView(ControllerHost(tile: .tesla, store: store, close: {}).background(.black))),
+            ("tesla-tile", AnyView(TeslaTile(provider: store.tesla).frame(width: 328, height: 296).faceGlass().frame(maxWidth: .infinity, maxHeight: .infinity).background(Wallpaper()))),
+            ("anim-weather", AnyView(WeatherTile(weather: store.weather).frame(width: 680, height: 616).frame(maxWidth: .infinity, maxHeight: .infinity).background(.black))),
             ("controls-face", AnyView(SnapshotFace(store: store, controls: true))),
             ("lamps", AnyView(ZStack {
                 LampsBackdrop()
@@ -38,6 +42,8 @@ import XCTest
         for (name, view) in scenes {
             let content = view.frame(width: canvas.width, height: canvas.height)
                 .environment(\.colorScheme, .dark)
+                .environment(\.horizontalSizeClass, .regular)
+                .environment(\.motionPhase, 0)
                 .foregroundStyle(.white).tint(.white)
                 .ignoresSafeArea()
             // Keep this output to document ImageRenderer's platform-effect limitations.

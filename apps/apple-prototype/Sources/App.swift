@@ -21,16 +21,20 @@ import SwiftUI
     var body: some Scene {
         WindowGroup {
             HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace, initialPresence: presenceNear)
-                .frame(minWidth: 960, minHeight: 720)
+                #if os(macOS)
+                .frame(width: 1376, height: 1032)
+                .environment(\.desktopLayout, true)
+                #endif
                 .preferredColorScheme(.dark)
                 #if os(iOS)
                 .statusBarHidden(true)
                 .persistentSystemOverlays(.hidden)
                 #endif
         }
-        .defaultSize(width: 1366, height: 1024)
+        .defaultSize(width: 1376, height: 1032)
         #if os(macOS)
         .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
         #endif
     }
 }

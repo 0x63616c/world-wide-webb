@@ -30,7 +30,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.prototype.ipad
-        TARGETED_DEVICE_FAMILY: '2'
+        TARGETED_DEVICE_FAMILY: '1,2'
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_CFBundleDisplayName: World Wide Webb
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES

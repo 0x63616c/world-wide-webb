@@ -4,7 +4,7 @@ struct AlarmRingView: View {
     let store: any HomeDataSource
     let close: () -> Void
     let edit: () -> Void
-    private let orange = Color(hex: "#ff9f24")
+    private let orange = Color.orange
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let now = store.now
@@ -21,7 +21,7 @@ struct AlarmRingView: View {
                         Text(next?.ringing == true ? "Alarm" : next?.snoozed == true ? "Snoozed" : "Next alarm")
                             .font(.system(size: 28, weight: .medium)).foregroundStyle(.white.opacity(0.55))
                         Text(next.map { countdown($0.remaining(at: now)) } ?? "—")
-                            .font(.system(size: 190, weight: .light)).monospacedDigit().tracking(-5)
+                            .font(.system(size: min(proxy.size.width * 0.13, 176), weight: .regular, design: .rounded)).monospacedDigit().fontWidth(.condensed)
                             .contentTransition(.numericText())
                         Text(next.map { "\($0.alarm.label.uppercased()) · \($0.alarm.time)" } ?? "NO UPCOMING ALARMS")
                             .font(.system(size: 34, weight: .medium)).foregroundStyle(orange)
@@ -63,7 +63,7 @@ private struct AlarmTicks: View {
     var body: some View {
         Canvas { context, size in
             let perimeter = AlarmPerimeter(size: size)
-            let tickCount = 180
+            let tickCount = 120
             for tick in 0..<tickCount {
                 let progress = Double(tick) / Double(tickCount)
                 let sample = perimeter.sample(at: perimeter.length * progress)
@@ -73,7 +73,7 @@ private struct AlarmTicks: View {
                                     y: outer.y - sample.normal.dy * tickLength)
                 var path = Path(); path.move(to: inner); path.addLine(to: outer)
                 let active = ringing || progress < min(1, max(0, fraction))
-                context.stroke(path, with: .color(Color(hex: "#ff9f24").opacity(active ? 1 : 0.19)), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                context.stroke(path, with: .color(Color.orange.opacity(active ? 1 : 0.19)), style: StrokeStyle(lineWidth: 4, lineCap: .round))
             }
         }.accessibilityHidden(true)
     }
@@ -83,8 +83,12 @@ private struct AlarmTicks: View {
 // The contour is concentric with the explicit display container above; progress
 // starts at top centre and travels clockwise, including through every corner.
 struct AlarmPerimeter {
-    static let displayCornerRadius: CGFloat = 56
-    static let edgeInset: CGFloat = 28
+    // Reported earlier iPad measurement; 13-inch value is not publicly verified.
+    // https://github.com/kylebshr/ScreenCorners
+    static let reportedIPadCornerRadius: CGFloat = 18
+    // Deliberate rounded FACE boundary from calum_4, not a hardware claim.
+    static let displayCornerRadius: CGFloat = 112
+    static let edgeInset: CGFloat = 32
     let size: CGSize
     var radius: CGFloat { min(Self.displayCornerRadius - Self.edgeInset, min(size.width, size.height) / 2) }
     var length: CGFloat { 2 * (size.width + size.height - 4 * radius) + 2 * .pi * radius }

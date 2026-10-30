@@ -1,13 +1,15 @@
 import SwiftUI
 
 enum Palette {
-    static let teal = Color(hex: "#075955")
-    static let ink = Color(hex: "#123e3c")
-    static let amber = Color(hex: "#bb721c")
-    static let cool = Color(hex: "#087bb4")
-    static let heat = Color(hex: "#c76524")
-    static let range = Color(hex: "#7557aa")
-    static let graphite = Color(hex: "#38434a")
+    static let teal = Color.teal.mix(with: .black, by: 0.65)
+    static let ink = Color.black
+    static let amber = Color.orange.mix(with: .black, by: 0.65)
+    static let cool = Color.blue.mix(with: .black, by: 0.5)
+    static let heat = Color.orange.mix(with: .black, by: 0.4)
+    static let range = Color.purple.mix(with: .black, by: 0.4)
+    static let graphite = Color.gray.mix(with: .black, by: 0.7)
+    // Original clock artwork, calum_6: same hue/saturation, 7% lower brightness.
+    static let clock = Color(red: 67.0 / 255 * 0.93, green: 166.0 / 255 * 0.93, blue: 106.0 / 255 * 0.93)
 }
 extension Color {
     init(hex: String) {
@@ -70,16 +72,9 @@ struct Wallpaper: View {
 }
 struct LampsBackdrop: View {
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                LinearGradient(colors: [Color(hex: "#562805"), Color(hex: "#a65e13"), Color(hex: "#4c2108")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                RadialGradient(colors: [Color(hex: "#ffd17b").opacity(0.78), Color(hex: "#e39328").opacity(0.35), .clear], center: UnitPoint(x: 0.23, y: 0.52), startRadius: 35, endRadius: proxy.size.width * 0.5)
-                Ellipse().fill(Color(hex: "#f2b24c").opacity(0.15))
-                    .frame(width: proxy.size.width * 0.76, height: proxy.size.height * 0.3)
-                    .rotationEffect(.degrees(-38)).blur(radius: 55)
-                    .offset(x: proxy.size.width * 0.23, y: -proxy.size.height * 0.20)
-                RadialGradient(colors: [Color(hex: "#f8c377").opacity(0.25), .clear], center: .topTrailing, startRadius: 0, endRadius: proxy.size.height * 0.75)
-            }
+        ZStack {
+            Color.black
+            RadialGradient(colors: [.orange.opacity(0.28), .orange.opacity(0.08), .clear], center: UnitPoint(x: 0.3, y: 0.55), startRadius: 60, endRadius: 1000)
         }.ignoresSafeArea()
     }
 }
@@ -152,7 +147,7 @@ struct AnalogClock: View {
                 }
                 hand(length: side * 0.26, width: 7, angle: hour * 30)
                 hand(length: side * 0.37, width: 5, angle: minute * 6)
-                hand(length: side * 0.39, width: 1.4, angle: seconds * 6).opacity(0.65)
+                Capsule().fill(.orange).frame(width: 2, height: side * 0.39).offset(y: -side * 0.195 + 5).rotationEffect(.degrees(seconds * 6))
                 Circle().fill(.white).frame(width: 10, height: 10)
                 if !minimal {
                     Circle().trim(from: 0, to: seconds / 60).stroke(.white.opacity(0.22), lineWidth: 1)
@@ -173,43 +168,12 @@ func fixtureTime(_ date: Date, format: String = "h:mm") -> String {
     return formatter.string(from: date)
 }
 
-// Apply the effect to the content as a unit. A separate glass sibling in a
-// GlassEffectContainer can refract the labels themselves on the iOS simulator.
+// Native glass supplies edge lighting and refraction; no painted specular overlay.
 extension View {
     func homeGlass(on: Bool = false, radius: CGFloat = 38) -> some View {
-        self.background(on ? Color.white.opacity(0.58) : Color.white.opacity(0.035), in: .rect(cornerRadius: radius, style: .continuous))
-            .glassEffect(.regular.tint(on ? .white.opacity(0.5) : .clear).interactive(), in: .rect(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(.white.opacity(on ? 0.4 : 0.16), lineWidth: 0.8).allowsHitTesting(false))
+        self.glassEffect(.regular.tint(on ? .orange.opacity(0.2) : .clear).interactive(), in: .rect(cornerRadius: radius))
     }
-}
-
-// Home-only treatment: retain the existing full-screen controllers' glass styling.
-extension View {
-    func faceGlass(on: Bool = false, radius: CGFloat = 54) -> some View {
-        // Capture-only A/B switch. Clear is the shipping treatment for this patterned face.
-        let glass: Glass = ProcessInfo.processInfo.arguments.contains("-regularFaceGlass") ? .regular : .clear
-        return self.background(on ? Color.white.opacity(0.14) : Color.white.opacity(0.015), in: .rect(cornerRadius: radius, style: .continuous))
-            .glassEffect(glass.tint(.white.opacity(0.035)).interactive(), in: .rect(cornerRadius: radius, style: .continuous))
-            .overlay { FaceSpecularEdge(radius: radius) }
-            .overlay {
-                RoundedRectangle(cornerRadius: radius - 1, style: .continuous).inset(by: 3)
-                    .strokeBorder(LinearGradient(colors: [.clear, .white.opacity(0.03), .white.opacity(0.19)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.7)
-                    .allowsHitTesting(false)
-            }
-            .shadow(color: .black.opacity(0.27), radius: 30, x: 0, y: 16)
-    }
-}
-
-struct FaceSpecularEdge: View {
-    let radius: CGFloat
-    var body: some View {
-        RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .strokeBorder(LinearGradient(stops: [
-                .init(color: .white, location: 0),
-                .init(color: Color(white: 0.78), location: 0.22),
-                .init(color: Color(white: 0.38), location: 0.6),
-                .init(color: Color(white: 0.68), location: 1)
-            ], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1.5)
-            .allowsHitTesting(false)
+    func faceGlass(on: Bool = false, radius: CGFloat = 56) -> some View {
+        self.glassEffect(.clear.tint(on ? .orange.opacity(0.12) : .clear).interactive(), in: .rect(cornerRadius: radius))
     }
 }

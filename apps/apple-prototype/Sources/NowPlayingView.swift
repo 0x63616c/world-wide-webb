@@ -3,6 +3,8 @@ import SwiftUI
 struct NowPlayingView: View {
     let store: any HomeDataSource
     let close: () -> Void
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var compact: Bool { sizeClass == .compact }
     @State private var roomID = "Living Room"
     @State private var choosingRoom = false
     private var room: SoundRoom? { store.rooms.first { $0.id == roomID } ?? store.rooms.first }
@@ -18,21 +20,20 @@ struct NowPlayingView: View {
                             Spacer()
                             VStack(spacing: 5) {
                                 Text(room.name).font(.system(size: 25, weight: .semibold))
-                                Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 18)).opacity(0.65)
+                                HStack(spacing: 10) { Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 18)).foregroundStyle(.secondary); PlayingEqualizer(playing: room.playing) }
                             }
                             Spacer()
                             CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: 64) { choosingRoom = true }
-                        }.padding(.horizontal, 40).padding(.top, 32)
+                        }.padding(.horizontal, compact ? 20 : 40).padding(.top, compact ? 58 : 32)
                         Spacer(minLength: 18)
-                        artwork(room).frame(width: 450, height: 450)
+                        artwork(room).frame(width: compact ? proxy.size.width - 64 : 450, height: compact ? proxy.size.width - 64 : 450)
                             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 28).strokeBorder(.white.opacity(0.18), lineWidth: 0.8))
                             .shadow(color: .black.opacity(0.28), radius: 36, y: 20)
                         VStack(alignment: .leading, spacing: 7) {
                             Text(room.trackTitle ?? room.sourceLabel ?? "Nothing playing")
-                                .font(.system(size: 55, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                            Text(room.trackArtist ?? " ").font(.system(size: 30)).opacity(0.67)
-                        }.frame(width: 790, alignment: .leading).padding(.top, 28)
+                                .font(.system(size: compact ? 28 : 55, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                            Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 30)).foregroundStyle(.secondary)
+                        }.frame(width: compact ? proxy.size.width - 48 : 790, alignment: .leading).padding(.top, 28)
                         VStack(spacing: 10) {
                             HStack(spacing: 22) {
                                 Button { store.send(.mute(room.id)) } label: {
@@ -47,8 +48,8 @@ struct NowPlayingView: View {
                                 Spacer()
                                 Text("\(room.rawVolume)%").monospacedDigit()
                             }.font(.system(size: 21, weight: .medium)).opacity(0.65)
-                        }.frame(width: 790).padding(.top, 22)
-                        HStack(spacing: 76) {
+                        }.frame(width: compact ? proxy.size.width - 48 : 790).padding(.top, 22)
+                        HStack(spacing: compact ? 30 : 76) {
                             transport("backward.fill", label: "Previous track", command: .previous, room: room)
                             transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
                             transport("forward.fill", label: "Next track", command: .next, room: room)

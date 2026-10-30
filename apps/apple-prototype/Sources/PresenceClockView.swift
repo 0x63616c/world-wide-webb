@@ -4,51 +4,63 @@ struct PresenceClockFace: View {
     let store: any HomeDataSource
     @Binding var near: Bool
     let open: (HomeTile) -> Void
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.motionPhase) private var phase
     var body: some View {
         GeometryReader { proxy in
-            let size = proxy.size
+            let compact = sizeClass == .compact
+            let dialSide = compact ? proxy.size.width - 24 : min(proxy.size.height * (near ? 0.78 : 0.96), proxy.size.width * 0.82)
             ZStack {
-                Color(hex: "#43a66a")
-                TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30)) { _ in
-                    GreenClockDial(date: store.now, near: near)
-                }.allowsHitTesting(false)
-                Color.clear.contentShape(Rectangle()).onTapGesture { togglePresence() }
-                    .accessibilityLabel(near ? "Hide clock complications" : "Show clock complications")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAction { togglePresence() }
-                if near {
+                Palette.clock
+                VStack(spacing: compact ? 24 : 0) {
+                    if compact { Spacer(minLength: 70) }
+                    ZStack {
+                        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+                            GreenClockDial(date: store.now)
+                        }.allowsHitTesting(false)
+                        Button { togglePresence() } label: { Color.clear.contentShape(Rectangle()) }
+                            .buttonStyle(.plain).accessibilityLabel(near ? "Hide clock complications" : "Show clock complications")
+                    }.frame(width: dialSide, height: dialSide)
+                    if compact && near {
+                        HStack(spacing: 44) {
+                            smallComplication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Inside", tile: .climate)
+                            Button { open(.tesla) } label: { TeslaChargeComplication(provider: store.tesla, accented: true) }.buttonStyle(.plain)
+                        }
+                    }
+                    if compact { Spacer(minLength: 24) }
+                }.frame(maxWidth: .infinity, maxHeight: .infinity).offset(y: compact ? -20 : -32)
+                if near && !compact {
                     VStack {
-                        HStack {
-                            complication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Climate · Inside", detail: store.climate.action, tile: .climate)
+                        HStack(alignment: .top) {
+                            smallComplication(symbol: "thermometer.medium", value: "\(store.climate.ambient)°", label: "Inside", tile: .climate)
                             Spacer()
-                            complication(symbol: "cloud.sun.fill", value: "\(store.weather.temperature)°", label: "Weather", detail: store.weather.condition, tile: .weather)
+                            smallComplication(symbol: "cloud.sun.fill", value: "\(store.weather.temperature)°", label: "Partly cloudy", tile: .weather)
                         }
                         Spacer()
-                        HStack {
-                            complication(symbol: "lamp.table.fill", value: store.lamps.anyOn ? "On" : "Off", label: "Lamps", detail: store.lamps.countLabel(), tile: .lamps)
+                        HStack(alignment: .bottom) {
+                            smallComplication(symbol: "lamp.table.fill", value: "\(store.lamps.onCount(.lamps)) on", label: "Lamps", tile: .lamps)
                             Spacer()
-                            complication(symbol: "wifi", value: "Guest", label: "Wi-Fi", detail: store.wifi.ssid ?? "Not configured", tile: .wifi)
+                            Button { open(.tesla) } label: { TeslaChargeComplication(provider: store.tesla, accented: true).frame(width: 180) }.buttonStyle(.plain)
                         }
-                    }.padding(.horizontal, 44).padding(.top, 44).padding(.bottom, 92)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    VStack {
-                        Spacer()
-                        Button { open(.alarm) } label: {
-                            Label(alarmCaption, systemImage: "alarm.fill")
-                                .font(.system(size: 23, weight: .semibold))
-                                .padding(.horizontal, 24).frame(height: 56)
-                        }.buttonStyle(.plain)
-                            .background(Color(hex: "#153e28"), in: .capsule)
-                            .glassEffect(.clear.interactive(), in: .capsule)
-                            .accessibilityLabel("Open next alarm, \(alarmCaption)")
-                            .padding(.bottom, 83)
-                    }.transition(.opacity)
+                    }.padding(.horizontal, 64).padding(.top, 64).padding(.bottom, 156)
+                        .transition(.opacity)
                 }
-                Text(fixtureTime(store.now, format: "EEE d").uppercased())
-                    .font(.system(size: 25, weight: .semibold)).foregroundStyle(.black.opacity(0.8))
-                    .position(x: size.width * 0.11, y: size.height - 38)
-                    .allowsHitTesting(false)
+                VStack {
+                    Spacer()
+                    if near {
+                        Button { open(.alarm) } label: {
+                            Label(alarmCaption, systemImage: "alarm.fill").font(.system(size: compact ? 17 : 22, weight: .medium))
+                                .padding(.horizontal, 24).frame(height: 52)
+                        }.buttonStyle(.glass).tint(.black).padding(.bottom, compact ? 72 : 66)
+                    }
+                }
+                if !compact {
+                    Text(fixtureTime(store.now, format: "EEE d").uppercased())
+                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(.black)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(.leading, 64).padding(.bottom, 36)
+                }
             }.clipped()
         }.ignoresSafeArea()
     }
@@ -57,58 +69,47 @@ struct PresenceClockFace: View {
         return next.ringing ? "\(next.alarm.label) · Ringing" : "\(next.alarm.label) · \(next.alarm.time)"
     }
     private func togglePresence() {
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.24)) { near.toggle() }
+        withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) { near.toggle() }
     }
-    private func complication(symbol: String, value: String, label: String, detail: String, tile: HomeTile) -> some View {
+    private func smallComplication(symbol: String, value: String, label: String, tile: HomeTile) -> some View {
         Button { open(tile) } label: {
-            VStack(alignment: .leading, spacing: 9) {
-                HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: symbol).font(.system(size: 33))
-                    Text(value).font(.system(size: 53, weight: .medium)).lineLimit(1)
-                }
-                Text(label).font(.system(size: 26, weight: .semibold))
-                Text(detail).font(.system(size: 20)).opacity(0.75).lineLimit(1)
-            }.frame(width: 238, alignment: .leading).padding(26)
-                .background(Color(hex: "#153e28"), in: .rect(cornerRadius: 42))
-                .glassEffect(.clear.interactive(), in: .rect(cornerRadius: 42))
-                .overlay(RoundedRectangle(cornerRadius: 42).strokeBorder(.white.opacity(0.22), lineWidth: 0.8))
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: symbol).font(.system(size: 28, weight: .medium)).symbolRenderingMode(.hierarchical)
+                Text(value).font(.system(size: 44, weight: .medium, design: .rounded)).monospacedDigit()
+                Text(label).font(.system(size: 20, weight: .medium)).foregroundStyle(.secondary)
+            }.frame(width: 180, alignment: .leading)
         }.buttonStyle(.plain).foregroundStyle(.white)
-            .accessibilityLabel("\(label), \(value), \(detail)")
+            .accessibilityLabel("\(label), \(value)")
     }
 }
 
 private struct GreenClockDial: View {
     let date: Date
-    let near: Bool
     var body: some View {
         GeometryReader { proxy in
-            let w = proxy.size.width
-            let h = proxy.size.height
+            let s = min(proxy.size.width, proxy.size.height)
             let seconds = date.timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
             let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
             let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
             ZStack {
-                numeral("12", size: h * (near ? 0.48 : 0.61), x: w * 0.5, y: h * (near ? 0.24 : 0.21))
-                numeral("9", size: h * (near ? 0.52 : 0.66), x: w * 0.16, y: h * 0.48)
-                numeral("3", size: h * (near ? 0.52 : 0.66), x: w * 0.84, y: h * 0.48)
-                numeral("6", size: h * (near ? 0.48 : 0.65), x: w * 0.5, y: h * (near ? 0.77 : 0.84))
-                hand(length: h * (near ? 0.24 : 0.27), width: 22, degrees: hours * 30)
-                hand(length: h * (near ? 0.35 : 0.40), width: 18, degrees: minutes * 6)
-                hand(length: h * (near ? 0.38 : 0.43), width: 2, degrees: seconds * 6).opacity(0.7)
-                Circle().fill(.white).frame(width: 30, height: 30)
-                Circle().fill(Color(hex: "#24533a")).frame(width: 10, height: 10)
-            }.frame(width: w, height: h).clipped()
-        }.accessibilityElement(children: .ignore)
-            .accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
+                numeral("12", size: s * 0.51, x: s * 0.5, y: s * 0.18)
+                numeral("9", size: s * 0.56, x: s * 0.16, y: s * 0.49)
+                numeral("3", size: s * 0.56, x: s * 0.84, y: s * 0.49)
+                numeral("6", size: s * 0.55, x: s * 0.5, y: s * 0.80)
+                hand(length: s * 0.26, width: s * 0.02, degrees: hours * 30)
+                hand(length: s * 0.38, width: s * 0.016, degrees: minutes * 6)
+                hand(length: s * 0.42, width: max(1, s * 0.002), degrees: seconds * 6).opacity(0.6)
+                Circle().fill(.white).frame(width: s * 0.03, height: s * 0.03)
+                Circle().fill(.black).frame(width: s * 0.009, height: s * 0.009)
+            }.frame(width: s, height: s)
+        }.accessibilityElement(children: .ignore).accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
     }
     private func numeral(_ text: String, size: CGFloat, x: CGFloat, y: CGFloat) -> some View {
-        Text(text).font(.system(size: size, weight: .ultraLight)).tracking(text.count > 1 ? -size * 0.06 : 0)
-            .padding(.trailing, text.count > 1 ? size * 0.06 : 0)
-            .foregroundStyle(Color(hex: "#07190d")).fixedSize().position(x: x, y: y)
+        Text(text).font(.system(size: size, weight: .ultraLight)).foregroundStyle(.black).fixedSize().position(x: x, y: y)
     }
     private func hand(length: CGFloat, width: CGFloat, degrees: Double) -> some View {
         Capsule().fill(.white).frame(width: width, height: length)
-            .offset(y: -length / 2 + 12).rotationEffect(.degrees(degrees))
-            .shadow(color: .black.opacity(0.13), radius: 3, y: 3)
+            .offset(y: -length / 2 + width / 2).rotationEffect(.degrees(degrees))
+            .shadow(color: .black.opacity(0.12), radius: 2, y: 2)
     }
 }

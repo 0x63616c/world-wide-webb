@@ -3,18 +3,22 @@ import SwiftUI
 struct ControllerHost: View {
     let tile: HomeTile
     let store: any HomeDataSource
+    @Environment(\.horizontalSizeClass) private var sizeClass
     var headerVisible = true
     let close: () -> Void
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                Text(tile.title).font(.system(size: 25, weight: .semibold))
+                Text(tile.title).font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
                 HStack {
                     CircleButton(symbol: "xmark", label: "Close", clearGlass: [.lamps, .bedroom, .livingRoom].contains(tile), action: close).accessibilityIdentifier("close-controller")
                     Spacer()
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in Text(fixtureTime(store.now)).font(.system(size: 27, weight: .medium)) }
+                    if sizeClass != .compact { TimelineView(.periodic(from: .now, by: 1)) { _ in Text(fixtureTime(store.now)).font(.system(size: 27, weight: .medium)) } }
                 }
-            }.frame(height: 62).padding(.horizontal, 38).padding(.top, 30).opacity(headerVisible ? 1 : 0)
+            }.frame(height: 62).padding(.horizontal, sizeClass == .compact ? 20 : 38).padding(.top, sizeClass == .compact ? 56 : 30).opacity(headerVisible ? 1 : 0)
+            if sizeClass == .compact {
+                CompactController(tile: tile, store: store, close: close)
+            } else {
             ControllerCanvas {
                 switch tile {
                 case .all, .fan, .lights, .ceiling, .cabinet: ControlsController(store: store)
@@ -24,10 +28,12 @@ struct ControllerHost: View {
                 case .clock: ClockController(store: store)
                 case .weather: WeatherController(weather: store.weather)
                 case .hourly: HourlyController(weather: store.weather)
-                case .sound: SoundController(store: store)
+                case .sound: NowPlayingView(store: store, close: close)
+                case .tesla: TeslaController(provider: store.tesla)
                 case .alarm: AlarmRingView(store: store, close: close, edit: {})
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
             Text("Fixture data").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.42)).padding(.bottom, 16)
         }
         .foregroundStyle(.white).tint(.white)
@@ -141,7 +147,7 @@ struct WifiController: View {
                 VStack(spacing: 16) {
                     if let image = WifiQRCode.render(wifi) {
                         WifiQRHero(image: image)
-                            .frame(width: proxy.size.height * 0.66, height: proxy.size.height * 0.66)
+                            .frame(width: min(proxy.size.width - 48, proxy.size.height * 0.66), height: min(proxy.size.width - 48, proxy.size.height * 0.66))
                             .padding(.bottom, 10)
                     }
                     Text(ssid).font(.system(size: 54, weight: .bold)).textSelection(.enabled)
