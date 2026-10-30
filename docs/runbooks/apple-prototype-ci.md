@@ -5,12 +5,11 @@
 `build-and-test` retains the original check name and always reports a result.
 A failed or cancelled planner/suite fails that gate. An empty selection succeeds.
 
-Four independent `macos-26` lanes preserve the previous coverage:
+Three independent `macos-26` lanes preserve the previous coverage:
 
 | Lane | Work |
 | --- | --- |
-| macos | Build the WorldWideWebb macOS app |
-| panelkit | `swift test` (XCTest **and** Swift Testing) |
+| macos | Build the WorldWideWebb macOS app; PanelKit `swift test` (XCTest **and** Swift Testing) |
 | ipad | Build WorldWideWebb-iPad and run all WorldWideWebbTests |
 | panel | Build Panel and run all PanelTests |
 
@@ -25,9 +24,11 @@ those bundles: the Panel scheme otherwise rebuilds WorldWideWebbTests and its
 host on a separate runner, while the iPad scheme also builds UI automation.
 The checked-in project configuration and all selected unit tests stay intact.
 
-Each iOS lane chooses one available iPad simulator, starts booting before
-compilation, runs `build-for-testing`, waits for that simulator to finish booting,
-then uses `test-without-building`. XCTest parallel testing is explicitly disabled:
+Each iOS lane chooses one available iPad simulator, runs `build-for-testing` before
+booting it, waits for that simulator to finish booting,
+then uses `test-without-building`. Boot follows compilation because overlapping
+it with Xcode's setup caused long stalls in the exploratory PR runs. PanelKit
+shares the short macOS build lane to reduce demand on the macOS runner pool. XCTest parallel testing is explicitly disabled:
 these unit bundles execute in roughly a minute or less, whereas launching cold
 simulators dominates the previous test steps. Independent runners provide suite
 parallelism without paying for extra XCTest simulator clones.
@@ -39,8 +40,8 @@ parallelism without paying for extra XCTest simulator clones.
 - Hybrid, HybridTests, HybridUITests, NextAlarmWidget: Panel lane.
 - Tests, UITests, WalkActivity: iPad lane.
 - Sources, Shared, PanelKit (including test fixtures), project configuration,
-  and any unknown native directory: all four lanes.
-- This workflow or its helper scripts: all four lanes.
+  and any unknown native directory: all three lanes.
+- This workflow or its helper scripts: all three lanes.
 - No native changes: no macOS runners; the final gate still succeeds.
 
 PRs compare the base SHA to the checked-out merge result. Pushes compare the

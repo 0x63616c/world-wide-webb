@@ -2,7 +2,7 @@
 import json
 import sys
 
-ALL = ["macos", "panelkit", "ipad", "panel"]
+ALL = ["macos", "ipad", "panel"]
 
 
 def affected_suites(paths):

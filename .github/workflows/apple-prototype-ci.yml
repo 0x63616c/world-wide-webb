@@ -74,7 +74,6 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
 
       - name: Install XcodeGen and check native SDK requirements
-        if: matrix.suite != 'panelkit'
         run: |
           brew install xcodegen
           # shellcheck disable=SC2016
@@ -87,12 +86,11 @@ jobs:
           '
 
       - name: Test PanelKit
-        if: matrix.suite == 'panelkit'
+        if: matrix.suite == 'macos'
         working-directory: apps/apple-prototype/PanelKit
         run: swift test
 
       - name: Generate Xcode project
-        if: matrix.suite != 'panelkit'
         working-directory: apps/apple-prototype
         run: |
           xcodegen generate
@@ -118,14 +116,6 @@ jobs:
           raise SystemExit('No available iPad simulator installed.')
           PYCODE
 
-      # Boot the actual test destination during compilation. Disabling XCTest
-      # cloning avoids a second, cold simulator boot for these short unit suites.
-      - name: Boot test simulator
-        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
-        env:
-          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
-        run: xcrun simctl boot "$SIMULATOR_UDID"
-
       - name: Build macOS app
         if: matrix.suite == 'macos'
         working-directory: apps/apple-prototype
@@ -147,6 +137,14 @@ jobs:
           xcodebuild build-for-testing -project WorldWideWebb.xcodeproj
           -scheme "$SCHEME" -destination "$DESTINATION"
           -only-testing:"$TEST_TARGET" CODE_SIGNING_ALLOWED=NO
+
+      # Finish compilation before starting the simulator: a booting destination
+      # delays Xcode's build setup on cold runners. Reuse it without XCTest clones.
+      - name: Boot test simulator
+        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: xcrun simctl boot "$SIMULATOR_UDID"
 
       - name: Wait for test simulator
         if: matrix.suite == 'ipad' || matrix.suite == 'panel'
