@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import os
+import subprocess
 
 spec = importlib.util.spec_from_file_location("changes", Path(__file__).with_name("apple-prototype-changes.py"))
 changes = importlib.util.module_from_spec(spec)
@@ -26,6 +28,18 @@ class ChangesTests(unittest.TestCase):
 
     def test_union_is_stable_and_deduplicated(self):
         self.assertEqual(changes.affected_suites(["apps/apple-prototype/HybridTests/a.swift", "apps/apple-prototype/Tests/b.swift", "apps/apple-prototype/Hybrid/a.swift"]), ["ipad", "panel"])
+
+
+class ResultTests(unittest.TestCase):
+    def test_gate_fails_closed(self):
+        script = Path(__file__).with_name("apple-prototype-result.sh")
+        for planner in ["success", "failure", "cancelled", "skipped"]:
+            for suites in ["success", "failure", "cancelled", "skipped"]:
+                for selection in ['[]', '["ipad","panel"]']:
+                    with self.subTest(planner=planner, suites=suites, selection=selection):
+                        result = subprocess.run(["bash", str(script)], env={**os.environ, "CHANGES_RESULT": planner, "SUITES_RESULT": suites, "SUITES": selection})
+                        expected = planner == "success" and (suites == "success" or (suites == "skipped" and selection == '[]'))
+                        self.assertEqual(result.returncode == 0, expected)
 
 
 if __name__ == "__main__":

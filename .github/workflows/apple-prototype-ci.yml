@@ -21,6 +21,8 @@ jobs:
       suites: ${{ steps.filter.outputs.suites }}
     steps:
       - uses: actions/checkout@v5
+      - name: Verify suite selection and result gate
+        run: python3 -B .github/scripts/apple-prototype-changes-test.py
       - name: Select affected suites
         id: filter
         env:
@@ -168,12 +170,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v5
       - name: Require all affected suites
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           SUITES_RESULT: ${{ needs.suites.result }}
           SUITES: ${{ needs.changes.outputs.suites }}
-        run: |
-          [[ "$CHANGES_RESULT" == success ]] &&
-          { [[ "$SUITES_RESULT" == success ]] ||
-            { [[ "$SUITES" == '[]' ]] && [[ "$SUITES_RESULT" == skipped ]]; }; }
+        run: bash .github/scripts/apple-prototype-result.sh
