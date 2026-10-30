@@ -995,3 +995,22 @@ uses the synthetic Lights fixture; the web capture intentionally shows the local
 unavailable board reconnecting. It verifies the Banner's placement, not production
 Cloudflare Access rendering. No physical TestFlight handoff or permission prompt
 was used for simulator verification.
+
+## Mac window policy (WWW-39)
+
+The existing Panel iOS target runs on Apple Silicon as Designed for iPad; Catalyst
+remains off. On `isiOSAppOnMac` only, `PanelWindowAttachment` applies equal minimum
+and maximum scene sizes of **1366 × 1024 points**, matching the wall panel in
+landscape. The app's landscape-only Info.plist and full-screen requirement are
+covered by a hosted PanelTests assertion. Mac keeps automatic system overlays for
+pointer access; the wall iPad keeps its hidden kiosk overlays. No module flags are
+changed by this policy and no launch argument is required.
+
+iPhone support is deferred: Panel remains device family `2`. Hybrid's native tile
+and Fan detail use fixed 660 × 520 frames, and Dog Walk has no live hybrid view.
+The reused `SonosRoomsPage` in `Sources/SoundViews.swift` also lays out both
+groups and their room controls in horizontal rows without a compact branch; making
+that page safe at the smallest phone size needs a design-view layout change.
+Enabling family `1` would expose clipped content and an incomplete module set. Compact navigation and smallest-phone validation remain follow-up work; the
+design worker's Sources and UITests are unchanged. No new snapshot/UI suite is
+added because these tests are not run by the existing CI.
