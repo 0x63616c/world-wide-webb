@@ -99,9 +99,9 @@ struct AgendaPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Today").font(.system(size: compact ? 36 : 56, weight: .bold))
+                    Text(provider.heading).font(.system(size: compact ? 36 : 56, weight: .bold))
                     Spacer()
-                    Text(fixtureTime(now, format: "EEEE, MMMM d")).font(.system(size: compact ? 16 : 24)).foregroundStyle(.secondary)
+                    Text(provider.dateText(at: now, format: "EEEE, MMMM d")).font(.system(size: compact ? 16 : 24)).foregroundStyle(.secondary)
                 }
                 GlassEffectContainer(spacing: 16) {
                     VStack(spacing: 16) {
@@ -117,7 +117,7 @@ struct AgendaPage: View {
                                     Label(event.location, systemImage: "mappin").font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
-                                if !compact { Text("\(event.duration) min").font(.system(size: 18)).foregroundStyle(.secondary) }
+                                if !compact { Text(event.durationText).font(.system(size: 18)).foregroundStyle(.secondary) }
                             }.padding(compact ? 20 : 28).glassEffect(.regular, in: .rect(cornerRadius: 32))
                         }
                     }
