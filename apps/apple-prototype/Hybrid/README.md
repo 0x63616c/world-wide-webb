@@ -350,3 +350,12 @@ against bundled `settings.get` data. Fixture mode fixes the server/transport to
 local data. It cannot unlock a configured live server. Never pass a real PIN or
 Access token via a shell command. Physical-panel/authenticated production checks
 require local configuration and are separate from these fixture checks.
+
+Verified 2026-10-30 with Xcode 27.0 on the dedicated iOS 26.3
+`WWW-35 Photos iPad` simulator: 48 Panel tests and 102 app tests passed in one
+combined test run. PanelKit passed 5 XCTest tests plus 35 Swift Testing tests.
+Repository typecheck and push quality/privacy/secret checks passed. Direct
+simulator captures exercise the native frame, automatic rotation, details,
+fresh PIN gate and unavailable fallback using the launch arguments above.
+See `docs/screenshots/photos-live/` at the repository root. Authenticated home
+photos and physical-panel behavior were not tested.
