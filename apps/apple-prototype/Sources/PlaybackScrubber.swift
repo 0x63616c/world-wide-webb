@@ -6,7 +6,6 @@ struct PlaybackScrubber: View {
     let room: SoundRoom
     @State private var dragPosition: Double?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.motionPhase) private var phase
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let position = dragPosition ?? room.position(at: store.now)

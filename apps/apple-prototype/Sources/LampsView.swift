@@ -21,7 +21,7 @@ struct LampsController: View {
                         Text(store.lamps.anyOn ? "All 8 lamps · Both rooms" : "Turn on lamps to adjust")
                             .font(.system(size: compact ? 17 : 22)).foregroundStyle(.secondary)
                     }
-                    LampBrightness(store: store).frame(width: compact ? 156 : 224, height: compact ? 300 : 460)
+                    LampBrightness(store: store).frame(width: compact ? 156 : 224, height: compact ? 300 : 348)
                     Text("Adjusting turns all lamps on").font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary)
                 }.frame(width: compact ? nil : 340)
                 VStack(alignment: .leading, spacing: 24) {
@@ -61,7 +61,7 @@ struct LampsController: View {
                         .background { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 150, height: 150) }
                     VStack(alignment: .leading, spacing: 8) {
                         Text(key.name).font(.system(size: compact ? 21 : 28, weight: .semibold))
-                        Text(on ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps" : "Off").font(.system(size: compact ? 16 : 22)).foregroundStyle(.secondary)
+                        Text(on ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps" : "Off · \(LampState.members(key).count) lamps").font(.system(size: compact ? 16 : 22)).foregroundStyle(.primary)
                     }
                     Spacer()
                     Image(systemName: "power").font(.system(size: 24)).foregroundStyle(on ? .orange : .secondary)
@@ -74,7 +74,7 @@ struct LampsController: View {
                     HStack { Text(LampState.names[index]); Spacer(); Text(store.lamps.on[index] ? "On" : "Off").foregroundStyle(.secondary) }
                         .padding(.vertical, 4)
                 }
-            }.font(.system(size: compact ? 15 : 19)).foregroundStyle(.secondary)
+            }.font(.system(size: compact ? 15 : 19)).foregroundStyle(.primary)
                 .padding(.horizontal, 24).padding(.bottom, 20)
         }.homeGlass(radius: 32)
     }
@@ -86,7 +86,7 @@ struct LampBrightness: View {
         GeometryReader { proxy in
             let enabled = store.lamps.anyOn
             ZStack(alignment: .bottom) {
-                Color.white.opacity(0.10)
+                Color.primary.opacity(0.10)
                 Rectangle().fill(.white)
                     .frame(height: proxy.size.height * Double(store.lamps.brightness) / 100)
                 Image(systemName: "sun.max.fill").font(.system(size: 44, weight: .medium))

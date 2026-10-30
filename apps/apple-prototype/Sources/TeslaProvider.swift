@@ -76,14 +76,14 @@ struct TeslaChargeComplication: View {
     var accented = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             Gauge(value: Double(provider.data.pct), in: 0...100) {
                 Image(systemName: "bolt.fill")
             } currentValueLabel: {
                 Text("\(provider.data.pct)").font(.system(size: 24, weight: .semibold, design: .rounded))
-            }.gaugeStyle(.accessoryCircular).tint(accented ? .white : .green)
+            }.gaugeStyle(.accessoryCircularCapacity).tint(accented ? .white : .green)
                 .scaleEffect(sizeClass == .compact ? 1.0 : 1.2).frame(width: sizeClass == .compact ? 64 : 80, height: sizeClass == .compact ? 64 : 80)
-            Text(provider.availability == .online ? "Car" : provider.availability.rawValue.capitalized)
+            Text(provider.availability == .online ? (provider.data.charging ? "Car · Charging" : "Car") : provider.availability.rawValue.capitalized)
                 .font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
         }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading).accessibilityElement(children: .ignore)
             .accessibilityLabel("Car charge \(provider.data.pct) percent, \(provider.availability.rawValue)")

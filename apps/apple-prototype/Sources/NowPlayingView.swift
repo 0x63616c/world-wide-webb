@@ -13,30 +13,29 @@ struct NowPlayingView: View {
         GeometryReader { proxy in
             if let room {
                 ZStack {
-                    LinearGradient(colors: [Color(hex: room.artworkTint), Color(hex: room.artworkTint).mix(with: .black, by: 0.62)], startPoint: .top, endPoint: .bottom)
-                    RadialGradient(colors: [.white.opacity(0.10), .clear], center: UnitPoint(x: 0.5, y: 0.28), startRadius: 0, endRadius: 700)
+                    if !isFace { MusicBackdrop(tint: room.artworkTint) }
                     VStack(spacing: 0) {
                         HStack {
-                            CircleButton(symbol: isFace ? "house" : "xmark", label: isFace ? "Home" : "Close music", size: 64, action: close)
+                            CircleButton(symbol: isFace ? "house" : "xmark", label: isFace ? "Home" : "Close music", size: compact ? 44 : 64, action: close)
                             Spacer()
                             VStack(spacing: 5) {
-                                Text(room.name).font(.system(size: 25, weight: .semibold))
+                                Text(room.name).font(.system(size: compact ? 20 : 25, weight: .semibold))
                                 HStack(spacing: 10) { Text(room.sourceLabel ?? room.sourceKind.rawValue.capitalized).font(.system(size: 18)).foregroundStyle(.secondary); PlayingEqualizer(playing: room.playing) }
                             }
                             Spacer()
-                            CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: 64) { choosingRoom = true }
-                        }.padding(.horizontal, compact ? 20 : 40).padding(.top, compact ? 58 : 32)
+                            CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: compact ? 44 : 64) { choosingRoom = true }
+                        }.padding(.horizontal, compact ? 20 : 40).padding(.top, compact ? 16 : 32)
                         Spacer(minLength: 18)
                         artwork(room).frame(width: compact ? min(proxy.size.width - 80, proxy.size.height * 0.31) : 400, height: compact ? min(proxy.size.width - 80, proxy.size.height * 0.31) : 400)
                             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                             .shadow(color: .black.opacity(0.28), radius: 36, y: 20)
                         VStack(alignment: .leading, spacing: 7) {
                             Text(room.trackTitle ?? room.sourceLabel ?? "Nothing playing")
-                                .font(.system(size: compact ? 28 : 38, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                            Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 26)).foregroundStyle(.secondary)
-                        }.frame(width: compact ? proxy.size.width - 48 : 480, alignment: .leading).padding(.top, 28)
+                                .font(.system(size: compact ? 28 : 32, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                            Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 23)).foregroundStyle(.secondary)
+                        }.frame(width: compact ? proxy.size.width - 48 : 400, alignment: .leading).padding(.top, 28)
                         PlaybackScrubber(store: store, room: room)
-                            .frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, 22)
+                            .frame(width: compact ? proxy.size.width - 48 : 400).padding(.top, 22)
                         HStack(spacing: compact ? 30 : 76) {
                             transport("backward.fill", label: "Previous track", command: .previous, room: room)
                             transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
@@ -56,7 +55,7 @@ struct NowPlayingView: View {
                                 Spacer()
                                 Text("\(room.rawVolume)%").monospacedDigit()
                             }.font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
-                        }.frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, 8)
+                        }.frame(width: compact ? proxy.size.width - 48 : 400).padding(.top, 8)
                         Spacer(minLength: compact ? 36 : 50)
                     }
                 }.frame(width: proxy.size.width, height: proxy.size.height)
@@ -133,5 +132,14 @@ struct FixtureArtwork: View {
                     .foregroundStyle(.white.opacity(0.8)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).padding(s * 0.07)
             }.clipped()
         }.accessibilityLabel("Procedural fixture artwork")
+    }
+}
+
+struct MusicBackdrop: View {
+    let tint: String
+    var body: some View {
+        LinearGradient(colors: [Color(hex: tint), Color(hex: tint).mix(with: .black, by: 0.62)], startPoint: .top, endPoint: .bottom)
+            .overlay { RadialGradient(colors: [.white.opacity(0.10), .clear], center: UnitPoint(x: 0.5, y: 0.28), startRadius: 0, endRadius: 700) }
+            .ignoresSafeArea()
     }
 }

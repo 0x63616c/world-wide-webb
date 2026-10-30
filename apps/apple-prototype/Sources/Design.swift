@@ -28,7 +28,7 @@ struct Wallpaper: View {
         GeometryReader { proxy in
             Image("LakeWallpaper").resizable().scaledToFill()
                 .frame(width: proxy.size.width, height: proxy.size.height).clipped()
-                .overlay(.black.opacity(0.25))
+                .overlay(.black.opacity(0.40))
         }.ignoresSafeArea()
     }
 }
@@ -120,7 +120,8 @@ extension View {
             .containerShape(.rect(cornerRadius: radius))
     }
     func faceGlass(on: Bool = false, radius: CGFloat = 56) -> some View {
-        self.glassEffect((on ? Glass.regular.tint(.orange.opacity(0.18)) : .clear).interactive(), in: .rect(cornerRadius: radius))
+        self.glassEffect((on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular).interactive(), in: .rect(cornerRadius: radius))
+            .environment(\.colorScheme, on ? .light : .dark)
             .containerShape(.rect(cornerRadius: radius))
     }
 }

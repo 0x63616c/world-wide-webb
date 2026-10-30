@@ -124,3 +124,6 @@ Home now explicitly requires mixed spans: 2×2 Climate, 1×2 Lamps, 2×1 Music a
 Now Playing explicitly requires an honest fixture-backed time scrubber below track information (1:47 of 3:52, elapsed and negative remaining), transport next, volume below. Mock provider implements seek and elapsed playback. Production fields and seek mutation are a follow-up; the earlier no-scrubber prohibition is superseded. Keep global brightness scope, no invented timer, Tesla mock and fixture-only behavior.
 
 All pass-4 reviews score LIVE SIMULATOR `sim-*.png` captures, not ImageRenderer/hosted draws. Home, Lamps and clock-near must each score at least 9. No pass cap.
+
+
+Pass 4b makes the Home solver explicit: 224-point panel cells, 24-point gutters, 472-point two-cell spans, and 80-point top/side/bottom content margins before a separate 80-point pager band at the specified canvas. Phone has a 24-point content margin and 64-point pager band outside its scroll view. Text-bearing controls use native regular glass; active controls use a light native warm tint with dark foreground. These are prototype composition choices, not claimed HIG measurements.

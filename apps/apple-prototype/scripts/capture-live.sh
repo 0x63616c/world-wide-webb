@@ -24,4 +24,5 @@ capture "$ipad" clock-near -face clock -presence near
 capture "$ipad" controls -face controls
 capture "$ipad" nowplaying -face music
 capture "$phone" iphone-home -face home
+capture "$phone" iphone-home-bottom -face home -homeScrollBottom
 capture "$phone" iphone-nowplaying -face music

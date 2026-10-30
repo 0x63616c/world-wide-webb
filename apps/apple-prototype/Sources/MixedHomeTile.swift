@@ -20,13 +20,15 @@ struct MixedTileMaterial: ViewModifier {
     let round: Bool
     let on: Bool
     func body(content: Content) -> some View {
-        let glass = on ? Glass.regular.tint(.orange.opacity(0.18)) : Glass.clear
+        let glass = on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90)) : Glass.regular
+        Group {
         if round {
             content.glassEffect(glass.interactive(), in: .circle)
         } else {
             content.glassEffect(glass.interactive(), in: .rect(cornerRadius: 56))
                 .containerShape(.rect(cornerRadius: 56))
         }
+        }.environment(\.colorScheme, on ? .light : .dark)
     }
 }
 struct MixedHomeTile: View {
@@ -44,7 +46,7 @@ struct MixedHomeTile: View {
             else if tile == .clock {
                 Button(action: open) { TileFace(tile: .clock, store: store, open: open) }.buttonStyle(.plain)
             } else { roundControl }
-        }.foregroundStyle(.white).accessibilityIdentifier("tile-\(tile.id)")
+        }.foregroundStyle(isOn ? .black : .white).accessibilityIdentifier("tile-\(tile.id)")
     }
     private var climate: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -56,7 +58,7 @@ struct MixedHomeTile: View {
                 }.font(.system(size: compact ? 20 : 26, weight: .semibold))
             }.buttonStyle(.plain)
             Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
-                .font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+                .font(.system(size: compact ? 16 : 20)).foregroundStyle(.primary)
             Spacer(minLength: 0)
             Button(action: open) {
                 Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
@@ -89,7 +91,7 @@ struct MixedHomeTile: View {
                 }.frame(maxWidth: .infinity)
             }.buttonStyle(.plain)
             LampBrightness(store: store).frame(width: compact ? 64 : 88)
-            Text("Both rooms").font(.system(size: compact ? 13 : 18)).foregroundStyle(.secondary)
+            Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: compact ? 13 : 18)).foregroundStyle(.primary)
         }.padding(compact ? 20 : 24)
     }
     private var music: some View {
@@ -101,10 +103,10 @@ struct MixedHomeTile: View {
                         .clipShape(.rect(cornerRadius: compact ? 16 : 24))
                     VStack(alignment: .leading, spacing: 8) {
                         Text(room.trackTitle ?? "Nothing playing").font(.system(size: compact ? 18 : 25, weight: .semibold)).lineLimit(2)
-                        Text(room.trackArtist ?? "Sonos").font(.system(size: compact ? 14 : 18)).foregroundStyle(.secondary)
+                        Text(room.trackArtist ?? "Sonos").font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
                         HStack(spacing: 8) {
                             PlayingEqualizer(playing: room.playing)
-                            Text("Living Room").font(.system(size: compact ? 13 : 16)).foregroundStyle(.secondary)
+                            Text("Living Room").font(.system(size: compact ? 13 : 16)).foregroundStyle(.primary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -119,7 +121,7 @@ struct MixedHomeTile: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text("\(store.tesla.data.pct)%").font(.system(size: compact ? 32 : 48, weight: .medium, design: .rounded)).monospacedDigit()
-                        Text("\(store.tesla.data.range) mi").font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+                        Text("\(store.tesla.data.range) mi").font(.system(size: compact ? 16 : 20)).foregroundStyle(.primary)
                     }
                     Text("Car · \(store.tesla.data.name)").font(.system(size: compact ? 16 : 22, weight: .semibold))
                     Label(store.tesla.data.charging ? "Charging · \(store.tesla.data.rate.formatted()) kW" : store.tesla.data.chargingState.capitalized, systemImage: store.tesla.data.charging ? "bolt.fill" : "battery.75percent").font(.system(size: compact ? 13 : 17)).foregroundStyle(store.tesla.data.charging ? .green : .white)
@@ -143,8 +145,8 @@ struct MixedHomeTile: View {
                 VStack(spacing: 5) {
                     Text(tile == .wifi ? "Guest Wi-Fi" : tile == .all ? "All lights" : tile == .fan ? "Fan" : tile.title)
                         .font(.system(size: compact ? 16 : 22, weight: .semibold)).lineLimit(1)
-                    Text(tile == .wifi ? "Tap to join" : tile == .fan ? store.climate.fanLabel : isOn ? "On" : "Off")
-                        .font(.system(size: compact ? 13 : 18)).foregroundStyle(.secondary)
+                    Text(tile == .wifi ? "Tap to join" : tile == .fan ? store.climate.fanLabel : tile == .all && !isOn && (store.lamps.anyOn || store.lamps.ceiling || store.lamps.cabinet) ? "Some on" : isOn ? "On" : "Off")
+                        .font(.system(size: compact ? 13 : 18)).foregroundStyle(.primary)
                 }
             }.buttonStyle(.plain)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)

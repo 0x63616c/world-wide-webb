@@ -13,7 +13,6 @@ struct ControllerHost: View {
                 HStack {
                     CircleButton(symbol: "xmark", label: "Close", clearGlass: [.lamps, .bedroom, .livingRoom].contains(tile), action: close).accessibilityIdentifier("close-controller")
                     Spacer()
-                    if sizeClass != .compact { TimelineView(.periodic(from: .now, by: 1)) { _ in Text(fixtureTime(store.now)).font(.system(size: 27, weight: .medium)) } }
                 }
             }.frame(height: 62).padding(.horizontal, sizeClass == .compact ? 20 : 38).padding(.top, sizeClass == .compact ? 56 : 30).opacity(headerVisible ? 1 : 0)
             if sizeClass == .compact {
