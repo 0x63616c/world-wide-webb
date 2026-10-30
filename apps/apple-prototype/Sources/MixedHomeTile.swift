@@ -80,15 +80,15 @@ struct MixedHomeTile: View {
                 setpointLabel.frame(maxWidth: .infinity)
             } else {
                 Spacer(minLength: 0)
-                VStack(spacing: 24) {
-                    HStack(spacing: 8) {
-                        step("minus", delta: -1)
-                        climateValue
-                        step("plus", delta: 1)
-                    }
-                    setpointLabel
-                }
+                climateValue
                 Spacer(minLength: 0)
+                HStack {
+                    step("minus", delta: -1)
+                    Spacer()
+                    setpointLabel
+                    Spacer()
+                    step("plus", delta: 1)
+                }
             }
         }.padding(compact ? 24 : 32)
     }
@@ -109,7 +109,7 @@ struct MixedHomeTile: View {
     private var climateValue: some View {
         Button(action: open) {
             Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
-                .font(.system(size: compact ? 76 : 152, weight: .regular)).monospacedDigit()
+                .font(.system(size: compact ? 76 : 170, weight: .regular)).monospacedDigit()
                 .minimumScaleFactor(compact && store.climate.mode != .heatCool ? 1 : 0.6)
                 .lineLimit(1).frame(maxWidth: .infinity)
         }.buttonStyle(.plain)
@@ -120,8 +120,7 @@ struct MixedHomeTile: View {
     }
     private func step(_ symbol: String, delta: Int) -> some View {
         Button { store.send(store.climate.mode == .heatCool ? .shiftRange(delta) : .target(store.climate.target + delta)) } label: {
-            Image(systemName: symbol).font(.system(size: compact ? 24 : 32, weight: .medium))
-                .frame(width: compact ? 48 : 64, height: compact ? 48 : 64).contentShape(.rect)
+            Image(systemName: symbol).font(.system(size: compact ? 24 : 32, weight: .medium)).frame(width: 48, height: 48).contentShape(.rect)
         }.buttonStyle(.plain).disabled(store.climate.mode == .off)
             .accessibilityLabel(delta < 0 ? "Lower setpoint" : "Raise setpoint")
     }

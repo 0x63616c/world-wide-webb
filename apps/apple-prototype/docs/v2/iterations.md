@@ -229,3 +229,37 @@ captures are running in the isolated `~/wwwebb-home-design/` and
 `~/wwwebb-home-design-dd/` directories. The capture and verification harnesses now
 accept explicit output/app/derived-data paths while preserving their old defaults
 and the shared simulator lock. Full-resolution evidence stays outside Git.
+
+### WWW-54 iteration 1 decision — REJECT
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 9.0 | 8.8/9.0/9.0 | PASS ≥9.0 | -0.1 |
+| main-controls.png | 8.2 | 8.0/8.2/8.2 | fail ≥8.5 | -0.2 |
+| main-dogwalk-full-running.png | 8.6 | 8.6/8.7/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-full.png | 8.6 | 8.6/8.7/8.6 | PASS ≥8.5 | +0.1 |
+| main-dogwalk-remote.png | 8.6 | 8.6/8.7/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-tile-running.png | 8.2 | 7.9/8.2/8.2 | fail ≥8.5 | -0.2 |
+| main-dogwalk-tile.png | 8.2 | 8.0/8.2/8.2 | fail ≥8.5 | -0.2 |
+| main-home.png | 8.4 | 8.2/8.4/8.4 | fail ≥9.0 | -0.1 |
+| main-iphone-home-bottom.png | 8.4 | 8.4/8.5/8.2 | fail ≥8.5 | +0.1 |
+| main-iphone-home.png | 8.3 | 8.3/8.4/8.2 | fail ≥9.0 | -0.1 |
+| main-lamps.png | 8.7 | 8.7/8.7/8.6 | fail ≥9.0 | -0.3 |
+| main-nowplaying.png | 8.8 | 8.8/8.8/8.8 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+Home 8.4 is below its 8.5 floor; the single Climate grouping change is
+reverted in a new commit. No floor is lowered. The other eleven view designs
+are unchanged from main; comparison with pass 7g is exact or within
+0.000448/255, so their lower repeat scores have no responsible design hunk.
+This does not waive the twelve-screen acceptance rule.
+
+All five builds, both prototype suites (149 unit tests plus hosted render each),
+eight UI tours and Panel unit tests pass. The expanded Panel-Smoke suite finds
+a harness mismatch: camera/alarm tests expect 1366×1024, but the prototype
+simulator is 1376×1032. A separate Lights detail assertion also fails. Hybrid
+verification will be repeated on an existing 12.9-inch simulator under the
+shared device lock; no expectations are weakened. Twelve independent capture
+pairs pass, maximum RGB MAE 0.000608/255. Raw cold reviews, captures and logs:
+`/workspace/wwwebb-ui/prototype/v2/www54/iteration-1/`.
