@@ -65,9 +65,11 @@ struct KioskWebView: UIViewRepresentable {
             guard let request = NativeRequest.parse(raw) else { return }
             let response = session.handle(request, in: webView)
             guard let json = try? response.encoded() else { return }
-            // The response is synchronous, bound to the originating document.
-            // No privileged result can arrive after a navigation into another origin.
-            webView.callAsyncJavaScript(KioskScripts.respond, arguments: ["responseJSON": json],
+            // Recheck location in JavaScript too: navigation can race the
+            // asynchronous evaluation even after native origin validation.
+            webView.callAsyncJavaScript(KioskScripts.respond, arguments: [
+                "responseJSON": json, "serverURL": session.configuration.serverURL.absoluteString
+            ],
                                         in: message.frameInfo, in: .page, completionHandler: nil)
         }
 

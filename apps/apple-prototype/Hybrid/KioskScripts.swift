@@ -35,6 +35,8 @@ enum KioskScripts {
     // Pass JSON as an argument to callAsyncJavaScript, never interpolate request
     // IDs, URLs, or server-provided strings into executable JavaScript.
     static let respond = """
-    window.dispatchEvent(new CustomEvent("control-center-native-response", { detail: JSON.parse(responseJSON) }));
+    if (window.location.origin === new URL(serverURL).origin) {
+      window.dispatchEvent(new CustomEvent("control-center-native-response", { detail: JSON.parse(responseJSON) }));
+    }
     """
 }

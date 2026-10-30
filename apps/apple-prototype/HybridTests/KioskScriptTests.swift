@@ -49,4 +49,28 @@ final class KioskScriptTests: XCTestCase {
         context.evaluateScript("document.getElementById = function() { return { childElementCount: 1 }; }; callbacks.shift()();")
         XCTAssertTrue(context.evaluateScript("messages[0].rendered")!.toBool())
     }
+
+    func testResponsesAreSuppressedIfThePageNavigatedAway() throws {
+        let context = try context(rendered: true)
+        context.evaluateScript("""
+        // JavaScriptCore has no DOM URL/CustomEvent. Supply the browser surface
+        // while exercising the production response script and encoded payload.
+        function URL(raw) { this.origin = raw; }
+        function CustomEvent(name, options) { this.type = name; this.detail = options.detail; }
+        var events = [];
+        window.dispatchEvent = function(event) { events.push(event); };
+        var serverURL = 'https://board.example';
+        window.location = { origin: 'https://external.example' };
+        """)
+        context.setObject(try NativeResponse.success(id: "request-test").encoded(), forKeyedSubscript: "responseJSON" as NSString)
+        context.evaluateScript(KioskScripts.respond)
+        XCTAssertNil(context.exception)
+        XCTAssertEqual(context.evaluateScript("events.length")?.toInt32(), 0)
+        context.evaluateScript("window.location.origin = serverURL;")
+        context.evaluateScript(KioskScripts.respond)
+        XCTAssertNil(context.exception)
+        XCTAssertEqual(context.evaluateScript("events[0].type")?.toString(), "control-center-native-response")
+        XCTAssertEqual(context.evaluateScript("events[0].detail.id")?.toString(), "request-test")
+        XCTAssertTrue(context.evaluateScript("events[0].detail.ok")!.toBool())
+    }
 }
