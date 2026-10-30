@@ -103,7 +103,7 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild build-for-testing -project WorldWideWebb.xcodeproj \
-            -scheme Panel-Smoke -configuration Release \
+            -scheme Panel-Smoke -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -only-testing:PanelUITests/HomeViewLaunchTests \
@@ -116,7 +116,7 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test-without-building -project WorldWideWebb.xcodeproj \
-            -scheme Panel-Smoke -configuration Release \
+            -scheme Panel-Smoke -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
