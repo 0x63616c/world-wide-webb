@@ -8,11 +8,9 @@ import { playCue, warmAudio } from "@/lib/sound";
 import { openTileDetail } from "@/lib/tile-detail-store";
 import { trpc } from "@/lib/trpc";
 import { useAlarms } from "./useAlarms";
-import { useNativeAlarmOwner } from "./useNativeAlarmOwner";
 
 /** One process-wide listener, mounted for BOTH the panel and the phone. */
 export function AlarmRuntime() {
-  const nativeOwner = useNativeAlarmOwner();
   const dialog = useRef<HTMLDivElement>(null);
   const query = useAlarms();
   const now = useNow();
@@ -28,11 +26,10 @@ export function AlarmRuntime() {
   };
   const snooze = trpc.alarms.snooze.useMutation({ onSuccess, onError });
   const stop = trpc.alarms.stop.useMutation({ onSuccess, onError });
-  const ringing = nativeOwner
-    ? []
-    : (query.data?.active.filter(
-        (r) => r.status === "ringing" && Date.parse(r.expiresAt) > now.getTime(),
-      ) ?? []);
+  const ringing =
+    query.data?.active.filter(
+      (r) => r.status === "ringing" && Date.parse(r.expiresAt) > now.getTime(),
+    ) ?? [];
   const ringKey = ringing.map((r) => `${r.id}:${r.version}`).join(",");
   useEffect(() => {
     const open = () => openTileDetail("tile_clock");
@@ -86,13 +83,13 @@ export function AlarmRuntime() {
   const nativeKey = next ? JSON.stringify(next) : null;
   const loaded = query.data !== undefined;
   useEffect(() => {
-    if (nativeOwner || !loaded || !isNativeShell()) return;
+    if (!loaded || !isNativeShell()) return;
     void nativeRequest("syncNextAlarm", { next: nativeKey ? JSON.parse(nativeKey) : null }).catch(
       () => {
         // Old shells have no module. Server alarms and the web ring still work.
       },
     );
-  }, [loaded, nativeKey, nativeOwner]);
+  }, [loaded, nativeKey]);
 
   if (!ringing.length) return null;
   return createPortal(

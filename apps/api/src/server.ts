@@ -5,12 +5,9 @@
 // happens during the static-import phase. Biome's organizeImports keeps this
 // bare side-effect import pinned at top as a leading barrier. See design spec §5.6.
 import "./boot-env";
-import { stat } from "node:fs/promises";
-import { dirname } from "node:path";
 import { GENERATED_ROUTES } from "@features/_generated/http.gen";
-import { backfillWakePhotoIndex, defaultWakePhotoRoot } from "@features/wakes/photos";
+import { backfillWakePhotoIndex } from "@features/wakes/photos";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { withMediaIo } from "@www/core";
 import { createLogger, installFatalHandlers } from "@www/logger";
 import { ENV as config } from "@www/platform/env";
 import { initMetrics, observeHttpRequest, startMetricsServer } from "@www/platform/metrics";
@@ -49,49 +46,34 @@ try {
   throw err;
 }
 
-// Boot-time media upkeep runs in the BACKGROUND, behind a bounded probe of the
-// media mount (#793). It used to be awaited before Bun.serve, so a dead NAS
-// (/app/media is an NFS mount) kept the api from ever listening: startup probe
-// failures, then 502s. The api's core job (lights, controls, settings) needs
-// only Postgres, so it must come up whether or not the NAS answers.
-//
-// Order inside the task still matters: the path migration moves legacy
-// YYYY/MM/DD names onto flat ISO names, and the backfill only recognises the
-// flat scheme, so the backfill runs after it. Both are idempotent no-ops once
-// done, and the next boot retries a skipped or failed run.
-async function runBootMediaTasks(): Promise<void> {
-  try {
-    await withMediaIo("boot probe", () => stat(dirname(defaultWakePhotoRoot())));
-  } catch (err) {
-    log.warn({ err }, "media storage unavailable at boot; skipping photo migration and backfill");
-    return;
+// Move any photos still under the legacy YYYY/MM/DD tree onto flat ISO-instant
+// names. Idempotent and a no-op once done, so it rides the same boot hook as
+// the backfill below , which must run AFTER it, since the backfill only
+// recognises the flat scheme.
+try {
+  const migrated = await migratePhotoPaths(db);
+  if (migrated.wake + migrated.booth + migrated.orphans > 0) {
+    log.info(migrated, "migrated photo paths to flat ISO names");
   }
-
-  try {
-    const migrated = await migratePhotoPaths(db);
-    if (migrated.wake + migrated.booth + migrated.orphans > 0) {
-      log.info(migrated, "migrated photo paths to flat ISO names");
-    }
-  } catch (err) {
-    // Non-fatal: legacy paths keep serving (the serve route is shape-agnostic),
-    // and the next boot retries.
-    log.error({ err }, "photo path migration failed");
-  }
-
-  // Index any wake photos that predate the wake_photo table (or that a failed
-  // row insert left unindexed).
-  try {
-    const backfilled = await backfillWakePhotoIndex(db);
-    if (backfilled.inserted > 0) {
-      log.info(backfilled, "backfilled wake photo index");
-    }
-  } catch (err) {
-    // Non-fatal: the api can serve without a complete photo index; the next
-    // boot retries.
-    log.error({ err }, "wake photo backfill failed");
-  }
+} catch (err) {
+  // Non-fatal: legacy paths keep serving (the serve route is shape-agnostic),
+  // and the next boot retries.
+  log.error({ err }, "photo path migration failed");
 }
-void runBootMediaTasks();
+
+// Index any wake photos that predate the wake_photo table (or that a failed
+// row insert left unindexed). Idempotent, so running on every boot is the
+// cheapest way to guarantee the index converges on the filesystem's truth.
+try {
+  const backfilled = await backfillWakePhotoIndex(db);
+  if (backfilled.inserted > 0) {
+    log.info(backfilled, "backfilled wake photo index");
+  }
+} catch (err) {
+  // Non-fatal: the api can serve without a complete photo index; the next
+  // boot retries.
+  log.error({ err }, "wake photo backfill failed");
+}
 
 // CORS for the Vite dev server (web on :4200). In production the api serves the
 // built web bundle from the same origin, so these are dev conveniences.
@@ -111,7 +93,6 @@ const CORS_HEADERS: Record<string, string> = {
 function routeLabel(method: string, pathname: string): string {
   if (pathname.startsWith("/trpc")) return "/trpc";
   if (pathname === "/up") return "/up";
-  if (pathname === "/healthz") return "/healthz";
   return findRoute(GENERATED_ROUTES, method, pathname)?.path ?? "other";
 }
 
@@ -129,19 +110,6 @@ async function handle(req: Request, url: URL): Promise<Response> {
     const res = await route.handler(req, url);
     for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
     return res;
-  }
-
-  // Liveness/readiness target: proves the DB pool can still hand out a working
-  // connection. A wedged pool fails this, so Kubernetes restarts the pod
-  // instead of nginx returning 502s for hours.
-  if (url.pathname === "/healthz") {
-    try {
-      await db.$client.query("SELECT 1");
-      return new Response("OK", { status: 200, headers: CORS_HEADERS });
-    } catch (err) {
-      log.error({ err }, "healthz: database check failed");
-      return new Response("database unavailable", { status: 503, headers: CORS_HEADERS });
-    }
   }
 
   if (url.pathname === "/up") {

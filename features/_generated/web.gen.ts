@@ -5,15 +5,10 @@
 import { createWebRegistry } from "@app-kit";
 import acManifest from "../ac/manifest";
 import boothManifest from "../booth/manifest";
-import camerasManifest from "../cameras/manifest";
 import ctrlManifest from "../ctrl/manifest";
 import eventsManifest from "../events/manifest";
-import notificationsManifest from "../notifications/manifest";
-import releasesManifest from "../releases/manifest";
 import soundManifest from "../sound/manifest";
-import teslaManifest from "../tesla/manifest";
 import wakesManifest from "../wakes/manifest";
-import walksManifest from "../walks/manifest";
 import weatherManifest from "../weather/manifest";
 import wifiManifest from "../wifi/manifest";
 import { tileViews as boothTileViews } from "../booth/detail";
@@ -25,15 +20,10 @@ import { tileViews as wakesTileViews } from "../wakes/detail";
 const manifests = [
   acManifest,
   boothManifest,
-  camerasManifest,
   ctrlManifest,
   eventsManifest,
-  notificationsManifest,
-  releasesManifest,
   soundManifest,
-  teslaManifest,
   wakesManifest,
-  walksManifest,
   weatherManifest,
   wifiManifest,
 ];

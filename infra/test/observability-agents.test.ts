@@ -226,29 +226,3 @@ describe("installKubeStateMetrics", () => {
     );
   });
 });
-
-describe("backup alert provisioning", () => {
-  test("loads the backup rules and rolls Prometheus when rule content changes", async () => {
-    const { createHash } = await import("node:crypto");
-    const { installObservabilityRules } = await import("../src/observability/rules.ts");
-    const { installPrometheus } = await import("../src/observability/prometheus.ts");
-    const args = install();
-    const rulesConfigMap = installObservabilityRules(args);
-    const data = await get<Record<string, string>>(rulesConfigMap, "data");
-    expect(data["pg-backups.yaml"]).toContain("PostgresBackupOverdue");
-    const { deployment } = installPrometheus({ ...args, rulesConfigMap });
-    const spec = await get<{
-      template: {
-        metadata: { annotations: Record<string, string> };
-        spec: { volumes: { name: string; configMap?: { name: string } }[] };
-      };
-    }>(deployment, "spec");
-    expect(spec.template.metadata.annotations["checksum/rules"]).toBe(
-      createHash("sha256").update(JSON.stringify(data)).digest("hex"),
-    );
-    expect(spec.template.spec.volumes).toContainEqual({
-      name: "rules",
-      configMap: { name: "prometheus-rules" },
-    });
-  });
-});

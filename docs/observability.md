@@ -276,18 +276,12 @@ is no job for them. Do not "fix" this by opening the bind addresses in
 control-plane node that is full cluster downtime — in exchange for an
 unauthenticated metrics endpoint on the LAN.
 
-**Backup alerting.** Prometheus evaluates `PostgresBackupOverdue` for each of
-Control Center and Home Assistant when the last successful CronJob run is over
-26 hours old. A never-successful CronJob gets 26 hours from creation; a missing
-CronJob or missing kube-state-metrics data alerts immediately. Rules are mounted
-from `infra/observability/rules/pg-backups.yaml`; changing them rolls Prometheus
-so the new rules load. See [the backup runbook](runbooks/pg-backup.md).
-
-There is no Alertmanager, ntfy, Gatus, or configured notification destination.
-These alerts fire in Prometheus (`/alerts`, or `ALERTS` through Grafana Explore);
-they do **not** send push/email notifications. This reuses the existing evaluator
-without adding an unconfigured notification service. External delivery remains
-a separate setup requiring a chosen destination. No Loki ruler is configured.
+**Alerting — there is none, anywhere.** No Alertmanager, no alerting rules, no
+Loki ruler. The vendored mixin's alert rules are stripped; only recording rules
+are kept. This is a decision (#33), not an omission: the stack is for looking at
+things when something is already wrong. A Loki ruler with no rule storage
+configured would also log an error on every evaluation cycle, which is why the
+`ruler` block is absent rather than empty.
 
 **Kubelet TLS is not verified.** Talos's kubelet serving cert is self-signed, so
 scrapes run `insecure_skip_verify` — the same reason metrics-server already runs
@@ -342,8 +336,7 @@ manifests:
 2. Keep **`.spec` only** — that is already a `groups:` document, which is the
    mixin's native output. The CRD is the derived form, which is why no operator
    is needed (#207).
-3. **Strip upstream alerting rules**; keep `record:` rules only. Our owned backup
-   alerts live in a separate file (§7).
+3. **Strip all alerting rules**; keep `record:` rules only (§7 — no alerting).
 4. Rewrite `job="kubelet", metrics_path="/metrics/cadvisor"` to `job="cadvisor"`,
    matching this stack's split of kubelet and cadvisor into two jobs.
 
