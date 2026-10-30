@@ -38,7 +38,7 @@ export const teslaStateSchema = z.discriminatedUnion("status", [
   z.object({ status: z.enum(["unconfigured", "unavailable"]), data: z.null() }),
 ]);
 export type TeslaState = z.infer<typeof teslaStateSchema>;
-export const teslaActionSchema = z.enum([
+const teslaActionSchema = z.enum([
   "lock",
   "unlock",
   "climateOn",
