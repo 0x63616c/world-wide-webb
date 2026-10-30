@@ -115,4 +115,84 @@ platform :ios do
       skip_submission: true
     )
   end
+
+  desc "Build the native hybrid Panel and upload to the existing TestFlight app"
+  lane :release_native do
+    setup_ci
+    native_root = File.expand_path(ENV.fetch("NATIVE_ROOT"))
+    project = File.join(native_root, "WorldWideWebb.xcodeproj")
+    identifier = "co.worldwidewebb.theworkflowengine"
+    secrets_path = File.join(native_root, "Hybrid/Config/Secrets.xcconfig")
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_CONTENT"),
+      is_key_content_base64: true
+    )
+    regenerate = ENV["MATCH_REGENERATE"] == "true"
+    match(
+      type: "appstore",
+      app_identifier: [identifier],
+      api_key: api_key,
+      readonly: !regenerate,
+      force: regenerate
+    )
+
+    # xcconfig treats // as a comment; the empty expansion preserves URL slashes.
+    config = { "PANEL_SERVER_URL" => "https://app.worldwidewebb.co",
+               "PANEL_CF_ACCESS_CLIENT_ID" => ENV.fetch("CF_ACCESS_KIOSK_CLIENT_ID"),
+               "PANEL_CF_ACCESS_CLIENT_SECRET" => ENV.fetch("CF_ACCESS_KIOSK_CLIENT_SECRET"),
+               "PANEL_ALARM_API_TOKEN" => ENV.fetch("ALARM_API_TOKEN") }
+    config.each_value do |value|
+      UI.user_error!("Panel configuration must be a single literal line") if value.match?(/[\r\n$]/)
+    end
+    begin
+      File.open(secrets_path, "w", 0600) do |file|
+        config.each { |key, value| file.puts "#{key} = #{value.gsub('/', '/$()')}" }
+      end
+      Dir.chdir(native_root) { sh("xcodegen", "generate") }
+      update_code_signing_settings(
+        use_automatic_signing: false,
+        path: project,
+        targets: ["Panel"],
+        team_id: "X9E4HG27NK",
+        bundle_identifier: identifier,
+        profile_name: ENV.fetch("sigh_#{identifier}_appstore_profile-name"),
+        code_sign_identity: "Apple Distribution"
+      )
+
+      # Use the same marketing version as the Expo app, not the prototype's 0.1.0.
+      expo_config = File.read(File.expand_path("../app.config.ts", __dir__))
+      version = expo_config[/^\s*version:\s*"([0-9]+(?:\.[0-9]+){1,2})"/, 1]
+      UI.user_error!("Cannot read Expo marketing version from app.config.ts") unless version
+      latest = latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: identifier,
+        version: version,
+        initial_build_number: 48
+      )
+      build_app(
+        project: project,
+        scheme: "Panel",
+        configuration: "Release",
+        export_method: "app-store",
+        export_options: { provisioningProfiles: {
+          identifier => ENV.fetch("sigh_#{identifier}_appstore_profile-name")
+        } },
+        xcargs: "CODE_SIGNING_ALLOWED=YES CURRENT_PROJECT_VERSION=#{latest + 1} MARKETING_VERSION=#{version}",
+        output_directory: "./build",
+        output_name: "Panel.ipa",
+        clean: true,
+        codesigning_identity: "Apple Distribution"
+      )
+      upload_to_testflight(
+        api_key: api_key,
+        skip_waiting_for_build_processing: true,
+        skip_submission: true
+      )
+    ensure
+      File.delete(secrets_path) if File.exist?(secrets_path)
+    end
+  end
 end
