@@ -3,6 +3,7 @@ import SwiftUI
 extension PanelModule {
     var title: String {
         switch self {
+        case .reminders: "Reminders"
         case .all: "Web board"
         case .lights: "Lights"
         case .climate: "Climate"
@@ -46,6 +47,7 @@ struct HybridNativeModule: View {
         case .wifi: TileFace(tile: .wifi, store: store, open: open)
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
+        case .reminders: RemindersModule(provider: store.remindersProvider)
         case .all: EmptyView()
         }
     }
@@ -63,6 +65,7 @@ struct HybridNativeModule: View {
         // This existing page has grouping and volume, with no fixture artwork,
         // media library or seek UI (the live API supplies no playback position).
         case .sonos: SonosRoomsPage(store: store)
+        case .reminders: RemindersModule(provider: store.remindersProvider)
         case .all: EmptyView()
         }
     }
