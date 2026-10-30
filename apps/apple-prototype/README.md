@@ -2,13 +2,13 @@
 
 Native SwiftUI study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8), targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
-## Iteration 3
+## Iteration 4
 
-The iPad canvas is 1376×1032 points. Home has a 2×2 Climate tile, an analog Clock, Guest Wi-Fi, Bedroom, Living Room and Ceiling. Controls adds animated Weather, Tesla, Sonos, Under Cabinet, Fan and All. The other faces are the green presence Clock and Music. Horizontal swipes or page buttons switch faces. Accessory glyphs toggle state; tile labels open full-screen controllers.
+The iPad canvas is 1376×1032 points. Home uses a five-column, three-row composition: 2×2 Climate, 1×2 Lamps with a global brightness control, 2×1 Music and Car, and circular Clock, Ceiling, Fan, Guest Wi-Fi and All lights. Cells and gutters snap to eight points. Every tile opens its full-screen controller with native zoom; accessory glyphs also toggle. Controls retains Weather, Car, Sonos, Under Cabinet, Fan and All. The other faces are Clock and Music.
 
 The Mac window has a fixed 1376×1032 content frame, hidden title bar and `.windowResizability(.contentSize)`. Compact horizontal size classes use a separate two-column phone face and scrolling controllers. The iPhone target is portrait; iPad is landscape.
 
-Native Liquid Glass supplies tile refraction, highlights and button chrome, without painted glass outlines. UI accents use semantic system colors and hierarchical text styles. The original procedural wallpaper and green clock artwork are the documented color exceptions. Clock green retains its hue and saturation with brightness reduced by 7%. System font metrics provide tracking. Near mode reserves a square dial, four complications including a charge ring, and a separate alarm footer.
+Native Liquid Glass supplies tile refraction, highlights and button chrome, without painted glass outlines. UI accents use semantic system colors and hierarchical text styles. The licensed photographic wallpaper and green clock artwork are the documented color exceptions. Clock green retains its hue and saturation with brightness reduced by 7%. System font metrics provide tracking. Near mode reserves a square dial, four complications including a charge ring, and a separate alarm footer.
 
 Lamps has an All lamps brightness fader, room power controls, expandable members and Color & Effects. The next-alarm face has 120 uniformly weighted ticks around an arc-length sampled rounded rectangle. The design corner radius is 112 points, with an 80-point inset ring radius. It is **not a measured iPad 13-inch hardware radius**: Apple does not publish that measurement in the available resources. The separate 18-point research token describes older documented iPad models and is not misrepresented as current hardware.
 
@@ -60,7 +60,7 @@ xcodebuild -project WorldWideWebb.xcodeproj -scheme WorldWideWebb \
 
 All is AND across lamps and fixtures, excluding Fan. Group masters are OR. Bedroom contains Bed Left, Bed Right and Mirror; Living Room contains Globe, Corner Lamp, Floor Lamp, Desk and Kitchen Lamp. Fan reads Off when HVAC is off. Brightness, white temperature and Party are disabled with lamps off; scene/color selection turns lamps on. Mood changes fixture colors in memory, and Party records a speed without actuating devices.
 
-Climate supports Cool, Heat, Heat·Cool and Off, with 67–77°F bounds and a 2° deadband. Weather includes current conditions and hourly fixtures. Alarm editing, next occurrences, snooze and stop remain available; there is no invented timer feature. Music supports transport, grouping, mute and volume. It has no progress scrubber because the source has no position/duration data. Sound calibration remains in the existing mixer.
+Climate supports Cool, Heat, Heat·Cool and Off, with 67–77°F bounds and a 2° deadband. Weather includes current conditions and hourly fixtures. Alarm editing, next occurrences, snooze and stop remain available; there is no invented timer feature. Music supports transport, grouping, mute, volume and prototype seeking. Fixtures expose `positionSeconds`, `durationSeconds` and `positionUpdatedAt`; a TimelineView advances the thin scrubber while playing. Seeking synchronizes grouped rooms and clamps to track bounds; pause preserves the current position. The time scrubber sits below track metadata and volume below transport. Production still needs those fields and a seek mutation before this capability can be connected live (ARCHITECTURE.md §6). Sound calibration remains in the existing mixer.
 
 Guest Wi-Fi uses invented `WWW-Guest` / `fixture-password-123` credentials. Its full-screen CoreImage QR has integer scaling, nearest-neighbour interpolation, quiet zone and escaped Wi-Fi payload. Open and unconfigured fixtures are supported. QR codes never appear on a tile.
 
@@ -85,3 +85,9 @@ Arguments:
 - `-demoAutoPage`: show Home for five seconds, Controls for five, then Music; enable the mock fan to demonstrate its state-driven motion. Reduced Motion suppresses automatic paging.
 
 The iPad simulator screenshots and 10–15-second `simctl io recordVideo --codec h264` recording provide the runtime material and motion evidence. Phone screenshots come from an iPhone 17 Pro simulator. Native macOS appearance and interaction still require macOS 26 hardware.
+
+## Wallpaper attribution and live review
+
+Photo: [Boathouse on a mountain lake](https://unsplash.com/photos/brown-house-near-body-of-water-zAjdgNXsMeg) by Luca Bravo, used under the [Unsplash Licence](https://unsplash.com/license). Bundled at 2752 pixels wide, JPEG quality 85. Full source and processing notes: [docs/v2/sources.md](docs/v2/sources.md). Apple and Calum references are neither bundled nor committed.
+
+Run `bash scripts/capture-live.sh` on the mini after building to install and deterministically launch Home, Lamps, near Clock, Controls and Now Playing on the iPad, plus Home and Now Playing on iPhone 17 Pro (iOS 26.3). Independent pass reviews use only these live `sim-*.png` captures. The phone face scrolls with the page controls in a reserved bottom safe-area inset.

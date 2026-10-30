@@ -22,60 +22,19 @@ extension ClimateMode {
         switch self { case .cool: Palette.cool; case .heat: Palette.heat; case .heatCool: Palette.range; case .off: Palette.graphite }
     }
 }
-// Broad, quiet folds share a single canvas so the glass samples one coherent backdrop.
+// Luca Bravo / Unsplash. Full attribution and licence in docs/v2/sources.md.
 struct Wallpaper: View {
     var body: some View {
         GeometryReader { proxy in
-            let size = proxy.size
-            ZStack {
-                LinearGradient(colors: [Color(hex: "#265c55"), Color(hex: "#063c39"), Color(hex: "#326e61")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                Canvas { context, canvas in
-                    func point(_ x: Double, _ y: Double) -> CGPoint {
-                        CGPoint(x: canvas.width * x, y: canvas.height * y)
-                    }
-                    // Ten oversized fan blades, rather than a field of repeating stripes.
-                    let hub = point(0.16, 0.26)
-                    let radius = canvas.height * 0.77
-                    for index in 0..<10 {
-                        let angle = Double(index) * .pi / 5 - 0.4
-                        func polar(_ a: Double, _ r: Double) -> CGPoint {
-                            CGPoint(x: hub.x + cos(a) * r, y: hub.y + sin(a) * r)
-                        }
-                        var blade = Path()
-                        blade.move(to: hub)
-                        blade.addCurve(to: polar(angle, radius),
-                                       control1: polar(angle - 0.8, radius * 0.48),
-                                       control2: polar(angle - 0.45, radius * 0.92))
-                        blade.addQuadCurve(to: polar(angle + 0.65, radius * 0.87), control: polar(angle + 0.28, radius * 1.06))
-                        blade.addCurve(to: hub, control1: polar(angle + 0.22, radius * 0.65), control2: polar(angle + 0.55, radius * 0.2))
-                        context.fill(blade, with: .linearGradient(
-                            Gradient(colors: [Color(hex: "#a4c0a9").opacity(0.40), Color(hex: "#002625").opacity(0.52)]),
-                            startPoint: polar(angle, radius), endPoint: hub))
-                    }
-                    var fold = Path()
-                    fold.move(to: point(0.34, 1.12))
-                    fold.addCurve(to: point(0.71, -0.16), control1: point(0.33, 0.54), control2: point(0.82, 0.4))
-                    fold.addCurve(to: point(0.91, 0.04), control1: point(0.87, -0.08), control2: point(0.94, -0.03))
-                    fold.addCurve(to: point(0.57, 1.1), control1: point(0.91, 0.55), control2: point(0.51, 0.55))
-                    fold.closeSubpath()
-                    context.fill(fold, with: .linearGradient(Gradient(colors: [Color(hex: "#66aa9b").opacity(0.25), Color(hex: "#003e40").opacity(0.35)]), startPoint: point(0.52, 0.3), endPoint: point(0.78, 0.7)))
-                    let circle = CGRect(x: canvas.width * 0.64, y: canvas.height * 0.53, width: canvas.height * 0.88, height: canvas.height * 0.88)
-                    context.fill(Path(ellipseIn: circle), with: .linearGradient(Gradient(colors: [Color(hex: "#80b9a9").opacity(0.17), .clear]), startPoint: point(0.7, 0.55), endPoint: point(1, 1)))
-                    var arc = Path()
-                    arc.addArc(center: point(0.82, 1.08), radius: canvas.height * 0.69, startAngle: .degrees(190), endAngle: .degrees(305), clockwise: false)
-                    context.stroke(arc, with: .color(Color(hex: "#0a4645").opacity(0.22)), style: StrokeStyle(lineWidth: canvas.height * 0.11))
-                }.blur(radius: 1)
-                RadialGradient(colors: [Color(hex: "#91bbad").opacity(0.08), .clear], center: .topLeading, startRadius: 0, endRadius: size.width * 0.7)
-            }
+            Image("LakeWallpaper").resizable().scaledToFill()
+                .frame(width: proxy.size.width, height: proxy.size.height).clipped()
+                .overlay(.black.opacity(0.25))
         }.ignoresSafeArea()
     }
 }
 struct LampsBackdrop: View {
     var body: some View {
-        ZStack {
-            Color(white: 0.055)
-            RadialGradient(colors: [.orange.opacity(0.04), .clear], center: UnitPoint(x: 0.28, y: 0.58), startRadius: 0, endRadius: 360)
-        }.ignoresSafeArea()
+        Color(white: 0.055).ignoresSafeArea()
     }
 }
 struct CircleButton: View {
@@ -154,14 +113,15 @@ func fixtureTime(_ date: Date, format: String = "h:mm") -> String {
     return formatter.string(from: date)
 }
 
-// Native glass supplies edge lighting and refraction; no painted specular overlay.
+// One system material, applied after layout; no surface fills or painted rims.
 extension View {
     func homeGlass(on: Bool = false, radius: CGFloat = 38) -> some View {
-        self.glassEffect(.regular.tint(on ? .orange.opacity(0.04) : .clear).interactive(), in: .rect(cornerRadius: radius))
+        self.glassEffect((on ? Glass.regular.tint(.orange.opacity(0.25)) : .regular).interactive(), in: .rect(cornerRadius: radius))
+            .containerShape(.rect(cornerRadius: radius))
     }
     func faceGlass(on: Bool = false, radius: CGFloat = 56) -> some View {
-        self.glassEffect((on ? Glass.regular.tint(.white.opacity(0.75)) : Glass.clear).interactive(), in: .rect(cornerRadius: radius))
-            .environment(\.colorScheme, on ? .light : .dark)
+        self.glassEffect((on ? Glass.regular.tint(.orange.opacity(0.18)) : .clear).interactive(), in: .rect(cornerRadius: radius))
+            .containerShape(.rect(cornerRadius: radius))
     }
 }
 
@@ -170,10 +130,6 @@ struct FaceMaterial: ViewModifier {
     let on: Bool
     let radius: CGFloat
     func body(content: Content) -> some View {
-        if tile == .weather || tile == .sound {
-            content.clipShape(.rect(cornerRadius: radius))
-        } else {
-            content.faceGlass(on: on, radius: radius)
-        }
+        content.faceGlass(on: on, radius: radius)
     }
 }

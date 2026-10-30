@@ -2,6 +2,47 @@ import XCTest
 @testable import WorldWideWebb
 
 @MainActor final class HomeDataSourceTests: XCTestCase {
+    func testPlaybackPositionSeekingAndGroupSync() async {
+        let now = Date(timeIntervalSince1970: 1000)
+        let store = MockHomeDataSource(latency: .zero, fixedNow: now)
+        let room = store.rooms[0]
+        XCTAssertEqual(room.position(at: now), 107)
+        XCTAssertEqual(room.position(at: now.addingTimeInterval(10)), 117)
+        XCTAssertEqual(room.position(at: now.addingTimeInterval(1000)), 232)
+        XCTAssertEqual(room.position(at: now.addingTimeInterval(-10)), 107)
+        store.send(.seek(room.id, 180))
+        XCTAssertEqual(store.rooms[0].positionSeconds, 180)
+        XCTAssertEqual(store.rooms[1].positionSeconds, 180)
+        XCTAssertEqual(store.rooms[2].positionSeconds, 107)
+        store.send(.transport(room.id, .pause))
+        XCTAssertEqual(store.rooms[0].position(at: now.addingTimeInterval(90)), 180)
+        store.send(.seek(room.id, -10))
+        XCTAssertEqual(store.rooms[0].positionSeconds, 0)
+        store.send(.seek(room.id, 500))
+        XCTAssertEqual(store.rooms[0].positionSeconds, 232)
+        store.send(.seek(room.id, .nan))
+        XCTAssertEqual(store.rooms[0].positionSeconds, 232)
+        store.send(.transport(room.id, .next))
+        XCTAssertEqual(store.rooms[0].positionSeconds, 0)
+        store.send(.seek(room.id, 100))
+        store.send(.join("Bedroom", "Desk"))
+        XCTAssertEqual(store.rooms[2].positionSeconds, 100)
+        XCTAssertEqual(store.rooms[2].positionUpdatedAt, now)
+    }
+    func testMixedHomeSpansFillGridWithoutOverlap() {
+        var occupied = Set<String>()
+        for tile in HomeTile.homeFace {
+            let c = MixedHomeLayout.cells(tile)
+            XCTAssertTrue((1...2).contains(c.w) && (1...2).contains(c.h))
+            for x in c.x..<(c.x + c.w) {
+                for y in c.y..<(c.y + c.h) {
+                    XCTAssertTrue(x >= 0 && x < 5 && y >= 0 && y < 3)
+                    XCTAssertTrue(occupied.insert("\(x),\(y)").inserted)
+                }
+            }
+        }
+        XCTAssertEqual(occupied.count, 15)
+    }
     func testAllUsesANDAndMastersUseOR() async {
         let store = MockHomeDataSource(latency: .zero)
         XCTAssertFalse(store.lamps.isOn(.all))

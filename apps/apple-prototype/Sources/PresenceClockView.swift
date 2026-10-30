@@ -52,7 +52,7 @@ struct PresenceClockFace: View {
                         Button { open(.alarm) } label: {
                             Label(alarmCaption, systemImage: "alarm.fill").font(.system(size: compact ? 17 : 22, weight: .medium))
                                 .padding(.horizontal, 24).frame(height: 52)
-                        }.buttonStyle(.glass).tint(.black).padding(.bottom, compact ? 72 : 66)
+                        }.buttonStyle(.plain).padding(.bottom, compact ? 72 : 66)
                     }
                 }
                 if !compact {
@@ -75,8 +75,8 @@ struct PresenceClockFace: View {
         Button { open(tile) } label: {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: symbol).font(.system(size: 28, weight: .medium)).symbolRenderingMode(.hierarchical)
-                Text(value).font(.system(size: sizeClass == .compact ? 34 : 44, weight: .medium, design: .rounded)).monospacedDigit()
-                Text(label).font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
+                Text(value).font(.system(size: sizeClass == .compact ? 26 : 44, weight: .medium, design: .rounded)).monospacedDigit()
+                Text(label).font(.system(size: sizeClass == .compact ? 13 : 20, weight: .regular)).foregroundStyle(.primary)
             }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading)
         }.buttonStyle(.plain).foregroundStyle(.white)
             .accessibilityLabel("\(label), \(value)")
@@ -92,12 +92,12 @@ private struct GreenClockDial: View {
             let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
             let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
             ZStack {
-                numeral("12", size: s * 0.46, x: s * 0.5, y: s * 0.18)
-                numeral("9", size: s * 0.56, x: s * 0.16, y: s * 0.49)
-                numeral("3", size: s * 0.56, x: s * 0.84, y: s * 0.49)
-                numeral("6", size: s * 0.55, x: s * 0.5, y: s * 0.80)
-                hand(length: s * 0.26, width: s * 0.016, degrees: hours * 30)
-                hand(length: s * 0.38, width: s * 0.013, degrees: minutes * 6)
+                numeral("12", size: s * 0.40, x: s * 0.5, y: s * 0.17)
+                numeral("9", size: s * 0.49, x: s * 0.16, y: s * 0.49)
+                numeral("3", size: s * 0.49, x: s * 0.84, y: s * 0.49)
+                numeral("6", size: s * 0.49, x: s * 0.5, y: s * 0.80)
+                hand(length: s * 0.26, width: s * 0.012, degrees: hours * 30)
+                hand(length: s * 0.38, width: s * 0.010, degrees: minutes * 6)
                 hand(length: s * 0.42, width: max(1, s * 0.002), degrees: seconds * 6).opacity(0.6)
                 Circle().fill(.white).frame(width: s * 0.024, height: s * 0.024)
                 Circle().fill(.black).frame(width: s * 0.009, height: s * 0.009)

@@ -27,7 +27,7 @@ struct NowPlayingView: View {
                             CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: 64) { choosingRoom = true }
                         }.padding(.horizontal, compact ? 20 : 40).padding(.top, compact ? 58 : 32)
                         Spacer(minLength: 18)
-                        artwork(room).frame(width: compact ? proxy.size.width - 64 : 480, height: compact ? proxy.size.width - 64 : 480)
+                        artwork(room).frame(width: compact ? min(proxy.size.width - 80, proxy.size.height * 0.31) : 400, height: compact ? min(proxy.size.width - 80, proxy.size.height * 0.31) : 400)
                             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                             .shadow(color: .black.opacity(0.28), radius: 36, y: 20)
                         VStack(alignment: .leading, spacing: 7) {
@@ -35,6 +35,13 @@ struct NowPlayingView: View {
                                 .font(.system(size: compact ? 28 : 38, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                             Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 26)).foregroundStyle(.secondary)
                         }.frame(width: compact ? proxy.size.width - 48 : 480, alignment: .leading).padding(.top, 28)
+                        PlaybackScrubber(store: store, room: room)
+                            .frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, 22)
+                        HStack(spacing: compact ? 30 : 76) {
+                            transport("backward.fill", label: "Previous track", command: .previous, room: room)
+                            transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
+                            transport("forward.fill", label: "Next track", command: .next, room: room)
+                        }.padding(.top, 10)
                         VStack(spacing: 10) {
                             HStack(spacing: 22) {
                                 Button { store.send(.mute(room.id)) } label: {
@@ -45,17 +52,12 @@ struct NowPlayingView: View {
                                 Image(systemName: "speaker.wave.3.fill").font(.system(size: 27)).frame(width: 48, height: 48)
                             }
                             HStack {
-                                Text(room.muted ? "Volume · Muted" : "Volume")
+                                Text(room.muted ? "Muted" : "Volume")
                                 Spacer()
                                 Text("\(room.rawVolume)%").monospacedDigit()
-                            }.font(.system(size: 21, weight: .medium)).opacity(0.65)
-                        }.frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, 22)
-                        HStack(spacing: compact ? 30 : 76) {
-                            transport("backward.fill", label: "Previous track", command: .previous, room: room)
-                            transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
-                            transport("forward.fill", label: "Next track", command: .next, room: room)
-                        }.padding(.top, 10)
-                        Spacer(minLength: 60)
+                            }.font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
+                        }.frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, 8)
+                        Spacer(minLength: compact ? 36 : 50)
                     }
                 }.frame(width: proxy.size.width, height: proxy.size.height)
             } else {

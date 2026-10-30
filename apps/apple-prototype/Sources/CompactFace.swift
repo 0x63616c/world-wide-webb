@@ -1,76 +1,42 @@
 import SwiftUI
 
-/// A phone is its own composition; only the analog dial scales as artwork.
+/// A phone owns its scrolling composition. The root reserves the pager's safe area.
 struct CompactFace: View {
     let store: any HomeDataSource
     let controls: Bool
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.motionPhase) private var phase
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Text(controls ? "Controls" : "Home").font(.largeTitle.bold()).padding(.top, 12)
-                if !controls {
-                    Button { open(.climate) } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Climate").font(.headline)
-                                Text("A/C · \(store.climate.action)").font(.subheadline).foregroundStyle(.secondary)
-                                Text("Inside \(store.climate.ambient)°").font(.subheadline).foregroundStyle(.secondary)
+        GeometryReader { proxy in
+            let cell = floor((proxy.size.width - 48 - 16) / 2 / 8) * 8
+            ScrollView {
+                GlassEffectContainer(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(controls ? "Controls" : "Home").font(.largeTitle.bold()).padding(.vertical, 8)
+                        tile(.climate, width: cell * 2 + 16, height: 264)
+                        HStack(spacing: 16) {
+                            tile(.lamps, width: cell, height: cell * 2 + 16)
+                            VStack(spacing: 16) {
+                                tile(controls ? .cabinet : .ceiling, width: cell, height: cell, round: true)
+                                tile(.fan, width: cell, height: cell, round: true)
                             }
-                            Spacer()
-                            Text("\(store.climate.target)°").font(.system(size: 88, weight: .regular)).monospacedDigit()
-                        }.padding(24).frame(maxWidth: .infinity)
-                    }.buttonStyle(.plain).faceGlass(radius: 32).matchedTransitionSource(id: HomeTile.climate.id, in: zoom)
-                }
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)], spacing: 16) {
-                    ForEach(controls ? HomeTile.controlsFace : [.clock, .wifi, .bedroom, .livingRoom, .ceiling, .tesla]) { tile in
-                        Button { open(tile) } label: {
-                            compactTile(tile).frame(maxWidth: .infinity).frame(height: 144)
-                        }.buttonStyle(.plain).faceGlass(on: tile.accessory.map(isOn) ?? false, radius: 32)
-                            .matchedTransitionSource(id: tile.id, in: zoom)
-                    }
-                }
-            }.padding(.horizontal, 20).padding(.bottom, 80)
-        }.scrollIndicators(.hidden)
-    }
-    @ViewBuilder private func compactTile(_ tile: HomeTile) -> some View {
-        if tile == .clock {
-            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in AnalogClock(date: store.now, minimal: true).padding(20) }
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
-                if let key = tile.accessory {
-                    Group {
-                        if key == .fan { FanSymbol(on: isOn(key)) }
-                        else { Image(systemName: key.symbol) }
-                    }.font(.system(size: 32)).foregroundStyle(isOn(key) ? .orange : .white)
-                        .background { if key != .fan { LampGlow(on: isOn(key), brightness: store.lamps.brightness).frame(width: 80, height: 80) } }
-                    Text(key.name).font(.system(size: 19, weight: .semibold)).lineLimit(2)
-                    Text(key == .fan ? store.climate.fanLabel : store.lamps.isOn(key) ? "On" : "Off").font(.subheadline).foregroundStyle(.secondary)
-                } else if tile == .tesla {
-                    Image(systemName: "car.side.fill").font(.system(size: 26)).foregroundStyle(.secondary)
-                    Text("\(store.tesla.data.pct)%").font(.system(size: 38, weight: .medium, design: .rounded))
-                    Text("\(store.tesla.data.range) mi · Car").font(.subheadline).foregroundStyle(.secondary)
-                } else if tile == .weather {
-                    Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(.system(size: 30))
-                    Text("\(store.weather.temperature)°").font(.system(size: 38, weight: .medium))
-                    Text(store.weather.condition).font(.subheadline).foregroundStyle(.secondary)
-                } else if tile == .sound {
-                    Image(systemName: "hifispeaker.fill").font(.system(size: 30))
-                    Text("Sound").font(.headline)
-                    Text(store.rooms.first?.playing == true ? "Playing" : "Paused").foregroundStyle(.secondary)
-                } else {
-                    Image(systemName: "wifi").font(.system(size: 32))
-                    Text("Guest Wi-Fi").font(.system(size: 19, weight: .semibold))
-                    Text(store.wifi.ssid ?? "Not configured").font(.subheadline).foregroundStyle(.secondary)
-                }
-            }.foregroundStyle(tile.accessory.map(isOn) == true ? Color.black : .white)
-                .padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        }
+                        tile(.sound, width: cell * 2 + 16, height: 136)
+                        tile(.tesla, width: cell * 2 + 16, height: 152)
+                        HStack(spacing: 16) {
+                            tile(.clock, width: cell, height: cell, round: true)
+                            tile(.wifi, width: cell, height: cell, round: true)
+                        }
+                    }.padding(.vertical, 16)
+                }.frame(maxWidth: .infinity).padding(.bottom, 16)
+            }.scrollIndicators(.hidden)
         }
     }
-    private func isOn(_ key: Accessory) -> Bool {
-        key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key)
+    private func tile(_ tile: HomeTile, width: CGFloat, height: CGFloat, round: Bool = false) -> some View {
+        MixedHomeTile(tile: tile, store: store, open: { open(tile) })
+            .frame(width: width, height: height)
+            .modifier(MixedTileMaterial(round: round, on: tile.accessory.map { store.lamps.isOn($0) } ?? false))
+            .glassEffectID("\(controls ? "controls" : "home")-\(tile.id)", in: zoom)
+            .matchedTransitionSource(id: tile.id, in: zoom)
     }
 }

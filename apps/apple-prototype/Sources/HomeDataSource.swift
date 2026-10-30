@@ -216,6 +216,12 @@ struct SoundRoom: Identifiable {
     var coordinator: String
     var playing: Bool
     var trackIndex = 0
+    var positionSeconds: Double = 107
+    var durationSeconds: Double = 232
+    var positionUpdatedAt: Date = .distantPast
+    func position(at date: Date) -> Double {
+        min(durationSeconds, max(0, positionSeconds + (playing ? max(0, date.timeIntervalSince(positionUpdatedAt)) : 0)))
+    }
     var sourceKind: SoundSource = .spotify
     var sourceLabel: String? = "Spotify"
     var albumArtUri: String? = nil
@@ -230,7 +236,7 @@ enum HomeCommand {
     case mode(ClimateMode), target(Int), low(Int), high(Int), shiftRange(Int)
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
     case snoozeAlarm(Int, Int), stopAlarm(Int, Int)
-    case transport(String, SonosTransport), rawVolume(String, Int)
+    case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int)
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
 @MainActor protocol HomeDataSource: AnyObject, Observable {
@@ -295,6 +301,7 @@ extension HomeDataSource {
         if wifiFixture == "open" { wifi = .open }
         if wifiFixture == "unconfigured" { wifi = .unconfigured }
         climate.mode = mode
+        for i in rooms.indices { rooms[i].positionUpdatedAt = now }
     }
     private func markPending(_ key: String) {
         let generation = (generations[key] ?? 0) + 1
@@ -373,12 +380,20 @@ extension HomeDataSource {
         case .transport(let id, let command):
             guard let room = rooms.first(where: { $0.id == id }) else { return }
             for i in rooms.indices where rooms[i].coordinator == room.coordinator {
+                rooms[i].positionSeconds = rooms[i].position(at: now)
+                rooms[i].positionUpdatedAt = now
                 switch command {
                 case .play: rooms[i].playing = true
                 case .pause: rooms[i].playing = false
-                case .next: rooms[i].trackIndex = (rooms[i].trackIndex + 1) % FixtureTrack.queue.count
-                case .previous: rooms[i].trackIndex = (rooms[i].trackIndex + FixtureTrack.queue.count - 1) % FixtureTrack.queue.count
+                case .next: rooms[i].trackIndex = (rooms[i].trackIndex + 1) % FixtureTrack.queue.count; rooms[i].positionSeconds = 0
+                case .previous: rooms[i].trackIndex = (rooms[i].trackIndex + FixtureTrack.queue.count - 1) % FixtureTrack.queue.count; rooms[i].positionSeconds = 0
                 }
+            }; markPending("sound")
+        case .seek(let id, let seconds):
+            guard seconds.isFinite, let room = rooms.first(where: { $0.id == id }), room.durationSeconds > 0 else { return }
+            for i in rooms.indices where rooms[i].coordinator == room.coordinator {
+                rooms[i].positionSeconds = min(rooms[i].durationSeconds, max(0, seconds))
+                rooms[i].positionUpdatedAt = now
             }; markPending("sound")
         case .rawVolume(let id, let value):
             guard let i = rooms.firstIndex(where: { $0.id == id }) else { return }
@@ -405,10 +420,13 @@ extension HomeDataSource {
             rooms[i].coordinator = leader.coordinator; copyPlayback(from: leader, to: i); markPending("sound")
         case .leave(let id):
             guard let i = rooms.firstIndex(where: { $0.id == id }) else { return }
-            detachCoordinator(id); rooms[i].coordinator = id; rooms[i].playing = false; markPending("sound")
+            detachCoordinator(id); rooms[i].coordinator = id; rooms[i].positionSeconds = rooms[i].position(at: now); rooms[i].positionUpdatedAt = now; rooms[i].playing = false; markPending("sound")
         }
     }
     private func copyPlayback(from leader: SoundRoom, to index: Int) {
+        rooms[index].positionSeconds = leader.position(at: now)
+        rooms[index].durationSeconds = leader.durationSeconds
+        rooms[index].positionUpdatedAt = now
         rooms[index].playing = leader.playing
         rooms[index].trackIndex = leader.trackIndex
         rooms[index].sourceKind = leader.sourceKind

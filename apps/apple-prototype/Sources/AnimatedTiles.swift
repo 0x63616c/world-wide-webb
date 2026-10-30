@@ -158,6 +158,6 @@ struct SonosTile: View {
             Text(room.trackTitle ?? "Nothing playing").font(.system(size: 28, weight: .semibold)).lineLimit(2)
             Text(room.name).font(.system(size: 22)).foregroundStyle(.secondary)
         }.padding(32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(Color(hex: room.artworkTint).opacity(0.55), in: .rect(cornerRadius: 56))
+
     }
 }

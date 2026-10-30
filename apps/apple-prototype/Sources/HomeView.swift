@@ -4,7 +4,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
     case lamps, lights, weather, hourly, sound, alarm, tesla
-    static let homeFace: [HomeTile] = [.climate, .clock, .wifi, .bedroom, .livingRoom, .ceiling]
+    static let homeFace: [HomeTile] = [.climate, .lamps, .sound, .tesla, .clock, .ceiling, .fan, .wifi, .all]
     static let controlsFace: [HomeTile] = [.weather, .tesla, .sound, .cabinet, .fan, .all]
     var id: String { rawValue }
     var title: String {
@@ -84,7 +84,13 @@ struct HomeView: View {
             ZStack {
                 Wallpaper()
                 homeFace(size: proxy.size)
-                if selected == nil {
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if sizeClass == .compact {
+                            FacePicker(selection: $facePage).padding(.horizontal, 16)
+                                .glassEffect(.regular, in: .capsule).padding(.vertical, 8)
+                        }
+                    }
+                if selected == nil && sizeClass != .compact {
                     VStack { Spacer(); FacePicker(selection: $facePage).padding(.horizontal, sizeClass == .compact ? 12 : 0).background { if sizeClass == .compact { Capsule().fill(.regularMaterial) } }.padding(.bottom, sizeClass == .compact ? 24 : 10) }
                 }
                 #if os(macOS)
@@ -115,7 +121,7 @@ struct HomeView: View {
                         withAnimation(.smooth) { facePage = 3 }
                     }
                 }
-        }.ignoresSafeArea()
+        }
     }
     @ViewBuilder private func destination(_ tile: HomeTile) -> some View {
         ZStack {
@@ -138,7 +144,7 @@ struct HomeView: View {
             faceGrid(size: size, controls: true).tag(1)
             PresenceClockFace(store: store, near: $presenceNear, open: open).tag(2)
             NowPlayingView(store: store, close: { facePage = 0 }, isFace: true).tag(3)
-        }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea()
+        }.tabViewStyle(.page(indexDisplayMode: .never))
         #else
         Group {
             if facePage == 2 { PresenceClockFace(store: store, near: $presenceNear, open: open) }
@@ -191,7 +197,7 @@ struct HomeGlassFace: View {
         if sizeClass == .compact {
             CompactFace(store: store, controls: controls, zoom: zoom, open: open)
         } else {
-            GlassEffectContainer(spacing: 16) {
+            GlassEffectContainer(spacing: 12) {
                 HomeFaceGrid(store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)
             }
         }
@@ -205,43 +211,55 @@ struct HomeFaceGrid: View {
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
     var body: some View {
-        let faceH = size.height - 96
-        let faceW = min(size.width - 80, faceH * 1.10)
-        let gap: CGFloat = 24
-        let cellW = (faceW - gap * 2) / 3
-        let cellH = (faceH - gap * 2) / 3
-        let contentScale = cellH / 297.33
-        return ZStack(alignment: .topLeading) {
-            ForEach(controls ? HomeTile.controlsFace : HomeTile.homeFace) { tile in
-                let c = tile.cells
-                let width = cellW * Double(c.w) + gap * Double(c.w - 1)
-                let height = cellH * Double(c.h) + gap * Double(c.h - 1)
-                let surfaceWidth = tile == .clock ? min(width, height) : width
-                let radius = tile == .clock ? height / 2 : 54 * contentScale
-                ZStack {
-                    if selected != tile {
-                        TileFace(tile: tile, store: store, open: { open(tile) })
-                            .frame(width: surfaceWidth / contentScale, height: height / contentScale)
-                            .scaleEffect(contentScale)
-                            .frame(width: surfaceWidth, height: height)
-                            .modifier(FaceMaterial(tile: tile, on: tileOn(tile), radius: radius))
-                            .matchedTransitionSource(id: tile.id, in: zoom)
-                    } else {
-                        Color.clear
-                    }
+        if controls {
+            legacyControls
+        } else {
+            let gap: CGFloat = 24
+            let cell = floor(min((size.width - 144 - 4 * gap) / 5, (size.height - 224 - 2 * gap) / 3) / 8) * 8
+            VStack(alignment: .leading, spacing: 32) {
+                HStack {
+                    Text("Home").font(.system(size: 40, weight: .bold))
+                    Spacer()
+                    Text(fixtureTime(store.now, format: "EEEE, MMMM d")).font(.system(size: 22, weight: .medium))
                 }
-                .frame(width: width, height: height)
-                .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-                .onTapGesture { open(tile) }
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("tile-\(tile.id)")
-                .accessibilityAction(named: "Open \(tile.title)") { open(tile) }
-                .offset(x: Double(c.x) * (cellW + gap), y: Double(c.y) * (cellH + gap))
-            }
+                ZStack(alignment: .topLeading) {
+                    ForEach(HomeTile.homeFace) { tile in
+                        let c = MixedHomeLayout.cells(tile)
+                        let width = cell * CGFloat(c.w) + gap * CGFloat(c.w - 1)
+                        let height = cell * CGFloat(c.h) + gap * CGFloat(c.h - 1)
+                        MixedHomeTile(tile: tile, store: store, open: { open(tile) })
+                            .frame(width: width, height: height)
+                            .modifier(MixedTileMaterial(round: c.w == 1 && c.h == 1, on: tileOn(tile)))
+                            .glassEffectID(tile.id, in: zoom)
+                            .matchedTransitionSource(id: tile.id, in: zoom)
+                            .offset(x: CGFloat(c.x) * (cell + gap), y: CGFloat(c.y) * (cell + gap))
+                    }
+                }.frame(width: cell * 5 + gap * 4, height: cell * 3 + gap * 2, alignment: .topLeading)
+            }.frame(width: cell * 5 + gap * 4)
+                .frame(width: size.width, height: size.height)
         }
-        .frame(width: faceW, height: faceH, alignment: .topLeading)
-        .frame(width: size.width, height: size.height, alignment: .center)
-        .frame(width: size.width, height: size.height, alignment: .top)
+    }
+    private var legacyControls: some View {
+        let faceH = size.height - 128
+        let gap: CGFloat = 24
+        let cell = floor((faceH - gap * 2) / 3 / 8) * 8
+        let faceW = cell * 3 + gap * 2
+        return ZStack(alignment: .topLeading) {
+            ForEach(HomeTile.controlsFace) { tile in
+                let c = tile.cells
+                let width = cell * CGFloat(c.w) + gap * CGFloat(c.w - 1)
+                let height = cell * CGFloat(c.h) + gap * CGFloat(c.h - 1)
+                TileFace(tile: tile, store: store, open: { open(tile) })
+                    .frame(width: width, height: height)
+                    .faceGlass(on: tileOn(tile))
+                    .glassEffectID("controls-" + tile.id, in: zoom)
+                    .matchedTransitionSource(id: tile.id, in: zoom)
+                    .contentShape(.rect(cornerRadius: 56))
+                    .onTapGesture { open(tile) }
+                    .offset(x: CGFloat(c.x) * (cell + gap), y: CGFloat(c.y) * (cell + gap))
+            }
+        }.frame(width: faceW, height: cell * 3 + gap * 2, alignment: .topLeading)
+            .frame(width: size.width, height: size.height)
     }
     private func tileOn(_ tile: HomeTile) -> Bool {
         guard let key = tile.accessory else { return false }

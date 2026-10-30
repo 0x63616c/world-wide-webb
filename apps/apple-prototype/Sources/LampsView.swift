@@ -9,19 +9,20 @@ struct LampsController: View {
     var body: some View {
         let layout = compact ? AnyLayout(VStackLayout(spacing: 32)) : AnyLayout(HStackLayout(alignment: .top, spacing: 120))
         ScrollView {
+            GlassEffectContainer(spacing: 16) {
             layout {
                 VStack(spacing: 24) {
                     VStack(spacing: 4) {
-                        Text("All lamps").font(.system(size: compact ? 22 : 28, weight: .semibold))
+                        Text("Global brightness").font(.system(size: compact ? 22 : 28, weight: .semibold))
                         Text("\(store.lamps.brightness)%")
                             .font(.system(size: compact ? 72 : 104, weight: .regular, design: .rounded)).monospacedDigit()
                             .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
                             .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
-                        Text(store.lamps.anyOn ? "Brightness" : "Turn on lamps to adjust")
+                        Text(store.lamps.anyOn ? "All 8 lamps · Both rooms" : "Turn on lamps to adjust")
                             .font(.system(size: compact ? 17 : 22)).foregroundStyle(.secondary)
                     }
                     LampBrightness(store: store).frame(width: compact ? 156 : 224, height: compact ? 300 : 460)
-                    Text("Both rooms · \(store.lamps.countLabel())").font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary)
+                    Text("Adjusting turns all lamps on").font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary)
                 }.frame(width: compact ? nil : 340)
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Rooms").font(.system(size: compact ? 22 : 28, weight: .semibold))
@@ -33,6 +34,7 @@ struct LampsController: View {
                     }.buttonStyle(.glass).accessibilityIdentifier("color-effects").padding(.top, 12)
                 }.frame(width: compact ? nil : 460)
             }.padding(compact ? 24 : 40).frame(maxWidth: .infinity)
+            }
         }.scrollIndicators(.hidden)
             .sheet(isPresented: $showingEffects) {
                 ScrollView {
@@ -59,7 +61,7 @@ struct LampsController: View {
                         .background { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 150, height: 150) }
                     VStack(alignment: .leading, spacing: 8) {
                         Text(key.name).font(.system(size: compact ? 21 : 28, weight: .semibold))
-                        Text(store.lamps.countLabel(key)).font(.system(size: compact ? 16 : 22)).foregroundStyle(.secondary)
+                        Text(on ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps" : "Off").font(.system(size: compact ? 16 : 22)).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "power").font(.system(size: 24)).foregroundStyle(on ? .orange : .secondary)
@@ -67,7 +69,7 @@ struct LampsController: View {
             }.buttonStyle(.plain)
                 .accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off")
                 .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
-            DisclosureGroup("\(LampState.members(key).count) lamps") {
+            DisclosureGroup("Show lamps") {
                 ForEach(Array(LampState.members(key)), id: \.self) { index in
                     HStack { Text(LampState.names[index]); Spacer(); Text(store.lamps.on[index] ? "On" : "Off").foregroundStyle(.secondary) }
                         .padding(.vertical, 4)
@@ -84,9 +86,7 @@ struct LampBrightness: View {
         GeometryReader { proxy in
             let enabled = store.lamps.anyOn
             ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 66, style: .continuous)
-                    .fill(.black.opacity(0.22))
-                    .glassEffect(.clear, in: .rect(cornerRadius: 66, style: .continuous))
+                Color.white.opacity(0.10)
                 Rectangle().fill(.white)
                     .frame(height: proxy.size.height * Double(store.lamps.brightness) / 100)
                 Image(systemName: "sun.max.fill").font(.system(size: 44, weight: .medium))
