@@ -208,6 +208,10 @@ platform :ios do
         skip_waiting_for_build_processing: true,
         skip_submission: true
       )
+      # Publish only after upload succeeds; use the exact archive build.
+      if ENV["GITHUB_ENV"]
+        File.open(ENV.fetch("GITHUB_ENV"), "a") { |file| file.puts "PANEL_UPLOADED_BUILD=#{latest + 1}" }
+      end
     ensure
       File.delete(secrets_path) if File.exist?(secrets_path)
     end
