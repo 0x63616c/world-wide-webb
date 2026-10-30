@@ -1,0 +1,20 @@
+{
+  "result": {
+    "data": [
+      {
+        "date": "2026-10-29",
+        "hi": 68,
+        "lo": 51,
+        "weatherCode": 2,
+        "precipProbability": null
+      },
+      {
+        "date": "2026-10-30",
+        "hi": 65,
+        "lo": 50,
+        "weatherCode": 61,
+        "precipProbability": 80
+      }
+    ]
+  }
+}
