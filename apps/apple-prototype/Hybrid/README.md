@@ -77,6 +77,7 @@ Mixed-module geometry and native views are intentionally deferred.
   are attached only to main-frame requests for the configured origin.
 - Responses use the existing `control-center-native-response` custom event.
   JSON travels as a JavaScript argument, not interpolated executable code.
+  The script rechecks the origin at evaluation time to handle navigation races.
 - Device info uses hardware model / identifierForVendor; unknown battery level
   is null; brightness is finite and clamped to 0…1 on the containing screen.
   Share uses UIActivityViewController; browser open/close use SFSafariViewController.
@@ -139,3 +140,12 @@ xcodebuild test -scheme Panel-Smoke \
   -destination 'platform=iOS Simulator,name=WWW-18 Hybrid iPad' \
   -derivedDataPath ~/wwwebb-hybrid-dd -parallel-testing-enabled NO
 ```
+
+Verified on the mini on 2026-10-29: **27 Panel tests passed**, and both existing
+`WorldWideWebb-iPad` and `WorldWideWebb` schemes built successfully. Tracked-file
+lint, Knip, privacy guards, and Gitleaks passed. The optional UI smoke target
+compiled, but its runner exited before test bootstrap; a retry stalled and was
+interrupted. No UI smoke assertions ran. The mini was under heavy load, and its
+Xcode installation has no Simulator GUI app. After restarting only the dedicated
+simulator, the final unit run succeeded. Simulator evidence is captured directly
+with `simctl`; authenticated board and physical wall checks remain outstanding.
