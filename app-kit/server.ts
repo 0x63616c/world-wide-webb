@@ -8,4 +8,5 @@
 import { db } from "../apps/api/src/db";
 import { getSettings as readSettings } from "../apps/api/src/services/settings-service";
 export const getSettings = () => readSettings(db);
+export { verifyPanelPIN } from "../apps/api/src/services/panel-pin";
 export { mergeRouters, publicProcedure, router, TRPCError } from "../apps/api/src/trpc/init";
