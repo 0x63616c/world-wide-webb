@@ -5,6 +5,7 @@
 import { createWebRegistry } from "@app-kit";
 import acManifest from "../ac/manifest";
 import boothManifest from "../booth/manifest";
+import camerasManifest from "../cameras/manifest";
 import ctrlManifest from "../ctrl/manifest";
 import eventsManifest from "../events/manifest";
 import soundManifest from "../sound/manifest";
@@ -21,6 +22,7 @@ import { tileViews as wakesTileViews } from "../wakes/detail";
 const manifests = [
   acManifest,
   boothManifest,
+  camerasManifest,
   ctrlManifest,
   eventsManifest,
   soundManifest,
