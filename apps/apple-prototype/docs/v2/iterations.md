@@ -214,3 +214,18 @@ iter-7g preflight (09:58 PT): all five scheme builds and both 87-test prototype 
 iter-7g live-geometry verification (10:07 PT): The final fix wraps only the fixed Home/More canvas in a top-origin GeometryReader. The original safeAreaBar and other faces are retained; the two safe-area experiments did not move the live bounds and were removed. Both Home and More now measure left/top/right80 and bottom79.75 points, within the 0.5-point test tolerance. All five final source builds pass; remaining tests and final captures are running.
 
 iter-7g tested candidate (10:21 PT): restores accepted Home/More spans and native material after rejecting7f. The fixed canvas now uses a top-origin GeometryReader, with a live-window test proving equal80-point margins above the pager (bottom79.75). Phone removes wholly occluded glass, restores Climate/Weather/Up Next first, and scales the narrow fader symbol. All five builds, both87-test prototype suites, eight UI tours, Panel and Panel-Smoke pass. One lamp-drag endpoint failure passes on exact unchanged rerun; logs retained. All12 live pairs validate, maximum MAE0.000564/255. Three cold reviews running; floors unchanged. No protected-page edits or screenshot binaries committed.
+
+## WWW-54 — iteration 1: Climate instrument grouping
+
+Starting from main (`5ede6d5b`, merged WWW-8), try only the panel thermostat
+portion of the 7h plan: place 64-point adjustment targets beside the 152-point
+value, with the existing setpoint caption 24 points below. Preserve all module
+placements, phone composition, wallpaper, native materials and full-screen pages.
+The published twelve-screen floors in `baseline3/main-baseline-median.md` remain
+the acceptance criteria. No new score or acceptance is claimed at this checkpoint.
+
+Mac and iPad builds pass; the remaining schemes, tests and deterministic live
+captures are running in the isolated `~/wwwebb-home-design/` and
+`~/wwwebb-home-design-dd/` directories. The capture and verification harnesses now
+accept explicit output/app/derived-data paths while preserving their old defaults
+and the shared simulator lock. Full-resolution evidence stays outside Git.
