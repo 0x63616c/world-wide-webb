@@ -49,12 +49,23 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
         app.openHomeModule("climate")
         XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 20))
-        let banner = app.buttons["notification-banner-lights"]
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "presented-controller-accessibility"
+        tree.lifetime = .keepAlways
+        add(tree)
+        // UIKit retains the covered host in AX during a full-screen presentation.
+        // Require one reachable banner and target that presentation, not the covered host.
+        let banners = app.buttons.matching(identifier: "notification-banner-lights")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "hittable == YES"), object: banner)], timeout: 10), .completed)
+            predicate: NSPredicate { _, _ in
+                banners.allElementsBoundByIndex.filter(\.isHittable).count == 1
+            }, object: app)], timeout: 10), .completed)
+        let reachable = banners.allElementsBoundByIndex.filter(\.isHittable)
+        XCTAssertEqual(reachable.count, 1)
+        guard let banner = reachable.first else { return }
         capture("notification-presented-controller", app)
         banner.tap()
-        XCTAssertTrue(banner.waitForNonExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["notification-banner-lights"].waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 10))
     }
 
