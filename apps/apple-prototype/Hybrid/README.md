@@ -36,7 +36,7 @@ use `localhost` (ATS local networking is enabled).
 
 ## Module seam
 
-`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, `photos`, `reminders`, and
+`ModuleFlags` defines `lights`, `climate`, `fan`, `wifi`, `sonos`, `weather`, `photos`, `walk`, `reminders`, and
 `all`. Every flag defaults to `web`. For example, `-moduleFlag.lights native`
 overrides the launch's UserDefaults; invalid values fall back to `web`.
 `all` always means the complete web board, even if its flag is set to `native`.
@@ -359,6 +359,14 @@ simulator captures exercise the native frame, automatic rotation, details,
 fresh PIN gate and unavailable fallback using the launch arguments above.
 See `docs/screenshots/photos-live/` at the repository root. Authenticated home
 photos and physical-panel behavior were not tested.
+
+## WWW-38 state synchronization
+
+The shared PanelKit coordinator and walk provider adoption are documented in
+[../PanelKit/SYNC.md](../PanelKit/SYNC.md). `-moduleFlag.walk native` reserves the
+opt-in; this base has no native walk registration, so it still falls back to web.
+The flag remains `web` by default. Follow the documented live-data/lifecycle gate
+when adding the walk provider to WWW-44 composition.
 
 ### Reminders (WWW-32)
 

@@ -240,6 +240,89 @@ import PanelKit
         XCTAssertEqual(driver.states.count, 2)
     }
 
+    func testEitherDevicesStartReachesOtherWithinFiveSecondsWithFakeClock() async throws {
+        for starterIsPhone in [true, false] {
+            let clock = WalkSyncTestClock(date: serverDate)
+            let server = SharedWalkServer(clock: clock)
+            let api = WalksAPI(client: PanelAPIClient(configuration: PanelConfiguration(
+                baseURL: URL(string: "https://panel.example.invalid")!), transport: server))
+            // Deliberately different device clocks; server timestamps never change.
+            let phone = LiveWalkProvider(api: api, device: .iPhone, clock: clock.clock(offset: -120))
+            let panel = LiveWalkProvider(api: api, device: .iPad, clock: clock.clock(offset: 90))
+            phone.setSceneActive(true); panel.setSceneActive(true)
+            defer { phone.setSceneActive(false); panel.setSceneActive(false) }
+            try await fakeEventually { phone.hasLoadedState && panel.hasLoadedState && clock.pendingSleeps == 2 }
+            let starter = starterIsPhone ? phone : panel
+            let observer = starterIsPhone ? panel : phone
+            let started = clock.date
+            starter.start(at: clock.date.addingTimeInterval(starterIsPhone ? -120 : 90))
+            try await fakeEventually { !starter.isMutating && starter.activeWalk != nil }
+            XCTAssertNil(observer.activeWalk)
+            clock.advance(.seconds(3))
+            for _ in 0..<50 { await Task.yield() }
+            XCTAssertNil(observer.activeWalk)
+            clock.advance(.seconds(1))
+            try await fakeEventually { observer.activeWalk != nil && clock.pendingSleeps == 2 }
+            XCTAssertLessThanOrEqual(clock.date.timeIntervalSince(started), 5)
+            XCTAssertEqual(observer.activeWalk, starter.activeWalk)
+            XCTAssertEqual(observer.activeWalk?.startedAt, started)
+            XCTAssertEqual(observer.activeWalk?.startedBy, starterIsPhone ? .iPhone : .iPad)
+            XCTAssertEqual(phone.activeWalk?.duration(at: phone.serverNow(at: clock.date.addingTimeInterval(-120))), 4)
+            XCTAssertEqual(panel.activeWalk?.duration(at: panel.serverNow(at: clock.date.addingTimeInterval(90))), 4)
+            let historyReads = await server.historyReads
+            XCTAssertEqual(historyReads, 4) // Initial reads, local mutation, remote state change.
+            clock.advance(.seconds(4))
+            try await fakeEventually { clock.pendingSleeps == 2 }
+            let unchangedHistoryReads = await server.historyReads
+            XCTAssertEqual(unchangedHistoryReads, historyReads) // updatedAt suppresses unchanged history reads.
+
+            observer.stop(at: clock.date.addingTimeInterval(starterIsPhone ? 90 : -120))
+            try await fakeEventually { !observer.isMutating && observer.history.count == 1 }
+            clock.advance(.seconds(4))
+            try await fakeEventually { starter.activeWalk == nil && starter.history.count == 1 }
+            XCTAssertEqual(phone.history, panel.history)
+        }
+    }
+
+    func testFakeClockOfflineLastKnownBackoffAndForegroundRecovery() async throws {
+        let clock = WalkSyncTestClock(date: serverDate)
+        let server = SharedWalkServer(clock: clock)
+        let api = WalksAPI(client: PanelAPIClient(configuration: PanelConfiguration(
+            baseURL: URL(string: "https://panel.example.invalid")!), transport: server))
+        let provider = LiveWalkProvider(api: api, device: .iPhone, clock: clock.clock())
+        provider.setSceneActive(true)
+        defer { provider.setSceneActive(false) }
+        try await fakeEventually { provider.hasLoadedState && clock.pendingSleeps == 1 }
+        provider.start(at: clock.date)
+        try await fakeEventually { !provider.isMutating && provider.activeWalk != nil }
+        let confirmed = provider.activeWalk
+        let confirmedAt = provider.lastSyncedAt
+        await server.setOffline(true)
+        clock.advance(.seconds(4))
+        try await fakeEventually { if case .unavailable = provider.availability { clock.pendingSleeps == 1 } else { false } }
+        let failedReads = await server.stateReads
+        clock.advance(.seconds(4))
+        for _ in 0..<50 { await Task.yield() }
+        let duringBackoff = await server.stateReads
+        XCTAssertEqual(duringBackoff, failedReads)
+        XCTAssertEqual(provider.activeWalk, confirmed)
+        XCTAssertEqual(provider.lastSyncedAt, confirmedAt)
+        provider.setSceneActive(false)
+        try await fakeEventually { clock.pendingSleeps == 0 }
+        clock.advance(.seconds(60))
+        let backgroundReads = await server.stateReads
+        XCTAssertEqual(backgroundReads, failedReads)
+        await server.setOffline(false)
+        _ = try await api.stop(id: XCTUnwrap(confirmed?.id)) // Other device stopped it while this scene slept.
+        provider.setSceneActive(true)
+        try await fakeEventually { provider.availability == .live && provider.activeWalk == nil && provider.history.count == 1 }
+    }
+
+    private func fakeEventually(_ condition: () -> Bool) async throws {
+        for _ in 0..<10_000 { if condition() { return }; await Task.yield() }
+        throw WalkTestFailure.timeout
+    }
+
     private func makeProvider(_ transport: WalkProviderTransport, now: (() -> Date)? = nil,
                               interval: Duration = .seconds(5)) -> LiveWalkProvider {
         let date = serverDate
@@ -317,5 +400,69 @@ private actor WalkProviderTransport: PanelTransport {
         let data = try Data(contentsOf: fixtures.appendingPathComponent(name + ".json"))
         return (data, HTTPURLResponse(url: request.url!, statusCode: name == "unavailable" ? 503 : 200,
                                     httpVersion: nil, headerFields: nil)!)
+    }
+}
+
+/// Shared authoritative synthetic server: both clients use the real WalksAPI wire adapter.
+private actor SharedWalkServer: PanelTransport {
+    let clock: WalkSyncTestClock
+    private var active: [String: String]?
+    private var history: [[String: String]] = []
+    private var updatedAt = "1970-01-01T00:00:00.000Z"
+    private var offline = false
+    private(set) var stateReads = 0
+    private(set) var historyReads = 0
+    init(clock: WalkSyncTestClock) { self.clock = clock }
+    func setOffline(_ value: Bool) { offline = value }
+
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let path = request.url!.lastPathComponent
+        if path == "walks.state" { stateReads += 1 }
+        if path == "walks.history" { historyReads += 1 }
+        if offline { throw URLError(.notConnectedToInternet) }
+        let date = await clock.date
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let now = formatter.string(from: date)
+        let input = try request.httpBody.map { try JSONSerialization.jsonObject(with: $0) as! [String: String] } ?? [:]
+        if path == "walks.start", active == nil {
+            active = ["id": input["id"]!, "source": input["source"]!, "startedAt": now, "createdAt": now, "updatedAt": now]
+            updatedAt = now
+        }
+        if path == "walks.stop", var walk = active, walk["id"] == input["id"] {
+            walk["endedAt"] = now; walk["updatedAt"] = now
+            history.insert(walk, at: 0); active = nil; updatedAt = now
+        }
+        var wireActive = active?.mapValues { $0 as Any }
+        wireActive?["endedAt"] = NSNull() // Required nullable field in the WWW-27 contract.
+        let payload: [String: Any] = path == "walks.history" ? ["walks": history] :
+            ["active": wireActive.map { $0 as Any } ?? NSNull(), "updatedAt": updatedAt, "serverTime": now]
+        return (try JSONSerialization.data(withJSONObject: ["result": ["data": payload]]),
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+    }
+}
+
+@MainActor private final class WalkSyncTestClock {
+    var date: Date
+    private var elapsed: Duration = .zero
+    private var sleepers: [UUID: (Duration, CheckedContinuation<Void, any Error>)] = [:]
+    var pendingSleeps: Int { sleepers.count }
+    init(date: Date) { self.date = date }
+    func clock(offset: TimeInterval = 0) -> SyncClock {
+        SyncClock(now: { self.date.addingTimeInterval(offset) }, elapsed: { self.elapsed }, sleep: { delay in
+            let id = UUID()
+            try await withTaskCancellationHandler {
+                try Task.checkCancellation()
+                try await withCheckedThrowingContinuation { self.sleepers[id] = (self.elapsed + delay, $0) }
+            } onCancel: {
+                Task { @MainActor in self.sleepers.removeValue(forKey: id)?.1.resume(throwing: CancellationError()) }
+            }
+        })
+    }
+    func advance(_ duration: Duration) {
+        elapsed += duration
+        date += Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
+        let ready = sleepers.filter { $0.value.0 <= elapsed }
+        for id in ready.keys { sleepers.removeValue(forKey: id)?.1.resume() }
     }
 }

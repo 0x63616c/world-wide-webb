@@ -12,6 +12,7 @@ extension PanelModule {
         case .sonos: "Sonos"
         case .weather: "Weather"
         case .photos: "Photos"
+        case .walk: "Dog Walk"
         }
     }
 }
@@ -50,7 +51,8 @@ struct HybridNativeModule: View {
         case .sonos: SoundFace(store: store)
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .reminders: RemindersModule(provider: store.remindersProvider)
-        case .all: EmptyView()
+        // Dog Walk is not wired into the hybrid shell yet, so it routes to the web board.
+        case .walk, .all: EmptyView()
         }
     }
 
@@ -69,7 +71,7 @@ struct HybridNativeModule: View {
         case .sonos: SonosRoomsPage(store: store)
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .reminders: RemindersModule(provider: store.remindersProvider)
-        case .all: EmptyView()
+        case .walk, .all: EmptyView()
         }
     }
 
