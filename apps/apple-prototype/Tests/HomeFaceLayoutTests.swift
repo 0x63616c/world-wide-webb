@@ -51,6 +51,14 @@ final class HomeFaceLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(previousBottom, 4)
     }
 
+    func testPhoneFirstViewportIncludesClimateAndAccessoryControls() {
+        let layout = HomeFaceLayout.phone(in: CGSize(width: 402, height: 778))
+        for tile in [HomeTile.climate, .lamps, .ceiling, .fan] {
+            let frame = layout.items.first { $0.tile == tile }!.frame
+            XCTAssertLessThanOrEqual(frame.maxY, layout.viewport.height - layout.pagerBand - layout.margin)
+        }
+    }
+
     func testEveryModuleAndAccessoryIsReachableOnBothDeviceLayouts() {
         let required: Set<HomeTile> = [.climate, .lamps, .weather, .calendar, .sound, .tesla, .fan,
                                        .cameras, .photos, .media, .sonosRooms, .dogwalk, .clock, .ceiling, .cabinet, .wifi, .all]

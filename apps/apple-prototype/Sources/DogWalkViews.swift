@@ -46,17 +46,17 @@ struct DogWalkTile: View {
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text(walkElapsed(walk.duration(at: store.now)))
                                     .font(.system(size: compact ? 26 : 44, weight: .medium, design: .rounded)).monospacedDigit()
-                                Text("Elapsed").font(.system(size: compact ? 16 : 18, weight: .medium)).foregroundStyle(.white.opacity(0.82))
+
                             }
                             Text("Started on \(walk.startedBy.rawValue)")
-                                .font(.system(size: compact ? 15 : 20)).foregroundStyle(.white.opacity(0.82))
+                                .font(.system(size: compact ? 15 : 17)).foregroundStyle(.white.opacity(0.82))
                                 .padding(.top, 8)
                         } else {
                             Text("\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min")
                                 .font(.system(size: compact ? 16 : 24)).foregroundStyle(.white.opacity(0.82)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 8)
-                        Text("History ›").font(.system(size: compact ? 16 : 20, weight: .medium))
+                        Text("History ›").font(.system(size: compact ? 16 : 20, weight: .semibold))
                     }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .contentShape(.rect)
                 }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")

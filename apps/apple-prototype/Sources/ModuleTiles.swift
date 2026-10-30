@@ -53,7 +53,7 @@ struct ModuleTile: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("UP NEXT").font(.system(size: compact ? 11 : 13, weight: .semibold)).foregroundStyle(.primary)
                 if let event = store.calendar.next(at: store.now) {
-                    Text(event.title).font(.system(size: compact ? 20 : 32, weight: .semibold)).lineLimit(1)
+                    Text(event.title).font(.system(size: compact ? 20 : 28, weight: .semibold)).lineLimit(1)
                     Text("\(event.time) \(event.period)").font(.system(size: compact ? 16 : 24))
                     Text(event.location).font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary).lineLimit(1)
                 } else { Text("Nothing else today").font(.title3) }
@@ -65,7 +65,7 @@ struct ModuleTile: View {
         HStack(spacing: 24) {
             FixtureArtwork(tint: "#485c85").frame(width: compact ? 80 : 112, height: compact ? 80 : 112).clipShape(.rect(cornerRadius: 24))
             VStack(alignment: .leading, spacing: 0) {
-                Text("Media").font(.system(size: compact ? 22 : 32, weight: .semibold))
+                Text("Media").font(.system(size: compact ? 22 : 28, weight: .semibold))
                 Text("Music & films").font(.system(size: compact ? 16 : 24)).foregroundStyle(.white.opacity(0.82)).padding(.top, 8)
                 Spacer(minLength: 8)
                 Text("Browse library ›").font(.system(size: compact ? 14 : 20))
@@ -75,10 +75,10 @@ struct ModuleTile: View {
     }
     private var rooms: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(.system(size: compact ? 20 : 23, weight: .semibold))
+            Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(.system(size: compact ? 20 : 24, weight: .semibold))
             ForEach(store.rooms.prefix(compact ? 2 : 4)) { room in
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(room.name).font(.system(size: compact ? 17 : 24, weight: .semibold)).lineLimit(1)
+                    Text(room.name).font(.system(size: compact ? 17 : 22, weight: .medium)).lineLimit(1)
                     Text("\(room.playing ? "Playing" : "Paused") · \(room.displayVolume)%")
                         .font(.system(size: compact ? 15 : 20)).monospacedDigit().foregroundStyle(.white.opacity(0.82))
                 }
@@ -125,7 +125,7 @@ private struct HomePhotoTile: View {
                 HomePhotoScrim()
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Photos", systemImage: "photo.on.rectangle.angled")
-                        .font(.system(size: compact ? 20 : 32, weight: .semibold))
+                        .font(.system(size: compact ? 20 : 28, weight: .semibold))
                     Text("\(provider.photos.count) photos")
                         .font(.system(size: compact ? 16 : 24))
                     Spacer(minLength: 8)
@@ -166,7 +166,7 @@ private struct HomeCameraTile: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Label("Cameras", systemImage: "video.fill")
-                                .font(.system(size: compact ? 20 : 32, weight: .semibold))
+                                .font(.system(size: compact ? 20 : 28, weight: .semibold))
                             Spacer()
                             HStack(spacing: 6) {
                                 Circle().fill(.red).frame(width: 7, height: 7)

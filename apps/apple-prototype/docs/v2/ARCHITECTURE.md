@@ -309,3 +309,6 @@ Iteration 7 composition: the shared solver retains 1×1, 2×1, 1×2 and 2×2 spa
 Pass 7b: phone solver restores full-width Weather/Calendar rows after median rejection of the paired candidate. Panel mixed spans and duplicate-source identity remain as designed in pass 7. No provider schema or native hybrid behavior changes.
 
 Pass 7c restores the seven-module primary grid above after the nine-module candidate failed its allowed refinement. More retains all other modules/round shortcuts. Phone uses 24-point gutters and measured row heights; the Music card is fully contained at the captured bottom scroll position. `Wallpaper.asset` defaults to the lake for existing detail pages. Pass 7d replaces the rejected forest trial with a top-anchored, 75%-saturation CoastPhoto for Home and More; regular glass protects text contrast. Native hybrid targets and providers are unchanged.
+
+
+Pass 7e compact order: Climate → Lamps with Ceiling/Fan → Weather → Up Next → Music → Tesla → quick actions. The shared frame solver keeps the 24-point gutter and page-band reservation; tests protect first-viewport control availability and the lower Music contour. System clear glass is used over the dimmed photo; active light surfaces remain native regular/tinted glass. No provider, backend or protected page changes.

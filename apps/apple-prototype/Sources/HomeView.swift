@@ -91,7 +91,7 @@ struct HomeView: View {
                 Group {
                     if facePage == 2 { Color.black.ignoresSafeArea() }
                     else if facePage == 3 { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
-                    else { Wallpaper(asset: "CoastPhoto", alignment: .top, saturation: 0.75) }
+                    else { Wallpaper(saturation: 0.65, dimming: 0.62, blurRadius: 0) }
                 }
                 homeFace(size: proxy.size)
                     .safeAreaBar(edge: .bottom, spacing: 0) {

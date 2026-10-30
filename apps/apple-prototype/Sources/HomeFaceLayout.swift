@@ -61,12 +61,12 @@ struct HomeFaceLayout {
                 add(tile, width: width, height: height); y += height + gap
             }
         } else {
-            add(.climate, width: width, height: 240); y += 240 + gap
-            add(.weather, width: width, height: 152); y += 152 + gap
-            add(.calendar, width: width, height: 144); y += 144 + gap
+            add(.climate, width: width, height: 216); y += 216 + gap
             add(.lamps, width: cell, height: 2 * cell + gap)
             add(.ceiling, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
             add(.fan, x: cell + gap, width: cell, height: cell, round: true); y += cell + gap
+            add(.weather, width: width, height: 152); y += 152 + gap
+            add(.calendar, width: width, height: 144); y += 144 + gap
             add(.sound, width: width, height: 120); y += 120 + gap
             add(.tesla, width: width, height: 136); y += 136 + gap
         }

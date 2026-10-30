@@ -36,8 +36,7 @@ struct MixedTileMaterial: ViewModifier {
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var radius: CGFloat { sizeClass == .compact ? 36 : 56 }
     func body(content: Content) -> some View {
-        let activeTint = Color.orange.mix(with: .white, by: 0.90).opacity(0.90)
-        let glass = imageContent ? Glass.clear : on ? Glass.regular.tint(activeTint) : Glass.regular
+        let glass = on && !imageContent ? Glass.regular.tint(.orange.opacity(0.08)) : Glass.clear
         Group {
         if round {
             content.glassEffect(glass.interactive(), in: .circle)
@@ -45,7 +44,7 @@ struct MixedTileMaterial: ViewModifier {
             content.glassEffect(glass.interactive(), in: .rect(cornerRadius: radius))
                 .containerShape(.rect(cornerRadius: radius))
         }
-        }.environment(\.colorScheme, on ? .light : .dark)
+        }.environment(\.colorScheme, .dark)
     }
 }
 struct MixedHomeTile: View {
@@ -65,7 +64,7 @@ struct MixedHomeTile: View {
             else if tile == .clock {
                 Button(action: open) { TileFace(tile: .clock, store: store, open: open) }.buttonStyle(.plain)
             } else { roundControl }
-        }.foregroundStyle(isOn ? .black : .white)
+        }.foregroundStyle(.white)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("tile-\(tile.id)")
     }
@@ -78,7 +77,8 @@ struct MixedHomeTile: View {
                     climateValue
                     step("plus", delta: 1)
                 }
-                setpointLabel.frame(maxWidth: .infinity)
+                Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
+                    .font(.system(size: 17, weight: .medium)).frame(maxWidth: .infinity)
             } else {
                 Spacer(minLength: 0)
                 VStack(spacing: 24) {
@@ -103,8 +103,10 @@ struct MixedHomeTile: View {
                 }.font(.system(size: compact ? 19 : 26, weight: .semibold))
                     .contentShape(.rect)
             }.buttonStyle(.plain).accessibilityIdentifier("open-climate")
-            Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
-                .font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
+            if !compact {
+                Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
+                    .font(.system(size: 24)).foregroundStyle(.primary)
+            }
         }
     }
     private var climateValue: some View {
@@ -116,8 +118,8 @@ struct MixedHomeTile: View {
         }.buttonStyle(.plain)
     }
     private var setpointLabel: some View {
-        Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "Heat · Cool" : "Set to \(store.climate.target)°")
-            .font(.system(size: compact ? 17 : 22, weight: .medium))
+        Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "Heat · Cool" : "Target temperature")
+            .font(.system(size: compact ? 17 : 20, weight: .medium)).foregroundStyle(.white.opacity(0.82))
     }
     private func step(_ symbol: String, delta: Int) -> some View {
         Button { store.send(store.climate.mode == .heatCool ? .shiftRange(delta) : .target(store.climate.target + delta)) } label: {
@@ -129,7 +131,7 @@ struct MixedHomeTile: View {
         VStack(spacing: 12) {
             Button(action: open) {
                 VStack(spacing: 8) {
-                    Image(systemName: "lamp.table.fill").font(.system(size: compact ? 32 : 40)).foregroundStyle(.orange)
+                    if !compact { Image(systemName: "lamp.table.fill").font(.system(size: 32)).foregroundStyle(.orange) }
                     Text("All lamps").font(.system(size: compact ? 19 : 26, weight: .semibold))
                     Text("\(store.lamps.brightness)%").font(.system(size: compact ? 30 : 44, weight: .medium, design: .rounded)).monospacedDigit()
                 }.frame(maxWidth: .infinity)
@@ -171,7 +173,7 @@ struct MixedHomeTile: View {
                         Text("\(store.tesla.data.pct)%").font(.system(size: compact ? 32 : 48, weight: .medium, design: .rounded)).monospacedDigit()
                         Text("\(store.tesla.data.range) mi").font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
                     }
-                    Text("Car · \(store.tesla.data.name)").font(.system(size: compact ? 16 : 22, weight: .semibold))
+                    Text("Car · \(store.tesla.data.name)").font(.system(size: compact ? 17 : 22, weight: .semibold))
                     Label(store.tesla.data.charging ? "Charging · \(store.tesla.data.rate.formatted()) kW" : store.tesla.data.chargingState.capitalized, systemImage: store.tesla.data.charging ? "bolt.fill" : "battery.75percent").font(.system(size: compact ? 14 : 24)).foregroundStyle(store.tesla.data.charging ? .green : .white)
                 }
                 Spacer(minLength: 0)
@@ -185,17 +187,17 @@ struct MixedHomeTile: View {
             } label: {
                 Group {
                     if tile == .fan { FanSymbol(on: store.climate.fanOn && store.climate.mode != .off) }
-                    else { Image(systemName: tile.accessory?.symbol ?? "wifi") }
+                    else { Image(systemName: tile == .all ? "lightbulb.2.fill" : tile.accessory?.symbol ?? "wifi") }
                 }.font(.system(size: compact ? 32 : 46, weight: .regular)).symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isOn || isMixed ? .orange : .white).frame(width: 64, height: 64).contentShape(.rect)
             }.buttonStyle(.plain).accessibilityLabel(tile == .wifi ? "Open Guest Wi-Fi" : "Toggle \(tile.title)")
                 .accessibilityIdentifier("toggle-\(tile.id)").accessibilityValue(isMixed ? "Some on" : isOn ? "On" : "Off")
             Button(action: open) {
-                VStack(spacing: 5) {
+                VStack(spacing: 8) {
                     Text(tile == .wifi ? "Guest Wi-Fi" : tile == .all ? "All lights" : tile == .fan ? "Fan" : tile == .cabinet ? "Cabinet" : tile.title)
-                        .font(.system(size: compact ? 16 : 22, weight: .semibold)).lineLimit(1)
+                        .font(.system(size: compact ? 17 : 22, weight: .semibold)).lineLimit(1)
                     Text(tile == .wifi ? "Tap to join" : tile == .fan ? store.climate.fanLabel : tile == .all ? (isMixed ? "Some on" : isOn ? "All on" : "All off") : isOn ? "On" : "Off")
-                        .font(.system(size: compact ? (tile == .all ? 17 : 13) : 20)).foregroundStyle(isOn ? .black.opacity(0.72) : .white.opacity(0.82))
+                        .font(.system(size: compact ? 14 : 20)).foregroundStyle(.white.opacity(0.82))
                 }.contentShape(.rect)
             }.buttonStyle(.plain)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)

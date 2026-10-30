@@ -54,12 +54,12 @@ struct LampsController: View {
                 .font(.system(size: compact ? 72 : 96, weight: .regular, design: .rounded)).monospacedDigit()
                 .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
                 .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
-            Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 22, weight: .medium))
+            Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 20, weight: .medium))
         }
     }
     private var brightnessScope: some View {
         Text(store.lamps.anyOn ? "Adjusting turns all 8 lamps on" : "Turn on lamps to adjust")
-            .font(.system(size: compact ? 17 : 22)).foregroundStyle(.primary)
+            .font(.system(size: compact ? 17 : 20)).foregroundStyle(.secondary)
             .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
     }
     private func room(_ key: Accessory) -> some View {
@@ -75,7 +75,7 @@ struct LampsController: View {
                     .labelsHidden().toggleStyle(.switch).tint(.orange)
                     .accessibilityLabel("\(key.name) power")
                     .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
-            }.frame(minHeight: 64)
+            }.frame(minHeight: 48)
             HStack(spacing: 8) {
                 Image(systemName: key.symbol).symbolRenderingMode(.hierarchical)
                     .font(.system(size: 28)).foregroundStyle(on ? .orange : .secondary)
@@ -90,10 +90,10 @@ struct LampsController: View {
                     }.padding(.vertical, 4)
                 }
             }.font(.system(size: compact ? 17 : 20)).frame(minHeight: 48)
-        }.padding(32).foregroundStyle(on ? .black : .white)
-            .glassEffect(on ? .regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular, in: .rect(cornerRadius: 40))
+        }.padding(24).foregroundStyle(.white)
+            .glassEffect(on ? .regular.tint(.orange.opacity(0.08)) : .regular, in: .rect(cornerRadius: 40))
             .containerShape(.rect(cornerRadius: 40))
-            .environment(\.colorScheme, on ? .light : .dark)
+            .environment(\.colorScheme, .dark)
     }
 }
 

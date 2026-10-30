@@ -40,3 +40,6 @@ Home and More reuse the existing **ForestPhoto**, [Pathway of trees during dayti
 ## Pass 7d Home/More wallpaper trial
 
 The rejected ForestPhoto backdrop is replaced in this candidate by the already-bundled **CoastPhoto**, [Sunset](https://unsplash.com/photos/sunset-CA5mR_jecac) by Luca Bravo, [Unsplash Licence](https://unsplash.com/license). Source and licence rechecked 2026-10-30. Existing file `Sources/Assets.xcassets/CoastPhoto.imageset/photo.jpg`: 1823×2752 JPEG, quality 85. The shell uses a top-anchored fill crop, 75% photographic saturation, 2-pt blur and 28% dimming. No new image, asset edit or simulated glass. Home’s Photos tile reuses the existing photo collection; the parallel full-screen renderer is unchanged.
+
+
+Pass 7e restores the existing **LakeWallpaper**, [Boathouse on a mountain lake by Luca Bravo](https://unsplash.com/photos/brown-house-near-body-of-water-zAjdgNXsMeg), under the [Unsplash Licence](https://unsplash.com/license), already verified 2026-10-29. Bundled at 2752 pixels wide, JPEG quality 85. Home applies 65% saturation and 62% global dimming without global blur; native clear glass supplies refraction. No new image is downloaded. This supersedes the forest/coast Home trials; other licensed photo uses remain.
