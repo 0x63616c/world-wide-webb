@@ -1051,7 +1051,7 @@ xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
 
 `-hybridFixtures` uses `Fixtures/wifi/hybrid.json`, a synthetic secured network;
 no home configuration or credentials are read. Routing tests also cover open,
-unconfigured, malformed and missing-endpoint responses. Vision decodes the QR
+unconfigured, malformed and missing-endpoint responses. CoreImage decodes the QR
 and compares it with the original payload without logging credentials.
 
 Before opting in on the wall, launch with `-moduleFlag.wifi native` **without**

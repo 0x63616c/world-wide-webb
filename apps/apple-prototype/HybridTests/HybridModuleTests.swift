@@ -1,7 +1,7 @@
 import PanelKit
 import SwiftUI
 import UIKit
-import Vision
+import CoreImage
 import XCTest
 @testable import Panel
 
@@ -111,12 +111,14 @@ import XCTest
     }
 
     private func assertDecodes(_ payload: String, image: CGImage? = nil) throws {
-        let request = VNDetectBarcodesRequest()
-        request.symbologies = [.qr]
         let code = try XCTUnwrap(image ?? GuestWifiCode.render(payload: payload))
-        try VNImageRequestHandler(cgImage: code).perform([request])
+        let source = CIImage(cgImage: code)
+        let readable = image == nil ? source.transformed(by: CGAffineTransform(scaleX: 10, y: 10)) : source
+        let detector = try XCTUnwrap(CIDetector(ofType: CIDetectorTypeQRCode, context: CIContext(),
+            options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]))
+        let decoded = (detector.features(in: readable).first as? CIQRCodeFeature)?.messageString
         // Avoid including join credentials in XCTest diagnostics.
-        XCTAssertTrue(request.results?.first?.payloadStringValue == payload, "QR must encode the exact server payload.")
+        XCTAssertTrue(decoded == payload, "QR must encode the exact server payload.")
     }
 
     private func fixtureStore() throws -> (LiveHomeDataSource, HybridFixtureTransport) {
