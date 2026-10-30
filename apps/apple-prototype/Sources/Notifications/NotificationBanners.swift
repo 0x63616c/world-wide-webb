@@ -49,6 +49,7 @@ struct NotificationBanners: View {
             .frame(maxWidth: typeSize.isAccessibilitySize ? 720 : 480)
             .padding(.horizontal, 24).padding(.top, 12)
         }
+        .allowsHitTesting(!visible.isEmpty || center.lastError != nil)
         .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.36, bounce: 0.15), value: visible)
         .sensoryFeedback(.impact(weight: .light), trigger: center.arrivalFeedback)
         .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: center.dismissFeedback)

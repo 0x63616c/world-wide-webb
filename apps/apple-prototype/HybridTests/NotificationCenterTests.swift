@@ -141,6 +141,7 @@ import PanelKit
     func testRoutesAndGestures() {
         XCTAssertEqual(PanelNotifications.module(for: "module/events/alarms"), .alarms)
         XCTAssertEqual(PanelNotifications.module(for: "module/ctrl"), .lights)
+        XCTAssertNil(PanelNotifications.module(for: "module/wakes")) // Activity is not Dog Walk.
         XCTAssertNil(PanelNotifications.module(for: "module/unknown"))
         XCTAssertNil(PanelNotifications.module(for: "module/lights/../alarms"))
         XCTAssertNil(PanelNotifications.module(for: "https://example.com"))

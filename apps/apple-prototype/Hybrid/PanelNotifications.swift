@@ -41,7 +41,7 @@ import PanelKit
         case "ac": return .climate
         case "sound": return .sonos
         case "booth": return .photos
-        case "wakes", "walks": return .walk
+        case "walks": return .walk
         case "events" where segments.count > 2 && segments[2] == "alarms": return .alarms
         default: return PanelModule(rawValue: id).flatMap { $0 == .all ? nil : $0 }
         }

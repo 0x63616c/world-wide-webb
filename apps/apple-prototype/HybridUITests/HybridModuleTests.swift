@@ -24,6 +24,11 @@ final class HybridModuleTests: XCTestCase {
                 XCTAssertTrue(app.staticTexts["Walk history"].exists)
             }
             capture("\(module)-detail")
+            if module == "wifi" {
+                // Wi-Fi details use the existing full-screen QR presentation.
+                let qr = app.buttons["wifi-fullscreen-qr"]
+                if qr.waitForExistence(timeout: 5) { qr.tap() }
+            }
             app.buttons["module-all"].tap()
             XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
             let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
