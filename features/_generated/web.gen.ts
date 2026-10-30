@@ -8,6 +8,7 @@ import boothManifest from "../booth/manifest";
 import camerasManifest from "../cameras/manifest";
 import ctrlManifest from "../ctrl/manifest";
 import eventsManifest from "../events/manifest";
+import notificationsManifest from "../notifications/manifest";
 import releasesManifest from "../releases/manifest";
 import soundManifest from "../sound/manifest";
 import teslaManifest from "../tesla/manifest";
@@ -27,6 +28,7 @@ const manifests = [
   camerasManifest,
   ctrlManifest,
   eventsManifest,
+  notificationsManifest,
   releasesManifest,
   soundManifest,
   teslaManifest,

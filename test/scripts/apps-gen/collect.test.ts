@@ -169,6 +169,7 @@ it("collect() sources worker cycles from owning App facets", () => {
     "climate-enforcer",
     "device-sync",
     "light-enforcer",
+    "notifications-prune",
     "party-mode",
     "weather-ingest",
     "weather-purge",

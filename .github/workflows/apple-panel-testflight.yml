@@ -7,7 +7,7 @@ on:
       ref:
         description: Native source ref (must contain the hybrid Panel target)
         type: string
-        default: WWW-8-apple-prototype
+        default: main
         required: true
       regenerate_profiles:
         description: Regenerate signing profiles once after an App ID capability change
@@ -61,7 +61,7 @@ jobs:
           brew install xcodegen
           ruby -ryaml -e '
             spec = YAML.load_file("native/apps/apple-prototype/project.yml")
-            panel = spec.fetch("targets").fetch("Panel") { abort "Selected ref has no Panel target; use WWW-18-hybrid-shell until it merges into WWW-8-apple-prototype." }
+            panel = spec.fetch("targets").fetch("Panel") { abort "Selected ref has no Panel target; use a ref that contains the hybrid Panel target (main)." }
             required = panel["deploymentTarget"] || spec.dig("options", "deploymentTarget", "iOS")
             sdk = `xcrun --sdk iphoneos --show-sdk-version`.strip
             abort "Native Panel requires iOS #{required}, but installed SDK is #{sdk}; update the runner/Xcode image." if Gem::Version.new(required.to_s) > Gem::Version.new(sdk)
