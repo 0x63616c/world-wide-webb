@@ -1148,3 +1148,10 @@ track, and the third verifies web fallback. Fixture writes fail closed unless a
 unit test explicitly supplies an acknowledgement. Unit tests cover decoding,
 exact mutations, coordinator seeking, TV regrouping, calibration/locks, failed
 writes and recovery. `HybridModuleTests` captures native screens at 1366×1024.
+
+Verification (2026-10-30): on the shared Mac with Xcode 27.0, `PanelKit/swift test`
+passed 15 XCTest + 65 Swift Testing tests. One serialized `xcodebuild test -scheme
+Panel -only-testing:PanelTests -only-testing:WorldWideWebbTests/LiveSonosProviderTests`
+run passed 94 Panel + 16 provider tests on the job-owned iPad simulator. Captures
+live under `docs/screenshots/WWW-30/` in the repo root; they use synthetic transport
+responses, not the wall.
