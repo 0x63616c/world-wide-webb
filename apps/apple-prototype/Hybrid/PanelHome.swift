@@ -22,6 +22,7 @@ extension HomeTile {
 }
 
 struct PanelHome: View {
+    @Environment(\.motionPhase) private var inheritedMotionPhase
     @State private var presentation: PanelHomePresentation
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
@@ -33,6 +34,7 @@ struct PanelHome: View {
     var body: some View {
         HomeView(store: presentation.store)
             .environment(\.homeIntegration, presentation)
+            .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("native-home")
             .overlay(alignment: .bottomTrailing) {
@@ -42,6 +44,16 @@ struct PanelHome: View {
                 }.buttonStyle(.glass).accessibilityIdentifier("home-classic").padding(20)
             }
     }
+    // The snapshot seam pauses decorative loops in fixture runs so XCTest can
+    // become idle and the shared simulator does not render them continuously.
+    private static var fixtureMotionPhase: Double? {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-hybridFixtures") ? 0 : nil
+        #else
+        nil
+        #endif
+    }
+
 }
 
 @MainActor private final class PanelHomePresentation: HomeIntegration {
@@ -59,6 +71,16 @@ struct PanelHome: View {
         self.router = router
         self.navigation = navigation
         self.updates = updates
+    }
+
+    func prepareToOpen(_ tile: HomeTile) -> Bool {
+        let module = tile.panelModule
+        let ready = store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
+        guard router.route(for: module, hasLiveData: ready) == .native(module) else {
+            navigation.openClassic()
+            return false
+        }
+        return true
     }
 
     func available(_ tile: HomeTile) -> Bool { store.hasLiveData(for: tile.panelModule) }

@@ -68,7 +68,8 @@ provider returns its open controller to Classic. `all` always means the complete
 web board. `-moduleFlag.lights native` overrides the launch's UserDefaults;
 `default` uses the shipped value and invalid values fall back to `web`.
 
-`HomeIntegration` supplies optional tile and destination hooks. Hybrid owns live
+`HomeIntegration` supplies optional tile, preflight routing and destination hooks.
+Web fallbacks select Classic before starting a native cover transition. Hybrid owns live
 adapters, Classic, the alarm ring overlay, deep links and UpdateBanner; Sources
 keeps the design layout and zoom transitions. Ringing and updates are also shown
 above Home's full-screen controllers. `controlcenter://alarms` retains its native
@@ -78,7 +79,8 @@ still render `Color.clear` without starting WebKit or providers.
 `HomeViewLaunchTests` covers launch → HomeView → Classic → Home, unavailable
 readings and the Settings rollback. Existing Hybrid UI suites enter from Home
 before exercising their provider/controller paths. `Panel-Smoke` reaches the real
-offline recovery screen through Classic. Captures are synthetic XCTest attachments,
+offline recovery screen through Classic. Fixture runs freeze decorative animation through the existing `motionPhase` seam
+while keeping interactive transitions. Captures are synthetic XCTest attachments,
 not committed binaries; authenticated production rendering remains a device check.
 
 ### Live composition (WWW-44)

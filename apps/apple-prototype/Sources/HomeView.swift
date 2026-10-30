@@ -190,6 +190,7 @@ struct HomeView: View {
         HomeGlassFace(store: store, size: size, controls: controls, zoom: zoom, open: open, faceSelection: $facePage)
     }
     private func open(_ tile: HomeTile) {
+        guard integration?.prepareToOpen(tile) ?? true else { return }
         selected = tile == .clock ? .alarm : tile
     }
 }
