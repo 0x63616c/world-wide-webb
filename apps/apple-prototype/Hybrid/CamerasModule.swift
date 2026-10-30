@@ -56,7 +56,9 @@ struct CamerasModule: View {
     private func cameraButton(_ feed: CameraFeed) -> some View {
         Button {
             if detail { selected = feed.id } else { open() }
-        } label: { frame(feed) }
+        } label: {
+            frame(feed).contentShape(.rect)
+        }
         .buttonStyle(.plain)
         .accessibilityLabel("Open \(feed.name)")
         .accessibilityValue(provider.updatedAt[feed.id].map {
