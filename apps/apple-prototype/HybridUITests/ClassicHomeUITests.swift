@@ -12,16 +12,15 @@ final class ClassicHomeUITests: XCTestCase {
         XCTAssertFalse(app.buttons["module-all"].exists)
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
-        if !classic.isHittable { app.swipeUp() }
         capture("classic-home")
         classic.tap()
         assertWebAndReturn(app)
         XCTAssertTrue(classic.waitForExistence(timeout: 10))
-        app.buttons["home-wifi"].tap() // Web by default, even with native Lights.
+        app.openHomeModule("wifi") // Web by default, even with native Lights.
         assertWebAndReturn(app)
         XCTAssertTrue(classic.waitForExistence(timeout: 10))
-        app.buttons["home-lights"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["native-lights-tile"].firstMatch.waitForExistence(timeout: 30))
+        app.openHomeModule("lights")
+        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 30))
         app.buttons["module-home"].tap()
         XCTAssertTrue(classic.waitForExistence(timeout: 10))
         app.terminate()
