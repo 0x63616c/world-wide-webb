@@ -183,6 +183,12 @@ import PanelKit
         await store.refresh(.lights)
         XCTAssertEqual(store.lamps.scene, "Unavailable")
         XCTAssertEqual(store.lamps.lampColors, Array(repeating: "#000000", count: 8))
+        await transport.setFixture("all-on.json", for: "controls.list")
+        await store.refresh(.lights)
+        XCTAssertEqual(store.lamps.scene, "White")
+        await transport.setFixture("null-scene.json", for: "controls.list")
+        await store.refresh(.lights)
+        XCTAssertEqual(store.lamps.scene, "Unavailable") // A later null must also clear the previous scene.
         await transport.setFixture("pending.json", for: "controls.list")
         await store.refresh(.lights)
         let expected = Set(store.lightsProvider.pending.filter { $0 != "fan" }.map {

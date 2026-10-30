@@ -104,6 +104,8 @@ The exact edits are:
   fan does not require an invented HVAC mode.
 - `Live/LiveLightsProvider.swift`: its initializer accepts `initialLamps`, defaulting
   to the existing fixture state; Panel supplies neutral unavailable state instead.
+  Each snapshot resets a missing scene/color slot to that injected fallback, so
+  later null fields cannot retain a previous scene or saved color.
 - `WeatherViews.swift`: the two current-condition glyphs read the injected symbol.
 - `ModulePages.swift`: `WeatherPage`'s current-condition glyph reads that symbol.
 - `SonosRoomsPage.swift`: the group label reads the injected coordinator display

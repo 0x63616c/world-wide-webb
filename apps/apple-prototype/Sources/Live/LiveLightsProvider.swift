@@ -19,6 +19,7 @@ import PanelKit
     private(set) var pending: Set<String> = []
 
     @ObservationIgnored private let api: LightsAPI
+    @ObservationIgnored private let fallbackLamps: LampState
     @ObservationIgnored private var serverState: ControlsState?
     @ObservationIgnored private var confirmedLamps = LampState()
     @ObservationIgnored private var confirmedFan: Bool?
@@ -32,6 +33,7 @@ import PanelKit
 
     init(api: LightsAPI, initialLamps: LampState = LampState()) {
         self.api = api
+        fallbackLamps = initialLamps
         lamps = initialLamps
         confirmedLamps = initialLamps
     }
@@ -162,10 +164,11 @@ import PanelKit
         confirmedLamps.cabinet = state.cabinet.on
         confirmedLamps.brightness = state.lamps.brightness
         confirmedLamps.kelvin = state.lamps.whiteKelvin
+        confirmedLamps.colors = fallbackLamps.colors
         for color in state.lamps.savedColors {
             if let index = Self.slots.firstIndex(of: color.slot) { confirmedLamps.colors[index] = color.hex }
         }
-        if let scene = state.lamps.activeScene { confirmedLamps.scene = scene.rawValue.capitalized }
+        confirmedLamps.scene = state.lamps.activeScene?.rawValue.capitalized ?? fallbackLamps.scene
         // Neither selected saved-color slot, per-lamp RGB, nor party speed is in controls.list.
         confirmedLamps.activeColor = nil
         confirmedLamps.party = state.lamps.activeScene == .party ? acknowledgedPartySpeed : .off
