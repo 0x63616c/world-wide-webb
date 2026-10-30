@@ -5,6 +5,7 @@
 import { mergeRouters } from "@app-kit/server";
 import { api as acApi } from "../ac/api";
 import { api as boothApi } from "../booth/api";
+import { api as camerasApi } from "../cameras/api";
 import { api as ctrlApi } from "../ctrl/api";
 import { api as eventsApi } from "../events/api";
 import { api as releasesApi } from "../releases/api";
@@ -15,4 +16,4 @@ import { api as walksApi } from "../walks/api";
 import { api as weatherApi } from "../weather/api";
 import { api as wifiApi } from "../wifi/api";
 
-export const featureAppRouter = mergeRouters(acApi, boothApi, ctrlApi, eventsApi, releasesApi, soundApi, teslaApi, wakesApi, walksApi, weatherApi, wifiApi);
+export const featureAppRouter = mergeRouters(acApi, boothApi, camerasApi, ctrlApi, eventsApi, releasesApi, soundApi, teslaApi, wakesApi, walksApi, weatherApi, wifiApi);
