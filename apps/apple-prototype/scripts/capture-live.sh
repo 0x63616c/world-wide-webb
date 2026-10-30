@@ -9,6 +9,7 @@ export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
 ipad=A0ECBA0E-5E14-4DE2-ACD7-7C2A5EA0AFBF
 phone=BC914470-C6AF-4F53-9F85-5B0967309F68
 app=co.worldwidewebb.prototype.ipad
+app_path="${WWW8_APP_PATH:-$HOME/wwwebb-proto-dd/Build/Products/Debug-iphonesimulator/WorldWideWebb-iPad.app}"
 out="${WWW8_CAPTURE_OUT:-$HOME/wwwebb-proto-snapshots}"
 mkdir -p "$out/repeat"
 [[ -f "$out/determinism.tsv" ]] || printf 'screen\tmean_absolute_diff_255\tresult\n' > "$out/determinism.tsv"
@@ -25,7 +26,7 @@ prepare() {
   xcrun simctl ui "$device" increase_contrast disabled
   xcrun simctl ui "$device" content_size large
   if [[ "$device" != "$ipad" || "${ipad_installed:-0}" != 1 ]]; then
-    xcrun simctl install "$device" "$HOME/wwwebb-proto-dd/Build/Products/Debug-iphonesimulator/WorldWideWebb-iPad.app"
+    xcrun simctl install "$device" "$app_path"
   fi
   xcrun simctl status_bar "$device" override --time '10:10' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
   # SpringBoard reference so captures of the home screen are rejected.

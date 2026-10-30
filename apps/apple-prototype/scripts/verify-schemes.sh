@@ -4,12 +4,19 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
-out="$HOME/wwwebb-proto-snapshots/${1:-scheme-verification}"
+out="${WWW8_VERIFY_OUT:-$HOME/wwwebb-proto-snapshots}/${1:-scheme-verification}"
 mkdir -p "$out"
 /opt/homebrew/bin/xcodegen generate > "$out/generate.log" || exit 1
 status=0
 destination='platform=iOS Simulator,id=A0ECBA0E-5E14-4DE2-ACD7-7C2A5EA0AFBF'
 derived_data() {
+  if [[ -n "${WWW8_DD_ROOT:-}" ]]; then
+    case "$1" in
+      WorldWideWebb-iPad|WorldWideWebb-Snapshots) echo "$WWW8_DD_ROOT/prototype" ;;
+      *) echo "$WWW8_DD_ROOT/$1" ;;
+    esac
+    return
+  fi
   case "$1" in
     WorldWideWebb) echo "$HOME/wwwebb-proto-mac-dd" ;;
     Panel) echo "$HOME/wwwebb-proto-panel-dd" ;;
