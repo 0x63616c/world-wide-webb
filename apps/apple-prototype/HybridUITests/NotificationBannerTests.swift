@@ -56,7 +56,7 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testAutoTimeoutAndCriticalRemainOnWebFallback() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationStack"]
+        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationStack", "-hybrid.webOnly", "YES"]
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-climate"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForNonExistence(timeout: 40))
