@@ -291,3 +291,11 @@ DogWalkApp adds a wide Walk Zero tile on Home · More, a full-screen history wit
 The iOS app embeds `WalkActivityExtension` via project.yml. Lock Screen, compact/minimal and expanded Dynamic Island content use the shared startedAt and deep-link to history. Local observation synchronizes ActivityKit when the active record changes. The simulator preview is explicitly labelled and is not represented as a SpringBoard capture. Backend persistence, cross-device networking and push tokens remain follow-ups, matching the Sonos seek limitation in §6.
 
 Validation: DogWalkProviderTests covers elapsed time, negative-clock clamping, remote start/stop, two clients sharing one active record, idempotent completion, fixture history and chart summaries. HomeFaceLayoutTests covers both faces, every module's reachability, safe margins, equal gutters and no overlapping frames on iPad and iPhone.
+
+### Pass 6 phone and instrument layout
+
+Phone Home keeps its 80-point reserved pager band but the visible glass capsule is 56 points. A 16-point bottom fade applies to scrolling content only; the shared photographic wallpaper remains continuous behind the face and pager. Compact cards use 36-point concentric corners. The same HomeFaceLayout frames and safe-margin/gutter tests still drive both Home pages.
+
+Walk Zero exposes a visible History affordance separately from its 72-point circular Start/End action. The full-screen active state labels its 64-point elapsed value and places the origin device on a separate line. The provider and backend ownership described in §5b are unchanged.
+
+`verify-schemes.sh` generates the project and builds all five explicit schemes. It runs every available test action, with the simulator phase under www8-simlock and isolated Panel/Panel-Smoke build products (a smoke build otherwise strips the unit-test plugin). The macOS application scheme has no test action.

@@ -26,16 +26,16 @@ struct NowPlayingView: View {
                             CircleButton(symbol: "hifispeaker.2.fill", label: "Rooms and groups", size: compact ? 44 : 64) { choosingRoom = true }
                         }.padding(.horizontal, compact ? 20 : 40).padding(.top, compact ? 16 : 32)
                         Spacer(minLength: 18)
-                        artwork(room).frame(width: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 480, height: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 480)
+                        artwork(room).frame(width: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 440, height: compact ? min(proxy.size.width - 64, proxy.size.height * 0.39) : 440)
                             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                             .shadow(color: .black.opacity(0.28), radius: 36, y: 20)
                         VStack(alignment: .leading, spacing: 7) {
                             Text(room.trackTitle ?? room.sourceLabel ?? "Nothing playing")
                                 .font(.system(size: compact ? 25 : 32, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                             Text(room.trackArtist ?? " ").font(.system(size: compact ? 19 : 23)).foregroundStyle(.secondary)
-                        }.frame(width: compact ? proxy.size.width - 48 : 480, alignment: .leading).padding(.top, compact ? 16 : 20)
+                        }.frame(width: compact ? proxy.size.width - 48 : 440, alignment: .leading).padding(.top, compact ? 16 : 20)
                         PlaybackScrubber(store: store, room: room)
-                            .frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, compact ? 14 : 18)
+                            .frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, compact ? 14 : 18)
                         HStack(spacing: compact ? 30 : 76) {
                             transport("backward.fill", label: "Previous track", command: .previous, room: room)
                             transport(room.playing ? "pause.fill" : "play.fill", label: room.playing ? "Pause" : "Play", command: room.playing ? .pause : .play, room: room, large: true)
@@ -55,9 +55,9 @@ struct NowPlayingView: View {
                                 Spacer()
                                 Text("\(room.rawVolume)%").monospacedDigit()
                             }.font(.system(size: 15, weight: .medium)).foregroundStyle(.secondary)
-                        }.frame(width: compact ? proxy.size.width - 48 : 480).padding(.top, 8)
+                        }.frame(width: compact ? proxy.size.width - 48 : 440).padding(.top, 8)
                         Spacer(minLength: compact ? 16 : 24)
-                    }
+                    }.padding(.bottom, isFace && !compact ? HomeFaceLayout.panelPagerBand : 0)
                 }.frame(width: proxy.size.width, height: proxy.size.height)
             } else {
                 Color.black.overlay(Text("No rooms available").font(.largeTitle))

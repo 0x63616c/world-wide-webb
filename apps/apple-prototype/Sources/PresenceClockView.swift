@@ -48,18 +48,20 @@ struct PresenceClockFace: View {
                 }
                 VStack {
                     Spacer()
-                    if near {
-                        Button { open(.alarm) } label: {
-                            Label(alarmCaption, systemImage: "alarm.fill").font(.system(size: compact ? 17 : 22, weight: .medium))
-                                .padding(.horizontal, 24).frame(height: 52)
-                        }.buttonStyle(.plain).padding(.bottom, compact ? 72 : 66)
-                    }
-                }
-                if !compact {
-                    Text(fixtureTime(store.now, format: "EEE d").uppercased())
-                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(.black)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(.leading, 64).padding(.bottom, 36)
+                    HStack(alignment: .firstTextBaseline) {
+                        if !compact {
+                            Text(fixtureTime(store.now, format: "EEE d").uppercased())
+                                .font(.system(size: 22, weight: .semibold)).foregroundStyle(.black)
+                        }
+                        Spacer()
+                        if near {
+                            Button { open(.alarm) } label: {
+                                Label(alarmCaption, systemImage: "alarm.fill")
+                                    .font(.system(size: compact ? 17 : 22, weight: .medium))
+                            }.buttonStyle(.plain)
+                        }
+                    }.padding(.horizontal, compact ? 24 : 64)
+                        .padding(.bottom, compact ? 72 : 88)
                 }
             }.clipped()
         }.ignoresSafeArea()
@@ -86,7 +88,7 @@ struct PresenceClockFace: View {
     private func smallComplication(symbol: String, value: String, label: String, tile: HomeTile) -> some View {
         Button { open(tile) } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: symbol).font(.system(size: 28, weight: .medium)).symbolRenderingMode(.hierarchical)
+                Image(systemName: symbol).font(.system(size: 28, weight: .medium)).symbolRenderingMode(.monochrome)
                 Text(value).font(.system(size: sizeClass == .compact ? 26 : 44, weight: .medium, design: .rounded)).monospacedDigit()
                 Text(label).font(.system(size: sizeClass == .compact ? 13 : 20, weight: .regular)).foregroundStyle(.primary)
             }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading)

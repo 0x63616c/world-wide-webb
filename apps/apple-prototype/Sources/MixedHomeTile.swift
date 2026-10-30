@@ -33,14 +33,16 @@ struct MixedTileMaterial: ViewModifier {
     let round: Bool
     let on: Bool
     var imageContent = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var radius: CGFloat { sizeClass == .compact ? 36 : 56 }
     func body(content: Content) -> some View {
         let glass = imageContent ? Glass.clear : on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90)) : Glass.regular
         Group {
         if round {
             content.glassEffect(glass.interactive(), in: .circle)
         } else {
-            content.glassEffect(glass.interactive(), in: .rect(cornerRadius: 56))
-                .containerShape(.rect(cornerRadius: 56))
+            content.glassEffect(glass.interactive(), in: .rect(cornerRadius: radius))
+                .containerShape(.rect(cornerRadius: radius))
         }
         }.environment(\.colorScheme, on ? .light : .dark)
     }
@@ -62,7 +64,9 @@ struct MixedHomeTile: View {
             else if tile == .clock {
                 Button(action: open) { TileFace(tile: .clock, store: store, open: open) }.buttonStyle(.plain)
             } else { roundControl }
-        }.foregroundStyle(isOn ? .black : .white).accessibilityIdentifier("tile-\(tile.id)")
+        }.foregroundStyle(isOn ? .black : .white)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("tile-\(tile.id)")
     }
     private var climate: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -72,9 +76,10 @@ struct MixedHomeTile: View {
                     Spacer()
                     Image(systemName: "chevron.right").font(.system(size: 18, weight: .semibold))
                 }.font(.system(size: compact ? 20 : 26, weight: .semibold))
-            }.buttonStyle(.plain)
+                    .contentShape(.rect)
+            }.buttonStyle(.plain).accessibilityIdentifier("open-climate")
             Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
-                .font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+                .font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
             Spacer(minLength: 0)
             Button(action: open) {
                 Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)°" : "\(store.climate.target)°")
@@ -122,10 +127,10 @@ struct MixedHomeTile: View {
                         .clipShape(.rect(cornerRadius: compact ? 16 : 24))
                     VStack(alignment: .leading, spacing: 8) {
                         Text(room.trackTitle ?? "Nothing playing").font(.system(size: compact ? 18 : 25, weight: .semibold)).lineLimit(2)
-                        Text(room.trackArtist ?? "Sonos").font(.system(size: compact ? 14 : 18)).foregroundStyle(.secondary)
+                        Text(room.trackArtist ?? "Sonos").font(.system(size: compact ? 15 : 24)).foregroundStyle(.primary).lineLimit(1)
                         HStack(spacing: 8) {
                             PlayingEqualizer(playing: room.playing).scaleEffect(0.65).frame(width: 24, height: 20)
-                            Text("Living Room").font(.system(size: compact ? 13 : 16)).foregroundStyle(.secondary)
+                            Text("Living Room").font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -140,10 +145,10 @@ struct MixedHomeTile: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text("\(store.tesla.data.pct)%").font(.system(size: compact ? 32 : 48, weight: .medium, design: .rounded)).monospacedDigit()
-                        Text("\(store.tesla.data.range) mi").font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+                        Text("\(store.tesla.data.range) mi").font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
                     }
                     Text("Car · \(store.tesla.data.name)").font(.system(size: compact ? 16 : 22, weight: .semibold))
-                    Label(store.tesla.data.charging ? "Charging · \(store.tesla.data.rate.formatted()) kW" : store.tesla.data.chargingState.capitalized, systemImage: store.tesla.data.charging ? "bolt.fill" : "battery.75percent").font(.system(size: compact ? 13 : 17)).foregroundStyle(store.tesla.data.charging ? .green : .white)
+                    Label(store.tesla.data.charging ? "Charging · \(store.tesla.data.rate.formatted()) kW" : store.tesla.data.chargingState.capitalized, systemImage: store.tesla.data.charging ? "bolt.fill" : "battery.75percent").font(.system(size: compact ? 14 : 24)).foregroundStyle(store.tesla.data.charging ? .green : .white)
                 }
                 Spacer(minLength: 0)
             }.padding(compact ? 20 : 32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -160,13 +165,14 @@ struct MixedHomeTile: View {
                 }.font(.system(size: compact ? 32 : 46, weight: .regular)).symbolRenderingMode(.hierarchical)
                     .foregroundStyle(isOn ? .orange : .white).frame(width: 64, height: 64)
             }.buttonStyle(.plain).accessibilityLabel(tile == .wifi ? "Open Guest Wi-Fi" : "Toggle \(tile.title)")
+                .accessibilityIdentifier("toggle-\(tile.id)").accessibilityValue(isOn ? "On" : "Off")
             Button(action: open) {
                 VStack(spacing: 5) {
                     Text(tile == .wifi ? "Guest Wi-Fi" : tile == .all ? "All lights" : tile == .fan ? "Fan" : tile == .cabinet ? "Cabinet" : tile.title)
                         .font(.system(size: compact ? 16 : 22, weight: .semibold)).lineLimit(1)
                     Text(tile == .wifi ? "Tap to join" : tile == .fan ? store.climate.fanLabel : tile == .all && !isOn && (store.lamps.anyOn || store.lamps.ceiling || store.lamps.cabinet) ? "Some on" : isOn ? "On" : "Off")
                         .font(.system(size: compact ? 13 : 18)).foregroundStyle(.secondary)
-                }
+                }.contentShape(.rect)
             }.buttonStyle(.plain)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }

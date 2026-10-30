@@ -78,7 +78,10 @@ struct TeslaChargeComplication: View {
             Gauge(value: Double(provider.data.pct), in: 0...100) {
                 Image(systemName: "bolt.fill")
             } currentValueLabel: {
-                Text("\(provider.data.pct)").font(.system(size: 24, weight: .semibold, design: .rounded))
+                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                    Text("\(provider.data.pct)").font(.system(size: 24, weight: .medium, design: .rounded))
+                    Text("%").font(.system(size: 12, weight: .medium, design: .rounded))
+                }
             }.gaugeStyle(.accessoryCircularCapacity).tint(accented ? .white : .green)
                 .scaleEffect(sizeClass == .compact ? 1.0 : 1.2).frame(width: sizeClass == .compact ? 64 : 80, height: sizeClass == .compact ? 64 : 80)
             Text(provider.availability == .online ? (provider.data.charging ? "Car · Charging" : "Car") : provider.availability.rawValue.capitalized)

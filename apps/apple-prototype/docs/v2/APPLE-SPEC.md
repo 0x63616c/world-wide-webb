@@ -145,3 +145,15 @@ DogWalkApp has generic three-week fixture history, weekly minutes/average/streak
 Home, Lamps and clock-near retain the >=9 review gate. Dog Walk tile/history, remote state and Live Activity preview require >=8.5 along with the newly added module pages. Full-screen Weather/Calendar/Media/Sonos/Cameras/Photos are being refined independently; their Home tiles remain part of this pass.
 
 Pass 5b phone chrome reserves an 80-point pager band (supersedes 64), with 8-point inner top/bottom caption padding; the solver keeps the final content margin above that band. Room power uses a standard Toggle, separate from member disclosure. The global brightness value includes the partial-on count.
+
+## Pass 6 composition refinements
+
+The authoritative review is review-5b-orch.md. The 80-point phone pager band stays reserved; its visible glass capsule is 56 points high and the scroll content fades over the final 16 points onto one continuous photo backdrop. Compact rectangular tiles use 36-point corners; circles keep their tested diameters and gutters. The photograph uses a restrained 2-point blur so the system glass has image detail to refract.
+
+Wide-tile metadata uses 24-point panel text; Sonos Rooms uses 20-point playback states and an explicit “All 5 rooms ›” link. Walk Zero separates “History ›” from a 72-point circular Start/End action. An active walk’s full-screen page has a 64-point monospaced elapsed value, a 20-point Elapsed label and a separate originating-device line. History timestamps are 20 points and the period control reserves 48 points. Compact history removes the redundant page headline.
+
+Lamps centres the brightness value over its 224-point fader, with the partial-on count on a separate line and one global-scope instruction. Clock date and alarm share the footer baseline above the pager, and the car ring includes a percent unit. Now Playing uses 440-point artwork and reserves the 80-point pager band beneath its content stack. These are measured prototype choices from the review, not claimed Apple HIG requirements.
+
+The ship gate includes iPhone Home at ≥9.0 along with iPad Home, Lamps and clock-near. Other owned pages/states require ≥8.5. Captures must use the shared simulator lock and pass the blank/SpringBoard validator. Independent review uses the unchanged REVIEW-PROMPT-orch.txt.
+
+Pager dots retain their small visual marks inside 44×44-point rectangular hit targets. A tile header’s complete row is tappable, including the space between its label and disclosure.

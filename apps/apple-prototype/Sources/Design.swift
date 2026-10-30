@@ -27,9 +27,9 @@ struct Wallpaper: View {
     var body: some View {
         GeometryReader { proxy in
             Image("LakeWallpaper").resizable().scaledToFill()
-                .blur(radius: 8)
+                .blur(radius: 2)
                 .frame(width: proxy.size.width, height: proxy.size.height).clipped()
-                .overlay(.black.opacity(0.32))
+                .overlay(.black.opacity(0.18))
         }.ignoresSafeArea()
     }
 }

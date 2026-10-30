@@ -185,12 +185,12 @@ struct HomeView: View {
 struct PhoneFaceBar: View {
     @Binding var selection: Int
     var body: some View {
-        VStack(spacing: 0) {
-            FacePicker(selection: $selection).padding(.horizontal, 16)
+        VStack(spacing: 6) {
+            FacePicker(selection: $selection)
+                .padding(.horizontal, 12).frame(height: 56)
+                .glassEffect(.regular, in: .capsule)
             Text("Fixture data").font(.system(size: 10)).foregroundStyle(.secondary)
-        }.padding(.vertical, 8)
-            .glassEffect(.regular, in: .capsule)
-            .frame(height: HomeFaceLayout.phonePagerBand)
+        }.frame(height: HomeFaceLayout.phonePagerBand)
     }
 }
 // Shared by the live pager and the fast snapshot target; no duplicate visual layout.
@@ -203,7 +203,8 @@ struct FacePicker: View {
             ForEach(0..<4) { page in
                 Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { selection = page } } label: {
                     Circle().fill(.white.opacity(selection == page ? 0.95 : 0.3))
-                        .frame(width: 8, height: 8).frame(width: sizeClass == .compact ? 44 : 30, height: sizeClass == .compact ? 44 : 34)
+                        .frame(width: 8, height: 8).frame(width: 44, height: 44)
+                        .contentShape(.rect)
                 }.buttonStyle(.plain)
                     .accessibilityLabel(["Home face", "Home more face", "Clock face", "Music face"][page])
                     .accessibilityValue(selection == page ? "Selected" : "")

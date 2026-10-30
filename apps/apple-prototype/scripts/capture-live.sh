@@ -47,6 +47,11 @@ capture_once() {
   "$HOME/bin/www8-validate-png" "$out/sim-$name.png" "$out/.springboard-$device.png"
 }
 capture() {
+  # Optional named subset for rechecking a changed screen. The same lock,
+  # mounted-view readiness and PNG validator still apply to every capture.
+  if [[ -n "${WWW8_CAPTURE_ONLY:-}" && " $WWW8_CAPTURE_ONLY " != *" $2 "* ]]; then
+    return 0
+  fi
   local attempt
   for attempt in 1 2 3; do
     if capture_once "$@"; then return 0; fi

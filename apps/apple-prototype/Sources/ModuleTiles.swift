@@ -6,6 +6,7 @@ struct ModuleTile: View {
     let open: () -> Void
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
+    private var radius: CGFloat { compact ? 36 : 56 }
     var body: some View {
         Button(action: open) {
             Group {
@@ -27,8 +28,8 @@ struct ModuleTile: View {
                 default: EmptyView()
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(.rect(cornerRadius: 56))
-        }.buttonStyle(.plain).clipShape(ConcentricRectangle()).containerShape(.rect(cornerRadius: 56))
+                .contentShape(.rect(cornerRadius: radius))
+        }.buttonStyle(.plain).clipShape(ConcentricRectangle()).containerShape(.rect(cornerRadius: radius))
             .accessibilityLabel("Open \(tile.title)")
     }
     private var weather: some View {
@@ -42,8 +43,8 @@ struct ModuleTile: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 8) {
                     Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(.system(size: compact ? 30 : 40))
-                    Text(store.weather.condition).font(.system(size: compact ? 15 : 19, weight: .medium))
-                    Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: compact ? 14 : 18))
+                    Text(store.weather.condition).font(.system(size: compact ? 16 : 24, weight: .medium))
+                    Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: compact ? 15 : 24))
                 }
             }.padding(compact ? 24 : 32)
         }
@@ -51,14 +52,14 @@ struct ModuleTile: View {
     private var calendar: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(spacing: 0) {
-                Text(fixtureTime(store.now, format: "EEE").uppercased()).font(.system(size: compact ? 13 : 16, weight: .semibold)).foregroundStyle(.red)
+                Text(fixtureTime(store.now, format: "EEE").uppercased()).font(.system(size: compact ? 14 : 20, weight: .semibold)).foregroundStyle(.red)
                 Text(fixtureTime(store.now, format: "d")).font(.system(size: compact ? 44 : 60, weight: .light))
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("UP NEXT").font(.system(size: compact ? 11 : 13, weight: .semibold)).foregroundStyle(.secondary)
+                Text("UP NEXT").font(.system(size: compact ? 11 : 13, weight: .semibold)).foregroundStyle(.primary)
                 if let event = store.calendar.next(at: store.now) {
                     Text(event.title).font(.system(size: compact ? 20 : 25, weight: .semibold)).lineLimit(2)
-                    Text("\(event.time) \(event.period) · \(event.location)").font(.system(size: compact ? 14 : 18)).foregroundStyle(.secondary).lineLimit(2)
+                    Text("\(event.time) \(event.period) · \(event.location)").font(.system(size: compact ? 15 : 24)).foregroundStyle(.primary).lineLimit(2)
                 } else { Text("Nothing else today").font(.title3) }
             }
             Spacer(minLength: 0)
@@ -69,8 +70,8 @@ struct ModuleTile: View {
             FixtureArtwork(tint: "#485c85").frame(width: compact ? 80 : 112, height: compact ? 80 : 112).clipShape(.rect(cornerRadius: 24))
             VStack(alignment: .leading, spacing: 8) {
                 Text("Media").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                Text("Music & films").font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
-                Label("Browse library", systemImage: "play.fill").font(.system(size: compact ? 14 : 17))
+                Text("Music & films").font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
+                Label("Browse library", systemImage: "play.fill").font(.system(size: compact ? 14 : 20))
             }
             Spacer(minLength: 0)
         }.padding(compact ? 24 : 32)
@@ -83,13 +84,13 @@ struct ModuleTile: View {
                     HStack {
                         Text(room.name).font(.system(size: compact ? 16 : 19, weight: .medium))
                         Spacer(minLength: 0)
-                        Text("\(room.displayVolume)%").font(.system(size: compact ? 14 : 17)).monospacedDigit()
+                        Text("\(room.displayVolume)%").font(.system(size: compact ? 14 : 20)).monospacedDigit()
                     }
-                    Text(room.playing ? "Playing" : "Paused").font(.system(size: compact ? 13 : 16)).foregroundStyle(.secondary)
+                    Text(room.playing ? "Playing" : "Paused").font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
                 }
             }
             if !compact { Spacer(minLength: 0) }
-            Text("5 rooms · Manage audio").font(.system(size: compact ? 13 : 17)).foregroundStyle(.secondary)
+            Text("All 5 rooms ›").font(.system(size: compact ? 16 : 20, weight: .medium)).foregroundStyle(.primary)
         }.padding(compact ? 24 : 24)
     }
 }

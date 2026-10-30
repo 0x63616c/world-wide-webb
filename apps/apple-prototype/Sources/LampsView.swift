@@ -14,13 +14,11 @@ struct LampsController: View {
                 VStack(spacing: 24) {
                     VStack(spacing: 4) {
                         Text("Global brightness").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                        HStack(alignment: .firstTextBaseline, spacing: 16) {
                         Text("\(store.lamps.brightness)%")
                             .font(.system(size: compact ? 72 : 96, weight: .regular, design: .rounded)).monospacedDigit()
                             .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
                             .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
-                        Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 18, weight: .medium)).foregroundStyle(.secondary)
-                        }
+                        Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 20, weight: .medium)).foregroundStyle(.primary)
                         Text(store.lamps.anyOn ? "Adjust to turn all 8 lamps on" : "Turn on lamps to adjust")
                             .font(.system(size: compact ? 17 : 22)).foregroundStyle(.secondary)
                     }

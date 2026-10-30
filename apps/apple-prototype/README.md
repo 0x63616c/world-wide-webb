@@ -2,7 +2,7 @@
 
 Native SwiftUI study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8), targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
-## Iteration 5b
+## Iteration 6
 
 The iPad canvas is 1376×1032 points. Two Home pages use mixed 2×2, 2×1, 1×2 and circular 1×1 spans with 24-point gutters. The first shows Climate, global Lamps brightness, Weather, Tesla, Calendar, Now Playing and Fan. Home · More shows Cameras, Walk Zero, Photos, Media, Sonos Rooms and all five remaining round accessory shortcuts. Every tile opens a full-screen page with native zoom; accessory glyphs also toggle. Clock and Music remain separate faces.
 
@@ -46,7 +46,7 @@ xcodebuild -project WorldWideWebb.xcodeproj -scheme WorldWideWebb-Snapshots \
   CODE_SIGNING_ALLOWED=NO test-without-building
 ```
 
-These cover lamp membership/master semantics, climate bounds, optimistic commands, alarm occurrences, calibrated audio, Wi-Fi payload escaping and actual QR decoding, perimeter geometry and Tesla commands. Legacy UI tests have not been rerun or updated for iteration 3; they are not a claim of current interaction coverage.
+These cover lamp membership/master semantics, climate bounds, optimistic commands, alarm occurrences, calibrated audio, Wi-Fi payload escaping and actual QR decoding, perimeter geometry and Tesla commands. Pass 6 updates the UI suite for the two mixed Home pages, native room switches, join QR codes and the remote Walk Zero state. Run all explicit project schemes with `bash scripts/verify-schemes.sh`; simulator tests are serialized by the shared lock, while builds run outside it. Panel and Panel-Smoke use separate derived-data products so a smoke build cannot strip the unit-test plugin.
 
 Build the fixed Mac app without attempting to launch it on macOS 15:
 
@@ -128,4 +128,10 @@ The iOS app embeds `WalkActivityExtension` via project.yml. Lock Screen, compact
 
 Validation: DogWalkProviderTests covers elapsed time, negative-clock clamping, remote start/stop, two clients sharing one active record, idempotent completion, fixture history and chart summaries. HomeFaceLayoutTests covers both faces, every module's reachability, safe margins, equal gutters and no overlapping frames on iPad and iPhone.
 
-The live capture script waits for a `capture-ready` marker written by the mounted fixture UI, then takes a `simctl` screenshot. It fails if readiness never arrives; a fixed short sleep can capture SpringBoard on a loaded mini. iPad and iPhone capture sequentially using only this job’s simulator UDIDs. The current combined app suite passes all 81 tests after the PanelKit and live Sonos merges. Pass 5b has 25 inspected live captures under `docs/screenshots/v5/pass-5b/`; independent review scores Home 8.6, Lamps 9.0 and clock-near 8.8 (see `docs/v2/review-5b.md`).
+The live capture script waits for a `capture-ready` marker written by the mounted fixture UI, then takes a `simctl` screenshot. It fails if readiness never arrives; a fixed short sleep can capture SpringBoard on a loaded mini. iPad and iPhone capture sequentially using only this job’s simulator UDIDs. Pass 5b’s combined app suite passed all 81 tests after the PanelKit and live Sonos merges. Pass 5b has 25 inspected live captures under `docs/screenshots/v5/pass-5b/`; independent review scores Home 8.6, Lamps 9.0 and clock-near 8.8 (see `docs/v2/review-5b.md`).
+
+## Pass 6 visual refinement
+
+Compact cards use 36-point corners, an 80-point reserved pager band with a 56-point glass capsule, and a 16-point scroll fade over the continuous photo. Wide Home metadata is 24 points on iPad; Sonos room states and its explicit “All 5 rooms ›” link are 20 points. Walk Zero separates History from a 72-point circular Start/End action. Its active detail uses a labelled 64-point elapsed display with the origin device on a separate line; time still derives from the shared backend record. Lamps centres its value over the global fader, Clock aligns date/alarm above the pager, and Music reserves the pager band below its 440-point artwork/control stack.
+
+Pass evidence is under `docs/screenshots/v6/pass-6/` and the external `v2/pass-6/` directory. Pager marks have 44×44-point hit targets; the entire Climate disclosure row accepts a tap. Capture with the mandatory `scripts/capture-live.sh`, which takes the shared Mac simulator lock and retries invalid PNGs at most three times. The independent cold reviewer receives only validated live screenshots, references and APPLE-SPEC.md, using the unchanged orchestrator prompt.

@@ -10,6 +10,7 @@ struct CompactFace: View {
     var body: some View {
         GeometryReader { proxy in
             let layout = HomeFaceLayout.phone(in: proxy.size, controls: controls)
+            VStack(spacing: 0) {
             ScrollView {
                 GlassEffectContainer(spacing: 8) {
                     ZStack(alignment: .topLeading) {
@@ -25,9 +26,15 @@ struct CompactFace: View {
             }.scrollIndicators(.hidden)
                 .scrollEdgeEffectStyle(.soft, for: .all)
                 .defaultScrollAnchor(ProcessInfo.processInfo.arguments.contains("-homeScrollBottom") ? .bottom : .top)
-                .safeAreaBar(edge: .bottom, spacing: 0) {
-                    PhoneFaceBar(selection: faceSelection)
+                .mask {
+                    VStack(spacing: 0) {
+                        Rectangle()
+                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 16)
+                    }
                 }
+                PhoneFaceBar(selection: faceSelection)
+            }
         }
     }
     private func tile(_ tile: HomeTile, width: CGFloat, height: CGFloat, round: Bool = false) -> some View {
