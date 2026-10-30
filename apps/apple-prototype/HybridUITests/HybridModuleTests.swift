@@ -26,7 +26,10 @@ final class HybridModuleTests: XCTestCase {
             capture("\(module)-detail")
             app.buttons["module-all"].tap()
             XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
-            XCTAssertFalse(detail.exists)
+            let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                object: app.buttons["module-detail"])
+            XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 10), .completed)
+            capture("\(module)-web-return")
             app.terminate()
         }
     }
