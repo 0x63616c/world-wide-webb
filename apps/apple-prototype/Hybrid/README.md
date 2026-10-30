@@ -136,6 +136,53 @@ xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
   -hybridFixtures -moduleFlag.weather native
 ```
 
+## Tesla live provider (WWW-36)
+
+Tesla is opt-in: the new tesla module defaults to web, including shipped builds.
+It is not part of ModuleFlags.shippedNative. Settings > Panel > Car offers Web
+and Native, applied at next launch. The equivalent launch argument is
+-moduleFlag.tesla native; -moduleFlag.tesla web restores fallback.
+The global Web board only switch still wins. Select Car in the module strip
+when other native modules are enabled.
+
+PanelKit TeslaAPI reads tesla.state and posts tesla.command. LiveTeslaProvider
+conforms to the existing TeslaProvider without changing its protocol, mock,
+tile, or controller. Hybrid injects the provider and wraps the unchanged
+controller with lock/unlock and a full-page PIN confirmation. Every command
+requires a fresh six-digit panel PIN; cancellation, navigation away, or
+backgrounding clears the prompt. PINs are held only for the current submission,
+never stored in defaults/Keychain or put into URLs. Server verification uses the
+same persisted panel PIN and fails closed when settings cannot be read.
+
+Backend PR: https://github.com/0x63616c/world-wide-webb/pull/829 (separate main PR,
+left unmerged). Missing endpoint, unconfigured mapping, incomplete telemetry,
+network/HA failures, or stopped providers all route to web. Poll recovery
+restores the route only while the native flag is enabled. No mock data appears
+in live mode. HA acceptance does not optimistically alter battery, locks,
+charging, or climate: the provider re-reads reported state. Commands are never
+automatically retried. HA owns telemetry refresh timing; this module does not
+wake the vehicle.
+
+Fixture launch checks (use only a simulator owned by this job):
+
+    xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
+      -hybridFixtures -moduleFlag.tesla native
+
+Add -hybridDetail for the controller, or -hybridUnavailable to verify the web
+fallback. The fixture transport runs the real API decoder/provider using
+synthetic JSON and refuses all commands by default. For real rollout, configure
+the backend's optional TESLA_ENTITIES mapping and a persisted panel PIN, verify
+the HA integration, then launch without -hybridFixtures and opt in with
+-moduleFlag.tesla native. No Tesla credentials belong on the client.
+
+The only Sources file added by WWW-36 is Live/LiveTeslaProvider.swift. No
+existing design-worker Sources, UITests, scripts, or design docs are changed.
+The existing views require all numeric readings, so missing odometer/cabin
+temperature/power also falls back instead of rendering invented values.
+Location/name metadata is deliberately absent; the label is simply Tesla.
+Production HA integration presence and real vehicle command execution remain
+rollout checks, not claims made by fixture tests.
+
 ## Kiosk and bridge behavior
 
 - New launch / recovery URLs carry `boot=<generation>-<launchedAtMs>`, preserving

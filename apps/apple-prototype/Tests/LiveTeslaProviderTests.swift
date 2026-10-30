@@ -5,11 +5,18 @@ import XCTest
 
 private actor TeslaProviderTransport: PanelTransport {
     private var files: [String]
+    private var holdNext: Bool
+    private var continuation: CheckedContinuation<Void, Never>?
     private(set) var requests: [URLRequest] = []
-    init(_ files: [String]) { self.files = files }
+    init(_ files: [String], holdNext: Bool = false) { self.files = files; self.holdNext = holdNext }
+    func release() { continuation?.resume(); continuation = nil }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !files.isEmpty else { throw URLError(.notConnectedToInternet) }
+        if holdNext {
+            holdNext = false
+            await withCheckedContinuation { continuation = $0 }
+        }
         let url = Bundle(for: LiveTeslaProviderTests.self).resourceURL!
             .appendingPathComponent("Fixtures/tesla/\(files.removeFirst()).json")
         return (try Data(contentsOf: url), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
@@ -100,5 +107,33 @@ private actor TeslaProviderTransport: PanelTransport {
         XCTAssertEqual(live.snapshot?.locked, true)
         let count = await transport.requests.count
         XCTAssertEqual(count, 2)
+    }
+    func testStopDiscardsDelayedReadsAndClearsPINRequest() async {
+        let transport = TeslaProviderTransport(["ready"], holdNext: true)
+        let live = provider(transport)
+        let task = Task { await live.refresh() }
+        for _ in 0..<1000 {
+            if await transport.requests.count == 1 { break }
+            await Task.yield()
+        }
+        live.stop()
+        await transport.release()
+        await task.value
+        XCTAssertFalse(live.hasLiveData)
+        XCTAssertFalse(live.busy)
+        XCTAssertNil(live.snapshot)
+        XCTAssertNil(live.requestedAction)
+    }
+    func testInvalidPINNeverWritesAndMalformedAcknowledgementFallsBack() async {
+        let transport = TeslaProviderTransport(["ready", "ready"])
+        let live = provider(transport)
+        await live.refresh(); live.request(.unlock)
+        await live.confirm(pin: "bad")
+        XCTAssertEqual(live.errorMessage, "Enter the six-digit panel PIN.")
+        let count = await transport.requests.count
+        XCTAssertEqual(count, 1)
+        await live.confirm(pin: "123456")
+        XCTAssertFalse(live.hasLiveData)
+        XCTAssertNil(live.requestedAction)
     }
 }

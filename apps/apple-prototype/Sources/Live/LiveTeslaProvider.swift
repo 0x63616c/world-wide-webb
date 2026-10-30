@@ -61,14 +61,19 @@ import PanelKit
 
     func submit(pin: String) {
         guard mutation == nil else { return }
+        let version = generation
         mutation = Task { [weak self] in
             await self?.confirm(pin: pin)
-            self?.mutation = nil
+            if self?.generation == version { self?.mutation = nil }
         }
     }
 
     func confirm(pin: String) async {
         guard hasLiveData, !busy, let action = requestedAction else { return }
+        guard pin.utf8.count == 6, pin.utf8.allSatisfy({ (48...57).contains($0) }) else {
+            errorMessage = "Enter the six-digit panel PIN."
+            return
+        }
         busy = true
         let version = generation
         defer { if version == generation { busy = false } }
@@ -88,8 +93,6 @@ import PanelKit
             guard version == generation else { return }
             if case .server(let code, _, _) = error as? PanelAPIError, code == "FORBIDDEN" {
                 errorMessage = "PIN not accepted. Try again."
-            } else if case .decoding = error as? PanelAPIError {
-                errorMessage = "Enter the six-digit panel PIN."
             } else {
                 hasLiveData = false
                 requestedAction = nil
