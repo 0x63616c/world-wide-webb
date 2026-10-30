@@ -263,3 +263,14 @@ verification will be repeated on an existing 12.9-inch simulator under the
 shared device lock; no expectations are weakened. Twelve independent capture
 pairs pass, maximum RGB MAE 0.000608/255. Raw cold reviews, captures and logs:
 `/workspace/wwwebb-ui/prototype/v2/www54/iteration-1/`.
+
+## WWW-54 — iteration 2: grouped Home accessory row
+
+With iteration 1 reverted, test only the bottom-row part of the 7h plan. Music
+occupies the two leading cells; Clock, Ceiling and Fan occupy three equal round
+cells. Calendar moves to the two leading bottom cells of More. Every destination
+remains reachable, and the phone solver and phone presentation remain unchanged.
+Climate, Lamps, materials and wallpaper retain main's implementation. Existing
+geometry and shared-state UI tests follow the moved controls without weakening
+margin, gutter, reachability or state assertions. Capture and median review are
+pending; no acceptance is claimed.

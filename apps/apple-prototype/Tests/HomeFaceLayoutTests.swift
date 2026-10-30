@@ -15,7 +15,7 @@ final class HomeFaceLayoutTests: XCTestCase {
             XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
             XCTAssertEqual(item.frame.minY.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
         }
-        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 1)
+        XCTAssertEqual(layout.items.filter(\.round).count, 3)
         }
     }
 
