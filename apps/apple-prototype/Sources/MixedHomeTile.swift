@@ -128,19 +128,12 @@ struct MixedHomeTile: View {
         VStack(spacing: 12) {
             Button(action: open) {
                 VStack(spacing: 8) {
-                    if compact {
-                        Image(systemName: "lamp.table.fill").font(.system(size: 32)).foregroundStyle(.orange)
-                        Text("All lamps").font(.system(size: 19, weight: .semibold))
-                    } else {
-                        HStack(spacing: 8) {
-                            Image(systemName: "lamp.table.fill").font(.system(size: 32)).foregroundStyle(.orange)
-                            Text("All lamps").font(.system(size: 26, weight: .semibold))
-                        }
-                    }
+                    Image(systemName: "lamp.table.fill").font(.system(size: compact ? 32 : 40)).foregroundStyle(.orange)
+                    Text("All lamps").font(.system(size: compact ? 19 : 26, weight: .semibold))
                     Text("\(store.lamps.brightness)%").font(.system(size: compact ? 30 : 44, weight: .medium, design: .rounded)).monospacedDigit()
                 }.frame(maxWidth: .infinity)
             }.buttonStyle(.plain)
-            LampBrightness(store: store).frame(width: compact ? 64 : 88, height: compact ? nil : 208)
+            LampBrightness(store: store).frame(width: compact ? 64 : 88)
             VStack(spacing: 16) {
                 Text("\(store.lamps.onCount(.lamps)) of 8 on").fontWeight(.medium)
                 Text(store.lamps.anyOn ? "Adjusting turns\nall 8 on." : "Turn on a room first").font(.system(size: compact ? 14 : 20)).multilineTextAlignment(.center)

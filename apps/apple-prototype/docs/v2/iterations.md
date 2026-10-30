@@ -333,3 +333,10 @@ remain in their original logs. Final iPad unit tests pass; the rest of the
 verification is running. The superseded iteration-2 Panel unit phase passed;
 its slow Panel-Smoke run was interrupted to release resources for the final
 candidate and is not claimed as passing. No design acceptance yet.
+
+Iteration 3 is rejected: completed cold runs score Home 8.4 and 8.2, so its
+three-run median cannot reach the 8.5 floor. Restore the main Lamps tile in a
+new commit. The three-iteration cap is reached; no fourth redesign is attempted.
+All main visual implementations, phone changes and published floors are
+retained exactly. Final cold-run medians and verification results follow when
+the remaining work completes. No design improvement or release is claimed.
