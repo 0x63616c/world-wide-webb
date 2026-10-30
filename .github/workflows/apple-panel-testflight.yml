@@ -7,6 +7,12 @@ on:
       - ".github/workflows/apple-panel-testflight.yml"
       - "apps/apple-prototype/**"
       - "apps/panel/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/apple-panel-testflight.yml"
+      - "apps/apple-prototype/**"
+      - "apps/panel/**"
   workflow_dispatch:
     inputs:
       ref:
@@ -27,7 +33,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: apple-panel-testflight-${{ github.event_name == 'pull_request' && github.ref || 'release' }}
+  group: apple-panel-testflight-${{ github.event_name == 'workflow_dispatch' && 'release' || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -42,7 +48,9 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
       - name: Record tested source commit
         id: source
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git rev-parse HEAD:apps/apple-prototype)" >> "$GITHUB_OUTPUT"
 
       - name: Select newest Xcode 26.x
         run: |
@@ -94,12 +102,27 @@ jobs:
               ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
           print('id=' + device_id)
           PYCODE
+      - name: Identify simulator toolchain
+        id: toolchain
+        run: echo "version=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      # Products only: test-without-building needs no compiler intermediates.
+      # Exact source tree + toolchain + architecture; never restore a partial match.
+      # Main push checks populate the default-branch cache before release dispatch.
+      - name: Restore simulator test products
+        id: products
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/panel-smoke-build/Build/Products
+          key: panel-launch-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}
+
       - name: Start simulator while compiling
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: xcrun simctl boot "$SIMULATOR_ID"
 
       - name: Build only the Panel launch UI suite
+        if: steps.products.outputs.cache-hit != 'true'
         working-directory: apps/apple-prototype
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}

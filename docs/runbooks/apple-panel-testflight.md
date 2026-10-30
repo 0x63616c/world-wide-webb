@@ -16,10 +16,15 @@ The `.xcresult` and build/test logs are retained as `panel-launch-smoke` artifac
 
 To verify without uploading, dispatch with `smoke_only: true`; the production job
 is skipped entirely, including vault decryption and signing. Pull requests that
-change this workflow or Panel sources also run only the simulator check. On Linux,
+change this workflow or Panel sources also run only the simulator check, as do
+matching pushes to `main` to populate the release cache. Compiled simulator test
+products are cached by the complete native source tree, Xcode build and runner
+architecture, with no partial-key fallback; the UI tests always run on a fresh
+simulator. Source/toolchain changes require a cold build. On Linux,
 use these Actions runs for validation; no local Xcode build is available. The
-single UI class and early simulator boot keep the gate small; check actual runner
-timings rather than treating the two-minute target as a guaranteed cold-build SLA.
+single UI class, early simulator boot and cached test products target a two-minute
+release gate. Cold compilation takes longer; check actual runner timings rather
+than treating two minutes as a guaranteed cold-build SLA.
 
 The workflow selects the newest installed Xcode 26.x and checks the Panel iOS
 deployment target against its SDK. A newer SDK/API requirement requires updating
