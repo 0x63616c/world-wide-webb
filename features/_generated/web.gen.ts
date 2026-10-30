@@ -9,6 +9,7 @@ import ctrlManifest from "../ctrl/manifest";
 import eventsManifest from "../events/manifest";
 import soundManifest from "../sound/manifest";
 import wakesManifest from "../wakes/manifest";
+import walksManifest from "../walks/manifest";
 import weatherManifest from "../weather/manifest";
 import wifiManifest from "../wifi/manifest";
 import { tileViews as boothTileViews } from "../booth/detail";
@@ -24,6 +25,7 @@ const manifests = [
   eventsManifest,
   soundManifest,
   wakesManifest,
+  walksManifest,
   weatherManifest,
   wifiManifest,
 ];

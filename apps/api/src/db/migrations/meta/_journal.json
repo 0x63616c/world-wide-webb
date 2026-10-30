@@ -288,6 +288,13 @@
       "when": 1791213419574,
       "tag": "0041_sparkling_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793339356891,
+      "tag": "0042_careful_mercury",
+      "breakpoints": true
     }
   ]
 }
