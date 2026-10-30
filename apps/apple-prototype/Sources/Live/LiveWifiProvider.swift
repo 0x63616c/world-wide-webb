@@ -19,6 +19,8 @@ import PanelKit
 /// Fetch on demand. Never persists, logs, or includes a payload in an error.
 @MainActor @Observable final class LiveWifiProvider: WifiProvider {
     private(set) var wifi: WifiState = .unconfigured
+    /// Original validated server payload, retained only while current credentials are usable.
+    private(set) var qrPayload: String?
     private(set) var availability: LiveAvailability = .loading
     @ObservationIgnored private let api: WifiAPI
     @ObservationIgnored private var refreshing = false
@@ -33,10 +35,12 @@ import PanelKit
             let response = try await api.guestQr()
             try Task.checkCancellation()
             wifi = try Self.parse(response.qr)
+            qrPayload = wifi.ssid == nil ? nil : response.qr
             availability = .live
         } catch {
             // Clear stale join credentials, including when the caller cancels.
             wifi = .unconfigured
+            qrPayload = nil
             availability = .unavailable("Guest Wi-Fi is unavailable.")
         }
     }

@@ -52,7 +52,7 @@ struct HybridNativeModule: View {
         case .lights: AccessoryFace(key: .lamps, store: store, open: open)
         case .fan: fan
         case .climate: TileFace(tile: .climate, store: store, open: open)
-        case .wifi: TileFace(tile: .wifi, store: store, open: open)
+        case .wifi: WifiModule(provider: store.wifiProvider)
         case .weather: WeatherFace(weather: store.weather)
         case .sonos: SoundFace(store: store)
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
@@ -77,7 +77,7 @@ struct HybridNativeModule: View {
             fan.frame(width: 660, height: 520)
                 .modifier(MixedTileMaterial(round: true, on: faceOn))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .wifi: WifiController(wifi: store.wifi)
+        case .wifi: WifiModule(provider: store.wifiProvider, openOnAppear: true)
         case .weather: WeatherPage(weather: store.weather)
         // This existing page has grouping and volume, with no fixture artwork,
         // media library or seek UI (the live API supplies no playback position).

@@ -38,6 +38,7 @@ import XCTest
     func testExplicitRefreshMapsFixturesAndUnconfiguredClearsCredentials() async throws {
         let transport = WifiProviderTransport(replies: try ["wpa", "open", "escaped", "unconfigured"].map(fixture))
         let provider = makeProvider(transport)
+        XCTAssertNil(provider.qrPayload)
         XCTAssertNil(provider.wifi.ssid)
         XCTAssertEqual(provider.availability, .loading)
         let initialCount = await transport.count
@@ -46,6 +47,7 @@ import XCTest
             await provider.refresh()
             XCTAssertEqual(provider.availability, .live)
             XCTAssertEqual(WifiQRCode.payload(for: provider.wifi) ?? "", try fixture(name))
+            XCTAssertEqual(provider.qrPayload, name == "unconfigured" ? nil : try fixture(name))
         }
     }
 
@@ -58,6 +60,7 @@ import XCTest
             await provider.refresh()
             XCTAssertNil(provider.wifi.ssid)
             XCTAssertNil(provider.wifi.password)
+            XCTAssertNil(provider.qrPayload)
             XCTAssertEqual(provider.availability, .unavailable("Guest Wi-Fi is unavailable."))
         }
         await provider.refresh()
