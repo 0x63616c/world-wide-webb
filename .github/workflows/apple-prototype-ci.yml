@@ -102,7 +102,7 @@ jobs:
         run: |
           xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
           python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
-          import json, os
+          import json, os, platform
           with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
               devices = json.load(source)['devices']
           for runtime in sorted(devices, reverse=True):
@@ -110,8 +110,7 @@ jobs:
                   continue
               for device in devices[runtime]:
                   if device['name'].startswith('iPad') and device.get('isAvailable'):
-                      print('destination=platform=iOS Simulator,id=' + device['udid'])
-                      print('udid=' + device['udid'])
+                      print('destination=platform=iOS Simulator,arch=' + platform.machine() + ',id=' + device['udid'])
                       raise SystemExit(0)
           raise SystemExit('No available iPad simulator installed.')
           PYCODE
@@ -136,34 +135,25 @@ jobs:
         run: >-
           xcodebuild build-for-testing -project WorldWideWebb.xcodeproj
           -scheme "$SCHEME" -destination "$DESTINATION"
+          -derivedDataPath "$RUNNER_TEMP/apple-derived-data"
           -only-testing:"$TEST_TARGET" CODE_SIGNING_ALLOWED=NO
-
-      # Finish compilation before starting the simulator: a booting destination
-      # delays Xcode's build setup on cold runners. Reuse it without XCTest clones.
-      - name: Boot test simulator
-        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
-        env:
-          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
-        run: xcrun simctl boot "$SIMULATOR_UDID"
-
-      - name: Wait for test simulator
-        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
-        env:
-          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
-        run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
       - name: Test without building
         if: matrix.suite == 'ipad' || matrix.suite == 'panel'
         working-directory: apps/apple-prototype
         env:
           DESTINATION: ${{ steps.simulator.outputs.destination }}
-          SCHEME: ${{ matrix.suite == 'ipad' && 'WorldWideWebb-iPad' || 'Panel' }}
           TEST_TARGET: ${{ matrix.suite == 'ipad' && 'WorldWideWebbTests' || 'PanelTests' }}
-        run: >-
-          xcodebuild test-without-building -project WorldWideWebb.xcodeproj
-          -scheme "$SCHEME" -destination "$DESTINATION"
-          -parallel-testing-enabled NO
-          -only-testing:"$TEST_TARGET" CODE_SIGNING_ALLOWED=NO
+        # Use the built test plan directly: do not reload the project/package
+        # graph. Xcode boots this one destination; no separate migration wait.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          test_plans=("$RUNNER_TEMP/apple-derived-data/Build/Products/"*.xctestrun)
+          [[ ${#test_plans[@]} == 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_plans[0]}" \
+            -destination "$DESTINATION" -parallel-testing-enabled NO \
+            -only-testing:"$TEST_TARGET"
 
   # Preserve the original check name and fail closed if planning or any suite
   # fails. An empty matrix is an intentional success, not a missing check.

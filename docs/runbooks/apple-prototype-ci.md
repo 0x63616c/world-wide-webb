@@ -24,13 +24,16 @@ those bundles: the Panel scheme otherwise rebuilds WorldWideWebbTests and its
 host on a separate runner, while the iPad scheme also builds UI automation.
 The checked-in project configuration and all selected unit tests stay intact.
 
-Each iOS lane chooses one available iPad simulator, runs `build-for-testing` before
-booting it, waits for that simulator to finish booting,
-then uses `test-without-building`. Boot follows compilation because overlapping
-it with Xcode's setup caused long stalls in the exploratory PR runs. PanelKit
-shares the short macOS build lane to reduce demand on the macOS runner pool. XCTest parallel testing is explicitly disabled:
-these unit bundles execute in roughly a minute or less, whereas launching cold
-simulators dominates the previous test steps. Independent runners provide suite
+Each iOS lane chooses one available iPad simulator and the runner's architecture,
+runs `build-for-testing` into a known DerivedData directory, then passes the
+resulting `.xctestrun` file directly to `test-without-building`. This avoids
+reloading the project and package graph for test execution. Xcode boots that one
+destination; there is no separate simulator boot/migration step. PanelKit shares
+the short macOS build lane to reduce demand on the macOS runner pool.
+
+XCTest parallel testing is explicitly disabled: these unit bundles execute in
+roughly a minute or less, whereas simulator/test startup dominates the previous
+test steps. Independent runners provide suite
 parallelism without paying for extra XCTest simulator clones.
 
 ## Dependency filtering
