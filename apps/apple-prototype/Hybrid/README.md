@@ -321,8 +321,9 @@ transport, AlarmKit authorization, and a successful web ownership acknowledgemen
 An empty alarm list is valid live data. Missing endpoints, malformed responses,
 transport errors, denied authorization, or an old web bundle keep the web fallback.
 The backward-compatible web seam is PR
-[#820](https://github.com/0x63616c/world-wide-webb/pull/820), against main; neither
-PR is merged by this job. It changes `features/events/web`, not `apps/web` or
+[#820](https://github.com/0x63616c/world-wide-webb/pull/820), merged into main by
+`@0x63616c` during verification. This job did not issue a merge. It changes
+`features/events/web`, not `apps/web` or
 `apps/panel`. Either deployment order is safe: an old bundle has no handoff and
 the app cannot activate its native ringer.
 
@@ -411,3 +412,10 @@ cd ..
   -only-testing:WorldWideWebbTests/HomeDataSourceTests \
   -only-testing:WorldWideWebbTests/AlarmPerimeterTests CODE_SIGNING_ALLOWED=NO
 ```
+
+Verified on 2026-10-30 with Xcode 27 and iOS 26.3: **56 PanelTests and 23 app
+unit tests passed** (6 live-alarm provider, 15 existing HomeDataSource, 2 existing
+alarm perimeter tests). PanelKit passed **39 Swift Testing tests and 1 XCTest**.
+Repository typecheck, Biome, Knip, privacy guards and Gitleaks passed. The web
+compatibility PR #820 passed 23 targeted tests plus CI and was subsequently merged
+by `@0x63616c`; this job did not issue a merge. Physical wall checks remain pending.
