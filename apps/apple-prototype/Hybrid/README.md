@@ -835,10 +835,10 @@ Verification status (2026-10-30, Xcode 27.0): the final PanelKit tree passed
 and 7 app tests** (4 camera provider + 3 existing module provider tests). Its UI
 check rendered updating snapshots at 1366×1024 points, but failed to find the
 camera by its control identifier. The test now queries the exposed accessibility
-label. After integrating the updated Media base, the final app compiled, but the
+label. After integrating the updated Media base, the app compiled, but the
 shared Mac rejected simulator boot with “insufficient system resources”
 (`maxUserProcs=1333`, `runningUserProcs=1291`, `enforcedProcBuffer=183`). The final
-integrated simulator rerun, tap/enlargement check and detail/fallback captures
+integrated simulator rerun (including the subsequent Photos merge), tap/enlargement check and detail/fallback captures
 remain pending until simulator capacity is available. No other simulator was
 stopped. The tile evidence in `docs/screenshots/cameras-native/` at the repository
 root is a frame from the actual first-run XCTest screen recording, rotated into
