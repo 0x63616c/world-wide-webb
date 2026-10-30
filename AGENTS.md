@@ -15,6 +15,20 @@
   `model:astra` (`-m gpt-6-astra -c model_reasoning_effort=xhigh`) and
   `model:sol` (`-m gpt-6.1-sol`).
 
+## Agent skills
+
+- Repo skills live in `.agents/skills/` (Codex discovers them automatically;
+  sources, pinned commits and licenses are in `.agents/skills/SOURCES.md`).
+- For any SwiftUI / Apple-platform UI work (e.g. `apps/apple-prototype/`), use
+  them: `swiftui-liquid-glass` (iOS/iPadOS) and `liquid-glass` (macOS) for the
+  real Liquid Glass APIs, never hand-rolled blur or fake glass;
+  `swiftui-expert-skill` for modern SwiftUI; `swiftui-patterns` for macOS
+  scenes and windows; `animation-patterns` for springs, phase/keyframe
+  animators, transitions, symbol effects, `TimelineView` and `MeshGradient`; `apple-hig` for HIG rules and exact
+  measurements.
+- Vendored skills are copied verbatim; update by re-copying from upstream and
+  bumping the pinned commit in `SOURCES.md`, not by editing in place.
+
 ## Invariants
 
 - **Design for 10x-100x this repo's size** — never reject a shared primitive
