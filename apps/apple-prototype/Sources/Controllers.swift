@@ -25,6 +25,7 @@ struct ControllerHost: View {
                 case .weather: WeatherController(weather: store.weather)
                 case .hourly: HourlyController(weather: store.weather)
                 case .sound: SoundController(store: store)
+                case .alarm: AlarmRingView(store: store, close: close, edit: {})
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
             Text("Fixture data").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.42)).padding(.bottom, 16)

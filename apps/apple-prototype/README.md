@@ -2,43 +2,96 @@
 
 Native SwiftUI HomeView-style study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8). macOS 26+ and iPadOS 26+, built with Xcode 27. No backend, networking, bundled photos, QR codes, or production credentials. All device/weather/network/alarm values are **fixtures** and reset on launch.
 
-## v2 iteration 1 — Home face and Lamps
+## v2 iteration 2 — Home, Controls, Clock and Music
 
-The default screen is now a single Home face: a 4×3 grid, 40-point outer margins,
-24-point gutters and nine complications. Climate occupies 2×2 cells; an analog
-clock and Guest Wi-Fi sit above separate Bedroom and Living Room Lamps. Ceiling,
-Under Cabinet, Fan and All occupy the bottom row. Small tiles are approximately
-306×301 points on the 1376×1032 iPad. SF type uses a thin dominant temperature,
-26-point semibold names and 20-point subtitles. Clear Liquid Glass, specular edges,
-soft shadows and a procedural blurred teal wallpaper replace the folded ribbons.
-ON accessories use bright frosted glass, dark text and amber glyphs.
+Home is a near-square six-complication face at the center of the 1376×1032-point
+canvas. Climate spans 2×2 cells, with Clock and Guest Wi-Fi at right; Bedroom
+Lamps, Living Room Lamps and Ceiling occupy the bottom row. Under Cabinet, Fan
+and All move to the second, swipeable Controls face. Four page dots select Home,
+Controls, Clock and Music. The face has 22-point gutters, approximately 297-point
+cell heights, 76-point accessory glyphs, 40-point names and 28-point subtitles.
+Climate uses regular-weight numerals. Large procedural teal fan blades and arcs,
+clear Liquid Glass, white specular edges, soft shadows and translucent ON states
+carry the Home treatment. No reference images are bundled.
 
-The iPad face is in a paged TabView. Only Home exists in this iteration, so page
-indicators are hidden until there are actual additional faces. Weather and Sound
-controllers remain available by launch argument; their future faces are not built.
+Lamps retains its global 220×560-point vertical brightness control, honestly
+labelled **All lamps**. Its amber field now has a radial light behind the fader;
+room names are 28-point semibold, member captions 19-point, and the two room
+buttons are 164 points across. Color & Effects contains the existing supported
+lamp controls; individual member names remain captions.
 
-Bedroom and Living Room open the new Lamps controller from their own source tile.
-A 220×560-point vertical brightness control supports dragging and VoiceOver
-adjustment. It is labelled **All lamps**: `features/ctrl/api.ts` and `service.ts`
-apply brightness globally and turn on every lamp, including the other room.
-Room buttons toggle the two supported groups. Members are captions, never invented
-individual controls. `packages/core/src/lights/index.ts` confirms Under Cabinet is
-in Kitchen. Color & Effects opens one sheet with the existing White/Mood, white
-temperature, three editable saved colors and Party controls. The fixture store,
-other full-screen controllers and their supported features are preserved.
+The green Clock face uses enormous black numerals and white hands. Tap its
+background to simulate approach: Climate, Lamps, Guest Wi-Fi and current Weather
+complications fade/scale in over 240 ms. Reduced Motion disables the transition.
+`-face clock -presence near|far` selects either state; this is a prototype presence
+input, not a sensor or automatic idle policy. The alarm complication and Home
+clock open the full-screen next-alarm ring. Its orange ticks represent the final
+24 hours before the next occurrence, depleting as time passes. Alarms farther away
+show a full ring. The existing alarm editor is reached with **Alarms**.
+`-openTile alarm -alarmRinging` demonstrates the supported Snooze and Stop actions;
+snooze uses that alarm's minutes and stale occurrence versions are rejected.
+There is no timer feature and the prototype never actuates a real alarm.
 
-Final iteration screenshots: [Home](docs/screenshots/v2/home.png) ·
-[Lamps](docs/screenshots/v2/lamps.png). The labelled reference comparison and critique
-live outside the repository at `/workspace/wwwebb-ui/prototype/v2/`; reference
-photos are never committed. Existing screenshots and packaging below document v1.
+Music follows the plum artwork treatment with original SwiftUI fixture artwork,
+track/artist text, previous/play/pause/next, per-room mute and **Volume**. There is
+no position/duration data and no scrubber. The fader writes raw Sonos volume;
+calibrated display percentages remain confined to the existing Sound mixer.
+The top-right room picker selects a room, joins a room to the selected group, or
+groups all rooms. Transport updates the entire coordinator group. Track changes
+cycle a small explicit fixture queue; no Sonos connection exists.
 
-Validation on WWW iPad 13 / iOS 26.3 / Xcode 27.0: 10 store tests and 6 UI tests
-pass. The nine-tile open/close loop and global brightness test also pass after the
-final pager safe-area change. Three simulator render/review passes were used;
-only the final Home and Lamps captures are delivered for this iteration. Xcode's
-optional simulator diagnostics collector reports a missing `simctl` in its own
-subprocess; the test runs themselves report **TEST SUCCEEDED**, and direct
-`simctl` captures succeed with the selected Xcode developer directory.
+Screenshots: [Home](docs/screenshots/v2/home.png) ·
+[Controls](docs/screenshots/v2/controls-face.png) ·
+[Lamps](docs/screenshots/v2/lamps.png) ·
+[Clock idle](docs/screenshots/v2/clock-idle.png) ·
+[Clock near](docs/screenshots/v2/clock-near.png) ·
+[Next alarm](docs/screenshots/v2/alarm.png) ·
+[Music](docs/screenshots/v2/nowplaying.png).
+Comparisons containing Calum's references stay outside Git in
+`/workspace/wwwebb-ui/prototype/v2/`. See `docs/v2/iterations.md` for critique and
+measured render times. UI automation waits for design approval.
+
+### Fast snapshot loop
+
+On the build mini, use the already-booted WWW iPad 13 simulator:
+
+```sh
+cd ~/wwwebb-proto
+bash scripts/snapshot.sh               # incremental unit-test build + render
+bash scripts/snapshot.sh --no-build    # reuse test product when sources match
+bash scripts/snapshot.sh --glass-check # optional one-time native screen comparison
+```
+
+`WorldWideWebb-Snapshots` excludes the UI-test target. The script uses fixed warm
+`~/wwwebb-proto-dd`, then runs only `WorldWideWebbTests/SnapshotRenderTests` with
+`test-without-building`. It renders all seven scenes at 1376×1032 points, scale 2,
+with a fixed fixture clock. It saves both SwiftUI ImageRenderer output (suffix
+`-imagerenderer`) and native `UIHostingController`/`drawHierarchy` output in one
+persistent XCTest window. The latter is the delivered glass-preserving path,
+checked once against `simctl io screenshot` during that same test. No app tour,
+manual simulator launch, or UI tests are involved. Output is in
+`~/wwwebb-proto-snapshots/`; copy the seven PNGs back immediately. Only the test
+host runs, using the existing simulator session.
+
+Compose a labelled local review with:
+
+```sh
+bash scripts/compare.sh /workspace/wwwebb-ui/prototype/v2 \
+  /workspace/wwwebb-ui/homeview-research/refs/calum iter-2b
+```
+
+The comparison script needs Python Pillow; it preserves Display P3 colors by
+converting embedded image profiles to sRGB before composing. It refuses to
+overwrite an existing iteration. Run store checks separately without UI tests:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer xcodebuild \
+  -project WorldWideWebb.xcodeproj -scheme WorldWideWebb-Snapshots \
+  -destination 'platform=iOS Simulator,id=A0ECBA0E-5E14-4DE2-ACD7-7C2A5EA0AFBF' \
+  -derivedDataPath "$HOME/wwwebb-proto-dd" -parallel-testing-enabled NO \
+  -only-testing:WorldWideWebbTests/HomeDataSourceTests \
+  CODE_SIGNING_ALLOWED=NO test-without-building
+```
 
 ## Build
 
@@ -123,7 +176,10 @@ xcrun simctl launch <UDID> co.worldwidewebb.prototype.ipad -openTile wifi -wifiF
 xcrun simctl launch <UDID> co.worldwidewebb.prototype.ipad -demo
 ```
 
-`-openTile`: climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all. Existing controller links lamps, lights, weather, hourly and sound still work.
+`-face`: home (default), controls, clock, music.
+`-presence`: near, far (default).
+`-alarmRinging`: seed a ringing fixture occurrence.
+`-openTile`: climate, clock, alarm, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all. Existing controller links lamps, lights, weather, hourly and sound still work.
 `-climateMode`: cool, heat, heat_cool, off.
 `-wifiFixture`: secured (default), open, unconfigured.
 `-demo`: a tour opening and closing the nine Home complications.
@@ -138,4 +194,4 @@ Built with Xcode 27.0 (27A266a), using the dedicated **WWW iPad 13** simulator o
 
 The delivered screenshots and 20-second recording were captured from the running simulator and visually reviewed. The macOS Release app builds and passes strict ad-hoc signature verification. Its runtime, Escape handling and window resizing still need an on-device check on macOS 26+; the build mini runs macOS 15.6 and cannot launch it.
 
-The prototype is intentionally in-memory: it doesn't ring alarms, play Sonos audio or actuate lights. Party stores its selected speed; Mood assigns fixture palette colors. Those device effects await a real data-source implementation.
+The prototype is intentionally in-memory: it can display a seeded ringing state and simulate snooze/stop, but does not ring real alarms, play Sonos audio or actuate lights. Party stores its selected speed; Mood assigns fixture palette colors. Those device effects await a real data-source implementation.

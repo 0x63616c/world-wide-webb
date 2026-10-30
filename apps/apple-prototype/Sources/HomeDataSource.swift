@@ -163,6 +163,36 @@ struct Alarm: Identifiable, Equatable {
         }.min()
     }
 }
+enum SonosTransport: String { case play, pause, next, previous }
+enum SoundSource: String { case spotify, airplay, tv, lineIn = "line-in", other, idle }
+struct FixtureTrack: Equatable {
+    let title: String
+    let artist: String
+    let tint: String
+    // Authored fixture names; the artwork is drawn in SwiftUI.
+    static let queue = [
+        FixtureTrack(title: "Closer to the Sun", artist: "The Evening Hours", tint: "#8f456e"),
+        FixtureTrack(title: "After the Rain", artist: "The Evening Hours", tint: "#485c85"),
+        FixtureTrack(title: "Soft Focus", artist: "The Evening Hours", tint: "#a56a3d")
+    ]
+}
+struct AlarmOccurrence: Equatable {
+    let alarm: Alarm
+    var due: Date
+    var version = 0
+    var snoozed = false
+    func isRinging(at now: Date) -> Bool { due <= now }
+}
+struct UpcomingAlarm {
+    let alarm: Alarm
+    let due: Date
+    let ringing: Bool
+    let version: Int?
+    let snoozed: Bool
+    func remaining(at now: Date) -> TimeInterval { max(0, due.timeIntervalSince(now)) }
+    // One day around the perimeter. Longer schedules remain full until the final day.
+    func ringFraction(at now: Date) -> Double { min(1, remaining(at: now) / 86_400) }
+}
 struct SoundRoom: Identifiable {
     var id: String { name }
     let name: String
@@ -171,12 +201,22 @@ struct SoundRoom: Identifiable {
     var muted = false
     var coordinator: String
     var playing: Bool
+    var trackIndex = 0
+    var sourceKind: SoundSource = .spotify
+    var sourceLabel: String? = "Spotify"
+    var albumArtUri: String? = nil
+    var trackTitle: String? { sourceKind == .idle ? nil : FixtureTrack.queue[trackIndex].title }
+    var trackArtist: String? { sourceKind == .idle ? nil : FixtureTrack.queue[trackIndex].artist }
+    var artworkTint: String { FixtureTrack.queue[trackIndex].tint }
+    var transportState: String { playing ? "PLAYING" : "PAUSED_PLAYBACK" }
     var displayVolume: Int { baseline.map { $0 > 0 ? Int((Double(rawVolume) / Double($0) * 100).rounded()) : rawVolume } ?? rawVolume }
 }
 enum HomeCommand {
     case toggle(Accessory), brightness(Int), kelvin(Int), scene(String), color(Int, String?), party(PartySpeed)
     case mode(ClimateMode), target(Int), low(Int), high(Int), shiftRange(Int)
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
+    case snoozeAlarm(Int, Int), stopAlarm(Int, Int)
+    case transport(String, SonosTransport), rawVolume(String, Int)
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
 @MainActor protocol HomeDataSource: AnyObject, Observable {
@@ -185,12 +225,28 @@ enum HomeCommand {
     var wifi: WifiState { get }
     var weather: WeatherState { get }
     var alarms: [Alarm] { get }
+    var occurrence: AlarmOccurrence? { get }
     var rooms: [SoundRoom] { get }
     var globalLock: Bool { get }
     var groupLock: Bool { get }
     var pending: Set<String> { get }
     var now: Date { get }
     func send(_ command: HomeCommand)
+}
+extension HomeDataSource {
+    func upcomingAlarm(at date: Date) -> UpcomingAlarm? {
+        let scheduled = alarms.compactMap { alarm in
+            alarm.next(after: date).map { UpcomingAlarm(alarm: alarm, due: $0, ringing: false, version: nil, snoozed: false) }
+        }
+        if let occurrence, occurrence.isRinging(at: date) {
+            return UpcomingAlarm(alarm: occurrence.alarm, due: occurrence.due, ringing: true, version: occurrence.version, snoozed: false)
+        }
+        var candidates = scheduled
+        if let occurrence {
+            candidates.append(UpcomingAlarm(alarm: occurrence.alarm, due: occurrence.due, ringing: false, version: occurrence.version, snoozed: occurrence.snoozed))
+        }
+        return candidates.min { $0.due < $1.due }
+    }
 }
 @MainActor @Observable final class MockHomeDataSource: HomeDataSource {
     private(set) var lamps = LampState()
@@ -205,6 +261,7 @@ enum HomeCommand {
         SoundRoom(name: "Bathroom", rawVolume: 14, baseline: 40, coordinator: "Bathroom", playing: false),
         SoundRoom(name: "Kitchen", rawVolume: 20, baseline: 50, coordinator: "Kitchen", playing: false)
     ]
+    private(set) var occurrence: AlarmOccurrence?
     private(set) var globalLock = false
     private(set) var groupLock = false
     private(set) var pending: Set<String> = []
@@ -213,9 +270,12 @@ enum HomeCommand {
     private let latency: Duration
     private let launched = Date()
     private let fixtureDate = ISO8601DateFormatter().date(from: "2026-10-29T22:41:00Z")!
-    var now: Date { fixtureDate.addingTimeInterval(Date().timeIntervalSince(launched)) }
-    init(latency: Duration = .milliseconds(150), wifiFixture: String = "secured", mode: ClimateMode = .cool) {
+    private let fixedNow: Date?
+    var now: Date { fixedNow ?? fixtureDate.addingTimeInterval(Date().timeIntervalSince(launched)) }
+    init(latency: Duration = .milliseconds(150), wifiFixture: String = "secured", mode: ClimateMode = .cool, fixedNow: Date? = nil, ringing: Bool = false) {
         self.latency = latency
+        self.fixedNow = fixedNow
+        if ringing { occurrence = AlarmOccurrence(alarm: alarms[0], due: fixedNow ?? fixtureDate) }
         if wifiFixture == "open" { wifi = .open }
         if wifiFixture == "unconfigured" { wifi = .unconfigured }
         climate.mode = mode
@@ -286,6 +346,27 @@ enum HomeCommand {
         case .deleteAlarm(let id): alarms.removeAll { $0.id == id }; markPending("alarms")
         case .enableAlarm(let id, let enabled):
             if let i = alarms.firstIndex(where: { $0.id == id }) { alarms[i].enabled = enabled }; markPending("alarms")
+        case .snoozeAlarm(let id, let version):
+            guard var active = occurrence, active.alarm.id == id, active.version == version,
+                  active.isRinging(at: now), let minutes = Int(active.alarm.snoozeMinutes), (1...60).contains(minutes) else { return }
+            active.due = now.addingTimeInterval(Double(minutes * 60)); active.version += 1; active.snoozed = true
+            occurrence = active; markPending("alarms")
+        case .stopAlarm(let id, let version):
+            guard let active = occurrence, active.alarm.id == id, active.version == version, active.isRinging(at: now) else { return }
+            occurrence = nil; markPending("alarms")
+        case .transport(let id, let command):
+            guard let room = rooms.first(where: { $0.id == id }) else { return }
+            for i in rooms.indices where rooms[i].coordinator == room.coordinator {
+                switch command {
+                case .play: rooms[i].playing = true
+                case .pause: rooms[i].playing = false
+                case .next: rooms[i].trackIndex = (rooms[i].trackIndex + 1) % FixtureTrack.queue.count
+                case .previous: rooms[i].trackIndex = (rooms[i].trackIndex + FixtureTrack.queue.count - 1) % FixtureTrack.queue.count
+                }
+            }; markPending("sound")
+        case .rawVolume(let id, let value):
+            guard let i = rooms.firstIndex(where: { $0.id == id }) else { return }
+            rooms[i].rawVolume = min(100, max(0, value)); markPending("sound")
         case .volume(let id, let value):
             guard let room = rooms.first(where: { $0.id == id }) else { return }
             let display = min(100, max(0, value))
@@ -299,16 +380,24 @@ enum HomeCommand {
         case .clearCalibration: for i in rooms.indices { rooms[i].baseline = nil }; globalLock = false; markPending("sound")
         case .joinAll(let name):
             guard rooms.contains(where: { $0.name == name }) else { return }
-            for i in rooms.indices { rooms[i].coordinator = name; rooms[i].playing = true }; markPending("sound")
+            let leader = rooms.first { $0.name == name }!
+            for i in rooms.indices { rooms[i].coordinator = name; copyPlayback(from: leader, to: i) }; markPending("sound")
         case .join(let id, let coordinator):
             guard let leader = rooms.first(where: { $0.name == coordinator }), let i = rooms.firstIndex(where: { $0.id == id }) else { return }
             guard rooms[i].coordinator != leader.coordinator else { return }
             detachCoordinator(id)
-            rooms[i].coordinator = leader.coordinator; rooms[i].playing = leader.playing; markPending("sound")
+            rooms[i].coordinator = leader.coordinator; copyPlayback(from: leader, to: i); markPending("sound")
         case .leave(let id):
             guard let i = rooms.firstIndex(where: { $0.id == id }) else { return }
             detachCoordinator(id); rooms[i].coordinator = id; rooms[i].playing = false; markPending("sound")
         }
+    }
+    private func copyPlayback(from leader: SoundRoom, to index: Int) {
+        rooms[index].playing = leader.playing
+        rooms[index].trackIndex = leader.trackIndex
+        rooms[index].sourceKind = leader.sourceKind
+        rooms[index].sourceLabel = leader.sourceLabel
+        rooms[index].albumArtUri = leader.albumArtUri
     }
     private func detachCoordinator(_ id: String) {
         let followers = rooms.indices.filter { rooms[$0].coordinator == id && rooms[$0].id != id }

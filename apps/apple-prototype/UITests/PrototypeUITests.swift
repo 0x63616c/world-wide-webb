@@ -9,10 +9,15 @@ import XCTest
         let app = XCUIApplication()
         app.launch()
         for tile in ["climate", "clock", "wifi", "bedroom", "livingRoom", "ceiling", "cabinet", "fan", "all"] {
+            if tile == "cabinet" {
+                app.swipeLeft()
+                XCTAssertTrue(app.buttons["toggle-cabinet"].waitForExistence(timeout: 3))
+                XCTAssertEqual(app.buttons["face-page-1"].value as? String, "Selected")
+            }
             let face = app.otherElements["tile-\(tile)"].firstMatch
             XCTAssertTrue(face.waitForExistence(timeout: 5), tile)
-            // Top-left padding belongs to the tile surface, away from embedded controls.
-            face.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.08)).tap()
+            // Upper-center padding is inside the circular clock and clear of glyph toggles.
+            face.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
             let close = app.buttons["close-controller"]
             XCTAssertTrue(close.waitForExistence(timeout: 3), tile)
             Thread.sleep(forTimeInterval: 0.6)
@@ -24,6 +29,8 @@ import XCTest
     func testGlyphTogglesWithoutOpeningAndClimateModes() throws {
         let app = XCUIApplication()
         app.launch()
+        XCTAssertTrue(app.buttons["toggle-bedroom"].waitForExistence(timeout: 5))
+        app.swipeLeft()
         let fan = app.buttons["toggle-fan"]
         XCTAssertTrue(fan.waitForExistence(timeout: 5))
         fan.tap()
@@ -37,6 +44,28 @@ import XCTest
         XCTAssertTrue(app.buttons["climate-fan"].label.contains("Off"))
         app.buttons["mode-heat_cool"].tap()
         XCTAssertTrue(app.staticTexts["Temperature range"].exists)
+    }
+    func testControlsPagingPreservesSharedState() throws {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["toggle-bedroom"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["toggle-cabinet"].isHittable)
+        app.buttons["face-page-1"].tap()
+        let all = app.buttons["toggle-all"]
+        XCTAssertTrue(all.waitForExistence(timeout: 3))
+        XCTAssertTrue(all.isHittable)
+        all.tap()
+        XCTAssertEqual(all.value as? String, "On")
+        XCTAssertFalse(app.buttons["close-controller"].exists)
+        app.swipeRight()
+        let bedroom = app.buttons["toggle-bedroom"]
+        XCTAssertTrue(bedroom.waitForExistence(timeout: 3))
+        XCTAssertTrue(bedroom.isHittable)
+        XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
+        for key in ["bedroom", "livingRoom", "ceiling"] {
+            XCTAssertEqual(app.buttons["toggle-\(key)"].value as? String, "On")
+        }
+        XCTAssertFalse(app.buttons["toggle-cabinet"].isHittable)
     }
     func testSwipeDownReturnsToSource() throws {
         let app = XCUIApplication()
@@ -59,7 +88,7 @@ import XCTest
         XCTAssertFalse(app.buttons["close-controller"].exists)
         bedroom.tap()
         let face = app.otherElements["tile-bedroom"].firstMatch
-        face.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.08)).tap()
+        face.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
         XCTAssertTrue(app.staticTexts["Bedroom Lamps"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["All lamps"].exists)
         Thread.sleep(forTimeInterval: 0.6)

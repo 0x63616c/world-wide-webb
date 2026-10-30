@@ -4,25 +4,25 @@ struct LampsController: View {
     let store: any HomeDataSource
     @State private var showingEffects = false
     var body: some View {
-        HStack(alignment: .center, spacing: 100) {
-            HStack(spacing: 42) {
+        HStack(alignment: .center, spacing: 70) {
+            HStack(spacing: 38) {
                 LampBrightness(store: store)
                     .frame(width: 220, height: 560)
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text("\(store.lamps.brightness)").font(.system(size: 116, weight: .thin)).monospacedDigit()
+                        Text("\(store.lamps.brightness)").font(.system(size: 116, weight: .regular)).monospacedDigit()
                         Text("%").font(.system(size: 44, weight: .light)).opacity(0.7)
                     }.accessibilityIdentifier("lamp-brightness-value")
-                    Text("All lamps").font(.system(size: 28, weight: .semibold))
+                    Text("All lamps").font(.system(size: 32, weight: .semibold))
                     Text(store.lamps.anyOn ? "Brightness" : "Turn on lamps to adjust")
                         .font(.system(size: 20)).foregroundStyle(.white.opacity(0.65))
                     // The real command turns on every lamp, including an off room.
                     Text("Applies to both rooms")
-                        .font(.system(size: 17)).foregroundStyle(.white.opacity(0.6)).padding(.top, 6)
+                        .font(.system(size: 19)).foregroundStyle(.white.opacity(0.7)).padding(.top, 6)
                 }.frame(width: 254, alignment: .leading)
             }
             VStack(spacing: 48) {
-                HStack(alignment: .top, spacing: 36) {
+                HStack(alignment: .top, spacing: 28) {
                     room(.bedroom, members: "Bed Left · Bed Right\nMirror")
                     room(.livingRoom, members: "Globe · Corner Lamp\nFloor Lamp · Desk\nKitchen Lamp")
                 }
@@ -31,7 +31,7 @@ struct LampsController: View {
                         .font(.system(size: 24, weight: .semibold))
                         .padding(.horizontal, 26).frame(height: 70)
                 }.buttonStyle(.plain).faceGlass(radius: 35).accessibilityIdentifier("color-effects")
-            }.frame(width: 400)
+            }.frame(width: 456)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .sheet(isPresented: $showingEffects) {
                 VStack(spacing: 28) {
@@ -55,20 +55,20 @@ struct LampsController: View {
         let on = store.lamps.isOn(key)
         return VStack(spacing: 12) {
             Button { store.send(.toggle(key)) } label: {
-                Image(systemName: key.symbol).font(.system(size: 49))
-                    .foregroundStyle(on ? Color(hex: "#cc8908") : .white)
-                    .frame(width: 132, height: 132)
-                    .faceGlass(on: on, radius: 66)
+                Image(systemName: key.symbol).font(.system(size: 64))
+                    .foregroundStyle(on ? Color(hex: "#ffcd65") : .white)
+                    .frame(width: 164, height: 164)
+                    .faceGlass(on: on, radius: 82)
                     .overlay { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white) } }
             }.buttonStyle(.plain)
                 .accessibilityLabel("Toggle \(key.name)")
                 .accessibilityValue(on ? "On" : "Off")
                 .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
-            Text(key.name).font(.system(size: 24, weight: .semibold))
-            Text(on ? "On" : "Off").font(.system(size: 20)).opacity(0.65)
-            Text(members).font(.system(size: 16)).foregroundStyle(.white.opacity(0.55))
+            Text(key.name).font(.system(size: 28, weight: .semibold))
+            Text(on ? "On" : "Off").font(.system(size: 21)).opacity(0.75)
+            Text(members).font(.system(size: 19)).foregroundStyle(.white.opacity(0.72))
                 .multilineTextAlignment(.center).lineSpacing(5).padding(.top, 8)
-        }.frame(width: 182)
+        }.frame(width: 214)
     }
 }
 

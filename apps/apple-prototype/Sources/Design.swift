@@ -20,32 +20,62 @@ extension ClimateMode {
         switch self { case .cool: Palette.cool; case .heat: Palette.heat; case .heatCool: Palette.range; case .off: Palette.graphite }
     }
 }
+// Broad, quiet folds share a single canvas so the glass samples one coherent backdrop.
 struct Wallpaper: View {
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
             ZStack {
-                LinearGradient(colors: [Color(hex: "#155e5c"), Color(hex: "#064440"), Color(hex: "#207f75")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                // Low-contrast, soft-focus volumes; no stripes or repeated diagonals.
-                Ellipse().fill(Color(hex: "#58a89d").opacity(0.55))
-                    .frame(width: size.width * 0.85, height: size.height * 0.92)
-                    .position(x: size.width * 0.12, y: size.height * 0.17)
-                    .blur(radius: 85)
-                RoundedRectangle(cornerRadius: 220, style: .continuous)
-                    .fill(Color(hex: "#003e41").opacity(0.7))
-                    .frame(width: size.width * 0.8, height: size.height * 0.8)
-                    .rotationEffect(.degrees(-15))
-                    .position(x: size.width * 0.7, y: size.height * 0.35)
-                    .blur(radius: 65)
-                Circle().fill(Color(hex: "#4a9f91").opacity(0.5))
-                    .frame(width: size.width * 0.7)
-                    .position(x: size.width * 0.77, y: size.height * 1.1)
-                    .blur(radius: 80)
-                Circle().stroke(Color(hex: "#78c7b5").opacity(0.2), lineWidth: size.width * 0.1)
-                    .frame(width: size.width * 0.68, height: size.width * 0.68)
-                    .position(x: size.width * 0.05, y: size.height * 1.03)
-                    .blur(radius: 30)
-            }.drawingGroup()
+                LinearGradient(colors: [Color(hex: "#216f68"), Color(hex: "#07514e"), Color(hex: "#26796e")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Canvas { context, canvas in
+                    func point(_ x: Double, _ y: Double) -> CGPoint {
+                        CGPoint(x: canvas.width * x, y: canvas.height * y)
+                    }
+                    // Six oversized fan blades, rather than a field of repeating stripes.
+                    let hub = point(0.16, 0.26)
+                    let radius = canvas.height * 0.77
+                    for index in 0..<6 {
+                        let angle = Double(index) * .pi / 3 - 0.4
+                        func polar(_ a: Double, _ r: Double) -> CGPoint {
+                            CGPoint(x: hub.x + cos(a) * r, y: hub.y + sin(a) * r)
+                        }
+                        var blade = Path()
+                        blade.move(to: hub)
+                        blade.addCurve(to: polar(angle, radius),
+                                       control1: polar(angle - 0.8, radius * 0.48),
+                                       control2: polar(angle - 0.45, radius * 0.92))
+                        blade.addQuadCurve(to: polar(angle + 0.65, radius * 0.87), control: polar(angle + 0.28, radius * 1.06))
+                        blade.addCurve(to: hub, control1: polar(angle + 0.22, radius * 0.65), control2: polar(angle + 0.55, radius * 0.2))
+                        context.fill(blade, with: .linearGradient(
+                            Gradient(colors: [Color(hex: "#75b3a3").opacity(0.27), Color(hex: "#003f40").opacity(0.26)]),
+                            startPoint: polar(angle, radius), endPoint: hub))
+                    }
+                    var fold = Path()
+                    fold.move(to: point(0.34, 1.12))
+                    fold.addCurve(to: point(0.71, -0.16), control1: point(0.33, 0.54), control2: point(0.82, 0.4))
+                    fold.addCurve(to: point(0.91, 0.04), control1: point(0.87, -0.08), control2: point(0.94, -0.03))
+                    fold.addCurve(to: point(0.57, 1.1), control1: point(0.91, 0.55), control2: point(0.51, 0.55))
+                    fold.closeSubpath()
+                    context.fill(fold, with: .linearGradient(Gradient(colors: [Color(hex: "#66aa9b").opacity(0.25), Color(hex: "#003e40").opacity(0.35)]), startPoint: point(0.52, 0.3), endPoint: point(0.78, 0.7)))
+                    let circle = CGRect(x: canvas.width * 0.64, y: canvas.height * 0.53, width: canvas.height * 0.88, height: canvas.height * 0.88)
+                    context.fill(Path(ellipseIn: circle), with: .linearGradient(Gradient(colors: [Color(hex: "#80b9a9").opacity(0.17), .clear]), startPoint: point(0.7, 0.55), endPoint: point(1, 1)))
+                    var arc = Path()
+                    arc.addArc(center: point(0.82, 1.08), radius: canvas.height * 0.69, startAngle: .degrees(190), endAngle: .degrees(305), clockwise: false)
+                    context.stroke(arc, with: .color(Color(hex: "#0a4645").opacity(0.22)), style: StrokeStyle(lineWidth: canvas.height * 0.11))
+                }.blur(radius: 3)
+                RadialGradient(colors: [Color(hex: "#91bbad").opacity(0.08), .clear], center: .topLeading, startRadius: 0, endRadius: size.width * 0.7)
+            }
+        }.ignoresSafeArea()
+    }
+}
+struct LampsBackdrop: View {
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                LinearGradient(colors: [Color(hex: "#8d470f"), Color(hex: "#b77322"), Color(hex: "#713309")], startPoint: .topLeading, endPoint: .bottomTrailing)
+                RadialGradient(colors: [Color(hex: "#f5b84d").opacity(0.62), Color(hex: "#dc8e28").opacity(0.19), .clear], center: UnitPoint(x: 0.27, y: 0.54), startRadius: 20, endRadius: proxy.size.width * 0.57)
+                RadialGradient(colors: [Color(hex: "#f8c377").opacity(0.12), .clear], center: .topTrailing, startRadius: 0, endRadius: proxy.size.height * 0.75)
+            }
         }.ignoresSafeArea()
     }
 }
@@ -151,19 +181,25 @@ extension View {
 
 // Home-only treatment: retain the existing full-screen controllers' glass styling.
 extension View {
-    func faceGlass(on: Bool = false, radius: CGFloat = 42) -> some View {
-        self.background(on ? Color.white.opacity(0.64) : Color.white.opacity(0.07), in: .rect(cornerRadius: radius, style: .continuous))
-            .glassEffect(.clear.tint(on ? .white.opacity(0.16) : .clear).interactive(), in: .rect(cornerRadius: radius, style: .continuous))
+    func faceGlass(on: Bool = false, radius: CGFloat = 54) -> some View {
+        // Capture-only A/B switch. Clear is the shipping treatment for this patterned face.
+        let glass: Glass = ProcessInfo.processInfo.arguments.contains("-regularFaceGlass") ? .regular : .clear
+        return self.background(on ? Color.white.opacity(0.23) : Color.white.opacity(0.015), in: .rect(cornerRadius: radius, style: .continuous))
+            .glassEffect(glass.tint(.white.opacity(0.035)).interactive(), in: .rect(cornerRadius: radius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(LinearGradient(stops: [
-                        .init(color: .white.opacity(0.6), location: 0),
-                        .init(color: .white.opacity(0.13), location: 0.45),
-                        .init(color: .white.opacity(0), location: 0.75),
-                        .init(color: .white.opacity(0.12), location: 1)
-                    ], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.75)
+                    .stroke(LinearGradient(stops: [
+                        .init(color: .white.opacity(0.90), location: 0),
+                        .init(color: .white.opacity(0.28), location: 0.32),
+                        .init(color: .white.opacity(0.12), location: 0.62)
+                    ], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 2.0)
                     .allowsHitTesting(false)
             }
-            .shadow(color: .black.opacity(0.13), radius: 24, x: 0, y: 12)
+            .overlay {
+                RoundedRectangle(cornerRadius: radius - 1, style: .continuous).inset(by: 1.5)
+                    .strokeBorder(LinearGradient(colors: [.clear, .white.opacity(0.03), .white.opacity(0.19)], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 0.7)
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(0.27), radius: 30, x: 0, y: 16)
     }
 }

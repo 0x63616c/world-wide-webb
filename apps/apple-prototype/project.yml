@@ -68,3 +68,11 @@ schemes:
       targets:
         - WorldWideWebbTests
         - WorldWideWebbUITests
+  WorldWideWebb-Snapshots:
+    build:
+      targets:
+        WorldWideWebb-iPad: [test]
+        WorldWideWebbTests: [test]
+    test:
+      targets:
+        - WorldWideWebbTests
