@@ -79,6 +79,8 @@ struct PanelHome: View {
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
                 .disabled(store.walkProvider.isMutating))
+        case .cameras:
+            return AnyView(CamerasModule(provider: store.camerasProvider, detail: false, open: open))
         case .photos:
             return AnyView(Button(action: open) {
                 Label("Photos", systemImage: "lock.fill").font(.title2)

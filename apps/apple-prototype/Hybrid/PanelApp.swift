@@ -189,7 +189,7 @@ struct PanelRoot: View {
     }
 
     private var webBoard: some View {
-        PanelClassicBoard(session: session, home: webOnly ? nil : navigation.returnHome)
+        PanelClassicBoard(session: session, home: webOnly ? nil : { navigation.returnHome() })
     }
 
 }
