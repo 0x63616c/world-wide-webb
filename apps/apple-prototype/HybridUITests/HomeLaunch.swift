@@ -23,14 +23,27 @@ extension XCUIApplication {
         }
     }
 
+    @MainActor func returnHomeFromModule() {
+        let qr = buttons["wifi-fullscreen-qr"]
+        if qr.exists && qr.isHittable {
+            qr.tap()
+            XCTAssertTrue(qr.waitForNonExistence(timeout: 10))
+        }
+        buttons["module-home"].tap()
+        let pager = buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "face-page-")).firstMatch
+        XCTAssertTrue(pager.waitForExistence(timeout: 30))
+    }
+
     @MainActor func openHomeModule(_ module: String) {
         let tiles = ["lights": "lamps", "climate": "climate", "fan": "fan", "wifi": "wifi",
                      "sonos": "sound", "weather": "weather", "photos": "photos", "walk": "dogwalk",
                      "alarms": "clock", "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
         let tile = tiles[module]!
         XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
+        // Home's Classic button stays in the covered host's AX tree. The pager
+        // returns only after the selected controller has finished dismissing.
         let page = buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-1" : "face-page-0"]
-        XCTAssertTrue(page.waitForExistence(timeout: 15))
+        XCTAssertTrue(page.waitForExistence(timeout: 30))
         page.tap()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
         if XCTWaiter.wait(for: [selected], timeout: 5) != .completed {

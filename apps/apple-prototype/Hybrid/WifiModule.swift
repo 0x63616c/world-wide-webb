@@ -43,6 +43,7 @@ struct WifiModule: View {
                 WifiQRFullScreen(payload: payload, ssid: provider.wifi.ssid ?? "Guest Wi-Fi") {
                     showingQR = false
                 }
+                .overlay(alignment: .top) { PanelNotificationOverlay() }
             }
         }
         .onAppear { if openOnAppear && provider.qrPayload != nil { showingQR = true } }

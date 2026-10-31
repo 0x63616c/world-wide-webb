@@ -20,6 +20,25 @@ The research specification, reference images, independent reviews, comparison sh
 
 ## Build and verify
 
+For an isolated design follow-up on the shared mini, `verify-schemes.sh` accepts
+`WWW8_DD_ROOT` (separate per-product derived-data folders) and `WWW8_VERIFY_OUT`
+(parent of the named verification run). Set `WWW8_PANEL_DESTINATION` to a
+1366×1024-point iPad simulator destination for the hybrid Panel schemes; the
+prototype keeps its separate 1376×1032-point capture/test destination.
+`capture-live.sh` accepts `WWW8_APP_PATH`
+for the app built there, plus its existing `WWW8_CAPTURE_OUT` and named subsets.
+These overrides preserve the shared `www8-simlock`, PNG validation and independent
+double-launch determinism check. For WWW-54, keep sources/evidence in
+`~/wwwebb-home-design/` and derived data in `~/wwwebb-home-design-dd/`; archive the
+evidence off the mini before removing both directories. `compare.sh <images>
+<references> <iteration> home` makes only the Home/Lamps reference row when the
+other historical comparison screens are outside the follow-up's scope.
+
+`-hybridFixtures -hybridStill` freezes decorative motion through the existing
+`motionPhase` environment in DEBUG Panel builds. Provider clocks and write paths
+are unchanged. Functional module tours use it to avoid perpetual fan/sky effects
+blocking XCTest idle detection; alarm timing tours retain live motion.
+
 Use Xcode 27 and XcodeGen on the build mini:
 
 ```sh
