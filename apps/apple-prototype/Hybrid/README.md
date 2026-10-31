@@ -1225,22 +1225,31 @@ ownership of auto-dismiss timing and haptics. Root-injected navigation callbacks
 resolve source taps through `PanelNavigation`, including dismissal of Home's
 current full-screen destination. Unknown routes keep their banner and unread state.
 
-The overlay uses native Liquid Glass and source glyph/name, title, body and
-relative time. Up to three source groups appear, or one at accessibility text
-sizes. Same-source arrivals stack, with the highest-priority/newest item exposed.
-Tap opens that module's existing Hybrid detail route and marks the item read;
-disabled or unavailable native modules keep the router's web-board fallback.
-Alarms retain their existing web deep link. Unknown/malformed routes leave the
-item available and never open external URLs. Optional nested paths currently
-resolve to module detail (with `module/events/alarms` mapped to Alarms).
+The overlay uses a 380-point dark native Liquid Glass card, a rounded-square
+source glyph, bold source/title, relative time and a two-line body. It sits 20
+points from the safe trailing edge and 72 points below the safe top edge, leaving
+the top control row (including Details) accessible on Home, Classic and native
+controllers. Accessibility text sizes widen the card to 560 points.
 
-Swipe up/sideways or the accessible Dismiss button dismisses the exposed item,
-revealing the next in its group. Normal/low banners last five visible seconds,
-high lasts ten, critical remains until acted on. Timeout hides only the banner,
-leaving unread history intact. Hidden/queued items do not consume reading time;
-touch, VoiceOver and backgrounding pause it. Reduce Motion uses a short fade in
-place of the spring/drop. Arrival, explicit dismissal and navigation use native
-`sensoryFeedback`; physical haptics depend on device support.
+All pending banners form one newest-first stack; the inbox's priority/source
+ordering remains unchanged. Up to two smaller, dimmed material cards peek below
+the top card, with a +N count. Tap a stack to expand a scrollable vertical list;
+Show less collapses it. Tap a single/expanded card to open its existing Hybrid
+detail route and mark it read. Disabled/unavailable modules keep the existing
+web fallback, Alarms keep their existing route, and unknown routes remain unread.
+
+Swipe right to hide a banner, individually when expanded. The card tracks the
+finger, resists leftward drags and springs back on a short drag. A horizontal
+90-point right drag or a projected rightward fling dismisses it off the edge.
+There is no close button; VoiceOver retains a Dismiss action. Banner dismissal,
+like timeout, hides presentation only and preserves unread pull-down history;
+explicit Clear actions in history still use the existing dismiss API.
+
+Normal/low banners last five visible seconds, high lasts ten, and critical
+remains until acted on. Covered items retain their full reading time. Touching
+any card, expanding the stack, VoiceOver, history and backgrounding pause timers.
+Reduce Motion uses fades for arrival/removal and stack expansion. Existing arrival
+and open haptics remain; physical haptics depend on device support.
 
 Debug-only, synthetic captures (no notification API traffic):
 
@@ -1249,13 +1258,36 @@ Debug-only, synthetic captures (no notification API traffic):
 -hybridFixtures -moduleFlag.lights native -moduleFlag.climate native -notificationSamples -notificationStack
 ```
 
+For black-background review captures, launch Debug Panel with
+`-notificationCapture single|stacked|expanded|swipe -notificationHold` (choose one
+state). This isolated host posts synthetic Updates, Alarms and Dog Walk items,
+starts no board/providers/network, and uses a fixed 125-point rightward offset for
+`swipe`. The host and launch switch are compiled out of Release. Capture at
+1366×1024 points in landscape. `PanelUITests/NotificationCaptureTests` holds
+landscape orientation through all four screenshots and retains them as named
+XCTest attachments (`mac-single`, `mac-stacked`, `mac-expanded`, `mac-swipe`).
+Export with `xcrun xcresulttool export attachments --path <result.xcresult>
+--output-path <captures>`. Capturing with simctl after the runner exits can reset
+the device to portrait and letterbox the app; use the retained landscape images.
+Validate the upright PNG with `~/bin/www8-validate-png`.
+
 `-notificationHold` pauses banner timers for deterministic captures.
 `-notificationReduceMotion` exercises reduced-motion presentation without changing
 shared simulator settings. `-UIPreferredContentSizeCategoryName
 UICTContentSizeCategoryAccessibilityXXXL` exercises accessibility text.
 `PanelUITests/NotificationBannerTests` captures the banner, destination, stack,
-cleared overlay and accessibility presentation as retained XCTest attachments.
+expanded/swiped overlay and accessibility presentation as retained XCTest attachments.
 The inbox and durable cache are covered by unit tests. The history UI is described below.
+
+WWW-69 verification (2026-10-31, Xcode 27.0 / iOS 26.3): PanelKit passed 15
+XCTest + 70 Swift Testing tests; Panel passed 119 unit tests and the prototype
+passed 150. Panel and WorldWideWebb-iPad builds passed. All 11 focused functional
+notification/history/update/smoke UI cases passed across the suite and corrected
+real-root swipe rerun; the four-state landscape capture test also passed.
+See [the review captures and validation record](../../../docs/screenshots/www-69-mac-notifications/README.md),
+including the mostly-black full-frame validator limitation. The task's simulator,
+source copy and derived data were removed from the shared mini after export.
+
 
 
 ## Pull-down Notification Center (WWW-60)

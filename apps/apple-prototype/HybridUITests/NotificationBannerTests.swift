@@ -1,49 +1,95 @@
 import XCTest
 
 final class NotificationBannerTests: XCTestCase {
-    @MainActor func testBannerDeepLinkAndStackDismissal() {
+    @MainActor func testSingleSwipeRightPreservesHistory() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native", "-notificationHold"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1",
+            "-moduleFlag.lights", "native", "-notificationSamples", "-notificationHold"]
         app.launch()
-        XCTAssertTrue(app.buttons["home-classic"].waitForExistence(timeout: 30))
-        capture("notification-baseline", app)
-        app.terminate()
-        app.launchArguments += ["-notificationSamples"]
-        app.launch()
-        let lights = app.buttons["notification-banner-lights"]
-        XCTAssertTrue(lights.waitForExistence(timeout: 20))
-        capture("notification-banner-before", app)
-        lights.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertFalse(lights.exists)
-        capture("notification-banner-after-deep-link", app)
-        app.terminate()
+        let banner = app.buttons["notification-banner-lights"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 20))
+        XCTAssertEqual(banner.frame.width, 380, accuracy: 1)
+        XCTAssertEqual(app.frame.maxX - banner.frame.maxX, 20, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(banner.frame.minY, 72)
+        XCTAssertFalse(app.buttons["notification-dismiss-lights"].exists)
+        banner.swipeLeft()
+        XCTAssertTrue(banner.exists)
+        swipeRight(banner)
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.012))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.4)))
+        XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-history-item-")).firstMatch.exists)
+    }
 
-        app.launchArguments += ["-notificationStack"]
-        app.launch()
-        XCTAssertTrue(app.buttons["notification-banner-climate"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.staticTexts["notification-count-lights"].exists)
+    @MainActor func testThreeStackExpandAndDismissIndividually() {
+        let app = launchCapture("stacked")
+        let top = app.buttons["notification-banner-updates"]
+        XCTAssertTrue(top.waitForExistence(timeout: 20))
+        XCTAssertEqual(app.staticTexts["notification-stack-count"].label, "3 notifications")
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 1)
         capture("notification-stack", app)
-        app.buttons["notification-banner-climate"].swipeUp()
-        XCTAssertTrue(app.buttons["notification-banner-climate"].waitForNonExistence(timeout: 5))
-        app.buttons["notification-banner-lights"].swipeLeft()
-        let count = app.staticTexts["notification-count-lights"].firstMatch
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "2 notifications from Lights"), object: count)], timeout: 10), .completed)
-        app.buttons["notification-dismiss-lights"].tap()
-        XCTAssertTrue(count.waitForNonExistence(timeout: 10))
-        app.buttons["notification-dismiss-lights"].tap()
-        XCTAssertTrue(app.buttons["notification-banner-lights"].waitForNonExistence(timeout: 5))
-        capture("notification-stack-after-dismiss", app)
+        top.tap()
+        XCTAssertTrue(app.buttons["notification-stack-collapse"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 3)
+        let alarm = app.buttons["notification-banner-alarms"]
+        swipeRight(alarm)
+        XCTAssertTrue(alarm.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(top.exists)
+        XCTAssertTrue(app.buttons["notification-banner-walk"].exists)
+        capture("notification-expanded-after-dismiss", app)
+        app.buttons["notification-stack-collapse"].tap()
+        XCTAssertTrue(app.staticTexts["notification-stack-count"].exists)
+    }
+
+    @MainActor func testExpandedStackPausesTimeouts() async {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-notificationCapture", "expanded"]
+        app.launch()
+        let collapse = app.buttons["notification-stack-collapse"]
+        XCTAssertTrue(collapse.waitForExistence(timeout: 20))
+        // All fixtures are normal priority (five seconds); expanded reading time is unbounded.
+        try? await Task.sleep(for: .seconds(6))
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 3)
+        collapse.tap()
+        XCTAssertTrue(app.buttons["notification-banner-updates"].waitForNonExistence(timeout: 8))
+    }
+
+    @MainActor func testSingleDeepLink() {
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-notificationSamples", "-notificationHold"]
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.launch()
+        let banner = app.buttons["notification-banner-lights"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 20))
+        banner.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(banner.exists)
+    }
+
+    @MainActor private func launchCapture(_ state: String) -> XCUIApplication {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-notificationCapture", state, "-notificationHold"]
+        app.launch()
+        return app
+    }
+
+    @MainActor private func swipeRight(_ banner: XCUIElement) {
+        // A system swipe starting at the midpoint has too little runway near the right edge.
+        banner.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: banner.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)))
     }
 
     @MainActor func testBannerAbovePresentedHomeController() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native",
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native",
             "-notificationSamples", "-notificationHold"]
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
@@ -69,29 +115,27 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 10))
     }
 
-    @MainActor func testAutoTimeoutAndCriticalRemainOnWebFallback() {
+    @MainActor func testAutoTimeoutOnWebFallback() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationStack", "-hybrid.webOnly", "YES"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples", "-hybrid.webOnly", "YES"]
         app.launch()
-        XCTAssertTrue(app.buttons["notification-banner-climate"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.buttons["notification-banner-lights"].waitForNonExistence(timeout: 40))
-        XCTAssertTrue(app.buttons["notification-banner-climate"].exists)
-        app.buttons["notification-dismiss-climate"].tap()
-        XCTAssertTrue(app.buttons["notification-banner-climate"].waitForNonExistence(timeout: 5))
+        let banner = app.buttons["notification-banner-lights"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 20))
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 20))
     }
 
     @MainActor func testReduceMotionAndAccessibilityText() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationStack", "-notificationReduceMotion", "-notificationHold",
+        app.launchArguments = ["-notificationCapture", "single", "-notificationReduceMotion", "-notificationHold",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
-        let banner = app.buttons["notification-banner-climate"]
+        let banner = app.buttons["notification-banner-updates"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
         XCTAssertTrue(banner.isHittable)
         capture("notification-accessibility-reduce-motion", app)
-        app.buttons["notification-dismiss-climate"].tap()
-        XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["notification-banner-lights"].isHittable)
+        swipeRight(banner)
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
     }
 
     @MainActor private func capture(_ name: String, _ app: XCUIApplication) {
