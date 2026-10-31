@@ -29,6 +29,25 @@ struct NotificationBanners: View {
     private var visible: [NotificationGroup] { Array(center.bannerGroups.prefix(typeSize.isAccessibilitySize ? 1 : 3)) }
 
     var body: some View {
+        ZStack(alignment: .top) {
+            banners
+                .opacity(center.historyPresented ? 0 : 1)
+                .accessibilityHidden(center.historyPresented)
+                .allowsHitTesting(!center.historyPresented)
+            if isActivePresenter {
+                if center.historyPresented {
+                    NotificationHistory(source: source)
+                        .transition(reduceMotion ? .opacity : .move(edge: .top))
+                } else {
+                    NotificationHistoryEdge()
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.36, bounce: 0), value: center.historyPresented)
+    }
+
+    private var banners: some View {
         GlassEffectContainer(spacing: 8) {
             VStack(spacing: 18) {
                 ForEach(visible) { group in
