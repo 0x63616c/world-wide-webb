@@ -461,3 +461,131 @@ eight UI tours, the complete Panel unit scheme and all **19 Panel-Smoke tests**
 pass with WWW-64 integrated. PanelKit's **70 tests** also pass. Nine cold reviews
 complete across the two rejected candidates and restored set. Raw final logs are
 archived off the mini; PR #851 retains only the review runner and evidence.
+
+
+## WWW-54 — thermostat dial follow-up (2026-10-31)
+
+The renewed brief permits a different design direction after the three rejected
+7h-derived trials. Start from main `eba45d82`. Test a panel-only thermostat
+reading instrument: an open 270-degree scale for the existing 67–77° bounds,
+a target marker, and a grouped setpoint/indoor reading. Keep explicit minus/plus
+actions and the existing state/command seam. Heat–Cool marks both bounds; Off
+removes target markers. No clock, random seed or new motion is introduced.
+Phone composition, tile placements, native materials and other pages retain main.
+
+Fresh current-main captures and candidate verification run on the shared Mac
+under `www8-simlock`, with task-local build products. Raw evidence is archived
+outside Git at `/workspace/wwwebb-ui/prototype/v2/www54-followup/`. The fixed
+`BRIEF-method.md`, cold-review prompt and published twelve-screen floors remain
+unchanged. Capture, review and acceptance are pending; no improvement or release
+is claimed. The renewed brief supersedes the earlier trial cap, not the
+acceptance rules.
+
+### Thermostat dial: first review — reject
+
+The first three cold runs score Home **7.9 / 7.9 / 8.0**, median **7.9**,
+0.6 below its retained floor. Review identifies a concrete implementation defect:
+the fixed-width dial inherits the tile stack's leading alignment and sits about
+56 points left of the tile center. Correct it in `69eb56d1` with a full-width
+centering frame, and hide decorative endpoint text from VoiceOver. The original
+review inputs and raw runs remain immutable under `www54-followup/dial/`.
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 9.0 | 9.0/8.8/9.0 | PASS ≥9.0 | -0.1 |
+| main-controls.png | 8.1 | 8.3/8.1/8.1 | fail ≥8.5 | -0.3 |
+| main-dogwalk-full-running.png | 8.6 | 8.6/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-full.png | 8.5 | 8.6/8.5/8.5 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-remote.png | 8.6 | 8.6/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-tile-running.png | 8.0 | 8.1/8.0/8.0 | fail ≥8.5 | -0.4 |
+| main-dogwalk-tile.png | 8.1 | 8.3/8.1/8.1 | fail ≥8.5 | -0.3 |
+| main-home.png | 7.9 | 7.9/7.9/8.0 | fail ≥9.0 | -0.6 |
+| main-iphone-home-bottom.png | 8.6 | 8.8/8.6/8.4 | PASS ≥8.5 | +0.3 |
+| main-iphone-home.png | 8.4 | 8.7/8.4/8.3 | fail ≥9.0 | +0.0 |
+| main-lamps.png | 8.6 | 8.8/8.4/8.6 | fail ≥9.0 | -0.4 |
+| main-nowplaying.png | 8.8 | 8.8/8.7/8.8 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+The correction is a fix to the same instrument trial, not acceptance of the
+rejected layout. Fresh current-main Home was pixel-identical to the archived
+accepted Home; all twelve original candidate pairs passed determinism (max
+0.000608/255). The eleven non-Home states differed from current main by at most
+0.000608/255. Lower repeat medians on unchanged screens do not lower any floor.
+
+All five first-trial builds, both 149-unit-plus-hosted-render prototype suites,
+all eight UI tours and Panel unit pass. Panel-Smoke is still running. The
+centered iPad build and a fresh Home relaunch pair pass; a fresh full capture
+set and corrected-source verification are in progress. No acceptance or release
+is claimed.
+
+### Centered thermostat: full verification — pass, review pending
+
+Final visual source `69eb56d1`: all five scheme builds pass; each prototype
+scheme passes 149 unit tests and hosted rendering; all eight UI tours, the full
+Panel unit scheme and **21/21 Panel-Smoke tests** pass. No assertions or test
+launch arguments were changed in this follow-up. The first trial's smoke run
+finished at 17/21; retain its four raw failures (Classic return, Home-to-Classic,
+the multi-module tour and notification auto-timeout) separately from the complete
+passing corrected-source run.
+
+All twelve corrected states were captured afresh with independent `-snapshot`
+relaunches, readiness/PNG checks and the shared simulator lock. Maximum pair
+MAE is **0.060804/255**. Both phone captures are pixel-identical to fresh main;
+the other unchanged iPad states differ by at most 0.060804/255. The corrected
+Home's complete dial is centered on the tile/footer axis. No new clock, motion
+or fixture state was introduced.
+
+Complete corrected Mac logs, captures and repeat PNGs are archived and validated
+in `www54-followup/dial-centered-evidence.tar.gz`, extracted alongside the final
+review input under `www54-followup/dial-centered/`. The first review and failed
+verification evidence remain in `dial/` and `dial-verification-evidence.tar.gz`.
+The corrected three-run review uses the unchanged external `review3.sh`, fixed
+prompt, reference PNGs and published floors. Results and acceptance are pending.
+
+### Centered thermostat: final decision — reject and restore main
+
+The corrected three-run Home scores are **8.4 / 8.2 / 8.3**, median **8.3**:
+0.2 below the retained 8.5 floor and below the 9.0 goal. Centering resolves the
+concrete defect, but the new dial does not improve the complete screen. Reviews
+still find weak Home brightness-instrument hierarchy and uneven active material
+weight. Those nearby areas were intentionally unchanged, and their previously
+rejected refinements are not repeated. No further redesign is attempted.
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 9.0 | 9.0/9.0/9.0 | PASS ≥9.0 | -0.1 |
+| main-controls.png | 8.0 | 8.2/8.0/8.0 | fail ≥8.5 | -0.4 |
+| main-dogwalk-full-running.png | 8.5 | 8.6/8.4/8.5 | PASS ≥8.5 | -0.1 |
+| main-dogwalk-full.png | 8.5 | 8.5/8.6/8.4 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-remote.png | 8.5 | 8.6/8.4/8.5 | PASS ≥8.5 | -0.1 |
+| main-dogwalk-tile-running.png | 8.1 | 8.2/8.1/7.9 | fail ≥8.5 | -0.3 |
+| main-dogwalk-tile.png | 8.0 | 8.2/8.0/8.0 | fail ≥8.5 | -0.4 |
+| main-home.png | 8.3 | 8.4/8.2/8.3 | fail ≥9.0 | -0.2 |
+| main-iphone-home-bottom.png | 8.6 | 8.7/8.5/8.6 | PASS ≥8.5 | +0.3 |
+| main-iphone-home.png | 8.3 | 8.4/8.3/8.3 | fail ≥9.0 | -0.1 |
+| main-lamps.png | 8.5 | 8.6/8.4/8.5 | fail ≥9.0 | -0.5 |
+| main-nowplaying.png | 8.8 | 8.8/8.8/8.7 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+Reject both trial variants. Restore `MixedHomeTile.swift` and `APPLE-SPEC.md`
+byte-for-byte from starting main `eba45d82` in a new fix-up commit, preserving
+trial/fix/review history. All other visual source, layouts and floors were
+unchanged throughout. Retained Home is the historical accepted **8.5**; no new
+restored-state review score is claimed. Other screens' lower repeat medians
+remain recorded without lowering their floors or waiving the acceptance rule.
+
+The corrected candidate's full verification is green as documented above:
+all five builds, both prototype suites, all eight UI tours, Panel unit and
+21/21 Panel-Smoke pass. These results validate the rejected candidate, not a
+shipped redesign. Restored source identity is verified against starting main;
+branch CI is checked after the restoration. Only this experiment log remains
+as the final diff from starting main.
+
+Per the renewed brief's stop rule, **no PR is opened, no merge or production
+deployment is performed, and no TestFlight build is uploaded**. WWW-54 remains
+unmet. Progress and the final decision are posted to Tickets. Both immutable
+review sets, protocol/input hashes, full verification logs, failure/retry logs,
+captures, repeat PNGs, determinism and current-main comparisons are retained
+under `/workspace/wwwebb-ui/prototype/v2/www54-followup/`.
