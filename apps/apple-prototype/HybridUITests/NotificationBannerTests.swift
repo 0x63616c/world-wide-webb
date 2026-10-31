@@ -13,7 +13,9 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(banner.exists)
         swipeRight(banner)
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.012))
+        let edge = app.buttons["notification-history-edge"]
+        XCTAssertTrue(edge.exists)
+        edge.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5))
             .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.4)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-history-item-")).firstMatch.exists)
@@ -37,6 +39,20 @@ final class NotificationBannerTests: XCTestCase {
         capture("notification-expanded-after-dismiss", app)
         app.buttons["notification-stack-collapse"].tap()
         XCTAssertTrue(app.staticTexts["notification-stack-count"].exists)
+    }
+
+    @MainActor func testExpandedStackPausesTimeouts() async {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-notificationCapture", "expanded"]
+        app.launch()
+        let collapse = app.buttons["notification-stack-collapse"]
+        XCTAssertTrue(collapse.waitForExistence(timeout: 20))
+        // All fixtures are normal priority (five seconds); expanded reading time is unbounded.
+        try? await Task.sleep(for: .seconds(6))
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 3)
+        collapse.tap()
+        XCTAssertTrue(app.buttons["notification-banner-updates"].waitForNonExistence(timeout: 8))
     }
 
     @MainActor func testSingleDeepLink() {

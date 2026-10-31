@@ -61,7 +61,7 @@ struct NotificationBanners: View {
                 }
                 if expanded {
                     ScrollView {
-                        VStack(spacing: 10) {
+                        LazyVStack(spacing: 10) {
                             ForEach(items) { item in banner(item, count: 1) }
                         }
                         .padding(.vertical, 2)
