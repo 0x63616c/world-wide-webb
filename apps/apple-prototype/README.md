@@ -39,6 +39,18 @@ other historical comparison screens are outside the follow-up's scope.
 are unchanged. Functional module tours use it to avoid perpetual fan/sky effects
 blocking XCTest idle detection; alarm timing tours retain live motion.
 
+For the Sol-medium design-review protocol requested by WWW-55, run on the box:
+
+```sh
+bash scripts/review-design.sh <review-dir> <out-base> <protocol-dir> [baseline-median.md]
+```
+
+The review directory contains validated `main-*.png`/`pages-*.png`, `refs/*.png`
+and `APPLE-SPEC.md`. The external protocol directory supplies the unchanged
+`REVIEW-PROMPT-orch.txt` and `tools/median.py`. The runner hashes all inputs and
+runs three independent cold reviews; it does not change acceptance floors.
+[WWW-55 decisions and medians](docs/v2/www-55.md) record both rejected candidates.
+
 Use Xcode 27 and XcodeGen on the build mini:
 
 ```sh
