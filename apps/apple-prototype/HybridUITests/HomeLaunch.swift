@@ -34,6 +34,18 @@ extension XCUIApplication {
         XCTAssertTrue(pager.waitForExistence(timeout: 30))
     }
 
+    @MainActor func selectHomeFace(_ index: Int) {
+        let page = buttons["face-page-\(index)"]
+        XCTAssertTrue(page.waitForExistence(timeout: 30))
+        page.tap()
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
+        if XCTWaiter.wait(for: [selected], timeout: 5) != .completed {
+            page.tap() // Replay an absolute selection if a system interruption consumed the tap.
+            let retried = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
+            XCTAssertEqual(XCTWaiter.wait(for: [retried], timeout: 5), .completed)
+        }
+    }
+
     @MainActor func openHomeModule(_ module: String) {
         let tiles = ["lights": "lamps", "climate": "climate", "fan": "fan", "wifi": "wifi",
                      "sonos": "sound", "weather": "weather", "photos": "photos", "walk": "dogwalk",
@@ -43,15 +55,7 @@ extension XCUIApplication {
         // Home's Classic button stays in the covered host's AX tree. The pager
         // returns only after the selected controller has finished dismissing.
         // WWW-54 grid Home: page 2 holds Now Playing and the overflow grid cards.
-        let page = buttons[["wifi", "photos", "walk", "media", "cameras", "sonos"].contains(module) ? "face-page-2" : "face-page-1"]
-        XCTAssertTrue(page.waitForExistence(timeout: 30))
-        page.tap()
-        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
-        if XCTWaiter.wait(for: [selected], timeout: 5) != .completed {
-            page.tap() // Replay an absolute selection if a system interruption consumed the tap.
-            let retried = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
-            XCTAssertEqual(XCTWaiter.wait(for: [retried], timeout: 5), .completed)
-        }
+        selectHomeFace(["wifi", "photos", "walk", "media", "cameras", "sonos"].contains(module) ? 2 : 1)
         let container = descendants(matching: .any)["tile-\(tile)"].firstMatch
         XCTAssertTrue(container.waitForExistence(timeout: 15))
         if !launchArguments.contains("-hybridUnavailable") {

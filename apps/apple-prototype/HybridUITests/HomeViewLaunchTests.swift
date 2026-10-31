@@ -12,7 +12,7 @@ import XCTest
         // The clock is the first face (WWW-68); Home is the next page.
         XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
         XCTAssertTrue(app.buttons["clock-face"].exists)
-        app.buttons["face-page-1"].tap()
+        app.selectHomeFace(1)
         XCTAssertTrue(app.descendants(matching: .any)["tile-climate"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
@@ -47,7 +47,7 @@ import XCTest
         app.launch()
         // The clock is the first face (WWW-68); readings live on the Home page.
         XCTAssertTrue(app.buttons["face-page-1"].waitForExistence(timeout: 30))
-        app.buttons["face-page-1"].tap()
+        app.selectHomeFace(1)
         XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForExistence(timeout: 30))
         XCTAssertFalse(app.staticTexts["Inside 0° · Unavailable"].exists)
         app.buttons["tile-unavailable-climate"].tap()
