@@ -34,16 +34,8 @@ extension XCUIApplication {
         XCTAssertTrue(pager.waitForExistence(timeout: 30))
     }
 
-    @MainActor func openHomeModule(_ module: String) {
-        let tiles = ["lights": "lamps", "climate": "climate", "fan": "fan", "wifi": "wifi",
-                     "sonos": "sound", "weather": "weather", "photos": "photos", "walk": "dogwalk",
-                     "alarms": "clock", "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
-        let tile = tiles[module]!
-        XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
-        // Home's Classic button stays in the covered host's AX tree. The pager
-        // returns only after the selected controller has finished dismissing.
-        // WWW-54 grid Home: page 2 holds Now Playing and the modules without a grid card.
-        let page = buttons[["wifi", "photos", "walk", "media", "cameras", "sonos"].contains(module) ? "face-page-2" : "face-page-1"]
+    @MainActor func selectHomeFace(_ index: Int) {
+        let page = buttons["face-page-\(index)"]
         XCTAssertTrue(page.waitForExistence(timeout: 30))
         page.tap()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
@@ -52,15 +44,25 @@ extension XCUIApplication {
             let retried = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
             XCTAssertEqual(XCTWaiter.wait(for: [retried], timeout: 5), .completed)
         }
+    }
+
+    @MainActor func openHomeModule(_ module: String) {
+        let tiles = ["lights": "lamps", "climate": "climate", "fan": "fan", "wifi": "wifi",
+                     "sonos": "sound", "weather": "weather", "photos": "photos", "walk": "dogwalk",
+                     "alarms": "clock", "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
+        let tile = tiles[module]!
+        XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
+        // Home's Classic button stays in the covered host's AX tree. The pager
+        // returns only after the selected controller has finished dismissing.
+        // WWW-54 grid Home: page 2 holds Now Playing and the overflow grid cards.
+        selectHomeFace(["wifi", "photos", "walk", "media", "cameras", "sonos"].contains(module) ? 2 : 1)
         let container = descendants(matching: .any)["tile-\(tile)"].firstMatch
         XCTAssertTrue(container.waitForExistence(timeout: 15))
         if !launchArguments.contains("-hybridUnavailable") {
             XCTAssertTrue(buttons["tile-unavailable-\(tile)"].waitForNonExistence(timeout: 30))
         }
-        // Grid cards open from anywhere outside their inline controls; the older
-        // module tiles on page 2 keep their own open buttons.
-        let gridCards = ["lamps", "climate", "fan", "sound", "weather", "clock", "calendar", "tesla"]
-        if gridCards.contains(tile) { container.tap() } else { container.buttons.firstMatch.tap() }
+        // Tap the title inset, away from inline controls (including Walk start/end).
+        container.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.15)).tap()
         if module == "wifi", !launchArguments.contains("-hybridUnavailable"),
            !launchArguments.contains("-hybridDetail"),
            let index = launchArguments.firstIndex(of: "-moduleFlag.wifi"),
