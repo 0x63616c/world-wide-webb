@@ -29,8 +29,15 @@ describe.skipIf(!url)("alarm service against Postgres", () => {
       "utf8",
     ).replaceAll('REFERENCES "public".', `REFERENCES "${namespace}".`);
     await pool.query(ddl);
+    await pool.query(
+      readFileSync(
+        new URL("../../apps/api/src/db/migrations/0044_daffy_blonde_phantom.sql", import.meta.url),
+        "utf8",
+      ).replaceAll('"public".', `"${namespace}".`),
+    );
   });
   beforeEach(async () => {
+    await pool.query("TRUNCATE notifications");
     await pool.query("TRUNCATE alarm CASCADE");
   });
   afterAll(async () => {
@@ -38,6 +45,40 @@ describe.skipIf(!url)("alarm service against Postgres", () => {
     await pool.end();
   });
 
+  it("posts each alarm transition once, including missed and expired rings", async () => {
+    await make({ label: "Morning" });
+    await Promise.all([service.claimDue(due), service.claimDue(due)]);
+    const ring = (await service.snapshot(due)).active[0];
+    await service.act(ring.id, 0, "snooze", due);
+    await expect(service.act(ring.id, 0, "snooze", due)).rejects.toMatchObject({ status: 409 });
+    const later = new Date(due.getTime() + 9 * 60_000);
+    await service.claimDue(later);
+    await service.claimDue(later);
+    await service.claimDue(new Date(later.getTime() + 30 * 60_000));
+    await service.claimDue(new Date(later.getTime() + 31 * 60_000));
+    const rows = (await pool.query("SELECT * FROM notifications ORDER BY revision")).rows;
+    expect(rows.map((r) => r.title)).toEqual([
+      "Alarm ringing",
+      "Alarm snoozed",
+      "Alarm ringing",
+      "Missed alarm",
+    ]);
+    expect(rows.map((r) => r.deep_link)).toEqual(Array(4).fill("module/alarms"));
+    expect(rows[0].priority).toBe("critical");
+  });
+  it("rolls back the occurrence if notification persistence fails", async () => {
+    await make();
+    await pool.query(
+      "ALTER TABLE notifications ADD CONSTRAINT reject_test CHECK (title = 'rejected')",
+    );
+    try {
+      await expect(service.claimDue(due)).rejects.toThrow();
+    } finally {
+      await pool.query("ALTER TABLE notifications DROP CONSTRAINT reject_test");
+    }
+    expect((await service.snapshot(due)).active).toHaveLength(0);
+    expect(await service.claimDue(due)).toBe(1);
+  });
   it("creates, edits, disables, enables and deletes durable alarms", async () => {
     const { id } = await make();
     expect(alarmIdSchema.parse(id)).toBe(id);

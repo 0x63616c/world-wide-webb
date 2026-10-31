@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createNotification } from "@features/notifications/service";
 import { genId } from "@www/platform";
 import { and, asc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import { alarmDefaults } from "./config";
@@ -171,37 +172,55 @@ export function createAlarmService(database: Database, defaults: () => Defaults 
     },
 
     async act(id: string, version: number, action: "stop" | "snooze", now = new Date()) {
-      const rows = await database
-        .update(alarmRings)
-        .set(
-          action === "stop"
-            ? {
-                status: "stopped",
-                version: sql`${alarmRings.version} + 1`,
-              }
-            : {
-                status: "snoozed",
-                version: sql`${alarmRings.version} + 1`,
-                ringAt: sql`${now.toISOString()}::timestamptz + ${alarmRings.snoozeMinutes} * interval '1 minute'`,
-                expiresAt: sql`${now.toISOString()}::timestamptz + ${alarmRings.snoozeMinutes} * interval '1 minute' + interval '30 minutes'`,
-              },
-        )
-        .where(
-          and(
-            eq(alarmRings.id, id),
-            eq(alarmRings.version, version),
-            gt(alarmRings.expiresAt, now),
-            inArray(alarmRings.status, action === "stop" ? ["ringing", "snoozed"] : ["ringing"]),
-          ),
-        )
-        .returning({ id: alarmRings.id });
-      if (!rows.length) throw new AlarmError(409, "This alarm has changed. Refresh and try again.");
-      return { id };
+      return database.transaction(async (tx) => {
+        const rows = await tx
+          .update(alarmRings)
+          .set(
+            action === "stop"
+              ? {
+                  status: "stopped",
+                  version: sql`${alarmRings.version} + 1`,
+                }
+              : {
+                  status: "snoozed",
+                  version: sql`${alarmRings.version} + 1`,
+                  ringAt: sql`${now.toISOString()}::timestamptz + ${alarmRings.snoozeMinutes} * interval '1 minute'`,
+                  expiresAt: sql`${now.toISOString()}::timestamptz + ${alarmRings.snoozeMinutes} * interval '1 minute' + interval '30 minutes'`,
+                },
+          )
+          .where(
+            and(
+              eq(alarmRings.id, id),
+              eq(alarmRings.version, version),
+              gt(alarmRings.expiresAt, now),
+              inArray(alarmRings.status, action === "stop" ? ["ringing", "snoozed"] : ["ringing"]),
+            ),
+          )
+          .returning();
+        if (!rows.length)
+          throw new AlarmError(409, "This alarm has changed. Refresh and try again.");
+        const ring = rows[0];
+        await createNotification(
+          {
+            source_module: "alarms",
+            title: action === "snooze" ? "Alarm snoozed" : "Alarm stopped",
+            body:
+              action === "snooze"
+                ? `${ring.label || "Alarm"} · snoozed for ${ring.snoozeMinutes} minutes.`
+                : ring.label || "Alarm stopped.",
+            deep_link: "module/alarms",
+            dedupe_key: `${id}:${ring.version}:${action}`,
+          },
+          tx,
+        );
+        return { id };
+      });
     },
 
     async claimDue(now = new Date()) {
       const config = defaults();
       return database.transaction(async (tx) => {
+        const notices: Parameters<typeof createNotification>[0][] = [];
         const due = await tx
           .select()
           .from(alarms)
@@ -229,6 +248,15 @@ export function createAlarmService(database: Database, defaults: () => Defaults 
             })
             .onConflictDoNothing()
             .returning({ id: alarmRings.id });
+          if (inserted.length)
+            notices.push({
+              source_module: "alarms",
+              title: plan.ring ? "Alarm ringing" : "Missed alarm",
+              body: alarm.definition.label || "Alarm",
+              deep_link: "module/alarms",
+              priority: plan.ring ? "critical" : "high",
+              dedupe_key: `${inserted[0].id}:0:${plan.ring ? "ringing" : "missed"}`,
+            });
           if (plan.ring) fired += inserted.length;
           await tx
             .update(alarms)
@@ -236,12 +264,22 @@ export function createAlarmService(database: Database, defaults: () => Defaults 
             .where(eq(alarms.id, alarm.id));
         }
         // Snoozes survive process restarts, and become a new version of the SAME occurrence.
-        await tx
+        const expired = await tx
           .update(alarmRings)
-          .set({ status: "stopped", version: sql`${alarmRings.version} + 1` })
+          .set({ status: "missed", version: sql`${alarmRings.version} + 1` })
           .where(
             and(inArray(alarmRings.status, ["ringing", "snoozed"]), lte(alarmRings.expiresAt, now)),
-          );
+          )
+          .returning();
+        for (const ring of expired)
+          notices.push({
+            source_module: "alarms",
+            title: "Missed alarm",
+            body: ring.label || "Alarm timed out.",
+            deep_link: "module/alarms",
+            priority: "high",
+            dedupe_key: `${ring.id}:${ring.version}:missed`,
+          });
         const snoozes = await tx
           .update(alarmRings)
           .set({ status: "ringing", version: sql`${alarmRings.version} + 1` })
@@ -252,7 +290,19 @@ export function createAlarmService(database: Database, defaults: () => Defaults 
               gt(alarmRings.expiresAt, now),
             ),
           )
-          .returning({ id: alarmRings.id });
+          .returning();
+        for (const ring of snoozes)
+          notices.push({
+            source_module: "alarms",
+            title: "Alarm ringing",
+            body: ring.label || "Alarm",
+            deep_link: "module/alarms",
+            priority: "critical",
+            dedupe_key: `${ring.id}:${ring.version}:ringing`,
+          });
+        // Take the notification revision lock only after all alarm row locks.
+        // An action may hold a ring row while waiting for that revision lock.
+        for (const notice of notices) await createNotification(notice, tx);
         return fired + snoozes.length;
       });
     },

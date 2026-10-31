@@ -70,7 +70,7 @@ web board. `-moduleFlag.lights native` overrides the launch's UserDefaults;
 
 `HomeIntegration` supplies optional tile, preflight routing and destination hooks.
 Web fallbacks select Classic before starting a native cover transition. Hybrid owns live
-adapters, Classic, the alarm ring overlay, deep links and UpdateBanner; Sources
+adapters, Classic, the alarm ring overlay, deep links and shared notifications; Sources
 keeps the design layout and zoom transitions. Ringing and updates are also shown
 above Home's full-screen controllers. `controlcenter://alarms` retains its native
 ownership/live-data check and existing web event fallback. XCTest unit-test hosts
@@ -956,20 +956,27 @@ Hybrid checks `releases.latest({app: "panel"})` on launch, whenever the scene
 becomes active, and every 15 minutes while active. The shared PanelKit transport
 uses the configured server and complete Cloudflare Access header pair. It compares
 the positive integer build with `CFBundleVersion`; equal/older builds, missing
-releases, malformed responses and network errors clear the Banner. Cancelling a
+releases, malformed responses and network errors clear update availability without
+removing previously delivered notification history. Cancelling a
 foreground task prevents a late response from publishing.
 
-The persistent **Update ready: build N** Banner is root-level Board Chrome, above
-both the native modules and KioskWebView fallback. Tap it to open `itms-beta://`.
-No Apple ID is assumed and no URL-scheme query permission is required: the app
-opens the URL directly without `canOpenURL`.
+Update-ready posts locally through the shared `NotificationCenter`, with a high
+priority banner and persistent inbox history. Its `module/updates/testflight`
+action opens `itms-beta://` directly. The installed build comparison stays local;
+a server release alone cannot decide whether this device needs updating. There
+is no separate update banner or `UNUserNotificationCenter` update notice. Polls
+and foreground reactivation do not replay the same build; cached history prevents
+replay after restart while that entry remains in history. Clearing history allows
+a later app launch to surface an available update again.
 
-A local notification is scheduled only when authorization is already authorized
-or provisional. The app never requests notification permission. Successful
-scheduling saves `panel.update.lastNotifiedBuild` in UserDefaults; retries, older
-builds and app restarts do not notify again. A scheduling failure can retry on the
-next check. The system may suppress foreground notification presentation; the
-persistent Banner is the in-app notice.
+Alarm ringing, snooze, stop and missed events (including ring timeout) arrive from
+the backend inbox. The full-screen ringing UI, AlarmKit delivery, ActivityKit next
+alarm and Dog Walk Live Activities stay in place because they provide ongoing
+controls or background delivery. Alarm command errors use the shared inbox too.
+Dog Walk start/stop events, including a corrected forgotten stop, are server
+notifications; historical time edits and deletes are silent. No long-walk reminder
+producer exists today. Alarm delete confirmation dialogs and inline form/provider
+errors remain contextual UI, rather than unsolicited event alerts.
 
 Debug builds support explicit, launch-only verification overrides:
 

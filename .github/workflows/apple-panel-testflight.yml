@@ -134,6 +134,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
             -only-testing:PanelUITests/NotificationHistoryTests \
+            -only-testing:PanelUITests/UpdateReadyBannerTests \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
       - name: Assert Panel launches into HomeView
@@ -149,6 +150,7 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
             -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
             -only-testing:PanelUITests/NotificationHistoryTests \
+            -only-testing:PanelUITests/UpdateReadyBannerTests \
             -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-test.log"
 

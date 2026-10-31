@@ -6,12 +6,12 @@ final class UpdateReadyBannerTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for native in [true, false] {
-            app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "999999", "-updateCheckIntervalSeconds", "2"]
+            app.launchArguments = ["-hybridFixtures", "-notificationHold", "-updateCheckFakeBuild", "999999", "-updateCheckIntervalSeconds", "2"]
             if native { app.launchArguments += ["-moduleFlag.lights", "native"] }
             app.launchModuleFromHome()
-            let banner = app.buttons["update-ready-banner"]
+            let banner = app.buttons["notification-banner-updates"]
             XCTAssertTrue(banner.waitForExistence(timeout: 30))
-            XCTAssertTrue(app.staticTexts["Update ready: build 999999"].exists)
+            XCTAssertTrue(app.staticTexts["Build 999999 is available in TestFlight."].exists)
             XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
             XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
             if native { XCTAssertTrue(app.descendants(matching: .any)["native-lights-tile"].firstMatch.waitForExistence(timeout: 15)) }

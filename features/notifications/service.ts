@@ -20,6 +20,28 @@ function wire(row: typeof notifications.$inferSelect) {
   };
 }
 
+// Producers pass their event transaction so the event and inbox entry commit together.
+type NotificationWriter = Pick<typeof db, "execute" | "insert">;
+async function insertNotification(raw: NotificationInput, tx: NotificationWriter) {
+  const input = notificationInputSchema.parse(raw);
+  const [row] = await tx
+    .insert(notifications)
+    .values({ id: genId("ntf", { length: 32 }), ...input })
+    .onConflictDoUpdate({
+      target: [notifications.source_module, notifications.dedupe_key],
+      targetWhere: sql`${notifications.dismissed_at} IS NULL`,
+      set: {
+        ...input,
+        created_at: sql`clock_timestamp()`,
+        updated_at: sql`clock_timestamp()`,
+        read_at: null,
+        revision: nextRevision,
+      },
+    })
+    .returning();
+  return wire(row);
+}
+
 export function createNotificationService(database: typeof db) {
   // Serialize revision allocation AND commit across every writer/process. Readers
   // take the same lock so a cursor can never skip an uncommitted lower revision.
@@ -32,25 +54,7 @@ export function createNotificationService(database: typeof db) {
     });
   return {
     async create(raw: NotificationInput) {
-      const input = notificationInputSchema.parse(raw);
-      return locked(async (tx) => {
-        const [row] = await tx
-          .insert(notifications)
-          .values({ id: genId("ntf", { length: 32 }), ...input })
-          .onConflictDoUpdate({
-            target: [notifications.source_module, notifications.dedupe_key],
-            targetWhere: sql`${notifications.dismissed_at} IS NULL`,
-            set: {
-              ...input,
-              created_at: sql`clock_timestamp()`,
-              updated_at: sql`clock_timestamp()`,
-              read_at: null,
-              revision: nextRevision,
-            },
-          })
-          .returning();
-        return wire(row);
-      });
+      return locked((tx) => insertNotification(raw, tx));
     },
     async list(raw: unknown = {}) {
       const input = notificationListSchema.parse(raw);
@@ -128,4 +132,8 @@ export function createNotificationService(database: typeof db) {
 }
 export const notificationService = createNotificationService(db);
 /** @public Any backend feature may notify via this validated, durable helper. */
-export const createNotification = (input: NotificationInput) => notificationService.create(input);
+export const createNotification = async (input: NotificationInput, tx?: NotificationWriter) => {
+  if (!tx) return notificationService.create(input);
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(580058)`);
+  return insertNotification(input, tx);
+};

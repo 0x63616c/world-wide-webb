@@ -34,8 +34,9 @@ struct PanelRoot: View {
     private let requested: Set<PanelModule>
 
     init() {
-        _notifications = State(initialValue: PanelNotifications.make())
-        _updateChecker = State(initialValue: UpdateChecker.live(configuration: PanelConfiguration()))
+        let center = PanelNotifications.make()
+        _notifications = State(initialValue: center)
+        _updateChecker = State(initialValue: UpdateChecker.live(configuration: PanelConfiguration(), notifications: center))
         // Fixture runs keep the all-web default so UI tests opt in per module.
         #if DEBUG
         let shipped: Set<PanelModule> = ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
@@ -111,7 +112,7 @@ struct PanelRoot: View {
                 .allowsHitTesting(!nativeVisible && !homeVisible)
                 .accessibilityHidden(nativeVisible || homeVisible)
             if homeVisible {
-                PanelHome(store: store, session: session, router: router, navigation: navigation, updates: updateChecker)
+                PanelHome(store: store, session: session, router: router, navigation: navigation)
             }
             VStack(spacing: 0) {
                 if !homeVisible && nativeVisible {
@@ -195,6 +196,12 @@ struct PanelRoot: View {
         }
         .overlay { statusOverlays }
         .modifier(NotificationHistoryAccess())
+        .onChange(of: store.alarmsProvider.errorMessage) { _, message in
+            if let message {
+                notifications.post(sourceModule: "alarms", title: "Alarm action failed", body: message,
+                    deepLink: "module/alarms", priority: .high, dedupeKey: "alarm-command-error")
+            }
+        }
         .onChange(of: store.alarmsProvider.snapshot?.active) { _, _ in navigation.ringHidden = false }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
@@ -214,7 +221,7 @@ struct PanelRoot: View {
     }
 
     private var statusOverlays: some View {
-        PanelStatusOverlays(store: store, session: session, navigation: navigation, updates: updateChecker)
+        PanelStatusOverlays(store: store, session: session, navigation: navigation)
     }
 
     private var webBoard: some View {

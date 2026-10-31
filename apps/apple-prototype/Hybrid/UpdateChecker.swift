@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 import PanelKit
-import UserNotifications
 
 /// One foreground-owned loop: launch and each activation check immediately, then poll.
 @MainActor @Observable
@@ -11,10 +10,11 @@ final class UpdateChecker {
     @ObservationIgnored private let fetchBuild: () async throws -> Int
     @ObservationIgnored private let interval: TimeInterval
     @ObservationIgnored private let sleep: (TimeInterval) async throws -> Void
-    @ObservationIgnored private let notifications: UpdateNotifications
+    @ObservationIgnored private let notifications: NotificationCenter
+    @ObservationIgnored private var lastPostedBuild: Int = 0
 
     init(currentBuild: String, interval: TimeInterval = 900,
-         notifications: UpdateNotifications = UpdateNotifications(),
+         notifications: NotificationCenter = NotificationCenter(),
          fetchBuild: @escaping () async throws -> Int,
          sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) {
         self.currentBuild = currentBuild
@@ -35,7 +35,14 @@ final class UpdateChecker {
             let server = try await fetchBuild()
             try Task.checkCancellation()
             availableBuild = Self.newerBuild(server: server, current: currentBuild)
-            if let availableBuild { await notifications.notify(build: availableBuild) }
+            if let availableBuild, availableBuild > lastPostedBuild,
+               !notifications.history.contains(where: { $0.dedupeKey == "update-\(availableBuild)" }) {
+                notifications.post(sourceModule: "updates", title: "Update ready",
+                    body: "Build \(availableBuild) is available in TestFlight.",
+                    deepLink: PanelNotifications.updateDeepLink, priority: .high,
+                    dedupeKey: "update-\(availableBuild)")
+                lastPostedBuild = availableBuild
+            }
         } catch is CancellationError {
             // A cancelled foreground task must not publish a late result.
         } catch {
@@ -51,7 +58,7 @@ final class UpdateChecker {
         }
     }
 
-    static func live(configuration: PanelConfiguration) -> UpdateChecker {
+    static func live(configuration: PanelConfiguration, notifications: NotificationCenter) -> UpdateChecker {
         let transport = URLSessionConfiguration.ephemeral
         transport.urlCache = nil
         transport.httpCookieStorage = nil
@@ -76,48 +83,9 @@ final class UpdateChecker {
         #endif
         let debugBuild = fakeBuild
         return UpdateChecker(currentBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
-                             interval: interval, fetchBuild: {
+                             interval: interval, notifications: notifications, fetchBuild: {
             if let debugBuild { return debugBuild }
             return try await api.latest().build
         })
-    }
-}
-
-/// Checks existing authorization only. Remember a build after successful scheduling.
-@MainActor
-final class UpdateNotifications {
-    static let lastBuildKey = "panel.update.lastNotifiedBuild"
-    private let defaults: UserDefaults
-    private let authorization: () async -> UNAuthorizationStatus
-    private let post: (Int) async throws -> Void
-    private var pending: Set<Int> = []
-
-    init(defaults: UserDefaults = .standard,
-         authorization: @escaping () async -> UNAuthorizationStatus = {
-             await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
-         },
-         post: @escaping (Int) async throws -> Void = { build in
-             let content = UNMutableNotificationContent()
-             content.title = "Update ready"
-             content.body = "Build \(build) is available in TestFlight."
-             try await UNUserNotificationCenter.current().add(UNNotificationRequest(
-                 identifier: "panel-update-\(build)", content: content, trigger: nil))
-         }) {
-        self.defaults = defaults
-        self.authorization = authorization
-        self.post = post
-    }
-
-    func notify(build: Int) async {
-        guard build > defaults.integer(forKey: Self.lastBuildKey), pending.insert(build).inserted else { return }
-        defer { pending.remove(build) }
-        let status = await authorization()
-        guard !Task.isCancelled, status == .authorized || status == .provisional else { return }
-        // Another invocation may have completed while authorization suspended.
-        guard build > defaults.integer(forKey: Self.lastBuildKey) else { return }
-        do {
-            try await post(build)
-            defaults.set(max(build, defaults.integer(forKey: Self.lastBuildKey)), forKey: Self.lastBuildKey)
-        } catch { /* Retry on a later check; never prompt for permission. */ }
     }
 }

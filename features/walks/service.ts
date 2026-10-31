@@ -1,4 +1,5 @@
 import { TRPCError } from "@app-kit/server";
+import { createNotification } from "@features/notifications/service";
 import { genId } from "@www/platform";
 import { and, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { z } from "zod";
@@ -68,13 +69,24 @@ export function createWalkService(database: Database) {
         const [running] = await tx.select().from(walks).where(active).limit(1);
         if (!running) {
           const now = new Date();
+          const id = input.id ?? genId("walk");
           await tx.insert(walks).values({
-            id: input.id ?? genId("walk"),
+            id,
             startedAt: input.startedAt ? new Date(input.startedAt) : now,
             source: input.source,
             createdAt: now,
             updatedAt: now,
           });
+          await createNotification(
+            {
+              source_module: "walks",
+              title: "Walk started",
+              body: "Dog Walk is in progress.",
+              deep_link: "module/walks",
+              dedupe_key: `${id}:started`,
+            },
+            tx,
+          );
         }
         return snapshot(tx);
       }),
@@ -95,6 +107,16 @@ export function createWalkService(database: Database) {
               updatedAt: now,
             })
             .where(eq(walks.id, input.id));
+          await createNotification(
+            {
+              source_module: "walks",
+              title: "Walk stopped",
+              body: "Dog Walk has finished.",
+              deep_link: "module/walks",
+              dedupe_key: `${row.id}:stopped`,
+            },
+            tx,
+          );
         }
         return snapshot(tx);
       }),
@@ -124,6 +146,18 @@ export function createWalkService(database: Database) {
             .update(walks)
             .set({ startedAt, endedAt, updatedAt: new Date() })
             .where(eq(walks.id, input.id));
+        if (input.endedAt && !row.endedAt) {
+          await createNotification(
+            {
+              source_module: "walks",
+              title: "Walk stopped",
+              body: "Dog Walk has finished.",
+              deep_link: "module/walks",
+              dedupe_key: `${row.id}:stopped`,
+            },
+            tx,
+          );
+        }
         return snapshot(tx);
       }),
   };

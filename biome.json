@@ -169,7 +169,12 @@
       }
     },
     {
-      "includes": ["features/**", "!features/wakes/service.ts"],
+      "includes": [
+        "features/**",
+        "!features/wakes/service.ts",
+        "!features/events/service.ts",
+        "!features/walks/service.ts"
+      ],
       "linter": {
         "rules": {
           "style": {
@@ -179,7 +184,7 @@
                 "patterns": [
                   {
                     "group": ["@features/**"],
-                    "message": "features/ must not import other features directly — cross-feature coupling grows silently. Hoist genuinely-shared data/logic into packages/core or packages/platform, or add a reviewed carve-out (see the wakes -> felogs exception in this file's includes) if the coupling is intentional."
+                    "message": "features/ must not import other features directly \u2014 cross-feature coupling grows silently. Hoist genuinely-shared data/logic into packages/core or packages/platform, or add a reviewed carve-out (see the wakes -> felogs exception in this file's includes) if the coupling is intentional."
                   }
                 ]
               }
@@ -236,6 +241,26 @@
                   {
                     "group": ["@features/**", "**/features", "**/features/**"],
                     "message": "packages/platform + packages/core are shared substrate, upstream of the authoring layer; they must not import features."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["features/events/service.ts", "features/walks/service.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@features/**", "!@features/notifications/service"],
+                    "message": "Backend producers may use the notification helper; other cross-feature imports remain prohibited."
                   }
                 ]
               }

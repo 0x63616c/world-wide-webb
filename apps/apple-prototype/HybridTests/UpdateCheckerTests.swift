@@ -1,5 +1,4 @@
 import Foundation
-import UserNotifications
 import XCTest
 @testable import Panel
 
@@ -74,79 +73,25 @@ import XCTest
     }
 
     func testTestFlightDestination() {
-        XCTAssertEqual(UpdateBanner.testFlightURL.absoluteString, "itms-beta://")
+        XCTAssertEqual(PanelNotifications.testFlightURL.absoluteString, "itms-beta://")
     }
 
-    private func silentNotifications() -> UpdateNotifications {
-        UpdateNotifications(authorization: { .denied }, post: { _ in XCTFail("Must not notify") })
-    }
-}
-
-@MainActor final class UpdateNotificationsTests: XCTestCase {
-    private func defaults() -> UserDefaults {
-        let defaults = UserDefaults(suiteName: "WWW53.UpdateNotificationsTests")!
-        defaults.removePersistentDomain(forName: "WWW53.UpdateNotificationsTests")
-        addTeardownBlock { UserDefaults(suiteName: "WWW53.UpdateNotificationsTests")?.removePersistentDomain(forName: "WWW53.UpdateNotificationsTests") }
-        return defaults
-    }
-
-    func testAuthorizedAndProvisionalNotifyOncePerBuildAcrossRestarts() async {
-        for status in [UNAuthorizationStatus.authorized, .provisional] {
-            let defaults = defaults()
-            var posted: [Int] = []
-            let notifications = UpdateNotifications(defaults: defaults, authorization: { status }, post: { posted.append($0) })
-            await notifications.notify(build: 10)
-            await notifications.notify(build: 10)
-            await notifications.notify(build: 9)
-            let restarted = UpdateNotifications(defaults: defaults, authorization: { status }, post: { posted.append($0) })
-            await restarted.notify(build: 10)
-            await restarted.notify(build: 11)
-            XCTAssertEqual(posted, [10, 11])
-            XCTAssertEqual(defaults.integer(forKey: UpdateNotifications.lastBuildKey), 11)
-        }
+    func testUpdateUsesSharedHistoryAndDoesNotReplayAfterRestart() async {
+        let center = Panel.NotificationCenter()
+        let checker = UpdateChecker(currentBuild: "1", notifications: center, fetchBuild: { 10 })
+        await checker.check()
+        await checker.check()
+        XCTAssertEqual(center.history.count, 1)
+        XCTAssertEqual(center.history.first?.deepLink, PanelNotifications.updateDeepLink)
+        XCTAssertEqual(center.history.first?.sourceModule, "updates")
+        let feedback = center.arrivalFeedback
+        let restarted = UpdateChecker(currentBuild: "1", notifications: center, fetchBuild: { 10 })
+        await restarted.check()
+        XCTAssertEqual(center.arrivalFeedback, feedback)
+        let newer = UpdateChecker(currentBuild: "1", notifications: center, fetchBuild: { 11 })
+        await newer.check()
+        XCTAssertEqual(center.history.count, 2)
     }
 
-    func testOtherAuthorizationStatesNeverPostOrRemember() async {
-        for status in [UNAuthorizationStatus.notDetermined, .denied, .ephemeral] {
-            let defaults = defaults()
-            let notifications = UpdateNotifications(defaults: defaults, authorization: { status }, post: { _ in XCTFail("Must not notify") })
-            await notifications.notify(build: 10)
-            XCTAssertEqual(defaults.integer(forKey: UpdateNotifications.lastBuildKey), 0)
-        }
-    }
-
-    func testFailureCanRetryAndAuthorizationCanBeGrantedLater() async {
-        let defaults = defaults()
-        var status = UNAuthorizationStatus.denied
-        var fail = true
-        var attempts = 0
-        let notifications = UpdateNotifications(defaults: defaults, authorization: { status }, post: { _ in
-            attempts += 1
-            if fail { throw NSError(domain: "test", code: 1) }
-        })
-        await notifications.notify(build: 10)
-        XCTAssertEqual(attempts, 0)
-        status = .authorized
-        await notifications.notify(build: 10)
-        XCTAssertEqual(defaults.integer(forKey: UpdateNotifications.lastBuildKey), 0)
-        fail = false
-        await notifications.notify(build: 10)
-        await notifications.notify(build: 10)
-        XCTAssertEqual(attempts, 2)
-        XCTAssertEqual(defaults.integer(forKey: UpdateNotifications.lastBuildKey), 10)
-    }
-
-    func testOverlappingChecksDeduplicate() async {
-        let defaults = defaults()
-        var posted: [Int] = []
-        let notifications = UpdateNotifications(defaults: defaults, authorization: {
-            await Task.yield()
-            return .authorized
-        }, post: { posted.append($0) })
-        let first = Task { await notifications.notify(build: 10) }
-        let second = Task { await notifications.notify(build: 10) }
-        await first.value
-        await second.value
-        XCTAssertEqual(posted, [10])
-    }
+    private func silentNotifications() -> Panel.NotificationCenter { Panel.NotificationCenter() }
 }
