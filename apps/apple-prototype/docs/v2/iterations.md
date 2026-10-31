@@ -424,3 +424,40 @@ unmet, so no PR is opened, no merge is performed and no TestFlight release is
 claimed. The design goal remains unmet. Resume with a healthy shared simulator
 host to finish verification; do not attempt a fourth design iteration under this
 brief. The branch preserves all experiment/revert history without rewriting.
+
+
+### WWW-55 candidate 1 — rejected
+
+Cold Sol-medium medians: Controls **8.3**, idle Walk **8.3**, running Walk **8.2**
+against floors **8.4/8.4/8.4**. Reject all visual hunks in `bc10831b`; retain the
+review runner. Twelve deterministic relaunch pairs pass (max 0.000612/255).
+No floor changes. Full per-screen medians and validation limits: [WWW-55](www-55.md).
+
+
+### WWW-55 candidate 2 — rejected; retain tooling
+
+Cold Sol-medium medians: Controls **8.3**, idle Walk **8.3**, running Walk **8.3**.
+Reject all visual hunks in `bf695fd1`; no floor is lowered. Twelve fresh relaunch
+pairs pass (max 0.000026/255). Final Swift/UI source matches main with WWW-64
+integrated. Retained historical target medians remain **8.4/8.4/8.4**; the 8.5
+goal is unmet. Ship the reproducible review runner and experiment evidence using
+Refs WWW-55. Full per-screen medians: [WWW-55](www-55.md).
+
+
+### WWW-55 restored-state measurement
+
+Restored source matches main (`c87324f1`); twelve independent relaunch pairs pass
+(max 0.000564/255). Fresh three-run medians: Controls **8.2**, idle Walk **8.2**,
+running Walk **8.3**. Target captures match the pre-change baseline within
+0.000608/255. Record the repeat measurement separately from historical accepted
+floors **8.4/8.4/8.4**; no floor is lowered and no visual candidate is shipped.
+PR #851 uses Refs WWW-55 and retains tooling/evidence. The 8.5 goal remains unmet.
+
+
+### WWW-55 final verification — pass
+
+All five restored-source scheme builds, both prototype unit/render suites, all
+eight UI tours, the complete Panel unit scheme and all **19 Panel-Smoke tests**
+pass with WWW-64 integrated. PanelKit's **70 tests** also pass. Nine cold reviews
+complete across the two rejected candidates and restored set. Raw final logs are
+archived off the mini; PR #851 retains only the review runner and evidence.
