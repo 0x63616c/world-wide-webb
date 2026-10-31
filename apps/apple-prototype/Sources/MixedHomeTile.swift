@@ -83,6 +83,7 @@ struct MixedHomeTile: View {
             } else {
                 Spacer(minLength: 0)
                 PanelClimateDial(climate: store.climate, open: open)
+                    .frame(maxWidth: .infinity)
                 Spacer(minLength: 0)
                 HStack {
                     step("minus", delta: -1)
@@ -267,6 +268,7 @@ private struct PanelClimateDial: View {
                     Text("77°")
                 }.font(.system(size: 18, weight: .medium))
                     .padding(.horizontal, 40).offset(y: 108)
+                    .accessibilityHidden(true)
             }.frame(width: 296, height: 296).contentShape(.circle)
         }.buttonStyle(.plain)
     }
