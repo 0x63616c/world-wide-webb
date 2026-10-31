@@ -62,15 +62,31 @@ struct ModuleTile: View {
         }.padding(compact ? 24 : 32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
     private var media: some View {
-        HStack(spacing: 24) {
-            FixtureArtwork(tint: "#485c85").frame(width: compact ? 80 : 112, height: compact ? 80 : 112).clipShape(.rect(cornerRadius: 24))
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Media").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                Text("Music & films").font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
-                Text("Browse library ›").font(.system(size: compact ? 14 : 20))
+        Group {
+            if compact {
+                HStack(spacing: 24) {
+                    FixtureArtwork(tint: "#485c85").frame(width: 80, height: 80).clipShape(.rect(cornerRadius: 24))
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Media").font(.system(size: 22, weight: .semibold))
+                        Text("Music & films").font(.system(size: 16)).foregroundStyle(.primary)
+                        Text("Browse library ›").font(.system(size: 14))
+                    }
+                    Spacer(minLength: 0)
+                }.padding(24)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Media").font(.system(size: 28, weight: .semibold))
+                    Spacer(minLength: 0)
+                    HStack(spacing: 20) {
+                        FixtureArtwork(tint: "#485c85")
+                            .frame(width: 72, height: 72).clipShape(.rect(cornerRadius: 16))
+                        Text("Music & films").font(.system(size: 20))
+                    }
+                    Spacer(minLength: 0)
+                    Text("Browse library ›").font(.system(size: 20, weight: .medium))
+                }.padding(32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
-        }.padding(compact ? 24 : 32)
+        }
     }
     private var rooms: some View {
         VStack(alignment: .leading, spacing: compact ? 16 : 24) {
@@ -106,9 +122,13 @@ private struct HomeCameraTile: View {
                     Image(feed.asset).resizable().scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .scaleEffect(1.025 + sin(t / 8) * 0.015)
-                    LinearGradient(stops: [.init(color: .black.opacity(0.62), location: 0),
+                    LinearGradient(stops: compact ? [.init(color: .black.opacity(0.62), location: 0),
                                            .init(color: .black.opacity(0.10), location: 0.52),
-                                           .init(color: .black.opacity(0.65), location: 1)],
+                                           .init(color: .black.opacity(0.65), location: 1)] :
+                                          [.init(color: .black.opacity(0.62), location: 0),
+                                           .init(color: .black.opacity(0.45), location: 0.4),
+                                           .init(color: .black.opacity(0.15), location: 0.65),
+                                           .init(color: .black.opacity(0.80), location: 1)],
                                    startPoint: .top, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
@@ -120,10 +140,10 @@ private struct HomeCameraTile: View {
                                 Text("LIVE").font(.system(size: 14, weight: .bold))
                             }
                         }
-                        Text("\(count) demo feeds").font(.system(size: compact ? 16 : 24))
+                        Text("\(count) demo feeds").font(.system(size: compact ? 16 : 20))
                         Spacer(minLength: 8)
                         HStack(alignment: .firstTextBaseline) {
-                            Text(feed.name).font(.system(size: compact ? 17 : 20, weight: .medium))
+                            Text(feed.name).font(.system(size: compact ? 17 : 24, weight: .medium))
                             Spacer(minLength: 8)
                             Text(fixtureTime(phase == nil ? context.date : now, format: "HH:mm:ss"))
                                 .font(.system(size: compact ? 14 : 20)).monospacedDigit()
