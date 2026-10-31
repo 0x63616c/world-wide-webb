@@ -14,10 +14,13 @@ final class NotificationHistoryTests: XCTestCase {
         app.buttons["notification-history-group-lights"].tap()
         XCTAssertEqual(rows(app).count, 2)
         app.buttons["notification-history-group-lights"].tap()
-        rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Reading scene")).firstMatch.swipeLeft()
+        let row = rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Reading scene")).firstMatch
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).press(forDuration: 0.05,
+            thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)))
         app.buttons["Clear"].firstMatch.tap()
+        let remaining = rows(app)
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate { _, _ in rows(app).count == 3 }, object: app)], timeout: 10), .completed)
+            predicate: NSPredicate { _, _ in remaining.count == 3 }, object: app)], timeout: 10), .completed)
         app.buttons["notification-history-clear-lights"].tap()
         XCTAssertTrue(app.buttons["notification-history-group-lights"].waitForNonExistence(timeout: 10))
         XCTAssertEqual(rows(app).count, 1)
@@ -25,7 +28,7 @@ final class NotificationHistoryTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["notification-history-empty"].firstMatch.waitForExistence(timeout: 10))
         capture("WWW-60-cleared", app)
         let handle = app.buttons["notification-history-handle"]
-        handle.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForNonExistence(timeout: 10))
     }
 
