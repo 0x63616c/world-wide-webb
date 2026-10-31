@@ -13,6 +13,9 @@ struct TeslaData: Equatable {
     var rate: Double = 11
     var pct = 78
     var range = 241
+    /// Full-charge range, shown as "241/250 mi" on the Home grid car tile.
+    var maxRange = 250
+    var locked = true
     var odo = "12,480"
     var climate = 64
 }
@@ -29,6 +32,9 @@ enum TeslaCommand { case setCharging(Bool), setPreconditioning(Bool) }
     private(set) var data: TeslaData
     let availability: TeslaAvailability
     init(data: TeslaData = TeslaData(), availability: TeslaAvailability = .online) {
+        var data = data
+        // Capture flag for the unlocked review render.
+        if ProcessInfo.processInfo.arguments.contains("-carUnlocked") { data.locked = false }
         self.data = data
         self.availability = availability
     }

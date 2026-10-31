@@ -42,7 +42,8 @@ extension XCUIApplication {
         XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
         // Home's Classic button stays in the covered host's AX tree. The pager
         // returns only after the selected controller has finished dismissing.
-        let page = buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-2" : "face-page-1"]
+        // WWW-54 grid Home: page 2 holds Now Playing and the modules without a grid card.
+        let page = buttons[["wifi", "photos", "walk", "media", "cameras", "sonos"].contains(module) ? "face-page-2" : "face-page-1"]
         XCTAssertTrue(page.waitForExistence(timeout: 30))
         page.tap()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
@@ -56,9 +57,10 @@ extension XCUIApplication {
         if !launchArguments.contains("-hybridUnavailable") {
             XCTAssertTrue(buttons["tile-unavailable-\(tile)"].waitForNonExistence(timeout: 30))
         }
-        if module == "fan" && !launchArguments.contains("-hybridUnavailable") {
-            container.buttons.element(boundBy: 1).tap()
-        } else { container.buttons.firstMatch.tap() }
+        // Grid cards open from anywhere outside their inline controls; the older
+        // module tiles on page 2 keep their own open buttons.
+        let gridCards = ["lamps", "climate", "fan", "sound", "weather", "clock", "calendar", "tesla"]
+        if gridCards.contains(tile) { container.tap() } else { container.buttons.firstMatch.tap() }
         if module == "wifi", !launchArguments.contains("-hybridUnavailable"),
            !launchArguments.contains("-hybridDetail"),
            let index = launchArguments.firstIndex(of: "-moduleFlag.wifi"),

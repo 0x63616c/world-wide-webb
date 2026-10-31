@@ -136,4 +136,19 @@ private actor TeslaProviderTransport: PanelTransport {
         XCTAssertFalse(live.hasLiveData)
         XCTAssertNil(live.requestedAction)
     }
+    func testMaxRangeRoundsToFiveAndHoldsBelowTenPercent() async {
+        XCTAssertEqual(LiveTeslaProvider.estimateMaxRange(rangeMiles: 200, batteryPercent: 72), 280)
+        XCTAssertEqual(LiveTeslaProvider.estimateMaxRange(rangeMiles: 241, batteryPercent: 78), 310)
+        XCTAssertNil(LiveTeslaProvider.estimateMaxRange(rangeMiles: 20, batteryPercent: 9.9))
+        let suite = "LiveTeslaProviderTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(305, forKey: LiveTeslaProvider.maxRangeKey)
+        let live = LiveTeslaProvider(api: TeslaAPI(client: PanelAPIClient(configuration: PanelConfiguration(
+            baseURL: URL(string: "https://panel.example.invalid")!), transport: TeslaProviderTransport(["ready"]))), defaults: defaults)
+        XCTAssertEqual(live.maxRange, 305)
+        await live.refresh()
+        XCTAssertEqual(live.data.maxRange, 280)
+        XCTAssertEqual(defaults.integer(forKey: LiveTeslaProvider.maxRangeKey), 280)
+    }
 }

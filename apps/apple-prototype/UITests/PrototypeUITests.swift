@@ -1,5 +1,8 @@
 import XCTest
 
+/// Pager order mirrored from HomeFacePage (the UI test target does not link app sources).
+private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, music = 3 }
+
 @MainActor final class PrototypeUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -16,29 +19,22 @@ import XCTest
         XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 10), .completed,
                        "Expected \(value); observed \(String(describing: element.value)). \(element.debugDescription)", file: file, line: line)
     }
-    func testPanelOuterMarginsInLiveWindow() throws {
+    func testGridHomeIsCenteredOnBothPages() throws {
+        // WWW-54: Home is a centered 6×4 grid of 192 pt cells with 24 pt gutters on both pages.
         for controls in [false, true] {
             let app = launch(["-face", controls ? "controls" : "home"])
-            let page = controls ? 2 : 1
-            XCTAssertTrue(app.buttons["face-page-\(page)"].waitForExistence(timeout: 30))
-            waitForValue(app.buttons["face-page-\(page)"], "Selected")
+            let page = app.buttons["face-page-\(controls ? HomeFacePageIndex.controls : HomeFacePageIndex.home)"]
+            XCTAssertTrue(page.waitForExistence(timeout: 30))
+            waitForValue(page, "Selected")
             let window = app.windows.firstMatch.frame
-            // The button's full rectangular surface reports its painted bounds;
-            // round controls expose their content bounds, so use their center.
-            let moduleID = controls ? "cameras" : "calendar"
-            let tile = app.descendants(matching: .any).matching(identifier: "tile-\(moduleID)").firstMatch
-            XCTAssertTrue(tile.waitForExistence(timeout: 10))
-            let full = tile.frame
-            let last = app.descendants(matching: .any).matching(identifier: "tile-\(controls ? "all" : "fan")").firstMatch.frame
-            let heading = app.staticTexts[controls ? "Home · More" : "Home"].firstMatch.frame
-            let left = full.minX - window.minX
-            let right = window.maxX - (last.midX + full.height / 2)
-            let top = heading.minY - window.minY
-            let bottom = window.maxY - 80 - (last.midY + full.height / 2)
-            print("LIVE_PANEL_GEOMETRY controls=\(controls) window=\(window) heading=\(heading) margins=\(left),\(top),\(right),\(bottom)")
+            let first = app.descendants(matching: .any)["tile-\(controls ? "sound" : "clock")"].firstMatch
+            XCTAssertTrue(first.waitForExistence(timeout: 10), app.debugDescription)
+            let last = app.descendants(matching: .any)["tile-\(controls ? "media" : "calendar")"].firstMatch.frame
+            let left = first.frame.minX - window.minX, right = window.maxX - last.maxX
+            print("GRID_GEOMETRY controls=\(controls) window=\(window) first=\(first.frame) last=\(last)")
             XCTAssertEqual(left, right, accuracy: 0.5)
-            XCTAssertEqual(top, left, accuracy: 0.5)
-            XCTAssertEqual(bottom, left, accuracy: 0.5)
+            XCTAssertEqual(last.maxX - first.frame.minX, 6 * 192 + 5 * 24, accuracy: 0.5)
+            XCTAssertFalse(app.staticTexts["Home · More"].exists)
             app.terminate()
         }
     }
@@ -50,12 +46,13 @@ import XCTest
         XCTAssertEqual(app.buttons["face-page-0"].label, "Clock face")
         XCTAssertTrue(app.buttons["clock-face"].exists)
         app.buttons["face-page-1"].tap()
-        XCTAssertTrue(app.buttons["open-climate"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["tile-climate"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
     }
     func testHomeNavigationFromBothFaces() throws {
         let app = launch(["-face", "home"])
-        XCTAssertTrue(app.buttons["open-climate"].waitForExistence(timeout: 30), app.debugDescription)
-        app.buttons["open-climate"].tap()
+        let climate = app.descendants(matching: .any)["tile-climate"].firstMatch
+        XCTAssertTrue(climate.waitForExistence(timeout: 30), app.debugDescription)
+        climate.tap()
         XCTAssertTrue(app.buttons["close-controller"].waitForExistence(timeout: 10), app.debugDescription)
         app.buttons["close-controller"].tap()
         XCTAssertTrue(app.buttons["face-page-2"].waitForExistence(timeout: 10))
@@ -82,18 +79,19 @@ import XCTest
         app.buttons["mode-heat_cool"].tap()
         XCTAssertTrue(app.staticTexts["Temperature range"].waitForExistence(timeout: 10))
     }
-    func testControlsPagingPreservesSharedState() throws {
-        let app = launch(["-face", "controls"])
-        let all = app.buttons["toggle-all"]
-        XCTAssertTrue(all.waitForExistence(timeout: 30), app.debugDescription)
-        all.tap()
-        waitForValue(all, "On")
-        waitForValue(app.buttons["toggle-ceiling"], "On")
-        app.buttons["face-page-1"].tap()
-        XCTAssertTrue(app.buttons["toggle-fan"].waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertEqual(app.buttons["face-page-1"].value as? String, "Selected")
+    func testPagingPreservesSharedState() throws {
+        let app = launch(["-face", "home"])
+        let ceiling = app.buttons["toggle-ceiling"]
+        XCTAssertTrue(ceiling.waitForExistence(timeout: 30), app.debugDescription)
+        let before = ceiling.value as? String
+        ceiling.tap()
+        let after = before == "On" ? "Off" : "On"
+        waitForValue(ceiling, after)
         app.buttons["face-page-2"].tap()
-        waitForValue(all, "On")
+        XCTAssertTrue(app.descendants(matching: .any)["tile-sound"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(app.buttons["face-page-2"].value as? String, "Selected")
+        app.buttons["face-page-1"].tap()
+        waitForValue(ceiling, after)
     }
     func testLampGlobalBrightnessAndRoomPower() throws {
         let app = launch(["-openTile", "lamps"])

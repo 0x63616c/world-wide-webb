@@ -23,6 +23,7 @@ import SwiftUI
                 // mounting a second animated dashboard in the test host.
                 if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { Color.clear }
                 else if ProcessInfo.processInfo.arguments.contains("-walkActivityPreview") { WalkActivityPreviewPage() }
+                else if let sheet = HomeGrid.sheet { GridSheetPage(card: sheet, store: store, letters: HomeGrid.sheetLetters) }
                 else { HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace) }
             }
                 .task {
