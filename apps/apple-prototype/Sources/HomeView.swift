@@ -264,8 +264,11 @@ struct HomeFaceGrid: View {
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
     var body: some View {
+        if HomeGrid.enabled { GridHomeFace(store: store, size: size, page: controls ? 1 : 0, open: open) } else { legacy }
+    }
+    private var legacy: some View {
         let layout = HomeFaceLayout.panel(in: size, controls: controls)
-        ZStack(alignment: .topLeading) {
+        return ZStack(alignment: .topLeading) {
             HStack {
                 Text(controls ? "Home · More" : "Home").font(.system(size: 40, weight: .bold))
                 Spacer()
