@@ -54,3 +54,42 @@ tours pass. Stop the remaining candidate-1 verification after design rejection;
 those partial results do not certify the final source. An initial verification
 invocation used an invalid Panel simulator ID; retain it as failed setup evidence
 and use the correct existing 1366×1024 simulator for subsequent runs.
+
+## Candidate 2 — rejected; accepted source restored
+
+`e6b20e69` gave idle duration and running elapsed equal numeric emphasis, aligned
+Media's leading heading/bottom action with Walk and strengthened caption bands.
+All twelve fresh relaunch pairs pass; maximum MAE 0.000026/255.
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 8.8 | 8.7/8.8/8.8 | fail ≥9.0 | -0.3 |
+| main-controls.png | 8.3 | 8.4/8.3/8.3 | fail ≥8.5 | -0.1 |
+| main-dogwalk-full-running.png | 8.5 | 8.5/8.5/8.6 | PASS ≥8.5 | -0.1 |
+| main-dogwalk-full.png | 8.6 | 8.5/8.6/8.6 | PASS ≥8.5 | +0.1 |
+| main-dogwalk-remote.png | 8.5 | 8.5/8.5/8.6 | PASS ≥8.5 | -0.1 |
+| main-dogwalk-tile-running.png | 8.3 | 8.4/8.3/8.2 | fail ≥8.5 | -0.1 |
+| main-dogwalk-tile.png | 8.3 | 8.4/8.3/8.3 | fail ≥8.5 | -0.1 |
+| main-home.png | 8.3 | 8.3/8.2/8.3 | fail ≥9.0 | -0.2 |
+| main-iphone-home-bottom.png | 8.4 | 8.4/8.5/8.4 | fail ≥8.5 | -0.1 |
+| main-iphone-home.png | 8.4 | 8.3/8.4/8.4 | fail ≥9.0 | -0.2 |
+| main-lamps.png | 8.4 | 8.1/8.5/8.4 | fail ≥9.0 | -0.6 |
+| main-nowplaying.png | 8.7 | 8.7/8.7/8.7 | PASS ≥8.5 | -0.1 |
+
+Runs parsed: [12, 12, 12] files each.
+
+All three target medians are **8.3**, below their **8.4** floors. Reject the
+entire visual candidate in `bf695fd1`. Protected images differ from archived
+accepted captures by at most 0.000075/255. No baseline is lowered.
+
+The final Swift/UI source is identical to main after integrating WWW-64
+(`c87324f1`). `HomeLaunch.swift` has no WWW-55 diff. Retained accepted medians are
+**Controls 8.4 / idle Walk 8.4 / running Walk 8.4**; these are historical accepted
+scores, not a new restored-state review. The 8.5 goal remains unmet.
+
+The focused delivery retains the Sol-medium review runner, input hash manifests
+and the experiment record. Before/after screenshots show the retained source and
+the explicitly rejected second candidate; no candidate UI is shipped.
+
+Final verification runs against the restored source plus WWW-64; candidate-only
+partial test results do not certify it.

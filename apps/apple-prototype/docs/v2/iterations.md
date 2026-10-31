@@ -432,3 +432,13 @@ Cold Sol-medium medians: Controls **8.3**, idle Walk **8.3**, running Walk **8.2
 against floors **8.4/8.4/8.4**. Reject all visual hunks in `bc10831b`; retain the
 review runner. Twelve deterministic relaunch pairs pass (max 0.000612/255).
 No floor changes. Full per-screen medians and validation limits: [WWW-55](www-55.md).
+
+
+### WWW-55 candidate 2 — rejected; retain tooling
+
+Cold Sol-medium medians: Controls **8.3**, idle Walk **8.3**, running Walk **8.3**.
+Reject all visual hunks in `bf695fd1`; no floor is lowered. Twelve fresh relaunch
+pairs pass (max 0.000026/255). Final Swift/UI source matches main with WWW-64
+integrated. Retained historical target medians remain **8.4/8.4/8.4**; the 8.5
+goal is unmet. Ship the reproducible review runner and experiment evidence using
+Refs WWW-55. Full per-screen medians: [WWW-55](www-55.md).

@@ -1,0 +1,4 @@
+screen	mean_absolute_diff_255	result
+sim-controls.png	0.000019	PASS
+sim-dogwalk-tile.png	0.000601	PASS
+sim-dogwalk-tile-running.png	0.000181	PASS
