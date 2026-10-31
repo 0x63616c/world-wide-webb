@@ -15,6 +15,10 @@ median="$protocol/tools/median.py"
   echo 'Missing APPLE-SPEC.md or fixed review protocol' >&2
   exit 2
 }
+if [[ $# == 4 && ! -f "$4" ]]; then
+  echo "Missing baseline: $4" >&2
+  exit 2
+fi
 shopt -s nullglob
 screens=("$review"/main-*.png "$review"/pages-*.png)
 refs=("$review"/refs/*.png)
@@ -23,10 +27,12 @@ refs=("$review"/refs/*.png)
   exit 2
 }
 mkdir -p "$(dirname "$out")"
+out="$(cd "$(dirname "$out")" && pwd)/$(basename "$out")"
 # Same prompt, image ordering and cold-run count as the external review3.sh.
 # WWW-55 explicitly requests Sol medium rather than its Astra xhigh default.
-shasum -a 256 "$prompt" "$median" "$review/APPLE-SPEC.md" \
-  "${screens[@]}" "${refs[@]}" > "$out-inputs.sha256"
+inputs=("$0" "$prompt" "$median" "$review/APPLE-SPEC.md" "${screens[@]}" "${refs[@]}")
+[[ $# == 4 ]] && inputs+=("$4")
+shasum -a 256 "${inputs[@]}" > "$out-inputs.sha256"
 images=$(printf '%s\n' "${screens[@]}" "${refs[@]}" | paste -sd, -)
 pids=()
 for run in 1 2 3; do
