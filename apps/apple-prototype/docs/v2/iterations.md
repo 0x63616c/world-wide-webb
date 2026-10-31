@@ -424,3 +424,11 @@ unmet, so no PR is opened, no merge is performed and no TestFlight release is
 claimed. The design goal remains unmet. Resume with a healthy shared simulator
 host to finish verification; do not attempt a fourth design iteration under this
 brief. The branch preserves all experiment/revert history without rewriting.
+
+
+### WWW-55 candidate 1 — rejected
+
+Cold Sol-medium medians: Controls **8.3**, idle Walk **8.3**, running Walk **8.2**
+against floors **8.4/8.4/8.4**. Reject all visual hunks in `bc10831b`; retain the
+review runner. Twelve deterministic relaunch pairs pass (max 0.000612/255).
+No floor changes. Full per-screen medians and validation limits: [WWW-55](www-55.md).
