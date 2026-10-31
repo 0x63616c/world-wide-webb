@@ -42,7 +42,7 @@ extension XCUIApplication {
         XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
         // Home's Classic button stays in the covered host's AX tree. The pager
         // returns only after the selected controller has finished dismissing.
-        // WWW-54 grid Home: page 2 holds Now Playing and the modules without a grid card.
+        // WWW-54 grid Home: page 2 holds Now Playing and the overflow grid cards.
         let page = buttons[["wifi", "photos", "walk", "media", "cameras", "sonos"].contains(module) ? "face-page-2" : "face-page-1"]
         XCTAssertTrue(page.waitForExistence(timeout: 30))
         page.tap()
@@ -57,10 +57,8 @@ extension XCUIApplication {
         if !launchArguments.contains("-hybridUnavailable") {
             XCTAssertTrue(buttons["tile-unavailable-\(tile)"].waitForNonExistence(timeout: 30))
         }
-        // Grid cards open from anywhere outside their inline controls; the older
-        // module tiles on page 2 keep their own open buttons.
-        let gridCards = ["lamps", "climate", "fan", "sound", "weather", "clock", "calendar", "tesla"]
-        if gridCards.contains(tile) { container.tap() } else { container.buttons.firstMatch.tap() }
+        // Tap the title inset, away from inline controls (including Walk start/end).
+        container.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.15)).tap()
         if module == "wifi", !launchArguments.contains("-hybridUnavailable"),
            !launchArguments.contains("-hybridDetail"),
            let index = launchArguments.firstIndex(of: "-moduleFlag.wifi"),

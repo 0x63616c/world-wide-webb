@@ -29,6 +29,24 @@ import XCTest
         XCTAssertEqual(store.rooms[2].positionSeconds, 100)
         XCTAssertEqual(store.rooms[2].positionUpdatedAt, now)
     }
+    func testGridHomePagesAreFullWithoutOverlap() {
+        for page in 0...1 {
+            var occupied = Set<String>()
+            for placement in HomeGrid.placements(page: page) {
+                let v = placement.variant
+                XCTAssertTrue(["1x1", "2x1", "1x2", "2x2"].contains("\(v.w)x\(v.h)"))
+                for y in placement.y..<(placement.y + v.h) {
+                    for x in placement.x..<(placement.x + v.w) {
+                        XCTAssertTrue((0..<6).contains(x) && (0..<4).contains(y))
+                        XCTAssertTrue(occupied.insert("\(x),\(y)").inserted, "Overlapping card on page \(page + 1)")
+                    }
+                }
+            }
+            XCTAssertEqual(occupied.count, 24)
+        }
+        XCTAssertEqual(Set(HomeGrid.more.map(\.card)), [.nowPlaying, .cameras, .photos, .sonosRooms, .wifi, .dogwalk, .media])
+        XCTAssertEqual(HomeGrid.more.first { $0.card == .sonosRooms }?.variant.w, 2)
+    }
     func testMixedHomeSpansFillGridWithoutOverlap() {
         var occupied = Set<String>()
         for tile in HomeTile.homeFace {

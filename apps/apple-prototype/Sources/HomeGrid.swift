@@ -46,34 +46,35 @@ enum HomeGrid {
         .init(.lamps, "A", 0, 2), .init(.weather, "C", 2, 2), .init(.calendar, "B", 4, 2),
         .init(.fan, "C", 0, 3)
     ]
-    /// Page 2: overflow only.
+    /// Page 2: ordinary grid cards, packed to 24/24 cells like page 1.
     static let more: [GridPlacement] = [
-        .init(.nowPlaying, "B", 0, 0)
-    ]
-    /// Modules from the old "Home · More" face that have no grid card yet. They keep their
-    /// existing tiles (and host replacements), packed after Now Playing on page 2.
-    static let moreModules: [(tile: HomeTile, x: Int, y: Int, w: Int, h: Int)] = [
-        (.cameras, 2, 0, 2, 2), (.photos, 4, 0, 2, 2),
-        (.sonosRooms, 0, 2, 1, 2), (.wifi, 1, 2, 1, 2),
-        (.dogwalk, 2, 2, 2, 2), (.media, 4, 2, 2, 2)
+        .init(.nowPlaying, "B", 0, 0), .init(.cameras, "A", 2, 0), .init(.photos, "A", 4, 0),
+        .init(.sonosRooms, "A", 0, 2), .init(.dogwalk, "A", 2, 2), .init(.media, "A", 4, 2),
+        .init(.wifi, "A", 0, 3)
     ]
     static func placements(page: Int) -> [GridPlacement] { page == 0 ? home : more }
-    static func frame(x: Int, y: Int, w: Int, h: Int, in size: CGSize) -> CGRect {
-        let o = origin(in: size), s = span(w, h)
-        return CGRect(x: o.x + CGFloat(x) * (cell + gutter), y: o.y + CGFloat(y) * (cell + gutter), width: s.width, height: s.height)
-    }
+
 }
 
 enum GridCard: String, CaseIterable {
     case climate, lamps, weather, car, calendar, nowPlaying = "nowplaying", fan, lights, clock
+    case cameras, photos, sonosRooms, wifi, dogwalk, media
     var title: String {
         switch self {
         case .climate: "Climate"; case .lamps: "Lamps"; case .weather: "Weather"; case .car: "Car"
+        case .cameras: "Cameras"; case .photos: "Photos"; case .sonosRooms: "Sonos rooms"
+        case .wifi: "Wi-Fi"; case .dogwalk: "Walk Zero"; case .media: "Media"
         case .calendar: "Up next"; case .nowPlaying: "Now Playing"; case .fan: "Fan"; case .lights: "Lights"; case .clock: "Clock"
         }
     }
     var variants: [GridVariant] {
         switch self {
+        case .cameras: [.init("A", 2, 2, "Full-bleed feed + caption"), .init("B", 2, 1, "Wide feed + caption")]
+        case .photos: [.init("A", 2, 2, "Full-bleed rotating photo"), .init("B", 2, 1, "Wide rotating photo")]
+        case .sonosRooms: [.init("A", 2, 1, "Playing rooms + room count"), .init("B", 2, 2, "Room playback + volumes")]
+        case .wifi: [.init("A", 2, 1, "Guest network + join"), .init("B", 2, 2, "Guest network + join QR")]
+        case .dogwalk: [.init("A", 2, 2, "Walk status + weekly total"), .init("B", 2, 1, "Walk status + start/end")]
+        case .media: [.init("A", 2, 2, "Library artwork + title"), .init("B", 2, 1, "Library glance")]
         case .climate: [.init("A", 2, 2, "Hero: inside temp, stepper below"), .init("B", 2, 1, "Wide: inside left, setpoint right"),
                         .init("C", 1, 2, "Tall: inside temp over stepper"), .init("D", 1, 1, "Glance: inside + setpoint, tap to adjust")]
         case .lamps: [.init("A", 2, 1, "Count + brightness bar"), .init("B", 2, 2, "Room toggles + brightness"),
@@ -170,7 +171,7 @@ struct GridCardView: View {
         }
     }
     private var round: Bool { (card == .fan || card == .lights) && v == "B" }
-    private var image: Bool { card == .weather || card == .clock || (card == .nowPlaying && (v == "B" || v == "C")) }
+    private var image: Bool { card == .cameras || card == .photos || card == .weather || card == .clock || (card == .nowPlaying && (v == "B" || v == "C")) }
     var body: some View {
         content
             .frame(width: size.width, height: size.height)
@@ -190,6 +191,12 @@ struct GridCardView: View {
         case .fan: GridFan(v: v, store: store)
         case .lights: GridLights(v: v, accessory: accessory ?? .ceiling, store: store)
         case .clock: GridClock(v: v, store: store)
+        case .cameras: GridCameras(store: store)
+        case .photos: GridPhotos(store: store)
+        case .sonosRooms: GridSonosRooms(v: v, store: store)
+        case .wifi: GridWifi(v: v, store: store)
+        case .dogwalk: GridDogWalk(v: v, store: store, open: open)
+        case .media: GridMedia(v: v, store: store)
         }
     }
 }
@@ -918,15 +925,7 @@ struct GridHomeFace: View {
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("tile-\(t.id)")
                     .position(x: f.midX, y: f.midY)
             }
-            if page == 1 {
-                ForEach(HomeGrid.moreModules, id: \.tile) { m in
-                    let f = HomeGrid.frame(x: m.x, y: m.y, w: m.w, h: m.h, in: size)
-                    MixedHomeTile(tile: m.tile, store: store, open: { open(m.tile) })
-                        .frame(width: f.width, height: f.height)
-                        .modifier(GridMaterial(on: false, image: [.photos, .cameras].contains(m.tile)))
-                        .position(x: f.midX, y: f.midY)
-                }
-            }
+
         }.frame(width: size.width, height: size.height)
             .overlay { if HomeGrid.overlay { GridOverlay(size: size).allowsHitTesting(false) } }
             .sheet(isPresented: $picker) { WallpaperPicker() }
@@ -935,6 +934,8 @@ struct GridHomeFace: View {
         switch p.card {
         case .climate: .climate; case .lamps: .lamps; case .weather: .weather; case .car: .tesla
         case .calendar: .calendar; case .nowPlaying: .sound; case .fan: .fan; case .clock: .clock
+        case .cameras: .cameras; case .photos: .photos; case .sonosRooms: .sonosRooms
+        case .wifi: .wifi; case .dogwalk: .dogwalk; case .media: .media
         case .lights: p.accessory == .cabinet ? .cabinet : p.accessory == .all ? .all : .ceiling
         }
     }

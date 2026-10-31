@@ -45,14 +45,16 @@ Page 2 (24/24 cells):
 | Card | Variant | Span | Cell (col,row) |
 |---|---|---|---|
 | Now Playing | B full-bleed | 2×2 | 1,1 |
-| Cameras | module tile | 2×2 | 3,1 |
-| Photos | module tile | 2×2 | 5,1 |
-| Sonos rooms | module tile | 1×2 | 1,3 |
-| Wi-Fi | module tile | 1×2 | 2,3 |
-| Dog walk | module tile | 2×2 | 3,3 |
-| Media | module tile | 2×2 | 5,3 |
+| Cameras | A full-bleed feed + caption | 2×2 | 3,1 |
+| Photos | A rotating photo + caption | 2×2 | 5,1 |
+| Sonos rooms | A playing rooms + count | 2×1 | 1,3 |
+| Wi-Fi | A guest network + join | 2×1 | 1,4 |
+| Dog walk | A status + weekly total | 2×2 | 3,3 |
+| Media | A library artwork + title | 2×2 | 5,3 |
 
-The page-2 module tiles are the existing Home modules (no grid variant yet) laid into the grid so nothing from the old Home is lost; they get grid cards later.
+All page-2 tiles are ordinary `GridPlacement`s. Cameras and Photos use full-bleed images with `Corners`/`Cap` captions at the 24 pt ink inset. Sonos rooms and Wi-Fi stack as wide cards beneath Now Playing; the Sonos title fits without truncation. Dog walk keeps inline start/end and opens the same history. Every card reads the existing `HomeDataSource` providers and opens the same detail as legacy Home.
+
+Each new card also has a B variant: Cameras/Photos/Media/Dog walk offer a 2×1 glance; Sonos rooms offers a 2×2 room list and Wi-Fi a 2×2 join QR. Use `-gridSheet cameras|photos|sonosRooms|wifi|dogwalk|media` to inspect them.
 
 In the Panel app, a card whose live source is not connected shows the module's "unavailable" tile in the same frame, and every card keeps the old `tile-<id>` accessibility identifier.
 
@@ -77,7 +79,7 @@ To open the picker, long-press the "Home" title. For captures, use `-wallpaper <
 ## Launch flags (prototype)
 
 - `-legacyHome` uses the old module Home face instead of the grid.
-- `-gridSheet <climate|lamps|weather|car|calendar|nowplaying|fan|lights|clock|clockwide>` renders a tile's variation sheet.
+- `-gridSheet <climate|lamps|weather|car|calendar|nowplaying|fan|lights|clock|clockwide|cameras|photos|sonosRooms|wifi|dogwalk|media>` renders a tile's variation sheet.
 - `-face controls` opens on Home page 2.
 - `-showWallpaperPicker` opens the picker at launch.
 - `-gridOverlay` draws the grid in-app. Liquid Glass cards composite above it, so the review `grid.png` was made by drawing the same geometry over the Home capture.

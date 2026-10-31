@@ -39,6 +39,29 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
         }
     }
 
+    func testGridPageTwoCardsOpenTheirDetails() throws {
+        let app = launch(["-face", "controls"])
+        for id in ["cameras", "photos", "sonosRooms", "wifi", "dogwalk", "media"] {
+            let card = app.descendants(matching: .any)["tile-\(id)"].firstMatch
+            XCTAssertTrue(card.waitForExistence(timeout: 30), app.debugDescription)
+            card.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.1)).tap()
+            let close = app.buttons[id == "dogwalk" ? "Close Walk Zero" : "close-controller"]
+            XCTAssertTrue(close.waitForExistence(timeout: 10), app.debugDescription)
+            close.tap()
+            XCTAssertTrue(card.waitForExistence(timeout: 10))
+        }
+    }
+    func testGridWalkActionStaysInline() throws {
+        let app = launch(["-face", "controls"])
+        let start = app.buttons["Start walking Zero"]
+        XCTAssertTrue(start.waitForExistence(timeout: 30))
+        start.tap()
+        XCTAssertTrue(app.buttons["Stop walking Zero"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Close Walk Zero"].exists)
+        app.buttons["Stop walking Zero"].tap()
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+    }
+
     func testClockIsTheFirstFace() throws {
         let app = launch()
         XCTAssertTrue(app.buttons["face-page-0"].waitForExistence(timeout: 30), app.debugDescription)
