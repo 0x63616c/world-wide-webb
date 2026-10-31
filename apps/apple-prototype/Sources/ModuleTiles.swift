@@ -66,7 +66,7 @@ struct ModuleTile: View {
             FixtureArtwork(tint: "#485c85").frame(width: compact ? 80 : 112, height: compact ? 80 : 112).clipShape(.rect(cornerRadius: 24))
             VStack(alignment: .leading, spacing: 8) {
                 Text("Media").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                Text("Music & films").font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
+                Text("Music & films").font(.system(size: compact ? 16 : 20)).foregroundStyle(.primary)
                 Text("Browse library ›").font(.system(size: compact ? 14 : 20))
             }
             Spacer(minLength: 0)
@@ -107,6 +107,7 @@ private struct HomeCameraTile: View {
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .scaleEffect(1.025 + sin(t / 8) * 0.015)
                     LinearGradient(stops: [.init(color: .black.opacity(0.62), location: 0),
+                                           .init(color: .black.opacity(compact ? 0.26 : 0.48), location: 0.36),
                                            .init(color: .black.opacity(0.10), location: 0.52),
                                            .init(color: .black.opacity(0.65), location: 1)],
                                    startPoint: .top, endPoint: .bottom)
@@ -120,10 +121,10 @@ private struct HomeCameraTile: View {
                                 Text("LIVE").font(.system(size: 14, weight: .bold))
                             }
                         }
-                        Text("\(count) demo feeds").font(.system(size: compact ? 16 : 24))
+                        Text("\(count) demo feeds").font(.system(size: compact ? 16 : 20))
                         Spacer(minLength: 8)
                         HStack(alignment: .firstTextBaseline) {
-                            Text(feed.name).font(.system(size: compact ? 17 : 20, weight: .medium))
+                            Text(feed.name).font(.system(size: compact ? 17 : 24, weight: .medium))
                             Spacer(minLength: 8)
                             Text(fixtureTime(phase == nil ? context.date : now, format: "HH:mm:ss"))
                                 .font(.system(size: compact ? 14 : 20)).monospacedDigit()
