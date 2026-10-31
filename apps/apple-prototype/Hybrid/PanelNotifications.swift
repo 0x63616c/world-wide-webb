@@ -1,10 +1,14 @@
 import CryptoKit
 import Foundation
 import SwiftUI
+import UIKit
 import PanelKit
 
 /// Composition and module identity stay in Hybrid; the inbox has no routing dependency.
 @MainActor enum PanelNotifications {
+    static let updateDeepLink = "module/updates/testflight"
+    static let testFlightURL = URL(string: "itms-beta://")!
+
     static func make() -> NotificationCenter {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") {
@@ -41,6 +45,10 @@ import PanelKit
 
     static func open(_ item: NotificationItem, store: LiveHomeDataSource, session: KioskSession,
                      navigation: PanelNavigation, router: HybridRouter) -> Bool {
+        if item.deepLink == updateDeepLink {
+            UIApplication.shared.open(testFlightURL)
+            return true
+        }
         guard let module = module(for: item.deepLink) else { return false }
         let ready = store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
         if module == .alarms && router.route(for: module, hasLiveData: ready) == .native(module) {
@@ -77,6 +85,7 @@ import PanelKit
     }
 
     static func source(_ id: String) -> NotificationSource {
+        if id == "updates" { return NotificationSource(name: "Updates", symbol: "arrow.down.circle.fill") }
         let module = module(for: "module/\(id)")
         let symbol: String
         switch module {

@@ -191,7 +191,12 @@ await createNotification({
 
 The helper validates the same input, returns the full JSON-safe row, and resolves
 only after commit. It is available to backend features without an HTTP roundtrip.
-This slice does not automatically add notification producers to existing modules.
+Backend alarm ring, snooze, stop and missed transitions and Dog Walk start/stop
+transitions now use this helper. Pass the event's transaction as the optional second
+argument to commit the event and notification atomically. The helper takes the same
+revision lock on that transaction; callers must await it and commit before delivery.
+The transaction overload returns before the caller commits. Rollback removes both.
+Retries that do not change the event produce no additional notification.
 
 Equivalent additive tRPC procedures: `notifications.create` (create body),
 `notifications.list` (object with the GET parameter shapes, `limit` accepts a

@@ -26,9 +26,9 @@ struct PanelHome: View {
     @State private var presentation: PanelHomePresentation
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
-         navigation: PanelNavigation, updates: UpdateChecker) {
+         navigation: PanelNavigation) {
         _presentation = State(initialValue: PanelHomePresentation(store: store, session: session,
-            router: router, navigation: navigation, updates: updates))
+            router: router, navigation: navigation))
     }
 
     var body: some View {
@@ -61,16 +61,14 @@ struct PanelHome: View {
     let session: KioskSession
     let router: HybridRouter
     let navigation: PanelNavigation
-    let updates: UpdateChecker
     let caption = ""
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
-         navigation: PanelNavigation, updates: UpdateChecker) {
+         navigation: PanelNavigation) {
         self.store = store
         self.session = session
         self.router = router
         self.navigation = navigation
-        self.updates = updates
     }
 
     func prepareToOpen(_ tile: HomeTile) -> Bool {
@@ -126,7 +124,7 @@ struct PanelHome: View {
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
         AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
             router: router, close: close, classic: navigation.openClassic)
-            .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation, updates: updates) }
+            .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation) }
             .modifier(NotificationHistoryAccess()))
     }
 }

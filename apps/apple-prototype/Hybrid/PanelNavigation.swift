@@ -35,7 +35,6 @@ struct PanelStatusOverlays: View {
     let store: LiveHomeDataSource
     let session: KioskSession
     let navigation: PanelNavigation
-    let updates: UpdateChecker
 
     var body: some View {
         ZStack {
@@ -45,16 +44,7 @@ struct PanelStatusOverlays: View {
                     edit: navigation.openNativeAlarms, dataCaption: "")
                     .disabled(store.alarmsProvider.pending)
             }
-            VStack {
-                if let build = updates.availableBuild {
-                    UpdateBanner(build: build).padding(.top, 72).padding(.horizontal, 24)
-                }
-                Spacer()
-                if navigation.selection == .alarms, !navigation.showingHome,
-                   let message = store.alarmsProvider.errorMessage {
-                    Text(message).padding().background(.regularMaterial).accessibilityAddTraits(.updatesFrequently)
-                }
-            }
+
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .top) { PanelNotificationOverlay() }

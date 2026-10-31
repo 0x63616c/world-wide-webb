@@ -23,13 +23,50 @@ describe.skipIf(!url)("walk log against Postgres", () => {
         "utf8",
       ),
     );
+    await pool.query(
+      readFileSync(
+        new URL("../../apps/api/src/db/migrations/0044_daffy_blonde_phantom.sql", import.meta.url),
+        "utf8",
+      ).replaceAll('"public".', `"${namespace}".`),
+    );
   });
   beforeEach(async () => {
+    await pool.query("TRUNCATE notifications");
     await pool.query('TRUNCATE "walk"');
   });
   afterAll(async () => {
     await pool.query(`DROP SCHEMA "${namespace}" CASCADE`);
     await pool.end();
+  });
+  it("posts start/stop only on transitions, including a forgotten stop", async () => {
+    await Promise.all([start(), start()]);
+    await service.stop({ id });
+    await service.stop({ id });
+    await start(); // consumed ID
+    const next = (await start({ id: undefined })).active;
+    if (!next) throw new Error("Expected an active walk");
+    await service.update({ id: next.id, endedAt: new Date().toISOString() });
+    await service.update({ id: next.id, endedAt: new Date().toISOString() });
+    const rows = (await pool.query("SELECT * FROM notifications ORDER BY revision")).rows;
+    expect(rows.map((r) => r.title)).toEqual([
+      "Walk started",
+      "Walk stopped",
+      "Walk started",
+      "Walk stopped",
+    ]);
+    expect(rows.every((r) => r.deep_link === "module/walks")).toBe(true);
+  });
+  it("rolls back walk creation if notification persistence fails", async () => {
+    await pool.query(
+      "ALTER TABLE notifications ADD CONSTRAINT reject_test CHECK (title = 'rejected')",
+    );
+    try {
+      await expect(start()).rejects.toThrow();
+    } finally {
+      await pool.query("ALTER TABLE notifications DROP CONSTRAINT reject_test");
+    }
+    expect((await service.state()).active).toBeNull();
+    expect((await start()).active?.id).toBe(id);
   });
   it("uses server time, preserves start retries and consumed ids", async () => {
     const before = Date.now();
