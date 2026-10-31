@@ -63,9 +63,16 @@ final class NotificationHistoryTests: XCTestCase {
     }
 
     @MainActor private func openHistory(_ app: XCUIApplication) {
-        // Left of the banner stack, beginning inside the app's top edge.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.012))
-            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.4)))
+        // Full-screen controllers can have different safe top insets from Home.
+        // Start inside the currently reachable app edge, outside the system gesture region.
+        let edges = app.buttons.matching(identifier: "notification-history-edge")
+        let reachable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            edges.allElementsBoundByIndex.contains(where: \.isHittable)
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [reachable], timeout: 10), .completed)
+        guard let edge = edges.allElementsBoundByIndex.first(where: \.isHittable) else { return }
+        let start = edge.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 300)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
     }
 

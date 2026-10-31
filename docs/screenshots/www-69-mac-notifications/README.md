@@ -56,6 +56,9 @@ on the mini were removed after exporting evidence.
   Reduce Motion/large text, both history tests, Update Ready on native/Classic,
   and `PanelSmokeTests` offline recovery. The real-root swipe test passed in a
   focused rerun after replacing the capture-host-only history gesture assertion.
+  The PR's hosted launch smoke also exercised the persisted-history test on a
+  presented controller; its gesture helper targets the reachable app edge instead
+  of assuming the controller shares Home's safe top inset.
 - `NotificationCaptureTests`: one UI test passed, retaining all four images.
 - Repository pre-push Biome and Knip checks passed.
 
