@@ -127,8 +127,10 @@ struct GridDogWalk: View {
     var body: some View {
         TimelineView(.periodic(from: store.now, by: 1)) { _ in
             Corners {
-                Button(action: open) { Cap("Walk Zero", 22, .semibold) }
-                    .buttonStyle(.plain).accessibilityLabel("Walk Zero history")
+                Button(action: open) {
+                    Cap("Walk Zero", 22, .semibold)
+                        .frame(minHeight: 44, alignment: .topLeading).contentShape(.rect)
+                }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")
             } tr: {
                 Image(systemName: "pawprint.fill").font(.system(size: 22))
             } bl: {

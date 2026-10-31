@@ -907,7 +907,7 @@ struct GridHomeFace: View {
         let o = HomeGrid.origin(in: size)
         ZStack(alignment: .topLeading) {
             HStack(alignment: .center) {
-                Text("Home").font(.system(size: 36, weight: .bold))
+                Text("Home").font(.system(size: 36, weight: .bold)).foregroundStyle(.white)
                     .onLongPressGesture { picker = true }
                 Spacer()  // no date here: Clock H already shows it
             }.frame(width: HomeGrid.width, height: HomeGrid.heading)
