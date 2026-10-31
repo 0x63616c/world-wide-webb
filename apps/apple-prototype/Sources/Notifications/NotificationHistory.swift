@@ -29,7 +29,8 @@ struct NotificationHistoryEdge: View {
 
 struct NotificationHistory: View {
     @Environment(NotificationCenter.self) private var center
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
     let source: (String) -> NotificationSource
     @State private var expanded: Set<String> = []
     @State private var clearing = false
@@ -62,7 +63,11 @@ struct NotificationHistory: View {
                         }
                     }
                 }
+                #if os(iOS)
                 .listStyle(.insetGrouped)
+                #else
+                .listStyle(.inset)
+                #endif
                 .scrollContentBackground(.hidden)
             }
             closeHandle

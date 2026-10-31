@@ -211,7 +211,7 @@ enum NotificationBannerGesture {
     static func dismisses(x: Double, y: Double) -> Bool { abs(x) >= 70 || y <= -45 }
 }
 
-private enum NotificationMotion {
+enum NotificationMotion {
     static func isReduced(_ system: Bool) -> Bool {
         #if DEBUG
         system || ProcessInfo.processInfo.arguments.contains("-notificationReduceMotion")
