@@ -82,14 +82,12 @@ struct MixedHomeTile: View {
                 setpointLabel.frame(maxWidth: .infinity)
             } else {
                 Spacer(minLength: 0)
-                PanelClimateDial(climate: store.climate, open: open)
-                    .frame(maxWidth: .infinity)
+                climateValue
                 Spacer(minLength: 0)
                 HStack {
                     step("minus", delta: -1)
                     Spacer()
-                    Text(store.climate.mode == .off ? "Off" : store.climate.action)
-                        .font(.system(size: 22, weight: .medium))
+                    setpointLabel
                     Spacer()
                     step("plus", delta: 1)
                 }
@@ -106,10 +104,8 @@ struct MixedHomeTile: View {
                 }.font(.system(size: compact ? 19 : 26, weight: .semibold))
                     .contentShape(.rect)
             }.buttonStyle(.plain).accessibilityIdentifier("open-climate")
-            if compact {
-                Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
-                    .font(.system(size: 16)).foregroundStyle(.primary)
-            }
+            Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
+                .font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
         }
     }
     private var climateValue: some View {
@@ -210,66 +206,5 @@ struct MixedHomeTile: View {
     private var isOn: Bool {
         guard let key = tile.accessory else { return false }
         return key == .fan ? store.climate.fanOn && store.climate.mode != .off : store.lamps.isOn(key)
-    }
-}
-
-/// A reading instrument; adjustment remains on the explicit − / + buttons.
-private struct PanelClimateDial: View {
-    let climate: ClimateState
-    let open: () -> Void
-
-    private var tint: Color { climate.mode == .heat ? .orange : .cyan }
-    private func angle(for temperature: Int) -> Double {
-        (135 + Double(min(77, max(67, temperature)) - 67) * 27) * .pi / 180
-    }
-
-    var body: some View {
-        Button(action: open) {
-            ZStack {
-                Canvas { context, size in
-                    let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                    let radius = min(size.width, size.height) / 2 - 12
-                    func point(_ angle: Double, _ r: CGFloat) -> CGPoint {
-                        CGPoint(x: center.x + cos(angle) * r, y: center.y + sin(angle) * r)
-                    }
-                    var track = Path()
-                    track.addArc(center: center, radius: radius, startAngle: .degrees(135), endAngle: .degrees(405), clockwise: false)
-                    context.stroke(track, with: .color(.white.opacity(0.25)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    for temperature in 67...77 {
-                        let theta = angle(for: temperature)
-                        var tick = Path()
-                        tick.move(to: point(theta, radius - 10))
-                        tick.addLine(to: point(theta, radius))
-                        context.stroke(tick, with: .color(.white.opacity(0.6)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    }
-                    if climate.mode != .off {
-                        let targets = climate.mode == .heatCool ? [climate.low, climate.high] : [climate.target]
-                        for target in targets {
-                            let theta = angle(for: target)
-                            var marker = Path()
-                            marker.move(to: point(theta, radius - 16))
-                            marker.addLine(to: point(theta, radius + 3))
-                            context.stroke(marker, with: .color(tint), style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                        }
-                    }
-                }.accessibilityHidden(true)
-                VStack(spacing: 0) {
-                    Text(climate.mode == .off ? "System" : climate.mode == .heatCool ? "Heat · Cool" : "Set to")
-                        .font(.system(size: 22, weight: .medium))
-                    Text(climate.mode == .off ? "Off" : climate.mode == .heatCool ? "\(climate.low)–\(climate.high)°" : "\(climate.target)°")
-                        .font(.system(size: climate.mode == .heatCool ? 76 : 128, weight: .regular))
-                        .monospacedDigit().lineLimit(1)
-                    Text("Inside \(climate.ambient)°")
-                        .font(.system(size: 22))
-                }
-                HStack {
-                    Text("67°")
-                    Spacer()
-                    Text("77°")
-                }.font(.system(size: 18, weight: .medium))
-                    .padding(.horizontal, 40).offset(y: 108)
-                    .accessibilityHidden(true)
-            }.frame(width: 296, height: 296).contentShape(.circle)
-        }.buttonStyle(.plain)
     }
 }
