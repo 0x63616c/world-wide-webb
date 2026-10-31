@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 enum NotificationHistoryGesture {
     static func opens(x: Double, y: Double, startY: Double = 0) -> Bool {
@@ -12,6 +15,10 @@ struct NotificationHistoryEdge: View {
     @Environment(NotificationCenter.self) private var center
 
     var body: some View {
+        #if os(iOS)
+        NotificationEdgePan { center.historyPresented = true }
+            .frame(height: 24)
+        #else
         Color.clear
             .frame(height: 24)
             .contentShape(.rect)
@@ -26,8 +33,41 @@ struct NotificationHistoryEdge: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { center.historyPresented = true }
             .accessibilityIdentifier("notification-history-edge")
+        #endif
     }
 }
+
+#if os(iOS)
+/// A real edge hit region above UIKit-backed paging. Its pan never receives
+/// touches inside the history List, so native row swipe actions remain intact.
+private struct NotificationEdgePan: UIViewRepresentable {
+    let open: () -> Void
+    func makeUIView(context: Context) -> EdgeView { EdgeView(open: open) }
+    func updateUIView(_ view: EdgeView, context: Context) { view.open = open }
+
+    final class EdgeView: UIView {
+        var open: () -> Void
+        init(open: @escaping () -> Void) {
+            self.open = open
+            super.init(frame: .zero)
+            backgroundColor = .clear
+            addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(panEnded)))
+            isAccessibilityElement = true
+            accessibilityLabel = "Notification Center"
+            accessibilityHint = "Pull down or activate to show notification history"
+            accessibilityTraits = .button
+            accessibilityIdentifier = "notification-history-edge"
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func accessibilityActivate() -> Bool { open(); return true }
+        @objc private func panEnded(_ gesture: UIPanGestureRecognizer) {
+            guard gesture.state == .ended else { return }
+            let translation = gesture.translation(in: self)
+            if NotificationHistoryGesture.opens(x: translation.x, y: translation.y) { open() }
+        }
+    }
+}
+#endif
 
 struct NotificationHistory: View {
     @Environment(NotificationCenter.self) private var center
@@ -180,6 +220,7 @@ private struct NotificationHistoryRow: View {
             .foregroundStyle(.primary)
             .multilineTextAlignment(.leading)
             .padding(.vertical, 8)
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens \(source.name)")
@@ -191,20 +232,10 @@ private struct NotificationHistoryRow: View {
     }
 }
 
-/// Attach to each presentation's content ancestor so UIKit-backed Home paging
-/// and web scrolling cannot consume a drag that began at the top edge.
+/// Defer the first system edge swipe on every full-screen presentation.
 struct NotificationHistoryAccess: ViewModifier {
-    @Environment(NotificationCenter.self) private var center: NotificationCenter?
-
     func body(content: Content) -> some View {
         content
-            .simultaneousGesture(DragGesture(minimumDistance: 12).onEnded { value in
-                guard let center, !center.historyPresented else { return }
-                if NotificationHistoryGesture.opens(x: value.translation.width, y: value.translation.height,
-                    startY: value.startLocation.y) {
-                    center.historyPresented = true
-                }
-            })
             #if os(iOS)
             .defersSystemGestures(on: .top)
             #endif
