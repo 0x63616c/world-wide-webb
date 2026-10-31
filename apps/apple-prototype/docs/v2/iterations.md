@@ -461,3 +461,22 @@ eight UI tours, the complete Panel unit scheme and all **19 Panel-Smoke tests**
 pass with WWW-64 integrated. PanelKit's **70 tests** also pass. Nine cold reviews
 complete across the two rejected candidates and restored set. Raw final logs are
 archived off the mini; PR #851 retains only the review runner and evidence.
+
+
+## WWW-54 — thermostat dial follow-up (2026-10-31)
+
+The renewed brief permits a different design direction after the three rejected
+7h-derived trials. Start from main `eba45d82`. Test a panel-only thermostat
+reading instrument: an open 270-degree scale for the existing 67–77° bounds,
+a target marker, and a grouped setpoint/indoor reading. Keep explicit minus/plus
+actions and the existing state/command seam. Heat–Cool marks both bounds; Off
+removes target markers. No clock, random seed or new motion is introduced.
+Phone composition, tile placements, native materials and other pages retain main.
+
+Fresh current-main captures and candidate verification run on the shared Mac
+under `www8-simlock`, with task-local build products. Raw evidence is archived
+outside Git at `/workspace/wwwebb-ui/prototype/v2/www54-followup/`. The fixed
+`BRIEF-method.md`, cold-review prompt and published twelve-screen floors remain
+unchanged. Capture, review and acceptance are pending; no improvement or release
+is claimed. The renewed brief supersedes the earlier trial cap, not the
+acceptance rules.

@@ -244,3 +244,14 @@ The panel grid is anchored to the top of the page container so the live TabView 
 Phone returns to Climate, Weather and Up Next in its first viewport, with 240/152/144-point heights. The two-column Lamps/Ceiling/Fan group follows; Music and Tesla preserve their complete bottom-scroll contours. The 24-point gutters/margins, 80-point pager band and eight-point scroll fade remain. Fully occluded modules are removed from the render tree so their system glass cannot reflect above the visible Music card. The 64-point phone fader uses a 32-point sun symbol with a 16-point bottom inset; the full-screen instrument is unchanged.
 
 Full-screen Lamps, Clock, Music and Walk retain their accepted compositions. The Walk tile restores its explicit elapsed label and originating-device line. This section describes implementation, not a review score or acceptance claim.
+
+## WWW-54 thermostat instrument trial
+
+On the panel, Climate uses a 296-point open dial with a 270-degree scale for
+the existing 67–77° range. A semantic cyan target marker (orange in Heat) sits
+on the scale; Heat–Cool shows both targets and Off hides the markers. The
+128-point setpoint, its “Set to” label and the 22-point indoor reading form
+one centered instrument. The existing explicit minus/plus buttons flank the
+operating status below. The scale is a reading instrument; tapping the value
+opens Climate detail. The phone and every other module retain their current
+composition and materials. This trial changes no review gates or floors.
