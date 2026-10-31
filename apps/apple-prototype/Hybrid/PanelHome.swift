@@ -122,13 +122,13 @@ struct PanelHome: View {
         // LiveHomeDataSource when no special host presentation is needed.
         switch tile {
         case .fan:
-            return AnyView(GridFan(v: span.width > span.height ? "C" : "D", store: store,
-                fanIsOn: store.fanProvider.fanOn, fanLabel: store.fanProvider.fanLabel)
+            return AnyView(GridFan(v: span.width > span.height ? "C" : span.height > span.width ? "D" : "A", store: store,
+                fanIsOn: store.fanProvider.fanOn, fanLabel: store.fanProvider.fanLabel, showsInlineToggle: true)
                 .contentShape(.rect).onTapGesture(perform: open))
         case .sound:
             return AnyView(PanelSoundTile(store: store, open: open, inset: HomeGrid.inset))
         case .clock:
-            return AnyView(GridClock(v: "H", store: store)
+            return AnyView(GridClock(v: span.width > span.height ? "H" : span.height > span.width ? "C" : span.width > HomeGrid.cell ? "F" : "A", store: store)
                 .contentShape(.rect).onTapGesture(perform: open))
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open,

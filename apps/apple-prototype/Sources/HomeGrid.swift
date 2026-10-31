@@ -719,6 +719,7 @@ struct GridFan: View {
     let store: any HomeDataSource
     var fanIsOn: Bool? = nil
     var fanLabel: String? = nil
+    var showsInlineToggle = false
     private var on: Bool { fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off) }
     private var label: String { fanLabel ?? store.climate.fanLabel }
     /// The glyph toggles the fan in place; the rest of the card opens the controller.
@@ -733,7 +734,10 @@ struct GridFan: View {
         case "A":
             Corners {
                 Cap("Fan", 17, .semibold)
-            } tr: { FanSymbol(on: on).font(.system(size: 26)) } bl: { Cap(label, 28, .medium) } br: { EmptyView() }
+            } tr: {
+                if showsInlineToggle { toggle(26) }
+                else { FanSymbol(on: on).font(.system(size: 26)) }
+            } bl: { Cap(label, 28, .medium) } br: { EmptyView() }
         case "B":
             VStack(spacing: 14) {
                 FanSymbol(on: on).font(.system(size: 44))
