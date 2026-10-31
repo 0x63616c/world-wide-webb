@@ -128,8 +128,9 @@ struct PanelHome: View {
         case .sound:
             return AnyView(PanelSoundTile(store: store, open: open, inset: HomeGrid.inset))
         case .clock:
-            return AnyView(GridClock(v: span.width > span.height ? "H" : span.height > span.width ? "C" : span.width > HomeGrid.cell ? "F" : "A", store: store)
-                .contentShape(.rect).onTapGesture(perform: open))
+            return AnyView(PanelTileLauncher(label: "Open Clock and Alarms", open: open) {
+                GridClock(v: span.width > span.height ? "H" : span.height > span.width ? "C" : span.width > HomeGrid.cell ? "F" : "A", store: self.store)
+            })
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open,
                 inset: HomeGrid.inset).disabled(store.walkProvider.isMutating))

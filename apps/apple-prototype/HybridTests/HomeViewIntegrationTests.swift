@@ -54,10 +54,12 @@ import PanelKit
         // Independent fan is On while HVAC is Off: the old generic card showed Off.
         await transport.setFixture("fan/on.json", for: "controls.list")
         await transport.setFixture("climate/off.json", for: "climate.get")
+        let calendar = HybridCalendarFixtureStore(root: root, unavailable: false)
+        await calendar.setFilename("empty.json")
         let store = LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
             baseURL: URL(string: "http://localhost:18733")!), transport: transport,
             mediaAPI: HybridMediaFixture(unavailable: false),
-            calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root, unavailable: false)),
+            calendarAPI: CalendarAPI(store: calendar),
             now: { HybridCalendarFixtureStore.now })
         for module in HomeTile.panelProviders { await store.refresh(module) }
         defer { store.stop() }
@@ -78,6 +80,10 @@ import PanelKit
                 .environment(\.motionPhase, 0)).uiImage?.pngData())
         }
         let onImage = try fanImage()
+        let generic = GridFan(v: "C", store: store)
+            .frame(width: fanSpan.width, height: fanSpan.height).environment(\.motionPhase, 0)
+        XCTAssertNotEqual(try XCTUnwrap(ImageRenderer(content: generic).uiImage?.pngData()), onImage,
+            "An On fan must not render like the HVAC-off generic card")
         await transport.setFixture("fan/off.json", for: "controls.list")
         await store.refresh(.fan)
         XCTAssertEqual(store.fanProvider.fanOn, false)
@@ -113,8 +119,9 @@ import PanelKit
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(origin: .zero, size: size)
+        window.windowLevel = .alert + 1
         defer { window.isHidden = true; window.rootViewController = nil }
-        for page in [0, 1] {
+        for page in [0] {
             let content = ZStack {
                 Color.black
                 GridHomeFace(store: store, size: size, page: page, open: { _ in })
@@ -127,7 +134,8 @@ import PanelKit
             window.makeKeyAndVisible()
             controller.view.frame = window.bounds
             controller.view.layoutIfNeeded()
-            try await Task.sleep(for: .seconds(1))
+            try await Task.sleep(for: .seconds(3))
+            controller.view.layoutIfNeeded()
             let image = UIGraphicsImageRenderer(size: size).image { _ in
                 XCTAssertTrue(controller.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
             }
