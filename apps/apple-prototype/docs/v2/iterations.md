@@ -480,3 +480,41 @@ outside Git at `/workspace/wwwebb-ui/prototype/v2/www54-followup/`. The fixed
 unchanged. Capture, review and acceptance are pending; no improvement or release
 is claimed. The renewed brief supersedes the earlier trial cap, not the
 acceptance rules.
+
+### Thermostat dial: first review — reject
+
+The first three cold runs score Home **7.9 / 7.9 / 8.0**, median **7.9**,
+0.6 below its retained floor. Review identifies a concrete implementation defect:
+the fixed-width dial inherits the tile stack's leading alignment and sits about
+56 points left of the tile center. Correct it in `69eb56d1` with a full-width
+centering frame, and hide decorative endpoint text from VoiceOver. The original
+review inputs and raw runs remain immutable under `www54-followup/dial/`.
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 9.0 | 9.0/8.8/9.0 | PASS ≥9.0 | -0.1 |
+| main-controls.png | 8.1 | 8.3/8.1/8.1 | fail ≥8.5 | -0.3 |
+| main-dogwalk-full-running.png | 8.6 | 8.6/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-full.png | 8.5 | 8.6/8.5/8.5 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-remote.png | 8.6 | 8.6/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-tile-running.png | 8.0 | 8.1/8.0/8.0 | fail ≥8.5 | -0.4 |
+| main-dogwalk-tile.png | 8.1 | 8.3/8.1/8.1 | fail ≥8.5 | -0.3 |
+| main-home.png | 7.9 | 7.9/7.9/8.0 | fail ≥9.0 | -0.6 |
+| main-iphone-home-bottom.png | 8.6 | 8.8/8.6/8.4 | PASS ≥8.5 | +0.3 |
+| main-iphone-home.png | 8.4 | 8.7/8.4/8.3 | fail ≥9.0 | +0.0 |
+| main-lamps.png | 8.6 | 8.8/8.4/8.6 | fail ≥9.0 | -0.4 |
+| main-nowplaying.png | 8.8 | 8.8/8.7/8.8 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+The correction is a fix to the same instrument trial, not acceptance of the
+rejected layout. Fresh current-main Home was pixel-identical to the archived
+accepted Home; all twelve original candidate pairs passed determinism (max
+0.000608/255). The eleven non-Home states differed from current main by at most
+0.000608/255. Lower repeat medians on unchanged screens do not lower any floor.
+
+All five first-trial builds, both 149-unit-plus-hosted-render prototype suites,
+all eight UI tours and Panel unit pass. Panel-Smoke is still running. The
+centered iPad build and a fresh Home relaunch pair pass; a fresh full capture
+set and corrected-source verification are in progress. No acceptance or release
+is claimed.
