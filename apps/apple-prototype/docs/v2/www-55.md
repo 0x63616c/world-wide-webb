@@ -146,3 +146,72 @@ Raw final build/test logs are archived off the mini at
 associated `.xcresult` bundles remain in the task's Mac derived-data directories.
 No visual design change is shipped. The fresh final target medians remain
 **8.2/8.2/8.3**, against unchanged historical floors **8.4/8.4/8.4**.
+
+## Follow-up 2 — tall Walk instrument rejected (2026-10-31)
+
+Start: `eba45d82` on `WWW-55-controls-walk-2`. Candidate `87060098`
+exchanges the wide Walk and tall Sonos spans: Walk becomes a tall instrument
+with a 52-pt last-duration value or 44-pt running timer, an originating-device
+label, History and a fixed 64-pt Start/End capsule. Sonos becomes a wide,
+two-column summary of the first two rooms with a count linking to every room.
+This is a structural layout trial rather than another shallow-card spacing pass.
+Home Climate, the first Home page and compact phone composition are untouched.
+
+Run the existing `scripts/review-design.sh` with its unchanged fixed prompt,
+Sol medium and three independent cold reviews for **each** fresh baseline and
+candidate set. Both sets contain all twelve required captures. Use `-snapshot`,
+the existing shared simulator lock, readiness/orientation/PNG checks, and two
+independent launches per screen. All 24 pairs pass: maximum RGB MAE is
+**0.000571/255 baseline** and **0.000572/255 candidate**.
+
+| Screen | Historical floor | Fresh baseline median | Tall candidate median |
+|---|---:|---:|---:|
+| main-controls | 8.4 | 8.3 | 8.2 |
+| main-dogwalk-tile | 8.4 | 8.3 | 8.2 |
+| main-dogwalk-tile-running | 8.4 | 8.2 | 8.1 |
+| main-home | 8.5 | 8.3 | 8.2 |
+| main-lamps | 9.0 | 8.5 | 8.3 |
+| main-clock-near | 9.1 | 8.8 | 8.7 |
+| main-nowplaying | 8.8 | 8.7 | 8.6 |
+| main-dogwalk-full | 8.5 | 8.5 | 8.5 |
+| main-dogwalk-full-running | 8.6 | 8.5 | 8.5 |
+| main-dogwalk-remote | 8.6 | 8.5 | 8.5 |
+| main-iphone-home | 8.6 | 8.4 | 8.4 |
+| main-iphone-home-bottom | 8.5 | 8.5 | 8.5 |
+
+Reject: all three targets score **0.1 below the fresh baseline**, and
+**0.2/0.2/0.3 below the historical floors**. Reviewers identify too many equally
+weighted stops in the tall Walk stack, the two-line “Started on / iPad” origin,
+and inconsistent destination headings across Controls. The wide Sonos summary
+also needs an explicit “All 5 rooms” destination label. Do not apply unrelated
+review suggestions to Home Climate.
+
+All nine protected images match the fresh baseline within **0.000065/255**;
+Home is pixel-identical. Lower repeat scores on these protected screens do not
+establish a source regression or justify replacing their accepted floors. The
+candidate fails even on a same-session baseline comparison of its three targets.
+
+Verification: fresh baseline and candidate iPad builds pass; candidate Snapshots
+build-for-testing and **149 prototype unit tests** pass, including shared Walk
+state and layout geometry. Repository `bun run typecheck`, normal push hooks
+(Biome/Knip) and candidate branch CI pass. The first push failed because this
+new worktree had no node_modules; `bun install --frozen-lockfile` restores the
+locked dependencies and the normal retry passes. No hook is bypassed. Full
+five-scheme/UI-tour verification is not repeated after design rejection; these
+focused checks do not claim complete native release certification.
+
+Revert candidate in `d81f65d2`. Final implementation is byte-identical to
+`eba45d82`; the net branch diff contains documentation and evidence only.
+Historical target floors remain **8.4/8.4/8.4**, and the **8.5 goal is unmet**.
+No PR is opened, no merge/deploy is performed and no TestFlight build is uploaded,
+following the ticket's explicit stop rule for a candidate that beats no baseline.
+
+[Cold reviews, medians, input hashes and determinism tables](www-55-walk2/)
+are checked in. Full raw capture pairs and build/test logs remain under
+`/workspace/wwwebb-ui/prototype/v2/www55/walk2/`. Reference images stay external.
+The screenshots below are actual compositor captures at 2752×2064 pixels
+(1376×1032 points), and the candidate screenshots show a **rejected experiment**.
+
+![Before: retained Controls](../../../../docs/screenshots/www-55-controls-walk-2/before-controls.png)
+![Rejected: tall Walk, idle](../../../../docs/screenshots/www-55-controls-walk-2/rejected-tall-controls.png)
+![Rejected: tall Walk, running](../../../../docs/screenshots/www-55-controls-walk-2/rejected-tall-running.png)

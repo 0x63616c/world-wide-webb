@@ -461,3 +461,5 @@ eight UI tours, the complete Panel unit scheme and all **19 Panel-Smoke tests**
 pass with WWW-64 integrated. PanelKit's **70 tests** also pass. Nine cold reviews
 complete across the two rejected candidates and restored set. Raw final logs are
 archived off the mini; PR #851 retains only the review runner and evidence.
+
+WWW-55 follow-up 2 (2026-10-31): rejected tall Walk / wide Sonos structural trial `87060098`; revert `d81f65d2`. Three cold Sol-medium reviews: Controls **8.2**, idle Walk **8.2**, running Walk **8.1**, versus fresh baseline **8.3/8.3/8.2** and historical floors **8.4/8.4/8.4**. All 24 double-launch capture pairs pass (max MAE 0.000572/255); all nine protected screens match fresh baseline within 0.000065/255. Home Climate untouched. Baseline/candidate iPad builds, candidate Snapshots build, 149 unit tests, repository typecheck, push hooks and candidate CI pass. Candidate is reverted; final implementation equals `eba45d82`. Docs/evidence-only branch pushed, no PR or TestFlight upload per the ticket stop rule. Full tables and screenshots: [www-55.md](www-55.md#follow-up-2--tall-walk-instrument-rejected-2026-10-31). No accepted floor changes.
