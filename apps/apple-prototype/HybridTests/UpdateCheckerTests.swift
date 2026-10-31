@@ -77,7 +77,7 @@ import XCTest
     }
 
     func testUpdateUsesSharedHistoryAndDoesNotReplayAfterRestart() async {
-        let center = NotificationCenter()
+        let center = Panel.NotificationCenter()
         let checker = UpdateChecker(currentBuild: "1", notifications: center, fetchBuild: { 10 })
         await checker.check()
         await checker.check()
@@ -93,5 +93,5 @@ import XCTest
         XCTAssertEqual(center.history.count, 2)
     }
 
-    private func silentNotifications() -> NotificationCenter { NotificationCenter() }
+    private func silentNotifications() -> Panel.NotificationCenter { Panel.NotificationCenter() }
 }
