@@ -71,6 +71,19 @@ import PanelKit
             XCTAssertNotNil(host.gridTile(tile, span: HomeGrid.span(2, 2), open: {}), tile.id)
         }
         XCTAssertNil(host.gridTile(.climate, span: HomeGrid.span(2, 2), open: {}))
+        let fanSpan = HomeGrid.span(2, 1)
+        func fanImage() throws -> Data {
+            let tile = try XCTUnwrap(host.gridTile(.fan, span: fanSpan, open: {}))
+            return try XCTUnwrap(ImageRenderer(content: tile.frame(width: fanSpan.width, height: fanSpan.height)
+                .environment(\.motionPhase, 0)).uiImage?.pngData())
+        }
+        let onImage = try fanImage()
+        await transport.setFixture("fan/off.json", for: "controls.list")
+        await store.refresh(.fan)
+        XCTAssertEqual(store.fanProvider.fanOn, false)
+        XCTAssertNotEqual(try fanImage(), onImage, "Grid content must reflect refreshed host state")
+        await transport.setFixture("fan/on.json", for: "controls.list")
+        await store.refresh(.fan)
         let probe = GridIntegrationProbe()
         let size = CGSize(width: 1366, height: 1024)
         for page in [0, 1] {
@@ -127,8 +140,7 @@ import PanelKit
     }
 }
 
-/// A host with only legacy tiles proves the new hook is optional; its override
-/// records dispatch without relying on any particular GridCard implementation.
+/// Records dispatch without relying on any particular GridCard implementation.
 @MainActor private final class GridIntegrationProbe: HomeIntegration {
     let caption = ""
     var unavailable = false

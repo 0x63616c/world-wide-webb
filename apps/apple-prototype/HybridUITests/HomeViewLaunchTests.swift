@@ -17,7 +17,16 @@ import XCTest
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
         XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForNonExistence(timeout: 30))
-        capture("WWW-64-HomeView")
+        let fan = app.buttons["toggle-fan"]
+        XCTAssertTrue(fan.waitForExistence(timeout: 15))
+        XCTAssertEqual(fan.value as? String, "On")
+        fan.tap()
+        XCTAssertTrue(app.buttons["face-page-1"].exists, "Fan toggle stays on Home")
+        let ceiling = app.buttons["toggle-ceiling"]
+        XCTAssertTrue(ceiling.isHittable)
+        ceiling.tap()
+        XCTAssertTrue(app.buttons["face-page-1"].exists, "Light toggle stays on Home")
+        capture("WWW-73-HomeView")
         app.buttons["home-classic"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 15))
         let back = app.buttons["classic-home"]
