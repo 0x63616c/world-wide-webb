@@ -32,6 +32,7 @@ struct DogWalkScreen: View {
 struct DogWalkTile: View {
     let store: any HomeDataSource
     let open: () -> Void
+    var inset: CGFloat? = nil
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
@@ -70,7 +71,7 @@ struct DogWalkTile: View {
                     Text(store.walks.activeWalk == nil ? "Start" : "End")
                         .font(.system(size: compact ? 15 : 20, weight: .medium))
                 }
-            }.padding(compact ? 24 : 32)
+            }.padding(inset ?? (compact ? 24 : 32))
         }
     }
 }
