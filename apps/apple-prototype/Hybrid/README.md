@@ -1189,15 +1189,17 @@ notifications.post(sourceModule: "lights", title: "Scene ready",
     priority: .normal, dedupeKey: "reading-scene")
 ```
 
-Local items are memory-only; this slice does not POST them to the server.
+Local items persist on this device; they are not POSTed to the server.
 Remote items use `PanelKit.NotificationsAPI` and the existing authenticated tRPC
 transport (the equivalent WWW-58 procedures in `docs/notifications-api.md`).
 Unfiltered pages drain immediately, followed by a five-second revision poll.
 An absent endpoint/network failure retains received history and local posting,
 retrying every 30 seconds. Scene backgrounding cancels polling. After 30 days
 without a successful sync, the next successful initial fetch replaces remote
-history because server dismissal tombstones may have expired. Payloads and
-credentials are never logged or persisted by the service.
+history because server dismissal tombstones may have expired. Credentials and payloads are never logged. History payloads, read state, revisions
+and the sync cursor are cached atomically in Application Support, scoped to a
+SHA-256 hash of the configured backend URL. The cache excludes backups and uses
+iOS file protection until first unlock. Credentials are never cached.
 
 History combines both origins, deduplicating `(sourceModule, dedupeKey)`;
 null keys remain independent. A matching server echo replaces the local identity
@@ -1207,7 +1209,7 @@ replace remote rows; dismissed tombstones remove them. Read changes hide the
 banner. `history`, `groups`, `bannerGroups`, `unreadCount`, `markRead`, `dismiss`,
 `clear(sourceModule:)` and `clear()` are the shared seam for WWW-60/WWW-61.
 Clear preserves local posts arriving during the server request; failed remote
-actions retain history and show an error. No pull-down history screen is added.
+actions retain history and show an error. The pull-down history screen below consumes this same store.
 
 The shared status overlay shows banners on Home, Classic and presented native
 controllers; the Wi-Fi QR presentation also hosts it. These surfaces share the
@@ -1246,4 +1248,35 @@ shared simulator settings. `-UIPreferredContentSizeCategoryName
 UICTContentSizeCategoryAccessibilityXXXL` exercises accessibility text.
 `PanelUITests/NotificationBannerTests` captures the banner, destination, stack,
 cleared overlay and accessibility presentation as retained XCTest attachments.
-The inbox itself is covered by unit tests; its history UI belongs to WWW-60.
+The inbox and durable cache are covered by unit tests. The history UI is described below.
+
+
+## Pull-down Notification Center (WWW-60)
+
+Pull down at least 60 points from the top 24-point edge strip to open history
+above Home, Classic or a presented native controller. The edge also exposes a
+VoiceOver activation action. Swipe up on the header or bottom handle to close;
+the Close button and accessibility escape action do the same. Scrolling the
+list keeps history open. Opening history pauses banner reading time and hides
+the banner stack until history closes.
+
+Each module initially exposes its highest-priority/newest notification. Tap the
+module header to expand or collapse older items. Swipe a row left to Clear,
+use its accessible Clear action, clear one group, or Clear All. Server records
+use the existing authenticated `notifications.dismiss` / `notifications.dismissAll`
+procedures (the WWW-58 HTTP equivalents); group clear dismisses that group's
+IDs individually. Failed requests retain affected history and show an error.
+Tap a notification to close history and open its existing module route; unknown
+routes retain the item and leave history open.
+
+A relaunch restores local and received server history immediately, including
+read state, without replaying old banners. Revision polling reconciles backend
+dismissals and new items. Cursors older than 30 days restart reconciliation.
+Cache corruption falls back to a fresh server fetch; an unwritable cache leaves
+the current in-memory inbox usable and reports that relaunch persistence failed.
+
+`PanelUITests/NotificationHistoryTests` runs in Panel-Smoke alongside the Home
+launch check. It captures before/after, expanded, cleared, restored and deep-link
+screens at 1366×1024. UI fixture launches isolate their cache from production:
+`-notificationPersistentCache` enables it; `-notificationResetCache` resets only
+the synthetic fixture cache. Normal fixture launches remain memory-only.

@@ -114,7 +114,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/panel-smoke-build/Build/Products
-          key: panel-launch-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}
+          key: panel-launch-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}
 
       - name: Start simulator while compiling
         env:
@@ -133,6 +133,7 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
+            -only-testing:PanelUITests/NotificationHistoryTests \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
       - name: Assert Panel launches into HomeView
@@ -147,8 +148,17 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
             -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
+            -only-testing:PanelUITests/NotificationHistoryTests \
             -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-test.log"
+
+      - name: Export simulator screenshots
+        if: always()
+        run: |
+          if [[ -d "$RUNNER_TEMP/panel-launch.xcresult" ]]; then
+            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/panel-launch.xcresult" \
+              --output-path "$RUNNER_TEMP/panel-launch-screenshots"
+          fi
 
       - name: Save launch test evidence
         if: always()
@@ -157,6 +167,7 @@ jobs:
           name: panel-launch-smoke
           path: |
             ${{ runner.temp }}/panel-launch.xcresult
+            ${{ runner.temp }}/panel-launch-screenshots
             ${{ runner.temp }}/panel-smoke-*.log
           retention-days: 7
 

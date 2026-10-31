@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import PanelKit
 
-struct NotificationItem: Identifiable, Equatable, Sendable {
+struct NotificationItem: Identifiable, Equatable, Codable, Sendable {
     let id: String
     let sourceModule: String
     let title: String
@@ -34,7 +34,7 @@ struct NotificationGroup: Identifiable, Equatable {
     var id: String { sourceModule }
 }
 
-/// One root-owned, memory-only inbox for local producers and the backend.
+/// One root-owned inbox for local producers and the backend; cached history never replays banners.
 /// Banner timeout only hides presentation. Explicit dismiss/clear changes history.
 @MainActor @Observable final class NotificationCenter {
     enum Connection: Equatable { case localOnly, connected, unavailable }
@@ -43,6 +43,8 @@ struct NotificationGroup: Identifiable, Equatable {
     private(set) var arrivalFeedback = 0
     private(set) var dismissFeedback = 0
     private(set) var openFeedback = 0
+    var historyPresented = false
+    private(set) var cacheError: String?
     private(set) var cursor: String?
     private var items: [String: NotificationItem] = [:]
     private var banners: Set<String> = []
@@ -55,9 +57,27 @@ struct NotificationGroup: Identifiable, Equatable {
     @ObservationIgnored private var lastSync: Date?
     @ObservationIgnored private let api: (any NotificationsServing)?
     @ObservationIgnored private let now: () -> Date
+    @ObservationIgnored private let cache: (any NotificationHistoryCaching)?
 
-    init(api: (any NotificationsServing)? = nil, now: @escaping () -> Date = Date.init) {
-        self.api = api; self.now = now
+    init(api: (any NotificationsServing)? = nil, cache: (any NotificationHistoryCaching)? = nil,
+         now: @escaping () -> Date = Date.init) {
+        self.api = api; self.cache = cache; self.now = now
+        do {
+            if let saved = try cache?.load(), saved.version == 1 {
+                items = Dictionary(saved.items.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+                revisions = saved.revisions
+                cursor = saved.cursor
+                lastSync = saved.lastSync
+            }
+        } catch { cacheError = "Saved notifications couldn’t be loaded. Server history will refresh when connected." }
+    }
+
+    private func persist() {
+        guard let cache else { return }
+        do {
+            try cache.save(NotificationHistorySnapshot(items: history, revisions: revisions, cursor: cursor, lastSync: lastSync))
+            cacheError = nil
+        } catch { cacheError = "Notifications couldn’t be saved on this device. Try freeing storage space." }
     }
 
     var history: [NotificationItem] { items.values.sorted(by: Self.ordered) }
@@ -75,6 +95,7 @@ struct NotificationGroup: Identifiable, Equatable {
         items[id] = NotificationItem(id: id, sourceModule: sourceModule, title: title, body: body,
             deepLink: deepLink, priority: priority, dedupeKey: dedupeKey, createdAt: now())
         present(id)
+        persist()
         return id
     }
 
@@ -98,6 +119,7 @@ struct NotificationGroup: Identifiable, Equatable {
                 for row in page.items { merge(row) }
                 cursor = page.cursor
                 lastSync = now()
+                persist()
                 connection = .connected
                 if !page.hasMore { break }
                 guard page.cursor != next else { throw PanelAPIError.decoding("Notification cursor did not advance.") }
@@ -125,6 +147,7 @@ struct NotificationGroup: Identifiable, Equatable {
         do {
             if item.remote, let api { merge(try await api.markRead(id: id)) }
             else { items[id]?.readAt = now() }
+            persist()
             lastError = nil
         } catch { lastError = "Couldn’t mark the notification as read. Try again." }
     }
@@ -146,6 +169,7 @@ struct NotificationGroup: Identifiable, Equatable {
 
     func open(_ id: String) async {
         guard let item = items[id], openHandler?(item) != false else { return }
+        historyPresented = false
         hideBanner(id)
         openFeedback += 1
         await markRead(id)
@@ -158,6 +182,7 @@ struct NotificationGroup: Identifiable, Equatable {
         do {
             if item.remote, let api { merge(try await api.dismiss(id: id)) }
             else { remove(id) }
+            persist()
             lastError = nil
         } catch {
             lastError = "Couldn’t dismiss the notification. Try again."
@@ -168,7 +193,12 @@ struct NotificationGroup: Identifiable, Equatable {
     /// WWW-60 can clear the inbox or one source without owning a second store.
     func clear(sourceModule: String? = nil) async {
         if let sourceModule {
-            for item in history where item.sourceModule == sourceModule { await dismiss(item.id) }
+            var failed = false
+            for item in history where item.sourceModule == sourceModule {
+                await dismiss(item.id)
+                if lastError != nil { failed = true }
+            }
+            if failed { lastError = "Some notifications couldn’t be cleared. Try again." }
             return
         }
         let snapshot = history
@@ -177,6 +207,7 @@ struct NotificationGroup: Identifiable, Equatable {
             // A local post arriving during the request must not be lost.
             for item in snapshot where items[item.id] == item { remove(item.id) }
             dismissFeedback += 1
+            persist()
             lastError = nil
         } catch { lastError = "Couldn’t clear notifications. Try again." }
     }
@@ -187,7 +218,7 @@ struct NotificationGroup: Identifiable, Equatable {
 
     /// Advance only banners actually on screen. Queued/covered banners get their full reading time.
     func advanceBanners(by elapsed: TimeInterval, visibleSources: Set<String>, paused: Bool = false) {
-        guard !paused, elapsed > 0, elapsed.isFinite else { return }
+        guard !historyPresented, !paused, elapsed > 0, elapsed.isFinite else { return }
         for group in bannerGroups where visibleSources.contains(group.id) && !pausedSources.contains(group.id) {
             guard let item = group.items.first, let seconds = remaining[item.id] else { continue }
             if seconds <= elapsed { hideBanner(item.id) }

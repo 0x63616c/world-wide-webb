@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SwiftUI
 import PanelKit
@@ -7,7 +8,11 @@ import PanelKit
     static func make() -> NotificationCenter {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") {
-            let center = NotificationCenter()
+            let arguments = ProcessInfo.processInfo.arguments
+            let fixtureURL = URL.applicationSupportDirectory.appendingPathComponent("NotificationHistory-UIFixture/history.json")
+            if arguments.contains("-notificationResetCache") { try? FileManager.default.removeItem(at: fixtureURL) }
+            let center = NotificationCenter(cache: arguments.contains("-notificationPersistentCache")
+                ? FileNotificationHistoryCache(url: fixtureURL) : nil)
             if ProcessInfo.processInfo.arguments.contains("-notificationSamples") {
                 center.post(sourceModule: "lights", title: "Scene ready", body: "Reading lights are ready.",
                     deepLink: "module/lights", priority: .high, dedupeKey: "scene")
@@ -24,9 +29,14 @@ import PanelKit
         }
         #endif
         let config = PanelConfiguration()
+        let scope = SHA256.hash(data: Data(config.serverURL.absoluteString.utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        let cacheURL = URL.applicationSupportDirectory.appendingPathComponent("NotificationHistory", isDirectory: true)
+            .appendingPathComponent("\(scope).json")
         return NotificationCenter(api: NotificationsAPI(client: PanelAPIClient(configuration: PanelKit.PanelConfiguration(
             baseURL: config.serverURL, accessClientID: config.accessHeaders["CF-Access-Client-Id"],
-            accessClientSecret: config.accessHeaders["CF-Access-Client-Secret"]))))
+            accessClientSecret: config.accessHeaders["CF-Access-Client-Secret"]))),
+            cache: FileNotificationHistoryCache(url: cacheURL))
     }
 
     static func open(_ item: NotificationItem, store: LiveHomeDataSource, session: KioskSession,

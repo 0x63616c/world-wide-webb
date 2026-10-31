@@ -44,6 +44,7 @@ struct WifiModule: View {
                     showingQR = false
                 }
                 .overlay(alignment: .top) { PanelNotificationOverlay() }
+                .modifier(NotificationHistoryAccess())
             }
         }
         .onAppear { if openOnAppear && provider.qrPayload != nil { showingQR = true } }

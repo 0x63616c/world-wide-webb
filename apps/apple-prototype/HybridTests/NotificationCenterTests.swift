@@ -171,6 +171,152 @@ import PanelKit
         XCTAssertEqual(center.openFeedback, 1)
     }
 
+    func testFileCacheRestoresLocalReadStateWithoutReplayingBanners() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let cache = FileNotificationHistoryCache(url: directory.appendingPathComponent("history.json"))
+        let center = Panel.NotificationCenter(cache: cache)
+        let id = center.post(sourceModule: "lights", title: "Saved", body: "Body", deepLink: "module/lights")
+        await center.markRead(id)
+        let restored = Panel.NotificationCenter(cache: cache)
+        XCTAssertEqual(restored.history, center.history)
+        XCTAssertEqual(restored.unreadCount, 0)
+        XCTAssertTrue(restored.bannerGroups.isEmpty)
+        await restored.dismiss(id)
+        XCTAssertTrue(Panel.NotificationCenter(cache: cache).history.isEmpty)
+    }
+
+    func testCachedCursorResumesAndTombstonePersistsAcrossRelaunch() async throws {
+        let cache = MemoryNotificationHistoryCache()
+        let row = try notificationRow(revision: "1")
+        let api = NotificationStub(pages: [NotificationPage(items: [row], cursor: "1", hasMore: false)], row: row)
+        let center = Panel.NotificationCenter(api: api, cache: cache)
+        await center.refresh()
+        let nextAPI = NotificationStub(pages: [NotificationPage(items: [try notificationRow(revision: "2", dismissed: true)],
+            cursor: "2", hasMore: false)], row: nil)
+        let restored = Panel.NotificationCenter(api: nextAPI, cache: cache)
+        XCTAssertEqual(restored.history.count, 1)
+        XCTAssertTrue(restored.bannerGroups.isEmpty)
+        await restored.refresh()
+        let cursors = await nextAPI.cursors
+        XCTAssertEqual(cursors, ["1"])
+        XCTAssertTrue(Panel.NotificationCenter(cache: cache).history.isEmpty)
+        XCTAssertEqual(Panel.NotificationCenter(cache: cache).cursor, "2")
+    }
+
+    func testExpiredPersistedCursorReconcilesRemoteHistory() async throws {
+        let cache = MemoryNotificationHistoryCache()
+        let clock = NotificationTestClock()
+        let row = try notificationRow(revision: "1")
+        let firstAPI = NotificationStub(pages: [NotificationPage(items: [row], cursor: "1", hasMore: false)], row: nil)
+        let first = Panel.NotificationCenter(api: firstAPI, cache: cache, now: { clock.date })
+        await first.refresh()
+        first.post(sourceModule: "climate", title: "Local", body: "", deepLink: "module/climate")
+        clock.date = clock.date.addingTimeInterval(31 * 86_400)
+        let nextAPI = NotificationStub(pages: [NotificationPage(items: [], cursor: "0", hasMore: false)], row: nil)
+        let restored = Panel.NotificationCenter(api: nextAPI, cache: cache, now: { clock.date })
+        await restored.refresh()
+        let cursors = await nextAPI.cursors
+        XCTAssertEqual(cursors, [nil])
+        XCTAssertEqual(restored.history.map(\.sourceModule), ["climate"])
+        XCTAssertEqual(Panel.NotificationCenter(cache: cache).history, restored.history)
+    }
+
+    func testCacheFailureKeepsInboxUsableAndCorruptionRecovers() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("history.json")
+        try Data("invalid cache".utf8).write(to: url)
+        let cache = FileNotificationHistoryCache(url: url)
+        let restored = Panel.NotificationCenter(cache: cache)
+        XCTAssertNotNil(restored.cacheError)
+        restored.post(sourceModule: "lights", title: "Recovery", body: "", deepLink: "module/lights")
+        XCTAssertNil(restored.cacheError)
+        XCTAssertEqual(Panel.NotificationCenter(cache: cache).history.count, 1)
+        let failing = Panel.NotificationCenter(cache: FailingNotificationHistoryCache())
+        failing.post(sourceModule: "lights", title: "Still works", body: "", deepLink: "module/lights")
+        XCTAssertNotNil(failing.cacheError)
+        XCTAssertEqual(failing.history.count, 1)
+        await failing.clear()
+        XCTAssertTrue(failing.history.isEmpty)
+    }
+
+    func testFailedBackendDismissRetainsPersistedHistory() async throws {
+        let cache = MemoryNotificationHistoryCache()
+        let api = NotificationStub(pages: [NotificationPage(items: [try notificationRow(revision: "1")],
+            cursor: "1", hasMore: false)], row: nil)
+        let center = Panel.NotificationCenter(api: api, cache: cache)
+        await center.refresh()
+        await center.clear()
+        XCTAssertNotNil(center.lastError)
+        XCTAssertEqual(Panel.NotificationCenter(cache: cache).history.count, 1)
+        await center.dismiss("ntf_synthetic")
+        XCTAssertNotNil(center.lastError)
+        XCTAssertEqual(Panel.NotificationCenter(cache: cache).history.count, 1)
+    }
+
+    func testHistoryPausesBannersAndOnlyClosesForKnownRoute() async {
+        let center = Panel.NotificationCenter()
+        let id = center.post(sourceModule: "lights", title: "Saved", body: "", deepLink: "module/lights")
+        center.historyPresented = true
+        center.advanceBanners(by: 100, visibleSources: ["lights"])
+        XCTAssertEqual(center.bannerGroups.count, 1)
+        center.setOpenHandler { _ in false }
+        await center.open(id)
+        XCTAssertTrue(center.historyPresented)
+        XCTAssertEqual(center.unreadCount, 1)
+        center.setOpenHandler { _ in true }
+        await center.open(id)
+        XCTAssertFalse(center.historyPresented)
+        XCTAssertEqual(center.unreadCount, 0)
+        XCTAssertTrue(NotificationHistoryGesture.opens(x: 0, y: 80))
+        XCTAssertFalse(NotificationHistoryGesture.opens(x: 90, y: 80))
+        XCTAssertFalse(NotificationHistoryGesture.opens(x: 0, y: 30))
+        XCTAssertFalse(NotificationHistoryGesture.opens(x: 0, y: 80, startY: 100))
+        XCTAssertFalse(NotificationHistoryGesture.opens(x: 0, y: -80))
+        XCTAssertTrue(NotificationHistoryGesture.closes(x: 0, y: -80))
+        XCTAssertFalse(NotificationHistoryGesture.closes(x: 90, y: -80))
+        XCTAssertFalse(NotificationHistoryGesture.closes(x: 0, y: 80))
+    }
+
+    func testGroupAndOverallClearUseBackendAndPersist() async throws {
+        let cache = MemoryNotificationHistoryCache()
+        let api = NotificationActionStub(row: try notificationRow(revision: "1"),
+            dismissed: try notificationRow(revision: "2", dismissed: true))
+        let center = Panel.NotificationCenter(api: api, cache: cache)
+        await center.refresh()
+        center.post(sourceModule: "climate", title: "Keep", body: "", deepLink: "module/climate")
+        await center.clear(sourceModule: "lights")
+        let dismissed = await api.dismissedIDs
+        XCTAssertEqual(dismissed, ["ntf_synthetic"])
+        XCTAssertEqual(Panel.NotificationCenter(cache: cache).history.map(\.sourceModule), ["climate"])
+
+        let next = NotificationActionStub(row: try notificationRow(revision: "3"),
+            dismissed: try notificationRow(revision: "4", dismissed: true))
+        let all = Panel.NotificationCenter(api: next, cache: cache)
+        await all.refresh()
+        await all.clear()
+        let clears = await next.clearCalls
+        XCTAssertEqual(clears, 1)
+        XCTAssertTrue(Panel.NotificationCenter(cache: cache).history.isEmpty)
+    }
+
+    func testClearPreservesLocalPostArrivingDuringBackendRequest() async throws {
+        let cache = MemoryNotificationHistoryCache()
+        let api = NotificationActionStub(row: try notificationRow(revision: "1"),
+            dismissed: try notificationRow(revision: "2", dismissed: true), suspendClear: true)
+        let center = Panel.NotificationCenter(api: api, cache: cache)
+        await center.refresh()
+        let task = Task { await center.clear() }
+        await api.waitForClear()
+        center.post(sourceModule: "climate", title: "Arrived during clear", body: "", deepLink: "module/climate")
+        await api.finishClear()
+        await task.value
+        XCTAssertEqual(center.history.map(\.title), ["Arrived during clear"])
+        XCTAssertEqual(Panel.NotificationCenter(cache: cache).history, center.history)
+    }
+
     func testRoutesAndGestures() {
         XCTAssertEqual(PanelNotifications.module(for: "module/events/alarms"), .alarms)
         XCTAssertEqual(PanelNotifications.module(for: "module/ctrl"), .lights)
@@ -211,3 +357,45 @@ private actor NotificationStub: NotificationsServing {
 }
 
 @MainActor private final class NotificationTestClock { var date = Date(timeIntervalSince1970: 1_800_000_000) }
+
+@MainActor private final class MemoryNotificationHistoryCache: NotificationHistoryCaching {
+    var snapshot: NotificationHistorySnapshot?
+    func load() -> NotificationHistorySnapshot? { snapshot }
+    func save(_ snapshot: NotificationHistorySnapshot) { self.snapshot = snapshot }
+}
+
+@MainActor private struct FailingNotificationHistoryCache: NotificationHistoryCaching {
+    func load() throws -> NotificationHistorySnapshot? { throw CocoaError(.fileReadUnknown) }
+    func save(_ snapshot: NotificationHistorySnapshot) throws { throw CocoaError(.fileWriteOutOfSpace) }
+}
+
+private actor NotificationActionStub: NotificationsServing {
+    let row: PanelNotification
+    let dismissed: PanelNotification
+    let suspendClear: Bool
+    var dismissedIDs: [String] = []
+    var clearCalls = 0
+    var continuation: CheckedContinuation<Void, Never>?
+    var waiting: CheckedContinuation<Void, Never>?
+    init(row: PanelNotification, dismissed: PanelNotification, suspendClear: Bool = false) {
+        self.row = row; self.dismissed = dismissed; self.suspendClear = suspendClear
+    }
+    func list(since: String?) -> NotificationPage { NotificationPage(items: [row], cursor: row.revision, hasMore: false) }
+    func markRead(id: String) -> PanelNotification { row }
+    func dismiss(id: String) -> PanelNotification { dismissedIDs.append(id); return dismissed }
+    func dismissAll() async -> Int {
+        clearCalls += 1
+        if suspendClear {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+                waiting?.resume(); waiting = nil
+            }
+        }
+        return 1
+    }
+    func waitForClear() async {
+        if continuation != nil { return }
+        await withCheckedContinuation { waiting = $0 }
+    }
+    func finishClear() { continuation?.resume(); continuation = nil }
+}
