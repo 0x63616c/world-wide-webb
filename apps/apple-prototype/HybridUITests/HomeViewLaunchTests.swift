@@ -19,15 +19,16 @@ import XCTest
         XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForNonExistence(timeout: 30))
         let fan = app.buttons["toggle-fan"]
         XCTAssertTrue(fan.waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["Off"].exists, "HVAC fixture is Off")
+        let climate = app.descendants(matching: .any)["tile-climate"].firstMatch
+        XCTAssertTrue(climate.staticTexts["Off"].exists, "HVAC fixture is Off")
         XCTAssertEqual(fan.value as? String, "On", "Independent fan stays On with HVAC Off")
         capture("WWW-73-HomeView")
         fan.tap()
-        XCTAssertTrue(app.buttons["face-page-1"].exists, "Fan toggle stays on Home")
+        XCTAssertTrue(app.buttons["face-page-1"].isHittable, "Fan toggle stays on Home")
         let ceiling = app.buttons["toggle-ceiling"]
         XCTAssertTrue(ceiling.isHittable)
         ceiling.tap()
-        XCTAssertTrue(app.buttons["face-page-1"].exists, "Light toggle stays on Home")
+        XCTAssertTrue(app.buttons["face-page-1"].isHittable, "Light toggle stays on Home")
         app.buttons["home-classic"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 15))
         let back = app.buttons["classic-home"]
