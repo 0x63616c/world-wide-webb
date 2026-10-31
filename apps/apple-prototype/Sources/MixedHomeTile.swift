@@ -6,10 +6,10 @@ enum MixedHomeLayout {
         if controls {
             return switch tile {
             case .cameras: (0, 0, 2, 1)
-            case .dogwalk: (0, 1, 2, 1)
+            case .dogwalk: (4, 0, 1, 2)
             case .photos: (2, 0, 2, 1)
             case .media: (2, 1, 2, 1)
-            case .sonosRooms: (4, 0, 1, 2)
+            case .sonosRooms: (0, 1, 2, 1)
             case .clock: (0, 2, 1, 1)
             case .ceiling: (1, 2, 1, 1)
             case .cabinet: (2, 2, 1, 1)

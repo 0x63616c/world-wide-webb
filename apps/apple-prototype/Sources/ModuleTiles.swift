@@ -72,7 +72,29 @@ struct ModuleTile: View {
             Spacer(minLength: 0)
         }.padding(compact ? 24 : 32)
     }
-    private var rooms: some View {
+    @ViewBuilder private var rooms: some View {
+        if compact { compactRooms }
+        else {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack {
+                    Label("Sonos Rooms", systemImage: "hifispeaker.fill")
+                        .font(.system(size: 28, weight: .semibold))
+                    Spacer(minLength: 8)
+                    Text("All \(store.rooms.count) ›").font(.system(size: 20, weight: .medium))
+                }
+                HStack(alignment: .top, spacing: 24) {
+                    ForEach(store.rooms.prefix(2)) { room in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(room.name).font(.system(size: 24, weight: .semibold)).lineLimit(1)
+                            Text("\(room.playing ? "Playing" : "Paused") · \(room.displayVolume)%")
+                                .font(.system(size: 20)).monospacedDigit()
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }.padding(32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+    }
+    private var compactRooms: some View {
         VStack(alignment: .leading, spacing: compact ? 16 : 24) {
             Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(.system(size: compact ? 20 : 23, weight: .semibold))
             ForEach(store.rooms.prefix(compact ? 2 : 4)) { room in

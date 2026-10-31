@@ -35,6 +35,54 @@ struct DogWalkTile: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
+        if compact { compactTile }
+        else { panelTile }
+    }
+    private var panelTile: some View {
+        TimelineView(.periodic(from: store.now, by: 1)) { _ in
+            VStack(spacing: 24) {
+                Button(action: open) {
+                    VStack(spacing: 20) {
+                        Image(systemName: "pawprint.fill")
+                            .font(.system(size: 44)).foregroundStyle(.green)
+                        Text("Walk Zero").font(.system(size: 28, weight: .semibold))
+                        if let walk = store.walks.activeWalk {
+                            VStack(spacing: 8) {
+                                Text("Walking").font(.system(size: 20, weight: .medium))
+                                Text(walkElapsed(walk.duration(at: store.now)))
+                                    .font(.system(size: 44, weight: .medium, design: .rounded)).monospacedDigit()
+                                    .lineLimit(1).minimumScaleFactor(0.7)
+                                Text("Started on\n\(walk.startedBy.rawValue)")
+                                    .font(.system(size: 20))
+                            }
+                        } else {
+                            VStack(spacing: 8) {
+                                if let last = store.walks.history.first {
+                                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                        Text("\(Int(last.duration(at: store.now)) / 60)")
+                                            .font(.system(size: 52, weight: .medium, design: .rounded)).monospacedDigit()
+                                        Text("min").font(.system(size: 22))
+                                    }
+                                }
+                                Text(store.walks.lastWalkLabel(at: store.now))
+                                    .font(.system(size: 20)).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        Text("History ›").font(.system(size: 20, weight: .medium))
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .multilineTextAlignment(.center).contentShape(.rect)
+                }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")
+                Button { store.toggleWalk() } label: {
+                    Label(store.walks.activeWalk == nil ? "Start" : "End", systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
+                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(.black)
+                        .frame(maxWidth: .infinity).frame(height: 64)
+                        .glassEffect(.regular.tint(.green).interactive(), in: .capsule)
+                }.buttonStyle(.plain)
+                    .accessibilityLabel(store.walks.activeWalk == nil ? "Start walking Zero" : "Stop walking Zero")
+            }.padding(24)
+        }
+    }
+    private var compactTile: some View {
         TimelineView(.periodic(from: store.now, by: 1)) { _ in
             HStack(spacing: compact ? 16 : 24) {
                 Button(action: open) {
