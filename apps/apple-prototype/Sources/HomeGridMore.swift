@@ -61,7 +61,7 @@ private struct GridCaptionImage<Caption: View>: View {
                 if let asset {
                     Image(asset).resizable().scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height).clipped()
-                        .accessibilityHidden(true)
+                        .accessibilityHidden(true).id(asset).transition(.opacity)
                 }
                 LinearGradient(colors: [.black.opacity(0.45), .clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
                 caption
@@ -111,9 +111,7 @@ struct GridWifi: View {
         } bl: {
             VStack(alignment: .leading, spacing: 16) {
                 if v == "B", let qr = WifiQRCode.render(store.wifi) {
-                    Image(decorative: qr, scale: 1).interpolation(.none).resizable()
-                        .frame(width: 180, height: 180).padding(12).background(.white, in: .rect(cornerRadius: 16))
-                        .accessibilityLabel("Guest Wi-Fi join QR code")
+                    WifiQRHero(image: qr).frame(width: 180, height: 180)
                 }
                 Cap(store.wifi.ssid ?? "Not configured", 26, .medium, lines: 2)
                 Cap(store.wifi.ssid == nil ? "Guest network unavailable" : "Tap to join ›", 17).opacity(0.65)

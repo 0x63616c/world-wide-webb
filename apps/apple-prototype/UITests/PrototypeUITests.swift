@@ -47,6 +47,10 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
             card.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.1)).tap()
             let close = app.buttons[id == "dogwalk" ? "Close Walk Zero" : id == "photos" ? "Close Photos" : id == "wifi" ? "close-controller" : "Close"]
             XCTAssertTrue(close.waitForExistence(timeout: 10), app.debugDescription)
+            let heading = ["cameras": "Around the grounds", "photos": "Fixture photos · Johannes Plenio",
+                           "sonosRooms": "Listen together", "wifi": "fixture-password-123",
+                           "dogwalk": "Walk Zero", "media": "Your library"][id]!
+            XCTAssertTrue(app.staticTexts[heading].waitForExistence(timeout: 10), app.debugDescription)
             close.tap()
             XCTAssertTrue(card.waitForExistence(timeout: 10))
         }
