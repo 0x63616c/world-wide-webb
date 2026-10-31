@@ -13,11 +13,10 @@ out, refs, iteration = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 24)
 rows = [
     [(refs/'calum_3_wall_home_face.png', 'calum_3'), (out/'home.png', 'home'), (out/'lamps.png', 'lamps')],
-    [(refs/'calum_6_green_clock_face.png', 'calum_6'), (out/'clock-near.png', 'clock-near'),
+    [(refs/'calum_6_green_clock_face.png', 'calum_6'), (out/'clock.png', 'clock'),
      (refs/'calum_5_music_player.png', 'calum_5'), (out/'nowplaying.png', 'nowplaying'),
      (refs/'calum_4_timer_orange_ring.png', 'calum_4'), (out/'alarm.png', 'alarm')],
-    [(out/'controls-face.png', 'controls-face'), (out/'clock-idle.png', 'clock-idle'),
-     (out/'wifi.png', 'wifi'), (out/'alarm-ringing.png', 'alarm-ringing')]
+    [(out/'controls-face.png', 'controls-face'), (out/'wifi.png', 'wifi'), (out/'alarm-ringing.png', 'alarm-ringing')]
 ]
 if sys.argv[4] == 'home':
     rows = rows[:1]

@@ -13,7 +13,7 @@ capture() {
   sleep 4
   xcrun simctl io "$udid" screenshot "$out/screenshots/$name.png"
 }
-capture home
+capture home -face home
 capture controls-lights -openTile lamps
 capture climate-cool -openTile climate
 capture climate-heat -openTile climate -climateMode heat

@@ -5,7 +5,6 @@ import SwiftUI
     private let openTile: HomeTile?
     private let demo: Bool
     private let initialFace: Int
-    private let presenceNear: Bool
     init() {
         let args = ProcessInfo.processInfo.arguments
         func option(_ key: String) -> String? {
@@ -15,8 +14,7 @@ import SwiftUI
         _store = State(initialValue: MockHomeDataSource(wifiFixture: option("-wifiFixture") ?? "secured", mode: ClimateMode(rawValue: option("-climateMode") ?? "cool") ?? .cool, fixedNow: args.contains("-snapshot") ? FixtureClock.now : nil, ringing: args.contains("-alarmRinging")))
         openTile = HomeTile(rawValue: option("-openTile") ?? "")
         demo = args.contains("-demo")
-        initialFace = ["home", "controls", "clock", "music"].firstIndex(of: option("-face") ?? "home") ?? 0
-        presenceNear = option("-presence") == "near"
+        initialFace = HomeFacePage.names.firstIndex(of: option("-face") ?? "clock") ?? HomeFacePage.clock
     }
     var body: some Scene {
         WindowGroup {
@@ -25,7 +23,7 @@ import SwiftUI
                 // mounting a second animated dashboard in the test host.
                 if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { Color.clear }
                 else if ProcessInfo.processInfo.arguments.contains("-walkActivityPreview") { WalkActivityPreviewPage() }
-                else { HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace, initialPresence: presenceNear) }
+                else { HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace) }
             }
                 .task {
                     if openTile == nil { await signalSnapshotReady() }

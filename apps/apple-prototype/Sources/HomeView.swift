@@ -79,9 +79,7 @@ struct HomeView: View {
     var initialTile: HomeTile?
     var demo = false
     var initialFace = 0
-    var initialPresence = false
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var presenceNear = false
     @State private var facePage = 0
     @Namespace private var zoom
     @State private var selected: HomeTile?
@@ -90,17 +88,17 @@ struct HomeView: View {
         GeometryReader { proxy in
             ZStack {
                 Group {
-                    if facePage == 2 { Color.black.ignoresSafeArea() }
-                    else if facePage == 3 { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
+                    if facePage == HomeFacePage.clock { GreenClockDial.green.ignoresSafeArea() }
+                    else if facePage == HomeFacePage.music { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
                     else { Wallpaper() }
                 }
                 homeFace(size: proxy.size)
                     .safeAreaBar(edge: .bottom, spacing: 0) {
-                        if sizeClass == .compact && facePage == 3 {
+                        if sizeClass == .compact && (facePage == HomeFacePage.music || facePage == HomeFacePage.clock) {
                             PhoneFaceBar(selection: $facePage)
                         }
                     }
-                if selected == nil && sizeClass != .compact && facePage != 2 {
+                if selected == nil && sizeClass != .compact {
                     VStack { Spacer(); FacePicker(selection: $facePage).frame(height: HomeFaceLayout.panelPagerBand) }
                 }
                 #if os(macOS)
@@ -122,7 +120,6 @@ struct HomeView: View {
                 }
                 .task {
                     facePage = initialFace
-                    presenceNear = initialPresence
                     if let initialTile {
                         try? await Task.sleep(for: .milliseconds(250))
                         open(initialTile)
@@ -130,9 +127,9 @@ struct HomeView: View {
                     if ProcessInfo.processInfo.arguments.contains("-demoAutoPage") && !reduceMotion {
                         if !store.climate.fanOn { store.send(.toggle(.fan)) }
                         try? await Task.sleep(for: .seconds(5))
-                        withAnimation(.smooth) { facePage = 1 }
+                        withAnimation(.smooth) { facePage = HomeFacePage.home }
                         try? await Task.sleep(for: .seconds(5))
-                        withAnimation(.smooth) { facePage = 3 }
+                        withAnimation(.smooth) { facePage = HomeFacePage.music }
                     }
                 }
         }.ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
@@ -169,22 +166,22 @@ struct HomeView: View {
     @ViewBuilder private func homeFace(size: CGSize) -> some View {
         #if os(iOS)
         TabView(selection: $facePage) {
-            faceGrid(size: size, controls: false).tag(0)
-            faceGrid(size: size, controls: true).tag(1)
-            PresenceClockFace(store: store, near: $presenceNear, open: open).tag(2)
-            musicFace.tag(3)
+            PresenceClockFace(store: store, open: open).tag(HomeFacePage.clock)
+            faceGrid(size: size, controls: false).tag(HomeFacePage.home)
+            faceGrid(size: size, controls: true).tag(HomeFacePage.controls)
+            musicFace.tag(HomeFacePage.music)
         }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
         #else
         Group {
-            if facePage == 2 { PresenceClockFace(store: store, near: $presenceNear, open: open) }
-            else if facePage == 3 { NowPlayingView(store: store, close: { facePage = 0 }, isFace: true) }
-            else { faceGrid(size: size, controls: facePage == 1) }
+            if facePage == HomeFacePage.clock { PresenceClockFace(store: store, open: open) }
+            else if facePage == HomeFacePage.music { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
+            else { faceGrid(size: size, controls: facePage == HomeFacePage.controls) }
         }
         #endif
     }
     @ViewBuilder private var musicFace: some View {
-        if let integration { integration.musicFace(close: { facePage = 0 }) }
-        else { NowPlayingView(store: store, close: { facePage = 0 }, isFace: true) }
+        if let integration { integration.musicFace(close: { facePage = HomeFacePage.home }) }
+        else { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
     }
     private func faceGrid(size: CGSize, controls: Bool) -> some View {
         HomeGlassFace(store: store, size: size, controls: controls, zoom: zoom, open: open, faceSelection: $facePage)
@@ -193,6 +190,12 @@ struct HomeView: View {
         guard integration?.prepareToOpen(tile) ?? true else { return }
         selected = tile == .clock ? .alarm : tile
     }
+}
+/// Pager order. The clock is the first face (WWW-68).
+enum HomeFacePage {
+    static let clock = 0, home = 1, controls = 2, music = 3
+    static let names = ["clock", "home", "controls", "music"]
+    static let labels = ["Clock face", "Home face", "Home more face", "Music face"]
 }
 struct PhoneFaceBar: View {
     @Binding var selection: Int
@@ -219,7 +222,7 @@ struct FacePicker: View {
                         .frame(width: 8, height: 8).frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }.buttonStyle(.plain)
-                    .accessibilityLabel(["Home face", "Home more face", "Clock face", "Music face"][page])
+                    .accessibilityLabel(HomeFacePage.labels[page])
                     .accessibilityValue(selection == page ? "Selected" : "")
                     .accessibilityIdentifier("face-page-\(page)")
             }
