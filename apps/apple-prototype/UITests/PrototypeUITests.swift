@@ -52,6 +52,7 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
                            "dogwalk": "Walk Zero", "media": "Your library"][id]!
             XCTAssertTrue(app.staticTexts[heading].waitForExistence(timeout: 10), app.debugDescription)
             close.tap()
+            XCTAssertTrue(close.waitForNonExistence(timeout: 10), "Detail did not close for \(id)")
             XCTAssertTrue(card.waitForExistence(timeout: 10))
         }
     }
