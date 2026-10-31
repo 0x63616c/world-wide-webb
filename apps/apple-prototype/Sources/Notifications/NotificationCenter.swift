@@ -218,11 +218,18 @@ struct NotificationGroup: Identifiable, Equatable {
 
     /// Advance only banners actually on screen. Queued/covered banners get their full reading time.
     func advanceBanners(by elapsed: TimeInterval, visibleSources: Set<String>, paused: Bool = false) {
+        let ids = Set(bannerGroups.filter { visibleSources.contains($0.id) && !pausedSources.contains($0.id) }
+            .compactMap { $0.items.first?.id })
+        advanceBanners(by: elapsed, visibleIDs: ids, paused: paused)
+    }
+
+    /// The banner stack exposes newest items across sources; inbox ordering stays unchanged.
+    func advanceBanners(by elapsed: TimeInterval, visibleIDs: Set<String>, paused: Bool = false) {
         guard !historyPresented, !paused, elapsed > 0, elapsed.isFinite else { return }
-        for group in bannerGroups where visibleSources.contains(group.id) && !pausedSources.contains(group.id) {
-            guard let item = group.items.first, let seconds = remaining[item.id] else { continue }
-            if seconds <= elapsed { hideBanner(item.id) }
-            else { remaining[item.id] = seconds - elapsed }
+        for id in visibleIDs where banners.contains(id) {
+            guard let seconds = remaining[id] else { continue }
+            if seconds <= elapsed { hideBanner(id) }
+            else { remaining[id] = seconds - elapsed }
         }
     }
 

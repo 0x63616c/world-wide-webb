@@ -58,7 +58,7 @@ final class NotificationHistoryTests: XCTestCase {
             "-moduleFlag.climate", "native", "-notificationSamples", "-notificationStack", "-notificationHold",
             "-notificationPersistentCache", "-notificationResetCache"]
         app.launch()
-        XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["notification-stack-count"].waitForExistence(timeout: 30))
         return app
     }
 

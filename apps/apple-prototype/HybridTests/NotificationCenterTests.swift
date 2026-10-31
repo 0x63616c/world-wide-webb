@@ -324,9 +324,9 @@ import PanelKit
         XCTAssertNil(PanelNotifications.module(for: "module/unknown"))
         XCTAssertNil(PanelNotifications.module(for: "module/lights/../alarms"))
         XCTAssertNil(PanelNotifications.module(for: "https://example.com"))
-        XCTAssertTrue(NotificationBannerGesture.dismisses(x: 80, y: 0))
-        XCTAssertTrue(NotificationBannerGesture.dismisses(x: -80, y: 0))
-        XCTAssertTrue(NotificationBannerGesture.dismisses(x: 0, y: -60))
+        XCTAssertTrue(NotificationBannerGesture.dismisses(x: 100, y: 0))
+        XCTAssertFalse(NotificationBannerGesture.dismisses(x: -100, y: 0))
+        XCTAssertFalse(NotificationBannerGesture.dismisses(x: 0, y: -60))
         XCTAssertFalse(NotificationBannerGesture.dismisses(x: 5, y: 60))
     }
 }

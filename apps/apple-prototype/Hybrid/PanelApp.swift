@@ -16,7 +16,14 @@ struct PanelApp: App {
         WindowGroup {
             if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
                 Color.clear // Unit-test hosting must not start WebKit or provider networking.
-            } else { PanelRoot().environment(\.motionPhase, fixtureMotionPhase) }
+            } else {
+                #if DEBUG
+                if NotificationCapture.state != nil { NotificationCapture() }
+                else { PanelRoot().environment(\.motionPhase, fixtureMotionPhase) }
+                #else
+                PanelRoot().environment(\.motionPhase, fixtureMotionPhase)
+                #endif
+            }
         }
     }
 }
