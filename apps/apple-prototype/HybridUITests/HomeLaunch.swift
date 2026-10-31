@@ -42,7 +42,7 @@ extension XCUIApplication {
         XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
         // Home's Classic button stays in the covered host's AX tree. The pager
         // returns only after the selected controller has finished dismissing.
-        let page = buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-1" : "face-page-0"]
+        let page = buttons[["wifi", "photos", "walk", "alarms", "media", "cameras"].contains(module) ? "face-page-2" : "face-page-1"]
         XCTAssertTrue(page.waitForExistence(timeout: 30))
         page.tap()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)

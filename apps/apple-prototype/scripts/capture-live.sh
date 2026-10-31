@@ -100,7 +100,7 @@ xcrun simctl shutdown "$phone" >/dev/null 2>&1 || true
 prepare "$ipad"
 capture "$ipad" home -face home
 capture "$ipad" lamps -openTile lamps
-capture "$ipad" clock-near -face clock -presence near
+capture "$ipad" clock -face clock
 capture "$ipad" controls -face controls
 capture "$ipad" nowplaying -face music
 capture "$ipad" weather -face home

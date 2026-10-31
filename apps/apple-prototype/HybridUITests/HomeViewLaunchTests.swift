@@ -9,8 +9,11 @@ import XCTest
         app.launch()
         let home = app.descendants(matching: .any)["native-home"].firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 30))
-        XCTAssertTrue(app.buttons["face-page-0"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["tile-climate"].firstMatch.exists)
+        // The clock is the first face (WWW-68); Home is the next page.
+        XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
+        XCTAssertTrue(app.buttons["clock-face"].exists)
+        app.buttons["face-page-1"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["tile-climate"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
         XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForNonExistence(timeout: 30))
@@ -42,6 +45,9 @@ import XCTest
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-hybridUnavailable"]
         app.launch()
+        // The clock is the first face (WWW-68); readings live on the Home page.
+        XCTAssertTrue(app.buttons["face-page-1"].waitForExistence(timeout: 30))
+        app.buttons["face-page-1"].tap()
         XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForExistence(timeout: 30))
         XCTAssertFalse(app.staticTexts["Inside 0° · Unavailable"].exists)
         app.buttons["tile-unavailable-climate"].tap()

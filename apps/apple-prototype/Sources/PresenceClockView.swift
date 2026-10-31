@@ -1,159 +1,124 @@
+import CoreText
 import SwiftUI
 
-/// Original watch-inspired composition: the dial is content, not a glass card.
+/// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
+/// 13 Oct 2026): a full-bleed green field, four huge black cardinal numerals
+/// pushed to the screen edges, white hands and a small date. No complications.
 struct PresenceClockFace: View {
-    @Environment(\.homeIntegration) private var integration
     let store: any HomeDataSource
-    @Binding var near: Bool
     let open: (HomeTile) -> Void
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
-    private var compact: Bool { sizeClass == .compact }
     var body: some View {
-        GeometryReader { proxy in
-            let side = compact ? proxy.size.width - 48 : min(proxy.size.height - 240, proxy.size.width - 608)
-            ZStack {
-                Color.black
-                VStack(spacing: compact ? 40 : 0) {
-                    if compact { Spacer(minLength: 32) }
-                    Button(action: togglePresence) {
-                        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
-                            GreenClockDial(date: store.now)
-                        }.frame(width: side, height: side).contentShape(.circle)
-                    }.buttonStyle(.plain)
-                        .accessibilityHint(near ? "Hide complications" : "Show complications")
-                    if compact && near {
-                        HStack(alignment: .top, spacing: 24) {
-                            walkComplication
-                            chargeComplication
-                        }.padding(.horizontal, 24)
-                    }
-                    if compact { Spacer(minLength: 100) }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity).offset(y: compact ? -16 : -32)
-                if near && !compact {
-                    VStack {
-                        HStack(alignment: .top) {
-                            complication(symbol: "thermometer.medium", value: available(.climate) ? "\(store.climate.ambient)°" : "Unavailable", label: "Inside", tile: .climate)
-                            Spacer()
-                            complication(symbol: "cloud.sun.fill", value: available(.weather) ? "\(store.weather.temperature)°" : "Unavailable", label: store.weather.condition, tile: .weather)
-                        }
-                        Spacer()
-                        HStack(alignment: .bottom) {
-                            walkComplication
-                            Spacer()
-                            chargeComplication
-                        }
-                    }.padding(.horizontal, 80).padding(.top, 112).padding(.bottom, 176)
-                        .transition(.opacity)
-                }
-                VStack {
-                    Spacer()
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(fixtureTime(store.now, format: "EEE d").uppercased())
-                        Spacer()
-                        if near {
-                            Button { open(.alarm) } label: {
-                                Label(alarmCaption, systemImage: "alarm.fill")
-                            }.buttonStyle(.plain)
-                        }
-                    }.font(.system(size: compact ? 17 : 22, weight: .medium))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, compact ? 24 : 80).padding(.bottom, compact ? 48 : 64)
-                }
-            }.clipped()
+        ZStack {
+            GreenClockDial.green
+            Button { open(.clock) } label: {
+                TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+                    GreenClockDial(date: store.now)
+                }.contentShape(.rect)
+            }.buttonStyle(.plain)
+                .accessibilityIdentifier("clock-face")
+                .accessibilityHint("Opens alarms")
         }.ignoresSafeArea()
-    }
-    private var walkComplication: some View {
-        Button { open(.dogwalk) } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: "pawprint.fill").font(.system(size: 28)).foregroundStyle(.green)
-                Text("Zero").font(.system(size: compact ? 28 : 40, weight: .semibold, design: .rounded))
-                TimelineView(.periodic(from: store.now, by: 1)) { _ in
-                    Text(store.walks.activeWalk.map { "Walking · \(walkElapsed($0.duration(at: store.now)))" } ?? store.walks.lastWalkLabel(at: store.now))
-                        .font(.system(size: compact ? 14 : 20)).monospacedDigit().fixedSize()
-                }
-            }.frame(width: compact ? 160 : 224, alignment: .leading)
-        }.buttonStyle(.plain).foregroundStyle(.white)
-    }
-    private var chargeComplication: some View {
-        Button { open(.tesla) } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                ZStack {
-                    Circle().stroke(.green.opacity(0.20), lineWidth: 5)
-                    Circle().trim(from: 0, to: Double(store.tesla.data.pct) / 100)
-                        .stroke(.green, style: StrokeStyle(lineWidth: 5, lineCap: .round)).rotationEffect(.degrees(-90))
-                    HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text(available(.tesla) ? "\(store.tesla.data.pct)" : "—").font(.system(size: 36, weight: .semibold, design: .rounded))
-                        Text("%").font(.system(size: 16, weight: .medium))
-                    }
-                }.frame(width: 96, height: 96)
-                Text(store.tesla.data.charging ? "Car · Charging" : "Car")
-                    .font(.system(size: compact ? 14 : 20))
-            }.frame(width: compact ? 144 : 224, alignment: .leading)
-        }.buttonStyle(.plain).foregroundStyle(.white)
-    }
-    private var alarmCaption: String {
-        guard let next = store.upcomingAlarm(at: store.now) else { return available(.alarm) ? "No upcoming alarms" : "Alarms unavailable" }
-        return next.ringing ? "\(next.alarm.label) · Ringing" : "\(next.alarm.label) · \(next.alarm.time)"
-    }
-    private func available(_ tile: HomeTile) -> Bool { integration?.available(tile) ?? true }
-    private func togglePresence() {
-        withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) { near.toggle() }
-    }
-    private func complication(symbol: String, value: String, label: String, tile: HomeTile) -> some View {
-        Button { open(tile) } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: symbol).font(.system(size: 28)).foregroundStyle(.green)
-                Text(value).font(.system(size: compact ? 28 : 48, weight: .semibold, design: .rounded)).monospacedDigit()
-                Text(label).font(.system(size: compact ? 14 : 20))
-            }.frame(width: compact ? 144 : 224, alignment: .leading)
-        }.buttonStyle(.plain).foregroundStyle(.white).accessibilityLabel("\(label), \(value)")
     }
 }
 
+/// Lays the face out in whatever rectangle it is given: landscape fills the
+/// whole screen, portrait uses a near-square band so the numerals stay huge.
 struct GreenClockDial: View {
+    /// Sampled from the HomeView reference (Apple Newsroom faces image).
+    static let green = Color(red: 63.0 / 255, green: 148.0 / 255, blue: 93.0 / 255)
     let date: Date
     var numeralsOnly = false
-    /// Physical clearance, not a ratio alone, also protects the smaller phone dial.
-    static func maximumHandLength(side: CGFloat) -> CGFloat { max(0, side * 0.385 - 24) }
+
+    /// Geometry shared with tests so they can check the reference proportions.
+    struct Layout {
+        let face: CGRect
+        let digitHeight: CGFloat
+        let fontSize: CGFloat
+        let inset: CGFloat
+        init(size: CGSize) {
+            let height = size.width >= size.height ? size.height : min(size.height, size.width * 1.1)
+            face = CGRect(x: 0, y: (size.height - height) / 2, width: size.width, height: height)
+            digitHeight = min(face.height * 0.37, face.width * 0.32)
+            fontSize = digitHeight / GreenClockDial.capHeightRatio
+            inset = max(16, face.width * 0.045)
+        }
+        var center: CGPoint { CGPoint(x: face.midX, y: face.minY + face.height * 0.495) }
+        var minuteLength: CGFloat { face.height * 0.43 }
+        var hourLength: CGFloat { face.height * 0.26 }
+        var handWidth: CGFloat { max(6, face.height * 0.022) }
+    }
+    static let weight: Font.Weight = .light
+    static let capHeightRatio: CGFloat = {
+        let font = CTFontCreateUIFontForLanguage(.system, 100, nil)!
+        return CTFontGetCapHeight(font) / 100
+    }()
+    private static func verticalMetrics(_ size: CGFloat) -> (ascent: CGFloat, descent: CGFloat) {
+        let font = CTFontCreateUIFontForLanguage(.system, size, nil)!
+        return (CTFontGetAscent(font), CTFontGetDescent(font))
+    }
+
     var body: some View {
         GeometryReader { proxy in
-            let s = min(proxy.size.width, proxy.size.height)
+            let layout = Layout(size: proxy.size)
+            let face = layout.face
             let seconds = date.timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
             let minutes = Double(fixtureTime(date, format: "m"))! + seconds / 60
             let hours = Double(fixtureTime(date, format: "h"))! + minutes / 60
-            let length = Self.maximumHandLength(side: s)
-            ZStack {
+            ZStack(alignment: .topLeading) {
+                // Glyph tops/bottoms, measured from the reference as fractions of the face height.
+                numeral("12", layout, alignment: .center, glyphTop: face.minY + face.height * 0.07)
+                numeral("9", layout, alignment: .leading, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2)
+                numeral("3", layout, alignment: .trailing, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2)
+                numeral("6", layout, alignment: .center, glyphTop: face.minY + face.height * 0.975 - layout.digitHeight)
                 if !numeralsOnly {
-                    ForEach(0..<60, id: \.self) { tick in
-                        Capsule().fill(tick.isMultiple(of: 5) ? .white : .white.opacity(0.45))
-                            .frame(width: tick.isMultiple(of: 5) ? s * 0.005 : s * 0.0025,
-                                   height: tick.isMultiple(of: 5) ? s * 0.028 : s * 0.014)
-                            .offset(y: -s * 0.48).rotationEffect(.degrees(Double(tick) * 6))
-                    }
+                    Text(fixtureTime(date, format: "EEE d").uppercased())
+                        .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
+                        .foregroundStyle(.black).fixedSize()
+                        .alignmentGuide(.leading) { _ in -(layout.inset * 1.25) }
+                        .alignmentGuide(.top) { d in -(face.minY + face.height * 0.915) + d[.firstTextBaseline] }
+                    hands(layout, hours: hours, minutes: minutes, seconds: seconds)
                 }
-                numeral("12", side: s, x: 0.50, y: 0.08)
-                numeral("3", side: s, x: 0.92, y: 0.50)
-                numeral("6", side: s, x: 0.50, y: 0.92)
-                numeral("9", side: s, x: 0.08, y: 0.50)
-                if !numeralsOnly {
-                    hand(length: length * 0.74, width: s * 0.016, degrees: hours * 30, color: .white)
-                    hand(length: length, width: s * 0.011, degrees: minutes * 6, color: .white)
-                    hand(length: length * 0.98, width: max(1.5, s * 0.003), degrees: seconds * 6, color: .green)
-                    Circle().fill(.white).frame(width: s * 0.026, height: s * 0.026)
-                    Circle().fill(.green).frame(width: s * 0.012, height: s * 0.012)
-                }
-            }.frame(width: s, height: s)
+            }.frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }.accessibilityElement(children: .ignore)
             .accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
     }
-    private func numeral(_ text: String, side: CGFloat, x: CGFloat, y: CGFloat) -> some View {
-        Text(text).font(.system(size: side * 0.085, weight: .medium, design: .rounded))
-            .foregroundStyle(numeralsOnly ? .black : .green).fixedSize().position(x: side * x, y: side * y)
+
+    private func numeral(_ text: String, _ layout: Layout, alignment: Alignment, glyphTop: CGFloat) -> some View {
+        let metrics = Self.verticalMetrics(layout.fontSize)
+        let baseline = glyphTop + layout.digitHeight
+        return Text(text)
+            .font(.system(size: layout.fontSize, weight: Self.weight))
+            .foregroundStyle(.black).fixedSize()
+            .frame(width: layout.face.width - layout.inset * 2, height: metrics.ascent + metrics.descent, alignment: alignment)
+            .offset(x: layout.face.minX + layout.inset, y: baseline - metrics.ascent)
     }
-    private func hand(length: CGFloat, width: CGFloat, degrees: Double, color: Color) -> some View {
-        Capsule().fill(color).frame(width: width, height: length)
-            .offset(y: -length / 2 + width / 2).rotationEffect(.degrees(degrees))
+
+    private func hands(_ layout: Layout, hours: Double, minutes: Double, seconds: Double) -> some View {
+        let w = layout.handWidth
+        return ZStack {
+            hand(length: layout.hourLength, width: w, degrees: hours * 30)
+            hand(length: layout.minuteLength, width: w, degrees: minutes * 6)
+            Circle().fill(.white).frame(width: w * 1.5, height: w * 1.5)
+            // Thin seconds hand with a short counterweight tail, as in the reference.
+            Rectangle().fill(.white)
+                .frame(width: max(1.5, w * 0.16), height: layout.minuteLength * 1.05 + w * 3)
+                .offset(y: -(layout.minuteLength * 1.05 - w * 3) / 2)
+                .rotationEffect(.degrees(seconds * 6))
+            Circle().strokeBorder(.white, lineWidth: max(1.5, w * 0.16))
+                .background(Circle().fill(Self.green))
+                .frame(width: w * 0.75, height: w * 0.75)
+        }.frame(width: 0, height: 0).position(layout.center)
+    }
+
+    /// HomeView-style hand: a thin neck from the pin, then a full-width rounded blade.
+    private func hand(length: CGFloat, width: CGFloat, degrees: Double) -> some View {
+        let neck = width * 1.6
+        return VStack(spacing: 0) {
+            Capsule().fill(.white).frame(width: width, height: length - neck + width / 2)
+            Rectangle().fill(.white).frame(width: width * 0.36, height: neck - width / 2)
+        }.frame(height: length)
+            .offset(y: -length / 2).rotationEffect(.degrees(degrees))
     }
 }

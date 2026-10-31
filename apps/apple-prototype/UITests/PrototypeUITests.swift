@@ -19,7 +19,7 @@ import XCTest
     func testPanelOuterMarginsInLiveWindow() throws {
         for controls in [false, true] {
             let app = launch(["-face", controls ? "controls" : "home"])
-            let page = controls ? 1 : 0
+            let page = controls ? 2 : 1
             XCTAssertTrue(app.buttons["face-page-\(page)"].waitForExistence(timeout: 30))
             waitForValue(app.buttons["face-page-\(page)"], "Selected")
             let window = app.windows.firstMatch.frame
@@ -43,14 +43,23 @@ import XCTest
         }
     }
 
-    func testHomeNavigationFromBothFaces() throws {
+    func testClockIsTheFirstFace() throws {
         let app = launch()
+        XCTAssertTrue(app.buttons["face-page-0"].waitForExistence(timeout: 30), app.debugDescription)
+        waitForValue(app.buttons["face-page-0"], "Selected")
+        XCTAssertEqual(app.buttons["face-page-0"].label, "Clock face")
+        XCTAssertTrue(app.buttons["clock-face"].exists)
+        app.buttons["face-page-1"].tap()
+        XCTAssertTrue(app.buttons["open-climate"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+    func testHomeNavigationFromBothFaces() throws {
+        let app = launch(["-face", "home"])
         XCTAssertTrue(app.buttons["open-climate"].waitForExistence(timeout: 30), app.debugDescription)
         app.buttons["open-climate"].tap()
         XCTAssertTrue(app.buttons["close-controller"].waitForExistence(timeout: 10), app.debugDescription)
         app.buttons["close-controller"].tap()
-        XCTAssertTrue(app.buttons["face-page-1"].waitForExistence(timeout: 10))
-        app.buttons["face-page-1"].tap()
+        XCTAssertTrue(app.buttons["face-page-2"].waitForExistence(timeout: 10))
+        app.buttons["face-page-2"].tap()
         XCTAssertTrue(app.buttons["Walk Zero history"].waitForExistence(timeout: 10))
         app.buttons["Walk Zero history"].tap()
         XCTAssertTrue(app.buttons["Close Walk Zero"].waitForExistence(timeout: 10))
@@ -58,7 +67,7 @@ import XCTest
         XCTAssertTrue(app.buttons["Walk Zero history"].waitForExistence(timeout: 10))
     }
     func testGlyphTogglesWithoutOpeningAndClimateModes() throws {
-        let app = launch()
+        let app = launch(["-face", "home"])
         let fan = app.buttons["toggle-fan"]
         XCTAssertTrue(fan.waitForExistence(timeout: 30), app.debugDescription)
         fan.tap()
@@ -80,10 +89,10 @@ import XCTest
         all.tap()
         waitForValue(all, "On")
         waitForValue(app.buttons["toggle-ceiling"], "On")
-        app.buttons["face-page-0"].tap()
-        XCTAssertTrue(app.buttons["toggle-fan"].waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
         app.buttons["face-page-1"].tap()
+        XCTAssertTrue(app.buttons["toggle-fan"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(app.buttons["face-page-1"].value as? String, "Selected")
+        app.buttons["face-page-2"].tap()
         waitForValue(all, "On")
     }
     func testLampGlobalBrightnessAndRoomPower() throws {

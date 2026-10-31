@@ -25,13 +25,12 @@ import XCTest
                 ControllerHost(tile: .bedroom, store: store, close: {})
             })),
             ("wifi", AnyView(ControllerHost(tile: .wifi, store: store, close: {}).background(HomeTile.wifi.fill(store)))),
-            ("clock-idle", AnyView(SnapshotClock(store: store, near: false))),
-            ("clock-near", AnyView(SnapshotClock(store: store, near: true))),
+            ("clock", AnyView(SnapshotClock(store: store))),
             ("alarm", AnyView(AlarmRingView(store: store, close: {}, edit: {}))),
             ("alarm-ringing", AnyView(AlarmRingView(store: MockHomeDataSource(latency: .zero, fixedNow: store.now, ringing: true), close: {}, edit: {}))),
             ("nowplaying", AnyView(ZStack {
                 NowPlayingView(store: store, close: {}, isFace: true)
-                VStack { Spacer(); FacePicker(selection: .constant(3)).padding(.bottom, 10) }
+                VStack { Spacer(); FacePicker(selection: .constant(HomeFacePage.music)).padding(.bottom, 10) }
             }))
         ]
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
@@ -97,7 +96,7 @@ private struct SnapshotFace: View {
                           controls: controls, zoom: zoom, open: { _ in })
             VStack {
                 Spacer()
-                FacePicker(selection: .constant(controls ? 1 : 0)).padding(.bottom, 10)
+                FacePicker(selection: .constant(controls ? HomeFacePage.controls : HomeFacePage.home)).padding(.bottom, 10)
             }
         }
     }
@@ -105,11 +104,10 @@ private struct SnapshotFace: View {
 
 private struct SnapshotClock: View {
     let store: any HomeDataSource
-    let near: Bool
     var body: some View {
         ZStack {
-            PresenceClockFace(store: store, near: .constant(near), open: { _ in })
-            VStack { Spacer(); FacePicker(selection: .constant(2)).padding(.bottom, 10) }
+            PresenceClockFace(store: store, open: { _ in })
+            VStack { Spacer(); FacePicker(selection: .constant(HomeFacePage.clock)).padding(.bottom, 10) }
         }
     }
 }
