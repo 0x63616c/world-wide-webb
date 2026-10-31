@@ -1,11 +1,11 @@
 #!/bin/bash
 # Review artifacts only. Reference photos never enter the repository.
 set -euo pipefail
-review_dir=${1:?Usage: compare.sh review-directory reference-directory iteration-name}
+review_dir=${1:?Usage: compare.sh review-directory reference-directory iteration-name [home]}
 reference_dir=${2:?Missing reference directory}
 iteration=${3:?Missing iteration name, e.g. iter-2b}
 test ! -e "$review_dir/$iteration.png"
-python3 - "$review_dir" "$reference_dir" "$iteration" <<'PY'
+python3 - "$review_dir" "$reference_dir" "$iteration" "${4:-all}" <<'PY'
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageCms
 from pathlib import Path
 import sys, io
@@ -19,6 +19,10 @@ rows = [
     [(out/'controls-face.png', 'controls-face'), (out/'clock-idle.png', 'clock-idle'),
      (out/'wifi.png', 'wifi'), (out/'alarm-ringing.png', 'alarm-ringing')]
 ]
+if sys.argv[4] == 'home':
+    rows = rows[:1]
+elif sys.argv[4] != 'all':
+    sys.exit('Comparison scope must be home or all')
 width, cell_height = 3600, 660
 canvas = Image.new('RGB', (width, cell_height * len(rows)), '#172320')
 draw = ImageDraw.Draw(canvas)

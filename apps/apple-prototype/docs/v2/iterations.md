@@ -214,3 +214,213 @@ iter-7g preflight (09:58 PT): all five scheme builds and both 87-test prototype 
 iter-7g live-geometry verification (10:07 PT): The final fix wraps only the fixed Home/More canvas in a top-origin GeometryReader. The original safeAreaBar and other faces are retained; the two safe-area experiments did not move the live bounds and were removed. Both Home and More now measure left/top/right80 and bottom79.75 points, within the 0.5-point test tolerance. All five final source builds pass; remaining tests and final captures are running.
 
 iter-7g tested candidate (10:21 PT): restores accepted Home/More spans and native material after rejecting7f. The fixed canvas now uses a top-origin GeometryReader, with a live-window test proving equal80-point margins above the pager (bottom79.75). Phone removes wholly occluded glass, restores Climate/Weather/Up Next first, and scales the narrow fader symbol. All five builds, both87-test prototype suites, eight UI tours, Panel and Panel-Smoke pass. One lamp-drag endpoint failure passes on exact unchanged rerun; logs retained. All12 live pairs validate, maximum MAE0.000564/255. Three cold reviews running; floors unchanged. No protected-page edits or screenshot binaries committed.
+
+## WWW-54 — iteration 1: Climate instrument grouping
+
+Starting from main (`5ede6d5b`, merged WWW-8), try only the panel thermostat
+portion of the 7h plan: place 64-point adjustment targets beside the 152-point
+value, with the existing setpoint caption 24 points below. Preserve all module
+placements, phone composition, wallpaper, native materials and full-screen pages.
+The published twelve-screen floors in `baseline3/main-baseline-median.md` remain
+the acceptance criteria. No new score or acceptance is claimed at this checkpoint.
+
+Mac and iPad builds pass; the remaining schemes, tests and deterministic live
+captures are running in the isolated `~/wwwebb-home-design/` and
+`~/wwwebb-home-design-dd/` directories. The capture and verification harnesses now
+accept explicit output/app/derived-data paths while preserving their old defaults
+and the shared simulator lock. Full-resolution evidence stays outside Git.
+
+### WWW-54 iteration 1 decision — REJECT
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 9.0 | 8.8/9.0/9.0 | PASS ≥9.0 | -0.1 |
+| main-controls.png | 8.2 | 8.0/8.2/8.2 | fail ≥8.5 | -0.2 |
+| main-dogwalk-full-running.png | 8.6 | 8.6/8.7/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-full.png | 8.6 | 8.6/8.7/8.6 | PASS ≥8.5 | +0.1 |
+| main-dogwalk-remote.png | 8.6 | 8.6/8.7/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-tile-running.png | 8.2 | 7.9/8.2/8.2 | fail ≥8.5 | -0.2 |
+| main-dogwalk-tile.png | 8.2 | 8.0/8.2/8.2 | fail ≥8.5 | -0.2 |
+| main-home.png | 8.4 | 8.2/8.4/8.4 | fail ≥9.0 | -0.1 |
+| main-iphone-home-bottom.png | 8.4 | 8.4/8.5/8.2 | fail ≥8.5 | +0.1 |
+| main-iphone-home.png | 8.3 | 8.3/8.4/8.2 | fail ≥9.0 | -0.1 |
+| main-lamps.png | 8.7 | 8.7/8.7/8.6 | fail ≥9.0 | -0.3 |
+| main-nowplaying.png | 8.8 | 8.8/8.8/8.8 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+Home 8.4 is below its 8.5 floor; the single Climate grouping change is
+reverted in a new commit. No floor is lowered. The other eleven view designs
+are unchanged from main; comparison with pass 7g is exact or within
+0.000448/255, so their lower repeat scores have no responsible design hunk.
+This does not waive the twelve-screen acceptance rule.
+
+All five builds, both prototype suites (149 unit tests plus hosted render each),
+eight UI tours and Panel unit tests pass. The expanded Panel-Smoke suite finds
+a harness mismatch: camera/alarm tests expect 1366×1024, but the prototype
+simulator is 1376×1032. A separate Lights detail assertion also fails. Hybrid
+verification will be repeated on an existing 12.9-inch simulator under the
+shared device lock; no expectations are weakened. Twelve independent capture
+pairs pass, maximum RGB MAE 0.000608/255. Raw cold reviews, captures and logs:
+`/workspace/wwwebb-ui/prototype/v2/www54/iteration-1/`.
+
+## WWW-54 — iteration 2: grouped Home accessory row
+
+With iteration 1 reverted, test only the bottom-row part of the 7h plan. Music
+occupies the two leading cells; Clock, Ceiling and Fan occupy three equal round
+cells. Calendar moves to the two leading bottom cells of More. Every destination
+remains reachable, and the phone solver and phone presentation remain unchanged.
+Climate, Lamps, materials and wallpaper retain main's implementation. Existing
+geometry and shared-state UI tests follow the moved controls without weakening
+margin, gutter, reachability or state assertions. Capture and median review are
+pending; no acceptance is claimed.
+
+Iteration 2 is rejected: the first two completed cold runs score Home 8.2 and
+8.3, making the three-run median mathematically below its 8.5 floor regardless
+of the final run. Restore the main Home/More spans, specification and geometry
+anchors in a new commit, including the Music hit-area follow-up that only served
+the rejected layout. Retain the asynchronous fan-state assertion correction.
+The full twelve-screen median table follows when the final cold run completes.
+
+### WWW-54 iteration 2 final medians — REJECT
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 8.8 | 8.8/8.8/9.0 | fail ≥9.0 | -0.3 |
+| main-controls.png | 8.1 | 8.1/8.2/8.1 | fail ≥8.5 | -0.3 |
+| main-dogwalk-full-running.png | 8.6 | 8.7/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-full.png | 8.5 | 8.6/8.5/8.4 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-remote.png | 8.6 | 8.7/8.6/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-tile-running.png | 8.2 | 8.2/8.1/8.2 | fail ≥8.5 | -0.2 |
+| main-dogwalk-tile.png | 8.1 | 8.1/8.2/8.1 | fail ≥8.5 | -0.3 |
+| main-home.png | 8.3 | 8.3/8.2/8.3 | fail ≥9.0 | -0.2 |
+| main-iphone-home-bottom.png | 8.6 | 8.6/8.5/8.7 | PASS ≥8.5 | +0.3 |
+| main-iphone-home.png | 8.5 | 8.5/8.6/8.5 | fail ≥9.0 | +0.1 |
+| main-lamps.png | 8.6 | 8.6/8.6/8.5 | fail ≥9.0 | -0.4 |
+| main-nowplaying.png | 8.8 | 8.7/8.8/8.8 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+Home 8.3 is 0.2 below its floor; More and both Walk tiles also regress. The
+source restoration is committed; all twelve published floors remain unchanged.
+Other screen bodies are unchanged; their repeat-score movement is not accepted
+as a new baseline. All twelve independent relaunch pairs pass determinism,
+maximum RGB MAE 0.000564/255. Evidence:
+`/workspace/wwwebb-ui/prototype/v2/www54/iteration-2/`.
+
+All five builds and both 149-unit-plus-hosted-render prototype suites pass. Six
+of eight UI tours pass; live margins expose the Music button's content-only
+accessibility bounds (removed with the rejected row), and the fan toggle test
+reads asynchronous feedback too early (now uses the existing value-wait helper).
+Panel verification is still running. No acceptance or TestFlight claim.
+
+## WWW-54 — iteration 3: taller Home Lamps fader
+
+Final permitted iteration: restore main's Home/More composition, then put the
+panel Lamps glyph and title on one line and give the 88-point-wide fader an
+explicit 208-point height. Preserve the percentage, mixed-state explanation,
+phone layout, full-screen Lamps page, Climate and materials. This tests only the
+remaining instrument proportion from 7h. No acceptance claimed before review.
+
+Iteration 3 capture checkpoint: all five scheme builds PASS. All twelve live
+independent-relaunch pairs validate and pass determinism; maximum RGB MAE is
+0.000627/255. Against archived pass-7g captures, the eleven non-target states
+differ by at most 0.000619/255; Home changes only its Lamps instrument and
+nearby material rendering. All evidence stays outside Git in
+`/workspace/wwwebb-ui/prototype/v2/www54/iteration-3/`. Three cold reviews use
+the unchanged prompt/script/reference hashes; transient connection retries
+remain in their original logs. Final iPad unit tests pass; the rest of the
+verification is running. The superseded iteration-2 Panel unit phase passed;
+its slow Panel-Smoke run was interrupted to release resources for the final
+candidate and is not claimed as passing. No design acceptance yet.
+
+Iteration 3 is rejected: completed cold runs score Home 8.4 and 8.2, so its
+three-run median cannot reach the 8.5 floor. Restore the main Lamps tile in a
+new commit. The three-iteration cap is reached; no fourth redesign is attempted.
+All main visual implementations, phone changes and published floors are
+retained exactly. Final cold-run medians and verification results follow when
+the remaining work completes. No design improvement or release is claimed.
+
+### WWW-54 iteration 3 final medians — REJECT
+
+| File | Median | Runs | Gate | Δ vs base |
+|---|---:|---|---|---:|
+| main-clock-near.png | 8.8 | 8.8/8.7/8.8 | fail ≥9.0 | -0.3 |
+| main-controls.png | 8.1 | 8.3/8.0/8.1 | fail ≥8.5 | -0.3 |
+| main-dogwalk-full-running.png | 8.6 | 8.6/8.5/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-full.png | 8.5 | 8.5/8.3/8.5 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-remote.png | 8.6 | 8.6/8.5/8.6 | PASS ≥8.5 | +0.0 |
+| main-dogwalk-tile-running.png | 8.2 | 8.2/7.9/8.2 | fail ≥8.5 | -0.2 |
+| main-dogwalk-tile.png | 8.1 | 8.3/8.0/8.1 | fail ≥8.5 | -0.3 |
+| main-home.png | 8.2 | 8.4/8.2/8.2 | fail ≥9.0 | -0.3 |
+| main-iphone-home-bottom.png | 8.6 | 8.7/8.6/8.6 | PASS ≥8.5 | +0.3 |
+| main-iphone-home.png | 8.6 | 8.7/8.3/8.6 | fail ≥9.0 | +0.2 |
+| main-lamps.png | 8.6 | 8.7/8.5/8.6 | fail ≥9.0 | -0.4 |
+| main-nowplaying.png | 8.8 | 8.8/8.8/8.7 | PASS ≥8.5 | +0.0 |
+
+Runs parsed: [12, 12, 12] files each.
+
+Home 8.2 is 0.3 below its retained floor. The candidate is reverted; no
+iteration qualifies for acceptance. The final visual source matches main
+exactly, retaining Home's historical 8.5 floor rather than inventing a new
+restored-state score. All twelve comparisons above describe the rejected
+candidate. No other screen's floor changes. All three raw runs completed in
+the original review processes after transient connection retries.
+
+The rejected candidate's five builds, iPad unit suite and hosted render pass;
+its remaining verification was interrupted after rejection. A fresh full
+verification and deterministic Home recapture are running on the restored
+source. The remaining branch changes are harness isolation, focused comparison
+support, a fan feedback wait in the UI test, and this experiment log. The design
+score goal remains unmet; no merge or TestFlight upload is claimed.
+
+### WWW-54 restored verification — fixture harness follow-up
+
+All five restored builds, both prototype unit/render suites and the full Panel
+unit scheme pass. Restored Home is pixel-identical to archived main (RGB MAE
+0.000000/255); its independent relaunch pair passes at 0.027648/255. Live margins
+pass. The navigation tour initially misses More after dismissing Climate; its
+activity trace shows Home still selected. Preserve the failure and retry the
+unchanged test serially after the other tours. No assertion is weakened.
+
+Panel-Smoke completes 10/11 cases successfully on the correct 1366×1024 device.
+The multi-module case times out waiting for the detail toolbar to disappear
+on returning to web, after repeated 60-second app-idle waits. Its Climate portion
+alone consumes over twelve minutes while continuous decorative effects run.
+Add DEBUG-only `-hybridFixtures -hybridStill`, reusing the existing `motionPhase`
+environment to stop decorative fan/sky effects in functional module tours.
+Provider clocks, write paths, assertions and the separate real-time alarm tests
+remain unchanged. Normal/release rendering and the scored prototype are unchanged.
+The affected native builds and fixture tests are being reverified. This is a
+verification harness fix, not a fourth design iteration or an accepted redesign.
+
+
+### WWW-54 final checkpoint — no eligible design; smoke blocked
+
+The three allowed design iterations are complete and rejected (Home medians
+8.4, 8.3, 8.2). All visual changes are reverted in new commits. Retained Home
+is the historical accepted 8.5 state, pixel-identical to archived main; no new
+restored-state review score or design improvement is claimed.
+
+All five scheme builds pass. Both prototype schemes pass their unit and hosted
+render suites. All eight UI tours have passing results: navigation and Lamps
+power required unchanged serial retries, with the original failures retained.
+Panel unit tests pass, including 94 refreshed PanelTests after the DEBUG fixture
+motion change. Branch CI at 50112381 is green.
+
+Panel-Smoke does not pass as a complete suite. The first restored run passes
+10/11 cases, with the multi-module web-return idle timeout described above.
+After the fixture motion fix, a full retry fails five cases with simulator
+launch/automation resource errors (including “Resource temporarily unavailable”).
+A further unchanged full retry stalls before its first assertion: after over
+18 minutes, XCTest reports “Unable to monitor event loop” and xcodebuild is idle.
+Stop only this task's stalled run; leave other sessions and global settings alone.
+The unused task prototype simulator was already shut down under www8-simlock.
+
+Raw captures, determinism checks, three cold runs per candidate and verification
+logs are archived outside Git under /workspace/wwwebb-ui/prototype/v2/www54/.
+No screenshot binaries are committed. The mandatory pre-PR Panel-Smoke gate is
+unmet, so no PR is opened, no merge is performed and no TestFlight release is
+claimed. The design goal remains unmet. Resume with a healthy shared simulator
+host to finish verification; do not attempt a fourth design iteration under this
+brief. The branch preserves all experiment/revert history without rewriting.
