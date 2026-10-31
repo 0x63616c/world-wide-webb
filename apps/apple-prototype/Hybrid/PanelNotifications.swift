@@ -8,7 +8,11 @@ import PanelKit
     static func make() -> NotificationCenter {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") {
-            let center = NotificationCenter()
+            let arguments = ProcessInfo.processInfo.arguments
+            let fixtureURL = URL.applicationSupportDirectory.appendingPathComponent("NotificationHistory-UIFixture/history.json")
+            if arguments.contains("-notificationResetCache") { try? FileManager.default.removeItem(at: fixtureURL) }
+            let center = NotificationCenter(cache: arguments.contains("-notificationPersistentCache")
+                ? FileNotificationHistoryCache(url: fixtureURL) : nil)
             if ProcessInfo.processInfo.arguments.contains("-notificationSamples") {
                 center.post(sourceModule: "lights", title: "Scene ready", body: "Reading lights are ready.",
                     deepLink: "module/lights", priority: .high, dedupeKey: "scene")
