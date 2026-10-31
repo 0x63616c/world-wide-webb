@@ -124,37 +124,40 @@ struct GridDogWalk: View {
     let v: String
     let store: any HomeDataSource
     let open: () -> Void
+    @Environment(\.motionPhase) private var phase
     var body: some View {
-        TimelineView(.periodic(from: store.now, by: 1)) { _ in
-            Corners {
-                Button(action: open) {
-                    Cap("Walk Zero", 22, .semibold)
-                        .frame(minHeight: 44, alignment: .topLeading).contentShape(.rect)
-                }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")
-            } tr: {
-                Image(systemName: "pawprint.fill").font(.system(size: 22))
-            } bl: {
-                VStack(alignment: .leading, spacing: 16) {
-                    if let walk = store.walks.activeWalk {
-                        Cap(walkElapsed(walk.duration(at: store.now)), v == "A" ? 56 : 32, .medium)
-                        Cap("Started on \(walk.startedBy.rawValue)", 17).opacity(0.65)
-                    } else {
-                        Cap(store.walks.lastWalkLabel(at: store.now), 20, .medium, lines: 2)
-                        Cap("\(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min", 32, .medium)
-                    }
-                    if v == "A" {
-                        Cap("\(store.walks.summary(at: store.now).weeklyMinutes) min this week", 17).opacity(0.65)
-                        Cap("History ›", 17).opacity(0.65)
-                    }
+        if phase != nil { face }
+        else { TimelineView(.periodic(from: store.now, by: 1)) { _ in face } }
+    }
+    private var face: some View {
+        Corners {
+            Button(action: open) {
+                Cap("Walk Zero", 22, .semibold)
+                    .frame(minHeight: 44, alignment: .topLeading).contentShape(.rect)
+            }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")
+        } tr: {
+            Image(systemName: "pawprint.fill").font(.system(size: 22))
+        } bl: {
+            VStack(alignment: .leading, spacing: 16) {
+                if let walk = store.walks.activeWalk {
+                    Cap(walkElapsed(walk.duration(at: store.now)), v == "A" ? 56 : 32, .medium)
+                    Cap("Started on \(walk.startedBy.rawValue)", 17).opacity(0.65)
+                } else {
+                    Cap(store.walks.lastWalkLabel(at: store.now), 20, .medium, lines: 2)
+                    Cap("\(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min", 32, .medium)
                 }
-            } br: {
-                Button { store.toggleWalk() } label: {
-                    Image(systemName: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
-                        .font(.system(size: 24, weight: .semibold)).foregroundStyle(.black)
-                        .frame(width: 64, height: 64).background(.green, in: .circle)
-                }.buttonStyle(.plain)
-                    .accessibilityLabel(store.walks.activeWalk == nil ? "Start walking Zero" : "Stop walking Zero")
+                if v == "A" {
+                    Cap("\(store.walks.summary(at: store.now).weeklyMinutes) min this week", 17).opacity(0.65)
+                    Cap("History ›", 17).opacity(0.65)
+                }
             }
+        } br: {
+            Button { store.toggleWalk() } label: {
+                Image(systemName: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
+                    .font(.system(size: 24, weight: .semibold)).foregroundStyle(.black)
+                    .frame(width: 64, height: 64).background(.green, in: .circle)
+            }.buttonStyle(.plain)
+                .accessibilityLabel(store.walks.activeWalk == nil ? "Start walking Zero" : "Stop walking Zero")
         }
     }
 }

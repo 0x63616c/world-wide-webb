@@ -1,4 +1,4 @@
-# Home grid (WWW-54, round 2)
+# Home grid (WWW-54, WWW-72)
 
 iPad landscape Home (1376 × 1032 pt) is laid out on one fixed grid. Every card is built on it.
 
@@ -64,7 +64,7 @@ Clock E–H are wide clocks: green tile, bold rounded numerals sized to fill the
 
 ## Car charging
 
-While the car is charging (the same condition that shows the kW badge), the green fill of the Car A battery bar shows a soft highlight sweeping left to right with a slight brightness pulse on a 1.8 s loop (`TimelineView(.animation)`, 60 fps). The kW badge gets the same sweep and pulse (`ChargingShimmer`); both read their phase from the clock, so they move in step. It is static when not charging or when Reduce Motion is on.
+While the car is charging (the same condition that shows the kW badge), the green fill of the Car A battery bar shows a soft highlight sweeping left to right with a slight brightness pulse on a 1.8 s loop (`TimelineView(.animation)`, 60 fps). The kW badge gets the same sweep and pulse (`ChargingShimmer`); both read their phase from the clock, so they move in step. It is static when not charging or when Reduce Motion is on. Fixture captures (`-snapshot`) pause the grid’s charging display links at the fixed motion phase; the Walk card also pauses its elapsed-time refresh while retaining start/end actions.
 
 ## Wallpaper
 

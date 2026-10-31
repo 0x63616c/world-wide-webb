@@ -230,14 +230,15 @@ private struct Bar: View {
     /// brightens and dims (1.8 s loop). Static with Reduce Motion or when not charging.
     var charging = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.motionPhase) private var fixedPhase
     var body: some View {
         GeometryReader { g in
             let w = max(height, g.size.width * fraction)
             ZStack(alignment: .leading) {
                 Capsule().fill(.primary.opacity(0.18))
                 if charging && !reduceMotion {
-                    TimelineView(.animation) { ctx in
-                        let phase = ChargingShimmer.phase(ctx.date)
+                    TimelineView(.animation(paused: fixedPhase != nil)) { ctx in
+                        let phase = fixedPhase ?? ChargingShimmer.phase(ctx.date)
                         let glow = ChargingShimmer.glow(phase)
                         let band = w * 0.35
                         Capsule().fill(color).brightness(0.10 * glow)
@@ -264,10 +265,11 @@ struct ChargingShimmer: ViewModifier {
     static func glow(_ phase: Double) -> Double { 0.5 - 0.5 * cos(phase * 2 * .pi) }
     let active: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.motionPhase) private var fixedPhase
     func body(content: Content) -> some View {
         if active && !reduceMotion {
-            TimelineView(.animation) { ctx in
-                let phase = Self.phase(ctx.date)
+            TimelineView(.animation(paused: fixedPhase != nil)) { ctx in
+                let phase = fixedPhase ?? Self.phase(ctx.date)
                 content.brightness(0.10 * Self.glow(phase))
                     .overlay {
                         GeometryReader { g in
