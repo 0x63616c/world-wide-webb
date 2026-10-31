@@ -193,7 +193,12 @@ struct NotificationGroup: Identifiable, Equatable {
     /// WWW-60 can clear the inbox or one source without owning a second store.
     func clear(sourceModule: String? = nil) async {
         if let sourceModule {
-            for item in history where item.sourceModule == sourceModule { await dismiss(item.id) }
+            var failed = false
+            for item in history where item.sourceModule == sourceModule {
+                await dismiss(item.id)
+                if lastError != nil { failed = true }
+            }
+            if failed { lastError = "Some notifications couldn’t be cleared. Try again." }
             return
         }
         let snapshot = history
