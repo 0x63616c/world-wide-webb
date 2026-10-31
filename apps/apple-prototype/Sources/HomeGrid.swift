@@ -916,6 +916,7 @@ struct GridHomeFace: View {
                         replacement.padding(HomeGrid.inset).frame(width: f.width, height: f.height).modifier(GridMaterial(on: false))
                     } else if let replacement = integration?.gridTile(t, span: f.size, open: { open(t) }) {
                         replacement.frame(width: f.width, height: f.height)
+                            .clipShape(.rect(cornerRadius: HomeGrid.radius))
                             .modifier(GridMaterial(on: false))
                     } else {
                         GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) })
