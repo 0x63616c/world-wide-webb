@@ -41,7 +41,7 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testSingleDeepLink() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-notificationSamples", "-notificationHold"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-notificationSamples", "-notificationHold"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
         let banner = app.buttons["notification-banner-lights"]
@@ -70,7 +70,7 @@ final class NotificationBannerTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native",
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native",
             "-notificationSamples", "-notificationHold"]
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
@@ -98,7 +98,7 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testAutoTimeoutOnWebFallback() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-updateCheckFakeBuild", "1", "-notificationSamples", "-hybrid.webOnly", "YES"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples", "-hybrid.webOnly", "YES"]
         app.launch()
         let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))

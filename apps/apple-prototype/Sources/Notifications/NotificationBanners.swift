@@ -51,45 +51,46 @@ struct NotificationBanners: View {
 
     private var banners: some View {
         GlassEffectContainer(spacing: 0) {
-        VStack(alignment: .trailing, spacing: 8) {
-            if expanded && items.count > 1 {
-                Button("Show less") { withAnimation(motion) { expanded = false } }
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minWidth: 88, minHeight: 44)
-                    .buttonStyle(.glass)
-                    .accessibilityIdentifier("notification-stack-collapse")
-            }
-            if expanded {
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(items) { item in banner(item, count: 1) }
-                    }
-                    .padding(2)
+            VStack(alignment: .trailing, spacing: 8) {
+                if expanded && items.count > 1 {
+                    Button("Show less") { withAnimation(motion) { expanded = false } }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(minWidth: 88, minHeight: 44)
+                        .buttonStyle(.glass)
+                        .accessibilityIdentifier("notification-stack-collapse")
                 }
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(maxHeight: 780)
-            } else if let first = items.first {
-                banner(first, count: items.count)
-                    .background(alignment: .bottom) {
-                        ForEach(0..<NotificationBannerStack.peekCount(items.count), id: \.self) { index in
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(.regularMaterial)
-                                .frame(height: 70)
-                                .scaleEffect(x: 1 - CGFloat(index + 1) * 0.045, y: 1, anchor: .bottom)
-                                .offset(y: CGFloat(index + 1) * 10)
-                                .brightness(-Double(index + 1) * 0.04)
-                                .zIndex(-Double(index))
-                                .accessibilityHidden(true).allowsHitTesting(false)
+                if expanded {
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(items) { item in banner(item, count: 1) }
                         }
+                        .padding(.vertical, 2)
                     }
-                    .padding(.bottom, CGFloat(NotificationBannerStack.peekCount(items.count)) * 10)
+                    .scrollBounceBehavior(.basedOnSize)
+                    .scrollClipDisabled()
+                    .frame(maxHeight: 780)
+                } else if let first = items.first {
+                    banner(first, count: items.count)
+                        .background(alignment: .bottom) {
+                            ForEach(0..<NotificationBannerStack.peekCount(items.count), id: \.self) { index in
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(.regularMaterial)
+                                    .frame(height: 70)
+                                    .scaleEffect(x: 1 - CGFloat(index + 1) * 0.045, y: 1, anchor: .bottom)
+                                    .offset(y: CGFloat(index + 1) * 10)
+                                    .brightness(-Double(index + 1) * 0.04)
+                                    .zIndex(-Double(index))
+                                    .accessibilityHidden(true).allowsHitTesting(false)
+                            }
+                        }
+                        .padding(.bottom, CGFloat(NotificationBannerStack.peekCount(items.count)) * 10)
+                }
+                if let error = center.lastError {
+                    Text(error).font(.callout).padding(12)
+                        .background(.regularMaterial, in: .rect(cornerRadius: 16))
+                        .accessibilityIdentifier("notification-error")
+                }
             }
-            if let error = center.lastError {
-                Text(error).font(.callout).padding(12)
-                    .background(.regularMaterial, in: .rect(cornerRadius: 16))
-                    .accessibilityIdentifier("notification-error")
-            }
-        }
         }
         .frame(width: typeSize.isAccessibilitySize ? 560 : 380)
         // Leave a 44-point control row plus spacing for Details and other trailing chrome.
@@ -191,6 +192,7 @@ private struct NotificationBanner: View {
         .background(.regularMaterial, in: .rect(cornerRadius: 20))
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
         .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
+        .accessibilityValue(item.priority == .critical ? "Critical" : "")
         .accessibilityHint(count > 1 ? "Expands notifications" : "Opens \(source.name)")
         .accessibilityAction(named: "Dismiss", dismiss)
         .offset(x: translation + captureDrag)
@@ -208,7 +210,7 @@ private struct NotificationBanner: View {
                     leaving = true
                     touch(true)
                     withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.22)) {
-                        translation = reduceMotion ? 0 : 460
+                        translation = reduceMotion ? 0 : 680
                     } completion: { dismiss() }
                 } else {
                     withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
