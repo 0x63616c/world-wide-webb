@@ -88,7 +88,7 @@ import XCTest
         XCTAssertNil(provider.qrPayload)
         XCTAssertNil(provider.wifi.ssid)
         XCTAssertNil(provider.wifi.password)
-        XCTAssertEqual(provider.availability, .unavailable("Guest Wi-Fi is unavailable."))
+        XCTAssertEqual(provider.availability, .loading)
         await provider.refresh()
         XCTAssertEqual(provider.availability, .live)
         XCTAssertNotNil(provider.qrPayload)

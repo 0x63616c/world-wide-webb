@@ -4,6 +4,7 @@ import SwiftUI
 /// A stable reference keeps behavior out of closure-valued environment keys.
 @MainActor protocol HomeIntegration: AnyObject {
     var caption: String { get }
+    func prepareToOpen(_ tile: HomeTile) -> Bool
     func available(_ tile: HomeTile) -> Bool
     func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView?
     func musicFace(close: @escaping () -> Void) -> AnyView

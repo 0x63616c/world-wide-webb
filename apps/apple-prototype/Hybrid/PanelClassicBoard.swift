@@ -1,10 +1,9 @@
 import SwiftUI
 
 /// Shared by Classic, module fallbacks and the Settings rollback. The return
-/// control stays above WebKit during boot, navigation and reconnection.
+/// control is supplied by PanelRoot above its native content layer.
 struct PanelClassicBoard: View {
     let session: KioskSession
-    var home: (() -> Void)?
 
     var body: some View {
         ZStack {
@@ -18,9 +17,6 @@ struct PanelClassicBoard: View {
         }
         .ignoresSafeArea()
         .accessibilityIdentifier("web-board")
-        .overlay(alignment: .topLeading) {
-            if let home { ClassicHomeButton(action: home) }
-        }
         .task(id: session.reconnecting) {
             if session.reconnecting { await signalSnapshotReady() }
         }

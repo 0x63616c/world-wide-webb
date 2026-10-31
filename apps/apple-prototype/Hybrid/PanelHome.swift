@@ -22,6 +22,7 @@ extension HomeTile {
 }
 
 struct PanelHome: View {
+    @Environment(\.motionPhase) private var inheritedMotionPhase
     @State private var presentation: PanelHomePresentation
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
@@ -33,6 +34,7 @@ struct PanelHome: View {
     var body: some View {
         HomeView(store: presentation.store)
             .environment(\.homeIntegration, presentation)
+            .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("native-home")
             .overlay(alignment: .bottomTrailing) {
@@ -42,6 +44,16 @@ struct PanelHome: View {
                 }.buttonStyle(.glass).accessibilityIdentifier("home-classic").padding(20)
             }
     }
+    // The snapshot seam pauses decorative loops in fixture runs so XCTest can
+    // become idle and the shared simulator does not render them continuously.
+    private static var fixtureMotionPhase: Double? {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-hybridFixtures") ? 0 : nil
+        #else
+        nil
+        #endif
+    }
+
 }
 
 @MainActor private final class PanelHomePresentation: HomeIntegration {
@@ -59,6 +71,16 @@ struct PanelHome: View {
         self.router = router
         self.navigation = navigation
         self.updates = updates
+    }
+
+    func prepareToOpen(_ tile: HomeTile) -> Bool {
+        let module = tile.panelModule
+        let ready = store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
+        guard router.route(for: module, hasLiveData: ready) == .native(module) else {
+            navigation.openClassic()
+            return false
+        }
+        return true
     }
 
     func available(_ tile: HomeTile) -> Bool { store.hasLiveData(for: tile.panelModule) }
@@ -80,8 +102,14 @@ struct PanelHome: View {
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
                 .disabled(store.walkProvider.isMutating))
+        case .clock:
+            return AnyView(PanelTileLauncher(label: "Open Clock and Alarms", open: open) {
+                TileFace(tile: .clock, store: self.store, open: open)
+            })
         case .cameras:
-            return AnyView(CamerasModule(provider: store.camerasProvider, detail: false, open: open))
+            return AnyView(PanelTileLauncher(label: "Open Cameras", open: open) {
+                CamerasModule(provider: self.store.camerasProvider, detail: false, open: open)
+            })
         case .photos:
             return AnyView(Button(action: open) {
                 Label("Photos", systemImage: "lock.fill").font(.title2)
@@ -117,9 +145,13 @@ struct PanelHomeDestination: View {
         store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
     }
 
+    private var awaitingWifi: Bool {
+        module == .wifi && store.wifiProvider.availability == .loading
+    }
+
     var body: some View {
         Group {
-            if router.route(for: module, hasLiveData: ready) == .native(module) {
+            if router.route(for: module, hasLiveData: ready || awaitingWifi) == .native(module) {
                 VStack(spacing: 0) {
                     HStack {
                         Button("Home", systemImage: "chevron.backward", action: close)
@@ -130,6 +162,14 @@ struct PanelHomeDestination: View {
                     }.buttonStyle(.glass).padding(16)
                     HybridNativeModule(module: module, store: store, detail: detail,
                         open: { detail = true }, close: close)
+                        // Keep the controller's privacy state while its credentials
+                        // are cleared and reloaded across a scene suspension.
+                        .opacity(awaitingWifi ? 0 : 1)
+                        .allowsHitTesting(!awaitingWifi)
+                        .accessibilityHidden(awaitingWifi)
+                        .overlay {
+                            if awaitingWifi { ProgressView("Refreshing Wi-Fi") }
+                        }
                 }
             } else {
                 Color.clear.task { close(); classic() }

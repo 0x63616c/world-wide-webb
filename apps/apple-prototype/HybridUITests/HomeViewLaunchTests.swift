@@ -22,7 +22,7 @@ import XCTest
         XCTAssertGreaterThanOrEqual(back.frame.height, 56)
         capture("WWW-64-Classic")
         back.tap()
-        XCTAssertTrue(home.waitForExistence(timeout: 15))
+        XCTAssertTrue(home.waitForExistence(timeout: 15), app.debugDescription)
         app.terminate()
     }
 
@@ -52,7 +52,7 @@ import XCTest
     }
 
     private func capture(_ name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let attachment = XCTAttachment(screenshot: XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine").screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
