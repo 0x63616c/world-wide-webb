@@ -117,7 +117,7 @@ import PanelKit
         window.frame = CGRect(origin: .zero, size: size)
         window.windowLevel = .alert + 1
         defer { window.isHidden = true; window.rootViewController = nil }
-        for page in [0] {
+        for page in [0, 1] {
             let content = ZStack {
                 Color.black
                 GridHomeFace(store: store, size: size, page: page, open: { _ in })
@@ -132,6 +132,10 @@ import PanelKit
             controller.view.layoutIfNeeded()
             try await Task.sleep(for: .seconds(3))
             controller.view.layoutIfNeeded()
+            // A bounded capture window lets simctl record the real compositor;
+            // drawHierarchy can omit text while native glass is being flattened.
+            try Data().write(to: output.appendingPathComponent("ready-\(prefix)-page\(page + 1)"))
+            try await Task.sleep(for: .seconds(5))
             let image = UIGraphicsImageRenderer(size: size).image { _ in
                 XCTAssertTrue(controller.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
             }
