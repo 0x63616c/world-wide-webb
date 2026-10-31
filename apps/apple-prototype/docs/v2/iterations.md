@@ -518,3 +518,27 @@ all eight UI tours and Panel unit pass. Panel-Smoke is still running. The
 centered iPad build and a fresh Home relaunch pair pass; a fresh full capture
 set and corrected-source verification are in progress. No acceptance or release
 is claimed.
+
+### Centered thermostat: full verification — pass, review pending
+
+Final visual source `69eb56d1`: all five scheme builds pass; each prototype
+scheme passes 149 unit tests and hosted rendering; all eight UI tours, the full
+Panel unit scheme and **21/21 Panel-Smoke tests** pass. No assertions or test
+launch arguments were changed in this follow-up. The first trial's smoke run
+finished at 17/21; retain its four raw failures (Classic return, Home-to-Classic,
+the multi-module tour and notification auto-timeout) separately from the complete
+passing corrected-source run.
+
+All twelve corrected states were captured afresh with independent `-snapshot`
+relaunches, readiness/PNG checks and the shared simulator lock. Maximum pair
+MAE is **0.060804/255**. Both phone captures are pixel-identical to fresh main;
+the other unchanged iPad states differ by at most 0.060804/255. The corrected
+Home's complete dial is centered on the tile/footer axis. No new clock, motion
+or fixture state was introduced.
+
+Complete corrected Mac logs, captures and repeat PNGs are archived and validated
+in `www54-followup/dial-centered-evidence.tar.gz`, extracted alongside the final
+review input under `www54-followup/dial-centered/`. The first review and failed
+verification evidence remain in `dial/` and `dial-verification-evidence.tar.gz`.
+The corrected three-run review uses the unchanged external `review3.sh`, fixed
+prompt, reference PNGs and published floors. Results and acceptance are pending.
