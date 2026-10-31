@@ -137,6 +137,13 @@ struct PanelRoot: View {
                     Color.clear.allowsHitTesting(false)
                 }
             }
+            .allowsHitTesting(nativeVisible)
+            .accessibilityHidden(!nativeVisible)
+        }
+        .overlay(alignment: .topLeading) {
+            if !homeVisible && !nativeVisible && !webOnly {
+                ClassicHomeButton(action: { navigation.returnHome() })
+            }
         }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
         .background { PanelWindowAttachment().allowsHitTesting(false) }
@@ -210,7 +217,7 @@ struct PanelRoot: View {
     }
 
     private var webBoard: some View {
-        PanelClassicBoard(session: session, home: webOnly ? nil : { navigation.returnHome() })
+        PanelClassicBoard(session: session)
     }
 
 }
