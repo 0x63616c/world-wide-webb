@@ -54,6 +54,15 @@ Page 2 (24/24 cells):
 
 The page-2 module tiles are the existing Home modules (no grid variant yet) laid into the grid so nothing from the old Home is lost; they get grid cards later.
 
+Panel hosts may provide `HomeIntegration.gridTile(_:span:open:)` content for any
+`GridPlacement`, keyed by `HomeTile`. Returning nil keeps the shared grid card.
+The host content uses the 24 pt inset; the grid supplies the span, `GridMaterial`
+and 40 pt radius, plus the `tile-<id>` accessibility container. The prototype has
+no integration and keeps its existing cards. Panel supplies independent fan
+state (including when HVAC is off), authenticated Sonos artwork, server-time
+walks, live cameras, the locked Photos launcher and the shared grid clock.
+Inline controls retain their own actions and identifiers.
+
 In the Panel app, a card whose live source is not connected shows the module's "unavailable" tile in the same frame, and every card keeps the old `tile-<id>` accessibility identifier.
 
 ## Wide clock

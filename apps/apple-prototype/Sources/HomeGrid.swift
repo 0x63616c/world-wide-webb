@@ -714,11 +714,13 @@ private struct GridNowPlaying: View {
 
 // MARK: - Fan
 
-private struct GridFan: View {
+struct GridFan: View {
     let v: String
     let store: any HomeDataSource
-    private var on: Bool { store.climate.fanOn && store.climate.mode != .off }
-    private var label: String { store.climate.fanLabel }
+    var fanIsOn: Bool? = nil
+    var fanLabel: String? = nil
+    private var on: Bool { fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off) }
+    private var label: String { fanLabel ?? store.climate.fanLabel }
     /// The glyph toggles the fan in place; the rest of the card opens the controller.
     private func toggle(_ size: CGFloat) -> some View {
         Button { store.send(.toggle(.fan)) } label: {
@@ -830,7 +832,7 @@ private struct GridLights: View {
 
 // MARK: - Clock (green)
 
-private struct GridClock: View {
+struct GridClock: View {
     let v: String
     let store: any HomeDataSource
     private var face: some View { AnalogClock(date: store.now, minimal: true).aspectRatio(1, contentMode: .fit) }
@@ -911,7 +913,10 @@ struct GridHomeFace: View {
                 Group {
                     // A host with no live data for this module shows its own unavailable tile.
                     if let integration, t != .clock, !integration.available(t), let replacement = integration.tile(t, open: { open(t) }) {
-                        replacement.frame(width: f.width, height: f.height).modifier(GridMaterial(on: false))
+                        replacement.padding(HomeGrid.inset).frame(width: f.width, height: f.height).modifier(GridMaterial(on: false))
+                    } else if let replacement = integration?.gridTile(t, span: f.size, open: { open(t) }) {
+                        replacement.frame(width: f.width, height: f.height)
+                            .modifier(GridMaterial(on: false))
                     } else {
                         GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) })
                     }
