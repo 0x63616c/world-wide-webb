@@ -34,6 +34,7 @@ struct NotificationCapture: View {
                 NotificationBanners(source: PanelNotifications.source,
                     initiallyExpanded: mode == "expanded", captureDrag: mode == "swipe" ? 125 : 0)
             }
+            .modifier(NotificationHistoryAccess())
             .environment(center)
             .statusBarHidden()
             .persistentSystemOverlays(.hidden)

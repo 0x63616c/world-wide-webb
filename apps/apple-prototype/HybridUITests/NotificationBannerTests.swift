@@ -2,20 +2,23 @@ import XCTest
 
 final class NotificationBannerTests: XCTestCase {
     @MainActor func testSingleSwipeRightPreservesHistory() {
-        let app = launchCapture("single")
-        let banner = app.buttons["notification-banner-updates"]
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1",
+            "-moduleFlag.lights", "native", "-notificationSamples", "-notificationHold"]
+        app.launch()
+        let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
         XCTAssertEqual(banner.frame.width, 380, accuracy: 1)
         XCTAssertEqual(app.frame.maxX - banner.frame.maxX, 20, accuracy: 1)
         XCTAssertGreaterThanOrEqual(banner.frame.minY, 72)
-        XCTAssertFalse(app.buttons["notification-dismiss-updates"].exists)
+        XCTAssertFalse(app.buttons["notification-dismiss-lights"].exists)
         banner.swipeLeft()
         XCTAssertTrue(banner.exists)
         swipeRight(banner)
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
-        let edge = app.buttons["notification-history-edge"]
-        XCTAssertTrue(edge.exists)
-        edge.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.012))
             .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.4)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-history-item-")).firstMatch.exists)

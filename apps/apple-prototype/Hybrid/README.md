@@ -1263,8 +1263,13 @@ For black-background review captures, launch Debug Panel with
 state). This isolated host posts synthetic Updates, Alarms and Dog Walk items,
 starts no board/providers/network, and uses a fixed 125-point rightward offset for
 `swipe`. The host and launch switch are compiled out of Release. Capture at
-1366×1024 points in landscape and validate the upright PNG with
-`~/bin/www8-validate-png`.
+1366×1024 points in landscape. `PanelUITests/NotificationCaptureTests` holds
+landscape orientation through all four screenshots and retains them as named
+XCTest attachments (`mac-single`, `mac-stacked`, `mac-expanded`, `mac-swipe`).
+Export with `xcrun xcresulttool export attachments --path <result.xcresult>
+--output-path <captures>`. Capturing with simctl after the runner exits can reset
+the device to portrait and letterbox the app; use the retained landscape images.
+Validate the upright PNG with `~/bin/www8-validate-png`.
 
 `-notificationHold` pauses banner timers for deterministic captures.
 `-notificationReduceMotion` exercises reduced-motion presentation without changing
