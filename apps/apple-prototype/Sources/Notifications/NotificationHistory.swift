@@ -1,7 +1,9 @@
 import SwiftUI
 
 enum NotificationHistoryGesture {
-    static func opens(x: Double, y: Double) -> Bool { y >= 60 && y > abs(x) }
+    static func opens(x: Double, y: Double, startY: Double = 0) -> Bool {
+        (0...24).contains(startY) && y >= 60 && y > abs(x)
+    }
     static func closes(x: Double, y: Double) -> Bool { y <= -60 && -y > abs(x) }
 }
 
@@ -75,6 +77,7 @@ struct NotificationHistory: View {
         .frame(maxWidth: 760, maxHeight: .infinity)
         .frame(maxWidth: .infinity)
         .background(.regularMaterial)
+        .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { center.historyPresented = false }
         .accessibilityIdentifier("notification-history")
@@ -185,5 +188,25 @@ private struct NotificationHistoryRow: View {
             Button("Clear", role: .destructive) { Task { await center.dismiss(item.id) } }
         }
         .accessibilityAction(named: "Clear") { Task { await center.dismiss(item.id) } }
+    }
+}
+
+/// Attach to each presentation's content ancestor so UIKit-backed Home paging
+/// and web scrolling cannot consume a drag that began at the top edge.
+struct NotificationHistoryAccess: ViewModifier {
+    @Environment(NotificationCenter.self) private var center: NotificationCenter?
+
+    func body(content: Content) -> some View {
+        content
+            .simultaneousGesture(DragGesture(minimumDistance: 12).onEnded { value in
+                guard let center, !center.historyPresented else { return }
+                if NotificationHistoryGesture.opens(x: value.translation.width, y: value.translation.height,
+                    startY: value.startLocation.y) {
+                    center.historyPresented = true
+                }
+            })
+            #if os(iOS)
+            .defersSystemGestures(on: .top)
+            #endif
     }
 }

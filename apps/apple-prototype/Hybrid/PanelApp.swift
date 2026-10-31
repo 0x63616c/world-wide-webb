@@ -194,6 +194,7 @@ struct PanelRoot: View {
             }
         }
         .overlay { statusOverlays }
+        .modifier(NotificationHistoryAccess())
         .onChange(of: store.alarmsProvider.snapshot?.active) { _, _ in navigation.ringHidden = false }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }

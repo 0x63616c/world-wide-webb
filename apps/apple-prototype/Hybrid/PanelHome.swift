@@ -126,7 +126,8 @@ struct PanelHome: View {
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
         AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
             router: router, close: close, classic: navigation.openClassic)
-            .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation, updates: updates) })
+            .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation, updates: updates) }
+            .modifier(NotificationHistoryAccess()))
     }
 }
 

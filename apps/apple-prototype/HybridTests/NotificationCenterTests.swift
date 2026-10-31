@@ -273,6 +273,7 @@ import PanelKit
         XCTAssertTrue(NotificationHistoryGesture.opens(x: 0, y: 80))
         XCTAssertFalse(NotificationHistoryGesture.opens(x: 90, y: 80))
         XCTAssertFalse(NotificationHistoryGesture.opens(x: 0, y: 30))
+        XCTAssertFalse(NotificationHistoryGesture.opens(x: 0, y: 80, startY: 100))
         XCTAssertFalse(NotificationHistoryGesture.opens(x: 0, y: -80))
         XCTAssertTrue(NotificationHistoryGesture.closes(x: 0, y: -80))
         XCTAssertFalse(NotificationHistoryGesture.closes(x: 90, y: -80))
