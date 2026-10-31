@@ -1279,6 +1279,16 @@ UICTContentSizeCategoryAccessibilityXXXL` exercises accessibility text.
 expanded/swiped overlay and accessibility presentation as retained XCTest attachments.
 The inbox and durable cache are covered by unit tests. The history UI is described below.
 
+WWW-69 verification (2026-10-31, Xcode 27.0 / iOS 26.3): PanelKit passed 15
+XCTest + 70 Swift Testing tests; Panel passed 119 unit tests and the prototype
+passed 150. Panel and WorldWideWebb-iPad builds passed. All 11 focused functional
+notification/history/update/smoke UI cases passed across the suite and corrected
+real-root swipe rerun; the four-state landscape capture test also passed.
+See [the review captures and validation record](../../../docs/screenshots/www-69-mac-notifications/README.md),
+including the mostly-black full-frame validator limitation. The task's simulator,
+source copy and derived data were removed from the shared mini after export.
+
+
 
 ## Pull-down Notification Center (WWW-60)
 
