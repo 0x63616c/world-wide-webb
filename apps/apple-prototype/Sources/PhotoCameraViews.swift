@@ -6,7 +6,6 @@ struct PhotoRotation: View {
     var fullScreen: Bool
     @Environment(\.motionPhase) private var phase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var index = 1
     var body: some View {
         GeometryReader { proxy in
@@ -27,10 +26,10 @@ struct PhotoRotation: View {
                         .font(.system(size: 12)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing).padding(32)
                 } else {
                     HStack {
-                        Label("Photos", systemImage: "photo.on.rectangle.angled").font(.system(size: sizeClass == .compact ? 22 : 28, weight: .semibold))
+                        Label("Photos", systemImage: "photo.on.rectangle.angled").font(.system(size: 22, weight: .semibold))
                         Spacer()
-                        Text("\(provider.photos.count) photos").font(.system(size: sizeClass == .compact ? 15 : 20))
-                    }.padding(sizeClass == .compact ? 28 : 32)
+                        Text("\(provider.photos.count) photos").font(.system(size: 15))
+                    }.padding(28)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
         }.task(id: reduceMotion) {

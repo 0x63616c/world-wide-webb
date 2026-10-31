@@ -40,31 +40,20 @@ struct DogWalkTile: View {
                 Button(action: open) {
                     VStack(alignment: .leading, spacing: 0) {
                         Label("Walk Zero", systemImage: "pawprint.fill")
-                            .font(.system(size: compact ? 22 : 28, weight: .semibold))
+                            .font(.system(size: compact ? 22 : 32, weight: .semibold))
                         Spacer(minLength: 8)
                         if let walk = store.walks.activeWalk {
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                if compact { Text("Elapsed").font(.system(size: 16, weight: .medium)) }
+                                Text("Elapsed").font(.system(size: compact ? 16 : 20, weight: .medium))
                                 Text(walkElapsed(walk.duration(at: store.now)))
-                                    .font(.system(size: compact ? 26 : 44, weight: .medium, design: .rounded)).monospacedDigit()
-                                if !compact { Text("Elapsed").font(.system(size: 20, weight: .medium)) }
+                                    .font(.system(size: compact ? 26 : 40, weight: .medium, design: .rounded)).monospacedDigit()
                             }
                             Text("Started on \(walk.startedBy.rawValue)")
                                 .font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary)
                                 .padding(.top, 4)
                         } else {
-                            if !compact, let lastWalk = store.walks.history.first {
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    Text("\(Int(lastWalk.duration(at: store.now)) / 60)")
-                                        .font(.system(size: 44, weight: .medium, design: .rounded)).monospacedDigit()
-                                    Text("min").font(.system(size: 20, weight: .medium))
-                                }
-                                Text(store.walks.lastWalkLabel(at: store.now))
-                                    .font(.system(size: 20)).padding(.top, 4)
-                            } else {
-                                Text("\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min")
-                                    .font(.system(size: compact ? 16 : 24)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                            }
+                            Text("\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min")
+                                .font(.system(size: compact ? 16 : 24)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 8)
                         Text("History ›").font(.system(size: compact ? 16 : 20, weight: .medium))
