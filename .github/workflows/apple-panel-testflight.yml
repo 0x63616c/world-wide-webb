@@ -39,7 +39,8 @@ concurrency:
 jobs:
   smoke:
     runs-on: macos-26
-    timeout-minutes: 15
+    # Cold builds (~8.5 min) + UI tests (~4.5 min) need room for setup and evidence upload.
+    timeout-minutes: 25
     outputs:
       source_sha: ${{ steps.source.outputs.sha }}
     steps:
