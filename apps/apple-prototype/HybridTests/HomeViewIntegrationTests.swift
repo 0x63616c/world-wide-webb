@@ -100,10 +100,13 @@ import PanelKit
             .environment(\.homeIntegration, probe)).uiImage)
         XCTAssertTrue(probe.unavailableTiles.contains(.fan))
         XCTAssertFalse(probe.gridTiles.contains(.fan), "Unavailable wins over custom live content")
-        try await captureGrid(store: store, host: host, size: size)
+        // The legacy integration uses the default nil grid hook, reproducing the
+        // pre-fix path with exactly the same providers, clock and unavailable tiles.
+        try await captureGrid(store: store, host: LegacyGridIntegration(host: host), size: size, prefix: "before")
+        try await captureGrid(store: store, host: host, size: size, prefix: "after")
     }
 
-    private func captureGrid(store: LiveHomeDataSource, host: PanelHomePresentation, size: CGSize) async throws {
+    private func captureGrid(store: LiveHomeDataSource, host: any HomeIntegration, size: CGSize, prefix: String) async throws {
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("GridSnapshots")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -128,7 +131,7 @@ import PanelKit
             let image = UIGraphicsImageRenderer(size: size).image { _ in
                 XCTAssertTrue(controller.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
             }
-            try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("panel-page\(page + 1).png"))
+            try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("panel-\(prefix)-page\(page + 1).png"))
         }
     }
 
@@ -158,4 +161,15 @@ import PanelKit
     }
     func musicFace(close: @escaping () -> Void) -> AnyView { AnyView(EmptyView()) }
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView { AnyView(EmptyView()) }
+}
+
+@MainActor private final class LegacyGridIntegration: HomeIntegration {
+    let host: PanelHomePresentation
+    init(host: PanelHomePresentation) { self.host = host }
+    var caption: String { host.caption }
+    func prepareToOpen(_ tile: HomeTile) -> Bool { host.prepareToOpen(tile) }
+    func available(_ tile: HomeTile) -> Bool { host.available(tile) }
+    func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView? { host.tile(tile, open: open) }
+    func musicFace(close: @escaping () -> Void) -> AnyView { host.musicFace(close: close) }
+    func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView { host.destination(tile, close: close) }
 }
