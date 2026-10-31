@@ -9,12 +9,14 @@ actor HybridFixtureTransport: PanelTransport {
     private let unavailable: Bool
     private let alarmScenario: String
     private let sonosPlayback: Bool
+    private let climateOff: Bool
     private let walkActive: Bool
     private var overrides: [String: String] = [:]
     private(set) var requests: [URLRequest] = []
 
-    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false, sonosPlayback: Bool = false) {
+    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false, sonosPlayback: Bool = false, climateOff: Bool = false) {
         self.sonosPlayback = sonosPlayback
+        self.climateOff = climateOff
         self.walkActive = walkActive
         self.alarmScenario = alarmScenario
         self.root = root
@@ -45,7 +47,7 @@ actor HybridFixtureTransport: PanelTransport {
             case "alarms.list": file = "alarms/\(alarmScenario).json"
             case "tesla.state": file = "tesla/ready.json"
             case "controls.list": file = "all-on.json"
-            case "climate.get": file = "climate/cool.json"
+            case "climate.get": file = climateOff ? "climate/off.json" : "climate/cool.json"
             case "wifi.guestQr": file = "wifi/hybrid.json"
             case "weather.now": file = "weather/now.json"
             case "weather.hourly": file = "weather/hourly.json"

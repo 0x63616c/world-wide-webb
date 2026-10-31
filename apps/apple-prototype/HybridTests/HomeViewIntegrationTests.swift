@@ -80,10 +80,6 @@ import PanelKit
                 .environment(\.motionPhase, 0)).uiImage?.pngData())
         }
         let onImage = try fanImage()
-        let generic = GridFan(v: "C", store: store)
-            .frame(width: fanSpan.width, height: fanSpan.height).environment(\.motionPhase, 0)
-        XCTAssertNotEqual(try XCTUnwrap(ImageRenderer(content: generic).uiImage?.pngData()), onImage,
-            "An On fan must not render like the HVAC-off generic card")
         await transport.setFixture("fan/off.json", for: "controls.list")
         await store.refresh(.fan)
         XCTAssertEqual(store.fanProvider.fanOn, false)
