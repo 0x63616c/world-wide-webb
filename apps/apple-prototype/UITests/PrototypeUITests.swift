@@ -45,7 +45,7 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
             let card = app.descendants(matching: .any)["tile-\(id)"].firstMatch
             XCTAssertTrue(card.waitForExistence(timeout: 30), app.debugDescription)
             card.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.1)).tap()
-            let close = app.buttons[id == "dogwalk" ? "Close Walk Zero" : "close-controller"]
+            let close = app.buttons[id == "dogwalk" ? "Close Walk Zero" : id == "photos" ? "Close Photos" : id == "wifi" ? "close-controller" : "Close"]
             XCTAssertTrue(close.waitForExistence(timeout: 10), app.debugDescription)
             close.tap()
             XCTAssertTrue(card.waitForExistence(timeout: 10))

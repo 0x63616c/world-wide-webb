@@ -53,7 +53,6 @@ enum HomeGrid {
         .init(.wifi, "A", 0, 3)
     ]
     static func placements(page: Int) -> [GridPlacement] { page == 0 ? home : more }
-
 }
 
 enum GridCard: String, CaseIterable {
@@ -925,7 +924,6 @@ struct GridHomeFace: View {
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("tile-\(t.id)")
                     .position(x: f.midX, y: f.midY)
             }
-
         }.frame(width: size.width, height: size.height)
             .overlay { if HomeGrid.overlay { GridOverlay(size: size).allowsHitTesting(false) } }
             .sheet(isPresented: $picker) { WallpaperPicker() }
