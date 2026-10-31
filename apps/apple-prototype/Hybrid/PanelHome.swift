@@ -56,7 +56,7 @@ struct PanelHome: View {
 
 }
 
-@MainActor private final class PanelHomePresentation: HomeIntegration {
+@MainActor final class PanelHomePresentation: HomeIntegration {
     let store: LiveHomeDataSource
     let session: KioskSession
     let router: HybridRouter
@@ -113,6 +113,29 @@ struct PanelHome: View {
                 Label("Photos", systemImage: "lock.fill").font(.title2)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }.buttonStyle(.plain))
+        default: return nil
+        }
+    }
+
+    func gridTile(_ tile: HomeTile, span: CGSize, open: @escaping () -> Void) -> AnyView? {
+        // Keep host-only state/actions at this boundary. Shared cards still read
+        // LiveHomeDataSource when no special host presentation is needed.
+        switch tile {
+        case .fan:
+            return AnyView(GridFan(v: span.width > span.height ? "C" : span.height > span.width ? "D" : "A", store: store,
+                fanIsOn: store.fanProvider.fanOn, fanLabel: store.fanProvider.fanLabel, showsInlineToggle: true)
+                .contentShape(.rect).onTapGesture(perform: open))
+        case .sound:
+            return AnyView(PanelSoundTile(store: store, open: open, inset: HomeGrid.inset))
+        case .clock:
+            return AnyView(PanelTileLauncher(label: "Open Clock and Alarms", open: open) {
+                GridClock(v: span.width > span.height ? "H" : span.height > span.width ? "C" : span.width > HomeGrid.cell ? "F" : "A", store: self.store)
+            })
+        case .dogwalk:
+            return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open,
+                inset: HomeGrid.inset).disabled(store.walkProvider.isMutating))
+        case .cameras, .photos:
+            return self.tile(tile, open: open)
         default: return nil
         }
     }
@@ -182,6 +205,7 @@ struct PanelHomeDestination: View {
 private struct PanelSoundTile: View {
     let store: LiveHomeDataSource
     let open: () -> Void
+    var inset: CGFloat = 32
     var body: some View {
         Button(action: open) {
             HStack(spacing: 24) {
@@ -195,7 +219,7 @@ private struct PanelSoundTile: View {
                     }
                 }
                 Spacer(minLength: 0)
-            }.padding(32).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.padding(inset).frame(maxWidth: .infinity, maxHeight: .infinity)
         }.buttonStyle(.plain)
     }
 }

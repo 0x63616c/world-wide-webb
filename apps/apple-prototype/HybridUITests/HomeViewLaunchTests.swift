@@ -5,7 +5,7 @@ import XCTest
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures"]
+        app.launchArguments = ["-hybridFixtures", "-hybridClimateOff"]
         app.launch()
         let home = app.descendants(matching: .any)["native-home"].firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 30))
@@ -17,7 +17,18 @@ import XCTest
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
         XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForNonExistence(timeout: 30))
-        capture("WWW-64-HomeView")
+        let fan = app.buttons["toggle-fan"]
+        XCTAssertTrue(fan.waitForExistence(timeout: 15))
+        let climate = app.descendants(matching: .any)["tile-climate"].firstMatch
+        XCTAssertTrue(climate.staticTexts["Off"].exists, "HVAC fixture is Off")
+        XCTAssertEqual(fan.value as? String, "On", "Independent fan stays On with HVAC Off")
+        capture("WWW-73-HomeView")
+        fan.tap()
+        XCTAssertTrue(app.buttons["face-page-1"].isHittable, "Fan toggle stays on Home")
+        let ceiling = app.buttons["toggle-ceiling"]
+        XCTAssertTrue(ceiling.isHittable)
+        ceiling.tap()
+        XCTAssertTrue(app.buttons["face-page-1"].isHittable, "Light toggle stays on Home")
         app.buttons["home-classic"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 15))
         let back = app.buttons["classic-home"]

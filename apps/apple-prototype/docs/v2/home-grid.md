@@ -56,6 +56,15 @@ All page-2 tiles are ordinary `GridPlacement`s. Cameras and Photos use full-blee
 
 Each new card also has a B variant: Cameras/Photos/Media/Dog walk offer a 2×1 glance; Sonos rooms offers a 2×2 room list and Wi-Fi a 2×2 join QR. Use `-gridSheet cameras|photos|sonosRooms|wifi|dogwalk|media` to inspect them.
 
+Panel hosts may provide `HomeIntegration.gridTile(_:span:open:)` content for any
+`GridPlacement`, keyed by `HomeTile`. Returning nil keeps the shared grid card.
+The host content uses the 24 pt inset; the grid supplies the span, `GridMaterial`
+and 40 pt radius, plus the `tile-<id>` accessibility container. The prototype has
+no integration and keeps its existing cards. Panel supplies independent fan
+state (including when HVAC is off), authenticated Sonos artwork, server-time
+walks, live cameras, the locked Photos launcher and the shared grid clock.
+Inline controls retain their own actions and identifiers.
+
 In the Panel app, a card whose live source is not connected shows the module's "unavailable" tile in the same frame, and every card keeps the old `tile-<id>` accessibility identifier.
 
 ## Wide clock

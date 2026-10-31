@@ -74,7 +74,8 @@ struct PanelRoot: View {
                 unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"),
                 alarmScenario: ringing ? "ringing" : "scheduled",
                 walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"),
-                sonosPlayback: ProcessInfo.processInfo.arguments.contains("-hybridSonosPlayback"))
+                sonosPlayback: ProcessInfo.processInfo.arguments.contains("-hybridSonosPlayback"),
+                climateOff: ProcessInfo.processInfo.arguments.contains("-hybridClimateOff"))
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
                     accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
