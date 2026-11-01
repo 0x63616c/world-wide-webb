@@ -9,11 +9,13 @@ All runs use explicit synthetic fixtures through the real live providers.
   source `cb26d3f241c5814dd8e2bfce43119ffe58005159`. App code is identical to
   WWW-81's starting commit `d602ef3a`; only the existing UI test's capture helper
   changes to use the whole screen. The unsigned baseline smoke suite passed.
-- `after-home.png` and `after-fan-auto.png`: [run 41338035061](https://github.com/0x63616c/world-wide-webb/actions/runs/41338035061),
-  source `01a27b13fb81db8fa12a719e2bdb75e2b19b2ce4`. The fan segment test passed:
+- `after-home.png` and `after-fan-auto.png`: [run 41340782999](https://github.com/0x63616c/world-wide-webb/actions/runs/41340782999),
+  source `053500df782c881d9bd68eae3fe943b8dcb61986`. The fan segment test passed:
   selecting Auto and Off releases forced circulation without opening detail.
   This fixture is cooling, so the returned label is Auto. The baseline uses
   the existing HVAC-Off fixture; its independent forced fan still reports On.
+- `after-fan-rollback.png`: the failed command restores On and displays the shared
+  Fan action failed banner, with Home still available.
 - `after-fan-detail-0.png` through `-2.png`: three successive openings from
   that run's passing presentation test. Each controller filled the presentation,
   was centered horizontally, and returned to Home before reopening.
@@ -50,8 +52,11 @@ Notification Center cases but failed startup in the new combined Off/rollback
 case: the Home pager tap reached Classic before fan assertions ran. Its initial
 three grid cases, including all presentation checks, passed. Test setup now
 rotates the running app and checks the mounted Home bounds before tapping,
-so XCTest's touch coordinates agree with UIKit after launch. Final validation
-of that setup is pending; these failed runs are not counted as passing.
+so XCTest's touch coordinates agree with UIKit after launch. The corrected setup passed all eight smoke cases in
+[run 41340782999](https://github.com/0x63616c/world-wide-webb/actions/runs/41340782999).
+The failed runs above are not counted as passing. The final documentation-only
+commit also passed all native suites in
+[run 41340854816](https://github.com/0x63616c/world-wide-webb/actions/runs/41340854816).
 
 The Linux workspace has no Xcode. Native checks use the repo's existing unsigned
 macOS CI workflows; TestFlight upload is disabled for these runs.
