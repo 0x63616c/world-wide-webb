@@ -69,7 +69,7 @@ import XCTest
     }
 
     private func capture(_ name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine").screenshot())
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
