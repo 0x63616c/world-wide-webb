@@ -41,6 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      www: ${{ steps.filter.outputs.www }}
       web: ${{ steps.filter.outputs.web }}
       manage: ${{ steps.filter.outputs.manage }}
       api: ${{ steps.filter.outputs.api }}
@@ -72,6 +73,18 @@ jobs:
             # tiles, api mounts feature routers/schema, worker drains feature jobs.
             # A change under either must rebuild ALL THREE images (a miss ships stale
             # images on green CI — www ci-cancelled-runs-strand).
+            www:
+              - 'Dockerfile'
+              - 'apps/api/**'
+              - 'apps/worker/**'
+              - 'apps/web/**'
+              - 'apps/manage/**'
+              - 'packages/**'
+              - 'features/**'
+              - 'app-kit/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'tsconfig.json'
             web:
               - 'apps/web/**'
               - 'packages/**'
@@ -121,6 +134,9 @@ jobs:
             # needs to be built. An infra-only change is handled by the separate
             # `infra` filter above.
             any_app:
+              - 'Dockerfile'
+              - 'package.json'
+              - 'tsconfig.json'
               - 'apps/web/**'
               - 'apps/manage/**'
               - 'apps/api/**'
@@ -266,6 +282,28 @@ jobs:
           cache-scope: manage
 
 
+  build-www:
+    needs: [changes]
+    if: needs.changes.outputs.www == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compute build timestamp
+        id: commit-time
+        run: echo "ms=$(($(git log -1 --format=%ct) * 1000))" >> "$GITHUB_OUTPUT"
+      - name: Build and push www image
+        uses: ./.github/actions/build-product-image
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        with:
+          image: www-control-center-www
+          dockerfile: Dockerfile
+          cache-scope: www
+          build-args: |
+            BUILD_HASH=${{ github.sha }}
+            BUILD_TIME=${{ steps.commit-time.outputs.ms }}
+
   build-api:
     needs: [changes]
     if: needs.changes.outputs.api == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
@@ -319,6 +357,7 @@ jobs:
         typecheck,
         build-web,
         build-manage,
+        build-www,
         build-api,
         build-worker,
       ]
@@ -409,11 +448,12 @@ jobs:
       - name: Collect image digests
         id: digests
         run: |
+          set -euo pipefail
           # Map each built app image to its current :main manifest digest. The
           # KEY is product-component scoped and matches the Pulumi imageDigests
           # config key, while repo names use full product slugs.
           declare -A out=()
-          for entry in www-control-center-web:control-center-web www-control-center-manage:control-center-manage www-control-center-api:control-center-api www-control-center-worker:control-center-worker; do
+          for entry in www-control-center-www:control-center-www www-control-center-web:control-center-web www-control-center-manage:control-center-manage www-control-center-api:control-center-api www-control-center-worker:control-center-worker; do
             repo="${entry%%:*}"
             name="${entry#*:}"
             d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
@@ -421,6 +461,10 @@ jobs:
               out[$name]="$d"
             fi
           done
+          if [ -z "${out[control-center-www]:-}" ]; then
+            echo "www digest unavailable; refusing to change running workloads"
+            exit 1
+          fi
           # Emit a compact JSON map (svc -> sha256:…) for the pulumi config step.
           json='{}'
           for k in "${!out[@]}"; do
@@ -519,6 +563,10 @@ jobs:
             dig=$(echo "$DIGEST_MAP" | jq -r --arg s "$svc" '.[$s]')
             pulumi config set --path "wwwinfra:imageDigests.$svc" "$dig" --stack "$STACK"
           done
+          # The old worker must have EXITED before www can start enforcers.
+          # This also handles retries after a partially completed first deploy.
+          kubectl -n control-center scale deployment worker --replicas=0
+          kubectl -n control-center wait --for=delete pod -l app=worker --timeout=120s
           pulumi up --yes --stack "$STACK"
 
   # infra/cloudflare (ticket #52): a separate Pulumi project from the k8s stack
@@ -597,6 +645,7 @@ jobs:
         typecheck,
         build-web,
         build-manage,
+        build-www,
         build-api,
         build-worker,
         deploy-home-server,
