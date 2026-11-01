@@ -154,28 +154,33 @@ console or by reproducing locally, not queried from a store.
     usually someone's live work — hand-cleanup has already destroyed a peer
     session's branch. Guard-denied from every directory, main or worktree.
     Stale worktrees are reaped by an hourly prune job.
-- **Branch -> PR -> merge is the default for all work, including agent work.**
-  Create a worktree/branch named after the task, commit there, and open a PR
-  against `main` (`gh pr create`, using the PR template).
-- **Commit and push extremely often, without asking.** Commit each coherent
-  change (passing test, working slice, doc update); never batch. Push the
-  branch immediately — the push target is the PR branch, not `main`.
-- Opening a PR, and self-merging it once it's green, is pre-approved for
-  every requested change made by a human (you, an agent working a task Calum
-  gave it directly). Never pause to ask. `main` carries a branch-protection
-  ruleset requiring one Code Owner (@0x63616c) approval, but Calum is a
-  bypass actor — the goal for human-driven work stays an auditable trail
-  ("here's the PR for that change"), not an approval gate. GitHub's default
-  merge button still shows "review required" for a bypass actor; use the
-  "Merge without waiting for requirements to be met" button (or `gh pr merge
-  --admin`, or the plain `PUT .../pulls/{n}/merge` API call) rather than
-  reading that as blocked.
+- **Box pipeline executors implement, verify and commit only.** Commit on
+  the task's branch and stop; do not push or open, edit, merge or close PRs.
+  One wrapper (`codex-loop` on the box, later `pipeline`) owns publishing
+  and merging: it pushes, opens the PR against `main` using the PR template,
+  and follows the run's intent (default: merge when required checks are
+  green; honour draft/no-merge).
+- **Commit often, without asking.** Commit each coherent change (passing
+  test, working slice, doc update); never batch. For pipeline runs, pushing
+  is the publisher's job.
+- Humans and interactive agents Calum asked directly may still push and
+  open PRs. Use title `type(scope): title [KEY-N]` and start the body with
+  `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`; the pipeline
+  uses this format too. Use this repo's `WWW` ticket prefix.
+- **Nobody merges a red PR or skips required checks.** `main` has a
+  `pipeline-required-checks` ruleset with no bypass: Ticket key,
+  Conventional Commit title, changes, typecheck, test-unit, build-and-test.
+  Never use `gh pr merge --admin`, the "Merge without waiting for
+  requirements to be met" button, or the raw merge API to skip checks.
+  The separate code-owner ruleset requires one Code Owner (@0x63616c)
+  approval, which Calum bypasses; a normal `gh pr merge --squash` works
+  once required checks pass. This does not permit pipeline executors to merge.
 - **Merging to `main` deploys to prod** (push-to-main triggers CI + deploy),
   so merging the PR is the deliberate act. Merge once CI is green; don't
   merge a red PR.
-- Verify before opening/merging where cheap (`bun run typecheck`, relevant
-  tests). On failure, fix forward on the branch and push again — never sit on
-  an unpushed or unmerged change.
+- Verify before publishing (`bun run typecheck`, relevant tests). On failure,
+  fix forward and commit on the branch; the publisher pushes the fix and
+  waits for required checks to pass before merging.
 - **Every PR description includes a screenshot.** Calum reviews what a change
   looks like, not a prose description of it. UI changes: screenshot the real
   thing running (tile face and, if it has one, its detail page) with the
