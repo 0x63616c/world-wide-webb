@@ -32,8 +32,12 @@ alarm concurrency and data preservation independently reviewable.
 The existing Talos pipeline builds `www-control-center-www` in addition to the
 legacy images. Its `control-center-www` digest pin activates consolidation.
 The `api` Deployment runs this image with Recreate strategy so old and new
-cycle owners cannot overlap during replacement. The pipeline scales the old
-worker to zero and waits for its pods to terminate before applying this change.
+cycle owners cannot overlap during replacement. The pipeline explicitly clears
+the live API strategy's default rollingUpdate field before preview (the Pulumi provider does not clear it during dry-run). It
+previews before interrupting cycles, then scales the old worker to zero and waits
+for its pods to terminate before applying this change. If preview or apply fails
+before www activation, it restores the legacy worker. After www activation it
+keeps that worker stopped to prevent duplicate enforcers.
 The web and manage Deployments remain declared at zero replicas; their existing
 Services forward port 80 to `api:4201`. The tunnel origins, Access policies,
 Postgres clusters, media mounts, and all other infrastructure remain in place.
