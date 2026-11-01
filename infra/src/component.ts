@@ -633,11 +633,9 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
     spec: {
       replicas: w.replicas,
       selector: { matchLabels: labels },
-      // rollingUpdate is explicitly null, not omitted: the API server defaults
-      // that block onto every existing Deployment, and it survives the patch —
-      // leaving `type: Recreate` alongside a rollingUpdate stanza, which the
-      // API server rejects ("may not be specified when strategy `type` is
-      // 'Recreate'"). Null deletes it in the same apply.
+      // Recreate cannot coexist with the API server's defaulted rollingUpdate.
+      // CI clears the live block explicitly before Pulumi previews the change
+      // (WWW-84); this null alone does not remove it through the provider.
       ...(w.recreate || mountsExistingClaim(w)
         ? { strategy: { type: "Recreate" as const, rollingUpdate: null } }
         : {}),

@@ -563,6 +563,12 @@ jobs:
             dig=$(echo "$DIGEST_MAP" | jq -r --arg s "$svc" '.[$s]')
             pulumi config set --path "wwwinfra:imageDigests.$svc" "$dig" --stack "$STACK"
           done
+          # WWW-84: clear the API server's defaulted rollingUpdate atomically
+          # with the switch to Recreate. Pulumi's null input does not remove it
+          # from the live Deployment, so even its preview otherwise fails.
+          # This changes no pod template and is safe to repeat on retries.
+          kubectl -n control-center patch deployment api --type=merge \
+            -p '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null}}}'
           # The old worker must have EXITED before www can start enforcers.
           # This also handles retries after a partially completed first deploy.
           kubectl -n control-center scale deployment worker --replicas=0
