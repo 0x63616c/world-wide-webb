@@ -10,6 +10,17 @@ import XCTest
         if writes { app.launchArguments.append("-hybridControlWrites") }
         if climateOff { app.launchArguments.append("-hybridClimateOff") }
         app.launch()
+        // Rotate the running app so UIKit and XCTest agree on touch coordinates.
+        // Setting the already-current orientation before launch can leave AX's
+        // landscape frames ahead of the simulator's event transform on iOS 26.
+        XCUIDevice.shared.orientation = .landscapeRight
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(app.buttons["home-classic"].waitForExistence(timeout: 30))
+        let home = app.descendants(matching: .any)["native-home"].firstMatch
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            abs(home.frame.width - 1366) < 2 && abs(home.frame.height - 1024) < 2
+        }, object: home)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 10), .completed)
         app.selectHomeFace(1)
         XCTAssertTrue(app.buttons["fan-mode-on"].waitForExistence(timeout: 30))
         return app
