@@ -9,12 +9,16 @@ actor HybridFixtureTransport: PanelTransport {
     private let unavailable: Bool
     private let alarmScenario: String
     private let sonosPlayback: Bool
+    private let controlWrites: Bool
+    private var controlState: [String: Any]?
+    private var climateState: [String: Any]?
     private let climateOff: Bool
     private let walkActive: Bool
     private var overrides: [String: String] = [:]
     private(set) var requests: [URLRequest] = []
 
-    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false, sonosPlayback: Bool = false, climateOff: Bool = false) {
+    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false, sonosPlayback: Bool = false, climateOff: Bool = false, controlWrites: Bool = false) {
+        self.controlWrites = controlWrites
         self.sonosPlayback = sonosPlayback
         self.climateOff = climateOff
         self.walkActive = walkActive
@@ -34,6 +38,9 @@ actor HybridFixtureTransport: PanelTransport {
                 headerFields: ["Content-Type": "image/png"])!)
         }
         let procedure = url.lastPathComponent
+        if controlWrites, let data = try controlResponse(request, procedure: procedure) {
+            return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
         let file: String
         if let override = overrides[procedure] { file = override }
         else {
@@ -62,6 +69,38 @@ actor HybridFixtureTransport: PanelTransport {
         let data = try Data(contentsOf: root.appendingPathComponent(file))
         return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: file.hasSuffix(".png") ? ["Content-Type": "image/png"] : nil)!)
     }
+
+    /// Explicit UI-test backend for controls. Normal fixtures still reject writes.
+    private func controlResponse(_ request: URLRequest, procedure: String) throws -> Data? {
+        guard ["controls.list", "controls.toggle", "controls.setLampBrightness", "climate.get", "climate.setTarget"].contains(procedure) else { return nil }
+        let isClimate = procedure.hasPrefix("climate.")
+        let file = isClimate ? (climateOff ? "climate/off.json" : "climate/cool.json") : "all-on.json"
+        let initial = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent(file))) as! [String: Any]
+        var envelope = (isClimate ? climateState : controlState) ?? initial
+        var result = envelope["result"] as! [String: Any]
+        var state = result["data"] as! [String: Any]
+        if let body = request.httpBody {
+            let input = try JSONSerialization.jsonObject(with: body, options: .fragmentsAllowed)
+            if procedure == "controls.toggle", let input = input as? [String: Any],
+               let key = input["key"] as? String, let on = input["on"] as? Bool {
+                var group = state[key] as! [String: Any]
+                group["on"] = on
+                if key == "fan" { group["sub"] = on ? "On" : climateOff ? "Off" : "Auto" }
+                state[key] = group
+            } else if procedure == "controls.setLampBrightness", let input = input as? [String: Int] {
+                var lamps = state["lamps"] as! [String: Any]
+                lamps["brightness"] = input["pct"]
+                state["lamps"] = lamps
+            } else if procedure == "climate.setTarget", let target = input as? Int {
+                state["target"] = target
+            }
+        }
+        result["data"] = state
+        envelope["result"] = result
+        if isClimate { climateState = envelope } else { controlState = envelope }
+        return try JSONSerialization.data(withJSONObject: envelope)
+    }
+
 }
 @MainActor final class HybridRemindersFixture: RemindersServing {
     let unavailable: Bool

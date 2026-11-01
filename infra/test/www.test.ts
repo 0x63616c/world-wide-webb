@@ -11,9 +11,11 @@ describe("www consolidation", () => {
     const workflow = parse(
       readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8"),
     );
-    const deploy = workflow.jobs["deploy-home-server"].steps.find((step: { run?: string }) =>
-      step.run?.includes('pulumi up --yes --stack "$STACK"'),
-    ).run as string;
+    const deployStep = workflow.jobs["deploy-home-server"].steps.find((step: { run?: string }) =>
+      step.run?.includes('bash ../scripts/deploy-www.sh "$STACK"'),
+    );
+    expect(deployStep).toBeDefined();
+    const deploy = readFileSync(new URL("../../scripts/deploy-www.sh", import.meta.url), "utf8");
     const patch = deploy.match(
       /kubectl -n control-center patch deployment api --type=merge \\\n\s+-p '([^']+)'/,
     );
@@ -21,8 +23,11 @@ describe("www consolidation", () => {
     expect(JSON.parse(patch?.[1] ?? "{}")).toEqual({
       spec: { strategy: { type: "Recreate", rollingUpdate: null } },
     });
-    expect(patch?.index).toBeLessThan(deploy.indexOf("scale deployment worker"));
-    expect(deploy.indexOf("scale deployment worker")).toBeLessThan(deploy.indexOf("pulumi up"));
+    const preview = deploy.indexOf('pulumi preview --stack "$stack"');
+    const stopWorker = deploy.indexOf("scale deployment worker --replicas=0");
+    expect(patch?.index).toBeLessThan(preview);
+    expect(preview).toBeLessThan(stopWorker);
+    expect(stopWorker).toBeLessThan(deploy.indexOf('pulumi up --yes --stack "$stack"'));
   });
   it("keeps old deployments and routes existing origins to one process", () => {
     const specs = serviceSpecs({ ...opts, imageDigests: { "control-center-www": digest } });

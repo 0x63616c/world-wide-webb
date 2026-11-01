@@ -6,11 +6,19 @@ import XCTest
 private actor FanProviderTransport: PanelTransport {
     var responses: [String]
     private(set) var requests: [URLRequest] = []
-    init(_ responses: [String]) { self.responses = responses }
+    private let blockedRequest: Int?
+    private var continuation: CheckedContinuation<Void, Never>?
+    init(_ responses: [String], blockedRequest: Int? = nil) {
+        self.responses = responses
+        self.blockedRequest = blockedRequest
+    }
+    func release() { continuation?.resume(); continuation = nil }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !responses.isEmpty else { throw URLError(.notConnectedToInternet) }
-        return (Data(responses.removeFirst().utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        let response = responses.removeFirst()
+        if requests.count == blockedRequest { await withCheckedContinuation { continuation = $0 } }
+        return (Data(response.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
     }
 }
 
@@ -64,8 +72,69 @@ private actor FanProviderTransport: PanelTransport {
         XCTAssertEqual(live.fanOn, false)
         XCTAssertEqual(live.fanLabel, "Off")
         XCTAssertTrue(live.pending.isEmpty)
-        guard case .unavailable = live.availability else { return XCTFail("Expected unavailable") }
+        XCTAssertEqual(live.availability, .live)
+        XCTAssertEqual(live.errorMessage, "Couldn’t change the fan. Try again.")
     }
+    private func waitFor(_ condition: () async -> Bool) async throws {
+        for _ in 0..<200 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Timed out waiting for fan command")
+    }
+
+    func testSelectionIsOptimisticAndQueuedWritesKeepLatestIntent() async throws {
+        let transport = FanProviderTransport([response(true, "On"), response(false, "Auto"), response(true, "On")], blockedRequest: 2)
+        let live = provider(transport)
+        await live.refresh()
+        live.setOn(false)
+        XCTAssertEqual(live.fanOn, false)
+        XCTAssertEqual(live.fanLabel, "Auto")
+        XCTAssertEqual(live.pending, ["fan"])
+        try await waitFor { await transport.requests.count == 2 }
+        live.setOn(true)
+        XCTAssertEqual(live.fanOn, true)
+        await transport.release()
+        try await waitFor { await transport.requests.count == 3 && live.pending.isEmpty }
+        XCTAssertEqual(live.fanLabel, "On")
+        let requests = await transport.requests
+        for (index, on) in [(1, false), (2, true)] {
+            let body = try XCTUnwrap(requests[index].httpBody)
+            XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["key": "fan", "on": on] as NSDictionary)
+        }
+    }
+
+    func testPollStartedBeforeSelectionCannotUndoIt() async throws {
+        let transport = FanProviderTransport([response(true, "On"), response(true, "On"), response(false, "Auto")], blockedRequest: 2)
+        let live = provider(transport)
+        await live.refresh()
+        let poll = Task { await live.refresh() }
+        try await waitFor { await transport.requests.count == 2 }
+        live.setOn(false)
+        try await waitFor { await transport.requests.count == 3 && live.pending.isEmpty }
+        await transport.release()
+        await poll.value
+        XCTAssertEqual(live.fanOn, false)
+        XCTAssertEqual(live.fanLabel, "Auto")
+    }
+
+    func testFailedSelectionRollsBackAndCanRetry() async throws {
+        let transport = FanProviderTransport([response(true, "On")])
+        let live = provider(transport)
+        await live.refresh()
+        live.setOn(false)
+        XCTAssertEqual(live.fanOn, false)
+        try await waitFor { live.errorMessage != nil }
+        XCTAssertEqual(live.fanOn, true)
+        XCTAssertEqual(live.fanLabel, "On")
+        XCTAssertTrue(live.pending.isEmpty)
+        XCTAssertEqual(live.availability, .live)
+        live.setOn(false)
+        XCTAssertNil(live.errorMessage)
+        try await waitFor { await transport.requests.count == 3 && live.errorMessage != nil }
+        XCTAssertEqual(live.fanOn, true)
+    }
+
     func testMockOffLabelAndToggle() async {
         var climate = ClimateState(); climate.mode = .off
         let mock = MockFanProvider(climate: climate)

@@ -1319,3 +1319,28 @@ launch check. It captures before/after, expanded, cleared, restored and deep-lin
 screens at 1366×1024. UI fixture launches isolate their cache from production:
 `-notificationPersistentCache` enables it; `-notificationResetCache` resets only
 the synthetic fixture cache. Normal fixture launches remain memory-only.
+
+
+## Grid controls (WWW-81)
+
+The Fan segments and glyph send absolute fan intent through `LiveFanProvider`
+and PanelKit's `FanAPI.toggle(on:)` to `controls.toggle` with `{key: "fan", on}`.
+This is the web Controls path: it updates the thermostat device-state row's
+`desired.fanMode`, and the climate enforcer calls Home Assistant's
+`climate.set_fan_mode` on the configured `CLIMATE_ENTITY_ID` (default
+`climate.home`). No `fan.*` entity, `fan.turn_off`, or preset service is involved.
+On forces circulation; Off and Auto both release it with `fan_mode: "auto"`.
+The returned label is Auto while HVAC is enabled and Off while HVAC is off.
+Selecting Off does not disable heating or cooling, matching the web switch.
+
+Fan commands update immediately, serialize writes, ignore stale reads, and roll
+back to the last acknowledgement on failure. Failures use the shared notification
+banner and leave controls available for retry. Grid disclosure is a background
+button behind the content; inline buttons and the lamp brightness slider have
+independent hit regions. Each visible grid card supplies the source for its
+full-screen zoom, and the destination fills its presentation container.
+
+`PanelUITests/GridInteractionTests` covers the segments, rollback banner,
+Lights, brightness, temperature stepping, and repeated centered full-screen Fan
+presentation. The unsigned Panel smoke workflow runs this suite and retains its
+XCTest screenshots alongside the existing Home launch evidence.

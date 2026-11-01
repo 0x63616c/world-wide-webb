@@ -136,6 +136,7 @@ jobs:
             -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
             -only-testing:PanelUITests/NotificationHistoryTests \
             -only-testing:PanelUITests/UpdateReadyBannerTests \
+            -only-testing:PanelUITests/GridInteractionTests \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
       - name: Assert Panel launches into HomeView
@@ -152,6 +153,7 @@ jobs:
             -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
             -only-testing:PanelUITests/NotificationHistoryTests \
             -only-testing:PanelUITests/UpdateReadyBannerTests \
+            -only-testing:PanelUITests/GridInteractionTests \
             -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-test.log"
 

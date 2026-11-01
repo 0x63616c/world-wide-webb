@@ -75,7 +75,8 @@ struct PanelRoot: View {
                 alarmScenario: ringing ? "ringing" : "scheduled",
                 walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"),
                 sonosPlayback: ProcessInfo.processInfo.arguments.contains("-hybridSonosPlayback"),
-                climateOff: ProcessInfo.processInfo.arguments.contains("-hybridClimateOff"))
+                climateOff: ProcessInfo.processInfo.arguments.contains("-hybridClimateOff"),
+                controlWrites: ProcessInfo.processInfo.arguments.contains("-hybridControlWrites"))
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
                     accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
@@ -204,6 +205,12 @@ struct PanelRoot: View {
         }
         .overlay { statusOverlays }
         .modifier(NotificationHistoryAccess())
+        .onChange(of: store.fanProvider.errorRevision) { _, _ in
+            if let message = store.fanProvider.errorMessage {
+                notifications.post(sourceModule: "fan", title: "Fan action failed", body: message,
+                    deepLink: "module/fan", priority: .high, dedupeKey: "fan-command-error")
+            }
+        }
         .onChange(of: store.alarmsProvider.errorMessage) { _, message in
             if let message {
                 notifications.post(sourceModule: "alarms", title: "Alarm action failed", body: message,

@@ -119,6 +119,7 @@ jobs:
             # The vault feeds workload Secrets via `pulumi up`, so a vault-only
             # change (a new or rotated key) must redeploy too.
             infra:
+              - 'scripts/deploy-www.sh'
               - 'infra/**'
               - 'secrets/vault.yaml'
             # infra/cloudflare (ticket #52): the Cloudflare edge project (Access
@@ -180,6 +181,8 @@ jobs:
         # PATH, not by filter name, since `any_app` legitimately covers several
         # trees. Fast (grep/awk), sibling of the build matrix guard below.
         run: bash scripts/test-deploy-gate.sh
+      - name: Monolith rollout scenarios
+        run: bash scripts/test-deploy-www.sh
       - name: Build matrix guard
         # Asserts every product image builds on a NATIVE amd64 runner and that
         # no arm64 leg or QEMU emulation creeps back in. The home-server Talos
@@ -563,17 +566,7 @@ jobs:
             dig=$(echo "$DIGEST_MAP" | jq -r --arg s "$svc" '.[$s]')
             pulumi config set --path "wwwinfra:imageDigests.$svc" "$dig" --stack "$STACK"
           done
-          # WWW-84: clear the API server's defaulted rollingUpdate atomically
-          # with the switch to Recreate. Pulumi's null input does not remove it
-          # from the live Deployment, so even its preview otherwise fails.
-          # This changes no pod template and is safe to repeat on retries.
-          kubectl -n control-center patch deployment api --type=merge \
-            -p '{"spec":{"strategy":{"type":"Recreate","rollingUpdate":null}}}'
-          # The old worker must have EXITED before www can start enforcers.
-          # This also handles retries after a partially completed first deploy.
-          kubectl -n control-center scale deployment worker --replicas=0
-          kubectl -n control-center wait --for=delete pod -l app=worker --timeout=120s
-          pulumi up --yes --stack "$STACK"
+          bash ../scripts/deploy-www.sh "$STACK"
 
   # infra/cloudflare (ticket #52): a separate Pulumi project from the k8s stack
   # above — no LAN/tailnet dependency at all, it only talks to the Cloudflare

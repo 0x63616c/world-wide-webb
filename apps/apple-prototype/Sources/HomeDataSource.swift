@@ -260,6 +260,7 @@ struct SoundRoom: Identifiable {
     var displayVolume: Int { baseline.map { $0 > 0 ? Int((Double(rawVolume) / Double($0) * 100).rounded()) : rawVolume } ?? rawVolume }
 }
 enum HomeCommand {
+    case fan(Bool)
     case toggle(Accessory), brightness(Int), kelvin(Int), scene(String), color(Int, String?), party(PartySpeed)
     case mode(ClimateMode), target(Int), low(Int), high(Int), shiftRange(Int)
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
@@ -373,6 +374,7 @@ extension HomeDataSource {
     }
     func send(_ command: HomeCommand) {
         switch command {
+        case .fan(let on): climate.fanOn = on; markPending("fan")
         case .toggle(let key):
             if key == .fan { climate.fanOn.toggle(); markPending("fan"); return }
             let on = !lamps.isOn(key)
