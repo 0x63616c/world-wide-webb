@@ -19,37 +19,88 @@ import PanelKit
     private(set) var pending: Set<String> = []
     private(set) var availability: LiveAvailability = .loading
     @ObservationIgnored private let api: FanAPI
-    @ObservationIgnored private var busy = false
+    private(set) var errorMessage: String?
+    private(set) var errorRevision = 0
+    @ObservationIgnored private var refreshing = false
+    @ObservationIgnored private var revision = 0
+    @ObservationIgnored private var queue: [(revision: Int, on: Bool)] = []
+    @ObservationIgnored private var mutation: Task<Void, Never>?
+    @ObservationIgnored private var acknowledged: FanSnapshot?
+    @ObservationIgnored private var runID: UUID?
 
     init(api: FanAPI) { self.api = api }
+    deinit { mutation?.cancel() }
 
     func refresh() async {
-        guard !busy else { return }
-        busy = true
-        defer { busy = false }
+        guard !refreshing, mutation == nil else { return }
+        refreshing = true
+        let startedAt = revision
+        defer { refreshing = false }
         do {
             let snapshot = try await api.list()
-            try Task.checkCancellation()
-            accept(snapshot)
-        } catch { fail(error) }
-    }
-
-    /// Serialize refreshes and mutations so a stale poll cannot overwrite a toggle.
-    /// Wait for acknowledgement instead of inventing a climate mode or fan label.
-    func toggle() async {
-        guard !busy, let fanOn else { return }
-        busy = true
-        let previousPending = pending
-        pending.insert("fan")
-        defer { busy = false }
-        do {
-            let snapshot = try await api.toggle(on: !fanOn)
-            try Task.checkCancellation()
+            guard !Task.isCancelled, revision == startedAt else { return }
+            acknowledged = snapshot
             accept(snapshot)
         } catch {
-            pending = previousPending
+            guard !Task.isCancelled, revision == startedAt else { return }
             fail(error)
         }
+    }
+
+    /// Select an absolute intent. Serialize writes, but update immediately, including
+    /// when a poll is in flight. Old responses cannot replace a newer selection.
+    func setOn(_ on: Bool) {
+        guard fanOn != nil else { return }
+        revision += 1
+        errorMessage = nil
+        fanOn = on
+        fanLabel = on ? "On" : (fanLabel == "Off" ? "Off" : "Auto")
+        pending.insert("fan")
+        queue.append((revision, on))
+        guard mutation == nil else { return }
+        let id = UUID()
+        runID = id
+        mutation = Task { [weak self] in
+            guard let self else { return }
+            await self.drain(id: id)
+        }
+    }
+
+    func toggle() async {
+        guard let fanOn else { return }
+        setOn(!fanOn)
+        await mutation?.value
+    }
+
+    private func drain(id: UUID) async {
+        defer { if runID == id { mutation = nil } }
+        while !Task.isCancelled && !queue.isEmpty {
+            let command = queue.removeFirst()
+            do {
+                let snapshot = try await api.toggle(on: command.on)
+                try Task.checkCancellation()
+                acknowledged = snapshot
+                if revision == command.revision { accept(snapshot) }
+            } catch {
+                guard !Task.isCancelled else { return }
+                if revision == command.revision, let acknowledged { accept(acknowledged) }
+                if !(error is CancellationError) {
+                    // Keep the restored controls live so the user can retry. Never
+                    // expose server errors, which can include runtime credentials.
+                    errorMessage = "Couldn’t change the fan. Try again."
+                    errorRevision += 1
+                }
+            }
+        }
+    }
+
+    func stop() {
+        revision += 1
+        runID = nil
+        mutation?.cancel()
+        mutation = nil
+        queue.removeAll()
+        if let acknowledged { accept(acknowledged) }
     }
 
     /// Apply only the fan field; target, mode, range and ambient belong to climate.

@@ -39,7 +39,6 @@ import CryptoKit
     var cameras: any CamerasProvider { camerasProvider }
     var media: any MediaProvider { mediaProvider }
     var walks: any WalkProvider { walkProvider }
-    @ObservationIgnored private var fanMutation: Task<Void, Never>?
     @ObservationIgnored private var walkRunID: UUID?
 
     init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
@@ -159,11 +158,9 @@ import CryptoKit
         case .saveAlarm, .deleteAlarm, .enableAlarm, .snoozeAlarm, .stopAlarm:
             if hasLiveData(for: .alarms) { alarmsProvider.send(command) }
         case .toggle(.fan):
-            guard hasLiveData(for: .fan), fanMutation == nil else { return }
-            fanMutation = Task { [weak self] in
-                await self?.fanProvider.toggle()
-                self?.fanMutation = nil
-            }
+            if hasLiveData(for: .fan), let on = fanProvider.fanOn { fanProvider.setOn(!on) }
+        case .fan(let on):
+            if hasLiveData(for: .fan) { fanProvider.setOn(on) }
         case .toggle, .brightness, .kelvin, .scene, .color, .party:
             if hasLiveData(for: .lights) { lightsProvider.send(command) }
         case .mode, .target, .low, .high, .shiftRange:
@@ -262,7 +259,6 @@ import CryptoKit
         sonosProvider.stop()
         calendarProvider.stop()
         wifiProvider.stop()
-        fanMutation?.cancel()
-        fanMutation = nil
+        fanProvider.stop()
     }
 }

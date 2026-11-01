@@ -124,7 +124,7 @@ struct PanelHome: View {
         case .fan:
             return AnyView(GridFan(v: span.width > span.height ? "C" : span.height > span.width ? "D" : "A", store: store,
                 fanIsOn: store.fanProvider.fanOn, fanLabel: store.fanProvider.fanLabel, showsInlineToggle: true)
-                .contentShape(.rect).onTapGesture(perform: open))
+                .modifier(GridCardInteraction(label: "Open Fan", open: open)))
         case .sound:
             return AnyView(PanelSoundTile(store: store, open: open, inset: HomeGrid.inset))
         case .clock:
@@ -192,11 +192,12 @@ struct PanelHomeDestination: View {
                         .overlay {
                             if awaitingWifi { ProgressView("Refreshing Wi-Fi") }
                         }
-                }
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Color.clear.task { close(); classic() }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black).preferredColorScheme(.dark).foregroundStyle(.white)
         .statusBarHidden().persistentSystemOverlays(.hidden)
     }
