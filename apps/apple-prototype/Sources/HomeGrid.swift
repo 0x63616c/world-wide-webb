@@ -174,8 +174,7 @@ struct GridCardView: View {
     var body: some View {
         content
             .frame(width: size.width, height: size.height)
-            .contentShape(.rect)
-            .onTapGesture(perform: open)
+            .modifier(GridCardInteraction(label: "Open \(card.title)", open: open))
             .foregroundStyle(on ? .black : .white)
             .modifier(GridMaterial(on: on, round: round, image: image))
     }
@@ -196,6 +195,21 @@ struct GridCardView: View {
         case .wifi: GridWifi(v: v, store: store)
         case .dogwalk: GridDogWalk(v: v, store: store, open: open)
         case .media: GridMedia(v: v, store: store)
+        }
+    }
+}
+
+/// A sibling behind the content owns disclosure; controls never inherit a card gesture.
+struct GridCardInteraction: ViewModifier {
+    let label: String
+    let open: () -> Void
+    func body(content: Content) -> some View {
+        content.background {
+            Button(action: open) {
+                Color.clear.contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(label)
         }
     }
 }
@@ -221,6 +235,8 @@ private func roundButton(_ symbol: String, _ d: CGFloat, action: @escaping () ->
         Image(systemName: symbol).font(.system(size: d * 0.4, weight: .semibold))
             .frame(width: d, height: d).background(.white.opacity(0.16), in: .circle).contentShape(.circle)
     }.buttonStyle(.plain)
+        .accessibilityLabel(symbol == "plus" ? "Increase temperature" : "Decrease temperature")
+        .accessibilityIdentifier("grid-climate-\(symbol)")
 }
 private struct Bar: View {
     let fraction: Double
@@ -297,13 +313,20 @@ private struct Segments: View {
     let items: [String]
     let selected: String
     var vertical = false
+    let select: (String) -> Void
     var body: some View {
         let layout = vertical ? AnyLayout(VStackLayout(spacing: 6)) : AnyLayout(HStackLayout(spacing: 6))
         layout {
             ForEach(items, id: \.self) { item in
-                Text(item).font(.system(size: 17, weight: .semibold))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(item == selected ? AnyShapeStyle(.white.opacity(0.28)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 12))
+                Button { select(item) } label: {
+                    Text(item).font(.system(size: 17, weight: .semibold))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .contentShape(.rect)
+                        .background(item == selected ? AnyShapeStyle(.white.opacity(0.28)) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 12))
+                }.buttonStyle(.plain)
+                    .accessibilityLabel("Fan \(item)")
+                    .accessibilityValue(item == selected ? "Selected" : "")
+                    .accessibilityIdentifier("fan-mode-\(item.lowercased())")
             }
         }.padding(6).background(.white.opacity(0.1), in: .rect(cornerRadius: 16))
     }
@@ -393,6 +416,12 @@ private struct GridLamps: View {
     let size: CGSize
     private var l: LampState { store.lamps }
     private var pct: Double { Double(l.brightness) / 100 }
+    private var brightnessSlider: some View {
+        Slider(value: Binding(get: { Double(l.brightness) }, set: { store.send(.brightness(Int($0.rounded()))) }), in: 0...100)
+            .tint(warm).disabled(!l.anyOn)
+            .accessibilityLabel("Lamp brightness").accessibilityIdentifier("grid-lamp-brightness")
+    }
+
     var body: some View {
         switch v {
         case "A":
@@ -400,7 +429,7 @@ private struct GridLamps: View {
                 HStack(alignment: .top) { Cap("Lamps", 22, .semibold); Spacer(); Cap("\(l.onCount()) of 8 on", 17).opacity(0.65) }
                 Spacer(minLength: 0)
                 Cap("\(l.brightness)%", 48, .medium, design: .rounded)
-                Bar(fraction: pct, height: 12).padding(.top, 16)
+                brightnessSlider.padding(.top, 16)
             }.padding(HomeGrid.inset)
         case "B":
             VStack(alignment: .leading, spacing: 0) {
@@ -419,7 +448,7 @@ private struct GridLamps: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Bar(fraction: pct, height: 12)
+                brightnessSlider
             }.padding(HomeGrid.inset)
         case "C":
             Corners {
@@ -437,7 +466,7 @@ private struct GridLamps: View {
                     Cap("\(l.onCount()) of 8 on", 17).opacity(0.65).padding(.top, 12)
                     Spacer(minLength: 0)
                     Cap("\(l.brightness)%", 48, .medium, design: .rounded)
-                    Cap("Drag to dim", 15).opacity(0.65).padding(.top, 12)
+                    brightnessSlider.padding(.top, 12)
                 }.padding(HomeGrid.inset).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .clipShape(.rect(cornerRadius: HomeGrid.radius))
@@ -730,6 +759,9 @@ struct GridFan: View {
     var showsInlineToggle = false
     private var on: Bool { fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off) }
     private var label: String { fanLabel ?? store.climate.fanLabel }
+    // Web parity: Off releases forced circulation (fan_mode=auto); HVAC may
+    // still run its blower. The reported label distinguishes Auto from HVAC Off.
+    private func select(_ value: String) { store.send(.fan(value == "On")) }
     /// The glyph toggles the fan in place; the rest of the card opens the controller.
     private func toggle(_ size: CGFloat) -> some View {
         Button { store.send(.toggle(.fan)) } label: {
@@ -756,13 +788,13 @@ struct GridFan: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) { Cap("Fan", 22, .semibold); Spacer(); toggle(26) }
                 Spacer(minLength: 0)
-                Segments(items: ["Off", "Auto", "On"], selected: label).frame(height: 60)
+                Segments(items: ["Off", "Auto", "On"], selected: label, select: select).frame(height: 60)
             }.padding(HomeGrid.inset)
         default:
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) { Cap("Fan", 20, .semibold); Spacer(); toggle(24) }
                 Spacer(minLength: 0)
-                Segments(items: ["On", "Auto", "Off"], selected: label, vertical: true).frame(height: 228)
+                Segments(items: ["On", "Auto", "Off"], selected: label, vertical: true, select: select).frame(height: 228)
             }.padding(HomeGrid.inset)
         }
     }
@@ -909,6 +941,8 @@ struct GridHomeFace: View {
     let size: CGSize
     var page = 0
     let open: (HomeTile) -> Void
+    var zoom: Namespace.ID? = nil
+    @Namespace private var standaloneZoom
     @Environment(\.homeIntegration) private var integration
     @State private var picker = HomeGrid.args.contains("-showWallpaperPicker")
     var body: some View {
@@ -934,6 +968,7 @@ struct GridHomeFace: View {
                         GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) })
                     }
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("tile-\(t.id)")
+                    .matchedTransitionSource(id: "\(page + 1)-\(t.id)", in: zoom ?? standaloneZoom)
                     .position(x: f.midX, y: f.midY)
             }
         }.frame(width: size.width, height: size.height)

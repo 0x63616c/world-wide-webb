@@ -108,8 +108,8 @@ struct HomeView: View {
                 .environment(\.colorScheme, .dark)
                 #if os(iOS)
                 .fullScreenCover(item: $selected) { tile in
-                    if reduceMotion { destination(tile) }
-                    else { destination(tile).navigationTransition(.zoom(sourceID: "\(facePage)-\(tile == .alarm ? HomeTile.clock.id : tile.id)", in: zoom)) }
+                    if reduceMotion { destination(tile).frame(maxWidth: .infinity, maxHeight: .infinity) }
+                    else { destination(tile).frame(maxWidth: .infinity, maxHeight: .infinity).navigationTransition(.zoom(sourceID: "\(facePage)-\(tile == .alarm ? HomeTile.clock.id : tile.id)", in: zoom)) }
                 }
                 #else
                 .onExitCommand { selected = nil }
@@ -264,7 +264,7 @@ struct HomeFaceGrid: View {
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
     var body: some View {
-        if HomeGrid.enabled { GridHomeFace(store: store, size: size, page: controls ? 1 : 0, open: open) } else { legacy }
+        if HomeGrid.enabled { GridHomeFace(store: store, size: size, page: controls ? 1 : 0, open: open, zoom: zoom) } else { legacy }
     }
     private var legacy: some View {
         let layout = HomeFaceLayout.panel(in: size, controls: controls)
