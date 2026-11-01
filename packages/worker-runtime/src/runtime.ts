@@ -68,6 +68,12 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
   }));
 
   let running = false;
+  const inFlight = new Set<Promise<void>>();
+  const launch = (state: WorkerState): void => {
+    const task = cycle(state);
+    inFlight.add(task);
+    void task.finally(() => inFlight.delete(task));
+  };
 
   // One cycle: run(), record stats, then reschedule , but only if still running.
   // A failure is isolated (caught, recorded) so the loop and siblings continue.
@@ -148,10 +154,11 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
     // Re-check after the await: stop() may have fired during the cycle, in which
     // case we must NOT schedule another tick.
     if (!running) return;
-    state.timer = setTimeout(() => void cycle(state), state.worker.intervalMs);
+    state.timer = setTimeout(() => launch(state), state.worker.intervalMs);
   };
 
   return {
+    snapshot: () => states.map(({ stats }) => ({ ...stats })),
     start() {
       if (running) return;
       running = true;
@@ -166,14 +173,14 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
           "worker registered",
         );
         if (state.worker.runOnStart) {
-          void cycle(state);
+          launch(state);
         } else {
-          state.timer = setTimeout(() => void cycle(state), state.worker.intervalMs);
+          state.timer = setTimeout(() => launch(state), state.worker.intervalMs);
         }
       }
     },
 
-    stop() {
+    async stop() {
       running = false;
       // Log which workers had a pending timer so operators can see what was
       // pre-empted by the shutdown signal.
@@ -185,6 +192,7 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
           state.timer = null;
         }
       }
+      await Promise.all(inFlight);
       // Final stats snapshot per worker at shutdown for post-mortem.
       for (const state of states) {
         logger.info(

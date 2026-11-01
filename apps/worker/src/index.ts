@@ -62,12 +62,12 @@ runtime.start();
 // health state is captured before the process exits.
 let shuttingDown = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => {
+  process.on(signal, async () => {
     // A second signal during the shutdown window must not restart the sequence.
     if (shuttingDown) return;
     shuttingDown = true;
     log.info({ signal }, "worker stopping");
-    runtime.stop();
+    await runtime.stop();
     log.info({ signal }, "worker stopped");
     process.exit(0);
   });
