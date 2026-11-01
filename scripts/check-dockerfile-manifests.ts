@@ -44,6 +44,7 @@ if (workspaceManifests.length === 0) {
 // before the frozen install.
 
 const FULL_INSTALL_DOCKERFILES = [
+  "Dockerfile",
   "apps/manage/Dockerfile",
   "apps/api/Dockerfile",
   "apps/worker/Dockerfile",

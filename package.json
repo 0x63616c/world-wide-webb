@@ -40,7 +40,9 @@
     "knip:fix": "bunx knip --fix --allow-remove-files",
     "typecheck": "bun run --filter '*' typecheck && bun run typecheck:config",
     "typecheck:config": "tsc -p tsconfig.config.json --noEmit",
-    "prepare": "bunx lefthook install --force"
+    "prepare": "bunx lefthook install --force",
+    "www": "bun run --cwd apps/api src/www.ts",
+    "build:www": "bun run --cwd apps/web build && bun run --cwd apps/manage build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",

@@ -1,0 +1,306 @@
+// BOOT FIRST: boot-env hydrates /run/secrets/* into process.env, derives
+// DATABASE_URL, and fail-fast validates required prod env — all at module-eval.
+// It MUST evaluate before any @features/* import below: feature deps/db modules
+// construct pools + HA clients at module top, so the first lazy config read
+// happens during the static-import phase. Biome's organizeImports keeps this
+// bare side-effect import pinned at top as a leading barrier. See design spec §5.6.
+import "./boot-env";
+import { stat } from "node:fs/promises";
+import { dirname } from "node:path";
+import { GENERATED_ROUTES } from "@features/_generated/http.gen";
+import { backfillWakePhotoIndex, defaultWakePhotoRoot } from "@features/wakes/photos";
+import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { withMediaIo } from "@www/core";
+import { createLogger, installFatalHandlers } from "@www/logger";
+import { ENV as config } from "@www/platform/env";
+import { initMetrics, observeHttpRequest, startMetricsServer } from "@www/platform/metrics";
+import type { WorkerRuntime } from "@www/worker-runtime";
+import { db } from "./db/index";
+import { runMigrations } from "./db/migrate";
+import { findRoute } from "./http/route-table";
+import { boundedRequest, serveStaticSite } from "./http/static-site";
+import { migratePhotoPaths } from "./startup/photo-path-migration";
+import { createContext } from "./trpc/context";
+import { appRouter } from "./trpc/routers/index";
+
+export async function startServer(
+  options: {
+    service?: "api" | "www";
+    cycles?: (log: ReturnType<typeof createLogger>) => WorkerRuntime | undefined;
+    staticRoot?: string;
+  } = {},
+) {
+  const service = options.service ?? "api";
+  // Root logger, created ONCE at process startup, bound to every line in this
+  // process. Domain services use getLogger() (see docs/logging.md §2).
+  const log = createLogger({ service });
+
+  // An escaping async throw or an untracked rejected promise otherwise kills
+  // this process with zero structured output; see docs/logging.md.
+  installFatalHandlers(log);
+
+  // Prometheus registry for this process. Called before anything else observes,
+  // so `service="api"` is stamped on every series including the process/runtime
+  // defaults. The listener itself starts at the bottom, after Bun.serve.
+  initMetrics({ service });
+
+  // Deploys reach this box automatically: push to main -> CI builds the image ->
+  // the cluster rolls the service to the new digest (www-a8p).
+  //
+  // Apply pending SQL migrations before accepting traffic. Uses drizzle-orm's
+  // runtime migrator (not drizzle-kit), so the production image ships no build
+  // toolchain. runMigrations() logs start/done internally; we only need to
+  // surface the error here (it rethrows, so Swarm crash-backoff retries until
+  // postgres is reachable and migrated).
+  try {
+    await runMigrations();
+  } catch (err) {
+    log.error({ err }, "migrations failed");
+    throw err;
+  }
+
+  // Boot-time media upkeep runs in the BACKGROUND, behind a bounded probe of the
+  // media mount (#793). It used to be awaited before Bun.serve, so a dead NAS
+  // (/app/media is an NFS mount) kept the api from ever listening: startup probe
+  // failures, then 502s. The api's core job (lights, controls, settings) needs
+  // only Postgres, so it must come up whether or not the NAS answers.
+  //
+  // Order inside the task still matters: the path migration moves legacy
+  // YYYY/MM/DD names onto flat ISO names, and the backfill only recognises the
+  // flat scheme, so the backfill runs after it. Both are idempotent no-ops once
+  // done, and the next boot retries a skipped or failed run.
+  async function runBootMediaTasks(): Promise<void> {
+    try {
+      await withMediaIo("boot probe", () => stat(dirname(defaultWakePhotoRoot())));
+    } catch (err) {
+      log.warn({ err }, "media storage unavailable at boot; skipping photo migration and backfill");
+      return;
+    }
+
+    try {
+      const migrated = await migratePhotoPaths(db);
+      if (migrated.wake + migrated.booth + migrated.orphans > 0) {
+        log.info(migrated, "migrated photo paths to flat ISO names");
+      }
+    } catch (err) {
+      // Non-fatal: legacy paths keep serving (the serve route is shape-agnostic),
+      // and the next boot retries.
+      log.error({ err }, "photo path migration failed");
+    }
+
+    // Index any wake photos that predate the wake_photo table (or that a failed
+    // row insert left unindexed).
+    try {
+      const backfilled = await backfillWakePhotoIndex(db);
+      if (backfilled.inserted > 0) {
+        log.info(backfilled, "backfilled wake photo index");
+      }
+    } catch (err) {
+      // Non-fatal: the api can serve without a complete photo index; the next
+      // boot retries.
+      log.error({ err }, "wake photo backfill failed");
+    }
+  }
+  void runBootMediaTasks();
+  const runtime = options.cycles?.(log);
+  runtime?.start();
+  let shuttingDown = false;
+
+  // CORS for the Vite dev server (web on :4200). In production the api serves the
+  // built web bundle from the same origin, so these are dev conveniences.
+  const CORS_HEADERS: Record<string, string> = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+
+  /**
+   * The bounded `route` label for a request. Every value here is declared in
+   * code — a generated route-table path, `/trpc`, `/up`, or the `other` bucket —
+   * so no photo id, wake id or query string can ever become a metric series.
+   * Deliberately NOT `url.pathname`: the prefix routes (photo bytes, camera
+   * streams) carry ids, and one series per photo would be unbounded.
+   */
+  function routeLabel(method: string, pathname: string): string {
+    if (pathname.startsWith("/trpc")) return "/trpc";
+    if (pathname === "/up") return "/up";
+    if (pathname === "/healthz") return "/healthz";
+    return findRoute(GENERATED_ROUTES, method, pathname)?.path ?? "other";
+  }
+
+  // Routes a single request. Wrapped by fetch() below, which logs every call.
+  async function handle(req: Request, url: URL): Promise<Response> {
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
+    if (
+      options.staticRoot &&
+      url.hostname === config.MANAGE_HOST &&
+      url.pathname !== "/healthz" &&
+      url.pathname !== "/up"
+    ) {
+      return serveStaticSite(req, options.staticRoot, config.MANAGE_HOST);
+    }
+    const bounded = await boundedRequest(req);
+    if (bounded instanceof Response) return bounded;
+    req = bounded;
+
+    // Generated route table (S3 seam). Iterated before the residual hand-wired
+    // ladder; CORS is overlaid centrally here (mirrors the /trpc path below), so
+    // route handlers return bare Responses.
+    const route = findRoute(GENERATED_ROUTES, req.method, url.pathname);
+    if (route) {
+      const res = await route.handler(req, url);
+      for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
+      return res;
+    }
+
+    // Liveness/readiness target: proves the DB pool can still hand out a working
+    // connection. A wedged pool fails this, so Kubernetes restarts the pod
+    // instead of nginx returning 502s for hours.
+    if (url.pathname === "/healthz") {
+      try {
+        await db.$client.query("SELECT 1");
+        return Response.json(
+          {
+            database: "ok",
+            cycles: {
+              enabled: Boolean(runtime),
+              workers: runtime?.snapshot().map(({ lastError: _error, ...stats }) => stats) ?? [],
+            },
+            stopping: shuttingDown,
+          },
+          { status: shuttingDown ? 503 : 200, headers: CORS_HEADERS },
+        );
+      } catch (err) {
+        log.error({ err }, "healthz: database check failed");
+        return Response.json(
+          { database: "unavailable", cycles: { enabled: Boolean(runtime) } },
+          { status: 503, headers: CORS_HEADERS },
+        );
+      }
+    }
+
+    if (url.pathname === "/up") {
+      return new Response("OK", { status: 200, headers: CORS_HEADERS });
+    }
+
+    // Every remaining hand-wired route (deploy-health probe, wake-photo and
+    // photo-booth ingest + bytes) now lives in a feature `http.ts` facet and is
+    // reached through the generated route table above.
+
+    if (url.pathname.startsWith("/trpc")) {
+      const res = await fetchRequestHandler({
+        endpoint: "/trpc",
+        req,
+        router: appRouter,
+        createContext: () => createContext(),
+        onError: ({ path, error, req: errorReq }) => {
+          // Build the child logger inline, path is available here but reqId comes
+          // from the outer fetch scope, so we log with path + code directly.
+          const reqUrl = new URL(errorReq.url);
+          const reqLog = log.child({ method: errorReq.method, path: reqUrl.pathname });
+          reqLog.error({ err: error, trpcPath: path ?? "<unknown>" }, "trpc error");
+        },
+      });
+      for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
+      return res;
+    }
+
+    if (options.staticRoot) {
+      return serveStaticSite(req, options.staticRoot, config.MANAGE_HOST);
+    }
+    return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
+  }
+
+  const server = Bun.serve({
+    port: config.PORT,
+    maxRequestBodySize: 10 * 1024 * 1024,
+    async fetch(req) {
+      const url = new URL(req.url);
+      // Single chokepoint: every network request (OPTIONS, /up, /trpc, 404)
+      // routes through handle(), so logging here captures all of them with
+      // method, path, status, and wall-clock duration.
+      const startedAt = performance.now();
+      // Bind a per-request child logger with a unique request id so every log
+      // line for this request carries the same correlation fields.
+      const reqId = `req_${Math.random().toString(36).slice(2, 10)}`;
+      const reqLog = log.child({ reqId, method: req.method, path: url.pathname });
+
+      let res: Response;
+      try {
+        res = await handle(req, url);
+      } catch (err) {
+        const durationMs = +(performance.now() - startedAt).toFixed(1);
+        observeHttpRequest({
+          route: routeLabel(req.method, url.pathname),
+          method: req.method,
+          status: 500,
+          durationSeconds: durationMs / 1000,
+          failed: true,
+        });
+        reqLog.error({ err, status: 500, durationMs }, "request failed");
+        throw err;
+      }
+
+      const durationMs = +(performance.now() - startedAt).toFixed(1);
+      // Same chokepoint as the logging below, so metrics and logs can never
+      // disagree about what this process served.
+      observeHttpRequest({
+        route: routeLabel(req.method, url.pathname),
+        method: req.method,
+        status: res.status,
+        durationSeconds: durationMs / 1000,
+      });
+      // A successful OPTIONS preflight is pure transport noise (always the same
+      // 2xx) and would roughly double the info line count, so it is not logged at
+      // all rather than demoted to debug , we do not emit below info
+      // (docs/logging.md §3). A FAILING preflight is the interesting case (it
+      // breaks every subsequent request), so that one is a warn.
+      if (req.method === "OPTIONS") {
+        if (res.status >= 400) {
+          reqLog.warn({ status: res.status, durationMs }, "cors preflight rejected");
+        }
+      } else {
+        reqLog.info({ status: res.status, durationMs }, "request completed");
+      }
+      return res;
+    },
+  });
+
+  // Startup liveness line (docs/logging.md §6): "api started" with port + env
+  // is the operator's first grep after a deploy.
+  log.info(
+    {
+      port: server.port,
+      env: config.NODE_ENV,
+      database: "postgres",
+      cycles: Boolean(runtime),
+      staticRoot: options.staticRoot,
+    },
+    `${service} started`,
+  );
+
+  // Prometheus exposition on its OWN port, never on `config.PORT`. :4201 is what
+  // the Cloudflare tunnel maps the public `hooks.` host to, so a /metrics route
+  // there would publish this process's internals to the internet. This listener
+  // has no Kubernetes Service in front of it (see WorkloadSpec.scrape in
+  // infra/src/component.ts) and is therefore reachable in-cluster only.
+  startMetricsServer({ port: config.METRICS_PORT, logger: log });
+
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, async () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      log.info({ signal }, `${service} stopping`);
+      const deadline = setTimeout(() => process.exit(1), 25_000);
+      deadline.unref();
+      await Promise.all([runtime?.stop(), server.stop()]);
+      await db.$client.end();
+      log.info({ signal }, `${service} stopped`);
+      process.exit(0);
+    });
+  }
+  return server;
+}

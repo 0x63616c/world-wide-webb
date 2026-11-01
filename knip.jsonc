@@ -76,7 +76,7 @@
     "apps/api": {
       // server.ts = Docker CMD. drizzle.config.ts + the exports map
       // (., ./trpc, ./worker) are auto-detected.
-      "entry": ["src/server.ts"]
+      "entry": ["src/server.ts", "src/www.ts"]
     },
     "infra": {
       // program.ts = the Pulumi program (Pulumi.yaml `main`, run by the pulumi
