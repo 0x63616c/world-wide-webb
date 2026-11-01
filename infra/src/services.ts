@@ -54,9 +54,11 @@ const IMAGE_REPOSITORIES = {
   { product: ProductSlug; digestKey: string; repository: string }
 >;
 
-const IMAGE_DIGEST_KEYS = new Set(
-  Object.values(IMAGE_REPOSITORIES).map((image) => image.digestKey),
-);
+const WWW_DIGEST_KEY = "control-center-www";
+const IMAGE_DIGEST_KEYS = new Set([
+  ...Object.values(IMAGE_REPOSITORIES).map((image) => image.digestKey),
+  WWW_DIGEST_KEY,
+]);
 /**
  * The digest keys belonging to one product.
  *
@@ -318,7 +320,7 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
     subPath: "media",
     ...(nasEnabled ? {} : { detached: true }),
   };
-  return [
+  const specs: OwnedWorkloadSpec[] = [
     {
       logicalName: "control-center-api",
       legacyLogicalName: "api",
@@ -426,6 +428,30 @@ export function serviceSpecs(opts: ServiceSpecOptions): OwnedWorkloadSpec[] {
       // Public upstream image; no GHCR pull secret.
     },
   ];
+  // An absent www pin is the explicit legacy rollback path. Keep all original
+  // workloads and their image pins until Phase 5; do not recreate their state.
+  const wwwDigest = digests[WWW_DIGEST_KEY];
+  if (!wwwDigest) return specs;
+  if (!/^sha256:[0-9a-f]{64}$/.test(wwwDigest)) {
+    throw new Error(`imageDigests.${WWW_DIGEST_KEY} is not a sha256:<64-hex> digest`);
+  }
+  return specs.map((spec) => {
+    if (spec.name === "api")
+      return {
+        ...spec,
+        image: `${controlCenterProduct.imageRepository("www")}@${wwwDigest}`,
+        recreate: true,
+        env: { ...spec.env, WORKER_CYCLES: "on" },
+      };
+    if (spec.name === "worker") return { ...spec, replicas: 0 };
+    if (spec.name === "web" || spec.name === "manage")
+      return {
+        ...spec,
+        replicas: 0,
+        serviceTarget: { name: "api", port: 4201 },
+      };
+    return spec;
+  });
 }
 
 export interface ServicesArgs {

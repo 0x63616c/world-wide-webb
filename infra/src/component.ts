@@ -86,6 +86,9 @@ export interface WorkloadSpec {
   env?: Record<string, string>;
   command?: string[];
   ports?: PortSpec[];
+  // Preserve an existing Service's DNS/port while moving its backing process.
+  serviceTarget?: { name: string; port: number };
+  recreate?: boolean;
   // Pin the LoadBalancer Service to a fixed LAN address instead of letting the
   // allocator pick. MetalLB's pool is a small shared range, so an unpinned
   // Service silently takes whichever address is free at create time - fine
@@ -635,7 +638,7 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
       // leaving `type: Recreate` alongside a rollingUpdate stanza, which the
       // API server rejects ("may not be specified when strategy `type` is
       // 'Recreate'"). Null deletes it in the same apply.
-      ...(mountsExistingClaim(w)
+      ...(w.recreate || mountsExistingClaim(w)
         ? { strategy: { type: "Recreate" as const, rollingUpdate: null } }
         : {}),
       template: {
@@ -668,7 +671,7 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
       metadata: { name: w.name, labels },
       spec: {
         type,
-        selector: labels,
+        selector: w.serviceTarget ? { app: w.serviceTarget.name } : labels,
         // Only meaningful on a LoadBalancer; a ClusterIP Service rejects it.
         ...(type === "LoadBalancer" && w.loadBalancerIp
           ? { loadBalancerIP: w.loadBalancerIp }
@@ -676,7 +679,7 @@ export function renderWorkload(w: WorkloadSpec): RenderedWorkload {
         ports: exposed.map((p) => ({
           name: `p${p.containerPort}`,
           port: p.containerPort,
-          targetPort: p.containerPort,
+          targetPort: w.serviceTarget?.port ?? p.containerPort,
         })),
       },
     });

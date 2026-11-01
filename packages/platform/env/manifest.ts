@@ -26,6 +26,8 @@ export const ENV = defineEnv({
   // ── Infra / process ──────────────────────────────────────────────────────
   NODE_ENV: enumOf("development", "production", "test").default("development"),
   PORT: int().default(4201).forRuntime("api"),
+  WORKER_CYCLES: enumOf("on", "off").default("on").forRuntime("api"),
+  MANAGE_HOST: str().default("manage.worldwidewebb.co").forRuntime("api"),
   BUILD_HASH: str().default("dev"),
   // Prometheus exposition listener (#214). A DEDICATED port on every backend
   // runtime, never a route on the service's own port: the api's :4201 is mapped

@@ -317,7 +317,7 @@ describe("lifecycle logging", () => {
 
     rt.start();
     await tick(0);
-    rt.stop();
+    await rt.stop();
 
     const infoMessages = (log.info as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
     expect(infoMessages).toContain("worker runtime stopped");
@@ -373,5 +373,52 @@ describe("stats snapshot cadence", () => {
     rt.stop();
 
     expect((log.debug as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+  });
+});
+
+describe("shutdown and health", () => {
+  it("waits for an in-flight cycle before completing shutdown", async () => {
+    let finish!: () => void;
+    const run = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const rt = createWorkerRuntime([{ name: "alarm", intervalMs: 100, runOnStart: true, run }], {
+      logger: makeLogger(),
+    });
+    rt.start();
+    let drained = false;
+    const stopping = rt.stop().then(() => {
+      drained = true;
+    });
+    await tick(0);
+    expect(drained).toBe(false);
+    finish();
+    await stopping;
+    await tick(1000);
+    expect(drained).toBe(true);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(rt.snapshot()[0].totalRuns).toBe(1);
+  });
+
+  it("returns independent health snapshots and records recovery", async () => {
+    const run = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
+    const rt = createWorkerRuntime([{ name: "lights", intervalMs: 100, runOnStart: true, run }], {
+      logger: makeLogger(),
+    });
+    rt.start();
+    await tick(0);
+    const first = rt.snapshot();
+    expect(first[0].consecutiveFailures).toBe(1);
+    first[0].name = "changed";
+    await tick(100);
+    expect(rt.snapshot()[0]).toMatchObject({
+      name: "lights",
+      totalRuns: 2,
+      consecutiveFailures: 0,
+    });
+    await rt.stop();
   });
 });

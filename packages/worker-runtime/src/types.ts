@@ -34,5 +34,6 @@ export interface WorkerStats {
 /** Handle returned by createWorkerRuntime: lifecycle only. */
 export interface WorkerRuntime {
   start(): void;
-  stop(): void;
+  stop(): Promise<void>;
+  snapshot(): WorkerStats[];
 }
