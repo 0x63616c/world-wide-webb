@@ -12,6 +12,15 @@ run and explain than it returned. What is described below is what survived.
 
 ## Runtime shape
 
+WWW-76 consolidates production into one `www` Bun process: `apps/api/src/www.ts`
+starts the API lifecycle in `application.ts`, the generated worker cycles, and
+host-routed static builds of web and manage. `bun run build:www && bun run www`
+runs it locally. `WORKER_CYCLES=off` disables cycles. Postgres remains for this
+first slice; SQLite follows separately (ADR-0014). The legacy entrypoints and
+images below are retained for rollback until Phase 5. On Talos the process uses
+the existing `api` Deployment; the `web` and `manage` Services target its port
+4201, preserving tunnel origins and Access policies.
+
 ```text
 iPad panel / phone browser
   -> web (React board, or MobileBoard on a phone)

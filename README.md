@@ -13,9 +13,9 @@ registration (ADR-0001).
 | --- | --- |
 | `apps/web` | React board. Main route: `src/routes/index.tsx`. |
 | `apps/panel` | Expo iOS kiosk shell for the wall panel. |
-| `apps/api` | Bun + tRPC API, routers, DB schema, migrations. |
-| `apps/worker` | Interval workers for reconciliation and ingest. |
-| `apps/manage` | Static nginx bundle framing the small set of ops tools this repo doesn't own. |
+| `apps/api` | Single www process, API, routers, DB schema and migrations. |
+| `apps/worker` | Legacy worker entrypoint retained for rollback. |
+| `apps/manage` | Static management UI, served by www on the manage hostname. |
 | `features/*` | Self-contained feature Apps (tiles), glob-collected into `features/_generated/*.gen.ts` by `bun run apps:gen`. |
 | `packages/api` | Browser-safe tRPC type bridge + wire contracts. |
 | `packages/core` | Shared `device_state` store (`@www/core`). |
@@ -30,7 +30,43 @@ glossary.
 
 ## Runtime
 
-`web -> tRPC api -> domain services -> Home Assistant / Sonos / Postgres`
+`www (web + manage + API + tRPC + worker cycles) -> Home Assistant / Sonos / Postgres`
+
+Build the two static bundles once, then start the single backend process:
+
+```sh
+bun install --frozen-lockfile
+bun run build:www
+bun run www
+```
+
+Postgres must be reachable at `DATABASE_URL` (the development default is the
+Postgres service in `docker-compose.yml`). The panel is at `http://localhost:4201`.
+Manage uses the same port with hostname `manage.worldwidewebb.co`; set
+`MANAGE_HOST=localhost` to preview Manage locally. `WORKER_CYCLES=off bun run www`
+starts an HTTP-only instance; the default is `on`. Only one instance may have
+cycles enabled against a database. An instance with cycles off still serves writes.
+
+For the packaged image, with `DATABASE_URL` exported in your shell:
+
+```sh
+docker build -t www .
+docker run --rm --name www -p 4201:4201 -e DATABASE_URL -e WORKER_CYCLES=on \
+  -v www-media:/app/media -e MEDIA_STORAGE_DIR=/app/media www
+```
+
+Production also needs the existing runtime secrets (see
+`packages/platform/env/manifest.ts`), supplied through environment variables or
+read-only files at `/run/secrets/<NAME>`. Set `APP_ENV=production` to validate them.
+`/healthz` returns DB availability, whether cycles are enabled, and per-cycle
+run/failure counts. A cycle failure is reported without restarting the HTTP
+server; database failure and shutdown return 503. `/up` is simple liveness.
+Prometheus stays on the internal metrics port (9464), outside the public listener.
+
+This is the first WWW-76 slice: monolith on Postgres, still on Talos. SQLite,
+its PVC, the data-copy script, and alarm transaction changes belong to the
+follow-up PR. See [ADR-0014](docs/adr/0014-single-www-process.md) for deployment
+and rollback. No hardware move or infrastructure teardown happens here.
 
 Workers reconcile desired state and ingest background data. UI tiles read
 merged state and show skeletons on missing data instead of fake values.
