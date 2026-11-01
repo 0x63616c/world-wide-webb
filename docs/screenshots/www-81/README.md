@@ -1,27 +1,57 @@
 # WWW-81 native grid interaction evidence
 
-`before-home.png` is the retained HomeView XCTest attachment from
-[unsigned simulator run 41317393140](https://github.com/0x63616c/world-wide-webb/actions/runs/41317393140),
-source `3efac630fed62576688f85fc8e83f33e64b5886b`. Its native source tree is
-identical to WWW-81's starting commit. The 12.9-inch iPad simulator is
-1366×1024 points; XCTest exports the original PNG and orientation metadata.
-The image is preserved unchanged.
+These are original `XCUIScreen.main.screenshot()` XCTest attachments, preserved
+without cropping, resizing or pixel edits. Their orientation metadata presents
+them at 2732×2048 pixels: the wall panel's 1366×1024 points at scale 2.
+All runs use explicit synthetic fixtures through the real live providers.
 
-The baseline's Fan Off/Auto/On labels are display-only; the Lamps bar is also
-noninteractive. The new `GridInteractionTests` records Home, the fan selection,
-the failure banner, and three repeated full-screen Fan presentations as retained
-XCTest attachments. Native validation and after captures are pending.
+- `before-home.png`: [baseline run 41338215221](https://github.com/0x63616c/world-wide-webb/actions/runs/41338215221),
+  source `cb26d3f241c5814dd8e2bfce43119ffe58005159`. App code is identical to
+  WWW-81's starting commit `d602ef3a`; only the existing UI test's capture helper
+  changes to use the whole screen. The unsigned baseline smoke suite passed.
+- `after-home.png` and `after-fan-auto.png`: [run 41338035061](https://github.com/0x63616c/world-wide-webb/actions/runs/41338035061),
+  source `01a27b13fb81db8fa12a719e2bdb75e2b19b2ce4`. The fan segment test passed:
+  selecting Auto and Off releases forced circulation without opening detail.
+  This fixture is cooling, so the returned label is Auto. The baseline uses
+  the existing HVAC-Off fixture; its independent forced fan still reports On.
+- `after-fan-detail-0.png` through `-2.png`: three successive openings from
+  that run's passing presentation test. Each controller filled the presentation,
+  was centered horizontally, and returned to Home before reopening.
 
-Local checks so far:
+`app.screenshot()` incorrectly cropped these landscape captures before exporting
+orientation metadata. Using the existing suites' whole-screen API fixes the
+capture itself; the PNGs above need no image processing.
 
-- `bun run lint:tracked`: exit 0.
-- `bun run knip`: exit 0.
+## Verification
+
+Local checks (exit 0):
+
+- `bun run lint:tracked`
+- `bun run knip`
+- `bun run test --maxWorkers 4`: 1,860 passed, 71 skipped.
 - `bunx vitest run features/ctrl/api.test.ts features/ac/enforcer.test.ts --maxWorkers 4`:
-  exit 0, 129 tests passed.
-- `python3 -B .github/scripts/apple-prototype-changes-test.py`: exit 0, 6 tests.
-- `python3 -B .github/scripts/apple-prototype-unit-schemes-test.py`: exit 0, 2 tests.
-- `git diff --check`: exit 0.
+  129 passed.
+- `bun run --sequential --filter '*' typecheck`
+- `bun run typecheck:config`
+- `bun run apps:check`
+- `python3 -B .github/scripts/apple-prototype-changes-test.py`: 6 passed.
+- `python3 -B .github/scripts/apple-prototype-unit-schemes-test.py`: 2 passed.
+- `bash scripts/test-deploy-www.sh`: 5 scenarios passed after merging main.
+- `git diff --check`
 
-This Linux box has no Swift/Xcode, so native compile, unit tests and UI tests
-must run on the existing macOS GitHub Actions runners. No native test is claimed
-as passing until that evidence is available.
+[Native run 41335584873](https://github.com/0x63616c/world-wide-webb/actions/runs/41335584873)
+passed PanelKit tests, the macOS app build, 156 iPad unit tests and 120 Panel unit
+tests. [UI run 41335480691](https://github.com/0x63616c/world-wide-webb/actions/runs/41335480691)
+passed all eight smoke cases, including the four new grid interaction tests.
+
+The repeat at `41335584966` passed all new grid tests but failed two existing
+Notification Center pull-down cases. Capture run `41338035061` passed those
+Notification Center cases but failed startup in the new combined Off/rollback
+case: the Home pager tap reached Classic before fan assertions ran. Its initial
+three grid cases, including all presentation checks, passed. Test setup now
+rotates the running app and checks the mounted Home bounds before tapping,
+so XCTest's touch coordinates agree with UIKit after launch. Final validation
+of that setup is pending; these failed runs are not counted as passing.
+
+The Linux workspace has no Xcode. Native checks use the repo's existing unsigned
+macOS CI workflows; TestFlight upload is disabled for these runs.
