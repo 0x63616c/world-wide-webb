@@ -137,7 +137,7 @@ import OSLog
         case .wifi: wifiProvider.availability == .live && !(wifiProvider.wifi.ssid ?? "").isEmpty
         case .weather: weatherProvider.availability == .live && weatherProvider.snapshot != nil
         case .sonos: sonosProvider.availability == .live && !rooms.isEmpty
-        case .calendar: calendarProvider.availability == .live && !calendarProvider.events.isEmpty
+        case .calendar: calendarProvider.availability == .live
         case .walk: walkProvider.availability == .live
         }
     }

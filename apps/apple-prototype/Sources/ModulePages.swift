@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import PanelKit
 
 struct ModulePage: View {
     let tile: HomeTile
@@ -91,6 +92,7 @@ struct WeatherPage: View {
 }
 
 struct AgendaPage: View {
+    @State private var showingCalendars = false
     let provider: any CalendarProvider
     let now: Date
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -102,6 +104,14 @@ struct AgendaPage: View {
                     Text(provider.heading).font(.system(size: compact ? 36 : 56, weight: .bold))
                     Spacer()
                     Text(provider.dateText(at: now, format: "EEEE, MMMM d")).font(.system(size: compact ? 16 : 24)).foregroundStyle(.secondary)
+                    if provider is LiveCalendarProvider {
+                        Button("Calendars", systemImage: "calendar") { showingCalendars = true }
+                            .buttonStyle(.glass)
+                            .accessibilityIdentifier("calendar-picker")
+                    }
+                }
+                if provider.events.isEmpty {
+                    Text("No upcoming events in the selected calendars.").foregroundStyle(.secondary)
                 }
                 GlassEffectContainer(spacing: 16) {
                     VStack(spacing: 16) {
@@ -123,6 +133,57 @@ struct AgendaPage: View {
                     }
                 }
             }.frame(maxWidth: 1120).padding(compact ? 24 : 56).frame(maxWidth: .infinity)
+        }
+        .sheet(isPresented: $showingCalendars) {
+            if let live = provider as? LiveCalendarProvider { CalendarPickerSheet(provider: live) }
+        }
+    }
+}
+
+private struct CalendarPickerSheet: View {
+    let provider: LiveCalendarProvider
+    @Environment(\.dismiss) private var dismiss
+
+    private var sources: [String] {
+        Set(provider.calendars.map(\.sourceID)).sorted { lhs, rhs in
+            let left = provider.calendars.first { $0.sourceID == lhs }?.sourceTitle ?? ""
+            let right = provider.calendars.first { $0.sourceID == rhs }?.sourceTitle ?? ""
+            return left == right ? lhs < rhs : left.localizedStandardCompare(right) == .orderedAscending
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Button("Show all") { Task { await provider.showAllCalendars() } }
+                    .accessibilityIdentifier("calendar-show-all")
+                ForEach(sources, id: \.self) { source in
+                    Section(provider.calendars.first { $0.sourceID == source }?.sourceTitle ?? "Calendars") {
+                        ForEach(provider.calendars.filter { $0.sourceID == source }.sorted {
+                            $0.title == $1.title ? $0.id < $1.id : $0.title.localizedStandardCompare($1.title) == .orderedAscending
+                        }) { calendar in
+                            Toggle(isOn: Binding(
+                                get: { provider.selectedCalendarIDs.contains(calendar.id) },
+                                set: { shown in Task { await provider.setCalendarShown(shown, identifier: calendar.id) } }
+                            )) {
+                                HStack {
+                                    Circle().fill(Color(red: calendar.red, green: calendar.green, blue: calendar.blue))
+                                        .frame(width: 12, height: 12).accessibilityHidden(true)
+                                    Text(calendar.title)
+                                }
+                            }
+                            .accessibilityIdentifier("calendar-selection-\(calendar.id)")
+                        }
+                    }
+                }
+            }
+            .disabled(provider.savingSelection)
+            .navigationTitle("Calendars")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.accessibilityIdentifier("calendar-picker-done")
+                }
+            }
         }
     }
 }

@@ -83,3 +83,39 @@ func calendarCannotReadWithoutFullAccess(_ access: CalendarAccess) async {
     #expect(await store.requests == 0)
     #expect(await store.reads.isEmpty)
 }
+
+
+private actor SelectedCalendarStore: CalendarEventStore {
+    private(set) var predicates: [Set<String>] = []
+    func authorization() -> CalendarAccess { .fullAccess }
+    func requestFullAccess() -> Bool { false }
+    func calendars() -> [CalendarInfo] {
+        ["work", "personal"].map {
+            CalendarInfo(id: $0, title: $0, sourceID: "account", sourceTitle: "Account", red: 1, green: 0, blue: 0)
+        }
+    }
+    func events(in interval: DateInterval) -> [CalendarEvent] { [] }
+    func events(in interval: DateInterval, calendarIDs: Set<String>) -> [CalendarEvent] {
+        predicates.append(calendarIDs)
+        return calendarIDs.sorted().map {
+            CalendarEvent(id: $0, title: $0, location: nil, start: interval.start, end: interval.end, isAllDay: false)
+        }
+    }
+}
+
+@Test func calendarAPIUsesPersistedSelectionForEventPredicate() async throws {
+    let suite = "CalendarAPITests.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let store = SelectedCalendarStore()
+    let api = CalendarAPI(store: store, selection: CalendarSelection(suiteName: suite))
+    #expect(try await api.events(in: calendarInterval).count == 2)
+    await api.setCalendarShown(false, identifier: "work")
+    let relaunched = CalendarAPI(store: store, selection: CalendarSelection(suiteName: suite))
+    #expect(try await relaunched.events(in: calendarInterval).map(\.id) == ["personal"])
+    await relaunched.setCalendarShown(false, identifier: "personal")
+    #expect(try await relaunched.events(in: calendarInterval).isEmpty)
+    #expect(await store.predicates == [Set(["work", "personal"]), Set(["personal"]), Set<String>()])
+    await relaunched.showAllCalendars()
+    #expect(try await relaunched.events(in: calendarInterval).count == 2)
+}
