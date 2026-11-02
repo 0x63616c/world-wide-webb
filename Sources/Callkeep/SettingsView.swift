@@ -32,9 +32,24 @@ struct SettingsView: View {
                             rowIcon("folder")
                             Text("Recordings Folder")
                             Spacer()
-                            Button("Show in Finder") { if let root = model.store?.root { NSWorkspace.shared.open(root) } }
+                            Button("Show in Finder") { if let root = model.recordingsFolder {
+                                do { try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true); NSWorkspace.shared.open(root) }
+                                catch { model.errorMessage = error.localizedDescription }
+                            } }
                         }.frame(minHeight: 54).padding(.horizontal, 16)
                     }
+                }
+                section("Storage") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle("Save finished recordings to iCloud Drive", isOn: $model.iCloudEnabled)
+                            .onChange(of: model.iCloudEnabled) { _, _ in model.updateStorage() }
+                            .disabled(model.isRecording || model.isBusy)
+                        Text(model.storageStatus).font(.callout).foregroundStyle(.secondary)
+                        Button("Retry iCloud Drive") { model.updateStorage() }
+                            .disabled(model.isRecording || model.isBusy || !model.iCloudEnabled)
+                        Text("Active recordings stay local. Enabling this also moves existing recordings. Deleting a recording from iCloud Drive removes it across your devices.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(16)
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
@@ -65,7 +80,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("About Recording").font(.title2.weight(.semibold))
                 Text("Callkeep records your default microphone and audio from all apps. Muting in a call does not mute Callkeep.")
-                Text("Audio stays on this Mac and uses about 1 GB per hour. Changing audio devices or sleeping the Mac ends the recording.")
+                Text("Audio uses about 1 GB per hour. Finished recordings move to iCloud Drive when enabled and available. Changing audio devices or sleeping the Mac ends the recording.")
                 Text("Get everyone’s agreement before recording.")
                 HStack { Spacer(); Button("Done") { showingInfo = false }.keyboardShortcut(.defaultAction) }
             }.padding(26).frame(width: 380)

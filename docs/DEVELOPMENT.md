@@ -46,4 +46,19 @@ The floating helper is an independently implemented nonactivating AppKit panel w
 - `Playback`: timestamp-offset playback of separate tracks behind a single set of playback controls.
 - SwiftUI provides the native split-view library, toolbar, settings and menu-bar panel; Carbon registers the global shortcut without Accessibility access.
 
-All original audio stays local. Future transcription can read these files without changing the capture pipeline.
+Active audio stays local; finished recordings move to iCloud Drive when enabled and available. Future transcription can read these files without changing the capture pipeline.
+
+## Automatic releases and Homebrew
+
+Every push to `main` (including merges) runs the tests, then builds a universal
+Apple silicon/Intel app, increments the latest release's patch version, and
+publishes a zip to GitHub Releases. Pull requests run tests without publishing.
+The release version overrides the checked-in marketing version at build time.
+Runs queue sequentially, and rerunning a released commit reuses its tag and
+published archive rather than replacing it.
+
+The release job updates `Casks/callkeep.rb` in `0x63616c/homebrew-tap` with the
+published archive's SHA-256. `HOMEBREW_TAP_DEPLOY_KEY` is a dedicated write deploy
+key for that tap only. The workflow's GitHub token can publish releases only in
+Callkeep. No Apple signing secrets are configured: releases remain ad-hoc signed
+and unnotarized. Uninstall and zap preserve local and iCloud recording files.

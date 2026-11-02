@@ -10,6 +10,50 @@ final class RecordingStoreTests: XCTestCase {
     }
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: root) }
 
+    func testArchiveMovesClosedAudioAndKeepsRenameAndDiscoveryWorking() throws {
+        let store = try RecordingStore(root: root.appendingPathComponent("local"))
+        store.archiveRoot = root.appendingPathComponent("cloud")
+        var recording = Recording(title: "Cloud call", createdAt: Date(timeIntervalSince1970: 1700000000))
+        try store.save(recording)
+        let local = store.folder(for: recording)
+        let audio = Data("audio bytes".utf8)
+        try audio.write(to: local.appendingPathComponent("microphone.caf"))
+        try store.archive(recording)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: local.path), "Active recordings must stay local")
+        recording.state = .saved
+        try store.save(recording)
+        try store.archive(recording)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: local.path))
+        XCTAssertEqual(try Data(contentsOf: store.folder(for: recording).appendingPathComponent("microphone.caf")), audio)
+        XCTAssertEqual(try store.load(), [recording])
+        recording.title = "Renamed in cloud"
+        try store.save(recording)
+        XCTAssertEqual(try store.load(), [recording])
+    }
+    func testArchiveFailurePreservesLocalFilesAndDoesNotOverwriteCloud() throws {
+        let store = try RecordingStore(root: root.appendingPathComponent("local"))
+        let cloud = root.appendingPathComponent("cloud")
+        store.archiveRoot = cloud
+        var recording = Recording(title: "Local"); recording.state = .interrupted
+        try store.save(recording)
+        let local = store.folder(for: recording)
+        let destination = cloud.appendingPathComponent(recording.id.uuidString)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        try Data("existing".utf8).write(to: destination.appendingPathComponent("keep"))
+        XCTAssertThrowsError(try store.archive(recording))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: local.appendingPathComponent("recording.json").path))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("keep")), Data("existing".utf8))
+        XCTAssertEqual(try store.load().first?.id, recording.id)
+    }
+    func testCloudSessionsAreNeverRecoveredAsLocalCrashes() throws {
+        let cloud = root.appendingPathComponent("cloud")
+        let cloudStore = try RecordingStore(root: cloud)
+        let recording = Recording(title: "Other Mac")
+        try cloudStore.save(recording)
+        let store = try RecordingStore(root: root.appendingPathComponent("local"))
+        store.archiveRoot = cloud
+        XCTAssertEqual(try store.load(recover: true).first?.state, .recording)
+    }
     func testSavedRecordingSurvivesReopeningAndRenaming() throws {
         let store = try RecordingStore(root: root)
         var recording = Recording(title: "Project call")

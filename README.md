@@ -4,8 +4,8 @@
 
 <h1 align="center">Callkeep</h1>
 
-<p align="center">A native macOS call recorder. Audio stays on your Mac.</p>
-<p align="center"><strong>macOS 15+</strong> · SwiftUI + AppKit · Version 0.1</p>
+<p align="center">A native macOS recorder for your microphone and computer audio, with optional iCloud Drive storage.</p>
+<p align="center"><strong>macOS 15+</strong> · SwiftUI + AppKit · Apple silicon + Intel</p>
 
 ![Callkeep recording library](docs/images/library.jpg)
 
@@ -17,7 +17,7 @@ Callkeep captures your microphone and the audio playing on your Mac. It works al
 - Browse and search your recordings, then replay them with a smooth, seekable timeline.
 - Watch your voice and call audio together in a smooth, two-color waveform.
 - Rename a call in place, including while recording. Select several with Shift-click or Command-click and move them to Trash together.
-- Keep lossless audio locally, ready for transcription later.
+- Keep lossless audio in iCloud Drive, ready for transcription later.
 - See permission status automatically, with guided setup when access is missing.
 
 Transcription and live captions are not included in this version.
@@ -39,7 +39,7 @@ Transcription and live captions are not included in this version.
 
 ## Get started
 
-1. Build and open Callkeep using the instructions below.
+1. Install and open Callkeep using Homebrew or a release download below.
 2. Open **Settings → Permissions** and enable microphone and system audio access. The app guides you to the relevant macOS controls.
 3. Click **New recording**, then **Stop recording** when the call ends.
 
@@ -57,6 +57,27 @@ Closing the window keeps Callkeep running. Open it again from the Dock or menu b
 | Rename selected recording | Return |
 | Save / cancel rename | Return / Escape |
 | Move selected recordings to Trash | ⌘⌫ |
+
+## Install
+
+```sh
+brew install --cask 0x63616c/tap/callkeep
+```
+
+Or tap once, then install by name:
+
+```sh
+brew tap 0x63616c/tap
+brew install --cask callkeep
+```
+
+Update with `brew upgrade --cask callkeep`. You can also download the app from
+[GitHub Releases](https://github.com/0x63616c/callkeep/releases).
+Requires macOS 15 or later on Apple silicon or Intel. Release builds are ad-hoc signed
+and not notarized; macOS may require approval in **System Settings → Privacy & Security**.
+
+Finished recordings move to **iCloud Drive → Callkeep** by default when available.
+Active recordings stay local. Change this in **Settings → Storage**.
 
 ## Build
 

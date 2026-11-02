@@ -27,6 +27,31 @@ final class AppModel {
     var recordingShortcut = (UserDefaults.standard.data(forKey: "recordingShortcut").flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) }) ?? .default
     let playback = Playback()
     private(set) var store: RecordingStore?
+    var iCloudEnabled = UserDefaults.standard.object(forKey: "iCloudRecordings") as? Bool ?? true
+    var storageStatus = "Checking iCloud Drive…"
+    // A regular iCloud Drive folder works with the project's ad-hoc signing.
+    private var iCloudDrive: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
+    }
+    var recordingsFolder: URL? { iCloudEnabled ? (store?.archiveRoot ?? store?.root) : store?.root }
+    func configureStorage() {
+        let available = FileManager.default.fileExists(atPath: iCloudDrive.path)
+        store?.archiveRoot = available ? iCloudDrive.appendingPathComponent("Callkeep", isDirectory: true) : nil
+        storageStatus = iCloudEnabled
+            ? (available ? "Finished recordings move to iCloud Drive → Callkeep. Uploads are managed by macOS." : "iCloud Drive is unavailable. Recordings stay on this Mac until you retry.")
+            : "New recordings stay on this Mac. Existing iCloud recordings remain in your library."
+    }
+    func updateStorage() {
+        UserDefaults.standard.set(iCloudEnabled, forKey: "iCloudRecordings")
+        configureStorage()
+        do {
+            try reload()
+            if iCloudEnabled {
+                for recording in recordings where recording.id != active?.id { try store?.archive(recording) }
+                try reload()
+            }
+        } catch { errorMessage = "Couldn’t move recordings to iCloud Drive. Local files have been kept: \(error.localizedDescription)" }
+    }
     private let capture = AudioCapture()
     private let shortcut = GlobalShortcut()
     private var timer: Timer?
@@ -40,7 +65,9 @@ final class AppModel {
         do {
             let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             store = try RecordingStore(root: base.appendingPathComponent("Callkeep/Recordings", isDirectory: true))
+            configureStorage()
             try reload(recover: true)
+            updateStorage()
             selectedID = recordings.first?.id
         } catch { errorMessage = "Couldn’t open the recording library: \(error.localizedDescription)" }
         shortcut.action = { [weak self] in self?.toggleRecording() }
@@ -134,8 +161,13 @@ final class AppModel {
         recording.state = reason == nil && tracks.microphone != nil && tracks.system != nil ? .saved : .interrupted
         recording.note = reason ?? ((tracks.microphone == nil || tracks.system == nil) ? "One audio source didn’t deliver samples. Check permissions and audio devices before the next recording." : nil)
         active = nil; micLevel = 0; systemLevel = 0
-        do { try store?.save(recording); try reload(); statusMessage = "Recording saved"; StatusToast.shared.show("Recording saved", recording: false) }
-        catch { errorMessage = "Audio was kept, but the library couldn’t be updated: \(error.localizedDescription)" }
+        do {
+            try store?.save(recording)
+            try reload()
+            configureStorage()
+            if iCloudEnabled { try store?.archive(recording) }
+            try reload(); statusMessage = "Recording saved"; StatusToast.shared.show("Recording saved", recording: false) }
+        catch { errorMessage = "Audio was kept on this Mac, but saving to the library or iCloud Drive failed: \(error.localizedDescription)" }
         if let reason { errorMessage = reason }
         isBusy = false
     }
@@ -171,6 +203,7 @@ final class AppModel {
     }
     func showSettings() {
         playback.stop(); selectedIDs = []; showingSettings = true
+        configureStorage()
         permissions.refresh(); presentLibrary?()
     }
     func showRecordings() {

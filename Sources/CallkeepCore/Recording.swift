@@ -53,13 +53,31 @@ public struct Recording: Identifiable, Codable, Equatable, Sendable {
 
 public final class RecordingStore {
     public let root: URL
+    public var archiveRoot: URL?
     public private(set) var warnings: [String] = []
     private let fm = FileManager.default
     public init(root: URL) throws {
         self.root = root
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
     }
-    public func folder(for recording: Recording) -> URL { root.appendingPathComponent(recording.id.uuidString, isDirectory: true) }
+    public func folder(for recording: Recording) -> URL {
+        let local = root.appendingPathComponent(recording.id.uuidString, isDirectory: true)
+        if fm.fileExists(atPath: local.path) { return local }
+        if let archiveRoot {
+            let archived = archiveRoot.appendingPathComponent(recording.id.uuidString, isDirectory: true)
+            if fm.fileExists(atPath: archived.path) { return archived }
+        }
+        return local
+    }
+    /// Only closed recordings may leave the local capture directory. A failed move
+    /// leaves the original in place and never replaces an existing cloud recording.
+    public func archive(_ recording: Recording) throws {
+        guard recording.state != .recording, let archiveRoot else { return }
+        let source = root.appendingPathComponent(recording.id.uuidString, isDirectory: true)
+        guard fm.fileExists(atPath: source.path) else { return }
+        try fm.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
+        try fm.moveItem(at: source, to: archiveRoot.appendingPathComponent(recording.id.uuidString, isDirectory: true))
+    }
     public func save(_ recording: Recording) throws {
         let folder = folder(for: recording)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -85,6 +103,15 @@ public final class RecordingStore {
                 }
                 recordings.append(recording)
             } catch { warnings.append("Couldn’t read \(folder.lastPathComponent). Its files are still on disk.") }
+        }
+        if let archiveRoot, fm.fileExists(atPath: archiveRoot.path) {
+            do {
+                let archive = try RecordingStore(root: archiveRoot)
+                let archived = try archive.load(recover: false)
+                let localIDs = Set(recordings.map(\.id))
+                recordings += archived.filter { !localIDs.contains($0.id) }
+                warnings += archive.warnings
+            } catch { warnings.append("Couldn’t read iCloud Drive. Local recordings are still available: \(error.localizedDescription)") }
         }
         return recordings.sorted { $0.createdAt > $1.createdAt }
     }
