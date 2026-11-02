@@ -44,11 +44,18 @@ struct SettingsView: View {
                         Toggle("Save finished recordings to iCloud Drive", isOn: $model.iCloudEnabled)
                             .onChange(of: model.iCloudEnabled) { _, _ in model.updateStorage() }
                             .disabled(model.isRecording || model.isBusy)
-                        Text(model.storageStatus).font(.callout).foregroundStyle(.secondary)
-                        Button("Retry iCloud Drive") { model.updateStorage() }
-                            .disabled(model.isRecording || model.isBusy || !model.iCloudEnabled)
-                        Text("Active recordings stay local. Enabling this also moves existing recordings. Deleting a recording from iCloud Drive removes it across your devices.")
-                            .font(.caption).foregroundStyle(.secondary)
+                        if model.storageNeedsRetry {
+                            Text(model.storageStatus).font(.callout).foregroundStyle(.secondary)
+                        }
+                        HStack {
+                            if model.iCloudEnabled, let folder = model.store?.archiveRoot {
+                                Button("Open iCloud Folder") { NSWorkspace.shared.open(folder) }
+                            }
+                            if model.storageNeedsRetry {
+                                Button("Retry iCloud Drive") { model.updateStorage() }
+                                    .disabled(model.isRecording || model.isBusy || !model.iCloudEnabled)
+                            }
+                        }
                     }.padding(16)
                 }
                 VStack(alignment: .leading, spacing: 10) {

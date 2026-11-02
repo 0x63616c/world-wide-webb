@@ -29,17 +29,38 @@ final class AppModel {
     private(set) var store: RecordingStore?
     var iCloudEnabled = UserDefaults.standard.object(forKey: "iCloudRecordings") as? Bool ?? true
     var storageStatus = "Checking iCloud Drive…"
-    // A regular iCloud Drive folder works with the project's ad-hoc signing.
+    var storageNeedsRetry = false
+    // A regular iCloud Drive folder does not require an app ubiquity container.
     private var iCloudDrive: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
     }
     var recordingsFolder: URL? { iCloudEnabled ? (store?.archiveRoot ?? store?.root) : store?.root }
     func configureStorage() {
-        let available = FileManager.default.fileExists(atPath: iCloudDrive.path)
-        store?.archiveRoot = available ? iCloudDrive.appendingPathComponent("Callkeep", isDirectory: true) : nil
-        storageStatus = iCloudEnabled
-            ? (available ? "Finished recordings move to iCloud Drive → Callkeep. Uploads are managed by macOS." : "iCloud Drive is unavailable. Recordings stay on this Mac until you retry.")
-            : "New recordings stay on this Mac. Existing iCloud recordings remain in your library."
+        let fm = FileManager.default
+        var isDirectory: ObjCBool = false
+        let available = fm.fileExists(atPath: iCloudDrive.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        let folder = iCloudDrive.appendingPathComponent("Callkeep", isDirectory: true)
+        store?.archiveRoot = available ? folder : nil
+        storageNeedsRetry = false
+        guard iCloudEnabled else {
+            storageStatus = "New recordings stay on this Mac. Existing iCloud recordings remain in your library."
+            return
+        }
+        guard available else {
+            storageNeedsRetry = true
+            storageStatus = "iCloud Drive is unavailable."
+            return
+        }
+        do {
+            // Prepare the destination even when the library is empty, so enabling
+            // iCloud storage immediately creates the folder visible in Finder.
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+            storageStatus = "iCloud Drive → Callkeep is ready. Finished recordings move here; macOS manages uploads."
+        } catch {
+            store?.archiveRoot = nil
+            storageNeedsRetry = true
+            storageStatus = "Couldn’t open the iCloud folder: \(error.localizedDescription)"
+        }
     }
     func updateStorage() {
         UserDefaults.standard.set(iCloudEnabled, forKey: "iCloudRecordings")
@@ -50,7 +71,11 @@ final class AppModel {
                 for recording in recordings where recording.id != active?.id { try store?.archive(recording) }
                 try reload()
             }
-        } catch { errorMessage = "Couldn’t move recordings to iCloud Drive. Local files have been kept: \(error.localizedDescription)" }
+        } catch {
+            storageNeedsRetry = true
+            storageStatus = "Couldn’t move recordings to iCloud Drive: \(error.localizedDescription)"
+            errorMessage = storageStatus
+        }
     }
     private let capture = AudioCapture()
     private let shortcut = GlobalShortcut()

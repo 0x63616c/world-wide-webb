@@ -31,6 +31,8 @@ Metadata is written atomically and checkpointed during recording. If the app exi
 
 By default, finished recordings (including interrupted recordings) move from the local capture directory to **iCloud Drive → Callkeep**, preserving their audio and metadata folders. Existing recordings move on launch too. Active recordings always stay local until their files are closed. macOS handles uploading, including after an offline recording. A move to this folder is not confirmation that upload has completed; check Finder’s iCloud status.
 
+Enabling iCloud storage prepares **iCloud Drive → Callkeep** immediately, even before the first recording. **Open iCloud Folder** opens that destination in Finder; **Retry iCloud Drive** appears if setup or a move fails.
+
 In **Settings → Storage**, disable automatic moves to keep new recordings local, or use **Retry iCloud Drive** after enabling iCloud Drive in macOS. If the destination is unavailable or a move fails, local files are kept. Existing iCloud recordings remain visible when automatic moves are disabled. Deleting an iCloud recording also deletes it on other devices.
 
 This uses an ordinary `Callkeep` folder in the signed-in user’s iCloud Drive, rather than a provisioned app ubiquity container, so local ad-hoc builds work without an Apple Developer provisioning profile. It does not create an iCloud container or change signing entitlements. Files managed by iCloud may need downloading before playback; Finder can download the recording folder or keep it downloaded. Library discovery refreshes on launch and when retrying iCloud Drive. Simultaneous editing from multiple Macs is not supported.
