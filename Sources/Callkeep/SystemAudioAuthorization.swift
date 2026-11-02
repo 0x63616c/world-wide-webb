@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import CoreGraphics
 import CallkeepCore
 
 /// macOS currently has no public, audio-only authorization query. Keep this
@@ -21,7 +22,9 @@ final class SystemAudioAuthorization {
     }
 
     var status: AudioPermissionState {
-        .preflightResult(query?("kTCCServiceAudioCapture" as CFString, nil))
+        let audio = query?("kTCCServiceAudioCapture" as CFString, nil)
+        if AudioPermissionState.preflightResult(audio) == .allowed { return .allowed }
+        return .systemAudioAccess(audioOnlyResult: audio, screenCaptureAllowed: CGPreflightScreenCaptureAccess())
     }
 
     deinit { if let handle { dlclose(handle) } }
