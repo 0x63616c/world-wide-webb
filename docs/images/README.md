@@ -1,11 +1,11 @@
 # App screenshots
 
-Captured from the native macOS app on November 2, 2026 (Build 7 UI).
+Captured from the native macOS app on November 2, 2026 (Build 7 library/player/recording; Build 8 Settings).
 
 - `library.png`: library and player, 2080 × 1380.
 - `player.png`: playback with sidebar hidden, 2080 × 1380.
 - `recording.png`: live waveform, 2620 × 1380.
-- `settings.png`: shortcut, native iCloud storage, and permission status, 2620 × 1380.
+- `settings.png`: shortcut, native iCloud storage, and permission status, 2620 × 1980.
 - `icon.png`: app icon from the asset catalog.
 
 The window captures are unedited PNGs from macOS `screencapture -o -l`, preserving transparency at rounded corners. No white background is baked in.

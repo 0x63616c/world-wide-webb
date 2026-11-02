@@ -40,24 +40,26 @@ struct SettingsView: View {
                     }
                 }
                 section("Storage") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle("Save finished recordings to iCloud Drive", isOn: $model.iCloudEnabled)
-                            .onChange(of: model.iCloudEnabled) { _, _ in model.updateStorage() }
-                            .disabled(model.isRecording || model.isBusy || model.isPreparingStorage)
-                        if model.storageNeedsRetry {
-                            Text(model.storageStatus).font(.callout).foregroundStyle(.secondary)
-                        }
-                        HStack {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 12) {
+                            Toggle("Save finished recordings to iCloud Drive", isOn: $model.iCloudEnabled)
+                                .onChange(of: model.iCloudEnabled) { _, _ in model.updateStorage() }
+                                .disabled(model.isRecording || model.isBusy || model.isPreparingStorage)
+                            Spacer()
                             if model.isPreparingStorage { ProgressView().controlSize(.small) }
                             if model.iCloudEnabled, let folder = model.store?.archiveRoot {
                                 Button("Open iCloud Folder") { NSWorkspace.shared.open(folder) }
                             }
-                            if model.storageNeedsRetry {
+                        }.frame(minHeight: 54).padding(.horizontal, 16)
+                        if model.storageNeedsRetry {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text(model.storageStatus).font(.callout).foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 Button("Retry iCloud Drive") { model.updateStorage() }
                                     .disabled(model.isRecording || model.isBusy || model.isPreparingStorage || !model.iCloudEnabled)
-                            }
+                            }.padding([.horizontal, .bottom], 16)
                         }
-                    }.padding(16)
+                    }
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
