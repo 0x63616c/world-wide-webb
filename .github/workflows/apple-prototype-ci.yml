@@ -73,6 +73,21 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: Identify native cache toolchain
+        id: toolchain
+        run: echo "version=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      # Always build after restore: Xcode validates changed sources/dependencies.
+      # Never use a restored cache as evidence that tests have passed.
+      - name: Restore native compiler and asset cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/apple-derived-data
+            apps/apple-prototype/PanelKit/.build
+          key: apple-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ matrix.suite }}-${{ github.sha }}
+          restore-keys: apple-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ matrix.suite }}-
+
       - name: Install XcodeGen and check native SDK requirements
         run: |
           brew install xcodegen
@@ -118,10 +133,17 @@ jobs:
                   not d['name'].startswith('iPad ('),
                   not d['name'].startswith('iPad mini'), d['name']))
               print('destination=platform=iOS Simulator,arch=' + platform.machine() + ',id=' + device['udid'])
+              print('id=' + device['udid'])
               print('Using ' + device['name'] + ' / ' + runtime, file=__import__('sys').stderr)
               raise SystemExit(0)
           raise SystemExit('No available iPad simulator installed.')
           PYCODE
+
+      - name: Boot simulator during compilation
+        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: xcrun simctl boot "$SIMULATOR_ID"
 
       - name: Build macOS app
         if: matrix.suite == 'macos'
@@ -129,6 +151,7 @@ jobs:
         run: >-
           xcodebuild build -project WorldWideWebb.xcodeproj
           -scheme WorldWideWebb -destination 'platform=macOS'
+          -derivedDataPath "$RUNNER_TEMP/apple-derived-data"
           CODE_SIGNING_ALLOWED=NO
 
       # Build the app and its unit bundle together, once. Keep the same test
