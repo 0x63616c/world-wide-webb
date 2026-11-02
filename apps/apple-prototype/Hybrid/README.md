@@ -1470,3 +1470,50 @@ configuration), typecheck exit 0, lint exit 0, apps:check exit 0, knip exit 0;
 
 `bun run test:dockerfile-manifests` also passed (exit 0). Ruby/fastlane and native
 archive validation cannot run here because the macOS/Ruby toolchains are absent.
+
+
+## Device calendar selection (WWW-90)
+
+The native Calendar agenda has a **Calendars** button. Its multi-select sheet
+lists the iPad's EventKit calendars by account/source, with their names and color
+dots. Each switch applies immediately; **Show all** restores every calendar.
+The Home grid cards and agenda share the same filtered `LiveCalendarProvider`.
+A successfully loaded empty agenda stays available, so hiding every calendar
+never removes access to the picker. Existing module flags and permission-denied
+status behavior are unchanged.
+
+Selection is device-local. `CalendarSelection` stores known and selected calendar
+identifiers in UserDefaults, showing newly discovered calendars by default and
+remembering hidden choices if an account temporarily disappears. EventKit queries
+receive only selected calendars; an empty selection returns no events. Calendar
+and account names/colors are used only by the picker, not diagnostic logs.
+Debug fixture launches use `Panel.CalendarFixtures`, separate from device choices.
+
+PanelKit tests cover persistence, calendar discovery, Show all, permission checks,
+and the selected identifiers passed into event queries. Panel unit tests verify
+that Home's next event and the agenda update together and that the empty module
+remains reachable. `PanelUITests/CalendarSelectionTests` toggles Work, verifies its
+event disappears from the agenda and Home, relaunches to check persistence, hides
+all calendars, and restores Show all. It retains landscape XCTest screenshot
+attachments named `calendar-filtered-agenda`, `calendar-filtered-home`, and
+`calendar-picker-persisted` for review.
+
+Linux verification on 2026-11-01:
+
+- `swift build -j 4` in `PanelKit`, with the supplied Swift 6.2.1 PATH and
+  compatibility LD_LIBRARY_PATH: exit 1, Apple-only `EventKit` module unavailable.
+- `swift test --package-path /tmp/www90-calendar-q7kkaxrc -j 4`: exit 0,
+  seven Foundation-only CalendarAPI/CalendarSelection tests passed. This temporary
+  harness copies the production selection source, API value/protocol/selection
+  logic and original tests/fixtures; only the unavailable EventKit adapter is
+  replaced by a denied-access stand-in. It does not validate EventKit itself.
+- `swiftc -typecheck -swift-version 6` for the actual `LiveCalendarProvider.swift`
+  against that harness and the existing pure provider types: exit 0.
+- `swiftc -frontend -parse` over the changed Swift sources/tests: exit 0.
+- `bun run typecheck`: exit 127, workspace dependencies absent (`tsc` not found).
+- `git diff --check`: exit 0.
+
+macOS CI must build the native targets, run PanelKit/Panel unit tests and the
+fixture UI test, and export its screenshot attachments. No native UI screenshot
+was produced on Linux. Real-device EventKit permission, account grouping and
+calendar-color rendering remain native validation requirements.

@@ -85,7 +85,8 @@ struct PanelRoot: View {
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
                 mediaAPI: HybridMediaFixture(unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
                 calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
-                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"))),
+                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
+                    selection: CalendarSelection(suiteName: "Panel.CalendarFixtures")),
                 now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }))
             return
         }

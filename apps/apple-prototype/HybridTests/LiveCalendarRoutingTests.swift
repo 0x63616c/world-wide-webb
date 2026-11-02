@@ -11,6 +11,30 @@ import XCTest
         XCTAssertEqual(ModuleFlags(nativeByDefault: ModuleFlags.shippedNative)[.calendar], .web)
     }
 
+    func testSelectionUpdatesSharedHomeAgendaAndKeepsEmptyModuleReachable() async throws {
+        let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
+        let suite = "LiveCalendarSelectionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = LiveHomeDataSource(configuration: nil,
+            calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root),
+                                     selection: CalendarSelection(suiteName: suite)),
+            now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
+        await store.refresh(.calendar)
+        XCTAssertEqual(store.calendar.next(at: store.now)?.title, "Design workshop")
+        await store.calendarProvider.setCalendarShown(false, identifier: "fixture_work")
+        XCTAssertFalse(store.calendar.events.contains { $0.title == "Design workshop" })
+        XCTAssertNotEqual(store.calendar.next(at: store.now)?.title, "Design workshop")
+        XCTAssertTrue(store.calendar.events.contains { $0.title == "Community day" })
+        await store.calendarProvider.setCalendarShown(false, identifier: "fixture_personal")
+        XCTAssertTrue(store.calendar.events.isEmpty)
+        XCTAssertNil(store.calendar.next(at: store.now))
+        XCTAssertTrue(store.hasLiveData(for: .calendar), "Keep the picker reachable when all calendars are hidden.")
+        await store.calendarProvider.showAllCalendars()
+        XCTAssertEqual(store.calendar.events.count, 7)
+        XCTAssertEqual(store.calendar.next(at: store.now)?.title, "Design workshop")
+    }
+
     func testCalendarSurfacesRenderAtPanelSize() async throws {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let store = LiveHomeDataSource(configuration: nil,
@@ -55,7 +79,7 @@ import XCTest
         }
     }
 
-    func testCalendarOptInRequiresNonemptyCurrentFeedAndRecovers() async throws {
+    func testCalendarOptInAllowsEmptyCurrentFeedAndRecovers() async throws {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let fixture = HybridCalendarFixtureStore(root: root)
         var now = HybridCalendarFixtureStore.now
@@ -81,7 +105,7 @@ import XCTest
         await fixture.setUnavailable(false)
         await fixture.setFilename("empty.json")
         await store.refresh(.calendar)
-        XCTAssertEqual(route(), .webBoard)
+        XCTAssertEqual(route(), .native(.calendar))
         await fixture.setFilename("events.json")
         await store.refresh(.calendar)
         XCTAssertEqual(route(), .native(.calendar))
