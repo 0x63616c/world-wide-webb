@@ -1,4 +1,4 @@
-# Manual native replacement for the Expo kiosk, using the existing TestFlight app.
+# Native replacement for the Expo kiosk, using the existing TestFlight app.
 name: Apple Panel TestFlight
 
 on:
@@ -31,9 +31,10 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: apple-panel-testflight-${{ github.event_name == 'workflow_dispatch' && 'release' || github.ref }}
+  group: apple-panel-testflight-${{ github.event_name == 'pull_request' && github.ref || 'release' }}
   cancel-in-progress: false
 
 jobs:
@@ -178,20 +179,39 @@ jobs:
 
   upload:
     needs: smoke
-    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.smoke_only }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only) }}
     runs-on: macos-26
     timeout-minutes: 45
     environment: production
+    # Also shared with the manual Expo rollback workflow: one bundle ID, one
+    # TestFlight build-number allocator. Never cancel an upload already in flight.
+    concurrency:
+      group: panel-testflight-upload
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: main
+          # Pin release machinery to this workflow; inputs.ref selects only native source.
+          ref: ${{ github.sha }}
       - uses: actions/checkout@v5
         with:
           ref: ${{ needs.smoke.outputs.source_sha }}
           path: native
 
+      - name: Check uploaded commit receipt
+        id: receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.smoke.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          count=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/artifacts" \
+            -f "name=panel-testflight-$SOURCE_SHA" -f per_page=100 \
+            --jq '[.artifacts[] | select(.expired == false)] | length')
+          echo "uploaded=$([[ $count -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       - name: Select newest Xcode 26.x
+        if: steps.receipt.outputs.uploaded != 'true'
         run: |
           set -euo pipefail
           XCODE_APP=$(python3 - <<'PYCODE'
@@ -213,6 +233,7 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
 
       - name: Install XcodeGen and check native SDK requirements
+        if: steps.receipt.outputs.uploaded != 'true'
         run: |
           brew install xcodegen
           ruby -ryaml -e '
@@ -225,6 +246,7 @@ jobs:
 
       # Decrypt vault — the only step touching AGE_PRIVATE_KEY. No set -x here.
       - name: Decrypt vault (SOPS+age)
+        if: steps.receipt.outputs.uploaded != 'true'
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         run: |
@@ -261,6 +283,7 @@ jobs:
           echo "MATCH_GIT_URL=https://github.com/0x63616c/certificates.git" >> "$GITHUB_ENV"
 
       - name: Setup Ruby
+        if: steps.receipt.outputs.uploaded != 'true'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -268,6 +291,7 @@ jobs:
           working-directory: apps/panel
 
       - name: Build and upload native Panel to TestFlight
+        if: steps.receipt.outputs.uploaded != 'true'
         working-directory: apps/panel
         run: bundle exec fastlane release_native
         env:
@@ -283,7 +307,22 @@ jobs:
           ALARM_API_TOKEN: ${{ env.ALARM_API_TOKEN }}
           MATCH_REGENERATE: ${{ inputs.regenerate_profiles }}
 
+      - name: Write upload receipt
+        if: steps.receipt.outputs.uploaded != 'true'
+        env:
+          SOURCE_SHA: ${{ needs.smoke.outputs.source_sha }}
+        run: echo "$SOURCE_SHA $PANEL_UPLOADED_BUILD" > "$RUNNER_TEMP/panel-testflight-receipt.txt"
+
+      - name: Retain upload receipt for duplicate dispatches and reruns
+        if: steps.receipt.outputs.uploaded != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-testflight-${{ needs.smoke.outputs.source_sha }}
+          path: ${{ runner.temp }}/panel-testflight-receipt.txt
+          retention-days: 90
+
       - name: Record uploaded panel build
+        if: steps.receipt.outputs.uploaded != 'true'
         run: |
           if ! curl -fsS --retry 3 --connect-timeout 10 --max-time 30 \
             -H "CF-Access-Client-Id: $CF_ACCESS_KIOSK_CLIENT_ID" \

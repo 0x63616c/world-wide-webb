@@ -15,6 +15,17 @@ all other paths remain unchanged. A build is a positive PostgreSQL integer; app 
 identifiers. POST returns 503 when automation is unconfigured, 401 for bad bearer
 credentials, and 400 for invalid input.
 
+Native app changes matching `apple-panel-testflight.yml`'s existing paths filter
+ship automatically on main after the unsigned simulator smoke suite passes.
+Pull requests remain smoke-only. Manual dispatch still supports a source ref and
+`smoke_only`. The archive uses the exact native commit tested by smoke; release machinery
+is pinned to the workflow commit.
+Native and manual Expo rollback uploads share a non-cancelling concurrency lock;
+both wait for App Store Connect processing before releasing it so the next
+`latest_testflight_build_number + 1` allocation sees the uploaded build. A receipt
+artifact keyed by tested source SHA suppresses repeated native uploads for that
+commit while the receipt is retained (90 days). Receipt lookup fails closed.
+
 The native TestFlight workflow records the exact archive build after successful
 upload. A failed recording warns without failing the upload. Recording can be
 retried safely with the same build; never post an invented build to production.

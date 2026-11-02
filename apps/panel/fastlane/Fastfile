@@ -111,7 +111,7 @@ platform :ios do
 
     upload_to_testflight(
       api_key: api_key,
-      skip_waiting_for_build_processing: true,
+      skip_waiting_for_build_processing: false,
       skip_submission: true
     )
   end
@@ -205,7 +205,9 @@ platform :ios do
       )
       upload_to_testflight(
         api_key: api_key,
-        skip_waiting_for_build_processing: true,
+        # Keep the shared upload lock until ASC exposes the new number to
+        # latest_testflight_build_number in the next queued native/Expo release.
+        skip_waiting_for_build_processing: false,
         skip_submission: true
       )
       # Publish only after upload succeeds; use the exact archive build.
