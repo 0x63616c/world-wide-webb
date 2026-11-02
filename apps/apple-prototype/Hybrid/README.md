@@ -180,15 +180,30 @@ Grid Now Playing and Sonos rooms request authenticated `SonosArtwork` through
 in the standalone design app. Module destinations always mount the detail
 controller with Home navigation; there is no Tiles/Details toggle.
 
-The WWW-87 head used for this work has command error revisions but no Diagnostics
-screen. There is therefore no Diagnostics UI to extend on this branch; its future
-module list can consume the same `HomeModule.allCases` and `status(for:)` seam.
+The hidden Diagnostics screen lists every `HomeModule` in a Modules section,
+including loading/live/unavailable/unconfigured status and the same sanitized
+provider reason used on the grid. Statuses update as providers refresh, without
+copying credentials, raw errors, or device data. Clock, weather and hourly faces
+remain informational even when weather is unavailable; they never open a detail
+controller or Classic fallback.
+
+Module statuses are currently screen-only. Although `PanelDiagnosticsSubmission`
+is a struct, `diagnostics.submit` strictly rejects additional fields, including
+inside its snapshot. Extending the upload requires a coordinated backend schema
+change outside this Apple-only follow-up; Send logs keeps its accepted wire format.
 
 Verification on Linux: `swift build --package-path apps/apple-prototype/PanelKit
 -j 4` cannot complete because CalendarAPI imports EventKit. Swift syntax parsing
 is available, but does not typecheck SwiftUI or Apple SDK symbols. A Swift 6 Linux harness using the actual PanelAPI client, configuration, status
 mapping and error classifier passed its mapping/redaction assertions. Full macOS,
 iPad, Panel and PanelKit builds/tests remain required on macOS.
+
+Diagnostics follow-up on Linux: `swiftc -frontend -parse` passed for all 201
+Swift files; `git diff --check` passed. `bun run lint` exited 1 because this
+worktree has no installed Biome binary (Bun tried to execute `biome.json`).
+Swift/Markdown changes are outside Biome and Knip's supported source types.
+The new diagnostics tests and unavailable-weather interaction assertion require
+macOS CI; they have not run on this executor.
 
 Run all Panel UI tests after generating the Xcode project, including
 `HomeViewLaunchTests/testEveryUnavailableGridCardShowsAReason`,
@@ -1417,7 +1432,8 @@ overlays hidden and does not stack multiple copies.
 
 Diagnostics shows the active live/fixture source, backend origin (credentials,
 path and query omitted), CFBundleVersion, `PanelGitSHA`, a fresh `health.ping`
-round-trip latency and the backend's live Home Assistant probe. The existing
+round-trip latency, the backend's live Home Assistant probe, and each module's
+current status with its sanitized reason. The existing
 `/health/climate` route reads cached DB state, so `diagnostics.status` separately
 checks HA reachability and returns only connected/unavailable/unconfigured.
 Checks use real networking even in fixture mode; unavailable checks are displayed

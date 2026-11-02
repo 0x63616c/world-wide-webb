@@ -59,6 +59,11 @@ struct PanelDiagnosticsAccess: UIViewRepresentable {
 }
 
 struct PanelDiagnosticsView: View {
+    struct ModuleStatus: Encodable, Equatable {
+        let module: String
+        let status: String
+        let reason: String?
+    }
     let store: LiveHomeDataSource
     let close: () -> Void
     @State private var backend = "checking"
@@ -82,6 +87,23 @@ struct PanelDiagnosticsView: View {
         PanelDiagnosticsSnapshot(source: source, backendURL: store.diagnosticsBackendURL,
             build: build, gitSHA: gitSHA, backend: backend, latencyMs: latencyMs, homeAssistant: homeAssistant)
     }
+    /// Read through the live providers on each render, including while Diagnostics is open.
+    static func moduleStatuses(in store: LiveHomeDataSource) -> [ModuleStatus] {
+        HomeModule.allCases.map { module in
+            let status = store.status(for: module)
+            let state: String
+            switch status {
+            case .loading: state = "loading"
+            case .live: state = "live"
+            case .unavailable: state = "unavailable"
+            case .unconfigured: state = "unconfigured"
+            }
+            // HomeModuleStatus reasons are fixed provider copy / HTTP numbers,
+            // never localizedDescription, response bodies, credentials or URLs.
+            return ModuleStatus(module: module.rawValue, status: state, reason: status.reason)
+        }
+    }
+    private var modules: [ModuleStatus] { Self.moduleStatuses(in: store) }
     var body: some View {
         NavigationStack {
             List {
@@ -96,6 +118,18 @@ struct PanelDiagnosticsView: View {
                     if let latencyMs { LabeledContent("Ping latency", value: "\(latencyMs) ms") }
                     LabeledContent("Home Assistant", value: homeAssistant)
                     Button("Check again") { Task { await check() } }
+                }
+                Section("Modules") {
+                    ForEach(modules, id: \.module) { module in
+                        VStack(alignment: .leading, spacing: 4) {
+                            LabeledContent(module.module.capitalized, value: module.status)
+                            if let reason = module.reason {
+                                Text(reason).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("diagnostics-module-\(module.module)")
+                    }
                 }
                 Section("Command log (last 50)") {
                     ForEach(commands) { entry in

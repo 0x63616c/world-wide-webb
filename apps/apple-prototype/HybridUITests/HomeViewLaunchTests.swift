@@ -119,6 +119,13 @@ import XCTest
                 XCTAssertTrue(reason.isHittable, "Reason must be visible on \(tile)")
                 XCTAssertFalse(card.staticTexts["0%"].exists, tile)
                 XCTAssertFalse(card.staticTexts["0 mi"].exists, tile)
+                if tile == "weather" {
+                    XCTAssertFalse(app.buttons["tile-unavailable-weather"].exists)
+                    card.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.15)).tap()
+                    XCTAssertTrue(app.buttons["face-page-1"].isHittable)
+                    XCTAssertFalse(app.buttons["module-home"].exists)
+                    XCTAssertFalse(app.buttons["diagnostics-done"].exists)
+                }
             }
             capture("WWW-89-unavailable-grid-\(index + 1)")
         }
