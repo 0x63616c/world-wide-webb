@@ -1,7 +1,14 @@
 import XCTest
 
 extension XCUIApplication {
+    @MainActor func alignPanelOrientation() {
+        if frame.width < frame.height {
+            XCUIDevice.shared.orientation = .landscapeRight
+            XCUIDevice.shared.orientation = .landscapeLeft
+        }
+    }
     @MainActor func openAppGrid() {
+        alignPanelOrientation()
         if buttons["app-settings"].exists && buttons["app-settings"].isHittable { return }
         let window = windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).press(forDuration: 0.1,

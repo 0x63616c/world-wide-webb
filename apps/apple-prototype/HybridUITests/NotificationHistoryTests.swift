@@ -38,16 +38,17 @@ final class NotificationHistoryTests: XCTestCase {
         app.terminate()
         app.launchArguments.removeAll { ["-notificationResetCache", "-notificationSamples", "-notificationStack"].contains($0) }
         app.launch()
+        app.alignPanelOrientation()
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertFalse(app.buttons["notification-banner-lights"].exists)
         app.openHomeModule("climate")
-        XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["Raise setpoint"].waitForExistence(timeout: 20))
         openHistory(app)
         XCTAssertEqual(rows(app).count, 2)
         capture("WWW-60-restored-over-controller", app)
         rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Reading scene")).firstMatch.tap()
         XCTAssertTrue(app.buttons["notification-history-close"].waitForNonExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
         capture("WWW-60-deep-link", app)
     }
 
@@ -58,6 +59,7 @@ final class NotificationHistoryTests: XCTestCase {
             "-moduleFlag.climate", "native", "-notificationSamples", "-notificationStack", "-notificationHold",
             "-notificationPersistentCache", "-notificationResetCache"]
         app.launch()
+        app.alignPanelOrientation()
         XCTAssertTrue(app.staticTexts["notification-stack-count"].waitForExistence(timeout: 30))
         return app
     }
@@ -65,7 +67,7 @@ final class NotificationHistoryTests: XCTestCase {
     @MainActor private func openHistory(_ app: XCUIApplication) {
         // Full-screen controllers can have different safe top insets from Home.
         // Start inside the currently reachable app edge, outside the system gesture region.
-        let edges = app.buttons.matching(identifier: "notification-history-edge")
+        let edges = app.buttons.matching(NSPredicate(format: "label == %@", "Notification Center"))
         let reachable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             edges.allElementsBoundByIndex.contains(where: \.isHittable)
         }, object: app)

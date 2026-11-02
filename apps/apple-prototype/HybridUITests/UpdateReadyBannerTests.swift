@@ -13,7 +13,7 @@ final class UpdateReadyBannerTests: XCTestCase {
             XCTAssertTrue(banner.waitForExistence(timeout: 30))
             XCTAssertTrue(app.staticTexts["Build 999999 is available in TestFlight."].exists)
             XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
-            if native { XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 15)) }
+            if native { XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 15)) }
             else { XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists) }
             let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
             capture.name = native ? "update-ready-native" : "update-ready-web"

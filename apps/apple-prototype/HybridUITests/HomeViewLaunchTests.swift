@@ -8,6 +8,7 @@ import XCTest
         app.launchArguments = ["-hybridFixtures", "-hybridStill"]
         if unavailable { app.launchArguments.append("-hybridUnavailable") }
         app.launch()
+        app.alignPanelOrientation()
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 30))
         return app
     }
@@ -18,10 +19,9 @@ import XCTest
         XCTAssertTrue(app.buttons["app-car"].staticTexts["Tesla"].exists)
         capture("native-launcher", app)
         app.buttons["app-classic"].tap()
-        let back = app.buttons["classic-home"]
-        XCTAssertTrue(back.waitForExistence(timeout: 15))
-        XCTAssertGreaterThanOrEqual(back.frame.height, 44)
-        back.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native-home"].firstMatch.waitForNonExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists)
+        app.openAppGrid()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 15))
     }
     func testClockTapAndLongPressStayOnClock() {
@@ -50,7 +50,7 @@ import XCTest
             app.buttons["app-\(id)"].tap()
             let screen = app.descendants(matching: .any)["app-screen-\(id)"].firstMatch
             XCTAssertTrue(screen.waitForExistence(timeout: 10))
-            let reason = screen.staticTexts["module-status-reason"]
+            let reason = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "server", "unavailable")).firstMatch
             XCTAssertTrue(reason.waitForExistence(timeout: 15), id)
             XCTAssertFalse(reason.label.isEmpty)
             XCTAssertFalse(app.buttons["classic-home"].exists)
@@ -62,10 +62,15 @@ import XCTest
     func testNativeAppsOpenWithoutClassicFallback() {
         let app = launch()
         defer { app.terminate() }
-        for (id, module) in [("lights", "lights"), ("climate", "climate"), ("weather", "weather"), ("car", "tesla")] {
+        for id in ["lights", "climate", "weather", "car"] {
             app.openAppGrid()
             app.buttons["app-\(id)"].tap()
-            XCTAssertTrue(app.descendants(matching: .any)["native-\(module)-detail"].firstMatch.waitForExistence(timeout: 20))
+            switch id {
+            case "lights": XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
+            case "climate": XCTAssertTrue(app.buttons["Raise setpoint"].waitForExistence(timeout: 20))
+            case "weather": XCTAssertTrue(app.staticTexts["HOURLY FORECAST"].waitForExistence(timeout: 20))
+            default: XCTAssertTrue(app.staticTexts["Odometer"].waitForExistence(timeout: 20))
+            }
             XCTAssertFalse(app.buttons["classic-home"].exists)
             capture("native-\(id)", app)
         }
