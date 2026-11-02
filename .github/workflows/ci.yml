@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # PR updates run once; main pushes still build and deploy.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
     branches: ["**"]
   # Manual trigger: rebuild + (on main) redeploy on demand. Useful for a forced
@@ -157,6 +158,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+      - name: Cache Bun downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.4.4-
       - name: Install deps
         run: bun install --frozen-lockfile
       - name: Lint (biome)
@@ -211,6 +218,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
+      - name: Cache Bun downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.4.4-
       - name: Install deps
         run: bun install --frozen-lockfile
       - name: Check committed app codegen
