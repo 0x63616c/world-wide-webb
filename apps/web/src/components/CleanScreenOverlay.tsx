@@ -13,6 +13,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useEscapeToClose } from "../lib/escape-stack";
 import { registerOpenModal } from "../lib/modal-open-store";
 import { CleanScreenOverlayView } from "./CleanScreenOverlayView";
 
@@ -27,6 +28,7 @@ export interface CleanScreenOverlayProps {
 }
 
 export function CleanScreenOverlay({ open, onComplete, onCancel }: CleanScreenOverlayProps) {
+  useEscapeToClose(open, () => {});
   const [now, setNow] = useState(() => Date.now());
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [holdStartedAt, setHoldStartedAt] = useState<number | null>(null);

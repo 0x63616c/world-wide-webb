@@ -1,5 +1,5 @@
 /**
- * escape-stack , one Escape press closes the topmost surface, and only that one.
+ * Escape and edge swipes close the topmost surface, and only that one.
  *
  * Every dismissible overlay used to attach its own `window` keydown listener,
  * and window listeners do not nest: with Settings open and a PIN dialog over it,
@@ -25,6 +25,52 @@ import { useEffect, useRef } from "react";
 const stack: Array<() => void> = [];
 let listening = false;
 
+// One gesture belongs to the surface that was topmost when the finger landed.
+let edge: { x: number; y: number; id: number; dismiss: () => void } | null = null;
+
+function onTouchStart(event: TouchEvent) {
+  edge = null;
+  if (event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  const dismiss = stack.at(-1);
+  // A range input owns its drag even if it reaches the physical edge.
+  if (event.target instanceof Element && event.target.closest('input, [role="slider"]')) return;
+  if (dismiss && touch.clientX >= 0 && touch.clientX <= 24) {
+    edge = { x: touch.clientX, y: touch.clientY, id: touch.identifier, dismiss };
+  }
+}
+
+function onTouchMove(event: TouchEvent) {
+  if (!edge) return;
+  const touch = event.touches[0];
+  if (event.touches.length !== 1 || touch.identifier !== edge.id) {
+    edge = null;
+    return;
+  }
+  const dx = touch.clientX - edge.x;
+  const dy = Math.abs(touch.clientY - edge.y);
+  if (dy > 16 && dy > Math.abs(dx) / 2) {
+    edge = null;
+  } else if (dx > 16 && dx > dy * 2 && event.cancelable) {
+    // Claim only an edge-start horizontal gesture; ordinary scrolling is untouched.
+    event.preventDefault();
+  }
+}
+
+function onTouchEnd(event: TouchEvent) {
+  const start = edge;
+  edge = null;
+  if (!start || event.touches.length !== 0 || stack.at(-1) !== start.dismiss) return;
+  const touch = Array.from(event.changedTouches).find((t) => t.identifier === start.id);
+  if (!touch) return;
+  const dx = touch.clientX - start.x;
+  if (dx > 80 && dx > Math.abs(touch.clientY - start.y) * 2) start.dismiss();
+}
+
+function onTouchCancel() {
+  edge = null;
+}
+
 function onKeyDown(event: KeyboardEvent) {
   if (event.key !== "Escape") return;
   const topmost = stack.at(-1);
@@ -43,6 +89,10 @@ export function pushEscapeHandler(onEscape: () => void): () => void {
   stack.push(onEscape);
   if (!listening) {
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchCancel);
     listening = true;
   }
 
@@ -54,6 +104,11 @@ export function pushEscapeHandler(onEscape: () => void): () => void {
     if (at !== -1) stack.splice(at, 1);
     if (stack.length === 0) {
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchCancel);
+      edge = null;
       listening = false;
     }
   };

@@ -197,31 +197,3 @@ export function ActionButton({
     </button>
   );
 }
-
-/** The chevron-only back affordance placed left of the "Settings" heading. */
-export function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label="Back to board"
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 38,
-        height: 38,
-        padding: 0,
-        background: "var(--nest)",
-        border: "1px solid var(--hair)",
-        borderRadius: 12,
-        color: "var(--ink-2)",
-        cursor: "pointer",
-        flexShrink: 0,
-        transform: "rotate(180deg)",
-      }}
-    >
-      <Icon name="chevron" s={20} />
-    </button>
-  );
-}

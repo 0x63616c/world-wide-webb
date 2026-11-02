@@ -4,7 +4,7 @@
  * Successor to the deleted modal-era types (LiveVariant et al): a tile's detail
  * variants are bare page bodies now , no <Modal> chrome, no open/onClose ,
  * hosted by TileDetailHost, which supplies the page shell (portal, header,
- * BackButton) and the floating VariantSwitcher. All variants are fed LIVE tRPC
+ * BackPill) and the floating VariantSwitcher. All variants are fed LIVE tRPC
  * data by the wiring hook , never fixtures (the repo's zero-fake-data rule
  * applies to app runtime).
  */

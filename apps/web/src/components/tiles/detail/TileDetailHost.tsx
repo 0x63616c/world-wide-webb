@@ -15,6 +15,7 @@ import { getTileDetailEntry } from "@features/_generated/web.gen";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { PageHeader, Skeleton } from "@/components/ui";
+import { BackPill } from "@/components/ui/BackPill";
 import { registerOpenModal } from "../../../lib/modal-open-store";
 import { usePanelAccess } from "../../../lib/panel-access";
 import { closeTileDetail, openTileDetail, useTileDetail } from "../../../lib/tile-detail-store";
@@ -101,15 +102,6 @@ function TileDetailPage({
   // no ref-routing is needed to keep this registration from churning.
   useEffect(() => registerOpenModal(() => closeTileDetail()), []);
 
-  // Escape-to-close, only while mounted (i.e. open).
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") closeTileDetail();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
   const ready = !loading && variants.length > 0;
   const active = ready ? (variants.find((v) => v.slug === slug) ?? variants[0]) : null;
   // Full-bleed pages (e.g. the photo-booth camera) drop the host's PageHeader +
@@ -140,7 +132,7 @@ function TileDetailPage({
         }}
       >
         <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
-          {active?.render()}
+          {active ? active.render() : <BackPill onBack={closeTileDetail} />}
         </div>
       </div>,
       document.body,
@@ -183,7 +175,7 @@ function TileDetailPage({
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: "24px 24px calc(24px + env(safe-area-inset-bottom, 0px))",
+          padding: "24px 24px calc(104px + env(safe-area-inset-bottom, 0px))",
         }}
       >
         {active ? (

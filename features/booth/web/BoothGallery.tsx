@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { groupByDay } from "@/components/gallery/group-by-day";
 import { PhotoGrid } from "@/components/gallery/PhotoGrid";
 import { ConfirmDialog, PageHeader } from "@/components/ui";
+import { BackPill } from "@/components/ui/BackPill";
 import { isNativeShell, nativeRequest } from "@/lib/native-bridge";
 import type { RouterOutputs } from "@/lib/trpc";
 import { bakeFilterIntoImage } from "./lib/booth-capture";
@@ -78,8 +79,7 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
   useEffect(() => {
     if (open == null) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpenIndex(null);
-      else if (e.key === "ArrowLeft") setOpenIndex((i) => (i != null && i > 0 ? i - 1 : i));
+      if (e.key === "ArrowLeft") setOpenIndex((i) => (i != null && i > 0 ? i - 1 : i));
       else if (e.key === "ArrowRight")
         setOpenIndex((i) => (i != null && i < views.length - 1 ? i + 1 : i));
     }
@@ -99,6 +99,7 @@ export function BoothGallery({ groups, photoUrl, onRemove, onBack }: BoothGaller
       <PageHeader
         title="Photos"
         onBack={onBack}
+        backLabel="Back to camera"
         right={
           <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink-3)" }}>
             {photoCount === 1 ? "1 photo" : `${photoCount} photos`}
@@ -241,7 +242,8 @@ function Lightbox({
   return (
     <div style={overlay}>
       {/* Backdrop , tapping anywhere outside the image (or Escape) closes. */}
-      <button type="button" aria-label="Close" onClick={onClose} style={scrim} />
+      <button type="button" aria-hidden="true" tabIndex={-1} onClick={onClose} style={scrim} />
+      <BackPill onBack={onClose} label="Back to photos" />
 
       <button type="button" onClick={onDelete} aria-label="Delete" style={cornerBtn("top-left")}>
         <TrashIcon />
@@ -557,7 +559,7 @@ const scrollRegion: CSSProperties = {
   flex: 1,
   minHeight: 0,
   overflowY: "auto",
-  padding: "0 0 40px",
+  padding: "0 0 calc(104px + env(safe-area-inset-bottom, 0px))",
 };
 
 const dot: CSSProperties = {
@@ -590,7 +592,7 @@ const compositeCell: CSSProperties = {
 const overlay: CSSProperties = {
   position: "absolute",
   inset: 0,
-  zIndex: 60,
+  zIndex: 200,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",

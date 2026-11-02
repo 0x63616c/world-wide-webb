@@ -8,9 +8,10 @@
  * throwaway ApertureV3 prototype's apertureV2-kit.
  */
 
-import { Images, X, Zap, ZapOff } from "lucide-react";
+import { Images, Zap, ZapOff } from "lucide-react";
 import type { CSSProperties } from "react";
 import { Icon } from "@/components/Icon";
+import { BackPill } from "@/components/ui/BackPill";
 import { Modal } from "@/components/ui/Modal";
 import { Segmented } from "@/components/ui/Segmented";
 import {
@@ -127,15 +128,11 @@ export function TopControls({
         right: 0,
         display: "flex",
         alignItems: "center",
-        justifyContent: onClose ? "space-between" : "flex-end",
+        justifyContent: "flex-end",
         padding: "26px 34px",
       }}
     >
-      {onClose && (
-        <button type="button" style={glassBtn(false)} onClick={onClose} aria-label="Close camera">
-          <X size={23} strokeWidth={2} />
-        </button>
-      )}
+      {onClose && <BackPill onBack={onClose} />}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           type="button"

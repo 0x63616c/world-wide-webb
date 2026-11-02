@@ -10,6 +10,7 @@
 
 import { formatTilt, isLevel } from "../lib/tilt";
 import type { TiltReading } from "../lib/useTiltAngle";
+import { BackPill } from "./ui/BackPill";
 
 // Oversized so the rotated plane's corners never expose the backdrop, even at
 // extreme angles on the 1366x1024 panel.
@@ -63,6 +64,7 @@ export function LevelOverlayView({ reading, axis, onSwapAxis, onClose }: LevelOv
         cursor: "pointer",
       }}
     >
+      <BackPill onBack={onClose} label="Back to Settings" />
       {!level && (
         <div
           style={{

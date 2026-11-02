@@ -10,9 +10,9 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useEscapeToClose } from "../../lib/escape-stack";
 import { registerOpenModal } from "../../lib/modal-open-store";
 import { Z_LAYER } from "../../lib/z-layers";
+import { BackPill } from "./BackPill";
 
 export interface ModalProps {
   open: boolean;
@@ -80,16 +80,6 @@ export function Modal({
     return registerOpenModal(() => onCloseRef.current());
   }, [open]);
 
-  // Interaction log: EVERY modal in the app is this component, so instrumenting
-  // the open/close lifecycle here covers all of them , including modals a tile
-  // manages itself , and covers modals that do not exist yet. Logging at each
-  // call site instead would be ~15 edits today and a thing to remember forever.
-  // `title` is the only identity a modal carries; it is stable enough to group
-  // by and is what a human reading the transcript would name anyway. Routed
-  // Escape-to-close, arbitrated by escape-stack: only while open, and only
-  // while this is the topmost open surface.
-  useEscapeToClose(open, onClose);
-
   if (!open) return null;
 
   // Portal to <body> so the modal is NOT a DOM descendant of the pannable
@@ -104,6 +94,9 @@ export function Modal({
     // panel, so dismissal is keyboard-accessible and clicks inside the panel
     // simply never reach the backdrop (no stopPropagation gymnastics needed).
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={TITLE_ID}
       style={{
         position: "fixed",
         inset: 0,
@@ -133,11 +126,10 @@ export function Modal({
         }}
       />
 
+      <BackPill onBack={onClose} label="Close" />
       {/* Centered fixed-size panel, layered above the backdrop. */}
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={TITLE_ID}
+        data-testid="modal-panel"
         className="modal-panel"
         style={{
           position: "relative",
@@ -156,7 +148,7 @@ export function Modal({
           overflow: "hidden",
         }}
       >
-        {/* Header: title left, close button right. */}
+        {/* The floating pill owns dismissal; the header only carries the title. */}
         <div
           style={{
             display: "flex",
@@ -171,30 +163,6 @@ export function Modal({
           >
             {title}
           </h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 34,
-              height: 34,
-              padding: 0,
-              cursor: "pointer",
-              color: "var(--ink-2)",
-              background: "var(--nest)",
-              border: "1px solid var(--hair)",
-              borderRadius: 10,
-              font: "inherit",
-              fontSize: 20,
-              lineHeight: 1,
-            }}
-          >
-            {/* × glyph; aria-label carries the accessible name. */}
-            <span aria-hidden="true">×</span>
-          </button>
         </div>
 
         {/* Scrollable body , uniform padding matches the header scale.
