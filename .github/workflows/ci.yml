@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Choose next patch version (reuse this commit's tag on retries)
+      - name: Choose next release counter (reuse this commit's tag on retries)
         id: version
         shell: bash
         run: |
@@ -45,18 +45,20 @@ jobs:
           if existing:
               version = existing[0]
           else:
-              major, minor, patch = max(versions, default=(0, 1, 2))
-              version = f'{major}.{minor}.{patch + 1}'
+              counter = max((v[2] for v in versions), default=3) + 1
+              version = f'1.0.{counter}'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write(f'version={version}\n')
+              out.write(f'counter={version.split(".")[-1]}\n')
           PY
       - name: Build universal app
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_COUNTER: ${{ steps.version.outputs.counter }}
         run: |
           xcodebuild -project Callkeep.xcodeproj -scheme Callkeep -configuration Release \
             -derivedDataPath build ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
-            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$RELEASE_COUNTER" build
           for arch in arm64 x86_64; do
             lipo build/Build/Products/Release/Callkeep.app/Contents/MacOS/Callkeep -verify_arch "$arch"
           done
@@ -88,7 +90,7 @@ jobs:
           Signed with Developer ID and notarized by Apple.
           EOF
             gh release create "v$VERSION" "Callkeep-$VERSION.zip" --target "$GITHUB_SHA" \
-              --title "Callkeep $VERSION" --notes-file /tmp/release-notes.md --generate-notes
+              --title "Callkeep Build ${VERSION##*.} ($VERSION)" --notes-file /tmp/release-notes.md --generate-notes
           fi
       - name: Check out Homebrew tap
         uses: actions/checkout@v4

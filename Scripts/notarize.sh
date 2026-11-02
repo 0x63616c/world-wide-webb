@@ -49,8 +49,17 @@ result=json.load(open(sys.argv[1]))
 print('Notarization:', result.get('status'), 'Submission:', result.get('id'))
 if result.get('status') != 'Accepted': raise SystemExit('Apple did not accept this build; release stopped.')
 PY
-xcrun stapler staple "$app"
-xcrun stapler validate "$app"
-spctl --assess --type execute --verbose "$app"
+retry_validation() {
+  local attempt
+  for attempt in 1 2 3; do
+    if "$@"; then return 0; fi
+    echo "Validation attempt $attempt failed; retrying in 5 seconds" >&2
+    sleep 5
+  done
+  return 1
+}
+retry_validation xcrun stapler staple "$app"
+retry_validation xcrun stapler validate "$app"
+retry_validation spctl --assess --type execute --verbose "$app"
 rm "$archive"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"

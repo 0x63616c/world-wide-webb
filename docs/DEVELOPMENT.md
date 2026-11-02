@@ -51,7 +51,8 @@ Active audio stays local; finished recordings move to iCloud Drive when enabled 
 ## Automatic releases and Homebrew
 
 Every push to `main` (including merges) runs the tests, then builds a universal
-Apple silicon/Intel app, increments the latest release's patch version, and
+Apple silicon/Intel app, increments a single release counter (Build 4, Build 5, and so on, stored as
+`1.0.4`, `1.0.5`), and
 publishes a zip to GitHub Releases. Pull requests run tests without publishing.
 The release version overrides the checked-in marketing version at build time.
 Runs queue sequentially, and rerunning a released commit reuses its tag and

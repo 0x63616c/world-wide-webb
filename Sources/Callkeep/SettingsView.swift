@@ -63,7 +63,7 @@ struct SettingsView: View {
                     RecordingAccessView(permissions: model.permissions, recording: model.isRecording).modifier(SettingsSurface())
                 }
                 HStack {
-                    Text("Callkeep \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1")")
+                    Text("Callkeep · Build \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4")")
                     Spacer()
                     Button("About Recording") { showingInfo = true }.buttonStyle(.link)
                 }.font(.caption).foregroundStyle(.secondary)
