@@ -15,7 +15,7 @@ Path(destination).write_text('''cask "callkeep" do
 
   url "https://github.com/0x63616c/callkeep/releases/download/v#{version}/Callkeep-#{version}.zip"
   name "Callkeep"
-  desc "Record microphone and Mac audio, with optional iCloud Drive storage"
+  desc "Record microphone and computer audio with optional iCloud Drive storage"
   homepage "https://github.com/0x63616c/callkeep"
 
   livecheck do
@@ -23,7 +23,7 @@ Path(destination).write_text('''cask "callkeep" do
     strategy :github_latest
   end
 
-  depends_on macos: ">= :sequoia"
+  depends_on macos: :sequoia
 
   app "Callkeep.app"
 
