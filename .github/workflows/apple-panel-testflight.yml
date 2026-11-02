@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   smoke:
-    runs-on: macos-26
+    runs-on: macos-26-intel
     # Cold builds (~8.5 min) + UI tests (~4.5 min) need room for setup and evidence upload.
     timeout-minutes: 25
     outputs:
@@ -180,7 +180,7 @@ jobs:
   upload:
     needs: smoke
     if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only) }}
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 45
     environment: production
     # Also shared with the manual Expo rollback workflow: one bundle ID, one
