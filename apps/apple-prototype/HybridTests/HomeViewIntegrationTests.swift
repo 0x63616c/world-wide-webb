@@ -72,7 +72,7 @@ import PanelKit
         for tile in [HomeTile.fan, .sound, .clock, .dogwalk, .cameras, .photos] {
             XCTAssertNotNil(host.gridTile(tile, span: HomeGrid.span(2, 2), open: {}), tile.id)
         }
-        XCTAssertNil(host.gridTile(.climate, span: HomeGrid.span(2, 2), open: {}))
+        XCTAssertNotNil(host.gridTile(.climate, span: HomeGrid.span(2, 2), open: {}))
         let fanSpan = HomeGrid.span(2, 1)
         func fanImage() throws -> Data {
             let tile = try XCTUnwrap(host.gridTile(.fan, span: fanSpan, open: {}))
@@ -146,8 +146,8 @@ import PanelKit
     func testHomeWallpaperAndSkyAreInPanelBundle() {
         XCTAssertNotNil(UIImage(named: "LakeWallpaper"))
         XCTAssertNotNil(UIImage(named: "CloudPhoto"))
-        XCTAssertNil(UIImage(named: "ForestPhoto"))
-        XCTAssertNil(UIImage(named: "CoastPhoto"))
+        XCTAssertNotNil(UIImage(named: "ForestPhoto"))
+        XCTAssertNotNil(UIImage(named: "CoastPhoto"))
     }
 }
 

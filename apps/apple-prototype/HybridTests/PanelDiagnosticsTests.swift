@@ -53,11 +53,11 @@ import PanelKit
         attachment.removeFromSuperview()
         XCTAssertNil(attachment.recognizer.view)
     }
-    func testInformationalFacesCannotOpenDestinations() {
-        for tile in [HomeTile.clock, .weather, .hourly] {
+    func testOnlyClockIsInformationalWhileWeatherOpensItsApp() {
+        for tile in [HomeTile.clock] {
             XCTAssertTrue(PanelHomePresentation.isInformationalFace(tile))
         }
-        for tile in [HomeTile.alarm, .climate, .calendar, .sound, .wifi] {
+        for tile in [HomeTile.alarm, .climate, .calendar, .sound, .wifi, .weather, .hourly] {
             XCTAssertFalse(PanelHomePresentation.isInformationalFace(tile))
         }
     }

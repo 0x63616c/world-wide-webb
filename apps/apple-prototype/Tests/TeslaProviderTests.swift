@@ -5,7 +5,7 @@ import XCTest
     func testFixtureAndCommandsPreserveTelemetry() {
         let provider = MockTeslaProvider()
         XCTAssertNil(provider.data.lat); XCTAssertNil(provider.data.lon)
-        XCTAssertEqual(provider.data.name, "Model Y"); XCTAssertEqual(provider.data.nick, "Car")
+        XCTAssertEqual(provider.data.name, "Model Y"); XCTAssertEqual(provider.data.nick, "Tesla")
         provider.send(.setCharging(false))
         XCTAssertFalse(provider.data.charging)
         XCTAssertEqual(provider.data.chargingState, "stopped"); XCTAssertEqual(provider.data.rate, 0)
