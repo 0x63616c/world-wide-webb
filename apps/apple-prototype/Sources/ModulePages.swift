@@ -43,51 +43,47 @@ struct WeatherPage: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: compact ? 28 : 40) {
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(weather.city).font(.system(size: compact ? 30 : 44, weight: .medium))
-                        Text("\(weather.temperature)°").font(.system(size: compact ? 96 : 160, weight: .light)).monospacedDigit()
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 12) {
-                        Image(systemName: weather.symbol).font(.system(size: compact ? 40 : 72)).symbolRenderingMode(.multicolor)
-                        Text(weather.condition).font(.system(size: compact ? 18 : 28, weight: .medium))
-                        Text("High \(weather.high)° · Low \(weather.low)°").font(.system(size: compact ? 15 : 22))
-                    }
-                }
-                GlassEffectContainer(spacing: 16) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: compact ? 2 : 4), spacing: 16) {
-                        weatherMetric("Feels like", value: "\(weather.feels)°", symbol: "thermometer.medium")
-                        weatherMetric("Humidity", value: "\(weather.humidity)%", symbol: "humidity.fill")
-                        weatherMetric("Wind", value: "\(weather.wind) mph", symbol: "wind")
-                        weatherMetric(weather.solarLabel, value: weather.solarValue, symbol: "sunset.fill")
-                    }
-                }
-                VStack(alignment: .leading, spacing: 28) {
-                    Text("Next 12 hours").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                    ScrollView(.horizontal) {
-                        HStack(spacing: compact ? 24 : 32) {
-                            ForEach(weather.hours) { hour in
-                                VStack(spacing: 22) {
-                                    Text(hour.time).font(.system(size: 18)).foregroundStyle(.secondary)
-                                    Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 28))
-                                    Text("\(hour.temperature)°").font(.system(size: 24, weight: .medium)).monospacedDigit()
-                                }.frame(minWidth: 54)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 28) {
+                    VStack(spacing: 10) {
+                        Text(weather.city).font(.system(size: compact ? 30 : 40, weight: .medium))
+                        Text("\(weather.temperature)°").font(.system(size: compact ? 100 : 140, weight: .thin)).monospacedDigit()
+                        Text(weather.condition).font(.title2.weight(.medium))
+                        Text("H:\(weather.high)°  L:\(weather.low)°").font(.title3)
+                    }.frame(maxWidth: .infinity)
+                        .frame(minHeight: compact ? 300 : max(320, geometry.size.height * 0.45))
+                    VStack(alignment: .leading, spacing: 24) {
+                        Label("HOURLY FORECAST", systemImage: "clock").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
+                        ScrollView(.horizontal) {
+                            HStack(spacing: 0) {
+                                ForEach(weather.hours) { hour in
+                                    VStack(spacing: 20) {
+                                        Text(hour.time).font(.system(size: 18, weight: .medium))
+                                        Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 28)).frame(height: 34)
+                                        Text("\(hour.temperature)°").font(.system(size: 24, weight: .medium)).monospacedDigit()
+                                    }.frame(width: max(72, (geometry.size.width - (compact ? 96 : 144)) / CGFloat(max(1, weather.hours.count))))
+                                }
                             }
+                        }.scrollIndicators(.hidden)
+                        Divider().overlay(.white.opacity(0.15))
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: compact ? 2 : 4), alignment: .leading, spacing: 24) {
+                            weatherMetric("Feels like", value: "\(weather.feels)°", symbol: "thermometer.medium")
+                            weatherMetric("Humidity", value: "\(weather.humidity)%", symbol: "humidity.fill")
+                            weatherMetric("Wind", value: "\(weather.wind) mph", symbol: "wind")
+                            weatherMetric(weather.solarLabel, value: weather.solarValue, symbol: "sunset.fill")
                         }
-                    }.scrollIndicators(.hidden)
-                }
-            }.padding(compact ? 24 : 64)
-        }
+                    }.padding(24).background(.black.opacity(0.18), in: .rect(cornerRadius: 28))
+                }.padding(.horizontal, compact ? 24 : 48).padding(.top, 32).padding(.bottom, 96)
+                    .frame(minHeight: geometry.size.height, alignment: .top)
+            }
+        }.foregroundStyle(.white).background { WeatherAtmosphere(weather: weather).ignoresSafeArea() }
     }
     private func weatherMetric(_ title: String, value: String, symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label(title, systemImage: symbol).font(.system(size: compact ? 15 : 20))
-            Text(value).font(.system(size: compact ? 26 : 36, weight: .medium, design: .rounded)).monospacedDigit()
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
-            .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: symbol).font(.subheadline).foregroundStyle(.white.opacity(0.75))
+            Text(value).font(.system(size: compact ? 26 : 32, weight: .medium)).monospacedDigit()
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

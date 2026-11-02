@@ -1,5 +1,6 @@
 import CoreText
 import SwiftUI
+import PanelKit
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
 /// 13 Oct 2026): a full-bleed green field, four huge black cardinal numerals
@@ -9,14 +10,24 @@ struct PresenceClockFace: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        ZStack {
-            GreenClockDial.green
-            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
-                GreenClockDial(date: store.now)
-            }
-                .accessibilityIdentifier("clock-face")
+        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+            let now = store.now
+            let night = previewNight || (SolarClock.isNight(at: now, sunrise: store.weather.sunrise,
+                sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise) ?? (store.weather.sunrise == nil && store.weather.symbol.contains("moon")))
+            ZStack {
+                night ? Color.black : GreenClockDial.green
+                GreenClockDial(date: now, night: night)
+            }.accessibilityIdentifier("clock-face")
         }.ignoresSafeArea()
     }
+    private var previewNight: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-previewNightClock")
+        #else
+        false
+        #endif
+    }
+
 }
 
 /// Lays the face out in whatever rectangle it is given: landscape fills the
@@ -26,6 +37,9 @@ struct GreenClockDial: View {
     static let green = Color(red: 63.0 / 255, green: 148.0 / 255, blue: 93.0 / 255)
     let date: Date
     var numeralsOnly = false
+    var night = false
+    private var ink: Color { night ? Color(white: 0.68) : .black }
+    private var handColor: Color { night ? Color(white: 0.9) : .white }
 
     /// Geometry shared with tests so they can check the reference proportions.
     struct Layout {
@@ -71,7 +85,7 @@ struct GreenClockDial: View {
                 if !numeralsOnly {
                     Text(fixtureTime(date, format: "EEE d").uppercased())
                         .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
-                        .foregroundStyle(.black).fixedSize()
+                        .foregroundStyle(ink).fixedSize()
                         .alignmentGuide(.leading) { _ in -(layout.inset * 1.25) }
                         .alignmentGuide(.top) { d in -(face.minY + face.height * 0.915) + d[.firstTextBaseline] }
                     hands(layout, hours: hours, minutes: minutes, seconds: seconds)
@@ -86,7 +100,7 @@ struct GreenClockDial: View {
         let baseline = glyphTop + layout.digitHeight
         return Text(text)
             .font(.system(size: layout.fontSize, weight: Self.weight))
-            .foregroundStyle(.black).fixedSize()
+            .foregroundStyle(ink).fixedSize()
             .frame(width: layout.face.width - layout.inset * 2, height: metrics.ascent + metrics.descent, alignment: alignment)
             .offset(x: layout.face.minX + layout.inset, y: baseline - metrics.ascent)
     }
@@ -96,14 +110,14 @@ struct GreenClockDial: View {
         return ZStack {
             hand(length: layout.hourLength, width: w, degrees: hours * 30)
             hand(length: layout.minuteLength, width: w, degrees: minutes * 6)
-            Circle().fill(.white).frame(width: w * 1.5, height: w * 1.5)
+            Circle().fill(handColor).frame(width: w * 1.5, height: w * 1.5)
             // Thin seconds hand with a short counterweight tail, as in the reference.
-            Rectangle().fill(.white)
+            Rectangle().fill(handColor)
                 .frame(width: max(1.5, w * 0.16), height: layout.minuteLength * 1.05 + w * 3)
                 .offset(y: -(layout.minuteLength * 1.05 - w * 3) / 2)
                 .rotationEffect(.degrees(seconds * 6))
-            Circle().strokeBorder(.white, lineWidth: max(1.5, w * 0.16))
-                .background(Circle().fill(Self.green))
+            Circle().strokeBorder(handColor, lineWidth: max(1.5, w * 0.16))
+                .background(Circle().fill(night ? .black : Self.green))
                 .frame(width: w * 0.75, height: w * 0.75)
         }.frame(width: 0, height: 0).position(layout.center)
     }
@@ -112,8 +126,8 @@ struct GreenClockDial: View {
     private func hand(length: CGFloat, width: CGFloat, degrees: Double) -> some View {
         let neck = width * 1.6
         return VStack(spacing: 0) {
-            Capsule().fill(.white).frame(width: width, height: length - neck + width / 2)
-            Rectangle().fill(.white).frame(width: width * 0.36, height: neck - width / 2)
+            Capsule().fill(handColor).frame(width: width, height: length - neck + width / 2)
+            Rectangle().fill(handColor).frame(width: width * 0.36, height: neck - width / 2)
         }.frame(height: length)
             .offset(y: -length / 2).rotationEffect(.degrees(degrees))
     }

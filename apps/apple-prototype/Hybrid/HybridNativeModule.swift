@@ -17,7 +17,7 @@ extension PanelModule {
         case .calendar: "Calendar"
         case .alarms: "Clock & Alarms"
         case .walk: "Dog Walk"
-        case .tesla: "Car"
+        case .tesla: "Tesla"
         }
     }
 }

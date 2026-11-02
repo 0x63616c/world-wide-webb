@@ -226,7 +226,8 @@ private struct NotificationHistoryRow: View {
         .accessibilityHint("Opens \(source.name)")
         .accessibilityIdentifier("notification-history-item-\(item.id)")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button("Clear", role: .destructive) { Task { await center.dismiss(item.id) } }
+            Button("Clear", systemImage: "trash", role: .destructive) { Task { await center.dismiss(item.id) } }
+                .tint(.red)
         }
         .accessibilityAction(named: "Clear") { Task { await center.dismiss(item.id) } }
     }
@@ -237,7 +238,7 @@ struct NotificationHistoryAccess: ViewModifier {
     func body(content: Content) -> some View {
         content
             #if os(iOS)
-            .defersSystemGestures(on: .top)
+            .defersSystemGestures(on: [.top, .bottom])
             #endif
     }
 }

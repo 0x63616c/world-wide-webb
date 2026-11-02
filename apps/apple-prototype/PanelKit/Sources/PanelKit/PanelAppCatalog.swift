@@ -49,7 +49,7 @@ public struct PanelAppCatalog: Sendable {
             .init(id: "walks", name: "Walk Zero", symbol: "pawprint.fill", accent: "#31b870", route: .feature(.walks)),
             .init(id: "cameras", name: "Cameras", symbol: "video.fill", accent: "#626f88", route: .feature(.cameras)),
             .init(id: "photos", name: "Photos", symbol: "photo.on.rectangle.angled", accent: "#a563dc", route: .feature(.photos)),
-            .init(id: "car", name: "Car", symbol: "car.side.fill", accent: "#387eab", route: .feature(.car)),
+            .init(id: "car", name: "Tesla", symbol: "car.side.fill", accent: "#387eab", route: .feature(.car)),
             .init(id: "wifi", name: "Wi-Fi", symbol: "wifi", accent: "#37aebd", route: .feature(.wifi)),
             .init(id: "settings", name: "Settings", symbol: "gearshape.fill", accent: "#707986", route: .settings),
             .init(id: "classic", name: "Classic", symbol: "safari", accent: "#4b67c9", route: .classic)

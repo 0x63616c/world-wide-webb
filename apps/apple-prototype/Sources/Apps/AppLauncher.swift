@@ -11,6 +11,15 @@ struct AppLauncher: View {
             let columns = sizeClass == .compact ? 3 : 5
             let iconSide: CGFloat = sizeClass == .compact ? 76 : 112
             ScrollView(.vertical) {
+                VStack(spacing: 32) {
+                    TimelineView(.periodic(from: Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 60) * 60), by: 60)) { context in
+                        VStack(spacing: 6) {
+                            Text(context.date, format: .dateTime.hour().minute())
+                                .font(.system(size: 56, weight: .light, design: .rounded)).monospacedDigit()
+                            Text(context.date, format: .dateTime.weekday(.wide).month(.wide).day())
+                                .font(.title3.weight(.medium))
+                        }.foregroundStyle(.white)
+                    }.padding(.top, 36)
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48) {
                         ForEach(apps) { app in
@@ -21,13 +30,15 @@ struct AppLauncher: View {
                                     Text(app.name).font(.system(size: sizeClass == .compact ? 15 : 21, weight: .medium))
                                         .foregroundStyle(.white).lineLimit(1)
                                 }.frame(maxWidth: .infinity).contentShape(.rect)
-                            }.buttonStyle(.plain).accessibilityIdentifier("app-\(app.id)")
+                            }.buttonStyle(LauncherPressStyle()).accessibilityIdentifier("app-\(app.id)")
                         }
                     }.padding(.horizontal, sizeClass == .compact ? 20 : 72)
                         .padding(.vertical, 48)
-                }.frame(minHeight: proxy.size.height, alignment: .center)
+                }
+                }.frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden)
-        }.background { Wallpaper(dimming: 0.12, blurRadius: 0) }
+        }.background { Wallpaper(dimming: 0.12, blurRadius: 0).accessibilityHidden(true) }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
     }
 }
@@ -53,23 +64,43 @@ struct SwipeHomeRegion: View {
 
 struct PanelSettingsPage: View {
     let showClock: () -> Void
-    @State private var choosingWallpaper = false
+    private enum Page: String, CaseIterable, Identifiable {
+        case display = "Display", clock = "Clock", apps = "Apps"
+        var id: String { rawValue }
+        var symbol: String { self == .display ? "display" : (self == .clock ? "clock" : "square.grid.2x2") }
+    }
+    @State private var selection: Page? = .display
     @AppStorage("panel.idleDimming") private var idleDimming = true
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Button { choosingWallpaper = true } label: { Label("Background", systemImage: "photo") }
-                    Toggle("Dim when idle", isOn: $idleDimming).tint(.green)
-                }
-                Section {
-                    Button(action: showClock) { Label("Show clock", systemImage: "clock") }
-                }
-            }.formStyle(.grouped).scrollContentBackground(.hidden)
-                .navigationTitle("Settings")
-                .background(Color.black)
-                .sheet(isPresented: $choosingWallpaper) { WallpaperPicker() }
-        }.preferredColorScheme(.dark)
+        NavigationSplitView(columnVisibility: .constant(.all)) {
+            List(Page.allCases, selection: $selection) { page in
+                Label(page.rawValue, systemImage: page.symbol).tag(page)
+            }.navigationTitle("Settings")
+                .toolbar(removing: .sidebarToggle)
+                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 340)
+        } detail: {
+            NavigationStack {
+                Form {
+                    if selection == .apps {
+                        Section {
+                            ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { false } }) { app in
+                                NavigationLink { PanelPerAppSettings(app: app) } label: { Label(app.name, systemImage: app.symbol) }
+                            }
+                        }
+                    } else if selection == .clock {
+                        Section {
+                            Button(action: showClock) { Label("Show clock", systemImage: "clock") }
+                        }
+                    } else {
+                        Section {
+                            NavigationLink { WallpaperPicker(embedded: true) } label: { Label("Background", systemImage: "photo") }
+                            Toggle("Dim when idle", isOn: $idleDimming)
+                        }
+                    }
+                }.formStyle(.grouped)
+                    .navigationTitle(selection?.rawValue ?? "Display")
+            }.id(selection)
+        }.tint(.blue).preferredColorScheme(.dark)
     }
 }
 
@@ -103,5 +134,16 @@ private struct LauncherIcon: View {
         }.frame(width: side, height: side)
             .overlay { RoundedRectangle(cornerRadius: side * 0.23).strokeBorder(.white.opacity(0.18), lineWidth: 0.5) }
             .accessibilityHidden(true)
+    }
+}
+
+/// Small, interruptible press feedback; screen navigation itself stays a crossfade.
+private struct LauncherPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: configuration.isPressed)
     }
 }

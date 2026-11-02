@@ -110,7 +110,7 @@ struct ControlsController: View {
                         Spacer()
                         Button { store.send(.toggle(.all)) } label: {
                             Label("All lights", systemImage: "power").padding(8)
-                        }.buttonStyle(.glass).tint(.orange).padding(.trailing, 76)
+                        }.buttonStyle(.glass).tint(.orange)
                     }
                     HStack(alignment: .top, spacing: 48) {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {

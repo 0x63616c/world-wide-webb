@@ -62,7 +62,7 @@ enum GridCard: String, CaseIterable {
     case cameras, photos, sonosRooms, wifi, dogwalk, media
     var title: String {
         switch self {
-        case .climate: "Climate"; case .lamps: "Lamps"; case .weather: "Weather"; case .car: "Car"
+        case .climate: "Climate"; case .lamps: "Lamps"; case .weather: "Weather"; case .car: "Tesla"
         case .cameras: "Cameras"; case .photos: "Photos"; case .sonosRooms: "Sonos rooms"
         case .wifi: "Wi-Fi"; case .dogwalk: "Walk Zero"; case .media: "Media"
         case .calendar: "Up next"; case .nowPlaying: "Now Playing"; case .fan: "Fan"; case .lights: "Lights"; case .clock: "Clock"
@@ -1157,10 +1157,12 @@ struct GridSheetPage: View {
 enum WallpaperChoice: String, CaseIterable, Identifiable {
     // WWW-54: plain black is the default; photos threw the layout review off.
     case black, lake, coast, forest, cloud, graphite, dusk
+    case aurora, ribbons, ocean, stars, contours, eclipse, dunes, prism, embers, paper
     static let key = "wallpaper"
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .aurora, .ribbons, .ocean, .stars, .contours, .eclipse, .dunes, .prism, .embers, .paper: rawValue.capitalized
         case .black: "Black"; case .lake: "Lake"; case .coast: "Coast"; case .forest: "Forest"; case .cloud: "Sky"; case .graphite: "Graphite"; case .dusk: "Dusk"
         }
     }
@@ -1175,22 +1177,28 @@ enum WallpaperChoice: String, CaseIterable, Identifiable {
         case .black: Color.black
         case .graphite: Color(white: 0.16)
         case .dusk: LinearGradient(colors: [Color(hex: "#1b2a4a"), Color(hex: "#6b3a6e"), Color(hex: "#d9774f")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .aurora, .ribbons, .ocean, .stars, .contours, .eclipse, .dunes, .prism, .embers, .paper:
+            ArtWallpaper(style: ArtStyle(rawValue: rawValue) ?? .aurora)
         default: Image(asset ?? "LakeWallpaper").resizable().scaledToFill()
         }
     }
 }
 
 struct WallpaperPicker: View {
+    var embedded = false
     @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        NavigationStack {
+        if embedded { content }
+        else { NavigationStack { content.toolbar { Button("Done") { dismiss() } } } }
+    }
+    private var content: some View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 24)], spacing: 24) {
                     ForEach(WallpaperChoice.allCases) { item in
                         Button { choice = item } label: {
                             VStack(spacing: 10) {
-                                item.fill.frame(height: 150).clipShape(.rect(cornerRadius: 20))
+                                item.fill.environment(\.motionPhase, 0).frame(height: 150).clipShape(.rect(cornerRadius: 20))
                                     .overlay(RoundedRectangle(cornerRadius: 20).stroke(item == choice ? Color.white : .clear, lineWidth: 4))
                                 Text(item.title).font(.system(size: 17, weight: item == choice ? .bold : .medium))
                             }
@@ -1198,7 +1206,5 @@ struct WallpaperPicker: View {
                     }
                 }.padding(24)
             }.navigationTitle("Wallpaper")
-                .toolbar { Button("Done") { dismiss() } }
-        }
     }
 }

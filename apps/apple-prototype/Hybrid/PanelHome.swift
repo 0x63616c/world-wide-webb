@@ -517,37 +517,5 @@ private struct PanelCameraCard: View {
 
 struct PanelWeatherModule: View {
     let weather: WeatherState
-    @State private var comparing = false
-    @AppStorage("panel.weatherDesign") private var selected = 0
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Text(comparing ? "Choose your weather tile" : "Weather").font(.system(size: 30, weight: .semibold))
-                Spacer()
-                Button(comparing ? "Forecast" : "Compare 5 tile designs") { comparing.toggle() }
-                    .font(.system(size: 18, weight: .semibold)).padding(8).buttonStyle(.glass)
-                    .accessibilityIdentifier("weather-designs")
-            }.padding(.horizontal, 40).padding(.top, 16)
-            if comparing {
-                Text("Live conditions · Swipe to compare")
-                    .font(.title3).foregroundStyle(.secondary).padding(.horizontal, 40)
-                ScrollView(.horizontal) {
-                    HStack(alignment: .top, spacing: 28) {
-                        ForEach(0..<5) { index in
-                            VStack(alignment: .leading, spacing: 20) {
-                                WeatherDesignCard(weather: weather, style: index).frame(width: 408, height: 408)
-                                HStack {
-                                    Text("\(index + 1). \(WeatherDesignCard.names[index])").font(.title2.weight(.semibold))
-                                    Spacer()
-                                    Button(selected == index ? "Selected" : "Use") { selected = index }
-                                        .buttonStyle(.glass).controlSize(.large).tint(.cyan)
-                                }
-                            }.frame(width: 408)
-                        }
-                    }.padding(40)
-                }.scrollIndicators(.hidden)
-                Spacer(minLength: 0)
-            } else { WeatherPage(weather: weather) }
-        }.background(.black)
-    }
+    var body: some View { WeatherPage(weather: weather) }
 }

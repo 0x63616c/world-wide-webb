@@ -38,7 +38,7 @@ import PanelKit
             let router = HybridRouter(flags: ModuleFlags(nativeByDefault: HomeTile.panelProviders))
             for tile in HomeTile.allCases {
                 let view = PanelHomeDestination(module: tile.panelModule, store: store,
-                    session: session, router: router, close: {}, classic: {})
+                    session: session, router: router, close: {})
                     .environment(\.horizontalSizeClass, .regular)
                     .frame(width: 1366, height: 1024)
                 XCTAssertNotNil(ImageRenderer(content: view).uiImage, "\(tile.rawValue), unavailable=\(unavailable)")

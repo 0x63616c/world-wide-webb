@@ -7,7 +7,7 @@ struct NotificationCapture: View {
         let arguments = ProcessInfo.processInfo.arguments
         guard let index = arguments.firstIndex(of: "-notificationCapture"),
               arguments.indices.contains(index + 1),
-              ["single", "stacked", "expanded", "swipe"].contains(arguments[index + 1]) else { return nil }
+              ["single", "stacked", "expanded", "swipe", "history"].contains(arguments[index + 1]) else { return nil }
         return arguments[index + 1]
     }
 
@@ -25,6 +25,7 @@ struct NotificationCapture: View {
         }
         center.post(sourceModule: "updates", title: "Update ready", body: "A new version is available. Open TestFlight to update your panel.",
             deepLink: PanelNotifications.updateDeepLink)
+        if mode == "history" { center.historyPresented = true }
         _center = State(initialValue: center)
     }
 

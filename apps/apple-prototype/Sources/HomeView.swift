@@ -23,7 +23,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .hourly: "Next 12 Hours"
         case .sound: "Sound System"
         case .alarm: "Next alarm"
-        case .tesla: "Car"
+        case .tesla: "Tesla"
         case .calendar: "Up Next"
         case .media: "Media"
         case .sonosRooms: "Sonos Rooms"
@@ -81,7 +81,8 @@ struct HomeView: View {
     var demo = false
     var initialFace = 0
     @State private var shell = PanelShellState()
-    @State private var appDrag: CGFloat = 0
+    @State private var appPreferences = PanelAppPreferences()
+    @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let catalog = PanelAppCatalog.standard
@@ -91,7 +92,7 @@ struct HomeView: View {
         return nil
     }
     private func home() {
-        withAnimation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.88)) { shell.showLauncher(); appDrag = 0 }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { shell.showLauncher() }
     }
     private func clock() {
         withAnimation(reduceMotion ? nil : .smooth) { shell.showClock() }
@@ -115,17 +116,15 @@ struct HomeView: View {
                         .accessibilityIdentifier("launcher-clock")
                 } else {
                     AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
+                        .environment(\.motionPhase, selected == nil ? nil : 0)
                         .clipShape(.rect(cornerRadius: 44))
+                        .allowsHitTesting(selected == nil).accessibilityHidden(selected != nil)
                         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
                 if let selected {
                     appScreen(selected)
-                        .scaleEffect(reduceMotion ? 1 : 1 - min(abs(appDrag) / 2200, 0.12))
-                        .offset(y: reduceMotion ? 0 : appDrag)
                         .clipShape(.rect(cornerRadius: 44))
-                        .transition(reduceMotion ? .opacity : .asymmetric(
-                            insertion: .scale(scale: 0.92).combined(with: .opacity),
-                            removal: .offset(y: -proxy.size.height * 0.15).combined(with: .scale(scale: 0.88)).combined(with: .opacity)))
+                        .transition(.opacity)
                         .zIndex(2)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height)
@@ -138,20 +137,32 @@ struct HomeView: View {
                     store.walkActivity.synchronize(walk: walk, now: store.now)
                 }
                 .task {
+                    #if DEBUG
+                    let arguments = ProcessInfo.processInfo.arguments
+                    if let index = arguments.firstIndex(of: "-previewApp"), arguments.indices.contains(index + 1),
+                       let app = catalog.app(id: arguments[index + 1]) { open(app); return }
+                    #endif
                     if initialFace != HomeFacePage.clock { shell.showLauncher() }
                     if let initialTile, let app = catalog.apps.first(where: { definition in
                         if case .feature(let feature) = definition.route { return feature.homeTile == initialTile }
                         return false
                     }) { open(app) }
                 }
-        }.modifier(PanelIdleDimming(enabled: selected == nil)).ignoresSafeArea()
+        }.environment(appPreferences).modifier(PanelIdleDimming(onIdle: clock, onHome: home, timeout: selected.map { appPreferences[$0.id].idleSeconds } ?? 60)).ignoresSafeArea()
+        #if targetEnvironment(simulator)
+        .background {
+            Button("Open apps", action: home)
+                .keyboardShortcut(.escape, modifiers: [])
+                .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
+        }
+        #endif
     }
     private func open(_ app: PanelAppDefinition) {
         if app.route == .classic {
             shell.showLauncher()
             integration?.openClassicApp()
         } else {
-            withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.9)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                 _ = shell.open(app.id, catalog: catalog)
             }
         }
@@ -166,15 +177,14 @@ struct HomeView: View {
                 else { prototypeScreen(feature) }
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.top, app.route == .feature(.lights) ? 0 : 64)
-            .padding(.bottom, 88)
             .background(Color.black)
-            .overlay(alignment: .topTrailing) {
-                Button(action: home) { Image(systemName: "square.grid.2x2.fill").font(.title3).frame(width: 48, height: 48) }
-                    .buttonStyle(.glass).buttonBorderShape(.circle).accessibilityLabel("Apps").padding(.horizontal, 24).padding(.top, app.route == .feature(.lights) ? 40 : 24)
-            }
-            .overlay(alignment: .bottom) { SwipeHomeRegion(action: home, dragChanged: { appDrag = min(0, $0) }, cancelled: { withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) { appDrag = 0 } }) }
-            .modifier(PanelIdleDimming())
+            .accessibilityAction(.escape) { home() }
+            .accessibilityAction(named: "Open apps") { home() }
+            #if os(macOS)
+            .overlay(alignment: .bottom) { SwipeHomeRegion(action: home) }
+            #endif
+            .environment(\.motionPhase, appPreferences[app.id].reduceMotion ? 0 : inheritedMotionPhase)
+            .transaction { if reduceMotion || appPreferences[app.id].reduceMotion { $0.animation = nil; $0.disablesAnimations = true } }
             .accessibilityIdentifier("app-screen-\(app.id)")
             .onKeyPress(.escape) { home(); return .handled }
     }
@@ -424,33 +434,46 @@ struct AccessoryFace: View {
 
 /// The first interaction wakes the panel without forwarding a device command.
 private struct PanelIdleDimming: ViewModifier {
-    var enabled = true
+    let onIdle: () -> Void
+    let onHome: () -> Void
+    let timeout: Int
     @AppStorage("panel.idleDimming") private var idleDimming = true
     @State private var lastActivity = Date()
     @State private var dimmed = false
+    @State private var idleHandled = false
     @Environment(\.scenePhase) private var phase
-    private func wake() { lastActivity = Date(); dimmed = false }
+    private func wake() { lastActivity = Date(); dimmed = false; idleHandled = false }
+    private func activity() {
+        guard !dimmed else { return }
+        if Date().timeIntervalSince(lastActivity) > 0.25 { lastActivity = Date() }
+        idleHandled = false
+    }
     func body(content: Content) -> some View {
-        content
-            .allowsHitTesting(!dimmed)
-            .simultaneousGesture(TapGesture().onEnded { lastActivity = Date() })
+        content.allowsHitTesting(!dimmed)
             .overlay {
                 if dimmed {
                     Button(action: wake) { Color.black.opacity(0.7).ignoresSafeArea().contentShape(.rect) }
                         .buttonStyle(.plain).accessibilityLabel("Wake panel")
                 }
             }
-            #if os(macOS)
+            #if os(iOS)
+            .background { PanelInputObserver(activity: activity, home: { if dimmed { wake() } else { onHome() } }) }
+            #else
+            .simultaneousGesture(TapGesture().onEnded { activity() })
             .onContinuousHover { hover in if case .active = hover { wake() } }
             #endif
-            .task {
+            .task(id: "\(phase)-\(timeout)") {
+                guard phase == .active, timeout > 0 else { return }
                 while !Task.isCancelled {
                     do { try await Task.sleep(for: .seconds(1)) } catch { return }
-                    if enabled && idleDimming && phase == .active && Date().timeIntervalSince(lastActivity) >= 60 { dimmed = true }
+                    if !idleHandled && phase == .active && Date().timeIntervalSince(lastActivity) >= Double(timeout) {
+                        idleHandled = true
+                        onIdle()
+                        dimmed = idleDimming
+                    }
                 }
             }
             .onChange(of: idleDimming) { _, _ in wake() }
-            .onChange(of: enabled) { _, _ in wake() }
             .onChange(of: phase) { _, value in if value == .active { wake() } }
     }
 }

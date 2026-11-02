@@ -167,7 +167,7 @@ struct PanelRoot: View {
         .statusBarHidden()
         .defersSystemGestures(on: .bottom)
         .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
-        .sheet(item: $session.browser) { destination in
+        .fullScreenCover(item: $session.browser) { destination in
             PanelBrowser(url: destination.url) { session.browser = nil }
                 .id(destination.id)
                 .ignoresSafeArea()
