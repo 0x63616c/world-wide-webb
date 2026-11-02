@@ -87,11 +87,7 @@ struct HomeView: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                Group {
-                    if facePage == HomeFacePage.clock { GreenClockDial.green.ignoresSafeArea() }
-                    else if facePage == HomeFacePage.music { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
-                    else { Wallpaper() }
-                }
+                Color.black.ignoresSafeArea()
                 homeFace(size: proxy.size)
                     .safeAreaBar(edge: .bottom, spacing: 0) {
                         if sizeClass == .compact && (facePage == HomeFacePage.music || facePage == HomeFacePage.clock) {
@@ -167,9 +163,9 @@ struct HomeView: View {
         #if os(iOS)
         TabView(selection: $facePage) {
             PresenceClockFace(store: store).tag(HomeFacePage.clock)
-            faceGrid(size: size, controls: false).tag(HomeFacePage.home)
-            faceGrid(size: size, controls: true).tag(HomeFacePage.controls)
-            musicFace.tag(HomeFacePage.music)
+            faceGrid(size: size, controls: false).background { Wallpaper() }.tag(HomeFacePage.home)
+            faceGrid(size: size, controls: true).background { Wallpaper() }.tag(HomeFacePage.controls)
+            musicFace.background { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }.tag(HomeFacePage.music)
         }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
         #else
         Group {

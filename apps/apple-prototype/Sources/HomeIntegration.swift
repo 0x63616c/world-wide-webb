@@ -4,6 +4,7 @@ import SwiftUI
 /// A stable reference keeps behavior out of closure-valued environment keys.
 @MainActor protocol HomeIntegration: AnyObject {
     var caption: String { get }
+    var classicTile: AnyView? { get }
     func prepareToOpen(_ tile: HomeTile) -> Bool
     func available(_ tile: HomeTile) -> Bool
     func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView?
@@ -16,6 +17,7 @@ import SwiftUI
 }
 
 extension HomeIntegration {
+    var classicTile: AnyView? { nil }
     func artwork(_ room: SoundRoom) -> AnyView? { nil }
     func gridTile(_ tile: HomeTile, span: CGSize, open: @escaping () -> Void) -> AnyView? { nil }
 }

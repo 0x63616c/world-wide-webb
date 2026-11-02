@@ -1019,7 +1019,10 @@ struct GridHomeFace: View {
             }.frame(width: HomeGrid.width, height: HomeGrid.heading)
                 .position(x: o.x + HomeGrid.width / 2, y: HomeGrid.top + HomeGrid.heading / 2)
             ForEach(HomeGrid.placements(page: page)) { p in
-                let f = HomeGrid.frame(p, in: size), t = tile(p)
+                let originalFrame = HomeGrid.frame(p, in: size)
+                let f = page == 1 && p.card == .wifi && integration?.classicTile != nil
+                    ? CGRect(origin: originalFrame.origin, size: HomeGrid.span(1, 1)) : originalFrame
+                let t = tile(p)
                 Group {
                     // A host with no live data for this module shows its own unavailable tile.
                     if let integration, t != .clock, !integration.available(t), let replacement = integration.tile(t, open: { open(t) }) {
@@ -1034,6 +1037,12 @@ struct GridHomeFace: View {
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("tile-\(t.id)")
                     .matchedTransitionSource(id: "\(page + 1)-\(t.id)", in: zoom ?? standaloneZoom)
                     .position(x: f.midX, y: f.midY)
+            }
+            if page == 1, let classic = integration?.classicTile {
+                classic.frame(width: HomeGrid.cell, height: HomeGrid.cell)
+                    .modifier(GridMaterial(on: false))
+                    .position(x: o.x + HomeGrid.cell + HomeGrid.gutter + HomeGrid.cell / 2,
+                              y: o.y + 3 * (HomeGrid.cell + HomeGrid.gutter) + HomeGrid.cell / 2)
             }
         }.frame(width: size.width, height: size.height)
             .overlay { if HomeGrid.overlay { GridOverlay(size: size).allowsHitTesting(false) } }

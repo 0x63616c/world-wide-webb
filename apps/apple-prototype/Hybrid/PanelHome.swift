@@ -45,12 +45,7 @@ struct PanelHome: View {
                 }
                 #endif
             }
-            .overlay(alignment: .bottomTrailing) {
-                Button(action: presentation.navigation.openClassic) {
-                    Label("Classic", systemImage: "safari").font(.body)
-                        .frame(minHeight: 44).padding(.horizontal, 12)
-                }.buttonStyle(.glass).accessibilityIdentifier("home-classic").padding(20)
-            }
+
     }
     // The snapshot seam pauses decorative loops in fixture runs so XCTest can
     // become idle and the shared simulator does not render them continuously.
@@ -81,17 +76,21 @@ struct PanelHome: View {
 
     func prepareToOpen(_ tile: HomeTile) -> Bool {
         guard !Self.isInformationalFace(tile) else { return false }
-        let module = tile.panelModule
-        let ready = store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
-        guard router.route(for: module, hasLiveData: ready) == .native(module) else {
-            navigation.openClassic()
-            return false
-        }
         return true
     }
 
     static func isInformationalFace(_ tile: HomeTile) -> Bool {
         [.clock, .weather, .hourly].contains(tile)
+    }
+
+    var classicTile: AnyView? {
+        AnyView(Button(action: navigation.openClassic) {
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: "safari").font(.largeTitle)
+                Text("Classic").font(.title3.weight(.semibold))
+            }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .padding(HomeGrid.inset)
+        }.buttonStyle(.plain).accessibilityIdentifier("tile-classic"))
     }
 
     func available(_ tile: HomeTile) -> Bool {
@@ -168,7 +167,7 @@ struct PanelHome: View {
 
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
         AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
-            router: router, close: close, classic: navigation.openClassic)
+            router: router, close: close)
             .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation) }
             .modifier(NotificationHistoryAccess()))
     }
@@ -182,7 +181,6 @@ struct PanelHomeDestination: View {
     let session: KioskSession
     let router: HybridRouter
     let close: () -> Void
-    let classic: () -> Void
 
     private var ready: Bool {
         store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
@@ -194,7 +192,7 @@ struct PanelHomeDestination: View {
 
     var body: some View {
         Group {
-            if router.route(for: module, hasLiveData: ready || awaitingWifi) == .native(module) {
+            if ready || awaitingWifi || module == .calendar {
                 VStack(spacing: 0) {
                     HStack {
                         Button("Home", systemImage: "chevron.backward", action: close)
@@ -213,7 +211,12 @@ struct PanelHomeDestination: View {
                         }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                Color.clear.task { close(); classic() }
+                VStack(spacing: 24) {
+                    Button("Home", systemImage: "chevron.backward", action: close)
+                        .buttonStyle(.glass).accessibilityIdentifier("module-home")
+                    ModuleStatusFace(title: module.title,
+                        status: store.status(for: HomeModule(rawValue: module.rawValue) ?? .lights))
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
