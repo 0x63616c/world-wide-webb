@@ -216,13 +216,24 @@ struct GridCardView: View {
         return card == .cameras || card == .photos || card == .weather || card == .clock
             || (card == .nowPlaying && (v == "B" || v == "C"))
     }
+    private var solidControl: Bool { v == "A" && (card == .climate || card == .lamps) && card.module.map { store.status(for: $0) == .live } == true }
     var body: some View {
+        surface
+    }
+    @ViewBuilder private var surface: some View {
+        if solidControl {
+            cardContent.clipShape(.rect(cornerRadius: HomeGrid.radius))
+                .containerShape(.rect(cornerRadius: HomeGrid.radius))
+        } else {
+            cardContent.modifier(GridMaterial(on: on, round: round, image: image))
+        }
+    }
+    private var cardContent: some View {
         content
             .frame(width: size.width, height: size.height)
             .modifier(GridCardInteraction(label: "Open \(card.title)", open: open,
                 enabled: integration == nil || (card != .clock && card != .weather)))
             .foregroundStyle(on ? .black : .white)
-            .modifier(GridMaterial(on: on, round: round, image: image))
     }
     @ViewBuilder private var content: some View {
         if let module = card.module, store.status(for: module) != .live {
@@ -401,24 +412,33 @@ private struct GridClimate: View {
     var body: some View {
         switch v {
         case "A":
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    Cap("Climate", 22, .semibold); Spacer()
-                    Label { Cap(c.action, 20, .medium) } icon: { Image(systemName: statusIcon).font(.system(size: 18)) }
-                        .foregroundStyle(coolBlue)
-                }
-                Spacer(minLength: 0)
-                Cap("Inside", 20).opacity(0.65)
-                Cap("\(c.ambient)°", 128, .light).padding(.top, 20)
-                Spacer(minLength: 0)
+            VStack(spacing: 0) {
+                Text("Climate").font(.system(size: 20, weight: .medium))
+                Spacer(minLength: 20)
+                Text(c.mode == .off ? "System off" : c.mode == .heat ? "Heating to" : c.mode == .heatCool ? "Keeping between" : "Cooling to")
+                    .font(.system(size: 20)).foregroundStyle(.white.opacity(0.85))
+                HStack(spacing: 4) {
+                    temperatureStep(-1)
+                    Text(setpoint)
+                        .font(.system(size: c.mode == .heatCool ? 68 : 116, weight: .light))
+                        .monospacedDigit().tracking(-5).lineLimit(1).minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("Set temperature, \(setpoint)")
+                    temperatureStep(1)
+                }.padding(.vertical, 10)
+                Label("Inside \(c.ambient)°", systemImage: "thermometer.medium")
+                    .font(.system(size: 18)).foregroundStyle(.white.opacity(0.85))
+                Spacer(minLength: 20)
                 HStack {
-                    roundButton("minus", 56) { step(-1) }
+                    Label(c.action, systemImage: statusIcon)
+                        .font(.system(size: 16, weight: .medium))
                     Spacer()
-                    VStack(spacing: 10) { Cap("Set to", 17).opacity(0.65); Cap(setpoint, 34, .semibold).foregroundStyle(coolBlue) }
-                    Spacer()
-                    roundButton("plus", 56) { step(1) }
+                    if store.pending.contains("climate") { ProgressView().tint(.white) }
                 }
-            }.padding(HomeGrid.inset)
+            }
+            .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .foregroundStyle(.white)
+            .background(c.mode == .off ? Color(white: 0.16) : c.mode == .heat ? Color(red: 0.94, green: 0.39, blue: 0.08) : Color(red: 0, green: 0.66, blue: 0.92))
         case "B":
             HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -463,6 +483,16 @@ private struct GridClimate: View {
             } br: { EmptyView() }
         }
     }
+    private func temperatureStep(_ delta: Int) -> some View {
+        Button { step(delta) } label: {
+            Image(systemName: delta < 0 ? "chevron.down" : "chevron.up")
+                .font(.system(size: 24, weight: .medium))
+                .frame(width: 48, height: 64).contentShape(.rect)
+        }.buttonStyle(.plain)
+            .disabled(c.mode == .off || (delta < 0 ? (c.mode == .heatCool ? c.low : c.target) <= 67 : (c.mode == .heatCool ? c.high : c.target) >= 77))
+            .accessibilityLabel(delta < 0 ? "Lower set temperature" : "Raise set temperature")
+    }
+
 }
 
 // MARK: - Lamps
@@ -482,12 +512,31 @@ private struct GridLamps: View {
     var body: some View {
         switch v {
         case "A":
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) { Cap("Lamps", 22, .semibold); Spacer(); Cap("\(l.onCount()) of 8 on", 17).opacity(0.65) }
-                Spacer(minLength: 0)
-                Cap("\(l.brightness)%", 48, .medium, design: .rounded)
-                brightnessSlider.padding(.top, 16)
-            }.padding(HomeGrid.inset)
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Color(red: 0.99, green: 0.98, blue: 0.93)
+                    Color(red: 1, green: 0.79, blue: 0)
+                        .frame(width: geometry.size.width * (l.anyOn ? min(max(pct, 0), 1) : 0))
+                        .allowsHitTesting(false)
+                    VStack(spacing: 10) {
+                        HStack {
+                            Label("Lamps", systemImage: "lightbulb.fill")
+                                .font(.system(size: 18, weight: .medium))
+                            Spacer()
+                            Text(l.anyOn ? "\(l.onCount()) on" : "Off")
+                                .font(.system(size: 16)).foregroundStyle(.black.opacity(0.6))
+                        }
+                        HStack(alignment: .firstTextBaseline, spacing: 2) {
+                            Text(l.anyOn ? "\(l.brightness)" : "0")
+                                .font(.system(size: 62, weight: .light)).monospacedDigit().tracking(-2)
+                            Text("%").font(.system(size: 28, weight: .light))
+                        }.frame(maxWidth: .infinity)
+                        Slider(value: Binding(get: { Double(l.brightness) }, set: { store.send(.brightness(Int($0.rounded()))) }), in: 0...100, step: 1)
+                            .tint(.black.opacity(0.7)).disabled(!l.anyOn)
+                            .accessibilityLabel("Lamp brightness").accessibilityIdentifier("grid-lamp-brightness")
+                    }.padding(.horizontal, 28).padding(.vertical, 20)
+                }.foregroundStyle(.black)
+            }
         case "B":
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) { Cap("Lamps", 22, .semibold); Spacer(); Cap("\(l.brightness)%", 22, .semibold, design: .rounded) }
