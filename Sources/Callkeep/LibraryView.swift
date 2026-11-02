@@ -8,8 +8,9 @@ struct LibraryView: View {
     @State private var deleting = false
     @State private var renamingID: UUID?
     @State private var showingInfo: Recording?
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: Binding(get: { model.selectedIDs }, set: { model.selectMany($0) })) {
                 ForEach(model.filtered) { recording in
                     RecordingRow(recording: recording, live: model.active?.id == recording.id)
@@ -109,6 +110,12 @@ struct LibraryView: View {
         .onAppear {
             model.presentLibrary = { openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true) }
             if !model.isRecording, model.selectedIDs.count == 1 { model.select(model.selectedID) }
+            #if DEBUG
+            if let scene = Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String {
+                columnVisibility = ["player", "settings"].contains(scene) ? .detailOnly : .all
+                model.configureScreenshotScene()
+            }
+            #endif
         }
         .sheet(item: $showingInfo) { RecordingInfoView(model: model, recording: $0) }
         .confirmationDialog(model.selectedIDs.count == 1 ? "Move recording to Trash?" : "Move \(model.selectedIDs.count) recordings to Trash?", isPresented: $deleting, titleVisibility: .visible) {
@@ -143,7 +150,11 @@ struct EmptyLibraryView: View {
         VStack(spacing: 22) {
             Image(systemName: "waveform").font(.system(size: 44, weight: .light)).foregroundStyle(.tertiary)
             Text(!model.search.isEmpty && model.filtered.isEmpty ? "No Results" : model.recordings.isEmpty ? "No Recordings" : "Select a Recording").font(.title2.weight(.medium))
-            if model.recordings.isEmpty { RecordButton(model: model).controlSize(.large) }
+            if model.recordings.isEmpty {
+                RecordButton(model: model).controlSize(.large)
+                Button("Import Recordings…") { model.importRecordings() }
+                    .disabled(model.isBusy || model.isRecording)
+            }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

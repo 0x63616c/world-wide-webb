@@ -9,6 +9,7 @@ struct CallkeepApp: App {
         Window("Callkeep", id: "library") {
             LibraryView(model: model)
                 .onAppear { delegate.model = model }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.configureStorage() }
                 .frame(minWidth: 790, minHeight: 530)
         }
         .defaultSize(width: 1040, height: 690)
@@ -23,6 +24,9 @@ struct CallkeepApp: App {
                 Button("Settings…") { model.showSettings() }.keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(after: .newItem) {
+                Button("Import Recordings…") { model.importRecordings() }
+                    .keyboardShortcut("i", modifiers: [.command, .shift])
+                    .disabled(model.isBusy || model.isRecording)
                 Button(model.isRecording ? "Stop Recording" : "New Recording") { model.toggleRecording() }.keyboardShortcut("r", modifiers: [.command, .shift])
             }
         }

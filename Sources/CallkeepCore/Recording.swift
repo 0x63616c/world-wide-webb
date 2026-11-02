@@ -54,6 +54,8 @@ public struct Recording: Identifiable, Codable, Equatable, Sendable {
 public final class RecordingStore {
     public let root: URL
     public var archiveRoot: URL?
+    public var legacyArchiveRoots: [URL] = []
+    public var usesUbiquityContainer = false
     public private(set) var warnings: [String] = []
     private let fm = FileManager.default
     public init(root: URL) throws {
@@ -63,8 +65,8 @@ public final class RecordingStore {
     public func folder(for recording: Recording) -> URL {
         let local = root.appendingPathComponent(recording.id.uuidString, isDirectory: true)
         if fm.fileExists(atPath: local.path) { return local }
-        if let archiveRoot {
-            let archived = archiveRoot.appendingPathComponent(recording.id.uuidString, isDirectory: true)
+        for archive in [archiveRoot].compactMap({ $0 }) + legacyArchiveRoots {
+            let archived = archive.appendingPathComponent(recording.id.uuidString, isDirectory: true)
             if fm.fileExists(atPath: archived.path) { return archived }
         }
         return local
@@ -73,10 +75,30 @@ public final class RecordingStore {
     /// leaves the original in place and never replaces an existing cloud recording.
     public func archive(_ recording: Recording) throws {
         guard recording.state != .recording, let archiveRoot else { return }
-        let source = root.appendingPathComponent(recording.id.uuidString, isDirectory: true)
-        guard fm.fileExists(atPath: source.path) else { return }
+        let source = folder(for: recording)
+        let destination = archiveRoot.appendingPathComponent(recording.id.uuidString, isDirectory: true)
+        guard source.standardizedFileURL != destination.standardizedFileURL,
+              fm.fileExists(atPath: source.path) else { return }
+        guard !fm.fileExists(atPath: destination.path) else { throw CocoaError(.fileWriteFileExists) }
         try fm.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
-        try fm.moveItem(at: source, to: archiveRoot.appendingPathComponent(recording.id.uuidString, isDirectory: true))
+        guard usesUbiquityContainer else { try fm.moveItem(at: source, to: destination); return }
+        precondition(!Thread.isMainThread, "iCloud transfers must run off the main thread")
+        if fm.isUbiquitousItem(at: source) {
+            var coordinationError: NSError?
+            var transferError: Error?
+            let coordinator = NSFileCoordinator()
+            coordinator.coordinate(writingItemAt: source, options: .forMoving,
+                                   writingItemAt: destination, options: [], error: &coordinationError) { from, to in
+                do {
+                    try fm.moveItem(at: from, to: to)
+                    coordinator.item(at: from, didMoveTo: to)
+                } catch { transferError = error }
+            }
+            if let error = transferError ?? coordinationError { throw error }
+        } else {
+            // setUbiquitous performs its own coordinated move into iCloud.
+            try fm.setUbiquitous(true, itemAt: source, destinationURL: destination)
+        }
     }
     public func save(_ recording: Recording) throws {
         let folder = folder(for: recording)
@@ -104,12 +126,12 @@ public final class RecordingStore {
                 recordings.append(recording)
             } catch { warnings.append("Couldn’t read \(folder.lastPathComponent). Its files are still on disk.") }
         }
-        if let archiveRoot, fm.fileExists(atPath: archiveRoot.path) {
+        for archiveRoot in [archiveRoot].compactMap({ $0 }) + legacyArchiveRoots where fm.fileExists(atPath: archiveRoot.path) {
             do {
                 let archive = try RecordingStore(root: archiveRoot)
                 let archived = try archive.load(recover: false)
-                let localIDs = Set(recordings.map(\.id))
-                recordings += archived.filter { !localIDs.contains($0.id) }
+                let knownIDs = Set(recordings.map(\.id))
+                recordings += archived.filter { !knownIDs.contains($0.id) }
                 warnings += archive.warnings
             } catch { warnings.append("Couldn’t read iCloud Drive. Local recordings are still available: \(error.localizedDescription)") }
         }

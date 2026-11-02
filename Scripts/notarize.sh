@@ -3,7 +3,7 @@ set -euo pipefail
 set +x
 app=$1
 archive=$2
-for required in MACOS_CERTIFICATE_P12_BASE64 MACOS_CERTIFICATE_PASSWORD APPLE_API_KEY_P8_BASE64 APPLE_API_KEY_ID APPLE_API_ISSUER_ID; do
+for required in MACOS_CERTIFICATE_P12_BASE64 MACOS_CERTIFICATE_PASSWORD MACOS_PROVISIONING_PROFILE_BASE64 APPLE_API_KEY_P8_BASE64 APPLE_API_KEY_ID APPLE_API_ISSUER_ID; do
   if [[ -z ${!required:-} ]]; then echo "Missing signing secret: $required" >&2; exit 1; fi
 done
 umask 077
@@ -36,10 +36,21 @@ PYTHON
 echo "Configuring private-key access"
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
 security find-identity -v -p codesigning "$keychain"
+printf '%s' "$MACOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$signing_directory/profile.provisionprofile"
+security cms -D -i "$signing_directory/profile.provisionprofile" > "$signing_directory/profile.plist"
+python3 Scripts/validate-provisioning.py "$signing_directory/profile.plist" Resources/Callkeep-iCloud.entitlements
+cp "$signing_directory/profile.provisionprofile" "$app/Contents/embedded.provisionprofile"
 echo "Signing framework and app"
 identity='Developer ID Application: Calum Webb (X9E4HG27NK)'
+# Xcode Debug builds can include a separate code library. Its identity must
+# match the app too; Release builds normally have no such dylib.
+for library in "$app"/Contents/MacOS/*.dylib; do
+    if [[ -f "$library" ]]; then
+        codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime "$library"
+    fi
+done
 codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime "$app/Contents/Frameworks/CallkeepCore.framework"
-codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime --entitlements Resources/Callkeep.entitlements "$app"
+codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime --entitlements Resources/Callkeep-iCloud.entitlements "$app"
 codesign --verify --deep --strict "$app"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
 xcrun notarytool submit "$archive" --key "$signing_directory/key.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --wait --timeout 10m --output-format json > "$signing_directory/result.json"

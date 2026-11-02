@@ -43,17 +43,18 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Toggle("Save finished recordings to iCloud Drive", isOn: $model.iCloudEnabled)
                             .onChange(of: model.iCloudEnabled) { _, _ in model.updateStorage() }
-                            .disabled(model.isRecording || model.isBusy)
+                            .disabled(model.isRecording || model.isBusy || model.isPreparingStorage)
                         if model.storageNeedsRetry {
                             Text(model.storageStatus).font(.callout).foregroundStyle(.secondary)
                         }
                         HStack {
+                            if model.isPreparingStorage { ProgressView().controlSize(.small) }
                             if model.iCloudEnabled, let folder = model.store?.archiveRoot {
                                 Button("Open iCloud Folder") { NSWorkspace.shared.open(folder) }
                             }
                             if model.storageNeedsRetry {
                                 Button("Retry iCloud Drive") { model.updateStorage() }
-                                    .disabled(model.isRecording || model.isBusy || !model.iCloudEnabled)
+                                    .disabled(model.isRecording || model.isBusy || model.isPreparingStorage || !model.iCloudEnabled)
                             }
                         }
                     }.padding(16)
@@ -106,7 +107,8 @@ struct SettingsView: View {
 
 private struct SettingsSurface: ViewModifier {
     func body(content: Content) -> some View {
-        content.background(.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 10))
+        content.frame(maxWidth: .infinity, alignment: .leading)
+            .background(.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
     }
 }

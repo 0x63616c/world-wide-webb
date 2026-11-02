@@ -262,6 +262,81 @@ final class RecordingStoreTests: XCTestCase {
         XCTAssertNil(writer.snapshot.error)
     }
 
+    private func importFixture(state: Recording.State = .saved) throws -> (Recording, URL) {
+        let source = try RecordingStore(root: root.appendingPathComponent("source"))
+        var recording = Recording(title: "Imported call", createdAt: Date(timeIntervalSince1970: 1700000000))
+        recording.state = state
+        try source.save(recording)
+        let folder = source.folder(for: recording)
+        let writer = TrackWriter(url: folder.appendingPathComponent("microphone.caf"), epoch: 100)
+        writer.append(try tone(frames: 4800), at: 100.25)
+        recording.microphone = try XCTUnwrap(writer.finish())
+        recording.duration = 999 // Import recalculates actual audio duration.
+        try source.save(recording)
+        return (recording, folder)
+    }
+    func testImportCopiesAudioPreservesOriginalAndSkipsDuplicate() throws {
+        let (recording, folder) = try importFixture()
+        let store = try RecordingStore(root: root.appendingPathComponent("destination"))
+        let imported = try XCTUnwrap(store.importRecordingFolder(at: folder))
+        XCTAssertEqual(imported.id, recording.id)
+        XCTAssertEqual(imported.duration, 0.35, accuracy: 0.001)
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent("microphone.caf")), try Data(contentsOf: store.folder(for: imported).appendingPathComponent("microphone.caf")))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path))
+        XCTAssertNil(try store.importRecordingFolder(at: folder))
+        XCTAssertEqual(try store.load().count, 1)
+    }
+    func testImportAcceptsRecordingFolderOrContainingLibrary() throws {
+        let (_, folder) = try importFixture()
+        XCTAssertEqual(try RecordingStore.importCandidates(in: folder), [folder])
+        XCTAssertEqual(try RecordingStore.importCandidates(in: folder.deletingLastPathComponent()).map { $0.resolvingSymlinksInPath().path }, [folder.resolvingSymlinksInPath().path])
+        let empty = root.appendingPathComponent("empty")
+        try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+        XCTAssertThrowsError(try RecordingStore.importCandidates(in: empty))
+    }
+    func testImportRejectsActiveSessionWithoutPublishingFiles() throws {
+        let (_, folder) = try importFixture(state: .recording)
+        let store = try RecordingStore(root: root.appendingPathComponent("destination"))
+        XCTAssertThrowsError(try store.importRecordingFolder(at: folder))
+        XCTAssertTrue(try store.load(recover: false).isEmpty)
+    }
+    func testImportRejectsEscapingAudioReferenceAndSymbolicLinks() throws {
+        let (recording, folder) = try importFixture()
+        let source = try RecordingStore(root: folder.deletingLastPathComponent())
+        let store = try RecordingStore(root: root.appendingPathComponent("destination"))
+        var unsafe = recording
+        unsafe.microphone?.file = "../outside.caf"
+        try source.save(unsafe)
+        XCTAssertThrowsError(try store.importRecordingFolder(at: folder))
+        try source.save(recording)
+        let audio = folder.appendingPathComponent("microphone.caf")
+        let outside = root.appendingPathComponent("outside.caf")
+        try FileManager.default.moveItem(at: audio, to: outside)
+        try FileManager.default.createSymbolicLink(at: audio, withDestinationURL: outside)
+        XCTAssertThrowsError(try store.importRecordingFolder(at: folder))
+        XCTAssertTrue(try store.load().isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outside.path))
+    }
+    func testImportCleansStagingOnUnreadableAudio() throws {
+        let (_, folder) = try importFixture()
+        try Data("not audio".utf8).write(to: folder.appendingPathComponent("microphone.caf"))
+        let store = try RecordingStore(root: root.appendingPathComponent("destination"))
+        XCTAssertThrowsError(try store.importRecordingFolder(at: folder))
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(at: store.root, includingPropertiesForKeys: nil).isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path))
+    }
+    func testLegacyArchiveRemainsVisibleAndCanMoveToNativeDestination() throws {
+        let (recording, legacyFolder) = try importFixture()
+        let store = try RecordingStore(root: root.appendingPathComponent("local"))
+        store.legacyArchiveRoots = [legacyFolder.deletingLastPathComponent()]
+        XCTAssertEqual(try store.load(recover: false).first?.id, recording.id)
+        store.archiveRoot = root.appendingPathComponent("native")
+        try store.archive(recording)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyFolder.path))
+        XCTAssertEqual(store.folder(for: recording).deletingLastPathComponent().path, store.archiveRoot?.path)
+        XCTAssertEqual(try store.load(recover: false).count, 1)
+    }
+
     private func tone(frames: UInt32) throws -> AVAudioPCMBuffer {
         let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1))
         let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)); buffer.frameLength = frames

@@ -7,7 +7,7 @@
 <p align="center">A native macOS recorder for your microphone and computer audio, with optional iCloud Drive storage.</p>
 <p align="center"><strong>macOS 15+</strong> · SwiftUI + AppKit · Apple silicon + Intel</p>
 
-![Callkeep recording library](docs/images/library.jpg)
+![Callkeep recording library](docs/images/library.png)
 
 ## Record both sides of a call
 
@@ -17,17 +17,18 @@ Callkeep captures your microphone and the audio playing on your Mac. It works al
 - Browse and search your recordings, then replay them with a smooth, seekable timeline.
 - Watch your voice and call audio together in a smooth, two-color waveform.
 - Rename a call in place, including while recording. Select several with Shift-click or Command-click and move them to Trash together.
-- Keep lossless audio in iCloud Drive, ready for transcription later.
+- Keep lossless audio in Callkeep’s native iCloud Drive folder, ready for transcription later.
+- Import existing Callkeep recording folders without changing the originals.
 - See permission status automatically, with guided setup when access is missing.
 
 Transcription and live captions are not included in this version.
 
-![Live recording with separate voice and call-audio colors](docs/images/recording.jpg)
+![Live recording with separate voice and call-audio colors](docs/images/recording.png)
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/player.jpg" alt="Callkeep playback with the sidebar hidden"></td>
-    <td width="50%"><img src="docs/images/settings.jpg" alt="Callkeep settings with shortcut and permission controls"></td>
+    <td width="50%"><img src="docs/images/player.png" alt="Callkeep playback with the sidebar hidden"></td>
+    <td width="50%"><img src="docs/images/settings.png" alt="Callkeep settings with shortcut and permission controls"></td>
   </tr>
   <tr>
     <td align="center">Playback</td>
@@ -54,6 +55,7 @@ Closing the window keeps Callkeep running. Open it again from the Dock or menu b
 | Start / stop recording | **HYPR R** — ⌃⌥⇧⌘R, customizable in Settings |
 | Show / hide sidebar | ⌘B |
 | Open Settings | ⌘, |
+| Import Callkeep recording folders | ⇧⌘I |
 | Rename selected recording | Return |
 | Save / cancel rename | Return / Escape |
 | Move selected recordings to Trash | ⌘⌫ |
@@ -88,6 +90,6 @@ Open `Callkeep.xcodeproj` in Xcode and run the **Callkeep** scheme, or use:
 open build/Build/Products/Release/Callkeep.app
 ```
 
-The checked-in project has no external package dependencies. Local builds use ad-hoc signing by default. This prototype is not a notarized public release; its optional system-audio permission query uses a private macOS API.
+The checked-in project has no external package dependencies. Local builds use ad-hoc signing by default. Native iCloud storage requires the provisioned, Developer ID signed release; ad-hoc builds keep new recordings local. The optional system-audio permission query uses a private macOS API.
 
 [Development and permissions](docs/DEVELOPMENT.md) · [Recording and storage](docs/RECORDING.md) · [Validation](docs/VALIDATION.md)

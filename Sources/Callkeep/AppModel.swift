@@ -30,51 +30,86 @@ final class AppModel {
     var iCloudEnabled = UserDefaults.standard.object(forKey: "iCloudRecordings") as? Bool ?? true
     var storageStatus = "Checking iCloud Drive…"
     var storageNeedsRetry = false
-    // A regular iCloud Drive folder does not require an app ubiquity container.
-    private var iCloudDrive: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
+    private(set) var isPreparingStorage = false
+    private var legacyICloudFolder: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs/Callkeep", isDirectory: true)
     }
     var recordingsFolder: URL? { iCloudEnabled ? (store?.archiveRoot ?? store?.root) : store?.root }
     func configureStorage() {
-        let fm = FileManager.default
-        var isDirectory: ObjCBool = false
-        let available = fm.fileExists(atPath: iCloudDrive.path, isDirectory: &isDirectory) && isDirectory.boolValue
-        let folder = iCloudDrive.appendingPathComponent("Callkeep", isDirectory: true)
-        store?.archiveRoot = available ? folder : nil
-        storageNeedsRetry = false
-        guard iCloudEnabled else {
-            storageStatus = "New recordings stay on this Mac. Existing iCloud recordings remain in your library."
-            return
-        }
-        guard available else {
-            storageNeedsRetry = true
-            storageStatus = "iCloud Drive is unavailable."
-            return
-        }
+        #if DEBUG
+        if screenshotLibrary != nil { return }
+        #endif
+        Task { await prepareStorage() }
+    }
+    private func prepareStorage() async {
+        guard !isBusy, !isRecording, !isPreparingStorage, let store else { return }
+        isPreparingStorage = true
+        defer { isPreparingStorage = false }
+        // Resolving an offline iCloud account must not prevent local capture.
+        let documents = await ICloudDocuments.resolve()
+        guard !isBusy, !isRecording else { return }
+        isBusy = true
+        defer { isBusy = false }
+        playback.stop()
         do {
-            // Prepare the destination even when the library is empty, so enabling
-            // iCloud storage immediately creates the folder visible in Finder.
-            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
-            storageStatus = "iCloud Drive → Callkeep is ready. Finished recordings move here; macOS manages uploads."
+            let result = try await ICloudDocuments.prepare(localRoot: store.root, legacyRoot: legacyICloudFolder, documents: documents, enabled: iCloudEnabled)
+            store.archiveRoot = result.documents
+            store.legacyArchiveRoots = [legacyICloudFolder]
+            store.usesUbiquityContainer = true
+            recordings = result.recordings
+            if !showingSettings, selectedIDs.isEmpty { selectedID = recordings.first?.id }
+            storageNeedsRetry = (iCloudEnabled && result.documents == nil) || !result.warnings.isEmpty
+            storageStatus = result.warnings.first ?? (storageNeedsRetry ? "iCloud Drive is unavailable." : "")
+            if let warning = result.warnings.first { errorMessage = warning }
         } catch {
-            store?.archiveRoot = nil
             storageNeedsRetry = true
-            storageStatus = "Couldn’t open the iCloud folder: \(error.localizedDescription)"
+            storageStatus = "Couldn’t open iCloud storage: \(error.localizedDescription)"
         }
     }
     func updateStorage() {
         UserDefaults.standard.set(iCloudEnabled, forKey: "iCloudRecordings")
         configureStorage()
-        do {
-            try reload()
-            if iCloudEnabled {
-                for recording in recordings where recording.id != active?.id { try store?.archive(recording) }
+    }
+    func importRecordings() {
+        guard !isBusy, !isRecording, let store else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Import Callkeep Recordings"
+        panel.prompt = "Import"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        let sources = panel.urls
+        let root = store.root, archive = store.archiveRoot, legacy = legacyICloudFolder
+        isBusy = true
+        playback.stop()
+        Task {
+            do {
+                let result = try await Task.detached(priority: .userInitiated) {
+                    let importing = try RecordingStore(root: root)
+                    importing.archiveRoot = archive; importing.legacyArchiveRoots = [legacy]
+                    var imported: [UUID] = [], duplicates = 0, errors: [String] = []
+                    for source in sources {
+                        let accessing = source.startAccessingSecurityScopedResource()
+                        defer { if accessing { source.stopAccessingSecurityScopedResource() } }
+                        do {
+                            for folder in try RecordingStore.importCandidates(in: source) {
+                                do {
+                                    if let recording = try importing.importRecordingFolder(at: folder) { imported.append(recording.id) }
+                                    else { duplicates += 1 }
+                                } catch { errors.append("\(folder.lastPathComponent): \(error.localizedDescription)") }
+                            }
+                        } catch { errors.append("\(source.lastPathComponent): \(error.localizedDescription)") }
+                    }
+                    return (imported, duplicates, errors)
+                }.value
                 try reload()
-            }
-        } catch {
-            storageNeedsRetry = true
-            storageStatus = "Couldn’t move recordings to iCloud Drive: \(error.localizedDescription)"
-            errorMessage = storageStatus
+                if let first = result.0.first { selectedID = first }
+                statusMessage = "Imported \(result.0.count) recording(s)" + (result.1 > 0 ? "; \(result.1) already in the library" : "")
+                if !result.2.isEmpty { errorMessage = result.2.joined(separator: "\n") }
+            } catch { errorMessage = "Couldn’t import recordings: \(error.localizedDescription)" }
+            isBusy = false
+            if iCloudEnabled { await prepareStorage() }
         }
     }
     private let capture = AudioCapture()
@@ -89,15 +124,56 @@ final class AppModel {
     init() {
         do {
             let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            store = try RecordingStore(root: base.appendingPathComponent("Callkeep/Recordings", isDirectory: true))
-            configureStorage()
+            var root = base.appendingPathComponent("Callkeep/Recordings", isDirectory: true)
+            #if DEBUG
+            if let screenshotLibrary { root = screenshotLibrary; iCloudEnabled = false }
+            #endif
+            store = try RecordingStore(root: root)
+            #if DEBUG
+            if screenshotLibrary == nil { store?.legacyArchiveRoots = [legacyICloudFolder] }
+            #else
+            store?.legacyArchiveRoots = [legacyICloudFolder]
+            #endif
             try reload(recover: true)
-            updateStorage()
+            configureStorage()
             selectedID = recordings.first?.id
         } catch { errorMessage = "Couldn’t open the recording library: \(error.localizedDescription)" }
         shortcut.action = { [weak self] in self?.toggleRecording() }
         updateShortcut()
     }
+    #if DEBUG
+    // Local screenshot builds opt into an isolated fixture library. This is
+    // compiled out of distribution builds and never reads a user's recordings.
+    private var screenshotLibrary: URL? {
+        (Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotLibrary") as? String).map { URL(fileURLWithPath: $0, isDirectory: true) }
+    }
+    func configureScreenshotScene() {
+        if Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String == "settings" {
+            showSettings(); return
+        }
+        guard screenshotLibrary != nil, var recording = recordings.first else { return }
+        if Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String == "recording" {
+            recording.state = .recording
+            active = recording; selectedID = recording.id; elapsed = 12 * 60 + 34
+            @Sendable func samples() -> [LevelSample] {
+                let now = ProcessInfo.processInfo.systemUptime
+                return (0..<120).map { i in
+                    let t = Double(i) * 0.1
+                    let mic = Float(max(0, sin(t * 1.9) * cos(t * 0.63))) * 0.7
+                    let system = Float(max(0, sin(t * 1.4 + 2) * cos(t * 0.41))) * 0.6
+                    return LevelSample(time: now - 12 + t, microphone: mic, systemAudio: system)
+                }
+            }
+            levelHistory = samples()
+            timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.levelHistory = samples() }
+            }
+        } else {
+            select(recording.id)
+            playback.seek(7 * 60 + 32)
+        }
+    }
+    #endif
     func suspendShortcut(_ suspended: Bool) {
         _ = shortcut.register(shortcut: recordingShortcut, enabled: !suspended)
     }
@@ -189,14 +265,14 @@ final class AppModel {
         do {
             try store?.save(recording)
             try reload()
-            configureStorage()
-            if iCloudEnabled { try store?.archive(recording) }
             try reload(); statusMessage = "Recording saved"; StatusToast.shared.show("Recording saved", recording: false) }
         catch { errorMessage = "Audio was kept on this Mac, but saving to the library or iCloud Drive failed: \(error.localizedDescription)" }
         if let reason { errorMessage = reason }
         isBusy = false
+        if iCloudEnabled { configureStorage() }
     }
     func select(_ id: UUID?) {
+        guard !isBusy else { return }
         showingSettings = false
         playback.stop(); selectedID = id
         guard let recording = selected, recording.id != active?.id, let store else { return }
@@ -204,7 +280,7 @@ final class AppModel {
         catch { errorMessage = "Couldn’t play this recording: \(error.localizedDescription)" }
     }
     func rename(_ recording: Recording, to title: String) {
-        guard let store, let index = recordings.firstIndex(where: { $0.id == recording.id }) else { return }
+        guard !isBusy, let store, let index = recordings.firstIndex(where: { $0.id == recording.id }) else { return }
         var updated = recordings[index]
         if let active, active.id == recording.id { updated = active }
         updated.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -218,8 +294,9 @@ final class AppModel {
         } catch { errorMessage = error.localizedDescription }
     }
     var selectedRecordings: [Recording] { recordings.filter { selectedIDs.contains($0.id) } }
-    var canTrashSelection: Bool { !selectedIDs.isEmpty && !selectedIDs.contains(active?.id ?? UUID()) }
+    var canTrashSelection: Bool { !isBusy && !selectedIDs.isEmpty && !selectedIDs.contains(active?.id ?? UUID()) }
     func selectMany(_ ids: Set<UUID>) {
+        guard !isBusy else { return }
         guard ids != selectedIDs || showingSettings else { return }
         // List may clear its selection while Settings takes focus.
         if !ids.isEmpty { showingSettings = false }

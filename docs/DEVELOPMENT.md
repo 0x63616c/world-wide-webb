@@ -63,7 +63,9 @@ published archive's SHA-256. `HOMEBREW_TAP_DEPLOY_KEY` is a dedicated write depl
 key for that tap only. The workflow's GitHub token can publish releases only in
 Callkeep. Release signing uses an isolated temporary keychain, Developer ID certificate and
 App Store Connect API key from encrypted Actions secrets. The workflow signs the
-framework and app, submits the archive to Apple, requires an Accepted result,
+nested code and app, embeds the Developer ID iCloud provisioning profile, submits the archive to Apple, requires an Accepted result,
 staples the ticket, and verifies Gatekeeper acceptance before publishing.
 Temporary signing files and the keychain are removed on exit. Builds stop if
 credentials or notarization are unavailable; there is no unsigned release fallback. Uninstall and zap preserve local and iCloud recording files.
+
+Native iCloud releases require `MACOS_PROVISIONING_PROFILE_BASE64` alongside the signing secrets. `Scripts/validate-provisioning.py` checks the profile’s expiry, signing certificate, app identity, production environment and container authorization before signing with `Resources/Callkeep-iCloud.entitlements`. Ad-hoc builds retain the basic audio-input entitlements.

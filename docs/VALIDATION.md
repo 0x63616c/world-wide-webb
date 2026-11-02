@@ -1,6 +1,18 @@
-# Validation — 0.1.3
+# Validation
 
 Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
+
+## Native iCloud, imports and Settings — November 2, 2026
+
+- All 28 XCTest tests pass, including folder import, duplicate IDs, preserving originals, active recording rejection, path traversal and symlink rejection, unreadable audio cleanup, and legacy library discovery/migration.
+- The Developer ID profile validates against the release certificate and production document-container entitlements. The signed native app resolves `iCloud.co.calum.callkeep`, opens its Documents directory, and discovers migrated recordings.
+- Fixed a local Debug launch failure caused by an ad-hoc signed `Callkeep.debug.dylib` inside a Developer ID signed app. Nested dylibs are now signed before the app. The corrected build launches successfully.
+- Inspected Settings in the native app: Storage fills the same width as Recording and Permissions; the storage toggle, Open iCloud Folder and both permission grants are visible.
+- Refreshed all four README screenshots as native PNG captures with alpha at the rounded window corners. Library/playback/recording use generated fixtures, isolated from the user library; Settings hides the sidebar to exclude personal metadata. See [capture details](images/README.md).
+- Cross-device synchronization and simultaneous editing remain unverified; concurrent editing is unsupported. Finder branding is checked after installing the provisioned release, because the preexisting installed Build 6 has the old folder configuration.
+
+## Historical validation
+
 
 ## Live waveform and renaming — 0.1.3
 
@@ -72,10 +84,12 @@ Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
 
 The system-audio test exposed gaps when Core Audio suspended callbacks during silence. The writer now inserts timestamped silence; the regression test verifies sample positions and duration. Existing recordings made before that fix are not rewritten.
 
-This is a signed local build, not an App Store or notarized public release. Transcription and captions are not part of version 0.1.
+The historical checks above used a signed local build. Current public releases are Developer ID signed and notarized by Apple. Transcription and captions are not part of version 0.1.
 
 Automatic system-audio status uses an optional, private, read-only TCC function. It is isolated from the public Core Audio capture implementation and is not appropriate for App Store distribution. Unsupported results fall back to a neutral UI and the normal recording consent flow.
 
 ## GitHub CI
 
-Run `39790316910` could not start: GitHub reported failed recent account payments or a spending limit requiring attention. This is an account/runner admission blocker, not a compile or test result. Local builds and tests above completed successfully.
+Historical run `39790316910` could not start: GitHub reported failed recent account payments or a spending limit requiring attention. This is an account/runner admission blocker, not a compile or test result. Local builds and tests above completed successfully.
+
+Later CI runs have completed and published notarized Homebrew releases successfully; the earlier runner admission blocker is resolved.

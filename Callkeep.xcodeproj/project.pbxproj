@@ -27,9 +27,11 @@
 		BEDBC2FCAA2A9E4C30C02B1C /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88FB2D20D8249EFBF7D38DA7 /* AppModel.swift */; };
 		C430B5631C5FF7A49797E054 /* RecordingStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A093954658D04A2257FC2930 /* RecordingStoreTests.swift */; };
 		C6F6D67C956778D38E3D54C5 /* SystemAudioTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F5D7357127769699C877B6 /* SystemAudioTap.swift */; };
+		CB6D369AE7F4620917F9F941 /* RecordingImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A3F45F746683A8B9933096 /* RecordingImport.swift */; };
 		CE12071C3C08D0A41386E038 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18387A524ED8CB20F841FA1 /* Components.swift */; };
 		E011F1265159F31413A4E401 /* AudioPermissionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21F76E18CAD0482D4A4C6C5F /* AudioPermissionStateTests.swift */; };
 		E3E20D894F9B439E9B5DAA62 /* MenuPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DB795ADE05522CE5797AB66 /* MenuPanel.swift */; };
+		E609784FCAC112E4504D162B /* ICloudDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA435C00CB8CA65F20FF22F7 /* ICloudDocuments.swift */; };
 		EC83A011538F59CB2CFF5942 /* CallkeepCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A090D9242A6FE8C3DD86B606 /* CallkeepCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		ED36662D11F574E44B72984A /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EA22B4247390EC38DACF88 /* Permissions.swift */; };
 		F2E67C3006CA24A9DA3427F3 /* ShortcutRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DA2C31F3BB2DE2C94247E1 /* ShortcutRecorder.swift */; };
@@ -86,6 +88,7 @@
 		22EA22B4247390EC38DACF88 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		25FD9BD4C466BDD0E45AB8C5 /* Callkeep.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Callkeep.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30990E66EDCEC08168227223 /* Shortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shortcut.swift; sourceTree = "<group>"; };
+		3536BBA82594D0EE4DEABC99 /* Callkeep-iCloud.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Callkeep-iCloud.entitlements"; sourceTree = "<group>"; };
 		375F5EECFD9623DA6E597C6A /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		4847AE4847619A6601673247 /* LiveWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWaveformView.swift; sourceTree = "<group>"; };
 		60BA2C81057F45CB6466C6F8 /* Callkeep.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Callkeep.entitlements; sourceTree = "<group>"; };
@@ -100,6 +103,7 @@
 		8BDD1DD48B5DCA7347272361 /* CallkeepTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CallkeepTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9015EF263EFEEFF1A91D9E5F /* SystemAudioAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioAuthorization.swift; sourceTree = "<group>"; };
 		92D25477D52AAA4AABE6EBE1 /* PermissionCompanion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCompanion.swift; sourceTree = "<group>"; };
+		95A3F45F746683A8B9933096 /* RecordingImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingImport.swift; sourceTree = "<group>"; };
 		A090D9242A6FE8C3DD86B606 /* CallkeepCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CallkeepCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A093954658D04A2257FC2930 /* RecordingStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingStoreTests.swift; sourceTree = "<group>"; };
 		A18387A524ED8CB20F841FA1 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
@@ -107,6 +111,7 @@
 		C6A50A74F9445FE631EFBDC2 /* Recording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recording.swift; sourceTree = "<group>"; };
 		CFB01AE9FD81AB1CB32350EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F7229F5A66E86168A9CEF3F2 /* Playback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Playback.swift; sourceTree = "<group>"; };
+		FA435C00CB8CA65F20FF22F7 /* ICloudDocuments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ICloudDocuments.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +149,7 @@
 			children = (
 				B01C97A35720E705D29EE0F4 /* AudioPermissionState.swift */,
 				C6A50A74F9445FE631EFBDC2 /* Recording.swift */,
+				95A3F45F746683A8B9933096 /* RecordingImport.swift */,
 				30990E66EDCEC08168227223 /* Shortcut.swift */,
 				75020A3D4E7D51A4FF694FBC /* TrackWriter.swift */,
 			);
@@ -159,6 +165,7 @@
 				7542DA656FBC47BB0CA9002B /* CallkeepApp.swift */,
 				A18387A524ED8CB20F841FA1 /* Components.swift */,
 				112C11C04737DF2A43C9DB94 /* GlobalShortcut.swift */,
+				FA435C00CB8CA65F20FF22F7 /* ICloudDocuments.swift */,
 				375F5EECFD9623DA6E597C6A /* LibraryView.swift */,
 				4847AE4847619A6601673247 /* LiveWaveformView.swift */,
 				6DB795ADE05522CE5797AB66 /* MenuPanel.swift */,
@@ -199,6 +206,7 @@
 			isa = PBXGroup;
 			children = (
 				1593C810FBCE7C243F1991ED /* Assets.xcassets */,
+				3536BBA82594D0EE4DEABC99 /* Callkeep-iCloud.entitlements */,
 				60BA2C81057F45CB6466C6F8 /* Callkeep.entitlements */,
 				CFB01AE9FD81AB1CB32350EF /* Info.plist */,
 			);
@@ -334,6 +342,7 @@
 			files = (
 				570985D9DAFF36D5D45CC2DD /* AudioPermissionState.swift in Sources */,
 				995B9CC9BD7F2B04386C2C29 /* Recording.swift in Sources */,
+				CB6D369AE7F4620917F9F941 /* RecordingImport.swift in Sources */,
 				2945CC3543BBC2E7CCF92C6B /* Shortcut.swift in Sources */,
 				F680074C5E0727B083E82ED8 /* TrackWriter.swift in Sources */,
 			);
@@ -348,6 +357,7 @@
 				04098BB31D579A50FC6BDCC8 /* CallkeepApp.swift in Sources */,
 				CE12071C3C08D0A41386E038 /* Components.swift in Sources */,
 				1EAD69EAF52EFB82186BFA5D /* GlobalShortcut.swift in Sources */,
+				E609784FCAC112E4504D162B /* ICloudDocuments.swift in Sources */,
 				B11B031B338A4391DF91B75F /* LibraryView.swift in Sources */,
 				0FB828C1A749DB7114F96BA5 /* LiveWaveformView.swift in Sources */,
 				E3E20D894F9B439E9B5DAA62 /* MenuPanel.swift in Sources */,
