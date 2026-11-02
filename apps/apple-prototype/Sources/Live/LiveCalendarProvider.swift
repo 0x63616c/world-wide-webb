@@ -43,6 +43,9 @@ import PanelKit
         } catch {
             guard generation == self.generation else { return }
             clear()
+            if case CalendarAPIError.accessDenied = error {
+                availability = .unavailable("Calendar access is off: allow in Settings")
+            }
         }
     }
 

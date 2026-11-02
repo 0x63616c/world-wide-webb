@@ -54,7 +54,7 @@ import XCTest
         XCTAssertTrue(provider.frames.isEmpty)
         XCTAssertTrue(provider.sessions.isEmpty)
         XCTAssertFalse(provider.unlocked)
-        XCTAssertEqual(provider.availability, .unavailable("Photos are unavailable."))
+        XCTAssertEqual(provider.availability, .unavailable("Can't reach server"))
         await transport.setUnavailable(false)
         await provider.refresh()
         XCTAssertEqual(provider.photos.count, 2)

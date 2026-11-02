@@ -94,24 +94,26 @@ struct PanelHome: View {
         [.clock, .weather, .hourly].contains(tile)
     }
 
-    func available(_ tile: HomeTile) -> Bool { store.hasLiveData(for: tile.panelModule) }
+    func available(_ tile: HomeTile) -> Bool {
+        guard let module = HomeModule(rawValue: tile.panelModule.rawValue) else { return true }
+        return store.status(for: module) == .live
+    }
 
     func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView? {
         if Self.isInformationalFace(tile) {
-            if tile != .clock && !available(tile) {
-                return AnyView(VStack(spacing: 12) {
-                    Text(tile.title).font(.title2.weight(.semibold))
-                    Text("Unavailable").foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity))
+            if tile != .clock, let module = HomeModule(rawValue: tile.panelModule.rawValue),
+               store.status(for: module) != .live {
+                return AnyView(ModuleStatusFace(title: tile.title, status: store.status(for: module))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity))
             }
             return AnyView(TileFace(tile: tile, store: store, open: {}).allowsHitTesting(false))
         }
-        if !available(tile) {
+        if tile != .clock, let module = HomeModule(rawValue: tile.panelModule.rawValue),
+           store.status(for: module) != .live {
             return AnyView(Button(action: open) {
-                VStack(spacing: 12) {
-                    Text(tile == .fan ? "Fan" : tile.title).font(.title2.weight(.semibold))
-                    Text("Unavailable").font(.body).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(.rect)
+                ModuleStatusFace(title: tile == .fan ? "Fan" : tile.title,
+                    status: store.status(for: module))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(.rect)
             }.buttonStyle(.plain).accessibilityIdentifier("tile-unavailable-\(tile.id)"))
         }
         switch tile {
@@ -156,6 +158,10 @@ struct PanelHome: View {
         }
     }
 
+    func artwork(_ room: SoundRoom) -> AnyView? {
+        AnyView(SonosArtwork(room: room, api: store.sonosArtwork))
+    }
+
     func musicFace(close: @escaping () -> Void) -> AnyView {
         AnyView(SonosModule(store: store, close: close, isFace: true))
     }
@@ -177,7 +183,6 @@ struct PanelHomeDestination: View {
     let router: HybridRouter
     let close: () -> Void
     let classic: () -> Void
-    @State private var detail = true
 
     private var ready: Bool {
         store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
@@ -195,11 +200,9 @@ struct PanelHomeDestination: View {
                         Button("Home", systemImage: "chevron.backward", action: close)
                             .accessibilityIdentifier("module-home")
                         Spacer()
-                        Button(detail ? "Tile" : "Details") { detail.toggle() }
-                            .accessibilityIdentifier("module-detail")
                     }.buttonStyle(.glass).padding(16)
-                    HybridNativeModule(module: module, store: store, detail: detail,
-                        open: { detail = true }, close: close)
+                    HybridNativeModule(module: module, store: store, detail: true,
+                        open: {}, close: close)
                         // Keep the controller's privacy state while its credentials
                         // are cleared and reloaded across a scene suspension.
                         .opacity(awaitingWifi ? 0 : 1)
@@ -225,18 +228,22 @@ private struct PanelSoundTile: View {
     var inset: CGFloat = 32
     var body: some View {
         Button(action: open) {
-            HStack(spacing: 24) {
-                if let room = store.rooms.first {
-                    SonosArtwork(room: room, api: store.sonosArtwork)
-                        .frame(width: 112, height: 112).clipped()
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(room.trackTitle ?? "Nothing playing").font(.title2.weight(.semibold))
-                        Text(room.trackArtist ?? "Sonos").font(.body)
-                        Text(room.name).font(.subheadline).foregroundStyle(.secondary)
+            if store.status(for: .sonos) != .live {
+                ModuleStatusFace(title: "Now Playing", status: store.status(for: .sonos)).padding(inset)
+            } else {
+                HStack(spacing: 24) {
+                    if let room = store.rooms.first {
+                        SonosArtwork(room: room, api: store.sonosArtwork)
+                            .frame(width: 112, height: 112).clipped()
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(room.trackTitle ?? "Nothing playing").font(.title2.weight(.semibold))
+                            Text(room.trackArtist ?? "Sonos").font(.body)
+                            Text(room.name).font(.subheadline).foregroundStyle(.secondary)
+                        }
                     }
-                }
-                Spacer(minLength: 0)
-            }.padding(inset).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Spacer(minLength: 0)
+                }.padding(inset).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }.buttonStyle(.plain)
     }
 }

@@ -153,6 +153,45 @@ struct GridMaterial: ViewModifier {
     }
 }
 
+/// The same state face is used by shared grid cards and host replacements.
+struct ModuleStatusFace: View {
+    let title: String
+    let status: HomeModuleStatus
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title).font(.title3.weight(.semibold))
+            if status == .loading {
+                ProgressView().accessibilityLabel("Loading \(title)")
+            } else {
+                Image(systemName: "exclamationmark.circle").font(.title2)
+            }
+            Text(status.reason ?? "").font(.callout).foregroundStyle(.secondary)
+                .accessibilityIdentifier("module-status-reason")
+                .fixedSize(horizontal: false, vertical: true)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+extension GridCard {
+    var module: HomeModule? {
+        switch self {
+        case .climate: .climate
+        case .lamps, .lights: .lights
+        case .weather: .weather
+        case .car: .tesla
+        case .calendar: .calendar
+        case .nowPlaying, .sonosRooms: .sonos
+        case .fan: .fan
+        case .clock: nil
+        case .cameras: .cameras
+        case .photos: .photos
+        case .wifi: .wifi
+        case .dogwalk: .walk
+        case .media: .media
+        }
+    }
+}
+
 struct GridCardView: View {
     let card: GridCard
     let variant: GridVariant
@@ -163,7 +202,8 @@ struct GridCardView: View {
     private var size: CGSize { HomeGrid.span(variant.w, variant.h) }
     private var v: String { variant.letter }
     private var on: Bool {
-        switch card {
+        if let module = card.module, store.status(for: module) != .live { return false }
+        return switch card {
         case .lamps: store.lamps.anyOn
         case .lights:
             if v == "A" || v == "B", let a = accessory { store.lamps.isOn(a) } else { false }
@@ -171,7 +211,11 @@ struct GridCardView: View {
         }
     }
     private var round: Bool { (card == .fan || card == .lights) && v == "B" }
-    private var image: Bool { card == .cameras || card == .photos || card == .weather || card == .clock || (card == .nowPlaying && (v == "B" || v == "C")) }
+    private var image: Bool {
+        if let module = card.module, store.status(for: module) != .live { return false }
+        return card == .cameras || card == .photos || card == .weather || card == .clock
+            || (card == .nowPlaying && (v == "B" || v == "C"))
+    }
     var body: some View {
         content
             .frame(width: size.width, height: size.height)
@@ -181,6 +225,13 @@ struct GridCardView: View {
             .modifier(GridMaterial(on: on, round: round, image: image))
     }
     @ViewBuilder private var content: some View {
+        if let module = card.module, store.status(for: module) != .live {
+            ModuleStatusFace(title: card.title, status: store.status(for: module)).padding(HomeGrid.inset)
+        } else {
+            liveContent
+        }
+    }
+    @ViewBuilder private var liveContent: some View {
         switch card {
         case .climate: GridClimate(v: v, store: store)
         case .lamps: GridLamps(v: v, store: store, size: size)
@@ -644,6 +695,7 @@ private struct GridCalendar: View {
                 }
                 Color.clear.frame(height: 36)
                 VStack(alignment: .leading, spacing: 26) {
+                    if store.calendar.events.isEmpty { Cap("No upcoming events", 22, .medium) }
                     ForEach(store.calendar.events) { e in
                         let isNext = e.id == next?.id
                         let past = next.map { e.minutes < $0.minutes } ?? true
@@ -699,7 +751,11 @@ private struct GridNowPlaying: View {
             Corners { Cap("Sonos", 20, .semibold) } tr: { EmptyView() } bl: { Cap("Nothing playing", 17) } br: { EmptyView() }
         }
     }
-    private func art(_ room: SoundRoom) -> some View { FixtureArtwork(tint: room.artworkTint) }
+    @Environment(\.homeIntegration) private var integration
+    @ViewBuilder private func art(_ room: SoundRoom) -> some View {
+        if let artwork = integration?.artwork(room) { artwork }
+        else { FixtureArtwork(tint: room.artworkTint) }
+    }
     private func roomLine(_ room: SoundRoom) -> some View {
         HStack(spacing: 8) {
             PlayingEqualizer(playing: room.playing).scaleEffect(0.6).frame(width: 20, height: 14)

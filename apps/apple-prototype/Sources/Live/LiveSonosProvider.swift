@@ -258,11 +258,7 @@ import PanelKit
     }
 
     private static func failureMessage(_ error: any Error) -> String {
-        if let error = error as? PanelAPIError {
-            if error == .notConfigured { return "Panel API is not configured." }
-            if error.isServiceUnavailable { return "Sonos is unavailable. Try again when Home Assistant is reachable." }
-        }
-        return "Could not update Sonos. Refresh to check the current state."
+        panelFailureReason(error, fallback: "Sonos is unavailable. Try again.")
     }
 
     private enum Operation {

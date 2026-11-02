@@ -27,7 +27,7 @@ public protocol CalendarEventStore: Sendable {
     func events(in interval: DateInterval) async throws -> [CalendarEvent]
 }
 
-public enum CalendarAPIError: Error { case unavailable }
+public enum CalendarAPIError: Error { case unavailable, accessDenied }
 
 /// On-device, read-only feed. Full access is the OS permission required for
 /// reading events; this API deliberately exposes no write operations.
@@ -39,13 +39,13 @@ public struct CalendarAPI: Sendable {
     public func events(in interval: DateInterval) async throws -> [CalendarEvent] {
         try Task.checkCancellation()
         if await store.authorization() == .notDetermined {
-            guard try await store.requestFullAccess() else { throw CalendarAPIError.unavailable }
+            guard try await store.requestFullAccess() else { throw CalendarAPIError.accessDenied }
         }
         try Task.checkCancellation()
-        guard await store.authorization() == .fullAccess else { throw CalendarAPIError.unavailable }
+        guard await store.authorization() == .fullAccess else { throw CalendarAPIError.accessDenied }
         let events = try await store.events(in: interval)
         try Task.checkCancellation()
-        guard await store.authorization() == .fullAccess else { throw CalendarAPIError.unavailable }
+        guard await store.authorization() == .fullAccess else { throw CalendarAPIError.accessDenied }
         return events
     }
 }
@@ -78,7 +78,7 @@ public actor EventKitCalendarStore: CalendarEventStore {
     }
 
     public func events(in interval: DateInterval) throws -> [CalendarEvent] {
-        guard authorization() == .fullAccess else { throw CalendarAPIError.unavailable }
+        guard authorization() == .fullAccess else { throw CalendarAPIError.accessDenied }
         let store = store()
         let predicate = store.predicateForEvents(withStart: interval.start, end: interval.end, calendars: nil)
         return store.events(matching: predicate).compactMap { event in

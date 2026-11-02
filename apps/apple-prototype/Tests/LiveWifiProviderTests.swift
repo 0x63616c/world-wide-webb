@@ -56,12 +56,12 @@ import XCTest
         let provider = makeProvider(transport)
         await provider.refresh()
         XCTAssertNotNil(provider.wifi.password)
-        for _ in 0..<2 {
+        for reason in ["Can't reach server", "Guest Wi-Fi is unavailable."] {
             await provider.refresh()
             XCTAssertNil(provider.wifi.ssid)
             XCTAssertNil(provider.wifi.password)
             XCTAssertNil(provider.qrPayload)
-            XCTAssertEqual(provider.availability, .unavailable("Guest Wi-Fi is unavailable."))
+            XCTAssertEqual(provider.availability, .unavailable(reason))
         }
         await provider.refresh()
         XCTAssertEqual(provider.availability, .live)

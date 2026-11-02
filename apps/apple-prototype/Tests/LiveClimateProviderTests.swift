@@ -75,7 +75,7 @@ import XCTest
         XCTAssertEqual(provider.climate?.low, 68)
         XCTAssertEqual(provider.climate?.high, 74)
         XCTAssertEqual(provider.lastError, .server(code: "BAD_REQUEST", message: "low must be at least 2°F below high", httpStatus: 400))
-        XCTAssertEqual(provider.availability, .unavailable("low must be at least 2°F below high"))
+        XCTAssertEqual(provider.availability, .unavailable("Can't reach server (HTTP 400)"))
         let count = await transport.requests.count
         XCTAssertEqual(count, 2)
         await provider.refresh()

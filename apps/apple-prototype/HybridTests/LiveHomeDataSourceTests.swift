@@ -25,6 +25,45 @@ import PanelKit
         for module in PanelModule.allCases { await store.refresh(module) }
     }
 
+    func testModuleStatusesTrackLoadingFailureEmptyAndRecovery() async throws {
+        let transport = try fixtureTransport()
+        let store = source(transport)
+        for module in HomeModule.allCases { XCTAssertEqual(store.status(for: module), .loading) }
+        await store.refresh(.tesla)
+        XCTAssertEqual(store.status(for: .tesla), .live)
+        await transport.setFixture("tesla/unconfigured.json", for: "tesla.state")
+        await store.refresh(.tesla)
+        XCTAssertEqual(store.status(for: .tesla), .unconfigured("Tesla isn't set up on the server"))
+        XCTAssertFalse(store.hasLiveData(for: .tesla))
+        await transport.setFixture("tesla/unavailable.json", for: "tesla.state")
+        await store.refresh(.tesla)
+        XCTAssertEqual(store.status(for: .tesla), .unavailable("Tesla is unavailable on the server"))
+        await transport.setFixture("tesla/ready.json", for: "tesla.state")
+        await store.refresh(.tesla)
+        XCTAssertEqual(store.status(for: .tesla), .live)
+        await transport.setFixture("cameras/empty.json", for: "cameras.list")
+        await store.refresh(.cameras)
+        XCTAssertEqual(store.status(for: .cameras), .unavailable("No cameras configured"))
+        await transport.setFixture("sonos/empty.json", for: "sound.soundSystem")
+        await store.refresh(.sonos)
+        XCTAssertEqual(store.status(for: .sonos), .unavailable("No Sonos rooms available"))
+        await transport.setFixture("sonos/rooms.json", for: "sound.soundSystem")
+        await store.refresh(.sonos)
+        XCTAssertEqual(store.status(for: .sonos), .live)
+        let failed = source(try fixtureTransport(unavailable: true))
+        await failed.refresh(.lights)
+        XCTAssertEqual(failed.status(for: .lights), .unavailable("Can't reach server"))
+        XCTAssertEqual(failed.status(for: .weather), .loading, "A failed module does not block another")
+    }
+
+    func testStatusReasonsNeverEchoServerOrTransportSecrets() {
+        let secret = "https://user:credential@example.invalid/?token=private"
+        XCTAssertEqual(panelFailureReason(PanelAPIError.transport(secret), fallback: "Unavailable"), "Can't reach server")
+        XCTAssertEqual(panelFailureReason(PanelAPIError.server(code: secret, message: secret, httpStatus: 503),
+            fallback: "Unavailable"), "Can't reach server (HTTP 503)")
+        XCTAssertEqual(panelFailureReason(PanelAPIError.decoding(secret), fallback: "Unavailable"), "Server response couldn't be read")
+    }
+
     func testPhotosRequiresOptInAndNonemptyLiveListings() async throws {
         let transport = try fixtureTransport()
         let store = source(transport)

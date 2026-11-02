@@ -51,6 +51,6 @@ import PanelKit
 
     private func clear() {
         items = []; streams = [:]
-        availability = .unavailable("Media is unavailable.")
+        availability = .unavailable("Media library not connected")
     }
 }

@@ -27,13 +27,13 @@ import PanelKit
             let ids = Set(feeds.map(\.id))
             frames = frames.filter { ids.contains($0.key) }
             updatedAt = updatedAt.filter { ids.contains($0.key) }
-            availability = feeds.isEmpty ? .unavailable("No cameras are available.") : .live
+            availability = feeds.isEmpty ? .unavailable("No cameras configured") : .live
         } catch {
             guard !Task.isCancelled, started == generation else { return }
             feeds = []
             frames = [:]
             updatedAt = [:]
-            availability = .unavailable("Cameras are unavailable. Try again later.")
+            availability = .unavailable(panelFailureReason(error, fallback: "Cameras are unavailable. Try again later."))
         }
     }
 

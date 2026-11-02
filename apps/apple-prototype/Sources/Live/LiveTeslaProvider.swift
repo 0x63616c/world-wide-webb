@@ -5,6 +5,7 @@ import PanelKit
 /// No fixture defaults escape this provider. Hybrid requires a current complete
 /// snapshot before mounting the unchanged Tesla views.
 @MainActor @Observable final class LiveTeslaProvider: TeslaProvider {
+    private(set) var moduleStatus: HomeModuleStatus = .loading
     private(set) var snapshot: TeslaSnapshot?
     private(set) var hasLiveData = false
     private(set) var requestedAction: TeslaAction?
@@ -56,6 +57,7 @@ import PanelKit
         } catch {
             guard version == generation else { return }
             hasLiveData = false
+            moduleStatus = .unavailable(panelFailureReason(error, fallback: "Tesla is unavailable"))
             requestedAction = nil
         }
     }
@@ -110,6 +112,7 @@ import PanelKit
                 errorMessage = "PIN not accepted. Try again."
             } else {
                 hasLiveData = false
+                moduleStatus = .unavailable(panelFailureReason(error, fallback: "Tesla is unavailable"))
                 requestedAction = nil
                 errorMessage = "Tesla is unavailable."
             }
@@ -117,6 +120,11 @@ import PanelKit
     }
 
     private func accept(_ state: TeslaState) {
+        switch state {
+        case .ready: moduleStatus = .live
+        case .unconfigured: moduleStatus = .unconfigured("Tesla isn't set up on the server")
+        case .unavailable: moduleStatus = .unavailable("Tesla is unavailable on the server")
+        }
         if case .ready(let value) = state {
             snapshot = value; hasLiveData = true
             if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent), estimate != maxRange {
@@ -132,6 +140,7 @@ import PanelKit
         mutation = nil
         busy = false
         hasLiveData = false
+        moduleStatus = .loading
         cancelCommand()
     }
 }

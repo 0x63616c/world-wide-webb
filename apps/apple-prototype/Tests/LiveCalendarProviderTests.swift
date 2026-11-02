@@ -83,7 +83,7 @@ import XCTest
             await provider.refresh()
             XCTAssertTrue(provider.events.isEmpty)
             XCTAssertNil(provider.next(at: now))
-            XCTAssertEqual(provider.availability, .unavailable("Calendar is unavailable."))
+            XCTAssertEqual(provider.availability, .unavailable("Calendar access is off: allow in Settings"))
         }
         await store.setAccess(.fullAccess)
         await provider.refresh()
