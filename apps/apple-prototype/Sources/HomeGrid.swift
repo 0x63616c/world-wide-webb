@@ -829,7 +829,7 @@ struct GridFan: View {
         Button { store.send(.toggle(.fan)) } label: {
             FanSymbol(on: on).font(.system(size: size)).frame(minWidth: 44, minHeight: 44, alignment: .topTrailing)
                 .contentShape(.rect)
-        }.buttonStyle(.plain).padding(-10)
+        }.buttonStyle(.plain)
             .accessibilityLabel("Toggle Fan").accessibilityValue(label).accessibilityIdentifier("toggle-fan")
     }
     var body: some View {

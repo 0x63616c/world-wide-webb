@@ -75,7 +75,7 @@ struct PanelHome: View {
     }
 
     func prepareToOpen(_ tile: HomeTile) -> Bool {
-        guard !Self.isInformationalFace(tile) else { return false }
+        guard !Self.isInformationalFace(tile), tile != .fan else { return false }
         return true
     }
 
@@ -142,8 +142,7 @@ struct PanelHome: View {
         switch tile {
         case .fan:
             return AnyView(GridFan(v: span.width > span.height ? "C" : span.height > span.width ? "D" : "A", store: store,
-                fanIsOn: store.fanProvider.fanOn, fanLabel: store.fanProvider.fanLabel, showsInlineToggle: true)
-                .modifier(GridCardInteraction(label: "Open Fan", open: open)))
+                fanIsOn: store.fanProvider.fanOn, fanLabel: store.fanProvider.fanLabel, showsInlineToggle: true))
         case .sound:
             return AnyView(PanelSoundTile(store: store, open: open, inset: HomeGrid.inset))
         case .clock:
