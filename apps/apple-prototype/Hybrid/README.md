@@ -1321,26 +1321,99 @@ screens at 1366×1024. UI fixture launches isolate their cache from production:
 the synthetic fixture cache. Normal fixture launches remain memory-only.
 
 
-## Grid controls (WWW-81)
+## Grid controls (WWW-81, WWW-87)
 
-The Fan segments and glyph send absolute fan intent through `LiveFanProvider`
-and PanelKit's `FanAPI.toggle(on:)` to `controls.toggle` with `{key: "fan", on}`.
-This is the web Controls path: it updates the thermostat device-state row's
-`desired.fanMode`, and the climate enforcer calls Home Assistant's
-`climate.set_fan_mode` on the configured `CLIMATE_ENTITY_ID` (default
-`climate.home`). No `fan.*` entity, `fan.turn_off`, or preset service is involved.
-On forces circulation; Off and Auto both release it with `fan_mode: "auto"`.
-The returned label is Auto while HVAC is enabled and Off while HVAC is off.
-Selecting Off does not disable heating or cooling, matching the web switch.
+The fan glyph and Auto/On segments send `controls.toggle({key: "fan", on})`:
+On forces circulation, and false selects Auto. A real Off segment sends
+`controls.setFanMode({mode: "off"})`. The controls response includes optional `fan.modes`
+and `fan.mode`; native defaults to Auto/On when an older server omits them.
+Off appears only when the configured climate entity advertises `off` in its
+`fan_modes`. The enforcer records those capabilities from `CLIMATE_ENTITY_ID`
+(default `climate.home`); it never commands a separate `fan.*` entity or disables
+HVAC to imitate fan Off. The status label may still say Off when HVAC is off,
+while the selected intent remains Auto.
+
+A fresh command window sends fan intent once even while heating/cooling. Later
+blower reports do not cause repeated fan pushes or a permanently pending fan.
+An unchanged blower report when conditioning ends cannot overwrite the choice;
+a subsequent observable external fan change while idle can be adopted.
 
 Fan commands update immediately, serialize writes, ignore stale reads, and roll
 back to the last acknowledgement on failure. Failures use the shared notification
-banner and leave controls available for retry. Grid disclosure is a background
-button behind the content; inline buttons and the lamp brightness slider have
-independent hit regions. Each visible grid card supplies the source for its
-full-screen zoom, and the destination fills its presentation container.
+banner and leave controls available for retry. `LiveHomeDataSource` reports and
+logs commands rejected because a module is not live, a target is invalid, or no
+live implementation exists (including the prototype media fixture library).
+Provider request failures also log without exposing transport payloads.
 
-`PanelUITests/GridInteractionTests` covers the segments, rollback banner,
-Lights, brightness, temperature stepping, and repeated centered full-screen Fan
-presentation. The unsigned Panel smoke workflow runs this suite and retains its
-XCTest screenshots alongside the existing Home launch evidence.
+Grid disclosure is a background button behind the content. Inline buttons and
+the lamp brightness slider have independent hit regions, decorative lamp glows
+and progress overlays ignore touches, and the fan glyph stays within its layout
+bounds. Each visible grid card supplies the source for its full-screen zoom,
+and the destination fills its presentation container. There are no enclosing
+card tap gestures in HomeGrid, HomeView, or PanelHome. Scenes and climate modes
+live in their controllers, with their own buttons.
+
+`PanelTests/LiveHomeDataSourceTests` records the exact plain tRPC procedure and
+input for every lighting, climate and fan control. `PanelUITests/GridInteractionTests`
+checks the fixture transport's write trace as well as staying on Home; it covers
+all three inline light toggles, brightness, both temperature buttons, supported
+fan segments and the glyph, rollback banners, and repeated full-screen Fan
+presentation. `-hybridControlWrites` enables this debug-only recorder;
+`-hybridFanOffSupported` adds a thermostat advertising real Off. Normal fixture
+runs reject writes. The unsigned Panel smoke workflow runs the UI suite and
+retains its XCTest screenshots alongside the existing Home launch evidence.
+
+### WWW-87: informational faces and hidden diagnostics
+
+The green clock face, clock grid card, current-weather card and hourly-weather
+face do not open menus or controllers. Calendar, Wi-Fi, climate and other actual
+modules retain their existing controls/details. Alarm editing remains reachable
+through the existing `controlcenter://alarms` deep link (and native module bar
+when visible). The shipped Home grid has no separate alarm card, so there is no
+longer a Home-grid tap entry to Clock & Alarms. No new navigation was added.
+
+Hold **three fingers for 1.5 seconds anywhere** to open Diagnostics. A recognizer
+belongs to the current root window, never to a face. It works over Home, Classic
+and full-screen modules, and Done returns to the underlying screen. Single-finger
+clock taps/holds do nothing. The diagnostics presenter keeps kiosk system
+overlays hidden and does not stack multiple copies.
+
+Diagnostics shows the active live/fixture source, backend origin (credentials,
+path and query omitted), CFBundleVersion, `PanelGitSHA`, a fresh `health.ping`
+round-trip latency and the backend's live Home Assistant probe. The existing
+`/health/climate` route reads cached DB state, so `diagnostics.status` separately
+checks HA reachability and returns only connected/unavailable/unconfigured.
+Checks use real networking even in fixture mode; unavailable checks are displayed
+as such. `Panel.xcconfig` defaults the SHA to `dev`; fastlane `release_native`
+passes `PANEL_GIT_SHA` from the TestFlight workflow's selected source SHA, falling
+back to `GITHUB_SHA` then `dev` for other invocations.
+
+The process-local command log retains the last 50 completions/drops, oldest
+first. `PanelAPIClient.perform` records mutations' HTTP status/error and elapsed
+milliseconds; native dispatch/providers also record preflight rejection, busy
+alarms, local speaker locks, coalescing and cancelled/discarded queued work.
+Only known payload keys and numeric/boolean values are retained; strings are
+redacted and unknown fields omitted. No headers, raw error messages, personal
+labels, room names or credentials are retained. Command failures use the existing
+notification banner, including failures that previously had no visible handler.
+
+Send logs POSTs `diagnostics.submit` with the snapshot and sanitized commands;
+`GET /trpc/diagnostics.submissions` returns the latest 20 reports with server
+UTC timestamps in receipt order. Both use the same Cloudflare Access kiosk
+boundary as other tRPC calls. Storage is in memory and clears on API restart.
+Strict schemas reject unknown fields, credential-bearing URLs and unsafe payload
+values; reports are limited to 50 entries and 32 KiB serialized. The UI shows
+upload success/failure and never automatically retries a submission.
+
+Local verification on Linux: `bun run test:unit`, `bun run typecheck`,
+`bun run lint`, `bun run apps:check`, `bun run knip`. Native Panel/PanelKit unit
+and UI regressions are added for macOS CI; this box has no Swift/Xcode toolchain.
+The launch smoke now includes the inert-face UI test. Native UI screenshots
+must be captured by that macOS run; no native screenshot was produced on Linux.
+
+Linux results: unit tests exit 0 (1,880 passed; 71 skipped by existing test
+configuration), typecheck exit 0, lint exit 0, apps:check exit 0, knip exit 0;
+`git diff --check` exit 0. [Verification screenshot](../../../docs/screenshots/native-diagnostics/verification.png).
+
+`bun run test:dockerfile-manifests` also passed (exit 0). Ruby/fastlane and native
+archive validation cannot run here because the macOS/Ruby toolchains are absent.

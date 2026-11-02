@@ -72,7 +72,7 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
         XCTAssertTrue(app.buttons["face-page-0"].waitForExistence(timeout: 30), app.debugDescription)
         waitForValue(app.buttons["face-page-0"], "Selected")
         XCTAssertEqual(app.buttons["face-page-0"].label, "Clock face")
-        XCTAssertTrue(app.buttons["clock-face"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["clock-face"].firstMatch.exists)
         app.buttons["face-page-1"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["tile-climate"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
     }

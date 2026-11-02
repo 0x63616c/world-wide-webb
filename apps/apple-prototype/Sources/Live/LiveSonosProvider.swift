@@ -102,6 +102,7 @@ import PanelKit
         mutationTask = nil
         lifecycle += 1
         revision += 1
+        for _ in queue { PanelCommandLog.shared.record(control: "sonos.queued", error: "cancelled") }
         queue.removeAll()
         render()
     }
@@ -110,8 +111,14 @@ import PanelKit
         guard availability == .live else { return false }
         let operation: Operation
         switch command {
-        case .globalLock: globalLock.toggle(); persistLocks(); return true
-        case .groupLock: groupLock.toggle(); persistLocks(); return true
+        case .globalLock:
+            globalLock.toggle(); persistLocks()
+            PanelCommandLog.shared.record(control: "sonos.globalLock")
+            return true
+        case .groupLock:
+            groupLock.toggle(); persistLocks()
+            PanelCommandLog.shared.record(control: "sonos.groupLock")
+            return true
         case .volume(let id, let value):
             guard let room = availableRoom(id) else { return false }
             let ids = confirmedRooms.compactMap { candidate -> String? in
@@ -160,6 +167,7 @@ import PanelKit
         // ordering across mute, topology and calibration changes.
         if queue.count > 1, case .volume(let ids, _, let raw) = operation,
            case .volume(let lastIDs, _, let lastRaw) = queue.last, ids == lastIDs, raw == lastRaw {
+            PanelCommandLog.shared.record(control: "sonos.volume.coalesced", error: "cancelled")
             queue[queue.count - 1] = operation
         } else {
             queue.append(operation)
@@ -192,6 +200,9 @@ import PanelKit
                     if self.queue.isEmpty { self.mutationTask = nil }
                 } catch {
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
+                    // Also covers local topology/position failures before any HTTP call.
+                    PanelCommandLog.shared.record(control: "sonos.command", error: "request failed")
+                    for _ in self.queue.dropFirst() { PanelCommandLog.shared.record(control: "sonos.queued", error: "dropped: action unavailable") }
                     self.queue.removeAll()
                     self.mutationTask = nil
                     self.render()
@@ -292,14 +303,18 @@ import PanelKit
             case .join(let id, let target):
                 let member = try room(id)
                 let leader = try room(room(target).coordinatorUuid)
-                guard member.coordinatorUuid != leader.uuid else { return }
+                guard member.coordinatorUuid != leader.uuid else {
+                    PanelCommandLog.shared.record(control: "sonos.join.alreadyGrouped"); return
+                }
                 try await api.join(memberIp: member.deviceIp, coordinatorUuid: leader.uuid)
             case .joinAll(let target):
                 let leader = try room(room(target).coordinatorUuid)
                 let members = details.values.filter {
                     $0.availability == .available && $0.coordinatorUuid != leader.uuid
                 }.map(\.deviceIp).sorted()
-                guard !members.isEmpty else { return }
+                guard !members.isEmpty else {
+                    PanelCommandLog.shared.record(control: "sonos.joinAll.alreadyGrouped"); return
+                }
                 try await api.joinAll(coordinatorEntityId: leader.uuid, memberEntityIds: members)
             case .leave(let id):
                 let member = try room(id)

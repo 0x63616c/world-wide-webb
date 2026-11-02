@@ -78,6 +78,7 @@ import {
   ControlKey,
   FanMode,
   getControlsState,
+  setFanMode,
   setLampBrightness,
   setLampColor,
   setLampMode,
@@ -508,6 +509,36 @@ describe("getControlsState", () => {
     expect(state.fan.sub).toBe("On");
     expect(state.fan.pending).toBe(false);
     expect(mockGetEntities).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    false,
+    true,
+  ])("offers real Off only when advertised (supported=%s)", async (supported) => {
+    mockIsConfigured.mockReturnValue(true);
+    const row = climateFanRow("auto", "on");
+    row.reportedState = {
+      mode: "cool",
+      fanMode: "on",
+      action: "cooling",
+      fanModes: supported ? ["off", "auto", "on"] : ["auto", "on"],
+    };
+    await seedRows(store, [row]);
+    const state = await getControlsState(store);
+    expect(state.fan.modes).toEqual(supported ? ["off", "auto", "on"] : ["auto", "on"]);
+    expect(state.fan.mode).toBe("auto");
+    expect(state.fan.pending).toBe(false);
+    if (supported) {
+      const changed = await setFanMode(FanMode.Off, store);
+      expect(changed.fan.mode).toBe("off");
+      expect(changed.fan.sub).toBe("Off");
+      expect((await store.read("climate-thermostat"))?.desiredState).toMatchObject({
+        mode: "cool",
+        fanMode: "off",
+      });
+    } else {
+      await expect(setFanMode(FanMode.Off, store)).rejects.toThrow("does not support fan off");
+    }
   });
 
   it("labels fan 'Auto' when fan_mode is auto AND the AC is running (www-pu4m)", async () => {

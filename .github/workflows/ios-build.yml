@@ -41,7 +41,7 @@ env:
 concurrency:
   # Keyed by ref so a PR's verify job cannot cancel a main upload in flight.
   group: ios-build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   # PR gate: compile the native shell WITHOUT signing, secrets or upload, so a
@@ -95,6 +95,9 @@ jobs:
     timeout-minutes: 20
     # Protected environment: AGE_PRIVATE_KEY is gated here (CC-k8t7).
     environment: production
+    concurrency:
+      group: panel-testflight-upload
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: apps/panel

@@ -33,6 +33,8 @@ public struct ControlGroupState: Decodable, Sendable, Equatable {
 }
 
 public struct ControlFanState: Decodable, Sendable, Equatable {
+    public let modes: [String]?
+    public let mode: String?
     public let on: Bool
     public let sub: String
     public let pending: Bool

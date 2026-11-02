@@ -166,14 +166,14 @@ struct HomeView: View {
     @ViewBuilder private func homeFace(size: CGSize) -> some View {
         #if os(iOS)
         TabView(selection: $facePage) {
-            PresenceClockFace(store: store, open: open).tag(HomeFacePage.clock)
+            PresenceClockFace(store: store).tag(HomeFacePage.clock)
             faceGrid(size: size, controls: false).tag(HomeFacePage.home)
             faceGrid(size: size, controls: true).tag(HomeFacePage.controls)
             musicFace.tag(HomeFacePage.music)
         }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
         #else
         Group {
-            if facePage == HomeFacePage.clock { PresenceClockFace(store: store, open: open) }
+            if facePage == HomeFacePage.clock { PresenceClockFace(store: store) }
             else if facePage == HomeFacePage.music { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
             else { faceGrid(size: size, controls: facePage == HomeFacePage.controls) }
         }
@@ -342,7 +342,7 @@ struct TileFace: View {
                     setpointButton("chevron.up", label: "Raise setpoint", delta: 1)
                 }.padding(.bottom, 8)
             }.padding(38)
-                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(26) } }
+                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(26).allowsHitTesting(false) } }
 
         }
     }
@@ -388,10 +388,10 @@ struct AccessoryFace: View {
                 }.font(.system(size: 64, weight: .regular))
                     .foregroundStyle(on ? Color.orange : .white)
                     .frame(width: 120, height: 100)
-                    .background { if key != .fan { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180) } }
-                    .overlay(alignment: .topTrailing) { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white) } }
+                    .background { if key != .fan { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180).allowsHitTesting(false) } }
+                    .overlay(alignment: .topTrailing) { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white).allowsHitTesting(false) } }
             }.buttonStyle(.plain).padding(.bottom, 20)
-                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
+                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(key == .fan ? store.climate.fanLabel : on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
             Button(action: open) {
                 VStack(spacing: 7) {
                     Text(title).font(.system(size: key == .cabinet ? 30 : 32, weight: .semibold)).lineLimit(1)

@@ -37,6 +37,14 @@ struct PanelHome: View {
             .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("native-home")
+            .overlay(alignment: .topLeading) {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-hybridControlWrites") {
+                    Text(HybridControlWriteTrace.shared.value).font(.caption2)
+                        .accessibilityIdentifier("fixture-control-write").allowsHitTesting(false)
+                }
+                #endif
+            }
             .overlay(alignment: .bottomTrailing) {
                 Button(action: presentation.navigation.openClassic) {
                     Label("Classic", systemImage: "safari").font(.body)
@@ -72,6 +80,7 @@ struct PanelHome: View {
     }
 
     func prepareToOpen(_ tile: HomeTile) -> Bool {
+        guard !Self.isInformationalFace(tile) else { return false }
         let module = tile.panelModule
         let ready = store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
         guard router.route(for: module, hasLiveData: ready) == .native(module) else {
@@ -81,10 +90,23 @@ struct PanelHome: View {
         return true
     }
 
+    static func isInformationalFace(_ tile: HomeTile) -> Bool {
+        [.clock, .weather, .hourly].contains(tile)
+    }
+
     func available(_ tile: HomeTile) -> Bool { store.hasLiveData(for: tile.panelModule) }
 
     func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView? {
-        if tile != .clock && !available(tile) {
+        if Self.isInformationalFace(tile) {
+            if tile != .clock && !available(tile) {
+                return AnyView(VStack(spacing: 12) {
+                    Text(tile.title).font(.title2.weight(.semibold))
+                    Text("Unavailable").foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity))
+            }
+            return AnyView(TileFace(tile: tile, store: store, open: {}).allowsHitTesting(false))
+        }
+        if !available(tile) {
             return AnyView(Button(action: open) {
                 VStack(spacing: 12) {
                     Text(tile == .fan ? "Fan" : tile.title).font(.title2.weight(.semibold))
@@ -100,10 +122,6 @@ struct PanelHome: View {
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
                 .disabled(store.walkProvider.isMutating))
-        case .clock:
-            return AnyView(PanelTileLauncher(label: "Open Clock and Alarms", open: open) {
-                TileFace(tile: .clock, store: self.store, open: open)
-            })
         case .cameras:
             return AnyView(PanelTileLauncher(label: "Open Cameras", open: open) {
                 CamerasModule(provider: self.store.camerasProvider, detail: false, open: open)
@@ -128,9 +146,7 @@ struct PanelHome: View {
         case .sound:
             return AnyView(PanelSoundTile(store: store, open: open, inset: HomeGrid.inset))
         case .clock:
-            return AnyView(PanelTileLauncher(label: "Open Clock and Alarms", open: open) {
-                GridClock(v: span.width > span.height ? "H" : span.height > span.width ? "C" : span.width > HomeGrid.cell ? "F" : "A", store: self.store)
-            })
+            return AnyView(GridClock(v: span.width > span.height ? "H" : span.height > span.width ? "C" : span.width > HomeGrid.cell ? "F" : "A", store: store).allowsHitTesting(false))
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open,
                 inset: HomeGrid.inset).disabled(store.walkProvider.isMutating))

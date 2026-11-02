@@ -141,6 +141,7 @@ describe("mapHaToReported", () => {
         hvac_mode: "cool",
         temperature: 70,
         fan_mode: "on",
+        fan_modes: ["off", "auto", "on", 42],
         current_temperature: 73,
         hvac_action: "cooling",
       },
@@ -151,6 +152,7 @@ describe("mapHaToReported", () => {
       mode: "cool",
       target: 70,
       fanMode: "on",
+      fanModes: ["off", "auto", "on"],
       ambient: 73,
       action: "cooling",
     });
@@ -158,6 +160,15 @@ describe("mapHaToReported", () => {
 });
 
 describe("stateEquals", () => {
+  it("detects changed fan capabilities so reported state refreshes them", () => {
+    expect(
+      stateEquals(
+        { mode: "cool", fanModes: ["auto", "on"] },
+        { mode: "cool", fanModes: ["off", "auto", "on"] },
+      ),
+    ).toBe(false);
+  });
+
   it("returns true for two identical { on: true, brightness: 128 } values", () => {
     expect(stateEquals({ on: true, brightness: 128 }, { on: true, brightness: 128 })).toBe(true);
   });

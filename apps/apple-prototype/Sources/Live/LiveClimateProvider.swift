@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PanelKit
+import OSLog
 
 @MainActor protocol ClimateProvider: AnyObject, Observable {
     var climate: ClimateState? { get }
@@ -60,6 +61,7 @@ import PanelKit
         pollingTask?.cancel(); pollingTask = nil
         mutationTask?.cancel(); mutationTask = nil
         revision += 1
+        for _ in queue { PanelCommandLog.shared.record(control: "climate.queued", error: "cancelled") }
         queue.removeAll(); pending = []
     }
 
@@ -84,6 +86,7 @@ import PanelKit
                     if self.queue.isEmpty { self.pending = []; self.mutationTask = nil }
                 } catch {
                     guard !Task.isCancelled else { return }
+                    for _ in self.queue.dropFirst() { PanelCommandLog.shared.record(control: "climate.queued", error: "dropped: action unavailable") }
                     self.queue.removeAll(); self.pending = []; self.mutationTask = nil
                     self.fail(error)
                     return
@@ -142,6 +145,7 @@ import PanelKit
     }
 
     private func fail(_ error: any Error) {
+        Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Climate provider request failed")
         lastError = error as? PanelAPIError
         availability = .unavailable(lastError?.localizedDescription ?? "Climate is unavailable. Try again.")
     }

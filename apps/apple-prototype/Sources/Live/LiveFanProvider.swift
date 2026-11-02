@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PanelKit
+import OSLog
 
 @MainActor protocol FanProvider: AnyObject, Observable {
     var fanOn: Bool? { get }
@@ -15,6 +16,8 @@ import PanelKit
 /// No network request runs at initialization; unavailable data never becomes a fixture.
 @MainActor @Observable final class LiveFanProvider: FanProvider {
     private(set) var fanOn: Bool?
+    private(set) var fanModes: [String] = ["auto", "on"]
+    private(set) var selectedMode: String?
     private(set) var fanLabel: String?
     private(set) var pending: Set<String> = []
     private(set) var availability: LiveAvailability = .loading
@@ -23,7 +26,7 @@ import PanelKit
     private(set) var errorRevision = 0
     @ObservationIgnored private var refreshing = false
     @ObservationIgnored private var revision = 0
-    @ObservationIgnored private var queue: [(revision: Int, on: Bool)] = []
+    @ObservationIgnored private var queue: [(revision: Int, mode: String, usesToggle: Bool)] = []
     @ObservationIgnored private var mutation: Task<Void, Never>?
     @ObservationIgnored private var acknowledged: FanSnapshot?
     @ObservationIgnored private var runID: UUID?
@@ -50,13 +53,33 @@ import PanelKit
     /// Select an absolute intent. Serialize writes, but update immediately, including
     /// when a poll is in flight. Old responses cannot replace a newer selection.
     func setOn(_ on: Bool) {
-        guard fanOn != nil else { return }
+        enqueue(mode: on ? "on" : "auto", usesToggle: true)
+    }
+
+    func setMode(_ mode: String) {
+        guard fanModes.contains(mode) else {
+            PanelCommandLog.shared.record(control: "fan.mode", error: "dropped: action unavailable")
+            errorMessage = "This fan mode is unavailable. Refresh and try again."
+            errorRevision += 1
+            Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Unsupported fan mode")
+            return
+        }
+        // Auto/On retain the established endpoint for older servers. A real
+        // Off is offered only after the server advertises the new capability.
+        enqueue(mode: mode, usesToggle: mode != "off")
+    }
+
+    private func enqueue(mode: String, usesToggle: Bool) {
+        guard fanOn != nil else {
+            PanelCommandLog.shared.record(control: "fan.command", error: "dropped: module not live"); return
+        }
         revision += 1
         errorMessage = nil
-        fanOn = on
-        fanLabel = on ? "On" : (fanLabel == "Off" ? "Off" : "Auto")
+        fanOn = mode == "on"
+        selectedMode = mode
+        fanLabel = mode.capitalized
         pending.insert("fan")
-        queue.append((revision, on))
+        queue.append((revision, mode, usesToggle))
         guard mutation == nil else { return }
         let id = UUID()
         runID = id
@@ -67,7 +90,9 @@ import PanelKit
     }
 
     func toggle() async {
-        guard let fanOn else { return }
+        guard let fanOn else {
+            PanelCommandLog.shared.record(control: "fan.toggle", error: "dropped: module not live"); return
+        }
         setOn(!fanOn)
         await mutation?.value
     }
@@ -77,7 +102,9 @@ import PanelKit
         while !Task.isCancelled && !queue.isEmpty {
             let command = queue.removeFirst()
             do {
-                let snapshot = try await api.toggle(on: command.on)
+                let snapshot: FanSnapshot
+                if command.usesToggle { snapshot = try await api.toggle(on: command.mode == "on") }
+                else { snapshot = try await api.setMode(command.mode) }
                 try Task.checkCancellation()
                 acknowledged = snapshot
                 if revision == command.revision { accept(snapshot) }
@@ -87,6 +114,7 @@ import PanelKit
                 if !(error is CancellationError) {
                     // Keep the restored controls live so the user can retry. Never
                     // expose server errors, which can include runtime credentials.
+                    Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Fan backend command failed")
                     errorMessage = "Couldn’t change the fan. Try again."
                     errorRevision += 1
                 }
@@ -99,6 +127,7 @@ import PanelKit
         runID = nil
         mutation?.cancel()
         mutation = nil
+        for _ in queue { PanelCommandLog.shared.record(control: "fan.queued", error: "cancelled") }
         queue.removeAll()
         if let acknowledged { accept(acknowledged) }
     }
@@ -111,6 +140,8 @@ import PanelKit
     }
 
     private func accept(_ snapshot: FanSnapshot) {
+        fanModes = snapshot.fan.modes ?? ["auto", "on"]
+        selectedMode = snapshot.fan.mode ?? (snapshot.fan.on ? "on" : "auto")
         fanOn = snapshot.fan.on
         // The server distinguishes Auto from Off using the effective A/C mode.
         fanLabel = snapshot.fan.sub

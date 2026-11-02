@@ -1,13 +1,17 @@
 import XCTest
 
 @MainActor final class GridInteractionTests: XCTestCase {
-    private func launch(writes: Bool = true, climateOff: Bool = false) -> XCUIApplication {
+    private var lastWriteCount = 0
+
+    private func launch(writes: Bool = true, climateOff: Bool = false, fanOffSupported: Bool = false) -> XCUIApplication {
+        lastWriteCount = 0
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-notificationHold",
             "-moduleFlag.fan", "native", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native"]
         if writes { app.launchArguments.append("-hybridControlWrites") }
+        if fanOffSupported { app.launchArguments.append("-hybridFanOffSupported") }
         if climateOff { app.launchArguments.append("-hybridClimateOff") }
         app.launch()
         // Rotate the running app so UIKit and XCTest agree on touch coordinates.
@@ -26,6 +30,18 @@ import XCTest
         return app
     }
 
+    private func expectWrite(_ procedure: String, in app: XCUIApplication) {
+        let trace = app.staticTexts["fixture-control-write"]
+        let received = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            trace.label.hasSuffix(":" + procedure)
+                && (Int(trace.label.split(separator: ":").first ?? "0") ?? 0) > self.lastWriteCount
+        }, object: trace)
+        XCTAssertEqual(XCTWaiter.wait(for: [received], timeout: 10), .completed,
+            "Fixture transport did not receive \(procedure)")
+        lastWriteCount = Int(trace.label.split(separator: ":").first ?? "0") ?? lastWriteCount
+        expectHome(app)
+    }
+
     private func expectSelected(_ segment: XCUIElement) {
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: segment)
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed)
@@ -42,30 +58,43 @@ import XCTest
         expectSelected(app.buttons["fan-mode-on"])
         capture("WWW-81-home", app)
         app.buttons["fan-mode-on"].tap()
+        expectWrite("controls.toggle", in: app)
         expectSelected(app.buttons["fan-mode-on"])
         expectHome(app)
         app.buttons["fan-mode-auto"].tap()
+        expectWrite("controls.toggle", in: app)
         expectSelected(app.buttons["fan-mode-auto"])
         expectHome(app)
         app.buttons["fan-mode-on"].tap()
+        expectWrite("controls.toggle", in: app)
         expectSelected(app.buttons["fan-mode-on"])
-        app.buttons["fan-mode-off"].tap()
-        // Web Off releases the forced fan. Cooling still reports Auto.
+        XCTAssertFalse(app.buttons["fan-mode-off"].exists)
+        app.buttons["fan-mode-auto"].tap()
+        expectWrite("controls.toggle", in: app)
         expectSelected(app.buttons["fan-mode-auto"])
         expectHome(app)
         capture("WWW-81-fan-auto", app)
     }
 
+    func testFanGlyphReachesBackendWithoutOpeningDetail() {
+        let app = launch()
+        defer { app.terminate() }
+        app.buttons["toggle-fan"].tap()
+        expectWrite("controls.toggle", in: app)
+        expectSelected(app.buttons["fan-mode-auto"])
+    }
+
     func testOffWithHVACOffAndFailureRollsBackWithBanner() {
-        var app = launch(climateOff: true)
+        var app = launch(climateOff: true, fanOffSupported: true)
         app.buttons["fan-mode-off"].tap()
+        expectWrite("controls.setFanMode", in: app)
         expectSelected(app.buttons["fan-mode-off"])
         expectHome(app)
         app.terminate()
 
         app = launch(writes: false)
         defer { app.terminate() }
-        app.buttons["fan-mode-off"].tap()
+        app.buttons["fan-mode-auto"].tap()
         XCTAssertTrue(app.buttons["notification-banner-fan"].waitForExistence(timeout: 15))
         expectSelected(app.buttons["fan-mode-on"])
         expectHome(app)
@@ -81,6 +110,7 @@ import XCTest
         let ceiling = app.buttons["toggle-ceiling"]
         XCTAssertTrue(ceiling.waitForExistence(timeout: 15))
         ceiling.tap()
+        expectWrite("controls.toggle", in: app)
         let off = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Off"), object: ceiling)
         XCTAssertEqual(XCTWaiter.wait(for: [off], timeout: 10), .completed)
         expectHome(app)
@@ -88,6 +118,7 @@ import XCTest
         XCTAssertTrue(slider.isHittable)
         let originalBrightness = slider.value as? String
         slider.adjust(toNormalizedSliderPosition: 0.3)
+        expectWrite("controls.setLampBrightness", in: app)
         let changedBrightness = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             (slider.value as? String) != originalBrightness
         }, object: slider)
@@ -95,11 +126,22 @@ import XCTest
         expectHome(app)
         let climate = app.descendants(matching: .any)["tile-climate"].firstMatch
         app.buttons["grid-climate-plus"].tap()
+        expectWrite("climate.setTarget", in: app)
         XCTAssertTrue(climate.staticTexts["71°"].waitForExistence(timeout: 10))
         expectHome(app)
         app.buttons["grid-climate-minus"].tap()
+        expectWrite("climate.setTarget", in: app)
         XCTAssertTrue(climate.staticTexts["70°"].waitForExistence(timeout: 10))
         expectHome(app)
+    }
+
+    func testEveryInlineLightToggleReachesTheBackend() {
+        let app = launch()
+        defer { app.terminate() }
+        for key in ["ceiling", "cabinet", "lamps"] {
+            app.buttons["toggle-" + key].tap()
+            expectWrite("controls.toggle", in: app)
+        }
     }
 
     func testFanDetailFillsPresentationOnRepeatedOpenAndDismiss() {

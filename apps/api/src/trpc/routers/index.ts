@@ -1,6 +1,7 @@
 import { featureAppRouter } from "@features/_generated/router.gen";
 import { mergeRouters, router } from "../init";
 import { deviceSettingsRouter } from "./device-settings";
+import { diagnosticsRouter } from "./diagnostics";
 import { healthRouter } from "./health";
 import { settingsRouter } from "./settings";
 
@@ -11,6 +12,7 @@ import { settingsRouter } from "./settings";
 // the app router without a hand-edit here.
 const baseRouter = router({
   health: healthRouter,
+  diagnostics: diagnosticsRouter,
   settings: settingsRouter,
   deviceSettings: deviceSettingsRouter,
 });

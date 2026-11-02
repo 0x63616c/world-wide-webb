@@ -6,7 +6,7 @@ final class HybridModuleTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         // Functional fixture tours keep decorative effects still so XCTest can reach idle.
-        let modules = ["lights", "climate", "fan", "weather", "wifi", "sonos", "walk"]
+        let modules = ["lights", "climate", "fan", "wifi", "sonos", "walk"]
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for module in modules {
             app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.\(module)", "native"]

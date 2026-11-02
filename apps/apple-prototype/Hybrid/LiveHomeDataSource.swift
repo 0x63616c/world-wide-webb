@@ -2,10 +2,15 @@ import Foundation
 import Observation
 import PanelKit
 import CryptoKit
+import OSLog
 
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
 @MainActor @Observable final class LiveHomeDataSource: HomeDataSource {
+    private(set) var errorMessage: String?
+    private(set) var errorRevision = 0
+    private static let commandLog = Logger(subsystem: "co.worldwidewebb.panel", category: "commands")
+
     let mediaProvider: LiveMediaProvider
     let camerasProvider: LiveCamerasProvider
     let remindersProvider: LiveRemindersProvider
@@ -21,6 +26,10 @@ import CryptoKit
     let photosProvider: LivePhotosProvider
     let calendarProvider: LiveCalendarProvider
     let walkProvider: LiveWalkProvider
+    let diagnosticsClient: PanelAPIClient
+    let diagnosticsBackendURL: String
+    private var commandName = "command"
+    private var commandPayload: Data?
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     var alarms: [Alarm] { alarmsProvider.alarms }
@@ -45,6 +54,11 @@ import CryptoKit
          remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil) {
+        diagnosticsClient = PanelAPIClient(configuration: configuration)
+        // An origin is sufficient to identify deployment; omit path/query/user info.
+        if let url = configuration?.baseURL, let host = url.host {
+            diagnosticsBackendURL = "\(url.scheme ?? "https")://\(host)" + (url.port.map { ":\($0)" } ?? "")
+        } else { diagnosticsBackendURL = "unconfigured" }
         mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
         clock = now
@@ -112,6 +126,8 @@ import CryptoKit
                 value.high = high.map { Int($0.rounded()) } ?? 0
             }
         }
+        value.fanModes = fanProvider.fanModes
+        value.selectedFanMode = fanProvider.selectedMode
         value.fanOn = hasLiveData(for: .fan) ? fanProvider.fanOn ?? false : false
         value.reportedFanLabel = hasLiveData(for: .fan) ? fanProvider.fanLabel ?? "Unavailable" : "Unavailable"
         return value
@@ -154,27 +170,73 @@ import CryptoKit
     }
 
     func send(_ command: HomeCommand) {
+        errorMessage = nil
+        commandName = String(String(describing: command).prefix(while: { $0 != "(" }))
+        switch command {
+        case .brightness(let value), .kelvin(let value), .target(let value), .low(let value), .high(let value), .shiftRange(let value):
+            commandPayload = try? JSONEncoder().encode(["value": value])
+        case .rawVolume(_, let value), .volume(_, let value):
+            commandPayload = try? JSONEncoder().encode(["volume": value])
+        case .fan(let on), .enableAlarm(_, let on):
+            commandPayload = try? JSONEncoder().encode(["on": on])
+        default:
+            commandPayload = Data(#"{"value":"<redacted>"}"#.utf8)
+        }
         switch command {
         case .saveAlarm, .deleteAlarm, .enableAlarm, .snoozeAlarm, .stopAlarm:
-            if hasLiveData(for: .alarms) { alarmsProvider.send(command) }
+            guard requireLive(.alarms) else { return }
+            alarmsProvider.send(command)
         case .toggle(.fan):
-            if hasLiveData(for: .fan), let on = fanProvider.fanOn { fanProvider.setOn(!on) }
+            guard requireLive(.fan), let on = fanProvider.fanOn else { return }
+            fanProvider.setOn(!on)
         case .fan(let on):
-            if hasLiveData(for: .fan) { fanProvider.setOn(on) }
+            guard requireLive(.fan) else { return }
+            fanProvider.setOn(on)
+        case .fanMode(let mode):
+            guard requireLive(.fan) else { return }
+            guard fanProvider.fanModes.contains(mode) else {
+                rejectCommand("This fan mode is unavailable."); return
+            }
+            fanProvider.setMode(mode)
         case .toggle, .brightness, .kelvin, .scene, .color, .party:
-            if hasLiveData(for: .lights) { lightsProvider.send(command) }
+            guard requireLive(.lights) else { return }
+            if !lightsProvider.send(command) { rejectCommand("This lighting action is unavailable.") }
         case .mode, .target, .low, .high, .shiftRange:
-            if hasLiveData(for: .climate) { climateProvider.send(command) }
+            guard requireLive(.climate) else { return }
+            if !climateProvider.send(command) { rejectCommand("This climate action is unavailable.") }
         case .joinAll(let target):
-            if let id = roomID(target), hasLiveData(for: .sonos) { sonosProvider.send(.joinAll(id)) }
+            guard requireLive(.sonos) else { return }
+            guard let id = roomID(target), sonosProvider.send(.joinAll(id)) else {
+                rejectCommand("The selected speaker is unavailable."); return
+            }
         case .join(let member, let target):
-            if let member = roomID(member), let target = roomID(target), hasLiveData(for: .sonos) {
-                sonosProvider.send(.join(member, target))
+            guard requireLive(.sonos) else { return }
+            guard let member = roomID(member), let target = roomID(target), sonosProvider.send(.join(member, target)) else {
+                rejectCommand("The selected speakers are unavailable."); return
             }
         case .transport, .seek, .rawVolume, .volume, .mute, .globalLock, .groupLock, .calibrate, .clearCalibration, .leave:
-            if hasLiveData(for: .sonos) { sonosProvider.send(command) }
-        default: break // Fixture-library playback has no live implementation.
+            guard requireLive(.sonos) else { return }
+            if !sonosProvider.send(command) { rejectCommand("This speaker action is unavailable.") }
+        case .playMedia:
+            // The prototype's fixture library has no live backend procedure.
+            rejectCommand("This media item cannot be played on the live panel.")
         }
+    }
+
+    private func requireLive(_ module: PanelModule) -> Bool {
+        guard hasLiveData(for: module) else {
+            rejectCommand("\(module.title) is unavailable. Refresh and try again.", reason: "dropped: module not live")
+            return false
+        }
+        return true
+    }
+
+    private func rejectCommand(_ message: String, reason: String = "dropped: action unavailable") {
+        PanelCommandLog.shared.record(control: commandName, input: commandPayload, error: reason)
+        errorMessage = message
+        errorRevision += 1
+        // Log only our fixed user-facing messages, never command payloads or credentials.
+        Self.commandLog.error("Panel command rejected: \(message, privacy: .public)")
     }
 
     // Some prototype group shortcuts use display names. Resolve only unambiguous

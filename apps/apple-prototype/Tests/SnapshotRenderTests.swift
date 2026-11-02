@@ -106,7 +106,7 @@ private struct SnapshotClock: View {
     let store: any HomeDataSource
     var body: some View {
         ZStack {
-            PresenceClockFace(store: store, open: { _ in })
+            PresenceClockFace(store: store)
             VStack { Spacer(); FacePicker(selection: .constant(HomeFacePage.clock)).padding(.bottom, 10) }
         }
     }

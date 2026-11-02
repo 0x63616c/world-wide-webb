@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PanelKit
+import OSLog
 
 @MainActor protocol LightsProvider: AnyObject, Observable {
     var lamps: LampState { get }
@@ -82,6 +83,7 @@ import PanelKit
         mutationTask = nil
         lifecycle += 1
         revision += 1
+        for _ in queue { PanelCommandLog.shared.record(control: "lights.queued", error: "cancelled") }
         queue.removeAll()
         render()
     }
@@ -95,7 +97,7 @@ import PanelKit
             let on = queue.isEmpty ? (serverState?.isOn(key) ?? localIsOn(accessory)) : localIsOn(accessory)
             operation = .toggle(key, !on)
         case .brightness(let pct):
-            guard lamps.anyOn else { return true }
+            guard lamps.anyOn else { return false }
             operation = .brightness(min(100, max(0, pct)))
         case .kelvin(let kelvin):
             operation = .kelvin(min(6500, max(2000, kelvin)))
@@ -106,7 +108,7 @@ import PanelKit
             guard Self.slots.indices.contains(index), hex.map(LightsAPI.isValidColor) ?? true else { return false }
             operation = .color(Self.slots[index], hex)
         case .party(let speed):
-            guard speed == .off || lamps.anyOn else { return true }
+            guard speed == .off || lamps.anyOn else { return false }
             operation = .party(speed)
         default: return false
         }
@@ -149,6 +151,8 @@ import PanelKit
 
     private func fail(_ error: any Error, lifecycle: Int) {
         guard self.lifecycle == lifecycle else { return }
+        Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Lights provider request failed")
+        for _ in queue.dropFirst() { PanelCommandLog.shared.record(control: "lights.queued", error: "dropped: action unavailable") }
         queue.removeAll()
         mutationTask = nil
         render()

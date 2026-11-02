@@ -139,7 +139,11 @@ import PanelKit
     }
 
     func send(_ command: HomeCommand) {
-        guard mutation == nil else { return }
+        guard mutation == nil else {
+            PanelCommandLog.shared.record(control: "alarms.command", error: "dropped: action unavailable")
+            errorMessage = "Wait for the current alarm change."
+            return
+        }
         mutation = Task { [weak self] in
             guard let self else { return }
             defer { self.mutation = nil }
@@ -152,7 +156,10 @@ import PanelKit
                 case .stopAlarm(let id, let version): try await act(id, version: version, snooze: false)
                 default: break
                 }
-            } catch is CancellationError {} catch { errorMessage = (error as? Failure)?.message ?? "Could not change the alarm. Try again." }
+            } catch is CancellationError {} catch {
+                PanelCommandLog.shared.record(control: "alarms.command", error: "request failed")
+                errorMessage = (error as? Failure)?.message ?? "Could not change the alarm. Try again."
+            }
         }
     }
 

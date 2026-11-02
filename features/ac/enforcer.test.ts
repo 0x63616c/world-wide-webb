@@ -189,7 +189,26 @@ describe("decideClimateEnforcement (pure)", () => {
     expect(d).toEqual({ kind: "noop" });
   });
 
-  it("pushes a real drift while conditioning INSIDE the window, but STRIPS fan_mode (never fights the blower)", () => {
+  it("adopts a genuinely changed idle fan report outside the command window", () => {
+    expect(
+      decideClimateEnforcement(
+        {
+          id: "c",
+          entityId: "climate.home",
+          desiredUntilUtc: null,
+          desiredState: { mode: "cool", target: 70, fanMode: "auto" },
+          lastReported: { mode: "cool", target: 70, fanMode: "auto", action: "idle" },
+        },
+        mapped({ mode: "cool", target: 70, fanMode: "on", action: "idle" }),
+        NOW,
+      ),
+    ).toEqual({
+      kind: "adopt",
+      desired: { mode: "cool", target: 70, fanMode: "on" },
+    });
+  });
+
+  it("pushes fresh fan intent alongside setpoint drift while conditioning", () => {
     const desired: DeviceClimateState = { mode: "cool", target: 68, fanMode: "auto" };
     const d = decideClimateEnforcement(
       {
@@ -201,8 +220,62 @@ describe("decideClimateEnforcement (pure)", () => {
       mapped({ mode: "cool", target: 72, fanMode: "on", action: "cooling" }),
       NOW,
     );
-    // fan_mode omitted from the pushed desired so set_fan_mode is never called.
-    expect(d).toEqual({ kind: "push", desired: { mode: "cool", target: 68 } });
+    expect(d).toEqual({ kind: "push", desired });
+  });
+
+  it.each(["heating", "cooling"])("sends a fan-only command once while %s", (action) => {
+    const desired = { mode: "cool", target: 70, fanMode: "auto" };
+    const device = {
+      id: "c",
+      entityId: "climate.home",
+      desiredState: desired,
+      desiredUntilUtc: WINDOW_OPEN,
+    };
+    const report = mapped({ ...desired, fanMode: "on", action });
+    expect(decideClimateEnforcement(device, report, NOW)).toEqual({ kind: "push", desired });
+    expect(decideClimateEnforcement({ ...device, fanCommandSent: true }, report, NOW)).toEqual({
+      kind: "noop",
+    });
+  });
+
+  it("preserves masked fan intent after conditioning ends and the window expires", () => {
+    const desired = { mode: "cool", target: 70, fanMode: "auto" };
+    const device = {
+      id: "c",
+      entityId: "climate.home",
+      desiredState: desired,
+      desiredUntilUtc: null,
+      lastReported: { ...desired, fanMode: "on", action: "cooling" },
+    };
+    const idle = { ...desired, fanMode: "on", action: "idle" };
+    expect(decideClimateEnforcement(device, mapped(idle), NOW)).toEqual({ kind: "noop" });
+    expect(decideClimateEnforcement({ ...device, lastReported: idle }, mapped(idle), NOW)).toEqual({
+      kind: "noop",
+    });
+    expect(decideClimateEnforcement(device, mapped({ ...idle, target: 72 }), NOW)).toEqual({
+      kind: "adopt",
+      desired: { ...desired, target: 72 },
+    });
+  });
+
+  it("does not resend fan intent with persistent setpoint drift during conditioning", () => {
+    const desired = { mode: "cool", target: 68, fanMode: "auto" };
+    expect(
+      decideClimateEnforcement(
+        {
+          id: "c",
+          entityId: "climate.home",
+          desiredState: desired,
+          desiredUntilUtc: WINDOW_OPEN,
+          fanCommandSent: true,
+        },
+        mapped({ mode: "cool", target: 72, fanMode: "on", action: "cooling" }),
+        NOW,
+      ),
+    ).toEqual({
+      kind: "push",
+      desired: { mode: "cool", target: 68 },
+    });
   });
 
   // ── OFF remembers the last real setpoint ───────────────────────────────────
@@ -317,6 +390,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   infoSpy.mockRestore();
 });
 
@@ -570,6 +644,86 @@ describe("runClimateEnforcerCycle", () => {
     await runClimateEnforcerCycle(store);
 
     expect(mockCallService).not.toHaveBeenCalled();
+  });
+
+  it("actuates a fresh fan command once during cooling, retries failure, and sends the next command", async () => {
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
+      entityId: "climate.home",
+      domain: "climate",
+      label: "Thermostat",
+      desired: { mode: "cool", target: 70, fanMode: "on" },
+      reported: { mode: "cool", target: 70, fanMode: "on" },
+      available: true,
+    });
+    await store.updateDesired({
+      id: CLIMATE_DEVICE_ID,
+      desired: { mode: "cool", target: 70, fanMode: "auto" },
+      windowMs: 9000,
+    });
+    mockGetEntities.mockResolvedValue([
+      haClimate({ temperature: 70, fan_mode: "on", hvac_action: "cooling" }),
+    ]);
+    mockCallService.mockRejectedValueOnce(new Error("HA offline"));
+    await expect(runClimateEnforcerCycle(store)).rejects.toThrow("HA offline");
+    mockCallService.mockClear();
+    await runClimateEnforcerCycle(store);
+    expect(mockCallService).toHaveBeenCalledWith("climate", "set_fan_mode", {
+      entity_id: "climate.home",
+      fan_mode: "auto",
+    });
+    mockCallService.mockClear();
+    await runClimateEnforcerCycle(store);
+    expect(mockCallService).not.toHaveBeenCalled();
+    await store.updateDesired({
+      id: CLIMATE_DEVICE_ID,
+      desired: { mode: "cool", target: 70, fanMode: "on" },
+      windowMs: 9000,
+    });
+    await runClimateEnforcerCycle(store);
+    expect(mockCallService).toHaveBeenCalledWith("climate", "set_fan_mode", {
+      entity_id: "climate.home",
+      fan_mode: "on",
+    });
+  });
+
+  it.each([
+    "auto",
+    "off",
+  ])("keeps desired fan %s through window expiry and repeated idle reports", async (fanMode) => {
+    vi.useFakeTimers();
+    const store = createInMemoryDeviceStateStore();
+    await store.seed({
+      id: CLIMATE_DEVICE_ID,
+      kind: DeviceKind.Climate,
+      entityId: "climate.home",
+      domain: "climate",
+      label: "Thermostat",
+      desired: { mode: "cool", target: 70, fanMode },
+      reported: { mode: "cool", target: 70, fanMode: "on", action: "cooling" },
+      available: true,
+    });
+    await store.updateDesired({
+      id: CLIMATE_DEVICE_ID,
+      desired: { mode: "cool", target: 70, fanMode },
+      windowMs: 9000,
+    });
+    vi.setSystemTime(Date.now() + 15_000);
+    mockGetEntities.mockResolvedValue([
+      haClimate({ temperature: 70, fan_mode: "on", hvac_action: "idle" }),
+    ]);
+    await runClimateEnforcerCycle(store);
+    await runClimateEnforcerCycle(store);
+    expect((await store.read(CLIMATE_DEVICE_ID))?.desiredState).toMatchObject({ fanMode });
+    expect(mockCallService).not.toHaveBeenCalled();
+    // A later physical change while idle is new intent, not masked blower drift.
+    mockGetEntities.mockResolvedValue([
+      haClimate({ temperature: 70, fan_mode: "auto", hvac_action: "idle" }),
+    ]);
+    await runClimateEnforcerCycle(store);
+    expect((await store.read(CLIMATE_DEVICE_ID))?.desiredState).toMatchObject({ fanMode: "auto" });
   });
 
   it("marks unavailable when HA does not report the configured thermostat", async () => {

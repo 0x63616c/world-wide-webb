@@ -11,7 +11,9 @@ import {
 import { LampColorSlot } from "./schema";
 import {
   ControlKey,
+  FanMode,
   getControlsState,
+  setFanMode,
   setLampBrightness,
   setLampColor,
   setLampMode,
@@ -121,6 +123,10 @@ function groupStateSchema(onDescription: string) {
 }
 
 const fanStateSchema = z.object({
+  // Additive capabilities: old servers/fixtures may omit them. Clients then
+  // offer only the established Auto/On choices.
+  modes: z.array(z.enum([FanMode.Off, FanMode.Auto, FanMode.On])).optional(),
+  mode: z.string().nullable().optional(),
   on: z.boolean().describe("True when the fan is running"),
   sub: z.string().describe('Speed label, e.g. "Medium"'),
   pending: z.boolean().describe("True while a command is in-flight and the overlay is active"),
@@ -148,6 +154,10 @@ const controlsStateSchema = z
 // ─── router ──────────────────────────────────────────────────────────────────
 
 export const controlsRouter = router({
+  setFanMode: publicProcedure
+    .input(z.object({ mode: z.enum([FanMode.Off, FanMode.Auto, FanMode.On]) }))
+    .output(controlsStateSchema)
+    .mutation(({ input }) => setFanMode(input.mode)),
   /**
    * Returns the current on/off state + sub-labels for lamps, lights, and fan.
    * Throws SERVICE_UNAVAILABLE when HA is unreachable so the tile shimmers via

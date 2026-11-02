@@ -11,7 +11,7 @@ import XCTest
         XCTAssertTrue(home.waitForExistence(timeout: 30))
         // The clock is the first face (WWW-68); Home is the next page.
         XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
-        XCTAssertTrue(app.buttons["clock-face"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["clock-face"].firstMatch.exists)
         app.selectHomeFace(1)
         XCTAssertTrue(app.descendants(matching: .any)["tile-climate"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
@@ -38,6 +38,34 @@ import XCTest
         back.tap()
         XCTAssertTrue(home.waitForExistence(timeout: 15), app.debugDescription)
         app.terminate()
+    }
+
+    func testInformationalFacesDoNotOpenMenusOrDiagnostics() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.alarms", "native", "-moduleFlag.weather", "native"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.buttons["home-classic"].waitForExistence(timeout: 30))
+        let clock = app.descendants(matching: .any)["clock-face"].firstMatch
+        XCTAssertTrue(clock.waitForExistence(timeout: 15))
+        clock.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["face-page-0"].isHittable)
+        XCTAssertFalse(app.buttons["module-home"].exists)
+        clock.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 2)
+        XCTAssertFalse(app.buttons["diagnostics-done"].exists)
+        capture("WWW-87-clock-inert")
+        app.selectHomeFace(1)
+        for id in ["clock", "weather"] {
+            let tile = app.descendants(matching: .any)["tile-\(id)"].firstMatch
+            XCTAssertTrue(tile.waitForExistence(timeout: 15))
+            tile.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.15)).tap()
+            XCTAssertTrue(app.buttons["face-page-1"].isHittable)
+            XCTAssertFalse(app.buttons["module-home"].exists)
+            XCTAssertFalse(app.buttons["diagnostics-done"].exists)
+        }
+        capture("WWW-87-informational-cards")
     }
 
     func testRollbackLaunchesWebWithoutHome() {

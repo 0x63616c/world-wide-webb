@@ -11,6 +11,21 @@ fixtures intentionally omit all additions. They contain no device captures,
 credentials or personal data. Unit tests separately verify the state mapping and
 device writes.
 
+## Fan capabilities (WWW-87)
+
+`controls.list` and controls mutation responses add optional `fan.modes`
+(`("off" | "auto" | "on")[]`) and `fan.mode` (`string | null`). Native clients
+without capabilities offer Auto/On only. Off is included only when the configured
+climate entity advertises `off` in HA's `fan_modes`; the worker persists that
+reported capability in the thermostat device-state row.
+
+`POST /trpc/controls.setFanMode` takes `{ "mode": "off" | "auto" | "on" }`.
+It updates desired fan mode and opens the command window; unsupported Off fails
+without changing desired state. The existing `controls.toggle` input is unchanged:
+`{ "key": "fan", "on": false }` still means Auto. `fan.sub` remains the status
+label, so Auto intent with HVAC off may display Off; segment selection uses
+`fan.mode`. While conditioning masks fan drift, `fan.pending` is false.
+
 ## Controls
 
 `GET /trpc/controls.list` still accepts no input or `{}`. The same additions also

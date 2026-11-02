@@ -60,6 +60,9 @@ function mapHaClimate(entity: HaEntity): DeviceClimateState {
   if (typeof attrs.temperature === "number") climate.target = attrs.temperature;
   if (typeof attrs.target_temp_low === "number") climate.targetLow = attrs.target_temp_low;
   if (typeof attrs.target_temp_high === "number") climate.targetHigh = attrs.target_temp_high;
+  if (Array.isArray(attrs.fan_modes)) {
+    climate.fanModes = attrs.fan_modes.filter((mode): mode is string => typeof mode === "string");
+  }
   if (typeof attrs.fan_mode === "string") climate.fanMode = attrs.fan_mode;
   if (typeof attrs.current_temperature === "number") climate.ambient = attrs.current_temperature;
   if (typeof attrs.hvac_action === "string") climate.action = attrs.hvac_action;
@@ -123,6 +126,7 @@ function climateEquals(a: DeviceClimateState, b: DeviceClimateState): boolean {
     (a.target ?? null) === (b.target ?? null) &&
     (a.targetLow ?? null) === (b.targetLow ?? null) &&
     (a.targetHigh ?? null) === (b.targetHigh ?? null) &&
+    JSON.stringify(a.fanModes ?? []) === JSON.stringify(b.fanModes ?? []) &&
     (a.fanMode ?? null) === (b.fanMode ?? null) &&
     (a.ambient ?? null) === (b.ambient ?? null) &&
     (a.action ?? null) === (b.action ?? null)

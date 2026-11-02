@@ -1,15 +1,24 @@
 #if DEBUG
 import Foundation
 import PanelKit
+import Observation
 
 /// Explicit debug harness: exercises the real decoders/providers with their
-/// existing synthetic fixtures. No URLSession fallback, writes or credentials.
+/// existing synthetic fixtures. No URLSession fallback or credentials.
+/// Writes require the explicit controlWrites fixture mode.
+@MainActor @Observable final class HybridControlWriteTrace {
+    static let shared = HybridControlWriteTrace()
+    var value = "0:none"
+}
+
 actor HybridFixtureTransport: PanelTransport {
     private let root: URL
     private let unavailable: Bool
     private let alarmScenario: String
     private let sonosPlayback: Bool
+    private let fanOffSupported: Bool
     private let controlWrites: Bool
+    private var writeCount = 0
     private var controlState: [String: Any]?
     private var climateState: [String: Any]?
     private let climateOff: Bool
@@ -17,7 +26,8 @@ actor HybridFixtureTransport: PanelTransport {
     private var overrides: [String: String] = [:]
     private(set) var requests: [URLRequest] = []
 
-    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false, sonosPlayback: Bool = false, climateOff: Bool = false, controlWrites: Bool = false) {
+    init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false, sonosPlayback: Bool = false, climateOff: Bool = false, controlWrites: Bool = false, fanOffSupported: Bool = false) {
+        self.fanOffSupported = fanOffSupported
         self.controlWrites = controlWrites
         self.sonosPlayback = sonosPlayback
         self.climateOff = climateOff
@@ -39,6 +49,10 @@ actor HybridFixtureTransport: PanelTransport {
         }
         let procedure = url.lastPathComponent
         if controlWrites, let data = try controlResponse(request, procedure: procedure) {
+            if request.httpBody != nil {
+                let trace = "\(writeCount):\(procedure)"
+                await MainActor.run { HybridControlWriteTrace.shared.value = trace }
+            }
             return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         let file: String
@@ -72,21 +86,42 @@ actor HybridFixtureTransport: PanelTransport {
 
     /// Explicit UI-test backend for controls. Normal fixtures still reject writes.
     private func controlResponse(_ request: URLRequest, procedure: String) throws -> Data? {
-        guard ["controls.list", "controls.toggle", "controls.setLampBrightness", "climate.get", "climate.setTarget"].contains(procedure) else { return nil }
+        guard ["controls.list", "controls.toggle", "controls.setLampBrightness", "controls.setWhiteKelvin", "controls.setLampScene", "controls.setLampColor", "controls.setLampMode", "controls.setFanMode", "climate.get", "climate.setTarget", "climate.setMode", "climate.setRange"].contains(procedure) else { return nil }
         let isClimate = procedure.hasPrefix("climate.")
         let file = isClimate ? (climateOff ? "climate/off.json" : "climate/cool.json") : "all-on.json"
         let initial = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent(file))) as! [String: Any]
         var envelope = (isClimate ? climateState : controlState) ?? initial
         var result = envelope["result"] as! [String: Any]
         var state = result["data"] as! [String: Any]
+        if !isClimate {
+            var fan = state["fan"] as! [String: Any]
+            fan["modes"] = fanOffSupported ? ["off", "auto", "on"] : ["auto", "on"]
+            if fan["mode"] == nil { fan["mode"] = (fan["on"] as? Bool) == true ? "on" : "auto" }
+            state["fan"] = fan
+        }
         if let body = request.httpBody {
+            writeCount += 1
             let input = try JSONSerialization.jsonObject(with: body, options: .fragmentsAllowed)
             if procedure == "controls.toggle", let input = input as? [String: Any],
                let key = input["key"] as? String, let on = input["on"] as? Bool {
                 var group = state[key] as! [String: Any]
                 group["on"] = on
-                if key == "fan" { group["sub"] = on ? "On" : climateOff ? "Off" : "Auto" }
+                if key == "fan" { group["sub"] = on ? "On" : climateOff ? "Off" : "Auto"; group["mode"] = on ? "on" : "auto" }
                 state[key] = group
+            } else if procedure == "controls.setFanMode", let input = input as? [String: String], let mode = input["mode"] {
+                var fan = state["fan"] as! [String: Any]
+                fan["on"] = mode == "on"; fan["mode"] = mode; fan["sub"] = mode.capitalized
+                state["fan"] = fan
+            } else if procedure == "controls.setWhiteKelvin", let input = input as? [String: Int] {
+                var lamps = state["lamps"] as! [String: Any]; lamps["whiteKelvin"] = input["kelvin"]; state["lamps"] = lamps
+            } else if procedure == "controls.setLampScene", let input = input as? [String: String] {
+                var lamps = state["lamps"] as! [String: Any]; lamps["activeScene"] = input["scene"]; state["lamps"] = lamps
+            } else if procedure == "climate.setMode", let mode = input as? String {
+                state["mode"] = mode
+                if mode == "heat_cool" { state["targetLow"] = 67; state["targetHigh"] = 73 }
+                if mode == "off" { state["targetLow"] = NSNull(); state["targetHigh"] = NSNull() }
+            } else if procedure == "climate.setRange", let input = input as? [String: Int] {
+                state["mode"] = "heat_cool"; state["targetLow"] = input["low"]; state["targetHigh"] = input["high"]
             } else if procedure == "controls.setLampBrightness", let input = input as? [String: Int] {
                 var lamps = state["lamps"] as! [String: Any]
                 lamps["brightness"] = input["pct"]

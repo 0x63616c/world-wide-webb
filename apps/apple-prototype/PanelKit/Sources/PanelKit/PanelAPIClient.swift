@@ -45,10 +45,12 @@ public enum PanelAPIError: Error, Sendable, Equatable, LocalizedError {
 public struct PanelAPIClient: Sendable {
     private let configuration: PanelConfiguration?
     private let transport: any PanelTransport
+    private let commandLog: PanelCommandLog
 
-    public init(configuration: PanelConfiguration?, transport: any PanelTransport = URLSession.shared) {
+    public init(configuration: PanelConfiguration?, transport: any PanelTransport = URLSession.shared, commandLog: PanelCommandLog = .shared) {
         self.configuration = configuration
         self.transport = transport
+        self.commandLog = commandLog
     }
 
     public func query<Output: Decodable & Sendable>(_ path: String, as: Output.Type) async throws -> Output {
@@ -64,7 +66,13 @@ public struct PanelAPIClient: Sendable {
     public func mutation<Input: Encodable & Sendable, Output: Decodable & Sendable>(
         _ path: String, input: Input, as: Output.Type
     ) async throws -> Output {
-        try await perform(path, method: "POST", input: encode(input), as: Output.self)
+        let data: Data
+        do { data = try encode(input) }
+        catch {
+            commandLog.record(control: path, error: "request failed")
+            throw error
+        }
+        return try await perform(path, method: "POST", input: data, as: Output.self)
     }
 
     /// Only media paths on the configured origin may receive Access credentials.
@@ -100,53 +108,69 @@ public struct PanelAPIClient: Sendable {
     private func perform<Output: Decodable & Sendable>(
         _ path: String, method: String, input: Data?, as: Output.Type
     ) async throws -> Output {
-        guard let configuration, PanelConfiguration.isValidBaseURL(configuration.baseURL),
-              configuration.requestTimeout.isFinite, configuration.requestTimeout > 0 else {
-            throw PanelAPIError.notConfigured
+        let started = Date()
+        var httpStatus: Int?
+        var commandError: String?
+        defer {
+            if method == "POST" && !path.hasPrefix("diagnostics.") {
+                let safePath = configuration.map { redacted(path, $0) } ?? path
+                commandLog.record(control: safePath, input: input, status: httpStatus,
+                    error: commandError, latencyMs: Int(Date().timeIntervalSince(started) * 1000))
+            }
         }
-        guard !path.isEmpty, path.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "." || $0 == "_") })
-        else { throw PanelAPIError.transport("Invalid procedure path.") }
-        let url = configuration.baseURL.appendingPathComponent("trpc").appendingPathComponent(path)
-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            throw PanelAPIError.notConfigured
+        do {
+            guard let configuration, PanelConfiguration.isValidBaseURL(configuration.baseURL),
+                  configuration.requestTimeout.isFinite, configuration.requestTimeout > 0 else {
+                throw PanelAPIError.notConfigured
+            }
+            guard !path.isEmpty, path.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "." || $0 == "_") })
+            else { throw PanelAPIError.transport("Invalid procedure path.") }
+            let url = configuration.baseURL.appendingPathComponent("trpc").appendingPathComponent(path)
+            guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+                throw PanelAPIError.notConfigured
+            }
+            if method == "GET", let input {
+                // RFC 3986 unreserved characters only; '+' must survive form-style query parsers.
+                let unreserved = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+                let encoded = String(decoding: input, as: UTF8.self).addingPercentEncoding(withAllowedCharacters: unreserved)
+                components.percentEncodedQuery = "input=" + (encoded ?? "")
+            }
+            guard let requestURL = components.url else { throw PanelAPIError.notConfigured }
+            var request = URLRequest(url: requestURL, cachePolicy: .reloadIgnoringLocalCacheData,
+                                     timeoutInterval: configuration.requestTimeout)
+            request.httpMethod = method
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            if method == "POST" {
+                request.httpBody = input
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            }
+            if let id = configuration.accessClientID, let secret = configuration.accessClientSecret {
+                request.setValue(id, forHTTPHeaderField: "CF-Access-Client-Id")
+                request.setValue(secret, forHTTPHeaderField: "CF-Access-Client-Secret")
+            }
+            let data: Data
+            let response: HTTPURLResponse
+            do { (data, response) = try await transport.send(request) }
+            catch is CancellationError { throw CancellationError() }
+            catch let error as URLError where error.code == .cancelled { throw CancellationError() }
+            catch { throw PanelAPIError.transport("Could not reach the panel API.") }
+            httpStatus = response.statusCode
+            try Task.checkCancellation()
+            let decoder = JSONDecoder()
+            if let failure = try? decoder.decode(ErrorEnvelope.self, from: data) {
+                throw PanelAPIError.server(
+                    code: redacted(failure.error.data.code, configuration),
+                    message: redacted(failure.error.message, configuration),
+                    httpStatus: failure.error.data.httpStatus ?? response.statusCode
+                )
+            }
+            guard (200..<300).contains(response.statusCode) else { throw PanelAPIError.http(status: response.statusCode) }
+            do { return try decoder.decode(SuccessEnvelope<Output>.self, from: data).result.data }
+            catch { throw PanelAPIError.decoding("Could not decode the panel API response.") }
+        } catch {
+            commandError = error is CancellationError ? "cancelled" : "request failed"
+            throw error
         }
-        if method == "GET", let input {
-            // RFC 3986 unreserved characters only; '+' must survive form-style query parsers.
-            let unreserved = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
-            let encoded = String(decoding: input, as: UTF8.self).addingPercentEncoding(withAllowedCharacters: unreserved)
-            components.percentEncodedQuery = "input=" + (encoded ?? "")
-        }
-        guard let requestURL = components.url else { throw PanelAPIError.notConfigured }
-        var request = URLRequest(url: requestURL, cachePolicy: .reloadIgnoringLocalCacheData,
-                                 timeoutInterval: configuration.requestTimeout)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if method == "POST" {
-            request.httpBody = input
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        }
-        if let id = configuration.accessClientID, let secret = configuration.accessClientSecret {
-            request.setValue(id, forHTTPHeaderField: "CF-Access-Client-Id")
-            request.setValue(secret, forHTTPHeaderField: "CF-Access-Client-Secret")
-        }
-        let data: Data
-        let response: HTTPURLResponse
-        do { (data, response) = try await transport.send(request) }
-        catch is CancellationError { throw CancellationError() }
-        catch let error as URLError where error.code == .cancelled { throw CancellationError() }
-        catch { throw PanelAPIError.transport("Could not reach the panel API.") }
-        try Task.checkCancellation()
-        let decoder = JSONDecoder()
-        if let failure = try? decoder.decode(ErrorEnvelope.self, from: data) {
-            throw PanelAPIError.server(
-                code: redacted(failure.error.data.code, configuration),
-                message: redacted(failure.error.message, configuration),
-                httpStatus: failure.error.data.httpStatus ?? response.statusCode
-            )
-        }
-        guard (200..<300).contains(response.statusCode) else { throw PanelAPIError.http(status: response.statusCode) }
-        do { return try decoder.decode(SuccessEnvelope<Output>.self, from: data).result.data }
-        catch { throw PanelAPIError.decoding("Could not decode the panel API response.") }
     }
 
     private func redacted(_ value: String, _ configuration: PanelConfiguration) -> String {

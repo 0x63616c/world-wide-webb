@@ -76,7 +76,8 @@ struct PanelRoot: View {
                 walkActive: ProcessInfo.processInfo.arguments.contains("-hybridWalkActive"),
                 sonosPlayback: ProcessInfo.processInfo.arguments.contains("-hybridSonosPlayback"),
                 climateOff: ProcessInfo.processInfo.arguments.contains("-hybridClimateOff"),
-                controlWrites: ProcessInfo.processInfo.arguments.contains("-hybridControlWrites"))
+                controlWrites: ProcessInfo.processInfo.arguments.contains("-hybridControlWrites"),
+                fanOffSupported: ProcessInfo.processInfo.arguments.contains("-hybridFanOffSupported"))
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
                     accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
@@ -157,6 +158,12 @@ struct PanelRoot: View {
         }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
         .background { PanelWindowAttachment().allowsHitTesting(false) }
+        .background { PanelDiagnosticsAccess(store: store).allowsHitTesting(false) }
+        .onReceive(Foundation.NotificationCenter.default.publisher(for: PanelCommandLog.failureNotification).receive(on: RunLoop.main)) { _ in
+            notifications.post(sourceModule: "panel", title: "Command failed",
+                body: "The action could not be completed. Check the connection and try again.",
+                deepLink: "module/all", priority: .high, dedupeKey: "panel-api-command-error")
+        }
         .statusBarHidden()
         .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
         .sheet(item: $session.browser) { destination in
@@ -205,6 +212,12 @@ struct PanelRoot: View {
         }
         .overlay { statusOverlays }
         .modifier(NotificationHistoryAccess())
+        .onChange(of: store.errorRevision) { _, _ in
+            if let message = store.errorMessage {
+                notifications.post(sourceModule: "panel", title: "Action unavailable", body: message,
+                    deepLink: "module/all", priority: .high, dedupeKey: "panel-command-error")
+            }
+        }
         .onChange(of: store.fanProvider.errorRevision) { _, _ in
             if let message = store.fanProvider.errorMessage {
                 notifications.post(sourceModule: "fan", title: "Fan action failed", body: message,

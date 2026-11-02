@@ -46,6 +46,10 @@ import { getLogger, logChange } from "@www/logger";
 import { config } from "./config";
 import { deviceStateStore, ha, integrationSyncStore } from "./deps";
 
+// A successful fan write is sent once per command window, even if HA masks it
+// with its active blower. Failed writes remain retryable; stores stay isolated.
+const sentFanCommands = new WeakMap<DeviceStateStore, string>();
+
 const CLIMATE_ENFORCER_INTEGRATION_ID = "climate-enforcer";
 
 // The thermostat row as the reconciler needs it.
@@ -61,6 +65,7 @@ interface ManagedClimate {
   // the dashboard's explicit intent and is pushed on drift. Outside the window
   // drift is external (wall unit / ecobee app / schedule) and is adopted.
   desiredUntilUtc: Date | null;
+  fanCommandSent?: boolean;
 }
 
 export type ClimateEnforcementDecision =
@@ -99,7 +104,17 @@ export function decideClimateEnforcement(
   // fan_mode="on"; a desired fan_mode that disagrees is NOT drift to fight, or we
   // get the on/off/on/off flicker (www-pu4m). Yield the fan dimension then.
   const conditioning = isActivelyConditioning(reported);
-  if (climateStateConverged(device.desiredState, reported, { ignoreFan: conditioning })) {
+  const freshFan =
+    windowOpen(device, now) && device.desiredState.fanMode != null && !device.fanCommandSent;
+  // A stable fan report after conditioning is still the masked blower value.
+  // Only a later observable change can become external fan intent.
+  const maskedFan =
+    conditioning ||
+    (device.lastReported != null &&
+      (isActivelyConditioning(device.lastReported) ||
+        device.lastReported.fanMode === reported.fanMode) &&
+      device.desiredState.fanMode !== reported.fanMode);
+  if (!freshFan && climateStateConverged(device.desiredState, reported, { ignoreFan: maskedFan })) {
     return { kind: "noop" };
   }
 
@@ -111,18 +126,18 @@ export function decideClimateEnforcement(
     // Remembered: while the thermostat is off HA reports no setpoints, so the
     // adopted desired keeps the last real ones rather than forgetting them.
     const adopted = rememberedClimateDesired(reported, device.desiredState, device.lastReported);
-    if (conditioning) {
+    if (maskedFan) {
       delete adopted.fanMode;
       if (device.desiredState.fanMode != null) adopted.fanMode = device.desiredState.fanMode;
     }
     return { kind: "adopt", desired: adopted };
   }
 
-  // Window open: the drift is a fresh dashboard command , push it. While
-  // conditioning, strip fan_mode so we never actuate the blower the AC controls.
-  const desired = conditioning
-    ? { ...device.desiredState, fanMode: undefined }
-    : device.desiredState;
+  // Send explicit fan intent once, then yield masked blower reports (www-pu4m).
+  const desired =
+    conditioning && !freshFan
+      ? { ...device.desiredState, fanMode: undefined }
+      : device.desiredState;
   return { kind: "push", desired };
 }
 
@@ -192,6 +207,8 @@ async function reconcileClimate(
     desiredState: desired,
     lastReported: isClimateState(row.reportedState) ? row.reportedState : null,
     desiredUntilUtc: row.desiredUntilUtc ?? null,
+    fanCommandSent:
+      sentFanCommands.get(store) === `${row.desiredUntilUtc?.toISOString()}:${desired?.fanMode}`,
   };
   const decision = decideClimateEnforcement(device, mapped, now);
   await applyDecision(device, decision, mapped, now, store, desiredFix);
@@ -279,6 +296,12 @@ async function applyDecision(
         "climate enforcer pushing desired state to HA",
       );
       await pushToHa(device.entityId, decision.desired);
+      if (decision.desired.fanMode != null) {
+        sentFanCommands.set(
+          store,
+          `${device.desiredUntilUtc?.toISOString()}:${decision.desired.fanMode}`,
+        );
+      }
       await store.writeReported({
         id: device.id,
         reported: mapped.reported,
