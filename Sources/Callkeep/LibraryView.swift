@@ -333,10 +333,10 @@ struct WaveformView: View {
         Canvas { context, size in
             let values = peaks.isEmpty ? Array(repeating: Float(0), count: 160) : peaks
             let maximum = max(values.max() ?? 0, 0.01)
-            let spacing = size.width / Double(values.count)
+            let spacing = size.width / CGFloat(values.count)
             for (index, peak) in values.enumerated() {
-                let height = max(3, Double(sqrt(min(peak / maximum, 1))) * size.height)
-                let rect = CGRect(x: Double(index) * spacing, y: (size.height - height) / 2, width: max(1, spacing - 2), height: height)
+                let height = max(3, CGFloat(sqrt(min(peak / maximum, 1))) * size.height)
+                let rect = CGRect(x: CGFloat(index) * spacing, y: (size.height - height) / 2, width: max(1, spacing - 2), height: height)
                 context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Double(index) / Double(values.count) <= progress ? .accentColor : .secondary.opacity(0.3)))
             }
         }.accessibilityLabel("Recorded audio waveform")
