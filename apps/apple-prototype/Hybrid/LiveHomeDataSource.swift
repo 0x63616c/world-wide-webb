@@ -26,6 +26,10 @@ import OSLog
     let photosProvider: LivePhotosProvider
     let calendarProvider: LiveCalendarProvider
     let walkProvider: LiveWalkProvider
+    let diagnosticsClient: PanelAPIClient
+    let diagnosticsBackendURL: String
+    private var commandName = "command"
+    private var commandPayload: Data?
     private let unavailable = UnavailableHomeProviders()
     let walkActivity = WalkLiveActivityManager()
     var alarms: [Alarm] { alarmsProvider.alarms }
@@ -50,6 +54,11 @@ import OSLog
          remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil) {
+        diagnosticsClient = PanelAPIClient(configuration: configuration)
+        // An origin is sufficient to identify deployment; omit path/query/user info.
+        if let url = configuration?.baseURL, let host = url.host {
+            diagnosticsBackendURL = "\(url.scheme ?? "https")://\(host)" + (url.port.map { ":\($0)" } ?? "")
+        } else { diagnosticsBackendURL = "unconfigured" }
         mediaProvider = LiveMediaProvider(api: mediaAPI, configuration: configuration)
         camerasProvider = LiveCamerasProvider(api: CamerasAPI(configuration: configuration, transport: transport))
         clock = now
@@ -162,6 +171,17 @@ import OSLog
 
     func send(_ command: HomeCommand) {
         errorMessage = nil
+        commandName = String(String(describing: command).prefix(while: { $0 != "(" }))
+        switch command {
+        case .brightness(let value), .kelvin(let value), .target(let value), .low(let value), .high(let value), .shiftRange(let value):
+            commandPayload = try? JSONEncoder().encode(["value": value])
+        case .rawVolume(_, let value), .volume(_, let value):
+            commandPayload = try? JSONEncoder().encode(["volume": value])
+        case .fan(let on), .enableAlarm(_, let on):
+            commandPayload = try? JSONEncoder().encode(["on": on])
+        default:
+            commandPayload = Data(#"{"value":"<redacted>"}"#.utf8)
+        }
         switch command {
         case .saveAlarm, .deleteAlarm, .enableAlarm, .snoozeAlarm, .stopAlarm:
             guard requireLive(.alarms) else { return }
@@ -174,6 +194,9 @@ import OSLog
             fanProvider.setOn(on)
         case .fanMode(let mode):
             guard requireLive(.fan) else { return }
+            guard fanProvider.fanModes.contains(mode) else {
+                rejectCommand("This fan mode is unavailable."); return
+            }
             fanProvider.setMode(mode)
         case .toggle, .brightness, .kelvin, .scene, .color, .party:
             guard requireLive(.lights) else { return }
@@ -202,13 +225,14 @@ import OSLog
 
     private func requireLive(_ module: PanelModule) -> Bool {
         guard hasLiveData(for: module) else {
-            rejectCommand("\(module.title) is unavailable. Refresh and try again.")
+            rejectCommand("\(module.title) is unavailable. Refresh and try again.", reason: "dropped: module not live")
             return false
         }
         return true
     }
 
-    private func rejectCommand(_ message: String) {
+    private func rejectCommand(_ message: String, reason: String = "dropped: action unavailable") {
+        PanelCommandLog.shared.record(control: commandName, input: commandPayload, error: reason)
         errorMessage = message
         errorRevision += 1
         // Log only our fixed user-facing messages, never command payloads or credentials.

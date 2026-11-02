@@ -134,7 +134,7 @@ jobs:
             -scheme Panel-Smoke -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
-            -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
+            -only-testing:PanelUITests/HomeViewLaunchTests \
             -only-testing:PanelUITests/NotificationHistoryTests \
             -only-testing:PanelUITests/UpdateReadyBannerTests \
             -only-testing:PanelUITests/GridInteractionTests \
@@ -151,7 +151,7 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
-            -only-testing:PanelUITests/HomeViewLaunchTests/testHomeClassicAndReturn \
+            -only-testing:PanelUITests/HomeViewLaunchTests \
             -only-testing:PanelUITests/NotificationHistoryTests \
             -only-testing:PanelUITests/UpdateReadyBannerTests \
             -only-testing:PanelUITests/GridInteractionTests \
@@ -295,6 +295,7 @@ jobs:
         working-directory: apps/panel
         run: bundle exec fastlane release_native
         env:
+          PANEL_SOURCE_SHA: ${{ needs.smoke.outputs.source_sha }}
           NATIVE_ROOT: ${{ github.workspace }}/native/apps/apple-prototype
           MATCH_PASSWORD: ${{ env.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_BASIC_AUTHORIZATION }}

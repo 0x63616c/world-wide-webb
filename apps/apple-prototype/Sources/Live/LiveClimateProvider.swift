@@ -61,6 +61,7 @@ import OSLog
         pollingTask?.cancel(); pollingTask = nil
         mutationTask?.cancel(); mutationTask = nil
         revision += 1
+        for _ in queue { PanelCommandLog.shared.record(control: "climate.queued", error: "cancelled") }
         queue.removeAll(); pending = []
     }
 
@@ -85,6 +86,7 @@ import OSLog
                     if self.queue.isEmpty { self.pending = []; self.mutationTask = nil }
                 } catch {
                     guard !Task.isCancelled else { return }
+                    for _ in self.queue.dropFirst() { PanelCommandLog.shared.record(control: "climate.queued", error: "dropped: action unavailable") }
                     self.queue.removeAll(); self.pending = []; self.mutationTask = nil
                     self.fail(error)
                     return

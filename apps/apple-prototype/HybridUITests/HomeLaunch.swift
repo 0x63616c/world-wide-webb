@@ -47,9 +47,20 @@ extension XCUIApplication {
     }
 
     @MainActor func openHomeModule(_ module: String) {
+        if module == "alarms" {
+            XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
+            if launchArguments.contains("-hybridUnavailable") || launchArguments.contains("web") {
+                buttons["home-classic"].tap()
+            } else {
+                open(URL(string: "controlcenter://alarms")!)
+                let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+                if springboard.buttons["Open"].waitForExistence(timeout: 2) { springboard.buttons["Open"].tap() }
+            }
+            return
+        }
         let tiles = ["lights": "lamps", "climate": "climate", "fan": "fan", "wifi": "wifi",
                      "sonos": "sound", "weather": "weather", "photos": "photos", "walk": "dogwalk",
-                     "alarms": "clock", "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
+                     "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
         let tile = tiles[module]!
         XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
         // Home's Classic button stays in the covered host's AX tree. The pager

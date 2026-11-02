@@ -159,6 +159,7 @@ struct GridCardView: View {
     var accessory: Accessory?
     let store: any HomeDataSource
     var open: () -> Void = {}
+    @Environment(\.homeIntegration) private var integration
     private var size: CGSize { HomeGrid.span(variant.w, variant.h) }
     private var v: String { variant.letter }
     private var on: Bool {
@@ -174,7 +175,8 @@ struct GridCardView: View {
     var body: some View {
         content
             .frame(width: size.width, height: size.height)
-            .modifier(GridCardInteraction(label: "Open \(card.title)", open: open))
+            .modifier(GridCardInteraction(label: "Open \(card.title)", open: open,
+                enabled: integration == nil || (card != .clock && card != .weather)))
             .foregroundStyle(on ? .black : .white)
             .modifier(GridMaterial(on: on, round: round, image: image))
     }
@@ -203,13 +205,16 @@ struct GridCardView: View {
 struct GridCardInteraction: ViewModifier {
     let label: String
     let open: () -> Void
+    var enabled = true
     func body(content: Content) -> some View {
         content.background {
-            Button(action: open) {
-                Color.clear.contentShape(.rect)
+            if enabled {
+                Button(action: open) {
+                    Color.clear.contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(label)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(label)
         }
     }
 }

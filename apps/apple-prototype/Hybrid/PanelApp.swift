@@ -158,6 +158,12 @@ struct PanelRoot: View {
         }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
         .background { PanelWindowAttachment().allowsHitTesting(false) }
+        .background { PanelDiagnosticsAccess(store: store).allowsHitTesting(false) }
+        .onReceive(Foundation.NotificationCenter.default.publisher(for: PanelCommandLog.failureNotification).receive(on: RunLoop.main)) { _ in
+            notifications.post(sourceModule: "panel", title: "Command failed",
+                body: "The action could not be completed. Check the connection and try again.",
+                deepLink: "module/all", priority: .high, dedupeKey: "panel-api-command-error")
+        }
         .statusBarHidden()
         .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
         .sheet(item: $session.browser) { destination in

@@ -58,6 +58,7 @@ import OSLog
 
     func setMode(_ mode: String) {
         guard fanModes.contains(mode) else {
+            PanelCommandLog.shared.record(control: "fan.mode", error: "dropped: action unavailable")
             errorMessage = "This fan mode is unavailable. Refresh and try again."
             errorRevision += 1
             Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Unsupported fan mode")
@@ -69,7 +70,9 @@ import OSLog
     }
 
     private func enqueue(mode: String, usesToggle: Bool) {
-        guard fanOn != nil else { return }
+        guard fanOn != nil else {
+            PanelCommandLog.shared.record(control: "fan.command", error: "dropped: module not live"); return
+        }
         revision += 1
         errorMessage = nil
         fanOn = mode == "on"
@@ -87,7 +90,9 @@ import OSLog
     }
 
     func toggle() async {
-        guard let fanOn else { return }
+        guard let fanOn else {
+            PanelCommandLog.shared.record(control: "fan.toggle", error: "dropped: module not live"); return
+        }
         setOn(!fanOn)
         await mutation?.value
     }
@@ -122,6 +127,7 @@ import OSLog
         runID = nil
         mutation?.cancel()
         mutation = nil
+        for _ in queue { PanelCommandLog.shared.record(control: "fan.queued", error: "cancelled") }
         queue.removeAll()
         if let acknowledged { accept(acknowledged) }
     }

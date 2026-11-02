@@ -342,6 +342,17 @@ import PanelKit
         }
     }
 
+    func testDroppedModuleCommandLogsSafePayloadWithoutHTTPStatus() throws {
+        let store = source(try fixtureTransport())
+        store.send(.target(72))
+        let entry = try XCTUnwrap(PanelCommandLog.shared.snapshot().last)
+        XCTAssertEqual(entry.control, "target")
+        XCTAssertEqual(entry.error, "dropped: module not live")
+        XCTAssertNil(entry.status)
+        XCTAssertEqual(entry.payload, ["value": "72"])
+        XCTAssertNotNil(store.errorMessage)
+    }
+
     func testUnloadedAndUnsupportedCommandsExposeAnErrorWithoutNetworkWrites() async throws {
         let transport = try fixtureTransport()
         let store = source(transport)

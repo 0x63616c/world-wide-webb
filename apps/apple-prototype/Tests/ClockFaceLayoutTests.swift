@@ -21,7 +21,7 @@ import XCTest
     func testFaceIsTheHomeViewGreenWithNoComplications() throws {
         let store = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
         let size = CGSize(width: 1376, height: 1032)
-        let renderer = ImageRenderer(content: PresenceClockFace(store: store, open: { _ in })
+        let renderer = ImageRenderer(content: PresenceClockFace(store: store)
             .frame(width: size.width, height: size.height).environment(\.motionPhase, 0))
         renderer.scale = 1
         let image = try XCTUnwrap(renderer.uiImage?.cgImage)

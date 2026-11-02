@@ -6,19 +6,15 @@ import SwiftUI
 /// pushed to the screen edges, white hands and a small date. No complications.
 struct PresenceClockFace: View {
     let store: any HomeDataSource
-    let open: (HomeTile) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
         ZStack {
             GreenClockDial.green
-            Button { open(.clock) } label: {
-                TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
-                    GreenClockDial(date: store.now)
-                }.contentShape(.rect)
-            }.buttonStyle(.plain)
+            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+                GreenClockDial(date: store.now)
+            }
                 .accessibilityIdentifier("clock-face")
-                .accessibilityHint("Opens alarms")
         }.ignoresSafeArea()
     }
 }

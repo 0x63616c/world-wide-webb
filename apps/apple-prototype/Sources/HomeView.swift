@@ -166,14 +166,14 @@ struct HomeView: View {
     @ViewBuilder private func homeFace(size: CGSize) -> some View {
         #if os(iOS)
         TabView(selection: $facePage) {
-            PresenceClockFace(store: store, open: open).tag(HomeFacePage.clock)
+            PresenceClockFace(store: store).tag(HomeFacePage.clock)
             faceGrid(size: size, controls: false).tag(HomeFacePage.home)
             faceGrid(size: size, controls: true).tag(HomeFacePage.controls)
             musicFace.tag(HomeFacePage.music)
         }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
         #else
         Group {
-            if facePage == HomeFacePage.clock { PresenceClockFace(store: store, open: open) }
+            if facePage == HomeFacePage.clock { PresenceClockFace(store: store) }
             else if facePage == HomeFacePage.music { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
             else { faceGrid(size: size, controls: facePage == HomeFacePage.controls) }
         }
