@@ -44,7 +44,7 @@ jobs:
     if: needs.changes.outputs.suites != '[]'
     name: Apple / ${{ matrix.suite }}
     runs-on: macos-26-intel
-    timeout-minutes: 20
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -85,6 +85,7 @@ jobs:
           path: |
             ${{ runner.temp }}/apple-derived-data
             apps/apple-prototype/PanelKit/.build
+            ~/Library/Caches/org.swift.swiftpm
           key: apple-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ matrix.suite }}-${{ github.sha }}
           restore-keys: apple-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ matrix.suite }}-
 
@@ -133,17 +134,10 @@ jobs:
                   not d['name'].startswith('iPad ('),
                   not d['name'].startswith('iPad mini'), d['name']))
               print('destination=platform=iOS Simulator,arch=' + platform.machine() + ',id=' + device['udid'])
-              print('id=' + device['udid'])
               print('Using ' + device['name'] + ' / ' + runtime, file=__import__('sys').stderr)
               raise SystemExit(0)
           raise SystemExit('No available iPad simulator installed.')
           PYCODE
-
-      - name: Boot simulator during compilation
-        if: matrix.suite == 'ipad' || matrix.suite == 'panel'
-        env:
-          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
-        run: xcrun simctl boot "$SIMULATOR_ID"
 
       - name: Build macOS app
         if: matrix.suite == 'macos'

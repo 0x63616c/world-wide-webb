@@ -28,8 +28,11 @@ release. It does not claim a 10x reduction in cold compilation or Apple processi
 - General CI runs on pull requests and main pushes, not both a feature-branch
   push and its PR event. Required check names and test suites are unchanged.
 - Native unit/build jobs restore compiler and asset caches scoped by OS, architecture,
-  Xcode and suite, then always rebuild and run their full selected suites. Simulator
-  boot overlaps compilation.
+  Xcode and suite, including SwiftPM manifest caches, then always rebuild and run
+  their full selected suites. Unit simulators start after compilation: overlapping
+  startup did not establish a speed improvement on the small Intel runners.
+  Cold native jobs allow 40 minutes after an observed 20-minute compile timeout;
+  that is a reliability ceiling, not a claimed speed improvement.
 - Bun caches downloaded packages; installs still validate the frozen lockfile.
 - Superseded PR smoke runs cancel; signing/upload runs retain their shared lock.
 - Simulator products are saved immediately after a successful build, before UI
