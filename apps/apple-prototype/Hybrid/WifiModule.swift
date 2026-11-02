@@ -5,54 +5,42 @@ import UIKit
 /// Hybrid-only presentation; the prototype's design views and mock defaults stay intact.
 struct WifiModule: View {
     let provider: LiveWifiProvider
-    var openOnAppear = false
     @State private var passwordVisible = false
-    @State private var showingQR = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        VStack(spacing: 24) {
-            Button { showingQR = true } label: {
+        HStack(spacing: 80) {
+            VStack(alignment: .leading, spacing: 24) {
+                Image(systemName: "wifi").font(.system(size: 52)).foregroundStyle(.cyan)
+                Text(provider.wifi.ssid ?? "Not configured").font(.system(size: 44, weight: .semibold))
+                if let password = provider.wifi.password {
+                    HStack(alignment: .top, spacing: 16) {
+                        Button { passwordVisible.toggle() } label: {
+                            Image(systemName: passwordVisible ? "eye.slash" : "eye")
+                                .font(.title3).frame(width: 52, height: 52)
+                        }.buttonStyle(.glass).buttonBorderShape(.circle)
+                            .accessibilityLabel(passwordVisible ? "Hide password" : "Reveal password")
+                            .accessibilityIdentifier("wifi-password")
+                        Text(password).font(.title3.monospaced()).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                            .opacity(passwordVisible ? 1 : 0)
+                            .accessibilityHidden(!passwordVisible)
+                            .allowsHitTesting(passwordVisible)
+                    }
+                } else if provider.wifi.ssid != nil { Text("No password required") }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+            if let payload = provider.qrPayload, let image = GuestWifiCode.render(payload: payload) {
                 VStack(spacing: 20) {
-                    Image(systemName: "wifi").font(.system(size: 70, weight: .regular))
-                    Text("Guest Wi-Fi").font(.system(size: 28))
-                    Text(provider.wifi.ssid ?? "Not configured").font(.system(size: 40, weight: .medium))
-                    Label("Tap to scan", systemImage: "qrcode").font(.system(size: 22))
+                    WifiQRHero(image: image).frame(width: 380, height: 380)
+                        .accessibilityIdentifier("wifi-inline-qr")
+                    Text("scan to connect").font(.title3).foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(.rect)
             }
-            .buttonStyle(.plain)
-            .disabled(provider.qrPayload == nil)
-            .accessibilityIdentifier("wifi-open-qr")
-            if let password = provider.wifi.password {
-                Button { passwordVisible.toggle() } label: {
-                    Label(passwordVisible ? password : "Reveal password",
-                          systemImage: passwordVisible ? "eye.slash" : "eye")
-                        .font(.system(size: 22)).padding(12)
-                }
-                .buttonStyle(.glass)
-                .accessibilityIdentifier("wifi-password")
-            } else if provider.wifi.ssid != nil {
-                Text("No password required").font(.system(size: 22))
-            }
-        }
-        .padding(36)
-        .fullScreenCover(isPresented: $showingQR) {
-            if let payload = provider.qrPayload {
-                WifiQRFullScreen(payload: payload, ssid: provider.wifi.ssid ?? "Guest Wi-Fi") {
-                    showingQR = false
-                }
-                .overlay(alignment: .top) { PanelNotificationOverlay() }
-                .modifier(NotificationHistoryAccess())
-            }
-        }
-        .onAppear { if openOnAppear && provider.qrPayload != nil { showingQR = true } }
-        .onChange(of: provider.qrPayload) { _, _ in passwordVisible = false; showingQR = false }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { passwordVisible = false; showingQR = false }
-        }
-        .onDisappear { passwordVisible = false }
+        }.padding(64).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.black).foregroundStyle(.white)
+            .onChange(of: provider.qrPayload) { _, _ in passwordVisible = false }
+            .onChange(of: scenePhase) { _, phase in if phase != .active { passwordVisible = false } }
+            .onDisappear { passwordVisible = false }
     }
 }
 

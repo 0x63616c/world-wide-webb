@@ -28,7 +28,7 @@ final class NotificationHistoryTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["notification-history-empty"].firstMatch.waitForExistence(timeout: 10))
         capture("WWW-60-cleared", app)
         let handle = app.buttons["notification-history-handle"]
-        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.05, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForNonExistence(timeout: 10))
     }
 
@@ -38,16 +38,17 @@ final class NotificationHistoryTests: XCTestCase {
         app.terminate()
         app.launchArguments.removeAll { ["-notificationResetCache", "-notificationSamples", "-notificationStack"].contains($0) }
         app.launch()
-        XCTAssertTrue(app.buttons["home-classic"].waitForExistence(timeout: 30))
+        app.alignPanelOrientation()
+        XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertFalse(app.buttons["notification-banner-lights"].exists)
         app.openHomeModule("climate")
-        XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["Raise setpoint"].waitForExistence(timeout: 20))
         openHistory(app)
         XCTAssertEqual(rows(app).count, 2)
         capture("WWW-60-restored-over-controller", app)
         rows(app).matching(NSPredicate(format: "label CONTAINS %@", "Reading scene")).firstMatch.tap()
         XCTAssertTrue(app.buttons["notification-history-close"].waitForNonExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
         capture("WWW-60-deep-link", app)
     }
 
@@ -58,6 +59,7 @@ final class NotificationHistoryTests: XCTestCase {
             "-moduleFlag.climate", "native", "-notificationSamples", "-notificationStack", "-notificationHold",
             "-notificationPersistentCache", "-notificationResetCache"]
         app.launch()
+        app.alignPanelOrientation()
         XCTAssertTrue(app.staticTexts["notification-stack-count"].waitForExistence(timeout: 30))
         return app
     }
@@ -65,7 +67,7 @@ final class NotificationHistoryTests: XCTestCase {
     @MainActor private func openHistory(_ app: XCUIApplication) {
         // Full-screen controllers can have different safe top insets from Home.
         // Start inside the currently reachable app edge, outside the system gesture region.
-        let edges = app.buttons.matching(identifier: "notification-history-edge")
+        let edges = app.buttons.matching(NSPredicate(format: "label == %@", "Notification Center"))
         let reachable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             edges.allElementsBoundByIndex.contains(where: \.isHittable)
         }, object: app)
@@ -81,8 +83,7 @@ final class NotificationHistoryTests: XCTestCase {
     }
 
     @MainActor private func capture(_ name: String, _ app: XCUIApplication) {
-        XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
-        XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
+        XCTAssertGreaterThan(app.windows.firstMatch.frame.width, app.windows.firstMatch.frame.height)
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

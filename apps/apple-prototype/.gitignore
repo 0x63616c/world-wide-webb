@@ -3,3 +3,6 @@ build/
 DerivedData/
 *.xcresult/
 .DS_Store
+PanelKit/.build/
+GeneratedAppInfo.plist
+GeneratedWidgetInfo.plist

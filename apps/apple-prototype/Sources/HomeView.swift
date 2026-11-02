@@ -1,4 +1,5 @@
 import SwiftUI
+import PanelKit
 
 enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
@@ -17,12 +18,12 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .ceiling: "Ceiling"
         case .cabinet: "Under Cabinet"
         case .all, .fan, .lights: "Controls"
-        case .wifi: "Guest Wi-Fi"
+        case .wifi: "Wi-Fi"
         case .weather: "Weather Now"
         case .hourly: "Next 12 Hours"
         case .sound: "Sound System"
         case .alarm: "Next alarm"
-        case .tesla: "Car"
+        case .tesla: "Tesla"
         case .calendar: "Up Next"
         case .media: "Media"
         case .sonosRooms: "Sonos Rooms"
@@ -79,116 +80,143 @@ struct HomeView: View {
     var initialTile: HomeTile?
     var demo = false
     var initialFace = 0
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var facePage = 0
+    @State private var shell = PanelShellState()
+    @State private var appPreferences = PanelAppPreferences()
+    @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
-    @State private var selected: HomeTile?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let catalog = PanelAppCatalog.standard
+    private var showingClock: Bool { shell.screen == .clock }
+    private var selected: PanelAppDefinition? {
+        if case .app(let id) = shell.screen { return catalog.app(id: id) }
+        return nil
+    }
+    private func home() {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { shell.showLauncher() }
+    }
+    private func clock() {
+        withAnimation(reduceMotion ? nil : .smooth) { shell.showClock() }
+    }
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                Group {
-                    if facePage == HomeFacePage.clock { GreenClockDial.green.ignoresSafeArea() }
-                    else if facePage == HomeFacePage.music { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }
-                    else { Wallpaper() }
-                }
-                homeFace(size: proxy.size)
-                    .safeAreaBar(edge: .bottom, spacing: 0) {
-                        if sizeClass == .compact && (facePage == HomeFacePage.music || facePage == HomeFacePage.clock) {
-                            PhoneFaceBar(selection: $facePage)
+                Color.black.ignoresSafeArea()
+                if showingClock {
+                    PresenceClockFace(store: store)
+                        .clipShape(.rect(cornerRadius: 44))
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                        .overlay(alignment: .bottom) {
+                            Color.clear.frame(height: 100).contentShape(.rect)
+                                .gesture(DragGesture(minimumDistance: 12).onEnded { value in
+                                    if value.translation.height < -30 { home() }
+                                })
+                                .accessibilityElement().accessibilityLabel("Open apps")
+                                .accessibilityAddTraits(.isButton).accessibilityAction { home() }
                         }
-                    }
-                if selected == nil && sizeClass != .compact {
-                    VStack { Spacer(); FacePicker(selection: $facePage).frame(height: HomeFaceLayout.panelPagerBand) }
+                        .accessibilityIdentifier("launcher-clock")
+                } else {
+                    AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
+                        .environment(\.motionPhase, selected == nil ? nil : 0)
+                        .clipShape(.rect(cornerRadius: 44))
+                        .allowsHitTesting(selected == nil).accessibilityHidden(selected != nil)
+                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
+                if let selected {
+                    appScreen(selected)
+                        .clipShape(.rect(cornerRadius: 44))
+                        .transition(.opacity)
+                        .zIndex(2)
+                }
+            }.frame(width: proxy.size.width, height: proxy.size.height)
+                .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
                 #if os(macOS)
-                if let selected { destination(selected) }
+                .onExitCommand { home() }
                 #endif
-            }.foregroundStyle(.primary).tint(.white)
-                .environment(\.colorScheme, .dark)
-                #if os(iOS)
-                .fullScreenCover(item: $selected) { tile in
-                    if reduceMotion { destination(tile).frame(maxWidth: .infinity, maxHeight: .infinity) }
-                    else { destination(tile).frame(maxWidth: .infinity, maxHeight: .infinity).navigationTransition(.zoom(sourceID: "\(facePage)-\(tile == .alarm ? HomeTile.clock.id : tile.id)", in: zoom)) }
-                }
-                #else
-                .onExitCommand { selected = nil }
-                #endif
-                .onOpenURL { url in if url.host == "dogwalk" { open(.dogwalk) } }
+                .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
                 .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
                     store.walkActivity.synchronize(walk: walk, now: store.now)
                 }
                 .task {
-                    facePage = initialFace
-                    if let initialTile {
-                        try? await Task.sleep(for: .milliseconds(250))
-                        open(initialTile)
-                    }
-                    if ProcessInfo.processInfo.arguments.contains("-demoAutoPage") && !reduceMotion {
-                        if !store.climate.fanOn { store.send(.toggle(.fan)) }
-                        try? await Task.sleep(for: .seconds(5))
-                        withAnimation(.smooth) { facePage = HomeFacePage.home }
-                        try? await Task.sleep(for: .seconds(5))
-                        withAnimation(.smooth) { facePage = HomeFacePage.music }
-                    }
+                    #if DEBUG
+                    let arguments = ProcessInfo.processInfo.arguments
+                    if let index = arguments.firstIndex(of: "-previewApp"), arguments.indices.contains(index + 1),
+                       let app = catalog.app(id: arguments[index + 1]) { open(app); return }
+                    #endif
+                    if initialFace != HomeFacePage.clock { shell.showLauncher() }
+                    if let initialTile, let app = catalog.apps.first(where: { definition in
+                        if case .feature(let feature) = definition.route { return feature.homeTile == initialTile }
+                        return false
+                    }) { open(app) }
                 }
-        }.ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
-    }
-    @ViewBuilder private func destination(_ tile: HomeTile) -> some View {
-        Group {
-            if let integration { integration.destination(tile, close: { selected = nil }) }
-            else { prototypeDestination(tile) }
-        }
-    }
-    private func prototypeDestination(_ tile: HomeTile) -> some View {
-        ZStack {
-            if [.lamps, .bedroom, .livingRoom].contains(tile) { LampsBackdrop() }
-            else if [.calendar, .media, .sonosRooms, .cameras, .dogwalk].contains(tile) { Wallpaper().overlay(.black.opacity(0.18)).ignoresSafeArea() }
-            else { tile.fill(store).ignoresSafeArea() }
-            if tile == .dogwalk {
-                DogWalkScreen(store: store, close: { selected = nil })
-            } else if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos].contains(tile) {
-                ModulePage(tile: tile, store: store, close: { selected = nil })
-            } else if tile == .alarm {
-                AlarmRingView(store: store, close: { selected = nil }) { selected = .clock }
-            } else if tile == .sound {
-                NowPlayingView(store: store, close: { selected = nil })
-            } else {
-                ControllerHost(tile: tile, store: store, close: { selected = nil })
-            }
-        }.preferredColorScheme(.dark).foregroundStyle(.primary)
-            .task { await signalSnapshotReady() }
-            #if os(iOS)
-            .statusBarHidden(true).persistentSystemOverlays(.hidden)
-            #endif
-            .onKeyPress(.escape) { selected = nil; return .handled }
-    }
-    @ViewBuilder private func homeFace(size: CGSize) -> some View {
-        #if os(iOS)
-        TabView(selection: $facePage) {
-            PresenceClockFace(store: store).tag(HomeFacePage.clock)
-            faceGrid(size: size, controls: false).tag(HomeFacePage.home)
-            faceGrid(size: size, controls: true).tag(HomeFacePage.controls)
-            musicFace.tag(HomeFacePage.music)
-        }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
-        #else
-        Group {
-            if facePage == HomeFacePage.clock { PresenceClockFace(store: store) }
-            else if facePage == HomeFacePage.music { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
-            else { faceGrid(size: size, controls: facePage == HomeFacePage.controls) }
+        }.environment(appPreferences).modifier(PanelIdleDimming(onIdle: clock, onHome: home, timeout: selected.map { appPreferences[$0.id].idleSeconds } ?? 60)).ignoresSafeArea()
+        #if targetEnvironment(simulator)
+        .background {
+            Button("Open apps", action: home)
+                .keyboardShortcut(.escape, modifiers: [])
+                .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
         }
         #endif
     }
-    @ViewBuilder private var musicFace: some View {
-        if let integration { integration.musicFace(close: { facePage = HomeFacePage.home }) }
-        else { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
+    private func open(_ app: PanelAppDefinition) {
+        if app.route == .classic {
+            shell.showLauncher()
+            integration?.openClassicApp()
+        } else {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                _ = shell.open(app.id, catalog: catalog)
+            }
+        }
     }
-    private func faceGrid(size: CGSize, controls: Bool) -> some View {
-        HomeGlassFace(store: store, size: size, controls: controls, zoom: zoom, open: open, faceSelection: $facePage)
+    private func appScreen(_ app: PanelAppDefinition) -> some View {
+        Group {
+            switch app.route {
+            case .settings: PanelSettingsPage(showClock: clock)
+            case .classic: EmptyView() // Explicit host action; never a native fallback.
+            case .feature(let feature):
+                if let integration { integration.destination(feature.homeTile, close: home) }
+                else { prototypeScreen(feature) }
+            }
+        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black)
+            .accessibilityAction(.escape) { home() }
+            .accessibilityAction(named: "Open apps") { home() }
+            #if os(macOS)
+            .overlay(alignment: .bottom) { SwipeHomeRegion(action: home) }
+            #endif
+            .environment(\.motionPhase, appPreferences[app.id].reduceMotion ? 0 : inheritedMotionPhase)
+            .transaction { if reduceMotion || appPreferences[app.id].reduceMotion { $0.animation = nil; $0.disablesAnimations = true } }
+            .accessibilityIdentifier("app-screen-\(app.id)")
+            .onKeyPress(.escape) { home(); return .handled }
     }
-    private func open(_ tile: HomeTile) {
-        guard integration?.prepareToOpen(tile) ?? true else { return }
-        selected = tile == .clock ? .alarm : tile
+    @ViewBuilder private func prototypeScreen(_ feature: PanelAppFeature) -> some View {
+        switch feature {
+        case .lights: ControlsController(store: store)
+        case .climate: ClimateController(store: store)
+        case .music: SonosRoomsPage(store: store)
+        case .weather: WeatherPage(weather: store.weather)
+        case .calendar: AgendaPage(provider: store.calendar, now: store.now)
+        case .walks: DogWalkPage(store: store)
+        case .wifi: WifiController(wifi: store.wifi)
+        case .car: TeslaController(provider: store.tesla)
+        case .cameras, .photos: ModulePage(tile: feature.homeTile, store: store, close: home)
+        }
+    }
+}
+
+extension PanelAppFeature {
+    var homeTile: HomeTile {
+        switch self {
+        case .lights: .lights
+        case .climate: .climate
+        case .music: .sound
+        case .weather: .weather
+        case .calendar: .calendar
+        case .walks: .dogwalk
+        case .cameras: .cameras
+        case .photos: .photos
+        case .car: .tesla
+        case .wifi: .wifi
+        }
     }
 }
 /// Pager order. The clock is the first face (WWW-68).
@@ -402,3 +430,50 @@ struct AccessoryFace: View {
     }
 }
 #Preview("Home face · 1376 × 1032", traits: .fixedLayout(width: 1376, height: 1032)) { HomeView(store: MockHomeDataSource()) }
+
+
+/// The first interaction wakes the panel without forwarding a device command.
+private struct PanelIdleDimming: ViewModifier {
+    let onIdle: () -> Void
+    let onHome: () -> Void
+    let timeout: Int
+    @AppStorage("panel.idleDimming") private var idleDimming = true
+    @State private var lastActivity = Date()
+    @State private var dimmed = false
+    @State private var idleHandled = false
+    @Environment(\.scenePhase) private var phase
+    private func wake() { lastActivity = Date(); dimmed = false; idleHandled = false }
+    private func activity() {
+        guard !dimmed else { return }
+        if Date().timeIntervalSince(lastActivity) > 0.25 { lastActivity = Date() }
+        idleHandled = false
+    }
+    func body(content: Content) -> some View {
+        content.allowsHitTesting(!dimmed)
+            .overlay {
+                if dimmed {
+                    Button(action: wake) { Color.black.opacity(0.7).ignoresSafeArea().contentShape(.rect) }
+                        .buttonStyle(.plain).accessibilityLabel("Wake panel")
+                }
+            }
+            #if os(iOS)
+            .background { PanelInputObserver(activity: activity, home: { if dimmed { wake() } else { onHome() } }) }
+            #else
+            .simultaneousGesture(TapGesture().onEnded { activity() })
+            .onContinuousHover { hover in if case .active = hover { wake() } }
+            #endif
+            .task(id: "\(phase)-\(timeout)") {
+                guard phase == .active, timeout > 0 else { return }
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                    if !idleHandled && phase == .active && Date().timeIntervalSince(lastActivity) >= Double(timeout) {
+                        idleHandled = true
+                        onIdle()
+                        dimmed = idleDimming
+                    }
+                }
+            }
+            .onChange(of: idleDimming) { _, _ in wake() }
+            .onChange(of: phase) { _, value in if value == .active { wake() } }
+    }
+}

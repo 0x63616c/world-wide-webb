@@ -121,6 +121,9 @@ struct HourForecast: Identifiable {
     let symbol: String
 }
 struct WeatherState {
+    var sunrise: Date? = nil
+    var sunset: Date? = nil
+    var nextSunrise: Date? = nil
     var city = "San Francisco"
     var temperature = 64
     var condition = "Partly cloudy"

@@ -32,10 +32,10 @@ import PanelKit
     var availability: TeslaAvailability { hasLiveData ? .online : .offline }
     var data: TeslaData {
         guard hasLiveData, let snapshot else {
-            return TeslaData(name: "Unavailable", nick: "Car", place: "", charging: false,
+            return TeslaData(name: "Unavailable", nick: "Tesla", place: "", charging: false,
                 chargingState: "", preconditioning: false, rate: 0, pct: 0, range: 0, maxRange: 0, odo: "", climate: 0)
         }
-        return TeslaData(name: "Tesla", nick: "Car", place: "",
+        return TeslaData(name: "Tesla", nick: "Tesla", place: "",
             charging: snapshot.chargingState == .charging, chargingState: snapshot.chargingState.rawValue,
             preconditioning: snapshot.climateOn, rate: snapshot.chargePowerKW,
             pct: Int(snapshot.batteryPercent.rounded()), range: Int(snapshot.rangeMiles.rounded()),

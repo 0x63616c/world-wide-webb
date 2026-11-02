@@ -16,6 +16,16 @@ struct PanelConfiguration: Sendable {
             // An unset Xcode build setting must not become a literal credential.
             return raw.hasPrefix("$(") ? "" : raw
         }
+        #if DEBUG && targetEnvironment(simulator)
+        // Keep an explicitly supplied local development endpoint across icon launches.
+        // Fixture transports must never overwrite the developer's endpoint.
+        if !ProcessInfo.processInfo.arguments.contains("-hybridFixtures"),
+           let supplied = environment["PANEL_SERVER_URL"],
+           let url = KioskURLPolicy.httpURL(supplied),
+           ["localhost", "127.0.0.1"].contains(url.host ?? "") {
+            defaults.set(supplied, forKey: "serverUrl")
+        }
+        #endif
         let server = value("serverUrl", "PANEL_SERVER_URL", "PanelServerURL")
         serverURL = KioskURLPolicy.httpURL(server) ?? URL(string: "https://app.worldwidewebb.co")!
         cfAccessClientID = value("cfAccessClientId", "PANEL_CF_ACCESS_CLIENT_ID", "PanelCFAccessClientID")

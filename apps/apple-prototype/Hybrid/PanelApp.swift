@@ -128,8 +128,7 @@ struct PanelRoot: View {
             VStack(spacing: 0) {
                 if !homeVisible && nativeVisible {
                     HStack(spacing: 18) {
-                        Button("Home", action: navigation.returnHome).buttonStyle(.glass)
-                            .accessibilityIdentifier("module-home")
+                        PanelHomeButton(action: navigation.returnHome)
                         ForEach([PanelModule.all] + nativeModules, id: \.self) { module in
                             Button(module.title) { navigation.pendingNativeAlarmLink = false; navigation.selection = module; navigation.detail = false }
                                 .buttonStyle(.glass)
@@ -152,9 +151,9 @@ struct PanelRoot: View {
             .allowsHitTesting(nativeVisible)
             .accessibilityHidden(!nativeVisible)
         }
-        .overlay(alignment: .topLeading) {
-            if !homeVisible && !nativeVisible && !webOnly {
-                ClassicHomeButton(action: { navigation.returnHome() })
+        .overlay(alignment: .bottom) {
+            if !homeVisible && !webOnly {
+                SwipeHomeRegion(action: { navigation.returnHome() })
             }
         }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
@@ -166,8 +165,9 @@ struct PanelRoot: View {
                 deepLink: "module/all", priority: .high, dedupeKey: "panel-api-command-error")
         }
         .statusBarHidden()
+        .defersSystemGestures(on: .bottom)
         .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
-        .sheet(item: $session.browser) { destination in
+        .fullScreenCover(item: $session.browser) { destination in
             PanelBrowser(url: destination.url) { session.browser = nil }
                 .id(destination.id)
                 .ignoresSafeArea()

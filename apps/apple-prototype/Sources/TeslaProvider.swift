@@ -3,7 +3,7 @@ import SwiftUI
 /// Field names and value types mirror the retired features/tesla/service.ts contract.
 struct TeslaData: Equatable {
     var name = "Model Y"
-    var nick = "Car"
+    var nick = "Tesla"
     var place = "Home"
     var lat: Double? = nil
     var lon: Double? = nil
@@ -90,7 +90,7 @@ struct TeslaChargeComplication: View {
                 }
             }.gaugeStyle(.accessoryCircularCapacity).tint(accented ? .white : .green)
                 .scaleEffect(sizeClass == .compact ? 1.0 : 1.2).frame(width: sizeClass == .compact ? 64 : 80, height: sizeClass == .compact ? 64 : 80)
-            Text(provider.availability == .online ? (provider.data.charging ? "Car · Charging" : "Car") : provider.availability.rawValue.capitalized)
+            Text(provider.availability == .online ? (provider.data.charging ? "Tesla · Charging" : "Tesla") : provider.availability.rawValue.capitalized)
                 .font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
         }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading).accessibilityElement(children: .ignore)
             .accessibilityLabel("Car charge \(provider.data.pct) percent, \(provider.availability.rawValue)")

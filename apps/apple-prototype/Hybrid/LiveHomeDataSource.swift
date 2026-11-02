@@ -168,7 +168,10 @@ import OSLog
 
     var weather: WeatherState {
         guard hasLiveData(for: .weather), let snapshot = weatherProvider.snapshot else { return .unavailable }
-        return WeatherState(city: snapshot.city, temperature: snapshot.temperature, condition: snapshot.condition,
+        return WeatherState(sunrise: SolarClock.timestamp(snapshot.now.sunriseIso),
+                            sunset: SolarClock.timestamp(snapshot.now.sunsetIso),
+                            nextSunrise: SolarClock.timestamp(snapshot.now.tomorrowSunriseIso),
+                            city: snapshot.city, temperature: snapshot.temperature, condition: snapshot.condition,
                             symbol: snapshot.symbol,
                             high: snapshot.high, low: snapshot.low, feels: snapshot.feels, humidity: snapshot.humidity,
                             wind: snapshot.wind, solarLabel: snapshot.solarLabel, solarValue: snapshot.solarValue,

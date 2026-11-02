@@ -30,20 +30,22 @@ enum HomeGrid {
     static func span(_ w: Int, _ h: Int) -> CGSize {
         CGSize(width: CGFloat(w) * cell + CGFloat(w - 1) * gutter, height: CGFloat(h) * cell + CGFloat(h - 1) * gutter)
     }
-    static func origin(in size: CGSize) -> CGPoint {
-        CGPoint(x: floor((size.width - width) / 2), y: top + heading + headingGap)
-    }
+    static func origin(in size: CGSize) -> CGPoint { CGPoint(x: 12, y: 12) }
     static func frame(_ p: GridPlacement, in size: CGSize) -> CGRect {
-        let o = origin(in: size), s = span(p.variant.w, p.variant.h)
-        return CGRect(x: o.x + CGFloat(p.x) * (cell + gutter), y: o.y + CGFloat(p.y) * (cell + gutter), width: s.width, height: s.height)
+        let gap: CGFloat = 12
+        let w = (size.width - gap * 7) / 6
+        let h = (size.height - gap * 5) / 4
+        return CGRect(x: gap + CGFloat(p.x) * (w + gap), y: gap + CGFloat(p.y) * (h + gap),
+                      width: CGFloat(p.variant.w) * (w + gap) - gap,
+                      height: CGFloat(p.variant.h) * (h + gap) - gap)
     }
     /// Home is one continuous layout split over pages: page 1 fills all 24 cells, and only the
     /// overflow goes to page 2, packed from the top-left with no holes.
     /// Page 1: four 2×1 glances down the left (clock H, car, lamps, fan), then two 2×2 columns.
     static let home: [GridPlacement] = [
-        .init(.clock, "H", 0, 0), .init(.climate, "A", 2, 0), .init(.lights, "D", 4, 0),
+        .init(.clock, "H", 0, 0), .init(.weather, "C", 2, 0), .init(.lights, "C", 4, 0, .ceiling), .init(.lights, "C", 4, 1, .cabinet),
         .init(.car, "A", 0, 1),
-        .init(.lamps, "A", 0, 2), .init(.weather, "C", 2, 2), .init(.calendar, "B", 4, 2),
+        .init(.lamps, "A", 0, 2), .init(.climate, "A", 2, 2), .init(.calendar, "B", 4, 2),
         .init(.fan, "C", 0, 3)
     ]
     /// Page 2: ordinary grid cards, packed to 24/24 cells like page 1.
@@ -60,7 +62,7 @@ enum GridCard: String, CaseIterable {
     case cameras, photos, sonosRooms, wifi, dogwalk, media
     var title: String {
         switch self {
-        case .climate: "Climate"; case .lamps: "Lamps"; case .weather: "Weather"; case .car: "Car"
+        case .climate: "Climate"; case .lamps: "Lamps"; case .weather: "Weather"; case .car: "Tesla"
         case .cameras: "Cameras"; case .photos: "Photos"; case .sonosRooms: "Sonos rooms"
         case .wifi: "Wi-Fi"; case .dogwalk: "Walk Zero"; case .media: "Media"
         case .calendar: "Up next"; case .nowPlaying: "Now Playing"; case .fan: "Fan"; case .lights: "Lights"; case .clock: "Clock"
@@ -158,16 +160,19 @@ struct ModuleStatusFace: View {
     let title: String
     let status: HomeModuleStatus
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.title3.weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
             if status == .loading {
-                ProgressView().accessibilityLabel("Loading \(title)")
+                ProgressView().frame(height: 48).accessibilityLabel("Loading \(title)")
             } else {
-                Image(systemName: "exclamationmark.circle").font(.title2)
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 28, weight: .medium)).foregroundStyle(.secondary)
+                    .frame(height: 48)
             }
-            Text(status.reason ?? "").font(.callout).foregroundStyle(.secondary)
+            Spacer(minLength: 16)
+            Text(title).font(.system(size: 22, weight: .semibold))
+            Text(status.reason ?? "").font(.system(size: 17)).foregroundStyle(.secondary)
                 .accessibilityIdentifier("module-status-reason")
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(3).padding(.top, 5)
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }
@@ -199,7 +204,8 @@ struct GridCardView: View {
     let store: any HomeDataSource
     var open: () -> Void = {}
     @Environment(\.homeIntegration) private var integration
-    private var size: CGSize { HomeGrid.span(variant.w, variant.h) }
+    var layoutSize: CGSize? = nil
+    private var size: CGSize { layoutSize ?? HomeGrid.span(variant.w, variant.h) }
     private var v: String { variant.letter }
     private var on: Bool {
         if let module = card.module, store.status(for: module) != .live { return false }
@@ -217,12 +223,14 @@ struct GridCardView: View {
             || (card == .nowPlaying && (v == "B" || v == "C"))
     }
     var body: some View {
+        cardContent.modifier(GridMaterial(on: on, round: round, image: image))
+    }
+    private var cardContent: some View {
         content
             .frame(width: size.width, height: size.height)
             .modifier(GridCardInteraction(label: "Open \(card.title)", open: open,
                 enabled: integration == nil || (card != .clock && card != .weather)))
             .foregroundStyle(on ? .black : .white)
-            .modifier(GridMaterial(on: on, round: round, image: image))
     }
     @ViewBuilder private var content: some View {
         if let module = card.module, store.status(for: module) != .live {
@@ -402,23 +410,19 @@ private struct GridClimate: View {
         switch v {
         case "A":
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) {
-                    Cap("Climate", 22, .semibold); Spacer()
-                    Label { Cap(c.action, 20, .medium) } icon: { Image(systemName: statusIcon).font(.system(size: 18)) }
-                        .foregroundStyle(coolBlue)
-                }
-                Spacer(minLength: 0)
-                Cap("Inside", 20).opacity(0.65)
-                Cap("\(c.ambient)°", 128, .light).padding(.top, 20)
-                Spacer(minLength: 0)
-                HStack {
-                    roundButton("minus", 56) { step(-1) }
-                    Spacer()
-                    VStack(spacing: 10) { Cap("Set to", 17).opacity(0.65); Cap(setpoint, 34, .semibold).foregroundStyle(coolBlue) }
-                    Spacer()
-                    roundButton("plus", 56) { step(1) }
-                }
-            }.padding(HomeGrid.inset)
+                Image(systemName: statusIcon)
+                    .font(.system(size: 32, weight: .regular))
+                    .foregroundStyle(c.mode == .heat ? .orange : coolBlue)
+                    .frame(height: 44)
+                Spacer(minLength: 20)
+                Text(setpoint)
+                    .font(.system(size: c.mode == .heatCool ? 58 : 80, weight: .regular))
+                    .monospacedDigit().tracking(-3).lineLimit(1).minimumScaleFactor(0.7)
+                    .accessibilityLabel("Set temperature, \(setpoint)")
+                Text("Climate").font(.system(size: 22, weight: .semibold)).padding(.top, 8)
+                Text(c.mode == .off ? "Off · Inside \(c.ambient)°" : "\(c.action) · Inside \(c.ambient)°")
+                    .font(.system(size: 18)).foregroundStyle(.secondary).padding(.top, 4)
+            }.padding(32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         case "B":
             HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -463,6 +467,7 @@ private struct GridClimate: View {
             } br: { EmptyView() }
         }
     }
+
 }
 
 // MARK: - Lamps
@@ -482,12 +487,22 @@ private struct GridLamps: View {
     var body: some View {
         switch v {
         case "A":
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top) { Cap("Lamps", 22, .semibold); Spacer(); Cap("\(l.onCount()) of 8 on", 17).opacity(0.65) }
+            HStack(spacing: 22) {
+                Button { store.send(.toggle(.lamps)) } label: {
+                    Image(systemName: l.anyOn ? "lightbulb.fill" : "lightbulb")
+                        .font(.system(size: 32))
+                        .foregroundStyle(l.anyOn ? Color.orange : .white.opacity(0.7))
+                        .frame(width: 64, height: 64)
+                        .background(l.anyOn ? Color.orange.opacity(0.13) : .white.opacity(0.08), in: .circle)
+                }.buttonStyle(.plain)
+                    .accessibilityLabel(l.anyOn ? "Turn lamps off" : "Turn lamps on")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Lamps").font(.system(size: 22, weight: .semibold))
+                    Text(l.anyOn ? "\(l.onCount()) on · \(l.brightness)%" : "Off")
+                        .font(.system(size: 18)).foregroundStyle(.secondary)
+                }
                 Spacer(minLength: 0)
-                Cap("\(l.brightness)%", 48, .medium, design: .rounded)
-                brightnessSlider.padding(.top, 16)
-            }.padding(HomeGrid.inset)
+            }.padding(32).frame(maxWidth: .infinity, maxHeight: .infinity)
         case "B":
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) { Cap("Lamps", 22, .semibold); Spacer(); Cap("\(l.brightness)%", 22, .semibold, design: .rounded) }
@@ -829,7 +844,7 @@ struct GridFan: View {
         Button { store.send(.toggle(.fan)) } label: {
             FanSymbol(on: on).font(.system(size: size)).frame(minWidth: 44, minHeight: 44, alignment: .topTrailing)
                 .contentShape(.rect)
-        }.buttonStyle(.plain).padding(-10)
+        }.buttonStyle(.plain)
             .accessibilityLabel("Toggle Fan").accessibilityValue(label).accessibilityIdentifier("toggle-fan")
     }
     var body: some View {
@@ -1010,16 +1025,12 @@ struct GridHomeFace: View {
     @Environment(\.homeIntegration) private var integration
     @State private var picker = HomeGrid.args.contains("-showWallpaperPicker")
     var body: some View {
-        let o = HomeGrid.origin(in: size)
         ZStack(alignment: .topLeading) {
-            HStack(alignment: .center) {
-                Text("Home").font(.system(size: 36, weight: .bold)).foregroundStyle(.white)
-                    .onLongPressGesture { picker = true }
-                Spacer()  // no date here: Clock H already shows it
-            }.frame(width: HomeGrid.width, height: HomeGrid.heading)
-                .position(x: o.x + HomeGrid.width / 2, y: HomeGrid.top + HomeGrid.heading / 2)
-            ForEach(HomeGrid.placements(page: page)) { p in
-                let f = HomeGrid.frame(p, in: size), t = tile(p)
+            ForEach(HomeGrid.placements(page: page)) { placement in
+                let p = placement.card == .media && integration?.classicTile != nil
+                    ? GridPlacement(.media, "B", placement.x, placement.y) : placement
+                let f = HomeGrid.frame(p, in: size)
+                let t = tile(p)
                 Group {
                     // A host with no live data for this module shows its own unavailable tile.
                     if let integration, t != .clock, !integration.available(t), let replacement = integration.tile(t, open: { open(t) }) {
@@ -1029,11 +1040,21 @@ struct GridHomeFace: View {
                             .clipShape(.rect(cornerRadius: HomeGrid.radius))
                             .modifier(GridMaterial(on: false))
                     } else {
-                        GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) })
+                        GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) }, layoutSize: f.size)
+                    }
+                }.overlay(alignment: .topTrailing) {
+                    if t == .clock {
+                        Button { picker = true } label: { Image(systemName: "paintpalette").frame(width: 44, height: 44) }
+                            .buttonStyle(.glass).accessibilityLabel("Background").padding(12)
                     }
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("tile-\(t.id)")
                     .matchedTransitionSource(id: "\(page + 1)-\(t.id)", in: zoom ?? standaloneZoom)
                     .position(x: f.midX, y: f.midY)
+            }
+            if page == 1, let classic = integration?.classicTile {
+                let f = HomeGrid.frame(GridPlacement(.media, "B", 4, 3), in: size)
+                classic.frame(width: f.width, height: f.height)
+                    .modifier(GridMaterial(on: false)).position(x: f.midX, y: f.midY)
             }
         }.frame(width: size.width, height: size.height)
             .overlay { if HomeGrid.overlay { GridOverlay(size: size).allowsHitTesting(false) } }
@@ -1136,10 +1157,12 @@ struct GridSheetPage: View {
 enum WallpaperChoice: String, CaseIterable, Identifiable {
     // WWW-54: plain black is the default; photos threw the layout review off.
     case black, lake, coast, forest, cloud, graphite, dusk
+    case aurora, ribbons, ocean, stars, contours, eclipse, dunes, prism, embers, paper
     static let key = "wallpaper"
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .aurora, .ribbons, .ocean, .stars, .contours, .eclipse, .dunes, .prism, .embers, .paper: rawValue.capitalized
         case .black: "Black"; case .lake: "Lake"; case .coast: "Coast"; case .forest: "Forest"; case .cloud: "Sky"; case .graphite: "Graphite"; case .dusk: "Dusk"
         }
     }
@@ -1154,22 +1177,28 @@ enum WallpaperChoice: String, CaseIterable, Identifiable {
         case .black: Color.black
         case .graphite: Color(white: 0.16)
         case .dusk: LinearGradient(colors: [Color(hex: "#1b2a4a"), Color(hex: "#6b3a6e"), Color(hex: "#d9774f")], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .aurora, .ribbons, .ocean, .stars, .contours, .eclipse, .dunes, .prism, .embers, .paper:
+            ArtWallpaper(style: ArtStyle(rawValue: rawValue) ?? .aurora)
         default: Image(asset ?? "LakeWallpaper").resizable().scaledToFill()
         }
     }
 }
 
 struct WallpaperPicker: View {
+    var embedded = false
     @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        NavigationStack {
+        if embedded { content }
+        else { NavigationStack { content.toolbar { Button("Done") { dismiss() } } } }
+    }
+    private var content: some View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 24)], spacing: 24) {
                     ForEach(WallpaperChoice.allCases) { item in
                         Button { choice = item } label: {
                             VStack(spacing: 10) {
-                                item.fill.frame(height: 150).clipShape(.rect(cornerRadius: 20))
+                                item.fill.environment(\.motionPhase, 0).frame(height: 150).clipShape(.rect(cornerRadius: 20))
                                     .overlay(RoundedRectangle(cornerRadius: 20).stroke(item == choice ? Color.white : .clear, lineWidth: 4))
                                 Text(item.title).font(.system(size: 17, weight: item == choice ? .bold : .medium))
                             }
@@ -1177,7 +1206,5 @@ struct WallpaperPicker: View {
                     }
                 }.padding(24)
             }.navigationTitle("Wallpaper")
-                .toolbar { Button("Done") { dismiss() } }
-        }
     }
 }

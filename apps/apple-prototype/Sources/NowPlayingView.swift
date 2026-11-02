@@ -20,7 +20,7 @@ struct NowPlayingView: View {
         GeometryReader { proxy in
             if let room {
                 ZStack {
-                    if !isFace { MusicBackdrop(tint: room.artworkTint) }
+                    if !isFace { Color.black.ignoresSafeArea() }
                     VStack(spacing: 0) {
                         HStack {
                             CircleButton(symbol: isFace ? "house" : "xmark", label: isFace ? "Home" : "Close music", size: compact ? 44 : 64, action: close)
@@ -71,7 +71,7 @@ struct NowPlayingView: View {
             } else {
                 Color.black.overlay(Text("No rooms available").font(.largeTitle))
             }
-        }.foregroundStyle(.white).ignoresSafeArea()
+        }.foregroundStyle(.white)
             .sheet(isPresented: $choosingRoom) {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack {

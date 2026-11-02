@@ -5,16 +5,19 @@ import SwiftUI
     var selection: PanelModule = .all
     var detail = false
     var showingHome = true
+    var homeStartsInLauncher = false
     var ringHidden = false
     var pendingNativeAlarmLink = false
 
     func returnHome() {
+        homeStartsInLauncher = true
         pendingNativeAlarmLink = false
         detail = false
         showingHome = true
     }
 
     func openClassic() {
+        homeStartsInLauncher = true
         pendingNativeAlarmLink = false
         selection = .all
         detail = false

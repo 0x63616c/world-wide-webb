@@ -64,7 +64,7 @@ struct DogWalkTile: View {
                 VStack(spacing: 6) {
                     Button { store.toggleWalk() } label: {
                         Image(systemName: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
-                            .font(.system(size: 24, weight: .semibold)).foregroundStyle(.black).frame(width: 72, height: 72)
+                            .font(.system(size: 24, weight: .semibold)).foregroundStyle(.white).frame(width: 72, height: 72)
                             .glassEffect(.regular.tint(.green).interactive(), in: .circle)
                     }.buttonStyle(.plain)
                         .accessibilityLabel(store.walks.activeWalk == nil ? "Start walking Zero" : "Stop walking Zero")
@@ -145,7 +145,7 @@ struct DogWalkPage: View {
                 store.toggleWalk()
             }
             .font(.system(size: compact ? 18 : 24, weight: .semibold))
-            .foregroundStyle(.black)
+            .foregroundStyle(.white)
             .buttonStyle(.glassProminent).tint(.green).controlSize(compact ? .large : .extraLarge)
         }
     }

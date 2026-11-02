@@ -93,6 +93,27 @@ public struct SonosAPI: Sendable {
         try await client.query("sound.soundSystem", as: SonosSoundSystem.self)
     }
 
+    /// Reads topology immediately before acting; never sends a write to excluded rooms.
+    public func groupLineIn(sourceID: String, excluding excluded: Set<String>) async throws {
+        let state = try await soundSystem()
+        guard !excluded.contains(sourceID),
+              let source = state.rooms.first(where: { $0.uuid == sourceID && $0.availability == .available }) else {
+            throw Self.invalid("Line-in speaker unavailable.")
+        }
+        // Switching a coordinator's input would also switch any protected follower.
+        guard !state.rooms.contains(where: { excluded.contains($0.uuid) && $0.coordinatorUuid == sourceID }) else {
+            throw Self.invalid("The TV is grouped with Desk. Separate it before changing the line-in group.")
+        }
+        if source.coordinatorUuid != sourceID {
+            try await leave(memberIp: source.deviceIp, memberUuid: source.uuid)
+        }
+        try await setLineIn(deviceIp: source.deviceIp, sourceUuid: source.uuid)
+        let members = state.rooms.filter {
+            $0.availability == .available && $0.uuid != sourceID && !excluded.contains($0.uuid)
+        }.map(\.deviceIp).sorted()
+        if !members.isEmpty { try await joinAll(coordinatorEntityId: source.uuid, memberEntityIds: members) }
+    }
+
     public func setVolume(deviceIp: String, volume: Int) async throws {
         guard (0...100).contains(volume) else { throw Self.invalid("Volume must be 0–100.") }
         struct Input: Encodable, Sendable { let deviceIp: String; let volume: Int }

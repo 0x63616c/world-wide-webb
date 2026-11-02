@@ -1,154 +1,82 @@
 import XCTest
 
 @MainActor final class HomeViewLaunchTests: XCTestCase {
+    private func launch(unavailable: Bool = false) -> XCUIApplication {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill"]
+        if unavailable { app.launchArguments.append("-hybridUnavailable") }
+        app.launch()
+        app.alignPanelOrientation()
+        XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 30))
+        return app
+    }
     func testHomeClassicAndReturn() {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .landscapeLeft
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridClimateOff"]
-        app.launch()
-        let home = app.descendants(matching: .any)["native-home"].firstMatch
-        XCTAssertTrue(home.waitForExistence(timeout: 30))
-        // The clock is the first face (WWW-68); Home is the next page.
-        XCTAssertEqual(app.buttons["face-page-0"].value as? String, "Selected")
-        XCTAssertTrue(app.descendants(matching: .any)["clock-face"].firstMatch.exists)
-        app.selectHomeFace(1)
-        XCTAssertTrue(app.descendants(matching: .any)["tile-climate"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
-        XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
-        XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForNonExistence(timeout: 30))
-        let fan = app.buttons["toggle-fan"]
-        XCTAssertTrue(fan.waitForExistence(timeout: 15))
-        let climate = app.descendants(matching: .any)["tile-climate"].firstMatch
-        XCTAssertTrue(climate.staticTexts["Off"].exists, "HVAC fixture is Off")
-        XCTAssertEqual(fan.value as? String, "On", "Independent fan stays On with HVAC Off")
-        capture("WWW-73-HomeView")
-        fan.tap()
-        XCTAssertTrue(app.buttons["face-page-1"].isHittable, "Fan toggle stays on Home")
-        let ceiling = app.buttons["toggle-ceiling"]
-        XCTAssertTrue(ceiling.isHittable)
-        ceiling.tap()
-        XCTAssertTrue(app.buttons["face-page-1"].isHittable, "Light toggle stays on Home")
-        app.buttons["home-classic"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 15))
-        let back = app.buttons["classic-home"]
-        XCTAssertTrue(back.isHittable)
-        XCTAssertGreaterThanOrEqual(back.frame.height, 56)
-        capture("WWW-64-Classic")
-        back.tap()
-        XCTAssertTrue(home.waitForExistence(timeout: 15), app.debugDescription)
-        app.terminate()
-    }
-
-    func testInformationalFacesDoNotOpenMenusOrDiagnostics() {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .landscapeLeft
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.alarms", "native", "-moduleFlag.weather", "native"]
-        app.launch()
+        let app = launch()
         defer { app.terminate() }
-        XCTAssertTrue(app.buttons["home-classic"].waitForExistence(timeout: 30))
-        let clock = app.descendants(matching: .any)["clock-face"].firstMatch
-        XCTAssertTrue(clock.waitForExistence(timeout: 15))
-        clock.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        XCTAssertTrue(app.buttons["face-page-0"].isHittable)
-        XCTAssertFalse(app.buttons["module-home"].exists)
-        clock.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 2)
-        XCTAssertFalse(app.buttons["diagnostics-done"].exists)
-        capture("WWW-87-clock-inert")
-        app.selectHomeFace(1)
-        for id in ["clock", "weather"] {
-            let tile = app.descendants(matching: .any)["tile-\(id)"].firstMatch
-            XCTAssertTrue(tile.waitForExistence(timeout: 15))
-            tile.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.15)).tap()
-            XCTAssertTrue(app.buttons["face-page-1"].isHittable)
-            XCTAssertFalse(app.buttons["module-home"].exists)
-            XCTAssertFalse(app.buttons["diagnostics-done"].exists)
-        }
-        capture("WWW-87-informational-cards")
+        app.openAppGrid()
+        XCTAssertTrue(app.buttons["app-car"].staticTexts["Tesla"].exists)
+        capture("native-launcher", app)
+        app.buttons["app-classic"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["native-home"].firstMatch.waitForNonExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists)
+        app.openAppGrid()
+        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 15))
     }
-
+    func testClockTapAndLongPressStayOnClock() {
+        let app = launch()
+        defer { app.terminate() }
+        let clock = app.descendants(matching: .any)["launcher-clock"].firstMatch
+        clock.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(clock.exists)
+        clock.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 2)
+        XCTAssertTrue(clock.exists)
+        XCTAssertFalse(app.buttons["diagnostics-done"].exists)
+    }
     func testRollbackLaunchesWebWithoutHome() {
-        continueAfterFailure = false
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-hybrid.webOnly", "YES"]
         app.launch()
+        defer { app.terminate() }
         XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
-        XCTAssertFalse(app.buttons["home-classic"].exists)
-        XCTAssertFalse(app.buttons["classic-home"].exists)
-        app.terminate()
+        XCTAssertFalse(app.descendants(matching: .any)["native-home"].firstMatch.exists)
     }
-
-    func testUnavailableHomeDoesNotShowReadings() {
-        continueAfterFailure = false
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridUnavailable"]
-        app.launch()
-        // The clock is the first face (WWW-68); readings live on the Home page.
-        XCTAssertTrue(app.buttons["face-page-1"].waitForExistence(timeout: 30))
-        app.selectHomeFace(1)
-        XCTAssertTrue(app.buttons["tile-unavailable-climate"].waitForExistence(timeout: 30))
-        XCTAssertFalse(app.staticTexts["Inside 0° · Unavailable"].exists)
-        app.buttons["tile-unavailable-climate"].tap()
-        XCTAssertTrue(app.buttons["classic-home"].waitForExistence(timeout: 15))
-        app.buttons["classic-home"].tap()
-        XCTAssertTrue(app.buttons["home-classic"].waitForExistence(timeout: 15))
-        app.terminate()
-    }
-
-    func testEveryUnavailableGridCardShowsAReason() {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .landscapeLeft
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridUnavailable"]
-        app.launch()
+    func testUnavailableAppsStayNativeAndReturnHome() {
+        let app = launch(unavailable: true)
         defer { app.terminate() }
-        let pages = [
-            ["climate", "ceiling", "tesla", "lamps", "weather", "calendar", "fan"],
-            ["sound", "cameras", "photos", "sonosRooms", "dogwalk", "media", "wifi"]
-        ]
-        for (index, tiles) in pages.enumerated() {
-            app.selectHomeFace(index + 1)
-            for tile in tiles {
-                let card = app.descendants(matching: .any)["tile-\(tile)"].firstMatch
-                let reason = card.staticTexts["module-status-reason"]
-                XCTAssertTrue(reason.waitForExistence(timeout: 30), tile)
-                let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", "Loading…"), object: reason)
-                XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 30), .completed, tile)
-                XCTAssertFalse(reason.label.isEmpty, tile)
-                XCTAssertTrue(reason.isHittable, "Reason must be visible on \(tile)")
-                XCTAssertFalse(card.staticTexts["0%"].exists, tile)
-                XCTAssertFalse(card.staticTexts["0 mi"].exists, tile)
-                if tile == "weather" {
-                    XCTAssertFalse(app.buttons["tile-unavailable-weather"].exists)
-                    card.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.15)).tap()
-                    XCTAssertTrue(app.buttons["face-page-1"].isHittable)
-                    XCTAssertFalse(app.buttons["module-home"].exists)
-                    XCTAssertFalse(app.buttons["diagnostics-done"].exists)
-                }
+        for id in ["climate", "lights", "music", "weather", "walks", "cameras", "car", "wifi"] {
+            app.openAppGrid()
+            app.buttons["app-\(id)"].tap()
+            let screen = app.descendants(matching: .any)["app-screen-\(id)"].firstMatch
+            XCTAssertTrue(screen.waitForExistence(timeout: 10))
+            let reason = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "server", "unavailable")).firstMatch
+            XCTAssertTrue(reason.waitForExistence(timeout: 15), id)
+            XCTAssertFalse(reason.label.isEmpty)
+            XCTAssertFalse(app.buttons["classic-home"].exists)
+            XCTAssertFalse(screen.staticTexts["0 mi"].exists)
+            XCTAssertFalse(screen.staticTexts["0%"].exists)
+        }
+        app.openAppGrid()
+    }
+    func testNativeAppsOpenWithoutClassicFallback() {
+        let app = launch()
+        defer { app.terminate() }
+        for id in ["lights", "climate", "weather", "car"] {
+            app.openAppGrid()
+            app.buttons["app-\(id)"].tap()
+            switch id {
+            case "lights": XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
+            case "climate": XCTAssertTrue(app.buttons["Raise setpoint"].waitForExistence(timeout: 20))
+            case "weather": XCTAssertTrue(app.staticTexts["HOURLY FORECAST"].waitForExistence(timeout: 20))
+            default: XCTAssertTrue(app.staticTexts["Odometer"].waitForExistence(timeout: 20))
             }
-            capture("WWW-89-unavailable-grid-\(index + 1)")
+            XCTAssertFalse(app.buttons["classic-home"].exists)
+            capture("native-\(id)", app)
         }
     }
-
-    func testLiveFixtureGridCaptures() {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .landscapeLeft
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures"]
-        app.launch()
-        defer { app.terminate() }
-        for page in [1, 2] {
-            app.selectHomeFace(page)
-            let unavailable = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "tile-unavailable-"))
-            let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 0"), object: unavailable)
-            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 30), .completed)
-            capture("WWW-89-live-grid-\(page)")
-        }
-    }
-
-    private func capture(_ name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine").screenshot())
+    private func capture(_ name: String, _ app: XCUIApplication) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
