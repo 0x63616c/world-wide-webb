@@ -388,8 +388,10 @@ import PanelKit
         let store = source(transport)
         await store.refresh(.fan)
         XCTAssertEqual(store.climate.fanModes, ["auto", "on"])
+        let revision = store.errorRevision
         store.send(.fanMode("off"))
-        XCTAssertNotNil(store.fanProvider.errorMessage)
+        XCTAssertEqual(store.errorMessage, "This fan mode is unavailable.")
+        XCTAssertEqual(store.errorRevision, revision + 1)
         let writes = await transport.requests.filter { $0.httpMethod == "POST" }
         XCTAssertTrue(writes.isEmpty)
     }

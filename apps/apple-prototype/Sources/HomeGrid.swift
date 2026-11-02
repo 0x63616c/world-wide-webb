@@ -312,6 +312,7 @@ private struct Toggle2: View {
         Capsule().fill(on ? AnyShapeStyle(warm) : AnyShapeStyle(.primary.opacity(0.2)))
             .frame(width: 52, height: 32)
             .overlay(alignment: on ? .trailing : .leading) { Circle().fill(.white).padding(3) }
+            .contentShape(.rect)
     }
 }
 private struct Segments: View {
@@ -771,7 +772,8 @@ struct GridFan: View {
     private func toggle(_ size: CGFloat) -> some View {
         Button { store.send(.toggle(.fan)) } label: {
             FanSymbol(on: on).font(.system(size: size)).frame(minWidth: 44, minHeight: 44, alignment: .topTrailing)
-        }.buttonStyle(.plain)
+                .contentShape(.rect)
+        }.buttonStyle(.plain).padding(-10)
             .accessibilityLabel("Toggle Fan").accessibilityValue(label).accessibilityIdentifier("toggle-fan")
     }
     var body: some View {
@@ -829,6 +831,7 @@ private struct GridLights: View {
                 } tr: { EmptyView() } bl: {
                     VStack(alignment: .leading, spacing: 10) { Cap(name(accessory), 20, .semibold); Cap(state(accessory), 15).opacity(0.65) }
                 } br: { EmptyView() }
+                .contentShape(.rect)
             }.buttonStyle(.plain)
         case "B":
             VStack(spacing: 14) {
