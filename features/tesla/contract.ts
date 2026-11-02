@@ -5,7 +5,7 @@ export const teslaEntitiesSchema = z
   .object({
     battery: entity("sensor"),
     range: entity("sensor"),
-    charging: entity("sensor"),
+    charging: z.string().regex(/^(sensor|binary_sensor)\.[a-z0-9_]+$/),
     power: entity("sensor"),
     odometer: entity("sensor"),
     temperature: entity("sensor"),
@@ -35,7 +35,11 @@ export const teslaDataSchema = z.object({
 });
 export const teslaStateSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("ready"), data: teslaDataSchema }),
-  z.object({ status: z.enum(["unconfigured", "unavailable"]), data: z.null() }),
+  z.object({
+    status: z.enum(["unconfigured", "unavailable"]),
+    data: z.null(),
+    reason: z.string().optional(),
+  }),
 ]);
 export type TeslaState = z.infer<typeof teslaStateSchema>;
 const teslaActionSchema = z.enum([

@@ -7,8 +7,12 @@ import {
   teslaDataSchema,
   teslaEntitiesSchema,
 } from "./contract";
+import { discoverTeslaEntities } from "./discovery";
 
-type Client = Pick<HomeAssistantClient, "isConfigured" | "getEntity" | "callService">;
+type Client = Pick<
+  HomeAssistantClient,
+  "isConfigured" | "getAllEntities" | "getEntity" | "callService"
+>;
 export class TeslaUnavailable extends Error {}
 
 export function parseEntities(raw: string | undefined): TeslaEntities | null {
@@ -38,11 +42,32 @@ function distance(entity: HaEntity): number {
 }
 
 export function createTeslaService(client: Client, entities: () => TeslaEntities | null) {
+  let cached: { ids: TeslaEntities; expires: number } | null = null;
+  let discovering: Promise<TeslaEntities> | null = null;
+  async function resolveEntities(): Promise<TeslaEntities> {
+    const explicit = entities();
+    if (explicit) return explicit;
+    if (cached && cached.expires > Date.now()) return cached.ids;
+    if (!discovering) {
+      discovering = (async () => {
+        const result = discoverTeslaEntities(await client.getAllEntities());
+        if (!result.entities)
+          throw new TeslaUnavailable(`Missing Tesla entities: ${result.missing.join(", ")}`);
+        cached = { ids: result.entities, expires: Date.now() + 5 * 60_000 };
+        return result.entities;
+      })();
+    }
+    try {
+      return await discovering;
+    } finally {
+      discovering = null;
+    }
+  }
   return {
     async state(): Promise<TeslaState> {
-      const ids = entities();
-      if (!ids || !client.isConfigured()) return { status: "unconfigured", data: null };
+      if (!client.isConfigured()) return { status: "unconfigured", data: null };
       try {
+        const ids = await resolveEntities();
         const [battery, range, charging, power, odometer, temperature, lock, climate] =
           await Promise.all(
             [
@@ -80,7 +105,9 @@ export function createTeslaService(client: Client, entities: () => TeslaEntities
         const data = teslaDataSchema.parse({
           batteryPercent: number(battery),
           rangeMiles: distance(range),
-          chargingState: charging.state.toLowerCase().replaceAll(" ", "_"),
+          chargingState: charging.entity_id.startsWith("binary_sensor.")
+            ? ({ on: "charging", off: "stopped" } as Record<string, string>)[charging.state]
+            : charging.state.toLowerCase().replaceAll(" ", "_").replace("nopower", "no_power"),
           chargePowerKW: number(power) / (powerUnit === "W" ? 1000 : 1),
           locked: lock.state === "locked",
           climateOn: climate.state !== "off",
@@ -88,25 +115,31 @@ export function createTeslaService(client: Client, entities: () => TeslaEntities
           odometerMiles: distance(odometer),
         });
         return { status: "ready", data };
-      } catch {
-        return { status: "unavailable", data: null };
+      } catch (error) {
+        cached = null;
+        return {
+          status: "unavailable",
+          data: null,
+          ...(error instanceof TeslaUnavailable && error.message ? { reason: error.message } : {}),
+        };
       }
     },
     async command(action: TeslaAction): Promise<{ accepted: true }> {
-      const ids = entities();
-      if (!ids || !client.isConfigured()) throw new TeslaUnavailable();
-      const targets: Record<TeslaAction, [string, string, string]> = {
-        lock: ["lock", "lock", ids.lock],
-        unlock: ["lock", "unlock", ids.lock],
-        climateOn: ["climate", "turn_on", ids.climate],
-        climateOff: ["climate", "turn_off", ids.climate],
-        chargeStart: ["switch", "turn_on", ids.chargeSwitch],
-        chargeStop: ["switch", "turn_off", ids.chargeSwitch],
-      };
-      const [domain, service, id] = targets[action];
+      if (!client.isConfigured()) throw new TeslaUnavailable();
       try {
+        const ids = await resolveEntities();
+        const targets: Record<TeslaAction, [string, string, string]> = {
+          lock: ["lock", "lock", ids.lock],
+          unlock: ["lock", "unlock", ids.lock],
+          climateOn: ["climate", "turn_on", ids.climate],
+          climateOff: ["climate", "turn_off", ids.climate],
+          chargeStart: ["switch", "turn_on", ids.chargeSwitch],
+          chargeStop: ["switch", "turn_off", ids.chargeSwitch],
+        };
+        const [domain, service, id] = targets[action];
         await client.callService(domain, service, { entity_id: id });
       } catch {
+        cached = null;
         throw new TeslaUnavailable();
       }
       // HA acknowledges a service call, not the resulting vehicle state.
