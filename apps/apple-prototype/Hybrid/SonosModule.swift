@@ -79,13 +79,19 @@ struct SonosRoomsModule: View {
 struct SonosArtwork: View {
     let room: SoundRoom
     let api: SonosArtworkAPI
+    var compact = false
     @State private var image: UIImage?
     // Include metadata so a new track clears the previous cover even if HA reuses its URL.
     private var key: String { "\(room.coordinator)|\(room.albumArtUri ?? "")|\(room.trackTitle ?? "")|\(room.trackArtist ?? "")" }
     var body: some View {
         Group {
             if let image { Image(uiImage: image).resizable().scaledToFill().accessibilityLabel("Album artwork") }
-            else { ContentUnavailableView("Artwork unavailable", systemImage: "music.note") }
+            else if compact {
+                Image(systemName: room.sourceKind == .tv ? "tv" : "music.note")
+                    .font(.system(size: 30)).foregroundStyle(.white.opacity(0.65))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.white.opacity(0.06)).accessibilityLabel("Artwork unavailable")
+            } else { ContentUnavailableView("Artwork unavailable", systemImage: "music.note") }
         }.task(id: key) {
             image = nil
             guard room.albumArtUri != nil else { return }

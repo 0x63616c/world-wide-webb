@@ -41,9 +41,9 @@ enum HomeGrid {
     /// overflow goes to page 2, packed from the top-left with no holes.
     /// Page 1: four 2×1 glances down the left (clock H, car, lamps, fan), then two 2×2 columns.
     static let home: [GridPlacement] = [
-        .init(.clock, "H", 0, 0), .init(.climate, "A", 2, 0), .init(.lights, "D", 4, 0),
+        .init(.clock, "H", 0, 0), .init(.weather, "C", 2, 0), .init(.lights, "D", 4, 0),
         .init(.car, "A", 0, 1),
-        .init(.lamps, "A", 0, 2), .init(.weather, "C", 2, 2), .init(.calendar, "B", 4, 2),
+        .init(.lamps, "A", 0, 2), .init(.climate, "A", 2, 2), .init(.calendar, "B", 4, 2),
         .init(.fan, "C", 0, 3)
     ]
     /// Page 2: ordinary grid cards, packed to 24/24 cells like page 1.
@@ -158,16 +158,19 @@ struct ModuleStatusFace: View {
     let title: String
     let status: HomeModuleStatus
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.title3.weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
             if status == .loading {
-                ProgressView().accessibilityLabel("Loading \(title)")
+                ProgressView().frame(height: 48).accessibilityLabel("Loading \(title)")
             } else {
-                Image(systemName: "exclamationmark.circle").font(.title2)
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 28, weight: .medium)).foregroundStyle(.secondary)
+                    .frame(height: 48)
             }
-            Text(status.reason ?? "").font(.callout).foregroundStyle(.secondary)
+            Spacer(minLength: 16)
+            Text(title).font(.system(size: 22, weight: .semibold))
+            Text(status.reason ?? "").font(.system(size: 17)).foregroundStyle(.secondary)
                 .accessibilityIdentifier("module-status-reason")
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(3).padding(.top, 5)
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }

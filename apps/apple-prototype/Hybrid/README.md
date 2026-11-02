@@ -1517,3 +1517,14 @@ macOS CI must build the native targets, run PanelKit/Panel unit tests and the
 fixture UI test, and export its screenshot attachments. No native UI screenshot
 was produced on Linux. Real-device EventKit permission, account grouping and
 calendar-color rendering remain native validation requirements.
+
+### Native grid cards
+
+The live Home grid uses `PanelAccessoryCard` and shared glyph/summary styling in
+`PanelHome.swift`. Both pages retain their fixed grid spans. The green clock is
+unchanged; Weather occupies the upper centre and Climate the lower centre.
+Weather opens the native full-screen current-conditions and hourly forecast page.
+Accessory cards expose compact quick actions: native light switches, fan mode
+segments, lamp power, Sonos transport, and walk start/stop. Full controls remain in
+native destinations. Only the dedicated Classic card opens the web dashboard.
+Unavailable providers retain an explicit status face instead of fixture values.
