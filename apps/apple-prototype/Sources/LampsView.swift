@@ -145,18 +145,19 @@ struct LampEffectsView: View {
     @State private var draftHex = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            SectionLabel(text: "Lamp scene")
-            HStack(spacing: 16) {
-                scene("White", colors: [Color(hex: "#ffe3b7"), .white])
-                scene("Mood", colors: [Color(hex: "#a855f7"), Color(hex: "#3b82f6"), Color(hex: "#ec4899")])
-            }
+            Picker("Lamp scene", selection: Binding(get: { store.lamps.scene == "White" ? "White" : "Mood" }, set: { store.send(.scene($0)) })) {
+                Text("White").tag("White")
+                Text("Colour").tag("Mood")
+            }.pickerStyle(.segmented)
+            if store.lamps.scene == "White" {
             VStack(spacing: 10) {
                 HStack { SectionLabel(text: "White temperature"); Spacer(); Text("\(store.lamps.kelvin) K").font(.system(size: 22)) }
                 Slider(value: Binding(get: { Double(store.lamps.kelvin) }, set: { store.send(.kelvin(Int($0))) }), in: 2000...6500, step: 100).accessibilityLabel("White temperature")
                 HStack { Text("2000 K"); Spacer(); Text("6500 K") }.font(.system(size: 15)).opacity(0.6)
             }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
+            } else {
             HStack {
-                SectionLabel(text: "Colors"); Spacer()
+                SectionLabel(text: "Colours"); Spacer()
                 Button(editingColors ? "Done" : "Edit") { editingColors.toggle() }.buttonStyle(.glass)
             }
             HStack(spacing: 28) {
@@ -169,17 +170,19 @@ struct LampEffectsView: View {
                             Circle().fill(Color(hex: store.lamps.colors[slot])).frame(width: 72, height: 72)
                                 .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: store.lamps.activeColor == slot ? 4 : 1))
                                 .overlay { if editingColors { Image(systemName: "pencil").font(.system(size: 24)) } }
-                            Text("Custom \(slot + 1)").font(.system(size: 17, weight: .medium))
+
                         }.frame(maxWidth: .infinity)
                     }.buttonStyle(.plain).accessibilityLabel("\(editingColors ? "Edit" : "Use") Custom \(slot + 1)")
                 }
             }
-            SectionLabel(text: "Party")
+            }
+            DisclosureGroup(store.lamps.party == .off ? "Party" : "Party · \(store.lamps.party.rawValue)") {
             HStack(spacing: 12) {
                 ForEach(PartySpeed.allCases, id: \.self) { speed in
                     Choice(title: speed.rawValue, selected: store.lamps.party == speed) { store.send(.party(speed)) }
                 }
             }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
+            }
         }.frame(maxWidth: .infinity)
         .sheet(isPresented: Binding(get: { editingSlot != nil }, set: { if !$0 { editingSlot = nil } })) {
             VStack(alignment: .leading, spacing: 24) {

@@ -33,7 +33,7 @@ struct SonosRoomsPage: View {
                             Image(systemName: "tv").font(.system(size: 52, weight: .light)).padding(.bottom, 12)
                             volume(tv)
                         }.frame(width: 300).padding(28)
-                            .glassEffect(.regular, in: .rect(cornerRadius: 32))
+
                     }
                 }
             }

@@ -1,3 +1,11 @@
+# Current native navigation
+
+Panel starts on the green clock. Swipe up for the vertically scrolling app
+launcher; each app opens full screen. Swipe up from the bottom to return.
+Only Classic opens the web board. See [app registration](../Sources/Apps/README.md)
+for the typed catalog and extension recipe. Older dashboard descriptions below
+refer to the retained preview components, not the current landing screen.
+
 # Panel hybrid kiosk (WWW-18)
 
 `Panel` is the iPad-only iOS 26+ replacement shell for `apps/panel`, with bundle

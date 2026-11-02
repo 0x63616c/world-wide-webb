@@ -30,7 +30,7 @@ struct Wallpaper: View {
     var saturation = 1.0
     var dimming = 0.28
     var blurRadius = 2.0
-    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .dusk
+    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
     var body: some View {
         GeometryReader { proxy in
             Group {

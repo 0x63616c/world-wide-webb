@@ -151,9 +151,9 @@ struct PanelRoot: View {
             .allowsHitTesting(nativeVisible)
             .accessibilityHidden(!nativeVisible)
         }
-        .overlay(alignment: .topLeading) {
-            if !homeVisible && !nativeVisible && !webOnly {
-                ClassicHomeButton(action: { navigation.returnHome() })
+        .overlay(alignment: .bottom) {
+            if !homeVisible && !webOnly {
+                SwipeHomeRegion(action: { navigation.returnHome() })
             }
         }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
@@ -165,6 +165,7 @@ struct PanelRoot: View {
                 deepLink: "module/all", priority: .high, dedupeKey: "panel-api-command-error")
         }
         .statusBarHidden()
+        .defersSystemGestures(on: .bottom)
         .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
         .sheet(item: $session.browser) { destination in
             PanelBrowser(url: destination.url) { session.browser = nil }

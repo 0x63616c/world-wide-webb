@@ -57,9 +57,9 @@ struct ClimateController: View {
                 }
             } else {
                 HStack(spacing: 85) {
-                    CircleButton(symbol: "chevron.down", label: "Lower setpoint", size: 76) { store.send(.target(store.climate.target - 1)) }.disabled(store.climate.target == 67)
-                    Text("\(store.climate.target)").font(.system(size: 240, weight: .ultraLight)).monospacedDigit().accessibilityIdentifier("climate-value")
-                    CircleButton(symbol: "chevron.up", label: "Raise setpoint", size: 76) { store.send(.target(store.climate.target + 1)) }.disabled(store.climate.target == 77)
+                    CircleButton(symbol: "minus", label: "Lower setpoint", size: 76) { store.send(.target(store.climate.target - 1)) }.disabled(store.climate.target == 67)
+                    Text("\(store.climate.target)°").font(.system(size: 240, weight: .ultraLight)).monospacedDigit().accessibilityIdentifier("climate-value")
+                    CircleButton(symbol: "plus", label: "Raise setpoint", size: 76) { store.send(.target(store.climate.target + 1)) }.disabled(store.climate.target == 77)
                 }
             }
             HStack(spacing: 20) {
@@ -83,16 +83,16 @@ struct ClimateController: View {
         }
     }
     private var caption: String {
-        switch store.climate.mode { case .cool: "Cooling to"; case .heat: "Heating to"; case .heatCool: "Temperature range"; case .off: "Climate" }
+        switch store.climate.mode { case .cool: "Set to"; case .heat: "Set to"; case .heatCool: "Temperature range"; case .off: "Climate" }
     }
     private func rangeValue(value: Int, label: String, low: Bool) -> some View {
         VStack(spacing: 14) {
             Text(label).font(.system(size: 22)).opacity(0.7)
             Text("\(value)°").font(.system(size: 140, weight: .ultraLight)).monospacedDigit()
             HStack(spacing: 30) {
-                CircleButton(symbol: "chevron.down", label: "Lower \(label)") { store.send(low ? .low(value - 1) : .high(value - 1)) }
+                CircleButton(symbol: "minus", label: "Lower \(label)") { store.send(low ? .low(value - 1) : .high(value - 1)) }
                     .disabled(low ? value == 67 : value == store.climate.low + 2)
-                CircleButton(symbol: "chevron.up", label: "Raise \(label)") { store.send(low ? .low(value + 1) : .high(value + 1)) }
+                CircleButton(symbol: "plus", label: "Raise \(label)") { store.send(low ? .low(value + 1) : .high(value + 1)) }
                     .disabled(low ? value == store.climate.high - 2 : value == 77)
             }
         }
@@ -102,42 +102,42 @@ struct ControlsController: View {
     let store: any HomeDataSource
     var fanIsOn: Bool? = nil
     var body: some View {
-        ScrollView {
-            GlassEffectContainer(spacing: 16) {
-            VStack(alignment: .leading, spacing: 28) {
-                Text("Lighting").font(.system(size: 38, weight: .bold))
-                HStack(alignment: .top, spacing: 28) {
-                    VStack(alignment: .leading, spacing: 28) {
-                        VStack(alignment: .leading, spacing: 20) {
-                            HStack {
-                                Label("Lamps", systemImage: "lamp.table.fill").font(.title2.weight(.semibold))
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 36) {
+                    HStack {
+                        Text("Lights").font(.largeTitle.bold())
+                        Spacer()
+                        Button { store.send(.toggle(.all)) } label: {
+                            Label("All lights", systemImage: "power").padding(8)
+                        }.buttonStyle(.glass).tint(.orange).padding(.trailing, 76)
+                    }
+                    HStack(alignment: .top, spacing: 48) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
+                            ForEach([Accessory.bedroom, .livingRoom, .ceiling, .cabinet]) { key in toggle(key) }
+                        }.frame(maxWidth: .infinity)
+                        VStack(alignment: .leading, spacing: 32) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("Lamps").font(.title2.weight(.semibold))
                                 Spacer()
-                                Text("\(store.lamps.brightness)%").font(.system(size: 44, weight: .medium, design: .rounded))
+                                Text("\(store.lamps.brightness)%").font(.system(size: 56, weight: .medium, design: .rounded)).monospacedDigit()
                             }
                             Slider(value: Binding(get: { Double(store.lamps.brightness) }, set: { store.send(.brightness(Int($0))) }), in: 0...100, step: 1)
                                 .tint(.orange).disabled(!store.lamps.anyOn).accessibilityLabel("Lamp brightness")
-                            Text(store.lamps.countLabel()).foregroundStyle(.secondary)
-                        }.padding(28).glassEffect(.regular, in: .rect(cornerRadius: 28))
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                            ForEach([Accessory.all, .lamps, .bedroom, .livingRoom, .ceiling, .cabinet]) { key in toggle(key) }
-                        }
-                    }.frame(maxWidth: .infinity)
-                    VStack(alignment: .leading, spacing: 24) {
-                        Text("Scenes & colour").font(.title2.weight(.semibold))
-                        LampEffectsView(store: store)
-                    }.padding(28)
-                        .frame(maxWidth: .infinity)
-                }
-            }.padding(40)
+                            LampEffectsView(store: store)
+                        }.frame(maxWidth: .infinity).padding(32)
+                            .background(.white.opacity(0.045), in: .rect(cornerRadius: 32))
+                    }.frame(minHeight: max(0, geometry.size.height - 160), alignment: .center)
+                }.padding(44).frame(minHeight: geometry.size.height, alignment: .top)
             }
-        }
+        }.background(Color.black)
     }
     private func toggle(_ key: Accessory) -> some View {
         let on = store.lamps.isOn(key)
         return Button { store.send(.toggle(key)) } label: {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 24) {
                 HStack {
-                    Image(systemName: key.symbol).font(.system(size: 28)).foregroundStyle(on ? .orange : .gray)
+                    Image(systemName: key.symbol).font(.system(size: 42)).foregroundStyle(on ? .orange : .gray)
                     Spacer()
                     Image(systemName: "power").font(.system(size: 18)).foregroundStyle(on ? .white : .gray)
                 }
@@ -145,8 +145,8 @@ struct ControlsController: View {
                     Text(key.name).font(.system(size: 20, weight: .semibold))
 
                 }
-            }.padding(22).frame(maxWidth: .infinity, alignment: .leading).foregroundStyle(.white)
-                .glassEffect(.regular.tint(on ? .orange.opacity(0.08) : .clear).interactive(), in: .rect(cornerRadius: 24))
+            }.padding(28).frame(maxWidth: .infinity, minHeight: 220, alignment: .leading).foregroundStyle(.white)
+                .background(on ? Color.orange.opacity(0.15) : Color(white: 0.075), in: .rect(cornerRadius: 28))
         }.buttonStyle(.plain).accessibilityLabel("Toggle \(key.name)")
             .accessibilityIdentifier("controller-toggle-\(key.rawValue)").accessibilityValue(on ? "On" : "Off")
     }

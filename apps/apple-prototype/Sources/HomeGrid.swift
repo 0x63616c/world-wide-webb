@@ -1181,7 +1181,7 @@ enum WallpaperChoice: String, CaseIterable, Identifiable {
 }
 
 struct WallpaperPicker: View {
-    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .dusk
+    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {

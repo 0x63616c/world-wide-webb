@@ -32,7 +32,7 @@ struct PanelHome: View {
     }
 
     var body: some View {
-        HomeView(store: presentation.store)
+        HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock)
             .environment(\.homeIntegration, presentation)
             .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
@@ -65,6 +65,8 @@ struct PanelHome: View {
     let router: HybridRouter
     let navigation: PanelNavigation
     let caption = ""
+    var supportsClassic: Bool { true }
+    func openClassicApp() { navigation.openClassic() }
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
          navigation: PanelNavigation) {
@@ -185,11 +187,7 @@ struct PanelHomeDestination: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
-        .safeAreaInset(edge: .top, spacing: 0) {
-            HStack { PanelHomeButton(action: close); Spacer() }
-                .padding(.horizontal, 24).padding(.vertical, 12)
-        }
-        .background { Wallpaper() }.preferredColorScheme(.dark).foregroundStyle(.white)
+        .background(Color.black).preferredColorScheme(.dark).foregroundStyle(.white)
         .statusBarHidden().persistentSystemOverlays(.hidden)
     }
 }
