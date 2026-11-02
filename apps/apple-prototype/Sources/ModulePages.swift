@@ -172,6 +172,7 @@ private struct CalendarPickerSheet: View {
                                     Text(calendar.title)
                                 }
                             }
+                            .tint(.green)
                             .accessibilityIdentifier("calendar-selection-\(calendar.id)")
                         }
                     }
