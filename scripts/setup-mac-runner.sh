@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command setup for self-hosted GitHub Actions runners on an Apple silicon Mac (for example
+# Optional legacy setup for self-hosted GitHub Actions runners on an Apple silicon Mac (for example
 # the Mac mini), for the apps repository.
 #
 #   scripts/setup-mac-runner.sh [options] OWNER/REPO [OWNER/REPO ...]
@@ -19,6 +19,7 @@
 #
 # Registration tokens come from the local GitHub CLI login (`gh auth login`); the account needs
 # admin access to each repository. Re-running is safe: configured runners are left as they are.
+# This repository now pins hosted xcode-27 / Xcode 27.1; --use variables do not affect its CI.
 set -euo pipefail
 
 root="$HOME/actions-runners"

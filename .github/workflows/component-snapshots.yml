@@ -43,16 +43,16 @@ jobs:
   snapshots:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 40
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       APP: ${{ inputs.app || 'tendr' }}
       TEST_ID: ${{ inputs.test }}
     steps:
       - uses: actions/checkout@v4
       - name: Free simulator resources
-        # Cancelled runs can leave simulators booted on the self-hosted Mac; it takes one job at a time.
+        # Free any prebooted simulator resources before capture on this isolated hosted runner.
         run: |
           xcrun simctl shutdown all || true
           echo "User processes: $(ps -U "$USER" | wc -l)"

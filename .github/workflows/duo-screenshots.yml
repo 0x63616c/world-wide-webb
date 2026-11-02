@@ -19,7 +19,7 @@ on:
       developer_dir:
         description: 'Xcode developer directory containing the Duo simulator'
         type: string
-        default: '/Applications/Xcode-27.1.app/Contents/Developer'
+        default: '/Applications/Xcode_27.1.app/Contents/Developer'
         required: true
 
 permissions:
@@ -31,13 +31,14 @@ concurrency:
 
 jobs:
   screenshots:
-    # The self-hosted runner has no Xcode 27.1 yet; do not block PRs on the Duo simulator.
+    # Duo UI tests are not passing yet (APP-36); do not block PRs on them.
     continue-on-error: ${{ github.event_name == 'pull_request' }}
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       APP: ${{ inputs.app || 'tendr' }}
-      REQUESTED_DEVELOPER_DIR: ${{ inputs.developer_dir || '/Applications/Xcode-27.1.app/Contents/Developer' }}
+      REQUESTED_DEVELOPER_DIR: ${{ inputs.developer_dir || '/Applications/Xcode_27.1.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
@@ -45,6 +46,11 @@ jobs:
           selected=$(python3 scripts/select-duo-xcode.py "$REQUESTED_DEVELOPER_DIR")
           echo "DEVELOPER_DIR=$selected" >> "$GITHUB_ENV"
           echo "Using $selected"
+      - name: Warm up CoreSimulator
+        timeout-minutes: 5
+        run: |
+          xcrun simctl list devices >/dev/null
+          xcrun simctl help >/dev/null
       - name: List simulator device types and runtimes
         run: |
           xcodebuild -version

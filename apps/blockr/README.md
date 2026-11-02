@@ -11,7 +11,7 @@ xcodebuild -project apps/blockr/Blockr.xcodeproj -scheme Blockr -sdk iphonesimul
 xcodebuild -project apps/blockr/Blockr.xcodeproj -scheme BlockrMac -destination 'generic/platform=macOS' -jobs 4 CODE_SIGNING_ALLOWED=NO build
 ```
 
-Requires Xcode 27 at `/Applications/Xcode-27.0.app`. CI builds both platforms, runs the package tests and publishes the generated project as `blockr-generated-project`. The checked-in project is obtained from that artifact on Linux. `BlockrUITests/ScreenshotTests` uses `--screenshots` synthetic fixtures, without requesting authorization or writing shared state; capture via the shared PR screenshots workflow. No fixture code runs without that launch argument.
+Requires Xcode 27 or later. CI runs on GitHub-hosted `xcode-27` with Xcode 27.1 at `/Applications/Xcode_27.1.app/Contents/Developer` and builds both platforms, runs the package tests and publishes the generated project as `blockr-generated-project`. The checked-in project is obtained from that artifact on Linux. `BlockrUITests/ScreenshotTests` uses `--screenshots` synthetic fixtures, without requesting authorization or writing shared state; capture via the shared PR screenshots workflow. No fixture code runs without that launch argument.
 
 ## iOS protection
 

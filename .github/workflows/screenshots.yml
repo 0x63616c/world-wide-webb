@@ -20,22 +20,19 @@ permissions:
 
 jobs:
   screenshots:
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 45
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       APP: ${{ inputs.app }}
     steps:
       - uses: actions/checkout@v4
-      - name: Ensure an iOS 26 simulator runtime
-        timeout-minutes: 20
+      - name: Check hosted simulator runtime
         run: |
           xcodebuild -version
-          if ! xcrun simctl list runtimes | grep -q '^iOS 26'; then
-            xcodebuild -downloadPlatform iOS
-          fi
           xcrun simctl list runtimes
-      - name: Capture iPhone 17 Pro Max screens (light and dark)
+          xcrun simctl list runtimes available | grep -F 'com.apple.CoreSimulator.SimRuntime.iOS-27-0'
+      - name: Capture iPhone 18 Pro Max screens (light and dark)
         timeout-minutes: 25
         run: scripts/capture-screenshots.sh "$APP" "build/screenshots/$APP/raw" light dark
       - name: Render App Store frames

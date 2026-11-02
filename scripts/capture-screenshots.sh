@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Captures an app's raw App Store screenshots (its screenshot_test in apps/<app>/app.yml, or the key
 # named by SCREENSHOT_TEST_KEY, e.g. pr_screenshot_test) on a
-# fresh iPhone 17 Pro Max simulator (6.9", 1320x2868) with a 9:41 status bar.
+# fresh iPhone 18 Pro Max simulator (6.9", 1320x2868) with a 9:41 status bar.
 # Usage: scripts/capture-screenshots.sh <app> [output-dir] [appearance...]
 # Writes <output-dir>/<appearance>/<screen>.png; defaults to build/screenshots/<app>/raw and light dark.
 set -euo pipefail
@@ -16,16 +16,11 @@ out=${2:-build/screenshots/$app/raw}
 shift $(( $# > 1 ? 2 : 1 ))
 appearances=("$@")
 [[ ${#appearances[@]} -gt 0 ]] || appearances=(light dark)
-device_type=com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max
+device_type=com.apple.CoreSimulator.SimDeviceType.iPhone-18-Pro-Max
 derived=build/screenshots/$app/DerivedData
 
-runtime=${R_SIM_RUNTIME:-$(xcrun simctl list runtimes --json | python3 -c '
-import json, sys
-runtimes = [r for r in json.load(sys.stdin)["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
-runtimes.sort(key=lambda r: [int(p) for p in r["version"].split(".")])
-print(runtimes[-1]["identifier"] if runtimes else "")
-')}
-[[ -n "$runtime" ]] || { echo "No iOS simulator runtime is installed" >&2; exit 1; }
+# Pin the hosted runtime: iOS 27.1 has Duo only; other iPhones use iOS 27.0.
+runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-0}
 echo "Using $runtime"
 
 udid=$(xcrun simctl create "$name Screenshots" "$device_type" "$runtime")

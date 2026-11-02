@@ -1,7 +1,7 @@
 name: PR screenshots
 
 # Captures each changed app's PR preview screens (pr_screenshot_test in apps/<app>/app.yml) from its
-# synthetic fixture on an iPhone 17 Pro Max simulator, publishes the PNGs to the pr-screenshots
+# synthetic fixture on an iPhone 18 Pro Max simulator, publishes the PNGs to the pr-screenshots
 # branch and updates one comment on the PR. Dispatch with `pr` to post screens for an existing PR.
 on:
   pull_request:
@@ -61,10 +61,10 @@ jobs:
     needs: changes
     # Same-repo PRs only: fork tokens cannot push the pr-screenshots branch.
     if: needs.changes.outputs.apps != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 45
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       PR: ${{ github.event.pull_request.number || inputs.pr }}
       SCREENSHOT_TEST_KEY: pr_screenshot_test
     steps:
@@ -73,8 +73,7 @@ jobs:
           fetch-depth: 0
       - name: Free simulator resources
         if: needs.changes.outputs.apps != ''
-        # Cancelled runs can leave simulators booted on the self-hosted Mac until it hits its process
-        # limit ("insufficient system resources"). This runner takes one job at a time.
+        # Free any prebooted simulator resources before capture on this isolated hosted runner.
         run: |
           echo "User processes: $(ps -U "$USER" | wc -l) of $(sysctl -n kern.maxprocperuid)"
           ps -U "$USER" -o comm= | awk -F/ '{print $NF}' | sort | uniq -c | sort -rn | head -15
@@ -131,7 +130,7 @@ jobs:
             git worktree add --detach "$dir" && (cd "$dir" && git checkout --orphan pr-screenshots && git rm -rfq .)
           fi
           short=${SHA:0:7}
-          body="<!-- pr-screenshots -->"$'\n'"### Screenshots (synthetic fixture, iPhone 17 Pro Max, light) at $short"$'\n'
+          body="<!-- pr-screenshots -->"$'\n'"### Screenshots (synthetic fixture, iPhone 18 Pro Max, light) at $short"$'\n'
           for app in ${{ needs.changes.outputs.apps }}; do
             dest="$dir/$PR/$short/$app"
             mkdir -p "$dest"

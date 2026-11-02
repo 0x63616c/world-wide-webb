@@ -52,13 +52,8 @@ print(matches[0]["identifier"] if matches else "")
 PY
 )}
 [[ -n "$device_type" ]] || { echo "No iPhone Duo simulator device type found. Install Xcode 27.1+ with its iOS runtime, or set R_SIM_DEVICE_TYPE explicitly. See $work/devicetypes.json." >&2; exit 1; }
-runtime=${R_SIM_RUNTIME:-$(xcrun simctl list runtimes --json | python3 -c '
-import json, sys
-runtimes = [r for r in json.load(sys.stdin)["runtimes"] if r.get("platform") == "iOS" and r.get("isAvailable")]
-runtimes.sort(key=lambda r: tuple(int(p) for p in r["version"].split(".")))
-print(runtimes[-1]["identifier"] if runtimes else "")
-')}
-[[ -n "$runtime" ]] || { echo "No available iOS simulator runtime is installed." >&2; exit 1; }
+# Pin the hosted runtime: iOS 27.1 has Duo only; other iPhones use iOS 27.0.
+runtime=${R_SIM_RUNTIME:-com.apple.CoreSimulator.SimRuntime.iOS-27-1}
 echo "Using $device_type on $runtime"
 simulator_name="$name Duo Screenshots"
 # Interrupted runs can leave simulators consuming resources on a persistent runner.

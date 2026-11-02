@@ -28,7 +28,7 @@ def version(app):
 def select_xcode(requested, applications=Path("/Applications")):
     preferred = [Path(requested)] if requested else []
     preferred += [applications / name / "Contents/Developer"
-                  for name in ("Xcode-27.1.app", "Xcode_27.1.app")]
+                  for name in ("Xcode_27.1.app", "Xcode-27.1.app")]
     for developer in preferred:
         if usable(developer):
             return developer

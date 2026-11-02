@@ -61,10 +61,10 @@ jobs:
     concurrency:
       group: testflight-${{ matrix.app }}
       cancel-in-progress: false
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
+    runs-on: xcode-27
     timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
       FASTLANE_SKIP_UPDATE_CHECK: '1'
@@ -118,7 +118,7 @@ jobs:
           security unlock-keychain -p "$keychain_password" "$keychain"
           security import "$certificate" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain"
-          # Add to the search list rather than replacing it, so a self-hosted Mac keeps its own keychains.
+          # Preserve the hosted runner's login keychain alongside the temporary signing keychain.
           security list-keychains -d user | xargs > "$RUNNER_TEMP/$APP-keychains-before"
           # shellcheck disable=SC2046
           security list-keychains -d user -s "$keychain" $(cat "$RUNNER_TEMP/$APP-keychains-before")

@@ -47,10 +47,10 @@ jobs:
   screenshots:
     needs: resolve
     if: ${{ !inputs.skip_screenshots }}
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 45
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       APP: ${{ needs.resolve.outputs.app }}
     steps:
       - uses: actions/checkout@v4
@@ -72,9 +72,10 @@ jobs:
   app-store-connect:
     needs: [resolve, screenshots]
     if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.screenshots.result == 'success' || needs.screenshots.result == 'skipped') }}
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 30
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       FASTLANE_SKIP_UPDATE_CHECK: '1'
       FASTLANE_HIDE_CHANGELOG: '1'
       FASTLANE_SKIP_DOCS: '1'

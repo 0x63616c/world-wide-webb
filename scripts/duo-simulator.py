@@ -7,6 +7,7 @@ screen; display IDs and fold syntax are never assumed from device dimensions.
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -14,9 +15,18 @@ import time
 
 
 def simctl(*args, check=False):
-    return subprocess.run(["xcrun", "simctl", *args], text=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                          timeout=30, check=check)
+    timeout = float(os.environ.get("DUO_SIMCTL_TIMEOUT", "180"))
+    # Cold CoreSimulator startup can stall even help (including subcommand help).
+    # Only retry read-only probes; a timed-out mutation may already have applied.
+    attempts = 2 if args and args[0] in ("help", "list") else 1
+    for attempt in range(attempts):
+        try:
+            return subprocess.run(["xcrun", "simctl", *args], text=True,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  timeout=timeout, check=check)
+        except subprocess.TimeoutExpired:
+            if attempt == attempts - 1:
+                raise
 
 
 def fold_candidates(udid, help_text):

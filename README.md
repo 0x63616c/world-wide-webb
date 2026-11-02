@@ -11,7 +11,13 @@ Native Apple apps, shared design, and their websites. This repository is still n
 
 Native builds require macOS and Xcode 26.2 or later. Tendr and Blockr use XcodeGen 2.44.1: run `xcodegen generate` inside the app directory after changing `project.yml`. Open the app’s `.xcodeproj`; schemes are `Still` and `Blockr` respectively. Simulator builds use `CODE_SIGNING_ALLOWED=NO`. Blockr also has a `BlockrMac` scheme; its [README](apps/blockr/README.md) documents the Mac content filter, iCloud switch and current distribution-signing blocker. Blockr uses Xcode 27.
 
-Shared release commands run from the repository root with `app:<slug>`; see [docs/RELEASE.md](docs/RELEASE.md). CI selects changed apps using `scripts/affected --intent verify`. `MACOS_RUNNER` may be a runner label or a JSON label array; the default is `macos-latest`. `DEVELOPER_DIR` defaults to `/Applications/Xcode_26.2.app/Contents/Developer`. Override it when the selected runner installs a newer supported Xcode elsewhere.
+Shared release commands run from the repository root with `app:<slug>`; see [docs/RELEASE.md](docs/RELEASE.md). CI selects changed apps using `scripts/affected --intent verify`.
+
+## macOS CI
+
+All macOS CI runs on GitHub-hosted `xcode-27` runners with Xcode 27.1 selected explicitly at `/Applications/Xcode_27.1.app/Contents/Developer`. Workflows do not read the legacy `MACOS_RUNNER` or `DEVELOPER_DIR` repository variables. Simulator captures use iOS 27.0 (iPhone 17, or iPhone 18 Pro Max for 1320×2868 App Store captures); Duo uses iOS 27.1. Native builds use generic simulator destinations. macOS jobs allow 60 minutes on the smaller hosted machines.
+
+[scripts/setup-mac-runner.sh](scripts/setup-mac-runner.sh) remains optional legacy setup for a local/self-hosted Mac. Its repository-variable options do not select runners or Xcode for this repository's CI.
 
 ```sh
 ruby scripts/check-release.rb

@@ -39,7 +39,7 @@ family_controls: true
 regenerate_profiles: true
 beta_description: Choose apps and websites, then commit to a timed lock. Groups and custom durations with local Screen Time protection on iPhone and iPad. Mac companion with honest protection status.
 swift_package: true
-developer_dir: /Applications/Xcode-27.0.app/Contents/Developer
+developer_dir: /Applications/Xcode_27.1.app/Contents/Developer
 screenshot_test: BlockrUITests/ScreenshotTests
 pr_screenshot_test: BlockrUITests/ScreenshotTests
 site: blockr

@@ -26,10 +26,10 @@ jobs:
   icon:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 15
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - name: Regenerate icon assets
@@ -61,15 +61,15 @@ jobs:
   launch-screen:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 30
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - name: Build for the simulator
         run: |
-          xcodebuild build -project apps/tendr/Still.xcodeproj -scheme Still -sdk iphonesimulator -configuration Debug \
+          xcodebuild build -project apps/tendr/Still.xcodeproj -scheme Still -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug \
             -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO -quiet
           app=build/DerivedData/Build/Products/Debug-iphonesimulator/Tendr.app
           [[ -d "$app" ]] || app=$(find build/DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -1)
@@ -78,8 +78,8 @@ jobs:
           plutil -extract CFBundleIcons json -o - "$app/Info.plist"
       - name: Photograph the launch screen
         run: |
-          runtime=$(xcrun simctl list runtimes --json | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x["platform"]=="iOS" and x["isAvailable"]]; print(r[-1]["identifier"])')
-          udid=$(xcrun simctl create "Launch" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max "$runtime")
+          runtime=com.apple.CoreSimulator.SimRuntime.iOS-27-0
+          udid=$(xcrun simctl create "Launch" com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$runtime")
           scripts/boot-simulator.sh "$udid" 300
           xcrun simctl status_bar "$udid" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
             --cellularMode active --cellularBars 4 --operatorName "" --batteryState discharging --batteryLevel 100

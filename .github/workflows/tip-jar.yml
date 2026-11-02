@@ -26,17 +26,17 @@ jobs:
   tip-jar:
     needs: changes
     if: github.event_name == 'workflow_dispatch' || contains(fromJSON(needs.changes.outputs.apps), 'tendr')
-    runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 30
+    runs-on: xcode-27
+    timeout-minutes: 60
     env:
-      DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - name: Build for testing
         timeout-minutes: 15
         run: |
-          runtime=$(xcrun simctl list runtimes --json | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x["platform"]=="iOS" and x["isAvailable"]]; print(r[-1]["identifier"])')
-          udid=$(xcrun simctl create "Tip Jar" com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max "$runtime")
+          runtime=com.apple.CoreSimulator.SimRuntime.iOS-27-0
+          udid=$(xcrun simctl create "Tip Jar" com.apple.CoreSimulator.SimDeviceType.iPhone-17 "$runtime")
           echo "UDID=$udid" >> "$GITHUB_ENV"
           scripts/boot-simulator.sh "$udid" 300
           xcodebuild build-for-testing -project apps/tendr/Still.xcodeproj -scheme Still -destination "id=$udid" \
