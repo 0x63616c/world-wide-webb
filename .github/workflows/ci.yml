@@ -57,7 +57,9 @@ jobs:
           xcodebuild -project Callkeep.xcodeproj -scheme Callkeep -configuration Release \
             -derivedDataPath build ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build
-          lipo -verify_arch arm64 x86_64 build/Build/Products/Release/Callkeep.app/Contents/MacOS/Callkeep
+          for arch in arm64 x86_64; do
+            lipo build/Build/Products/Release/Callkeep.app/Contents/MacOS/Callkeep -verify_arch "$arch"
+          done
           codesign --verify --deep --strict build/Build/Products/Release/Callkeep.app
           ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Callkeep.app "Callkeep-$VERSION.zip"
       - name: Publish release
