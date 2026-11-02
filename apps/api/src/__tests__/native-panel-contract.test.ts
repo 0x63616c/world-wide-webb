@@ -7,6 +7,7 @@ vi.mock("@features/ctrl/service", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@features/ctrl/service")>()),
   getControlsState: vi.fn(),
   toggleControl: vi.fn(),
+  setFanMode: vi.fn(),
   setLampScene: vi.fn(),
   setLampColor: vi.fn(),
   setWhiteKelvin: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("@features/sound/sonos-write-service", async (importOriginal) => ({
 
 import {
   getControlsState,
+  setFanMode,
   setLampBrightness,
   setLampColor,
   setLampMode,
@@ -107,6 +109,32 @@ describe("native-panel plain tRPC HTTP contracts through the generated app route
       expect(await response.json()).toEqual(expected);
       expect(service).toHaveBeenLastCalledWith(...args);
     }
+  });
+
+  it.each([
+    "off",
+    "auto",
+    "on",
+  ] as const)("routes explicit fan %s over plain tRPC HTTP", async (mode) => {
+    const expected = fixture("controls");
+    expected.result.data.fan = {
+      on: mode === "on",
+      sub: mode === "off" ? "Off" : mode === "on" ? "On" : "Auto",
+      pending: false,
+      modes: ["off", "auto", "on"],
+      mode,
+    };
+    vi.mocked(setFanMode).mockResolvedValueOnce(expected.result.data);
+    const response = await request("controls.setFanMode", { mode }, true);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(expected);
+    expect(setFanMode).toHaveBeenCalledExactlyOnceWith(mode);
+  });
+
+  it("rejects unknown fan modes before dispatch", async () => {
+    const response = await request("controls.setFanMode", { mode: "invalid" }, true);
+    expect(response.status).toBe(400);
+    expect(setFanMode).not.toHaveBeenCalled();
   });
 
   it("serves sonosSeek with the same void response as existing Sonos mutations", async () => {

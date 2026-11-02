@@ -49,6 +49,8 @@ export interface DeviceClimateState {
   targetLow?: number;
   targetHigh?: number;
   fanMode?: string;
+  /** Reported-only capabilities advertised by the configured climate entity. */
+  fanModes?: string[];
   /** Reported-only: real ambient temperature from HA (current_temperature). */
   ambient?: number;
   /** Reported-only: real hvac_action from HA (cooling/heating/idle). */

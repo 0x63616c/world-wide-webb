@@ -8,6 +8,7 @@ import {
   FIXTURE_ENTITY_IDS,
   findLight,
   HaError,
+  isActivelyConditioning,
   isClimateState,
   LAMP_ENTITY_IDS,
   LIGHTS,
@@ -17,6 +18,7 @@ import {
   mergeDeviceState,
   Room,
   rgbToXy,
+  sanitizeClimateDesired,
 } from "@www/core";
 import { getLogger } from "@www/logger";
 import { eq } from "drizzle-orm";
@@ -107,6 +109,8 @@ interface LightState {
 type GroupState = LightState;
 
 interface FanState {
+  modes: FanMode[];
+  mode: string | null;
   on: boolean;
   /** Sub-label, e.g. "Medium". */
   sub: string;
@@ -171,6 +175,7 @@ const LIVING_ROOM_FIXTURE_ENTITY_IDS: readonly string[] = LIGHTS.filter(
 export const FanMode = {
   On: "on",
   Auto: "auto",
+  Off: "off",
 } as const;
 export type FanMode = (typeof FanMode)[keyof typeof FanMode];
 
@@ -234,15 +239,12 @@ async function readWhiteKelvin(): Promise<number> {
  * fan is read from the climate row's desired (with reported as the convergence
  * base for `pending`), exactly like the lamps/lights , NO live HA fan read.
  */
-interface FanEffective {
-  on: boolean;
-  sub: string;
-  pending: boolean;
-}
+type FanEffective = FanState;
 
 /** Derive the fan view from the climate device_state row (desired-authoritative). */
 function effectiveFan(row: typeof deviceState.$inferSelect | undefined): FanEffective {
-  if (!row) return { on: false, sub: "", pending: false };
+  if (!row)
+    return { on: false, sub: "", pending: false, modes: [FanMode.Auto, FanMode.On], mode: null };
   const merged = mergeDeviceState(row);
   const state = isClimateState(merged.state) ? merged.state : null;
   const fanMode = state?.fanMode ?? null;
@@ -252,14 +254,20 @@ function effectiveFan(row: typeof deviceState.$inferSelect | undefined): FanEffe
   // nothing, so surface it honestly as "Off" rather than "Auto".
   let sub = "";
   if (on) sub = "On";
-  else if (state?.mode === "off") sub = "Off";
+  else if (fanMode === FanMode.Off || state?.mode === "off") sub = "Off";
   else if (fanMode === FanMode.Auto) sub = "Auto";
   // pending is true only while the SPECIFIED desired fanMode hasn't converged with
   // reported. An absent desired fanMode means no fan intent → never pending.
   const desired = isClimateState(row.desiredState) ? row.desiredState : null;
   const reported = isClimateState(row.reportedState) ? row.reportedState : null;
-  const pending = desired?.fanMode != null && (reported?.fanMode ?? null) !== desired.fanMode;
-  return { on, sub, pending };
+  const pending =
+    desired?.fanMode != null &&
+    (reported?.fanMode ?? null) !== desired.fanMode &&
+    !(reported && isActivelyConditioning(reported));
+  const modes = reported?.fanModes?.includes(FanMode.Off)
+    ? [FanMode.Off, FanMode.Auto, FanMode.On]
+    : [FanMode.Auto, FanMode.On];
+  return { on, sub, pending, modes, mode: fanMode };
 }
 
 // ─── desired-authoritative effective state ────────────────────────────────────
@@ -609,13 +617,26 @@ async function writeDesired(
  * throws "no climate state" (parity with the other climate mutations) , you cannot
  * command a thermostat the enforcer has not yet seen.
  */
+export async function setFanMode(
+  fanMode: FanMode,
+  store: DeviceStateStore = deviceStateStore,
+): Promise<ControlsState> {
+  const row = await store.read(CLIMATE_DEVICE_ID);
+  const reported = row && isClimateState(row.reportedState) ? row.reportedState : null;
+  if (fanMode === FanMode.Off && !reported?.fanModes?.includes(FanMode.Off)) {
+    throw new Error("Thermostat does not support fan off");
+  }
+  await writeFanDesired(fanMode, store);
+  return getControlsState(store);
+}
+
 async function writeFanDesired(fanMode: FanMode, store: DeviceStateStore): Promise<void> {
   const row = await store.read(CLIMATE_DEVICE_ID);
   if (!row) throw new Error("no climate state");
   const prev = isClimateState(row.desiredState) ? row.desiredState : null;
   const reported = isClimateState(row.reportedState) ? row.reportedState : null;
   const base: DeviceClimateState = prev ?? reported ?? { mode: "off" };
-  const desired: DeviceClimateState = { ...base, fanMode };
+  const desired: DeviceClimateState = { ...sanitizeClimateDesired(base), fanMode };
   await store.updateDesired({ id: row.id, desired });
 }
 
