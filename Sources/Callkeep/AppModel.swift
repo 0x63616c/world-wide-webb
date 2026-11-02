@@ -49,7 +49,19 @@ final class AppModel {
         let documents = await ICloudDocuments.resolve()
         guard !isBusy, !isRecording else { return }
         isBusy = true
-        defer { isBusy = false }
+        let previousSelection = selectedID
+        let previousPosition = playback.currentPosition
+        let wasPlaying = playback.isPlaying
+        defer {
+            isBusy = false
+            if !showingSettings, let id = selectedID {
+                select(id)
+                if id == previousSelection {
+                    playback.seek(previousPosition)
+                    if wasPlaying { playback.play() }
+                }
+            }
+        }
         playback.stop()
         do {
             let result = try await ICloudDocuments.prepare(localRoot: store.root, legacyRoot: legacyICloudFolder, documents: documents, enabled: iCloudEnabled)

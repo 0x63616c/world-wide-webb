@@ -11,6 +11,12 @@ Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
 - Refreshed all four README screenshots as native PNG captures with alpha at the rounded window corners. Library/playback/recording use generated fixtures, isolated from the user library; Settings hides the sidebar to exclude personal metadata. See [capture details](images/README.md).
 - Cross-device synchronization and simultaneous editing remain unverified; concurrent editing is unsupported. Finder branding is checked after installing the provisioned release, because the preexisting installed Build 6 has the old folder configuration.
 
+## Shortcut label and playback refresh — Build 9
+
+- Hyper shortcuts display `HYPR + R` in Settings and recording-button help. All 28 tests pass with the updated label expectation.
+- Storage refresh now reloads the selected player after a coordinated transfer and restores its position and prior playback state. The native build displayed the selected recording’s full duration after startup refresh and retained a 10-second seek after switching away and back. Audio playback was not started for this check.
+- Updated the Settings screenshot with the actual new shortcut label.
+
 ## Historical validation
 
 

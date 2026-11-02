@@ -347,7 +347,7 @@ final class RecordingStoreTests: XCTestCase {
 
 final class ShortcutTests: XCTestCase {
     func testHyperAndModifierLabels() {
-        XCTAssertEqual(Shortcut.default.label, "HYPR R")
+        XCTAssertEqual(Shortcut.default.label, "HYPR + R")
         XCTAssertEqual(Shortcut(keyCode: 40, modifiers: Shortcut.command | Shortcut.shift, key: "K").label, "⇧⌘K")
         XCTAssertEqual(Shortcut(keyCode: 8, modifiers: Shortcut.control | Shortcut.option, key: "C").label, "⌃⌥C")
         XCTAssertFalse(Shortcut(keyCode: 15, modifiers: 0, key: "R").isValid)

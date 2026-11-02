@@ -52,7 +52,7 @@ Closing the window keeps Callkeep running. Open it again from the Dock or menu b
 
 | Action | Shortcut |
 | --- | --- |
-| Start / stop recording | **HYPR R** — ⌃⌥⇧⌘R, customizable in Settings |
+| Start / stop recording | **HYPR + R** — ⌃⌥⇧⌘R, customizable in Settings |
 | Show / hide sidebar | ⌘B |
 | Open Settings | ⌘, |
 | Import Callkeep recording folders | ⇧⌘I |

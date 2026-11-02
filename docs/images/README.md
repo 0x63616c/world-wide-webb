@@ -1,6 +1,6 @@
 # App screenshots
 
-Captured from the native macOS app on November 2, 2026 (Build 7 library/player/recording; Build 8 Settings).
+Captured from the native macOS app on November 2, 2026 (Build 7 library/player/recording; Build 9 Settings).
 
 - `library.png`: library and player, 2080 × 1380.
 - `player.png`: playback with sidebar hidden, 2080 × 1380.
