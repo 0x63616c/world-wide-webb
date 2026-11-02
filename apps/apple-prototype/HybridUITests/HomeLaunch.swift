@@ -1,79 +1,32 @@
 import XCTest
 
 extension XCUIApplication {
-    /// Exercise the shipped Home entry before the existing provider/controller suites.
+    @MainActor func openAppGrid() {
+        if buttons["app-settings"].exists && buttons["app-settings"].isHittable { return }
+        let window = windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).press(forDuration: 0.1,
+            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
+    }
     @MainActor func launchModuleFromHome() {
         launch()
         if launchArguments.contains("-hybridAlarmRinging") { return }
-        let order = ["lights", "climate", "fan", "wifi", "sonos", "weather", "photos", "walk",
-                     "alarms", "calendar", "media", "tesla", "cameras"]
-        let module = order.first { launchArguments.contains("-moduleFlag.\($0)") }
-        guard let module else {
-            XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
-            buttons["home-classic"].tap()
-            return
-        }
-        openHomeModule(module)
+        let order = ["lights", "climate", "fan", "wifi", "sonos", "weather", "photos", "walk", "alarms", "calendar", "media", "tesla", "cameras"]
+        if let module = order.first(where: { launchArguments.contains("-moduleFlag.\($0)") }) { openHomeModule(module) }
+        else { openAppGrid(); buttons["app-classic"].tap() }
     }
-
-    @MainActor func returnHomeFromModule() {
-        let qr = buttons["wifi-fullscreen-qr"]
-        if qr.exists && qr.isHittable {
-            qr.tap()
-            XCTAssertTrue(qr.waitForNonExistence(timeout: 10))
-        }
-        buttons["module-home"].tap()
-        let pager = buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "face-page-")).firstMatch
-        XCTAssertTrue(pager.waitForExistence(timeout: 30))
-    }
-
-    @MainActor func selectHomeFace(_ index: Int) {
-        let page = buttons["face-page-\(index)"]
-        XCTAssertTrue(page.waitForExistence(timeout: 30))
-        page.tap()
-        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
-        if XCTWaiter.wait(for: [selected], timeout: 5) != .completed {
-            page.tap() // Replay an absolute selection if a system interruption consumed the tap.
-            let retried = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Selected"), object: page)
-            XCTAssertEqual(XCTWaiter.wait(for: [retried], timeout: 5), .completed)
-        }
-    }
-
+    @MainActor func returnHomeFromModule() { openAppGrid() }
+    @MainActor func selectHomeFace(_ index: Int) { openAppGrid() }
     @MainActor func openHomeModule(_ module: String) {
+        openAppGrid()
         if module == "alarms" {
-            XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
-            if launchArguments.contains("-hybridUnavailable") || launchArguments.contains("web") {
-                buttons["home-classic"].tap()
-            } else {
-                open(URL(string: "controlcenter://alarms")!)
-                let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                if springboard.buttons["Open"].waitForExistence(timeout: 2) { springboard.buttons["Open"].tap() }
-            }
+            if launchArguments.contains("-hybridUnavailable") || launchArguments.contains("web") { buttons["app-classic"].tap() }
+            else { open(URL(string: "controlcenter://alarms")!) }
             return
         }
-        let tiles = ["lights": "lamps", "climate": "climate", "fan": "fan", "wifi": "wifi",
-                     "sonos": "sound", "weather": "weather", "photos": "photos", "walk": "dogwalk",
-                     "calendar": "calendar", "media": "media", "tesla": "tesla", "cameras": "cameras"]
-        let tile = tiles[module]!
-        XCTAssertTrue(buttons["home-classic"].waitForExistence(timeout: 30))
-        // Home's Classic button stays in the covered host's AX tree. The pager
-        // returns only after the selected controller has finished dismissing.
-        // WWW-54 grid Home: page 2 holds Now Playing and the overflow grid cards.
-        selectHomeFace(["wifi", "photos", "walk", "media", "cameras", "sonos"].contains(module) ? 2 : 1)
-        let container = descendants(matching: .any)["tile-\(tile)"].firstMatch
-        XCTAssertTrue(container.waitForExistence(timeout: 15))
-        if !launchArguments.contains("-hybridUnavailable") {
-            XCTAssertTrue(buttons["tile-unavailable-\(tile)"].waitForNonExistence(timeout: 30))
-        }
-        // Tap the title inset, away from inline controls (including Walk start/end).
-        container.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.15)).tap()
-        if module == "wifi", !launchArguments.contains("-hybridUnavailable"),
-           !launchArguments.contains("-hybridDetail"),
-           let index = launchArguments.firstIndex(of: "-moduleFlag.wifi"),
-           launchArguments[index + 1] == "native" {
-            let qr = buttons["wifi-fullscreen-qr"]
-            XCTAssertTrue(qr.waitForExistence(timeout: 15))
-            qr.tap() // Inspect the controller beneath its initial QR presentation.
-        }
+        let ids = ["lights": "lights", "climate": "climate", "fan": "climate", "wifi": "wifi", "sonos": "music", "weather": "weather", "photos": "photos", "walk": "walks", "calendar": "calendar", "media": "music", "tesla": "car", "cameras": "cameras"]
+        guard let id = ids[module] else { XCTFail("Missing app route for \(module)"); return }
+        buttons["app-\(id)"].tap()
+        XCTAssertTrue(descendants(matching: .any)["app-screen-\(id)"].firstMatch.waitForExistence(timeout: 15))
     }
 }
