@@ -101,7 +101,10 @@ export async function listInteractionSessions(
   const groups = await db
     .select({
       id: sql<string>`${wakePhoto.interactionSessionId}`.as("id"),
-      startedAt: sql<Date>`min(${wakePhoto.capturedAt})`.as("started_at"),
+      // Raw SQL aggregates need the column decoder to turn pg text into a Date.
+      startedAt: sql<Date>`min(${wakePhoto.capturedAt})`
+        .mapWith(wakePhoto.capturedAt)
+        .as("started_at"),
       // `deviceId` is nullable for bursts backfilled before the column existed.
       deviceId: sql<string | null>`max(${wakePhoto.deviceId})`.as("device_id"),
     })
