@@ -1018,10 +1018,10 @@ struct GridHomeFace: View {
                 Spacer()  // no date here: Clock H already shows it
             }.frame(width: HomeGrid.width, height: HomeGrid.heading)
                 .position(x: o.x + HomeGrid.width / 2, y: HomeGrid.top + HomeGrid.heading / 2)
-            ForEach(HomeGrid.placements(page: page)) { p in
-                let originalFrame = HomeGrid.frame(p, in: size)
-                let f = page == 1 && p.card == .wifi && integration?.classicTile != nil
-                    ? CGRect(origin: originalFrame.origin, size: HomeGrid.span(1, 1)) : originalFrame
+            ForEach(HomeGrid.placements(page: page)) { placement in
+                let p = placement.card == .media && integration?.classicTile != nil
+                    ? GridPlacement(.media, "B", placement.x, placement.y) : placement
+                let f = HomeGrid.frame(p, in: size)
                 let t = tile(p)
                 Group {
                     // A host with no live data for this module shows its own unavailable tile.
@@ -1039,9 +1039,9 @@ struct GridHomeFace: View {
                     .position(x: f.midX, y: f.midY)
             }
             if page == 1, let classic = integration?.classicTile {
-                classic.frame(width: HomeGrid.cell, height: HomeGrid.cell)
+                classic.frame(width: HomeGrid.span(2, 1).width, height: HomeGrid.cell)
                     .modifier(GridMaterial(on: false))
-                    .position(x: o.x + HomeGrid.cell + HomeGrid.gutter + HomeGrid.cell / 2,
+                    .position(x: o.x + 4 * (HomeGrid.cell + HomeGrid.gutter) + HomeGrid.span(2, 1).width / 2,
                               y: o.y + 3 * (HomeGrid.cell + HomeGrid.gutter) + HomeGrid.cell / 2)
             }
         }.frame(width: size.width, height: size.height)
