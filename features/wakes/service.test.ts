@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { drizzle } from "drizzle-orm/node-postgres";
+import type { Pool } from "pg";
+import { describe, expect, it, vi } from "vitest";
 
-import { getInteractionSession, summarise } from "./service";
+import * as schema from "./schema";
+import { getInteractionSession, listInteractionSessions, summarise } from "./service";
 
 const SID = "isn_aaaaaaaaaaaa";
 
@@ -28,6 +31,29 @@ describe("interaction-session summarise", () => {
     expect(s.durationMs).toBeNull();
     expect(s.endReason).toBeNull();
     expect(s.digest).toBeNull();
+  });
+});
+
+describe("listInteractionSessions", () => {
+  it.each([
+    "2026-07-18 12:40:00.123+00",
+    "2026-07-18 05:40:00.123-07",
+  ])("maps the aggregate timestamp %s before summarising the session", async (timestamp) => {
+    const path = "2026-07-18T12-40-00.123Z-0.jpg";
+    // Supply raw node-postgres rows so the real Drizzle selection decoder
+    // runs before the grouping result reaches summarise.
+    const client = {
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({ rows: [[SID, timestamp, "wall-panel"]] })
+        .mockResolvedValueOnce({ rows: [[path]] }),
+    };
+    const db = drizzle(client as unknown as Pool, { schema });
+
+    expect(await listInteractionSessions(db)).toEqual([
+      summarise(SID, Date.UTC(2026, 6, 18, 12, 40, 0, 123), "wall-panel", [path]),
+    ]);
+    expect(client.query).toHaveBeenCalledTimes(2);
   });
 });
 
