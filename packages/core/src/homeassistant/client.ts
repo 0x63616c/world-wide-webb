@@ -39,7 +39,7 @@ export interface HomeAssistantClientOptions {
  * Env-free: callers (apps/api's singleton, features building their own instance,
  * tests) provide `{ baseUrl, token }` explicitly. Construct via
  * `createHomeAssistantClient`. Every request carries a 5s timeout and the bearer
- * `token`. When the token is empty (`isConfigured()` is false) the api still
+ * `token`. When the URL or token is empty (`isConfigured()` is false) the api still
  * boots; callers should check `isConfigured()` and degrade to placeholder data
  * rather than firing requests that will 401.
  */
@@ -52,9 +52,9 @@ export class HomeAssistantClient {
     this.token = opts.token;
   }
 
-  /** True only when a token is present. */
+  /** True only when both the URL and token are present. */
   isConfigured(): boolean {
-    return this.token.length > 0;
+    return this.baseUrl.length > 0 && this.token.length > 0;
   }
 
   private authHeaders(): Record<string, string> {
@@ -107,9 +107,14 @@ export class HomeAssistantClient {
     return res.json() as Promise<T>;
   }
 
+  /** All validated entities from HA's cached state, without polling devices. */
+  async getAllEntities(): Promise<HaEntity[]> {
+    return z.array(haEntitySchema).parse(await this.request<unknown>("/api/states"));
+  }
+
   /** All entities in a domain (e.g. "light", "climate"). */
   async getEntities(domain: string): Promise<HaEntity[]> {
-    const all = z.array(haEntitySchema).parse(await this.request<unknown>("/api/states"));
+    const all = await this.getAllEntities();
     return all.filter((e) => e.entity_id.startsWith(`${domain}.`));
   }
 

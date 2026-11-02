@@ -1,4 +1,4 @@
-# Tesla HA API (WWW-36)
+# Tesla HA API (WWW-36, WWW-88)
 
 This API-only feature adds no tiles or changes to existing procedures. Native
 clients use GET /trpc/tesla.state and POST /trpc/tesla.command. The web app
@@ -7,22 +7,39 @@ is not deployed.
 
 The existing shared Home Assistant client uses server-side HA_URL and HA_TOKEN.
 No Fleet OAuth flow, vehicle credentials, entity IDs, VIN, coordinates, or HA
-attributes are sent to the panel. The repo's climate service already excludes
-the legacy Tesla climate naming prefix; actual production integration availability
-must be checked before rollout. The verification Mac only has an orbstack
-Kubernetes context, not home-server credentials.
+attributes are sent to the panel. The climate service and Tesla discovery share
+`TESLA_ENTITY_PREFIX` from `features/ac/config.ts` (currently `evee`).
 
 ## Configure
 
 Set the optional server environment variable TESLA_ENTITIES to a JSON object
 with these keys. Supply actual entity IDs in deployment configuration, never in
-source control. There are no naming defaults or discovery guesses.
+source control. A valid complete mapping overrides discovery, including for
+commands; invalid or unset JSON falls back to discovery.
+
+Discovery reads HA's cached `/api/states` and restricts object IDs to
+`${TESLA_ENTITY_PREFIX}_`. It matches domains, suffixes, units, and battery
+`device_class`, covering Fleet/Teslemetry names (`battery_level`, `battery_range`,
+`charging`, `charger_power`, `inside_temperature`, `lock`, `climate`, `charge`)
+and common tesla_custom variants (`battery`, `range`, `charging`,
+`temperature_inside`, `charger`). API-path suffixes such as
+`charge_state_charging_state` and `climate_state_inside_temp` also work.
+Numeric roles require the units in the table. Odometer may need enabling in HA.
+
+All nine roles are required, including the charge switch. Canonical names take
+priority; remaining ties use entity ID order, independent of HA response order.
+Vehicle lock/climate fallbacks exclude charge-cable/port locks and cabin overheat
+protection. Renamed entities that no longer match these conventions require an
+explicit mapping. Successful discovery is cached for five minutes, shared by
+reads and commands; failures invalidate it so the next request discovers again.
+Concurrent requests share an in-flight discovery. Incomplete discovery is not
+cached.
 
 | Key | HA domain | Reading / action |
 | --- | --- | --- |
 | battery | sensor | Percent (%) |
 | range | sensor | Battery range (mi or km) |
-| charging | sensor | charging, stopped, complete, disconnected, no_power, starting |
+| charging | sensor or binary_sensor | charging, stopped, complete, disconnected, no_power, starting; binary on/off becomes charging/stopped |
 | power | sensor | Charger power (W or kW) |
 | odometer | sensor | Odometer (mi or km; may need enabling in HA) |
 | temperature | sensor | Inside temperature (°C or °F) |
@@ -37,7 +54,12 @@ Existing compatible HA integrations can use the same mapping. This API reads HA'
 cached entity state and does not wake a sleeping vehicle or force a Fleet poll.
 HA controls freshness and command signing.
 
-Missing/invalid config returns {status:"unconfigured",data:null}. Missing,
+Missing HA_URL or HA_TOKEN returns {status:"unconfigured",data:null}.
+Configured HA with incomplete discovery returns, for example,
+`{status:"unavailable",reason:"Missing Tesla entities: range, odometer",data:null}`.
+The optional reason lists roles only; no entity IDs or upstream errors are exposed.
+PanelKit already decodes `unavailable` and ignores extra keys, so this is compatible
+with the existing native decoder. Missing,
 unavailable, unsupported, or malformed readings return
 {status:"unavailable",data:null}. Complete readings return status ready with
 batteryPercent, rangeMiles, chargingState, chargePowerKW, locked, climateOn,
@@ -66,9 +88,13 @@ issued during development.
 ## Verification
 
 - bun run typecheck
-- cd apps/api && bunx vitest run
+- bun run lint
+- bun run test:unit
+- bun run knip
 - bun run apps:check
 
 Fixtures are synthetic. Tests cover configuration, bounds and unit conversion,
 all six service targets, malformed/unavailable data, PIN failures, missing settings,
-database failures, and generic upstream errors.
+database failures, generic upstream errors, prefix/domain/unit filtering, naming
+variants and priorities, discovery expiry, concurrent requests, override precedence,
+and recovery after failures. Fixtures do not verify the live HA inventory.

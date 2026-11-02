@@ -27,6 +27,7 @@ function fixture() {
   };
   const client = {
     isConfigured: () => true,
+    getAllEntities: vi.fn(async (): Promise<HaEntity[]> => []),
     getEntity: vi.fn(async (id: string): Promise<HaEntity> => {
       const [state, unit] = values[id] ?? ["unavailable"];
       return {
@@ -41,13 +42,15 @@ function fixture() {
   return { values, client, service: createTeslaService(client, () => ids) };
 }
 describe("Tesla HA adapter", () => {
-  it("requires explicit complete domain-checked config, never discovers a vehicle by name", async () => {
+  it("validates explicit config and reserves unconfigured for missing HA credentials", async () => {
     for (const raw of [undefined, "", "{", "{}", JSON.stringify({ ...ids, lock: "switch.wrong" })])
       expect(parseEntities(raw)).toBeNull();
     expect(parseEntities(JSON.stringify(ids))).toEqual(ids);
     const { client } = fixture();
     expect(await createTeslaService(client, () => null).state()).toEqual({
-      status: "unconfigured",
+      status: "unavailable",
+      reason:
+        "Missing Tesla entities: battery, range, charging, power, odometer, temperature, lock, climate, chargeSwitch",
       data: null,
     });
     expect(client.getEntity).not.toHaveBeenCalled();
