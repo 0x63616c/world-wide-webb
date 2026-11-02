@@ -37,6 +37,14 @@ struct PanelHome: View {
             .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("native-home")
+            .overlay(alignment: .topLeading) {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-hybridControlWrites") {
+                    Text(HybridControlWriteTrace.shared.value).font(.caption2)
+                        .accessibilityIdentifier("fixture-control-write").allowsHitTesting(false)
+                }
+                #endif
+            }
             .overlay(alignment: .bottomTrailing) {
                 Button(action: presentation.navigation.openClassic) {
                     Label("Classic", systemImage: "safari").font(.body)

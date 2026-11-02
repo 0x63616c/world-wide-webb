@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PanelKit
+import OSLog
 
 @MainActor protocol LightsProvider: AnyObject, Observable {
     var lamps: LampState { get }
@@ -149,6 +150,7 @@ import PanelKit
 
     private func fail(_ error: any Error, lifecycle: Int) {
         guard self.lifecycle == lifecycle else { return }
+        Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Lights provider request failed")
         queue.removeAll()
         mutationTask = nil
         render()

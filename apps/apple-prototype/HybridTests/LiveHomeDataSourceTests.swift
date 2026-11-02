@@ -5,11 +5,11 @@ import PanelKit
 @testable import Panel
 
 @MainActor final class LiveHomeDataSourceTests: XCTestCase {
-    private func fixtureTransport() throws -> HybridFixtureTransport {
+    private func fixtureTransport(writes: Bool = false, fanOffSupported: Bool = false, unavailable: Bool = false) throws -> HybridFixtureTransport {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL)
             .appendingPathComponent("Fixtures")
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("all-on.json").path))
-        return HybridFixtureTransport(root: root)
+        return HybridFixtureTransport(root: root, unavailable: unavailable, controlWrites: writes, fanOffSupported: fanOffSupported)
     }
 
     private func source(_ transport: HybridFixtureTransport) -> LiveHomeDataSource {
@@ -295,6 +295,92 @@ import PanelKit
         requests = await transport.requests
         XCTAssertEqual(requests.count, before)
         store.stop()
+    }
+
+    func testEveryInlineControlReachesTheExactBackendProcedureAndInput() async throws {
+        let cases: [(HomeCommand, String, Any)] = [
+            (.toggle(.lamps), "controls.toggle", ["key": "lamps", "on": false] as [String: Any]),
+            (.toggle(.lights), "controls.toggle", ["key": "lights", "on": false] as [String: Any]),
+            (.toggle(.bedroom), "controls.toggle", ["key": "bedroomLamps", "on": false] as [String: Any]),
+            (.toggle(.livingRoom), "controls.toggle", ["key": "otherLamps", "on": false] as [String: Any]),
+            (.toggle(.ceiling), "controls.toggle", ["key": "ceiling", "on": false] as [String: Any]),
+            (.toggle(.cabinet), "controls.toggle", ["key": "cabinet", "on": false] as [String: Any]),
+            (.toggle(.all), "controls.toggle", ["key": "all", "on": false] as [String: Any]),
+            (.brightness(30), "controls.setLampBrightness", ["pct": 30] as [String: Any]),
+            (.kelvin(3200), "controls.setWhiteKelvin", ["kelvin": 3200] as [String: Any]),
+            (.scene("white"), "controls.setLampScene", ["scene": "white"] as [String: Any]),
+            (.color(0, "#123456"), "controls.setLampColor", ["slot": "red", "hex": "#123456"] as [String: Any]),
+            (.party(.fast), "controls.setLampMode", ["mode": "party", "speed": "fast"] as [String: Any]),
+            (.mode(.heat), "climate.setMode", "heat"),
+            (.target(72), "climate.setTarget", 72),
+            (.low(68), "climate.setRange", ["low": 68, "high": 73] as [String: Any]),
+            (.high(74), "climate.setRange", ["low": 67, "high": 74] as [String: Any]),
+            (.shiftRange(1), "climate.setRange", ["low": 68, "high": 74] as [String: Any]),
+            (.toggle(.fan), "controls.toggle", ["key": "fan", "on": false] as [String: Any]),
+            (.fan(true), "controls.toggle", ["key": "fan", "on": true] as [String: Any]),
+            (.fan(false), "controls.toggle", ["key": "fan", "on": false] as [String: Any]),
+            (.fanMode("on"), "controls.toggle", ["key": "fan", "on": true] as [String: Any]),
+            (.fanMode("auto"), "controls.toggle", ["key": "fan", "on": false] as [String: Any]),
+            (.fanMode("off"), "controls.setFanMode", ["mode": "off"] as [String: Any]),
+        ]
+        for (command, procedure, input) in cases {
+            let transport = try fixtureTransport(writes: true, fanOffSupported: true)
+            let store = source(transport)
+            for module in [PanelModule.lights, .climate, .fan] { await store.refresh(module) }
+            store.send(command)
+            try await waitFor { store.pending.isEmpty }
+            let writes = await transport.requests.filter { $0.httpMethod == "POST" }
+            XCTAssertEqual(writes.count, 1, procedure)
+            let request = try XCTUnwrap(writes.first, procedure)
+            XCTAssertEqual(request.url?.lastPathComponent, procedure)
+            let actual = try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody), options: .fragmentsAllowed)
+            let actualJSON = try JSONSerialization.data(withJSONObject: actual, options: [.fragmentsAllowed, .sortedKeys])
+            let expectedJSON = try JSONSerialization.data(withJSONObject: input, options: [.fragmentsAllowed, .sortedKeys])
+            XCTAssertEqual(actualJSON, expectedJSON, procedure)
+            XCTAssertNil(store.errorMessage)
+            store.stop()
+        }
+    }
+
+    func testUnloadedAndUnsupportedCommandsExposeAnErrorWithoutNetworkWrites() async throws {
+        let transport = try fixtureTransport()
+        let store = source(transport)
+        for command in [HomeCommand.toggle(.lamps), .brightness(30), .kelvin(3000), .scene("white"),
+                        .mode(.heat), .target(72), .low(68), .high(74), .fan(true), .fanMode("off"), .playMedia("fixture", 0)] {
+            let revision = store.errorRevision
+            store.send(command)
+            XCTAssertNotNil(store.errorMessage)
+            XCTAssertEqual(store.errorRevision, revision + 1)
+        }
+        let requests = await transport.requests
+        XCTAssertTrue(requests.isEmpty)
+    }
+
+    func testUnavailableModulesRejectCommandsVisiblyAfterFailedRefresh() async throws {
+        let transport = try fixtureTransport(unavailable: true)
+        let store = source(transport)
+        let cases: [(PanelModule, HomeCommand)] = [(.lights, .toggle(.lamps)), (.climate, .target(72)), (.fan, .fan(false))]
+        for (module, command) in cases {
+            await store.refresh(module)
+            XCTAssertFalse(store.hasLiveData(for: module))
+            let revision = store.errorRevision
+            store.send(command)
+            XCTAssertNotNil(store.errorMessage)
+            XCTAssertEqual(store.errorRevision, revision + 1)
+        }
+        let writes = await transport.requests.filter { $0.httpMethod == "POST" }
+        XCTAssertTrue(writes.isEmpty)
+    }
+
+    func testFanWithoutOffCapabilityRejectsOffVisibly() async throws {
+        let transport = try fixtureTransport(writes: true)
+        let store = source(transport)
+        await store.refresh(.fan)
+        XCTAssertEqual(store.climate.fanModes, ["auto", "on"])
+        store.send(.fanMode("off"))
+        XCTAssertNotNil(store.fanProvider.errorMessage)
+        let writes = await transport.requests.filter { $0.httpMethod == "POST" }
+        XCTAssertTrue(writes.isEmpty)
     }
 
     func testPollingIsScopedAndCancellationStopsRequests() async throws {

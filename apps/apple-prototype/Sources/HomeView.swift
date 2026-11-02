@@ -342,7 +342,7 @@ struct TileFace: View {
                     setpointButton("chevron.up", label: "Raise setpoint", delta: 1)
                 }.padding(.bottom, 8)
             }.padding(38)
-                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(26) } }
+                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(26).allowsHitTesting(false) } }
 
         }
     }
@@ -388,10 +388,10 @@ struct AccessoryFace: View {
                 }.font(.system(size: 64, weight: .regular))
                     .foregroundStyle(on ? Color.orange : .white)
                     .frame(width: 120, height: 100)
-                    .background { if key != .fan { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180) } }
-                    .overlay(alignment: .topTrailing) { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white) } }
+                    .background { if key != .fan { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180).allowsHitTesting(false) } }
+                    .overlay(alignment: .topTrailing) { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white).allowsHitTesting(false) } }
             }.buttonStyle(.plain).padding(.bottom, 20)
-                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
+                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(key == .fan ? store.climate.fanLabel : on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
             Button(action: open) {
                 VStack(spacing: 7) {
                     Text(title).font(.system(size: key == .cabinet ? 30 : 32, weight: .semibold)).lineLimit(1)

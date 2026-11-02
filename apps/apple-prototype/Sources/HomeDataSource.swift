@@ -47,6 +47,8 @@ struct ClimateState {
     var fanOn = false
     var reportedFanLabel: String? = nil
     var reportedAction: String? = nil
+    var fanModes: [String] = ["auto", "on"]
+    var selectedFanMode: String? = nil
     var fanLabel: String { reportedFanLabel ?? (mode == .off ? "Off" : fanOn ? "On" : "Auto") }
     var action: String {
         if let reportedAction { return reportedAction }
@@ -261,6 +263,7 @@ struct SoundRoom: Identifiable {
 }
 enum HomeCommand {
     case fan(Bool)
+    case fanMode(String)
     case toggle(Accessory), brightness(Int), kelvin(Int), scene(String), color(Int, String?), party(PartySpeed)
     case mode(ClimateMode), target(Int), low(Int), high(Int), shiftRange(Int)
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
@@ -374,9 +377,17 @@ extension HomeDataSource {
     }
     func send(_ command: HomeCommand) {
         switch command {
-        case .fan(let on): climate.fanOn = on; markPending("fan")
+        case .fanMode(let mode):
+            climate.fanOn = mode == "on"; climate.selectedFanMode = mode
+            climate.reportedFanLabel = mode.capitalized; markPending("fan")
+        case .fan(let on):
+            climate.fanOn = on; climate.selectedFanMode = on ? "on" : "auto"
+            climate.reportedFanLabel = nil; markPending("fan")
         case .toggle(let key):
-            if key == .fan { climate.fanOn.toggle(); markPending("fan"); return }
+            if key == .fan {
+                climate.fanOn.toggle(); climate.selectedFanMode = climate.fanOn ? "on" : "auto"
+                climate.reportedFanLabel = nil; markPending("fan"); return
+            }
             let on = !lamps.isOn(key)
             switch key {
             case .all: lamps.on = Array(repeating: on, count: 8); lamps.ceiling = on; lamps.cabinet = on

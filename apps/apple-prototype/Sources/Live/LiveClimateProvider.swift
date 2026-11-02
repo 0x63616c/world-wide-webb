@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import PanelKit
+import OSLog
 
 @MainActor protocol ClimateProvider: AnyObject, Observable {
     var climate: ClimateState? { get }
@@ -142,6 +143,7 @@ import PanelKit
     }
 
     private func fail(_ error: any Error) {
+        Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Climate provider request failed")
         lastError = error as? PanelAPIError
         availability = .unavailable(lastError?.localizedDescription ?? "Climate is unavailable. Try again.")
     }

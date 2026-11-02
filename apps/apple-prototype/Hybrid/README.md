@@ -1321,26 +1321,44 @@ screens at 1366×1024. UI fixture launches isolate their cache from production:
 the synthetic fixture cache. Normal fixture launches remain memory-only.
 
 
-## Grid controls (WWW-81)
+## Grid controls (WWW-81, WWW-87)
 
-The Fan segments and glyph send absolute fan intent through `LiveFanProvider`
-and PanelKit's `FanAPI.toggle(on:)` to `controls.toggle` with `{key: "fan", on}`.
-This is the web Controls path: it updates the thermostat device-state row's
-`desired.fanMode`, and the climate enforcer calls Home Assistant's
-`climate.set_fan_mode` on the configured `CLIMATE_ENTITY_ID` (default
-`climate.home`). No `fan.*` entity, `fan.turn_off`, or preset service is involved.
-On forces circulation; Off and Auto both release it with `fan_mode: "auto"`.
-The returned label is Auto while HVAC is enabled and Off while HVAC is off.
-Selecting Off does not disable heating or cooling, matching the web switch.
+The fan glyph and Auto/On segments send `controls.toggle({key: "fan", on})`:
+On forces circulation, and false selects Auto. A real Off segment sends
+`controls.setFanMode({mode: "off"})`. The controls response includes optional `fan.modes`
+and `fan.mode`; native defaults to Auto/On when an older server omits them.
+Off appears only when the configured climate entity advertises `off` in its
+`fan_modes`. The enforcer records those capabilities from `CLIMATE_ENTITY_ID`
+(default `climate.home`); it never commands a separate `fan.*` entity or disables
+HVAC to imitate fan Off. The status label may still say Off when HVAC is off,
+while the selected intent remains Auto.
+
+A fresh command window sends fan intent once even while heating/cooling. Later
+blower reports do not cause repeated fan pushes or a permanently pending fan.
+An unchanged blower report when conditioning ends cannot overwrite the choice;
+a subsequent observable external fan change while idle can be adopted.
 
 Fan commands update immediately, serialize writes, ignore stale reads, and roll
 back to the last acknowledgement on failure. Failures use the shared notification
-banner and leave controls available for retry. Grid disclosure is a background
-button behind the content; inline buttons and the lamp brightness slider have
-independent hit regions. Each visible grid card supplies the source for its
-full-screen zoom, and the destination fills its presentation container.
+banner and leave controls available for retry. `LiveHomeDataSource` reports and
+logs commands rejected because a module is not live, a target is invalid, or no
+live implementation exists (including the prototype media fixture library).
+Provider request failures also log without exposing transport payloads.
 
-`PanelUITests/GridInteractionTests` covers the segments, rollback banner,
-Lights, brightness, temperature stepping, and repeated centered full-screen Fan
-presentation. The unsigned Panel smoke workflow runs this suite and retains its
-XCTest screenshots alongside the existing Home launch evidence.
+Grid disclosure is a background button behind the content. Inline buttons and
+the lamp brightness slider have independent hit regions, decorative lamp glows
+and progress overlays ignore touches, and the fan glyph stays within its layout
+bounds. Each visible grid card supplies the source for its full-screen zoom,
+and the destination fills its presentation container. There are no enclosing
+card tap gestures in HomeGrid, HomeView, or PanelHome. Scenes and climate modes
+live in their controllers, with their own buttons.
+
+`PanelTests/LiveHomeDataSourceTests` records the exact plain tRPC procedure and
+input for every lighting, climate and fan control. `PanelUITests/GridInteractionTests`
+checks the fixture transport's write trace as well as staying on Home; it covers
+all three inline light toggles, brightness, both temperature buttons, supported
+fan segments and the glyph, rollback banners, and repeated full-screen Fan
+presentation. `-hybridControlWrites` enables this debug-only recorder;
+`-hybridFanOffSupported` adds a thermostat advertising real Off. Normal fixture
+runs reject writes. The unsigned Panel smoke workflow runs the UI suite and
+retains its XCTest screenshots alongside the existing Home launch evidence.

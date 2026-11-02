@@ -10,6 +10,11 @@ public struct FanAPI: Sendable {
 
     public init(client: PanelAPIClient) { self.client = client }
 
+    public func setMode(_ mode: String) async throws -> FanSnapshot {
+        struct Input: Encodable, Sendable { let mode: String }
+        return try await client.mutation("controls.setFanMode", input: Input(mode: mode), as: FanSnapshot.self)
+    }
+
     public func list() async throws -> FanSnapshot {
         try await client.query("controls.list", as: FanSnapshot.self)
     }

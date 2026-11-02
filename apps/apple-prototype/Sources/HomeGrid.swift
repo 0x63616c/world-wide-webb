@@ -759,15 +759,15 @@ struct GridFan: View {
     var showsInlineToggle = false
     private var on: Bool { fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off) }
     private var label: String { fanLabel ?? store.climate.fanLabel }
-    // Web parity: Off releases forced circulation (fan_mode=auto); HVAC may
-    // still run its blower. The reported label distinguishes Auto from HVAC Off.
-    private func select(_ value: String) { store.send(.fan(value == "On")) }
+    private var modes: [String] { store.climate.fanModes.map { $0.capitalized } }
+    private var selected: String { store.climate.selectedFanMode?.capitalized ?? (on ? "On" : "Auto") }
+    private func select(_ value: String) { store.send(.fanMode(value.lowercased())) }
     /// The glyph toggles the fan in place; the rest of the card opens the controller.
     private func toggle(_ size: CGFloat) -> some View {
         Button { store.send(.toggle(.fan)) } label: {
             FanSymbol(on: on).font(.system(size: size)).frame(minWidth: 44, minHeight: 44, alignment: .topTrailing)
-        }.buttonStyle(.plain).padding(-10)
-            .accessibilityLabel("Toggle Fan").accessibilityValue(on ? "On" : "Off").accessibilityIdentifier("toggle-fan")
+        }.buttonStyle(.plain)
+            .accessibilityLabel("Toggle Fan").accessibilityValue(label).accessibilityIdentifier("toggle-fan")
     }
     var body: some View {
         switch v {
@@ -788,13 +788,13 @@ struct GridFan: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) { Cap("Fan", 22, .semibold); Spacer(); toggle(26) }
                 Spacer(minLength: 0)
-                Segments(items: ["Off", "Auto", "On"], selected: label, select: select).frame(height: 60)
+                Segments(items: modes, selected: selected, select: select).frame(height: 60)
             }.padding(HomeGrid.inset)
         default:
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) { Cap("Fan", 20, .semibold); Spacer(); toggle(24) }
                 Spacer(minLength: 0)
-                Segments(items: ["On", "Auto", "Off"], selected: label, vertical: true, select: select).frame(height: 228)
+                Segments(items: Array(modes.reversed()), selected: selected, vertical: true, select: select).frame(height: 228)
             }.padding(HomeGrid.inset)
         }
     }
