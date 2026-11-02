@@ -31,10 +31,17 @@ release. It does not claim a 10x reduction in cold compilation or Apple processi
   Xcode and suite, including SwiftPM manifest caches, then always rebuild and run
   their full selected suites. Unit simulators start after compilation: overlapping
   startup did not establish a speed improvement on the small Intel runners.
+  A follow-up Panel job (125547635631) had a cache miss yet compiled in 126
+  seconds after removing early boot, versus the preceding much slower run.
+  Smoke now also leaves simulator boot to XCTest after compilation.
   Cold native jobs allow 40 minutes after an observed 20-minute compile timeout;
   that is a reliability ceiling, not a claimed speed improvement.
 - Bun caches downloaded packages; installs still validate the frozen lockfile.
 - Superseded PR smoke runs cancel; signing/upload runs retain their shared lock.
+- Simulator cache keys include the ref, preventing reservation conflicts with
+  inaccessible caches from another PR. The first live save exposed this conflict
+  as a warning despite the action reporting success; do not infer a cache save
+  solely from a green action step.
 - Simulator products are saved immediately after a successful build, before UI
   tests. A test failure or timeout no longer discards the completed compilation.
 - Smoke uses the generated xctestrun file directly rather than reopening the

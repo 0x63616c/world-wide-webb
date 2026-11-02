@@ -137,19 +137,18 @@ jobs:
 
       # Products only: test-without-building needs no compiler intermediates.
       # Exact source tree + toolchain + architecture; never restore a partial match.
+      # Namespace by ref: inaccessible PR caches can still conflict on reservation.
       # Main push checks populate the default-branch cache before release dispatch.
       - name: Restore simulator test products
         id: products
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/panel-smoke-build/Build/Products
-          key: panel-launch-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}
+          key: panel-launch-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}-${{ github.ref }}
 
-      - name: Start simulator while compiling
-        env:
-          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
-        run: xcrun simctl boot "$SIMULATOR_ID"
-
+      # Let XCTest boot after compilation. On the small Intel runners, early
+      # simulator boot coincided with 15-20 minute cold builds; unit compilation
+      # without early boot completed in 126 seconds even on a cache miss.
       - name: Build only the Panel launch UI suite
         if: steps.products.outputs.cache-hit != 'true'
         working-directory: apps/apple-prototype
