@@ -11,13 +11,32 @@ signing_directory=$(mktemp -d -t callkeep-signing)
 trap 'security delete-keychain "$signing_directory/signing.keychain-db" >/dev/null 2>&1 || true; rm -rf "$signing_directory"' EXIT
 keychain="$signing_directory/signing.keychain-db"
 keychain_password=$(openssl rand -hex 24)
+# codesign also consults the user keychain search list when resolving trust.
+security list-keychains -d user > "$signing_directory/search-list"
+restore_keychains() {
+  python3 - "$signing_directory/search-list" <<'PYTHON'
+import shlex,subprocess,sys
+keys=shlex.split(open(sys.argv[1]).read())
+subprocess.run(['security','list-keychains','-d','user','-s',*keys],check=True)
+PYTHON
+}
+trap 'restore_keychains; security delete-keychain "$keychain" >/dev/null 2>&1 || true; rm -rf "$signing_directory"' EXIT
 printf '%s' "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$signing_directory/certificate.p12"
 printf '%s' "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$signing_directory/key.p8"
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 21600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
+echo "Importing signing certificate"
 security import "$signing_directory/certificate.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign >/dev/null
+python3 - "$keychain" "$signing_directory/search-list" <<'PYTHON'
+import shlex,subprocess,sys
+keys=shlex.split(open(sys.argv[2]).read())
+subprocess.run(['security','list-keychains','-d','user','-s',sys.argv[1],*keys],check=True)
+PYTHON
+echo "Configuring private-key access"
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
+security find-identity -v -p codesigning "$keychain"
+echo "Signing framework and app"
 identity='Developer ID Application: Calum Webb (X9E4HG27NK)'
 codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime "$app/Contents/Frameworks/CallkeepCore.framework"
 codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime --entitlements Resources/Callkeep.entitlements "$app"
