@@ -8,6 +8,8 @@ import Observation
     private let store: LiveHomeDataSource
     init(store: LiveHomeDataSource) { self.store = store }
 
+    func status(for module: HomeModule) -> HomeModuleStatus { store.status(for: module) }
+
     var now: Date { store.walkProvider.serverNow(at: store.now) }
     var walks: any WalkProvider { self }
     var activeWalk: DogWalk? { store.walkProvider.activeWalk }

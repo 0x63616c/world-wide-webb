@@ -113,7 +113,7 @@ enum WeatherPresentation {
         } catch {
             guard !Task.isCancelled, generation == started else { return }
             // Fixed copy avoids surfacing server details or credentials in UI/logs.
-            availability = .unavailable("Weather is unavailable. Try again later.")
+            availability = .unavailable(panelFailureReason(error, fallback: "Weather is unavailable. Try again later."))
         }
     }
 

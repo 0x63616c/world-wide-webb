@@ -14,13 +14,6 @@ extension XCUIApplication {
             return
         }
         openHomeModule(module)
-        let native = launchArguments.firstIndex(of: "-moduleFlag.\(module)")
-            .map { launchArguments[$0 + 1] == "native" } ?? false
-        if native && !launchArguments.contains("-hybridUnavailable") && !launchArguments.contains("-hybridDetail") {
-            let toggle = buttons["module-detail"]
-            XCTAssertTrue(toggle.waitForExistence(timeout: 30))
-            toggle.tap() // Existing suites exercise both the leaf tile and its controller.
-        }
     }
 
     @MainActor func returnHomeFromModule() {

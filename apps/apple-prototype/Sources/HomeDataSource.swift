@@ -272,7 +272,29 @@ enum HomeCommand {
     case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int)
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
+/// Shared presentation status; reasons are authored by providers, never raw server text.
+enum HomeModule: String, CaseIterable {
+    case lights, climate, fan, wifi, sonos, weather, photos, walk, reminders, alarms, calendar, media, tesla, cameras
+}
+enum HomeModuleStatus: Equatable {
+    case loading, live, unavailable(String), unconfigured(String)
+    var reason: String? {
+        switch self {
+        case .loading: "Loading…"
+        case .live: nil
+        case .unavailable(let reason), .unconfigured(let reason): reason
+        }
+    }
+    init(_ availability: LiveAvailability) {
+        switch availability {
+        case .loading: self = .loading
+        case .live: self = .live
+        case .unavailable(let reason): self = .unavailable(reason)
+        }
+    }
+}
 @MainActor protocol HomeDataSource: AnyObject, Observable {
+    func status(for module: HomeModule) -> HomeModuleStatus
     var lamps: LampState { get }
     var climate: ClimateState { get }
     var wifi: WifiState { get }
@@ -315,6 +337,7 @@ extension HomeDataSource {
     }
 }
 @MainActor @Observable final class MockHomeDataSource: HomeDataSource {
+    func status(for module: HomeModule) -> HomeModuleStatus { .live }
     private(set) var lamps = LampState()
     private(set) var climate = ClimateState()
     private(set) var wifi = WifiState()

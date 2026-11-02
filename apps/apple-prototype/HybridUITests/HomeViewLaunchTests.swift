@@ -96,6 +96,50 @@ import XCTest
         app.terminate()
     }
 
+    func testEveryUnavailableGridCardShowsAReason() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-hybridUnavailable"]
+        app.launch()
+        defer { app.terminate() }
+        let pages = [
+            ["climate", "ceiling", "tesla", "lamps", "weather", "calendar", "fan"],
+            ["sound", "cameras", "photos", "sonosRooms", "dogwalk", "media", "wifi"]
+        ]
+        for (index, tiles) in pages.enumerated() {
+            app.selectHomeFace(index + 1)
+            for tile in tiles {
+                let card = app.descendants(matching: .any)["tile-\(tile)"].firstMatch
+                let reason = card.staticTexts["module-status-reason"]
+                XCTAssertTrue(reason.waitForExistence(timeout: 30), tile)
+                let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", "Loading…"), object: reason)
+                XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 30), .completed, tile)
+                XCTAssertFalse(reason.label.isEmpty, tile)
+                XCTAssertTrue(reason.isHittable, "Reason must be visible on \(tile)")
+                XCTAssertFalse(card.staticTexts["0%"].exists, tile)
+                XCTAssertFalse(card.staticTexts["0 mi"].exists, tile)
+            }
+            capture("WWW-89-unavailable-grid-\(index + 1)")
+        }
+    }
+
+    func testLiveFixtureGridCaptures() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures"]
+        app.launch()
+        defer { app.terminate() }
+        for page in [1, 2] {
+            app.selectHomeFace(page)
+            let unavailable = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "tile-unavailable-"))
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == 0"), object: unavailable)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 30), .completed)
+            capture("WWW-89-live-grid-\(page)")
+        }
+    }
+
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine").screenshot())
         attachment.name = name

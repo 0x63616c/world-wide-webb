@@ -2,7 +2,7 @@ import XCTest
 
 final class HybridModuleTests: XCTestCase {
     @MainActor
-    func testEveryNativeModuleTileAndDetailUsesProviderFixtures() {
+    func testEveryNativeModuleOpensDetailUsingProviderFixtures() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         // Functional fixture tours keep decorative effects still so XCTest can reach idle.
@@ -11,18 +11,9 @@ final class HybridModuleTests: XCTestCase {
         for module in modules {
             app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.\(module)", "native"]
             app.launchModuleFromHome()
-            let tile = app.descendants(matching: .any)["native-\(module)-tile"].firstMatch
-            XCTAssertTrue(tile.waitForExistence(timeout: 30), module)
+            XCTAssertFalse(app.buttons["module-detail"].exists)
+            XCTAssertTrue(app.buttons["module-home"].waitForExistence(timeout: 30))
             XCTAssertGreaterThan(app.frame.width, app.frame.height)
-            if module == "walk" { XCTAssertTrue(app.buttons["Start walking Zero"].exists) }
-            for other in modules where other != module { XCTAssertFalse(app.buttons["module-\(other)"].exists) }
-            capture("\(module)-tile")
-            app.buttons["module-detail"].tap()
-            if module == "wifi" {
-                let qr = app.buttons["wifi-fullscreen-qr"]
-                XCTAssertTrue(qr.waitForExistence(timeout: 15))
-                qr.tap()
-            }
             let detail = app.descendants(matching: .any)["native-\(module)-detail"].firstMatch
             XCTAssertTrue(detail.waitForExistence(timeout: 10), module)
             if module == "walk" {
@@ -53,9 +44,6 @@ final class HybridModuleTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridWalkActive", "-moduleFlag.walk", "native"]
         app.launchModuleFromHome()
-        XCTAssertTrue(app.buttons["Stop walking Zero"].waitForExistence(timeout: 30))
-        capture("walk-active-tile")
-        app.buttons["module-detail"].tap()
         XCTAssertTrue(app.buttons["End walk"].waitForExistence(timeout: 10))
         capture("walk-active-detail")
         app.buttons["End walk"].tap() // Fixture writes fail closed, exercising live error routing.
@@ -94,7 +82,7 @@ final class HybridModuleTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.climate", "native", "-moduleFlag.wifi", "native"]
         app.launchModuleFromHome()
-        XCTAssertTrue(app.descendants(matching: .any)["native-climate-tile"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 30))
         app.returnHomeFromModule()
         app.openHomeModule("wifi")
         XCTAssertTrue(app.descendants(matching: .any)["native-wifi-detail"].firstMatch.waitForExistence(timeout: 10))

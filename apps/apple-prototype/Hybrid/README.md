@@ -162,6 +162,43 @@ xcrun simctl launch <own-simulator-id> co.worldwidewebb.theworkflowengine \
   -hybridFixtures -moduleFlag.weather native
 ```
 
+## Grid availability and module navigation (WWW-89)
+
+`HomeDataSource.status(for:)` exposes loading, live, unavailable(reason) and
+unconfigured(reason) independently for each `HomeModule`. Panel projects the
+existing live providers; prototype fixtures explicitly report live. Grid cards
+and host replacements share `ModuleStatusFace`: title, first-load spinner, or
+an icon and short reason. They never render the scalar fallback readings while
+unavailable. An empty Calendar is live and says “No upcoming events”; denied
+Calendar access instead directs the user to Settings. Empty camera lists and
+Sonos without any available rooms explain that state. Tesla preserves the
+server's unconfigured/unavailable distinction. Network error copy uses only
+fixed messages and HTTP status numbers, never response bodies or transport URLs.
+
+Grid Now Playing and Sonos rooms request authenticated `SonosArtwork` through
+`HomeIntegration`, using the existing artwork client. Prototype artwork remains
+in the standalone design app. Module destinations always mount the detail
+controller with Home navigation; there is no Tiles/Details toggle.
+
+The WWW-87 head used for this work has command error revisions but no Diagnostics
+screen. There is therefore no Diagnostics UI to extend on this branch; its future
+module list can consume the same `HomeModule.allCases` and `status(for:)` seam.
+
+Verification on Linux: `swift build --package-path apps/apple-prototype/PanelKit
+-j 4` cannot complete because CalendarAPI imports EventKit. Swift syntax parsing
+is available, but does not typecheck SwiftUI or Apple SDK symbols. A Swift 6 Linux harness using the actual PanelAPI client, configuration, status
+mapping and error classifier passed its mapping/redaction assertions. Full macOS,
+iPad, Panel and PanelKit builds/tests remain required on macOS.
+
+Run all Panel UI tests after generating the Xcode project, including
+`HomeViewLaunchTests/testEveryUnavailableGridCardShowsAReason`,
+`HomeViewLaunchTests/testLiveFixtureGridCaptures` and the updated module tours.
+The two new tests attach four simulator screenshots named `WWW-89-live-grid-1`,
+`WWW-89-live-grid-2`, `WWW-89-unavailable-grid-1` and
+`WWW-89-unavailable-grid-2`. Use a 1366×1024 landscape iPad. Export these from the
+xcresult and attach them to the PR before review; they cannot be produced on the
+Linux executor. No simulator captures for this change have been generated here.
+
 ## Tesla live provider (WWW-36)
 
 Tesla is opt-in: the new tesla module defaults to web, including shipped builds.

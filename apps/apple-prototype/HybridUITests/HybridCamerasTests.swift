@@ -7,15 +7,10 @@ final class HybridCamerasTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.cameras", "native"]
         app.launchModuleFromHome()
-        XCTAssertTrue(app.descendants(matching: .any)["native-cameras-tile"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.descendants(matching: .any)["native-cameras-detail"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertFalse(app.buttons["module-detail"].exists)
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
-        let tile = app.descendants(matching: .any)["native-cameras-tile"].firstMatch
-        let first = tile.buttons["Open Test Camera A"]
-        waitForImage(first)
-        capture("cameras-tile")
-        first.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["native-cameras-detail"].firstMatch.waitForExistence(timeout: 10))
         let detail = app.descendants(matching: .any)["native-cameras-detail"].firstMatch
         XCTAssertTrue(detail.buttons["Open Test Camera B"].exists)
         waitForImage(detail.buttons["Open Test Camera B"])

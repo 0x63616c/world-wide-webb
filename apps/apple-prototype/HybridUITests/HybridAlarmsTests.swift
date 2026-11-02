@@ -9,7 +9,7 @@ final class HybridAlarmsTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-moduleFlag.alarms", "native"]
         app.launchModuleFromHome()
-        XCTAssertTrue(app.descendants(matching: .any)["native-alarms-tile"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.descendants(matching: .any)["native-alarms-detail"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertEqual(app.frame.width, 1366, accuracy: 1)
         XCTAssertEqual(app.frame.height, 1024, accuracy: 1)
         capture("clock")

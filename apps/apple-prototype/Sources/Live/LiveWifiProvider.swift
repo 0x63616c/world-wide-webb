@@ -45,7 +45,7 @@ import PanelKit
             // Clear stale join credentials, including when the caller cancels.
             wifi = .unconfigured
             qrPayload = nil
-            availability = .unavailable("Guest Wi-Fi is unavailable.")
+            availability = .unavailable(panelFailureReason(error, fallback: "Guest Wi-Fi is unavailable."))
         }
     }
 

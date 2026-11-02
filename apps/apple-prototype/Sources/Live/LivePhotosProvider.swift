@@ -75,7 +75,7 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
             availability = .live
         } catch {
             frames = []; photos = []; sessions = []
-            availability = .unavailable("Photos are unavailable.")
+            availability = .unavailable(panelFailureReason(error, fallback: "Photos are unavailable."))
             lock()
         }
     }

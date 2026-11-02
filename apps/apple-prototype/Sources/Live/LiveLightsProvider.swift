@@ -254,12 +254,7 @@ import OSLog
     }
 
     private static func failureMessage(_ error: any Error) -> String {
-        guard let error = error as? PanelAPIError else { return "Lights are unavailable. Try again." }
-        if error.isServiceUnavailable { return "The lights service is unavailable. Try again." }
-        switch error {
-        case .notConfigured: return "The panel API is not configured."
-        default: return "Could not update lights. Try again."
-        }
+        panelFailureReason(error, fallback: "Lights are unavailable. Try again.")
     }
 
     private enum Operation {

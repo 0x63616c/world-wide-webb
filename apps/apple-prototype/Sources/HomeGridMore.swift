@@ -72,19 +72,29 @@ private struct GridCaptionImage<Caption: View>: View {
 }
 
 struct GridSonosRooms: View {
+    @Environment(\.homeIntegration) private var integration
     let v: String
     let store: any HomeDataSource
     var body: some View {
         Corners {
             Cap("Sonos rooms", 22, .semibold)
         } tr: {
-            Image(systemName: "hifispeaker.fill").font(.system(size: 22))
+            if let room = store.rooms.first, let artwork = integration?.artwork(room) {
+                artwork.frame(width: 52, height: 52).clipped()
+            } else {
+                Image(systemName: "hifispeaker.fill").font(.system(size: 22))
+            }
         } bl: {
             if v == "B" {
                 VStack(alignment: .leading, spacing: 20) {
                     ForEach(store.rooms.prefix(4)) { room in
                         VStack(alignment: .leading, spacing: 8) {
-                            Cap(room.name, 20, .semibold, lines: 2)
+                            HStack(spacing: 12) {
+                                if let artwork = integration?.artwork(room) {
+                                    artwork.frame(width: 44, height: 44).clipped()
+                                }
+                                Cap(room.name, 20, .semibold, lines: 2)
+                            }
                             Cap("\(room.playing ? "Playing" : "Paused") · \(room.displayVolume)%", 17).opacity(0.65)
                         }
                     }

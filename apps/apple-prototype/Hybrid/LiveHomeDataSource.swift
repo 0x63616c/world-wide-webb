@@ -91,6 +91,37 @@ import OSLog
         sonosProvider = LiveSonosProvider(api: SonosAPI(configuration: configuration, transport: transport), lockDefaults: sonosLockDefaults)
     }
 
+    func status(for module: HomeModule) -> HomeModuleStatus {
+        switch module {
+        case .tesla: return teslaProvider.moduleStatus
+        case .lights: return HomeModuleStatus(lightsProvider.availability)
+        case .climate: return HomeModuleStatus(climateProvider.availability)
+        case .fan: return HomeModuleStatus(fanProvider.availability)
+        case .wifi:
+            if wifiProvider.availability == .live && (wifi.ssid ?? "").isEmpty {
+                return .unconfigured("Guest Wi-Fi isn't set up on the server")
+            }
+            return HomeModuleStatus(wifiProvider.availability)
+        case .sonos:
+            if sonosProvider.availability == .live && rooms.isEmpty {
+                return .unavailable("No Sonos rooms available")
+            }
+            return HomeModuleStatus(sonosProvider.availability)
+        case .weather: return HomeModuleStatus(weatherProvider.availability)
+        case .photos:
+            if photosProvider.availability == .live && photosProvider.frames.isEmpty {
+                return .unavailable("No photos available")
+            }
+            return HomeModuleStatus(photosProvider.availability)
+        case .walk: return HomeModuleStatus(walkProvider.availability)
+        case .reminders: return HomeModuleStatus(remindersProvider.availability)
+        case .alarms: return HomeModuleStatus(alarmsProvider.availability)
+        case .calendar: return HomeModuleStatus(calendarProvider.availability)
+        case .media: return HomeModuleStatus(mediaProvider.availability)
+        case .cameras: return HomeModuleStatus(camerasProvider.availability)
+        }
+    }
+
     func hasLiveData(for module: PanelModule) -> Bool {
         switch module {
         case .media: mediaProvider.availability == .live && !mediaProvider.items.isEmpty
