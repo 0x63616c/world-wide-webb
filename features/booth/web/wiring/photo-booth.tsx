@@ -6,7 +6,7 @@
  *
  * The entry is `chrome: "none"` , the camera wants edge-to-edge, so the host
  * skips its PageHeader + padded scroll region and the page owns its own chrome
- * (the camera renders a full-bleed frame with a top-left close; the gallery
+ * (the camera renders a full-bleed frame with a bottom-left back pill; the gallery
  * renders its own sticky PageHeader). The camera must appear instantly, so the
  * hook never blocks the page on the list query (`loading: false` always) , the
  * gallery simply shows its empty state until the first list resolves.

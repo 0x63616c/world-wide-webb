@@ -24,6 +24,9 @@ it("opens the full-size QR from its tile button and closes it", () => {
   expect(screen.getByRole("dialog", { name: "Wi-Fi" })).not.toBeNull();
   expect(screen.getAllByRole("img", { name: "Guest Wi-Fi QR code" })).toHaveLength(2);
 
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  const close = screen.getByRole("button", { name: "Close" });
+  expect(close.style.minHeight).toBe("56px");
+  expect(close.style.position).toBe("fixed");
+  fireEvent.click(close);
   expect(screen.queryByRole("dialog", { name: "Wi-Fi" })).toBeNull();
 });

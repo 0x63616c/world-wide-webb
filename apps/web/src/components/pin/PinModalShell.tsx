@@ -11,9 +11,9 @@
 
 import { type ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useEscapeToClose } from "../../lib/escape-stack";
 import { registerOpenModal } from "../../lib/modal-open-store";
 import { Z_LAYER } from "../../lib/z-layers";
+import { BackPill } from "../ui/BackPill";
 
 export function PinModalShell({
   open,
@@ -39,14 +39,13 @@ export function PinModalShell({
     return registerOpenModal(() => onCloseRef.current());
   }, [open]);
 
-  // Escape-to-close, arbitrated so ONLY the topmost surface closes. A dialog
-  // opened over Settings must not take Settings down with it (#298).
-  useEscapeToClose(open, () => onCloseRef.current());
-
   if (!open) return null;
 
   return createPortal(
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
       style={{
         position: "fixed",
         inset: 0,
@@ -76,11 +75,9 @@ export function PinModalShell({
         }}
       />
 
+      <BackPill onBack={onClose} label="Back" />
       {/* Centred card , the approved PinUnlockModalConcept dialog. */}
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
         style={{
           position: "relative",
           background: "var(--tile)",

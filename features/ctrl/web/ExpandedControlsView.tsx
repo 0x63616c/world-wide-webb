@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { ControlTap, Slider } from "@/components/ui";
+import { BackPill } from "@/components/ui/BackPill";
 import type {
   ControlKey,
   ControlsViewData,
@@ -376,13 +377,14 @@ export function ExpandedControlsView({
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 10,
+            zIndex: 200,
             display: "grid",
             placeItems: "center",
             padding: 24,
             background: "rgba(0,0,0,.65)",
           }}
         >
+          <BackPill onBack={() => setEditingColor(null)} label="Close color editor" />
           <div
             style={{
               width: "min(100%, 420px)",
