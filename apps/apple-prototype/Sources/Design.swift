@@ -30,7 +30,7 @@ struct Wallpaper: View {
     var saturation = 1.0
     var dimming = 0.28
     var blurRadius = 2.0
-    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
+    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .dusk
     var body: some View {
         GeometryReader { proxy in
             Group {
@@ -69,10 +69,10 @@ struct Choice: View {
     var body: some View {
         Button(action: action) {
             Text(title).font(.system(size: 18, weight: .semibold)).padding(.horizontal, 18).frame(minHeight: 48)
-                .foregroundStyle(selected ? Palette.ink : .white)
+                .foregroundStyle(.white)
         }
         .buttonStyle(.plain)
-        .homeGlass(on: selected, radius: 24)
+        .glassEffect(.regular.tint(selected ? Color.blue.opacity(0.35) : .clear).interactive(), in: .capsule)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

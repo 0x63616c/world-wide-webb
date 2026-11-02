@@ -205,6 +205,8 @@ struct LampEffectsView: View {
                 Spacer()
                 if store.lamps.scene == name && store.lamps.party == .off { Image(systemName: "checkmark") }
             }.padding(17)
-        }.buttonStyle(.glass)
+        }.buttonStyle(.plain).foregroundStyle(.white)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            .environment(\.colorScheme, .dark)
     }
 }

@@ -36,7 +36,7 @@ struct ControllerHost: View {
             }
             Text("Fixture data").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.42)).padding(.bottom, 16)
         }
-        .foregroundStyle(.white).tint(.white)
+        .foregroundStyle(.white).tint(.white).environment(\.colorScheme, .dark)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("controller-\(tile.id)")
     }
@@ -102,44 +102,56 @@ struct ControlsController: View {
     let store: any HomeDataSource
     var fanIsOn: Bool? = nil
     var body: some View {
-        GeometryReader { proxy in
-            HStack(alignment: .center, spacing: 54) {
-                VStack(spacing: 18) {
-                    Text("Lamp brightness").font(.system(size: 25)).opacity(0.75)
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text("\(store.lamps.brightness)").font(.system(size: 154, weight: .ultraLight)).monospacedDigit()
-                        Text("%").font(.system(size: 52, weight: .light)).opacity(0.65)
-                    }
-                    Slider(value: Binding(get: { Double(store.lamps.brightness) }, set: { store.send(.brightness(Int($0))) }), in: 0...100, step: 1)
-                        .disabled(!store.lamps.anyOn).accessibilityLabel("Lamp brightness")
-                    HStack { Text("0%"); Spacer(); Text("100%") }.font(.system(size: 16)).opacity(0.6)
-                    Spacer(minLength: 12)
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach([Accessory.all, .fan, .lamps, .lights, .bedroom, .livingRoom, .ceiling, .cabinet]) { key in
-                            toggle(key)
+        ScrollView {
+            GlassEffectContainer(spacing: 16) {
+            VStack(alignment: .leading, spacing: 28) {
+                Text("Lighting").font(.system(size: 38, weight: .bold))
+                HStack(alignment: .top, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 28) {
+                        VStack(alignment: .leading, spacing: 20) {
+                            HStack {
+                                Label("Lamps", systemImage: "lamp.table.fill").font(.title2.weight(.semibold))
+                                Spacer()
+                                Text("\(store.lamps.brightness)%").font(.system(size: 44, weight: .medium, design: .rounded))
+                            }
+                            Slider(value: Binding(get: { Double(store.lamps.brightness) }, set: { store.send(.brightness(Int($0))) }), in: 0...100, step: 1)
+                                .tint(.orange).disabled(!store.lamps.anyOn).accessibilityLabel("Lamp brightness")
+                            Text(store.lamps.countLabel()).foregroundStyle(.secondary)
+                        }.padding(28).glassEffect(.regular, in: .rect(cornerRadius: 28))
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                            ForEach([Accessory.all, .lamps, .bedroom, .livingRoom, .ceiling, .cabinet]) { key in toggle(key) }
                         }
-                    }
-                }.frame(width: proxy.size.width * 0.43)
-                LampEffectsView(store: store).frame(maxWidth: .infinity)
-            }.padding(.horizontal, 64).padding(.vertical, 38)
+                    }.frame(maxWidth: .infinity)
+                    VStack(alignment: .leading, spacing: 24) {
+                        Text("Scenes & colour").font(.title2.weight(.semibold))
+                        LampEffectsView(store: store)
+                    }.padding(28)
+                        .frame(maxWidth: .infinity)
+                }
+            }.padding(40)
+            }
         }
     }
     private func toggle(_ key: Accessory) -> some View {
-        let on = key == .fan ? (fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off)) : store.lamps.isOn(key)
+        let on = store.lamps.isOn(key)
         return Button { store.send(.toggle(key)) } label: {
-            HStack(spacing: 12) {
-                Image(systemName: key.symbol).font(.system(size: 23)).foregroundStyle(on ? Palette.amber : .white)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(key.name).font(.system(size: 17, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
-                    Text(key == .fan ? store.climate.fanLabel : on ? "On" : "Off").font(.system(size: 14)).opacity(0.6)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: key.symbol).font(.system(size: 28)).foregroundStyle(on ? .orange : .gray)
+                    Spacer()
+                    Image(systemName: "power").font(.system(size: 18)).foregroundStyle(on ? .white : .gray)
                 }
-                Spacer(minLength: 0)
-                if store.pending.contains(key.rawValue) { ProgressView() }
-            }.padding(.horizontal, 16).frame(height: 67).foregroundStyle(on ? Palette.ink : .white)
-        }.buttonStyle(.plain).homeGlass(on: on, radius: 23)
-            .accessibilityLabel("Toggle \(key.name)").accessibilityIdentifier("controller-toggle-\(key.rawValue)")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(key.name).font(.system(size: 20, weight: .semibold))
+
+                }
+            }.padding(22).frame(maxWidth: .infinity, alignment: .leading).foregroundStyle(.white)
+                .glassEffect(.regular.tint(on ? .orange.opacity(0.08) : .clear).interactive(), in: .rect(cornerRadius: 24))
+        }.buttonStyle(.plain).accessibilityLabel("Toggle \(key.name)")
+            .accessibilityIdentifier("controller-toggle-\(key.rawValue)").accessibilityValue(on ? "On" : "Off")
     }
 }
+
 struct WifiController: View {
     let wifi: WifiState
     var body: some View {

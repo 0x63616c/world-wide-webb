@@ -89,14 +89,6 @@ struct HomeView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 homeFace(size: proxy.size)
-                    .safeAreaBar(edge: .bottom, spacing: 0) {
-                        if sizeClass == .compact && (facePage == HomeFacePage.music || facePage == HomeFacePage.clock) {
-                            PhoneFaceBar(selection: $facePage)
-                        }
-                    }
-                if selected == nil && sizeClass != .compact {
-                    VStack { Spacer(); FacePicker(selection: $facePage).frame(height: HomeFaceLayout.panelPagerBand) }
-                }
                 #if os(macOS)
                 if let selected { destination(selected) }
                 #endif
@@ -128,19 +120,18 @@ struct HomeView: View {
                         withAnimation(.smooth) { facePage = HomeFacePage.music }
                     }
                 }
-        }.ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
+        }.modifier(PanelIdleDimming(enabled: selected == nil))
+        .ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
     }
     @ViewBuilder private func destination(_ tile: HomeTile) -> some View {
         Group {
             if let integration { integration.destination(tile, close: { selected = nil }) }
             else { prototypeDestination(tile) }
-        }
+        }.modifier(PanelIdleDimming())
     }
     private func prototypeDestination(_ tile: HomeTile) -> some View {
         ZStack {
-            if [.lamps, .bedroom, .livingRoom].contains(tile) { LampsBackdrop() }
-            else if [.calendar, .media, .sonosRooms, .cameras, .dogwalk].contains(tile) { Wallpaper().overlay(.black.opacity(0.18)).ignoresSafeArea() }
-            else { tile.fill(store).ignoresSafeArea() }
+            Wallpaper()
             if tile == .dogwalk {
                 DogWalkScreen(store: store, close: { selected = nil })
             } else if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos].contains(tile) {
@@ -160,24 +151,27 @@ struct HomeView: View {
             .onKeyPress(.escape) { selected = nil; return .handled }
     }
     @ViewBuilder private func homeFace(size: CGSize) -> some View {
-        #if os(iOS)
-        TabView(selection: $facePage) {
-            PresenceClockFace(store: store).tag(HomeFacePage.clock)
-            faceGrid(size: size, controls: false).background { Wallpaper() }.tag(HomeFacePage.home)
-            faceGrid(size: size, controls: true).background { Wallpaper() }.tag(HomeFacePage.controls)
-            musicFace.background { MusicBackdrop(tint: store.rooms.first?.artworkTint ?? "#8f456e") }.tag(HomeFacePage.music)
-        }.tabViewStyle(.page(indexDisplayMode: .never)).ignoresSafeArea(.container, edges: sizeClass == .compact ? [] : .all)
-        #else
-        Group {
-            if facePage == HomeFacePage.clock { PresenceClockFace(store: store) }
-            else if facePage == HomeFacePage.music { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
-            else { faceGrid(size: size, controls: facePage == HomeFacePage.controls) }
-        }
-        #endif
+        ScrollView(.horizontal) {
+            HStack(spacing: 0) {
+                page(PresenceClockFace(store: store), size: size).id(HomeFacePage.clock)
+                page(faceGrid(size: size, controls: false).background { Wallpaper() }, size: size).id(HomeFacePage.home)
+                page(faceGrid(size: size, controls: true).background { Wallpaper() }, size: size).id(HomeFacePage.controls)
+                page(musicFace.background { Wallpaper() }, size: size).id(HomeFacePage.music)
+            }.scrollTargetLayout()
+        }.scrollTargetBehavior(.paging).scrollIndicators(.hidden)
+            .scrollPosition(id: Binding<Int?>(get: { facePage }, set: { if let value = $0 { facePage = value } }))
+            .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.88), value: facePage)
+    }
+    private func page<V: View>(_ view: V, size: CGSize) -> some View {
+        view.frame(width: size.width, height: size.height)
+            .clipShape(.rect(cornerRadius: 44))
+            .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                content.scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.96)
+            }
     }
     @ViewBuilder private var musicFace: some View {
         if let integration { integration.musicFace(close: { facePage = HomeFacePage.home }) }
-        else { NowPlayingView(store: store, close: { facePage = HomeFacePage.home }, isFace: true) }
+        else { SonosRoomsPage(store: store) }
     }
     private func faceGrid(size: CGSize, controls: Bool) -> some View {
         HomeGlassFace(store: store, size: size, controls: controls, zoom: zoom, open: open, faceSelection: $facePage)
@@ -398,3 +392,35 @@ struct AccessoryFace: View {
     }
 }
 #Preview("Home face · 1376 × 1032", traits: .fixedLayout(width: 1376, height: 1032)) { HomeView(store: MockHomeDataSource()) }
+
+
+/// The first interaction wakes the panel without forwarding a device command.
+private struct PanelIdleDimming: ViewModifier {
+    var enabled = true
+    @State private var lastActivity = Date()
+    @State private var dimmed = false
+    @Environment(\.scenePhase) private var phase
+    private func wake() { lastActivity = Date(); dimmed = false }
+    func body(content: Content) -> some View {
+        content
+            .allowsHitTesting(!dimmed)
+            .simultaneousGesture(TapGesture().onEnded { lastActivity = Date() })
+            .overlay {
+                if dimmed {
+                    Button(action: wake) { Color.black.opacity(0.7).ignoresSafeArea().contentShape(.rect) }
+                        .buttonStyle(.plain).accessibilityLabel("Wake panel")
+                }
+            }
+            #if os(macOS)
+            .onContinuousHover { hover in if case .active = hover { wake() } }
+            #endif
+            .task {
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                    if enabled && phase == .active && Date().timeIntervalSince(lastActivity) >= 60 { dimmed = true }
+                }
+            }
+            .onChange(of: enabled) { _, _ in wake() }
+            .onChange(of: phase) { _, value in if value == .active { wake() } }
+    }
+}

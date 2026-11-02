@@ -176,35 +176,32 @@ struct PanelHomeDestination: View {
     var body: some View {
         Group {
             if ready || awaitingWifi || module == .calendar {
-                VStack(spacing: 0) {
-                    HStack {
-                        Button("Home", systemImage: "chevron.backward", action: close)
-                            .accessibilityIdentifier("module-home")
-                        Spacer()
-                    }.buttonStyle(.glass).padding(16)
-                    HybridNativeModule(module: module, store: store, detail: true,
-                        open: {}, close: close)
-                        // Keep the controller's privacy state while its credentials
-                        // are cleared and reloaded across a scene suspension.
-                        .opacity(awaitingWifi ? 0 : 1)
-                        .allowsHitTesting(!awaitingWifi)
-                        .accessibilityHidden(awaitingWifi)
-                        .overlay {
-                            if awaitingWifi { ProgressView("Refreshing Wi-Fi") }
-                        }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                HybridNativeModule(module: module, store: store, detail: true, open: {}, close: close)
+                    .opacity(awaitingWifi ? 0 : 1).allowsHitTesting(!awaitingWifi)
+                    .overlay { if awaitingWifi { ProgressView("Refreshing Wi-Fi") } }
             } else {
-                VStack(spacing: 24) {
-                    Button("Home", systemImage: "chevron.backward", action: close)
-                        .buttonStyle(.glass).accessibilityIdentifier("module-home")
-                    ModuleStatusFace(title: module.title,
-                        status: store.status(for: HomeModule(rawValue: module.rawValue) ?? .lights))
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                ModuleStatusFace(title: module.title,
+                    status: store.status(for: HomeModule(rawValue: module.rawValue) ?? .lights)).padding(48)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black).preferredColorScheme(.dark).foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack { PanelHomeButton(action: close); Spacer() }
+                .padding(.horizontal, 24).padding(.vertical, 12)
+        }
+        .background { Wallpaper() }.preferredColorScheme(.dark).foregroundStyle(.white)
         .statusBarHidden().persistentSystemOverlays(.hidden)
+    }
+}
+
+struct PanelHomeButton: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label("Home", systemImage: "chevron.backward")
+                .font(.system(size: 20, weight: .semibold))
+                .frame(minWidth: 104, minHeight: 52).contentShape(.rect)
+        }.buttonStyle(.glass).accessibilityIdentifier("module-home")
     }
 }
 
@@ -264,12 +261,20 @@ private struct PanelCardSummary: View {
 }
 
 private struct PanelAccessoryCard: View {
+    @AppStorage("panel.weatherDesign") private var weatherDesign = 0
     let tile: HomeTile
     let store: LiveHomeDataSource
     let open: () -> Void
     var body: some View {
-        content.frame(maxWidth: .infinity, maxHeight: .infinity)
-            .modifier(GridCardInteraction(label: "Open \(tile.title)", open: open, enabled: tile != .fan))
+        Group {
+            if [.weather, .hourly, .tesla, .calendar, .sonosRooms, .wifi, .media, .photos, .cameras].contains(tile) {
+                Button(action: open) { content.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(.rect) }
+                    .buttonStyle(.plain)
+            } else {
+                content.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .modifier(GridCardInteraction(label: "Open \(tile.title)", open: open, enabled: tile != .fan))
+            }
+        }
     }
     @ViewBuilder private var content: some View {
         switch tile {
@@ -277,7 +282,7 @@ private struct PanelAccessoryCard: View {
         case .lamps: lamps
         case .ceiling, .lights, .cabinet, .all: lights
         case .fan: fan
-        case .weather, .hourly: weather
+        case .weather, .hourly: WeatherDesignCard(weather: store.weather, style: weatherDesign)
         case .tesla: car
         case .calendar: calendar
         case .sound: sound
@@ -319,7 +324,7 @@ private struct PanelAccessoryCard: View {
             Spacer()
             Text(temperature).font(.system(size: 88, weight: .regular, design: .rounded)).monospacedDigit().minimumScaleFactor(0.7).lineLimit(1)
             title("Climate", subtitle: "Set temperature · Inside \(c.ambient)°")
-        }.padding(28)
+        }.padding(28).background { LinearGradient(colors: [.cyan.opacity(0.28), .blue.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing).allowsHitTesting(false) }
     }
     private var lamps: some View {
         HStack(spacing: 20) {
@@ -333,19 +338,20 @@ private struct PanelAccessoryCard: View {
         }.padding(28)
     }
     private var lights: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            PanelCardGlyph(symbol: "lightbulb.2.fill", color: .yellow)
-            Text("Lights").font(.system(size: 22, weight: .semibold)).padding(.top, 8)
-            Spacer(minLength: 20)
-            VStack(spacing: 20) {
-                ForEach([Accessory.ceiling, .cabinet, .lamps]) { accessory in
-                    Toggle(isOn: Binding(get: { store.lamps.isOn(accessory) }, set: { _ in store.send(.toggle(accessory)) })) {
-                        Label(accessory == .cabinet ? "Cabinet" : accessory.name, systemImage: accessory.symbol)
-                            .font(.system(size: 19, weight: .medium))
-                    }.tint(.green).accessibilityIdentifier("toggle-\(accessory.id)")
-                }
-            }
+        let accessory: Accessory = tile == .cabinet ? .cabinet : .ceiling
+        let on = store.lamps.isOn(accessory)
+        return HStack(spacing: 22) {
+            Button { store.send(.toggle(accessory)) } label: {
+                Image(systemName: accessory.symbol).font(.system(size: 36))
+                    .foregroundStyle(on ? .yellow : .white.opacity(0.5))
+                    .frame(width: 72, height: 72)
+                    .background(.white.opacity(0.08), in: .circle)
+            }.buttonStyle(.plain).accessibilityLabel("Toggle \(accessory.name)")
+            Text(accessory == .cabinet ? "Cabinet" : "Ceiling").font(.system(size: 22, weight: .semibold)).accessibilityValue(on ? "On" : "Off")
+            Spacer(minLength: 0)
         }.padding(28)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
     }
     private var fan: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -381,7 +387,7 @@ private struct PanelAccessoryCard: View {
                     }.frame(maxWidth: .infinity)
                 }
             }
-        }.padding(28)
+        }.padding(28).background(LinearGradient(colors: [.blue.opacity(0.45), .indigo.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing))
     }
     private var car: some View {
         let t = store.tesla.data
@@ -508,5 +514,42 @@ private struct PanelCameraCard: View {
                     do { try await Task.sleep(for: .seconds(3)) } catch { return }
                 }
             }
+    }
+}
+
+struct PanelWeatherModule: View {
+    let weather: WeatherState
+    @State private var comparing = false
+    @AppStorage("panel.weatherDesign") private var selected = 0
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text(comparing ? "Choose your weather tile" : "Weather").font(.system(size: 30, weight: .semibold))
+                Spacer()
+                Button(comparing ? "Forecast" : "Compare 5 tile designs") { comparing.toggle() }
+                    .font(.system(size: 18, weight: .semibold)).padding(8).buttonStyle(.glass)
+                    .accessibilityIdentifier("weather-designs")
+            }.padding(.horizontal, 40).padding(.top, 16)
+            if comparing {
+                Text("Live conditions · Swipe to compare")
+                    .font(.title3).foregroundStyle(.secondary).padding(.horizontal, 40)
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: 28) {
+                        ForEach(0..<5) { index in
+                            VStack(alignment: .leading, spacing: 20) {
+                                WeatherDesignCard(weather: weather, style: index).frame(width: 408, height: 408)
+                                HStack {
+                                    Text("\(index + 1). \(WeatherDesignCard.names[index])").font(.title2.weight(.semibold))
+                                    Spacer()
+                                    Button(selected == index ? "Selected" : "Use") { selected = index }
+                                        .buttonStyle(.glass).controlSize(.large).tint(.cyan)
+                                }
+                            }.frame(width: 408)
+                        }
+                    }.padding(40)
+                }.scrollIndicators(.hidden)
+                Spacer(minLength: 0)
+            } else { WeatherPage(weather: weather) }
+        }.background(.black)
     }
 }

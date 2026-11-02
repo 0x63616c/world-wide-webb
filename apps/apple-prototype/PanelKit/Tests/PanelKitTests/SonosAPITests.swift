@@ -168,6 +168,29 @@ import Testing
         #expect(try decode(room).playbackPosition?.position == 200)
     }
 
+    @Test func lineInGroupingNeverWritesToProtectedTV() async throws {
+        let transport = LineInTransport(state: try fixture("rooms"))
+        let api = SonosAPI(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)
+        try await api.groupLineIn(sourceID: "media_player.test_beta", excluding: ["media_player.test_alpha"])
+        let writes = await transport.requests.filter { $0.httpMethod == "POST" }
+        #expect(writes.count == 3)
+        for request in writes {
+            let body = String(data: try #require(request.httpBody), encoding: .utf8)!
+            #expect(!body.contains("media_player.test_alpha"))
+        }
+        #expect(writes[0].url!.path.hasSuffix("sound.sonosGroupLeave"))
+        #expect(writes[1].url!.path.hasSuffix("sound.sonosSetLineIn"))
+    }
+
+    @Test func lineInRefusesToSwitchSourceWithProtectedFollower() async throws {
+        let transport = LineInTransport(state: try fixture("rooms"))
+        let api = SonosAPI(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)
+        await #expect(throws: PanelAPIError.self) {
+            try await api.groupLineIn(sourceID: "media_player.test_alpha", excluding: ["media_player.test_beta"])
+        }
+        #expect(await transport.requests.filter { $0.httpMethod == "POST" }.isEmpty)
+    }
+
     private func fixture(_ name: String) throws -> Data {
         let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/sonos"))
         return try Data(contentsOf: url)
@@ -186,5 +209,16 @@ private actor SonosAPIStub: PanelTransport {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+    }
+}
+
+private actor LineInTransport: PanelTransport {
+    let state: Data
+    private(set) var requests: [URLRequest] = []
+    init(state: Data) { self.state = state }
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        requests.append(request)
+        return (request.httpMethod == "POST" ? Data(#"{"result":{"data":null}}"#.utf8) : state,
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
     }
 }

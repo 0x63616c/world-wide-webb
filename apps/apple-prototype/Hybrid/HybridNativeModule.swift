@@ -41,7 +41,7 @@ struct HybridNativeModule: View {
             }
         }
         .foregroundStyle(.white).tint(.white)
-        .background(Color.black)
+        .background(Color.clear)
         .environment(\.colorScheme, .dark)
         .task(id: "\(module.rawValue)-\(detail)") { await signalSnapshotReady() }
         .accessibilityElement(children: .contain)
@@ -79,8 +79,8 @@ struct HybridNativeModule: View {
             fan.frame(width: 660, height: 520)
                 .modifier(MixedTileMaterial(round: true, on: faceOn))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .wifi: WifiModule(provider: store.wifiProvider, openOnAppear: true)
-        case .weather: WeatherPage(weather: store.weather)
+        case .wifi: WifiModule(provider: store.wifiProvider)
+        case .weather: PanelWeatherModule(weather: store.weather)
         case .sonos: SonosModule(store: store, close: close)
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: AgendaPage(provider: store.calendar, now: store.now)

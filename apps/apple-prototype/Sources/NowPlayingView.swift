@@ -71,7 +71,7 @@ struct NowPlayingView: View {
             } else {
                 Color.black.overlay(Text("No rooms available").font(.largeTitle))
             }
-        }.foregroundStyle(.white).ignoresSafeArea()
+        }.foregroundStyle(.white)
             .sheet(isPresented: $choosingRoom) {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack {

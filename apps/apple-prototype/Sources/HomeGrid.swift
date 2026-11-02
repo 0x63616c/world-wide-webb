@@ -30,18 +30,20 @@ enum HomeGrid {
     static func span(_ w: Int, _ h: Int) -> CGSize {
         CGSize(width: CGFloat(w) * cell + CGFloat(w - 1) * gutter, height: CGFloat(h) * cell + CGFloat(h - 1) * gutter)
     }
-    static func origin(in size: CGSize) -> CGPoint {
-        CGPoint(x: floor((size.width - width) / 2), y: top + heading + headingGap)
-    }
+    static func origin(in size: CGSize) -> CGPoint { CGPoint(x: 12, y: 12) }
     static func frame(_ p: GridPlacement, in size: CGSize) -> CGRect {
-        let o = origin(in: size), s = span(p.variant.w, p.variant.h)
-        return CGRect(x: o.x + CGFloat(p.x) * (cell + gutter), y: o.y + CGFloat(p.y) * (cell + gutter), width: s.width, height: s.height)
+        let gap: CGFloat = 12
+        let w = (size.width - gap * 7) / 6
+        let h = (size.height - gap * 5) / 4
+        return CGRect(x: gap + CGFloat(p.x) * (w + gap), y: gap + CGFloat(p.y) * (h + gap),
+                      width: CGFloat(p.variant.w) * (w + gap) - gap,
+                      height: CGFloat(p.variant.h) * (h + gap) - gap)
     }
     /// Home is one continuous layout split over pages: page 1 fills all 24 cells, and only the
     /// overflow goes to page 2, packed from the top-left with no holes.
     /// Page 1: four 2×1 glances down the left (clock H, car, lamps, fan), then two 2×2 columns.
     static let home: [GridPlacement] = [
-        .init(.clock, "H", 0, 0), .init(.weather, "C", 2, 0), .init(.lights, "D", 4, 0),
+        .init(.clock, "H", 0, 0), .init(.weather, "C", 2, 0), .init(.lights, "C", 4, 0, .ceiling), .init(.lights, "C", 4, 1, .cabinet),
         .init(.car, "A", 0, 1),
         .init(.lamps, "A", 0, 2), .init(.climate, "A", 2, 2), .init(.calendar, "B", 4, 2),
         .init(.fan, "C", 0, 3)
@@ -202,7 +204,8 @@ struct GridCardView: View {
     let store: any HomeDataSource
     var open: () -> Void = {}
     @Environment(\.homeIntegration) private var integration
-    private var size: CGSize { HomeGrid.span(variant.w, variant.h) }
+    var layoutSize: CGSize? = nil
+    private var size: CGSize { layoutSize ?? HomeGrid.span(variant.w, variant.h) }
     private var v: String { variant.letter }
     private var on: Bool {
         if let module = card.module, store.status(for: module) != .live { return false }
@@ -1022,14 +1025,7 @@ struct GridHomeFace: View {
     @Environment(\.homeIntegration) private var integration
     @State private var picker = HomeGrid.args.contains("-showWallpaperPicker")
     var body: some View {
-        let o = HomeGrid.origin(in: size)
         ZStack(alignment: .topLeading) {
-            HStack(alignment: .center) {
-                Text("Home").font(.system(size: 36, weight: .bold)).foregroundStyle(.white)
-                    .onLongPressGesture { picker = true }
-                Spacer()  // no date here: Clock H already shows it
-            }.frame(width: HomeGrid.width, height: HomeGrid.heading)
-                .position(x: o.x + HomeGrid.width / 2, y: HomeGrid.top + HomeGrid.heading / 2)
             ForEach(HomeGrid.placements(page: page)) { placement in
                 let p = placement.card == .media && integration?.classicTile != nil
                     ? GridPlacement(.media, "B", placement.x, placement.y) : placement
@@ -1044,17 +1040,21 @@ struct GridHomeFace: View {
                             .clipShape(.rect(cornerRadius: HomeGrid.radius))
                             .modifier(GridMaterial(on: false))
                     } else {
-                        GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) })
+                        GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) }, layoutSize: f.size)
+                    }
+                }.overlay(alignment: .topTrailing) {
+                    if t == .clock {
+                        Button { picker = true } label: { Image(systemName: "paintpalette").frame(width: 44, height: 44) }
+                            .buttonStyle(.glass).accessibilityLabel("Background").padding(12)
                     }
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("tile-\(t.id)")
                     .matchedTransitionSource(id: "\(page + 1)-\(t.id)", in: zoom ?? standaloneZoom)
                     .position(x: f.midX, y: f.midY)
             }
             if page == 1, let classic = integration?.classicTile {
-                classic.frame(width: HomeGrid.span(2, 1).width, height: HomeGrid.cell)
-                    .modifier(GridMaterial(on: false))
-                    .position(x: o.x + 4 * (HomeGrid.cell + HomeGrid.gutter) + HomeGrid.span(2, 1).width / 2,
-                              y: o.y + 3 * (HomeGrid.cell + HomeGrid.gutter) + HomeGrid.cell / 2)
+                let f = HomeGrid.frame(GridPlacement(.media, "B", 4, 3), in: size)
+                classic.frame(width: f.width, height: f.height)
+                    .modifier(GridMaterial(on: false)).position(x: f.midX, y: f.midY)
             }
         }.frame(width: size.width, height: size.height)
             .overlay { if HomeGrid.overlay { GridOverlay(size: size).allowsHitTesting(false) } }
@@ -1181,7 +1181,7 @@ enum WallpaperChoice: String, CaseIterable, Identifiable {
 }
 
 struct WallpaperPicker: View {
-    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
+    @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .dusk
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {

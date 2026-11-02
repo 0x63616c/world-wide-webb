@@ -1528,3 +1528,25 @@ Accessory cards expose compact quick actions: native light switches, fan mode
 segments, lamp power, Sonos transport, and walk start/stop. Full controls remain in
 native destinations. Only the dedicated Classic card opens the web dashboard.
 Unavailable providers retain an explicit status face instead of fixture values.
+
+### Native refinement pass
+
+Ceiling and Cabinet now have individual 2×1 cards. Lighting uses dark accessory
+cards with separate brightness and scene sections. All native destinations reserve
+a top safe-area bar with a 52-point Home action. Wi-Fi renders its QR directly in
+the black detail page; it no longer automatically presents a white full-screen cover.
+The QR itself retains its required light quiet zone. Password reveal still clears
+when the scene suspends or credentials change.
+
+Sonos opens a room-volume dashboard. Native sliders send raw 0–100 volume and do
+not apply calibration. The Desk line-in shortcut explicitly excludes
+`media_player.living_room`. It reads fresh topology before writes, detaches Desk
+when needed, switches Desk to line-in and joins only eligible non-TV members. It
+refuses to switch a coordinator with the protected TV as a follower. Backend and
+Classic calibration APIs remain compatible; the native UI no longer uses them.
+
+Weather’s “Compare 5 tile designs” view displays live animated alternatives at the
+actual 408-point tile size. Selection is saved locally in `panel.weatherDesign`.
+Animation pauses when inactive or Reduce Motion is enabled. The shared native Home
+and detail views dim to 30% after 60 seconds and consume the wake tap; Mac pointer
+movement also wakes the view. This is in-app dimming, not system display brightness.

@@ -40,6 +40,11 @@ import PanelKit
         return enqueue(.source(id, action))
     }
 
+    @discardableResult func groupLineIn(sourceID: String, excluding: Set<String>) -> Bool {
+        guard availability == .live, pending.isEmpty else { return false }
+        return enqueue(.lineInGroup(sourceID, excluding))
+    }
+
     @ObservationIgnored private let lockDefaults: UserDefaults?
     @ObservationIgnored private let api: SonosAPI
     @ObservationIgnored private var confirmedRooms: [SoundRoom] = []
@@ -266,6 +271,7 @@ import PanelKit
         case transport(String, SonosTransportCommand), join(String, String), joinAll(String), leave(String)
         case seek(String, Double), source(String, SourceAction)
         case calibrate, clearCalibration
+        case lineInGroup(String, Set<String>)
 
         func affectedIDs(details: [String: SonosRoom]) -> Set<String> {
             switch self {
@@ -273,6 +279,7 @@ import PanelKit
             case .mute(let id, _), .leave(let id): [id]
             case .transport(let id, _), .seek(let id, _):
                 Set(details.values.filter { $0.coordinatorUuid == details[id]?.coordinatorUuid }.map(\.uuid))
+            case .lineInGroup(_, let excluded): Set(details.keys).subtracting(excluded)
             case .join, .joinAll, .source, .calibrate, .clearCalibration: Set(details.keys)
             }
         }
@@ -334,6 +341,7 @@ import PanelKit
                     }.map(\.deviceIp).sorted()
                     try await api.joinAllToTV(tvEntityId: target.deviceIp, memberEntityIds: members)
                 }
+            case .lineInGroup(let source, let excluded): try await api.groupLineIn(sourceID: source, excluding: excluded)
             case .calibrate: _ = try await api.calibrate()
             case .clearCalibration: try await api.clearCalibration()
             }

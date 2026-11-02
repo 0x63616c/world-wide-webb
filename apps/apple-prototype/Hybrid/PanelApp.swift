@@ -128,8 +128,7 @@ struct PanelRoot: View {
             VStack(spacing: 0) {
                 if !homeVisible && nativeVisible {
                     HStack(spacing: 18) {
-                        Button("Home", action: navigation.returnHome).buttonStyle(.glass)
-                            .accessibilityIdentifier("module-home")
+                        PanelHomeButton(action: navigation.returnHome)
                         ForEach([PanelModule.all] + nativeModules, id: \.self) { module in
                             Button(module.title) { navigation.pendingNativeAlarmLink = false; navigation.selection = module; navigation.detail = false }
                                 .buttonStyle(.glass)
