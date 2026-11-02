@@ -41,7 +41,7 @@ struct HybridNativeModule: View {
             }
         }
         .foregroundStyle(.white).tint(.white)
-        .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
+        .background(Color.black)
         .environment(\.colorScheme, .dark)
         .task(id: "\(module.rawValue)-\(detail)") { await signalSnapshotReady() }
         .accessibilityElement(children: .contain)
