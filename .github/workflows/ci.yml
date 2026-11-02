@@ -22,7 +22,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: test
     runs-on: macos-15-intel
-    timeout-minutes: 15
+    timeout-minutes: 30
     permissions:
       contents: write
     env:
@@ -61,7 +61,15 @@ jobs:
             lipo build/Build/Products/Release/Callkeep.app/Contents/MacOS/Callkeep -verify_arch "$arch"
           done
           codesign --verify --deep --strict build/Build/Products/Release/Callkeep.app
-          ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/Callkeep.app "Callkeep-$VERSION.zip"
+      - name: Sign, notarize and staple release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: ./Scripts/notarize.sh build/Build/Products/Release/Callkeep.app "Callkeep-$VERSION.zip"
       - name: Publish release
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -77,8 +85,7 @@ jobs:
           Or download the zip, unzip it, and move Callkeep.app to Applications.
           Requires macOS 15 or later; supports Apple silicon and Intel Macs.
 
-          This build is ad-hoc signed and not notarized. macOS may require approval
-          in System Settings → Privacy & Security before opening it.
+          Signed with Developer ID and notarized by Apple.
           EOF
             gh release create "v$VERSION" "Callkeep-$VERSION.zip" --target "$GITHUB_SHA" \
               --title "Callkeep $VERSION" --notes-file /tmp/release-notes.md --generate-notes

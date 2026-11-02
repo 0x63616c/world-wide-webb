@@ -60,5 +60,9 @@ published archive rather than replacing it.
 The release job updates `Casks/callkeep.rb` in `0x63616c/homebrew-tap` with the
 published archive's SHA-256. `HOMEBREW_TAP_DEPLOY_KEY` is a dedicated write deploy
 key for that tap only. The workflow's GitHub token can publish releases only in
-Callkeep. No Apple signing secrets are configured: releases remain ad-hoc signed
-and unnotarized. Uninstall and zap preserve local and iCloud recording files.
+Callkeep. Release signing uses an isolated temporary keychain, Developer ID certificate and
+App Store Connect API key from encrypted Actions secrets. The workflow signs the
+framework and app, submits the archive to Apple, requires an Accepted result,
+staples the ticket, and verifies Gatekeeper acceptance before publishing.
+Temporary signing files and the keychain are removed on exit. Builds stop if
+credentials or notarization are unavailable; there is no unsigned release fallback. Uninstall and zap preserve local and iCloud recording files.

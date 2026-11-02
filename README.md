@@ -73,8 +73,8 @@ brew install --cask callkeep
 
 Update with `brew upgrade --cask callkeep`. You can also download the app from
 [GitHub Releases](https://github.com/0x63616c/callkeep/releases).
-Requires macOS 15 or later on Apple silicon or Intel. Release builds are ad-hoc signed
-and not notarized; macOS may require approval in **System Settings → Privacy & Security**.
+Requires macOS 15 or later on Apple silicon or Intel. New release builds are signed with Developer ID and notarized by Apple.
+Versions through 0.1.3 were ad-hoc signed and may require approval in **System Settings → Privacy & Security**.
 
 Finished recordings move to **iCloud Drive → Callkeep** by default when available.
 Active recordings stay local. Change this in **Settings → Storage**.
