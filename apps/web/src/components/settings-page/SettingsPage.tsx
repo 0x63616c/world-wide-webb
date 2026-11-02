@@ -12,12 +12,12 @@
 import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useEscapeToClose } from "../../lib/escape-stack";
 import { registerOpenModal } from "../../lib/modal-open-store";
 import { useIsNarrow } from "../../lib/useIsNarrow";
 import { Z_LAYER } from "../../lib/z-layers";
 import { Icon } from "../Icon";
-import { BackButton, PageHeader } from "./blocks";
+import { BackPill } from "../ui/BackPill";
+import { PageHeader } from "./blocks";
 import { PAGE_BY_KEY, PAGES, type PageKey } from "./pages";
 import { DevicePage } from "./pages/DevicePage";
 import { DisplayPage } from "./pages/DisplayPage";
@@ -93,10 +93,6 @@ export function SettingsPage({
     return registerOpenModal(() => onCloseRef.current());
   }, [open]);
 
-  // Escape-to-close, only while open AND only while nothing is open on top of
-  // us , a PIN dialog over Settings owns Escape until it closes (#298).
-  useEscapeToClose(open, onClose);
-
   if (!open) return null;
 
   const active = PAGE_BY_KEY[page];
@@ -124,6 +120,10 @@ export function SettingsPage({
         boxSizing: "border-box",
       }}
     >
+      <BackPill
+        label={narrow && !showList ? "Back to Settings" : "Back to board"}
+        onBack={narrow && !showList ? () => setShowList(true) : onClose}
+      />
       {/* Sidebar , full-width and the only pane when narrow, hidden once a page
           is open there. Fixed 340px column on the panel/iPad, always visible. */}
       <div
@@ -134,13 +134,12 @@ export function SettingsPage({
           borderRight: narrow ? "none" : "1px solid var(--hair)",
           background: "var(--tile)",
           flexDirection: "column",
-          padding: 24,
+          padding: "24px 24px 104px",
           gap: 20,
           overflowY: "auto",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <BackButton onClick={onClose} />
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700 }}>Settings</h1>
         </div>
         <nav
@@ -207,7 +206,7 @@ export function SettingsPage({
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          padding: narrow ? "20px 20px 40px" : "40px 64px",
+          padding: narrow ? "20px 20px 104px" : "40px 64px 104px",
           display: narrow && showList ? "none" : "block",
         }}
       >
@@ -221,14 +220,6 @@ export function SettingsPage({
             gap: 28,
           }}
         >
-          {/* Back to the page list , the only way out of a page on a phone,
-              where the sidebar it would otherwise return to is hidden. */}
-          {narrow ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <BackButton onClick={() => setShowList(true)} />
-              <span style={{ fontSize: 17, fontWeight: 600 }}>Settings</span>
-            </div>
-          ) : null}
           <PageHeader title={active.label} blurb={active.blurb} />
           <ActivePage onClose={onClose} onOpenLevel={onOpenLevel} onOpenClean={onOpenClean} />
         </div>

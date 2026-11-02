@@ -80,7 +80,7 @@ describe("Modal , open", () => {
         body
       </Modal>,
     );
-    expect(screen.getByRole("dialog")).toHaveStyle({ minHeight: "480px" });
+    expect(screen.getByTestId("modal-panel")).toHaveStyle({ minHeight: "480px" });
   });
 
   it("clamps minHeight to the panel's maxHeight so it never exceeds the board", () => {
@@ -90,7 +90,7 @@ describe("Modal , open", () => {
       </Modal>,
     );
     // minHeight (800) is clamped down to the clamped maxHeight (400).
-    expect(screen.getByRole("dialog")).toHaveStyle({ minHeight: "400px" });
+    expect(screen.getByTestId("modal-panel")).toHaveStyle({ minHeight: "400px" });
   });
 
   it("omits minHeight when not provided", () => {
@@ -99,7 +99,7 @@ describe("Modal , open", () => {
         body
       </Modal>,
     );
-    expect(screen.getByRole("dialog").style.minHeight).toBe("");
+    expect(screen.getByTestId("modal-panel").style.minHeight).toBe("");
   });
 });
 
@@ -113,7 +113,9 @@ describe("Modal , onClose", () => {
         body
       </Modal>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(screen.getByRole("dialog")).toContainElement(close);
+    fireEvent.click(close);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

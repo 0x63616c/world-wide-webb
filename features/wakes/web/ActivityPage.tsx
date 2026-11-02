@@ -132,7 +132,7 @@ export function ActivityPage({
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
-          paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "calc(104px + env(safe-area-inset-bottom, 0px))",
         }}
         data-testid="activity-scroll"
       >

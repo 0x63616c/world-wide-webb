@@ -162,6 +162,19 @@ describe("ExpandedControlsView , scene tiles (ControlTap)", () => {
 });
 
 describe("ExpandedControlsView , saved colors", () => {
+  it.each(["pill", "Escape"])("closes the color editor with %s without saving", (exit) => {
+    const onSaveColor = vi.fn();
+    render(<ExpandedControlsView {...baseProps({ onSaveColor })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Custom 2" }));
+    const pill = screen.getByRole("button", { name: "Close color editor" });
+    expect(pill).toHaveStyle({ minHeight: "56px", position: "fixed" });
+    if (exit === "pill") fireEvent.click(pill);
+    else fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onSaveColor).not.toHaveBeenCalled();
+  });
+
   it("applies a saved color from its large circle", () => {
     const onColor = vi.fn();
     render(<ExpandedControlsView {...baseProps({ onColor })} />);

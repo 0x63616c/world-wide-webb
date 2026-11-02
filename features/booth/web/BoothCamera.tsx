@@ -4,7 +4,7 @@
  * the front camera, shows a live filtered/mirrored preview, and on shutter bakes
  * the frame(s) and uploads them (via useBoothCapture). It owns only its capture
  * state and filter/timer/flash/mode UI; the host owns navigation, so the only
- * required prop is the gallery jump. `onClose`, when wired, renders a top-left
+ * required prop is the gallery jump. `onClose`, when wired, renders a bottom-left
  * close for full-bleed hosts that lack their own back chrome.
  *
  * Locked behavior:
