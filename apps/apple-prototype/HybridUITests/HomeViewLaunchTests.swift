@@ -24,6 +24,19 @@ import XCTest
         app.openAppGrid()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 15))
     }
+    func testIdleClockCanWakeAndOpenApps() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "YES",
+                               "-panel.dimAfterSeconds", "10"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(app.buttons["Wake panel"].waitForExistence(timeout: 30))
+        app.openAppGrid()
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
+        capture("launcher-after-idle-wake", app)
+    }
     func testClockTapAndLongPressStayOnClock() {
         let app = launch()
         defer { app.terminate() }
