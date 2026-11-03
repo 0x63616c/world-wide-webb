@@ -92,7 +92,9 @@ The running HA release is 2026.7.4. Its exact multi-architecture image index
 also contains ARM64, and is pinned in `deploy/mini/home-assistant.compose.yaml`.
 Keep this version for migration; upgrades are a separate operation.
 The proposed container has its own project and restored configuration directory.
-It has not been started. Never run both copies with live integrations enabled.
+Use it on a Linux VM with verified LAN networking, not directly in OrbStack
+without resolving the discovery failure below. Never run both copies with live
+integrations enabled.
 
 OrbStack host networking exposes container ports on macOS localhost, but LAN
 multicast discovery and device callbacks require separate verification. See
@@ -110,14 +112,37 @@ instance. Verify existing login, dashboards, integrations, automations and
 history before moving callers. If verification fails, stop the mini instance
 before restarting the old one. A planned HA outage is explicitly permitted.
 
+An identical SSDP discovery probe found eight responding devices from native
+macOS and zero from an OrbStack host-network container. Direct OrbStack HA is
+therefore not ready for cutover. The mini already has Colima, Lima, QEMU and
+socket_vmnet installed, with no existing instances. Investigate a dedicated
+bridged VM using its active LAN interface (`en1`) and prove discovery before
+moving HA. Keep its memory/disk allocation within the mini's limited capacity.
+
 The configuration archive and consistent SQLite snapshot have been restored
 under `/Users/calum/home-assistant/rehearsal-config`. An isolated, network-disabled
 ARM64 container verified database integrity and the same state/event counts.
-The restored configuration and entity registry are present. HA itself has not
-been started. The current Talos API baseline is 214 entities; all lights,
+The restored configuration and entity registry are present. HA was subsequently
+started with networking disabled, and accepted the existing API credential at
+`/api/config`, reporting version 2026.7.4. It was stopped after this check;
+integration startup cannot be verified in that isolated mode.
+The current Talos API baseline is 214 entities; all lights,
 switches, climate entities, covers, locks and media players are available.
 There are already 12 unavailable sensors and four unavailable event entities;
 compare individual entities at cutover rather than treating these as new failures.
+
+## Bambuddy backup
+
+Bambuddy remains running on the mini. Its data volume has an off-host archive,
+plus a separate SQLite online-backup snapshot to use instead of the archive's
+live database/WAL files. The snapshot passes integrity checks both on the mini
+and off-host and contains 91 user tables. SHA-256 matches on both hosts:
+
+- `bambuddy-consistent.sqlite`: `94868a1dd08dd90ca9a25ff9969d0f219224511b024a0e9654a71c49bf1b60bd`
+- `bambuddy-data.tar.gz`: `4dbee6daa2969e09e19bacc60ef8df54f3f98ab0e5c79dbd64d533519027015a`
+
+This covers Bambuddy's primary data, not yet a complete restore rehearsal of
+its companion studio service and Tailscale state.
 
 ## Release automation
 
