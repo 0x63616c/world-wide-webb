@@ -43,13 +43,7 @@ if (workspaceManifests.length === 0) {
 // These are built from the repo root (.), so they must COPY every workspace manifest
 // before the frozen install.
 
-const FULL_INSTALL_DOCKERFILES = [
-  "Dockerfile",
-  "apps/manage/Dockerfile",
-  "apps/api/Dockerfile",
-  "apps/worker/Dockerfile",
-  "apps/web/Dockerfile",
-];
+const FULL_INSTALL_DOCKERFILES = ["Dockerfile"];
 
 // --- 3. Parse each Dockerfile for `COPY <src>/package.json` lines ---
 
@@ -115,11 +109,7 @@ for (const df of FULL_INSTALL_DOCKERFILES) {
 // Scoped to the images that actually CONSUME that surface. An image that does
 // not import a feature facet does not belong on this list.
 const REQUIRED_SOURCE_DIRS = ["app-kit", "features"];
-const C7_AUTHORING_SURFACE_DOCKERFILES = [
-  "apps/api/Dockerfile",
-  "apps/worker/Dockerfile",
-  "apps/web/Dockerfile",
-];
+const C7_AUTHORING_SURFACE_DOCKERFILES = ["Dockerfile"];
 const sourceDirOffenders: Array<{ dockerfile: string; missing: string[] }> = [];
 for (const df of C7_AUTHORING_SURFACE_DOCKERFILES) {
   if (!existsSync(join(ROOT, df))) continue;

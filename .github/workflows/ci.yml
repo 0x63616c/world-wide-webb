@@ -6,21 +6,16 @@ on:
     branches: [main]
   pull_request:
     branches: ["**"]
-  # Manual trigger: rebuild + (on main) redeploy on demand. Useful for a forced
-  # redeploy or to re-run after a transient infra failure. force_all=true
-  # rebuilds every image and runs `pulumi up`; force_all=false falls back to the
-  # path-filter diff (the www-bom8 deploy marker is retired, `pulumi up` converges
-  # the declared stack on every green run, so no drift-tracking dispatch exists).
   workflow_dispatch:
     inputs:
       force_all:
-        description: "Rebuild every image and redeploy (pulumi up); false = diff-only"
+        description: "Validate the app image even without app changes"
         type: boolean
         default: true
 
 permissions:
   contents: read
-  packages: write
+  packages: read
 
 # Cancellation behavior depends on the ref: cancel-in-progress is on for feature
 # branches (killing superseded runs saves runner minutes) but off on main (where a
@@ -43,39 +38,18 @@ jobs:
     timeout-minutes: 5
     outputs:
       www: ${{ steps.filter.outputs.www }}
-      web: ${{ steps.filter.outputs.web }}
-      manage: ${{ steps.filter.outputs.manage }}
-      api: ${{ steps.filter.outputs.api }}
-      worker: ${{ steps.filter.outputs.worker }}
-      # infra-only changes (Pulumi program / specs) deploy without any image
-      # rebuild: a `pulumi up` must still converge the declared stack.
-      infra: ${{ steps.filter.outputs.infra }}
-      # infra/cloudflare is a separate Pulumi project (ticket #52): its own
-      # filter so it deploys independently of the home-server `infra` stack.
       cloudflareinfra: ${{ steps.filter.outputs.cloudflareinfra }}
-      any_app: ${{ steps.filter.outputs.any_app }}
     steps:
       - uses: actions/checkout@v5
-
-      # No deploy-marker baseline (www-j934.14): `pulumi up` is
-      # declarative-convergent, so the latest green run always reconciles the
-      # whole declared stack to the committed digests, the `refs/deploy/main`
-      # marker that kept Swarm's push-range model from stranding commits is
-      # obsolete. dorny defaults to the push range on same-branch pushes and the
-      # default-branch diff on feature branches, which is exactly what we want.
       - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
-            # Shared changes (packages or root lockfile) force a rebuild of everything.
-            # Single-product repo now (SDD track 0, Task 9: flatten): each app
-            # lane is scoped to its own root directory plus shared packages.
-            # app-kit/ + features/ are the C7 authoring surface: web bundles feature
-            # tiles, api mounts feature routers/schema, worker drains feature jobs.
-            # A change under either must rebuild ALL THREE images (a miss ships stale
-            # images on green CI — www ci-cancelled-runs-strand).
             www:
               - 'Dockerfile'
+              - '.dockerignore'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/deploy-mini.yml'
               - 'apps/api/**'
               - 'apps/worker/**'
               - 'apps/web/**'
@@ -86,67 +60,9 @@ jobs:
               - 'package.json'
               - 'bun.lock'
               - 'tsconfig.json'
-            web:
-              - 'apps/web/**'
-              - 'packages/**'
-              - 'app-kit/**'
-              - 'features/**'
-              - 'bun.lock'
-            # manage (ADR-0010) shares only packages/theme with the rest of the
-            # repo — no app-kit, no features, no api surface — so its lane is
-            # its own tree plus packages/ and the lockfile.
-            manage:
-              - 'apps/manage/**'
-              - 'packages/**'
-              - 'bun.lock'
-            api:
-              - 'apps/api/**'
-              - 'packages/**'
-              - 'app-kit/**'
-              - 'features/**'
-              - 'bun.lock'
-            # The worker bundles its domain cycles from @control-center/api, so an api/
-            # change must rebuild the worker image too (www-xjba).
-            worker:
-              - 'apps/worker/**'
-              - 'apps/api/**'
-              - 'packages/**'
-              - 'app-kit/**'
-              - 'features/**'
-              - 'bun.lock'
-            # infra-only changes (the Pulumi program + workload specs) deploy
-            # with NO image rebuild: the deploy job runs `pulumi up`, which must
-            # converge an infra-only diff (e.g. a resource cap or env change).
-            # The vault feeds workload Secrets via `pulumi up`, so a vault-only
-            # change (a new or rotated key) must redeploy too.
-            infra:
-              - 'scripts/deploy-www.sh'
-              - 'infra/**'
-              - 'secrets/vault.yaml'
-            # infra/cloudflare (ticket #52): the Cloudflare edge project (Access
-            # apps + tunnel ingress + DNS), separate from the home-server `infra`
-            # stack above. Also watch packages/platform/src/index.ts: its
-            # controlCenterProductManifest() feeds desiredAccessApps() (src/access.ts)
-            # and productRoutes() (src/routes.ts), so a manifest-only change with
-            # no infra/cloudflare/ diff must still redeploy.
             cloudflareinfra:
               - 'infra/cloudflare/**'
               - 'packages/platform/src/index.ts'
-            # any_app is true when at least one TypeScript-workspace image
-            # needs to be built. An infra-only change is handled by the separate
-            # `infra` filter above.
-            any_app:
-              - 'Dockerfile'
-              - 'package.json'
-              - 'tsconfig.json'
-              - 'apps/web/**'
-              - 'apps/manage/**'
-              - 'apps/api/**'
-              - 'apps/worker/**'
-              - 'packages/**'
-              - 'app-kit/**'
-              - 'features/**'
-              - 'bun.lock'
 
   # Unit suite (jsdom) + all the fast hermetic bash guards.
   test-unit:
@@ -180,26 +96,15 @@ jobs:
         run: bash scripts/check-alias-parity.sh
       - name: Dockerfile manifest coverage guard
         run: bun run test:dockerfile-manifests
-      - name: Deploy gate guard
-        # Everything CI builds, CI must also deploy. Found live on #355: a tree
-        # with its own path filter and its own build jobs, named in no term of
-        # deploy-home-server's `if:` — so it built, tested and merged green and
-        # never reached prod, with nothing red anywhere to say so. Checks by
-        # PATH, not by filter name, since `any_app` legitimately covers several
-        # trees. Fast (grep/awk), sibling of the build matrix guard below.
+      - name: Main deployment contract
         run: bash scripts/test-deploy-gate.sh
-      - name: Monolith rollout scenarios
-        run: bash scripts/test-deploy-www.sh
       - name: Mac mini release scenarios
         run: bash scripts/test-mini-release.sh
       - name: Mac mini recovery scenarios
         run: bash scripts/test-mini-recovery.sh
       - name: Mac mini backup safety checks
         run: python3 -m unittest discover -s deploy/mini -p 'test_backup.py'
-      - name: Build matrix guard
-        # Asserts every product image builds on a NATIVE amd64 runner and that
-        # no arm64 leg or QEMU emulation creeps back in. The home-server Talos
-        # node is the only deploy target and is x86.
+      - name: Native ARM64 build guard
         run: bash scripts/test-build-matrix.sh
       - name: Wall-panel health classifier tests
         # Hermetic self-test of the panel health classifier (1366x1024 +
@@ -210,11 +115,7 @@ jobs:
       - name: Test (unit, jsdom)
         run: bun run test:unit
 
-  # Typecheck + dead-code run in parallel with the test suite so type
-  # errors and knip regressions surface without waiting for Playwright to
-  # install and all tests to run. `deploy-home-server` depends on `test-unit`
-  # and `typecheck` both passing (www-q2p5). Build jobs do
-  # NOT — they gate on `changes` alone, so they run concurrently with these.
+  # The mini deploy workflow only accepts a successful complete CI run.
   typecheck:
     needs: [changes]
     runs-on: ubuntu-latest
@@ -234,376 +135,46 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Check committed app codegen
         # This is the authoritative backstop for committed App and manage-extension
-        # codegen: a local hook is bypassable, and deploy-home-server needs typecheck.
+        # codegen: a local hook is bypassable, and deployment requires successful CI.
         run: bun run apps:check
       - name: Typecheck
         run: bun run typecheck
       - name: Dead code (knip, zero-tolerance)
         # Authoritative backstop for the lefthook pre-push guard (which a
         # --no-verify bypass or an uninstalled hook can skip).
-        # `deploy-home-server` needs `typecheck`, so a regression blocks the prod deploy (www-k6p1).
+        # A typecheck failure blocks production deployment.
         run: bun run knip
 
-  # Build jobs depend on `changes` ONLY, not on test/typecheck. They run
-  # concurrently with the test suite instead of queueing behind it (measured
-  # 180s off the critical path, because the build fan-in is shorter than the
-  # test job and now hides entirely under it).
-  # This does NOT weaken the deploy gate: `deploy-home-server` still lists test-unit + typecheck
-  # in its own `needs:`, so an image built for a commit that fails tests is
-  # simply never deployed. The only cost is building images for the ~9% of
-  # pushes that fail — they are content-addressed and otherwise inert.
-  # Each build-* job builds its Dockerfile ONCE, linux/amd64 only, on a native
-  # ubuntu-24.04 runner, and pushes the final tags directly (…:<sha>, plus
-  # …:main on main). The arm64 leg and the merge-* manifest-index jobs were
-  # dropped when the arm64 Mac mini was retired (2026-07-25) — the home-server
-  # Talos node is x86 and is the only deploy target. No setup-qemu-action
-  # anywhere: the runner is native, so bun builds never emulate.
-  build-web:
-    needs: [changes]
-    if: needs.changes.outputs.web == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      # The Docker builder image has no .git, so the commit timestamp must be
-      # computed here (where the repo is checked out) and passed in as a build-arg.
-      # Unix-ms = author commit time × 1000; the badge renders "time since commit"
-      # from it. Without this, vite emits "NaN" and the prod badge omits the age.
-      - name: Resolve commit timestamp (unix-ms)
-        run: echo "BUILD_TIME=$(( $(git show -s --format=%ct HEAD) * 1000 ))" >> "$GITHUB_ENV"
-
-      - name: Build and push web image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-web
-          dockerfile: apps/web/Dockerfile
-          cache-scope: web
-          build-args: |
-            BUILD_HASH=${{ github.sha }}
-            BUILD_TIME=${{ env.BUILD_TIME }}
-
-
-  build-manage:
-    needs: [changes]
-    if: needs.changes.outputs.manage == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push manage image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-manage
-          dockerfile: apps/manage/Dockerfile
-          cache-scope: manage
-
-
+  # Validate the single production Dockerfile on the mini's native architecture.
+  # Publishing and deployment happen only after CI succeeds, in deploy-mini.yml.
   build-www:
     needs: [changes]
     if: needs.changes.outputs.www == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
       - name: Compute build timestamp
         id: commit-time
         run: echo "ms=$(($(git log -1 --format=%ct) * 1000))" >> "$GITHUB_OUTPUT"
-      - name: Build and push www image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+      - name: Validate production image
+        uses: docker/build-push-action@v7
         with:
-          image: www-control-center-www
-          dockerfile: Dockerfile
-          cache-scope: www
+          context: .
+          file: Dockerfile
+          platforms: linux/arm64
+          push: false
           build-args: |
             BUILD_HASH=${{ github.sha }}
             BUILD_TIME=${{ steps.commit-time.outputs.ms }}
+          cache-from: type=gha,scope=www-mini
+          cache-to: type=gha,mode=max,scope=www-mini
 
-  build-api:
-    needs: [changes]
-    if: needs.changes.outputs.api == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push api image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-api
-          dockerfile: apps/api/Dockerfile
-          cache-scope: api
-          build-args: |
-            BUILD_HASH=${{ github.sha }}
-
-
-  build-worker:
-    needs: [changes]
-    if: needs.changes.outputs.worker == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build and push worker image
-        uses: ./.github/actions/build-product-image
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        with:
-          image: www-control-center-worker
-          dockerfile: apps/worker/Dockerfile
-          cache-scope: worker
-
-
-  # After the images build on main, deploy to the home-server Talos cluster with
-  # `pulumi up` (www-j934.14). The runner joins the tailnet with an EPHEMERAL
-  # Tailscale key (auto-revoked when the job ends), reaches the kube-apiserver
-  # over the tailnet, and runs the Pulumi program in infra/. CI is the deployer.
-  #
-  # Fires on `any_app || infra`: an application change or an infra-only change
-  # must converge the declared stack.
-  deploy-home-server:
-    needs:
-      [
-        changes,
-        test-unit,
-        typecheck,
-        build-web,
-        build-manage,
-        build-www,
-        build-api,
-        build-worker,
-      ]
-    # always() lets us run even when some build jobs were skipped (no changes).
-    # We proceed when: on main, an app OR infra changed, and no build failed.
-    if: |
-      always() &&
-      github.ref_name == 'main' &&
-      vars.TALOS_DEPLOY_DISABLED != 'true' &&
-      (needs.changes.outputs.any_app == 'true' || needs.changes.outputs.infra == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)) &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled')
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # Protected environment (main-branch only): AGE_PRIVATE_KEY also lives as a
-    # plain repo secret for the build-* jobs above, which don't deploy anything;
-    # this job actually touches the cluster, so it stays gated to `production`.
-    environment: production
-    steps:
-      - uses: actions/checkout@v5
-
-      # Decrypt vault, the ONLY step that touches AGE_PRIVATE_KEY. Installs sops
-      # + age, decrypts secrets/vault.yaml, and masks each value before exporting.
-      # No set -x around this block. Values flow into subsequent steps via GITHUB_ENV.
-      - name: Decrypt vault (SOPS+age)
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: |
-          # Install sops
-          curl -fsSL https://github.com/getsops/sops/releases/download/v3.13.1/sops-v3.13.1.linux.amd64 \
-            -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
-          # Install age
-          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz \
-            | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
-
-          extract() { sops -d secrets/vault.yaml | grep "^$1:" | cut -d' ' -f2-; }
-
-          TS_CLIENT_ID=$(extract TAILSCALE_OAUTH_CLIENT__CLIENT_ID)
-          TS_CLIENT_SECRET=$(extract TAILSCALE_OAUTH_CLIENT__CLIENT_SECRET)
-          PULUMI_TOKEN=$(extract PULUMI__ACCESS_TOKEN)
-          KUBECONFIG_B64_VAL=$(extract KUBECONFIG__B64)
-
-          GHCR_PAT_VAL=$(extract GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN)
-          NTFY_TOPIC_VAL=$(extract NTFY_TOPIC)
-
-          echo "::add-mask::$TS_CLIENT_ID"
-          echo "::add-mask::$TS_CLIENT_SECRET"
-          echo "::add-mask::$PULUMI_TOKEN"
-          echo "::add-mask::$KUBECONFIG_B64_VAL"
-          echo "::add-mask::$GHCR_PAT_VAL"
-          echo "::add-mask::$NTFY_TOPIC_VAL"
-
-          echo "TS_OAUTH_CLIENT_ID=$TS_CLIENT_ID" >> "$GITHUB_ENV"
-          echo "TS_OAUTH_SECRET=$TS_CLIENT_SECRET" >> "$GITHUB_ENV"
-          echo "PULUMI_ACCESS_TOKEN=$PULUMI_TOKEN" >> "$GITHUB_ENV"
-          echo "KUBECONFIG_B64=$KUBECONFIG_B64_VAL" >> "$GITHUB_ENV"
-          echo "GHCR_PAT=$GHCR_PAT_VAL" >> "$GITHUB_ENV"
-          echo "NTFY_TOPIC=$NTFY_TOPIC_VAL" >> "$GITHUB_ENV"
-          # SOPS_AGE_KEY flows into the pulumi up step via secrets.AGE_PRIVATE_KEY
-
-      # Heads-up ping the moment the deploy actually begins (vault decrypted,
-      # about to pin digests and run pulumi). min priority: no sound, just a
-      # line in the ntfy list. Never fails the job.
-      - name: Notify deploy start
-        env:
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          [ -n "$NTFY_TOPIC" ] || { echo "NTFY_TOPIC not set; skipping."; exit 0; }
-          curl -fsS --max-time 10 \
-            -H "Title: Deploy started" \
-            -H "Priority: min" \
-            -H "Tags: hourglass_flowing_sand" \
-            -H "Click: $RUN_URL" \
-            -d "$(git log -1 --pretty=%s) ($(git rev-parse --short HEAD))" \
-            "https://ntfy.sh/$NTFY_TOPIC" || true
-
-      # Read each app image's current :main digest. A pinned digest renders the
-      # workload's image as @sha256:… in the Pulumi program (infra/src/services.ts
-      # ghcr()), so `pulumi up` rolls ONLY the workloads whose digest changed,
-      # the www-czg digest-pin guarantee, now config-driven via the Pulumi
-      # program rather than an external webhook.
-      - name: Log in to ghcr.io (read manifests)
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ env.GHCR_PAT }}
-
-      - name: Collect image digests
-        id: digests
-        run: |
-          set -euo pipefail
-          # Map each built app image to its current :main manifest digest. The
-          # KEY is product-component scoped and matches the Pulumi imageDigests
-          # config key, while repo names use full product slugs.
-          declare -A out=()
-          for entry in www-control-center-www:control-center-www www-control-center-web:control-center-web www-control-center-manage:control-center-manage www-control-center-api:control-center-api www-control-center-worker:control-center-worker; do
-            repo="${entry%%:*}"
-            name="${entry#*:}"
-            d=$(docker buildx imagetools inspect "ghcr.io/0x63616c/$repo:main" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
-            if [ -n "$d" ]; then
-              out[$name]="$d"
-            fi
-          done
-          if [ -z "${out[control-center-www]:-}" ]; then
-            echo "www digest unavailable; refusing to change running workloads"
-            exit 1
-          fi
-          # Emit a compact JSON map (svc -> sha256:…) for the pulumi config step.
-          json='{}'
-          for k in "${!out[@]}"; do
-            json=$(jq -cn --argjson cur "$json" --arg k "$k" --arg v "${out[$k]}" '$cur + {($k): $v}')
-          done
-          echo "Image digests: $json"
-          echo "map=$json" >> "$GITHUB_OUTPUT"
-
-      # Join the tailnet with an EPHEMERAL, tag-scoped key so the runner can reach
-      # the home-server kube-apiserver. The node is auto-revoked when the job ends
-      # (ephemeral: true + the action's post-step). No long-lived tailnet creds
-      # live on the runner, only the single-use OAuth-minted key.
-      - name: Connect to Tailscale (ephemeral)
-        uses: tailscale/github-action@v4
-        with:
-          oauth-client-id: ${{ env.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ env.TS_OAUTH_SECRET }}
-          tags: tag:ci
-          # Ephemeral node so it's removed from the tailnet when the runner exits.
-          # No `args:` — v4 passes --accept-routes itself, and repeating it here
-          # makes `tailscale up` reject the whole invocation ("invalid boolean
-          # flag accept-routes: flag provided multiple times").
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.4
-
-      - name: Install infra deps
-        run: bun install --frozen-lockfile
-
-      - name: Install Pulumi CLI
-        uses: pulumi/actions@v7
-
-      # Write the kubeconfig the Pulumi k8s provider uses to reach the home-server
-      # kube-apiserver over the tailnet (www-j934.9 produces this secret).
-      # Contract (home-server / Talos, since the OrbStack-mini cutover):
-      #   - server: https://home-server.tail8c014d.ts.net:6443 - the Talos
-      #     apiserver cert's certSANs include the tailnet name directly
-      #     (infra/talos/talconfig.yaml), so no `tls-server-name` override or
-      #     `tailscale serve` TCP forward is needed the way the old OrbStack
-      #     setup required.
-      #   - auth is the Talos-issued client cert/key against the Talos-generated
-      #     cluster CA (not an OrbStack CA).
-      # All of that lives INSIDE the vault KUBECONFIG__B64, decoded from the env.
-      - name: Write kubeconfig
-        run: |
-          mkdir -p "$HOME/.kube"
-          printf '%s' "$KUBECONFIG_B64" | base64 -d > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-
-      - name: pulumi up (deploy to k3s)
-        working-directory: infra
-        env:
-          # PULUMI_ACCESS_TOKEN set by "Decrypt vault" step via GITHUB_ENV.
-          # SOPS_AGE_KEY flows in here so loadVault() in program.ts can decrypt.
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-          # No KUBECONFIG override: kubectl and the Pulumi k8s provider both
-          # default to $HOME/.kube/config, where the "Write kubeconfig" step put
-          # it. (A `${{ env.HOME }}` expression evaluates to empty in the env
-          # context, yielding /.kube/config -> "current-context is not set".)
-          DIGEST_MAP: ${{ steps.digests.outputs.map }}
-        run: |
-          # Production is the Talos home-server cluster; the `prod` stack (the
-          # retired OrbStack mini) is a cold spare and is NEVER deployed to. Its
-          # cloudflared would grab the shared CF tunnel token and split-brain the
-          # live tunnel, so keeping deploys off it is load-bearing, not cosmetic.
-          STACK=home-server
-          pulumi login
-          pulumi stack select "$STACK"
-          # Pin the k8s provider to the context the CI kubeconfig actually carries,
-          # read from the file itself, so the provider never falls back to a
-          # local context (which resolves per-machine to a DIFFERENT cluster). The
-          # CI kubeconfig holds exactly one context (home-server over the tailnet),
-          # so its current-context is unambiguous. If the blob ever ships WITHOUT a
-          # current-context set, self-heal by selecting its sole context, so a
-          # rebuilt secret that forgot `current-context:` can't strand the deploy
-          # on "current-context is not set".
-          ctx=$(kubectl config current-context 2>/dev/null || true)
-          if [ -z "$ctx" ]; then
-            ctx=$(kubectl config get-contexts -o name | head -n1)
-            kubectl config use-context "$ctx" >/dev/null
-          fi
-          echo "Deploying stack $STACK with kube context: $ctx"
-          pulumi config set wwwinfra:kubeContext "$ctx" --stack "$STACK"
-          # Pin each resolved app image by digest: a changed digest rolls only that
-          # workload (www-czg). Preserve existing pins for images that were not
-          # rebuilt or whose registry tag is temporarily unavailable. Removing the
-          # whole map can turn one missing tag into an unpinned production workload
-          # and makes Pulumi reject the entire deployment.
-          # The key MUST be namespaced `wwwinfra:imageDigests` to match the program's
-          # `new Config("wwwinfra").getObject("imageDigests")`. A bare `--path
-          # imageDigests.<svc>` writes under the PROJECT namespace (world-wide-webb:),
-          # which the program never reads, so every image silently renders `:main`
-          # (mutable tag) and pods NEVER roll to the freshly built build (www-j934.9).
-          for svc in $(echo "$DIGEST_MAP" | jq -r 'keys[]'); do
-            dig=$(echo "$DIGEST_MAP" | jq -r --arg s "$svc" '.[$s]')
-            pulumi config set --path "wwwinfra:imageDigests.$svc" "$dig" --stack "$STACK"
-          done
-          bash ../scripts/deploy-www.sh "$STACK"
-
-  # infra/cloudflare (ticket #52): a separate Pulumi project from the k8s stack
-  # above — no LAN/tailnet dependency at all, it only talks to the Cloudflare
-  # API over the internet. All its stack config (apiToken/accountId/zoneId/
-  # tunnelId/allowedEmail) is already SECRET config encrypted in
-  # infra/cloudflare/Pulumi.prod.yaml via Pulumi's own per-stack encryption, so
-  # the only credential this job needs from the vault is PULUMI_ACCESS_TOKEN
-  # (same token the home-server `deploy-home-server` job above already uses).
-  #
-  # Ordered AFTER deploy-home-server (needs it, not parallel): if a new
-  # hostname's Cloudflare tunnel-ingress rule applied before the k8s backend
-  # existed, that route would 502 for real users the moment it's live. Landing
-  # k8s first means an unrouted-yet service just sits inert until this job
-  # catches up — no user-facing gap either way, but this ordering is the one
-  # with no failure mode.
+  # Cloudflare remains a separate retained Pulumi project. Require application
+  # checks before changing edge routes; the mini release follows complete CI.
   deploy-cloudflare:
-    needs: [changes, typecheck, deploy-home-server]
+    needs: [changes, typecheck, test-unit, build-www]
     if: |
       always() &&
       github.ref_name == 'main' &&
@@ -662,12 +233,7 @@ jobs:
         changes,
         test-unit,
         typecheck,
-        build-web,
-        build-manage,
         build-www,
-        build-api,
-        build-worker,
-        deploy-home-server,
         deploy-cloudflare,
       ]
     if: always() && github.ref_name == 'main'
@@ -681,13 +247,11 @@ jobs:
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
           ANY_FAILED: ${{ contains(needs.*.result, 'failure') }}
-          DEPLOY_HOME_SERVER_RESULT: ${{ needs.deploy-home-server.result }}
           DEPLOY_CLOUDFLARE_RESULT: ${{ needs.deploy-cloudflare.result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           if [ "$ANY_FAILED" != "true" ] \
-            && [ "$DEPLOY_HOME_SERVER_RESULT" != "success" ] \
             && [ "$DEPLOY_CLOUDFLARE_RESULT" != "success" ]; then
             echo "Nothing to notify (no failure, no deploy)."
             exit 0
