@@ -21,7 +21,7 @@ Callkeep captures your microphone and the audio playing on your Mac. It works al
 - Import existing Callkeep recording folders without changing the originals.
 - See permission status automatically, with guided setup when access is missing.
 
-Transcription and live captions are not included in this version.
+Transcription and live captions are not included in this version. See the [local transcription research and design](docs/TRANSCRIPTION.md).
 
 ![Live recording with separate voice and call-audio colors](docs/images/recording.png)
 
@@ -73,7 +73,7 @@ brew tap 0x63616c/tap
 brew install --cask callkeep
 ```
 
-Update with `brew upgrade --cask callkeep`. You can also download the app from
+Use **Callkeep → Check for Updates…** for in-app updates, or `brew upgrade --cask callkeep`. In-app updates wait for recording and file operations to finish. You can also download the app from
 [GitHub Releases](https://github.com/0x63616c/callkeep/releases).
 Requires macOS 15 or later on Apple silicon or Intel. New release builds are signed with Developer ID and notarized by Apple.
 Versions through 0.1.3 were ad-hoc signed and may require approval in **System Settings → Privacy & Security**.
@@ -90,6 +90,6 @@ Open `Callkeep.xcodeproj` in Xcode and run the **Callkeep** scheme, or use:
 open build/Build/Products/Release/Callkeep.app
 ```
 
-The checked-in project has no external package dependencies. Local builds use ad-hoc signing by default. Native iCloud storage requires the provisioned, Developer ID signed release; ad-hoc builds keep new recordings local. The optional system-audio permission query uses a private macOS API.
+Xcode resolves the pinned Sparkle update framework through Swift Package Manager. Local builds use ad-hoc signing by default. Native iCloud storage requires the provisioned, Developer ID signed release; ad-hoc builds keep new recordings local. The optional system-audio permission query uses a private macOS API.
 
 [Development and permissions](docs/DEVELOPMENT.md) · [Recording and storage](docs/RECORDING.md) · [Validation](docs/VALIDATION.md)

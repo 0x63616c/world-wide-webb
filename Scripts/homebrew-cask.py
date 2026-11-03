@@ -17,6 +17,7 @@ Path(destination).write_text('''cask "callkeep" do
   name "Callkeep"
   desc "Record microphone and computer audio with optional iCloud Drive storage"
   homepage "https://github.com/0x63616c/callkeep"
+  auto_updates true
 
   livecheck do
     url :url

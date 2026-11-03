@@ -17,6 +17,15 @@ Tested on an Apple Silicon Mac running macOS 27.2, using Xcode 27.
 - Storage refresh now reloads the selected player after a coordinated transfer and restores its position and prior playback state. The native build displayed the selected recording’s full duration after startup refresh and retained a 10-second seek after switching away and back. Audio playback was not started for this check.
 - Updated the Settings screenshot with the actual new shortcut label.
 
+## Saved waveform colors, sidebar spacing and Sparkle — Build 10
+
+- All 30 XCTest tests pass, including independent source envelopes, delayed tracks, right-channel-only audio and short peaks outside the old sampling windows.
+- The production updater delegate's recording/IO deferral harness passes without opening audio devices or installing software: checks are blocked while recording, installation remains pending during file operations, and becoming idle resumes the callback exactly once.
+- Universal Release build succeeds. The Sparkle feed generator signs a packaged archive, validates version/URL/size metadata and verifies its archive signature. CI repeats this against the exact notarized release zip.
+- Native previews show separate purple/teal playback colors before and after the playhead, a matching legend, and additional space above the recording list. Search and Shift-click range selection were exercised using generated recordings.
+- Captured all four README images as transparent native PNGs with fictional fixtures; no user call content is published. A generated 24-minute 8 kHz two-track fixture's complete waveform envelope took about 0.20 seconds in an optimized build on the development M5 Pro. This is waveform extraction, not an ASR benchmark.
+- Transcription models were researched, including Apple's public speech APIs and on-device language-model availability. Transcription and meeting detection are design proposals, separate from these shipped UI/updater changes; see [the model research](TRANSCRIPTION.md).
+
 ## Historical validation
 
 

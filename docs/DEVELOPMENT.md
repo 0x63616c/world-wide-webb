@@ -69,3 +69,10 @@ Temporary signing files and the keychain are removed on exit. Builds stop if
 credentials or notarization are unavailable; there is no unsigned release fallback. Uninstall and zap preserve local and iCloud recording files.
 
 Native iCloud releases require `MACOS_PROVISIONING_PROFILE_BASE64` alongside the signing secrets. `Scripts/validate-provisioning.py` checks the profile’s expiry, signing certificate, app identity, production environment and container authorization before signing with `Resources/Callkeep-iCloud.entitlements`. Ad-hoc builds retain the basic audio-input entitlements.
+
+
+## Sparkle updates
+
+Sparkle 2.10.1 is pinned in the project and Package.resolved. Releases embed an EdDSA public key and fetch `appcast.xml` from the latest GitHub Release. The same notarized zip is used for Homebrew and Sparkle. `Scripts/sign-app.py` signs Sparkle's nested helpers, frameworks and the application inside out; `Scripts/make-appcast.py` signs and verifies the exact published archive before the feed is uploaded. `SPARKLE_PRIVATE_KEY` is an encrypted Actions secret; the local private key is stored in the login Keychain under account `co.calum.callkeep`. Never commit or print it.
+
+The Homebrew cask declares `auto_updates true`. The workflow skips tap changes when its release is no longer the latest. Automatic checks are enabled; installation is user initiated. The updater refuses checks while capturing or moving files and postpones a requested restart until both are idle. The recording/IO deferral harness runs as part of `Scripts/test.sh`, using simulated state without opening an audio device or installing anything. Debug previews do not start update checks unless a local Info.plist override explicitly enables them.

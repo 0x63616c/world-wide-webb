@@ -42,16 +42,7 @@ python3 Scripts/validate-provisioning.py "$signing_directory/profile.plist" Reso
 cp "$signing_directory/profile.provisionprofile" "$app/Contents/embedded.provisionprofile"
 echo "Signing framework and app"
 identity='Developer ID Application: Calum Webb (X9E4HG27NK)'
-# Xcode Debug builds can include a separate code library. Its identity must
-# match the app too; Release builds normally have no such dylib.
-for library in "$app"/Contents/MacOS/*.dylib; do
-    if [[ -f "$library" ]]; then
-        codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime "$library"
-    fi
-done
-codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime "$app/Contents/Frameworks/CallkeepCore.framework"
-codesign --force --sign "$identity" --keychain "$keychain" --timestamp --options runtime --entitlements Resources/Callkeep-iCloud.entitlements "$app"
-codesign --verify --deep --strict "$app"
+python3 Scripts/sign-app.py "$app" "$identity" "$keychain"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
 xcrun notarytool submit "$archive" --key "$signing_directory/key.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" --wait --timeout 10m --output-format json > "$signing_directory/result.json"
 python3 - "$signing_directory/result.json" <<'PY'

@@ -1,9 +1,9 @@
 # App screenshots
 
-Captured from the native macOS app on November 2, 2026 (Build 7 library/player/recording; Build 9 Settings).
+Captured from the native macOS app on November 3, 2026 (Build 10 UI).
 
-- `library.png`: library and player, 2080 × 1380.
-- `player.png`: playback with sidebar hidden, 2080 × 1380.
+- `library.png`: library and player, 2620 × 1380.
+- `player.png`: playback with sidebar hidden, 2620 × 1380.
 - `recording.png`: live waveform, 2620 × 1380.
 - `settings.png`: shortcut, native iCloud storage, and permission status, 2620 × 1380.
 - `icon.png`: app icon from the asset catalog.

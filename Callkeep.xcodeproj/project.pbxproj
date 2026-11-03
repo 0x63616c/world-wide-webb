@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00E4ABDE4509FE389092738D /* RecordingWaveform.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B7076FB5222D48590B8A03 /* RecordingWaveform.swift */; };
 		01417339CD20692A6EBC2E49 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1593C810FBCE7C243F1991ED /* Assets.xcassets */; };
 		04098BB31D579A50FC6BDCC8 /* CallkeepApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7542DA656FBC47BB0CA9002B /* CallkeepApp.swift */; };
 		047DA84D0009F06D887ED7D5 /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69752A40FF5626FDEA8FF563 /* AudioCapture.swift */; };
@@ -20,8 +21,11 @@
 		3F41F50F39B93C2762019C08 /* SystemAudioAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9015EF263EFEEFF1A91D9E5F /* SystemAudioAuthorization.swift */; };
 		4C57B834203FC04CCE349850 /* StatusToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 859F926E3B119C20EAC9CDE5 /* StatusToast.swift */; };
 		570985D9DAFF36D5D45CC2DD /* AudioPermissionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01C97A35720E705D29EE0F4 /* AudioPermissionState.swift */; };
+		619015452585C56A81BA1CAC /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EFBF98B0BD24E296D7A95E /* AppUpdater.swift */; };
 		6686D3F41FB361F7D0E393B7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A32C515A628D5135304C7 /* SettingsView.swift */; };
+		8B52B512B807B42485BEEE8E /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA65328F746B97494C3AC9D2 /* Sparkle */; };
 		995B9CC9BD7F2B04386C2C29 /* Recording.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A50A74F9445FE631EFBDC2 /* Recording.swift */; };
+		A5659F454742D324C1527B12 /* Sparkle-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A9C7A2D728637320719CF25A /* Sparkle-LICENSE.txt */; };
 		B11B031B338A4391DF91B75F /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375F5EECFD9623DA6E597C6A /* LibraryView.swift */; };
 		BD6F7A849A7622064A36033B /* CallkeepCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A090D9242A6FE8C3DD86B606 /* CallkeepCore.framework */; };
 		BEDBC2FCAA2A9E4C30C02B1C /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88FB2D20D8249EFBF7D38DA7 /* AppModel.swift */; };
@@ -36,6 +40,7 @@
 		ED36662D11F574E44B72984A /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22EA22B4247390EC38DACF88 /* Permissions.swift */; };
 		F2E67C3006CA24A9DA3427F3 /* ShortcutRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DA2C31F3BB2DE2C94247E1 /* ShortcutRecorder.swift */; };
 		F680074C5E0727B083E82ED8 /* TrackWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75020A3D4E7D51A4FF694FBC /* TrackWriter.swift */; };
+		F70C8E3183A7B88511BC4843 /* RecordingWaveformTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5E0F3B748A7F9BAF6CF367 /* RecordingWaveformTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +87,7 @@
 
 /* Begin PBXFileReference section */
 		112C11C04737DF2A43C9DB94 /* GlobalShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcut.swift; sourceTree = "<group>"; };
+		12EFBF98B0BD24E296D7A95E /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		13F5D7357127769699C877B6 /* SystemAudioTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioTap.swift; sourceTree = "<group>"; };
 		1593C810FBCE7C243F1991ED /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		21F76E18CAD0482D4A4C6C5F /* AudioPermissionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPermissionStateTests.swift; sourceTree = "<group>"; };
@@ -101,13 +107,16 @@
 		859F926E3B119C20EAC9CDE5 /* StatusToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusToast.swift; sourceTree = "<group>"; };
 		88FB2D20D8249EFBF7D38DA7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		8BDD1DD48B5DCA7347272361 /* CallkeepTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CallkeepTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8F5E0F3B748A7F9BAF6CF367 /* RecordingWaveformTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWaveformTests.swift; sourceTree = "<group>"; };
 		9015EF263EFEEFF1A91D9E5F /* SystemAudioAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioAuthorization.swift; sourceTree = "<group>"; };
 		92D25477D52AAA4AABE6EBE1 /* PermissionCompanion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCompanion.swift; sourceTree = "<group>"; };
 		95A3F45F746683A8B9933096 /* RecordingImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingImport.swift; sourceTree = "<group>"; };
 		A090D9242A6FE8C3DD86B606 /* CallkeepCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CallkeepCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A093954658D04A2257FC2930 /* RecordingStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingStoreTests.swift; sourceTree = "<group>"; };
 		A18387A524ED8CB20F841FA1 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		A9C7A2D728637320719CF25A /* Sparkle-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Sparkle-LICENSE.txt"; sourceTree = "<group>"; };
 		B01C97A35720E705D29EE0F4 /* AudioPermissionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPermissionState.swift; sourceTree = "<group>"; };
+		B4B7076FB5222D48590B8A03 /* RecordingWaveform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWaveform.swift; sourceTree = "<group>"; };
 		C6A50A74F9445FE631EFBDC2 /* Recording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recording.swift; sourceTree = "<group>"; };
 		CFB01AE9FD81AB1CB32350EF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F7229F5A66E86168A9CEF3F2 /* Playback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Playback.swift; sourceTree = "<group>"; };
@@ -120,6 +129,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2704E853662A7829B290F94C /* CallkeepCore.framework in Frameworks */,
+				8B52B512B807B42485BEEE8E /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +160,7 @@
 				B01C97A35720E705D29EE0F4 /* AudioPermissionState.swift */,
 				C6A50A74F9445FE631EFBDC2 /* Recording.swift */,
 				95A3F45F746683A8B9933096 /* RecordingImport.swift */,
+				B4B7076FB5222D48590B8A03 /* RecordingWaveform.swift */,
 				30990E66EDCEC08168227223 /* Shortcut.swift */,
 				75020A3D4E7D51A4FF694FBC /* TrackWriter.swift */,
 			);
@@ -161,6 +172,7 @@
 			isa = PBXGroup;
 			children = (
 				88FB2D20D8249EFBF7D38DA7 /* AppModel.swift */,
+				12EFBF98B0BD24E296D7A95E /* AppUpdater.swift */,
 				69752A40FF5626FDEA8FF563 /* AudioCapture.swift */,
 				7542DA656FBC47BB0CA9002B /* CallkeepApp.swift */,
 				A18387A524ED8CB20F841FA1 /* Components.swift */,
@@ -198,6 +210,7 @@
 			children = (
 				21F76E18CAD0482D4A4C6C5F /* AudioPermissionStateTests.swift */,
 				A093954658D04A2257FC2930 /* RecordingStoreTests.swift */,
+				8F5E0F3B748A7F9BAF6CF367 /* RecordingWaveformTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -209,6 +222,7 @@
 				3536BBA82594D0EE4DEABC99 /* Callkeep-iCloud.entitlements */,
 				60BA2C81057F45CB6466C6F8 /* Callkeep.entitlements */,
 				CFB01AE9FD81AB1CB32350EF /* Info.plist */,
+				A9C7A2D728637320719CF25A /* Sparkle-LICENSE.txt */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -269,6 +283,7 @@
 			);
 			name = Callkeep;
 			packageProductDependencies = (
+				CA65328F746B97494C3AC9D2 /* Sparkle */,
 			);
 			productName = Callkeep;
 			productReference = 25FD9BD4C466BDD0E45AB8C5 /* Callkeep.app */;
@@ -303,6 +318,9 @@
 			);
 			mainGroup = 416DB4645E3D477EF9EE694F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9532F4EBBA53C5FA56FF2E60 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1037C40E44EC5EC3E29FDCFD /* Products */;
 			projectDirPath = "";
@@ -321,6 +339,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				01417339CD20692A6EBC2E49 /* Assets.xcassets in Resources */,
+				A5659F454742D324C1527B12 /* Sparkle-LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -333,6 +352,7 @@
 			files = (
 				E011F1265159F31413A4E401 /* AudioPermissionStateTests.swift in Sources */,
 				C430B5631C5FF7A49797E054 /* RecordingStoreTests.swift in Sources */,
+				F70C8E3183A7B88511BC4843 /* RecordingWaveformTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,6 +363,7 @@
 				570985D9DAFF36D5D45CC2DD /* AudioPermissionState.swift in Sources */,
 				995B9CC9BD7F2B04386C2C29 /* Recording.swift in Sources */,
 				CB6D369AE7F4620917F9F941 /* RecordingImport.swift in Sources */,
+				00E4ABDE4509FE389092738D /* RecordingWaveform.swift in Sources */,
 				2945CC3543BBC2E7CCF92C6B /* Shortcut.swift in Sources */,
 				F680074C5E0727B083E82ED8 /* TrackWriter.swift in Sources */,
 			);
@@ -353,6 +374,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BEDBC2FCAA2A9E4C30C02B1C /* AppModel.swift in Sources */,
+				619015452585C56A81BA1CAC /* AppUpdater.swift in Sources */,
 				047DA84D0009F06D887ED7D5 /* AudioCapture.swift in Sources */,
 				04098BB31D579A50FC6BDCC8 /* CallkeepApp.swift in Sources */,
 				CE12071C3C08D0A41386E038 /* Components.swift in Sources */,
@@ -671,6 +693,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9532F4EBBA53C5FA56FF2E60 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CA65328F746B97494C3AC9D2 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9532F4EBBA53C5FA56FF2E60 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = EAB911B1A9E2439CE6EF87E3 /* Project object */;
 }

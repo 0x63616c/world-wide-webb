@@ -12,21 +12,25 @@ struct LibraryView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: Binding(get: { model.selectedIDs }, set: { model.selectMany($0) })) {
-                ForEach(model.filtered) { recording in
-                    RecordingRow(recording: recording, live: model.active?.id == recording.id)
-                        .tag(recording.id)
-                        .contextMenu {
-                            Button("Rename") {
-                                if model.selectedID != recording.id { model.select(recording.id) }
-                                renamingID = recording.id
+                Section {
+                    ForEach(model.filtered) { recording in
+                        RecordingRow(recording: recording, live: model.active?.id == recording.id)
+                            .tag(recording.id)
+                            .contextMenu {
+                                Button("Rename") {
+                                    if model.selectedID != recording.id { model.select(recording.id) }
+                                    renamingID = recording.id
+                                }
+                                Button("Show in Finder") { model.reveal(recording) }
+                                Divider()
+                                Button("Move to Trash…", role: .destructive) {
+                                    if !model.selectedIDs.contains(recording.id) { model.selectMany([recording.id]) }
+                                    deleting = true
+                                }.disabled(recording.id == model.active?.id)
                             }
-                            Button("Show in Finder") { model.reveal(recording) }
-                            Divider()
-                            Button("Move to Trash…", role: .destructive) {
-                                if !model.selectedIDs.contains(recording.id) { model.selectMany([recording.id]) }
-                                deleting = true
-                            }.disabled(recording.id == model.active?.id)
-                        }
+                    }
+                } header: {
+                    Color.clear.frame(height: 8).accessibilityHidden(true)
                 }
             }
             .listStyle(.sidebar)
@@ -224,7 +228,7 @@ struct RecordingDetail: View {
     @Bindable var model: AppModel
     let recording: Recording
     @Binding var renamingID: UUID?
-    @State private var peaks: [Float] = []
+    @State private var waveform = RecordingWaveform()
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
             HStack(alignment: .top) {
@@ -236,7 +240,7 @@ struct RecordingDetail: View {
             }
             Spacer(minLength: 12)
             VStack(spacing: 24) {
-                PlaybackTimelineView(playback: model.playback, peaks: peaks)
+                PlaybackTimelineView(playback: model.playback, waveform: waveform)
                     .disabled(model.isRecording || recording.duration == 0)
                 HStack(spacing: 30) {
                     Spacer()
@@ -250,29 +254,18 @@ struct RecordingDetail: View {
             }
             Spacer(minLength: 12)
         }.padding(40).frame(maxWidth: 850, maxHeight: .infinity)
-        .task(id: recording.id) {
+        .task(id: model.store?.folder(for: recording)) {
             guard let store = model.store else { return }
-            peaks = await Self.readPeaks(recording, folder: store.folder(for: recording))
-        }
-    }
-    nonisolated static func readPeaks(_ recording: Recording, folder: URL) async -> [Float] {
-        await Task.detached(priority: .utility) {
-            var result = Array(repeating: Float(0), count: 160)
-            for track in [recording.microphone, recording.systemAudio].compactMap({ $0 }) {
-                guard let file = try? AVAudioFile(forReading: folder.appendingPathComponent(track.file)), file.length > 0,
-                      let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 1024) else { continue }
-                for bin in 0..<160 {
-                    let time = recording.duration * Double(bin) / 160 - track.startOffset
-                    guard time >= 0 && time < track.duration else { continue }
-                    file.framePosition = min(file.length - 1, AVAudioFramePosition(time * file.processingFormat.sampleRate))
-                    try? file.read(into: buffer, frameCount: 1024)
-                    if let data = buffer.floatChannelData {
-                        for i in 0..<Int(buffer.frameLength) { result[bin] = max(result[bin], abs(data[0][i])) }
-                    }
-                }
+            let folder = store.folder(for: recording)
+            let task = Task.detached(priority: .utility) {
+                try RecordingWaveform.read(recording, folder: folder)
             }
-            return result
-        }.value
+            let result = await withTaskCancellationHandler {
+                try? await task.value
+            } onCancel: { task.cancel() }
+            guard !Task.isCancelled else { return }
+            waveform = result ?? RecordingWaveform()
+        }
     }
 
 }
@@ -301,7 +294,7 @@ private struct RecordingInfoView: View {
 
 private struct PlaybackTimelineView: View {
     let playback: Playback
-    let peaks: [Float]
+    let waveform: RecordingWaveform
     @State private var scrubbing = false
     @State private var scrubPosition: TimeInterval = 0
     @State private var resumeAfterScrubbing = false
@@ -310,7 +303,10 @@ private struct PlaybackTimelineView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !playback.isPlaying)) { _ in
             let position = scrubbing ? scrubPosition : playback.currentPosition
             VStack(spacing: 24) {
-                WaveformView(peaks: peaks, progress: playback.duration > 0 ? position / playback.duration : 0).frame(height: 104)
+                VStack(spacing: 12) {
+                    WaveformLegend()
+                    WaveformView(waveform: waveform, progress: playback.duration > 0 ? position / playback.duration : 0).frame(height: 104)
+                }
                 VStack(spacing: 8) {
                     Slider(value: Binding(get: { position }, set: { value in
                         if scrubbing { scrubPosition = value } else { playback.seek(value) }
@@ -338,18 +334,29 @@ private struct PlaybackTimelineView: View {
 }
 
 struct WaveformView: View {
-    let peaks: [Float]
+    let waveform: RecordingWaveform
     let progress: Double
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         Canvas { context, size in
-            let values = peaks.isEmpty ? Array(repeating: Float(0), count: 160) : peaks
-            let maximum = max(values.max() ?? 0, 0.01)
-            let spacing = size.width / CGFloat(values.count)
-            for (index, peak) in values.enumerated() {
-                let height = max(3, CGFloat(sqrt(min(peak / maximum, 1))) * size.height)
-                let rect = CGRect(x: CGFloat(index) * spacing, y: (size.height - height) / 2, width: max(1, spacing - 2), height: height)
-                context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Double(index) / Double(values.count) <= progress ? .accentColor : .secondary.opacity(0.3)))
+            let count = max(160, waveform.microphone.count, waveform.systemAudio.count)
+            let maximum = max(waveform.microphone.max() ?? 0, waveform.systemAudio.max() ?? 0, 0.01)
+            let spacing = size.width / CGFloat(count)
+            for index in 0..<count {
+                let x = CGFloat(index) * spacing
+                let width = max(1, spacing - 2)
+                let dot = CGRect(x: x, y: size.height / 2 - 1.5, width: width, height: 3)
+                context.fill(Path(roundedRect: dot, cornerRadius: 2), with: .color(.primary.opacity(0.1)))
+                for (values, color) in [(waveform.microphone, VoiceColor.microphone), (waveform.systemAudio, VoiceColor.systemAudio)] {
+                    guard index < values.count, values[index] > 0 else { continue }
+                    let height = max(3, CGFloat(sqrt(min(values[index] / maximum, 1))) * size.height)
+                    let rect = CGRect(x: x, y: (size.height - height) / 2, width: width, height: height)
+                    var layer = context
+                    layer.blendMode = colorScheme == .dark ? .screen : .multiply
+                    let opacity = Double(index) / Double(count) <= progress ? 0.95 : 0.45
+                    layer.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(color.opacity(opacity)))
+                }
             }
-        }.accessibilityLabel("Recorded audio waveform")
+        }.accessibilityLabel("Recorded audio: you in purple, call audio in teal")
     }
 }

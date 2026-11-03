@@ -1,7 +1,7 @@
 import SwiftUI
 import CallkeepCore
 
-private enum VoiceColor {
+enum VoiceColor {
     static let microphone = Color(red: 0.56, green: 0.48, blue: 1.0)
     static let systemAudio = Color(red: 0.22, green: 0.83, blue: 0.78)
 }

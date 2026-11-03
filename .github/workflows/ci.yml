@@ -76,11 +76,16 @@ jobs:
       - name: Publish release
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             # Never replace a published archive; tap checksums must remain stable.
             gh release download "v$VERSION" --pattern "Callkeep-$VERSION.zip" --clobber
+            # A retried release must sign the archive that was already published.
+            python3 Scripts/make-appcast.py "$VERSION" "Callkeep-$VERSION.zip"
+            gh release upload "v$VERSION" appcast.xml --clobber
           else
+            python3 Scripts/make-appcast.py "$VERSION" "Callkeep-$VERSION.zip"
             cat > /tmp/release-notes.md <<'EOF'
           ## Install
           `brew install --cask 0x63616c/tap/callkeep`
@@ -90,7 +95,7 @@ jobs:
 
           Signed with Developer ID and notarized by Apple.
           EOF
-            gh release create "v$VERSION" "Callkeep-$VERSION.zip" --target "$GITHUB_SHA" \
+            gh release create "v$VERSION" "Callkeep-$VERSION.zip" appcast.xml --target "$GITHUB_SHA" \
               --title "Callkeep Build ${VERSION##*.} ($VERSION)" --notes-file /tmp/release-notes.md --generate-notes
           fi
       - name: Check out Homebrew tap
@@ -103,6 +108,10 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          if [[ "$(gh release view --repo 0x63616c/callkeep --json tagName --jq .tagName)" != "v$VERSION" ]]; then
+            echo "Skipping tap update for an older release"
+            exit 0
+          fi
           python3 Scripts/homebrew-cask.py "$VERSION" "Callkeep-$VERSION.zip" homebrew-tap/Casks/callkeep.rb
           ruby -c homebrew-tap/Casks/callkeep.rb
           cd homebrew-tap

@@ -3,8 +3,14 @@ import AppKit
 
 @main
 struct CallkeepApp: App {
-    @State private var model = AppModel()
+    @State private var model: AppModel
+    @StateObject private var updates: AppUpdater
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+    init() {
+        let model = AppModel()
+        _model = State(initialValue: model)
+        _updates = StateObject(wrappedValue: AppUpdater(model: model))
+    }
     var body: some Scene {
         Window("Callkeep", id: "library") {
             LibraryView(model: model)
@@ -15,6 +21,10 @@ struct CallkeepApp: App {
         .defaultSize(width: 1040, height: 690)
         .windowStyle(.titleBar)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updates.checkForUpdates() }
+                    .disabled(!updates.canCheckForUpdates || model.isRecording || model.isBusy)
+            }
             CommandGroup(replacing: .sidebar) {
                 Button("Toggle Sidebar") {
                     NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)

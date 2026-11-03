@@ -17,6 +17,10 @@ Click the recording title’s pencil to rename it without stopping. Return saves
 
 Interrupted recordings have a small indicator in the library. Open **Recording actions → Recording Info** for the reason. New recording failures still appear as a dismissible alert.
 
+## Saved waveforms
+
+Playback retains the same source colors as live recording: purple for your microphone and teal for computer audio, with blended overlap. Both sources stay visible ahead of the playhead at lower opacity. Envelopes cover the full file, include every audio channel and preserve track start offsets.
+
 ## Files
 
 `~/Library/Application Support/Callkeep/Recordings/<recording UUID>/`
