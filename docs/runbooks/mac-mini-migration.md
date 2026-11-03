@@ -168,6 +168,16 @@ its companion studio service and Tailscale state.
 
 ## Release automation
 
+The Cloudflare stack accepts `originOverrides`, a map from existing public
+hostnames to HTTP(S) origins. Empty configuration preserves Talos routing.
+Each override changes every matching route, including narrow API paths, while
+preserving rule order and origin options. Unknown hosts, embedded credentials
+and URL paths/query strings are rejected. This changes neither DNS nor Access.
+At cutover, record the old origins, prepare the replacement connector while
+stopped, stop the Talos connectors, apply verified mini origins, then start
+the mini connector. Never run both connector sets against origins only one
+set can reach. Restore the old origins and connector set if verification fails.
+
 The `Deploy Mac mini` workflow follows successful push-triggered main CI runs.
 It builds an ARM64 `www-control-center-mini` image from the tested SHA, then
 uses existing vault-backed Tailscale and homelab SSH credentials. It requires

@@ -20,6 +20,45 @@ import {
 const ZONE = "worldwidewebb.co";
 
 describe("desiredIngressRules", () => {
+  test("moves all routes for a host while preserving paths and unrelated origins", () => {
+    const before = desiredIngressRules(ZONE);
+    const after = desiredIngressRules(ZONE, {
+      "app.worldwidewebb.co": "http://host.docker.internal:4201",
+      "ha.worldwidewebb.co": "http://192.168.0.42:8123",
+    });
+    expect(after.filter((r) => r.hostname === "app.worldwidewebb.co")).toEqual(
+      before
+        .filter((r) => r.hostname === "app.worldwidewebb.co")
+        .map((r) => ({ ...r, service: "http://host.docker.internal:4201" })),
+    );
+    expect(after.find((r) => r.hostname === "ha.worldwidewebb.co")?.service).toBe(
+      "http://192.168.0.42:8123",
+    );
+    expect(
+      after.filter((r) => !["app.worldwidewebb.co", "ha.worldwidewebb.co"].includes(r.hostname)),
+    ).toEqual(
+      before.filter((r) => !["app.worldwidewebb.co", "ha.worldwidewebb.co"].includes(r.hostname)),
+    );
+    expect(after.map((r) => [r.hostname, r.path])).toEqual(before.map((r) => [r.hostname, r.path]));
+  });
+
+  test("rejects unknown hosts and unsafe or path-prefixed origin overrides", () => {
+    expect(() =>
+      desiredIngressRules(ZONE, { "typo.worldwidewebb.co": "http://mini:4201" }),
+    ).toThrow("Unknown tunnel hostname");
+    for (const origin of [
+      "file:///etc/passwd",
+      "http://user:password@mini",
+      "http://mini/prefix",
+      "http://mini?token=x",
+      "http://mini#fragment",
+    ]) {
+      expect(() => desiredIngressRules(ZONE, { "app.worldwidewebb.co": origin })).toThrow(
+        "HTTP(S) origin",
+      );
+    }
+  });
+
   test("declares the product-derived private hosts as ingress hosts", () => {
     const byHost = Object.fromEntries(
       desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),

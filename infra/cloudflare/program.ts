@@ -42,6 +42,8 @@ const cfg = new pulumi.Config();
 // repo and those identifiers are deliberately kept out of it (same rule as the
 // deploy.config.ts op-secret channel). All sourced from op at `pulumi config set`.
 const zoneName = cfg.require("zoneName");
+// Empty until a verified host cutover. Public hostnames and Access stay fixed.
+const originOverrides = cfg.getObject<Record<string, string>>("originOverrides") ?? {};
 const accountId = cfg.requireSecret("accountId");
 const zoneId = cfg.requireSecret("zoneId");
 // applyAccessGate gates the zone-wide access gate (www-cuuw): the *.<zone>
@@ -199,7 +201,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(
     tunnelId: managedTunnel.id,
     config: {
       ingressRules: [
-        ...desiredIngressRules(zoneName).map((r) => ({
+        ...desiredIngressRules(zoneName, originOverrides).map((r) => ({
           hostname: r.hostname,
           ...(r.path ? { path: r.path } : {}),
           service: r.service,
