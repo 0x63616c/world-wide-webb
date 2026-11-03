@@ -39,6 +39,11 @@ Configuration has `host`, optional `port` (default 5001), `certificate_sha256`,
 certificate causes failure until its replacement is deliberately verified and
 the pin updated. The uploader never prints credentials or session IDs.
 
+An upload rejected with DSM session error 119 refreshes authentication and
+retries once. Other API errors and ambiguous network failures are not retried;
+existing destination files are still never overwritten. Tests cover successful
+session refresh, repeated rejection, and refusal to replay other errors.
+
 Each file is streamed to a new NAS directory, downloaded again, and compared
 by size and SHA-256. Existing files are not overwritten. `COMPLETE.json` is
 uploaded last and lists all verified payloads. A directory without that marker
