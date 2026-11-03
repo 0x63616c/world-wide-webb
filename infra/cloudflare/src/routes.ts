@@ -182,6 +182,7 @@ function productRoutes(): CloudflareRoutes {
 export function desiredIngressRules(
   zone: string,
   originOverrides: Readonly<Record<string, string>> = {},
+  disabledIngressHosts: readonly string[] = [],
 ): DesiredIngressRule[] {
   const rules = [
     ...productRoutes().ingressRules,
@@ -193,6 +194,12 @@ export function desiredIngressRules(
   // Hostnames, Access policy and path priority survive hardware moves. Apply
   // an override to every rule for the host, including narrow API paths.
   const hosts = new Set(rules.map((rule) => rule.hostname));
+  for (const hostname of disabledIngressHosts) {
+    if (!hosts.has(hostname)) throw new Error(`Unknown disabled tunnel hostname: ${hostname}`);
+    if (hostname in originOverrides) {
+      throw new Error(`Cannot override a disabled tunnel hostname: ${hostname}`);
+    }
+  }
   for (const [hostname, origin] of Object.entries(originOverrides)) {
     if (!hosts.has(hostname)) throw new Error(`Unknown tunnel hostname: ${hostname}`);
     const url = new URL(origin);
@@ -207,10 +214,12 @@ export function desiredIngressRules(
       throw new Error(`Tunnel override must be an HTTP(S) origin: ${hostname}`);
     }
   }
-  return rules.map((rule) => ({
-    ...rule,
-    service: originOverrides[rule.hostname] ?? rule.service,
-  }));
+  return rules
+    .filter((rule) => !disabledIngressHosts.includes(rule.hostname))
+    .map((rule) => ({
+      ...rule,
+      service: originOverrides[rule.hostname] ?? rule.service,
+    }));
 }
 
 /** The live proxied CNAMEs for zone `<zone>` (adopt-only import target). */

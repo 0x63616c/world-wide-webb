@@ -361,3 +361,22 @@ exports record the stopped state (replicas=0); set replicas=1 for a restore.
 This is an archive-integrity check, not an application-level restore rehearsal.
 Original PVCs remain intact. Take a final delta/archive if later monitoring
 history needs preservation before retirement.
+
+## Tunnel cutover preparation
+
+The ARM64 cloudflared image pinned in tunnel.compose.yaml is downloaded on the
+mini. `/Users/calum/www-tunnel/` holds its Compose definition and runtime.env;
+its credential is an opaque copy of the existing Kubernetes connector token in
+a separate restricted secrets directory, not the app's secret mount. The
+connector has not started. An OrbStack host-network probe reached the app on
+127.0.0.1:4201 and HA at 192.168.0.130:8123. The Cloudflare Pulumi baseline
+preview showed 20 unchanged resources before any cutover configuration.
+
+The Cloudflare program now accepts disabledIngressHosts for retiring service
+routes. Each value must be an existing hostname and cannot also have an origin
+override. All paths for that host are removed, so the existing terminal 404 rule
+handles it; DNS records and Access policies are retained. Set Grafana's host in
+this list when switching to the mini connector, since the monitoring stack is
+not migrating. No disabled hosts are configured yet. Tests cover preservation
+of other routes, removal of all paths, unknown hosts and conflicting overrides;
+all 16 route tests and the workspace typecheck passed.

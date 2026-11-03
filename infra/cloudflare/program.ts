@@ -44,6 +44,8 @@ const cfg = new pulumi.Config();
 const zoneName = cfg.require("zoneName");
 // Empty until a verified host cutover. Public hostnames and Access stay fixed.
 const originOverrides = cfg.getObject<Record<string, string>>("originOverrides") ?? {};
+// Retired services fall through to the existing 404; DNS and Access stay gated.
+const disabledIngressHosts = cfg.getObject<string[]>("disabledIngressHosts") ?? [];
 const accountId = cfg.requireSecret("accountId");
 const zoneId = cfg.requireSecret("zoneId");
 // applyAccessGate gates the zone-wide access gate (www-cuuw): the *.<zone>
@@ -201,7 +203,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(
     tunnelId: managedTunnel.id,
     config: {
       ingressRules: [
-        ...desiredIngressRules(zoneName, originOverrides).map((r) => ({
+        ...desiredIngressRules(zoneName, originOverrides, disabledIngressHosts).map((r) => ({
           hostname: r.hostname,
           ...(r.path ? { path: r.path } : {}),
           service: r.service,
@@ -258,7 +260,9 @@ for (const c of desiredCnames(zoneName)) {
 export const summary = {
   zoneName,
   accessApps: desiredAccessApps(zoneName, applyAccessGate).map((a) => a.domain),
-  ingressHosts: desiredIngressRules(zoneName).map((r) => r.hostname),
+  ingressHosts: desiredIngressRules(zoneName, originOverrides, disabledIngressHosts).map(
+    (r) => r.hostname,
+  ),
   cnames: desiredCnames(zoneName).map((c) => c.hostname),
 };
 
