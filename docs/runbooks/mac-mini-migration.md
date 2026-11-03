@@ -346,3 +346,18 @@ media directory now contains 1,632 recovered files. NAS originals remain intact.
 Representative booth and wake photo requests through the mini app returned
 HTTP 200 with bytes matching the backup SHA-256 manifest. This verifies serving
 for those samples, not recovery of the 51 unlocated wake files.
+
+## Monitoring preservation
+
+Grafana, Prometheus and Loki were gracefully stopped on November 3, then their
+PVCs mounted read-only in a temporary backup pod. A complete compressed archive
+and opaque ConfigMap/deployment exports are retained off-host in the restricted
+migration backup directory under `monitoring/`. The gzip stream and tar inventory
+passed verification: Grafana 573 files / 118,770,328 bytes; Prometheus 107 files /
+1,790,217,343 bytes; Loki 3,662 files / 154,015,228 bytes. Archive SHA-256:
+`1b4706a918fd67d110c956bc767e9f10b56e7e16dfa21a22f8c2cf7c35f38486`.
+All three deployments were returned to one replica. The retained deployment
+exports record the stopped state (replicas=0); set replicas=1 for a restore.
+This is an archive-integrity check, not an application-level restore rehearsal.
+Original PVCs remain intact. Take a final delta/archive if later monitoring
+history needs preservation before retirement.
