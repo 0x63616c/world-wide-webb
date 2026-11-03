@@ -17,6 +17,8 @@ def main():
                         default=Path.home() / ".local/state/world-wide-webb")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
+    version = subprocess.check_output(["xcodebuild", "-version"], text=True).splitlines()[0]
+    print(f"Preview toolchain: {version}. Release validation: python3 scripts/panel-validate.py", flush=True)
     native = root / "apps/apple-prototype"
     state = args.state_dir.resolve()
     state.mkdir(parents=True, exist_ok=True)
