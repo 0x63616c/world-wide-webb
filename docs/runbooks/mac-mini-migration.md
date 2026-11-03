@@ -380,3 +380,27 @@ this list when switching to the mini connector, since the monitoring stack is
 not migrating. No disabled hosts are configured yet. Tests cover preservation
 of other routes, removal of all paths, unknown hosts and conflicting overrides;
 all 16 route tests and the workspace typecheck passed.
+
+## Bambuddy application restore rehearsal
+
+Restored the full data archive into a separate Docker volume and replaced its
+raw live SQLite/WAL files with the consistent snapshot. Set the snapshot owner
+to the image's application UID/GID (1000:1000); the root-owned mode-600 copy
+initially prevented startup. The restored app used the exact live image ID,
+network=none, no published ports and a 512 MiB limit. SQLite integrity passed,
+all 91 table row counts matched the backup, and both /health and / returned 200.
+The test container is stopped and its volume retained. Live Bambuddy and its
+companion containers were unchanged. This does not test printer connectivity
+or complete companion-service recovery.
+
+## Proposed production route settings
+
+The prepared originOverrides point app and manage to http://127.0.0.1:4201 and
+HA to http://192.168.0.130:8123. disabledIngressHosts contains only Grafana.
+Pulumi preview shows one ingress-config update and 19 unchanged resources;
+DNS and Access policies are unchanged. These settings are not applied yet.
+An automatic public app check using the existing vault kiosk credential returns
+403 even before cutover; do not treat this as a migration regression or as
+successful public verification. Browser/authenticated client verification is
+still required. HA's bridge MAC is 52:55:55:6e:cd:71; a router reservation for
+192.168.0.130 has been requested and is awaiting confirmation.

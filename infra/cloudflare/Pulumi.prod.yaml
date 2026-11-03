@@ -16,3 +16,5 @@ config:
     secure: AAABAJn24cIT+M2CxIbq0iSwu36XpsuyUVzPTWwHn/d37aOP1Y2NB04HbDRTSAM5pWPga1b8Ek/WOwZGWB9WgJpv/dt9c82VDbOMhw==
   world-wide-webb-cloudflare:factoryServiceTokenId:
     secure: AAABAJBlzBdyaRqcROpIv2iD5nSRdTaO03FPYAmwXg6TvKFyxMj5CamqUcXOEicryk+spMwbgXUt85DJ+mWoEbgv73E=
+  world-wide-webb-cloudflare:originOverrides: '{"app.worldwidewebb.co": "http://127.0.0.1:4201", "manage.worldwidewebb.co": "http://127.0.0.1:4201", "ha.worldwidewebb.co": "http://192.168.0.130:8123"}'
+  world-wide-webb-cloudflare:disabledIngressHosts: '["grafana.worldwidewebb.co"]'
