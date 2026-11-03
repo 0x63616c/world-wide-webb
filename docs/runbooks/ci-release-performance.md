@@ -59,3 +59,9 @@ processing separately; main being merged is not the same as TestFlight readiness
 ## Delivery experiment follow-up
 
 The two-line Wi-Fi UI change in PR #880 hit the old 25-minute smoke timeout: compilation took 15m35s and three UI tests passed before cancellation. The branch now includes the existing cache/proof changes and uses standard Apple Silicon `macos-26` runners. Earlier ARM allocation failures were capacity failures; runner availability and speed must be measured again, not assumed. All test selectors remain unchanged.
+
+## Local iteration
+
+Run `python3 scripts/panel-dev.py` from the worktree. It selects the single booted iPad (or use `--device UDID`), regenerates the project without cleaning, incrementally builds into `~/.local/state/world-wide-webb/ipad-build`, installs, and reopens Panel with the local server URL. Use `--server-url` to override localhost:4201. It never reads credentials or launches fixture mode. Each stage has a separate log and the last run's timings are in `panel-dev-timings.json` in the same state directory. This is the local preview loop, not a TestFlight release or a substitute for CI tests.
+
+The smoke job additionally saves compiler intermediates, module caches and SwiftPM caches before UI tests. Restore fallback is restricted to the same runner architecture, toolchain and ref; a changed source tree still always runs build-for-testing and all selected tests. Only exact-tree products can skip compilation.
