@@ -546,3 +546,10 @@ repository/credential cleanup and the pre-existing 51-photo gap remain open.
 Powering the old machine on is not a production rollback: its node was cordoned,
 app/HA/tunnel deployments remain scaled down, and its databases are stale.
 Do not re-enable writers without a deliberate reverse migration from the mini.
+
+Host cleanup also disabled and unloaded `com.calum.k8s-apiserver-forward`
+(the retired OrbStack Kubernetes API forward) and `co.worldwidewebb.drift-check`
+(checks against the retired HAOS/provisioning setup). Their plist copies are
+retained in `homelab-backups/retired-launchagents-20261103` on the mini.
+The existing OrbStack Docker watchdog remains useful to current production and
+was retained. No new monitoring or notification channel was introduced.
