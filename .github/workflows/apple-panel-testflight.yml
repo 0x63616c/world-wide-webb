@@ -5,14 +5,14 @@ on:
   pull_request:
     paths:
       - ".github/workflows/apple-panel-testflight.yml"
-      - ".github/scripts/apple-smoke-proof*"
+      - ".github/scripts/apple-smoke-*"
       - "apps/apple-prototype/**"
       - "apps/panel/**"
   push:
     branches: [main]
     paths:
       - ".github/workflows/apple-panel-testflight.yml"
-      - ".github/scripts/apple-smoke-proof*"
+      - ".github/scripts/apple-smoke-*"
       - "apps/apple-prototype/**"
       - "apps/panel/**"
   workflow_dispatch:
@@ -49,7 +49,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Verify smoke evidence rules
-        run: python3 -B .github/scripts/apple-smoke-proof-test.py
+        run: |
+          python3 -B .github/scripts/apple-smoke-proof-test.py
+          python3 -B .github/scripts/apple-smoke-parallel-test.py
       - name: Resolve immutable release source
         id: source
         env:
@@ -64,13 +66,13 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: python3 .github/scripts/apple-smoke-proof.py
 
-  smoke:
+  smoke_build:
     needs: plan
     if: needs.plan.outputs.verified_run == ''
     runs-on: macos-26
-    # Cold Intel builds can take 20 minutes. Preserve products before tests;
-    # main reuses exact-tree PR proof instead of repeating this whole job.
-    timeout-minutes: 45
+    timeout-minutes: 20
+    outputs:
+      toolchain: ${{ steps.toolchain.outputs.version }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -113,24 +115,6 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
-      - name: Boot 1366x1024 iPad simulator
-        id: simulator
-        run: |
-          xcrun simctl list --json > "$RUNNER_TEMP/simulators.json"
-          python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
-          import json, os, subprocess
-          with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
-              catalog = json.load(source)
-          # 12.9-inch iPad Pro is 1366x1024 points; the newer 13-inch is 1376x1032.
-          device_type = next(device['identifier'] for device in catalog['devicetypes']
-                             if '12.9-inch' in device['name'] and '6th generation' in device['name'])
-          runtime = max((runtime for runtime in catalog['runtimes']
-                         if runtime.get('isAvailable') and '.iOS-26' in runtime['identifier']),
-                        key=lambda runtime: tuple(map(int, runtime['version'].split('.'))))
-          device_id = subprocess.check_output(
-              ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
-          print('id=' + device_id)
-          PYCODE
       - name: Identify simulator toolchain
         id: toolchain
         run: echo "version=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
@@ -166,19 +150,17 @@ jobs:
       - name: Build only the Panel launch UI suite
         if: steps.products.outputs.cache-hit != 'true'
         working-directory: apps/apple-prototype
-        env:
-          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
           set -o pipefail
           xcodebuild build-for-testing -project WorldWideWebb.xcodeproj \
             -scheme Panel-Smoke -configuration Debug \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -only-testing:PanelUITests/HomeViewLaunchTests \
             -only-testing:PanelUITests/NotificationHistoryTests \
             -only-testing:PanelUITests/UpdateReadyBannerTests \
             -only-testing:PanelUITests/GridInteractionTests \
-            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
+            ARCHS="$(uname -m)" CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
       - name: Save compiled simulator products before tests
         if: steps.products.outputs.cache-hit != 'true'
@@ -198,10 +180,85 @@ jobs:
             ~/Library/Caches/org.swift.swiftpm
           key: ${{ steps.compiler.outputs.cache-primary-key }}
 
-      - name: Assert Panel launches into HomeView
+      - name: Package shared test products
+        run: tar -czf "$RUNNER_TEMP/panel-ui-products.tgz" -C "$RUNNER_TEMP/panel-smoke-build" Build/Products
+      - name: Share test products with UI runners
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-ui-products
+          path: ${{ runner.temp }}/panel-ui-products.tgz
+          compression-level: 0
+          retention-days: 2
+
+  smoke_tests:
+    name: UI / ${{ matrix.suite }}
+    needs: [plan, smoke_build]
+    runs-on: macos-26
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [HomeViewLaunchTests, NotificationHistoryTests, UpdateReadyBannerTests, GridInteractionTests]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.plan.outputs.source_sha }}
+      - name: Select newest Xcode 26.x
+        run: |
+          set -euo pipefail
+          XCODE_APP=$(python3 - <<'PYCODE'
+          import glob, re
+          candidates = []
+          for path in glob.glob('/Applications/Xcode*.app'):
+              import subprocess
+              version = subprocess.check_output([path + '/Contents/Developer/usr/bin/xcodebuild', '-version'], text=True)
+              match = re.search(r'Xcode (26(?:\.\d+)*)', version)
+              if match:
+                  candidates.append((tuple(map(int, match[1].split('.'))), path))
+          if not candidates:
+              raise SystemExit('No Xcode 26.x installed; update the runner image for the native SDK requirement.')
+          print(max(candidates)[1])
+          PYCODE
+          )
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Verify matching build toolchain
+        env:
+          BUILD_TOOLCHAIN: ${{ needs.smoke_build.outputs.toolchain }}
+        run: test "$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" = "$BUILD_TOOLCHAIN"
+      - uses: actions/download-artifact@v4
+        with:
+          name: panel-ui-products
+          path: ${{ runner.temp }}
+      - name: Restore shared test products
+        run: |
+          mkdir -p "$RUNNER_TEMP/panel-smoke-build"
+          tar -xzf "$RUNNER_TEMP/panel-ui-products.tgz" -C "$RUNNER_TEMP/panel-smoke-build"
+      - name: Create 1366x1024 iPad simulator
+        id: simulator
+        run: |
+          xcrun simctl list --json > "$RUNNER_TEMP/simulators.json"
+          python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
+          import json, os, subprocess
+          with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
+              catalog = json.load(source)
+          # 12.9-inch iPad Pro is 1366x1024 points; the newer 13-inch is 1376x1032.
+          device_type = next(device['identifier'] for device in catalog['devicetypes']
+                             if '12.9-inch' in device['name'] and '6th generation' in device['name'])
+          runtime = max((runtime for runtime in catalog['runtimes']
+                         if runtime.get('isAvailable') and '.iOS-26' in runtime['identifier']),
+                        key=lambda runtime: tuple(map(int, runtime['version'].split('.'))))
+          device_id = subprocess.check_output(
+              ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
+          print('id=' + device_id)
+          PYCODE
+      - name: Run UI group
         working-directory: apps/apple-prototype
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+          TEST_SUITE: ${{ matrix.suite }}
         run: |
           set -o pipefail
           shopt -s nullglob
@@ -210,12 +267,14 @@ jobs:
           xcodebuild test-without-building -xctestrun "${test_plans[0]}" \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
-            -only-testing:PanelUITests/HomeViewLaunchTests \
-            -only-testing:PanelUITests/NotificationHistoryTests \
-            -only-testing:PanelUITests/UpdateReadyBannerTests \
-            -only-testing:PanelUITests/GridInteractionTests \
+            "-only-testing:PanelUITests/$TEST_SUITE" \
             -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-test.log"
+
+      - name: Require nonempty passing UI results
+        run: |
+          xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/panel-launch.xcresult" > "$RUNNER_TEMP/panel-smoke-summary.json"
+          jq -e '.passedTests > 0 and .failedTests == 0 and .skippedTests == 0' "$RUNNER_TEMP/panel-smoke-summary.json"
 
       - name: Export simulator screenshots
         if: always()
@@ -229,12 +288,29 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: panel-launch-smoke
+          name: panel-launch-smoke-${{ matrix.suite }}
           path: |
             ${{ runner.temp }}/panel-launch.xcresult
             ${{ runner.temp }}/panel-launch-screenshots
             ${{ runner.temp }}/panel-smoke-*.log
           retention-days: 7
+
+  smoke:
+    needs: [plan, smoke_build, smoke_tests]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.verified_run == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The checkout log anchors the exact tree used by every dependency, for
+      # release proof. A skipped, cancelled or failed group must fail this gate.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.plan.outputs.source_sha }}
+      - name: Require build and every UI group
+        env:
+          BUILD_RESULT: ${{ needs.smoke_build.result }}
+          TEST_RESULT: ${{ needs.smoke_tests.result }}
+        run: test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
 
   upload:
     needs: [plan, smoke]
