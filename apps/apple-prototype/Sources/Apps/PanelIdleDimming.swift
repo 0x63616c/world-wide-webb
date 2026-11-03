@@ -54,7 +54,7 @@ struct PanelIdleDimming: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.allowsHitTesting(!idle.dimmed).accessibilityHidden(idle.dimmed)
+        content.allowsHitTesting(!idle.dimmed)
             .overlay { Color.black.opacity(visualOpacity).ignoresSafeArea().allowsHitTesting(false) }
             .overlay {
                 if idle.dimmed {
@@ -62,6 +62,7 @@ struct PanelIdleDimming: ViewModifier {
                         Color.clear.ignoresSafeArea().contentShape(.rect)
                     }
                     .buttonStyle(.plain).accessibilityLabel("Wake panel")
+                    .accessibilityAddTraits(.isModal)
                 }
             }
             #if os(iOS)
