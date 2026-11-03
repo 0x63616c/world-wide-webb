@@ -282,11 +282,9 @@ export async function startServer(
     `${service} started`,
   );
 
-  // Prometheus exposition on its OWN port, never on `config.PORT`. :4201 is what
-  // the Cloudflare tunnel maps the public `hooks.` host to, so a /metrics route
-  // there would publish this process's internals to the internet. This listener
-  // has no Kubernetes Service in front of it (see WorkloadSpec.scrape in
-  // infra/src/component.ts) and is therefore reachable in-cluster only.
+  // Metrics use a separate port, never the public application listener.
+  // The mini Compose file does not publish this port, and cloudflared routes
+  // only to the application port. The retired monitoring stack is not required.
   startMetricsServer({ port: config.METRICS_PORT, logger: log });
 
   for (const signal of ["SIGINT", "SIGTERM"] as const) {

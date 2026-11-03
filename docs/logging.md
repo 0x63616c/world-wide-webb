@@ -34,11 +34,7 @@ secret value to the logger at all.
 
 ## Reading logs
 
-There is one log pipeline: every container's stdout goes to Loki via the
-observability stack (`infra/src/observability/`), queried through Grafana.
-See `docs/observability.md` and `AGENTS.md`'s Debugging section. There is no
-separate frontend/panel log store — the felogs pipeline (`frontend_log`
-table, the `logs.ingest` mutation, the web-side log shipper) was deleted by
-The Simplification (`docs/adr/0013-*.md`) along with the Settings Logs page
-that read it. Panel/browser issues are debugged from the browser console or
-by reproducing locally.
+Production logs are retained and rotated by Docker on the mini. Read them with
+`docker --context orbstack logs` over SSH; see `docs/observability.md`. The old
+Loki/Grafana stack is retired and archived. There is no separate frontend or
+panel log store.

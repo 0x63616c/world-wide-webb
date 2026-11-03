@@ -9,7 +9,6 @@
     "apps/api",
     "apps/worker",
     "packages/*",
-    "infra",
     "infra/cloudflare"
   ],
   "scripts": {

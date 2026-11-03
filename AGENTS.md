@@ -85,41 +85,38 @@
 
 ## Debugging
 
-Backend debugging starts in Grafana — `https://grafana.worldwidewebb.co`
-(Cloudflare Access email OTP). Metrics from Prometheus, every container's
-logs from Loki (labels `namespace` `pod` `container` `app` `service`
-`level`; 14-day retention). See `docs/observability.md`. There is no separate
-frontend log pipeline — panel/browser issues are debugged from the browser
-console or by reproducing locally, not queried from a store.
+Backend debugging starts with the mini's rotated container logs and `/healthz`.
+See `docs/observability.md`. Browser/panel issues are debugged in the browser
+or by reproducing locally. Grafana/Loki/Prometheus are retired; their final
+archive is retained on the NAS. Do not add health alerts without user direction.
 
 ## Infra
 
-- **"prod" = the `home-server` Talos node** (`192.168.0.5`, single
-  control-plane, amd64, RTX 3060). No other production environment.
-- **There is NO SSH into home-server.** Talos ships no shell and no sshd; port
-  22 is closed by design. Administer it with `talosctl` (node) and `kubectl`
-  (cluster) — `export TALOSCONFIG=$PWD/infra/talos/clusterconfig/talosconfig`
-  then `talosctl dashboard`. The binary is `talosctl`, not `talos`, and needs
-  no `-e`/`-n` (endpoint + node are baked into the talosconfig).
-- `infra/talos/clusterconfig/` is gitignored and regenerated per session
-  (`talhelper genconfig`) — it holds the cluster CA and admin client key.
-  Machine config source of truth is `infra/talos/talconfig.yaml`.
-- Deploy the `home-server` Pulumi stack. Images are **amd64-only**; the node
-  is x86.
-- Push to `main` triggers CI + deploy.
-- CI/deploy is product-aware: per-product path filters build only changed
-  product images plus shared-package dependents.
-- Pulumi digest pins use `wwwinfra:imageDigests.*`.
+- Production runs on the Mac mini (`homelab`) in OrbStack: one ARM64 app
+  container from the root Dockerfile plus PostgreSQL 18. Compose and release,
+  recovery and backup scripts live in `deploy/mini/`.
+- Home Assistant runs in its bridged Colima VM at `192.168.0.130`; host startup
+  and networking configuration live in `deploy/mini/`. Hindsight and Bambuddy
+  remain independent services with persistent data and verified backups.
+- Push to `main` runs hosted CI. A successful run triggers `deploy-mini.yml`,
+  which builds the exact tested revision, publishes an immutable digest, and
+  invokes the mini's serialized release script over Tailscale SSH. There are
+  no local GitHub runners. Never bypass required checks.
+- Cloudflare DNS, Access and tunnel ingress remain managed by the separate
+  `infra/cloudflare` Pulumi project, stack `prod`.
+- Talos is shut down. Its disks and recovery archives are retained; do not
+  reset them or restart old writers against stale databases. See
+  `docs/runbooks/mac-mini-migration.md` for the migration evidence and gaps.
+- Nightly backups use `deploy/mini/backup.py` and a 04:15 LaunchAgent. Files
+  are copied to the NAS and read back for SHA-256 verification. Backups contain
+  secrets and must stay outside Git. There are no new notifications.
+- App-level scheduled work remains a plain interval cycle declared in
+  `features/<id>/worker.ts`; there is no job queue or workflow engine.
+  Device-local native-shell maintenance uses local calendar semantics and a
+  pure tested scheduling seam.
 - The iOS panel shell (`apps/panel`, Expo) needs Xcode 26.4+; CI selects
-  `XCODE_VERSION` in `.github/workflows/ios-build.yml` rather than the runner
-  default. `apps/panel/ios` is prebuild output (gitignored) — change native
-  behavior in `apps/panel/app.config.ts`, never by hand-editing `ios/`.
-- Infra-level cron jobs (backups) live in `infra/src/crons.ts`; app-level
-  scheduled work is a plain interval cycle declared in `features/<id>/worker.ts`
-  — there is no job queue and no workflow engine. Device-local native-shell
-  maintenance that must run without backend connectivity is not app-level
-  scheduled work: schedule it in the native shell using local calendar
-  semantics, and keep the scheduling decision behind a pure tested seam.
+  `XCODE_VERSION` in `.github/workflows/ios-build.yml`. `apps/panel/ios` is
+  generated and gitignored; change `apps/panel/app.config.ts` instead.
 
 ## Workflow
 

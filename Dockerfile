@@ -21,9 +21,7 @@ COPY packages/logger/package.json packages/logger/
 COPY packages/platform/package.json packages/platform/
 COPY packages/theme/package.json packages/theme/
 COPY packages/worker-runtime/package.json packages/worker-runtime/
-# Infra Pulumi workspaces (www-j934.1/.2/.3): root package.json declares these, so
-# bun install needs their manifests in the build context (www-272b).
-COPY infra/package.json infra/
+# The retained Cloudflare workspace participates in the frozen install.
 COPY infra/cloudflare/package.json infra/cloudflare/
 
 # --ignore-scripts skips the lefthook prepare hook (needs git, absent here).

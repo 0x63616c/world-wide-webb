@@ -14,9 +14,7 @@ export default defineConfig({
       "packages/logger",
       "packages/platform",
       "packages/worker-runtime",
-      // The `infra` project's default glob also covers infra/cloudflare/test/**,
-      // so no separate entry is needed; a second entry would double-run them.
-      "infra",
+      "infra/cloudflare",
       // app-kit: the App authoring surface (defineApp/defineApi/defineHttp/
       // defineTileViews/defineWorkerCycles brand checks). No package.json/vite config of its own
       // (like test/scripts/apps-gen below), and define-app.test.ts only imports

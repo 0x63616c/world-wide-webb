@@ -91,7 +91,7 @@ export type HomelabTarget = Readonly<{
   timezone: "America/Los_Angeles";
   nas: Readonly<{
     exportPath: "/volume1/Homelab";
-    backupRootParts: readonly ["backups", "world-wide-webb"];
+    backupRootParts: readonly ["backups", "mac-mini"];
   }>;
   // Inlined (was the separately-exported TargetCapabilities type): homelab is
   // the only implemented target, so a named plurality type here had exactly
@@ -116,14 +116,14 @@ export const homelabTarget = {
   timezone: "America/Los_Angeles",
   nas: {
     exportPath: "/volume1/Homelab",
-    backupRootParts: ["backups", "world-wide-webb"],
+    backupRootParts: ["backups", "mac-mini"],
   },
   capabilities: {
-    certManager: true,
+    certManager: false,
     cloudflareTunnel: true,
-    cnpg: true,
-    externalSecrets: true,
-    k8s: true,
+    cnpg: false,
+    externalSecrets: false,
+    k8s: false,
     nasBackups: true,
   },
 } as const satisfies HomelabTarget;
@@ -392,166 +392,10 @@ export function controlCenterServiceSecretUsages(): Record<
   };
 }
 
-// `limits` deliberately has no `cpu` key (only `requests` does) — same
-// asymmetry as infra/src/component.ts's ResourceSpec, and for the same reason
-// (#87): CPU is compressible, so a CPU limit only throttles under CFS quota
-// with no benefit (https://home.robusta.dev/blog/stop-using-cpu-limits),
-// while memory is incompressible and needs the limit to bound OOM risk.
-// requests.cpu alone gives fair-share scheduling. Do not add a `cpu` field to
-// `limits` to "match" requests — the asymmetry is intentional.
-export type DatabaseResources = Readonly<{
-  limits: Readonly<{ memory: string }>;
-  requests: Readonly<{ cpu: string; memory: string }>;
-}>;
-
-export type ProductDatabase = Readonly<{
-  product: ProductSlug;
-  target: ImplementedTargetName;
-  clusterName: string;
-  databaseName: string;
-  owner: string;
-  rwServiceName: string;
-  roServiceName: string;
-  readServiceName: string;
-  authSecretName: string;
-  auth: Readonly<{
-    kind: "database-owned-basic-auth";
-    secretName: string;
-    password: SecretCatalogEntry;
-  }>;
-  storageClass: string;
-  size: string;
-  resources: DatabaseResources;
-}>;
-
-export type ProductDatabaseOptions = Readonly<{
-  size: string;
-  authPassword?: SecretCatalogEntry;
-  authSecretName?: string;
-  clusterName?: string;
-  owner?: string;
-  rwServiceName?: string;
-  roServiceName?: string;
-  readServiceName?: string;
-  storageClass?: string;
-  resources?: DatabaseResources;
-}>;
-
-const defaultDatabaseResources = {
-  limits: { memory: "768Mi" },
-  requests: { cpu: "500m", memory: "384Mi" },
-} as const satisfies DatabaseResources;
-
-function databaseNameFor(product: ProductIdentity): string {
-  return product.slug.replaceAll("-", "_");
-}
-
-function databasePasswordFor(product: ProductIdentity): SecretCatalogEntry {
-  switch (product.slug) {
-    case "control-center":
-      return secretCatalog.controlCenter.postgresPassword;
-  }
-  return assertNever(product.slug);
-}
-
-export function defineProductDatabase(
-  product: ProductIdentity,
-  target: HomelabTarget,
-  options: ProductDatabaseOptions,
-): ProductDatabase {
-  const clusterName = options.clusterName ?? "postgres";
-  const authSecretName = options.authSecretName ?? "postgres-auth";
-
-  return {
-    product: product.slug,
-    target: target.name,
-    clusterName,
-    databaseName: databaseNameFor(product),
-    owner: options.owner ?? "postgres",
-    rwServiceName: options.rwServiceName ?? `${clusterName}-rw`,
-    roServiceName: options.roServiceName ?? `${clusterName}-ro`,
-    readServiceName: options.readServiceName ?? `${clusterName}-r`,
-    authSecretName,
-    auth: {
-      kind: "database-owned-basic-auth",
-      secretName: authSecretName,
-      password: options.authPassword ?? databasePasswordFor(product),
-    },
-    storageClass: options.storageClass ?? "local-lvm",
-    size: options.size,
-    resources: options.resources ?? defaultDatabaseResources,
-  };
-}
-
-export type DatabaseBackup = Readonly<{
-  kind: "postgres-logical-backup";
-  required: true;
-  product: ProductSlug;
-  target: ImplementedTargetName;
-  name: string;
-  schedule: string;
-  image: "ghcr.io/cloudnative-pg/postgresql:18";
-  databaseName: string;
-  owner: string;
-  serviceHost: string;
-  authSecretName: string;
-  authMountPath: "/run/pgauth";
-  backupMountPath: "/backup";
-  nasExportPath: string;
-  nasSubPath: string;
-  filenamePrefix: string;
-  // Was the separately-exported `commandFeatures` object (compression/pipefail/
-  // passwordSource always the same 3 literals, 0 external consumers);
-  // dateFormat is the only field infra/src/crons.ts actually reads, so it is
-  // now a flat field instead of a nested single-shape plurality type.
-  dateFormat: "%Y%m%d";
-}>;
-
-export type DatabaseBackupOptions = Readonly<{
-  name?: string;
-  schedule?: string;
-  nasSubPathParts?: readonly string[];
-}>;
-
-export function defineDatabaseBackup(
-  database: ProductDatabase,
-  target: HomelabTarget,
-  options: DatabaseBackupOptions = {},
-): DatabaseBackup {
-  const nasSubPathParts = options.nasSubPathParts ?? [
-    ...target.nas.backupRootParts,
-    database.product,
-    "postgres",
-  ];
-
-  return {
-    kind: "postgres-logical-backup",
-    required: true,
-    product: database.product,
-    target: target.name,
-    name: options.name ?? `${database.product}-pg-backup`,
-    schedule: options.schedule ?? "0 1 * * *",
-    image: "ghcr.io/cloudnative-pg/postgresql:18",
-    databaseName: database.databaseName,
-    owner: database.owner,
-    serviceHost: database.rwServiceName,
-    authSecretName: database.authSecretName,
-    authMountPath: "/run/pgauth",
-    backupMountPath: "/backup",
-    nasExportPath: target.nas.exportPath,
-    nasSubPath: nasSubPathParts.join("/"),
-    filenamePrefix: `${database.databaseName}-`,
-    dateFormat: "%Y%m%d",
-  };
-}
-
 export type ControlCenterServiceName = "api" | "worker" | "web" | "manage" | "cloudflared";
 
-// Was `{ service, workloadName, image, exposure, secretUsage? }`: workloadName
-// and image had 0 external consumers (infra/src/services.ts re-derives both
-// independently via ProductIdentity.serviceName/imageRepository) and the
-// generic ServiceName param had no second product left to serve, so the type
-// is control-center-only now.
+// Logical app surfaces and secret usage. These are not separate containers:
+// the root Dockerfile serves API, web, manage and workers in one process.
 export type ProductServiceDeclaration = Readonly<{
   service: ControlCenterServiceName;
   exposure: WebExposure | InternalServiceExposure | null;
@@ -564,17 +408,13 @@ export type ControlCenterProductManifest = Readonly<{
   app: Readonly<{
     exposure: WebExposure;
   }>;
-  // The Grafana web UI (#209). Same story again: it runs in the
-  // `observability` namespace from an upstream image (infra/src/observability/)
-  // rather than as a control-center workload, but it does have a hostname on
-  // the tunnel behind Access, and hostnames are owned here rather than beside
-  // the workload that answers on them.
+  // Retired monitoring hostname retained in edge policy metadata. Its tunnel
+  // ingress is disabled; the monitoring data is archived on the NAS.
   grafana: Readonly<{
     exposure: WebExposure;
   }>;
-  // Home Assistant (#75/#237): runs as the `ha` ExternalName Service in the
-  // control-center namespace (infra/src/services.ts), not a control-center
-  // workload, but gets a hostname on the tunnel behind Access same as Grafana.
+  // Home Assistant runs in the mini's bridged Colima VM and keeps its
+  // existing tunnel hostname and Access policy.
   ha: Readonly<{
     exposure: WebExposure;
   }>;
@@ -589,27 +429,12 @@ export type ControlCenterProductManifest = Readonly<{
   }>;
   services: Readonly<Record<ControlCenterServiceName, ProductServiceDeclaration>>;
   secretUsages: Readonly<Record<ControlCenterSecretUsageName, ServiceSecretUsage>>;
-  database: ProductDatabase;
-  backup: DatabaseBackup;
 }>;
 
 export function controlCenterProductManifest(): ControlCenterProductManifest {
   const product = defineProduct("control-center");
   const target = homelabTarget;
   const secretUsages = controlCenterServiceSecretUsages();
-  const database = defineProductDatabase(product, target, {
-    authPassword: secretCatalog.controlCenter.postgresPassword,
-    authSecretName: "cc-postgres-auth",
-    clusterName: "control-center-postgres",
-    // Enforced size (ADR-0009): 1.2GB actual + WAL headroom; expansion is a
-    // one-line edit, so honest-but-modest.
-    size: "10Gi",
-  });
-  const backup = defineDatabaseBackup(database, target, {
-    name: "pg-backup",
-    nasSubPathParts: ["backups", "postgres"],
-    schedule: "0 1 * * *",
-  });
 
   return {
     product,
@@ -645,7 +470,7 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
         service: "web",
         exposure: privateWeb(target, { host: "app" }),
       },
-      // The management plane (ADR-0010). A static nginx bundle like `web`, with
+      // The management plane (ADR-0010). A static bundle in www like `web`, with
       // no api, no database and no secrets — Cloudflare Access is its only gate,
       // and every tool it frames authenticates for itself.
       manage: {
@@ -661,7 +486,5 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       },
     },
     secretUsages,
-    database,
-    backup,
   };
 }

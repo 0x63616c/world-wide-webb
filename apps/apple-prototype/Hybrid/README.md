@@ -813,10 +813,12 @@ by `@0x63616c`; this job did not issue a merge. Physical wall checks remain pend
 ## WWW-33 media capability and playback
 
 The source investigation found **no current video library**. `features/booth/http.ts`
-and `features/wakes/http.ts` serve still photos from the NAS-backed media volume;
+and `features/wakes/http.ts` serve still photos from the persistent media directory;
 `features/sound/api.ts` controls Sonos but supplies no playable stream. Plex and the
 former media feature were removed in ADR-0013. `apps/web` has no surviving library
-caller. The NAS mount in `infra/src/services.ts` is storage, not a catalogue API.
+caller. Since the Mac mini migration, `deploy/mini/compose.yaml` mounts local
+persistent media storage, with nightly NAS backups. This is storage, not a
+catalogue API.
 
 [WWW-50](https://tickets.worldwidewebb.co/t/WWW-50) records the missing additive
 endpoints and blocks WWW-33's production completion:
