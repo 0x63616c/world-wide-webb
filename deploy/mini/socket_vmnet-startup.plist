@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>homebrew.mxcl.socket_vmnet</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/opt/socket_vmnet/bin/socket_vmnet</string>
+		<string>--vmnet-mode=bridged</string>
+		<string>--vmnet-interface=en1</string>
+		<string>/opt/homebrew/var/run/socket_vmnet</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/opt/homebrew/var/log/socket_vmnet/stderr</string>
+	<key>StandardOutPath</key>
+	<string>/opt/homebrew/var/log/socket_vmnet/stdout</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+</dict>
+</plist>

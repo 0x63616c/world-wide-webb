@@ -273,3 +273,21 @@ test("releases reaches API before the app catch-all without changing other paths
     desiredCnames(ZONE).filter((route) => route.hostname === "app.worldwidewebb.co"),
   ).toHaveLength(1);
 });
+
+test("retired ingress preserves other routes and rejects contradictory configuration", () => {
+  const retired = "grafana.worldwidewebb.co";
+  expect(desiredIngressRules(ZONE, {}, [retired])).toEqual(
+    desiredIngressRules(ZONE).filter((r) => r.hostname !== retired),
+  );
+  // DNS/Access management is separate: a retired route falls through to 404.
+  expect(desiredCnames(ZONE).some((r) => r.hostname === retired)).toBe(true);
+  expect(() => desiredIngressRules(ZONE, {}, ["typo.worldwidewebb.co"])).toThrow();
+  expect(() =>
+    desiredIngressRules(ZONE, { [retired]: "http://localhost:3000" }, [retired]),
+  ).toThrow();
+  expect(
+    desiredIngressRules(ZONE, {}, ["app.worldwidewebb.co"]).some(
+      (r) => r.hostname === "app.worldwidewebb.co",
+    ),
+  ).toBe(false);
+});

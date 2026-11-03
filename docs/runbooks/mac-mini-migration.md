@@ -1,6 +1,7 @@
 # Mac mini migration
 
-Status: preparation in progress, 2026-11-03. Talos remains production.
+Status: cutover in progress, 2026-11-03. HA has moved to the mini; Control
+Center production and the public tunnel remain on Talos.
 
 The first real mini release succeeded in workflow run `41652354784`, deploying
 commit `11bae6356377b7f937cd9a59be93bdb52129f9bd` at digest
@@ -31,6 +32,38 @@ rehearsal releases. The mini still uses the restored rehearsal database with
 `WORKER_CYCLES=off`; production ownership has not moved. Its GHCR login and
 vault-backed deployment SSH access have been verified. The first main CI run
 is `41651565297`; release success remains to be verified.
+
+## HA cutover evidence (2026-11-03)
+
+Talos HA is scaled to zero and its PVC is retained. After its process stopped,
+the entire configuration was archived as `ha-config-final-0747.tar.gz`, copied
+to the mini and retained off-host. Both copies have SHA-256
+`4aff62f455016de9d39e6ab802640ff48b57a6992d86e5e82c4818bea0ad599e`.
+The restored recorder passed SQLite integrity checking with 265,472 states and
+147,154 events. The complete configuration lives in the `ha_config` Docker
+volume in the dedicated Colima `ha` VM, using the same pinned HA release.
+
+The VM uses the existing socket_vmnet bridge on en1, with LAN address
+192.168.0.130. SSDP sees eight devices. The initial authenticated check found
+all 214 entities and no newly unavailable entities. The Kubernetes `ha-manual`
+EndpointSlice now targets this address; production API access through the
+existing HA Service returned 214 entities. Mini rehearsal HA_URL also points
+to this address. `TALOS_DEPLOY_DISABLED=true` prevents CI recreating old HA.
+
+A VM restart exposed a startup race: HA cached the internal eth0 interface
+before ha0 received its DHCP address, leaving Sonos unavailable. The Compose
+entrypoint now waits for ha0 IPv4 and matching default-route source selection
+before executing the original /init. A repeated full VM stop/start through the
+LaunchAgent succeeded (exit 0): HA healthy, 214 entities, no missing entities
+and no newly unavailable entities. This is a VM restart, not a Mac reboot.
+The user LaunchAgent starts Colima and Compose at login. The root helper
+plist is now installed with KeepAlive=true, ThrottleInterval=30 and RunAtLoad=true,
+verified after the user ran the sudo installer. It retries if Wi-Fi is late
+at boot. Full Mac reboot, stable address provisioning and public browser login
+remain unverified.
+
+Monitoring preference: rotated container logs only, with no new health alerts
+or notifications. Existing Hindsight checks may remain.
 
 ## Requirements
 
@@ -156,13 +189,26 @@ socket_vmnet installed, with no existing instances. Investigate a dedicated
 bridged VM using its active LAN interface (`en1`) and prove discovery before
 moving HA. Keep its memory/disk allocation within the mini's limited capacity.
 
-A Colima `ha` profile has now been created with two CPUs, 2 GiB RAM, 8 GiB
-root disk and 12 GiB data disk; it is stopped. Docker's default context remains
-OrbStack. The bridge setup failed because sudo was unavailable. The existing
-root-owned `homebrew.mxcl.socket_vmnet` launch daemon is configured for `en1`
-but is not running. Its old log reports VMNET_FAILURE. The stored sudo password
-was rejected; the user has been asked to restart that existing helper from
-their terminal. Do not treat the current VM as LAN-ready.
+The running Colima `ha` profile has two CPUs, 2 GiB RAM, 8 GiB root disk
+and 12 GiB data disk. Docker's default context remains OrbStack. Its bridge
+uses `/Users/calum/.colima/_lima/_config/override.yaml`:
+
+```yaml
+networks:
+  - socket: /opt/homebrew/var/run/socket_vmnet
+    interface: ha0
+```
+
+This Lima override also applies to future Colima profiles; currently only `ha`
+exists. The external root helper bridges en1. Colima's original network-address
+setting still emits warnings about its own missing vmnet helper, but the explicit
+external bridge is independently working. Do not confuse those warnings with
+successful external-bridge verification. HA's Compose entrypoint waits for ha0
+IPv4 and default routing before starting HA, including Docker auto-restarts.
+Install `start-ha.sh` under `/Users/calum/home-assistant/` and the supplied plist
+under `~/Library/LaunchAgents/`; it retries failed startup at 30-second intervals.
+It creates no alerts or notifications. The configuration volume is inside the
+VM; macOS bind-mounted SQLite storage is not used.
 
 The configuration archive and consistent SQLite snapshot have been restored
 under `/Users/calum/home-assistant/rehearsal-config`. An isolated, network-disabled
@@ -248,3 +294,89 @@ enabled for the isolated rehearsal after PR #882 merged. At cutover set
 `TALOS_DEPLOY_DISABLED=true` and wait for any already-running
 Talos deployment to finish before freezing writers. That switch prevents future
 CI runs from recreating old workloads; it does not stop an in-flight deployment.
+
+## Photo preservation gate
+
+Talos originally used `/volume1/Homelab/media` on the Synology at
+192.168.0.218. Commit b7534ddf (October 28, PR #794) set nasEnabled=false
+while the NAS was unavailable, replacing the app mount with a temporary
+emptyDir. On November 3 the current app directory is empty; the earlier
+migration archive contains three files (208 KiB), already retained on the mini
+and off-host. This small archive is not proof that the full photo library is
+backed up. The live database still contains photo references.
+
+The NAS advertises `/volume1/Homelab`, but independent read-only NFSv4 mounts
+from Talos and the mini return stale file handle. File Station confirms that the encrypted share is already unlocked; the user
+did not change it. Its API is readable using existing project credentials and
+lists 134 booth photos and 1,495 wake photos. The read-only API download completed: 1,629 files, 111,862,522 bytes,
+with each download checked against its advertised size and a saved SHA-256
+manifest. The restricted off-host copy is `nas-media/` in the migration backup
+directory.
+The live database has 134 booth references (latest October 15) and 1,549 wake
+references (latest November 2); reconciliation found all 134 booth files and 1,498 wake files after including
+the three-file temporary-storage archive. No recovered file has a size mismatch
+against its database record. Fifty-one wake files dated October 28–November 2
+are still unlocated; preserve their database records and investigate remaining
+backup sources before declaring recovery complete.
+The root cause of the NFS failure is not yet established. Do not infer deletion
+from the mount failure. Do not proceed
+with media cutover or retire Talos until the original share has been inspected,
+its media copied to persistent storage and verified against a source checksum
+manifest and the database references. Preserve the NAS originals and the
+separate temporary-storage archive; never use a deleting sync for this merge.
+
+## Versioned HA host setup
+
+`deploy/mini/` now includes the live HA Compose definition, start-ha.sh,
+com.calum.home-assistant-start.plist, socket_vmnet-startup.plist,
+install-network-startup.sh and lima-override.yaml. The files target this mini's
+calum account, en1 bridge and Homebrew installation. Install the helper script
+and plist under `/Users/calum/home-assistant/`, then run the installer with
+sudo. It retains the original root plist as `.pre-ha-migration` and leaves the
+running network helper untouched. Copy the Lima override to
+`~/.colima/_lima/_config/override.yaml` only after checking for other profiles
+or existing overrides. The HA config volume, encryption keys and runtime
+secrets are backup material, not repository content.
+
+The NAS copy is now also retained at
+`/Users/calum/www-control-center/backups/nas-media-20261103` on the mini.
+All 1,629 files were rehashed there before merging into persistent app media;
+the merge refused conflicting existing files and deleted nothing. The app
+media directory now contains 1,632 recovered files. NAS originals remain intact.
+Representative booth and wake photo requests through the mini app returned
+HTTP 200 with bytes matching the backup SHA-256 manifest. This verifies serving
+for those samples, not recovery of the 51 unlocated wake files.
+
+## Monitoring preservation
+
+Grafana, Prometheus and Loki were gracefully stopped on November 3, then their
+PVCs mounted read-only in a temporary backup pod. A complete compressed archive
+and opaque ConfigMap/deployment exports are retained off-host in the restricted
+migration backup directory under `monitoring/`. The gzip stream and tar inventory
+passed verification: Grafana 573 files / 118,770,328 bytes; Prometheus 107 files /
+1,790,217,343 bytes; Loki 3,662 files / 154,015,228 bytes. Archive SHA-256:
+`1b4706a918fd67d110c956bc767e9f10b56e7e16dfa21a22f8c2cf7c35f38486`.
+All three deployments were returned to one replica. The retained deployment
+exports record the stopped state (replicas=0); set replicas=1 for a restore.
+This is an archive-integrity check, not an application-level restore rehearsal.
+Original PVCs remain intact. Take a final delta/archive if later monitoring
+history needs preservation before retirement.
+
+## Tunnel cutover preparation
+
+The ARM64 cloudflared image pinned in tunnel.compose.yaml is downloaded on the
+mini. `/Users/calum/www-tunnel/` holds its Compose definition and runtime.env;
+its credential is an opaque copy of the existing Kubernetes connector token in
+a separate restricted secrets directory, not the app's secret mount. The
+connector has not started. An OrbStack host-network probe reached the app on
+127.0.0.1:4201 and HA at 192.168.0.130:8123. The Cloudflare Pulumi baseline
+preview showed 20 unchanged resources before any cutover configuration.
+
+The Cloudflare program now accepts disabledIngressHosts for retiring service
+routes. Each value must be an existing hostname and cannot also have an origin
+override. All paths for that host are removed, so the existing terminal 404 rule
+handles it; DNS records and Access policies are retained. Set Grafana's host in
+this list when switching to the mini connector, since the monitoring stack is
+not migrating. No disabled hosts are configured yet. Tests cover preservation
+of other routes, removal of all paths, unknown hosts and conflicting overrides;
+all 16 route tests and the workspace typecheck passed.

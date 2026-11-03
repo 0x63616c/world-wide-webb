@@ -6,10 +6,45 @@ services:
     image: ghcr.io/home-assistant/home-assistant@sha256:5a531753cea96444200158fc2b0ac7ccd739291ec50414877b396de6e0bb29b3
     restart: unless-stopped
     network_mode: host
+    # Docker can restart before the bridged interface receives its DHCP lease.
+    # HA caches adapters at startup, so readiness must precede /init.
+    entrypoint:
+      - python
+      - -c
+      - |
+        """Start HA only after Colima's bridged LAN is the IPv4 default route."""
+
+        import fcntl
+        import os
+        import socket
+        import struct
+        import time
+
+
+        def lan_ready():
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+                try:
+                    address = socket.inet_ntoa(
+                        fcntl.ioctl(probe, 0x8915, struct.pack("256s", b"ha0"))[20:24]
+                    )
+                    # UDP connect selects a source address without sending a packet.
+                    probe.connect(("1.1.1.1", 53))
+                    return probe.getsockname()[0] == address
+                except OSError:
+                    return False
+
+
+        deadline = time.monotonic() + 180
+        while not lan_ready():
+            if time.monotonic() >= deadline:
+                raise SystemExit("HA bridge not ready after 180 seconds; Docker will retry")
+            time.sleep(1)
+
+        os.execv("/init", ["/init"])
     environment:
       TZ: America/Los_Angeles
     volumes:
-      - ${HA_CONFIG_DIR:?Set the restored configuration directory}:/config
+      - ha_config:/config
     stop_grace_period: 120s
     mem_limit: 1g
     healthcheck:
@@ -21,3 +56,7 @@ services:
     logging:
       driver: json-file
       options: {max-size: 10m, max-file: '3'}
+
+volumes:
+  ha_config:
+    external: true
