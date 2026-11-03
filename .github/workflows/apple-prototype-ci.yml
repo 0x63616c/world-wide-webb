@@ -54,22 +54,9 @@ jobs:
 
       - name: Select newest Xcode 26.x
         run: |
-          set -euo pipefail
-          XCODE_APP=$(python3 - <<'PYCODE'
-          import glob, re
-          candidates = []
-          for path in glob.glob('/Applications/Xcode*.app'):
-              import subprocess
-              version = subprocess.check_output([path + '/Contents/Developer/usr/bin/xcodebuild', '-version'], text=True)
-              match = re.search(r'Xcode (26(?:\.\d+)*)', version)
-              if match:
-                  candidates.append((tuple(map(int, match[1].split('.'))), path))
-          if not candidates:
-              raise SystemExit('No Xcode 26.x installed; update the runner image for the native SDK requirement.')
-          print(max(candidates)[1])
-          PYCODE
-          )
-          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
+          export DEVELOPER_DIR
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 

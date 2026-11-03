@@ -1,15 +1,79 @@
-"""Reuse successful PR smoke only for the exact checkout tree being released.
+"""Reuse successful PR smoke only for identical native validation inputs.
 
 Read GitHub-owned run/job metadata and the checkout action's recorded commit.
 Never download or execute PR build products in the signing job. Missing evidence
 is a cache miss: the full smoke suite still runs.
 """
 import json
+import hashlib
 import os
 import re
 import subprocess
+import sys
 
 WORKFLOW = "apple-panel-testflight.yml"
+
+
+def is_input(path):
+    if path.startswith(("apps/apple-prototype/", "apps/panel/")):
+        return path.rsplit("/", 1)[-1] not in {"README.md", "AGENTS.md"}
+    return path.startswith(".github/scripts/apple-") or path in (
+        ".github/workflows/" + WORKFLOW, ".github/workflows/apple-prototype-ci.yml")
+
+
+def local_fingerprint():
+    records = subprocess.check_output(["git", "ls-tree", "-rz", "HEAD", "--",
+                                       "apps/apple-prototype", "apps/panel", ".github/scripts", ".github/workflows"])
+    inputs = []
+    for record in records.split(b"\0"):
+        if record:
+            metadata, path = record.split(b"\t", 1)
+            if is_input(path.decode()):
+                inputs.append(record)
+    return hashlib.sha256(b"\0".join(sorted(inputs))).hexdigest()
+
+
+def validation_inputs(api, repo, commit):
+    """Compare Git object identities, never execute code from the evidence ref.
+
+    Read only the native and workflow subtrees, not a recursively expanded whole
+    monorepo. Missing paths or truncated API responses invalidate the proof.
+    All native files except README/AGENTS documentation participate, including resources, fixtures,
+    package locks, project settings, tests and the signing/release lane.
+    """
+    root = f"repos/{repo}/git/trees/"
+    cache = {}
+
+    def tree(ref, recursive=False):
+        key = (ref, recursive)
+        if key not in cache:
+            data = api(root + ref + ("?recursive=1" if recursive else ""))
+            if data.get("truncated"):
+                raise ValueError("Incomplete native input tree")
+            cache[key] = data["tree"]
+        return cache[key]
+
+    def subtree(path):
+        ref = commit
+        for part in path.split("/"):
+            entry = next((item for item in tree(ref) if item["path"] == part), None)
+            if not entry or entry["type"] != "tree":
+                raise ValueError(f"Missing input directory: {path}")
+            ref = entry["sha"]
+        return tree(ref, recursive=True)
+
+    inputs = []
+    for path in ("apps/apple-prototype", "apps/panel", ".github/scripts", ".github/workflows"):
+        for entry in subtree(path):
+            name = entry["path"]
+            if entry["type"] == "tree":
+                continue
+            if not is_input(path + "/" + name):
+                continue
+            if entry["mode"] in {"120000", "160000"}:
+                raise ValueError("External symlink/submodule inputs require explicit dependency coverage")
+            inputs.append((path + "/" + name, entry["mode"], entry["type"], entry["sha"]))
+    return sorted(inputs)
 
 
 def checkout_commit(log):
@@ -33,7 +97,7 @@ def eligible_run(run, repo, head):
 
 def find_proof(api, repo, source):
     root = f"repos/{repo}"
-    tree = api(f"{root}/git/commits/{source}")["tree"]["sha"]
+    inputs = validation_inputs(api, repo, source)
     pulls = api(f"{root}/commits/{source}/pulls?per_page=100")
     for pull in pulls:
         if not (pull.get("merged_at") and pull.get("merge_commit_sha") == source
@@ -51,7 +115,7 @@ def find_proof(api, repo, source):
                 if job.get("name") != "smoke" or job.get("conclusion") != "success":
                     continue
                 tested = checkout_commit(api(f"{root}/actions/jobs/{int(job['id'])}/logs", raw=True))
-                if tested and api(f"{root}/git/commits/{tested}")["tree"]["sha"] == tree:
+                if tested and validation_inputs(api, repo, tested) == inputs:
                     return str(run["id"])
     return ""
 
@@ -62,6 +126,9 @@ def github(path, raw=False):
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--fingerprint"]:
+        print(local_fingerprint())
+        raise SystemExit(0)
     proof = ""
     if os.environ.get("EVENT_NAME") != "pull_request":
         try:
@@ -71,4 +138,4 @@ if __name__ == "__main__":
     with open(os.environ["GITHUB_OUTPUT"], "a") as output:
         output.write(f"verified_run={proof}\n")
     if proof:
-        print(f"Exact source tree passed PR smoke: run {proof}")
+        print(f"Identical native validation inputs passed PR smoke: run {proof}")

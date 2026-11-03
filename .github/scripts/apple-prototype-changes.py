@@ -9,11 +9,13 @@ def affected_suites(paths):
     affected = set()
     for path in paths:
         if path == ".github/workflows/apple-prototype-ci.yml" or path.startswith(
-            ".github/scripts/apple-prototype-"
+            (".github/scripts/apple-prototype-", ".github/scripts/apple-toolchain")
         ):
             return ALL
         prefix = "apps/apple-prototype/"
         if not path.startswith(prefix):
+            continue
+        if path.rsplit("/", 1)[-1] in {"README.md", "AGENTS.md"}:
             continue
         directory = path[len(prefix):].split("/")[0]
         if directory in {"Hybrid", "HybridTests", "HybridUITests", "NextAlarmWidget"}:

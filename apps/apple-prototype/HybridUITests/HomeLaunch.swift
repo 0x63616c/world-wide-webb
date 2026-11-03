@@ -9,9 +9,18 @@ extension XCUIApplication {
     }
     @MainActor func openAppGrid() {
         alignPanelOrientation()
+        // Slow simulator launches can outlast the real idle timer. The first
+        // touch deliberately only wakes the panel; navigation is a second action.
+        let wake = buttons["Wake panel"]
+        if wake.exists {
+            wake.tap()
+            XCTAssertTrue(wake.waitForNonExistence(timeout: 5))
+        }
         if buttons["app-settings"].exists && buttons["app-settings"].isHittable { return }
         let window = windows.firstMatch
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).press(forDuration: 0.1,
+        // Start inside the bottom 100-point clock gesture area (90% is outside
+        // it on a 1024-point screen), while staying clear of the system edge.
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).press(forDuration: 0.1,
             thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
         XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
     }

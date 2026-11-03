@@ -11,7 +11,8 @@ spec.loader.exec_module(changes)
 
 class ChangesTests(unittest.TestCase):
     def test_unrelated_and_empty_changes_skip(self):
-        for paths in [[], ["README.md"], ["apps/web/src/index.ts"]]:
+        for paths in [[], ["README.md"], ["apps/web/src/index.ts"], ["apps/apple-prototype/Hybrid/README.md"],
+                      ["apps/apple-prototype/AGENTS.md"]]:
             self.assertEqual(changes.affected_suites(paths), [])
 
     def test_isolated_suites(self):
@@ -23,7 +24,8 @@ class ChangesTests(unittest.TestCase):
     def test_shared_and_unknown_changes_run_everything(self):
         for path in ["Sources/App.swift", "Shared/a.swift", "PanelKit/Sources/a.swift", "PanelKit/Tests/PanelKitTests/Fixtures/a.json", "project.yml", "FutureTarget/a.swift"]:
             self.assertEqual(changes.affected_suites(["apps/apple-prototype/" + path]), changes.ALL)
-        for path in [".github/workflows/apple-prototype-ci.yml", ".github/scripts/apple-prototype-changes.py"]:
+        for path in [".github/workflows/apple-prototype-ci.yml", ".github/scripts/apple-prototype-changes.py",
+                     ".github/scripts/apple-toolchain.py"]:
             self.assertEqual(changes.affected_suites([path]), changes.ALL)
 
     def test_git_paths_preserve_unicode_and_newlines(self):
