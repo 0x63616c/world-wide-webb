@@ -19,6 +19,12 @@ import urllib.parse
 from pathlib import Path
 
 
+class NasApiError(RuntimeError):
+    def __init__(self, operation, code):
+        self.code = code
+        super().__init__(f'NAS {operation} error {code}')
+
+
 class Nas:
     def __init__(self, config):
         self.config = config
@@ -55,12 +61,13 @@ class Nas:
                 raise RuntimeError(f'NAS HTTP status {response.status}')
             result = json.load(response)
             if not result.get('success'):
-                raise RuntimeError(f'NAS {api}.{method} error {result.get("error", {}).get("code")}')
+                raise NasApiError(f'{api}.{method}', result.get('error', {}).get('code'))
             return result.get('data', {})
         finally:
             c.close()
 
     def login(self):
+        self.sid = None
         self.sid = self.call('SYNO.API.Auth', 'login', 6,
                              account=self.config['username'], passwd=self.config['password'],
                              session='FileStation', format='sid')['sid']
@@ -71,6 +78,18 @@ class Nas:
             self.sid = None
 
     def upload(self, path, destination):
+        for attempt in range(2):
+            try:
+                return self._upload(path, destination)
+            except NasApiError as error:
+                # 119 rejects authentication before accepting file data. Refresh
+                # once; do not retry ambiguous transport failures or overwrite
+                # an existing destination after a partially completed request.
+                if error.code != 119 or attempt:
+                    raise
+                self.login()
+
+    def _upload(self, path, destination):
         if not re.fullmatch(r'[A-Za-z0-9_.-]+', path.name):
             raise ValueError('Backup filename must contain only letters, numbers, dots, dashes or underscores')
         boundary = secrets.token_hex(24)
@@ -109,7 +128,7 @@ class Nas:
                 raise RuntimeError(f'NAS upload HTTP status {response.status}')
             result = json.load(response)
             if not result.get('success'):
-                raise RuntimeError(f'NAS upload error {result.get("error", {}).get("code")}')
+                raise NasApiError('upload', result.get('error', {}).get('code'))
         finally:
             c.close()
         remote_path = destination + '/' + path.name

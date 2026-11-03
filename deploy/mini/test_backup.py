@@ -17,6 +17,29 @@ upload = load('nas_upload', 'nas-upload.py')
 
 
 class BackupSafety(unittest.TestCase):
+    def test_expired_upload_session_refreshes_once(self):
+        nas = upload.Nas({})
+        with patch.object(nas, '_upload', side_effect=[upload.NasApiError('upload', 119), {'verified': True}]) as send, patch.object(nas, 'login') as login:
+            self.assertEqual(nas.upload(Path('backup.dump'), '/destination'), {'verified': True})
+        login.assert_called_once()
+        self.assertEqual(send.call_count, 2)
+
+    def test_repeated_session_rejection_stops_after_one_refresh(self):
+        nas = upload.Nas({})
+        with patch.object(nas, '_upload', side_effect=upload.NasApiError('upload', 119)) as send, patch.object(nas, 'login') as login:
+            with self.assertRaises(upload.NasApiError):
+                nas.upload(Path('backup.dump'), '/destination')
+        login.assert_called_once()
+        self.assertEqual(send.call_count, 2)
+
+    def test_other_upload_errors_are_not_replayed(self):
+        nas = upload.Nas({})
+        with patch.object(nas, '_upload', side_effect=upload.NasApiError('upload', 414)) as send, patch.object(nas, 'login') as login:
+            with self.assertRaises(upload.NasApiError):
+                nas.upload(Path('backup.dump'), '/destination')
+        login.assert_not_called()
+        send.assert_called_once()
+
     def test_snapshot_failure_still_restarts_service(self):
         with patch.object(backup.subprocess, 'check_output', return_value='true'), patch.object(backup, 'run') as run:
             with self.assertRaisesRegex(RuntimeError, 'disk full'):

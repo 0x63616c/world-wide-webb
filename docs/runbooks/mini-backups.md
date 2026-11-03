@@ -39,6 +39,11 @@ Configuration has `host`, optional `port` (default 5001), `certificate_sha256`,
 certificate causes failure until its replacement is deliberately verified and
 the pin updated. The uploader never prints credentials or session IDs.
 
+An upload rejected with DSM session error 119 refreshes authentication and
+retries once. Other API errors and ambiguous network failures are not retried;
+existing destination files are still never overwritten. Tests cover successful
+session refresh, repeated rejection, and refusal to replay other errors.
+
 Each file is streamed to a new NAS directory, downloaded again, and compared
 by size and SHA-256. Existing files are not overwritten. `COMPLETE.json` is
 uploaded last and lists all verified payloads. A directory without that marker
@@ -77,3 +82,12 @@ calendar-triggered run is still pending. Subsequent runs also record the exact
 container image IDs and repository digests in images.json. Failure-path tests cover restarting after a snapshot
 exception, preserving previously stopped service state, and refusing to send
 credentials to a server whose certificate does not match the pin.
+
+After the full Mac reboot, launchd run `20261103T171024Z` exited zero. All 14
+payloads and COMPLETE.json passed NAS read-back verification; the completion
+manifest SHA-256 is
+`f4f57824279c4f6d385e7fe279482320e9abcd33dcc0a45719349f30d6a52854`.
+This was a manual launchctl kickstart of the installed job, not its first
+04:15 calendar trigger. An earlier run received session error 119 and retained
+its local snapshots; the bounded session-refresh fix was installed before
+the successful run. All snapshotted services recovered.
