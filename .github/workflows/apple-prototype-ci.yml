@@ -21,6 +21,9 @@ jobs:
       suites: ${{ steps.filter.outputs.suites }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Planning needs script files and Git trees, not native media assets.
+          sparse-checkout: .github/scripts
       - name: Verify suite selection and result gate
         run: |
           python3 -B .github/scripts/apple-prototype-changes-test.py
@@ -34,7 +37,7 @@ jobs:
           if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
             printf '%s\0' '.github/workflows/apple-prototype-ci.yml' > "$RUNNER_TEMP/changed-paths"
           else
-            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git fetch --filter=blob:none --no-tags --depth=1 origin "$BASE_SHA"
             git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/changed-paths"
           fi
           python3 .github/scripts/apple-prototype-changes.py < "$RUNNER_TEMP/changed-paths" >> "$GITHUB_OUTPUT"
@@ -176,6 +179,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
       - name: Require all affected suites
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
