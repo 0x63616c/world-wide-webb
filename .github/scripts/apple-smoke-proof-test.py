@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("proof", Path(__file__).with_name("apple-smoke-proof.py"))
 proof = importlib.util.module_from_spec(spec)
@@ -84,5 +85,39 @@ class ProofTests(unittest.TestCase):
     def test_checkout_hash_is_strict(self):
         self.log = "timestamp [command]/usr/bin/git log -1 --format=%H\ntimestamp $(evil)\n"
         self.assertEqual(self.check(), "")
+
+class LinkTests(unittest.TestCase):
+    def setUp(self):
+        self.link = "apps/apple-prototype/Hybrid/Assets/photo.jpg"
+        self.target = "apps/apple-prototype/Sources/Assets/photo.jpg"
+        self.entries = [(self.link, "120000", "blob", "link"), (self.target, "100644", "blob", "image")]
+
+    def test_internal_shared_asset_is_covered(self):
+        proof.validate_links(self.entries, lambda *_: "../../Sources/Assets/photo.jpg")
+
+    def test_absolute_external_missing_and_excluded_targets_are_rejected(self):
+        for target in ["/tmp/photo.jpg", "../../../../outside.jpg", "missing.jpg", "../../README.md"]:
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                proof.validate_links(self.entries, lambda *_: target)
+
+    def test_cycle_is_rejected(self):
+        with self.assertRaises(ValueError):
+            proof.validate_links(self.entries, lambda *_: "photo.jpg")
+
+    def test_submodule_is_rejected(self):
+        with self.assertRaises(ValueError):
+            proof.validate_links([("apps/apple-prototype/Dependency", "160000", "commit", "sha")], lambda *_: "")
+
+    def test_target_content_and_link_destination_both_affect_fingerprint(self):
+        def fingerprint(entries):
+            records = b"\0".join(f"{mode} {kind} {sha}\t{path}".encode() for path, mode, kind, sha in entries)
+            with patch.object(proof.subprocess, "check_output", side_effect=lambda args:
+                              records if args[1] == "ls-tree" else b"../../Sources/Assets/photo.jpg"):
+                return proof.local_fingerprint()
+        baseline = fingerprint(self.entries)
+        for changed in [[self.entries[0], (self.target, "100644", "blob", "new-image")],
+                        [(self.link, "120000", "blob", "new-link"), self.entries[1]]]:
+            self.assertNotEqual(baseline, fingerprint(changed))
+
 
 if __name__ == "__main__": unittest.main()

@@ -6,7 +6,9 @@ is a cache miss: the full smoke suite still runs.
 """
 import json
 import hashlib
+import base64
 import os
+import posixpath
 import re
 import subprocess
 import sys
@@ -21,15 +23,40 @@ def is_input(path):
         ".github/workflows/" + WORKFLOW, ".github/workflows/apple-prototype-ci.yml")
 
 
+def validate_links(inputs, read_link):
+    entries = {path: (mode, kind, sha) for path, mode, kind, sha in inputs}
+    for path, mode, _, _ in inputs:
+        if mode == "160000":
+            raise ValueError("Submodule inputs require explicit dependency coverage")
+        seen = set()
+        current = path
+        while entries[current][0] == "120000":
+            if current in seen:
+                raise ValueError("Cyclic native asset link")
+            seen.add(current)
+            target = read_link(current, entries[current][2])
+            if posixpath.isabs(target):
+                raise ValueError("Absolute native asset link")
+            current = posixpath.normpath(posixpath.join(posixpath.dirname(current), target))
+            if current not in entries:
+                raise ValueError("Native asset link target is outside validated inputs or missing")
+        if entries[current][0] == "160000":
+            raise ValueError("Native asset link points into a submodule")
+
+
 def local_fingerprint():
     records = subprocess.check_output(["git", "ls-tree", "-rz", "HEAD", "--",
                                        "apps/apple-prototype", "apps/panel", ".github/scripts", ".github/workflows"])
     inputs = []
+    entries = []
     for record in records.split(b"\0"):
         if record:
             metadata, path = record.split(b"\t", 1)
             if is_input(path.decode()):
                 inputs.append(record)
+                mode, kind, sha = metadata.decode().split()
+                entries.append((path.decode(), mode, kind, sha))
+    validate_links(entries, lambda path, _: subprocess.check_output(["git", "show", "HEAD:" + path]).decode())
     return hashlib.sha256(b"\0".join(sorted(inputs))).hexdigest()
 
 
@@ -70,9 +97,13 @@ def validation_inputs(api, repo, commit):
                 continue
             if not is_input(path + "/" + name):
                 continue
-            if entry["mode"] in {"120000", "160000"}:
-                raise ValueError("External symlink/submodule inputs require explicit dependency coverage")
             inputs.append((path + "/" + name, entry["mode"], entry["type"], entry["sha"]))
+    def read_link(path, sha):
+        blob = api(f"repos/{repo}/git/blobs/{sha}")
+        if blob.get("encoding") != "base64":
+            raise ValueError("Unrecognized native asset link encoding")
+        return base64.b64decode(blob["content"]).decode()
+    validate_links(inputs, read_link)
     return sorted(inputs)
 
 
