@@ -384,6 +384,7 @@ jobs:
     if: |
       always() &&
       github.ref_name == 'main' &&
+      vars.TALOS_DEPLOY_DISABLED != 'true' &&
       (needs.changes.outputs.any_app == 'true' || needs.changes.outputs.infra == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)) &&
       !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled')

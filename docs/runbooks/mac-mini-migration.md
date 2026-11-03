@@ -32,6 +32,11 @@ only the dump mounted read-only. The restored database contains 31 banks,
 restore, not a full Hindsight application recovery or external-file backup.
 The test containers are stopped; live Hindsight and Bambuddy remained running.
 
+Hindsight's separate `codex-home` bind mount is also archived on the mini and
+copied to the restricted off-host backup directory. Both copies have SHA-256
+`6c3c9e5470e5908e393c68ec13536e6b7eaea6c1d2f108310452a869553051a6`.
+No production data or volumes have been removed.
+
 Talos access was recovered using the existing Keychain credential and the
 repository's secret wrapper to render gitignored client configuration.
 A live census confirmed the api Deployment at one replica, worker/web/manage
@@ -105,6 +110,15 @@ instance. Verify existing login, dashboards, integrations, automations and
 history before moving callers. If verification fails, stop the mini instance
 before restarting the old one. A planned HA outage is explicitly permitted.
 
+The configuration archive and consistent SQLite snapshot have been restored
+under `/Users/calum/home-assistant/rehearsal-config`. An isolated, network-disabled
+ARM64 container verified database integrity and the same state/event counts.
+The restored configuration and entity registry are present. HA itself has not
+been started. The current Talos API baseline is 214 entities; all lights,
+switches, climate entities, covers, locks and media players are available.
+There are already 12 unavailable sensors and four unavailable event entities;
+compare individual entities at cutover rather than treating these as new failures.
+
 ## Release automation
 
 The `Deploy Mac mini` workflow follows successful push-triggered main CI runs.
@@ -134,3 +148,10 @@ them. Automated configuration upgrades remain future work.
 `bash scripts/test-mini-release.sh` covers mutable-image rejection, a missing
 database, stale releases, health failure and lock contention. `actionlint`
 validates the workflow. These checks do not establish live deployment success.
+
+The existing vault-backed SSH identity was verified against the mini's tailnet
+hostname. `MINI_KNOWN_HOSTS` is provisioned using the public host key obtained
+through the existing trusted SSH connection. `MINI_DEPLOY_ENABLED` remains
+unset. At cutover set `TALOS_DEPLOY_DISABLED=true` and wait for any already-running
+Talos deployment to finish before freezing writers. That switch prevents future
+CI runs from recreating old workloads; it does not stop an in-flight deployment.
