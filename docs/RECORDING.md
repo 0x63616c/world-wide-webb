@@ -45,3 +45,5 @@ Signed releases use Callkeep’s provisioned native Documents container, `iCloud
 ## Import
 
 Choose **File → Import Recordings…** (⇧⌘I) and select an existing Callkeep recording folder, or a library containing recording folders. Multiple selection is supported. Each recording needs `recording.json` and readable audio tracks. Callkeep copies and validates the files before adding them; originals stay in place and matching recording IDs are skipped. Active recordings, unsupported metadata, symbolic links, and invalid audio paths are rejected. Imported recordings move to native iCloud storage when enabled. Standalone audio files are not supported.
+
+Click **You** or **Call audio** above a saved waveform to hide and mute that track. Click again to restore it. The tracks toggle independently without interrupting playback or changing the saved files. Selection survives seeking and reloading the same recording; opening another recording restores both tracks.

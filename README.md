@@ -15,7 +15,7 @@ Callkeep captures your microphone and the audio playing on your Mac. It works al
 
 - Start or stop from the menu bar, the app, or a keyboard shortcut.
 - Browse and search your recordings, then replay them with a smooth, seekable timeline.
-- Watch your voice and call audio together in a smooth, two-color waveform.
+- Watch your voice and call audio together in a smooth, two-color waveform. Click either playback legend to hide and mute that track.
 - Rename a call in place, including while recording. Select several with Shift-click or Command-click and move them to Trash together.
 - Keep lossless audio in Callkeep’s native iCloud Drive folder, ready for transcription later.
 - Import existing Callkeep recording folders without changing the originals.

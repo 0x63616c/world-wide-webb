@@ -293,7 +293,7 @@ private struct RecordingInfoView: View {
 }
 
 private struct PlaybackTimelineView: View {
-    let playback: Playback
+    @Bindable var playback: Playback
     let waveform: RecordingWaveform
     @State private var scrubbing = false
     @State private var scrubPosition: TimeInterval = 0
@@ -304,8 +304,8 @@ private struct PlaybackTimelineView: View {
             let position = scrubbing ? scrubPosition : playback.currentPosition
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
-                    WaveformLegend()
-                    WaveformView(waveform: waveform, progress: playback.duration > 0 ? position / playback.duration : 0).frame(height: 104)
+                    WaveformLegend(microphoneEnabled: $playback.microphoneEnabled, systemAudioEnabled: $playback.systemAudioEnabled)
+                    WaveformView(waveform: waveform, microphoneEnabled: playback.microphoneEnabled, systemAudioEnabled: playback.systemAudioEnabled, progress: playback.duration > 0 ? position / playback.duration : 0).frame(height: 104)
                 }
                 VStack(spacing: 8) {
                     Slider(value: Binding(get: { position }, set: { value in
@@ -335,6 +335,8 @@ private struct PlaybackTimelineView: View {
 
 struct WaveformView: View {
     let waveform: RecordingWaveform
+    var microphoneEnabled = true
+    var systemAudioEnabled = true
     let progress: Double
     @Environment(\.colorScheme) private var colorScheme
     var body: some View {
@@ -347,8 +349,8 @@ struct WaveformView: View {
                 let width = max(1, spacing - 2)
                 let dot = CGRect(x: x, y: size.height / 2 - 1.5, width: width, height: 3)
                 context.fill(Path(roundedRect: dot, cornerRadius: 2), with: .color(.primary.opacity(0.1)))
-                for (values, color) in [(waveform.microphone, VoiceColor.microphone), (waveform.systemAudio, VoiceColor.systemAudio)] {
-                    guard index < values.count, values[index] > 0 else { continue }
+                for (values, color, enabled) in [(waveform.microphone, VoiceColor.microphone, microphoneEnabled), (waveform.systemAudio, VoiceColor.systemAudio, systemAudioEnabled)] {
+                    guard enabled, index < values.count, values[index] > 0 else { continue }
                     let height = max(3, CGFloat(sqrt(min(values[index] / maximum, 1))) * size.height)
                     let rect = CGRect(x: x, y: (size.height - height) / 2, width: width, height: height)
                     var layer = context
@@ -357,6 +359,6 @@ struct WaveformView: View {
                     layer.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(color.opacity(opacity)))
                 }
             }
-        }.accessibilityLabel("Recorded audio: you in purple, call audio in teal")
+        }.accessibilityLabel("Recorded audio: you \(microphoneEnabled ? "shown in purple" : "hidden"), call audio \(systemAudioEnabled ? "shown in teal" : "hidden")")
     }
 }

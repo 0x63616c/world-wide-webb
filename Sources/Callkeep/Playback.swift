@@ -7,9 +7,9 @@ final class Playback {
     var isPlaying = false
     var position: TimeInterval = 0
     var duration: TimeInterval = 0
-    var source = Source.both
-    enum Source: String, CaseIterable { case both = "Both tracks", microphone = "Microphone", system = "Computer audio" }
-    private var players: [(AVAudioPlayer, AudioTrack)] = []
+    var microphoneEnabled = true { didSet { applyVolumes() } }
+    var systemAudioEnabled = true { didSet { applyVolumes() } }
+    private var players: [(AVAudioPlayer, AudioTrack, Bool)] = []
     private var timer: Timer?
     private var basePosition: TimeInterval = 0
     private var started: TimeInterval = 0
@@ -20,17 +20,22 @@ final class Playback {
         return min(duration, basePosition + max(0, ProcessInfo.processInfo.systemUptime - started))
     }
     func load(_ recording: Recording, folder: URL) throws {
-        stop(); self.record = recording; self.folder = folder; duration = recording.duration
-        for track in [recording.microphone, recording.systemAudio].compactMap({ $0 }) {
+        stop()
+        if record?.id != recording.id {
+            microphoneEnabled = true
+            systemAudioEnabled = true
+        }
+        self.record = recording; self.folder = folder; duration = recording.duration
+        for (optionalTrack, isMicrophone) in [(recording.microphone, true), (recording.systemAudio, false)] {
+            guard let track = optionalTrack else { continue }
             let player = try AVAudioPlayer(contentsOf: folder.appendingPathComponent(track.file))
-            player.prepareToPlay(); players.append((player, track))
+            player.prepareToPlay(); players.append((player, track, isMicrophone))
         }
         applyVolumes()
     }
-    func changeSource(_ source: Source) { self.source = source; applyVolumes() }
     private func applyVolumes() {
-        for (player, track) in players {
-            player.volume = source == .both || (source == .microphone && track.file == "microphone.caf") || (source == .system && track.file == "system-audio.caf") ? 1 : 0
+        for (player, _, isMicrophone) in players {
+            player.volume = (isMicrophone ? microphoneEnabled : systemAudioEnabled) ? 1 : 0
         }
     }
     func toggle() { isPlaying ? pause() : play() }
@@ -41,7 +46,7 @@ final class Playback {
         let delay = 0.05
         basePosition = position; started = ProcessInfo.processInfo.systemUptime + delay
         let deviceStart = players[0].0.deviceCurrentTime + delay
-        for (player, track) in players {
+        for (player, track, _) in players {
             player.currentTime = max(0, position - track.startOffset)
             if position < track.startOffset + track.duration { player.play(atTime: deviceStart + max(0, track.startOffset - position)) }
         }

@@ -13,3 +13,8 @@ swiftc -D DEBUG -parse-as-library -target "$(uname -m)-apple-macos15.0" \
   -framework Sparkle -Xlinker -rpath -Xlinker "$PWD/build/Build/Products/Debug/Callkeep.app/Contents/Frameworks" \
   Sources/Callkeep/AppUpdater.swift Scripts/UpdaterHarness.swift -o "$test_directory/updater-checks"
 "$test_directory/updater-checks"
+swiftc -parse-as-library -target "$(uname -m)-apple-macos15.0" \
+  -F "$PWD/build/Build/Products/Debug" -framework CallkeepCore \
+  -Xlinker -rpath -Xlinker "$PWD/build/Build/Products/Debug" \
+  Sources/Callkeep/Playback.swift Scripts/PlaybackHarness.swift -o "$test_directory/playback-checks"
+"$test_directory/playback-checks"

@@ -7,17 +7,38 @@ enum VoiceColor {
 }
 
 struct WaveformLegend: View {
+    // Live capture keeps a static legend; playback supplies independent track bindings.
+    var microphoneEnabled: Binding<Bool>?
+    var systemAudioEnabled: Binding<Bool>?
+
     var body: some View {
         HStack(spacing: 24) {
-            item("You", color: VoiceColor.microphone)
-            item("Call audio", color: VoiceColor.systemAudio)
+            item("You", color: VoiceColor.microphone, enabled: microphoneEnabled)
+            item("Call audio", color: VoiceColor.systemAudio, enabled: systemAudioEnabled)
         }
     }
-    private func item(_ label: String, color: Color) -> some View {
+    @ViewBuilder private func item(_ label: String, color: Color, enabled: Binding<Bool>?) -> some View {
+        if let enabled {
+            Button { enabled.wrappedValue.toggle() } label: {
+                labelView(label, color: color, isEnabled: enabled.wrappedValue)
+                    .padding(.vertical, 6).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(label)
+            .accessibilityValue(enabled.wrappedValue ? "Audible and visible" : "Muted and hidden")
+            .accessibilityAddTraits(enabled.wrappedValue ? [.isSelected] : [])
+            .help(enabled.wrappedValue ? "Mute and hide \(label)" : "Unmute and show \(label)")
+        } else {
+            labelView(label, color: color, isEnabled: true)
+                .accessibilityElement(children: .combine)
+        }
+    }
+    private func labelView(_ label: String, color: Color, isEnabled: Bool) -> some View {
         HStack(spacing: 7) {
-            Circle().fill(color).frame(width: 6, height: 6)
+            Circle().fill(isEnabled ? color : Color.secondary.opacity(0.35)).frame(width: 6, height: 6)
             Text(label).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-        }.accessibilityElement(children: .combine)
+                .strikethrough(!isEnabled)
+        }.opacity(isEnabled ? 1 : 0.5)
     }
 }
 
