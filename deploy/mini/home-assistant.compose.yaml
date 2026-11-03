@@ -1,0 +1,23 @@
+name: www-home-assistant
+
+services:
+  home-assistant:
+    # Same release and multi-architecture index as the existing Talos instance.
+    image: ghcr.io/home-assistant/home-assistant@sha256:5a531753cea96444200158fc2b0ac7ccd739291ec50414877b396de6e0bb29b3
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: America/Los_Angeles
+    volumes:
+      - ${HA_CONFIG_DIR:?Set the restored configuration directory}:/config
+    stop_grace_period: 120s
+    mem_limit: 1g
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8123/', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}

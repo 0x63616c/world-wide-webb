@@ -34,7 +34,12 @@ export async function serveStaticSite(req: Request, root: string, manageHost: st
   )
     return missing();
   if (/^\/(maps|api|trpc|media|metrics)(\/|$)/.test(path)) return missing();
-  const siteRoot = resolve(root, "apps", manage ? "manage" : "web", "dist");
+  let siteRoot: string;
+  try {
+    siteRoot = await realpath(resolve(root, "apps", manage ? "manage" : "web", "dist"));
+  } catch {
+    return missing();
+  }
   const immutable = path.startsWith("/assets/");
   const requested = resolve(siteRoot, `.${path}`);
   if (!requested.startsWith(siteRoot + sep)) return path === "/" ? entry() : missing();

@@ -1,0 +1,56 @@
+name: www-control-center
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set a pinned PostgreSQL 18 image}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: control_center
+      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+    volumes:
+      - ${WWW_DATA_DIR:?Set the persistent data directory}/postgres:/var/lib/postgresql
+      - ${WWW_SECRETS_DIR:?Set the secrets directory}/POSTGRES_PASSWORD:/run/secrets/POSTGRES_PASSWORD:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d control_center"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+
+  www:
+    image: ${WWW_IMAGE:?Set an immutable www image digest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_ENV: production
+      TZ: America/Los_Angeles
+      PORT: '4201'
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: control_center
+      POSTGRES_USER: postgres
+      HA_URL: ${HA_URL:?Set the Home Assistant origin}
+      WORKER_CYCLES: ${WORKER_CYCLES:?Explicitly choose on or off}
+      MEDIA_STORAGE_DIR: /app/media
+    volumes:
+      - ${WWW_SECRETS_DIR}:/run/secrets:ro
+      - ${WWW_DATA_DIR}/media:/app/media
+    ports:
+      - 127.0.0.1:${WWW_PORT:-4201}:4201
+    healthcheck:
+      test: [CMD, bun, -e, "const r = await fetch('http://127.0.0.1:4201/healthz'); process.exit(r.ok ? 0 : 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+    stop_grace_period: 60s
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}

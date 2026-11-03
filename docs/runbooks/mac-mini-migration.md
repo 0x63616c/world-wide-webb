@@ -1,0 +1,182 @@
+# Mac mini migration
+
+Status: preparation in progress, 2026-11-03. Talos remains production.
+
+## Requirements
+
+- Keep Hindsight and Bambuddy and preserve their data.
+- Move the existing Home Assistant configuration, integrations, dashboards,
+  automations and recorder history. A planned HA outage is permitted.
+- Deploy successful main releases automatically to the mini using hosted CI.
+- Retire Talos only after service checks, a release, rollback, backup restore,
+  and mini reboot verification pass.
+- Remove old runners after migrating their workflows. The user also approved
+  removal of the unused OrbStack Kubernetes cluster and old host processes;
+  identify dependencies before stopping them.
+
+## Verified preparation
+
+The mini is an M2 with 8 GiB RAM and approximately 29 GiB available disk.
+Hindsight and Bambuddy are running in OrbStack. Five runner launch agents are
+active; OrbStack Kubernetes has only CoreDNS and local-path provisioner pods.
+
+Hindsight's existing backup script produced `hindsight-20261103-054926.dump`.
+It was copied off the mini to the operator machine's restricted migration
+backup directory. Both copies have SHA-256
+`177470d2189cb1b2be4a3ee988afa43870cd63c9cf38281ea0872a56e307305a`.
+
+A full `pg_restore --exit-on-error --no-owner --no-acl` succeeded into a
+separate PostgreSQL 18 + pgvector container, with networking disabled and
+only the dump mounted read-only. The restored database contains 31 banks,
+4,558 memory units, 986 documents and 4,541 entities. This verifies database
+restore, not a full Hindsight application recovery or external-file backup.
+The test containers are stopped; live Hindsight and Bambuddy remained running.
+
+Hindsight's separate `codex-home` bind mount is also archived on the mini and
+copied to the restricted off-host backup directory. Both copies have SHA-256
+`6c3c9e5470e5908e393c68ec13536e6b7eaea6c1d2f108310452a869553051a6`.
+No production data or volumes have been removed.
+
+Talos access was recovered using the existing Keychain credential and the
+repository's secret wrapper to render gitignored client configuration.
+A live census confirmed the api Deployment at one replica, worker/web/manage
+at zero, Home Assistant running with two containers, two PostgreSQL instances,
+two cloudflared replicas and the observability stack. HA configuration is on
+the `home-assistant/ha-config` PVC; both databases have local-lvm PVCs.
+
+## Next gates
+
+1. Back up HA configuration and both databases; preserve configuration secrets
+   as opaque files without displaying their values. Rehearse restoration.
+2. Add production Compose and an ARM64 release/deploy path; preserve existing
+   app-cycle ownership until cutover. Keep Hindsight/Bambuddy separate.
+3. Verify HA discovery and device callbacks on the mini, using a controlled
+   outage to avoid duplicate automation instances.
+4. Freeze writers for the final copy, move tunnel routing, verify all clients,
+   then prove deployment, rollback and restart recovery.
+5. Retire Talos only after the above evidence is recorded.
+
+## Live Home Assistant storage correction
+
+The deployment definitions provision PostgreSQL, but the running HA config
+has no recorder override. Its actual recorder is `/config/home-assistant_v2.db`
+with WAL files. Both databases on the HA PostgreSQL server are empty defaults.
+Do not migrate this empty PostgreSQL instance as if it contained HA history.
+
+A rehearsal archive of the complete `/config` directory is saved on the
+operator machine with restrictive permissions. Because HA was running, use
+the separate SQLite online-backup snapshot for a consistent recorder restore,
+not the raw database/WAL files in that archive. The snapshot passed SQLite
+integrity checking and contains 265,230 states and 147,108 events. At cutover,
+stop HA before taking the final full configuration copy.
+
+The Control Center PostgreSQL database is approximately 457 MB; a custom-format
+rehearsal dump and a media archive are saved off the gaming PC. The dump restored
+successfully into the mini's isolated PostgreSQL 18 instance (15 public tables).
+
+## Compose preparation
+
+`deploy/mini/compose.yaml` isolates Control Center under its own Compose project,
+with persistent PostgreSQL 18 and media directories, file-mounted secrets,
+health checks, bounded logs and graceful shutdown. It requires an explicit
+worker-cycle setting to keep rehearsal instances from duplicating enforcers.
+The file passed `docker compose config --quiet` on the mini. PostgreSQL and the
+native ARM64 rehearsal app are now healthy. `/healthz` reports database `ok`
+and cycles disabled; `health.buildHash` reports `eb438685`. Both panel and
+manage host routes return HTTP 200. Production traffic remains on Talos.
+This proves basic runtime readiness, not complete integration correctness.
+
+## Home Assistant cutover preparation
+
+The running HA release is 2026.7.4. Its exact multi-architecture image index
+also contains ARM64, and is pinned in `deploy/mini/home-assistant.compose.yaml`.
+Keep this version for migration; upgrades are a separate operation.
+The proposed container has its own project and restored configuration directory.
+Use it on a Linux VM with verified LAN networking, not directly in OrbStack
+without resolving the discovery failure below. Never run both copies with live
+integrations enabled.
+
+OrbStack host networking exposes container ports on macOS localhost, but LAN
+multicast discovery and device callbacks require separate verification. See
+[OrbStack host networking](https://docs.orbstack.dev/docker/host-networking) and
+[HA Sonos networking](https://www.home-assistant.io/integrations/sonos/#network-requirements).
+Check existing integration availability before and after cutover, and verify
+device-to-HA callbacks as well as HA-to-device requests. If LAN networking cannot
+be made reliable, use a bridged HA VM on the mini before retiring Talos.
+
+For the final copy, stop the old HA process cleanly and mount its retained PVC
+in a temporary backup pod, then archive the entire configuration while no HA
+writer is active. Keep the PVC and off-host backup. Restore on the mini with
+the same image version, validate SQLite integrity, then start only the mini
+instance. Verify existing login, dashboards, integrations, automations and
+history before moving callers. If verification fails, stop the mini instance
+before restarting the old one. A planned HA outage is explicitly permitted.
+
+An identical SSDP discovery probe found eight responding devices from native
+macOS and zero from an OrbStack host-network container. Direct OrbStack HA is
+therefore not ready for cutover. The mini already has Colima, Lima, QEMU and
+socket_vmnet installed, with no existing instances. Investigate a dedicated
+bridged VM using its active LAN interface (`en1`) and prove discovery before
+moving HA. Keep its memory/disk allocation within the mini's limited capacity.
+
+The configuration archive and consistent SQLite snapshot have been restored
+under `/Users/calum/home-assistant/rehearsal-config`. An isolated, network-disabled
+ARM64 container verified database integrity and the same state/event counts.
+The restored configuration and entity registry are present. HA was subsequently
+started with networking disabled, and accepted the existing API credential at
+`/api/config`, reporting version 2026.7.4. It was stopped after this check;
+integration startup cannot be verified in that isolated mode.
+The current Talos API baseline is 214 entities; all lights,
+switches, climate entities, covers, locks and media players are available.
+There are already 12 unavailable sensors and four unavailable event entities;
+compare individual entities at cutover rather than treating these as new failures.
+
+## Bambuddy backup
+
+Bambuddy remains running on the mini. Its data volume has an off-host archive,
+plus a separate SQLite online-backup snapshot to use instead of the archive's
+live database/WAL files. The snapshot passes integrity checks both on the mini
+and off-host and contains 91 user tables. SHA-256 matches on both hosts:
+
+- `bambuddy-consistent.sqlite`: `94868a1dd08dd90ca9a25ff9969d0f219224511b024a0e9654a71c49bf1b60bd`
+- `bambuddy-data.tar.gz`: `4dbee6daa2969e09e19bacc60ef8df54f3f98ab0e5c79dbd64d533519027015a`
+
+This covers Bambuddy's primary data, not yet a complete restore rehearsal of
+its companion studio service and Tailscale state.
+
+## Release automation
+
+The `Deploy Mac mini` workflow follows successful push-triggered main CI runs.
+It builds an ARM64 `www-control-center-mini` image from the tested SHA, then
+uses existing vault-backed Tailscale and homelab SSH credentials. It requires
+`MINI_DEPLOY_ENABLED=true` and `MINI_KNOWN_HOSTS` repository variables. Keep
+the enable switch unset until provisioning and restoration are verified.
+
+The host installation is `/Users/calum/www-control-center`, containing
+`compose.yaml`, `release.sh`, and a private `runtime.env` with POSTGRES_IMAGE,
+WWW_DATA_DIR, WWW_SECRETS_DIR, HA_URL and WORKER_CYCLES. Runtime paths must be
+absolute; image values must be pinned before production. The app image is
+supplied separately for each immutable release. Initial database provisioning
+and restoration precede release execution. Rehearsal uses WORKER_CYCLES=off
+and a separate restored database; it must not share the production database.
+
+The command pulls before stopping the app, waits for readiness and checks the
+expected build SHA and cycle ownership. It records accepted and previous image
+files, serializes deployments and rejects older CI run numbers. Failure leaves
+the accepted pointer unchanged and fails CI; it does not silently roll back
+potentially incompatible database migrations. Explicit rollback must use a
+known-compatible image (or a restored database), then pass the same checks.
+Compose and the host script are installed deliberately during provisioning;
+changes to either require synchronization before enabling a release that needs
+them. Automated configuration upgrades remain future work.
+
+`bash scripts/test-mini-release.sh` covers mutable-image rejection, a missing
+database, stale releases, health failure and lock contention. `actionlint`
+validates the workflow. These checks do not establish live deployment success.
+
+The existing vault-backed SSH identity was verified against the mini's tailnet
+hostname. `MINI_KNOWN_HOSTS` is provisioned using the public host key obtained
+through the existing trusted SSH connection. `MINI_DEPLOY_ENABLED` remains
+unset. At cutover set `TALOS_DEPLOY_DISABLED=true` and wait for any already-running
+Talos deployment to finish before freezing writers. That switch prevents future
+CI runs from recreating old workloads; it does not stop an in-flight deployment.
