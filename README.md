@@ -23,7 +23,8 @@ registration (ADR-0001).
 | `packages/platform` | Platform primitives for product identity, secrets, DBs, backups, and manifests. |
 | `packages/theme` | Shared CSS the web and manage bundles both import. |
 | `packages/worker-runtime` | Shared worker scheduling/runtime primitives. |
-| `infra` | Pulumi + Kubernetes deploy program. |
+| `deploy/mini` | Compose, releases, HA startup and NAS backups. |
+| `infra/cloudflare` | Pulumi-managed DNS, Access and tunnel ingress. |
 
 See `CODEBASE_OVERVIEW.md` for the full map and `CONTEXT.md` for the domain
 glossary.
@@ -63,36 +64,27 @@ run/failure counts. A cycle failure is reported without restarting the HTTP
 server; database failure and shutdown return 503. `/up` is simple liveness.
 Prometheus stays on the internal metrics port (9464), outside the public listener.
 
-This is the first WWW-76 slice: monolith on Postgres, still on Talos. SQLite,
-its PVC, the data-copy script, and alarm transaction changes belong to the
-follow-up PR. See [ADR-0014](docs/adr/0014-single-www-process.md) for deployment
-and rollback. No hardware move or infrastructure teardown happens here.
+Production uses this single image on the Mac mini with PostgreSQL. SQLite is
+an optional separate migration. See [the migration runbook](docs/runbooks/mac-mini-migration.md)
+for verification and recovery, and [backups](docs/runbooks/mini-backups.md) for
+persistent media and database protection.
 
 Workers reconcile desired state and ingest background data. UI tiles read
 merged state and show skeletons on missing data instead of fake values.
 
 ## Deploy
 
-Push to `main` runs CI, builds changed amd64 images (product-aware: only
-changed product images plus shared-package dependents), writes digest pins to
-`wwwinfra:imageDigests.*`, then runs `pulumi up` against the `home-server`
-stack.
+Push to `main` runs hosted CI. On success, `deploy-mini.yml` builds the exact
+revision from the root Dockerfile on ARM64, publishes an immutable GHCR digest,
+and deploys over Tailscale SSH to the Mac mini. The release script serializes
+updates, checks database/worker health and the build SHA, and rejects stale
+releases. No self-hosted GitHub runner is required.
 
-Prod is a single-node **Talos Linux** Kubernetes cluster, `home-server`
-(`192.168.0.5`, amd64, RTX 3060) — the only production environment. Talos has
-no shell and no sshd, so there is **no SSH into it**; use `talosctl` for the
-node and `kubectl` for the cluster:
-
-```sh
-export TALOSCONFIG=$PWD/infra/talos/clusterconfig/talosconfig
-talosctl dashboard
-export KUBECONFIG=$PWD/infra/talos/clusterconfig/hs.kubeconfig
-kubectl get pods -A
-```
-
-`infra/talos/clusterconfig/` is gitignored and regenerated per session with
-`talhelper genconfig`, since it contains the cluster CA and admin client key.
-Machine config lives in `infra/talos/talconfig.yaml`.
+Control Center and PostgreSQL run in OrbStack; Home Assistant runs in a bridged
+Colima VM. Hindsight and Bambuddy stay independent. `deploy/mini/` contain versioned runtime/startup configuration. Cloudflare DNS,
+Access and tunnel ingress are managed in `infra/cloudflare` (Pulumi `prod`).
+Talos is shut down with disks retained. Never restart its old app against stale
+data; use the migration runbook for recovery context.
 
 ## Commands
 

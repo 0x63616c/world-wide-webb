@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import { SERVICE_SECRETS, type ServiceSecrets } from "../../../infra/src/secrets-map.ts";
 import {
   controlCenterServiceSecretUsages,
   defineProduct,
@@ -29,21 +28,6 @@ describe("secret catalog and service usage", () => {
       service: "api",
       targetSecretName: "control-center-secrets-api",
     });
-  });
-
-  test("env-key coverage: platform secret usages and infra SERVICE_SECRETS agree on env names per service (CC-k8t7: values now vault keys not remoteRef)", () => {
-    // SERVICE_SECRETS values are now vault keys (ITEM__FIELD), not 1P remoteRef.
-    // Assert env-name set coverage only; value format changed in CC-k8t7.
-    // captivePortalProductManifest() itself was pruned (ADR-0006, Task 7+8):
-    // it had 0 real callers left anywhere in infra/ (only stale comments), so
-    // there is no more captive-portal secret usage to reconcile here.
-    const platformMap = serviceSecretMap(controlCenterServiceSecretUsages());
-    const infraSecretMap = SERVICE_SECRETS as Record<string, ServiceSecrets>;
-    for (const [service, platformSecrets] of Object.entries(platformMap)) {
-      const infraKeys = Object.keys(infraSecretMap[service] ?? {}).sort();
-      const platformKeys = Object.keys(platformSecrets).sort();
-      expect(infraKeys).toEqual(platformKeys);
-    }
   });
 
   test("keeps services with no declared secrets absent", () => {

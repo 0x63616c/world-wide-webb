@@ -146,10 +146,10 @@ iteration (the desired-state-is-truth pattern). A named subtype of Worker Cycle.
 _Avoid_: reconciler, syncer.
 
 **Cron**:
-A scheduled Kubernetes job that runs on a calendar schedule (currently: database backups) —
-distinct from a Worker Cycle (fixed interval, always-on process). Declared in
-`infra/src/crons.ts`; there is no app-level scheduler, and app-level recurring work is always a
-Worker Cycle, never a CronJob.
+Calendar-scheduled infrastructure work, currently the mini backup LaunchAgent
+running `deploy/mini/backup.py` at 04:15. Distinct from a Worker Cycle (fixed
+interval, always-on process). Kubernetes CronJobs are retired; app recurring
+work remains a Worker Cycle.
 _Avoid_: scheduled task, timer, queue job (there is no job queue in this repo).
 
 ## Playback

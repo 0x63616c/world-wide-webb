@@ -1,5 +1,10 @@
 # Runbook: local-lvm cutover (ADR-0009)
 
+> **Talos retired 2026-11-03.** All deployment descriptions below are historical.
+> Production now runs on the Mac mini; use the
+> [current migration and recovery runbook](mac-mini-migration.md). The old
+> Talos disk remains intact for recovery. Do not execute these wipe commands.
+
 > **EXECUTED 2026-07-27, before The Simplification (`docs/adr/0013-*.md`).**
 > Kept for the record and as a starting point for any future re-provision,
 > but do not follow it literally: `scripts/storage-migration/*` (referenced
@@ -7,7 +12,7 @@
 > and `temporal`/`temporal_visibility` databases and the `temporal-worker`
 > workload no longer exist, and Plex is gone. A real future re-provision needs
 > this runbook's SHAPE (backup → wipe → rebuild → restore) rewritten against
-> today's two databases (`control_center`, `home_assistant`) and workloads
+> the July deployment's two databases (`control_center`, `home_assistant`) and workloads
 > (`api`, `worker`, `web`, `manage`, `home-assistant`, the observability
 > stack), not its literal commands.
 >

@@ -55,10 +55,8 @@
   // CC-k8t7, but that call is a template-string exec, not a package.json script,
   // so knip's binaries check never saw it and an ignore entry for it was dead
   // config - knip itself flagged it stale.)
-  // `kubectl` is spawned by the infra ghcr-pull-secret preflight to read live
-  // Secrets during `pulumi up`; a system binary on the deploy runner, not an npm dep.
   // `open` is the macOS CLI behind apps/panel's `open` script (opens the Xcode workspace).
-  "ignoreBinaries": ["tilt", "kubectl", "open"],
+  "ignoreBinaries": ["tilt", "open"],
 
   "workspaces": {
     ".": {
@@ -77,13 +75,6 @@
       // server.ts = Docker CMD. drizzle.config.ts + the exports map
       // (., ./trpc, ./worker) are auto-detected.
       "entry": ["src/server.ts", "src/www.ts"]
-    },
-    "infra": {
-      // program.ts = the Pulumi program (Pulumi.yaml `main`, run by the pulumi
-      // CLI, never imported). src/index.ts (the vocabulary barrel) is
-      // auto-detected from `main`. Tests live in test/. @pulumi/* ARE imported
-      // (component.ts), so no ignoreDependencies needed.
-      "entry": ["program.ts", "test/**/*.test.ts"]
     },
     "infra/cloudflare": {
       // Separate Pulumi PROJECT (control-center-cloudflare) for the adopt-only CF

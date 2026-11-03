@@ -1,7 +1,7 @@
 # Hardware inventory
 
-Physical parts list for the house: the `home-server` Talos node, the network, the
-NAS, and the desk. It exists so tickets stop reasoning from unnamed parts — #46
+Physical parts list for the house: the production Mac mini, the retired
+`home-server` gaming PC, the network, the NAS, and the desk. It exists so tickets stop reasoning from unnamed parts — #46
 (cooler fan reporting) and #45 (quieter fans) both needed a concrete cooler model.
 
 Server rows were gathered read-only via `talosctl get <resource>` and
@@ -9,33 +9,44 @@ Server rows were gathered read-only via `talosctl get <resource>` and
 bottom). Everything else is Calum's own record of what was bought — model numbers
 verbatim, not probed.
 
-## home-server (`192.168.0.5`)
+## Mac mini (`homelab`) — production
 
-The sole production machine — see `AGENTS.md` "Infra".
+Apple M2, 8 GiB RAM, macOS 15.6. Control Center and PostgreSQL run in
+OrbStack alongside Hindsight and Bambuddy. Home Assistant runs in a separate
+Colima VM with reserved LAN address `192.168.0.130`. The Cloudflare tunnel runs
+on the host. Automatic recovery passed a full reboot on 2026-11-03.
+See [the migration runbook](runbooks/mac-mini-migration.md) for deployment,
+backup, and recovery procedures.
+
+## home-server (`192.168.0.5`) — retired
+
+Talos was gracefully shut down on 2026-11-03 after the Mac mini cutover.
+The hardware inventory below records the former deployment. Its disks remain
+intact for recovery; they have not been reset or wiped.
 
 ### Confirmed remotely
 
 | Component | Value | Source |
 | --- | --- | --- |
-| Motherboard | MSI PRO Z690-A (board `MS-7D25`), amd64 | `talosctl get systeminformation`; also asserted in `infra/talos/talconfig.yaml` |
+| Motherboard | MSI PRO Z690-A (board `MS-7D25`), amd64 | `talosctl get systeminformation`; also asserted in the former Talos configuration |
 | CPU | Intel Core i7-12700KF, 12 cores / 20 threads | `talosctl get cpu` |
 | RAM | 32 GiB total: 2× 16 GiB Corsair `CMW32GX4M2E3200C16` (Vengeance LPX, DDR4-3200 CL16), dual-channel, populated in `Controller0-DIMMA2` and `Controller1-DIMMB2` | `talosctl get memorymodules` |
 | RAM slots | 4 total, 2 populated, 2 empty (`Controller0-DIMMA1` and `Controller1-DIMMB1` report no manufacturer/model/size) — room to grow to 64 GiB with a matching kit | `talosctl get memorymodules` |
 | GPU | NVIDIA RTX 3060 (reports as "GeForce RTX 3060 Lite Hash Rate" — an LHR SKU) | `talosctl get pcidevices`; driver NVRM 595.71.05 per the cutover notes |
-| Boot/install disk | Samsung SSD 970 EVO Plus 1TB NVMe, `/dev/nvme0n1`, unencrypted by design (no TPM/SecureBoot/UKI) | `talosctl get disks`; `infra/talos/talconfig.yaml` |
+| Boot/install disk | Samsung SSD 970 EVO Plus 1TB NVMe, `/dev/nvme0n1`, unencrypted by design (no TPM/SecureBoot/UKI) | `talosctl get disks`; former Talos configuration |
 | Onboard NIC | Intel I225-V, 2.5GbE, `enp4s0`, MAC `d8:bb:c1:df:7d:19` | `talosctl get links`, `talosctl get pcidevices` |
 | OS / cluster | Talos v1.13.7, Kubernetes v1.36.2, single control-plane | `talosctl version`, `kubectl get nodes -o wide` |
 | Extra PCI device | An unidentified "YUAN High-Tech Development" multimedia controller at PCI `0000:05:00.0` (likely a capture card left in the case from a prior build) — not currently used by any workload | `talosctl get pcidevices` |
 
 Only one NVMe drive is visible to Talos (`nvme0n1`, 1TB) — no second data/storage
-drive is installed in this machine itself; bulk media storage lives on the NAS
-(below).
+drive was installed in this machine itself. The NAS retains historical media
+and now receives backups from the mini (below).
 
 ### Could not determine remotely — needs Calum to read off the physical parts
 
 Talos does not expose any of these to `talosctl`/`kubectl`, and there is no SSH
 path to run vendor tools (`lm-sensors`, `dmidecode` for these fields specifically,
-etc.) — see `AGENTS.md` "no SSH into home-server":
+etc.). These are historical gaps in the inventory:
 
 - **PSU** — model, wattage.
 - **Case** — model.
@@ -70,11 +81,14 @@ saturate the 5 Gbps WAN on its own.
 `WD40EFAX` is the SMR revision of WD Red. SMR rewrites whole shingled zones, so
 sustained random writes and RAID rebuilds are markedly slower than the CMR
 `WD40EFRX`. Assume slow resilver on any drive replacement, and don't put
-write-heavy workloads (databases) on the NAS — those belong on the node's
-NVMe via `local-lvm`.
+write-heavy workloads (databases) on the NAS. Production databases now live
+on the Mac mini.
 
-Bulk media storage lives here. The `pg-backup` cron writes here too
-(`infra/src/crons.ts`).
+Historical photo media remains on this NAS. The mini writes new media to its
+persistent local storage and backs it up nightly, together with databases and
+service data, under `/Homelab/backups/mac-mini/`. Uploads are read back and
+verified before a backup is marked complete. See `deploy/mini/backup.py` and
+the migration runbook; the former Kubernetes backup CronJobs are retired.
 
 ## Desk
 
@@ -91,7 +105,7 @@ grounded, and so peripherals aren't confused with the wall panel.
 The `1366x1024` fixed-size invariant in `AGENTS.md` is the **wall panel**, not this
 monitor.
 
-## Commands used
+## Historical inventory commands (Talos is now offline)
 
 ```
 export TALOSCONFIG=$PWD/infra/talos/clusterconfig/talosconfig

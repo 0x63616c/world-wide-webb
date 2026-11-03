@@ -1,4 +1,10 @@
-# Postgres backup overdue
+# Postgres backup overdue — retired Talos runbook
+
+> Historical reference only. Talos and these CronJobs were retired on
+> 2026-11-03. Current backups run on the Mac mini via `deploy/mini/backup.py`
+> and copy verified archives to the NAS. See
+> [Mac mini migration and recovery](mac-mini-migration.md). No replacement
+> health alerts were added.
 
 `PostgresBackupOverdue` fires separately for `control-center/pg-backup` and
 `home-assistant/home-assistant-pg-backup` after 26 hours without success. It uses

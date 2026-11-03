@@ -35,17 +35,10 @@ export const POOL_STATEMENT_TIMEOUT_MS = 60_000;
 /** Recycle idle clients so a half-dead socket is not reused hours later. */
 export const POOL_IDLE_TIMEOUT_MS = 30_000;
 
-// Live-checked ceiling, not a guess: `show max_connections;` on the
-// control-center CNPG cluster (control-center-1) reads 100, with
-// pg_stat_activity sitting around 20 as a baseline (other sessions
-// included). control_center's Postgres is dedicated to this namespace's own
-// processes (api, web, worker) per infra/src/cnpg.ts — no cross-product
-// sharing; this repo is single-product. 10 is node-postgres's own
-// library default; even at 5x today's process count (api + worker + web,
-// each holding exactly one pool post-createFeatureDb-fold instead of the ~13
-// independent pools features/*/db.ts used to create), that's 5 x 10 = 50,
-// well under the 100 ceiling with headroom for manual psql sessions and
-// future replica scale-out.
+// One shared pool serves the consolidated www process. PostgreSQL is dedicated
+// to Control Center in deploy/mini/compose.yaml; Hindsight has its own database.
+// Keep node-postgres's default of ten connections, leaving capacity for backups
+// and manual maintenance. Reassess the budget before adding process replicas.
 export const MAX_POOL_CONNECTIONS = 10;
 
 /** The handle `createFeatureDb` returns: a drizzle db plus its underlying `pg.Pool` via `$client`. */

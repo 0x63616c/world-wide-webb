@@ -22,13 +22,14 @@ light target and snooze duration in the editor.
 | `ALARM_API_TOKEN` | Unset; HTTP automation returns 503 | Dedicated bearer token, at least 32 characters |
 | `HA_URL`, `HA_TOKEN`, `DATABASE_URL` | Existing configuration | HA and Postgres transport |
 
-Override non-secret defaults on **both API and worker**. Their shared workload
-env lives in `infra/src/services.ts` (`haEnv`).
+Override non-secret defaults on the combined `www` service in
+`deploy/mini/compose.yaml`; API and worker cycles now share one process.
 
 Before deploying, provision `PANEL_ALARMS__TOKEN` through the existing SOPS
-secret workflow. The platform catalog maps it to API `ALARM_API_TOKEN`; the
-worker does not receive it. A missing vault key prevents provisioning the API
-Secret; an empty token disables HTTP automation. Never commit plaintext tokens.
+secret workflow. The platform catalog maps it to `ALARM_API_TOKEN`; provision
+that runtime secret in the mini's private secrets directory, mounted read-only
+at `/run/secrets`. An empty token disables HTTP automation. Never commit
+plaintext tokens.
 
 The iOS build workflow supplies the same token plus the existing
 `CF_ACCESS_KIOSK_CLIENT_ID` and `CF_ACCESS_KIOSK_CLIENT_SECRET` to Expo config.

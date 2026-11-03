@@ -14,14 +14,14 @@ describe("target model", () => {
       timezone: "America/Los_Angeles",
       nas: {
         exportPath: "/volume1/Homelab",
-        backupRootParts: ["backups", "world-wide-webb"],
+        backupRootParts: ["backups", "mac-mini"],
       },
       capabilities: {
-        certManager: true,
+        certManager: false,
         cloudflareTunnel: true,
-        cnpg: true,
-        externalSecrets: true,
-        k8s: true,
+        cnpg: false,
+        externalSecrets: false,
+        k8s: false,
         nasBackups: true,
       },
     });

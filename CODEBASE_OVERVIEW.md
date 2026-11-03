@@ -1,7 +1,7 @@
 # Codebase Overview
 
 A Bun monorepo for Control Center: a fixed-panel smart-home wall dashboard, its
-tRPC API, background reconciliation workers, and the Pulumi-managed Kubernetes
+tRPC API, background reconciliation workers, and the Mac mini Docker
 deployment that runs all three. Read `AGENTS.md` for the invariants and
 workflow rules; this file is the map.
 
@@ -15,11 +15,9 @@ run and explain than it returned. What is described below is what survived.
 WWW-76 consolidates production into one `www` Bun process: `apps/api/src/www.ts`
 starts the API lifecycle in `application.ts`, the generated worker cycles, and
 host-routed static builds of web and manage. `bun run build:www && bun run www`
-runs it locally. `WORKER_CYCLES=off` disables cycles. Postgres remains for this
-first slice; SQLite follows separately (ADR-0014). The legacy entrypoints and
-images below are retained for rollback until Phase 5. On Talos the process uses
-the existing `api` Deployment; the `web` and `manage` Services target its port
-4201, preserving tunnel origins and Access policies.
+runs it locally. `WORKER_CYCLES=off` disables cycles. PostgreSQL remains the
+production database; SQLite is optional future work. The root Dockerfile builds
+one ARM64 image for OrbStack on the mini, serving web and manage by hostname.
 
 ```text
 iPad panel / phone browser
@@ -35,9 +33,9 @@ background reconciliation
   -> desired-state reconciliation, weather ingest
 
 deploy
-  -> push to main -> GitHub Actions (amd64 images to GHCR)
-  -> Pulumi (infra/, stack `home-server`)
-  -> Talos Kubernetes on home-server (192.168.0.5)
+  -> push to main -> successful hosted CI
+  -> ARM64 image digest in GHCR -> Tailscale SSH
+  -> deploy/mini/release.sh -> OrbStack on the Mac mini
 ```
 
 ## Workspace layout
@@ -54,10 +52,10 @@ deploy
   (`docs/panel-startup.md`).
   It remounts the WebView (cache-busted, with backoff) until the page reports
   that `#root` rendered (`apps/panel/boot-recovery.ts`), so a failed boot
-  never sticks on a blank screen. nginx serves `index.html` `no-cache` and
+  never sticks on a blank screen. The consolidated server serves `index.html` `no-cache` and
   `/assets/` as immutable with no SPA fallback, so a stale entry can't name a
   bundle a deploy removed.
-- `apps/manage` — a static nginx bundle at `manage.worldwidewebb.co`: an
+- `apps/manage` — a static bundle served by www at `manage.worldwidewebb.co`: an
   iframe shell over the small set of ops tools this repo doesn't own
   (`apps/manage/src/registry.ts`), gated by Cloudflare Access alone. See
   ADR-0010.
@@ -88,14 +86,12 @@ deploy
   cycle from overlapping itself, isolates a cycle's failure from the others,
   and exposes stats.
 - `packages/platform` (`@www/platform`) — product identity, the single
-  runtime target (`homelabTarget` — the deployment target abstraction, not a
-  reference to the retired Mac mini; see Infra below), secret catalog, env
-  registry, database/backup manifests, and the Control Center product
+  runtime target (`homelabTarget`), secret catalog, env
+  registry, and the Control Center product
   manifest Pulumi reads. `genId()` (Stripe-style `prefix_<id>` minting) lives
   here too.
-- `infra` — the Pulumi program (`infra/program.ts` + `infra/src/*.ts`) that
-  declares the whole `home-server` stack. `infra/cloudflare` is a separate
-  Pulumi project for tunnel routes and Access apps.
+- `deploy/mini` — Compose, releases, backups and host startup.
+- `infra/cloudflare` — retained Pulumi edge configuration (DNS, Access, ingress).
 
 Dependency boundaries between `packages/*`, `features/*`, and `apps/*` are
 enforced by a Biome `noRestrictedImports` rule.
@@ -197,41 +193,30 @@ retired key on read rather than erroring.
 
 ## Workers
 
-`apps/worker` owns process lifecycle, metrics, migrations, and graceful
-shutdown; each feature owns its own cadence in `worker.ts`, composed into
-`features/_generated/workers.gen.ts`. Six cycles are registered:
-`light-enforcer` (1s), `device-sync` (1s), `party-mode` (2s) — the lamp
-reconciliation loop, untouched by The Simplification — `climate-enforcer`
-(1s), `weather-ingest` (5m), and `weather-purge` (the worker cycle that
-replaced the deleted `WeatherPurgeWorkflow`). `features/sound/worker.ts`
-registers no cycles (`defineWorkerCycles([])`) — there is no
-`sonos-volume-enforcer`. No queue, no scheduler: a feature that needs
-recurring backend work writes a `worker.ts` cycle; a feature that needs
-calendar-scheduled infra work is a Kubernetes CronJob in
-`infra/src/crons.ts` (the control-center and Home Assistant Postgres logical
-backups — both `pg_dump`, no config backup).
+The production `www` process owns lifecycle, migrations and graceful shutdown.
+Each feature declares its cadence in `worker.ts`; the generated registry in
+`features/_generated/workers.gen.ts` starts the cycles through the shared worker
+runtime. The mini alone owns production cycles. The separate `apps/worker`
+entrypoint remains available for local development.
+
+There is no queue or workflow engine. App recurring work is a Worker Cycle;
+calendar-scheduled backups run through the mini LaunchAgent and
+`deploy/mini/backup.py`, including databases, media and full HA configuration.
 
 ## Deployment
 
-Prod is a **single-node Talos Linux** Kubernetes cluster, `home-server`
-(`192.168.0.5`, amd64, RTX 3060) — the only production environment. See
-`AGENTS.md` for the no-SSH / `talosctl` rule.
+Production runs on the Mac mini. OrbStack hosts the single Control Center image,
+PostgreSQL, Hindsight, Bambuddy and cloudflared. Home Assistant uses a bridged
+Colima VM. The root Dockerfile is validated on native ARM64 in CI; successful
+main runs trigger `deploy-mini.yml`, which publishes and releases the tested
+revision by immutable digest. Release/recovery scripts serialize changes and
+verify the exact SHA, database health and worker ownership.
 
-- `infra/src/services.ts` — the four app workloads (api, worker, web, manage)
-  plus Home Assistant and Grafana exposure.
-- `infra/src/crons.ts` — Kubernetes CronJobs.
-- `infra/src/cnpg.ts` / `certmanager.ts` / `eso.ts` / `cluster.ts` — Postgres,
-  TLS, secrets, and the base cluster/namespace setup.
-- `infra/src/observability/` — Prometheus, Loki, Grafana, Alloy,
-  node-exporter, kube-state-metrics: hand-rolled Pulumi resources, no Helm, no
-  operator (ADR-0007). See `docs/observability.md`.
-- `infra/cloudflare` — tunnel ingress + Access apps for every private/public
-  hostname, product-derived from the platform manifest.
-
-GitHub Actions builds amd64-only images (native runners, no QEMU), writes
-Pulumi digest pins (`wwwinfra:imageDigests.*`), then runs `pulumi up --stack
-home-server`. Push to `main` triggers this. CI is product-aware: path filters
-build only what changed plus its shared-package dependents.
+`infra/cloudflare` retains DNS, Access and tunnel ingress management. Talos
+provisioning is retired; its disks remain available for recovery. Backups run
+through a mini LaunchAgent and use verified NAS copies. See the
+[migration runbook](docs/runbooks/mac-mini-migration.md) and
+[backup runbook](docs/runbooks/mini-backups.md).
 
 ## Where to start for a feature
 

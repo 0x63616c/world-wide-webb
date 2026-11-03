@@ -506,8 +506,11 @@ no self-hosted references in its current workflows and no queued/running jobs.
 Quantum (formerly Voxelite) still depended on the two hardware runners. Calum
 explicitly deferred its hosted-GPU migration because he is not building it for
 now; Rendering checks, CI macOS and Release macOS are disabled in GitHub to
-avoid unattended queued jobs. Their source and runner registration/configuration
-are retained for later restoration. AgentInc and Fries repository inventories
+avoid unattended queued jobs. Workflow source and local runner configuration
+are retained; the two Quantum registrations and Apps registration were removed
+after confirming all three were offline and idle. Their GitHub runner lists
+now contain zero entries; using local runners again would require registration.
+AgentInc and Fries repository inventories
 were unavailable; their local listeners were idle and were disabled along with
 the other runners. No paid GPU runner has been enabled.
 
@@ -559,3 +562,35 @@ Host cleanup also disabled and unloaded `com.calum.k8s-apiserver-forward`
 retained in `homelab-backups/retired-launchagents-20261103` on the mini.
 The existing OrbStack Docker watchdog remains useful to current production and
 was retained. No new monitoring or notification channel was introduced.
+
+## Repository retirement
+
+PR #889 merged the verified backup/session recovery and independence record;
+PR #890 removed the legacy Dockerfiles and Talos deployment pipeline. The
+remaining cluster provisioning, operators, dashboards/rules, cluster tests and
+Talos generation scripts are removed from the working source. Historical code
+remains in Git; this is not a Pulumi destroy or disk reset. Cloudflare retains
+its own workspace and test project; its preview reports 20 unchanged resources.
+
+The encrypted vault was archived outside Git before removing only
+`KUBECONFIG__B64` and `HOME_ASSISTANT_POSTGRES__PASSWORD`. SOPS integrity passes
+and all 69 remaining key names are preserved. These removals retire the old CI
+cluster credential and unused HA PostgreSQL credential, not the active HA
+token. Other apparently unused keys require external-consumer checks: in
+particular, the NAS backup credential is still needed despite no direct
+tracked-source reference to its vault key. No external credential was revoked.
+
+## Post-cleanup deployment verification
+
+Main CI 41685033593 and Deploy Mac mini 41687702930 both succeeded after
+PR #890. The live build endpoint reported the exact tested revision
+`89edf7a567b39f66f66e19e7cc2324fdf7d55924`, deployed at
+2026-11-03T17:50:45.949Z. `/healthz` reported database ok and all nine enabled
+workers with zero consecutive failures. This verifies the retained ARM64
+pipeline while Talos remains offline.
+
+The same verification window found HA's 214 baseline entities still present,
+none newly unavailable; Hindsight had 31 banks, 4,591 memory units, 996 documents
+and 4,595 entities. Hindsight and Bambuddy health endpoints were healthy, and
+the tunnel had four ready connections. These service checks do not replace the
+still-pending physical panel check or HA password-login verification.
