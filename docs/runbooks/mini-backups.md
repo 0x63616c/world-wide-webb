@@ -82,3 +82,12 @@ calendar-triggered run is still pending. Subsequent runs also record the exact
 container image IDs and repository digests in images.json. Failure-path tests cover restarting after a snapshot
 exception, preserving previously stopped service state, and refusing to send
 credentials to a server whose certificate does not match the pin.
+
+After the full Mac reboot, launchd run `20261103T171024Z` exited zero. All 14
+payloads and COMPLETE.json passed NAS read-back verification; the completion
+manifest SHA-256 is
+`f4f57824279c4f6d385e7fe279482320e9abcd33dcc0a45719349f30d6a52854`.
+This was a manual launchctl kickstart of the installed job, not its first
+04:15 calendar trigger. An earlier run received session error 119 and retained
+its local snapshots; the bounded session-refresh fix was installed before
+the successful run. All snapshotted services recovered.
