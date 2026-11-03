@@ -179,14 +179,38 @@ function productRoutes(): CloudflareRoutes {
 }
 
 /** The live tunnel ingress rules for zone `<zone>` (adopt-only import target). */
-export function desiredIngressRules(zone: string): DesiredIngressRule[] {
-  return [
+export function desiredIngressRules(
+  zone: string,
+  originOverrides: Readonly<Record<string, string>> = {},
+): DesiredIngressRule[] {
+  const rules = [
     ...productRoutes().ingressRules,
     ...Object.entries(LEGACY_INGRESS).map(([sub, service]) => ({
       hostname: `${sub}.${zone}`,
       service,
     })),
   ];
+  // Hostnames, Access policy and path priority survive hardware moves. Apply
+  // an override to every rule for the host, including narrow API paths.
+  const hosts = new Set(rules.map((rule) => rule.hostname));
+  for (const [hostname, origin] of Object.entries(originOverrides)) {
+    if (!hosts.has(hostname)) throw new Error(`Unknown tunnel hostname: ${hostname}`);
+    const url = new URL(origin);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    ) {
+      throw new Error(`Tunnel override must be an HTTP(S) origin: ${hostname}`);
+    }
+  }
+  return rules.map((rule) => ({
+    ...rule,
+    service: originOverrides[rule.hostname] ?? rule.service,
+  }));
 }
 
 /** The live proxied CNAMEs for zone `<zone>` (adopt-only import target). */
