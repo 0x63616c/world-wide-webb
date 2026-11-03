@@ -39,6 +39,12 @@ struct PanelIdleDimming: ViewModifier {
     @State private var idle = PanelIdleState()
     @Environment(\.scenePhase) private var phase
 
+    init(onIdle: @escaping () -> Void, onHome: @escaping () -> Void, timeout: Int) {
+        self.onIdle = onIdle
+        self.onHome = onHome
+        self.timeout = timeout
+    }
+
     private var visualOpacity: Double {
         #if os(iOS) && !targetEnvironment(simulator)
         // iPad hardware brightness must not be multiplied by a second dark overlay.
