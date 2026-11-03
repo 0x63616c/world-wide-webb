@@ -73,7 +73,18 @@ final class NotificationHistoryTests: XCTestCase {
         }, object: app)
         XCTAssertEqual(XCTWaiter.wait(for: [reachable], timeout: 10), .completed)
         guard let edge = edges.allElementsBoundByIndex.first(where: \.isHittable) else { return }
-        let start = edge.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5))
+        // SwiftUI propagates app-screen-climate onto the UIKit edge as well as
+        // its container. Element-relative coordinates can resolve that duplicate
+        // identifier again and drag from the controller instead of the strip.
+        // Freeze the reachable edge's frame, then drag in window coordinates.
+        let window = app.windows.firstMatch
+        let frame = edge.frame
+        XCTAssertGreaterThan(frame.width, 0)
+        XCTAssertGreaterThan(frame.height, 0)
+        XCTAssertLessThanOrEqual(frame.height, 24)
+        let start = window.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: frame.minX - window.frame.minX + frame.width * 0.08,
+            dy: frame.midY - window.frame.minY))
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 300)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
     }
