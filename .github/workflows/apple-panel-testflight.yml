@@ -5,12 +5,14 @@ on:
   pull_request:
     paths:
       - ".github/workflows/apple-panel-testflight.yml"
+      - ".github/scripts/apple-smoke-proof*"
       - "apps/apple-prototype/**"
       - "apps/panel/**"
   push:
     branches: [main]
     paths:
       - ".github/workflows/apple-panel-testflight.yml"
+      - ".github/scripts/apple-smoke-proof*"
       - "apps/apple-prototype/**"
       - "apps/panel/**"
   workflow_dispatch:
@@ -35,19 +37,44 @@ permissions:
 
 concurrency:
   group: apple-panel-testflight-${{ github.event_name == 'pull_request' && github.ref || 'release' }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  smoke:
-    runs-on: macos-26-intel
-    # Cold builds (~8.5 min) + UI tests (~4.5 min) need room for setup and evidence upload.
-    timeout-minutes: 25
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       source_sha: ${{ steps.source.outputs.sha }}
+      verified_run: ${{ steps.proof.outputs.verified_run }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify smoke evidence rules
+        run: python3 -B .github/scripts/apple-smoke-proof-test.py
+      - name: Resolve immutable release source
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+        run: echo "sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SOURCE_REF" --jq .sha)" >> "$GITHUB_OUTPUT"
+      - name: Verify identical source already passed PR smoke
+        id: proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: python3 .github/scripts/apple-smoke-proof.py
+
+  smoke:
+    needs: plan
+    if: needs.plan.outputs.verified_run == ''
+    runs-on: macos-26
+    # Cold Intel builds can take 20 minutes. Preserve products before tests;
+    # main reuses exact-tree PR proof instead of repeating this whole job.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+          ref: ${{ needs.plan.outputs.source_sha }}
       - name: Record tested source commit
         id: source
         run: |
@@ -110,19 +137,32 @@ jobs:
 
       # Products only: test-without-building needs no compiler intermediates.
       # Exact source tree + toolchain + architecture; never restore a partial match.
+      # Namespace by ref: inaccessible PR caches can still conflict on reservation.
       # Main push checks populate the default-branch cache before release dispatch.
       - name: Restore simulator test products
         id: products
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/panel-smoke-build/Build/Products
-          key: panel-launch-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}
+          key: panel-launch-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}-${{ github.ref }}
 
-      - name: Start simulator while compiling
-        env:
-          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
-        run: xcrun simctl boot "$SIMULATOR_ID"
+      - name: Restore incremental compiler cache
+        if: steps.products.outputs.cache-hit != 'true'
+        id: compiler
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ runner.temp }}/panel-smoke-build/Build/Intermediates.noindex
+            ${{ runner.temp }}/panel-smoke-build/ModuleCache.noindex
+            ${{ runner.temp }}/panel-smoke-build/SourcePackages
+            ~/Library/Caches/org.swift.swiftpm
+          key: panel-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ github.ref }}-${{ steps.source.outputs.tree }}
+          restore-keys: |
+            panel-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ github.ref }}-
 
+      # Let XCTest boot after compilation. On the small Intel runners, early
+      # simulator boot coincided with 15-20 minute cold builds; unit compilation
+      # without early boot completed in 126 seconds even on a cache miss.
       - name: Build only the Panel launch UI suite
         if: steps.products.outputs.cache-hit != 'true'
         working-directory: apps/apple-prototype
@@ -140,16 +180,35 @@ jobs:
             -only-testing:PanelUITests/GridInteractionTests \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
+      - name: Save compiled simulator products before tests
+        if: steps.products.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/panel-smoke-build/Build/Products
+          key: ${{ steps.products.outputs.cache-primary-key }}
+
+      - name: Save compiler cache before tests
+        if: steps.products.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ runner.temp }}/panel-smoke-build/Build/Intermediates.noindex
+            ${{ runner.temp }}/panel-smoke-build/ModuleCache.noindex
+            ${{ runner.temp }}/panel-smoke-build/SourcePackages
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ steps.compiler.outputs.cache-primary-key }}
+
       - name: Assert Panel launches into HomeView
         working-directory: apps/apple-prototype
         env:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
           set -o pipefail
-          xcodebuild test-without-building -project WorldWideWebb.xcodeproj \
-            -scheme Panel-Smoke -configuration Debug \
+          shopt -s nullglob
+          test_plans=("$RUNNER_TEMP/panel-smoke-build/Build/Products/"*.xctestrun)
+          [[ ${#test_plans[@]} == 1 ]]
+          xcodebuild test-without-building -xctestrun "${test_plans[0]}" \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
             -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
             -only-testing:PanelUITests/HomeViewLaunchTests \
             -only-testing:PanelUITests/NotificationHistoryTests \
@@ -178,9 +237,13 @@ jobs:
           retention-days: 7
 
   upload:
-    needs: smoke
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only) }}
-    runs-on: macos-26-intel
+    needs: [plan, smoke]
+    if: >-
+      always() && needs.plan.result == 'success' &&
+      (needs.smoke.result == 'success' ||
+       (needs.smoke.result == 'skipped' && needs.plan.outputs.verified_run != '')) &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only))
+    runs-on: macos-26
     timeout-minutes: 45
     environment: production
     # Also shared with the manual Expo rollback workflow: one bundle ID, one
@@ -195,14 +258,14 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/checkout@v5
         with:
-          ref: ${{ needs.smoke.outputs.source_sha }}
+          ref: ${{ needs.plan.outputs.source_sha }}
           path: native
 
       - name: Check uploaded commit receipt
         id: receipt
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ needs.smoke.outputs.source_sha }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
         run: |
           set -euo pipefail
           count=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/artifacts" \
@@ -295,7 +358,7 @@ jobs:
         working-directory: apps/panel
         run: bundle exec fastlane release_native
         env:
-          PANEL_SOURCE_SHA: ${{ needs.smoke.outputs.source_sha }}
+          PANEL_SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
           NATIVE_ROOT: ${{ github.workspace }}/native/apps/apple-prototype
           MATCH_PASSWORD: ${{ env.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_BASIC_AUTHORIZATION }}
@@ -311,14 +374,14 @@ jobs:
       - name: Write upload receipt
         if: steps.receipt.outputs.uploaded != 'true'
         env:
-          SOURCE_SHA: ${{ needs.smoke.outputs.source_sha }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
         run: echo "$SOURCE_SHA $PANEL_UPLOADED_BUILD" > "$RUNNER_TEMP/panel-testflight-receipt.txt"
 
       - name: Retain upload receipt for duplicate dispatches and reruns
         if: steps.receipt.outputs.uploaded != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: panel-testflight-${{ needs.smoke.outputs.source_sha }}
+          name: panel-testflight-${{ needs.plan.outputs.source_sha }}
           path: ${{ runner.temp }}/panel-testflight-receipt.txt
           retention-days: 90
 

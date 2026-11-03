@@ -33,7 +33,8 @@ struct WifiModule: View {
                 VStack(spacing: 20) {
                     WifiQRHero(image: image).frame(width: 380, height: 380)
                         .accessibilityIdentifier("wifi-inline-qr")
-                    Text("scan to connect").font(.title3).foregroundStyle(.secondary)
+                    Label("scan to connect", systemImage: "qrcode.viewfinder")
+                        .font(.title3).foregroundStyle(.secondary)
                 }
             }
         }.padding(64).frame(maxWidth: .infinity, maxHeight: .infinity)
