@@ -70,7 +70,6 @@ struct PanelSettingsPage: View {
         var symbol: String { self == .display ? "display" : (self == .clock ? "clock" : "square.grid.2x2") }
     }
     @State private var selection: Page? = .display
-    @AppStorage("panel.idleDimming") private var idleDimming = true
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             List(Page.allCases, selection: $selection) { page in
@@ -94,8 +93,8 @@ struct PanelSettingsPage: View {
                     } else {
                         Section {
                             NavigationLink { WallpaperPicker(embedded: true) } label: { Label("Background", systemImage: "photo") }
-                            Toggle("Dim when idle", isOn: $idleDimming)
                         }
+                        PanelDisplaySettings()
                     }
                 }.formStyle(.grouped)
                     .navigationTitle(selection?.rawValue ?? "Display")

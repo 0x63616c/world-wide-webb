@@ -14,11 +14,23 @@ import XCTest
         swipeHome(app)
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
     }
-    func testSixtySecondsIdleReturnsToClockAndDims() {
+    func testDisplaySettingsTimeoutDimsAndTapWakes() {
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-previewApp", "settings", "-panel.idleDimming", "YES"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-previewApp", "settings", "-panel.idleDimming", "YES",
+                               "-panel.dimBrightness", "0.3", "-panel.wakeBrightness", "1"]
+        XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
-        XCTAssertTrue(app.buttons["Wake panel"].waitForExistence(timeout: 70))
+        XCTAssertTrue(app.sliders["Wake brightness"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.sliders["Wake brightness"].value as? String, "100%")
+        XCTAssertEqual(app.sliders["Dim brightness"].value as? String, "30%")
+        app.buttons["display-dim-timeout"].tap()
+        app.buttons["30 seconds"].tap()
+        XCTAssertTrue(app.buttons["display-dim-timeout"].label.contains("30 seconds"))
+        let settings = XCTAttachment(screenshot: app.screenshot())
+        settings.name = "Display brightness settings"
+        settings.lifetime = .keepAlways
+        add(settings)
+        XCTAssertTrue(app.buttons["Wake panel"].waitForExistence(timeout: 40))
         app.buttons["Wake panel"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Wake panel"].exists)
