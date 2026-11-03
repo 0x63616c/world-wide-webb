@@ -457,3 +457,17 @@ database: the mini is now the production writer. A reverse migration requires
 a fresh dump after stopping mini writers. Full Mac reboot, post-cutover release
 and recovery, scheduled NAS backups, runner migration and final Talos
 retirement remain outstanding.
+
+## Final cleanup scope (user requested)
+
+After the migration verification gates pass, substantially simplify the repo
+and credential inventory: remove retired Talos/Kubernetes provisioning,
+obsolete image/deployment workflows, migrated runner configuration, unused
+secret keys and their external credentials, and stale operational docs.
+Inventory consumers by key name without reading secret values. Remove or
+revoke a credential only once no retained service or workflow depends on it.
+Keep required recovery archives outside the repository; do not confuse removing
+obsolete infrastructure code with destroying the only recoverable data copy.
+Hindsight, Bambuddy, HA, main-triggered releases and scheduled backups remain
+required. This cleanup is part of completion, after verification, not an
+optional future suggestion.
