@@ -306,9 +306,20 @@ and off-host. This small archive is not proof that the full photo library is
 backed up. The live database still contains photo references.
 
 The NAS advertises `/volume1/Homelab`, but independent read-only NFSv4 mounts
-from Talos and the mini return stale file handle. The user reports the share
-is encrypted and may require unlocking after a NAS reset; they are logging in
-to unlock it. Do not infer deletion from the mount failure. Do not proceed
+from Talos and the mini return stale file handle. File Station confirms that the encrypted share is already unlocked; the user
+did not change it. Its API is readable using existing project credentials and
+lists 134 booth photos and 1,495 wake photos. The read-only API download completed: 1,629 files, 111,862,522 bytes,
+with each download checked against its advertised size and a saved SHA-256
+manifest. The restricted off-host copy is `nas-media/` in the migration backup
+directory.
+The live database has 134 booth references (latest October 15) and 1,549 wake
+references (latest November 2); reconciliation found all 134 booth files and 1,498 wake files after including
+the three-file temporary-storage archive. No recovered file has a size mismatch
+against its database record. Fifty-one wake files dated October 28–November 2
+are still unlocated; preserve their database records and investigate remaining
+backup sources before declaring recovery complete.
+The root cause of the NFS failure is not yet established. Do not infer deletion
+from the mount failure. Do not proceed
 with media cutover or retire Talos until the original share has been inspected,
 its media copied to persistent storage and verified against a source checksum
 manifest and the database references. Preserve the NAS originals and the
