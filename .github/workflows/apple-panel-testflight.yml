@@ -254,6 +254,12 @@ jobs:
               ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
           print('id=' + device_id)
           PYCODE
+      - name: Finish first simulator boot before XCTest
+        env:
+          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
+        run: |
+          xcrun simctl boot "$SIMULATOR_ID"
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
       - name: Run UI group
         working-directory: apps/apple-prototype
         env:
