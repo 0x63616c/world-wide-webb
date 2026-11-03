@@ -16,7 +16,7 @@ struct TranscriptionSettingsView: View {
             Divider().padding(.leading, 16)
             Toggle("Notify when a transcript is ready", isOn: $controller.notifyWhenReady)
                 .onChange(of: controller.notifyWhenReady) { _, value in if value { notifications.requestIfNeeded() } }
-                .frame(minHeight: 54).padding(.horizontal, 16)
+                .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading).padding(.horizontal, 16)
             if notifications.denied {
                 Text("Allow Callkeep notifications in System Settings to receive transcript alerts.")
                     .font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
@@ -151,6 +151,7 @@ struct TranscriptView: View {
             if let selected {
                 if selected.segments.isEmpty {
                     ContentUnavailableView("No speech found", systemImage: "text.bubble", description: Text("The selected model didn’t detect speech in this recording."))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
                     TimelineView(.animation(minimumInterval: 0.2, paused: !model.playback.isPlaying)) { _ in
                         let position = model.playback.currentPosition
@@ -160,18 +161,24 @@ struct TranscriptView: View {
                                 LazyVStack(alignment: .leading, spacing: 12) {
                                     ForEach(selected.segments) { segment in
                                         let active = segment.start <= position && position < segment.end
-                                        HStack(alignment: .top, spacing: 16) {
-                                            Button(Recording.timeString(segment.start)) { model.playback.seek(segment.start) }
-                                                .buttonStyle(.plain).font(.caption.monospacedDigit())
-                                                .foregroundStyle(active ? Color.accentColor : Color.secondary)
-                                                .frame(width: 48, alignment: .leading).padding(.top, 2).help("Seek to this phrase")
-                                            VStack(alignment: .leading, spacing: 5) {
-                                                Text(segment.source.label).font(.caption.weight(.semibold))
-                                                    .foregroundStyle(segment.source == .microphone ? VoiceColor.microphone : VoiceColor.systemAudio)
-                                                Text(segment.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                                            }
-                                        }.padding(8)
-                                            .background(active ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                                        Button { model.playback.seek(segment.start) } label: {
+                                            HStack(alignment: .top, spacing: 16) {
+                                                Text(Recording.timeString(segment.start))
+                                                    .font(.caption.monospacedDigit())
+                                                    .foregroundStyle(active ? Color.accentColor : Color.secondary)
+                                                    .frame(width: 48, alignment: .leading).padding(.top, 2)
+                                                VStack(alignment: .leading, spacing: 5) {
+                                                    Text(segment.source.label).font(.caption.weight(.semibold))
+                                                        .foregroundStyle(segment.source == .microphone ? VoiceColor.microphone : VoiceColor.systemAudio)
+                                                    Text(segment.text).frame(maxWidth: .infinity, alignment: .leading)
+                                                }
+                                            }.padding(8)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .background(active ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                                                .contentShape(Rectangle())
+                                        }.buttonStyle(.plain)
+                                            .help("Seek to \(Recording.timeString(segment.start))")
+                                            .accessibilityLabel("\(segment.source.label), \(Recording.timeString(segment.start)): \(segment.text)")
                                             .id(segment.id)
                                     }
                                 }.padding(.vertical, 4)
@@ -187,6 +194,7 @@ struct TranscriptView: View {
                     .font(.caption).foregroundStyle(.tertiary)
             } else if controller.status(for: recording.id) == nil {
                 ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Choose a model to transcribe this recording locally."))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             } else { Spacer(minLength: 0) }
         }
         .task(id: "\(recording.id)-\(controller.resultsVersion)-\(model.store?.folder(for: recording).path ?? "")") {

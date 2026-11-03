@@ -17,7 +17,7 @@ Sources: [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra), [Flu
 
 ## Read and compare transcripts
 
-Open a recording. Its transcript appears below the playback controls, highlights the current phrases and follows playback automatically. Existing recordings can be transcribed manually with **Transcribe**, or **Transcribe with…** to choose another model. Each run is retained separately; the result picker switches between runs without replacing the first transcript. **Copy** copies timestamped text. Click a timestamp to seek the audio.
+Open a recording. Its transcript appears below the playback controls, highlights the current phrases and follows playback automatically. Existing recordings can be transcribed manually with **Transcribe**, or **Transcribe with…** to choose another model. Each run is retained separately; the result picker switches between runs without replacing the first transcript. **Copy** copies timestamped text. Click a transcript row to seek the audio to that phrase.
 
 The microphone is labeled **You**, and computer audio is labeled **Call audio**, using the same purple and teal colors as playback. Multiple people within call audio are not individually identified. Overlapping voices, accents, names, quiet speech and chunk boundaries can affect recognition. Keep the original audio as the reference.
 
