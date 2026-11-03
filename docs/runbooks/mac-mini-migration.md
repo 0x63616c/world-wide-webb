@@ -56,10 +56,11 @@ entrypoint now waits for ha0 IPv4 and matching default-route source selection
 before executing the original /init. A repeated full VM stop/start through the
 LaunchAgent succeeded (exit 0): HA healthy, 214 entities, no missing entities
 and no newly unavailable entities. This is a VM restart, not a Mac reboot.
-The user LaunchAgent starts Colima and Compose at login; a prepared root
-helper plist adds KeepAlive/ThrottleInterval to retry if Wi-Fi is late at boot,
-but installation still requires the user sudo command. Full Mac reboot, stable
-address provisioning and public browser login remain unverified.
+The user LaunchAgent starts Colima and Compose at login. The root helper
+plist is now installed with KeepAlive=true, ThrottleInterval=30 and RunAtLoad=true,
+verified after the user ran the sudo installer. It retries if Wi-Fi is late
+at boot. Full Mac reboot, stable address provisioning and public browser login
+remain unverified.
 
 Monitoring preference: rotated container logs only, with no new health alerts
 or notifications. Existing Hindsight checks may remain.
@@ -293,3 +294,35 @@ enabled for the isolated rehearsal after PR #882 merged. At cutover set
 `TALOS_DEPLOY_DISABLED=true` and wait for any already-running
 Talos deployment to finish before freezing writers. That switch prevents future
 CI runs from recreating old workloads; it does not stop an in-flight deployment.
+
+## Photo preservation gate
+
+Talos originally used `/volume1/Homelab/media` on the Synology at
+192.168.0.218. Commit b7534ddf (October 28, PR #794) set nasEnabled=false
+while the NAS was unavailable, replacing the app mount with a temporary
+emptyDir. On November 3 the current app directory is empty; the earlier
+migration archive contains three files (208 KiB), already retained on the mini
+and off-host. This small archive is not proof that the full photo library is
+backed up. The live database still contains photo references.
+
+The NAS advertises `/volume1/Homelab`, but independent read-only NFSv4 mounts
+from Talos and the mini return stale file handle. The user reports the share
+is encrypted and may require unlocking after a NAS reset; they are logging in
+to unlock it. Do not infer deletion from the mount failure. Do not proceed
+with media cutover or retire Talos until the original share has been inspected,
+its media copied to persistent storage and verified against a source checksum
+manifest and the database references. Preserve the NAS originals and the
+separate temporary-storage archive; never use a deleting sync for this merge.
+
+## Versioned HA host setup
+
+`deploy/mini/` now includes the live HA Compose definition, start-ha.sh,
+com.calum.home-assistant-start.plist, socket_vmnet-startup.plist,
+install-network-startup.sh and lima-override.yaml. The files target this mini's
+calum account, en1 bridge and Homebrew installation. Install the helper script
+and plist under `/Users/calum/home-assistant/`, then run the installer with
+sudo. It retains the original root plist as `.pre-ha-migration` and leaves the
+running network helper untouched. Copy the Lima override to
+`~/.colima/_lima/_config/override.yaml` only after checking for other profiles
+or existing overrides. The HA config volume, encryption keys and runtime
+secrets are backup material, not repository content.
