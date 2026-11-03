@@ -50,3 +50,30 @@ the `home-assistant/ha-config` PVC; both databases have local-lvm PVCs.
 4. Freeze writers for the final copy, move tunnel routing, verify all clients,
    then prove deployment, rollback and restart recovery.
 5. Retire Talos only after the above evidence is recorded.
+
+## Live Home Assistant storage correction
+
+The deployment definitions provision PostgreSQL, but the running HA config
+has no recorder override. Its actual recorder is `/config/home-assistant_v2.db`
+with WAL files. Both databases on the HA PostgreSQL server are empty defaults.
+Do not migrate this empty PostgreSQL instance as if it contained HA history.
+
+A rehearsal archive of the complete `/config` directory is saved on the
+operator machine with restrictive permissions. Because HA was running, use
+the separate SQLite online-backup snapshot for a consistent recorder restore,
+not the raw database/WAL files in that archive. The snapshot passed SQLite
+integrity checking and contains 265,230 states and 147,108 events. At cutover,
+stop HA before taking the final full configuration copy.
+
+The Control Center PostgreSQL database is approximately 457 MB; a custom-format
+rehearsal dump and a media archive are saved off the gaming PC. Restore testing
+for Control Center is still pending.
+
+## Compose preparation
+
+`deploy/mini/compose.yaml` isolates Control Center under its own Compose project,
+with persistent PostgreSQL 18 and media directories, file-mounted secrets,
+health checks, bounded logs and graceful shutdown. It requires an explicit
+worker-cycle setting to keep rehearsal instances from duplicating enforcers.
+The file passed `docker compose config --quiet` on the mini. No services have
+been started from it; release automation and runtime verification remain pending.
