@@ -59,8 +59,9 @@ and no newly unavailable entities. This is a VM restart, not a Mac reboot.
 The user LaunchAgent starts Colima and Compose at login. The root helper
 plist is now installed with KeepAlive=true, ThrottleInterval=30 and RunAtLoad=true,
 verified after the user ran the sudo installer. It retries if Wi-Fi is late
-at boot. Full Mac reboot, stable address provisioning and public browser login
-remain unverified.
+at boot. UniFi now has a verified fixed DHCP reservation for the VM
+(52:55:55:6e:cd:71 → 192.168.0.130), saved through the authenticated router UI.
+Full Mac reboot and public browser login remain unverified.
 
 Monitoring preference: rotated container logs only, with no new health alerts
 or notifications. Existing Hindsight checks may remain.
@@ -403,4 +404,22 @@ An automatic public app check using the existing vault kiosk credential returns
 403 even before cutover; do not treat this as a migration regression or as
 successful public verification. Browser/authenticated client verification is
 still required. HA's bridge MAC is 52:55:55:6e:cd:71; a router reservation for
-192.168.0.130 has been requested and is awaiting confirmation.
+192.168.0.130 is saved and verified in UniFi’s IP Table as Fixed.
+
+## Remaining photo recovery investigation
+
+A read-only Talos kubelet directory inventory found only the current API
+pod’s media emptyDir (UID dcd96953-263b-402e-ab22-969c3a1f8155); its media
+subdirectory is empty. No abandoned media emptyDir appeared in that inventory.
+The NAS PostgreSQL backup listing ends October 15, before the missing photos.
+Neither finding proves the 51 files are irrecoverable, but neither provides
+another file copy. Original NAS data, Talos disks and all recovered files remain
+retained while investigation continues.
+
+Talos's fallback PostgreSQL backup PVC was mounted read-only in a temporary
+export pod. The October 31, November 1 and November 2 SQL dumps were archived
+off-host; each nested gzip stream passed complete decompression validation.
+The archive is `talos-fallback-postgres.tar.gz` in the restricted migration
+backup directory, SHA-256
+`ff67722f32768dfdd9d7dbd88bba0aec73f40934cd6ad1bf9d29590b748a2af8`.
+These are database backups, not photo media backups. The original PVC remains.
