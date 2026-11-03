@@ -43,7 +43,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.suites != '[]'
     name: Apple / ${{ matrix.suite }}
-    runs-on: macos-26-intel
+    runs-on: macos-26
     timeout-minutes: 40
     strategy:
       fail-fast: false

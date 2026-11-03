@@ -55,3 +55,7 @@ publishing workflow changes. The planner reports the reused run ID, or explicitl
 runs smoke when proof is unavailable. Compare GitHub job/step timestamps before
 and after. Keep reporting queue time, compilation, testing, signing and Apple
 processing separately; main being merged is not the same as TestFlight readiness.
+
+## Delivery experiment follow-up
+
+The two-line Wi-Fi UI change in PR #880 hit the old 25-minute smoke timeout: compilation took 15m35s and three UI tests passed before cancellation. The branch now includes the existing cache/proof changes and uses standard Apple Silicon `macos-26` runners. Earlier ARM allocation failures were capacity failures; runner availability and speed must be measured again, not assumed. All test selectors remain unchanged.

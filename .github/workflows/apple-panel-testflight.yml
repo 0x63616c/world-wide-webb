@@ -67,7 +67,7 @@ jobs:
   smoke:
     needs: plan
     if: needs.plan.outputs.verified_run == ''
-    runs-on: macos-26-intel
+    runs-on: macos-26
     # Cold Intel builds can take 20 minutes. Preserve products before tests;
     # main reuses exact-tree PR proof instead of repeating this whole job.
     timeout-minutes: 45
@@ -218,7 +218,7 @@ jobs:
       (needs.smoke.result == 'success' ||
        (needs.smoke.result == 'skipped' && needs.plan.outputs.verified_run != '')) &&
       (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only))
-    runs-on: macos-26-intel
+    runs-on: macos-26
     timeout-minutes: 45
     environment: production
     # Also shared with the manual Expo rollback workflow: one bundle ID, one
