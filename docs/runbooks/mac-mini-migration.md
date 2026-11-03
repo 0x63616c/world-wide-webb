@@ -505,5 +505,17 @@ are retained for later restoration. AgentInc and Fries repository inventories
 were unavailable; their local listeners were idle and were disabled along with
 the other runners. No paid GPU runner has been enabled.
 
-Calum initiated a full macOS reboot with sudo at 08:56 PST. Recovery checks
-are in progress; this is not yet recorded as a passed reboot gate.
+Calum initiated a full macOS reboot with sudo at 08:56 PST. kern.boottime
+reports November 3 at 08:58:14 PST. OrbStack services, the HA Colima VM and
+cloudflared all started automatically. Control Center reported database ok,
+enabled workers and no consecutive failures; the tunnel had four ready
+connections. Hindsight and Bambuddy health endpoints returned healthy.
+HA retained all 214 entities, none missing and none newly unavailable.
+Hindsight contained 31 banks, 4,580 memory units, 993 documents and 4,566
+entities, increased from the earlier backup. No runner processes returned.
+Authenticated Safari fetched production build 9adba028 after reboot.
+
+The old com.homeassistant.proxy LaunchAgent was already disabled. Its dormant
+configuration now targets HA's reserved address rather than the retired .38
+address; it remains disabled and is a cleanup candidate. No new listener was
+enabled. The live HA routes are the VM address and public tunnel hostname.
