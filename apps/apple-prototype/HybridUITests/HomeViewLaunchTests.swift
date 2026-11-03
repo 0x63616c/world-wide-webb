@@ -50,6 +50,7 @@ import XCTest
             app.buttons["app-\(id)"].tap()
             let screen = app.descendants(matching: .any)["app-screen-\(id)"].firstMatch
             XCTAssertTrue(screen.waitForExistence(timeout: 10))
+            XCTAssertFalse(app.buttons["app-settings"].exists, "The launcher must stay hidden behind an open app")
             let reason = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "server", "unavailable")).firstMatch
             XCTAssertTrue(reason.waitForExistence(timeout: 15), id)
             XCTAssertFalse(reason.label.isEmpty)
@@ -73,6 +74,7 @@ import XCTest
             }
             XCTAssertFalse(app.buttons["classic-home"].exists)
             capture("native-\(id)", app)
+            XCTAssertFalse(app.buttons["app-settings"].exists, "The launcher must stay hidden behind an open app")
         }
     }
     private func capture(_ name: String, _ app: XCUIApplication) {

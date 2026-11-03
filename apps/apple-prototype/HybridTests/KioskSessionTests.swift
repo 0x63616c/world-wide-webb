@@ -4,6 +4,20 @@ import XCTest
 
 final class KioskSessionTests: XCTestCase {
     @MainActor
+    func testHiddenWebBoardCannotControlBrightness() async throws {
+        let session = try makeSession()
+        defer { session.stop() }
+        let request = try XCTUnwrap(NativeRequest.parse(#"{"channel":"control-center-native","id":"brightness-test","method":"setBrightness","params":{"level":0.3}}"#))
+        let web = WKWebView()
+        let ignored = await session.handle(request, in: web)
+        XCTAssertEqual(ignored, .success(id: "brightness-test"))
+        session.webBrightnessEnabled = true
+        let classic = await session.handle(request, in: web)
+        XCTAssertEqual(classic, .failure(id: "brightness-test", message: "Panel screen unavailable"),
+                       "A visible Classic board reaches the actual screen lookup")
+    }
+
+    @MainActor
     private func makeSession() throws -> KioskSession {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "PanelTests.session"))
         return KioskSession(configuration: PanelConfiguration(info: [:], defaults: defaults, environment: [:]))

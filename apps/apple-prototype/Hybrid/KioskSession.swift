@@ -10,6 +10,8 @@ final class KioskSession {
     private(set) var reconnecting = false
     var browser: BrowserDestination?
     var share: ShareDestination?
+    // The retained web board must not dim the screen behind the native shell.
+    var webBrightnessEnabled = false
     let launchedAt: Int64
     let nativeAlarms: NativeAlarmsRuntime
     private let nativeAlarmsRequested: Bool
@@ -129,6 +131,7 @@ final class KioskSession {
             ]))
         case "setBrightness":
             guard let level = BridgeParameters.brightness(request.params) else { return fail("Missing brightness level") }
+            guard webBrightnessEnabled else { return .success(id: request.id) }
             guard let screen = webView.window?.windowScene?.screen else { return fail("Panel screen unavailable") }
             screen.brightness = CGFloat(level)
         case "share":

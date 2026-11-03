@@ -6,6 +6,21 @@ Only Classic opens the web board. See [app registration](../Sources/Apps/README.
 for the typed catalog and extension recipe. Older dashboard descriptions below
 refer to the retained preview components, not the current landing screen.
 
+## Native display brightness
+
+Settings → Display has wake brightness (default 100%), dim brightness (default
+30%), and Dim after (30 seconds, 1/2/5/10 minutes; default 1 minute). Preferences
+are stored on the device. The first tap while dimmed wakes the clock without
+activating a control. The global dim deadline remains active independently of
+each app's Return to clock setting; turning off Dim when idle disables dimming.
+
+On iPad, the shell sets the containing screen's hardware brightness, without a
+second dark overlay. Waking explicitly restores the configured wake level, not
+the previous system value. Leaving the active app restores the prior system
+brightness. The Mac app and simulator preview dim through a visual overlay.
+The retained Classic web board may control brightness only while it is visible;
+its background idle timer cannot override the native shell.
+
 # Panel hybrid kiosk (WWW-18)
 
 `Panel` is the iPad-only iOS 26+ replacement shell for `apps/panel`, with bundle
