@@ -471,3 +471,19 @@ obsolete infrastructure code with destroying the only recoverable data copy.
 Hindsight, Bambuddy, HA, main-triggered releases and scheduled backups remain
 required. This cleanup is part of completion, after verification, not an
 optional future suggestion.
+
+## Production recovery and scheduled backups
+
+After cutover, `recover.sh previous` restored e9489d95137ae415010efa51032b17ec903c2858
+against the production database, and `recover.sh recovery-from` returned to
+a63d283d53865b7c1acc0d94cb447149eda73163. Both verified exact build SHA,
+database health and enabled cycle ownership. Fresh database dumps were made
+with app writers stopped before each recovery. The application and migration
+code are identical across these revisions; this proves compatible application
+recovery, not automatic reversal of an incompatible database migration.
+
+[Mini backups](mini-backups.md) now describes the installed 04:15 NAS backup
+schedule. The full manual run passed read-back checks and all services recovered;
+HA still had 214 entities, none missing and none newly unavailable. The first
+calendar-triggered run remains pending. PR #887 merged as
+9adba02846733da8e8edda43166db31e9ec015f7, recording the live tunnel configuration.
