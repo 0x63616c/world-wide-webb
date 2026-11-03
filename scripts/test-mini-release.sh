@@ -25,7 +25,7 @@ if bash "$repo/deploy/mini/release.sh" ghcr.io/0x63616c/www-control-center-mini:
 test ! -f "$MINI_TEST_LOG"
 # A wrong data/project location must not stop the working application.
 if MISSING_DB=1 run 1; then exit 1; fi
-! grep -q 'stop www' "$MINI_TEST_LOG"
+if grep -q 'stop www' "$MINI_TEST_LOG"; then exit 1; fi
 test ! -d "$WWW_ROOT/deploy.lock"
 run 2
 test "$(cat "$WWW_ROOT/generation")" = 2
