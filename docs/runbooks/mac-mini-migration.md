@@ -1,6 +1,7 @@
 # Mac mini migration
 
-Status: preparation in progress, 2026-11-03. Talos remains production.
+Status: cutover in progress, 2026-11-03. HA has moved to the mini; Control
+Center production and the public tunnel remain on Talos.
 
 The first real mini release succeeded in workflow run `41652354784`, deploying
 commit `11bae6356377b7f937cd9a59be93bdb52129f9bd` at digest
@@ -31,6 +32,37 @@ rehearsal releases. The mini still uses the restored rehearsal database with
 `WORKER_CYCLES=off`; production ownership has not moved. Its GHCR login and
 vault-backed deployment SSH access have been verified. The first main CI run
 is `41651565297`; release success remains to be verified.
+
+## HA cutover evidence (2026-11-03)
+
+Talos HA is scaled to zero and its PVC is retained. After its process stopped,
+the entire configuration was archived as `ha-config-final-0747.tar.gz`, copied
+to the mini and retained off-host. Both copies have SHA-256
+`4aff62f455016de9d39e6ab802640ff48b57a6992d86e5e82c4818bea0ad599e`.
+The restored recorder passed SQLite integrity checking with 265,472 states and
+147,154 events. The complete configuration lives in the `ha_config` Docker
+volume in the dedicated Colima `ha` VM, using the same pinned HA release.
+
+The VM uses the existing socket_vmnet bridge on en1, with LAN address
+192.168.0.130. SSDP sees eight devices. The initial authenticated check found
+all 214 entities and no newly unavailable entities. The Kubernetes `ha-manual`
+EndpointSlice now targets this address; production API access through the
+existing HA Service returned 214 entities. Mini rehearsal HA_URL also points
+to this address. `TALOS_DEPLOY_DISABLED=true` prevents CI recreating old HA.
+
+A VM restart exposed a startup race: HA cached the internal eth0 interface
+before ha0 received its DHCP address, leaving Sonos unavailable. The Compose
+entrypoint now waits for ha0 IPv4 and matching default-route source selection
+before executing the original /init. A repeated full VM stop/start through the
+LaunchAgent succeeded (exit 0): HA healthy, 214 entities, no missing entities
+and no newly unavailable entities. This is a VM restart, not a Mac reboot.
+The user LaunchAgent starts Colima and Compose at login; a prepared root
+helper plist adds KeepAlive/ThrottleInterval to retry if Wi-Fi is late at boot,
+but installation still requires the user sudo command. Full Mac reboot, stable
+address provisioning and public browser login remain unverified.
+
+Monitoring preference: rotated container logs only, with no new health alerts
+or notifications. Existing Hindsight checks may remain.
 
 ## Requirements
 
@@ -156,13 +188,26 @@ socket_vmnet installed, with no existing instances. Investigate a dedicated
 bridged VM using its active LAN interface (`en1`) and prove discovery before
 moving HA. Keep its memory/disk allocation within the mini's limited capacity.
 
-A Colima `ha` profile has now been created with two CPUs, 2 GiB RAM, 8 GiB
-root disk and 12 GiB data disk; it is stopped. Docker's default context remains
-OrbStack. The bridge setup failed because sudo was unavailable. The existing
-root-owned `homebrew.mxcl.socket_vmnet` launch daemon is configured for `en1`
-but is not running. Its old log reports VMNET_FAILURE. The stored sudo password
-was rejected; the user has been asked to restart that existing helper from
-their terminal. Do not treat the current VM as LAN-ready.
+The running Colima `ha` profile has two CPUs, 2 GiB RAM, 8 GiB root disk
+and 12 GiB data disk. Docker's default context remains OrbStack. Its bridge
+uses `/Users/calum/.colima/_lima/_config/override.yaml`:
+
+```yaml
+networks:
+  - socket: /opt/homebrew/var/run/socket_vmnet
+    interface: ha0
+```
+
+This Lima override also applies to future Colima profiles; currently only `ha`
+exists. The external root helper bridges en1. Colima's original network-address
+setting still emits warnings about its own missing vmnet helper, but the explicit
+external bridge is independently working. Do not confuse those warnings with
+successful external-bridge verification. HA's Compose entrypoint waits for ha0
+IPv4 and default routing before starting HA, including Docker auto-restarts.
+Install `start-ha.sh` under `/Users/calum/home-assistant/` and the supplied plist
+under `~/Library/LaunchAgents/`; it retries failed startup at 30-second intervals.
+It creates no alerts or notifications. The configuration volume is inside the
+VM; macOS bind-mounted SQLite storage is not used.
 
 The configuration archive and consistent SQLite snapshot have been restored
 under `/Users/calum/home-assistant/rehearsal-config`. An isolated, network-disabled
