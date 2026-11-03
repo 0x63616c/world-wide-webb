@@ -8,7 +8,17 @@ commit `11bae6356377b7f937cd9a59be93bdb52129f9bd` at digest
 The live mini reported that exact SHA, database ok and cycles disabled.
 Hindsight and Bambuddy did not restart during the release. PR #883 subsequently
 merged as `cc5eae86924e830cc4d328920fe8a8fc5844c59b`; no origin overrides were
-enabled. Its main CI run is `41653290807`.
+enabled. Its main CI run `41653290807` and mini release `41654412541` both
+succeeded. The mini accepted digest
+`sha256:3a96b627e6358cc932e2b4e25708a5737f035c046cffeab375fe659a363bdb48`.
+
+Live compatible rollback and return were verified against the rehearsal DB:
+`recover.sh previous` restored `11bae635...`, then `recover.sh recovery-from`
+returned to `cc5eae86...`. Both passed database health, build SHA and disabled
+cycle checks. CI generation remained `4966`; two pre-recovery database dumps
+were created. PostgreSQL, Hindsight and Bambuddy were not restarted. No app
+code, schema or migration files changed between these commits; this does not
+prove recovery from an incompatible schema migration.
 
 The approved obsolete `com.evee.signal-cli` launch agent is disabled and stopped;
 its plist and data are retained. Port 8080 no longer has a listener. The current
