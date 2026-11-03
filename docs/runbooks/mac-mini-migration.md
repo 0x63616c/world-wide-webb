@@ -487,3 +487,23 @@ schedule. The full manual run passed read-back checks and all services recovered
 HA still had 214 entities, none missing and none newly unavailable. The first
 calendar-triggered run remains pending. PR #887 merged as
 9adba02846733da8e8edda43166db31e9ec015f7, recording the live tunnel configuration.
+
+## Runner retirement and independence checks
+
+Production main deployment 41677879047 succeeded for
+9adba02846733da8e8edda43166db31e9ec015f7 after cutover. PR #888 merged as
+edaede89f1ff49d984e64f16c5095618bca11d21, versioning the installed NAS backup job.
+
+All five mini runner launch agents are disabled and unloaded; a subsequent
+process census found no Runner.Listener or Runner.Worker processes. Apps had
+no self-hosted references in its current workflows and no queued/running jobs.
+Quantum (formerly Voxelite) still depended on the two hardware runners. Calum
+explicitly deferred its hosted-GPU migration because he is not building it for
+now; Rendering checks, CI macOS and Release macOS are disabled in GitHub to
+avoid unattended queued jobs. Their source and runner registration/configuration
+are retained for later restoration. AgentInc and Fries repository inventories
+were unavailable; their local listeners were idle and were disabled along with
+the other runners. No paid GPU runner has been enabled.
+
+Calum initiated a full macOS reboot with sudo at 08:56 PST. Recovery checks
+are in progress; this is not yet recorded as a passed reboot gate.
