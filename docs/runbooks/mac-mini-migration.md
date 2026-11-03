@@ -1,7 +1,9 @@
 # Mac mini migration
 
-Status: cutover in progress, 2026-11-03. HA has moved to the mini; Control
-Center production and the public tunnel remain on Talos.
+Status: production cutover completed at approximately 08:32 PST, 2026-11-03.
+Control Center, its PostgreSQL database, HA and the public tunnel now run on
+the mini. Talos is retained pending remaining verification and retirement gates.
+Earlier sections below retain the preparation evidence and historical state.
 
 The first real mini release succeeded in workflow run `41652354784`, deploying
 commit `11bae6356377b7f937cd9a59be93bdb52129f9bd` at digest
@@ -423,3 +425,35 @@ The archive is `talos-fallback-postgres.tar.gz` in the restricted migration
 backup directory, SHA-256
 `ff67722f32768dfdd9d7dbd88bba0aec73f40934cd6ad1bf9d29590b748a2af8`.
 These are database backups, not photo media backups. The original PVC remains.
+
+## Production cutover evidence (08:32 PST)
+
+Main CI 41673297565 and mini deployment 41674322544 succeeded for
+`a63d283d53865b7c1acc0d94cb447149eda73163`. Deployment was temporarily disabled
+and the release lock acquired before cutover. Both Talos tunnel pods stopped,
+its final media directory was archived (zero files), then its API pod stopped.
+The final PostgreSQL dump was made after writers stopped and retained on both
+the operator machine and mini as `control-center-final-0832.dump`, SHA-256
+`264faeb688a31ba87aacb3bf2250d669c9ec8be73c97c193d711f1c6ad40e2e4`.
+
+The mini rehearsal database was renamed to `control_center_rehearsal_20261103`,
+not dropped. The final dump restored without errors into a new control_center
+database. All 15 public table counts and all 44 migration records matched
+the stopped source, including 134 booth photos, 1,549 wake photo records,
+68,696 daily weather readings and 1,648,704 weather readings.
+
+WORKER_CYCLES is now on only on the mini. Health reported database ok and all
+nine workers running with zero consecutive failures. Cloudflare update 122
+changed one tunnel ingress configuration, leaving 19 resources unchanged.
+The mini connector reported ready; the old connectors remain at zero replicas.
+Safari's authenticated public build endpoint returned the exact a63d283d SHA
+and the dashboard displayed live controls, climate, sound and weather data.
+The API media mount retains the 1,632 recovered files; the 51 earlier missing
+wake files remain an unresolved recovery gap, not a new cutover deletion.
+
+The release lock is removed and MINI_DEPLOY_ENABLED is true again.
+TALOS_DEPLOY_DISABLED remains true. Do not restart the old API with its stale
+database: the mini is now the production writer. A reverse migration requires
+a fresh dump after stopping mini writers. Full Mac reboot, post-cutover release
+and recovery, scheduled NAS backups, runner migration and final Talos
+retirement remain outstanding.
