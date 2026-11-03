@@ -192,7 +192,9 @@ jobs:
     name: UI / ${{ matrix.suite }}
     needs: [plan, smoke_build]
     runs-on: macos-26
-    timeout-minutes: 20
+    # Include simulator boot, XCTest result collection and artifact cleanup.
+    # Hosted runners have exceeded 20 minutes despite every test passing.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
