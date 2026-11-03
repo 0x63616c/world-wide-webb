@@ -2,6 +2,13 @@
 
 Status: preparation in progress, 2026-11-03. Talos remains production.
 
+PR #882 merged as `11bae6356377b7f937cd9a59be93bdb52129f9bd` after all
+required checks passed. `MINI_DEPLOY_ENABLED=true` now permits main-triggered
+rehearsal releases. The mini still uses the restored rehearsal database with
+`WORKER_CYCLES=off`; production ownership has not moved. Its GHCR login and
+vault-backed deployment SSH access have been verified. The first main CI run
+is `41651565297`; release success remains to be verified.
+
 ## Requirements
 
 - Keep Hindsight and Bambuddy and preserve their data.
@@ -19,6 +26,13 @@ Status: preparation in progress, 2026-11-03. Talos remains production.
 The mini is an M2 with 8 GiB RAM and approximately 29 GiB available disk.
 Hindsight and Bambuddy are running in OrbStack. Five runner launch agents are
 active; OrbStack Kubernetes has only CoreDNS and local-path provisioner pods.
+
+The unused OrbStack cluster was stopped with `orb stop k8s`; `k8s.enable`
+now reads false. This unexpectedly restarted the Docker engine's containers.
+After restart, Hindsight API and UI returned HTTP 200, Bambuddy and studio
+were healthy, and Control Center reported database ok and cycles disabled.
+Cluster data was preserved. This is not a substitute for the planned macOS
+reboot check.
 
 Hindsight's existing backup script produced `hindsight-20261103-054926.dump`.
 It was copied off the mini to the operator machine's restricted migration
@@ -119,6 +133,14 @@ socket_vmnet installed, with no existing instances. Investigate a dedicated
 bridged VM using its active LAN interface (`en1`) and prove discovery before
 moving HA. Keep its memory/disk allocation within the mini's limited capacity.
 
+A Colima `ha` profile has now been created with two CPUs, 2 GiB RAM, 8 GiB
+root disk and 12 GiB data disk; it is stopped. Docker's default context remains
+OrbStack. The bridge setup failed because sudo was unavailable. The existing
+root-owned `homebrew.mxcl.socket_vmnet` launch daemon is configured for `en1`
+but is not running. Its old log reports VMNET_FAILURE. The stored sudo password
+was rejected; the user has been asked to restart that existing helper from
+their terminal. Do not treat the current VM as LAN-ready.
+
 The configuration archive and consistent SQLite snapshot have been restored
 under `/Users/calum/home-assistant/rehearsal-config`. An isolated, network-disabled
 ARM64 container verified database integrity and the same state/event counts.
@@ -177,6 +199,7 @@ validates the workflow. These checks do not establish live deployment success.
 The existing vault-backed SSH identity was verified against the mini's tailnet
 hostname. `MINI_KNOWN_HOSTS` is provisioned using the public host key obtained
 through the existing trusted SSH connection. `MINI_DEPLOY_ENABLED` remains
-unset. At cutover set `TALOS_DEPLOY_DISABLED=true` and wait for any already-running
+enabled for the isolated rehearsal after PR #882 merged. At cutover set
+`TALOS_DEPLOY_DISABLED=true` and wait for any already-running
 Talos deployment to finish before freezing writers. That switch prevents future
 CI runs from recreating old workloads; it does not stop an in-flight deployment.
