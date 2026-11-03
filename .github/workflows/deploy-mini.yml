@@ -31,6 +31,9 @@ jobs:
       - uses: ./.github/actions/ghcr-login
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+      - name: Compute build timestamp
+        id: commit-time
+        run: echo "ms=$(($(git log -1 --format=%ct) * 1000))" >> "$GITHUB_OUTPUT"
       - name: Build tested revision
         id: image
         uses: docker/build-push-action@v7
@@ -42,6 +45,7 @@ jobs:
           tags: ghcr.io/0x63616c/www-control-center-mini:${{ github.event.workflow_run.head_sha }}
           build-args: |
             BUILD_HASH=${{ github.event.workflow_run.head_sha }}
+            BUILD_TIME=${{ steps.commit-time.outputs.ms }}
           cache-from: type=gha,scope=www-mini
           cache-to: type=gha,mode=max,scope=www-mini
       - name: Load deployment credentials

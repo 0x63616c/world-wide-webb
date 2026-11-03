@@ -251,6 +251,12 @@ the mini connector. Never run both connector sets against origins only one
 set can reach. Restore the old origins and connector set if verification fails.
 
 The `Deploy Mac mini` workflow follows successful push-triggered main CI runs.
+CI validates the root Dockerfile on a native ARM64 runner. The four legacy
+per-service Dockerfiles, their image jobs and the Talos deploy job are removed;
+Cloudflare remains a separate Pulumi project. No main release depends on a
+local GitHub runner. CI and deployment share the ARM64 build cache and pass the
+same source timestamp and SHA. Deployment still publishes only after successful
+CI and releases the immutable digest through the host's serialized script.
 It builds an ARM64 `www-control-center-mini` image from the tested SHA, then
 uses existing vault-backed Tailscale and homelab SSH credentials. It requires
 `MINI_DEPLOY_ENABLED=true` and `MINI_KNOWN_HOSTS` repository variables. Keep

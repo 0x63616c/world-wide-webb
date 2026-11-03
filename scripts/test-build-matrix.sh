@@ -1,23 +1,19 @@
 #!/usr/bin/env bash
-# Guard for the CI product-image builds: amd64-only, native, no emulation.
-# The home-server Talos node is x86 and is the only deploy target (the arm64
-# Mac mini was retired 2026-07-25), so an arm64 leg is pure wasted CI time and
-# a QEMU fallback would make bun builds OOM/timeout-prone.
+# Production builds must match the Mac mini without CPU emulation.
 set -euo pipefail
-f=.github/workflows/ci.yml
-a=.github/actions/build-product-image/action.yml
-
-grep -q 'linux/amd64' "$a" || { echo "FAIL: build action must target linux/amd64"; exit 1; }
-# NOTE: `\b` sits at a word/non-word boundary, and '4'|'-' IS such a boundary,
-# so a bare `grep -q 'ubuntu-24.04\b'` also matches 'ubuntu-24.04-arm'. Anchor
-# on the literal value at EOL so it's disjoint from the arm64 runner string.
-grep -qE 'runs-on: ubuntu-24\.04$' "$f" || { echo "FAIL: amd64 build runner missing"; exit 1; }
-
-! grep -q 'ubuntu-24.04-arm' "$f" || { echo "FAIL: arm64 runner leg is back"; exit 1; }
-! grep -q 'linux/arm64' "$f" "$a" || { echo "FAIL: arm64 build platform is back"; exit 1; }
-# Match the `uses:` line only, so the explanatory comments (which name the
-# action) don't trip the guard.
-! grep -qE '^\s*(-\s+)?uses:.*setup-qemu-action' "$f" "$a" || { echo "FAIL: QEMU emulation is back"; exit 1; }
-! grep -q 'imagetools create' "$f" || { echo "FAIL: manifest-merge job is back (single-arch needs none)"; exit 1; }
-
-echo "PASS"
+bun - <<'JS'
+const assert = require('node:assert/strict');
+for (const path of ['.github/workflows/ci.yml', '.github/workflows/deploy-mini.yml']) {
+  const workflow = Bun.YAML.parse(await Bun.file(path).text());
+  const builds = Object.values(workflow.jobs).filter(job => job.steps?.some(s => s.uses?.startsWith('docker/build-push-action@')));
+  assert.equal(builds.length, 1, `${path}: expected one app image build`);
+  for (const job of builds) {
+    assert.equal(job['runs-on'], 'ubuntu-24.04-arm', `${path}: native ARM64 runner required`);
+    assert(!job.steps.some(s => s.uses?.includes('setup-qemu')), `${path}: emulation is unnecessary`);
+    const build = job.steps.find(s => s.uses?.startsWith('docker/build-push-action@'));
+    assert.equal(build.with.platforms, 'linux/arm64');
+    assert.equal(build.with.file, 'Dockerfile');
+  }
+}
+console.log('PASS: CI and production use the single native ARM64 image');
+JS
