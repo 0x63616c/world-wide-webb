@@ -519,3 +519,30 @@ The old com.homeassistant.proxy LaunchAgent was already disabled. Its dormant
 configuration now targets HA's reserved address rather than the retired .38
 address; it remains disabled and is a cleanup candidate. No new listener was
 enabled. The live HA routes are the VM address and public tunnel hostname.
+
+## Talos shutdown verification — November 3
+
+The final monitoring archive contains 4,337 regular files and passed a complete
+tar read. Its 1,206,966,782 bytes were uploaded to
+`/Homelab/backups/mac-mini/monitoring-final-20261103/monitoring-final-20261103.tar.gz`
+and downloaded for SHA-256 verification:
+`b057a37fe45fc8c1ae4074a729becbdc818ffb272eddfe39f085472cd52458d6`.
+The temporary export pod was removed; original PVCs remain intact.
+
+Both old PostgreSQL backup CronJobs were suspended. Talos shutdown drained the
+node; the two old database primary PDBs were temporarily set to minAvailable=0
+to allow their clean termination after the operator had drained. The shutdown
+completed through service stop and filesystem unmount. Both node ports 6443
+and 50000 were subsequently unreachable. No disk was reset or wiped.
+
+With Talos shut down, the mini reported database ok, all nine workers with zero
+consecutive failures, HA's 214 entities with none missing/newly unavailable,
+Hindsight healthy with its database connected, Bambuddy healthy, and four ready
+tunnel connections. Authenticated Safari reloaded the public build endpoint
+and received edaede89f1ff49d984e64f16c5095618bca11d21. Main deployment
+41680726050 succeeded for that revision. The physical panel confirmation,
+repository/credential cleanup and the pre-existing 51-photo gap remain open.
+
+Powering the old machine on is not a production rollback: its node was cordoned,
+app/HA/tunnel deployments remain scaled down, and its databases are stale.
+Do not re-enable writers without a deliberate reverse migration from the mini.
