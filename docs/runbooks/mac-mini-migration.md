@@ -2,6 +2,29 @@
 
 Status: preparation in progress, 2026-11-03. Talos remains production.
 
+The first real mini release succeeded in workflow run `41652354784`, deploying
+commit `11bae6356377b7f937cd9a59be93bdb52129f9bd` at digest
+`sha256:d87d36f2bbd4b93269fcb494a69ecc96c0275fe7ae8dc3094a8a930d95739940`.
+The live mini reported that exact SHA, database ok and cycles disabled.
+Hindsight and Bambuddy did not restart during the release. PR #883 subsequently
+merged as `cc5eae86924e830cc4d328920fe8a8fc5844c59b`; no origin overrides were
+enabled. Its main CI run `41653290807` and mini release `41654412541` both
+succeeded. The mini accepted digest
+`sha256:3a96b627e6358cc932e2b4e25708a5737f035c046cffeab375fe659a363bdb48`.
+
+Live compatible rollback and return were verified against the rehearsal DB:
+`recover.sh previous` restored `11bae635...`, then `recover.sh recovery-from`
+returned to `cc5eae86...`. Both passed database health, build SHA and disabled
+cycle checks. CI generation remained `4966`; two pre-recovery database dumps
+were created. PostgreSQL, Hindsight and Bambuddy were not restarted. No app
+code, schema or migration files changed between these commits; this does not
+prove recovery from an incompatible schema migration.
+
+The approved obsolete `com.evee.signal-cli` launch agent is disabled and stopped;
+its plist and data are retained. Port 8080 no longer has a listener. The current
+app and infra source contain no Signal references. Local GitHub runners remain:
+Voxelite still depends on self-hosted rendering and release jobs.
+
 PR #882 merged as `11bae6356377b7f937cd9a59be93bdb52129f9bd` after all
 required checks passed. `MINI_DEPLOY_ENABLED=true` now permits main-triggered
 rehearsal releases. The mini still uses the restored rehearsal database with
@@ -201,6 +224,18 @@ known-compatible image (or a restored database), then pass the same checks.
 Compose and the host script are installed deliberately during provisioning;
 changes to either require synchronization before enabling a release that needs
 them. Automated configuration upgrades remain future work.
+
+For an explicit compatible application rollback, run
+`bash recover.sh previous <expected-commit-sha> --database-compatible` in the
+host installation. Confirm compatibility from the code and migration diff first;
+this command does not reverse database migrations. It shares the release lock,
+pulls and checks the expected image before stopping the app, dumps the database
+with app writers stopped, replaces only `www`, verifies health/SHA/cycle ownership,
+then updates the accepted image pointer. `recovery-from.env` records the image
+being replaced; use target `recovery-from` and its expected SHA to return to it.
+The highest accepted CI generation stays unchanged to reject stale jobs. A
+failure after stopping the app requires operator recovery; it does not silently
+restart an image whose database compatibility is unknown.
 
 `bash scripts/test-mini-release.sh` covers mutable-image rejection, a missing
 database, stale releases, health failure and lock contention. `actionlint`
