@@ -66,8 +66,8 @@ integrity checking and contains 265,230 states and 147,108 events. At cutover,
 stop HA before taking the final full configuration copy.
 
 The Control Center PostgreSQL database is approximately 457 MB; a custom-format
-rehearsal dump and a media archive are saved off the gaming PC. Restore testing
-for Control Center is still pending.
+rehearsal dump and a media archive are saved off the gaming PC. The dump restored
+successfully into the mini's isolated PostgreSQL 18 instance (15 public tables).
 
 ## Compose preparation
 
@@ -75,8 +75,35 @@ for Control Center is still pending.
 with persistent PostgreSQL 18 and media directories, file-mounted secrets,
 health checks, bounded logs and graceful shutdown. It requires an explicit
 worker-cycle setting to keep rehearsal instances from duplicating enforcers.
-The file passed `docker compose config --quiet` on the mini. No services have
-been started from it; release automation and runtime verification remain pending.
+The file passed `docker compose config --quiet` on the mini. PostgreSQL and the
+native ARM64 rehearsal app are now healthy. `/healthz` reports database `ok`
+and cycles disabled; `health.buildHash` reports `eb438685`. Both panel and
+manage host routes return HTTP 200. Production traffic remains on Talos.
+This proves basic runtime readiness, not complete integration correctness.
+
+## Home Assistant cutover preparation
+
+The running HA release is 2026.7.4. Its exact multi-architecture image index
+also contains ARM64, and is pinned in `deploy/mini/home-assistant.compose.yaml`.
+Keep this version for migration; upgrades are a separate operation.
+The proposed container has its own project and restored configuration directory.
+It has not been started. Never run both copies with live integrations enabled.
+
+OrbStack host networking exposes container ports on macOS localhost, but LAN
+multicast discovery and device callbacks require separate verification. See
+[OrbStack host networking](https://docs.orbstack.dev/docker/host-networking) and
+[HA Sonos networking](https://www.home-assistant.io/integrations/sonos/#network-requirements).
+Check existing integration availability before and after cutover, and verify
+device-to-HA callbacks as well as HA-to-device requests. If LAN networking cannot
+be made reliable, use a bridged HA VM on the mini before retiring Talos.
+
+For the final copy, stop the old HA process cleanly and mount its retained PVC
+in a temporary backup pod, then archive the entire configuration while no HA
+writer is active. Keep the PVC and off-host backup. Restore on the mini with
+the same image version, validate SQLite integrity, then start only the mini
+instance. Verify existing login, dashboards, integrations, automations and
+history before moving callers. If verification fails, stop the mini instance
+before restarting the old one. A planned HA outage is explicitly permitted.
 
 ## Release automation
 
