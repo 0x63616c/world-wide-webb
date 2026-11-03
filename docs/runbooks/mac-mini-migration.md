@@ -77,3 +77,33 @@ health checks, bounded logs and graceful shutdown. It requires an explicit
 worker-cycle setting to keep rehearsal instances from duplicating enforcers.
 The file passed `docker compose config --quiet` on the mini. No services have
 been started from it; release automation and runtime verification remain pending.
+
+## Release automation
+
+The `Deploy Mac mini` workflow follows successful push-triggered main CI runs.
+It builds an ARM64 `www-control-center-mini` image from the tested SHA, then
+uses existing vault-backed Tailscale and homelab SSH credentials. It requires
+`MINI_DEPLOY_ENABLED=true` and `MINI_KNOWN_HOSTS` repository variables. Keep
+the enable switch unset until provisioning and restoration are verified.
+
+The host installation is `/Users/calum/www-control-center`, containing
+`compose.yaml`, `release.sh`, and a private `runtime.env` with POSTGRES_IMAGE,
+WWW_DATA_DIR, WWW_SECRETS_DIR, HA_URL and WORKER_CYCLES. Runtime paths must be
+absolute; image values must be pinned before production. The app image is
+supplied separately for each immutable release. Initial database provisioning
+and restoration precede release execution. Rehearsal uses WORKER_CYCLES=off
+and a separate restored database; it must not share the production database.
+
+The command pulls before stopping the app, waits for readiness and checks the
+expected build SHA and cycle ownership. It records accepted and previous image
+files, serializes deployments and rejects older CI run numbers. Failure leaves
+the accepted pointer unchanged and fails CI; it does not silently roll back
+potentially incompatible database migrations. Explicit rollback must use a
+known-compatible image (or a restored database), then pass the same checks.
+Compose and the host script are installed deliberately during provisioning;
+changes to either require synchronization before enabling a release that needs
+them. Automated configuration upgrades remain future work.
+
+`bash scripts/test-mini-release.sh` covers mutable-image rejection, a missing
+database, stale releases, health failure and lock contention. `actionlint`
+validates the workflow. These checks do not establish live deployment success.
