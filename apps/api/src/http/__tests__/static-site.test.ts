@@ -27,6 +27,14 @@ const serve = (path: string, host = "app.worldwidewebb.co", method = "GET") =>
   );
 
 describe("static sites", () => {
+  it("serves a symlinked deployment root while rejecting escaping assets", async () => {
+    const alias = join(root, "alias");
+    await symlink(root, alias);
+    const request = (path: string) =>
+      serveStaticSite(new Request(`http://localhost${path}`), alias, "manage.worldwidewebb.co");
+    expect(await (await request("/")).text()).toBe("<html>web</html>");
+    expect((await request("/assets/leak.js")).status).toBe(404);
+  });
   it("routes by hostname and revalidates HTML on every SPA navigation", async () => {
     for (const [host, site] of [
       ["app.worldwidewebb.co", "web"],
