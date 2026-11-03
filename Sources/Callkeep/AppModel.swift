@@ -26,25 +26,29 @@ final class AppModel {
     var search = ""
     var recordingShortcut = (UserDefaults.standard.data(forKey: "recordingShortcut").flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) }) ?? .default
     let playback = Playback()
+    let transcription: TranscriptionController
+    let transcriptionNotifications = TranscriptionNotifications()
+    let callDetector = CallDetector()
     private(set) var store: RecordingStore?
     var iCloudEnabled = UserDefaults.standard.object(forKey: "iCloudRecordings") as? Bool ?? true
     var storageStatus = "Checking iCloud Drive…"
     var storageNeedsRetry = false
     private(set) var isPreparingStorage = false
+    private var storageResolved = false
     private var legacyICloudFolder: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs/Callkeep", isDirectory: true)
     }
     var recordingsFolder: URL? { iCloudEnabled ? (store?.archiveRoot ?? store?.root) : store?.root }
     func configureStorage() {
         #if DEBUG
-        if screenshotLibrary != nil { return }
+        if screenshotLibrary != nil { storageResolved = true; return }
         #endif
         Task { await prepareStorage() }
     }
     private func prepareStorage() async {
-        guard !isBusy, !isRecording, !isPreparingStorage, let store else { return }
+        guard !isBusy, !isRecording, !isPreparingStorage, !transcription.isRunning, let store else { return }
         isPreparingStorage = true
-        defer { isPreparingStorage = false }
+        defer { storageResolved = true; isPreparingStorage = false; transcription.kick() }
         // Resolving an offline iCloud account must not prevent local capture.
         let documents = await ICloudDocuments.resolve()
         guard !isBusy, !isRecording else { return }
@@ -122,6 +126,7 @@ final class AppModel {
             } catch { errorMessage = "Couldn’t import recordings: \(error.localizedDescription)" }
             isBusy = false
             if iCloudEnabled { await prepareStorage() }
+            transcription.kick()
         }
     }
     private let capture = AudioCapture()
@@ -134,6 +139,13 @@ final class AppModel {
     var filtered: [Recording] { recordings.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) } }
     var shortcutLabel: String { recordingShortcut.label }
     init() {
+        var transcriptionRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Callkeep", isDirectory: true)
+        #if DEBUG
+        if let fixture = Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotLibrary") as? String {
+            transcriptionRoot = URL(fileURLWithPath: fixture).appendingPathComponent(".transcription", isDirectory: true)
+        }
+        #endif
+        transcription = TranscriptionController(root: transcriptionRoot)
         do {
             let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             var root = base.appendingPathComponent("Callkeep/Recordings", isDirectory: true)
@@ -150,6 +162,28 @@ final class AppModel {
             configureStorage()
             selectedID = recordings.first?.id
         } catch { errorMessage = "Couldn’t open the recording library: \(error.localizedDescription)" }
+        transcription.requestNotifications = { [weak self] in self?.transcriptionNotifications.requestIfNeeded() }
+        transcription.didComplete = { [weak self] id in self?.transcriptionNotifications.completed(recordingID: id) }
+        transcription.recording = { [weak self] id in
+            guard let self, let record = self.recordings.first(where: { $0.id == id }), let store = self.store else { return nil }
+            return (record, store.folder(for: record))
+        }
+        transcription.canRun = { [weak self] in
+            guard let self else { return false }
+            return self.storageResolved && !self.isRecording && !self.isBusy && !self.isPreparingStorage
+        }
+        transcription.didFinish = { [weak self] in self?.configureStorage() }
+        transcription.kick()
+        callDetector.isRecording = { [weak self] in self?.isRecording ?? false }
+        callDetector.record = { [weak self] in
+            guard let self, !self.isRecording, !self.isBusy else { return }
+            Task { await self.startRecording() }
+        }
+        #if DEBUG
+        if screenshotLibrary == nil { callDetector.start() }
+        #else
+        callDetector.start()
+        #endif
         shortcut.action = { [weak self] in self?.toggleRecording() }
         updateShortcut()
     }
@@ -203,7 +237,8 @@ final class AppModel {
     }
     func startRecording() async {
         guard !isRecording, !isBusy, let store else { return }
-        isBusy = true; defer { isBusy = false }
+        transcription.setSuspended(true)
+        isBusy = true; defer { isBusy = false; if !isRecording { transcription.setSuspended(false) } }
         errorMessage = nil; statusMessage = nil
         playback.stop()
         permissions.refresh()
@@ -281,6 +316,8 @@ final class AppModel {
         catch { errorMessage = "Audio was kept on this Mac, but saving to the library or iCloud Drive failed: \(error.localizedDescription)" }
         if let reason { errorMessage = reason }
         isBusy = false
+        transcription.enqueue(recording, automatic: true)
+        transcription.setSuspended(false)
         if iCloudEnabled { configureStorage() }
     }
     func select(_ id: UUID?) {
@@ -306,7 +343,7 @@ final class AppModel {
         } catch { errorMessage = error.localizedDescription }
     }
     var selectedRecordings: [Recording] { recordings.filter { selectedIDs.contains($0.id) } }
-    var canTrashSelection: Bool { !isBusy && !selectedIDs.isEmpty && !selectedIDs.contains(active?.id ?? UUID()) }
+    var canTrashSelection: Bool { !isBusy && !selectedIDs.isEmpty && !selectedIDs.contains(active?.id ?? UUID()) && !selectedIDs.contains(transcription.runningID ?? UUID()) }
     func selectMany(_ ids: Set<UUID>) {
         guard !isBusy else { return }
         guard ids != selectedIDs || showingSettings else { return }
@@ -331,7 +368,7 @@ final class AppModel {
         playback.stop()
         var errors: [String] = []
         for recording in targets {
-            do { try FileManager.default.trashItem(at: store.folder(for: recording), resultingItemURL: nil) }
+            do { try FileManager.default.trashItem(at: store.folder(for: recording), resultingItemURL: nil); transcription.cancel(recording.id) }
             catch { errors.append("\(recording.title): \(error.localizedDescription)") }
         }
         do { try reload(); selectedIDs = selectedIDs.intersection(Set(recordings.map(\.id))) }

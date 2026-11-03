@@ -14,6 +14,7 @@ version, archive_name = sys.argv[1:]
 archive = Path(archive_name).resolve()
 with zipfile.ZipFile(archive) as zipped:
     metadata = plistlib.loads(zipped.read('Callkeep.app/Contents/Info.plist'))
+assert metadata.get('CallkeepProduction') == 'YES', 'Refusing to publish a development build'
 expected = plistlib.loads(Path('Resources/Info.plist').read_bytes())
 assert metadata['SUPublicEDKey'] == expected['SUPublicEDKey'], 'Archive contains the wrong update public key'
 assert metadata['SUFeedURL'] == expected['SUFeedURL'], 'Archive contains the wrong update feed'

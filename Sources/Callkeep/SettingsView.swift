@@ -39,6 +39,15 @@ struct SettingsView: View {
                         }.frame(minHeight: 54).padding(.horizontal, 16)
                     }
                 }
+                section("Call reminders") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Toggle("Remind me to record calls", isOn: Binding(get: { model.callDetector.enabled }, set: { model.callDetector.enabled = $0 }))
+                            .frame(minHeight: 54).padding(.horizontal, 16)
+                        if let error = model.callDetector.error {
+                            Text(error).font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
+                        }
+                    }
+                }
                 section("Storage") {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 12) {
@@ -60,6 +69,9 @@ struct SettingsView: View {
                             }.padding([.horizontal, .bottom], 16)
                         }
                     }
+                }
+                section("Transcription") {
+                    TranscriptionSettingsView(controller: model.transcription, notifications: model.transcriptionNotifications)
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {

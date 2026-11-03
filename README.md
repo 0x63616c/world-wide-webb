@@ -4,7 +4,7 @@
 
 <h1 align="center">Callkeep</h1>
 
-<p align="center">A native macOS recorder for your microphone and computer audio, with optional iCloud Drive storage.</p>
+<p align="center">A native macOS recorder for your microphone and computer audio, with local after-call transcription and optional iCloud Drive storage.</p>
 <p align="center"><strong>macOS 15+</strong> · SwiftUI + AppKit · Apple silicon + Intel</p>
 
 ![Callkeep recording library](docs/images/library.png)
@@ -17,11 +17,12 @@ Callkeep captures your microphone and the audio playing on your Mac. It works al
 - Browse and search your recordings, then replay them with a smooth, seekable timeline.
 - Watch your voice and call audio together in a smooth, two-color waveform. Click either playback legend to hide and mute that track.
 - Rename a call in place, including while recording. Select several with Shift-click or Command-click and move them to Trash together.
-- Keep lossless audio in Callkeep’s native iCloud Drive folder, ready for transcription later.
+- Keep lossless audio and transcripts in Callkeep’s native iCloud Drive folder.
 - Import existing Callkeep recording folders without changing the originals.
+- Get a Record / Dismiss reminder when a supported calling app, including FaceTime, uses the microphone. [How reminders work](docs/CALL_REMINDERS.md).
 - See permission status automatically, with guided setup when access is missing.
 
-Transcription and live captions are not included in this version. See the [local transcription research and design](docs/TRANSCRIPTION.md).
+Choose and download **Parakeet Ultra** or **Whisper Turbo** in Settings to transcribe after each call locally on Apple silicon. The transcript below playback keeps timestamped **You** and **Call audio** text, follows the audio and lets you compare model runs. macOS can notify you when a transcript is ready. See [local transcription](docs/TRANSCRIPTION.md). Live captions are not included.
 
 ![Live recording with separate voice and call-audio colors](docs/images/recording.png)
 
@@ -42,7 +43,8 @@ Transcription and live captions are not included in this version. See the [local
 
 1. Install and open Callkeep using Homebrew or a release download below.
 2. Open **Settings → Permissions** and enable microphone and system audio access. The app guides you to the relevant macOS controls.
-3. Click **New recording**, then **Stop recording** when the call ends.
+3. In **Settings → Transcription**, download a model for local after-call transcripts (Apple silicon).
+4. Click **New recording**, then **Stop recording** when the call ends.
 
 Get everyone’s agreement before recording. Callkeep captures audio from all apps, and muting your microphone in a calling app does not mute Callkeep. Headphones avoid recording speaker audio twice.
 

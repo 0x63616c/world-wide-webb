@@ -2,7 +2,7 @@
 
 ## Build
 
-Open `Callkeep.xcodeproj` in Xcode 16 or later, select the Callkeep scheme, and run. The checked-in project needs no generator or package downloads.
+Open `Callkeep.xcodeproj` in Xcode 26.2 or later, select the Callkeep scheme, and run. The checked-in project resolves pinned Sparkle, FluidAudio and WhisperKit packages.
 
 Or:
 
@@ -46,7 +46,7 @@ The floating helper is an independently implemented nonactivating AppKit panel w
 - `Playback`: timestamp-offset playback of separate tracks behind a single set of playback controls.
 - SwiftUI provides the native split-view library, toolbar, settings and menu-bar panel; Carbon registers the global shortcut without Accessibility access.
 
-Active audio stays local; finished recordings move to iCloud Drive when enabled and available. Future transcription can read these files without changing the capture pipeline.
+Active audio stays local; finished recordings move to iCloud Drive when enabled and available. Local transcription reads finalized tracks without changing the capture pipeline. Its engine adapters live in `Packages/LocalTranscription`; the app owns verified downloads, the resumable queue and transcript views. See [transcription](TRANSCRIPTION.md).
 
 ## Automatic releases and Homebrew
 
@@ -75,4 +75,4 @@ Native iCloud releases require `MACOS_PROVISIONING_PROFILE_BASE64` alongside the
 
 Sparkle 2.10.1 is pinned in the project and Package.resolved. Releases embed an EdDSA public key and fetch `appcast.xml` from the latest GitHub Release. The same notarized zip is used for Homebrew and Sparkle. `Scripts/sign-app.py` signs Sparkle's nested helpers, frameworks and the application inside out; `Scripts/make-appcast.py` signs and verifies the exact published archive before the feed is uploaded. `SPARKLE_PRIVATE_KEY` is an encrypted Actions secret; the local private key is stored in the login Keychain under account `co.calum.callkeep`. Never commit or print it.
 
-The Homebrew cask declares `auto_updates true`. The workflow skips tap changes when its release is no longer the latest. Automatic checks are enabled; installation is user initiated. The updater refuses checks while capturing or moving files and postpones a requested restart until both are idle. The recording/IO deferral harness runs as part of `Scripts/test.sh`, using simulated state without opening an audio device or installing anything. Debug previews do not start update checks unless a local Info.plist override explicitly enables them.
+The Homebrew cask declares `auto_updates true`. The workflow skips tap changes when its release is no longer the latest. Automatic checks are enabled; installation is user initiated. The updater refuses checks while capturing or moving files and postpones a requested restart until both are idle. The recording/IO deferral harness runs as part of `Scripts/test.sh`, using simulated state without opening an audio device or installing anything. Local builds do not start update checks unless a local Info.plist override explicitly enables them. CI sets `CALLKEEP_PRODUCTION=YES`; local Debug and Release builds show `Callkeep (Dev)` with a DEV Dock badge. The sidebar shows the current version beside Settings.

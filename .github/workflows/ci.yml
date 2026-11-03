@@ -10,6 +10,8 @@ concurrency:
   group: callkeep-${{ github.ref }}
   cancel-in-progress: false
   queue: max
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
 jobs:
   test:
     runs-on: macos-15-intel
@@ -58,7 +60,7 @@ jobs:
         run: |
           xcodebuild -project Callkeep.xcodeproj -scheme Callkeep -configuration Release \
             -derivedDataPath build ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
-            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$RELEASE_COUNTER" build
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$RELEASE_COUNTER" CALLKEEP_PRODUCTION=YES build
           for arch in arm64 x86_64; do
             lipo build/Build/Products/Release/Callkeep.app/Contents/MacOS/Callkeep -verify_arch "$arch"
           done

@@ -108,3 +108,14 @@ Automatic system-audio status uses an optional, private, read-only TCC function.
 Historical run `39790316910` could not start: GitHub reported failed recent account payments or a spending limit requiring attention. This is an account/runner admission blocker, not a compile or test result. Local builds and tests above completed successfully.
 
 Later CI runs have completed and published notarized Homebrew releases successfully; the earlier runner admission blocker is resolved.
+
+## Local transcription
+
+- Built the universal app with Xcode 27.2 and pinned FluidAudio 0.18.2 / WhisperKit 1.1.1 dependencies. CI explicitly selects Xcode 26.2.
+- 40 XCTest tests pass, including the optional real-engine test when supplied local weights. The regular suite skips that weight-dependent test; updater and playback harnesses also pass.
+- Both engines recognized generated English speech. The native app downloaded both models with checksum verification and rendered a Parakeet two-track transcript with You / Call audio labels and the call track’s two-second offset. No personal recordings were used for published fixtures or recognition tests.
+- Real-call accuracy, extended recording sessions, additional macOS versions and hardware remain manual coverage.
+
+- Playback was exercised with generated speech in the combined audio/transcript view; the current phrase highlighted during playback, and clicking its timestamp sought to the right point.
+- Local builds show `Callkeep (Dev)` and set a DEV Dock badge. The sidebar shows the version instead of the shortcut hint and dates include the year. Production archives require an explicit CI marker before Sparkle publication.
+- Call reminder filtering/debounce tests pass, including FaceTime helpers; a read-only Core Audio scan succeeds. Live-call detection and the user’s macOS notification permission/delivery are separate manual checks.

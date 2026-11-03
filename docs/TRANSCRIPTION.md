@@ -1,32 +1,42 @@
-# Local transcription: research and proposed design
+# Local transcription
 
-Reviewed November 3, 2026. The initial use case is mostly English calls, transcribed after capture stops. Transcription is not implemented in Build 10; this document records the proposed next feature.
+Callkeep transcribes each finished call on this Mac, after audio capture has closed its files. This feature requires Apple silicon and macOS 15 or later. Recording and playback still support Intel.
 
-## Model choices
+## Choose and download a model
 
-- **Parakeet Ultra through FluidAudio:** first candidate for English. The upstream model is a post-training of NVIDIA Parakeet v3; FluidAudio provides a Swift/Core ML conversion for Apple silicon. Both maintainers report improvements over v3. Treat those as published results, not measurements on Callkeep recordings. The model's CC BY 4.0 attribution must be included when distributing it. Sources: [upstream model and evaluation](https://huggingface.co/moondream/parakeet-ultra), [Core ML conversion and paired results](https://github.com/FluidInference/FluidAudio/blob/main/Documentation/ASR/ParakeetUltra.md).
-- **Whisper large-v3 Turbo:** an established alternative with broader language coverage. WhisperKit provides a native Apple silicon integration; an Intel implementation would need another adapter such as whisper.cpp. Argmax recommends Turbo variants for its Mac integration. Sources: [OpenAI model card](https://huggingface.co/openai/whisper-large-v3-turbo), [WhisperKit model selection](https://github.com/argmaxinc/argmax-oss-swift#model-selection).
-- **Apple Speech:** SpeechAnalyzer and SpeechTranscriber provide on-device transcription on supported newer systems. macOS manages the language assets; the app should check actual availability and installed assets. This should appear as a system-provided option rather than as a downloadable third-party model. Source: [Apple's SpeechAnalyzer introduction](https://developer.apple.com/videos/play/wwdc2025/277/).
-- **Qwen3-ASR 1.7B:** a further candidate, particularly for broader multilingual use. Its authors list 30 languages and 22 Chinese dialects. A compatible Mac inference adapter still needs evaluation; model weights alone are not a native app integration. Source: [Qwen model card](https://huggingface.co/Qwen/Qwen3-ASR-1.7B).
+Open **Settings → Transcription**. Leave **Transcribe after recording** enabled, choose a default, then download it:
 
-There is no measured winner for this app yet. Compare the same representative calls for names, accents, technical vocabulary, missed words and invented speech, plus processing time and peak memory. Published benchmark scores from different runtimes and datasets should not be ranked as if they were one controlled comparison.
+- **Parakeet Ultra** (632 MB): the default, with support for 25 European languages and fast Core ML inference through FluidAudio.
+- **Whisper Turbo** (629 MB): OpenAI large-v3 Turbo, compressed for Core ML by Argmax. This integration is configured for English transcription.
 
-## Model picker
+The picker shows progress and download speed. Downloads are optional; if a queued recording needs a missing model, the transcript panel links back to Settings. Canceling a download preserves verified files for the next attempt. Remove asks for confirmation, then moves an installed model to Trash and keeps existing transcripts. The confirmation explains that the model must be downloaded again.
 
-Use a curated catalogue, initially Parakeet Ultra, Whisper Turbo and Apple Speech. Show download size, supported hardware/languages, installed state, download progress and removal controls. Pin external artifacts to known revisions and verify downloads. An arbitrary model file cannot run unless an installed engine supports its architecture and tokenizer.
+Model files stay under `~/Library/Application Support/Callkeep/Models`, outside iCloud. The catalogue pins Hugging Face revisions and checks every file's size and SHA-256 (LFS) or Git blob ID. No model discovery, audio upload or remote transcription happens during inference. The Whisper adapter loads its tokenizer locally and fails if it cannot be read, without a network fallback. Credits and license texts are available in Settings and bundled in the app.
 
-Keep weights in local application support storage, outside the recording library and iCloud. Apple language assets stay system-managed. Offer one default model for automatic processing and a per-recording **Transcribe with…** action. Keep each model's result separately so users can compare text and elapsed processing time without losing the first transcript. Do not invent a quality score without a reference transcript.
+Sources: [Parakeet Ultra](https://huggingface.co/moondream/parakeet-ultra), [FluidInference conversion](https://huggingface.co/FluidInference/parakeet-ultra-coreml), [Whisper Turbo](https://huggingface.co/openai/whisper-large-v3-turbo), [WhisperKit](https://github.com/argmaxinc/argmax-oss-swift). These are supported options, not a claim of a measured accuracy winner on your calls.
 
-## After-call queue
+## Read and compare transcripts
 
-1. Finalize and close capture files before queueing transcription. Persist queued and failed jobs so closing the app does not lose work.
-2. Process the microphone and system-audio tracks independently, preserving their start offsets. Merge timestamped segments with the source labels **You** and **Call audio**. More than one person in call audio needs a separate diarization step; two tracks do not identify every participant.
-3. Write transcript results atomically beside the recording, including provider/model identity, revision where available, locale, generation time and processing duration. For Apple's system engine, record the OS build rather than pretending the weights can be pinned.
-4. Coordinate transcription with migration so a recording cannot move while a worker is opening its files. Prefer completing local transcription before moving the finished folder, or use a coordinated snapshot. Pause background inference when another recording starts.
-5. Results follow the recording's existing iCloud setting. Local inference means no ASR service receives the audio; it does not disable the user's separate iCloud storage preference.
+Open a recording. Its transcript appears below the playback controls, highlights the current phrases and follows playback automatically. Existing recordings can be transcribed manually with **Transcribe**, or **Transcribe with…** to choose another model. Each run is retained separately; the result picker switches between runs without replacing the first transcript. **Copy** copies timestamped text. Click a timestamp to seek the audio.
 
-## Apple Intelligence
+The microphone is labeled **You**, and computer audio is labeled **Call audio**, using the same purple and teal colors as playback. Multiple people within call audio are not individually identified. Overlapping voices, accents, names, quiet speech and chunk boundaries can affect recognition. Keep the original audio as the reference.
 
-Keep speech recognition and summarization as separate choices. Apple's public Speech APIs handle audio transcription. The on-device Foundation Models language model can then summarize the transcript, extract action items or generate a title. Long transcripts need an appropriate chunking strategy. Check availability and retain the original transcript; generated summaries may be wrong.
+macOS notifications announce completed transcripts when **Notify when a transcript is ready** is enabled. Allow the permission prompt to receive them. Clicking the notification opens the recording; the alert text does not include the recording’s title or transcript.
 
-Use the explicit on-device model for the local feature. Apple's newer Foundation Models APIs also expose cloud-backed capabilities, which are a different product choice. Sources: [Apple's example combining speech transcription and a generated title](https://developer.apple.com/videos/play/wwdc2025/277/), [Foundation Models capabilities](https://developer.apple.com/documentation/FoundationModels/generating-content-and-performing-tasks-with-foundation-models), [macOS 27 framework updates](https://developer.apple.com/documentation/updates/foundationmodels).
+## Queue and storage
+
+The queue is persisted in local Application Support. It reads bounded 25-second chunks, downmixes all channels and converts to 16 kHz. Completed chunks are checkpointed, track start offsets are added to segment times, and segments are merged chronologically. Digital silence is skipped. New capture requests cancel background processing; completed chunks resume after capture ends or the app next opens. An in-flight model operation may finish before cancellation takes effect. Failed jobs have Retry and Cancel controls.
+
+Transcription waits until the library's iCloud location has been resolved. Callkeep's own iCloud migrations wait while transcription is running; an active job's recording cannot be trashed until processing is canceled. A completed result is written atomically under the recording's `Transcripts` folder. Its metadata includes the provider/model revision, creation time and inference time. Repeating the last completion after a crash uses the same result ID. Moving or importing a recording preserves its transcripts.
+
+Finished results follow **Settings → Storage**, including iCloud syncing if enabled. Local ASR means no transcription service receives the audio; the separate iCloud setting continues to control storage.
+
+## Apple Speech and Apple Intelligence
+
+Apple Speech, additional models and automatic summaries are not included in this first model picker. The engine interface supports additional adapters without changing recording storage. Apple's on-device Speech APIs are a future system-managed option; Foundation Models can separately summarize text or extract action items. These should remain separate from recognition and retain the original transcript.
+
+Sources: [Apple SpeechAnalyzer](https://developer.apple.com/videos/play/wwdc2025/277/), [Foundation Models](https://developer.apple.com/documentation/FoundationModels/generating-content-and-performing-tasks-with-foundation-models).
+
+## Validation
+
+Both downloaded models recognized a generated English speech fixture locally. The native app produced a timestamped two-track transcript with the correct source labels and offsets. This is a functional test, not an accuracy benchmark on real calls. Automated tests cover queue persistence, pause/resume, opt-out behavior, model integrity checks, bounded stereo conversion, result preservation and deleted-recording protection. Set `CALLKEEP_ASR_SMOKE_ROOT` when running the optional downloaded-engine XCTest; ordinary CI does not download weights.

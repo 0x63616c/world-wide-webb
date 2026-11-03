@@ -19,14 +19,10 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] in self?.canCheckForUpdates = $0 }
         observeCaptureState()
-        #if DEBUG
-        // Preview and test builds must not check the production feed by default.
-        if Bundle.main.object(forInfoDictionaryKey: "CallkeepEnableUpdaterInDebug") as? Bool == true {
+        // Local builds stay local unless an explicit updater test opts in.
+        if AppIdentity.isProduction || Bundle.main.object(forInfoDictionaryKey: "CallkeepEnableUpdaterInDebug") as? Bool == true {
             controller.startUpdater()
         }
-        #else
-        controller.startUpdater()
-        #endif
     }
 
     func checkForUpdates() { controller.checkForUpdates(nil) }

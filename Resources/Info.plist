@@ -44,5 +44,7 @@
 	<true/>
 	<key>SUAllowsAutomaticUpdates</key>
 	<false/>
+	<key>CallkeepProduction</key>
+	<string>$(CALLKEEP_PRODUCTION)</string>
 </dict>
 </plist>

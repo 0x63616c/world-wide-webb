@@ -26,7 +26,7 @@ struct LibraryView: View {
                                 Button("Move to Trash…", role: .destructive) {
                                     if !model.selectedIDs.contains(recording.id) { model.selectMany([recording.id]) }
                                     deleting = true
-                                }.disabled(recording.id == model.active?.id)
+                                }.disabled(recording.id == model.active?.id || recording.id == model.transcription.runningID)
                             }
                     }
                 } header: {
@@ -34,7 +34,7 @@ struct LibraryView: View {
                 }
             }
             .listStyle(.sidebar)
-            .navigationTitle("Callkeep")
+            .navigationTitle(AppIdentity.title)
             .navigationSplitViewColumnWidth(min: 235, ideal: 270, max: 360)
             .safeAreaInset(edge: .top, spacing: 0) {
                 Button { model.showRecordings() } label: {
@@ -60,7 +60,7 @@ struct LibraryView: View {
                             Image(systemName: "gearshape").frame(width: 22)
                             Text("Settings")
                             Spacer()
-                            Text("⌘,").font(.caption).foregroundStyle(.secondary)
+                            Text(AppIdentity.version).font(.caption).foregroundStyle(.secondary)
                         }.padding(.horizontal, 10).padding(.vertical, 9).contentShape(Rectangle())
                             .background(model.showingSettings ? Color.primary.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 7))
                     }.buttonStyle(.plain)
@@ -82,7 +82,7 @@ struct LibraryView: View {
             }
             .frame(minWidth: 500, maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
-            .navigationTitle("Callkeep")
+            .navigationTitle(AppIdentity.title)
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     if !model.showingSettings {
@@ -139,7 +139,7 @@ struct RecordingRow: View {
                 if live { Circle().fill(.red).frame(width: 6, height: 6) }
             }
             HStack(spacing: 8) {
-                Text(recording.createdAt, format: .dateTime.month(.abbreviated).day())
+                Text(recording.createdAt, format: .dateTime.month(.abbreviated).day().year())
                 Spacer(minLength: 8)
                 if recording.state == .interrupted { Image(systemName: "exclamationmark.circle").help("Recording interrupted").accessibilityLabel("Recording interrupted") }
                 Text(live ? "Recording" : recording.formattedDuration).monospacedDigit()
@@ -230,30 +230,41 @@ struct RecordingDetail: View {
     @Binding var renamingID: UUID?
     @State private var waveform = RecordingWaveform()
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    RecordingTitleView(model: model, recording: recording, renamingID: $renamingID)
-                    Text(recording.createdAt, format: .dateTime.month(.wide).day().year().hour().minute()).font(.callout).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 8)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            RecordingTitleView(model: model, recording: recording, renamingID: $renamingID)
+                            Text(recording.createdAt, format: .dateTime.month(.wide).day().year().hour().minute())
+                                .font(.callout).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                    }
+                    PlaybackTimelineView(playback: model.playback, waveform: waveform)
+                        .disabled(model.isRecording || recording.duration == 0)
+                    HStack(spacing: 30) {
+                        Spacer()
+                        Button { model.playback.seek(model.playback.currentPosition - 10) } label: {
+                            Image(systemName: "gobackward.10").font(.title2)
+                        }.buttonStyle(.plain).help("Back 10 seconds")
+                        Button { model.playback.toggle() } label: {
+                            Image(systemName: model.playback.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 24, weight: .medium)).frame(width: 64, height: 64)
+                                .background(.quaternary, in: Circle())
+                        }.buttonStyle(.plain).accessibilityLabel(model.playback.isPlaying ? "Pause" : "Play recording")
+                        Button { model.playback.seek(model.playback.currentPosition + 10) } label: {
+                            Image(systemName: "goforward.10").font(.title2)
+                        }.buttonStyle(.plain).help("Forward 10 seconds")
+                        Spacer()
+                    }.disabled(model.isRecording || recording.duration == 0)
+                    Divider()
+                    TranscriptView(model: model, recording: recording)
+                        .frame(height: max(240, geometry.size.height - 460))
+                }.padding(.horizontal, 40).padding(.vertical, 28)
+                    .frame(maxWidth: 850).frame(maxWidth: .infinity)
             }
-            Spacer(minLength: 12)
-            VStack(spacing: 24) {
-                PlaybackTimelineView(playback: model.playback, waveform: waveform)
-                    .disabled(model.isRecording || recording.duration == 0)
-                HStack(spacing: 30) {
-                    Spacer()
-                    Button { model.playback.seek(model.playback.currentPosition - 10) } label: { Image(systemName: "gobackward.10").font(.title2) }.buttonStyle(.plain).help("Back 10 seconds")
-                    Button { model.playback.toggle() } label: {
-                        Image(systemName: model.playback.isPlaying ? "pause.fill" : "play.fill").font(.system(size: 24, weight: .medium)).frame(width: 64, height: 64).background(.quaternary, in: Circle())
-                    }.buttonStyle(.plain).accessibilityLabel(model.playback.isPlaying ? "Pause" : "Play recording")
-                    Button { model.playback.seek(model.playback.currentPosition + 10) } label: { Image(systemName: "goforward.10").font(.title2) }.buttonStyle(.plain).help("Forward 10 seconds")
-                    Spacer()
-                }.disabled(model.isRecording || recording.duration == 0)
-            }
-            Spacer(minLength: 12)
-        }.padding(40).frame(maxWidth: 850, maxHeight: .infinity)
+        }
         .task(id: model.store?.folder(for: recording)) {
             guard let store = model.store else { return }
             let folder = store.folder(for: recording)

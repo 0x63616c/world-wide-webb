@@ -11,7 +11,7 @@ xcrun xctest "$test_directory/CallkeepTests.xctest"
 swiftc -D DEBUG -parse-as-library -target "$(uname -m)-apple-macos15.0" \
   -F "$PWD/build/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64" \
   -framework Sparkle -Xlinker -rpath -Xlinker "$PWD/build/Build/Products/Debug/Callkeep.app/Contents/Frameworks" \
-  Sources/Callkeep/AppUpdater.swift Scripts/UpdaterHarness.swift -o "$test_directory/updater-checks"
+  Sources/Callkeep/AppUpdater.swift Sources/Callkeep/AppIdentity.swift Scripts/UpdaterHarness.swift -o "$test_directory/updater-checks"
 "$test_directory/updater-checks"
 swiftc -parse-as-library -target "$(uname -m)-apple-macos15.0" \
   -F "$PWD/build/Build/Products/Debug" -framework CallkeepCore \

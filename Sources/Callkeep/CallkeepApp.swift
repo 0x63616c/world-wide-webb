@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UserNotifications
 
 @main
 struct CallkeepApp: App {
@@ -12,7 +13,7 @@ struct CallkeepApp: App {
         _updates = StateObject(wrappedValue: AppUpdater(model: model))
     }
     var body: some Scene {
-        Window("Callkeep", id: "library") {
+        Window(AppIdentity.title, id: "library") {
             LibraryView(model: model)
                 .onAppear { delegate.model = model }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.configureStorage() }
@@ -53,13 +54,27 @@ struct CallkeepApp: App {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     weak var model: AppModel?
     private var sleepObserver: NSObjectProtocol?
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppIdentity.configureDock()
+        UNUserNotificationCenter.current().delegate = self
         sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.model?.stopRecording(reason: "Recording ended because your Mac went to sleep.") }
         }
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                           withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                           withCompletionHandler completionHandler: @escaping () -> Void) {
+        if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+           let value = response.notification.request.content.userInfo["recordingID"] as? String, let id = UUID(uuidString: value) {
+            Task { @MainActor [weak self] in self?.model?.select(id); self?.model?.presentLibrary?() }
+        }
+        completionHandler()
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if model?.isBusy == true { return .terminateCancel }
