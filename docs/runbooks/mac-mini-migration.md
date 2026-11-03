@@ -337,3 +337,12 @@ running network helper untouched. Copy the Lima override to
 `~/.colima/_lima/_config/override.yaml` only after checking for other profiles
 or existing overrides. The HA config volume, encryption keys and runtime
 secrets are backup material, not repository content.
+
+The NAS copy is now also retained at
+`/Users/calum/www-control-center/backups/nas-media-20261103` on the mini.
+All 1,629 files were rehashed there before merging into persistent app media;
+the merge refused conflicting existing files and deleted nothing. The app
+media directory now contains 1,632 recovered files. NAS originals remain intact.
+Representative booth and wake photo requests through the mini app returned
+HTTP 200 with bytes matching the backup SHA-256 manifest. This verifies serving
+for those samples, not recovery of the 51 unlocated wake files.
