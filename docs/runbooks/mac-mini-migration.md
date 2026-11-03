@@ -1,7 +1,9 @@
 # Mac mini migration
 
-Status: cutover in progress, 2026-11-03. HA has moved to the mini; Control
-Center production and the public tunnel remain on Talos.
+Status: production cutover completed at approximately 08:32 PST, 2026-11-03.
+Control Center, its PostgreSQL database, HA and the public tunnel now run on
+the mini. Talos is retained pending remaining verification and retirement gates.
+Earlier sections below retain the preparation evidence and historical state.
 
 The first real mini release succeeded in workflow run `41652354784`, deploying
 commit `11bae6356377b7f937cd9a59be93bdb52129f9bd` at digest
@@ -59,8 +61,9 @@ and no newly unavailable entities. This is a VM restart, not a Mac reboot.
 The user LaunchAgent starts Colima and Compose at login. The root helper
 plist is now installed with KeepAlive=true, ThrottleInterval=30 and RunAtLoad=true,
 verified after the user ran the sudo installer. It retries if Wi-Fi is late
-at boot. Full Mac reboot, stable address provisioning and public browser login
-remain unverified.
+at boot. UniFi now has a verified fixed DHCP reservation for the VM
+(52:55:55:6e:cd:71 → 192.168.0.130), saved through the authenticated router UI.
+Full Mac reboot and public browser login remain unverified.
 
 Monitoring preference: rotated container logs only, with no new health alerts
 or notifications. Existing Hindsight checks may remain.
@@ -380,3 +383,91 @@ this list when switching to the mini connector, since the monitoring stack is
 not migrating. No disabled hosts are configured yet. Tests cover preservation
 of other routes, removal of all paths, unknown hosts and conflicting overrides;
 all 16 route tests and the workspace typecheck passed.
+
+## Bambuddy application restore rehearsal
+
+Restored the full data archive into a separate Docker volume and replaced its
+raw live SQLite/WAL files with the consistent snapshot. Set the snapshot owner
+to the image's application UID/GID (1000:1000); the root-owned mode-600 copy
+initially prevented startup. The restored app used the exact live image ID,
+network=none, no published ports and a 512 MiB limit. SQLite integrity passed,
+all 91 table row counts matched the backup, and both /health and / returned 200.
+The test container is stopped and its volume retained. Live Bambuddy and its
+companion containers were unchanged. This does not test printer connectivity
+or complete companion-service recovery.
+
+## Proposed production route settings
+
+The prepared originOverrides point app and manage to http://127.0.0.1:4201 and
+HA to http://192.168.0.130:8123. disabledIngressHosts contains only Grafana.
+Pulumi preview shows one ingress-config update and 19 unchanged resources;
+DNS and Access policies are unchanged. These settings are not applied yet.
+An automatic public app check using the existing vault kiosk credential returns
+403 even before cutover; do not treat this as a migration regression or as
+successful public verification. Browser/authenticated client verification is
+still required. HA's bridge MAC is 52:55:55:6e:cd:71; a router reservation for
+192.168.0.130 is saved and verified in UniFi’s IP Table as Fixed.
+
+## Remaining photo recovery investigation
+
+A read-only Talos kubelet directory inventory found only the current API
+pod’s media emptyDir (UID dcd96953-263b-402e-ab22-969c3a1f8155); its media
+subdirectory is empty. No abandoned media emptyDir appeared in that inventory.
+The NAS PostgreSQL backup listing ends October 15, before the missing photos.
+Neither finding proves the 51 files are irrecoverable, but neither provides
+another file copy. Original NAS data, Talos disks and all recovered files remain
+retained while investigation continues.
+
+Talos's fallback PostgreSQL backup PVC was mounted read-only in a temporary
+export pod. The October 31, November 1 and November 2 SQL dumps were archived
+off-host; each nested gzip stream passed complete decompression validation.
+The archive is `talos-fallback-postgres.tar.gz` in the restricted migration
+backup directory, SHA-256
+`ff67722f32768dfdd9d7dbd88bba0aec73f40934cd6ad1bf9d29590b748a2af8`.
+These are database backups, not photo media backups. The original PVC remains.
+
+## Production cutover evidence (08:32 PST)
+
+Main CI 41673297565 and mini deployment 41674322544 succeeded for
+`a63d283d53865b7c1acc0d94cb447149eda73163`. Deployment was temporarily disabled
+and the release lock acquired before cutover. Both Talos tunnel pods stopped,
+its final media directory was archived (zero files), then its API pod stopped.
+The final PostgreSQL dump was made after writers stopped and retained on both
+the operator machine and mini as `control-center-final-0832.dump`, SHA-256
+`264faeb688a31ba87aacb3bf2250d669c9ec8be73c97c193d711f1c6ad40e2e4`.
+
+The mini rehearsal database was renamed to `control_center_rehearsal_20261103`,
+not dropped. The final dump restored without errors into a new control_center
+database. All 15 public table counts and all 44 migration records matched
+the stopped source, including 134 booth photos, 1,549 wake photo records,
+68,696 daily weather readings and 1,648,704 weather readings.
+
+WORKER_CYCLES is now on only on the mini. Health reported database ok and all
+nine workers running with zero consecutive failures. Cloudflare update 122
+changed one tunnel ingress configuration, leaving 19 resources unchanged.
+The mini connector reported ready; the old connectors remain at zero replicas.
+Safari's authenticated public build endpoint returned the exact a63d283d SHA
+and the dashboard displayed live controls, climate, sound and weather data.
+The API media mount retains the 1,632 recovered files; the 51 earlier missing
+wake files remain an unresolved recovery gap, not a new cutover deletion.
+
+The release lock is removed and MINI_DEPLOY_ENABLED is true again.
+TALOS_DEPLOY_DISABLED remains true. Do not restart the old API with its stale
+database: the mini is now the production writer. A reverse migration requires
+a fresh dump after stopping mini writers. Full Mac reboot, post-cutover release
+and recovery, scheduled NAS backups, runner migration and final Talos
+retirement remain outstanding.
+
+## Final cleanup scope (user requested)
+
+After the migration verification gates pass, substantially simplify the repo
+and credential inventory: remove retired Talos/Kubernetes provisioning,
+obsolete image/deployment workflows, migrated runner configuration, unused
+secret keys and their external credentials, and stale operational docs.
+Inventory consumers by key name without reading secret values. Remove or
+revoke a credential only once no retained service or workflow depends on it.
+Keep required recovery archives outside the repository; do not confuse removing
+obsolete infrastructure code with destroying the only recoverable data copy.
+Hindsight, Bambuddy, HA, main-triggered releases and scheduled backups remain
+required. This cleanup is part of completion, after verification, not an
+optional future suggestion.
