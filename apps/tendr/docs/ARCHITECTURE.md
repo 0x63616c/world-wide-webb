@@ -24,6 +24,12 @@ Validation belongs in the core and is enforced again at the write interface, eve
 
 Injection sides are optional on dose records: missing or null `side` decodes as unknown. The next side is the opposite of the latest known side by dose date; without one, it uses the journal's `injectionStartSide` preference (Right when absent). Editing an unknown dose leaves it unknown unless a side is chosen. Both fields are additive to version 1 of the local JSON format, so existing journals and device backups need no rewrite. Settings use the same atomic `Store.commit` path as doses. There is no separate export/import format, SwiftData store or CloudKit sync.
 
+## iCloud sync assessment (2026-11-04)
+
+CloudKit is technically available in TestFlight, but [Apple's review guideline 5.1.3(ii)](https://developer.apple.com/app-store/review/guidelines/#health-and-health-research) prohibits storing personal health information in iCloud. Tendr's medication, dose, note and weight records appear to fall within that restriction; obtain clarification from App Review before designing a journal upload. A private database, user consent or encryption should not be assumed to create an exception. Normal device backup is a separate mechanism from app-managed CloudKit sync.
+
+[TestFlight supports CloudKit using its production environment](https://developer.apple.com/library/archive/documentation/DataManagement/Conceptual/CloudKitQuickStart/TestingYourApp/TestingYourApp.html), so any permitted future feature would need a deployed production schema, signing capabilities, local migration, durable offline changes, conflict/deletion handling and account isolation. That technical availability does not override the health-data restriction. Keep the health journal local.
+
 ## Content growth
 
 Discover starts with bundled, original articles and recipes. Use stable content IDs, category, title, summary and structured article sections. Keep editorial content outside the health journal. Add a content-fetching adapter only when a real backend exists; preserve bundled content as an offline fallback. A CMS should deliver content, not executable screen layouts. Do not send personal tracking records to a content backend.
