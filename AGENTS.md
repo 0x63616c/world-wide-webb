@@ -175,6 +175,12 @@ archive is retained on the NAS. Do not add health alerts without user direction.
 - **Merging to `main` deploys to prod** (push-to-main triggers CI + deploy),
   so merging the PR is the deliberate act. Merge once CI is green; don't
   merge a red PR.
+- For Calum's direct interactive change requests, completion includes pushing,
+  opening the PR, fixing required checks, normally merging the current green
+  head, and verifying deployment (including Apple processing for TestFlight).
+  Do not ask again for these routine steps unless he requests local-only,
+  draft, or no-merge work. This does not change the pipeline executor boundary
+  or permit bypassing checks. Show videos for visible interaction changes.
 - Verify before publishing (`bun run typecheck`, relevant tests). On failure,
   fix forward and commit on the branch; the publisher pushes the fix and
   waits for required checks to pass before merging.
