@@ -77,9 +77,7 @@ public struct PhotosAPI: Sendable {
     /// Same synced setting and client-side comparison as the web PIN gate (ADR-0004).
     /// The PIN is never persisted or included in a diagnostic.
     public func unlock(pin: String) async throws -> Bool {
-        struct Settings: Decodable, Sendable { let pinCode: String }
-        let settings = try await client.query("settings.get", as: Settings.self)
-        return pin.count == 6 && pin.allSatisfy(\.isNumber) && pin == settings.pinCode
+        try await PanelPINAPI(client: client).verify(pin)
     }
     public func image(collection: String, path: String) async throws -> Data {
         try await client.photoData(collection: collection, path: path)
