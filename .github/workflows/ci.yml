@@ -49,6 +49,10 @@ jobs:
         run: python3 scripts/test-changed-apps.py
       - name: Duo capture and Xcode selection checks
         run: python3 scripts/test-duo-screenshots.py
+      - name: Install screenshot export dependencies
+        run: python3 -m pip install -r scripts/requirements-screenshots.txt
+      - name: Release target, Duo export and submission checks
+        run: python3 scripts/test-release.py
       - name: Site publication retention checks
         run: python3 scripts/test-publish-site.py
       - uses: actions/setup-go@v5

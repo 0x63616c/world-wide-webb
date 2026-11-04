@@ -7,7 +7,7 @@ ruby scripts/check-release.rb             # no Apple access
 bundle exec fastlane ios verify app:tendr
 bundle exec fastlane ios beta app:tendr
 bundle exec fastlane ios distribute_existing app:tendr build:18
-bundle exec fastlane ios prepare_review app:tendr
+bundle exec fastlane ios prepare_review app:tendr build:29
 ```
 
 `beta` tests, selects the next build number, archives, uploads, waits for processing and distributes to the configured internal group. Concurrent publishers for one app can race; do not run a local upload alongside its Actions job. Automatic main-branch delivery is enabled for Tendr and Blockr. Verify an app’s App Store record, profiles and internal group before enabling automatic delivery. The flag controls automatic and manually dispatched Actions delivery; an explicit local `beta app:...` command remains available.
@@ -26,7 +26,13 @@ Actions requires `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_CONTENT`, `ASC_BETA_FEE
 
 Locally, provide the ASC variables above and either `ASC_KEY_PATH` or `ASC_KEY_CONTENT`. Xcode automatic signing is preserved outside Actions. For a single-target app, `R_PROFILE_UUID` opts into manual local signing. Blockr uses local Xcode signing; its target-specific CI profiles are configured automatically only in Actions.
 
-The manual Release workflow accepts an app slug and calls `prepare_review`: uploads app-local metadata/screenshots, sets free pricing where needed and attaches a processed build. It stops before Submit for Review. Optional `ASC_REVIEW_PHONE` and `ASC_REVIEW_EMAIL` supply review contact details. Tendr has the shared capture/frame configuration. Apps without capture configuration should use `skip_screenshots`. Metadata remains app-local.
+The manual **App Store release** workflow requires an app slug and exact processed TestFlight `build` number. `version` defaults to `app.yml`. Tags must encode both: `app-store/tendr/1.1.0-29` (legacy `app-store/1.1.0-29` means Tendr). Arbitrary tag suffixes are rejected. Run it at the same source revision used for the pinned binary so the screenshots represent that build; the build number lookup does not verify source provenance.
+
+The workflow calls `prepare_review`: validates the exact build is processed and unexpired and the App Store version is editable, then uploads app-local metadata/screenshots, sets free pricing where needed and attaches that build. It never chooses a newer build automatically and stops before Submit for Review. Preparation refuses versions already waiting/in review and never withdraws a submission. Optional `ASC_REVIEW_PHONE` and `ASC_REVIEW_EMAIL` supply review contact details. Apps without capture configuration should use `skip_screenshots`, which preserves the existing screenshots for all display sizes. Metadata remains app-local.
+
+For Tendr, the release screenshot job generates the project, captures and frames the ordinary iPhone screenshots, then captures Duo light/dark on a Duo-capable Xcode selected by `scripts/select-duo-xcode.py`. `DUO_DEVELOPER_DIR` optionally overrides its preferred path. The app's `duo_screenshot_test` enables Duo capture; `screenshots.json` supplies `duo_shots` (up to five scenes, captured on both displays). `scripts/stage-duo-screenshots.py` exports ten or fewer native, unframed, opaque RGB screenshots into the same `fastlane/screenshots/en-US` artifact as the ordinary frames. Fastlane 2.241.1+ recognizes both resolutions as the single `APP_IPHONE_DUO` gallery. Fallback/default-screen captures, incorrect dimensions, transparent pixels and blank displays fail preparation before any upload. Raw captures and their capability notes are retained as a separate artifact. Inspect actual captures before submission; automated checks cannot prove visual correctness or that every named display is showing the intended scene.
+
+The separate **Submit for review** workflow also requires the exact `build` number and uses the same lookup; it cannot silently replace it with the newest upload. Its default is a read-only dry run. `cancel_waiting` remains an explicit opt-in and should stay false for a pending submission you intend to preserve. Neither this workflow nor release preparation is triggered by an ordinary TestFlight upload. Screenshot changes to a version waiting for review require withdrawal and resubmission, so prepare the next update without disturbing the pending version.
 
 ```sh
 scripts/capture-screenshots.sh tendr

@@ -3,6 +3,7 @@ require "logger"
 require "net/http"
 require "shellwords"
 require "yaml"
+require_relative "../scripts/release-build"
 
 default_platform(:ios)
 
@@ -368,23 +369,22 @@ platform :ios do
     )
   end
 
-  desc "Attach the newest processed, unexpired TestFlight build of the version to the App Store version"
+  desc "Attach the explicit processed, unexpired TestFlight build to the App Store version"
   lane :select_build do |options|
+    number = ReleaseBuild.number!(options[:build])
     connect_api_key
     config = r_app(options)
     version = options[:version] || config["version"]
     app = app_store_app(config)
-    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version, processing_states: "VALID", sort: "-uploadedDate")
-                                        .reject(&:expired)
-                                        .max_by { |candidate| candidate.version.to_i }
-    UI.user_error!("No processed, unexpired #{version} build in App Store Connect. Wait for TestFlight processing, then rerun.") unless build
+    build = ReleaseBuild.find!(Spaceship::ConnectAPI.client.tunes_request_client, app.id, version, number)
 
     app_store_version = editable_app_store_version(app)
-    if app_store_version.build&.id == build.id
-      UI.success("#{version} (#{build.version}) is already selected for review")
+    UI.user_error!("App Store version #{app_store_version.version_string} does not match #{version}") unless app_store_version.version_string == version
+    if app_store_version.build&.id == build.fetch("id")
+      UI.success("#{version} (#{number}) is already selected for review")
     else
-      app_store_version.select_build(build_id: build.id)
-      UI.success("Selected #{version} (#{build.version}), uploaded #{build.uploaded_date}, for review")
+      app_store_version.select_build(build_id: build.fetch("id"))
+      UI.success("Selected #{version} (#{number}) for review")
     end
   end
 
@@ -541,17 +541,26 @@ platform :ios do
     end
   end
 
-  desc "Upload the listing and screenshots, set Free pricing and attach the latest build. Stops before Submit for Review"
+  desc "Upload the listing and screenshots, set Free pricing and attach build:<number>. Stops before Submit for Review"
   lane :prepare_review do |options|
-    app = r_app(options)["slug"]
+    number = ReleaseBuild.number!(options[:build])
+    config = r_app(options)
+    app = config["slug"]
     api_key = connect_api_key
+    # Fail before uploading metadata/screenshots if the pinned build is unavailable or
+    # the version is already in the review queue. Never withdraw a submission here.
+    record = app_store_app(config)
+    current = editable_app_store_version(record)
+    allowed = %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY]
+    UI.user_error!("App Store version is #{current.app_store_state}; leave the current submission untouched") unless allowed.include?(current.app_store_state)
+    ReleaseBuild.find!(Spaceship::ConnectAPI.client.tunes_request_client, record.id, options[:version] || config["version"], number)
     metadata(app: app, api_key: api_key, version: options[:version], skip_screenshots: options[:skip_screenshots])
     begin
       ensure_free_pricing(app: app)
     rescue StandardError => error
       UI.important("Could not set Free pricing (#{error.message}). Set it under Pricing and Availability in App Store Connect.")
     end
-    select_build(app: app, version: options[:version])
+    select_build(app: app, version: options[:version], build: number)
     age_rating(app: app)
     review_detail_check(app: app)
     review_status(app: app)

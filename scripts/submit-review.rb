@@ -1,10 +1,11 @@
 # Submits an app's editable App Store version for App Review through the App Store Connect API.
 # Optionally cancels a submission that is still WAITING_FOR_REVIEW first, moves the editable version to
-# VERSION (default: app.yml version), attaches the newest processed build for that version, sets "What's New"
+# VERSION (default: app.yml version), attaches the explicit BUILD_NUMBER for that version, sets "What's New"
 # and submits. Prints greppable lines (CANCEL:, VERSION:, BUILD:, WHATSNEW:, SUBMIT:).
-# Usage: ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_CONTENT=… CANCEL_WAITING=true WHATS_NEW="…" bundle exec ruby scripts/submit-review.rb <app>
+# Usage: ASC_KEY_ID=… ASC_ISSUER_ID=… ASC_KEY_CONTENT=… BUILD_NUMBER=29 DRY_RUN=true bundle exec ruby scripts/submit-review.rb <app>
 require "spaceship"
 require "yaml"
+require_relative "release-build"
 
 APP = ARGV.first || ENV["APP"] || abort("usage: submit-review.rb <app>")
 abort("Invalid app slug") unless APP.match?(/\A[a-z][a-z0-9-]*\z/)
@@ -12,11 +13,14 @@ CONFIG = YAML.safe_load(File.read(File.expand_path("../apps/#{APP}/app.yml", __d
 APP_ID = CONFIG["apple_id"].to_s
 abort("Set apple_id in apps/#{APP}/app.yml") if APP_ID.empty?
 TARGET = (ENV["VERSION"].to_s.empty? ? CONFIG.fetch("version") : ENV["VERSION"]).to_s
+BUILD_NUMBER = ReleaseBuild.number!(ENV["BUILD_NUMBER"])
 DRY_RUN = ENV["DRY_RUN"] == "true"
 EDITABLE = %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY].freeze
 
 Spaceship::ConnectAPI.auth(key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"), key: ENV.fetch("ASC_KEY_CONTENT"))
 asc = Spaceship::ConnectAPI.client.tunes_request_client
+# Resolve before any cancellation or version/metadata mutation.
+build = ReleaseBuild.find!(asc, APP_ID, TARGET, BUILD_NUMBER)
 
 def versions(asc)
   asc.get("v1/apps/#{APP_ID}/appStoreVersions", { "filter[platform]" => "IOS", "limit" => 50 }).body["data"]
@@ -60,15 +64,6 @@ else
   puts "VERSION: #{TARGET} already set"
 end
 
-build = nil
-12.times do |attempt|
-  builds = asc.get("v1/builds", { "filter[app]" => APP_ID, "filter[preReleaseVersion.version]" => TARGET, "filter[processingState]" => "VALID", "filter[expired]" => "false", "sort" => "-uploadedDate", "limit" => 20 }).body["data"]
-  build = builds.max_by { |b| b.dig("attributes", "version").to_i }
-  break if build
-  puts "BUILD: no processed #{TARGET} build yet (attempt #{attempt + 1}), waiting"
-  sleep 30
-end
-abort("No processed #{TARGET} build in App Store Connect") unless build
 puts "BUILD: #{TARGET} (#{build.dig('attributes', 'version')}) uploaded #{build.dig('attributes', 'uploadedDate')} id #{build['id']}"
 asc.patch("v1/appStoreVersions/#{version['id']}/relationships/build", { data: { type: "builds", id: build["id"] } }) unless DRY_RUN
 

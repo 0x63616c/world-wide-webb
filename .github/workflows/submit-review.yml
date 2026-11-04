@@ -13,6 +13,10 @@ on:
         description: 'Version to submit (default: app.yml version)'
         type: string
         default: ''
+      build:
+        description: 'Exact processed TestFlight build number prepared for this release'
+        type: string
+        required: true
       whats_new:
         description: "What's New text"
         type: string
@@ -30,7 +34,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: submit-review-${{ inputs.app }}
+  group: app-store-${{ inputs.app }}
   cancel-in-progress: false
 
 jobs:
@@ -52,6 +56,7 @@ jobs:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           APP: ${{ inputs.app }}
           VERSION: ${{ inputs.version }}
+          BUILD_NUMBER: ${{ inputs.build }}
           WHATS_NEW: ${{ inputs.whats_new }}
           CANCEL_WAITING: ${{ inputs.cancel_waiting }}
           DRY_RUN: ${{ inputs.dry_run }}
