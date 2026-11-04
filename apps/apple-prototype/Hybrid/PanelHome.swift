@@ -191,7 +191,9 @@ struct PanelHomeDestination: View {
                     status: store.status(for: HomeModule(rawValue: module.rawValue) ?? .lights)).padding(48)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity).clipped()
+        // The shell clips the complete app surface. Keep this host unclipped so
+        // module backgrounds can extend beneath the shell's Back safe area.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black).preferredColorScheme(.dark).foregroundStyle(.white)
         .statusBarHidden().persistentSystemOverlays(.hidden)
     }

@@ -17,6 +17,10 @@ Settings, protected pages, unavailable states and Classic. App scroll views only
 bounce when their content overflows. A single-finger content scroll never closes
 an app. Back buttons are the app navigation; accessibility escape remains available.
 Settings uses a native split view for Display, Security and Apps preferences.
+Back chrome has no painted full-width background: app backgrounds extend behind
+the transparent top safe-area inset while content remains below the button.
+Settings places Back in its native sidebar toolbar instead of adding a second
+row above both columns. Timer retains its inset floating control.
 
 The first launcher row is Calendar, Weather, Lights, Climate and Dog Walker.
 Photos, Tesla and Wi-Fi lead the next row. Settings is last. Display order and

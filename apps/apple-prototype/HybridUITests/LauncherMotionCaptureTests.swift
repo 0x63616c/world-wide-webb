@@ -2,7 +2,11 @@ import XCTest
 
 /// Real interactive motion captures. The record marker lets simctl start only
 /// after launch/orientation, without including test-runner startup in the clips.
-final class LauncherMotionCaptureTests: XCTestCase {
+@MainActor final class LauncherMotionCaptureTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        XCUIDevice.shared.orientation = .landscapeLeft
+    }
     @MainActor func testReveal() { capture("reveal") }
     @MainActor func testDepth() { capture("depth") }
     @MainActor func testDissolve() { capture("dissolve") }
@@ -20,6 +24,10 @@ final class LauncherMotionCaptureTests: XCTestCase {
             let back = app.buttons["app-back"]
             XCTAssertTrue(back.waitForExistence(timeout: 10), id)
             Thread.sleep(forTimeInterval: 1) // Hold the screen for the review video.
+            let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            screenshot.name = "app-navigation-\(id)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
             back.tap()
             XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10), id)
         }
