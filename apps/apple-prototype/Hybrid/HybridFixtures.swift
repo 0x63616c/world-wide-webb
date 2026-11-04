@@ -2,6 +2,26 @@
 import Foundation
 import PanelKit
 import Observation
+import UIKit
+
+/// Explicit simulator-only test images; never a fallback for a real camera.
+@MainActor final class BoothCaptureFixture {
+    private var frame = 0
+    func photo() throws -> Data {
+        frame += 1
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1; format.opaque = true
+        return UIGraphicsImageRenderer(size: CGSize(width: 800, height: 600), format: format)
+            .jpegData(withCompressionQuality: 0.9) { context in
+                [UIColor.systemTeal, .systemOrange, .systemIndigo, .systemPink][(frame - 1) % 4].setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 800, height: 600))
+                ("\(frame)" as NSString).draw(at: CGPoint(x: 335, y: 160), withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 180, weight: .semibold), .foregroundColor: UIColor.white])
+                ("SIMULATOR TEST IMAGE" as NSString).draw(at: CGPoint(x: 210, y: 445), withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 30, weight: .medium), .foregroundColor: UIColor.white])
+            }
+    }
+}
 
 /// Explicit debug harness: exercises the real decoders/providers with their
 /// existing synthetic fixtures. No URLSession fallback or credentials.
@@ -25,6 +45,7 @@ actor HybridFixtureTransport: PanelTransport {
     private let climateOff: Bool
     private let walkActive: Bool
     private var overrides: [String: String] = [:]
+    private var boothCapture: Data?
     private(set) var requests: [URLRequest] = []
 
     init(root: URL, unavailable: Bool = false, alarmScenario: String = "scheduled", walkActive: Bool = false, sonosPlayback: Bool = false, climateOff: Bool = false, controlWrites: Bool = false, fanOffSupported: Bool = false) {
@@ -43,6 +64,27 @@ actor HybridFixtureTransport: PanelTransport {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !unavailable, let url = request.url else { throw URLError(.notConnectedToInternet) }
+        if url.path == "/media/booth-photo", request.httpMethod == "POST" {
+            guard ProcessInfo.processInfo.arguments.contains("-hybridBoothCamera"), let body = request.httpBody else {
+                throw URLError(.unsupportedURL)
+            }
+            boothCapture = body
+            return (Data(#"{"id":"bp_simulator","path":"simulator-strip.jpg"}"#.utf8),
+                HTTPURLResponse(url: url, statusCode: 201, httpVersion: nil, headerFields: nil)!)
+        }
+        if url.path == "/media/booth-photos/simulator-strip.jpg", let boothCapture {
+            return (boothCapture, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": "image/jpeg"])!)
+        }
+        if url.lastPathComponent == "boothPhotos.list", let boothCapture {
+            let captured = Date().timeIntervalSince1970 * 1000
+            let group: [String: Any] = ["groupId": "bpg_simulator", "mode": "photo", "capturedAt": captured,
+                "frames": [["id": "bp_simulator", "path": "simulator-strip.jpg", "frameIdx": 0,
+                            "capturedAt": captured, "mimeType": "image/jpeg"]]]
+            let data = try JSONSerialization.data(withJSONObject: ["result": ["data": [
+                "groups": [group], "totalCount": 1, "totalBytes": boothCapture.count]]])
+            return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
         if url.path.hasPrefix("/media/"), !url.path.hasPrefix("/media/cameras/") {
             let data = try Data(contentsOf: root.appendingPathComponent("photos/image.png"))
             return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
