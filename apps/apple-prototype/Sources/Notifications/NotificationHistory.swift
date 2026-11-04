@@ -116,6 +116,7 @@ struct NotificationHistory: View {
         .frame(maxWidth: 760, maxHeight: .infinity)
         .frame(maxWidth: .infinity)
         .background(.regularMaterial)
+        .environment(\.colorScheme, .dark)
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .accessibilityAction(.escape) { center.historyPresented = false }
