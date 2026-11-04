@@ -2,6 +2,13 @@ import Testing
 @testable import PanelKit
 
 @Suite struct PanelAppCatalogTests {
+    @Test func requestedLauncherOrderAndSettingsLast() {
+        let apps = PanelAppCatalog.standard.apps
+        #expect(Array(apps.prefix(5).map(\.id)) == ["calendar", "weather", "lights", "climate", "walks"])
+        #expect(Array(apps.dropFirst(5).prefix(3).map(\.id)) == ["photos", "car", "wifi"])
+        #expect(apps.last?.id == "settings")
+        #expect(apps.first { $0.id == "booth" }?.route == .photoBooth)
+    }
     @Test func everyFeatureHasExactlyOneApp() {
         let routes = PanelAppCatalog.standard.apps.compactMap { app -> PanelAppFeature? in
             if case .feature(let feature) = app.route { return feature }

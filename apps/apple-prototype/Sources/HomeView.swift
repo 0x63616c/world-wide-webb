@@ -210,11 +210,19 @@ struct HomeView: View {
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
         VStack(spacing: 0) {
-            if app.route != .timer { PanelAppNavigationBar(back: home) }
+            if app.route != .timer && app.route != .photoBooth { PanelAppNavigationBar(back: home) }
             Group {
                 switch app.route {
                 case .settings: PanelSettingsPage()
                 case .timer: PanelTimerPage(timer: timer)
+                case .photoBooth:
+                    if let booth = integration?.photoBooth(close: home) { booth }
+                    else {
+                        VStack {
+                            PanelAppNavigationBar(back: home)
+                            ContentUnavailableView("Photo Booth requires the panel app", systemImage: "camera")
+                        }
+                    }
                 case .classic, .clock: EmptyView()
                 case .feature(let feature):
                     if let integration { integration.destination(feature.homeTile, close: home) }

@@ -12,6 +12,27 @@ bounce when their content overflows. A single-finger content scroll never closes
 an app. Back buttons are the app navigation; accessibility escape remains available.
 Settings uses a native split view for Display, Security and Apps preferences.
 
+The first launcher row is Calendar, Weather, Lights, Climate and Dog Walker.
+Photos, Tesla and Wi-Fi lead the next row. Settings is last. Display order and
+stable IDs live in `PanelAppCatalog`, shared by the native and design hosts.
+
+## Photo Booth
+
+Photo Booth prefers the front camera and has one shutter with a three-second
+countdown. A shot saves to the existing booth gallery; the gallery button opens
+earlier booth photos and every frame of burst/strip captures. Wake photos are
+excluded. Back moves from an enlarged photo to the gallery, then to the camera,
+then Home. The existing booth manifest is private, so each opening requires a
+fresh synced PIN and backgrounding locks the page.
+
+Capture/configuration runs on a serial actor, with a real AVFoundation preview
+and rotation coordinator. Leaving the camera stops it. Saving belongs to the
+app's data source, so a failed JPEG remains available for retry after navigation
+while the app stays open; explicit discard requires the unlocked page. Uploads
+use the existing same-origin booth endpoint and bounded JPEG contract. Capture
+and rotation still require validation on a physical camera; the simulator shows
+its honest camera-unavailable state. No fake camera feed is supplied.
+
 ## Timer
 
 The Timer app uses a wide black face, equal-length orange perimeter ticks and a

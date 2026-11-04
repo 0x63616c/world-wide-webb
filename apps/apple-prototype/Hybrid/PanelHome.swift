@@ -68,6 +68,9 @@ struct PanelHome: View {
     let caption = ""
     var supportsClassic: Bool { true }
     var panelPIN: PanelPINAPI? { store.panelPIN }
+    func photoBooth(close: @escaping () -> Void) -> AnyView? {
+        AnyView(LivePhotoBoothModule(camera: store.photoBoothCamera, photos: store.photosProvider, close: close))
+    }
     func openClassicApp() { navigation.openClassic() }
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,

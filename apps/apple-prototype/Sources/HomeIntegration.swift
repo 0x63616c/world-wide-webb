@@ -7,6 +7,7 @@ import PanelKit
     var caption: String { get }
     var supportsClassic: Bool { get }
     var panelPIN: PanelPINAPI? { get }
+    func photoBooth(close: @escaping () -> Void) -> AnyView?
     func openClassicApp()
     var classicTile: AnyView? { get }
     func prepareToOpen(_ tile: HomeTile) -> Bool
@@ -21,6 +22,7 @@ import PanelKit
 }
 
 extension HomeIntegration {
+    func photoBooth(close: @escaping () -> Void) -> AnyView? { nil }
     var panelPIN: PanelPINAPI? { nil }
     var supportsClassic: Bool { false }
     func openClassicApp() {}

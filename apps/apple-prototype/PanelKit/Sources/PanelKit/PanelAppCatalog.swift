@@ -9,6 +9,7 @@ public enum PanelAppRoute: Sendable, Equatable {
     case feature(PanelAppFeature)
     case settings
     case timer
+    case photoBooth
     case clock
     case classic
 }
@@ -55,6 +56,7 @@ public struct PanelAppCatalog: Sendable {
             .init(id: "cameras", name: "Cameras", symbol: "video.fill", accent: "#626f88", route: .feature(.cameras)),
             .init(id: "clock", name: "Clock", symbol: "clock.fill", accent: "#3f945d", route: .clock),
             .init(id: "timer", name: "Timer", symbol: "timer", accent: "#ed951c", route: .timer),
+            .init(id: "booth", name: "Photo Booth", symbol: "camera.fill", accent: "#cc476b", route: .photoBooth),
             .init(id: "classic", name: "Classic", symbol: "safari", accent: "#4b67c9", route: .classic),
             .init(id: "settings", name: "Settings", symbol: "gearshape.fill", accent: "#707986", route: .settings)
         ]

@@ -116,7 +116,7 @@ struct LivePhotosModule: View {
     }
 }
 
-private struct AuthenticatedPhoto: View {
+struct AuthenticatedPhoto: View {
     let provider: LivePhotosProvider
     let photo: LivePhoto
     @State private var image: UIImage?

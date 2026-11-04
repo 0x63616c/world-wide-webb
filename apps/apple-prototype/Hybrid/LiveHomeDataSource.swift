@@ -24,6 +24,8 @@ import OSLog
     let sonosProvider: LiveSonosProvider
     let teslaProvider: LiveTeslaProvider
     let photosProvider: LivePhotosProvider
+    let photoBoothAPI: PhotosAPI
+    let photoBoothCamera: PhotoBoothCameraModel
     let calendarProvider: LiveCalendarProvider
     let walkProvider: LiveWalkProvider
     let diagnosticsClient: PanelAPIClient
@@ -73,6 +75,7 @@ import OSLog
         let photoAPI = transport.map {
             PhotosAPI(client: PanelAPIClient(configuration: configuration, transport: $0))
         } ?? PhotosAPI(configuration: configuration)
+        photoBoothAPI = photoAPI
         sonosArtwork = SonosArtworkAPI(configuration: configuration, transport: transport)
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
@@ -83,7 +86,9 @@ import OSLog
             .map { String(format: "%02x", $0) }.joined()
         let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("PanelPhotos").appendingPathComponent(namespace)
-        photosProvider = LivePhotosProvider(api: photoAPI, cache: PhotoCache(directory: cacheRoot))
+        let photosProvider = LivePhotosProvider(api: photoAPI, cache: PhotoCache(directory: cacheRoot))
+        self.photosProvider = photosProvider
+        photoBoothCamera = PhotoBoothCameraModel(api: photoAPI, photos: photosProvider)
         alarmsProvider = LiveAlarmsProvider(api: AlarmsAPI(client: client))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))

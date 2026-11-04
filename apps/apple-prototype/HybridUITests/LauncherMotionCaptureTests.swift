@@ -56,6 +56,35 @@ final class LauncherMotionCaptureTests: XCTestCase {
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE timer")
     }
+    @MainActor func testPhotoBooth() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1"]
+        app.launch()
+        defer { app.terminate() }
+        app.openAppGrid()
+        app.buttons["app-booth"].tap()
+        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
+        XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
+        print("MOTION_CAPTURE_READY photo-booth")
+        Thread.sleep(forTimeInterval: 2)
+        app.buttons["booth-gallery"].tap()
+        let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "booth-photo-")).firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: 10))
+        print("BOOTH_SCREENSHOT gallery")
+        Thread.sleep(forTimeInterval: 1)
+        photo.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["booth-photo-detail"].firstMatch.waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 2)
+        app.buttons["app-back"].tap()
+        app.buttons["app-back"].tap()
+        app.buttons["app-back"].tap()
+        XCTAssertTrue(app.buttons["app-booth"].waitForExistence(timeout: 10))
+        print("BOOTH_SCREENSHOT home")
+        Thread.sleep(forTimeInterval: 3)
+        print("MOTION_CAPTURE_DONE photo-booth")
+    }
     @MainActor private func capture(_ style: String) {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")

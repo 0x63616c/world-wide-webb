@@ -82,7 +82,7 @@ struct PanelSettingsPage: View {
                 Form {
                     if selection == .apps {
                         Section {
-                            ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { $0.route == .timer } }) { app in
+                            ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { $0.route == .timer || $0.route == .photoBooth } }) { app in
                                 NavigationLink { PanelPerAppSettings(app: app) } label: { Label(app.name, systemImage: app.symbol) }
                             }
                         }
