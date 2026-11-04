@@ -96,8 +96,7 @@ struct HomeView: View {
         return nil
     }
     private func home() {
-        let animation: Animation = showingClock ? launcherMotion.animation : .easeOut(duration: 0.18)
-        withAnimation(reduceMotion ? nil : animation) { shell.showLauncher(); faceDrag = 0 }
+        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showLauncher(); faceDrag = 0 }
     }
     private func clock() {
         withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showClock(); faceDrag = 0 }
@@ -130,18 +129,23 @@ struct HomeView: View {
                 AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
                     .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
                     .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .scaleEffect(reduceMotion ? 1 : launcherMotion.launcherScale(progress))
-                    .offset(x: reduceMotion ? 0 : launcherMotion.launcherOffset(progress, width: proxy.size.width))
-                    .opacity(launcherMotion == .reveal && !reduceMotion ? 1 : Double(progress))
+                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
+                        progress: progress, width: proxy.size.width,
+                        incoming: true, reduceMotion: reduceMotion))
+                    // The launcher leaves like the clock when an app takes its place.
+                    // Keep it mounted so Back restores its scroll position.
+                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
+                        progress: selected == nil ? 0 : 1, width: proxy.size.width,
+                        incoming: false, reduceMotion: reduceMotion))
                     .allowsHitTesting(!showingClock && selected == nil)
                     .accessibilityHidden(showingClock || selected != nil)
                     .simultaneousGesture(clockLauncherSwipe(width: proxy.size.width, towardClock: true))
                 PresenceClockFace(store: store)
                     .environment(\.motionPhase, showingClock ? inheritedMotionPhase : 0)
                     .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .scaleEffect(reduceMotion ? 1 : launcherMotion.clockScale(progress))
-                    .offset(x: reduceMotion ? 0 : launcherMotion.clockOffset(progress, width: proxy.size.width))
-                    .opacity(reduceMotion ? Double(1 - progress) : launcherMotion.clockOpacity(progress))
+                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
+                        progress: progress, width: proxy.size.width,
+                        incoming: false, reduceMotion: reduceMotion))
                     .allowsHitTesting(showingClock).accessibilityHidden(!showingClock)
                     .overlay {
                         if showingClock {
@@ -156,7 +160,7 @@ struct HomeView: View {
                 if let selected {
                     appScreen(selected)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .transition(.opacity)
+                        .transition(reduceMotion ? .opacity : launcherMotion.incomingTransition(width: proxy.size.width))
                         .zIndex(2)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height)
@@ -203,7 +207,7 @@ struct HomeView: View {
             shell.showLauncher()
             integration?.openClassicApp()
         } else {
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+            withAnimation(reduceMotion ? nil : launcherMotion.animation) {
                 _ = shell.open(app.id, catalog: catalog)
             }
         }

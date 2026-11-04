@@ -42,4 +42,27 @@ enum ClockLauncherMotion: String {
         case .dissolve: 1
         }
     }
+    /// App entry uses the same incoming surface as the launcher; removal reverses it.
+    func incomingTransition(width: CGFloat) -> AnyTransition {
+        .modifier(
+            active: LauncherSurfaceMotion(motion: self, progress: 0, width: width, incoming: true),
+            identity: LauncherSurfaceMotion(motion: self, progress: 1, width: width, incoming: true)
+        )
+    }
+}
+
+/// Shared geometry for the clock → launcher and launcher → app surface handoff.
+struct LauncherSurfaceMotion: ViewModifier {
+    let motion: ClockLauncherMotion
+    let progress: CGFloat
+    let width: CGFloat
+    let incoming: Bool
+    var reduceMotion = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(reduceMotion ? 1 : incoming ? motion.launcherScale(progress) : motion.clockScale(progress))
+            .offset(x: reduceMotion ? 0 : incoming ? motion.launcherOffset(progress, width: width) : motion.clockOffset(progress, width: width))
+            .opacity(motion == .reveal && !reduceMotion ? 1 : Double(incoming ? progress : 1 - progress))
+    }
 }
