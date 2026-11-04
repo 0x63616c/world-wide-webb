@@ -91,7 +91,7 @@ struct GreenClockDial: View {
                     Text(fixtureTime(date, format: "EEE d").uppercased())
                         .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
                         .foregroundStyle(ink).fixedSize()
-                        .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
+                        .frame(width: face.width - 2 * layout.inset, alignment: .leading)
                         .position(x: face.midX, y: face.minY + face.height * 0.915)
                     hands(layout, hours: hours, minutes: minutes, seconds: seconds)
                 }

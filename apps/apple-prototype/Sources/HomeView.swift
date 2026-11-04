@@ -116,7 +116,7 @@ struct HomeView: View {
                     .environment(\.motionPhase, showingClock ? inheritedMotionPhase : 0)
                     .clipShape(.rect(cornerRadius: 44))
                     .scaleEffect(reduceMotion ? 1 : launcherMotion.clockScale(progress))
-                    .offset(y: reduceMotion ? 0 : launcherMotion.clockOffset(progress, height: proxy.size.height))
+                    .offset(x: reduceMotion ? 0 : launcherMotion.clockOffset(progress, width: proxy.size.width))
                     .opacity(reduceMotion ? Double(1 - progress) : launcherMotion.clockOpacity(progress))
                     .allowsHitTesting(showingClock).accessibilityHidden(!showingClock)
                     .overlay(alignment: .bottom) {

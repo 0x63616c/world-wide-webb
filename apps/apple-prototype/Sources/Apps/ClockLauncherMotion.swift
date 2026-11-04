@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Three real SwiftUI candidates for the clock/launcher review. The production
-/// default follows the finger; preview overrides are process-local, never saved.
+/// default slides the clock left; preview overrides are process-local, never saved.
 enum ClockLauncherMotion: String {
     case reveal, depth, dissolve
     static var current: Self {
@@ -19,8 +19,8 @@ enum ClockLauncherMotion: String {
         case .dissolve: .easeInOut(duration: 0.32)
         }
     }
-    func clockOffset(_ progress: CGFloat, height: CGFloat) -> CGFloat {
-        self == .reveal ? -progress * (height + 24) : 0
+    func clockOffset(_ progress: CGFloat, width: CGFloat) -> CGFloat {
+        self == .reveal ? -progress * (width + 24) : 0
     }
     func clockScale(_ progress: CGFloat) -> CGFloat {
         self == .depth ? 1 + progress * 0.06 : 1

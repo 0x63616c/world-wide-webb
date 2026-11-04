@@ -26,9 +26,9 @@ the existing client-side soft-lock policy (ADR-0004), not a new authentication s
 
 ## Clock motion review
 
-The clock has digital time at the upper right and the date at the lower right,
+The clock has digital time at the upper right and the date at the lower left,
 using the same day/night ink. `ClockLauncherMotion` owns the transition separately
-from app navigation. Reveal follows the finger and settles with a small spring;
+from app navigation. Reveal slides the clock left and settles with a small spring;
 Depth and Dissolve are comparison candidates selected only through debug launch
 argument `-launcherTransition reveal|depth|dissolve`. Reduce Motion removes spatial movement.
 Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
