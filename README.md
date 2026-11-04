@@ -63,6 +63,7 @@ by billing; public CLI checks do not substitute for private host checks.
 
 - [Setup and adding a host](docs/setup.md)
 - [CLI separation plan](docs/cli-extraction-plan.md)
+- [Disposable VM validation](docs/vm-validation.md)
 - [Current-state research](docs/current-state.md)
 - [Migration plan](docs/plan.md) · [Implementation status](docs/implementation-status.md)
 - [Secrets](docs/secrets.md) · [Updates](docs/updates.md) · [Operations](docs/operations.md)
