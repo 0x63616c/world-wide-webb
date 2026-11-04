@@ -37,7 +37,13 @@ struct WaveformLegend: View {
         HStack(spacing: 7) {
             Circle().fill(isEnabled ? color : Color.secondary.opacity(0.35)).frame(width: 6, height: 6)
             Text(label).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-                .strikethrough(!isEnabled)
+                .overlay(alignment: .center) {
+                    if !isEnabled {
+                        // Share the dot's centerline rather than the font's strike-through metric.
+                        Rectangle().fill(.secondary).frame(height: 1)
+                            .allowsHitTesting(false)
+                    }
+                }
         }.opacity(isEnabled ? 1 : 0.5)
     }
 }
