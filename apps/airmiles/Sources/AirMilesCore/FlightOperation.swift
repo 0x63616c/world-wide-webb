@@ -6,6 +6,10 @@ public struct FlightEnrichment: Codable, Sendable {
     public let retrievedAt: String
     public let latestMonth: String
     public let records: [String: FlightOperation]
+    /// Independently sourced ADS-B observations; never substitute for gate clocks.
+    public let observations: [String: FlightObservation]?
+    public let bookings: [String: FlightBooking]?
+    public let reviewNotes: [String: String]?
 
     public static func load(_ data: Data) throws -> Self {
         let document = try JSONDecoder().decode(Self.self, from: data)
@@ -16,6 +20,34 @@ public struct FlightEnrichment: Codable, Sendable {
     }
 
     public func operation(for flight: Flight) -> FlightOperation? { records[flight.enrichmentKey] }
+    public func observation(for flight: Flight) -> FlightObservation? { observations?[flight.enrichmentKey] }
+    public func booking(for flight: Flight) -> FlightBooking? { bookings?[flight.enrichmentKey] }
+    public func reviewNote(for flight: Flight) -> String? { reviewNotes?[flight.enrichmentKey] }
+}
+
+/// What the airline confirmation said; seats/equipment can change before flying.
+public struct FlightBooking: Codable, Sendable {
+    public let source: String
+    public let sent: String
+    public let scheduledDeparture: String?
+    public let scheduledArrival: String?
+    public let scheduledArrivalDate: String?
+    public let bookedSeat: String?
+    public let bookedCabin: String?
+    public let bookedFare: String?
+    public let bookedAircraft: String?
+    public let departureTerminal: String?
+}
+
+public struct FlightObservation: Codable, Sendable {
+    public let source: String
+    public let sourceURL: String
+    public let callsign: String
+    public let icao24: String
+    public let tailNumber: String?
+    public let aircraftType: String?
+    public let firstSeenUTC: String
+    public let lastSeenUTC: String
 }
 
 extension Flight {
@@ -38,6 +70,10 @@ public struct FlightOperation: Codable, Sendable {
     public let arrivalDelay: Int?
     public let elapsedMinutes: Int?
     public let airborneMinutes: Int?
+    public let wheelsOff: String?
+    public let wheelsOn: String?
+    public let taxiOutMinutes: Int?
+    public let taxiInMinutes: Int?
     public let cancelled: Bool
     public let diverted: Bool
 

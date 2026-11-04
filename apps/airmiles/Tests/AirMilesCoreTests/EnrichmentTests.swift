@@ -31,4 +31,15 @@ final class EnrichmentTests: XCTestCase {
             XCTAssertEqual(operation.arrivalSummary, field == "cancelled" ? "Cancelled" : "Diverted")
         }
     }
+
+    func testTrackingAndBookingsNeverBecomeActualGateTimes() throws {
+        let flight = try XCTUnwrap(FlightCSV.parse("date,airline,flight,from,to,miles,confidence\n2024-01-02,Example Air,EX1,LAX,SFO,337,H").first)
+        let key = flight.enrichmentKey
+        let json = #"{"version":1,"retrievedAt":"2026-11-04","latestMonth":"2026-08","records":{},"observations":{"KEY":{"source":"Sample","sourceURL":"https://example.com","callsign":"EXAMPLE1","icao24":"000000","tailNumber":"N000EX","aircraftType":"B789","firstSeenUTC":"2024-01-02T12:00:00Z","lastSeenUTC":"2024-01-02T13:00:00Z"}},"bookings":{"KEY":{"source":"Sample","sent":"2023-12-01","scheduledDeparture":"03:50","bookedSeat":"24A"}},"reviewNotes":{"KEY":"Date still uncertain"}}"#.replacingOccurrences(of: "KEY", with: key)
+        let enrichment = try FlightEnrichment.load(Data(json.utf8))
+        XCTAssertNil(enrichment.operation(for: flight))
+        XCTAssertEqual(enrichment.observation(for: flight)?.aircraftType, "B789")
+        XCTAssertEqual(enrichment.booking(for: flight)?.bookedSeat, "24A")
+        XCTAssertEqual(enrichment.reviewNote(for: flight), "Date still uncertain")
+    }
 }

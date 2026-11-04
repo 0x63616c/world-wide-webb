@@ -56,14 +56,22 @@ def operation(row, source):
               "operatingFlightNumber": row["Flight_Number_Operating_Airline"],
               "tailNumber": row["Tail_Number"].strip() or None}
     for name, field in {"scheduledDeparture": "CRSDepTime", "actualDeparture": "DepTime",
-                        "scheduledArrival": "CRSArrTime", "actualArrival": "ArrTime"}.items():
-        result[name] = clock(row[field])
+                        "scheduledArrival": "CRSArrTime", "actualArrival": "ArrTime",
+                        "wheelsOff": "WheelsOff", "wheelsOn": "WheelsOn"}.items():
+        result[name] = clock(row.get(field, ""))
     for name, field in {"departureDelay": "DepDelay", "arrivalDelay": "ArrDelay",
-                        "elapsedMinutes": "ActualElapsedTime", "airborneMinutes": "AirTime"}.items():
-        result[name] = integer(row[field])
+                        "elapsedMinutes": "ActualElapsedTime", "airborneMinutes": "AirTime",
+                        "taxiOutMinutes": "TaxiOut", "taxiInMinutes": "TaxiIn",
+                        "carrierDelayMinutes": "CarrierDelay", "weatherDelayMinutes": "WeatherDelay",
+                        "airspaceDelayMinutes": "NASDelay", "securityDelayMinutes": "SecurityDelay",
+                        "lateAircraftDelayMinutes": "LateAircraftDelay"}.items():
+        result[name] = integer(row.get(field, ""))
     # A diverted arrival clock can describe another airport; never imply arrival at the booked destination.
     if result["cancelled"] or result["diverted"]:
-        for field in ("actualArrival", "arrivalDelay", "elapsedMinutes", "airborneMinutes"):
+        for field in ("actualArrival", "arrivalDelay", "elapsedMinutes", "airborneMinutes", "wheelsOn", "taxiInMinutes"):
+            result[field] = None
+    if result["cancelled"]:
+        for field in ("actualDeparture", "departureDelay", "wheelsOff", "taxiOutMinutes"):
             result[field] = None
     return result
 

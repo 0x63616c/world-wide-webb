@@ -46,6 +46,16 @@ class BTSMatchingTests(unittest.TestCase):
             self.assertIsNone(data["actualArrival"])
             self.assertIsNone(data["arrivalDelay"])
             self.assertIsNone(data["elapsedMinutes"])
+            self.assertIsNone(data["wheelsOn"])
+
+    def test_taxi_zero_is_reported_but_blank_is_missing(self):
+        data = enrich.operation(self.row(TaxiOut="0.00", TaxiIn="", WheelsOff="0030", WheelsOn="0100"), "x")
+        self.assertEqual(data["taxiOutMinutes"], 0)
+        self.assertIsNone(data["taxiInMinutes"])
+        self.assertEqual(data["wheelsOff"], "00:30")
+        cancelled = enrich.operation(self.row(Cancelled="1.00", WheelsOff="0030", TaxiOut="12.00"), "x")
+        self.assertIsNone(cancelled["actualDeparture"])
+        self.assertIsNone(cancelled["wheelsOff"])
 
     def test_exact_key_and_duplicate_rows(self):
         target = ("2024-01-02", "UA", "123", "LAX", "SFO")
