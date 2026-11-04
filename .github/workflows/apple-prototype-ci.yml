@@ -46,7 +46,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.suites != '[]'
     name: Apple / ${{ matrix.suite }}
-    runs-on: macos-26
+    # Use the Intel pool while GitHub ARM runners are capacity constrained.
+    runs-on: macos-26-intel
     timeout-minutes: 40
     strategy:
       fail-fast: false
