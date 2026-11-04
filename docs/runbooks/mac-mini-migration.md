@@ -645,5 +645,32 @@ installed 04:15 backup agent's last exit code was zero, with two runs and two
 local `NAS_VERIFIED` sets. Both runs were manual; the first calendar-triggered
 run is still pending. Release and compatible recovery remain covered by the
 migration's live exercises plus the retained hermetic deployment/recovery tests.
-Physical panel behavior and HA password-login verification require direct user
-verification; the existing 51-photo gap remains a separate recovery issue.
+Calum subsequently confirmed that the physical panel and normal HA password
+login both work. The existing 51-photo gap remains a separate recovery issue.
+
+### Cleanup deployed and user checks confirmed — 2026-11-03
+
+PR [#894](https://github.com/0x63616c/world-wide-webb/pull/894) merged as
+`3368a603cd162caac37e558f4fe88bcafe115b37`. Main CI
+[41754172391](https://github.com/0x63616c/world-wide-webb/actions/runs/41754172391)
+and the mini release
+[41754533459](https://github.com/0x63616c/world-wide-webb/actions/runs/41754533459)
+passed. A follow-up live check on November 3 reported that exact revision and
+healthy app, PostgreSQL, Bambuddy and Bambu Studio containers; HA returned HTTP
+200. The deployed image no longer contains `apps/manage`.
+
+Cloudflare applied the ingress update and six Manage/Grafana resource deletions.
+The post-deploy preview reported 14 unchanged resources. Only app, HA and DSM
+remain in this project's edge summary and retain their Access redirects. A
+zone-wide wildcard DNS record outside this project still resolves other
+subdomains, including the retired hostnames; deleting their named records does
+not make those names NXDOMAIN. Their project-owned ingress and Access apps are
+gone. The wildcard is retained because its other consumers are not established.
+
+Calum confirmed the physical panel and HA password login work. The remaining
+migration verification gate is the first calendar-triggered NAS backup, due
+2026-11-04 at 04:15 PST. At 18:27 PST on November 3, launchd still reported two
+runs, last exit zero, and two manual `NAS_VERIFIED` sets. Neither manual run
+proves the calendar trigger. Preserve the Talos disks and recovery archives
+while that gate remains open; the 51-photo investigation and uncertain external
+credential consumers remain separately tracked above.
