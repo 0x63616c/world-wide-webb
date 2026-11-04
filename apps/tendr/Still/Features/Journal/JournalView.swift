@@ -46,7 +46,7 @@ struct JournalView: View {
                     if entries.isEmpty { ContentUnavailableView("No entries yet", systemImage: "book.closed", description: Text("Your doses and weights appear here.")) }
                 }
                 .scrollContentBackground(.hidden)
-            }.tendrReadableWidth().background(Theme.background).toolbar(.hidden, for: .navigationBar)
+            }.tendrReadableWidth().background(Theme.background).tendrRootNavigationBar()
                 .sheet(isPresented: Binding(get: { adding != nil }, set: { if !$0 { adding = nil } })) {
                     if adding == "Weight" { WeightEditor().tendrSheet() } else { DoseEditor().tendrSheet() }
                 }
@@ -176,7 +176,7 @@ struct SettingsView: View {
                         NavigationLink { PrivacyView() } label: { Label("Privacy & About", systemImage: "lock.shield") }
                     } footer: { RVersionFooter("Tendr") }
                 }.scrollContentBackground(.hidden)
-            }.tendrReadableWidth().background(Theme.background).toolbar(.hidden, for: .navigationBar)
+            }.tendrReadableWidth().background(Theme.background).tendrRootNavigationBar()
                 .task {
                     await tipJar.load()
                     let arguments = ProcessInfo.processInfo.arguments
@@ -216,7 +216,7 @@ struct TreatmentEditor: View {
                 if model == .halfLife { Section { Stepper("\(number(halfLife)) days", value: $halfLife, in: 0.5...30, step: 0.5) } header: { Text("Model half-life") } footer: { Text("Used only for the estimate graph. Your dose and schedule are set separately.") } }
                 if FeatureFlags.syringeUnits { Section { Toggle("I use a U-100 syringe", isOn: $u100) } header: { Text("Dose entry") } footer: { Text("U-100 means 100 units per mL. Check the marking on your syringe.") } }
             }.navigationTitle("Treatment").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Save") { var next = store.journal; next.medication = medication.trimmingCharacters(in: .whitespacesAndNewlines); next.halfLifeDays = halfLife; next.medicationModel = model; if FeatureFlags.syringeUnits { next.syringeUnitsPerML = u100 ? 100 : nil }; if store.commit(next) { dismiss() } }.disabled(medication.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Save", systemImage: "checkmark") { var next = store.journal; next.medication = medication.trimmingCharacters(in: .whitespacesAndNewlines); next.halfLifeDays = halfLife; next.medicationModel = model; if FeatureFlags.syringeUnits { next.syringeUnitsPerML = u100 ? 100 : nil }; if store.commit(next) { dismiss() } }.disabled(medication.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }
                 .onAppear { guard !initialized else { return }; initialized = true; medication = store.journal.medication; halfLife = store.journal.halfLifeDays; model = store.journal.resolvedMedicationModel; u100 = store.journal.syringeUnitsPerML == 100 }
         }
     }

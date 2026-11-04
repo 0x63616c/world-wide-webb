@@ -40,7 +40,7 @@ The Swift package tests cover calculations, validation, local calendar schedulin
 
 ## Adaptive windows and Duo captures
 
-Compact windows retain the five tabs. Regular-width windows show the same sections in a sidebar; navigation, filters and editor drafts stay in the same view hierarchy during resize. Portrait and landscape are enabled.
+Compact windows retain the five tabs. On supported systems, adaptive system navigation presents those same sections in a sidebar when space permits; navigation, filters and editor drafts stay in the same view hierarchy during resize. Portrait and landscape are enabled.
 
 From the repository root on macOS with the Duo simulator installed:
 

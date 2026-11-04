@@ -4,11 +4,17 @@ import SwiftUI
 struct TreatmentView: View {
     @Binding var tab: Int
     @Binding var journalFilter: String
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(Store.self) private var store
     @State private var editing = false
     @State private var schedule = false
     @State private var addVial = false
     @State private var selectedVial: Vial?
+    private var summaryLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+    }
     var cadenceSummary: String? {
         let schedule = store.journal.schedule
         switch schedule.cadence {
@@ -46,18 +52,18 @@ struct TreatmentView: View {
                             case .weekdays:
                                 HStack(spacing: 0) {
                                     ForEach([2,3,4,5,6,7,1], id: \.self) { day in
-                                        Text(String(Calendar.current.shortWeekdaySymbols[day-1].prefix(1))).font(.caption.weight(.semibold)).frame(maxWidth: .infinity).frame(height: 36).background(store.journal.schedule.weekdays.contains(day) ? Theme.pine : Color.clear, in: Circle()).foregroundStyle(store.journal.schedule.weekdays.contains(day) ? Theme.background : Color.secondary)
+                                        Text(String(Calendar.current.shortWeekdaySymbols[day-1].prefix(1))).font(.caption.weight(.semibold)).frame(maxWidth: .infinity).frame(minHeight: 36).background(store.journal.schedule.weekdays.contains(day) ? Theme.pine : Color.clear, in: Circle()).foregroundStyle(store.journal.schedule.weekdays.contains(day) ? Theme.background : Color.secondary)
                                     }
                                 }
                             case .interval, .custom:
                                 UpcomingDoseDates(dates: store.journal.schedule.occurrences(after: Date(), count: 4))
                             }
-                            // Cadence on the left, reminder state on the right, so the summary stays one line.
-                            HStack(alignment: .firstTextBaseline) {
+                            // Stack summaries at accessibility sizes instead of compressing them.
+                            summaryLayout {
                                 if let summary = cadenceSummary {
                                     Text(summary).font(.caption).foregroundStyle(.secondary)
                                 }
-                                Spacer(minLength: 8)
+                                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
                                 Label(reminderSummary, systemImage: store.journal.schedule.enabled && store.journal.schedule.cadence != .none ? "bell" : "bell.slash")
                                     .font(.caption).foregroundStyle(.secondary).layoutPriority(1)
                             }
@@ -91,7 +97,7 @@ struct TreatmentView: View {
                             .accessibilityHint("Opens Journal with Doses selected")
                     }
                 }.padding(.horizontal, 16).padding(.bottom, 24).tendrReadableWidth()
-            }.background(Theme.background).toolbar(.hidden, for: .navigationBar)
+            }.background(Theme.background).tendrRootNavigationBar()
                 .sheet(isPresented: $editing) { TreatmentEditor().tendrSheet() }
                 .sheet(isPresented: $schedule) { ScheduleEditor().tendrSheet() }
                 .sheet(isPresented: $addVial) { VialEditor().tendrSheet() }

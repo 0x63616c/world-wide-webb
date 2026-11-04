@@ -31,20 +31,24 @@ struct WeightEditor: View {
                         DisclosureGroup("Note", isExpanded: $noteExpanded) { TextField("Tap to add a note…", text: $note, axis: .vertical).lineLimit(2...5).accessibilityIdentifier("noteField") }
                     }.card()
                     if let localError { Text(localError).font(.footnote).foregroundStyle(Theme.pine) }
-                    Button {
-                        guard let kilograms, valid else { return }
-                        var updated = WeightEntry(date: date, kilograms: kilograms, note: note)
-                        if let entry { updated.id = entry.id }
-                        if store.save(weight: updated) { dismiss() } else { localError = store.error; store.error = nil }
-                    } label: { Text("Save Weight").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 10) }.buttonStyle(.borderedProminent).disabled(!valid).accessibilityIdentifier("saveWeight")
                 }.padding(20)
             }.scrollDismissesKeyboard(.interactively).background(Theme.background).navigationTitle(entry == nil ? "Add Weight" : "Edit Weight").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save Weight", systemImage: "checkmark") { save() }
+                            .disabled(!valid).accessibilityIdentifier("saveWeight")
+                    }
                     if let entry { ToolbarItem(placement: .topBarTrailing) { DeleteEntryButton { store.delete(weight: entry) } } }
                 }
                 .onAppear { guard !initialized else { return }; initialized = true; unit = store.journal.unit; if let entry { amount = unit.display(entry.kilograms).formatted(.number.grouping(.never).precision(.fractionLength(0...8))); date = entry.date; note = entry.note }; noteExpanded = !note.isEmpty }
         }
+    }
+    private func save() {
+        guard let kilograms, valid else { return }
+        var updated = WeightEntry(date: date, kilograms: kilograms, note: note)
+        if let entry { updated.id = entry.id }
+        if store.save(weight: updated) { dismiss() } else { localError = store.error; store.error = nil }
     }
 }
 struct DoseEditor: View {
@@ -136,13 +140,14 @@ struct DoseEditor: View {
                         DisclosureGroup("Note", isExpanded: $noteExpanded) { TextField("Tap to add a note…", text: $note, axis: .vertical).lineLimit(2...5).accessibilityIdentifier("noteField") }
                     }.card()
                     if let localError { Text(localError).font(.footnote).foregroundStyle(Theme.pine) }
-
                 }.padding(20)
-            }.safeAreaInset(edge: .bottom) {
-                Button { save() } label: { Text(entry == nil ? "Save Dose" : status == .skipped ? "Save" : status == .planned ? "Save" : "Save Dose").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 9) }.buttonStyle(.borderedProminent).disabled(milligrams == nil).accessibilityIdentifier("saveDose").padding(.horizontal, 20).padding(.vertical, 10).background(.bar)
             }.scrollDismissesKeyboard(.interactively).background(Theme.background).navigationTitle(entry == nil ? "Log Dose" : "Edit Dose").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(entry == nil || status == .taken ? "Save Dose" : "Save", systemImage: "checkmark") { save() }
+                            .disabled(milligrams == nil).accessibilityIdentifier("saveDose")
+                    }
                     if let entry { ToolbarItem(placement: .topBarTrailing) { DeleteEntryButton { store.delete(dose: entry) } } }
                 }
                 .sheet(isPresented: $preferences, onDismiss: { confirmedU100 = store.journal.syringeUnitsPerML == 100 }) { DosePreferencesEditor().tendrSheet() }
@@ -288,8 +293,8 @@ struct ScheduleEditor: View {
                 }
             }.navigationTitle("Your schedule").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Save") { save() }.disabled(!canSave) }
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) { Button("Save", systemImage: "checkmark") { save() }.disabled(!canSave) }
                 }
                 .alert("Clear your schedule?", isPresented: $clearing) {
                     Button("Cancel", role: .cancel) {}
@@ -330,7 +335,7 @@ struct DeleteEntryButton: View {
     @State private var confirming = false
     let delete: () -> Bool
     var body: some View {
-        Button(role: .destructive) { confirming = true } label: { Image(systemName: "trash") }
+        Button(role: .destructive) { confirming = true } label: { Label("Delete entry", systemImage: "trash") }
             .accessibilityLabel("Delete entry")
             .alert("Delete this entry?", isPresented: $confirming) {
                 Button("Cancel", role: .cancel) {}
@@ -356,8 +361,8 @@ struct DosePreferencesEditor: View {
                 } header: { Text("Syringe") } footer: { Text("Check your syringe marking. U-100 means 100 units per mL.") }
             }.navigationTitle("Dose entry").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Save") {
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) { Button("Save", systemImage: "checkmark") {
                         var next = store.journal; next.doseInputUnit = unit; next.syringeUnitsPerML = u100 ? 100 : nil
                         if store.commit(next) { dismiss() }
                     } }

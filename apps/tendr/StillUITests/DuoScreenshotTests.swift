@@ -18,32 +18,44 @@ final class DuoScreenshotTests: XCTestCase {
         let app = launchFixture()
         assertPhoneTabs(in: app, checkpoint: "launch")
 
-        XCUIDevice.shared.press(.home)
-        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+        // Hardware Home targets the primary screen. Keep the background check
+        // on single-screen phones; Duo's inner-display lifecycle needs a host check.
+        if XCUIScreen.screens.count == 1 {
+            XCUIDevice.shared.press(.home)
+            waitUntil("Home must background the app") {
+                app.state == .runningBackground || app.state == .runningBackgroundSuspended
+            }
+        }
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         assertPhoneTabs(in: app, checkpoint: "reactivation")
 
         for section in ["Treatment", "Progress", "Journal", "Settings", "Home"] {
-            app.tabBars.buttons[section].tap()
-            XCTAssertTrue(app.tabBars.buttons[section].isSelected)
+            select(section, in: app)
+            let title = section == "Home" ? "Tendr" : section
+            XCTAssertTrue(app.staticTexts["pageHeader-\(title)"].waitForExistence(timeout: 5))
             assertPhoneTabs(in: app, checkpoint: "selected \(section)")
         }
     }
 
     @MainActor private func assertPhoneTabs(in app: XCUIApplication, checkpoint: String) {
         for section in ["Home", "Treatment", "Progress", "Journal", "Settings"] {
-            let button = app.tabBars.buttons[section]
-            XCTAssertTrue(button.waitForExistence(timeout: 5), "Missing \(section) at \(checkpoint)")
+            let identified = app.descendants(matching: .any).matching(identifier: "nav\(section)")
+            waitUntil("Missing \(section) at \(checkpoint)") {
+                identified.allElementsBoundByIndex.contains { $0.isHittable } || app.tabBars.buttons[section].isHittable
+            }
+            let button = identified.allElementsBoundByIndex.first { $0.isHittable } ?? app.tabBars.buttons[section]
             XCTAssertEqual(button.label, section)
             XCTAssertTrue(button.isHittable, "Unreachable \(section) at \(checkpoint)")
         }
         // Accessibility titles can survive a missing rendered title. Keep visual
         // evidence as well; these assertions alone cannot prove glyph visibility.
-        let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = "APP-3 tab labels: \(checkpoint)"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        for (index, screen) in XCUIScreen.screens.enumerated() {
+            let attachment = XCTAttachment(screenshot: screen.screenshot())
+            attachment.name = "APP-3 tab labels: \(checkpoint), screen \(index)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
     }
 
     @MainActor func testMainScreens() throws {
@@ -95,6 +107,75 @@ final class DuoScreenshotTests: XCTestCase {
         }
     }
 
+    @MainActor func testEditorActionsSurviveCompactHeight() throws {
+        continueAfterFailure = false
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = launchFixture()
+        app.buttons["logDose"].tap()
+        let amount = app.textFields["doseAmount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+        amount.tap()
+        amount.typeText("7.5")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        waitUntil("Editor must resize into a short window") {
+            let frame = app.windows.firstMatch.frame
+            return frame.width > frame.height
+        }
+        XCTAssertEqual(amount.value as? String, "7.5")
+        XCTAssertTrue(app.buttons["saveDose"].isHittable)
+        XCTAssertTrue(app.buttons["Cancel"].isHittable)
+        try snap("landscape-editor-actions")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor func testAccessibilitySizeKeepsSectionsReachable() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--screenshots", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
+        try snap("accessibility-home")
+        for section in ["Treatment", "Progress", "Journal", "Settings"] {
+            select(section, in: app)
+            XCTAssertTrue(app.staticTexts["pageHeader-\(section)"].waitForExistence(timeout: 5))
+            try snap("accessibility-\(section.lowercased())")
+        }
+    }
+
+    /// Run on the open Duo display. Compact-only runs retain the tab regression below.
+    @MainActor func testSystemSidebarNavigation() throws {
+        continueAfterFailure = false
+        let app = launchFixture()
+        let toggle = app.buttons["ToggleSidebar"]
+        let initialControl = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "sidebar"))
+            .allElementsBoundByIndex.first { $0.isHittable }
+        try XCTSkipUnless(initialControl != nil, "This check requires an open, regular-width display")
+        if !toggle.isHittable { initialControl?.tap() }
+        assertNavigation(for: "inner", in: app)
+        try snap("system-sidebar-home")
+        toggle.tap()
+        waitUntil("System sidebar hides") { !app.descendants(matching: .any)["navJournal"].firstMatch.isHittable }
+        let restore = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "sidebar")).allElementsBoundByIndex.first { $0.isHittable }
+        XCTAssertNotNil(restore, "System restore control remains reachable")
+        restore?.tap()
+        assertNavigation(for: "inner", in: app)
+        for section in ["Treatment", "Progress", "Journal", "Settings"] {
+            select(section, in: app)
+            XCTAssertTrue(app.staticTexts["pageHeader-\(section)"].waitForExistence(timeout: 5))
+        }
+        select("Home", in: app)
+        app.buttons["logDose"].tap()
+        let amount = app.textFields["doseAmount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+        amount.tap()
+        amount.typeText("7.5")
+        XCTAssertTrue(app.buttons["saveDose"].isHittable)
+        try snap("system-sidebar-dose-draft")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 5))
+    }
+
     @MainActor func testLiveFoldPreservesNavigationAndDraft() throws {
         continueAfterFailure = false
         try XCTSkipUnless(canFold, "simctl does not expose a supported live-fold control; see capture-notes.txt")
@@ -104,11 +185,12 @@ final class DuoScreenshotTests: XCTestCase {
         let app = launchFixture()
         assertNavigation(for: "inner", in: app)
         // Section navigation must remain recoverable after hiding the sidebar.
-        let toggle = app.buttons["toggleSidebar"]
+        let toggle = app.buttons["ToggleSidebar"]
         toggle.tap()
-        waitUntil("Sidebar can be hidden") { toggle.label == "Show sidebar" }
-        XCTAssertTrue(toggle.isHittable)
-        toggle.tap()
+        waitUntil("Sidebar can be hidden") { !app.descendants(matching: .any)["navJournal"].firstMatch.isHittable }
+        let restore = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "sidebar")).allElementsBoundByIndex.first { $0.isHittable }
+        XCTAssertNotNil(restore)
+        restore?.tap()
         assertNavigation(for: "inner", in: app)
         select("Journal", in: app)
         app.buttons["Doses"].tap()
@@ -135,7 +217,8 @@ final class DuoScreenshotTests: XCTestCase {
         select("Journal", in: app)
         XCTAssertTrue(app.buttons["Doses"].isSelected, "Journal filter survives folding and section changes")
         select("Home", in: app)
-        let back = app.navigationBars["Medication"].buttons["Back"]
+        let systemBack = app.descendants(matching: .any)["BackButton"].firstMatch
+        let back = systemBack.exists ? systemBack : app.navigationBars["Medication"].buttons["Back"]
         XCTAssertTrue(back.waitForExistence(timeout: 5))
         back.tap()
         XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 5))
@@ -167,7 +250,7 @@ final class DuoScreenshotTests: XCTestCase {
     }
 
     @MainActor private func select(_ section: String, in app: XCUIApplication) {
-        let identified = app.buttons.matching(identifier: "nav\(section)")
+        let identified = app.descendants(matching: .any).matching(identifier: "nav\(section)")
         if let button = identified.allElementsBoundByIndex.first(where: { $0.isHittable }) {
             button.tap()
         } else {
@@ -178,14 +261,13 @@ final class DuoScreenshotTests: XCTestCase {
     }
 
     @MainActor private func assertNavigation(for pose: String, in app: XCUIApplication) {
-        let tab = app.tabBars.buttons["Home"]
-        let sidebarHome = app.descendants(matching: .any)["sectionSidebar"].buttons["navHome"]
+        let home = app.descendants(matching: .any)["navHome"].firstMatch
+        let sidebarToggle = app.buttons["ToggleSidebar"]
+        waitUntil("Home navigation must remain reachable") { home.isHittable }
         if pose == "inner" {
-            waitUntil("Inner display must expose the regular-width sidebar") { sidebarHome.isHittable }
-            XCTAssertFalse(tab.isHittable, "Regular width must hide the compact tab bar")
+            XCTAssertTrue(sidebarToggle.isHittable, "Inner display exposes the native sidebar")
         } else {
-            waitUntil("Outer display must expose the compact tab bar") { tab.isHittable }
-            XCTAssertFalse(sidebarHome.isHittable, "Compact width must stay in the detail column")
+            XCTAssertFalse(sidebarToggle.isHittable, "Outer display uses system tabs, which may be vertical")
         }
     }
 
@@ -197,18 +279,23 @@ final class DuoScreenshotTests: XCTestCase {
 
     @MainActor private func snap(_ name: String) throws {
         Thread.sleep(forTimeInterval: 1.5)
-        let shot = XCUIScreen.main.screenshot()
-        let attachment = XCTAttachment(screenshot: shot)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        // App-window screenshots can crop incorrectly during rotation. Capture
+        // every active screen instead; the host maps named Duo displays separately.
+        for (index, screen) in XCUIScreen.screens.enumerated() {
+            let shot = screen.screenshot()
+            let suffix = index == 0 ? "" : "-screen\(index)"
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = name + suffix
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            if controlDirectory == nil, let directory = ProcessInfo.processInfo.environment["SCREENSHOT_DIR"] {
+                let url = URL(fileURLWithPath: directory, isDirectory: true)
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                try shot.pngRepresentation.write(to: url.appendingPathComponent("default-\(name)\(suffix).png"))
+            }
+        }
         if controlDirectory != nil {
-            // The test waits while the host captures the active or named displays.
             try request("capture", name: name)
-        } else if let directory = ProcessInfo.processInfo.environment["SCREENSHOT_DIR"] {
-            let url = URL(fileURLWithPath: directory, isDirectory: true)
-            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-            try shot.pngRepresentation.write(to: url.appendingPathComponent("default-\(name).png"))
         }
     }
 

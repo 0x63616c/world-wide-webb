@@ -4,7 +4,9 @@ Source version: **1.1.0 (29)**. Native compilation, live resizing and actual Duo
 
 ## Layout
 
-`TendrLayout` uses current horizontal and vertical size classes. Compact width retains the five tabs; regular width exposes those same sections in a sibling sidebar beside the tab host. A detail control can hide or restore the sidebar even when a section hides its navigation bar. Each section retains its own destination back navigation. The tab host and section navigation stacks keep their structural identity across trait changes; the tab controller is never nested in a collapsing split-view detail column. The same selection drives both navigation controls. Editors load their initial values once so a presentation adaptation cannot overwrite an unsaved draft.
+Tendr uses one system `TabView` and retains each section's `NavigationStack` during resize. On iOS 27+, `.sidebarAdaptable` with `.defaultTabBarPlacement(.sidebar)` lets the system provide the sidebar, collapse control, compact tabs and safe-area adaptation. iOS 18–26 use the earlier adaptable placement API; iOS 17 retains standard tabs. There is no fixed-width custom sidebar or separate collapse toolbar. Section roots keep system navigation bars visible in regular-width windows so the system restore-sidebar button stays reachable after collapse. The same selection drives both system presentations. Editors load their initial values once so a presentation adaptation cannot overwrite an unsaved draft.
+
+This follows Apple's [Preparing your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo) and [Prepare your app for iPhone Duo](https://developer.apple.com/videos/play/tech-talks/111461/) guidance: standard navigation containers, window-relative layouts, size classes rather than device/orientation checks, asymmetric safe areas, and testing open, closed, partially folded and Split View configurations. `TendrLayout` controls readable content width and graph height, not the system's navigation placement.
 
 Regular content is centered with a 760-point maximum, including the weight graph; chart labels keep normal font sizes and a small automatic tick count. The graph grows in regular height and shrinks in compact height. All orientations are supported. Forms and scroll views retain keyboard avoidance; the disclaimer and tip thank-you also scroll in short windows. Sheets use system form/page sizing on iOS 18+, with an iOS 17 fallback, and full-screen adaptation in compact height.
 
@@ -12,7 +14,16 @@ Medication chart selections survive folding. Explicitly switching away from Home
 
 RDesign surfaces use [ConcentricRectangle](https://developer.apple.com/documentation/swiftui/concentricrectangle) on iOS/macOS 26+, retaining the existing minimum corner radius and exposing the container shape to nested cards. Earlier systems retain rounded rectangles.
 
-The source audit found no device-idiom checks, orientation-based layout decisions, specific-screen-size comparisons or `UIScreen.main` calls. Remaining fixed widths are glyphs, touch targets, a compact vial illustration and a bounded information popover. There is no full-bleed photo/video/hero content; the shared app mark already uses aspect fit. `XCUIScreen.main` and `XCUIDevice` in UI tests capture and rotate the simulator; they do not choose app layouts.
+The source audit found no device-idiom checks, orientation-based layout decisions, specific-screen-size comparisons or `UIScreen.main` calls. Remaining fixed widths are glyphs, touch targets, a compact vial illustration and a bounded information popover. There is no full-bleed photo/video/hero content; the shared app mark already uses aspect fit. UI test attachments capture every active `XCUIScreen` rather than assuming `.main` is the active display or cropping a rotated app window; `XCUIDevice` controls test rotation, not app layout.
+
+## Review improvements
+
+- Native tab/sidebar placement replaces the fixed-width sidebar and custom collapse strip. Root navigation bars remain available in regular-width windows for the system restore control; navigation state is owned by the same tab host.
+- Editors use system confirmation and cancellation toolbar placements with titles and symbols. Dose and weight saves no longer depend on a full-width bottom strip or scrolling to the end of a form, leaving more space for content and the keyboard in short windows.
+- Expanded medication graphs shrink in compact height, as weight graphs already did. Home and Progress summaries and the Treatment schedule summary stack at accessibility text sizes; weekday markers can grow vertically.
+- Duo UI tests cover system sidebar hide/restore, section changes, compact-height editor actions, accessibility text, and live-fold destination/filter/draft retention. Navigation queries accept the system's vertical tabs rather than assuming a horizontal `tabBars` container. PR previews include both editors with the keyboard visible.
+
+Build distribution artifacts with Xcode 27.1+ for Duo's complete screen and vertical-bar behavior. Older toolchains compile the earlier adaptive placement API; this fallback is not evidence of native Duo support.
 
 ## Capture
 
@@ -34,6 +45,7 @@ The manual **Duo screenshots** workflow accepts `app` (default `tendr`) and `dev
 
 ## Native verification still required
 
+- Background and reactivate the app on each display. XCTest hardware Home targets the primary display, so the automated background assertion runs on single-screen phones; verify the inner-display lifecycle through Device Hub.
 - Run the existing `StillUITests` and `DuoScreenshotTests` on the Xcode 27.1 Duo simulator and the compact iPhone simulator. Compare compact captures with the existing screenshot baseline, including tab/navigation bars and safe areas.
 - Check all five sections in light/dark on inner/outer displays. Inspect each raw capture for correct display content, readable axes, corner alignment and fully visible controls.
 - Hide and restore the sidebar, then open Medication details, switch sections, fold/unfold repeatedly, and return. The destination and section selection must remain. Change the Journal filter and Progress range; verify both survive the same cycle. Automated tests require sidebar navigation on inner, tabs on outer and an actual window resize with the draft open; a successful host command alone is insufficient.
