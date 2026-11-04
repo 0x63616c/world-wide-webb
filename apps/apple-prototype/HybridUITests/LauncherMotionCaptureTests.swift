@@ -6,6 +6,26 @@ final class LauncherMotionCaptureTests: XCTestCase {
     @MainActor func testReveal() { capture("reveal") }
     @MainActor func testDepth() { capture("depth") }
     @MainActor func testDissolve() { capture("dissolve") }
+    @MainActor func testBackButtons() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1"]
+        app.launch()
+        defer { app.terminate() }
+        app.openAppGrid()
+        print("MOTION_CAPTURE_READY back-buttons")
+        Thread.sleep(forTimeInterval: 1) // Recording lead-in, not a correctness wait.
+        for id in ["weather", "photos", "settings"] {
+            app.buttons["app-\(id)"].tap()
+            let back = app.buttons["app-back"]
+            XCTAssertTrue(back.waitForExistence(timeout: 10), id)
+            Thread.sleep(forTimeInterval: 1) // Hold the screen for the review video.
+            back.tap()
+            XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10), id)
+        }
+        Thread.sleep(forTimeInterval: 1)
+        print("MOTION_CAPTURE_DONE back-buttons")
+    }
     @MainActor private func capture(_ style: String) {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")

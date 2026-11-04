@@ -9,7 +9,7 @@ app; route IDs remain stable.
 Every app has a fixed upper-left Back control returning to the launcher, including
 Settings, protected pages, unavailable states and Classic. App scroll views only
 bounce when their content overflows. A single-finger content scroll never closes
-an app. Five-finger pinch and accessibility escape remain alternate navigation.
+an app. Back buttons are the app navigation; accessibility escape remains available.
 Settings uses a native split view for Display, Security and Apps preferences.
 
 ## Panel PIN
@@ -63,8 +63,7 @@ remain native unavailable screens rather than silently opening Classic.
 
 A separate Astra reviewer inspected the real Lighting and launcher screenshots
 and reviewed all app destinations in source. The current pass keeps opacity-only app dismissal, with no floating Apps button.
-Swipe away from the system edges or use Escape in the simulator. Five-finger pinch remains available
-on the panel, with device verification required under Guided Access.
+Use the fixed Back button from app pages, or Escape in the simulator.
 
 Remaining design findings: Calendar should use aligned agenda rows rather than
 repeated glass cards; Music needs a more balanced mixer layout; Tesla, Walks, Cameras, Photos
@@ -92,8 +91,8 @@ palette without changing the system clock or stored user settings.
 Sixty seconds without interaction returns to the clock. The Display preference
 controls whether that clock is also dimmed. Touching a dimmed clock wakes it;
 swiping left opens the launcher. A window-level observer tracks
-taps and drags without an invisible view covering app controls. Five-finger inward
-pinches return to the launcher anywhere on screen; two-finger zoom is untouched.
+taps and drags without an invisible view covering app controls. It only tracks
+activity and never navigates; the five-finger Home pinch has been removed.
 VoiceOver escape and the named Open apps action provide equivalent navigation.
 
 The chooser includes ten procedural animated art styles. Its previews are frozen,

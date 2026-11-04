@@ -178,7 +178,7 @@ struct HomeView: View {
                         return false
                     }) { open(app) }
                 }
-        }.environment(appPreferences).modifier(PanelIdleDimming(onIdle: clock, onHome: home, timeout: selected.map { appPreferences[$0.id].idleSeconds } ?? 60)).ignoresSafeArea()
+        }.environment(appPreferences).modifier(PanelIdleDimming(onIdle: clock, timeout: selected.map { appPreferences[$0.id].idleSeconds } ?? 60)).ignoresSafeArea()
         #if targetEnvironment(simulator)
         .background {
             Button("Open apps", action: home)

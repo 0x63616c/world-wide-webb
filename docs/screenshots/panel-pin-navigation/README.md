@@ -7,6 +7,8 @@ production PIN, private photos or Wi-Fi credentials appear.
 - `pin.png`: shared private-page keypad and fixed Back control.
 - `clock.png`: upper-right digital time and lower-left date.
 - `reveal.mp4`: paired slide-and-scale reveal, the current default.
+- `back-buttons.mp4`: fixed upper-left Back controls in Weather, the protected
+  Photos page and Settings, each returning to Home.
 - `depth.mp4`: scale/fade comparison.
 - `dissolve.mp4`: opacity comparison.
 
