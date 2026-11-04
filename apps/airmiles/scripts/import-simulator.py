@@ -4,13 +4,26 @@
 Usage: python3 apps/airmiles/scripts/import-simulator.py path/to/segments.csv DEVICE_UDID
 Never commit private input. The app validates the CSV on launch.
 """
+import argparse
 import csv
+import json
 import io
 from pathlib import Path
 import subprocess
 import sys
 
-source, device = sys.argv[1:]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("source")
+parser.add_argument("device")
+parser.add_argument("--enrichment", type=Path)
+args = parser.parse_args()
+source, device = args.source, args.device
+sidecar = None
+if args.enrichment:
+    sidecar = args.enrichment.read_bytes()
+    document = json.loads(sidecar)
+    if document.get("version") != 1 or not isinstance(document.get("records"), dict):
+        raise SystemExit("Unsupported enrichment file; nothing imported")
 fields = ["date", "airline", "flight", "from", "to", "miles", "confidence"]
 with Path(source).open(newline="", encoding="utf-8-sig") as stream:
     reader = csv.DictReader(stream)
@@ -34,4 +47,11 @@ writer.writerows(rows)
 staged = destination.with_suffix(".tmp")
 staged.write_text(buffer.getvalue(), encoding="utf-8")
 staged.replace(destination)
+if sidecar is not None:
+    enriched = destination.with_name("flight-enrichment.json")
+    if enriched.exists():
+        enriched.with_suffix(".previous.json").write_bytes(enriched.read_bytes())
+    staging = enriched.with_suffix(".tmp")
+    staging.write_bytes(sidecar)
+    staging.replace(enriched)
 print(f"Imported {len(rows)} records locally; mailbox IDs removed.")
