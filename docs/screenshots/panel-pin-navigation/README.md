@@ -1,0 +1,16 @@
+# Panel access and clock motion
+
+Real SwiftUI captures from the running iPad Pro 13-inch simulator (1376×1032
+points), using the existing synthetic API transport for repeatability. No
+production PIN, private photos or Wi-Fi credentials appear.
+
+- `pin.png`: shared private-page keypad and fixed Back control.
+- `clock.png`: upper-right digital time and lower-right date.
+- `reveal.mp4`: finger-following upward reveal, the current default.
+- `depth.mp4`: scale/fade comparison.
+- `dissolve.mp4`: opacity comparison.
+
+Each movie records an upward swipe to the launcher followed by the Clock icon
+returning to the face. Movies are simulator recordings exported to MP4, not
+rendered mockups. Astra reviewed samples every 0.2 seconds and preferred Reveal;
+the fade variants visibly overlap the large numerals and launcher labels.

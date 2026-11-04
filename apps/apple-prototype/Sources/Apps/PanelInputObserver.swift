@@ -34,9 +34,7 @@ final class PanelInputGesture: UIGestureRecognizer, UIGestureRecognizerDelegate 
     var activity: () -> Void = {}
     var home: () -> Void = {}
     private var contacts = Set<UITouch>()
-    private var start: CGPoint?
     private var pinchSpan: CGFloat?
-    private var multiple = false
     private var fired = false
     override init(target: Any?, action: Selector?) {
         super.init(target: target, action: action)
@@ -48,8 +46,6 @@ final class PanelInputGesture: UIGestureRecognizer, UIGestureRecognizerDelegate 
     convenience init() { self.init(target: nil, action: nil) }
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         activity(); contacts.formUnion(touches)
-        if contacts.count == 1 { start = contacts.first?.location(in: view) }
-        if contacts.count > 1 { multiple = true }
         if contacts.count == 5 { pinchSpan = span() }
     }
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
@@ -58,14 +54,12 @@ final class PanelInputGesture: UIGestureRecognizer, UIGestureRecognizerDelegate 
     }
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
         activity()
-        if !multiple, let start, let end = touches.first?.location(in: view), let view,
-           start.y > view.bounds.height - 128, end.y - start.y < -70, abs(end.x - start.x) < 180, start.y - end.y > abs(end.x - start.x) { finish() }
         contacts.subtract(touches)
         if contacts.isEmpty && !fired { state = .failed }
     }
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) { state = .cancelled }
     override func reset() {
-        contacts.removeAll(); start = nil; pinchSpan = nil; multiple = false; fired = false
+        contacts.removeAll(); pinchSpan = nil; fired = false
     }
     static func isHomePinch(touchCount: Int, initial: CGFloat, current: CGFloat) -> Bool {
         touchCount == 5 && initial > 40 && current < initial * 0.72

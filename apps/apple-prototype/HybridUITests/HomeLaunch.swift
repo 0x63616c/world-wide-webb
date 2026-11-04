@@ -16,6 +16,11 @@ extension XCUIApplication {
             wake.tap()
             XCTAssertTrue(wake.waitForNonExistence(timeout: 5))
         }
+        if buttons["app-back"].exists {
+            buttons["app-back"].tap()
+            XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
+            return
+        }
         if buttons["app-settings"].exists && buttons["app-settings"].isHittable { return }
         let window = windows.firstMatch
         // Start inside the bottom 100-point clock gesture area (90% is outside

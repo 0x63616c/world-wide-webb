@@ -1,9 +1,38 @@
 # Native app shell
 
-The panel starts on the green clock. Swipe up from the bottom to open the
-vertically scrolling icon launcher. Each icon opens a full-screen native app;
-swiping up from its bottom edge returns to the launcher. There is no pager, dock or floating Apps button. Apps close with a short fade.
-Settings uses a native split view for Display, Clock and Apps preferences.
+The panel starts on the green clock. Swipe up from its bottom edge to reveal the
+vertically scrolling icon launcher. The Clock icon returns to the full-screen
+clock. Dog Walker is the walking app; route IDs remain stable.
+
+Every app has a fixed upper-left Back control returning to the launcher, including
+Settings, protected pages, unavailable states and Classic. App scroll views only
+bounce when their content overflows. A single-finger content scroll never closes
+an app. Five-finger pinch and accessibility escape remain alternate navigation.
+Settings uses a native split view for Display, Security and Apps preferences.
+
+## Panel PIN
+
+Photos and Tesla command confirmation use the shared `PanelPINEntry`: six masked
+dots, a native glass number pad, delete and automatic six-digit submission. Digits
+stay in memory and clear when leaving the page or backgrounding the app. Photos
+still asks for a fresh PIN on every opening. Tesla keeps command execution in its
+provider so keypad dismissal cannot cancel the reported-state refresh.
+
+Settings → Security → Change PIN verifies the current synced PIN, asks for a new
+six-digit PIN and confirmation, then updates only `pinCode` through the existing
+settings API. Confirmation can restart new-PIN entry; recovery is disabled while
+saving. Wrong PIN, mismatch and connection errors remain in the flow. This retains
+the existing client-side soft-lock policy (ADR-0004), not a new authentication system.
+
+## Clock motion review
+
+The clock has digital time at the upper right and the date at the lower right,
+using the same day/night ink. `ClockLauncherMotion` owns the transition separately
+from app navigation. Reveal follows the finger and settles with a small spring;
+Depth and Dissolve are comparison candidates selected only through debug launch
+argument `-launcherTransition reveal|depth|dissolve`. Reduce Motion removes spatial movement.
+Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
+suite records the same swipe and Clock-icon return for each candidate.
 
 ## Adding an app
 
@@ -16,7 +45,7 @@ Settings uses a native split view for Display, Clock and Apps preferences.
 4. Preserve the feature's access gate in its destination. The launcher does not
    grant access or replace photo/PIN permission checks.
 
-The launcher, scrolling, navigation state, bottom-edge gesture and accessibility
+The launcher, scrolling, navigation state, Back control and accessibility
 are shared. Adding an app does not require changing their layout or gesture code.
 `PanelAppCatalogTests` checks unique identity, feature coverage, capability filtering
 and shell transitions. The live host supplies its existing providers; the Mac
@@ -30,8 +59,8 @@ remain native unavailable screens rather than silently opening Classic.
 
 A separate Astra reviewer inspected the real Lighting and launcher screenshots
 and reviewed all app destinations in source. The current pass keeps opacity-only app dismissal, with no floating Apps button.
-The physical iPadOS gesture can still win at the extreme edge; use the lower
-content band or Escape in the simulator. Five-finger pinch remains available
+The physical iPadOS gesture can still win at the extreme clock edge; use the lower
+clock content band or Escape in the simulator. Five-finger pinch remains available
 on the panel, with device verification required under Guided Access.
 
 Remaining design findings: Calendar should use aligned agenda rows rather than
@@ -78,3 +107,16 @@ and idle return duration are applied by the shared app host. New destinations
 inherit these settings automatically. The default idle duration remains 60 seconds.
 The launcher includes the current local date and time; the car destination is
 labelled Tesla while retaining its stable `car` route ID.
+
+## PIN/navigation review — 3 November 2026
+
+A separate Astra reviewer inspected the actual keypad screenshot, updated source,
+and movie samples every 0.2 seconds. Reveal remains the default: its opaque clock
+edge keeps the launcher readable; Depth and Dissolve briefly superimpose numerals
+over app labels. Clock time/date placement and launcher names fit. This review
+does not establish physical touch feel or frame-rate performance.
+
+Validation on local Xcode 27: 12 PanelKit API/catalog tests; 14 live-provider tests
+including command lifetime after keypad dismissal; nine HomeView launch/access
+UI tests; three recorded motion comparisons. Typecheck passed. The new access
+tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.

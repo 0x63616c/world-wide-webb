@@ -19,6 +19,7 @@ actor HybridFixtureTransport: PanelTransport {
     private let fanOffSupported: Bool
     private let controlWrites: Bool
     private var writeCount = 0
+    private var changedPIN: String?
     private var controlState: [String: Any]?
     private var climateState: [String: Any]?
     private let climateOff: Bool
@@ -48,6 +49,15 @@ actor HybridFixtureTransport: PanelTransport {
                 headerFields: ["Content-Type": "image/png"])!)
         }
         let procedure = url.lastPathComponent
+        if procedure == "settings.set", controlWrites {
+            let input = try JSONDecoder().decode([String: String].self, from: request.httpBody ?? Data())
+            guard let pin = input["pinCode"], PanelPINAPI.isValid(pin) else { throw URLError(.badServerResponse) }
+            changedPIN = pin
+        }
+        if ["settings.get", "settings.set"].contains(procedure), let changedPIN {
+            let data = try JSONSerialization.data(withJSONObject: ["result": ["data": ["pinCode": changedPIN]]])
+            return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
         if controlWrites, let data = try controlResponse(request, procedure: procedure) {
             if request.httpBody != nil {
                 let trace = "\(writeCount):\(procedure)"

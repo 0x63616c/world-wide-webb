@@ -40,5 +40,9 @@ import Testing
         #expect(state.screen == .launcher)
         state.showClock()
         #expect(state.screen == .clock)
+        state.showLauncher()
+        let openedClock = state.open("clock")
+        #expect(openedClock)
+        #expect(state.screen == .clock)
     }
 }

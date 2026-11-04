@@ -29,6 +29,7 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
     init(api: PhotosAPI, cache: PhotoCache) { self.api = api; self.cache = cache }
 
     func unlock(pin: String) async -> Bool {
+        error = nil
         let revision = generation
         do {
             let accepted = try await api.unlock(pin: pin)
@@ -36,7 +37,12 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
             guard revision == generation else { return false }
             unlocked = accepted
             return accepted
-        } catch { return false }
+        } catch is CancellationError { return false }
+        catch {
+            guard revision == generation else { return false }
+            self.error = "Couldn’t connect. Try again."
+            return false
+        }
     }
 
     func lock() { generation += 1; unlocked = false; error = nil }

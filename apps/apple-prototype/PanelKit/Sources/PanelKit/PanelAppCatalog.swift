@@ -8,6 +8,7 @@ public enum PanelAppFeature: String, Sendable, CaseIterable {
 public enum PanelAppRoute: Sendable, Equatable {
     case feature(PanelAppFeature)
     case settings
+    case clock
     case classic
 }
 public struct PanelAppDefinition: Identifiable, Sendable, Equatable {
@@ -46,11 +47,12 @@ public struct PanelAppCatalog: Sendable {
             .init(id: "music", name: "Music", symbol: "music.note", accent: "#f34368", route: .feature(.music)),
             .init(id: "weather", name: "Weather", symbol: "cloud.sun.fill", accent: "#3389e9", route: .feature(.weather)),
             .init(id: "calendar", name: "Calendar", symbol: "calendar", accent: "#e54b4b", route: .feature(.calendar)),
-            .init(id: "walks", name: "Walk Zero", symbol: "pawprint.fill", accent: "#31b870", route: .feature(.walks)),
+            .init(id: "walks", name: "Dog Walker", symbol: "pawprint.fill", accent: "#31b870", route: .feature(.walks)),
             .init(id: "cameras", name: "Cameras", symbol: "video.fill", accent: "#626f88", route: .feature(.cameras)),
             .init(id: "photos", name: "Photos", symbol: "photo.on.rectangle.angled", accent: "#a563dc", route: .feature(.photos)),
             .init(id: "car", name: "Tesla", symbol: "car.side.fill", accent: "#387eab", route: .feature(.car)),
             .init(id: "wifi", name: "Wi-Fi", symbol: "wifi", accent: "#37aebd", route: .feature(.wifi)),
+            .init(id: "clock", name: "Clock", symbol: "clock.fill", accent: "#3f945d", route: .clock),
             .init(id: "settings", name: "Settings", symbol: "gearshape.fill", accent: "#707986", route: .settings),
             .init(id: "classic", name: "Classic", symbol: "safari", accent: "#4b67c9", route: .classic)
         ]
@@ -66,8 +68,8 @@ public struct PanelShellState: Sendable, Equatable {
     public mutating func showLauncher() { screen = .launcher }
     public mutating func showClock() { screen = .clock }
     @discardableResult public mutating func open(_ id: String, catalog: PanelAppCatalog = .standard) -> Bool {
-        guard catalog.app(id: id) != nil else { return false }
-        screen = .app(id)
+        guard let app = catalog.app(id: id) else { return false }
+        screen = app.route == .clock ? .clock : .app(id)
         return true
     }
 }

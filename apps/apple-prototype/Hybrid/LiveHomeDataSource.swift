@@ -27,6 +27,7 @@ import OSLog
     let calendarProvider: LiveCalendarProvider
     let walkProvider: LiveWalkProvider
     let diagnosticsClient: PanelAPIClient
+    let panelPIN: PanelPINAPI
     let diagnosticsBackendURL: String
     private var commandName = "command"
     private var commandPayload: Data?
@@ -75,6 +76,7 @@ import OSLog
         sonosArtwork = SonosArtworkAPI(configuration: configuration, transport: transport)
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
+        panelPIN = PanelPINAPI(client: client)
         walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))

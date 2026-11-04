@@ -6,14 +6,18 @@ import XCTest
 private actor TeslaProviderTransport: PanelTransport {
     private var files: [String]
     private var holdNext: Bool
+    private let holdRequest: Int?
     private var continuation: CheckedContinuation<Void, Never>?
     private(set) var requests: [URLRequest] = []
-    init(_ files: [String], holdNext: Bool = false) { self.files = files; self.holdNext = holdNext }
+    init(_ files: [String], holdNext: Bool = false, holdRequest: Int? = nil) {
+        self.files = files; self.holdNext = holdNext; self.holdRequest = holdRequest
+    }
+    var isHolding: Bool { continuation != nil }
     func release() { continuation?.resume(); continuation = nil }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !files.isEmpty else { throw URLError(.notConnectedToInternet) }
-        if holdNext {
+        if holdNext || requests.count == holdRequest {
             holdNext = false
             await withCheckedContinuation { continuation = $0 }
         }
@@ -23,6 +27,28 @@ private actor TeslaProviderTransport: PanelTransport {
     }
 }
 @MainActor final class LiveTeslaProviderTests: XCTestCase {
+    func testClosingKeypadDoesNotCancelAcknowledgedCommandRefresh() async {
+        let transport = TeslaProviderTransport(["ready", "accepted", "ready"], holdRequest: 3)
+        let live = provider(transport)
+        await live.refresh()
+        live.request(.unlock)
+        let keypadTask = Task { await live.submitAndWait(pin: "123456") }
+        for _ in 0..<1000 {
+            if await transport.isHolding { break }
+            await Task.yield()
+        }
+        let holding = await transport.isHolding
+        XCTAssertTrue(holding)
+        keypadTask.cancel()
+        await transport.release()
+        let error = await keypadTask.value
+        XCTAssertNil(error)
+        XCTAssertTrue(live.hasLiveData)
+        XCTAssertEqual(live.availability, .online)
+        XCTAssertNil(live.requestedAction)
+        let requests = await transport.requests
+        XCTAssertEqual(requests.filter { $0.httpMethod == "POST" }.count, 1)
+    }
     private func provider(_ transport: TeslaProviderTransport) -> LiveTeslaProvider {
         LiveTeslaProvider(api: TeslaAPI(client: PanelAPIClient(configuration: PanelConfiguration(
             baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)))

@@ -29,7 +29,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .sonosRooms: "Sonos Rooms"
         case .cameras: "Cameras"
         case .photos: "Photos"
-        case .dogwalk: "Walk Zero"
+        case .dogwalk: "Dog Walker"
         }
     }
     var accessory: Accessory? {
@@ -81,6 +81,8 @@ struct HomeView: View {
     var demo = false
     var initialFace = 0
     @State private var shell = PanelShellState()
+    @State private var clockDrag: CGFloat = 0
+    private let launcherMotion = ClockLauncherMotion.current
     @State private var appPreferences = PanelAppPreferences()
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
@@ -92,35 +94,45 @@ struct HomeView: View {
         return nil
     }
     private func home() {
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { shell.showLauncher() }
+        let animation: Animation = showingClock ? launcherMotion.animation : .easeOut(duration: 0.18)
+        withAnimation(reduceMotion ? nil : animation) { shell.showLauncher(); clockDrag = 0 }
     }
     private func clock() {
-        withAnimation(reduceMotion ? nil : .smooth) { shell.showClock() }
+        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showClock(); clockDrag = 0 }
     }
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 Color.black.ignoresSafeArea()
-                if showingClock {
-                    PresenceClockFace(store: store)
-                        .clipShape(.rect(cornerRadius: 44))
-                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
-                        .overlay(alignment: .bottom) {
+                let progress: CGFloat = showingClock ? min(clockDrag / proxy.size.height, 1) : 1
+                AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
+                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                    .clipShape(.rect(cornerRadius: 44))
+                    .scaleEffect(reduceMotion ? 1 : launcherMotion.launcherScale(progress))
+                    .opacity(launcherMotion == .reveal && !reduceMotion ? 1 : Double(progress))
+                    .allowsHitTesting(!showingClock && selected == nil)
+                    .accessibilityHidden(showingClock || selected != nil)
+                PresenceClockFace(store: store)
+                    .environment(\.motionPhase, showingClock ? inheritedMotionPhase : 0)
+                    .clipShape(.rect(cornerRadius: 44))
+                    .scaleEffect(reduceMotion ? 1 : launcherMotion.clockScale(progress))
+                    .offset(y: reduceMotion ? 0 : launcherMotion.clockOffset(progress, height: proxy.size.height))
+                    .opacity(reduceMotion ? Double(1 - progress) : launcherMotion.clockOpacity(progress))
+                    .allowsHitTesting(showingClock).accessibilityHidden(!showingClock)
+                    .overlay(alignment: .bottom) {
+                        if showingClock {
                             Color.clear.frame(height: 100).contentShape(.rect)
-                                .gesture(DragGesture(minimumDistance: 12).onEnded { value in
-                                    if value.translation.height < -30 { home() }
-                                })
+                                .gesture(DragGesture(minimumDistance: 12)
+                                    .onChanged { clockDrag = max(0, -$0.translation.height) }
+                                    .onEnded { value in
+                                        if clockDrag > 70 || value.predictedEndTranslation.height < -150 { home() }
+                                        else { withAnimation(reduceMotion ? nil : launcherMotion.animation) { clockDrag = 0 } }
+                                    })
                                 .accessibilityElement().accessibilityLabel("Open apps")
                                 .accessibilityAddTraits(.isButton).accessibilityAction { home() }
                         }
-                        .accessibilityIdentifier("launcher-clock")
-                } else {
-                    AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
-                        .environment(\.motionPhase, selected == nil ? nil : 0)
-                        .clipShape(.rect(cornerRadius: 44))
-                        .allowsHitTesting(selected == nil).accessibilityHidden(selected != nil)
-                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-                }
+                    }
+                    .accessibilityIdentifier("launcher-clock")
                 if let selected {
                     appScreen(selected)
                         .clipShape(.rect(cornerRadius: 44))
@@ -158,6 +170,7 @@ struct HomeView: View {
         #endif
     }
     private func open(_ app: PanelAppDefinition) {
+        if app.route == .clock { clock(); return }
         if app.route == .classic {
             shell.showLauncher()
             integration?.openClassicApp()
@@ -168,24 +181,26 @@ struct HomeView: View {
         }
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
-        Group {
-            switch app.route {
-            case .settings: PanelSettingsPage(showClock: clock)
-            case .classic: EmptyView() // Explicit host action; never a native fallback.
-            case .feature(let feature):
-                if let integration { integration.destination(feature.homeTile, close: home) }
-                else { prototypeScreen(feature) }
-            }
+        VStack(spacing: 0) {
+            PanelAppNavigationBar(back: home)
+            Group {
+                switch app.route {
+                case .settings: PanelSettingsPage()
+                case .classic, .clock: EmptyView()
+                case .feature(let feature):
+                    if let integration { integration.destination(feature.homeTile, close: home) }
+                    else { prototypeScreen(feature) }
+                }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped().accessibilityElement(children: .contain)
+                .accessibilityIdentifier("app-screen-\(app.id)")
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .scrollBounceBehavior(.basedOnSize)
             .background(Color.black)
             .accessibilityAction(.escape) { home() }
             .accessibilityAction(named: "Open apps") { home() }
-            #if os(macOS)
-            .overlay(alignment: .bottom) { SwipeHomeRegion(action: home) }
-            #endif
             .environment(\.motionPhase, appPreferences[app.id].reduceMotion ? 0 : inheritedMotionPhase)
             .transaction { if reduceMotion || appPreferences[app.id].reduceMotion { $0.animation = nil; $0.disablesAnimations = true } }
-            .accessibilityIdentifier("app-screen-\(app.id)")
             .onKeyPress(.escape) { home(); return .handled }
     }
     @ViewBuilder private func prototypeScreen(_ feature: PanelAppFeature) -> some View {

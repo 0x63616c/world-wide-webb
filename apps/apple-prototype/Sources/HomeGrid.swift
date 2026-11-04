@@ -64,7 +64,7 @@ enum GridCard: String, CaseIterable {
         switch self {
         case .climate: "Climate"; case .lamps: "Lamps"; case .weather: "Weather"; case .car: "Tesla"
         case .cameras: "Cameras"; case .photos: "Photos"; case .sonosRooms: "Sonos rooms"
-        case .wifi: "Wi-Fi"; case .dogwalk: "Walk Zero"; case .media: "Media"
+        case .wifi: "Wi-Fi"; case .dogwalk: "Dog Walker"; case .media: "Media"
         case .calendar: "Up next"; case .nowPlaying: "Now Playing"; case .fan: "Fan"; case .lights: "Lights"; case .clock: "Clock"
         }
     }

@@ -1,4 +1,5 @@
 import SwiftUI
+import PanelKit
 
 extension HomeTile {
     static var panelProviders: Set<PanelModule> { Set(allCases.map(\.panelModule)) }
@@ -66,6 +67,7 @@ struct PanelHome: View {
     let navigation: PanelNavigation
     let caption = ""
     var supportsClassic: Bool { true }
+    var panelPIN: PanelPINAPI? { store.panelPIN }
     func openClassicApp() { navigation.openClassic() }
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
@@ -196,7 +198,7 @@ struct PanelHomeButton: View {
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Label("Home", systemImage: "chevron.backward")
+            Label("Back", systemImage: "chevron.backward")
                 .font(.system(size: 20, weight: .semibold))
                 .frame(minWidth: 104, minHeight: 52).contentShape(.rect)
         }.buttonStyle(.glass).accessibilityIdentifier("module-home")
@@ -460,7 +462,7 @@ private struct PanelAccessoryCard: View {
                         .font(.system(size: 64, weight: .regular, design: .rounded)).monospacedDigit()
                     title("Walking Zero", subtitle: "Started on \(active.startedBy.rawValue)")
                 } else {
-                    title("Walk Zero", subtitle: data.walks.lastWalkLabel(at: data.now))
+                    title("Dog Walker", subtitle: data.walks.lastWalkLabel(at: data.now))
                 }
                 HStack {
                     Text("\(data.walks.summary(at: data.now).weeklyMinutes) min this week")
