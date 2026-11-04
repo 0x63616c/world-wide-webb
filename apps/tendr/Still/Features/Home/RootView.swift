@@ -6,80 +6,28 @@ struct RootView: View {
     @Environment(Store.self) private var store
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var sidebarVisible = true
     @State private var selected = 0
     @State private var medicationVisit = 0
     @State private var journalFilter = "All"
     var body: some View {
-        // Keep one tab host and each section's NavigationStack at the same
-        // structural identity across resize. A split-view detail column supplies
-        // its own traits and collapse lifecycle to a nested tab controller; it must
-        // not own the phone's tab bar. The sidebar is a sibling of the tab host.
-        HStack(spacing: 0) {
-            if usesSidebar && sidebarVisible {
-                List {
-                    sidebarSection("Home", symbol: "square.grid.2x2.fill", tag: 0)
-                    sidebarSection("Treatment", symbol: "syringe.fill", tag: 1)
-                    sidebarSection("Progress", symbol: "chart.xyaxis.line", tag: 2)
-                    sidebarSection("Journal", symbol: "book.closed", tag: 3)
-                    sidebarSection("Settings", symbol: "gearshape", tag: 4)
-                }
-                .listStyle(.sidebar)
-                .safeAreaInset(edge: .top) {
-                    Text("Tendr").font(.title.bold()).padding()
-                }
-                .frame(width: 200)
-                .accessibilityIdentifier("sectionSidebar")
+        sectionTabs
+            .modifier(AdaptiveTabPlacement())
+            .environment(\.tendrShowsSystemNavigationBar, horizontalSizeClass == .regular)
+            .onChange(of: selected) { _, section in
+                // Returning to Home starts its charts live; folding is not a new visit.
+                if section == 0 { medicationVisit += 1 }
             }
-            sectionTabs
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    if usesSidebar {
-                        HStack {
-                            Button {
-                                withAnimation { sidebarVisible.toggle() }
-                            } label: {
-                                Label("Sidebar", systemImage: "sidebar.left")
-                                    .frame(minHeight: 44)
-                            }
-                            .accessibilityLabel(sidebarVisible ? "Hide sidebar" : "Show sidebar")
-                            .accessibilityIdentifier("toggleSidebar")
-                            Spacer()
-                        }
-                        .padding(.horizontal, 16)
-                        .background(Theme.background)
-                    }
-                }
-        }
-        .onChange(of: horizontalSizeClass) { _, _ in
-            sidebarVisible = true
-        }
-        .onChange(of: selected) { _, section in
-            // Returning to Home starts its charts live; folding is not a new visit.
-            if section == 0 { medicationVisit += 1 }
-        }
-        .alert("Something needs attention", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
-            Button("OK") { store.error = nil }
-        } message: { Text(store.error ?? "") }
-        .preferredColorScheme(store.journal.appearance == "dark" ? .dark : store.journal.appearance == "light" ? .light : nil)
-        .task { await store.syncReminders() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await store.refreshHealthKit() } }
-        }
-    }
-
-    private var usesSidebar: Bool {
-        TendrLayout(horizontal: horizontalSizeClass.map(TendrLayout.SizeClass.init), vertical: nil).navigation == .sidebar
-    }
-
-    private func sidebarSection(_ title: String, symbol: String, tag: Int) -> some View {
-        Button { selected = tag } label: {
-            Label(title, systemImage: symbol).frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .listRowBackground(selected == tag ? Theme.sage : Color.clear)
-        .accessibilityIdentifier("nav\(title)")
-        .accessibilityAddTraits(selected == tag ? .isSelected : [])
+            .alert("Something needs attention", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
+                Button("OK") { store.error = nil }
+            } message: { Text(store.error ?? "") }
+            .preferredColorScheme(store.journal.appearance == "dark" ? .dark : store.journal.appearance == "light" ? .light : nil)
+            .task {
+                await store.refreshHealthKit()
+                await store.syncReminders()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await store.refreshHealthKit() } }
+            }
     }
 
     private var sectionTabs: some View {
@@ -91,19 +39,49 @@ struct RootView: View {
                 JournalView(filter: $journalFilter).tag(3).tabItem { Label("Journal", systemImage: "book.closed").accessibilityIdentifier("navJournal") }
                 SettingsView().tag(4).tabItem { Label("Settings", systemImage: "gearshape").accessibilityIdentifier("navSettings") }
             }
-            // One preference for the entire tab host, independent of selection.
-            .toolbar(usesSidebar ? .hidden : .visible, for: .tabBar)
+        }
+    }
+}
+
+/// Keep the tab host and its section stacks alive across trait changes. The
+/// system owns the sidebar, toggle, safe areas and compact tab presentation.
+private struct AdaptiveTabPlacement: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        #if compiler(>=6.4)
+        if #available(iOS 27.0, *) {
+            content.tabViewStyle(.sidebarAdaptable)
+                .defaultTabBarPlacement(.sidebar)
+        } else {
+            legacyPlacement(content)
+        }
+        #else
+        legacyPlacement(content)
+        #endif
+    }
+
+    @ViewBuilder private func legacyPlacement(_ content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.tabViewStyle(.sidebarAdaptable)
+                .defaultAdaptableTabBarPlacement(.sidebar)
+        } else {
+            content
         }
     }
 }
 
 struct TodayView: View {
     @Binding var tab: Int
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(Store.self) private var store
     @State private var weightSheet = false
     @State private var doseSheet = false
     @State private var scheduleSheet = false
     @State private var vialSheet = false
+    private var summaryLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
+    }
     var homeWeights: [WeightEntry] { store.treatmentWeights.filter { $0.date <= Date() } }
     var summary: WeightSummary { WeightSummary(entries: homeWeights, now: Date()) }
     var overdue: Date? { store.journal.schedule.outstanding(asOf: Date(), doses: store.journal.doses).first }
@@ -113,7 +91,7 @@ struct TodayView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     PageHeader("Tendr").padding(.horizontal, 8)
-                    HStack(spacing: 12) {
+                    summaryLayout {
                         VStack(alignment: .leading, spacing: 12) {
                             Label(overdue == nil ? "Next dose" : "Overdue", systemImage: overdue == nil ? "calendar" : "clock.badge.exclamationmark").font(.caption.weight(.semibold)).foregroundStyle(overdue == nil ? Theme.pine : Theme.pine)
                             if let nextDate {
@@ -173,7 +151,7 @@ struct TodayView: View {
                         }
 
                 }.padding(.horizontal, 16).padding(.bottom, 24).tendrReadableWidth()
-            }.background(Theme.background).toolbar(.hidden, for: .navigationBar)
+            }.background(Theme.background).tendrRootNavigationBar()
                 .sheet(isPresented: $weightSheet) { WeightEditor().tendrSheet() }
                 .sheet(isPresented: $doseSheet) { DoseEditor(scheduledDate: nextDate).tendrSheet() }
                 .sheet(isPresented: $scheduleSheet) { ScheduleEditor().tendrSheet() }
@@ -230,9 +208,15 @@ struct WeightChart: View {
 struct ProgressViewScreen: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(Store.self) private var store
     @State private var range = 90
     @State private var adding = false
+    private var metricLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+            : AnyLayout(HStackLayout(spacing: 14))
+    }
     var entries: [WeightEntry] { store.analyticsWeights.filter { $0.date <= Date() && (range == 0 || $0.date >= Calendar.current.date(byAdding: .day, value: -range, to: Date())!) }.sorted { $0.date < $1.date } }
     var summary: WeightSummary { WeightSummary(entries: entries, now: Date()) }
     var currentWeight: Double? { WeightSummary(entries: store.analyticsWeights, now: Date()).latest }
@@ -273,7 +257,7 @@ struct ProgressViewScreen: View {
                                 .frame(height: CGFloat(TendrLayout(horizontal: horizontalSizeClass.map(TendrLayout.SizeClass.init), vertical: verticalSizeClass.map(TendrLayout.SizeClass.init)).weightChartHeight))
                         } else { ContentUnavailableView("Your story starts here", systemImage: "chart.xyaxis.line", description: Text("Add a weight entry to see your history.")) }
                     }.card()
-                    HStack(spacing: 14) {
+                    metricLayout {
                         metric(title: (summary.lost ?? 0) >= 0 ? "Weight lost" : "Weight gained", value: summary.lost.map { number(store.journal.unit.display(abs($0))) }, foot: store.journal.unit.symbol, icon: "arrow.down.right")
                         metric(title: "Weekly change", value: summary.weeklyChange.map { ($0 > 0 ? "+" : "") + number(store.journal.unit.display($0)) }, foot: "\(store.journal.unit.symbol) / week", icon: "waveform.path")
                     }
@@ -283,7 +267,7 @@ struct ProgressViewScreen: View {
                     Text("Based on recorded weights in this period. Weekly change is the average from first to latest entry, not a prediction. Future entries are excluded.").font(.caption).foregroundStyle(.secondary)
                 }.padding(.horizontal, 16).padding(.bottom, 24).tendrReadableWidth()
             }.background(Theme.background)
-                .toolbar(.hidden, for: .navigationBar)
+                .tendrRootNavigationBar()
                 .sheet(isPresented: $adding) { WeightEditor().tendrSheet() }
         }
     }

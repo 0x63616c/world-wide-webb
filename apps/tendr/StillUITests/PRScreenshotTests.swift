@@ -13,36 +13,61 @@ final class PRScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 15))
 
         // Every tab must show its title on first launch, before any tab is touched (APP-3).
-        let tabBar = app.tabBars.firstMatch
-        XCTAssertTrue(tabBar.waitForExistence(timeout: 5))
         for title in ["Home", "Treatment", "Progress", "Journal", "Settings"] {
-            XCTAssertTrue(tabBar.buttons[title].exists, "\(title) tab is missing")
+            XCTAssertTrue(navigation(title, in: app).exists, "\(title) tab is missing")
         }
         snap("tab-bar")
 
-        tabBar.buttons["Treatment"].tap()
+        navigation("Treatment", in: app).tap()
         let history = app.buttons["doseHistoryCard"]
         XCTAssertTrue(history.waitForExistence(timeout: 5))
         for _ in 0..<4 where !history.isHittable { app.swipeUp() }
         snap("treatment")
 
-        tabBar.buttons["Journal"].tap()
+        navigation("Journal", in: app).tap()
         XCTAssertTrue(app.staticTexts["pageHeader-Journal"].waitForExistence(timeout: 5))
         app.buttons["Doses"].tap()
         XCTAssertTrue(app.staticTexts["7.5 mg · Weekly medication"].firstMatch.waitForExistence(timeout: 5))
         snap("journal")
+
+        navigation("Home", in: app).tap()
+        app.buttons["logDose"].tap()
+        let dose = app.textFields["doseAmount"]
+        XCTAssertTrue(dose.waitForExistence(timeout: 5))
+        dose.tap()
+        dose.typeText("7.5")
+        XCTAssertTrue(app.buttons["saveDose"].isHittable)
+        snap("dose-editor")
+        app.buttons["Cancel"].tap()
+        app.buttons["logWeight"].tap()
+        let weight = app.textFields["weightAmount"]
+        XCTAssertTrue(weight.waitForExistence(timeout: 5))
+        weight.tap()
+        weight.typeText("185")
+        XCTAssertTrue(app.buttons["saveWeight"].isHittable)
+        snap("weight-editor")
+
+    }
+
+    @MainActor private func navigation(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "nav\(title)")
+            .allElementsBoundByIndex.first { $0.isHittable } ?? app.tabBars.buttons[title]
     }
 
     @MainActor private func snap(_ name: String) {
         Thread.sleep(forTimeInterval: 1.5)
-        let shot = XCUIScreen.main.screenshot()
-        let attachment = XCTAttachment(screenshot: shot)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-        guard let directory = ProcessInfo.processInfo.environment["SCREENSHOT_DIR"], !directory.isEmpty else { return }
-        let url = URL(fileURLWithPath: directory, isDirectory: true)
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        XCTAssertNoThrow(try shot.pngRepresentation.write(to: url.appendingPathComponent("\(name).png")))
+        for (index, screen) in XCUIScreen.screens.enumerated() {
+            let shot = screen.screenshot()
+            let suffix = index == 0 ? "" : "-screen\(index)"
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = name + suffix
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            if let directory = ProcessInfo.processInfo.environment["SCREENSHOT_DIR"], !directory.isEmpty {
+                let url = URL(fileURLWithPath: directory, isDirectory: true)
+                try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                XCTAssertNoThrow(try shot.pngRepresentation.write(to: url.appendingPathComponent("\(name)\(suffix).png")))
+            }
+        }
     }
 }

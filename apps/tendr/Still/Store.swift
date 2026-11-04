@@ -28,9 +28,6 @@ import SwiftUI
         else {
             do { journal = try file.load() } catch { canWrite = false; self.error = "Your journal could not be opened. Please keep the app installed to preserve your data. \(error.localizedDescription)" }
         }
-        if journal.healthKitWeightsEnabled {
-            Task { @MainActor [weak self] in await self?.startHealthKitBackgroundDelivery() }
-        }
     }
     func commit(_ changed: Journal) -> Bool {
         guard canWrite else { error = "Your existing journal could not be opened. Saving is paused to preserve it."; return false }
@@ -72,7 +69,6 @@ import SwiftUI
                 HealthKitWeightStore.saveAnchor(changes.anchorData)
                 let retained = journal.weights.filter { $0.healthKitID != nil }.count
                 healthKitStatus = retained == 0 ? "No weights available" : "Synced \(retained) weights"
-                await startHealthKitBackgroundDelivery()
             }
         } catch {
             healthKitStatus = "Could not sync"
@@ -109,16 +105,6 @@ import SwiftUI
         healthKitSyncInFlight = false
     }
 
-    func startHealthKitBackgroundDelivery() async {
-        guard journal.healthKitWeightsEnabled else { return }
-        do {
-            try await HealthKitWeightStore.startBackgroundDelivery { [weak self] in
-                await self?.refreshHealthKit()
-            }
-        } catch {
-            healthKitStatus = "Background sync unavailable"
-        }
-    }
     func save(dose: DoseEntry, inputUnit: String? = nil) -> Bool {
         do { try dose.validate(now: Date()) } catch { self.error = error.localizedDescription; return false }
         var next = journal

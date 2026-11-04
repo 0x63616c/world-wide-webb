@@ -73,7 +73,7 @@ struct GoalEditor: View {
                     Section { Text("Projections extend your recent trend; they cannot predict treatment response. Weight changes are not linear.").font(.footnote).foregroundStyle(.secondary) }
                 }
             }.navigationTitle("Weight Goal").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Save") { guard let goal else { return }; var next = store.journal; next.goal = goal; if store.commit(next) { dismiss() } }.disabled(goal == nil) } }
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Save", systemImage: "checkmark") { guard let goal else { return }; var next = store.journal; next.goal = goal; if store.commit(next) { dismiss() } }.disabled(goal == nil) } }
                 .onAppear { guard !initialized else { return }; initialized = true; if let goal = store.journal.goal { amount = number(store.journal.unit.display(goal.kilograms), digits: 2); hasDate = goal.date != nil; if let goalDate = goal.date { date = max(Date(), goalDate) } } }
         }
     }

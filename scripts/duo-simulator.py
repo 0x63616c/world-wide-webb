@@ -2,8 +2,8 @@
 """Runtime simctl capability detection and the UI-test capture/resize handshake.
 
 Only commands advertised by the installed simctl help are attempted, on the
-script's disposable simulator. Unknown interfaces fall back to the default
-screen; display IDs and fold syntax are never assumed from device dimensions.
+script's disposable simulator. Unnamed integrated screens retain their reported
+IDs; display IDs and fold syntax are never assumed from device dimensions.
 """
 import argparse
 import json
@@ -72,6 +72,17 @@ def named_displays(output):
     return result if set(result) == {"inner", "outer"} else {}
 
 
+def integrated_displays(output):
+    """Capture reported integrated screen IDs without assigning fold poses."""
+    displays = {}
+    for block in re.split(r"(?=^\s*Screen ID:\s*\d+\s*$)", output, flags=re.MULTILINE):
+        identifier = re.search(r"^\s*Screen ID:\s*(\d+)\s*$", block, re.MULTILINE)
+        if identifier and re.search(r"^\s*Screen Type:\s*Integrated\s*$", block, re.MULTILINE):
+            value = identifier[1]
+            displays[f"default-screen-{value}"] = value
+    return displays
+
+
 def probe(udid, directory):
     help_text = {"top": simctl("help").stdout}
     for command in ("ui", "io", "fold"):
@@ -88,15 +99,23 @@ def probe(udid, directory):
             break
     else:
         displays = named_displays(enumeration)
-        plan = ({"mode": "displays", "displays": displays}
-                if displays and "--display" in help_text["io"] else {"mode": "default"})
+        integrated = integrated_displays(enumeration)
+        if displays and "--display" in help_text["io"]:
+            plan = {"mode": "displays", "displays": displays}
+        elif integrated and "--display" in help_text["io"]:
+            plan = {"mode": "unmapped", "displays": integrated}
+        else:
+            plan = {"mode": "default"}
     (directory / "plan.json").write_text(json.dumps(plan))
     note = {
         "fold": "Fold controls accepted: capture inner and outer, and run live-fold state checks.",
         "displays": "Named inner/outer displays exposed: capture both with --display. No supported live-fold control; live-fold checks skipped.",
+        "unmapped": "Integrated screen IDs exposed without inner/outer names: capture each as default-screen-<id>. No pose mapping or supported live-fold control; live-fold checks skipped.",
         "default": "No supported fold control or named inner/outer display pair. Capturing the device default only (default-*); live-fold checks skipped.",
     }[plan["mode"]]
-    (directory / "capture-notes.txt").write_text(note + "\nSee simctl-capabilities.txt for the installed interface.\n")
+    (directory / "capture-notes.txt").write_text(
+        note + "\nLandscape filenames describe requested device orientation; inner windows and centered sheets may retain portrait geometry.\n"
+        "See simctl-capabilities.txt for the installed interface.\n")
     print(note)
 
 

@@ -2,12 +2,10 @@ import XCTest
 @testable import StillCore
 
 final class TendrLayoutTests: XCTestCase {
-    func testNavigationUsesWidthEvenInCompactHeight() {
-        let heights: [TendrLayout.SizeClass?] = [nil, .compact, .regular]
-        for height in heights {
-            XCTAssertEqual(TendrLayout(horizontal: .compact, vertical: height).navigation, .tabs)
-            XCTAssertEqual(TendrLayout(horizontal: .regular, vertical: height).navigation, .sidebar)
-            XCTAssertEqual(TendrLayout(horizontal: nil, vertical: height).navigation, .tabs)
+    func testMedicationGraphFitsShortWindows() {
+        XCTAssertEqual(TendrLayout(horizontal: .regular, vertical: .regular).medicationChartHeight, 300)
+        for width: TendrLayout.SizeClass? in [nil, .compact, .regular] {
+            XCTAssertEqual(TendrLayout(horizontal: width, vertical: .compact).medicationChartHeight, 180)
         }
     }
 

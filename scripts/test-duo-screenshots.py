@@ -47,15 +47,20 @@ elif name == "xcrun":
     elif args[0] == "help":
         if mode in ("fold", "rejected") and args[-1] == "fold":
             print("fold <device> <state>: folded or unfolded")
-        elif mode == "displays" and args[-1] == "io":
+        elif mode in ("displays", "integrated") and args[-1] == "io":
             print("screenshot --display=<id>")
         else:
             print("No fold or named display support")
     elif args[0] == "fold" and mode == "rejected":
         sys.exit(1)
     elif args[0] == "io" and args[2] == "enumerate":
-        print("Display 0: Inner\nDisplay 1: Outer" if mode == "displays" else "Display 0: Main")
+        if mode == "integrated":
+            print("Screen ID: 1\n Name: LCD\n Screen Type: Integrated\nScreen ID: 2\n Name: TVOut\n Screen Type: TVOut\nScreen ID: 3\n Name: LCD-1\n Screen Type: Integrated")
+        else:
+            print("Display 0: Inner\nDisplay 1: Outer" if mode == "displays" else "Display 0: Main")
     elif args[0] == "io" and args[2] == "screenshot":
+        if mode == "integrated" and not any(arg.startswith("--display=") for arg in args):
+            sys.exit("Cannot choose between 2 displays. Specify --display")
         pathlib.Path(args[-1]).write_bytes(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="))
 elif name == "xcodebuild" and args[0] == "test-without-building":
     if mode == "test-failure": sys.exit("Mock test failure")
@@ -233,10 +238,13 @@ class DuoCapabilitiesTests(unittest.TestCase):
                     (output / f"{pose}-{appearance}-obsolete.png").write_bytes(b"stale")
             for filename in ["plan.json", "capture-notes.txt", "simctl-capabilities.txt"]:
                 (output / filename).write_text("stale")
+            (output / "default-screen-1-light-obsolete.png").write_bytes(b"stale")
+            (output / "default-screen-unrelated.png").write_bytes(b"user file")
             (output / "keep.txt").write_text("unrelated user file")
             result = subprocess.run(["bash", str(scripts / "capture-duo-screenshots.sh"), "tendr", str(output)],
                                     text=True, capture_output=True, env=env, timeout=55)
             self.assertFalse(list(output.glob("*-obsolete.png")))
+            self.assertEqual((output / "default-screen-unrelated.png").read_bytes(), b"user file")
             self.assertEqual((output / "keep.txt").read_text(), "unrelated user file")
             if mode == "missing" and override is None:
                 self.assertNotEqual(result.returncode, 0)
@@ -246,14 +254,14 @@ class DuoCapabilitiesTests(unittest.TestCase):
             if mode == "test-failure":
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("Mock test failure", result.stderr)
-                self.assertFalse(list(output.glob("*.png")))
+                self.assertEqual([file.name for file in output.glob("*.png")], ["default-screen-unrelated.png"])
                 return
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             plan = json.loads((output / "plan.json").read_text())
-            expected_mode = mode if mode in ("fold", "displays") else "default"
+            expected_mode = "unmapped" if mode == "integrated" else mode if mode in ("fold", "displays") else "default"
             self.assertEqual(plan["mode"], expected_mode)
-            poses = ["inner", "outer"] if expected_mode in ("fold", "displays") else ["default"]
-            self.assertEqual(len(list(output.glob("*.png"))), len(poses) * 2 * 9)
+            poses = list(plan["displays"]) if expected_mode == "unmapped" else ["inner", "outer"] if expected_mode in ("fold", "displays") else ["default"]
+            self.assertEqual(len(list(output.glob("*.png"))), len(poses) * 2 * 9 + 1)
             for pose in poses:
                 for appearance in ["light", "dark"]:
                     self.assertTrue((output / f"{pose}-{appearance}-home.png").is_file())
@@ -288,6 +296,12 @@ class DuoCapabilitiesTests(unittest.TestCase):
 
     def test_fold_capture(self): self.capture("fold")
     def test_named_displays_capture(self): self.capture("displays")
+    def test_unnamed_integrated_screens_use_reported_ids(self):
+        commands = self.capture("integrated")
+        screenshots = [command for command in commands if command[:1] == ["io"] and command[2] == "screenshot"]
+        self.assertTrue(screenshots)
+        selectors = {argument for command in screenshots for argument in command if argument.startswith("--display=")}
+        self.assertEqual(selectors, {"--display=1", "--display=3"})
     def test_default_capture(self): self.capture("default")
     def test_rejected_fold_falls_back(self): self.capture("rejected")
     def test_missing_device_fails_clearly(self): self.capture("missing")

@@ -46,8 +46,8 @@ struct VialEditor: View {
                 Section("Notes") { TextField("Optional note", text: $note, axis: .vertical).lineLimit(3...5) }
             }.navigationTitle(vial == nil ? "Add Vial" : "Edit Vial").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("Save") {
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) { Button("Save", systemImage: "checkmark") {
                         guard let c = parse(concentration), let v = parse(volume), valid else { return }
                         var updated = Vial(received: received, medication: medication, concentration: c, volumeML: v, note: note)
                         if let vial { updated.id = vial.id }

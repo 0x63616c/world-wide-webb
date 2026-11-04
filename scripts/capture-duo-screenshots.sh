@@ -29,6 +29,9 @@ for pose in inner outer default; do
     rm -f "$out/$pose-$appearance-"*.png
   done
 done
+for appearance in light dark; do
+  rm -f "$out/default-screen-"[0-9]*-"$appearance"-*.png
+done
 rm -f "$out/capture-notes.txt" "$out/simctl-capabilities.txt" "$out/plan.json"
 work=$(mktemp -d "build/duo-screenshots/$app/run.XXXXXX")
 work="$PWD/$work"
@@ -106,8 +109,9 @@ for appearance in "${appearances[@]}"; do
   python3 - "$capture" "$work/plan.json" "$appearance" "$out" <<'PY'
 import json, pathlib, shutil, struct, sys
 source, plan_path, appearance, output = sys.argv[1:]
-mode = json.load(open(plan_path))["mode"]
-poses = ["inner", "outer"] if mode in ("fold", "displays") else ["default"]
+plan = json.load(open(plan_path))
+mode = plan["mode"]
+poses = list(plan["displays"]) if mode in ("displays", "unmapped") else ["inner", "outer"] if mode == "fold" else ["default"]
 screens = ["home", "treatment", "progress", "journal", "settings", "log-dose", "landscape-home", "landscape-progress", "landscape-log-dose"]
 for pose in poses:
     for screen in screens:

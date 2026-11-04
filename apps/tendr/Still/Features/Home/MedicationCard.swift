@@ -15,6 +15,8 @@ extension EnvironmentValues {
 }
 
 struct MedicationCard: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(Store.self) private var store
     @Environment(\.medicationVisit) private var medicationVisit
     var expanded = false
@@ -107,7 +109,7 @@ struct MedicationCard: View {
                         Link("Semaglutide model · Overgaard 2019", destination: URL(string: "https://doi.org/10.1007/s13300-019-0581-y")!)
                         Link("Tirzepatide model · Schneck 2024", destination: URL(string: "https://doi.org/10.1002/psp4.13099")!)
                     }
-                }.navigationTitle("About this graph").navigationBarTitleDisplayMode(.inline).toolbar { Button("Done") { info = false } }
+                }.navigationTitle("About this graph").navigationBarTitleDisplayMode(.inline).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", systemImage: "checkmark") { info = false } } }
             }.tendrSheet(page: true)
         }
     }
@@ -130,7 +132,7 @@ struct MedicationCard: View {
             .chartXScale(domain: plot.start...plot.end)
             .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisValueLabel(format: .dateTime.month(.abbreviated).day()) } }
             .chartYAxis { AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in AxisGridLine().foregroundStyle(.gray.opacity(0.1)); AxisValueLabel() } }
-            .frame(height: expanded ? 300 : 145)
+            .frame(height: expanded ? CGFloat(TendrLayout(horizontal: horizontalSizeClass.map(TendrLayout.SizeClass.init), vertical: verticalSizeClass.map(TendrLayout.SizeClass.init)).medicationChartHeight) : 145)
             .accessibilityIdentifier(expanded ? "medicationDetailChart" : "medicationChart")
             .accessibilityLabel("Estimated medication level. Solid line shows history; dashed line shows projection.")
         if expanded {
