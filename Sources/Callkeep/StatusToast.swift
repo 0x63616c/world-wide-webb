@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import QuartzCore
 
 enum OverlayPosition: String, CaseIterable, Identifiable {
     case top, bottom
@@ -18,6 +19,42 @@ enum OverlayPosition: String, CaseIterable, Identifiable {
 }
 
 @MainActor
+enum OverlayMotion {
+    static func show(_ panel: NSPanel) {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            panel.orderFrontRegardless()
+            return
+        }
+        let destination = panel.frame
+        panel.setFrame(destination.offsetBy(dx: 0, dy: OverlayPosition.current == .top ? 12 : -12), display: false)
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.24
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+            panel.animator().setFrame(destination, display: true)
+        }
+    }
+    static func hide(_ panel: NSPanel) {
+        panel.ignoresMouseEvents = true
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            panel.close()
+            return
+        }
+        let destination = panel.frame.offsetBy(dx: 0, dy: OverlayPosition.current == .top ? 8 : -8)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+            panel.animator().setFrame(destination, display: true)
+        } completionHandler: {
+            panel.close()
+        }
+    }
+}
+
+@MainActor
 final class StatusToast {
     static let shared = StatusToast()
     private var panel: NSPanel?
@@ -27,7 +64,8 @@ final class StatusToast {
         panel.setFrame(OverlayPosition.current.frame(for: panel.frame.size, on: screen), display: true)
     }
     func show(_ message: String, recording: Bool) {
-        dismissal?.cancel(); panel?.orderOut(nil)
+        dismissal?.cancel()
+        if let panel { OverlayMotion.hide(panel) }
         guard let screen = NSScreen.main else { return }
         let panel = NSPanel(contentRect: OverlayPosition.current.frame(for: NSSize(width: 260, height: 54), on: screen), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
@@ -39,11 +77,12 @@ final class StatusToast {
                 Text(message).font(.system(size: 14, weight: .medium))
             }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.regularMaterial, in: Capsule())
         )
-        panel.orderFrontRegardless(); self.panel = panel
+        OverlayMotion.show(panel); self.panel = panel
         dismissal = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2.4))
             guard !Task.isCancelled else { return }
-            self?.panel?.orderOut(nil); self?.panel = nil
+            if let panel = self?.panel { OverlayMotion.hide(panel) }
+            self?.panel = nil
         }
     }
 }

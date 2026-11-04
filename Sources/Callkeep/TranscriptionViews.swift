@@ -46,7 +46,10 @@ struct TranscriptionSettingsView: View {
                             removingModel = model
                         }.disabled(controller.runningModelID == model.id)
                     } else {
-                        Button("Download") { controller.models.download(model.id) }
+                        Button { controller.models.download(model.id) } label: {
+                            Image(systemName: "arrow.down.circle").font(.system(size: 16)).frame(width: 24, height: 24)
+                        }.buttonStyle(.borderless).foregroundStyle(.secondary)
+                            .help("Download \(model.name)").accessibilityLabel("Download \(model.name)")
                             .disabled(controller.models.downloading != nil || !TranscriptionModel.supported)
                     }
                 }.contentShape(Rectangle())

@@ -97,7 +97,10 @@ final class CallDetector {
     #if DEBUG
     func previewReminder() { show(CallingApp.supported[0]) }
     #endif
-    private func hide() { panel?.close(); panel = nil; shownID = nil }
+    private func hide() {
+        if let panel { OverlayMotion.hide(panel) }
+        panel = nil; shownID = nil
+    }
     func updatePosition() {
         guard let panel, let screen = panel.screen ?? NSScreen.main else { return }
         panel.setFrame(OverlayPosition.current.frame(for: panel.frame.size, on: screen), display: true)
@@ -114,7 +117,7 @@ final class CallDetector {
         }, dismiss: { [weak self] in self?.hide() }))
         panel.setFrame(OverlayPosition.current.frame(for: NSSize(width: panelWidth, height: 86), on: screen), display: true)
         self.panel = panel; shownID = app.id
-        panel.orderFrontRegardless()
+        OverlayMotion.show(panel)
     }
 }
 
