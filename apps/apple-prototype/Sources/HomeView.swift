@@ -84,6 +84,8 @@ struct HomeView: View {
     @State private var faceDrag: CGFloat = 0
     private let launcherMotion = ClockLauncherMotion.current
     @State private var appPreferences = PanelAppPreferences()
+    @State private var timer = PanelTimerStore()
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -127,7 +129,7 @@ struct HomeView: View {
                 let progress: CGFloat = showingClock ? dragProgress : 1 - dragProgress
                 AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
                     .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
-                    .clipShape(.rect(cornerRadius: 44))
+                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
                     .scaleEffect(reduceMotion ? 1 : launcherMotion.launcherScale(progress))
                     .offset(x: reduceMotion ? 0 : launcherMotion.launcherOffset(progress, width: proxy.size.width))
                     .opacity(launcherMotion == .reveal && !reduceMotion ? 1 : Double(progress))
@@ -136,7 +138,7 @@ struct HomeView: View {
                     .simultaneousGesture(clockLauncherSwipe(width: proxy.size.width, towardClock: true))
                 PresenceClockFace(store: store)
                     .environment(\.motionPhase, showingClock ? inheritedMotionPhase : 0)
-                    .clipShape(.rect(cornerRadius: 44))
+                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
                     .scaleEffect(reduceMotion ? 1 : launcherMotion.clockScale(progress))
                     .offset(x: reduceMotion ? 0 : launcherMotion.clockOffset(progress, width: proxy.size.width))
                     .opacity(reduceMotion ? Double(1 - progress) : launcherMotion.clockOpacity(progress))
@@ -153,7 +155,7 @@ struct HomeView: View {
                     .accessibilityIdentifier("launcher-clock")
                 if let selected {
                     appScreen(selected)
-                        .clipShape(.rect(cornerRadius: 44))
+                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
                         .transition(.opacity)
                         .zIndex(2)
                 }
@@ -165,6 +167,14 @@ struct HomeView: View {
                 .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
                 .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
                     store.walkActivity.synchronize(walk: walk, now: store.now)
+                }
+                .task(id: scenePhase) {
+                    guard scenePhase == .active else { return }
+                    timer.activate()
+                    while !Task.isCancelled {
+                        timer.tick()
+                        do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                    }
                 }
                 .task {
                     #if DEBUG
@@ -200,10 +210,11 @@ struct HomeView: View {
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
         VStack(spacing: 0) {
-            PanelAppNavigationBar(back: home)
+            if app.route != .timer { PanelAppNavigationBar(back: home) }
             Group {
                 switch app.route {
                 case .settings: PanelSettingsPage()
+                case .timer: PanelTimerPage(timer: timer)
                 case .classic, .clock: EmptyView()
                 case .feature(let feature):
                     if let integration { integration.destination(feature.homeTile, close: home) }
@@ -213,6 +224,11 @@ struct HomeView: View {
                 .clipped().accessibilityElement(children: .contain)
                 .accessibilityIdentifier("app-screen-\(app.id)")
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .topLeading) {
+                if app.route == .timer {
+                    PanelAppNavigationBar(back: home, fillsBackground: false).padding(72)
+                }
+            }
             .scrollBounceBehavior(.basedOnSize)
             .background(Color.black)
             .accessibilityAction(.escape) { home() }

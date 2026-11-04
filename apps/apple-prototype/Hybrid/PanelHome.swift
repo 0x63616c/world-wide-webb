@@ -198,10 +198,11 @@ struct PanelHomeButton: View {
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Label("Back", systemImage: "chevron.backward")
-                .font(.system(size: 20, weight: .semibold))
-                .frame(minWidth: 104, minHeight: 52).contentShape(.rect)
-        }.buttonStyle(.glass).accessibilityIdentifier("module-home")
+            Image(systemName: "chevron.left")
+                .font(.system(size: 22, weight: .semibold))
+                .frame(width: 48, height: 48).contentShape(.circle)
+        }.buttonStyle(.glass).buttonBorderShape(.circle)
+            .accessibilityLabel("Back").accessibilityIdentifier("module-home")
     }
 }
 

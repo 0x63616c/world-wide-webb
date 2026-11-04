@@ -12,6 +12,23 @@ bounce when their content overflows. A single-finger content scroll never closes
 an app. Back buttons are the app navigation; accessibility escape remains available.
 Settings uses a native split view for Display, Security and Apps preferences.
 
+## Timer
+
+The Timer app uses a wide black face, equal-length orange perimeter ticks and a
+large countdown. The border has extra edge padding and begins turning several ticks before each
+corner. It shares the alarm's arc-length sampler, so spacing stays even through turns.
+Tap the orange duration beneath the countdown to choose hours, minutes or seconds.
+Presets live inside that editor. Start, Pause, Resume, Reset and Again operate on
+the real local timer; the fixed Back button returns to Home.
+
+The shell owns a persisted deadline, so leaving the page, idle return to Clock,
+suspension or relaunch does not restart the countdown. Pause preserves the exact
+remaining interval. Settings → Apps → Timer configures its return-to-clock delay.
+An OS local notification supplies the completion alert outside the page, subject
+to notification/sound permissions; denied or silent settings are shown honestly.
+VoiceOver reads a duration and announces completion once. Simulator recordings
+disable only OS notification prompts/sounds, and show the countdown at normal speed.
+
 ## Panel PIN
 
 Photos and Tesla command confirmation use the shared `PanelPINEntry`: six masked

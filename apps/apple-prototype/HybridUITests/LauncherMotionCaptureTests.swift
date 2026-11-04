@@ -26,6 +26,36 @@ final class LauncherMotionCaptureTests: XCTestCase {
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE back-buttons")
     }
+    @MainActor func testTimer() {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-timerDisableNotifications"]
+        app.launch()
+        defer { app.terminate() }
+        app.openAppGrid()
+        print("MOTION_CAPTURE_READY timer")
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["app-timer"].tap()
+        XCTAssertTrue(app.buttons["timer-start-pause"].waitForExistence(timeout: 10))
+        if app.buttons["timer-reset"].isEnabled { app.buttons["timer-reset"].tap() }
+        app.buttons["timer-edit"].tap()
+        app.buttons["timer-preset-15"].tap()
+        app.buttons["timer-edit-save"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["timer-start-pause"].tap()
+        Thread.sleep(forTimeInterval: 4) // Show a real countdown, at normal speed.
+        app.buttons["timer-start-pause"].tap()
+        XCTAssertEqual(app.staticTexts["timer-status"].label, "Paused")
+        Thread.sleep(forTimeInterval: 1)
+        app.buttons["app-back"].tap()
+        app.buttons["app-timer"].tap()
+        app.buttons["timer-start-pause"].tap()
+        Thread.sleep(forTimeInterval: 3)
+        app.buttons["timer-reset"].tap()
+        Thread.sleep(forTimeInterval: 1)
+        print("MOTION_CAPTURE_DONE timer")
+    }
     @MainActor private func capture(_ style: String) {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
