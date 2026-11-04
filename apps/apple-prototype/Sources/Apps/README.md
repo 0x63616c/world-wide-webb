@@ -28,8 +28,13 @@ stable IDs live in `PanelAppCatalog`, shared by the native and design hosts.
 
 ## Photo Booth
 
-Photo Booth prefers the front camera and has one shutter with a three-second
-countdown. A shot saves to the existing booth gallery; the gallery button opens
+Photo Booth prefers the front camera. Photo takes one shot; Strip takes four,
+with a three-second posing countdown between shots. The self-timer offers Off,
+1, 3, 5 and 10 seconds before the first shot (3 seconds by default). The shutter
+becomes Cancel during capture, and leaving/backgrounding cancels partial strips
+without uploading them. Four completed frames become one white-bordered JPEG
+strip, readable in both native and web galleries. A finished strip stays in the
+preview until the next capture or navigation. A shot saves to the existing booth gallery; the gallery button opens
 earlier booth photos and every frame of burst/strip captures. Wake photos are
 excluded. Back moves from an enlarged photo to the gallery, then to the camera,
 then Home. The existing booth manifest is private, so each opening requires a
@@ -40,8 +45,11 @@ and rotation coordinator. Leaving the camera stops it. Saving belongs to the
 app's data source, so a failed JPEG remains available for retry after navigation
 while the app stays open; explicit discard requires the unlocked page. Uploads
 use the existing same-origin booth endpoint and bounded JPEG contract. Capture
-and rotation still require validation on a physical camera; the simulator shows
-its honest camera-unavailable state. No fake camera feed is supplied.
+of single photos has been confirmed on Calum's panel; physical strip capture and
+rotation remain unverified. Without a camera the simulator shows its unavailable
+state. The explicit DEBUG-only `-hybridBoothCamera` fixture supplies numbered,
+clearly labelled simulator test images to exercise capture, composition, upload
+and gallery display without private photos or a fabricated live camera feed.
 
 ## Timer
 

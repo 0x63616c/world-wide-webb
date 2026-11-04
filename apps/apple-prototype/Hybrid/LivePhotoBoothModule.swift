@@ -1,119 +1,5 @@
 import SwiftUI
-import AVFoundation
-import Observation
 import PanelKit
-
-@MainActor @Observable final class PhotoBoothCameraModel {
-    enum Status { case starting, ready, denied, unavailable, failed }
-    private(set) var status: Status = .starting
-    private(set) var device: AVCaptureDevice?
-    private(set) var countdown = 0
-    private(set) var saving = false
-    private(set) var saved = false
-    private(set) var requestingPermission = false
-    private(set) var error: String?
-    private(set) var preview: UIImage?
-    var rotation: CGFloat = 0
-    let capture = PhotoBoothCaptureSession()
-    @ObservationIgnored private let api: PhotosAPI
-    @ObservationIgnored private let photos: LivePhotosProvider
-    @ObservationIgnored private var countdownTask: Task<Void, Never>?
-    @ObservationIgnored private var saveTask: Task<Void, Never>?
-    @ObservationIgnored private var unsaved: Data?
-    @ObservationIgnored private var capturedAt = Date()
-    @ObservationIgnored private var generation = 0
-    var hasUnsavedPhoto: Bool { unsaved != nil && !saving }
-
-    init(api: PhotosAPI, photos: LivePhotosProvider) { self.api = api; self.photos = photos }
-    func activate(_ active: Bool) async {
-        generation += 1
-        let revision = generation
-        if !active {
-            countdownTask?.cancel(); countdownTask = nil; countdown = 0
-            await capture.stop()
-            return
-        }
-        guard AVCaptureDevice.default(for: .video) != nil else { status = .unavailable; return }
-        status = .starting
-        let permission = AVCaptureDevice.authorizationStatus(for: .video)
-        var allowed = permission == .authorized
-        if permission == .notDetermined {
-            requestingPermission = true
-            allowed = await AVCaptureDevice.requestAccess(for: .video)
-            requestingPermission = false
-        }
-        guard revision == generation else { return }
-        guard allowed else { status = .denied; return }
-        do {
-            let device = try await capture.start()
-            await capture.run()
-            guard revision == generation else { return }
-            self.device = device.value
-            status = .ready
-        } catch { if revision == generation { status = .failed } }
-    }
-    func shutter() {
-        if countdown > 0 {
-            countdownTask?.cancel(); countdownTask = nil; countdown = 0
-            return
-        }
-        guard status == .ready, !saving, unsaved == nil else { return }
-        error = nil; preview = nil; saved = false
-        countdownTask = Task {
-            do {
-                for value in stride(from: 3, through: 1, by: -1) {
-                    countdown = value
-                    AccessibilityNotification.Announcement(String(value)).post()
-                    try await Task.sleep(for: .seconds(1))
-                }
-                try Task.checkCancellation()
-                countdown = 0; countdownTask = nil
-                captureAndSave()
-            } catch { countdown = 0 }
-        }
-    }
-    private func captureAndSave() {
-        saving = true
-        // Owned by the model, so navigation cannot abandon an acknowledged upload.
-        saveTask = Task {
-            do {
-                let data = try await capture.capture(angle: rotation)
-                await saveCapturedPhoto(data, at: .now).value
-            } catch {
-                saving = false
-                self.error = "Couldn’t take the photo. Try again."
-            }
-        }
-    }
-    /// A captured JPEG is retained by the app-owned model until saved or explicitly discarded.
-    @discardableResult func saveCapturedPhoto(_ data: Data, at date: Date) -> Task<Void, Never> {
-        capturedAt = date; unsaved = data; preview = UIImage(data: data); saving = true
-        let task = Task { await upload() }
-        saveTask = task
-        return task
-    }
-    @discardableResult func retrySave() -> Task<Void, Never>? {
-        guard unsaved != nil, !saving else { return nil }
-        saving = true
-        let task = Task { await upload() }
-        saveTask = task
-        return task
-    }
-    private func upload() async {
-        guard let data = unsaved else { saving = false; return }
-        error = nil
-        do {
-            try await api.savePhoto(jpeg: data, capturedAt: capturedAt)
-            unsaved = nil; saved = true
-            AccessibilityNotification.Announcement("Photo saved").post()
-            await photos.refresh()
-            try? await Task.sleep(for: .seconds(2))
-            preview = nil; saved = false
-        } catch { self.error = "Couldn’t save the photo. Try again." }
-        saving = false
-    }
-    func discard() { unsaved = nil; preview = nil; error = nil; saved = false }
-}
 
 /// The existing booth manifest is private: a fresh PIN protects each opening.
 struct LivePhotoBoothModule: View {
@@ -179,8 +65,15 @@ struct LivePhotoBoothModule: View {
     }
     private var cameraPage: some View {
         VStack(spacing: 24) {
+            captureOptions
             ZStack {
-                if let image = camera.preview { Image(uiImage: image).resizable().scaledToFit() }
+                if let image = camera.preview {
+                    Image(uiImage: image).resizable().scaledToFit().accessibilityIdentifier("booth-capture-preview")
+                }
+                else if camera.usesTestCamera {
+                    ContentUnavailableView("Simulator camera", systemImage: "camera",
+                        description: Text("Test images only"))
+                }
                 else if camera.status == .ready, let device = camera.device {
                     PhotoBoothPreview(capture: camera.capture, device: device) { camera.rotation = $0 }
                 } else {
@@ -205,6 +98,7 @@ struct LivePhotoBoothModule: View {
                 if camera.countdown > 0 {
                     Text(String(camera.countdown)).font(.system(size: 120, weight: .semibold, design: .rounded))
                         .shadow(color: .black.opacity(0.6), radius: 10)
+                        .accessibilityIdentifier("booth-countdown")
                 }
                 if camera.saved {
                     Label("Saved", systemImage: "checkmark.circle.fill").font(.title2.weight(.semibold))
@@ -212,6 +106,14 @@ struct LivePhotoBoothModule: View {
                 } else if camera.saving { ProgressView().controlSize(.large) }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.white.opacity(0.04)).clipShape(.rect(cornerRadius: 32))
+                .overlay(alignment: .topTrailing) {
+                    if camera.capturing && camera.mode == .strip {
+                        Text("\(camera.shotNumber) / 4").font(.title3.monospacedDigit().weight(.semibold))
+                            .padding(.horizontal, 20).padding(.vertical, 12).glassEffect(.regular, in: .capsule)
+                            .accessibilityLabel("Photo \(camera.shotNumber) of 4")
+                            .accessibilityIdentifier("booth-shot-progress").padding(20)
+                    }
+                }
             if let error = camera.error {
                 HStack(spacing: 20) {
                     Text(error).foregroundStyle(.secondary)
@@ -230,19 +132,46 @@ struct LivePhotoBoothModule: View {
                 Button(action: camera.shutter) {
                     ZStack {
                         Circle().strokeBorder(.white, lineWidth: 4).frame(width: 88, height: 88)
-                        if camera.countdown > 0 { Image(systemName: "xmark").font(.title) }
+                        if camera.capturing { Image(systemName: "xmark").font(.title) }
                         else { Circle().fill(.white).frame(width: 72, height: 72) }
                     }
                 }.buttonStyle(.plain).disabled(camera.status != .ready || camera.saving || camera.hasUnsavedPhoto)
                     .opacity(camera.status == .ready ? 1 : 0.3)
-                    .accessibilityLabel(camera.countdown > 0 ? "Cancel countdown" : "Take photo")
-                    .accessibilityHint("Takes a photo after three seconds")
+                    .accessibilityLabel(camera.capturing ? "Cancel capture" : camera.mode == .strip ? "Take photo strip" : "Take photo")
+                    .accessibilityHint(camera.mode == .strip ? "Takes four photos with time to pose between them" : "Uses the selected self-timer")
                     .accessibilityIdentifier("booth-shutter")
                 Spacer()
                 Color.clear.frame(width: 88, height: 64).accessibilityHidden(true)
             }.frame(height: 96)
         }.padding(.horizontal, 48).padding(.bottom, 32)
             .accessibilityElement(children: .contain).accessibilityIdentifier("booth-camera")
+    }
+    private var captureOptions: some View {
+        GlassEffectContainer {
+            HStack {
+                Color.clear.frame(width: 100, height: 1).accessibilityHidden(true)
+                Spacer()
+                Picker("Capture mode", selection: Binding(get: { camera.mode }, set: { camera.mode = $0 })) {
+                    ForEach(PhotoBoothCameraModel.Mode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }.pickerStyle(.segmented).frame(width: 260).controlSize(.large)
+                    .accessibilityIdentifier("booth-mode")
+                Spacer()
+                Menu {
+                    Picker("Self-timer", selection: Binding(get: { camera.timerSeconds }, set: { camera.timerSeconds = $0 })) {
+                        ForEach(PhotoBoothCameraModel.timerOptions, id: \.self) { seconds in
+                            Text(seconds == 0 ? "Off" : "\(seconds) seconds").tag(seconds)
+                        }
+                    }
+                } label: {
+                    Label(camera.timerSeconds == 0 ? "Off" : "\(camera.timerSeconds)s", systemImage: "timer")
+                        .font(.title3.weight(.medium)).frame(minWidth: 76, minHeight: 48)
+                }.buttonStyle(.glass).buttonBorderShape(.capsule)
+                    .accessibilityLabel("Self-timer, \(camera.timerSeconds == 0 ? "off" : "\(camera.timerSeconds) seconds")")
+                    .accessibilityIdentifier("booth-timer")
+            }.disabled(camera.capturing || camera.saving)
+        }
     }
     private var galleryPage: some View {
         VStack(alignment: .leading, spacing: 24) {

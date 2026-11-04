@@ -70,6 +70,11 @@ struct PanelRoot: View {
             if ringing { fixtureNow = { AlarmDate.parse("2099-01-01T07:00:01Z")! } }
             else if flags[.calendar] == .native { fixtureNow = { HybridCalendarFixtureStore.now } }
             else { fixtureNow = Date.init }
+            let boothCapture: (@MainActor () async throws -> Data)?
+            if ProcessInfo.processInfo.arguments.contains("-hybridBoothCamera") {
+                let camera = BoothCaptureFixture()
+                boothCapture = { try camera.photo() }
+            } else { boothCapture = nil }
             let transport = HybridFixtureTransport(root: root,
                 unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable"),
                 alarmScenario: ringing ? "ringing" : "scheduled",
@@ -87,7 +92,7 @@ struct PanelRoot: View {
                 calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
                     selection: CalendarSelection(suiteName: "Panel.CalendarFixtures")),
-                now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }))
+                now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }, boothCapture: boothCapture))
             return
         }
         #endif
