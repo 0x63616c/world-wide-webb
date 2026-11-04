@@ -12,6 +12,8 @@ pub mod inspect;
 pub mod inventory;
 pub mod power;
 mod process;
+pub mod provision_wizard;
+pub mod provisioning;
 pub mod remote_setup;
 pub mod secrets;
 pub mod setup_wizard;

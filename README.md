@@ -149,8 +149,11 @@ are handled in the separate readiness stage below. See the
 The [Rust client](client/README.md) provides a setup wizard: select a connection
 profile and press **s**. It guides first-use SSH trust and public-key installation
 when needed, then inspects the target. You can stop after verifying access,
-without installing anything beyond the approved public key. To bootstrap,
-continue to select the reviewed artifact and private input files,
+without installing anything beyond the approved public key. **Continue host
+setup → Prepare credentials** guides token creation, hidden input, recovery-key
+backup and automatic encryption on your personal Mac. It stops with files for
+a host configuration PR. After that PR passes review and CI, choose **Use
+reviewed configuration** to select the matching artifact and private input files,
 review the evaluated host plan, and explicitly approve it. It handles transfer,
 interactive administrator authentication, staging cleanup and reconnect through
 the selected SSH route. Both current host definitions remain unready; the

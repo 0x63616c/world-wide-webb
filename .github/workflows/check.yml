@@ -29,6 +29,7 @@ jobs:
           CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER: /usr/bin/clang
         run: |
           set -euo pipefail
+          brew install age sops
           rustup run 1.89.0 cargo test --manifest-path client/Cargo.toml --locked --release
           rustup run 1.89.0 cargo build --manifest-path client/Cargo.toml --locked --release --bin homelab-host
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a

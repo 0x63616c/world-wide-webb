@@ -23,7 +23,8 @@ homelab
 The formula builds only the operator CLI from a pinned private-source commit.
 It needs access to this repository through your existing GitHub authentication;
 see the [tap's installation and authentication guide](https://github.com/0x63616c/homebrew-tap#homelab).
-It does not install Nix, activate a host or start a background service. Opening
+It includes age and SOPS for local secret preparation. It does not install Nix,
+activate a host or start a background service. Opening
 the menu does not connect until you choose an operation.
 
 On an existing Nix-equipped Apple-silicon operator machine, run
@@ -92,11 +93,41 @@ check the installed version; update through `brew update` and
 `brew upgrade homelab`.
 
 You can finish after access verification without any bootstrap inputs. Trust and
-public-key changes remain in place if you stop; the wizard reports this. To
-continue, it asks for the configuration host, reviewed commit, extracted CI
-artifact directory, and paths to this host's age key and repository read-token
-files. Enter paths, never secret values. The connection nickname and
-configuration host are separate choices.
+public-key changes remain in place if you stop; the wizard reports this.
+Choose **Continue host setup**, then **Prepare credentials** for guided local
+preparation. The wizard handles one step at a time:
+
+1. Select the configuration host and create its private age identity and a
+   separate recovery identity on your personal Mac.
+2. Save both private identity files somewhere safe, such as your personal 1Password
+   vault, and acknowledge the backup. The CLI does not access your vault.
+3. Open Tailscale's key page from the wizard. Create a single-use,
+   non-ephemeral key tagged `tag:homelab`; use pre-approval if your tailnet
+   requires device approval. If the tag is unavailable, stop for policy review.
+4. Open GitHub's fine-grained token page. Select only `0x63616c/homelab`, with
+   **Contents: read** and **Actions: read**, and choose an expiry date.
+5. Enter each token into its hidden prompt. Review the host and public
+   recipients, then let the CLI encrypt and verify both decryption identities.
+
+Only the hidden token prompts accept secret values. They never display the
+token. The wizard does not verify issuer permissions or expiry; check those in
+the provider before continuing. It prepares a review directory containing
+ciphertext and public configuration information, then stops. Keep the private
+provisioning directory out of git; add only the review files described by its
+instructions. No target setup or repository change happens during preparation.
+
+After the host configuration PR is reviewed and merged, wait for its successful
+CI build. Return to **Use reviewed configuration** and select the exact commit
+and extracted bootstrap artifact. The saved host-key and repository-token paths
+are filled in for you. Existing private files can still be selected manually;
+those fields accept paths, never secret values. The connection nickname and
+configuration host remain separate choices. This stage never receives the
+operator recovery key.
+
+Private files remain under `~/.local/state/homelab/provisioning` with owner-only
+permissions. This includes the GitHub token in a plaintext file needed for the
+first bootstrap; the Tailscale token is retained only in encrypted form. The
+wizard explains this before saving. Never commit the entire provisioning folder.
 
 Preparation checks the artifact checksums and evaluated readiness plan, then
 inspects SSH. It makes no target changes. Review the complete plan and type the

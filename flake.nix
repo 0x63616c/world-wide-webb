@@ -46,7 +46,7 @@
         packages = with pkgs; [
           python3 bash nixfmt
           cargo rustc rustfmt clippy
-          git shellcheck nodejs
+          git shellcheck nodejs age sops
         ];
       };
       darwinConfigurations = {

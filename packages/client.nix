@@ -1,7 +1,7 @@
 { pkgs }:
 pkgs.rustPlatform.buildRustPackage {
   pname = "homelab";
-  version = "0.1.2";
+  version = "0.1.3";
 
   src = pkgs.lib.fileset.toSource {
     root = ../client;
@@ -13,7 +13,11 @@ pkgs.rustPlatform.buildRustPackage {
     ];
   };
   cargoLock.lockFile = ../client/Cargo.lock;
-  nativeCheckInputs = [ pkgs.shellcheck pkgs.git pkgs.nodejs pkgs.openssh ];
+  nativeBuildInputs = [ pkgs.makeWrapper ];
+  nativeCheckInputs = [ pkgs.shellcheck pkgs.git pkgs.nodejs pkgs.openssh pkgs.age pkgs.sops ];
+  postInstall = ''
+    wrapProgram $out/bin/homelab --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.age pkgs.sops ]}
+  '';
   preCheck = ''
     shellcheck src/probe.sh
     shellcheck src/git-askpass.sh

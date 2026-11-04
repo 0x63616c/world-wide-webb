@@ -48,6 +48,18 @@ impl Form {
         }
     }
 
+    fn prefill_credentials(&mut self, root: &Path) {
+        let directory = root.join("hosts").join(&self.values[0]);
+        for (field, filename) in [(3, "host-age-key.txt"), (4, "github-read-token")] {
+            let path = directory.join(filename);
+            self.values[field] = if path.is_file() {
+                path.display().to_string()
+            } else {
+                String::new()
+            };
+        }
+    }
+
     fn edit(&mut self, code: KeyCode) {
         match code {
             KeyCode::Left | KeyCode::Right if self.field == 0 => {
@@ -130,7 +142,7 @@ impl Form {
     }
 }
 
-fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<usize> {
+pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<usize> {
     let (width, height) = terminal::size()?;
     let mut output = io::stdout();
     queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
@@ -314,7 +326,7 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
     }
 }
 
-fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<usize>> {
+pub(crate) fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<usize>> {
     let mut selected = 0;
     let mut offset = 0;
     loop {
@@ -359,7 +371,7 @@ fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<usize>> {
     }
 }
 
-fn review(lines: &[String], primary: &str) -> io::Result<bool> {
+pub(crate) fn review(lines: &[String], primary: &str) -> io::Result<bool> {
     let mut offset = 0;
     loop {
         let last = draw(
@@ -805,7 +817,7 @@ fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<Acces
     }
 }
 
-fn usable_size() -> io::Result<bool> {
+pub(crate) fn usable_size() -> io::Result<bool> {
     let (width, height) = terminal::size()?;
     Ok(width >= 40 && height >= 12)
 }
@@ -818,6 +830,26 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
         AccessOutcome::Continue(changes) => changes,
     };
     let terminal = Terminal::enter()?;
+    let Some(mode) = choose(
+        &[
+            "Host setup".into(),
+            "Prepare encrypted credentials first, or use a configuration already reviewed and built by CI.".into(),
+        ],
+        &["Prepare credentials", "Use reviewed configuration"],
+    )?
+    else {
+        return Ok(cancelled(changes));
+    };
+    let state = crate::provision_wizard::state_directory();
+    if mode == 0 {
+        return match state {
+            Some(root) => crate::provision_wizard::launch(&root),
+            None => Ok(Outcome {
+                completed: false,
+                lines: vec!["HOME is unavailable. Local credentials were not prepared.".into()],
+            }),
+        };
+    }
     let mut form = Form::new(&profile);
     let tools = Tools {
         ssh: PathBuf::from("/usr/bin/ssh"),
@@ -832,7 +864,14 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
         )?;
         match key()? {
             KeyCode::Esc => return Ok(cancelled(changes)),
-            KeyCode::Enter | KeyCode::Tab if form.field < 5 && usable_size()? => form.field += 1,
+            KeyCode::Enter | KeyCode::Tab if form.field < 5 && usable_size()? => {
+                if form.field == 0
+                    && let Some(root) = &state
+                {
+                    form.prefill_credentials(root);
+                }
+                form.field += 1;
+            }
             KeyCode::Enter if usable_size()? => {
                 draw(
                     &[
@@ -932,6 +971,29 @@ mod tests {
             identity: None,
         }
     }
+    #[test]
+    fn reviewed_configuration_prefills_only_existing_selected_host_credentials() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("hosts/homelab-macbook");
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(directory.join("host-age-key.txt"), "synthetic").unwrap();
+        std::fs::write(directory.join("github-read-token"), "synthetic").unwrap();
+        let mut form = Form::new(&profile());
+        form.prefill_credentials(root.path());
+        assert_eq!(
+            Path::new(&form.values[3]),
+            directory.join("host-age-key.txt")
+        );
+        assert_eq!(
+            Path::new(&form.values[4]),
+            directory.join("github-read-token")
+        );
+        form.edit(KeyCode::Right);
+        form.prefill_credentials(root.path());
+        assert!(form.values[3].is_empty() && form.values[4].is_empty());
+        assert!(!root.path().join("hosts/homelab-mac-mini").exists());
+    }
+
     #[test]
     fn configuration_selection_is_separate_from_the_connection_alias() {
         let profile = profile();

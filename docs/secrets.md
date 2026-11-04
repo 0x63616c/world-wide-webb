@@ -77,6 +77,29 @@ synthetic fixtures only.
 
 ## Provision and rotate
 
+For base-host setup, use **Prepare credentials** in the
+[operator wizard](../client/README.md). It guides token issuance in the provider's
+browser UI, accepts hidden input, and encrypts locally with age and SOPS.
+Successful preparation proves decryption with each intended identity separately;
+it does not prove that a token has the right issuer permissions or is unexpired.
+Only ciphertext and public configuration information belong in the resulting
+host readiness PR. Preparation never changes a host or sets activation readiness.
+The separate reviewed-artifact setup path transfers only the host identity and
+repository read token; it never transfers the recovery identity.
+
+Local preparation lives under `~/.local/state/homelab/provisioning`, with
+owner-only directories and mode-0600 files. The host and recovery age identities
+are retained for resumability. The GitHub read token is also retained in a
+private plaintext file because the first bootstrap needs repository access
+before SOPS is available; the wizard discloses this before collecting tokens.
+The Tailscale token has no separate persistent plaintext file. The `review`
+subdirectory contains only ciphertext and public recipient information; do not
+commit its parent directory. Back up the private identities off-host before
+proceeding. An interruption preserves existing material and may require
+inspection rather than silently generating replacement keys.
+
+The following describes the underlying lifecycle and later rotations:
+
 1. Generate a distinct age identity for each host and an operator recovery
    identity. Store recovery copies in 1Password on your personal Mac, never on
    homelab nodes or runner guests, and record only public
