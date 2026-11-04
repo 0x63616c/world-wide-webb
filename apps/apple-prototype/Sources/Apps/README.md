@@ -43,8 +43,11 @@ its honest camera-unavailable state. No fake camera feed is supplied.
 
 The Timer app uses a wide black face, equal-length orange perimeter ticks and a
 large countdown. The border begins turning several ticks before each corner. It shares the alarm's arc-length sampler, so spacing stays even through turns.
-The timer keeps its 100-point corner arcs with a 12-point edge inset. Its ring
-updates at display cadence, fading the fractional last tick even for short durations.
+The timer uses a 12-point edge inset and 32-point positioning corners, concentric
+with the shell's 44-point surface. Tick direction has a separate 100-point turning
+radius: marks start tilting while their anchors are still flush with a straight
+edge. Its ring updates at display cadence, fading the fractional last tick even
+for short durations.
 Tap the orange duration beneath the countdown to choose hours, minutes or seconds.
 Presets live inside that editor. Start, Pause, Resume, Reset and Again operate on
 the real local timer; the fixed Back button returns to Home.

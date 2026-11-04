@@ -21,8 +21,8 @@ struct PanelTimerPage: View {
     private var face: some View {
         GeometryReader { proxy in
             ZStack {
-                // Keep the generous corner arc while bringing the ring to the edge.
-                TimerTickRing(countdown: timer.countdown).padding(12)
+                // Tight corner positions and a broad angular fan are independent.
+                TimerTickRing(countdown: timer.countdown).padding(TimerTickRing.edgeInset)
                 // The readout and smooth ring have independent clocks. A paused ring
                 // must never pause the readout's schedule after navigation or resume.
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -161,12 +161,14 @@ private struct TimerDurationStyle: ButtonStyle {
 }
 
 private struct TimerTickRing: View {
+    static let edgeInset: CGFloat = 12
     let countdown: PanelCountdown
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: countdown.phase != .running)) { context in
             CountdownTicks(fraction: countdown.remaining(at: context.date) / countdown.duration,
                 ringing: countdown.phase == .finished, tickLength: 22, lineWidth: 7,
-                cornerRadius: 100, smoothProgress: true)
+                cornerRadius: PanelSurface.cornerRadius - Self.edgeInset,
+                tickTurningRadius: 100, smoothProgress: true)
         }
     }
 }
