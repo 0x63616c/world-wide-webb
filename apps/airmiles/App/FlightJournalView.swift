@@ -42,11 +42,18 @@ struct FlightJournalView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedID: String?
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var sidebarBounds: CGRect = .zero
+    @State private var detailBounds: CGRect = .zero
+    @FocusState private var searchFocused: Bool
     private var selection: Flight? { store.flights.first { $0.id == selectedID } }
+    private var sidebarOverlaysDetail: Bool {
+        columnVisibility != .detailOnly && sidebarBounds.intersection(detailBounds).width > 1
+    }
 
     var body: some View {
         @Bindable var store = store
-        NavigationSplitView(preferredCompactColumn: $compactColumn) {
+        NavigationSplitView(columnVisibility: $columnVisibility, preferredCompactColumn: $compactColumn) {
             VStack(spacing: 0) {
                 HStack {
                     Menu {
@@ -85,15 +92,18 @@ struct FlightJournalView: View {
                         }
                     }.listStyle(.insetGrouped).scrollContentBackground(.hidden)
                 }
-            }.background(AMStyle.paper).navigationTitle("Flights")
-                .searchable(text: $store.query, prompt: "City, airport, airline")
+            }.modifier(GlobeTravelContent()).background(AMStyle.paper).navigationTitle("Flights")
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sidebarBounds = $0 }
+                .searchable(text: $store.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "City, airport, airline")
+                .modifier(JournalSearchFocus(focus: $searchFocused))
                 .navigationSplitViewColumnWidth(min: 290, ideal: 340, max: 420)
         } detail: {
+            Group {
             if let selection {
                 FlightDetailView(flight: selection, sharedGlobe: true)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
-                            Button { compactColumn = .sidebar; selectedID = nil } label: {
+                            Button { compactColumn = .sidebar; columnVisibility = .all; selectedID = nil } label: {
                                 Label("All flights", systemImage: "list.bullet")
                             }
                         }
@@ -102,19 +112,37 @@ struct FlightJournalView: View {
                 VStack(spacing: 24) {
                     GlobeSlot(id: "journal", flights: store.filtered, height: 290).clipShape(RoundedRectangle(cornerRadius: 26))
                     Text("Select a flight").font(.headline).foregroundStyle(.secondary)
-                }.padding(28).frame(maxWidth: .infinity, maxHeight: .infinity).background(AMStyle.paper)
+                }.padding(28).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .modifier(GlobeTravelContent()).background(AMStyle.paper)
             }
+            }.onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { detailBounds = $0 }
         }
         .navigationSplitViewStyle(.balanced)
+        .preference(key: GlobeOcclusionKey.self, value: sidebarOverlaysDetail)
         .transformPreference(GlobePlacementKey.self) { slots in
-            if horizontalSizeClass == .compact && compactColumn == .sidebar {
+            let coveredBySidebar = columnVisibility != .detailOnly && (slots["journal"].map { $0.rect.intersection(sidebarBounds).width > 1 } ?? false)
+            if (horizontalSizeClass == .compact && compactColumn == .sidebar) || coveredBySidebar {
                 slots.removeValue(forKey: "journal")
             }
         }
-        .onChange(of: selectedID) { _, value in if value != nil { compactColumn = .detail } }
+        .onChange(of: selectedID) { _, value in
+            if value != nil {
+                searchFocused = false
+                compactColumn = .detail
+                if sidebarBounds.intersection(detailBounds).width > 1 { columnVisibility = .detailOnly }
+            }
+        }
         .onChange(of: store.flights) { _, newFlights in
             if !newFlights.contains(where: { $0.id == selectedID }) { selectedID = nil }
         }
+    }
+}
+
+private struct JournalSearchFocus: ViewModifier {
+    var focus: FocusState<Bool>.Binding
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) { content.searchFocused(focus) }
+        else { content }
     }
 }
 
@@ -131,7 +159,7 @@ struct FlightDetailView: View {
                     if sharedGlobe { GlobeSlot(id: "journal", flights: [flight], emphasized: flight, height: 190) }
                     else {
                         RouteAtlas(flights: [flight], airports: store.airports, emphasized: flight, spinning: false, interaction: localGlobe)
-                            .modifier(GlobeFrame(baseHeight: 190, interaction: localGlobe))
+                            .frame(height: 190)
                     }
                 }.clipShape(RoundedRectangle(cornerRadius: 24))
                 VStack(alignment: .leading, spacing: 18) {
@@ -140,7 +168,7 @@ struct FlightDetailView: View {
                         Text(flight.airline).font(.subheadline.weight(.medium))
                         Spacer()
                         Text(flight.flightNumber).font(.subheadline).foregroundStyle(.secondary)
-                    }.accessibilityIdentifier("flightIdentity")
+                    }.accessibilityElement(children: .contain).accessibilityIdentifier("flightIdentity")
                     HStack(alignment: .top) {
                         airport(flight.origin, alignment: .leading)
                         Spacer()
@@ -158,7 +186,16 @@ struct FlightDetailView: View {
                 if let operation = store.enrichment?.operation(for: flight) {
                     OperationDetails(operation: operation)
                 }
+                if let observation = store.enrichment?.observation(for: flight) {
+                    ObservationDetails(observation: observation)
+                }
+                if let booking = store.enrichment?.booking(for: flight) {
+                    BookingDetails(booking: booking)
+                }
                 VStack(alignment: .leading, spacing: 8) {
+                    if let note = store.enrichment?.reviewNote(for: flight) {
+                        Text(note).font(.footnote).foregroundStyle(.secondary)
+                    }
                     if flight.confidence != .high {
                         Label(flight.confidence.label, systemImage: "questionmark.circle")
                             .font(.subheadline.weight(.medium))
@@ -169,7 +206,7 @@ struct FlightDetailView: View {
                 }.padding(.horizontal, 4)
 
             }.padding(20).frame(maxWidth: 740).frame(maxWidth: .infinity)
-        }.modifier(GlobeClipRegion()).background(AMStyle.paper).navigationTitle(flight.route).navigationBarTitleDisplayMode(.inline)
+        }.modifier(GlobeClipRegion()).modifier(GlobeTravelContent()).background(AMStyle.paper).navigationTitle(flight.route).navigationBarTitleDisplayMode(.inline)
     }
     private func airport(_ code: String, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 6) {
@@ -219,6 +256,18 @@ private struct OperationDetails: View {
                     if !operation.cancelled && !operation.diverted, let minutes = operation.airborneMinutes {
                         LabeledContent("In the air", value: "\(minutes / 60)h \(minutes % 60)m")
                     }
+                    if !operation.cancelled, let time = operation.wheelsOff {
+                        LabeledContent("Takeoff", value: time)
+                    }
+                    if !operation.cancelled && !operation.diverted, let time = operation.wheelsOn {
+                        LabeledContent("Landing", value: time)
+                    }
+                    if !operation.cancelled, let minutes = operation.taxiOutMinutes {
+                        LabeledContent("Taxi out", value: "\(minutes) min")
+                    }
+                    if !operation.cancelled && !operation.diverted, let minutes = operation.taxiInMinutes {
+                        LabeledContent("Taxi in", value: "\(minutes) min")
+                    }
                     if let url = URL(string: operation.sourceURL) {
                         Link(operation.source == "Sample" ? "Synthetic sample" : "Bureau of Transportation Statistics", destination: url)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -234,5 +283,43 @@ private struct OperationDetails: View {
             if let actual { Text(actual).font(.title2.weight(.medium)).monospacedDigit() }
             if let scheduled { Text("Scheduled \(scheduled)").font(.caption).foregroundStyle(.secondary) }
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ObservationDetails: View {
+    let observation: FlightObservation
+    var body: some View {
+        DisclosureGroup("Aircraft observation") {
+            VStack(spacing: 12) {
+                if let type = observation.aircraftType { LabeledContent("Aircraft type", value: type) }
+                if let tail = observation.tailNumber { LabeledContent("Tail number", value: tail) }
+                LabeledContent("Callsign", value: observation.callsign)
+                Text("Matched by flight, route and date. Tracking observations do not establish gate times or delays.")
+                    .foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                if let url = URL(string: observation.sourceURL) {
+                    Link(observation.source == "Sample" ? "Synthetic sample" : "OpenSky Network", destination: url).frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }.font(.footnote).padding(.top, 12)
+        }.font(.subheadline).padding(22).panel().accessibilityIdentifier("aircraftObservation")
+    }
+}
+
+private struct BookingDetails: View {
+    let booking: FlightBooking
+    var body: some View {
+        DisclosureGroup("Booking details") {
+            VStack(spacing: 12) {
+                if let time = booking.scheduledDeparture { LabeledContent("Scheduled departure", value: time) }
+                if let time = booking.scheduledArrival { LabeledContent("Scheduled arrival", value: time) }
+                if let date = booking.scheduledArrivalDate { LabeledContent("Arrival date", value: date) }
+                if let seat = booking.bookedSeat { LabeledContent("Booked seat", value: seat) }
+                if let cabin = booking.bookedCabin { LabeledContent("Booked cabin", value: cabin) }
+                if let fare = booking.bookedFare { LabeledContent("Fare", value: fare) }
+                if let aircraft = booking.bookedAircraft { LabeledContent("Scheduled aircraft", value: aircraft) }
+                if let terminal = booking.departureTerminal { LabeledContent("Departure terminal", value: terminal) }
+                Text("\(booking.source == "Sample" ? "Synthetic sample" : "Original confirmation") · \(booking.sent). Local airport times; booking details may have changed.")
+                    .foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+            }.font(.footnote).padding(.top, 12)
+        }.font(.subheadline).padding(22).panel().accessibilityIdentifier("bookingDetails")
     }
 }

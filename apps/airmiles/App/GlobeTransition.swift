@@ -1,6 +1,23 @@
 import AirMilesCore
 import SwiftUI
 
+private struct GlobeTravelKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    var globeIsTravelling: Bool {
+        get { self[GlobeTravelKey.self] }
+        set { self[GlobeTravelKey.self] = newValue }
+    }
+}
+
+struct GlobeTravelContent: ViewModifier {
+    @Environment(\.globeIsTravelling) private var travelling
+    func body(content: Content) -> some View {
+        content.opacity(travelling ? 0 : 1)
+            .animation(.easeInOut(duration: travelling ? 0.12 : 0.22), value: travelling)
+            .allowsHitTesting(!travelling)
+    }
+}
+
 /// Slots keep native tab/navigation layouts while a single live globe moves between them.
 struct GlobePlacement: Equatable {
     var id: String
@@ -29,7 +46,7 @@ struct GlobeClipRegion: ViewModifier {
     func body(content: Content) -> some View {
         content.environment(\.globeClipRect, bounds)
             .onGeometryChange(for: CGRect.self) { proxy in
-                let frame = proxy.frame(in: .named("globeRoot"))
+                let frame = proxy.frame(in: .global)
                 // Navigation can already offset the viewport by its safe area.
                 // Adding the inset again cuts the globe in compact detail views.
                 let top = max(frame.minY, proxy.safeAreaInsets.top)
@@ -56,32 +73,26 @@ struct GlobePlacementKey: PreferenceKey {
     }
 }
 
+struct GlobeOcclusionKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
 struct GlobeSlot: View {
     var id: String
     var flights: [Flight]
     var emphasized: Flight?
     var height: CGFloat = 280
-    @Environment(GlobeInteraction.self) private var interaction
+    var maximumHeight: CGFloat?
     @Environment(\.globeClipRect) private var clipRect
     var body: some View {
         Color.clear.background {
             GeometryReader { proxy in
                 Color.clear.preference(key: GlobePlacementKey.self, value: [id: GlobePlacement(
-                    id: id, rect: proxy.frame(in: .named("globeRoot")), flights: flights, emphasized: emphasized, clipRect: clipRect)])
+                    id: id, rect: proxy.frame(in: .global), flights: flights, emphasized: emphasized, clipRect: clipRect)])
             }
-        }.modifier(GlobeFrame(baseHeight: height, interaction: interaction))
+        }.frame(height: min(height, maximumHeight ?? .infinity))
             .accessibilityHidden(true)
-    }
-}
-
-/// Grow the viewport itself when zooming so neither pole is cut by a fixed panel.
-struct GlobeFrame: ViewModifier {
-    var baseHeight: CGFloat
-    var interaction: GlobeInteraction
-    @State private var width: CGFloat = 0
-    func body(content: Content) -> some View {
-        content.frame(height: min(baseHeight * interaction.zoom, max(baseHeight, width)))
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 }
 

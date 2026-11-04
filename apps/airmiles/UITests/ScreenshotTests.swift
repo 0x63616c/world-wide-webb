@@ -8,6 +8,25 @@ import UIKit
     func testDarkJournalScreensAndSearch() throws {
         try exerciseJournal(appearance: "dark")
     }
+    func testGlobeClearsFlightCard() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--demo", "--screenshots", "--dark"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Flights"].waitForExistence(timeout: 15))
+        app.buttons["Flights"].tap()
+        if app.buttons["Show Sidebar"].exists { app.buttons["Show Sidebar"].tap() }
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'flight-'")).firstMatch
+        if row.exists { row.tap() }
+        else { app.cells.containing(NSPredicate(format: "label CONTAINS 'JFK'")).firstMatch.tap() }
+        let identity = app.otherElements["flightIdentity"].firstMatch
+        let globe = app.otherElements["flightGlobe"].firstMatch
+        XCTAssertTrue(identity.waitForExistence(timeout: 5))
+        XCTAssertTrue(globe.exists)
+        expectation(for: NSPredicate(format: "hittable == true"), evaluatedWith: globe)
+        waitForExpectations(timeout: 5)
+        XCTAssertLessThanOrEqual(globe.frame.maxY, identity.frame.minY, "Globe must stay above the flight card")
+        capture("dark-flight-layout")
+    }
     private func exerciseJournal(appearance: String) throws {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--screenshots", "--\(appearance)"]
@@ -30,8 +49,10 @@ import UIKit
         let globe = app.otherElements["flightGlobe"].firstMatch
         XCTAssertTrue(globe.exists)
         let initialGlobeHeight = globe.frame.height
+        let initialZoom = globe.value as? String
         globe.pinch(withScale: 1.4, velocity: 1)
-        XCTAssertGreaterThan(globe.frame.height, initialGlobeHeight)
+        XCTAssertNotEqual(globe.value as? String, initialZoom, "Pinch must change the camera zoom")
+        XCTAssertEqual(globe.frame.height, initialGlobeHeight, accuracy: 1, "Zoom must not push adjacent content")
         XCTAssertTrue(app.buttons["Reset globe"].waitForExistence(timeout: 5))
         XCTAssertEqual(motion.label, "Rotate globe")
         capture("\(appearance)-zoom")
@@ -56,6 +77,19 @@ import UIKit
         app.buttons["operationDetails"].tap()
         XCTAssertTrue(app.staticTexts["Tail number, N000EX"].waitForExistence(timeout: 5))
         capture("\(appearance)-operations")
+        app.buttons["operationDetails"].tap()
+        let booking = app.buttons["bookingDetails"]
+        if !booking.isHittable { app.scrollViews.element(boundBy: app.scrollViews.count - 1).swipeUp() }
+        XCTAssertTrue(booking.waitForExistence(timeout: 5))
+        booking.tap()
+        XCTAssertTrue(app.staticTexts["Booked seat, 24A"].waitForExistence(timeout: 5))
+        capture("\(appearance)-booking")
+        booking.tap()
+        let observation = app.buttons["aircraftObservation"]
+        XCTAssertTrue(observation.waitForExistence(timeout: 5))
+        observation.tap()
+        XCTAssertTrue(app.staticTexts["Aircraft type, B789"].waitForExistence(timeout: 5))
+        capture("\(appearance)-aircraft")
         let passport = app.buttons["Passport"]
         if passport.exists { passport.tap() } else { app.tabBars.buttons["Passport"].tap() }
         XCTAssertTrue(app.staticTexts["Passport"].waitForExistence(timeout: 5))

@@ -11,16 +11,18 @@ import Observation
     var zoom = 1.0
 }
 
-/// An offline, depth-tested globe. Routes are illustrative great circles, not flown tracks.
+/// Offline globe. Routes illustrate great circles, not actual flight tracks.
 struct RouteAtlas: View {
     var flights: [Flight]
     var airports: [String: Airport]
     var emphasized: Flight?
     var spinning = true
     var interaction: GlobeInteraction?
+    var showsStars = true
     @State private var localInteraction = GlobeInteraction()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
     @State private var visible = false
 
     var body: some View {
@@ -28,14 +30,37 @@ struct RouteAtlas: View {
         GlobeScene(flights: flights, airports: airports, emphasized: emphasized,
                    animate: spinning && state.spinning && emphasized == nil && !reduceMotion && visible && scenePhase == .active && !ProcessInfo.processInfo.arguments.contains("--screenshots"),
                    interaction: state, resetToken: state.resetToken, zoomCommand: state.zoomCommand, reduceMotion: reduceMotion)
+            .background {
+                if showsStars && colorScheme == .dark { StarField().allowsHitTesting(false).accessibilityHidden(true) }
+            }
             .onAppear { visible = true }.onDisappear { visible = false }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Flight globe, \(Set(flights.flatMap { [$0.origin, $0.destination] }).count) airports")
-            .accessibilityHint("Drag to rotate. Pinch to zoom. Double-tap to reset.")
+            .accessibilityValue("Zoom \(state.zoom.formatted(.number.precision(.fractionLength(1))))")
+            .accessibilityHint("Drag to explore. Pinch to zoom. Double-tap to reset.")
             .accessibilityIdentifier("flightGlobe")
             .accessibilityAction(named: "Zoom in") { state.zoomCommand += 1 }
             .accessibilityAction(named: "Zoom out") { state.zoomCommand -= 1 }
             .accessibilityAction(named: "Reset globe") { state.resetToken += 1 }
+    }
+}
+
+/// A quiet, deterministic sky: no twinkle, random redraws or extra animation timer.
+struct StarField: View {
+    var body: some View {
+        Canvas { context, size in
+            for index in 0..<110 {
+                let x = CGFloat((index * 7919 + 173) % 10007) / 10007 * size.width
+                let y = CGFloat((index * 3571 + 991) % 9973) / 9973 * size.height
+                let radius: CGFloat = index.isMultiple(of: 17) ? 0.9 : 0.5
+                let opacity = index.isMultiple(of: 17) ? 0.55 : 0.16 + Double(index % 5) * 0.045
+                // Feather the sky into its surrounding black instead of outlining a panel.
+                let edge = min(x, size.width - x, y, size.height - y)
+                let fade = min(1, max(0, edge / 28))
+                context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: radius * 2, height: radius * 2)),
+                             with: .color(.white.opacity(opacity * fade)))
+            }
+        }
     }
 }
 
@@ -51,7 +76,7 @@ private struct GlobeScene: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> SCNView {
-        let view = SCNView()
+        let view = GlobeSceneView()
         view.backgroundColor = .clear
         view.isOpaque = false
         view.antialiasingMode = .multisampling4X
@@ -64,6 +89,7 @@ private struct GlobeScene: UIViewRepresentable {
         reset.numberOfTapsRequired = 2
         view.addGestureRecognizer(reset)
         context.coordinator.view = view
+        view.onLayout = { [weak coordinator = context.coordinator] in coordinator?.fitCamera() }
         return view
     }
     func updateUIView(_ view: SCNView, context: Context) {
@@ -81,7 +107,9 @@ private struct GlobeScene: UIViewRepresentable {
         if context.coordinator.zoomCommand != zoomCommand {
             let change = zoomCommand - context.coordinator.zoomCommand
             context.coordinator.zoomCommand = zoomCommand
-            context.coordinator.zoom(by: pow(1.25, Double(change)))
+            Task { @MainActor [weak coordinator = context.coordinator] in
+                coordinator?.zoom(by: pow(1.25, Double(change)))
+            }
         }
         context.coordinator.shouldAnimate = animate
         context.coordinator.updateAnimation()
@@ -105,7 +133,10 @@ private struct GlobeScene: UIViewRepresentable {
         private var camera = SCNNode()
         private var routeNodes = SCNNode()
         private var focusID: String?
-        private var browsePose: (yaw: Float, tilt: Float, scale: Double)?
+        private var browsePose: (yaw: Float, tilt: Float, zoom: Double)?
+        private var zoomLevel = 1.0
+        private var orienting = false
+        private var orientationGeneration = 0
         private var homeYaw: Float = .pi / 4
         private var homeTilt: Float = .pi / 7
         private var pinching = false
@@ -137,22 +168,24 @@ private struct GlobeScene: UIViewRepresentable {
                 scene.rootNode.addChildNode(sunlight)
                 camera.camera = SCNCamera()
                 camera.camera?.usesOrthographicProjection = true
+                camera.camera?.projectionDirection = .vertical
                 camera.camera?.orthographicScale = 1.16
                 camera.camera?.zNear = 0.1; camera.camera?.zFar = 10
                 camera.position = SCNVector3(0, 0, 4)
                 scene.rootNode.addChildNode(camera)
                 view?.scene = scene; view?.pointOfView = camera
+                fitCamera()
             }
             if focusID != emphasized?.id {
                 if let flight = emphasized, let from = airports[flight.origin], let to = airports[flight.destination] {
                     if focusID == nil {
-                        browsePose = (world.eulerAngles.y, tilt.eulerAngles.x, camera.camera?.orthographicScale ?? 1.16)
+                        browsePose = (world.eulerAngles.y, tilt.eulerAngles.x, zoomLevel)
                     }
                     let midpoint = (point(from) + point(to)).unit
                     homeYaw = -atan2(midpoint.x, midpoint.z); homeTilt = asin(midpoint.y)
-                    orient(yaw: homeYaw, pitch: homeTilt, scale: 1.16)
+                    orient(yaw: homeYaw, pitch: homeTilt, zoom: 1)
                 } else if let pose = browsePose {
-                    orient(yaw: pose.yaw, pitch: pose.tilt, scale: pose.scale)
+                    orient(yaw: pose.yaw, pitch: pose.tilt, zoom: pose.zoom)
                     homeYaw = .pi / 4; homeTilt = .pi / 7; browsePose = nil
                 }
                 focusID = emphasized?.id
@@ -176,9 +209,9 @@ private struct GlobeScene: UIViewRepresentable {
         }
 
         func updateAnimation() {
-            if shouldAnimate && !dragging && !pinching {
+            if shouldAnimate && !dragging && !pinching && !orienting {
                 if world.action(forKey: "spin") == nil {
-                    let spin = SCNAction.rotateBy(x: 0, y: .pi * 2, z: 0, duration: 180)
+                    let spin = SCNAction.rotateBy(x: 0, y: .pi * 2, z: 0, duration: 180 * max(1, zoomLevel))
                     world.runAction(.repeatForever(spin), forKey: "spin")
                 }
                 view?.isPlaying = true
@@ -200,15 +233,30 @@ private struct GlobeScene: UIViewRepresentable {
                 initialYaw = world.eulerAngles.y; initialTilt = tilt.eulerAngles.x
             case .changed:
                 let translation = gesture.translation(in: gesture.view)
-                world.eulerAngles.y = initialYaw + Float(translation.x) * 0.006
-                tilt.eulerAngles.x = min(1.25, max(-1.25, initialTilt + Float(translation.y) * 0.006))
+                world.eulerAngles.y = initialYaw + Float(translation.x) * 0.006 / Float(zoomLevel)
+                tilt.eulerAngles.x = min(1.25, max(-1.25, initialTilt + Float(translation.y) * 0.006 / Float(zoomLevel)))
             case .ended, .cancelled, .failed:
                 dragging = false; updateAnimation()
             default: break
             }
         }
         private func beginInteraction() {
+            let visibleWorld = world.presentation.transform
+            let visibleTilt = tilt.presentation.transform
+            let visibleScale = camera.presentation.camera?.orthographicScale ?? camera.camera?.orthographicScale ?? 1.16
             stopSpin()
+            world.removeAllAnimations()
+            tilt.removeAllAnimations()
+            camera.camera?.removeAllAnimations()
+            SCNTransaction.begin()
+            SCNTransaction.disableActions = true
+            world.transform = visibleWorld
+            tilt.transform = visibleTilt
+            camera.camera?.orthographicScale = visibleScale
+            SCNTransaction.commit()
+            zoomLevel = fittedScale / max(0.001, visibleScale)
+            orientationGeneration += 1
+            orienting = false
             interaction?.spinning = false
             interaction?.changedByUser = true
         }
@@ -216,9 +264,9 @@ private struct GlobeScene: UIViewRepresentable {
             switch gesture.state {
             case .began:
                 pinching = true; beginInteraction()
-                pinchScale = interaction?.zoom ?? 1
+                pinchScale = zoomLevel
             case .changed:
-                interaction?.zoom = min(1.8, max(0.75, pinchScale * gesture.scale))
+                setZoom(pinchScale * gesture.scale)
             case .ended, .cancelled, .failed:
                 pinching = false; updateAnimation()
             default: break
@@ -226,18 +274,36 @@ private struct GlobeScene: UIViewRepresentable {
         }
         func zoom(by factor: Double) {
             beginInteraction()
-            interaction?.zoom = min(1.8, max(0.75, (interaction?.zoom ?? 1) * factor))
+            setZoom(zoomLevel * factor)
         }
         @objc func reset() {
             stopSpin()
-            orient(yaw: homeYaw, pitch: homeTilt, scale: 1.16)
+            orient(yaw: homeYaw, pitch: homeTilt, zoom: 1)
             // Defer observable updates out of UIViewRepresentable's update pass.
             Task { @MainActor [weak self] in
                 self?.interaction?.changedByUser = false
                 self?.interaction?.zoom = 1
             }
         }
-        private func orient(yaw: Float, pitch: Float, scale: Double) {
+        private func setZoom(_ value: Double) {
+            zoomLevel = min(3, max(0.75, value))
+            interaction?.zoom = zoomLevel
+            fitCamera()
+        }
+        func fitCamera() {
+            guard let view, view.bounds.width > 0, view.bounds.height > 0 else { return }
+            // Fit the sphere and raised routes in either pane aspect ratio.
+            camera.camera?.orthographicScale = fittedScale / zoomLevel
+        }
+        private var fittedScale: Double {
+            guard let view, view.bounds.width > 0 else { return 1.16 }
+            return 1.16 * max(1, view.bounds.height / view.bounds.width)
+        }
+        private func orient(yaw: Float, pitch: Float, zoom: Double) {
+            zoomLevel = zoom
+            orientationGeneration += 1
+            let generation = orientationGeneration
+            orienting = !reduceMotion
             SCNTransaction.begin()
             SCNTransaction.animationDuration = reduceMotion ? 0 : 0.5
             SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -245,8 +311,16 @@ private struct GlobeScene: UIViewRepresentable {
             let delta = atan2(sin(yaw - world.eulerAngles.y), cos(yaw - world.eulerAngles.y))
             world.eulerAngles.y += delta
             tilt.eulerAngles.x = pitch
-            camera.camera?.orthographicScale = scale
+            fitCamera()
             SCNTransaction.commit()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                interaction?.zoom = zoomLevel
+                if !reduceMotion { try? await Task.sleep(for: .milliseconds(500)) }
+                guard generation == orientationGeneration else { return }
+                orienting = false
+                updateAnimation()
+            }
         }
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
             (gestureRecognizer is UIPinchGestureRecognizer && other is UIPanGestureRecognizer) ||
@@ -362,6 +436,14 @@ private struct GlobeScene: UIViewRepresentable {
             rgb.draw(image, in: CGRect(origin: .zero, size: size))
             return rgb.makeImage().map { UIImage(cgImage: $0) } ?? rendered
         }()
+    }
+}
+
+private final class GlobeSceneView: SCNView {
+    var onLayout: (() -> Void)?
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
     }
 }
 

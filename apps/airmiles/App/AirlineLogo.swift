@@ -8,7 +8,8 @@ struct AirlineLogo: View {
         ["Delta": "DL", "Alaska": "AS", "Frontier": "F9", "United": "UA",
          "American": "AA", "JetBlue": "B6", "Virgin Atlantic": "VS",
          "Ryanair": "FR", "easyJet": "U2", "Norwegian": "DY", "Wizz Air": "W6",
-         "Air New Zealand": "NZ", "China Southern": "CZ", "Hainan": "HU"][airline]
+         "Air New Zealand": "NZ", "China Southern": "CZ", "Hainan": "HU",
+         "Juneyao Airlines": "HO", "Spring Airlines": "9C"][airline]
     }
     var body: some View {
         Group {

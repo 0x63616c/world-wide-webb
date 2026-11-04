@@ -4,54 +4,75 @@ import SwiftUI
 struct OverviewView: View {
     @Environment(FlightStore.self) private var store
     @State private var detail: Flight?
-    @State private var tabletop = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ScaledMetric(relativeTo: .largeTitle) private var distanceSize = 44
     var showFlights: () -> Void
 
     var body: some View {
-        GeometryReader { geometry in
-            if tabletop && geometry.size.width > 550 {
-                VStack(spacing: 0) {
-                    globe(height: geometry.size.height * 0.47)
-                    ScrollView {
-                        HStack(alignment: .top, spacing: 32) {
-                            VStack(alignment: .leading, spacing: 24) { distance; metricStrip }
-                                .frame(maxWidth: .infinity)
-                            recentFlights(limit: 2).frame(maxWidth: .infinity)
-                        }.padding(24)
-                    }.modifier(GlobeClipRegion())
-                }
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        if store.isDemo { Text("Sample flights").font(.caption).foregroundStyle(.secondary) }
-                        if geometry.size.width > 700 {
-                            HStack(alignment: .top, spacing: 40) {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    distance
-                                    globe(height: 280)
-                                    metricStrip
-                                }.frame(maxWidth: .infinity)
-                                recentFlights(limit: 3).frame(maxWidth: .infinity)
-                            }
-                        } else {
-                            distance
-                            globe(height: 260)
-                            metricStrip
-                            recentFlights(limit: 3)
+        Group {
+            #if compiler(>=6.4)
+            if #available(iOS 27.1, *), horizontalSizeClass == .regular {
+                ArrangementView {
+                    DuoOverviewPane {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
+                                sampleLabel
+                                distance
+                                globe(height: 280)
+                                metricStrip
+                            }.padding(28)
+                        }.modifier(GlobeClipRegion())
+                    } vertical: {
+                        GeometryReader { geometry in
+                            GlobeSlot(id: "overview", flights: store.flights,
+                                      height: max(100, geometry.size.height - 40),
+                                      maximumHeight: max(100, geometry.size.height - 40))
+                                .padding(20)
+                        }.modifier(GlobeClipRegion())
+                    }.splitArrangementLayoutRatio(0.52)
+                } secondary: {
+                    DuoOverviewPane {
+                        ScrollView { recentFlights(limit: 3).padding(28) }
+                    } vertical: {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
+                                sampleLabel
+                                distance
+                                metricStrip
+                                recentFlights(limit: 3)
+                            }.padding(28)
                         }
-                    }.padding(.horizontal, geometry.size.width > 600 ? 28 : 20)
-                        .padding(.top, 12).padding(.bottom, 24)
-                        .frame(maxWidth: 1100).frame(maxWidth: .infinity)
-                }.modifier(GlobeClipRegion())
-            }
+                    }
+                }
+                .arrangementViewStyle(.split)
+            } else { compactOverview }
+            #else
+            compactOverview
+            #endif
         }
+        .modifier(GlobeTravelContent())
         .background(AMStyle.paper)
         .navigationBarTitleDisplayMode(.inline)
-        .modifier(HingeObserver(tabletop: $tabletop))
         .sheet(item: $detail) { flight in
             NavigationStack { FlightDetailView(flight: flight).toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { detail = nil } } } }
         }
+    }
+
+    private var compactOverview: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                sampleLabel
+                distance
+                globe(height: 260)
+                metricStrip
+                recentFlights(limit: 3)
+            }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 24)
+                .frame(maxWidth: 600).frame(maxWidth: .infinity)
+        }.modifier(GlobeClipRegion())
+    }
+
+    @ViewBuilder private var sampleLabel: some View {
+        if store.isDemo { Text("Sample flights").font(.caption).foregroundStyle(.secondary) }
     }
 
     private var distance: some View {
@@ -106,15 +127,18 @@ struct Metric: View {
     }
 }
 
-private struct HingeObserver: ViewModifier {
-    @Binding var tabletop: Bool
-    @ViewBuilder func body(content: Content) -> some View {
-        #if compiler(>=6.4)
-        if #available(iOS 27.1, *) {
-            content.onHingeChange { _, update in tabletop = update.hinge?.status == .partiallyOpen }
-        } else { content }
-        #else
-        content
-        #endif
+#if compiler(>=6.4)
+@available(iOS 27.1, *)
+private struct DuoOverviewPane<Horizontal: View, Vertical: View>: View {
+    @Environment(\.splitArrangementAxis) private var axis
+    let horizontal: Horizontal
+    let vertical: Vertical
+    init(@ViewBuilder horizontal: () -> Horizontal, @ViewBuilder vertical: () -> Vertical) {
+        self.horizontal = horizontal()
+        self.vertical = vertical()
+    }
+    var body: some View {
+        if axis == .vertical { vertical } else { horizontal }
     }
 }
+#endif

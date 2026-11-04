@@ -49,7 +49,7 @@ import Observation
     var filtered: [Flight] {
         flights.filter {
             (selectedYear == nil || $0.year == selectedYear) &&
-            (!reviewOnly || $0.confidence != .high) && $0.matches(query, airports: airports)
+            (!reviewOnly || $0.confidence != .high || enrichment?.reviewNote(for: $0) != nil) && $0.matches(query, airports: airports)
         }
     }
     func city(_ code: String) -> String { airports[code]?.city ?? code }
@@ -84,9 +84,16 @@ import Observation
         "scheduledDeparture":"17:00","actualDeparture":"17:08",
         "scheduledArrival":"10:30","actualArrival":"10:22",
         "departureDelay":8,"arrivalDelay":-8,"elapsedMinutes":554,"airborneMinutes":527,
+        "wheelsOff":"17:23","wheelsOn":"10:10","taxiOutMinutes":15,"taxiInMinutes":12,
         "cancelled":false,"diverted":false
       }
-    }}
+    },"bookings":{"2026-08-21|United|UA16|HND|SFO":{
+      "source":"Sample","sent":"2026-08-01","scheduledDeparture":"17:00","scheduledArrival":"10:30",
+      "bookedSeat":"24A","bookedCabin":"Economy","bookedAircraft":"Boeing 787-9","departureTerminal":"3"
+    }},"observations":{"2026-08-21|United|UA16|HND|SFO":{
+      "source":"Sample","sourceURL":"https://example.com","callsign":"EXAMPLE16","icao24":"000000",
+      "tailNumber":"N000EX","aircraftType":"B789","firstSeenUTC":"2026-08-21T08:23:00Z","lastSeenUTC":"2026-08-21T17:10:00Z"
+    }}}
     """#
 
     // Deliberately synthetic. Never substitute personal flight history in this fixture.
