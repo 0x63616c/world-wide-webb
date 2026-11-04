@@ -63,6 +63,7 @@ impl Fixture {
         let root = self.directory.path();
         Request {
             profile: HostProfile {
+                identity: None,
                 name: "my-macbook".into(),
                 address: "example-host".into(),
                 user: "admin".into(),
@@ -271,4 +272,36 @@ fn unsafe_credentials_and_remote_paths_are_rejected() {
     );
     assert!(!fixture.events().contains(&"transfer".into()));
     assert!(!fixture.events().contains(&"cleanup".into()));
+}
+
+#[test]
+fn selected_identity_survives_every_setup_route_and_failure_cleanup() {
+    for fail_transfer in [false, true] {
+        let fixture = Fixture::new();
+        let mut request = fixture.request();
+        let key = "ssh-ed25519 AAAA";
+        fs::write(fixture.path("expected-key"), key).unwrap();
+        request.profile.identity = Some(homelab_client::inventory::AgentIdentity {
+            public_key: key.into(),
+            agent_socket: fixture.path("selected agent.sock"),
+        });
+        if fail_transfer {
+            fixture.flag("transfer-fails");
+        }
+        let prepared = remote_setup::prepare(request, &fixture.tools).unwrap();
+        let result = remote_setup::apply(prepared, &fixture.tools);
+        assert_eq!(result.is_ok(), !fail_transfer);
+        let events = fixture.events();
+        assert!(events.iter().any(|event| event == "transfer"));
+        assert!(events.iter().any(|event| event == "cleanup"));
+        if !fail_transfer {
+            assert!(events.iter().any(|event| event == "bootstrap"));
+            assert_eq!(events.last().unwrap(), "inspect");
+        }
+        let files = fs::read_to_string(fixture.path("identity-files")).unwrap();
+        assert_eq!(files.lines().count(), events.len());
+        for path in files.lines() {
+            assert!(!Path::new(path).exists());
+        }
+    }
 }

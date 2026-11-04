@@ -67,7 +67,12 @@ Settings steps and the distinction between enabling SSH and installing a key.
 The wizard offers explicit first-use host trust and, when needed, reviewed
 public-key installation through the system SSH password prompt. Existing keys
 are preserved; saved host-key mismatches are never bypassed. The private key
-must already be available to the operator's SSH configuration or agent.
+must already be available to the operator's SSH configuration or agent. The
+guided picker can list public keys from the personal Mac's 1Password SSH agent;
+it never exports private keys or accesses the vault. The approved public key and
+agent socket are saved per connection and reused for SSH and SCP. Selected-agent
+connections use the real hostname/IP directly on port 22, without custom SSH
+configuration or agent forwarding.
 Access verification can finish without bootstrap credentials or activation.
 The wizard then inspects the host,
 transfers the reviewed bootstrap and only host-specific credentials, obtains

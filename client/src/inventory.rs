@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rustix::fs::{FlockOperation, Mode, OFlags, flock, open};
 use serde::{Deserialize, Serialize};
@@ -12,10 +12,19 @@ const MAX_BYTES: u64 = 64 * 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub struct AgentIdentity {
+    pub public_key: String,
+    pub agent_socket: PathBuf,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct HostProfile {
     pub name: String,
     pub address: String,
     pub user: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identity: Option<AgentIdentity>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -38,6 +47,8 @@ pub enum InventoryError {
     Busy,
     #[error("The inventory save could not be completed and confirmed.")]
     SaveFailed,
+    #[error("The saved connection changed while you were choosing a key.")]
+    Changed,
 }
 
 impl InventoryError {
@@ -52,6 +63,7 @@ impl InventoryError {
             Self::UnsafeLocation => "inventory-unsafe-location",
             Self::Busy => "inventory-busy",
             Self::SaveFailed => "inventory-save-failed",
+            Self::Changed => "inventory-changed",
         }
     }
 
@@ -72,6 +84,7 @@ impl InventoryError {
             Self::SaveFailed => {
                 "Inspect the local inventory and available disk space before retrying."
             }
+            Self::Changed => "Reopen the saved connection and review its current address and key.",
         }
     }
 }
@@ -96,6 +109,10 @@ pub(crate) fn validate_profile(host: &HostProfile) -> Result<(), InventoryError>
     if [&host.name, &host.address, &host.user]
         .into_iter()
         .all(|value| valid_field(value))
+        && host
+            .identity
+            .as_ref()
+            .is_none_or(crate::ssh_identity::validate_identity)
     {
         Ok(())
     } else {
@@ -161,6 +178,36 @@ pub fn load(path: &Path) -> Result<Vec<HostProfile>, InventoryError> {
 
 pub fn add(path: &Path, host: HostProfile) -> Result<Vec<HostProfile>, InventoryError> {
     validate_profile(&host)?;
+    save(path, Change::Add(host))
+}
+
+pub fn set_identity(
+    path: &Path,
+    expected: &HostProfile,
+    identity: Option<AgentIdentity>,
+) -> Result<HostProfile, InventoryError> {
+    let mut updated = expected.clone();
+    updated.identity = identity;
+    validate_profile(&updated)?;
+    save(
+        path,
+        Change::Replace {
+            expected,
+            updated: updated.clone(),
+        },
+    )?;
+    Ok(updated)
+}
+
+enum Change<'a> {
+    Add(HostProfile),
+    Replace {
+        expected: &'a HostProfile,
+        updated: HostProfile,
+    },
+}
+
+fn save(path: &Path, change: Change<'_>) -> Result<Vec<HostProfile>, InventoryError> {
     let filename = path.file_name().ok_or(InventoryError::UnsafeLocation)?;
     let parent = path
         .parent()
@@ -217,14 +264,39 @@ pub fn add(path: &Path, host: HostProfile) -> Result<Vec<HostProfile>, Inventory
         Err(InventoryError::Missing) => Vec::new(),
         Err(error) => return Err(error),
     };
-    if hosts.iter().any(|existing| existing.name == host.name) {
-        return Err(InventoryError::DuplicateName);
+    match change {
+        Change::Add(host) => {
+            if hosts.iter().any(|existing| existing.name == host.name) {
+                return Err(InventoryError::DuplicateName);
+            }
+            if hosts.len() == 32 {
+                return Err(InventoryError::Full);
+            }
+            hosts.push(host);
+        }
+        Change::Replace { expected, updated } => {
+            let current = hosts
+                .iter_mut()
+                .find(|host| host.name == expected.name)
+                .ok_or(InventoryError::Changed)?;
+            // A key approved for one connection must not be saved onto a
+            // different connection edited by another client in the meantime.
+            if current != expected {
+                return Err(InventoryError::Changed);
+            }
+            *current = updated;
+        }
     }
-    if hosts.len() == 32 {
-        return Err(InventoryError::Full);
-    }
-    hosts.push(host);
     let inventory = Inventory { schema: 1, hosts };
+    inventory.validate()?;
+    if serde_json::to_vec_pretty(&inventory)
+        .map_err(|_| InventoryError::SaveFailed)?
+        .len() as u64
+        + 1
+        > MAX_BYTES
+    {
+        return Err(InventoryError::TooLarge);
+    }
     let mut temporary =
         tempfile::NamedTempFile::new_in(parent).map_err(|_| InventoryError::SaveFailed)?;
     temporary

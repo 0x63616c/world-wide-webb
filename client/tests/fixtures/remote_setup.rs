@@ -6,7 +6,44 @@ use std::path::Path;
 fn main() {
     let executable = std::env::current_exe().unwrap();
     let root = executable.parent().unwrap();
-    let args: Vec<_> = std::env::args().skip(1).collect();
+    let mut args: Vec<_> = std::env::args().skip(1).collect();
+    if root.join("expected-key").exists() {
+        assert_eq!(&args[..3], ["-F", "/dev/null", "-i"]);
+        let public_file = &args[3];
+        assert_eq!(
+            std::fs::read_to_string(public_file).unwrap().trim(),
+            std::fs::read_to_string(root.join("expected-key")).unwrap()
+        );
+        assert_eq!(
+            std::env::var_os("SSH_AUTH_SOCK").unwrap(),
+            root.join("selected agent.sock")
+        );
+        for option in [
+            "IdentitiesOnly=yes",
+            "IdentityAgent=SSH_AUTH_SOCK",
+            "ControlMaster=no",
+            "ControlPath=none",
+            "ControlPersist=no",
+        ] {
+            assert!(args.iter().any(|arg| arg == option));
+        }
+        use std::io::Write as _;
+        writeln!(
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(root.join("identity-files"))
+                .unwrap(),
+            "{public_file}"
+        )
+        .unwrap();
+        let start = args
+            .iter()
+            .position(|arg| ["-T", "-tt", "-s"].contains(&arg.as_str()))
+            .unwrap();
+        args.drain(..start);
+    }
+
     let event = |name: &str| {
         writeln!(
             OpenOptions::new()

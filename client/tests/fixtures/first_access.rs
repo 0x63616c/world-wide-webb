@@ -3,6 +3,16 @@ fn main() {
     let executable = env::current_exe().unwrap();
     let root = executable.parent().unwrap();
     let args: Vec<String> = env::args().skip(1).collect();
+    if args == ["-L"] {
+        assert_eq!(env::var("LC_ALL").unwrap(), "C");
+        assert_eq!(env::var_os("SSH_AUTH_SOCK").unwrap(), root.join("chosen agent.sock"));
+        if let Ok(code) = fs::read_to_string(root.join("agent-exit")) {
+            println!("The agent has no identities.");
+            std::process::exit(code.trim().parse().unwrap());
+        }
+        print!("{}", fs::read_to_string(root.join("agent-keys")).unwrap());
+        return;
+    }
     if args.first().map(String::as_str) == Some("-l") {
         assert_eq!(&args[..4], ["-l", "-E", "sha256", "-f"]);
         let key = fs::read_to_string(&args[4]).unwrap();
@@ -14,6 +24,14 @@ fn main() {
     let options = args.join("\n");
     for option in ["ControlMaster=no", "ControlPath=none", "ControlPersist=no", "ForwardAgent=no", "ClearAllForwardings=yes"] {
         assert!(options.contains(option));
+    }
+    if let Some(index) = args.iter().position(|arg| arg == "-i") {
+        assert!(options.contains("IdentitiesOnly=yes"));
+        assert!(options.contains("IdentityAgent=SSH_AUTH_SOCK"));
+        assert!(args.windows(2).any(|pair| pair == ["-F", "/dev/null"]));
+        assert_eq!(env::var_os("SSH_AUTH_SOCK").unwrap(), root.join("chosen agent.sock"));
+        assert_eq!(fs::read_to_string(&args[index + 1]).unwrap(), "ssh-ed25519 AAAA\n");
+        fs::write(root.join("identity-path"), &args[index + 1]).unwrap();
     }
     let destination = args.iter().position(|arg| arg == "--").unwrap();
     assert_eq!(args[destination + 1], "admin@192.0.2.1");

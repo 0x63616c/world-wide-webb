@@ -110,13 +110,14 @@ fn execute(arguments: Arguments, ssh: &Path) -> Result<Option<inspect::Inspectio
             match operation {
                 Operation::Inspect { .. } => Ok(Some(inspect::inspect(profile, ssh)?)),
                 Operation::Setup { .. } => {
-                    let outcome = homelab_client::setup_wizard::launch(profile).map_err(|_| {
-                        Failure::new(
-                            "terminal-unavailable",
-                            "Setup could not continue in this terminal.",
-                            "Preserve setup evidence and inspect the target before retrying.",
-                        )
-                    })?;
+                    let outcome =
+                        homelab_client::setup_wizard::launch(profile, &path).map_err(|_| {
+                            Failure::new(
+                                "terminal-unavailable",
+                                "Setup could not continue in this terminal.",
+                                "Preserve setup evidence and inspect the target before retrying.",
+                            )
+                        })?;
                     writeln!(io::stdout().lock(), "{}", outcome.lines.join("\n")).map_err(
                         |_| {
                             Failure::new(

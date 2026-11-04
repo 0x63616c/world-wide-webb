@@ -1,16 +1,16 @@
 //! Interactive first setup; credentials stay in files and sudo owns its terminal.
 
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crossterm::cursor::MoveTo;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use crossterm::queue;
 use crossterm::terminal::{self, Clear, ClearType};
 
-use crate::inventory::HostProfile;
+use crate::inventory::{self, AgentIdentity, HostProfile};
 use crate::remote_setup::{self, Request, Tools};
-use crate::tui::{Terminal, wrap, write_styled};
+use crate::tui::{Terminal, footer, wrap, write_styled};
 use crate::{first_access, inspect};
 
 const LABELS: [&str; 6] = [
@@ -119,7 +119,7 @@ impl Form {
             LABELS[self.field].into(),
             format!("> {tail}"),
             if self.field == 0 || self.field == 5 {
-                "Left/Right changes selection"
+                "←/→ changes selection"
             } else if self.field == 1 {
                 "Paste the exact reviewed commit"
             } else {
@@ -209,10 +209,14 @@ pub struct Outcome {
 struct AccessChanges {
     trust_attempted: bool,
     key_attempted: bool,
+    identity_saved: bool,
 }
 
 impl AccessChanges {
     fn append_notice(self, lines: &mut Vec<String>) {
+        if self.identity_saved {
+            lines.push("Your SSH identity preference was saved on this Mac.".into());
+        }
         if self.trust_attempted {
             lines.push("A first-use SSH host key may have been saved on your Mac. It has not been removed.".into());
         }
@@ -287,6 +291,11 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
             "Check the address saved in this connection profile.",
             vec![Check],
         ),
+        Error::AgentRefused => (
+            "SSH agent approval needed",
+            "Open and unlock your SSH agent, approve this connection, then retry. The key may already be installed.",
+            vec![Check],
+        ),
         Error::Verification => (
             "Key installed; login not verified",
             "Make its private key available to your SSH agent or configuration, then retry.",
@@ -316,7 +325,7 @@ fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<usize>> {
                 format!("{} {label}", if index == selected { ">" } else { " " })
             }));
         }
-        let footer = format!("Enter: {}\nUp/Down choose | Esc back", actions[selected]);
+        let footer = footer(actions[selected], "↑/↓ select · Esc back");
         let last = draw(&content, offset, &footer)?;
         match key()? {
             KeyCode::Esc => return Ok(None),
@@ -350,15 +359,19 @@ fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<usize>> {
     }
 }
 
-fn review(lines: &[String], footer: &str) -> io::Result<bool> {
+fn review(lines: &[String], primary: &str) -> io::Result<bool> {
     let mut offset = 0;
     loop {
-        let last = draw(lines, offset, footer)?;
+        let last = draw(
+            lines,
+            offset,
+            &footer(primary, "PgUp/PgDn review · Esc back"),
+        )?;
         if offset < last {
             draw(
                 lines,
                 offset,
-                "Enter: read more before approval\nPgUp/PgDn review | Esc back",
+                &footer("Read more before approval", "PgUp/PgDn review · Esc back"),
             )?;
         }
         match key()? {
@@ -406,7 +419,7 @@ fn public_key(tools: &first_access::Tools) -> io::Result<Option<first_access::Pu
             error.as_deref(),
             usize::from(width).saturating_sub(4).min(76),
         );
-        draw(&lines, 0, "Enter: review key\nCtrl-U clear | Esc back")?;
+        draw(&lines, 0, &footer("Review key", "Ctrl-U clear · Esc back"))?;
         match key()? {
             KeyCode::Esc => return Ok(None),
             KeyCode::Enter if !value.is_empty() && usable_size()? => {
@@ -431,6 +444,155 @@ fn public_key(tools: &first_access::Tools) -> io::Result<Option<first_access::Pu
     }
 }
 
+struct SelectedKey {
+    key: first_access::PublicKey,
+    identity: Option<AgentIdentity>,
+}
+
+fn agent_key_lines(
+    keys: &[(&str, &str)],
+    selected: usize,
+    width: usize,
+    room: usize,
+) -> Vec<String> {
+    let fingerprint_rows = wrap(&[keys[selected].1.into()], width).len();
+    let count = (room.saturating_sub(2) / (fingerprint_rows + 1))
+        .max(1)
+        .min(keys.len());
+    let start = selected
+        .saturating_sub(count - 1)
+        .min(keys.len().saturating_sub(count));
+    let mut lines = vec![
+        "Choose an SSH key".into(),
+        format!("Key {} of {}", selected + 1, keys.len()),
+        String::new(),
+    ];
+    for (index, (label, fingerprint)) in keys.iter().enumerate().skip(start).take(count) {
+        let label = if label.is_empty() {
+            "Unnamed SSH key"
+        } else {
+            label
+        };
+        let name: String = label.chars().take(width.saturating_sub(2)).collect();
+        lines.push(format!(
+            "{} {name}",
+            if index == selected { ">" } else { " " }
+        ));
+        lines.push((*fingerprint).into());
+    }
+    lines
+}
+
+fn select_agent_key(mut keys: Vec<first_access::AgentKey>) -> io::Result<Option<SelectedKey>> {
+    if keys.is_empty() {
+        return Ok(None);
+    }
+    let mut selected = 0;
+    loop {
+        let (width, height) = terminal::size()?;
+        let labels: Vec<_> = keys
+            .iter()
+            .map(|key| (key.label(), key.fingerprint()))
+            .collect();
+        let lines = agent_key_lines(
+            &labels,
+            selected,
+            usize::from(width).saturating_sub(4).clamp(1, 76),
+            usize::from(height).saturating_sub(6),
+        );
+        draw(
+            &lines,
+            0,
+            &footer("Review this key", "↑/↓ select · Esc back"),
+        )?;
+        match key()? {
+            KeyCode::Esc => return Ok(None),
+            KeyCode::Up => selected = selected.saturating_sub(1),
+            KeyCode::Down => selected = (selected + 1).min(keys.len() - 1),
+            KeyCode::Enter if usable_size()? => {
+                let key = keys.remove(selected);
+                let identity = key.identity();
+                return Ok(Some(SelectedKey {
+                    key: key.into_public_key(),
+                    identity: Some(identity),
+                }));
+            }
+            _ => {}
+        }
+    }
+}
+
+fn choose_key_source(tools: &first_access::Tools) -> io::Result<Option<SelectedKey>> {
+    loop {
+        let Some(source) = choose(
+            &[
+                "Choose a key source".into(),
+                "Select a public key. Private keys stay in your agent or on this Mac.".into(),
+            ],
+            &[
+                "1Password SSH agent",
+                "Current SSH agent",
+                "Public-key file",
+            ],
+        )?
+        else {
+            return Ok(None);
+        };
+        if source == 2 {
+            return Ok(public_key(tools)?.map(|key| SelectedKey {
+                key,
+                identity: None,
+            }));
+        }
+        let socket = if source == 0 {
+            std::env::var_os("HOME").map(PathBuf::from).map(|home| {
+                home.join("Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock")
+            })
+        } else {
+            std::env::var_os("SSH_AUTH_SOCK").map(PathBuf::from)
+        };
+        let Some(socket) = socket else {
+            review(
+                &[
+                    "SSH agent not configured".into(),
+                    "Enable the SSH agent in 1Password, or choose a public-key file.".into(),
+                ],
+                "Choose another source",
+            )?;
+            continue;
+        };
+        loop {
+            draw(
+                &[
+                    "Reading agent public keys".into(),
+                    "Your SSH agent may ask you to unlock or approve.".into(),
+                ],
+                0,
+                "Please wait",
+            )?;
+            match first_access::list_agent_keys(&socket, tools) {
+                Ok(keys) => match select_agent_key(keys)? {
+                    Some(key) => return Ok(Some(key)),
+                    None => break,
+                },
+                Err(error) => {
+                    let next = choose(
+                        &[
+                            "SSH agent unavailable".into(),
+                            error.to_string(),
+                            error.next_action().into(),
+                        ],
+                        &["Try again", "Choose another source"],
+                    )?;
+                    if next != Some(0) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 enum AccessOutcome {
     Continue(AccessChanges),
     Finished(Outcome),
@@ -446,13 +608,25 @@ fn welcome(profile: &HostProfile) -> Vec<String> {
     ]
 }
 
-fn connect(profile: &HostProfile) -> io::Result<AccessOutcome> {
+fn installation_required(
+    check: Result<(), first_access::Error>,
+) -> Result<bool, first_access::Error> {
+    match check {
+        Ok(()) => Ok(false),
+        Err(first_access::Error::AuthenticationDenied) => Ok(true),
+        Err(error) => Err(error),
+    }
+}
+
+fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<AccessOutcome> {
     let tools = first_access::Tools {
         ssh: PathBuf::from("/usr/bin/ssh"),
         ssh_keygen: PathBuf::from("/usr/bin/ssh-keygen"),
+        ssh_add: PathBuf::from("/usr/bin/ssh-add"),
     };
     let mut terminal = Some(Terminal::enter()?);
     let mut changes = AccessChanges::default();
+    let mut existing_access_worked = false;
     let mut screen = welcome(profile);
     let mut actions = vec![AccessAction::Check];
     loop {
@@ -469,7 +643,7 @@ fn connect(profile: &HostProfile) -> io::Result<AccessOutcome> {
                         "! Save the first SSH identity returned by this address.".into(),
                         "Its identity is not independently verified. Continue only if you trust this first connection.".into(),
                         "Changed saved keys will still be blocked.".into(),
-                    ], "Enter: trust and check\nEsc: go back")? { continue; }
+                    ], "Trust and check")? { continue; }
                     changes.trust_attempted = true;
                     first_access::Trust::AcceptNew
                 } else {
@@ -478,7 +652,8 @@ fn connect(profile: &HostProfile) -> io::Result<AccessOutcome> {
                 draw(
                     &[
                         "Checking SSH access".into(),
-                        "Trying your configured keys. No password prompt.".into(),
+                        "Trying your SSH identity. No password prompt.".into(),
+                        "Your SSH agent may ask you to approve.".into(),
                     ],
                     0,
                     "Please wait",
@@ -486,37 +661,85 @@ fn connect(profile: &HostProfile) -> io::Result<AccessOutcome> {
                 first_access::check_key_access(profile, &tools, trust)
             }
             AccessAction::InstallKey => {
-                let Some(public_key) = public_key(&tools)? else {
+                let Some(selected_key) = choose_key_source(&tools)? else {
                     continue;
+                };
+                let is_agent = selected_key.identity.is_some();
+                let route = if is_agent {
+                    "Remember this key for this Mac. Connect directly to this address on port 22; custom SSH configuration is not used."
+                } else {
+                    "Use your existing SSH configuration and identities. Any previous agent-key selection for this Mac will be cleared."
                 };
                 if !review(
                     &[
-                        "Install this public key?".into(),
+                        "Use this key for this Mac?".into(),
                         format!("{}@{}", profile.user, profile.address),
-                        format!("Fingerprint: {}", public_key.fingerprint()),
+                        format!("Fingerprint: {}", selected_key.key.fingerprint()),
+                        route.into(),
                         String::new(),
-                        "Adds login access; keeps existing keys.".into(),
-                        "Makes .ssh private (0700), authorized_keys private (0600).".into(),
-                        "SSH asks for the target password. The client does not store it.".into(),
+                        if is_agent {
+                            "Check this identity first. If needed, install its public key using the target password; existing keys stay."
+                        } else {
+                            "Install this public key using the target password; existing keys stay. Then verify your configured SSH access."
+                        }.into(),
+                        "Installation makes .ssh private (0700) and authorized_keys private (0600).".into(),
+                        "If needed, SSH asks for the target password. The client does not store it.".into(),
                         "! An interrupted attempt may leave the key installed.".into(),
                     ],
-                    "Enter: install key\nEsc: go back",
+                    "Use this key",
                 )? {
                     continue;
                 }
-                changes.key_attempted = true;
-                drop(terminal.take());
-                println!(
-                    "Installing your approved public key. Enter the target account password at SSH's prompt."
-                );
-                let result = first_access::install_public_key(profile, &tools, &public_key);
-                if result.is_err() {
-                    println!("Read SSH's message above. Press Enter to return to the setup menu.");
-                    let mut acknowledgement = String::new();
-                    io::stdin().read_line(&mut acknowledgement)?;
+                match inventory::set_identity(inventory_path, profile, selected_key.identity) {
+                    Ok(updated) => { *profile = updated; changes.identity_saved = true; }
+                    Err(error) => return Ok(AccessOutcome::Finished(Outcome {
+                        lines: vec!["SSH identity selection was not saved.".into(), error.to_string(), error.next_action().into(), "No public key was installed. Return to the menu and reload the profile.".into()],
+                        completed: false,
+                    })),
                 }
-                terminal = Some(Terminal::enter()?);
-                result
+                let required = if is_agent {
+                    draw(
+                        &[
+                            "Checking this SSH identity".into(),
+                            "Your SSH agent may ask you to approve.".into(),
+                        ],
+                        0,
+                        "Please wait",
+                    )?;
+                    installation_required(first_access::check_key_access(
+                        profile,
+                        &tools,
+                        first_access::Trust::Strict,
+                    ))
+                } else {
+                    // A configured default key cannot prove this chosen file's identity.
+                    Ok(true)
+                };
+                match required {
+                    Ok(false) => {
+                        existing_access_worked = true;
+                        Ok(())
+                    }
+                    Err(error) => Err(error),
+                    Ok(true) => {
+                        changes.key_attempted = true;
+                        drop(terminal.take());
+                        println!(
+                            "Installing your approved public key. Enter the target account password at SSH's prompt."
+                        );
+                        let result =
+                            first_access::install_public_key(profile, &tools, &selected_key.key);
+                        if result.is_err() {
+                            println!(
+                                "Read SSH's message above. Press Enter to return to the setup menu."
+                            );
+                            let mut acknowledgement = String::new();
+                            io::stdin().read_line(&mut acknowledgement)?;
+                        }
+                        terminal = Some(Terminal::enter()?);
+                        result
+                    }
+                }
             }
         };
         if let Err(error) = result {
@@ -533,6 +756,7 @@ fn connect(profile: &HostProfile) -> io::Result<AccessOutcome> {
             &[
                 "Reading host details".into(),
                 "SSH connected. Checking macOS, account and storage.".into(),
+                "Your SSH agent may ask you to approve.".into(),
             ],
             0,
             "Please wait",
@@ -558,6 +782,9 @@ fn connect(profile: &HostProfile) -> io::Result<AccessOutcome> {
             ),
             "Host setup has not started.".into(),
         ];
+        if existing_access_worked {
+            lines.push("Existing SSH access worked. No public key was installed.".into());
+        }
         if !inspection.is_ready() {
             lines.push("! Bootstrap requires an Apple-silicon Mac.".into());
         }
@@ -584,13 +811,14 @@ fn usable_size() -> io::Result<bool> {
 }
 
 /// The parent menu suspends raw mode before entering this independently owned wizard.
-pub fn launch(profile: &HostProfile) -> io::Result<Outcome> {
-    let changes = match connect(profile)? {
+pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outcome> {
+    let mut profile = original.clone();
+    let changes = match connect(&mut profile, inventory_path)? {
         AccessOutcome::Finished(outcome) => return Ok(outcome),
         AccessOutcome::Continue(changes) => changes,
     };
     let terminal = Terminal::enter()?;
-    let mut form = Form::new(profile);
+    let mut form = Form::new(&profile);
     let tools = Tools {
         ssh: PathBuf::from("/usr/bin/ssh"),
         scp: PathBuf::from("/usr/bin/scp"),
@@ -598,23 +826,23 @@ pub fn launch(profile: &HostProfile) -> io::Result<Outcome> {
     let prepared = loop {
         let (width, _) = terminal::size()?;
         draw(
-            &form.lines(profile, usize::from(width).saturating_sub(4).min(76)),
+            &form.lines(&profile, usize::from(width).saturating_sub(4).min(76)),
             0,
-            "Enter next - Shift-Tab back - Esc cancel",
+            &footer("Next", "Tab next · Shift-Tab back · Esc back"),
         )?;
         match key()? {
             KeyCode::Esc => return Ok(cancelled(changes)),
-            KeyCode::Enter if form.field < 5 && usable_size()? => form.field += 1,
+            KeyCode::Enter | KeyCode::Tab if form.field < 5 && usable_size()? => form.field += 1,
             KeyCode::Enter if usable_size()? => {
                 draw(
                     &[
-                        "Checking the artifact and inspecting SSH. No bootstrap changes yet."
-                            .into(),
+                        "Checking bootstrap readiness".into(),
+                        "Validating artifact and SSH. No bootstrap changes yet.".into(),
                     ],
                     0,
                     "Please wait",
                 )?;
-                match remote_setup::prepare(form.request(profile), &tools) {
+                match remote_setup::prepare(form.request(&profile), &tools) {
                     Ok(prepared) => break prepared,
                     Err(error) => {
                         let lines = vec![
@@ -625,7 +853,11 @@ pub fn launch(profile: &HostProfile) -> io::Result<Outcome> {
                         ];
                         let mut offset = 0;
                         loop {
-                            let last = draw(&lines, offset, "Enter edit - PgDn more - Esc cancel")?;
+                            let last = draw(
+                                &lines,
+                                offset,
+                                &footer("Edit inputs", "PgUp/PgDn review · Esc back"),
+                            )?;
                             match key()? {
                                 KeyCode::Esc => return Ok(cancelled(changes)),
                                 KeyCode::Enter => {
@@ -645,17 +877,8 @@ pub fn launch(profile: &HostProfile) -> io::Result<Outcome> {
     };
     let mut lines = prepared.lines();
     lines.push("This will transfer host-specific credentials and apply the reviewed configuration. Migration and service health still require separate checks.".into());
-    let mut offset = 0;
-    loop {
-        let last = draw(&lines, offset, "PgUp/Dn review - Enter next - Esc cancel")?;
-        match key()? {
-            KeyCode::Esc => return Ok(cancelled(changes)),
-            KeyCode::PageDown => offset = (offset + 3).min(last),
-            KeyCode::PageUp => offset = offset.saturating_sub(3),
-            KeyCode::Enter if offset >= last && usable_size()? => break,
-            KeyCode::Enter => offset = (offset + 3).min(last),
-            _ => {}
-        }
+    if !review(&lines, "Continue to approval")? {
+        return Ok(cancelled(changes));
     }
     let mut confirmation = String::new();
     loop {
@@ -664,7 +887,7 @@ pub fn launch(profile: &HostProfile) -> io::Result<Outcome> {
             format!("Type {} to begin.", form.values[0]),
             "Only host-specific files will be transferred. Your administrator password stays in the interactive SSH terminal.".into(),
             format!("> {confirmation}"),
-        ], 0, "Enter approve - Esc cancel")?;
+        ], 0, &footer("Approve setup", "Esc back"))?;
         match key()? {
             KeyCode::Esc => return Ok(cancelled(changes)),
             KeyCode::Backspace => {
@@ -706,6 +929,7 @@ mod tests {
             name: "lan-mini".into(),
             address: "mini".into(),
             user: "calum".into(),
+            identity: None,
         }
     }
     #[test]
@@ -751,6 +975,7 @@ mod tests {
             Error::ConnectionRefused,
             Error::ConnectionTimeout,
             Error::NameResolution,
+            Error::AgentRefused,
         ] {
             assert_eq!(failure_screen(&error).2[0], AccessAction::Check);
         }
@@ -790,6 +1015,65 @@ mod tests {
     }
 
     #[test]
+    fn only_rejected_key_authentication_can_start_password_installation() {
+        use first_access::Error;
+        assert_eq!(installation_required(Ok(())), Ok(false));
+        assert_eq!(
+            installation_required(Err(Error::AuthenticationDenied)),
+            Ok(true)
+        );
+        for error in [
+            Error::HostUnknown,
+            Error::HostChanged,
+            Error::AgentRefused,
+            Error::Connection,
+            Error::ConnectionRefused,
+            Error::ConnectionTimeout,
+            Error::NameResolution,
+            Error::UnknownOutcome,
+        ] {
+            let expected = error.code();
+            assert_eq!(
+                installation_required(Err(error)).unwrap_err().code(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn agent_key_picker_keeps_every_selected_name_and_fingerprint_visible() {
+        let keys: Vec<_> = (0..32)
+            .map(|index| {
+                (
+                    format!("Key {index}: {}", "a long descriptive comment ".repeat(8)),
+                    format!("SHA256:{}{index:02}", "a".repeat(41)),
+                )
+            })
+            .collect();
+        let labels: Vec<_> = keys
+            .iter()
+            .map(|(name, fingerprint)| (name.as_str(), fingerprint.as_str()))
+            .collect();
+        for (selected, (_, fingerprint)) in keys.iter().enumerate() {
+            for (width, room) in [(36, 6), (76, 18)] {
+                let lines = agent_key_lines(&labels, selected, width, room);
+                let visible = wrap(&lines[1..], width);
+                assert!(visible.len() <= room);
+                assert!(
+                    visible
+                        .iter()
+                        .any(|line| line.starts_with(&format!("> Key {selected}:")))
+                );
+                assert!(visible.concat().contains(fingerprint));
+                assert!(visible.iter().all(|line| line.chars().count() <= width));
+            }
+        }
+        let help = footer("Review this key", "↑/↓ select · Esc back");
+        assert_eq!(help.lines().count(), 2);
+        assert!(!help.contains("SHA256"));
+    }
+
+    #[test]
     fn public_key_error_and_editable_path_fit_the_minimum_terminal() {
         let message = first_access::Error::InvalidKey.to_string();
         let lines = public_key_lines(
@@ -810,7 +1094,10 @@ mod tests {
         );
         assert!(visible.iter().all(|line| line.chars().count() <= 36));
         let footer = wrap(
-            &["Enter: review key".into(), "Ctrl-U clear | Esc back".into()],
+            &footer("Review key", "Ctrl-U clear · Esc back")
+                .lines()
+                .map(str::to_owned)
+                .collect::<Vec<_>>(),
             36,
         );
         assert_eq!(footer.len(), 2);
@@ -823,6 +1110,7 @@ mod tests {
         let changed = cancelled(AccessChanges {
             trust_attempted: true,
             key_attempted: true,
+            identity_saved: true,
         });
         assert!(!changed.completed);
         assert!(

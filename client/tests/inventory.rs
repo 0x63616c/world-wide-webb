@@ -1,7 +1,9 @@
 use std::fs::{self, File};
 use std::os::unix::fs::{PermissionsExt, symlink};
 
-use homelab_client::inventory::{HostProfile, InventoryError, add, load};
+use homelab_client::inventory::{
+    AgentIdentity, HostProfile, InventoryError, add, load, set_identity,
+};
 use rustix::fs::{FlockOperation, flock};
 use serde_json::json;
 
@@ -16,7 +18,99 @@ fn profile(name: &str) -> HostProfile {
         name: name.to_owned(),
         address: "example-host".to_owned(),
         user: "operator".to_owned(),
+        identity: None,
     }
+}
+
+#[test]
+fn remembered_agent_key_survives_reload_and_rejects_stale_updates() {
+    let directory = private_directory();
+    let path = directory.path().join("private/inventory.json");
+    let first = profile("first");
+    let second = profile("second");
+    add(&path, first.clone()).unwrap();
+    add(&path, second.clone()).unwrap();
+    let identity = AgentIdentity {
+        public_key: "ssh-ed25519 AAAA".into(),
+        agent_socket: "/Users/example/Library/Group Containers/example/agent.sock".into(),
+    };
+    // Agent availability is a connection concern, not an inventory prerequisite.
+    let updated = set_identity(&path, &first, Some(identity.clone())).unwrap();
+    assert_eq!(updated.identity, Some(identity));
+    assert_eq!(load(&path).unwrap(), [updated.clone(), second.clone()]);
+    let saved = fs::read(&path).unwrap();
+    assert_eq!(
+        set_identity(&path, &first, None),
+        Err(InventoryError::Changed)
+    );
+    assert_eq!(fs::read(&path).unwrap(), saved);
+    let mut wrong_target = updated.clone();
+    wrong_target.address = "different-host".into();
+    assert_eq!(
+        set_identity(&path, &wrong_target, None),
+        Err(InventoryError::Changed)
+    );
+    assert_eq!(fs::read(&path).unwrap(), saved);
+    assert_eq!(set_identity(&path, &updated, None).unwrap(), first.clone());
+    assert_eq!(load(&path).unwrap(), [first, second]);
+}
+
+#[test]
+fn invalid_agent_metadata_never_overwrites_saved_inventory() {
+    let directory = private_directory();
+    let path = directory.path().join("private/inventory.json");
+    let host = profile("first");
+    add(&path, host.clone()).unwrap();
+    let saved = fs::read(&path).unwrap();
+    for (key, socket) in [
+        ("-----BEGIN OPENSSH PRIVATE KEY-----", "/tmp/agent.sock"),
+        ("ssh-ed25519 AAAA comment", "/tmp/agent.sock"),
+        ("ssh-ed25519 AAAA", "relative.sock"),
+        ("ssh-ed25519 AAAA", "/tmp/agent\nInjected.sock"),
+    ] {
+        let identity = AgentIdentity {
+            public_key: key.into(),
+            agent_socket: socket.into(),
+        };
+        assert_eq!(
+            set_identity(&path, &host, Some(identity)),
+            Err(InventoryError::Invalid)
+        );
+        assert_eq!(fs::read(&path).unwrap(), saved);
+    }
+    let legacy = serde_json::json!({"schema": 1, "hosts": [{"name": "old", "address": "example", "user": "admin"}]});
+    fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    assert!(load(&path).unwrap()[0].identity.is_none());
+}
+
+#[test]
+fn agent_metadata_cannot_make_the_saved_inventory_unreadable_by_size() {
+    let directory = private_directory();
+    let path = directory.path().join("private/inventory.json");
+    for index in 0..5 {
+        let mut host = profile(&format!("host-{index}"));
+        host.identity = Some(AgentIdentity {
+            public_key: format!("ssh-rsa {}", "A".repeat(12000)),
+            agent_socket: "/tmp/agent.sock".into(),
+        });
+        add(&path, host).unwrap();
+    }
+    let last = profile("last");
+    add(&path, last.clone()).unwrap();
+    let before = fs::read(&path).unwrap();
+    assert_eq!(
+        set_identity(
+            &path,
+            &last,
+            Some(AgentIdentity {
+                public_key: format!("ssh-rsa {}", "A".repeat(12000)),
+                agent_socket: "/tmp/agent.sock".into(),
+            })
+        ),
+        Err(InventoryError::TooLarge)
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(load(&path).unwrap().len(), 6);
 }
 
 #[test]

@@ -48,10 +48,10 @@ On first run, press **n** to add a connection profile in the menu: enter its
 name, SSH address/alias and administrator login, then select Save. This creates
 only a private local file; it does not connect or configure the target. Escape
 cancels the form. Failed saves keep your entered values for correction and retry.
-Select a host and press Enter to inspect it; Page Up/Down scroll
-details and **q** quits when no inspection is running.
+Select a host with **↑ / ↓** and press **Enter** for guided connection and setup.
+Press **i** for a separate read-only inspection; **q** quits when idle.
 
-Press **s** on a selected connection to start setup. Each screen shows a short
+**s** is also a shortcut for guided setup. Each screen shows a short
 status and a selected next action; use the arrow keys to choose and **Enter** to
 continue. An unknown host gets a separate trust review before its identity is
 remembered on your personal Mac. This skips independent fingerprint comparison, so use the address
@@ -61,16 +61,32 @@ are still rejected; the client never deletes them or disables host-key checking.
 Connection failures distinguish an untrusted or changed identity, rejected keys,
 an unreachable host and a hostname that could not be resolved. Only an
 authentication rejection makes public-key installation the primary next action;
-ambiguous errors do not imply a missing key. Select and review an existing public
-`.pub` key before installation. Its matching private identity must already be
-available through your SSH agent or SSH configuration. The system SSH client
+ambiguous errors do not imply a missing key. Choose **1Password SSH agent** to
+list its public keys, select a name/fingerprint with **↑ / ↓**, then review it.
+Open 1Password and enable its SSH agent on your personal Mac first. The picker
+uses the local agent protocol, not the `op` CLI or a vault API. An existing public
+`.pub` file is available as an alternative. The system SSH client
 handles the target account's password in a normal terminal. Only the public key
 is copied; existing authorized keys are preserved. A fresh key-authenticated
 connection and read-only inspection verify access afterward. No password is
 read or saved by the client, and no local SSH configuration is rewritten. If
 interactive SSH fails, its message stays visible until you return to the menu.
 
-Headings and selections use colour, with text labels retained for terminals
+An approved agent selection saves only the canonical public key and local socket
+path in your private connection profile. Later checks, inspection, file transfer,
+bootstrap and reconnect use that same key. Your private key stays in the agent;
+1Password may ask you to approve authentication. No agent is forwarded to the
+target and no password-manager software is installed there.
+
+Selected-agent profiles connect directly to the saved hostname/IP on port 22.
+They ignore custom SSH aliases, proxy settings and extra identity files so an
+unrelated key cannot be offered before the selected one. Use the target's real
+LAN or Tailscale address. Profiles without a selected agent identity retain
+their existing SSH configuration. See 1Password's
+[public-key selection guidance](https://www.1password.dev/ssh/agent/advanced).
+
+Screens share header spacing and a two-line footer: the primary Enter action,
+then navigation/back hints. Headings and selections use colour, with text labels retained for terminals
 without colour. Set `NO_COLOR=1` to disable styling. Use `homelab --version` to
 check the installed version; update through `brew update` and
 `brew upgrade homelab`.

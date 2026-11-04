@@ -101,21 +101,26 @@ pub fn inspect(host: &HostProfile, ssh: &Path) -> Result<Inspection, InspectionE
         .map_err(|_| CONNECTION)?;
     input.rewind().map_err(|_| CONNECTION)?;
     let mut command = Command::new(ssh);
+    let _identity = crate::ssh_identity::configure(&mut command, host.identity.as_ref())
+        .map_err(|_| CONNECTION)?;
     command
         .arg("-T")
         .args(crate::ssh::OPTIONS)
         .args(["-l", &host.user, &host.address, "/bin/sh -s"])
         .stdin(Stdio::from(input));
     // Keep the operator's environment, including SSH_AUTH_SOCK, for local authentication.
-    let output =
-        process::capture(&mut command, Duration::from_secs(25)).map_err(|error| match error {
+    // An agent may require the operator to approve this specific client.
+    let timeout = if host.identity.is_some() { 90 } else { 25 };
+    let output = process::capture(&mut command, Duration::from_secs(timeout)).map_err(|error| {
+        match error {
             ProcessError::ExcessiveOutput => InspectionError {
                 code: "excessive-host-output",
                 message: "The host produced excessive inspection output.",
                 next_action: "Inspect the SSH endpoint and login configuration before retrying.",
             },
             _ => CONNECTION,
-        })?;
+        }
+    })?;
     if !output.status.success() {
         // Remote banners and authentication failures can contain credentials.
         return Err(InspectionError {

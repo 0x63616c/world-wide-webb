@@ -442,15 +442,21 @@ pub fn prepare(request: Request, tools: &Tools) -> Result<PreparedSetup, Error> 
     })
 }
 
-fn ssh(profile: &HostProfile, tools: &Tools, interactive: bool) -> Command {
+fn ssh(
+    profile: &HostProfile,
+    tools: &Tools,
+    interactive: bool,
+) -> Result<(Command, Option<tempfile::NamedTempFile>), Error> {
     let mut command = Command::new(&tools.ssh);
+    let identity = crate::ssh_identity::configure(&mut command, profile.identity.as_ref())
+        .map_err(|_| Error::new(Failure::Inputs))?;
     command
         .arg(if interactive { "-tt" } else { "-T" })
         .args(crate::ssh::OPTIONS)
         .arg("-l")
         .arg(&profile.user)
         .arg(&profile.address);
-    command
+    Ok((command, identity))
 }
 
 fn script(
@@ -464,14 +470,16 @@ fn script(
         .write_all(source.as_bytes())
         .and_then(|()| input.rewind())
         .map_err(|_| Error::new(Failure::Stage))?;
-    let mut command = ssh(profile, tools, false);
+    let (mut command, _identity) = ssh(profile, tools, false)?;
     command
         .arg(match stage {
             Some(stage) => format!("/bin/sh -s -- '{stage}'"),
             None => "/bin/sh -s".into(),
         })
         .stdin(Stdio::from(input));
-    process::capture(&mut command, Duration::from_secs(30)).map_err(|_| Error::new(Failure::Stage))
+    let timeout = if profile.identity.is_some() { 90 } else { 30 };
+    process::capture(&mut command, Duration::from_secs(timeout))
+        .map_err(|_| Error::new(Failure::Stage))
 }
 
 fn cleanup(profile: &HostProfile, tools: &Tools, stage: &str) -> bool {
@@ -532,6 +540,9 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
         return Err(Error::new(Failure::Stage));
     }
     let mut transfer = Command::new(&tools.scp);
+    let _transfer_identity =
+        crate::ssh_identity::configure(&mut transfer, request.profile.identity.as_ref())
+            .map_err(|_| failed_before_start(&request.profile, tools, stage, Failure::Transfer))?;
     transfer
         .args(["-s", "-p"])
         .args(crate::ssh::OPTIONS)
@@ -579,7 +590,8 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
         request.revision,
         if request.resume { " --resume" } else { "" }
     );
-    let mut bootstrap = ssh(&request.profile, tools, true);
+    let (mut bootstrap, _bootstrap_identity) = ssh(&request.profile, tools, true)
+        .map_err(|_| failed_before_start(&request.profile, tools, stage, Failure::Bootstrap))?;
     bootstrap
         .arg(remote)
         .stdin(Stdio::inherit())

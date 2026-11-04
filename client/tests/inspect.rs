@@ -37,6 +37,7 @@ impl Fixture {
 
 fn host() -> HostProfile {
     HostProfile {
+        identity: None,
         name: "example".into(),
         address: "example-host".into(),
         user: "operator".into(),
@@ -156,4 +157,26 @@ fn inherits_operator_environment() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+#[test]
+fn remembered_agent_identity_is_used_and_public_snapshot_is_removed() {
+    let fixture = Fixture::new("27.2\narm64\noperator\n501\n104857600\n");
+    let mut profile = host();
+    let key = "ssh-ed25519 AAAA";
+    fs::write(fixture.directory.path().join("expected-key"), key).unwrap();
+    profile.identity = Some(homelab_client::inventory::AgentIdentity {
+        public_key: key.into(),
+        agent_socket: fixture.directory.path().join("selected agent.sock"),
+    });
+    let inventory = fixture.directory.path().join("private/inventory.json");
+    homelab_client::inventory::add(&inventory, profile).unwrap();
+    let loaded = homelab_client::inventory::load(&inventory).unwrap();
+    assert!(inspect(&loaded[0], &fixture.executable).unwrap().is_ready());
+    for path in fs::read_to_string(fixture.directory.path().join("identity-files"))
+        .unwrap()
+        .lines()
+    {
+        assert!(!Path::new(path).exists());
+    }
 }

@@ -67,6 +67,12 @@ Implemented so far:
   First-access diagnostics now distinguish known SSH failure classes without
   exposing raw banners. Short, styled screens select an explicit next action;
   native password-install failures remain visible before returning to the menu.
+  The operator can choose a public key from the local 1Password/SSH agent and
+  remember that identity per connection. Inspection and every setup SSH/SCP
+  route reuse the selected key; no private key or password-manager client reaches
+  the host. Tests use disposable synthetic agents and fixture hosts, not the
+  owner's real agent. Enter opens guided connection; inspection is a separate
+  action, and screens share consistent footer/navigation hints.
 - Update-agent draft with authenticated private Git fetch, exact-main CI gating,
   bounded subprocess calls, GC-rooted candidate, rollback and interruption holds.
   Twelve passing local tests cover eligibility, credential-helper behavior,

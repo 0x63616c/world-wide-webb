@@ -16,5 +16,6 @@ pub mod remote_setup;
 pub mod secrets;
 pub mod setup_wizard;
 mod ssh;
+mod ssh_identity;
 pub mod tailscale;
 pub mod tui;

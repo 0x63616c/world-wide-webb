@@ -153,6 +153,7 @@ fn setup_inventory(path: &Path) {
             name: "example".into(),
             address: "example.invalid".into(),
             user: "operator".into(),
+            identity: None,
         },
     )
     .unwrap();
@@ -166,7 +167,7 @@ fn cancelling_first_access_before_any_ssh_returns_to_menu_without_changes() {
     let before = std::fs::read(&inventory).unwrap();
     let mut terminal = Terminal::start(&inventory);
     terminal.until("> example");
-    terminal.master.write_all(b"s").unwrap();
+    terminal.master.write_all(b"\r").unwrap();
     terminal.until("Connect to your Mac");
     // No check or trust action was approved: no SSH process should be started.
     // K cannot skip the initial existing-key check and initiate installation.

@@ -75,7 +75,7 @@ impl Menu {
         Self {
             hosts,
             selected: 0,
-            details: vec!["Choose a host and press Enter for read-only SSH inspection.".into()],
+            details: vec!["Choose a host and press Enter to connect or set up.".into()],
             detail_offset: 0,
             busy: false,
             form: None,
@@ -108,6 +108,7 @@ impl Menu {
                         name,
                         address,
                         user,
+                        identity: None,
                     });
                 }
                 KeyCode::Enter => form.selected += 1,
@@ -133,10 +134,11 @@ impl Menu {
             return Action::Quit;
         }
         match key.code {
-            KeyCode::Char('s') if !self.hosts.is_empty() => {
+            KeyCode::Enter | KeyCode::Char('s' | 'S') if !self.hosts.is_empty() => {
                 return Action::Setup(self.hosts[self.selected].clone());
             }
-            KeyCode::Char('n') => self.form = Some(Form::default()),
+            KeyCode::Char('n' | 'N') => self.form = Some(Form::default()),
+            KeyCode::Enter if self.hosts.is_empty() => self.form = Some(Form::default()),
             KeyCode::Up if !self.hosts.is_empty() => {
                 self.selected = (self.selected + self.hosts.len() - 1) % self.hosts.len();
             }
@@ -144,7 +146,7 @@ impl Menu {
                 self.selected = (self.selected + 1) % self.hosts.len();
             }
             KeyCode::PageUp | KeyCode::PageDown => {
-                let last_line = wrap(&self.details, width.saturating_sub(2).max(1))
+                let last_line = wrap(&self.details, width.saturating_sub(4).clamp(1, 76))
                     .len()
                     .saturating_sub(1);
                 self.detail_offset = self.detail_offset.min(last_line);
@@ -154,7 +156,7 @@ impl Menu {
                     self.detail_offset.saturating_add(3).min(last_line)
                 };
             }
-            KeyCode::Enter if !self.hosts.is_empty() => {
+            KeyCode::Char('i' | 'I') if !self.hosts.is_empty() => {
                 self.busy = true;
                 self.details = vec!["No changes will be made.".into()];
                 self.detail_offset = 0;
@@ -172,7 +174,8 @@ impl Menu {
                 self.hosts = hosts;
                 self.form = None;
                 self.details = vec![
-                    "Connection profile saved locally. Press s for guided first access, or Enter to inspect.".into(),
+                    "Connection profile saved locally. Enter connects; i inspects without changes."
+                        .into(),
                     "No SSH connection or target change has been made.".into(),
                 ];
                 self.detail_offset = 0;
@@ -186,13 +189,14 @@ impl Menu {
     }
 
     fn lines(&self, width: usize, height: usize) -> Vec<String> {
+        let content_width = width.saturating_sub(4).clamp(1, 76);
         let lines = if width < 40 || height < 12 {
             vec![
                 "Enlarge terminal to 40 columns / 12 rows.".into(),
                 if self.busy {
                     "Please wait for inspection."
                 } else if self.form.is_some() {
-                    "Esc cancels the connection form."
+                    "Esc cancels this form."
                 } else {
                     "q or Esc quits."
                 }
@@ -203,14 +207,18 @@ impl Menu {
                 let mut lines = vec!["Connection profile not saved".into(), String::new()];
                 lines.extend(wrap(
                     &[error.to_string(), format!("Next: {}", error.next_action())],
-                    width - 2,
+                    content_width,
                 ));
-                lines.push("Enter edit - Esc cancel".into());
+                lines.extend(
+                    footer("Edit connection", "Esc back")
+                        .lines()
+                        .map(str::to_owned),
+                );
                 return lines;
             }
             let mut lines = vec![
                 "Add a host connection".into(),
-                "Saved on this Mac. No passwords or keys.".into(),
+                "Saved on this Mac. No passwords.".into(),
                 String::new(),
             ];
             for (index, label) in [
@@ -225,7 +233,7 @@ impl Menu {
                     "{} {label}: ",
                     if index == form.selected { ">" } else { " " }
                 );
-                let room = width.saturating_sub(prefix.len() + 1);
+                let room = content_width.saturating_sub(prefix.len());
                 let value = &form.values[index];
                 // Show the editing end of long, ASCII-only connection fields.
                 let start = value.len().saturating_sub(room);
@@ -237,9 +245,19 @@ impl Menu {
                     "{} Save connection profile",
                     if form.selected == 3 { ">" } else { " " }
                 ),
-                "Tab/Enter next - Backspace edit".into(),
-                "Esc cancel - Enter on Save to confirm".into(),
             ]);
+            lines.extend(
+                footer(
+                    if form.selected == 3 {
+                        "Save connection"
+                    } else {
+                        "Next field"
+                    },
+                    "↑/↓ field · Esc back",
+                )
+                .lines()
+                .map(str::to_owned),
+            );
             lines
         } else {
             let count = ((height - 8) / 2).clamp(2, 8);
@@ -251,7 +269,7 @@ impl Menu {
             let mut lines = vec![
                 "Homelab - remote management".into(),
                 if self.hosts.is_empty() {
-                    "No hosts yet - press n to add one".into()
+                    "No hosts yet - press Enter to add one".into()
                 } else {
                     format!("Hosts {}-{end} of {}", start + 1, self.hosts.len())
                 },
@@ -268,31 +286,34 @@ impl Menu {
                 if self.busy {
                     "Checking SSH access..."
                 } else {
-                    "Inspection"
+                    "Details"
                 }
                 .into(),
             ]);
-            let paragraphs = wrap(&self.details, width - 2);
+            let paragraphs = wrap(&self.details, content_width);
             let offset = self.detail_offset.min(paragraphs.len().saturating_sub(1));
             let room = height.saturating_sub(lines.len() + 3);
+            if !self.busy
+                && paragraphs.len() > room
+                && let Some(heading) = lines.last_mut()
+            {
+                *heading = "Details · PgUp/PgDn".into();
+            }
             lines.extend(paragraphs.iter().skip(offset).take(room).cloned());
-            lines.extend(if self.busy {
-                [
-                    "Inspection takes at most 25s.".into(),
-                    "Please wait for inspection.".into(),
-                ]
+            let help = if self.busy {
+                "Inspection takes at most 90s.\nPlease wait for inspection.".into()
+            } else if self.hosts.is_empty() {
+                footer("Add a host", "n add · q quit")
             } else {
-                [
-                    "Enter inspect - s setup - Up/Dn host".into(),
-                    "n add - PgUp/Dn details - q quit".into(),
-                ]
-            });
+                footer("Connect", "↑/↓ · i inspect · n add · q quit")
+            };
+            lines.extend(help.lines().map(str::to_owned));
             lines
         };
         lines
             .into_iter()
             .take(height.saturating_sub(1))
-            .map(|line| line.chars().take(width.saturating_sub(1)).collect())
+            .map(|line| line.chars().take(content_width).collect())
             .collect()
     }
 }
@@ -324,6 +345,10 @@ pub(crate) fn wrap(paragraphs: &[String], width: usize) -> Vec<String> {
         }
     }
     lines
+}
+
+pub(crate) fn footer(primary: &str, navigation: &str) -> String {
+    format!("Enter: {primary}\n{navigation}")
 }
 
 pub(crate) fn write_styled(
@@ -396,16 +421,18 @@ fn run_menu(path: &Path, menu: &mut Menu, worker: &mut Option<InspectionWorker>)
             menu.detail_offset = 0;
         }
         let (width, height) = terminal::size()?;
-        let width = width.min(78);
+        let width = width.min(80);
         queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
-        for (row, line) in menu.lines(width.into(), height.into()).iter().enumerate() {
-            queue!(output, MoveTo(0, row as u16))?;
-            write_styled(
-                &mut output,
-                line,
-                row == 0,
-                line.starts_with("Enter ") || line.starts_with("n ") || line.starts_with("Esc "),
-            )?;
+        let lines = menu.lines(width.into(), height.into());
+        for (row, line) in lines.iter().enumerate() {
+            let help = width >= 40 && height >= 12 && row >= lines.len().saturating_sub(2);
+            let screen_row = if help {
+                height - 3 + (row + 2 - lines.len()) as u16
+            } else {
+                row as u16
+            };
+            queue!(output, MoveTo(2, screen_row))?;
+            write_styled(&mut output, line, row == 0, help)?;
         }
         output.flush()?;
         if !event::poll(Duration::from_millis(100))? {
@@ -420,7 +447,14 @@ fn run_menu(path: &Path, menu: &mut Menu, worker: &mut Option<InspectionWorker>)
             Action::Save(host) => menu.save(path, host),
             Action::Setup(host) => {
                 drop(terminal_guard.take());
-                menu.details = crate::setup_wizard::launch(&host)?.lines;
+                menu.details = crate::setup_wizard::launch(&host, path)?.lines;
+                menu.hosts = inventory::load(path)
+                    .map_err(|_| io::Error::other("Updated inventory could not be reloaded"))?;
+                menu.selected = menu
+                    .hosts
+                    .iter()
+                    .position(|profile| profile.name == host.name)
+                    .unwrap_or_else(|| menu.selected.min(menu.hosts.len().saturating_sub(1)));
                 menu.detail_offset = 0;
                 terminal_guard = Some(Terminal::enter()?);
             }
@@ -446,6 +480,7 @@ mod tests {
                     name: format!("host-{index}"),
                     address: "example-host".into(),
                     user: "operator".into(),
+                    identity: None,
                 })
                 .collect(),
         )
@@ -501,10 +536,25 @@ mod tests {
     }
 
     #[test]
+    fn enter_guides_connection_and_i_requests_read_only_inspection() {
+        let mut menu = menu();
+        assert!(matches!(press(&mut menu, KeyCode::Enter), Action::Setup(_)));
+        assert!(!menu.busy);
+        assert!(matches!(
+            press(&mut menu, KeyCode::Char('i')),
+            Action::Inspect(_)
+        ));
+        assert!(menu.busy);
+        let mut empty = Menu::new(Vec::new());
+        press(&mut empty, KeyCode::Enter);
+        assert!(empty.form.is_some());
+    }
+
+    #[test]
     fn busy_menu_ignores_actions_but_can_render_new_dimensions() {
         let mut menu = menu();
         assert!(matches!(
-            press(&mut menu, KeyCode::Enter),
+            press(&mut menu, KeyCode::Char('i')),
             Action::Inspect(_)
         ));
         for key in [
@@ -573,9 +623,9 @@ mod tests {
         let mut menu = menu();
         assert_eq!(menu.lines(35, 8)[1], "q or Esc quits.");
         press(&mut menu, KeyCode::Char('n'));
-        assert_eq!(menu.lines(35, 8)[1], "Esc cancels the connection form.");
+        assert_eq!(menu.lines(35, 8)[1], "Esc cancels this form.");
         press(&mut menu, KeyCode::Esc);
-        press(&mut menu, KeyCode::Enter);
+        press(&mut menu, KeyCode::Char('i'));
         assert_eq!(menu.lines(35, 8)[1], "Please wait for inspection.");
     }
 
@@ -587,6 +637,7 @@ mod tests {
             name: "example".into(),
             address: "host".into(),
             user: "operator".into(),
+            identity: None,
         };
         let mut menu = Menu::new(inventory::add(&path, host).unwrap());
         let before = std::fs::read(&path).unwrap();
@@ -609,7 +660,7 @@ mod tests {
         let error_lines = menu.lines(40, 12).join(" ");
         assert!(error_lines.contains("already exists"));
         assert!(error_lines.contains("Choose a unique profile name"));
-        assert!(error_lines.contains("Enter edit"));
+        assert!(error_lines.contains("Enter: Edit connection"));
 
         press(&mut menu, KeyCode::Enter);
         for _ in 0..3 {
@@ -649,7 +700,7 @@ mod tests {
             let lines = menu.lines(40, 12);
             assert!(lines.len() < 12, "{lines:?}");
             assert!(lines.iter().all(|line| line.len() < 40));
-            assert_eq!(lines.last().unwrap(), "Enter edit - Esc cancel");
+            assert_eq!(lines.last().unwrap(), "Esc back");
         }
     }
 
