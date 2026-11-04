@@ -214,18 +214,17 @@ struct HomeView: View {
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
         VStack(spacing: 0) {
-            if app.route != .timer && app.route != .photoBooth { PanelAppNavigationBar(back: home) }
             Group {
                 switch app.route {
-                case .settings: PanelSettingsPage()
+                case .settings: PanelSettingsPage(back: home)
                 case .timer: PanelTimerPage(timer: timer)
                 case .photoBooth:
                     if let booth = integration?.photoBooth(close: home) { booth }
                     else {
                         VStack {
-                            PanelAppNavigationBar(back: home)
                             ContentUnavailableView("Photo Booth requires the panel app", systemImage: "camera")
                         }
+                        .safeAreaInset(edge: .top, spacing: 0) { PanelAppNavigationBar(back: home) }
                     }
                 case .classic, .clock: EmptyView()
                 case .feature(let feature):
@@ -233,12 +232,17 @@ struct HomeView: View {
                     else { prototypeScreen(feature) }
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped().accessibilityElement(children: .contain)
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("app-screen-\(app.id)")
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if app.route != .timer && app.route != .photoBooth && app.route != .settings {
+                    PanelAppNavigationBar(back: home)
+                }
+            }
             .overlay(alignment: .topLeading) {
                 if app.route == .timer {
-                    PanelAppNavigationBar(back: home, fillsBackground: false).padding(72)
+                    PanelAppNavigationBar(back: home).padding(72)
                 }
             }
             .scrollBounceBehavior(.basedOnSize)

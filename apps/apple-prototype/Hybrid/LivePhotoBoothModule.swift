@@ -136,7 +136,6 @@ struct LivePhotoBoothModule: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            PanelAppNavigationBar(back: back)
             Group {
                 if !authorized {
                     PanelPINEntry(title: "Photo Booth", notice: authorizationNotice) { pin in
@@ -149,7 +148,8 @@ struct LivePhotoBoothModule: View {
                 else if gallery { galleryPage }
                 else { cameraPage }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
-        }.background(.black).foregroundStyle(.white)
+        }.safeAreaInset(edge: .top, spacing: 0) { PanelAppNavigationBar(back: back) }
+            .background(.black).foregroundStyle(.white)
             .accessibilityElement(children: .contain).accessibilityIdentifier("photo-booth-page")
             .task(id: "\(authorized)-\(gallery)-\(scenePhase == .active)") {
                 await camera.activate(authorized && !gallery && scenePhase == .active)

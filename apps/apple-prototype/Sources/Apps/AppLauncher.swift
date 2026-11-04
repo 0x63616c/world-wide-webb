@@ -63,6 +63,7 @@ struct SwipeHomeRegion: View {
 }
 
 struct PanelSettingsPage: View {
+    let back: () -> Void
     @Environment(\.homeIntegration) private var integration
     private enum Page: String, CaseIterable, Identifiable {
         case display = "Display", security = "Security", apps = "Apps"
@@ -76,6 +77,15 @@ struct PanelSettingsPage: View {
                 Label(page.rawValue, systemImage: page.symbol).tag(page)
             }.navigationTitle("Settings")
                 .toolbar(removing: .sidebarToggle)
+                .toolbar {
+                    #if os(iOS)
+                    ToolbarItem(placement: .topBarLeading) { PanelAppBackButton(back: back) }
+                        .sharedBackgroundVisibility(.hidden)
+                    #else
+                    ToolbarItem(placement: .navigation) { PanelAppBackButton(back: back) }
+                        .sharedBackgroundVisibility(.hidden)
+                    #endif
+                }
                 .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 340)
         } detail: {
             NavigationStack {

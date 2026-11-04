@@ -119,11 +119,13 @@ struct PanelRoot: View {
         @Bindable var session = session
         ZStack {
             VStack(spacing: 0) {
-                if !homeVisible && !nativeVisible && !webOnly {
-                    PanelAppNavigationBar(back: navigation.returnHome)
-                }
                 webBoard
             }
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if !homeVisible && !nativeVisible && !webOnly {
+                        PanelAppNavigationBar(back: navigation.returnHome)
+                    }
+                }
                 .opacity(nativeVisible || homeVisible ? 0 : 1)
                 .allowsHitTesting(!nativeVisible && !homeVisible)
                 .accessibilityHidden(nativeVisible || homeVisible)
