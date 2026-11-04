@@ -78,7 +78,7 @@ synthetic fixtures only.
 ## Provision and rotate
 
 For base-host setup, use **Prepare credentials** in the
-[operator wizard](../client/README.md). It guides token issuance in the provider's
+[operator wizard](https://github.com/0x63616c/homelab-cli#readme). It guides token issuance in the provider's
 browser UI, accepts hidden input, and encrypts locally with age and SOPS.
 Successful preparation proves decryption with each intended identity separately;
 it does not prove that a token has the right issuer permissions or is unexpired.

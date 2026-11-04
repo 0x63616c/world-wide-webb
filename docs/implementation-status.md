@@ -2,10 +2,25 @@
 
 Repo: https://github.com/0x63616c/homelab (private).
 Initial implementation PR (merged): https://github.com/0x63616c/homelab/pull/1.
-Published operator CLI: 0.1.4. Merged redesign: https://github.com/0x63616c/homelab/pull/6.
-Homebrew release: https://github.com/0x63616c/homebrew-tap/pull/7.
+Public operator source: https://github.com/0x63616c/homelab-cli (0.2.0).
+This repository remains private. The operator and portable bootstrap helper now
+have fresh public history; private health/restore code lives in `host/`.
+`host/Cargo.toml` pins one public commit used by both private Rust and Nix.
+See [setup](setup.md) and the [reviewed extraction plan](cli-extraction-plan.md).
 
-On November 4, both hosted checks for the redesign stopped before running
+The client no longer needs Nix or a locally built bootstrap package. It reads
+the private `homelab.json` and ships its native helper; the target checks the
+fetched manifest and evaluated Nix facts before activation. Credential sources
+are testable adapters, OAuth issuance is scoped and interruption-safe, and local
+preparation is bound to a repository. Synthetic macOS/PTY tests are automated;
+full clean-install/reboot rehearsal remains unfinished. No host was deployed.
+
+Local private extraction checks: 12 Rust tests and 102 Python tests passed,
+plus Clippy and formatting. The actual-container rehearsal was not run. The
+changed private Nix configuration has not been evaluated on this client; keep
+activation disabled until that validation is completed.
+
+For the earlier 0.1.4 redesign on November 4, both hosted checks stopped before running
 because GitHub reported failed recent account payments or a spending limit.
 Local tests, independent source/visual review and isolated packaging checks
 passed. The owner approved publishing with local validation while keeping the

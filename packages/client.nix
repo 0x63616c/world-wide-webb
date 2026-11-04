@@ -1,20 +1,16 @@
 { pkgs }:
-pkgs.rustPlatform.buildRustPackage {
+let
+  # The private service crate and installed bootstrap share one public revision.
+  dependency = (builtins.fromTOML (builtins.readFile ../host/Cargo.toml)).dependencies.homelab-client;
+  source = builtins.fetchGit { url = dependency.git; rev = dependency.rev; };
+in pkgs.rustPlatform.buildRustPackage {
   pname = "homelab";
-  version = "0.1.4";
+  version = (builtins.fromTOML (builtins.readFile (source + "/Cargo.toml"))).package.version;
 
-  src = pkgs.lib.fileset.toSource {
-    root = ../client;
-    fileset = pkgs.lib.fileset.unions [
-      ../client/Cargo.toml
-      ../client/Cargo.lock
-      ../client/src
-      ../client/tests
-    ];
-  };
-  cargoLock.lockFile = ../client/Cargo.lock;
+  src = source;
+  cargoLock.lockFile = source + "/Cargo.lock";
   nativeBuildInputs = [ pkgs.makeWrapper ];
-  nativeCheckInputs = [ pkgs.shellcheck pkgs.git pkgs.nodejs pkgs.openssh pkgs.age pkgs.sops ];
+  nativeCheckInputs = [ pkgs.shellcheck pkgs.git pkgs.openssh pkgs.age pkgs.sops ];
   postInstall = ''
     wrapProgram $out/bin/homelab --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.age pkgs.sops ]}
   '';
@@ -23,7 +19,6 @@ pkgs.rustPlatform.buildRustPackage {
     shellcheck src/git-askpass.sh
     shellcheck src/remote/*.sh
     shellcheck src/first-access/*.sh
-    node --check src/probes/control-center.mjs
   '';
   meta.mainProgram = "homelab";
 }

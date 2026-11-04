@@ -17,13 +17,15 @@
         config.allowUnfreePredicate = pkg:
           builtins.elem (nixpkgs.lib.getName pkg) [ "tart" "softnet" ];
       };
+      manifest = builtins.fromJSON (builtins.readFile ./homelab.json);
       runnerTools = import ./packages/runner-tools.nix { inherit pkgs; };
       mkHost = name: darwin.lib.darwinSystem {
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs; reviewedHost = manifest.hosts.${name}; };
         modules = [
           inputs.nix-homebrew.darwinModules.nix-homebrew
           inputs.sops-nix.darwinModules.sops
           inputs.determinate.darwinModules.default
+          ./modules/manifest.nix
           ./modules/base.nix ./modules/users.nix ./modules/ssh.nix
           ./modules/power.nix ./modules/tailscale.nix ./modules/secrets.nix
           ./modules/containers.nix ./modules/runners.nix
@@ -57,6 +59,7 @@
         service-assignments =
           let
             haOnly = (self.darwinConfigurations.homelab-macbook.extendModules {
+              specialArgs.reviewedHost = manifest.hosts.homelab-macbook // { services = [ "home-assistant" ]; };
               modules = [({ lib, ... }: {
                 homelab.containers.enable = lib.mkForce false;
                 homelab.containers.services = lib.mkForce [ "bambuddy" ];
@@ -83,6 +86,9 @@
         # Compile dormant service paths without enabling them on either host.
         # This builds launchd scripts and runs their generated ShellCheck checks.
         macbook-containers = (self.darwinConfigurations.homelab-macbook.extendModules {
+          specialArgs.reviewedHost = manifest.hosts.homelab-macbook // {
+            services = [ "bambuddy" "control-center" "hindsight" "cloudflared" "home-assistant" ];
+          };
           modules = [({ lib, ... }: {
             homelab.containers.enable = lib.mkForce true;
             homelab.containers.services = lib.mkForce [

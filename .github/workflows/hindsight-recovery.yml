@@ -4,19 +4,19 @@ on:
   pull_request:
     paths:
       - .github/workflows/hindsight-recovery.yml
-      - client/Cargo.toml
-      - client/Cargo.lock
-      - client/src/**
-      - client/tests/hindsight_restore.rs
+      - host/Cargo.toml
+      - host/Cargo.lock
+      - host/src/**
+      - host/tests/hindsight_restore.rs
       - services/hindsight/compose.yaml
   push:
     branches: [main]
     paths:
       - .github/workflows/hindsight-recovery.yml
-      - client/Cargo.toml
-      - client/Cargo.lock
-      - client/src/**
-      - client/tests/hindsight_restore.rs
+      - host/Cargo.toml
+      - host/Cargo.lock
+      - host/src/**
+      - host/tests/hindsight_restore.rs
       - services/hindsight/compose.yaml
   workflow_dispatch:
 
@@ -48,13 +48,13 @@ jobs:
       - name: Build the restore operation and its real database test
         run: |
           set -euo pipefail
-          cargo build --manifest-path client/Cargo.toml --locked --release --bin homelab-host
-          cargo test --manifest-path client/Cargo.toml --locked --release --test hindsight_restore --no-run --message-format=json > "$RUNNER_TEMP/test-build.jsonl"
+          cargo build --manifest-path host/Cargo.toml --locked --release --bin homelab-services
+          cargo test --manifest-path host/Cargo.toml --locked --release --test hindsight_restore --no-run --message-format=json > "$RUNNER_TEMP/test-build.jsonl"
           test_binary=$(jq -r 'select(.reason == "compiler-artifact" and .target.name == "hindsight_restore" and .executable != null) | .executable' "$RUNNER_TEMP/test-build.jsonl")
           test -f "$test_binary"
           mkdir "$RUNNER_TEMP/restore-test"
           cp "$test_binary" "$RUNNER_TEMP/restore-test/recovery-test"
-          cp client/target/release/homelab-host "$RUNNER_TEMP/restore-test/homelab-host"
+          cp host/target/release/homelab-services "$RUNNER_TEMP/restore-test/homelab-services"
           chmod 755 "$RUNNER_TEMP/restore-test" "$RUNNER_TEMP/restore-test/"*
       - name: Pull the pinned image before isolating the rehearsal
         run: docker pull --platform linux/arm64 "$HINDSIGHT_IMAGE"
@@ -65,7 +65,7 @@ jobs:
             --cap-drop ALL --security-opt no-new-privileges \
             --cpus 2 --memory 4g --pids-limit 256 \
             --mount "type=bind,source=$RUNNER_TEMP/restore-test,target=/homelab-tests,readonly" \
-            --env HOMELAB_HOST_BINARY=/homelab-tests/homelab-host \
+            --env HOMELAB_HOST_BINARY=/homelab-tests/homelab-services \
             --entrypoint /homelab-tests/recovery-test \
             "$HINDSIGHT_IMAGE" \
             --ignored --exact synthetic_hindsight_restore --nocapture

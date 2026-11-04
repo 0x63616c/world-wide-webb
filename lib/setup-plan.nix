@@ -6,10 +6,7 @@
     let
       cfg = host.config.homelab;
     in {
-      inherit (cfg) activationReady adminUser adminUID;
-      # The operator needs readiness, never the configured key material.
-      hasAuthorizedKeys = cfg.authorizedKeys != []
-        && builtins.all (key: builtins.match "[[:space:]]*" key == null) cfg.authorizedKeys;
+      inherit (cfg) activationReady adminUser adminUID authorizedKeys;
       services = import ./assigned-services.nix cfg;
     }
   ) hosts;

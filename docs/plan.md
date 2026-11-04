@@ -1,9 +1,10 @@
 # Homelab plan
 
-Status: the initial implementation and CLI 0.1.3 are merged, following the
-November 3, 2026 research. The CLI 0.1.4 redesign is in
-[PR #6](https://github.com/0x63616c/homelab/pull/6), pending hosted CI blocked by
-GitHub account billing/spending limits. No machine configuration applied.
+Status: the initial implementation and CLI 0.1.4 are merged, following the
+November 3, 2026 research. The tool is now extracted into the public
+[homelab-cli](https://github.com/0x63616c/homelab-cli) repository with public macOS
+CI; this configuration repository stays private. See the reviewed
+[separation plan](cli-extraction-plan.md). No machine configuration applied.
 See [current-state.md](current-state.md) for evidence and inventory gaps, and
 [implementation-status.md](implementation-status.md) for unfinished work.
 

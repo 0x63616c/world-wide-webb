@@ -18,6 +18,7 @@ in {
     time.timeZone = "America/Los_Angeles";
     environment.systemPackages = (with pkgs; [ git jq curl age sops ]) ++ [
       (import ../packages/client.nix { inherit pkgs; })
+      (import ../packages/host.nix { inherit pkgs; })
     ];
     nix-homebrew = { enable = true; user = cfg.adminUser; autoMigrate = false; };
     homebrew = {

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "tailscale": {
+    "tag": "tag:homelab",
+    "oauth": { "vault": "homelab", "item": "Homelab Tailscale OAuth" }
+  },
+  "hosts": {
+    "homelab-macbook": {
+      "adminUser": "admin",
+      "adminUID": 501,
+      "authorizedKeys": [],
+      "activationReady": false,
+      "services": []
+    },
+    "homelab-mac-mini": {
+      "adminUser": "calum",
+      "adminUID": 501,
+      "authorizedKeys": [],
+      "activationReady": false,
+      "services": []
+    }
+  }
+}

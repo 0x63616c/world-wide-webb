@@ -1,5 +1,6 @@
 { config, pkgs, ... }:
 let
+  manifest = builtins.fromJSON (builtins.readFile ../homelab.json);
   hostTools = import ../packages/client.nix { inherit pkgs; };
 in {
   services.tailscale.enable = true;
@@ -14,6 +15,8 @@ in {
       "${config.services.tailscale.package}/bin/tailscale"
       "--hostname"
       config.networking.hostName
+      "--tag"
+      manifest.tailscale.tag
     ];
     UserName = "root";
     RunAtLoad = true;

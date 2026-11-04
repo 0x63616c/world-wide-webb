@@ -76,7 +76,7 @@ extension restore and library loading. Normal application startup remains unveri
 
 ## Synthetic database check
 
-The Rust helper now provides `homelab-host rehearse-hindsight-restore --dump PATH`
+The Rust helper now provides `homelab-services rehearse-hindsight-restore --dump PATH`
 for use inside that isolated pinned image. It requires a non-root owner and an
 empty private `.pg0` directory; it never overwrites an existing database or
 automatically retries a failed attempt. It restores through stdin using typed

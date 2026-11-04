@@ -7,4 +7,4 @@ result
 result-*
 __pycache__/
 .DS_Store
-client/target/
+host/target/
