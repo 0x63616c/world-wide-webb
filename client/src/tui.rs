@@ -7,13 +7,13 @@ use std::time::Duration;
 
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{execute, queue};
 use thiserror::Error;
 
 use crate::inspect::{self, Inspection, InspectionError};
 use crate::inventory::{self, HostProfile, InventoryError};
+use crate::ui::{self, Role};
 
 pub(crate) struct Terminal {
     raw: bool,
@@ -66,6 +66,7 @@ struct Menu {
     selected: usize,
     details: Vec<String>,
     detail_offset: usize,
+    details_open: bool,
     busy: bool,
     form: Option<Form>,
 }
@@ -77,6 +78,7 @@ impl Menu {
             selected: 0,
             details: vec!["Choose a host and press Enter to connect or set up.".into()],
             detail_offset: 0,
+            details_open: false,
             busy: false,
             form: None,
         }
@@ -109,6 +111,7 @@ impl Menu {
                         address,
                         user,
                         identity: None,
+                        configuration_host: None,
                     });
                 }
                 KeyCode::Enter => form.selected += 1,
@@ -130,6 +133,23 @@ impl Menu {
             }
             return Action::None;
         }
+        if self.details_open {
+            match key.code {
+                KeyCode::Esc | KeyCode::Enter => self.details_open = false,
+                KeyCode::Up | KeyCode::PageUp => {
+                    self.detail_offset = self.detail_offset.saturating_sub(1);
+                }
+                KeyCode::Down | KeyCode::PageDown => {
+                    let last = wrap(&self.details, width.saturating_sub(4).clamp(1, 76))
+                        .len()
+                        .saturating_sub(1);
+                    self.detail_offset = (self.detail_offset + 1).min(last);
+                }
+                _ if cancel || key.code == KeyCode::Char('q') => return Action::Quit,
+                _ => {}
+            }
+            return Action::None;
+        }
         if cancel || key.code == KeyCode::Char('q') {
             return Action::Quit;
         }
@@ -139,11 +159,19 @@ impl Menu {
             }
             KeyCode::Char('n' | 'N') => self.form = Some(Form::default()),
             KeyCode::Enter if self.hosts.is_empty() => self.form = Some(Form::default()),
+            KeyCode::Char('d' | 'D') => {
+                self.details_open = true;
+                self.detail_offset = 0;
+            }
             KeyCode::Up if !self.hosts.is_empty() => {
                 self.selected = (self.selected + self.hosts.len() - 1) % self.hosts.len();
+                self.details = vec!["Enter connects and checks this Mac.".into()];
+                self.detail_offset = 0;
             }
             KeyCode::Down if !self.hosts.is_empty() => {
                 self.selected = (self.selected + 1) % self.hosts.len();
+                self.details = vec!["Enter connects and checks this Mac.".into()];
+                self.detail_offset = 0;
             }
             KeyCode::PageUp | KeyCode::PageDown => {
                 let last_line = wrap(&self.details, width.saturating_sub(4).clamp(1, 76))
@@ -202,6 +230,33 @@ impl Menu {
                 }
                 .into(),
             ]
+        } else if self.details_open {
+            let paragraphs = wrap(&self.details, content_width);
+            let room = height.saturating_sub(8).max(1);
+            let offset = self.detail_offset.min(paragraphs.len().saturating_sub(1));
+            let mut lines = vec![
+                "Host details".into(),
+                self.hosts
+                    .get(self.selected)
+                    .map(|host| host.name.clone())
+                    .unwrap_or_default(),
+                String::new(),
+            ];
+            lines.extend(paragraphs.iter().skip(offset).take(room).cloned());
+            lines.push(String::new());
+            lines.extend(
+                footer(
+                    "Back to hosts",
+                    if paragraphs.len() > room {
+                        "↑/↓ read · Esc back"
+                    } else {
+                        "Esc back"
+                    },
+                )
+                .lines()
+                .map(str::to_owned),
+            );
+            lines
         } else if let Some(form) = &self.form {
             if let Some(error) = &form.error {
                 let mut lines = vec!["Connection profile not saved".into(), String::new()];
@@ -218,7 +273,7 @@ impl Menu {
             }
             let mut lines = vec![
                 "Add a host connection".into(),
-                "Saved on this Mac. No passwords.".into(),
+                "Saved on this Mac".into(),
                 String::new(),
             ];
             for (index, label) in [
@@ -271,7 +326,7 @@ impl Menu {
                 if self.hosts.is_empty() {
                     "No hosts yet - press Enter to add one".into()
                 } else {
-                    format!("Hosts {}-{end} of {}", start + 1, self.hosts.len())
+                    format!("Your Macs · {}-{end} of {}", start + 1, self.hosts.len())
                 },
             ];
             for index in start..end {
@@ -281,31 +336,35 @@ impl Menu {
                     self.hosts[index].name
                 ));
             }
-            lines.extend([
-                String::new(),
-                if self.busy {
-                    "Checking SSH access..."
-                } else {
-                    "Details"
+            lines.push(String::new());
+            if let Some(host) = self.hosts.get(self.selected) {
+                lines.push(format!("{}@{}", host.user, host.address));
+                if height >= 18 {
+                    lines.push(format!(
+                        "Configuration: {}",
+                        host.resolved_configuration()
+                            .unwrap_or("choose once during setup")
+                    ));
+                    lines.push(String::new());
                 }
-                .into(),
-            ]);
+            }
+            if self.busy {
+                lines.push("Checking SSH access...".into());
+            }
             let paragraphs = wrap(&self.details, content_width);
             let offset = self.detail_offset.min(paragraphs.len().saturating_sub(1));
-            let room = height.saturating_sub(lines.len() + 3);
-            if !self.busy
-                && paragraphs.len() > room
-                && let Some(heading) = lines.last_mut()
-            {
-                *heading = "Details · PgUp/PgDn".into();
+            let room = height.saturating_sub(lines.len() + 5);
+            lines.extend(paragraphs.iter().skip(offset).take(room.min(3)).cloned());
+            lines.push(String::new());
+            if !self.hosts.is_empty() && !self.busy {
+                lines.push("i Inspect · d Details · n Add host".into());
             }
-            lines.extend(paragraphs.iter().skip(offset).take(room).cloned());
             let help = if self.busy {
                 "Inspection takes at most 90s.\nPlease wait for inspection.".into()
             } else if self.hosts.is_empty() {
                 footer("Add a host", "n add · q quit")
             } else {
-                footer("Connect", "↑/↓ · i inspect · n add · q quit")
+                footer("Connect", "↑/↓ choose · q quit")
             };
             lines.extend(help.lines().map(str::to_owned));
             lines
@@ -357,27 +416,20 @@ pub(crate) fn write_styled(
     heading: bool,
     help: bool,
 ) -> io::Result<()> {
-    let color = std::env::var_os("NO_COLOR").is_none();
-    if color {
-        let foreground = if heading || text.starts_with("> ") || text.starts_with("Enter:") {
-            Color::Cyan
-        } else if text.starts_with("! ") {
-            Color::Yellow
-        } else if help {
-            Color::DarkGrey
-        } else {
-            Color::Reset
-        };
-        queue!(output, SetForegroundColor(foreground))?;
-        if heading || text.starts_with("> ") || text.starts_with("Enter:") {
-            queue!(output, SetAttribute(Attribute::Bold))?;
-        }
-    }
-    write!(output, "{text}")?;
-    if color {
-        queue!(output, ResetColor, SetAttribute(Attribute::Reset))?;
-    }
-    Ok(())
+    let role = if heading {
+        Role::Heading
+    } else if text.starts_with("> ") {
+        Role::Selected
+    } else if text.starts_with("Enter:") {
+        Role::Action
+    } else if text.starts_with("! ") {
+        Role::Warning
+    } else if help {
+        Role::Help
+    } else {
+        return ui::paint_fact(output, text);
+    };
+    ui::paint(output, text, role)
 }
 
 type InspectionWorker = JoinHandle<Result<Inspection, InspectionError>>;
@@ -407,9 +459,24 @@ pub fn launch(path: &Path) -> Result<(), MenuError> {
     result.map_err(|_| MenuError::Terminal)
 }
 
+fn render_menu(menu: &Menu, width: u16, height: u16) -> io::Result<()> {
+    let mut output = io::stdout();
+    queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
+    let lines = menu.lines(width.into(), height.into());
+    for (row, line) in lines.iter().enumerate() {
+        let help = width >= 40 && height >= 12 && row >= lines.len().saturating_sub(2);
+        queue!(output, MoveTo(2, row as u16 + 1))?;
+        if row == 1 {
+            ui::paint(&mut output, line, Role::Context)?;
+        } else {
+            write_styled(&mut output, line, row == 0, help)?;
+        }
+    }
+    output.flush()
+}
+
 fn run_menu(path: &Path, menu: &mut Menu, worker: &mut Option<InspectionWorker>) -> io::Result<()> {
     let mut terminal_guard = Some(Terminal::enter()?);
-    let mut output = io::stdout();
     loop {
         if worker.as_ref().is_some_and(JoinHandle::is_finished) {
             menu.details = match worker.take().expect("finished worker exists").join() {
@@ -422,19 +489,7 @@ fn run_menu(path: &Path, menu: &mut Menu, worker: &mut Option<InspectionWorker>)
         }
         let (width, height) = terminal::size()?;
         let width = width.min(80);
-        queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
-        let lines = menu.lines(width.into(), height.into());
-        for (row, line) in lines.iter().enumerate() {
-            let help = width >= 40 && height >= 12 && row >= lines.len().saturating_sub(2);
-            let screen_row = if help {
-                height - 3 + (row + 2 - lines.len()) as u16
-            } else {
-                row as u16
-            };
-            queue!(output, MoveTo(2, screen_row))?;
-            write_styled(&mut output, line, row == 0, help)?;
-        }
-        output.flush()?;
+        render_menu(menu, width, height)?;
         if !event::poll(Duration::from_millis(100))? {
             continue;
         }
@@ -473,6 +528,25 @@ fn run_menu(path: &Path, menu: &mut Menu, worker: &mut Option<InspectionWorker>)
 mod tests {
     use super::*;
 
+    #[test]
+    #[ignore = "interactive synthetic preview, not a host operation"]
+    fn render_preview() {
+        let mut menu = Menu::new(vec![HostProfile {
+            name: "homelab-macbook".into(),
+            address: "homelab-macbook.local".into(),
+            user: "admin".into(),
+            identity: None,
+            configuration_host: None,
+        }]);
+        if std::env::var("HOMELAB_PREVIEW").as_deref() == Ok("add") {
+            menu.form = Some(Form::default());
+        }
+        let _terminal = Terminal::enter().unwrap();
+        let (width, height) = terminal::size().unwrap();
+        render_menu(&menu, width, height).unwrap();
+        while !matches!(event::read().unwrap(), Event::Key(_)) {}
+    }
+
     fn menu() -> Menu {
         Menu::new(
             (0..32)
@@ -481,6 +555,7 @@ mod tests {
                     address: "example-host".into(),
                     user: "operator".into(),
                     identity: None,
+                    configuration_host: None,
                 })
                 .collect(),
         )
@@ -499,7 +574,7 @@ mod tests {
             let lines = menu.lines(width, height);
             assert!(lines.iter().any(|line| line == "> host-31"));
             assert!(lines.iter().any(|line| line == "Check complete"));
-            assert!(lines.last().unwrap().contains("q quit"));
+            assert!(lines.iter().any(|line| line.contains("q quit")));
             assert!(lines.len() < height);
             assert!(lines.iter().all(|line| line.chars().count() < width));
         }
@@ -598,11 +673,35 @@ mod tests {
         let mut menu = menu();
         menu.details = (0..20).map(|index| format!("Detail {index}")).collect();
         let mut seen = std::collections::BTreeSet::new();
-        for _ in 0..8 {
+        press(&mut menu, KeyCode::Char('d'));
+        for _ in 0..20 {
             seen.extend(menu.lines(40, 12));
-            press(&mut menu, KeyCode::PageDown);
+            press(&mut menu, KeyCode::Down);
         }
         assert!(menu.details.iter().all(|detail| seen.contains(detail)));
+        assert_eq!(
+            menu.selected, 0,
+            "reading must not change the selected host"
+        );
+        assert!(!menu.lines(40, 12).join("\n").contains("PgUp"));
+        press(&mut menu, KeyCode::Esc);
+        assert!(!menu.details_open);
+        assert!(matches!(press(&mut menu, KeyCode::Enter), Action::Setup(_)));
+    }
+
+    #[test]
+    fn changing_hosts_does_not_attribute_the_previous_result_to_the_new_host() {
+        let mut menu = menu();
+        menu.details = vec!["Previous host result".into()];
+        press(&mut menu, KeyCode::Down);
+        press(&mut menu, KeyCode::Char('d'));
+        assert!(
+            !menu
+                .lines(80, 24)
+                .join("\n")
+                .contains("Previous host result")
+        );
+        assert!(menu.lines(80, 24).iter().any(|line| line == "host-1"));
     }
 
     #[test]
@@ -638,6 +737,7 @@ mod tests {
             address: "host".into(),
             user: "operator".into(),
             identity: None,
+            configuration_host: None,
         };
         let mut menu = Menu::new(inventory::add(&path, host).unwrap());
         let before = std::fs::read(&path).unwrap();

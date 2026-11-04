@@ -64,6 +64,7 @@ impl Fixture {
         Request {
             profile: HostProfile {
                 identity: None,
+                configuration_host: None,
                 name: "my-macbook".into(),
                 address: "example-host".into(),
                 user: "admin".into(),

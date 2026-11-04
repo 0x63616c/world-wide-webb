@@ -1,6 +1,6 @@
 [package]
 name = "homelab-client"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 rust-version = "1.89"
 description = "Typed remote management for a declarative macOS homelab"

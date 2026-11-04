@@ -25,6 +25,19 @@ pub struct HostProfile {
     pub user: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub identity: Option<AgentIdentity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration_host: Option<String>,
+}
+
+impl HostProfile {
+    pub fn resolved_configuration(&self) -> Option<&str> {
+        let host = self.configuration_host.as_deref().unwrap_or(&self.name);
+        supported_configuration(host).then_some(host)
+    }
+}
+
+fn supported_configuration(host: &str) -> bool {
+    matches!(host, "homelab-macbook" | "homelab-mac-mini")
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -47,7 +60,7 @@ pub enum InventoryError {
     Busy,
     #[error("The inventory save could not be completed and confirmed.")]
     SaveFailed,
-    #[error("The saved connection changed while you were choosing a key.")]
+    #[error("The saved connection changed while you were editing it.")]
     Changed,
 }
 
@@ -84,7 +97,7 @@ impl InventoryError {
             Self::SaveFailed => {
                 "Inspect the local inventory and available disk space before retrying."
             }
-            Self::Changed => "Reopen the saved connection and review its current address and key.",
+            Self::Changed => "Reopen the saved connection and review its current settings.",
         }
     }
 }
@@ -113,6 +126,10 @@ pub(crate) fn validate_profile(host: &HostProfile) -> Result<(), InventoryError>
             .identity
             .as_ref()
             .is_none_or(crate::ssh_identity::validate_identity)
+        && host
+            .configuration_host
+            .as_deref()
+            .is_none_or(supported_configuration)
     {
         Ok(())
     } else {
@@ -188,6 +205,24 @@ pub fn set_identity(
 ) -> Result<HostProfile, InventoryError> {
     let mut updated = expected.clone();
     updated.identity = identity;
+    validate_profile(&updated)?;
+    save(
+        path,
+        Change::Replace {
+            expected,
+            updated: updated.clone(),
+        },
+    )?;
+    Ok(updated)
+}
+
+pub fn set_configuration(
+    path: &Path,
+    expected: &HostProfile,
+    host: &str,
+) -> Result<HostProfile, InventoryError> {
+    let mut updated = expected.clone();
+    updated.configuration_host = Some(host.into());
     validate_profile(&updated)?;
     save(
         path,

@@ -57,6 +57,7 @@ fn unknown_profile_does_not_fall_back_to_an_ssh_address() {
             address: "example.invalid".into(),
             user: "operator".into(),
             identity: None,
+            configuration_host: None,
         },
     )
     .unwrap();

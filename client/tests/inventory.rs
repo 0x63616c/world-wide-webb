@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::os::unix::fs::{PermissionsExt, symlink};
 
 use homelab_client::inventory::{
-    AgentIdentity, HostProfile, InventoryError, add, load, set_identity,
+    AgentIdentity, HostProfile, InventoryError, add, load, set_configuration, set_identity,
 };
 use rustix::fs::{FlockOperation, flock};
 use serde_json::json;
@@ -19,6 +19,7 @@ fn profile(name: &str) -> HostProfile {
         address: "example-host".to_owned(),
         user: "operator".to_owned(),
         identity: None,
+        configuration_host: None,
     }
 }
 
@@ -329,4 +330,67 @@ fn symlink_and_world_readable_locks_are_rejected() {
         Err(InventoryError::UnsafeLocation)
     );
     assert!(!path.exists());
+}
+
+#[test]
+fn legacy_profiles_resolve_only_exact_names_and_never_infer_from_address() {
+    let old: HostProfile =
+        serde_json::from_value(json!({"name":"old", "address":"homelab-macbook", "user":"admin"}))
+            .unwrap();
+    assert_eq!(old.configuration_host, None);
+    assert_eq!(old.resolved_configuration(), None);
+    for name in ["homelab-macbook", "homelab-mac-mini"] {
+        assert_eq!(profile(name).resolved_configuration(), Some(name));
+    }
+    let mut bound = profile("homelab-macbook");
+    bound.configuration_host = Some("homelab-mac-mini".into());
+    assert_eq!(bound.resolved_configuration(), Some("homelab-mac-mini"));
+    bound.configuration_host = Some("unknown".into());
+    assert_eq!(bound.resolved_configuration(), None);
+    assert!(
+        serde_json::to_value(old)
+            .unwrap()
+            .get("configuration_host")
+            .is_none()
+    );
+}
+
+#[test]
+fn configuration_binding_is_durable_preserves_agent_and_rejects_stale_route() {
+    let directory = private_directory();
+    let path = directory.path().join("inventory.json");
+    let mut host = profile("living-room");
+    host.identity = Some(AgentIdentity {
+        public_key: "ssh-ed25519 AAAA".into(),
+        agent_socket: "/tmp/agent.sock".into(),
+    });
+    add(&path, host.clone()).unwrap();
+    let bound = set_configuration(&path, &host, "homelab-mac-mini").unwrap();
+    assert_eq!(bound.resolved_configuration(), Some("homelab-mac-mini"));
+    assert_eq!(bound.identity, host.identity);
+    assert_eq!(
+        load(&path).unwrap().as_slice(),
+        std::slice::from_ref(&bound)
+    );
+    let saved = fs::read(&path).unwrap();
+    assert_eq!(
+        set_configuration(&path, &host, "homelab-macbook"),
+        Err(InventoryError::Changed)
+    );
+    let mut changed_route = bound.clone();
+    changed_route.address = "other-host".into();
+    assert_eq!(
+        set_configuration(&path, &changed_route, "homelab-macbook"),
+        Err(InventoryError::Changed)
+    );
+    for invalid in ["", "macbook", "homelab-macbook;false", "HOMELAB-MACBOOK"] {
+        assert_eq!(
+            set_configuration(&path, &bound, invalid),
+            Err(InventoryError::Invalid)
+        );
+    }
+    assert_eq!(fs::read(&path).unwrap(), saved);
+    let invalid = json!({"schema":1,"hosts":[{"name":"living-room","address":"example","user":"admin","configuration_host":"unknown"}]});
+    fs::write(&path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+    assert_eq!(load(&path), Err(InventoryError::Invalid));
 }

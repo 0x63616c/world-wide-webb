@@ -154,13 +154,14 @@ fn setup_inventory(path: &Path) {
             address: "example.invalid".into(),
             user: "operator".into(),
             identity: None,
+            configuration_host: None,
         },
     )
     .unwrap();
 }
 
 #[test]
-fn cancelling_first_access_before_any_ssh_returns_to_menu_without_changes() {
+fn cancelling_after_automatic_read_only_check_returns_without_changes() {
     let directory = tempfile::tempdir().unwrap();
     let inventory = directory.path().join("private/inventory.json");
     setup_inventory(&inventory);
@@ -168,9 +169,9 @@ fn cancelling_first_access_before_any_ssh_returns_to_menu_without_changes() {
     let mut terminal = Terminal::start(&inventory);
     terminal.until("> example");
     terminal.master.write_all(b"\r").unwrap();
-    terminal.until("Connect to your Mac");
-    // No check or trust action was approved: no SSH process should be started.
-    // K cannot skip the initial existing-key check and initiate installation.
+    terminal.until("Address not found");
+    // The reserved .invalid address cannot reach a target. Failed inspection
+    // does not authorize trust or installation; K must not bypass that.
     terminal.master.write_all(b"k").unwrap();
     terminal.master.write_all(b"\x1b").unwrap();
     terminal.until("Setup cancelled.");
@@ -186,7 +187,7 @@ fn direct_setup_control_c_restores_terminal_before_reporting_cancellation() {
     setup_inventory(&inventory);
     let before = std::fs::read(&inventory).unwrap();
     let mut terminal = Terminal::with_arguments(&inventory, &["setup", "--host", "example"]);
-    terminal.until("Connect to your Mac");
+    terminal.until("Address not found");
     terminal.master.write_all(b"\x03").unwrap();
     terminal.until("No bootstrap credentials were transferred");
     terminal.wait_and_verify_restoration(false);
@@ -200,7 +201,7 @@ fn first_access_primary_action_is_visible_at_minimum_size() {
     let inventory = directory.path().join("private/inventory.json");
     setup_inventory(&inventory);
     let mut terminal = Terminal::with_arguments(&inventory, &["setup", "--host", "example"]);
-    terminal.until("Connect to your Mac");
+    terminal.until("Address not found");
     tcsetwinsize(
         &terminal.slave,
         Winsize {
@@ -211,10 +212,10 @@ fn first_access_primary_action_is_visible_at_minimum_size() {
         },
     )
     .unwrap();
-    // Trigger a redraw at the smaller size without starting SSH.
+    // Trigger a redraw at the smaller size without retrying SSH.
     terminal.master.write_all(b"\x1b[B").unwrap();
-    let screen = terminal.until("Enter: Check SSH access");
-    assert!(screen.contains("Connect to your Mac"));
+    let screen = terminal.until("Enter: Select");
+    assert!(screen.contains("Address not found"));
     assert!(screen.contains("Esc back"));
     assert!(!screen.contains("T approves trust"));
     terminal.master.write_all(b"\x1b").unwrap();

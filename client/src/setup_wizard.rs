@@ -10,7 +10,8 @@ use crossterm::terminal::{self, Clear, ClearType};
 
 use crate::inventory::{self, AgentIdentity, HostProfile};
 use crate::remote_setup::{self, Request, Tools};
-use crate::tui::{Terminal, footer, wrap, write_styled};
+use crate::tui::{Terminal, footer, wrap};
+use crate::ui::{self, Role};
 use crate::{first_access, inspect};
 
 const LABELS: [&str; 6] = [
@@ -29,21 +30,16 @@ struct Form {
 }
 
 impl Form {
-    fn new(profile: &HostProfile) -> Self {
+    fn new(configuration_host: &str) -> Self {
         Self {
             values: [
-                if profile.name == "homelab-mac-mini" {
-                    "homelab-mac-mini"
-                } else {
-                    "homelab-macbook"
-                }
-                .into(),
+                configuration_host.into(),
                 String::new(),
                 String::new(),
                 String::new(),
                 String::new(),
             ],
-            field: 0,
+            field: 1,
             resume: false,
         }
     }
@@ -62,16 +58,8 @@ impl Form {
 
     fn edit(&mut self, code: KeyCode) {
         match code {
-            KeyCode::Left | KeyCode::Right if self.field == 0 => {
-                self.values[0] = if self.values[0] == "homelab-macbook" {
-                    "homelab-mac-mini"
-                } else {
-                    "homelab-macbook"
-                }
-                .into();
-            }
             KeyCode::Left | KeyCode::Right if self.field == 5 => self.resume = !self.resume,
-            KeyCode::BackTab => self.field = self.field.saturating_sub(1),
+            KeyCode::BackTab => self.field = self.field.saturating_sub(1).max(1),
             KeyCode::Backspace if (1..5).contains(&self.field) => {
                 self.values[self.field].pop();
             }
@@ -98,7 +86,7 @@ impl Form {
         }
     }
 
-    fn lines(&self, profile: &HostProfile, width: usize) -> Vec<String> {
+    fn lines(&self, _profile: &HostProfile, width: usize) -> Vec<String> {
         let value = if self.field == 5 {
             if self.resume {
                 "Resume a verified safe phase"
@@ -118,19 +106,11 @@ impl Form {
             .collect();
         vec![
             "Set up a Mac".into(),
-            format!(
-                "{} | Step {} of 6",
-                profile
-                    .name
-                    .chars()
-                    .take(width.saturating_sub(14))
-                    .collect::<String>(),
-                self.field + 1,
-            ),
+            format!("{} | Step {} of 5", self.values[0], self.field),
             String::new(),
             LABELS[self.field].into(),
             format!("> {tail}"),
-            if self.field == 0 || self.field == 5 {
+            if self.field == 5 {
                 "←/→ changes selection"
             } else if self.field == 1 {
                 "Paste the exact reviewed commit"
@@ -142,7 +122,7 @@ impl Form {
     }
 }
 
-pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<usize> {
+fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> io::Result<usize> {
     let (width, height) = terminal::size()?;
     let mut output = io::stdout();
     queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
@@ -151,41 +131,76 @@ pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<
         output.flush()?;
         return Ok(0);
     }
-    let content_width = usize::from(width).saturating_sub(4).min(76);
+    let width = ui::content_width(width);
     let footer = wrap(
         &footer.lines().map(str::to_owned).collect::<Vec<_>>(),
-        content_width,
+        width,
     );
+    let wrapped: Vec<_> = body
+        .iter()
+        .flat_map(|(text, role)| {
+            wrap(std::slice::from_ref(text), width)
+                .into_iter()
+                .map(|line| (line, *role))
+        })
+        .collect();
+    let room = usize::from(height).saturating_sub(footer.len() + 5);
+    let last = wrapped.len().saturating_sub(room);
+    queue!(output, MoveTo(2, 1))?;
+    ui::paint(
+        &mut output,
+        &title.chars().take(width).collect::<String>(),
+        Role::Heading,
+    )?;
+    let visible = wrapped.iter().skip(offset.min(last)).take(room);
+    let mut row = 3;
+    for (line, role) in visible {
+        queue!(output, MoveTo(2, row))?;
+        if matches!(role, Role::Body) {
+            ui::paint_fact(&mut output, line)?;
+        } else {
+            ui::paint(&mut output, line, *role)?;
+        }
+        row += 1;
+    }
+    // Keep the next action next to the content, even in a tall terminal.
+    for (index, line) in footer.iter().enumerate() {
+        queue!(output, MoveTo(2, row + 1 + index as u16))?;
+        ui::paint(
+            &mut output,
+            line,
+            if index == 0 { Role::Action } else { Role::Help },
+        )?;
+    }
+    output.flush()?;
+    Ok(last)
+}
+
+pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<usize> {
     let Some((title, body)) = lines.split_first() else {
         return Ok(0);
     };
-    let titles = wrap(std::slice::from_ref(title), content_width);
-    let wrapped = wrap(body, content_width);
-    let room = usize::from(height).saturating_sub(footer.len() + 4);
-    queue!(output, MoveTo(2, 0))?;
-    write_styled(
-        &mut output,
-        titles.first().map(String::as_str).unwrap_or(""),
-        true,
-        false,
-    )?;
-    let last = wrapped.len().saturating_sub(room);
-    for (row, line) in wrapped.iter().skip(offset.min(last)).take(room).enumerate() {
-        queue!(output, MoveTo(2, row as u16 + 2))?;
-        write_styled(&mut output, line, false, false)?;
-    }
-    for (row, line) in footer.iter().enumerate() {
-        queue!(
-            output,
-            MoveTo(2, height - footer.len() as u16 - 1 + row as u16)
-        )?;
-        write_styled(&mut output, line, false, true)?;
-    }
-    output.flush()?;
-    Ok(wrapped.len().saturating_sub(room))
+    let body = body
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(index, line)| {
+            let role = if line.starts_with("> ") {
+                Role::Selected
+            } else if line.starts_with("! ") {
+                Role::Warning
+            } else if index == 0 {
+                Role::Context
+            } else {
+                Role::Body
+            };
+            (line, role)
+        })
+        .collect::<Vec<_>>();
+    render(title, &body, offset, footer)
 }
 
-fn key() -> io::Result<KeyCode> {
+pub(crate) fn key() -> io::Result<KeyCode> {
     loop {
         let event = event::read()?;
         if matches!(event, Event::Resize(..)) {
@@ -285,7 +300,7 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
         ),
         Error::AuthenticationDenied => (
             "SSH key not accepted",
-            "Install your public key using the target account's password.",
+            "Use the target password to add a key.",
             vec![InstallKey, Check],
         ),
         Error::ConnectionRefused => (
@@ -328,36 +343,56 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
 
 pub(crate) fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<usize>> {
     let mut selected = 0;
-    let mut offset = 0;
+    let (width, height) = terminal::size()?;
+    let prose_room = usize::from(height).saturating_sub(8 + actions.len());
+    if wrap(&lines[1..], ui::content_width(width)).len() > prose_room
+        && !review(lines, "Continue to choices")?
+    {
+        return Ok(None);
+    }
     loop {
-        let mut content = lines.to_vec();
-        if actions.len() > 1 {
-            content.push(String::new());
-            content.extend(actions.iter().enumerate().map(|(index, label)| {
-                format!("{} {label}", if index == selected { ">" } else { " " })
-            }));
-        }
-        let footer = footer(actions[selected], "↑/↓ select · Esc back");
-        let last = draw(&content, offset, &footer)?;
+        let (width, height) = terminal::size()?;
+        let width = ui::content_width(width);
+        let room = usize::from(height).saturating_sub(7);
+        let action_rows = actions.len() + 1;
+        let prose = wrap(&lines[1..], width);
+        let prose_room = room.saturating_sub(action_rows);
+        let mut content: Vec<_> = prose
+            .into_iter()
+            .take(prose_room)
+            .map(|line| (line, Role::Body))
+            .collect();
+        content.push((String::new(), Role::Body));
+        content.extend(actions.iter().enumerate().map(|(index, label)| {
+            (
+                format!("{} {label}", if index == selected { ">" } else { " " }),
+                if index == selected {
+                    Role::Selected
+                } else {
+                    Role::Body
+                },
+            )
+        }));
+        let navigation = if actions.len() > 1 {
+            "↑/↓ select · Esc back"
+        } else {
+            "Esc back"
+        };
+        render(&lines[0], &content, 0, &footer("Select", navigation))?;
         match key()? {
             KeyCode::Esc => return Ok(None),
             KeyCode::Enter if usable_size()? => return Ok(Some(selected)),
             KeyCode::Up => {
                 selected = selected.saturating_sub(1);
-                offset = last;
             }
             KeyCode::Down => {
                 selected = (selected + 1).min(actions.len() - 1);
-                offset = last;
             }
-            KeyCode::PageDown => offset = (offset + 3).min(last),
-            KeyCode::PageUp => offset = offset.saturating_sub(3),
             // Retain visible actions for users accustomed to the old shortcuts.
             KeyCode::Char(character) => {
                 let label = match character.to_ascii_lowercase() {
                     'k' => "Install public key",
                     't' => "Review host trust",
-                    's' => "Continue host setup",
                     _ => "",
                 };
                 if let Some(index) = actions.iter().position(|action| *action == label)
@@ -374,22 +409,26 @@ pub(crate) fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<us
 pub(crate) fn review(lines: &[String], primary: &str) -> io::Result<bool> {
     let mut offset = 0;
     loop {
-        let last = draw(
-            lines,
-            offset,
-            &footer(primary, "PgUp/PgDn review · Esc back"),
-        )?;
-        if offset < last {
+        let last = draw(lines, offset, &footer(primary, "Esc back"))?;
+        if last > 0 {
+            let action = if offset < last {
+                "Read more before approval"
+            } else {
+                primary
+            };
             draw(
                 lines,
                 offset,
-                &footer("Read more before approval", "PgUp/PgDn review · Esc back"),
+                &footer(
+                    action,
+                    &format!("↑/↓ read {}/{} · Esc back", offset + 1, last + 1),
+                ),
             )?;
         }
         match key()? {
             KeyCode::Esc => return Ok(false),
-            KeyCode::PageDown => offset = (offset + 3).min(last),
-            KeyCode::PageUp => offset = offset.saturating_sub(3),
+            KeyCode::Down | KeyCode::PageDown => offset = (offset + 1).min(last),
+            KeyCode::Up | KeyCode::PageUp => offset = offset.saturating_sub(1),
             KeyCode::Enter if offset >= last && usable_size()? => return Ok(true),
             KeyCode::Enter => offset = (offset + 3).min(last),
             _ => {}
@@ -409,7 +448,6 @@ fn public_key_lines(value: &str, error: Option<&str>, width: usize) -> Vec<Strin
     let mut lines = vec!["Choose your public key".into()];
     if let Some(message) = error {
         lines.push(format!("! {message}"));
-        lines.push(String::new());
     }
     lines.extend(["Public key file (.pub)".into(), format!("> {tail}")]);
     if error.is_none() {
@@ -510,7 +548,7 @@ fn select_agent_key(mut keys: Vec<first_access::AgentKey>) -> io::Result<Option<
             &labels,
             selected,
             usize::from(width).saturating_sub(4).clamp(1, 76),
-            usize::from(height).saturating_sub(6),
+            usize::from(height).saturating_sub(7),
         );
         draw(
             &lines,
@@ -539,7 +577,7 @@ fn choose_key_source(tools: &first_access::Tools) -> io::Result<Option<SelectedK
         let Some(source) = choose(
             &[
                 "Choose a key source".into(),
-                "Select a public key. Private keys stay in your agent or on this Mac.".into(),
+                "Private keys stay on your Mac.".into(),
             ],
             &[
                 "1Password SSH agent",
@@ -606,18 +644,8 @@ fn choose_key_source(tools: &first_access::Tools) -> io::Result<Option<SelectedK
 }
 
 enum AccessOutcome {
-    Continue(AccessChanges),
+    Continue(AccessChanges, usize),
     Finished(Outcome),
-}
-
-fn welcome(profile: &HostProfile) -> Vec<String> {
-    vec![
-        "Connect to your Mac".into(),
-        format!("{}@{}", profile.user, profile.address),
-        String::new(),
-        "On the target: enable Remote Login for this account.".into(),
-        "This checks existing keys. No setup files are needed.".into(),
-    ]
 }
 
 fn installation_required(
@@ -639,23 +667,36 @@ fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<Acces
     let mut terminal = Some(Terminal::enter()?);
     let mut changes = AccessChanges::default();
     let mut existing_access_worked = false;
-    let mut screen = welcome(profile);
+    let mut screen = Vec::new();
+    let mut first_check = true;
     let mut actions = vec![AccessAction::Check];
     loop {
         let labels: Vec<_> = actions.iter().map(|action| action.label()).collect();
-        let Some(selected) = choose(&screen, &labels)? else {
-            return Ok(AccessOutcome::Finished(cancelled(changes)));
+        let selected = if first_check {
+            first_check = false;
+            0
+        } else {
+            let Some(selected) = choose(&screen, &labels)? else {
+                return Ok(AccessOutcome::Finished(cancelled(changes)));
+            };
+            selected
         };
         let result = match actions[selected] {
             AccessAction::Check | AccessAction::Trust => {
                 let trust = if actions[selected] == AccessAction::Trust {
-                    if !review(&[
-                        "Trust this Mac?".into(),
-                        format!("{}@{}", profile.user, profile.address), String::new(),
-                        "! Save the first SSH identity returned by this address.".into(),
-                        "Its identity is not independently verified. Continue only if you trust this first connection.".into(),
-                        "Changed saved keys will still be blocked.".into(),
-                    ], "Trust and check")? { continue; }
+                    if !review(
+                        &[
+                            "Trust this Mac?".into(),
+                            format!("{}@{}", profile.user, profile.address),
+                            String::new(),
+                            "Trust: save the first SSH host key.".into(),
+                            "Identity: not independently verified.".into(),
+                            "Changed keys: still blocked.".into(),
+                        ],
+                        "Trust and check",
+                    )? {
+                        continue;
+                    }
                     changes.trust_attempted = true;
                     first_access::Trust::AcceptNew
                 } else {
@@ -678,25 +719,31 @@ fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<Acces
                 };
                 let is_agent = selected_key.identity.is_some();
                 let route = if is_agent {
-                    "Remember this key for this Mac. Connect directly to this address on port 22; custom SSH configuration is not used."
+                    "Route: direct SSH, port 22. Ignore custom SSH configuration."
                 } else {
-                    "Use your existing SSH configuration and identities. Any previous agent-key selection for this Mac will be cleared."
+                    "Route: existing SSH configuration. Clear the saved agent-key selection."
                 };
                 if !review(
                     &[
                         "Use this key for this Mac?".into(),
                         format!("{}@{}", profile.user, profile.address),
                         format!("Fingerprint: {}", selected_key.key.fingerprint()),
+                        String::new(),
+                        "Remember this public key for this Mac.".into(),
                         route.into(),
                         String::new(),
                         if is_agent {
-                            "Check this identity first. If needed, install its public key using the target password; existing keys stay."
+                            "Check the selected key first. Install only if authentication is denied."
                         } else {
-                            "Install this public key using the target password; existing keys stay. Then verify your configured SSH access."
+                            "Install this public key, then verify configured SSH access."
                         }.into(),
-                        "Installation makes .ssh private (0700) and authorized_keys private (0600).".into(),
-                        "If needed, SSH asks for the target password. The client does not store it.".into(),
-                        "! An interrupted attempt may leave the key installed.".into(),
+                        String::new(),
+                        "Installation".into(),
+                        "• Keep all existing public keys".into(),
+                        "• .ssh permissions: 0700".into(),
+                        "• authorized_keys permissions: 0600".into(),
+                        "Password: entered in SSH, never stored.".into(),
+                        "Interrupted install may leave the key.".into(),
                     ],
                     "Use this key",
                 )? {
@@ -801,13 +848,19 @@ fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<Acces
             lines.push("! Bootstrap requires an Apple-silicon Mac.".into());
         }
         let choices = if inspection.is_ready() {
-            vec!["Finish", "Continue host setup"]
+            vec![
+                "Prepare credentials",
+                "Use reviewed configuration",
+                "Finish",
+            ]
         } else {
             vec!["Finish"]
         };
         let choice = choose(&lines, &choices)?;
-        if choice == Some(1) {
-            return Ok(AccessOutcome::Continue(changes));
+        if inspection.is_ready()
+            && let Some(mode @ 0..=1) = choice
+        {
+            return Ok(AccessOutcome::Continue(changes, mode));
         }
         changes.append_notice(&mut lines);
         return Ok(AccessOutcome::Finished(Outcome {
@@ -822,35 +875,69 @@ pub(crate) fn usable_size() -> io::Result<bool> {
     Ok(width >= 40 && height >= 12)
 }
 
+fn approval_lines(host: &str, confirmation: &str) -> Vec<String> {
+    vec![
+        "Approve setup".into(),
+        format!("Type {host} to begin."),
+        "Apply the reviewed configuration.".into(),
+        format!("> {confirmation}"),
+    ]
+}
+
 /// The parent menu suspends raw mode before entering this independently owned wizard.
 pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outcome> {
     let mut profile = original.clone();
-    let changes = match connect(&mut profile, inventory_path)? {
+    let (changes, mode) = match connect(&mut profile, inventory_path)? {
         AccessOutcome::Finished(outcome) => return Ok(outcome),
-        AccessOutcome::Continue(changes) => changes,
+        AccessOutcome::Continue(changes, mode) => (changes, mode),
     };
     let terminal = Terminal::enter()?;
-    let Some(mode) = choose(
-        &[
-            "Host setup".into(),
-            "Prepare encrypted credentials first, or use a configuration already reviewed and built by CI.".into(),
-        ],
-        &["Prepare credentials", "Use reviewed configuration"],
-    )?
-    else {
-        return Ok(cancelled(changes));
+    let configuration_host = match profile.resolved_configuration() {
+        Some(host) => host.to_owned(),
+        None => {
+            let Some(selected) = choose(
+                &[
+                    "Choose configuration".into(),
+                    format!("Connection: {}", profile.name),
+                    "Remember which repository host this connection manages.".into(),
+                ],
+                &["homelab-macbook", "homelab-mac-mini"],
+            )?
+            else {
+                return Ok(cancelled(changes));
+            };
+            let host = ["homelab-macbook", "homelab-mac-mini"][selected];
+            match inventory::set_configuration(inventory_path, &profile, host) {
+                Ok(updated) => profile = updated,
+                Err(error) => {
+                    return Ok(Outcome {
+                        completed: false,
+                        lines: vec![
+                        "Configuration was not saved. No credentials were prepared or transferred."
+                            .into(),
+                        error.to_string(),
+                        error.next_action().into(),
+                    ],
+                    });
+                }
+            }
+            host.to_owned()
+        }
     };
     let state = crate::provision_wizard::state_directory();
     if mode == 0 {
         return match state {
-            Some(root) => crate::provision_wizard::launch(&root),
+            Some(root) => crate::provision_wizard::launch(&root, &configuration_host),
             None => Ok(Outcome {
                 completed: false,
                 lines: vec!["HOME is unavailable. Local credentials were not prepared.".into()],
             }),
         };
     }
-    let mut form = Form::new(&profile);
+    let mut form = Form::new(&configuration_host);
+    if let Some(root) = &state {
+        form.prefill_credentials(root);
+    }
     let tools = Tools {
         ssh: PathBuf::from("/usr/bin/ssh"),
         scp: PathBuf::from("/usr/bin/scp"),
@@ -860,16 +947,11 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
         draw(
             &form.lines(&profile, usize::from(width).saturating_sub(4).min(76)),
             0,
-            &footer("Next", "Tab next · Shift-Tab back · Esc back"),
+            &footer("Next", "Tab/Shift-Tab edit · Esc back"),
         )?;
         match key()? {
             KeyCode::Esc => return Ok(cancelled(changes)),
             KeyCode::Enter | KeyCode::Tab if form.field < 5 && usable_size()? => {
-                if form.field == 0
-                    && let Some(root) = &state
-                {
-                    form.prefill_credentials(root);
-                }
                 form.field += 1;
             }
             KeyCode::Enter if usable_size()? => {
@@ -895,16 +977,18 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
                             let last = draw(
                                 &lines,
                                 offset,
-                                &footer("Edit inputs", "PgUp/PgDn review · Esc back"),
+                                &footer("Edit inputs", "↑/↓ read · Esc back"),
                             )?;
                             match key()? {
                                 KeyCode::Esc => return Ok(cancelled(changes)),
                                 KeyCode::Enter => {
-                                    form.field = 0;
+                                    form.field = 1;
                                     break;
                                 }
-                                KeyCode::PageDown => offset = (offset + 3).min(last),
-                                KeyCode::PageUp => offset = offset.saturating_sub(3),
+                                KeyCode::Down | KeyCode::PageDown => {
+                                    offset = (offset + 1).min(last)
+                                }
+                                KeyCode::Up | KeyCode::PageUp => offset = offset.saturating_sub(1),
                                 _ => {}
                             }
                         }
@@ -921,12 +1005,11 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
     }
     let mut confirmation = String::new();
     loop {
-        draw(&[
-            "Approve setup".into(),
-            format!("Type {} to begin.", form.values[0]),
-            "Only host-specific files will be transferred. Your administrator password stays in the interactive SSH terminal.".into(),
-            format!("> {confirmation}"),
-        ], 0, &footer("Approve setup", "Esc back"))?;
+        draw(
+            &approval_lines(&form.values[0], &confirmation),
+            0,
+            &footer("Approve setup", "Esc back"),
+        )?;
         match key()? {
             KeyCode::Esc => return Ok(cancelled(changes)),
             KeyCode::Backspace => {
@@ -969,8 +1052,109 @@ mod tests {
             address: "mini".into(),
             user: "calum".into(),
             identity: None,
+            configuration_host: None,
         }
     }
+    #[test]
+    #[ignore = "visual QA harness; synthetic inputs only"]
+    fn render_preview() {
+        let scene = std::env::var("HOMELAB_PREVIEW").unwrap();
+        let _terminal = Terminal::enter().unwrap();
+        let profile = profile();
+        match scene.as_str() {
+            "form" => {
+                let mut form = Form::new("homelab-macbook");
+                form.field = 2;
+                form.values[2] = "/Users/operator/Downloads/homelab-bootstrap".into();
+                draw(
+                    &form.lines(&profile, ui::content_width(terminal::size().unwrap().0)),
+                    0,
+                    &footer("Next", "Tab/Shift-Tab edit · Esc back"),
+                )
+                .unwrap();
+                key().unwrap();
+            }
+            "failure" => {
+                let (title, message, actions) =
+                    failure_screen(&first_access::Error::AuthenticationDenied);
+                choose(
+                    &[
+                        title.into(),
+                        "operator@macbook.local".into(),
+                        message.into(),
+                    ],
+                    &actions
+                        .iter()
+                        .copied()
+                        .map(AccessAction::label)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap();
+            }
+            "source" => {
+                choose_key_source(&first_access::Tools {
+                    ssh: "/usr/bin/ssh".into(),
+                    ssh_keygen: "/usr/bin/ssh-keygen".into(),
+                    ssh_add: "/usr/bin/ssh-add".into(),
+                })
+                .unwrap();
+            }
+            "keys" => {
+                let (width, height) = terminal::size().unwrap();
+                let lines = agent_key_lines(
+                    &[
+                        (
+                            "Personal Mac",
+                            "SHA256:abcdefghijklmnopqrstuvwxy0123456789012345678",
+                        ),
+                        (
+                            "Homelab",
+                            "SHA256:zyxwvutsrqponmlkjihgfedcba9876543210987654321",
+                        ),
+                    ],
+                    1,
+                    ui::content_width(width),
+                    usize::from(height).saturating_sub(7),
+                );
+                draw(
+                    &lines,
+                    0,
+                    &footer("Review this key", "↑/↓ select · Esc back"),
+                )
+                .unwrap();
+                key().unwrap();
+            }
+            "approval" => {
+                draw(
+                    &approval_lines("homelab-macbook", "homelab-macbook"),
+                    0,
+                    &footer("Approve setup", "Esc back"),
+                )
+                .unwrap();
+                key().unwrap();
+            }
+            "review" => {
+                review(
+                    &[
+                        "Review encryption".into(),
+                        "Host: homelab-macbook".into(),
+                        String::new(),
+                        "Host recipient: age1syntheticpublicrecipientforlayoutonly".into(),
+                        "Recovery recipient: age1othersyntheticpublicrecipient".into(),
+                        String::new(),
+                        "Encrypted: Tailscale + GitHub tokens".into(),
+                        "Bootstrap: GitHub token retained in an owner-only file outside Git."
+                            .into(),
+                        "No deployment will start.".into(),
+                    ],
+                    "Encrypt configuration",
+                )
+                .unwrap();
+            }
+            _ => panic!("unknown preview scene"),
+        }
+    }
+
     #[test]
     fn reviewed_configuration_prefills_only_existing_selected_host_credentials() {
         let root = tempfile::tempdir().unwrap();
@@ -978,7 +1162,7 @@ mod tests {
         std::fs::create_dir_all(&directory).unwrap();
         std::fs::write(directory.join("host-age-key.txt"), "synthetic").unwrap();
         std::fs::write(directory.join("github-read-token"), "synthetic").unwrap();
-        let mut form = Form::new(&profile());
+        let mut form = Form::new("homelab-macbook");
         form.prefill_credentials(root.path());
         assert_eq!(
             Path::new(&form.values[3]),
@@ -988,7 +1172,7 @@ mod tests {
             Path::new(&form.values[4]),
             directory.join("github-read-token")
         );
-        form.edit(KeyCode::Right);
+        let mut form = Form::new("homelab-mac-mini");
         form.prefill_credentials(root.path());
         assert!(form.values[3].is_empty() && form.values[4].is_empty());
         assert!(!root.path().join("hosts/homelab-mac-mini").exists());
@@ -997,7 +1181,7 @@ mod tests {
     #[test]
     fn configuration_selection_is_separate_from_the_connection_alias() {
         let profile = profile();
-        let mut form = Form::new(&profile);
+        let mut form = Form::new("homelab-mac-mini");
         form.edit(KeyCode::Right);
         let request = form.request(&profile);
         assert_eq!(request.configuration_host, "homelab-mac-mini");
@@ -1005,8 +1189,37 @@ mod tests {
         assert!(!request.resume);
     }
     #[test]
+    fn saved_or_exact_configuration_stays_fixed_through_form_navigation() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("private/inventory.json");
+        let alias = profile();
+        assert!(alias.resolved_configuration().is_none());
+        inventory::add(&path, alias.clone()).unwrap();
+        inventory::set_configuration(&path, &alias, "homelab-mac-mini").unwrap();
+        let saved = inventory::load(&path).unwrap().remove(0);
+        assert_eq!(saved.resolved_configuration(), Some("homelab-mac-mini"));
+        let mut exact = profile();
+        exact.name = "homelab-macbook".into();
+        for profile in [saved, exact] {
+            let host = profile.resolved_configuration().unwrap();
+            let mut form = Form::new(host);
+            assert_eq!(form.field, 1);
+            for key in [
+                KeyCode::BackTab,
+                KeyCode::BackTab,
+                KeyCode::Right,
+                KeyCode::Left,
+            ] {
+                form.edit(key);
+            }
+            assert_eq!(form.field, 1);
+            assert_eq!(form.request(&profile).configuration_host, host);
+        }
+    }
+
+    #[test]
     fn editing_retains_paths_and_requires_explicit_resume_selection() {
-        let mut form = Form::new(&profile());
+        let mut form = Form::new("homelab-macbook");
         form.field = 2;
         for c in "/private/path with spaces".chars() {
             form.edit(KeyCode::Char(c));
@@ -1045,25 +1258,9 @@ mod tests {
     }
 
     #[test]
-    fn welcome_is_short_and_has_no_hidden_install_or_trust_instruction() {
-        let lines = welcome(&profile());
-        let wrapped = wrap(&lines[1..], 36);
-        assert!(wrapped.len() <= 6, "welcome must fit the minimum terminal");
-        assert!(
-            lines
-                .iter()
-                .all(|line| !line.contains("K lets") && !line.contains("T approves"))
-        );
-        assert!(
-            wrapped.iter().any(String::is_empty),
-            "keep visual separation"
-        );
-    }
-
-    #[test]
     fn bootstrap_form_keeps_the_path_tail_visible_at_minimum_size() {
         let profile = profile();
-        let mut form = Form::new(&profile);
+        let mut form = Form::new("homelab-mac-mini");
         form.field = 2;
         form.values[2] = "/a/long/private/directory/reviewed-bootstrap-artifact".into();
         let lines = form.lines(&profile, 36);
@@ -1117,7 +1314,7 @@ mod tests {
             .map(|(name, fingerprint)| (name.as_str(), fingerprint.as_str()))
             .collect();
         for (selected, (_, fingerprint)) in keys.iter().enumerate() {
-            for (width, room) in [(36, 6), (76, 18)] {
+            for (width, room) in [(36, 5), (76, 17)] {
                 let lines = agent_key_lines(&labels, selected, width, room);
                 let visible = wrap(&lines[1..], width);
                 assert!(visible.len() <= room);
@@ -1136,6 +1333,14 @@ mod tests {
     }
 
     #[test]
+    fn final_approval_keeps_typed_host_visible_at_minimum_size() {
+        let lines = approval_lines("homelab-macbook", "homelab-macbook");
+        let visible = wrap(&lines[1..], 36);
+        assert!(visible.len() <= 5);
+        assert_eq!(visible.last().unwrap(), "> homelab-macbook");
+    }
+
+    #[test]
     fn public_key_error_and_editable_path_fit_the_minimum_terminal() {
         let message = first_access::Error::InvalidKey.to_string();
         let lines = public_key_lines(
@@ -1145,7 +1350,7 @@ mod tests {
         );
         let visible = wrap(&lines[1..], 36);
         assert!(
-            visible.len() <= 6,
+            visible.len() <= 5,
             "error and path must fit above the two-line footer"
         );
         assert!(visible.first().unwrap().starts_with("! "));

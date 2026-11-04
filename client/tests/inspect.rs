@@ -38,6 +38,7 @@ impl Fixture {
 fn host() -> HostProfile {
     HostProfile {
         identity: None,
+        configuration_host: None,
         name: "example".into(),
         address: "example-host".into(),
         user: "operator".into(),

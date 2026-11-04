@@ -49,8 +49,17 @@ On first run, press **n** to add a connection profile in the menu: enter its
 name, SSH address/alias and administrator login, then select Save. This creates
 only a private local file; it does not connect or configure the target. Escape
 cancels the form. Failed saves keep your entered values for correction and retry.
-Select a host with **↑ / ↓** and press **Enter** for guided connection and setup.
+Select a host with **↑ / ↓** and press **Enter** to check SSH access and open setup.
 Press **i** for a separate read-only inspection; **q** quits when idle.
+Press **d** to read the full result with **↑ / ↓**, then **Esc** to return.
+
+Setup carries the selected host through every stage. Profiles named exactly
+`homelab-macbook` or `homelab-mac-mini` automatically select that configuration.
+For another nickname, the wizard asks once and saves the binding in your private
+inventory. The connection address can be a LAN or Tailscale address; it does not
+need to match the configuration name. Nix sets the target hostname during
+activation. There is no manual hostname prerequisite and no default to the
+MacBook for an unknown profile.
 
 **s** is also a shortcut for guided setup. Each screen shows a short
 status and a selected next action; use the arrow keys to choose and **Enter** to
@@ -86,18 +95,21 @@ LAN or Tailscale address. Profiles without a selected agent identity retain
 their existing SSH configuration. See 1Password's
 [public-key selection guidance](https://www.1password.dev/ssh/agent/advanced).
 
-Screens share header spacing and a two-line footer: the primary Enter action,
-then navigation/back hints. Headings and selections use colour, with text labels retained for terminals
+Screens share a title, grouped facts and actions immediately below the content.
+The footer shows the primary Enter action and navigation/back hints. Use
+**↑ / ↓** to choose actions or read an overflowing review; scrolling hints only
+appear when needed. A long approval screen must be read to the end before its
+action becomes available. Headings and selections use colour, with text labels retained for terminals
 without colour. Set `NO_COLOR=1` to disable styling. Use `homelab --version` to
 check the installed version; update through `brew update` and
 `brew upgrade homelab`.
 
 You can finish after access verification without any bootstrap inputs. Trust and
 public-key changes remain in place if you stop; the wizard reports this.
-Choose **Continue host setup**, then **Prepare credentials** for guided local
+Choose **Prepare credentials** after access verification for guided local
 preparation. The wizard handles one step at a time:
 
-1. Select the configuration host and create its private age identity and a
+1. Create the selected host's private age identity and a
    separate recovery identity on your personal Mac.
 2. Save both private identity files somewhere safe, such as your personal 1Password
    vault, and acknowledge the backup. The CLI does not access your vault.
@@ -120,8 +132,8 @@ After the host configuration PR is reviewed and merged, wait for its successful
 CI build. Return to **Use reviewed configuration** and select the exact commit
 and extracted bootstrap artifact. The saved host-key and repository-token paths
 are filled in for you. Existing private files can still be selected manually;
-those fields accept paths, never secret values. The connection nickname and
-configuration host remain separate choices. This stage never receives the
+those fields accept paths, never secret values. The saved configuration binding
+is reused throughout this stage. This stage never receives the
 operator recovery key.
 
 Private files remain under `~/.local/state/homelab/provisioning` with owner-only

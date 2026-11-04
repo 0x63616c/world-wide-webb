@@ -1,7 +1,14 @@
 # Implementation status
 
 Repo: https://github.com/0x63616c/homelab (private).
-Implementation PR: https://github.com/0x63616c/homelab/pull/1.
+Initial implementation PR (merged): https://github.com/0x63616c/homelab/pull/1.
+Published operator CLI: 0.1.3. Pending redesign: https://github.com/0x63616c/homelab/pull/6.
+
+On November 4, both hosted checks for the redesign stopped before running
+because GitHub reported failed recent account payments or a spending limit.
+Local tests, independent source/visual review and isolated packaging checks
+passed. These do not substitute for the missing hosted Nix/bootstrap checks;
+0.1.4 has not been published. No billing settings were changed.
 
 Authoritative scope: build the repo/PR; do not deploy. Owner confirmed roughly
 500 GB MacBook storage and existing administrator `admin`. Mini uses `calum`.
@@ -63,7 +70,10 @@ Implemented so far:
   and read-only inspection. The operator can finish here without secrets or
   activation. Fixtures exercise changed-host refusal, key preservation and
   interrupted installation; terminal tests cover cancellation before connection.
-  No successful connection or key installation on the new MacBook is claimed.
+  The owner subsequently supplied a CLI screenshot confirming SSH access to
+  `admin@homelab-macbook.local`: macOS 27.2, arm64, UID 501, 422.0 GiB free.
+  This is owner-observed access verification, not evidence of bootstrap,
+  headless reboot, or service migration.
   First-access diagnostics now distinguish known SSH failure classes without
   exposing raw banners. Short, styled screens select an explicit next action;
   native password-install failures remain visible before returning to the menu.
@@ -197,3 +207,20 @@ tests. The [PR checks](https://github.com/0x63616c/homelab/pull/1/checks)
 record each current complete result, including the assignment contract and
 fresh-Mac smoke. These are build checks, not runtime validation. No live
 activation has run.
+
+## Later: repeated clean-install validation
+
+After migration backups and restoration have been verified, repeat the full
+fresh-Mac setup several times on a host whose data can safely be erased. Each
+wipe requires a separate explicit approval; this plan does not authorize one.
+Keep the live mini until its replacement is independently verified.
+
+For each run, record the reviewed commit, hardware/macOS version and any manual
+steps. Start from Setup Assistant and enabling Remote Login, then use the CLI
+for SSH access, host binding, credentials and reviewed bootstrap. Verify reboot,
+remote access without a human login, launchd service startup, secret decryption,
+and any services enabled for that migration stage. Test interruption and resume
+before declaring setup repeatable. Resolve changed SSH host keys through an
+explicit identity review; do not bypass trust checks or silently reuse a consumed
+single-use enrollment key. The intended outcome is a documented, repeatable
+workflow, not merely a passing build.

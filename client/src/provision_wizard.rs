@@ -115,13 +115,7 @@ fn token(title: &str) -> io::Result<Option<String>> {
 }
 
 fn guide(lines: &[String], url: &str) -> io::Result<bool> {
-    if !review(lines, "Choose token action")? {
-        return Ok(false);
-    }
-    match choose(
-        &[lines[0].clone(), "The browser opens on this Mac.".into()],
-        &["Open token page", "I have the token"],
-    )? {
+    match choose(lines, &["Open token page", "I have the token"])? {
         None => Ok(false),
         Some(1) => Ok(true),
         _ => {
@@ -139,24 +133,37 @@ fn guide(lines: &[String], url: &str) -> io::Result<bool> {
     }
 }
 
-pub(crate) fn launch(root: &Path) -> io::Result<Outcome> {
-    let Some(host) = choose(
-        &[
-            "Choose configuration".into(),
-            "This is the repository host, not its SSH alias.".into(),
-        ],
-        &["homelab-macbook", "homelab-mac-mini"],
-    )?
-    else {
-        return Ok(stopped());
-    };
-    let host = ["homelab-macbook", "homelab-mac-mini"][host];
+fn tailscale_guide(host: &str) -> Vec<String> {
+    vec![
+        "Create Tailscale auth key".into(),
+        format!("Host: {host}"),
+        "Tag: tag:homelab (policy allowed)".into(),
+        "Reusable: OFF · Ephemeral: OFF".into(),
+        "Expiry: short".into(),
+        "Pre-approve if approval required".into(),
+    ]
+}
+
+fn github_guide(host: &str) -> Vec<String> {
+    vec![
+        "Create GitHub read token".into(),
+        format!("Host: {host}"),
+        "Fine-grained · 0x63616c/homelab only".into(),
+        "Contents: read · Actions: read".into(),
+        "Set expiry; owner approval if needed".into(),
+    ]
+}
+
+pub(crate) fn launch(root: &Path, host: &str) -> io::Result<Outcome> {
     if !review(
         &[
             "Prepare local credentials".into(),
             format!("Configuration: {host}"),
-            "Create or reuse private age identities on this Mac. One belongs to this host; a separate recovery identity stays off the target.".into(),
-            "This prepares encrypted files for review. It does not commit, transfer credentials or deploy.".into(),
+            String::new(),
+            "Host key: decrypts this host’s secrets".into(),
+            "Recovery key: keep off hosts".into(),
+            "Prepare encrypted review files.".into(),
+            "No commit, transfer or deployment.".into(),
         ],
         "Prepare identities",
     )? {
@@ -187,36 +194,24 @@ pub(crate) fn launch(root: &Path) -> io::Result<Outcome> {
                 "Save both private files in your password manager before continuing:".into(),
                 format!("Host: {}", details.host_key_path.display()),
                 format!("Recovery: {}", details.recovery_key_path.display()),
-                "Keep the recovery identity off homelab hosts. Losing both identities means losing access to encrypted configuration.".into(),
+                String::new(),
+                "Recovery stays off homelab hosts.".into(),
+                "Lose both keys → lose decryption.".into(),
             ],
             "I saved both identity files",
         )? {
             return Ok(stopped());
         }
-        if !guide(
-            &[
-                "Create Tailscale auth key".into(),
-                "Tag: tag:homelab (must be allowed by your tailnet policy).".into(),
-                "Reusable OFF · Ephemeral OFF. Use a short expiry. If device approval is enabled, pre-approve this key.".into(),
-            ],
-            TAILSCALE_URL,
-        )? {
+        if !guide(&tailscale_guide(host), TAILSCALE_URL)? {
             return Ok(stopped());
         }
-        let Some(tailscale_auth) = token("Tailscale auth key")? else {
+        let Some(tailscale_auth) = token(&format!("{host}: Tailscale key"))? else {
             return Ok(stopped());
         };
-        if !guide(
-            &[
-                "Create GitHub read token".into(),
-                "Fine-grained token: only 0x63616c/homelab.".into(),
-                "Repository permissions: Contents read and Actions read. Choose an expiry; obtain owner approval if required.".into(),
-            ],
-            GITHUB_URL,
-        )? {
+        if !guide(&github_guide(host), GITHUB_URL)? {
             return Ok(stopped());
         }
-        let Some(github_read) = token("GitHub read token")? else {
+        let Some(github_read) = token(&format!("{host}: GitHub token"))? else {
             return Ok(stopped());
         };
         if !review(
@@ -225,8 +220,15 @@ pub(crate) fn launch(root: &Path) -> io::Result<Outcome> {
                 format!("Configuration: {host}"),
                 format!("Host recipient: {}", details.host_recipient),
                 format!("Recovery recipient: {}", details.recovery_recipient),
-                "Fields: tailscale-auth-key, github-read-token.".into(),
-                "The GitHub token is also retained as plaintext in an owner-only (0600) file outside Git for bootstrap. Neither token is displayed or included in review notes.".into(),
+                String::new(),
+                "Encrypted fields".into(),
+                "• tailscale-auth-key".into(),
+                "• github-read-token".into(),
+                String::new(),
+                "Bootstrap token copy".into(),
+                "GitHub token: plaintext, mode 0600,".into(),
+                "outside Git on this Mac.".into(),
+                "Review files contain no raw tokens.".into(),
             ],
             "Encrypt configuration",
         )? {
@@ -269,6 +271,28 @@ pub(crate) fn launch(root: &Path) -> io::Result<Outcome> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn issuer_scope_and_key_settings_fit_the_minimum_terminal() {
+        for lines in [
+            tailscale_guide("homelab-macbook"),
+            github_guide("homelab-macbook"),
+        ] {
+            assert!(crate::tui::wrap(&lines[1..], 36).len() <= 5);
+        }
+    }
+
+    #[test]
+    #[ignore = "visual QA harness; exits without opening issuer URLs"]
+    fn render_preview() {
+        let _terminal = crate::tui::Terminal::enter().unwrap();
+        let lines = if std::env::var("HOMELAB_PREVIEW").unwrap() == "tailscale" {
+            tailscale_guide("homelab-macbook")
+        } else {
+            github_guide("homelab-macbook")
+        };
+        guide(&lines, "https://example.invalid").unwrap();
+    }
+
     #[test]
     fn pasted_tokens_never_appear_in_rendered_success_or_error_state() {
         let mut input = TokenInput::default();

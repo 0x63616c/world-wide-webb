@@ -74,9 +74,14 @@ agent socket are saved per connection and reused for SSH and SCP. Selected-agent
 connections use the real hostname/IP directly on port 22, without custom SSH
 configuration or agent forwarding.
 Access verification can finish without bootstrap credentials or activation.
-The wizard then inspects the host,
-transfers the reviewed bootstrap and only host-specific credentials, obtains
-explicit setup approval, installs/configures the host, and checks the new private
+Selecting a host begins the strict read-only connection check. The verified
+summary offers credential preparation, reviewed setup, or Finish directly.
+The configuration is inferred from an exact profile name or linked once and
+saved; the target does not need a manually matching hostname. Credential
+preparation stays local and stops with encrypted review files. For reviewed
+setup, the wizard inspects the host, obtains explicit setup approval, transfers
+the reviewed bootstrap and only host-specific credentials, configures the host,
+and checks the new private
 connection. Use an interactive SSH terminal for required administrator prompts;
 do not grant blanket passwordless sudo or embed an admin password.
 
@@ -101,7 +106,7 @@ a guided CLI, avoiding a privileged web administration service during migration.
    password-manager access; the target receives only its own key and scoped token.
 2. Detect OS, architecture, administrator/UID, disk space, network reachability
    and existing installation. Show what was detected and what remains unknown.
-3. Select an existing host definition and exact reviewed commit. Show the host,
+3. Reuse the profile's host definition and select an exact reviewed commit. Show the host,
    service assignments, changes and readiness failures before installing anything.
 4. Verify the target's SSH identity with local access and transfer credentials
    through a private channel. Do not print them or place them in command history.

@@ -21,3 +21,4 @@ mod ssh;
 mod ssh_identity;
 pub mod tailscale;
 pub mod tui;
+mod ui;

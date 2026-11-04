@@ -33,6 +33,7 @@ impl Fixture {
                 address: "192.0.2.1".into(),
                 user: "admin".into(),
                 identity: None,
+                configuration_host: None,
             },
         }
     }
