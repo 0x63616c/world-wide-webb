@@ -6,7 +6,7 @@ import PanelKit
 
 @MainActor final class HomeViewIntegrationTests: XCTestCase {
     func testEveryHomeTileMapsToAnExistingProviderAndController() {
-        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases).subtracting([.all, .reminders]))
+        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases).subtracting([.all, .reminders, .cameras]))
         for tile in HomeTile.allCases {
             XCTAssertNotEqual(tile.panelModule, .all, tile.rawValue)
             XCTAssertNotEqual(tile.panelModule, .reminders, tile.rawValue)
