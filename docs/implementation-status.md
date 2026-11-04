@@ -2,13 +2,16 @@
 
 Repo: https://github.com/0x63616c/homelab (private).
 Initial implementation PR (merged): https://github.com/0x63616c/homelab/pull/1.
-Published operator CLI: 0.1.3. Pending redesign: https://github.com/0x63616c/homelab/pull/6.
+Published operator CLI: 0.1.4. Merged redesign: https://github.com/0x63616c/homelab/pull/6.
+Homebrew release: https://github.com/0x63616c/homebrew-tap/pull/7.
 
 On November 4, both hosted checks for the redesign stopped before running
 because GitHub reported failed recent account payments or a spending limit.
 Local tests, independent source/visual review and isolated packaging checks
-passed. These do not substitute for the missing hosted Nix/bootstrap checks;
-0.1.4 has not been published. No billing settings were changed.
+passed. The owner approved publishing with local validation while keeping the
+repository private. Hosted Nix/bootstrap/recovery checks remain unrun for this
+release; local CLI validation does not establish host bootstrap readiness.
+No billing settings were changed and no machines were deployed.
 
 Authoritative scope: build the repo/PR; do not deploy. Owner confirmed roughly
 500 GB MacBook storage and existing administrator `admin`. Mini uses `calum`.
