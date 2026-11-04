@@ -105,6 +105,7 @@ fn bootstrap(request: homelab_client::bootstrap::Request) -> ExitCode {
     };
     let tools = homelab_client::bootstrap::Tools {
         git: "/usr/bin/git".into(),
+        xcode_select: "/usr/bin/xcode-select".into(),
         uname: "/usr/bin/uname".into(),
         id: "/usr/bin/id".into(),
         dseditgroup: "/usr/sbin/dseditgroup".into(),

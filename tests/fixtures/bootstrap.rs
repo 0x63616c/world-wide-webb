@@ -52,7 +52,23 @@ fn main() {
             }
         ),
         "dseditgroup" => println!("yes admin is a member of admin"),
+        "xcode-select" => {
+            assert_eq!(args, ["--print-path"]);
+            if flag("missing-clt") {
+                fail();
+            }
+            println!("/Library/Developer/CommandLineTools");
+        }
         "git" => {
+            if args == ["--version"] {
+                fs::write(root.join("git-invoked"), "").unwrap();
+                if flag("broken-git") {
+                    fail();
+                }
+                println!("git version fixture");
+                return;
+            }
+
             assert_eq!(
                 std::env::var("GIT_CONFIG_KEY_0").unwrap(),
                 "credential.helper"
@@ -83,7 +99,10 @@ fn main() {
                     assert!(result.stderr.is_empty());
                     event(root, "git-askpass-verified");
                 }
-                assert!(args.iter().any(|arg| arg == "https://github.com/example/private-config.git"));
+                assert!(
+                    args.iter()
+                        .any(|arg| arg == "https://github.com/example/private-config.git")
+                );
                 event(root, "fetch");
                 let repo = Path::new(args.last().unwrap());
                 fs::create_dir_all(repo.join("secrets")).unwrap();
