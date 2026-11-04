@@ -36,16 +36,6 @@ struct LibraryView: View {
             .listStyle(.sidebar)
             .navigationTitle(AppIdentity.title)
             .navigationSplitViewColumnWidth(min: 235, ideal: 270, max: 360)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Button { model.showRecordings() } label: {
-                    HStack {
-                        Text("Recordings").fontWeight(.semibold)
-                        Spacer()
-                        Text("\(model.recordings.count)").monospacedDigit()
-                    }.font(.callout).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.vertical, 10)
-                        .contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityLabel("Show Recordings")
-            }
             .onDeleteCommand { if model.canTrashSelection { deleting = true } }
             .onKeyPress(.return) {
                 guard let recording = model.selected, !model.showingSettings else { return .ignored }
