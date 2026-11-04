@@ -209,7 +209,8 @@ verify the exact SHA, database health and worker ownership.
 
 `infra/cloudflare` retains DNS, Access and tunnel ingress for `app`, `ha`,
 `hindsight` and `dsm`. Hindsight’s control plane is routed to mini loopback port
-9999 behind email-OTP Access; its existing UI login and API access are unchanged. Manage, its frame-unlock extension and Grafana are retired. Talos
+9999 behind email-OTP Access; its existing UI login and API access are unchanged.
+Manage, its frame-unlock extension and Grafana are retired. Talos
 provisioning is retired; its disks remain available for recovery. Backups run
 through a mini LaunchAgent and use verified NAS copies. See the
 [migration runbook](docs/runbooks/mac-mini-migration.md) and
