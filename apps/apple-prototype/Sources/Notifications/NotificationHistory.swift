@@ -86,12 +86,11 @@ struct NotificationHistory: View {
                     .accessibilityIdentifier("notification-history-error")
             }
             if center.connection == .unavailable {
-                Label("Offline — showing saved notifications", systemImage: "wifi.slash")
+                Label("Offline", systemImage: "wifi.slash")
                     .font(.callout).foregroundStyle(.secondary).padding(.bottom, 12)
             }
             if center.history.isEmpty {
-                ContentUnavailableView("No Notifications", systemImage: "bell.slash",
-                    description: Text("New notifications will appear here."))
+                ContentUnavailableView("No notifications", systemImage: "bell.slash")
                     .accessibilityIdentifier("notification-history-empty")
             } else {
                 List {
