@@ -10,6 +10,7 @@ final class TranscriptionController {
     private(set) var runningID: UUID?
     private(set) var runningModelID: String?
     private(set) var progress = ""
+    private(set) var progressFraction: Double?
     private(set) var resultsVersion = 0
     var error: String?
     var automatic: Bool { didSet { defaults.set(automatic, forKey: "automaticTranscription") } }
@@ -27,6 +28,7 @@ final class TranscriptionController {
     private var suspended = false
     private var queueWritable = true
     var isRunning: Bool { worker != nil }
+    var isPaused: Bool { suspended }
     init(root: URL, defaults: UserDefaults = .standard, engine: any SpeechEngine = LocalSpeechEngine(), manifestURL: URL? = nil) {
         self.engine = engine
         self.defaults = defaults
@@ -99,10 +101,12 @@ final class TranscriptionController {
         guard worker == nil, !suspended, canRun?() == true, TranscriptionModel.supported,
               let job = jobs.first(where: { $0.state == .queued && models.installed.contains($0.modelID) }) else { return }
         runningID = job.recordingID; runningModelID = job.modelID; progress = "Loading model…"
+        progressFraction = nil
         worker = Task {
             await process(job)
             await engine.unload()
             worker = nil; runningID = nil; runningModelID = nil; progress = ""
+            progressFraction = nil
             didFinish?()
             kick()
         }
@@ -115,6 +119,7 @@ final class TranscriptionController {
             try await models.verify(model.id)
             try Task.checkCancellation()
             try await engine.load(id: model.id, folder: models.folder(model.id))
+            progressFraction = TranscriptionAudio.progress(recording: record, nextChunks: job.nextChunks)
             for source in TranscriptSource.allCases {
                 guard let track = source == .microphone ? record.microphone : record.systemAudio else { continue }
                 guard track.duration.isFinite, track.duration >= 0, track.startOffset.isFinite else { throw CocoaError(.fileReadCorruptFile) }
@@ -124,7 +129,7 @@ final class TranscriptionController {
                     try Task.checkCancellation()
                     guard !suspended, canRun?() == true else { throw CancellationError() }
                     guard let (_, folder) = recording?(job.recordingID) else { throw CocoaError(.fileNoSuchFile) }
-                    progress = "Transcribing \(source.label) · \(chunk + 1)/\(count)"
+                    progress = "Transcribing…"
                     let currentChunk = chunk
                     let samples = try await Task.detached(priority: .utility) {
                         try TranscriptionAudio.read(url: folder.appendingPathComponent(track.file), chunk: currentChunk)
@@ -140,9 +145,11 @@ final class TranscriptionController {
                     job.processingSeconds += ProcessInfo.processInfo.systemUptime - began
                     chunk += 1; job.nextChunks[source] = chunk
                     try checkpoint(job)
+                    progressFraction = TranscriptionAudio.progress(recording: record, nextChunks: job.nextChunks)
                 }
             }
             try Task.checkCancellation()
+            progress = "Finishing…"
             guard let (_, folder) = recording?(job.recordingID) else { throw CocoaError(.fileNoSuchFile) }
             var result = Transcript(recordingID: job.recordingID, modelID: model.id, modelName: model.name,
                                     revision: model.revision, processingSeconds: job.processingSeconds, segments: job.segments)

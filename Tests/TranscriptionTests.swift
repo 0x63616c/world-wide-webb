@@ -3,6 +3,19 @@ import AVFoundation
 @testable import CallkeepCore
 
 final class TranscriptionTests: XCTestCase {
+    func testOverallProgressIncludesBothTracksAndResumedChunks() throws {
+        var recording = Recording(title: "Progress")
+        recording.microphone = AudioTrack(file: "mic.caf", startOffset: 0, duration: 60, sampleRate: 16000, channels: 1)
+        recording.systemAudio = AudioTrack(file: "call.caf", startOffset: 10, duration: 40, sampleRate: 16000, channels: 1)
+        XCTAssertEqual(try XCTUnwrap(TranscriptionAudio.progress(recording: recording, nextChunks: [:])), 0)
+        XCTAssertEqual(try XCTUnwrap(TranscriptionAudio.progress(recording: recording, nextChunks: [.microphone: 3])), 0.6, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(TranscriptionAudio.progress(recording: recording, nextChunks: [.microphone: 3, .systemAudio: 1])), 0.85, accuracy: 0.0001)
+        XCTAssertEqual(TranscriptionAudio.progress(recording: recording, nextChunks: [.microphone: 100, .systemAudio: 100]), 1)
+        recording.systemAudio = nil
+        XCTAssertEqual(TranscriptionAudio.progress(recording: recording, nextChunks: [.microphone: -1]), 0)
+        recording.microphone = nil
+        XCTAssertNil(TranscriptionAudio.progress(recording: recording, nextChunks: [:]))
+    }
     func temporaryFolder() throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

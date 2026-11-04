@@ -2,6 +2,18 @@ import AVFoundation
 
 public enum TranscriptionAudio {
     public static let chunkSeconds: Double = 25
+    /// Completed audio across both tracks, including checkpoints from an earlier run.
+    public static func progress(recording: Recording, nextChunks: [TranscriptSource: Int]) -> Double? {
+        var total = 0.0
+        var completed = 0.0
+        for (source, track) in [(TranscriptSource.microphone, recording.microphone), (.systemAudio, recording.systemAudio)] {
+            guard let track else { continue }
+            guard track.duration.isFinite, track.duration >= 0 else { return nil }
+            total += track.duration
+            completed += min(track.duration, Double(max(0, nextChunks[source] ?? 0)) * chunkSeconds)
+        }
+        return total > 0 ? min(1, completed / total) : nil
+    }
     /// Read only one bounded chunk, downmix every channel, and convert to 16 kHz.
     public static func read(url: URL, chunk: Int) throws -> [Float] {
         let file = try AVAudioFile(forReading: url)

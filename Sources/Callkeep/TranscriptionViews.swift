@@ -102,12 +102,14 @@ struct TranscriptView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var controller: TranscriptionController { model.transcription }
     private var selected: Transcript? { results.first { $0.id == resultID } ?? results.first }
+    private var status: String? { controller.status(for: recording.id) }
+    private var job: TranscriptionJob? { controller.jobs.first { $0.recordingID == recording.id } }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Text("Transcript").font(.headline)
                 Spacer()
-                if let selected {
+                if let selected, status == nil {
                     Button {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(selected.plainText, forType: .string)
@@ -134,24 +136,20 @@ struct TranscriptView: View {
                 } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                     .help("Transcript actions").accessibilityLabel("Transcript actions")
-                    .disabled(model.isRecording || !TranscriptionModel.supported)
+                    .disabled(model.isRecording || status != nil || !TranscriptionModel.supported)
             }
-            if let status = controller.status(for: recording.id) {
-                HStack(alignment: .top) {
-                    if controller.runningID == recording.id { ProgressView().controlSize(.small) }
-                    Text(status).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-                    Spacer()
-                    if controller.jobs.contains(where: { $0.recordingID == recording.id && $0.state == .failed }) {
-                        Button("Retry") { controller.retry(recording.id) }
-                    }
-                    if controller.jobs.contains(where: { $0.recordingID == recording.id && !controller.models.installed.contains($0.modelID) }) {
-                        Button("Models…") { model.showSettings() }
-                    }
-                    Button("Cancel") { controller.cancel(recording.id) }
-                }
+            if let status {
+                TranscriptionProgressView(status: status,
+                    fraction: controller.runningID == recording.id ? controller.progressFraction : nil,
+                    working: controller.runningID == recording.id && !controller.isPaused,
+                    paused: controller.isPaused, failed: job?.state == .failed,
+                    needsModel: job.map { !controller.models.installed.contains($0.modelID) } ?? false,
+                    modelName: job.flatMap { TranscriptionModel.find($0.modelID)?.name },
+                    retry: { controller.retry(recording.id) }, models: { model.showSettings() },
+                    cancel: { controller.cancel(recording.id) })
             }
             if let readError = readError ?? controller.error { Text(readError).font(.callout).foregroundStyle(.orange) }
-            if let selected {
+            if let selected, status == nil {
                 if selected.segments.isEmpty {
                     ContentUnavailableView("No speech found", systemImage: "text.bubble", description: Text("The selected model didn’t detect speech in this recording."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -216,7 +214,7 @@ struct TranscriptView: View {
             } else if controller.status(for: recording.id) == nil {
                 ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Choose a model to transcribe this recording locally."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else { Spacer(minLength: 0) }
+            }
         }
         .task(id: "\(recording.id)-\(controller.resultsVersion)-\(model.store?.folder(for: recording).path ?? "")") {
             guard let folder = model.store?.folder(for: recording) else { return }
@@ -227,5 +225,58 @@ struct TranscriptView: View {
             } catch is CancellationError { }
             catch { readError = "Couldn’t load transcripts: \(error.localizedDescription)" }
         }
+    }
+}
+
+private struct TranscriptionProgressView: View {
+    let status: String
+    let fraction: Double?
+    let working: Bool
+    let paused: Bool
+    let failed: Bool
+    let needsModel: Bool
+    let modelName: String?
+    let retry: () -> Void
+    let models: () -> Void
+    let cancel: () -> Void
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 12)
+            VStack(spacing: 12) {
+                if let fraction {
+                    ZStack {
+                        Circle().stroke(.quaternary, lineWidth: 4)
+                        Circle().trim(from: 0, to: fraction)
+                            .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        Text("\(Int((fraction * 100).rounded(.down)))%")
+                            .font(.callout.monospacedDigit())
+                    }.frame(width: 64, height: 64)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Overall transcription progress")
+                        .accessibilityValue("\(Int((fraction * 100).rounded(.down))) percent")
+                } else if working {
+                    ProgressView().controlSize(.large).frame(width: 64, height: 64)
+                } else {
+                    Image(systemName: failed ? "exclamationmark.circle" : needsModel ? "arrow.down.circle" : paused ? "pause.circle" : "clock")
+                        .font(.system(size: 28, weight: .light)).foregroundStyle(.secondary)
+                        .frame(width: 64, height: 64).accessibilityHidden(true)
+                }
+                Text(status).font(.callout).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).textSelection(.enabled)
+                HStack(spacing: 16) {
+                    if failed { Button("Retry", action: retry) }
+                    if needsModel { Button("Models…", action: models) }
+                    Button(action: cancel) { Image(systemName: "xmark").frame(width: 28, height: 28) }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help("Cancel transcription").accessibilityLabel("Cancel transcription")
+                }
+            }.frame(maxWidth: .infinity)
+            Spacer(minLength: 12)
+            if let modelName {
+                Text(modelName).font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
+            }
+        }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
