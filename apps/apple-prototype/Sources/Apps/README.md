@@ -1,8 +1,10 @@
 # Native app shell
 
 The panel starts on the green clock. Swipe left anywhere on the awake clock to reveal the
-vertically scrolling icon launcher. The Clock icon returns to the full-screen
-clock. Dog Walker is the walking app; route IDs remain stable.
+vertically scrolling icon launcher. Swipe right on the launcher or tap the Clock
+icon to return to the full-screen clock. Short swipes spring back; vertical
+scrolling and app controls keep their own interactions. Dog Walker is the walking
+app; route IDs remain stable.
 
 Every app has a fixed upper-left Back control returning to the launcher, including
 Settings, protected pages, unavailable states and Classic. App scroll views only
@@ -29,11 +31,12 @@ the existing client-side soft-lock policy (ADR-0004), not a new authentication s
 The clock has digital time at the upper right and the date at the lower left,
 using the same day/night ink. `ClockLauncherMotion` owns the transition separately
 from app navigation. Reveal shrinks the clock slightly as it slides left; the launcher enters from
-the right and expands into place with a small spring;
+the right and expands into place with a small spring. Swiping right on the
+launcher drives the same transition in reverse;
 Depth and Dissolve are comparison candidates selected only through debug launch
 argument `-launcherTransition reveal|depth|dissolve`. Reduce Motion removes spatial movement.
 Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
-suite records the same swipe and Clock-icon return for each candidate.
+suite records the left swipe and reverse right swipe for each candidate.
 
 ## Adding an app
 

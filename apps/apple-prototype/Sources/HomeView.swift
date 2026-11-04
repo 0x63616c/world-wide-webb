@@ -81,7 +81,7 @@ struct HomeView: View {
     var demo = false
     var initialFace = 0
     @State private var shell = PanelShellState()
-    @State private var clockDrag: CGFloat = 0
+    @State private var faceDrag: CGFloat = 0
     private let launcherMotion = ClockLauncherMotion.current
     @State private var appPreferences = PanelAppPreferences()
     @Environment(\.motionPhase) private var inheritedMotionPhase
@@ -95,16 +95,36 @@ struct HomeView: View {
     }
     private func home() {
         let animation: Animation = showingClock ? launcherMotion.animation : .easeOut(duration: 0.18)
-        withAnimation(reduceMotion ? nil : animation) { shell.showLauncher(); clockDrag = 0 }
+        withAnimation(reduceMotion ? nil : animation) { shell.showLauncher(); faceDrag = 0 }
     }
     private func clock() {
-        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showClock(); clockDrag = 0 }
+        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showClock(); faceDrag = 0 }
+    }
+    private func clockLauncherSwipe(width: CGFloat, towardClock: Bool) -> some Gesture {
+        DragGesture(minimumDistance: 12, coordinateSpace: .global)
+            .onChanged { value in
+                guard selected == nil, showingClock != towardClock,
+                      faceDrag > 0 || abs(value.translation.width) > abs(value.translation.height) else { return }
+                faceDrag = max(0, value.translation.width * (towardClock ? 1 : -1))
+            }
+            .onEnded { value in
+                guard selected == nil, showingClock != towardClock else { return }
+                let distance = value.translation.width * (towardClock ? 1 : -1)
+                let projected = value.predictedEndTranslation.width * (towardClock ? 1 : -1)
+                if distance > abs(value.translation.height),
+                   distance > width * 0.18 || projected > width * 0.35 {
+                    if towardClock { clock() } else { home() }
+                } else {
+                    withAnimation(reduceMotion ? nil : launcherMotion.animation) { faceDrag = 0 }
+                }
+            }
     }
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 Color.black.ignoresSafeArea()
-                let progress: CGFloat = showingClock ? min(clockDrag / proxy.size.width, 1) : 1
+                let dragProgress = min(faceDrag / proxy.size.width, 1)
+                let progress: CGFloat = showingClock ? dragProgress : 1 - dragProgress
                 AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
                     .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
                     .clipShape(.rect(cornerRadius: 44))
@@ -113,6 +133,7 @@ struct HomeView: View {
                     .opacity(launcherMotion == .reveal && !reduceMotion ? 1 : Double(progress))
                     .allowsHitTesting(!showingClock && selected == nil)
                     .accessibilityHidden(showingClock || selected != nil)
+                    .simultaneousGesture(clockLauncherSwipe(width: proxy.size.width, towardClock: true))
                 PresenceClockFace(store: store)
                     .environment(\.motionPhase, showingClock ? inheritedMotionPhase : 0)
                     .clipShape(.rect(cornerRadius: 44))
@@ -123,17 +144,7 @@ struct HomeView: View {
                     .overlay {
                         if showingClock {
                             Color.clear.contentShape(.rect)
-                                .gesture(DragGesture(minimumDistance: 12)
-                                    .onChanged { value in
-                                        guard clockDrag > 0 || abs(value.translation.width) > abs(value.translation.height) else { return }
-                                        clockDrag = max(0, -value.translation.width)
-                                    }
-                                    .onEnded { value in
-                                        let left = -value.translation.width
-                                        if left > abs(value.translation.height),
-                                           left > proxy.size.width * 0.18 || -value.predictedEndTranslation.width > proxy.size.width * 0.35 { home() }
-                                        else { withAnimation(reduceMotion ? nil : launcherMotion.animation) { clockDrag = 0 } }
-                                    })
+                                .gesture(clockLauncherSwipe(width: proxy.size.width, towardClock: false))
                                 .accessibilityElement().accessibilityLabel("Open apps")
                                 .accessibilityHint("Swipe left to open apps")
                                 .accessibilityAddTraits(.isButton).accessibilityAction { home() }

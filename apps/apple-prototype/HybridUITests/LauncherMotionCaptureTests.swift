@@ -19,8 +19,10 @@ final class LauncherMotionCaptureTests: XCTestCase {
         app.openAppGrid()
         XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10))
         Thread.sleep(forTimeInterval: 1)
-        app.buttons["app-clock"].tap()
-        XCTAssertFalse(app.buttons["app-clock"].isHittable)
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.85)).press(forDuration: 0.1,
+            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.85)))
+        XCTAssertTrue(app.buttons["app-clock"].waitForNonExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE \(style)")
     }

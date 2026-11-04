@@ -10,12 +10,13 @@ production PIN, private photos or Wi-Fi credentials appear.
 - `depth.mp4`: scale/fade comparison.
 - `dissolve.mp4`: opacity comparison.
 
-The updated Reveal movie records a left swipe to the launcher followed by the Clock icon
-returning to the face. Movies are simulator recordings exported to MP4, not
+The updated Reveal movie records a left swipe to the launcher followed by a right
+swipe returning to the clock. Movies are simulator recordings exported to MP4, not
 rendered mockups. Astra reviewed samples every 0.2 seconds and preferred Reveal;
 the fade variants visibly overlap the large numerals and launcher labels.
 
 The default Reveal clip includes the full-screen left swipe, the clock shrinking
-and sliding left, and Home sliding in from the right while expanding. The clock
+and sliding left, and Home sliding in from the right while expanding, then the
+same animation in reverse under a right swipe. The clock
 screenshot shows the current time/date placement. Depth and Dissolve retain the
 earlier comparison layout.
