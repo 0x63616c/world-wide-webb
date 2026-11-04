@@ -9,8 +9,10 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
+from release_notes import add_release_notes, release_notes
 
 version, archive_name = sys.argv[1:]
+notes = release_notes(version)
 archive = Path(archive_name).resolve()
 with zipfile.ZipFile(archive) as zipped:
     metadata = plistlib.loads(zipped.read('Callkeep.app/Contents/Info.plist'))
@@ -51,5 +53,6 @@ with tempfile.TemporaryDirectory(prefix='callkeep-appcast-') as directory:
     signature = enclosure.get(sparkle + 'edSignature')
     assert signature, 'Update archive must be EdDSA signed'
     subprocess.run([str(generator.parent / 'sign_update'), '--verify', '--ed-key-file', str(key), str(archive), signature], check=True)
+    add_release_notes(feed, notes)
     shutil.copy2(feed, 'appcast.xml')
 print('Sparkle appcast and release archive signature verified.')

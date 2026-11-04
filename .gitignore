@@ -7,3 +7,5 @@ xcuserdata/
 *.caf
 *.wav
 *.m4a
+__pycache__/
+*.pyc
