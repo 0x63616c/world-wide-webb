@@ -52,7 +52,7 @@ struct PanelTimerPage: View {
                             .accessibilityHint("Changes the timer duration")
                             .disabled(phase == .running || phase == .paused)
                         Spacer(minLength: 0)
-                        controls
+                        controls.offset(y: -20)
                         if let message = timer.alertMessage {
                             Text(message).font(.callout).foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center).frame(maxWidth: 620)
