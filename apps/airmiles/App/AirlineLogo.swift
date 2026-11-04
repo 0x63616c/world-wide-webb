@@ -13,10 +13,7 @@ struct AirlineLogo: View {
     var body: some View {
         Group {
             if let code {
-                Image("Airline-\(code)").resizable().scaledToFit().saturation(0)
-                    // The red-on-navy Delta mark needs its own grayscale levels.
-                    .brightness(code == "DL" ? 0.35 : 0)
-                    .contrast(code == "DL" ? 5 : 1)
+                Image("Airline-\(code)").resizable().scaledToFit()
             } else {
                 Image(systemName: "airplane").font(.system(size: size * 0.52))
                     .foregroundStyle(.secondary).frame(width: size, height: size)

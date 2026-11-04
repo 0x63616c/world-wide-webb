@@ -14,10 +14,12 @@
 		4007911BA38A650E95F24006 /* FlightJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846487E25C68EE34B5767A30 /* FlightJournalView.swift */; };
 		410BA346D4FDB716D222E9FF /* land.json in Resources */ = {isa = PBXBuildFile; fileRef = D4B21E6BDD8E3453C6F80AC8 /* land.json */; };
 		4A291321DF49673F24150EF9 /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC71A283D177A5158A47D76 /* ScreenshotTests.swift */; };
+		5E0AA6CB3B6396F517A3BC49 /* earth.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 0912E33D2F96AE6E3B24F9CC /* earth.jpg */; };
 		70B35A4D639578122C776CE2 /* PassportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E108D68A049FC2F84F4BD9 /* PassportView.swift */; };
 		ACB44E7E00D17391B2CE391A /* AirMilesCore in Frameworks */ = {isa = PBXBuildFile; productRef = E389C303DD2F300AC927E09B /* AirMilesCore */; };
 		AFDEAF9AB614C62E85089F0B /* RDesign in Frameworks */ = {isa = PBXBuildFile; productRef = FB7A7969140FF7B054022990 /* RDesign */; };
 		CD9BD8F7AB7A4EC3BAFEE613 /* airports.json in Resources */ = {isa = PBXBuildFile; fileRef = F9BD0B95D40BD950F1713B95 /* airports.json */; };
+		DF64F2FF60C4EAC6141F0FD9 /* GlobeTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCCE71965F785369FEB77817 /* GlobeTransition.swift */; };
 		E0F7FBED9319A014628C971F /* RouteAtlas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0790406BB5C226FCDFA5FECA /* RouteAtlas.swift */; };
 		E845EEF0DC4DF5ABC6D2B1AB /* FlightStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8A6402A8C88F4B64495DC3 /* FlightStore.swift */; };
 		F8FB3F11419551D95F737829 /* AirMilesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F300EB9E7713E531C8E3F1 /* AirMilesApp.swift */; };
@@ -35,6 +37,7 @@
 
 /* Begin PBXFileReference section */
 		0790406BB5C226FCDFA5FECA /* RouteAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteAtlas.swift; sourceTree = "<group>"; };
+		0912E33D2F96AE6E3B24F9CC /* earth.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = earth.jpg; sourceTree = "<group>"; };
 		0CA68BC80CF64751C44E7C49 /* AirMilesUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AirMilesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A1254516EA7D79BD7DF1232 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		378AF4709F0B9DC8AE52B3A5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -44,6 +47,7 @@
 		9D02523AC90B2AD49B4C408B /* RDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RDesign; path = ../../packages/RDesign; sourceTree = SOURCE_ROOT; };
 		B542936C6999399849EB9BFD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB8A6402A8C88F4B64495DC3 /* FlightStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightStore.swift; sourceTree = "<group>"; };
+		BCCE71965F785369FEB77817 /* GlobeTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobeTransition.swift; sourceTree = "<group>"; };
 		D4B21E6BDD8E3453C6F80AC8 /* land.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = land.json; sourceTree = "<group>"; };
 		D6711F1035752A9C2EB84058 /* airmiles */ = {isa = PBXFileReference; lastKnownFileType = folder; name = airmiles; path = .; sourceTree = SOURCE_ROOT; };
 		E1B298545726A9F60F32CB3F /* AirlineLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirlineLogo.swift; sourceTree = "<group>"; };
@@ -101,6 +105,7 @@
 				B542936C6999399849EB9BFD /* Assets.xcassets */,
 				846487E25C68EE34B5767A30 /* FlightJournalView.swift */,
 				BB8A6402A8C88F4B64495DC3 /* FlightStore.swift */,
+				BCCE71965F785369FEB77817 /* GlobeTransition.swift */,
 				2A1254516EA7D79BD7DF1232 /* Info.plist */,
 				F1C9076455A173F9EE808A72 /* OverviewView.swift */,
 				69E108D68A049FC2F84F4BD9 /* PassportView.swift */,
@@ -115,6 +120,7 @@
 			isa = PBXGroup;
 			children = (
 				F9BD0B95D40BD950F1713B95 /* airports.json */,
+				0912E33D2F96AE6E3B24F9CC /* earth.jpg */,
 				D4B21E6BDD8E3453C6F80AC8 /* land.json */,
 			);
 			path = Resources;
@@ -221,6 +227,7 @@
 				15AC0CFDB8D47C3D031AED79 /* Assets.xcassets in Resources */,
 				04C5202143FAD61FD5A46E5D /* PrivacyInfo.xcprivacy in Resources */,
 				CD9BD8F7AB7A4EC3BAFEE613 /* airports.json in Resources */,
+				5E0AA6CB3B6396F517A3BC49 /* earth.jpg in Resources */,
 				410BA346D4FDB716D222E9FF /* land.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -236,6 +243,7 @@
 				0FA7ABA625DE3880AEABE4E1 /* AirlineLogo.swift in Sources */,
 				4007911BA38A650E95F24006 /* FlightJournalView.swift in Sources */,
 				E845EEF0DC4DF5ABC6D2B1AB /* FlightStore.swift in Sources */,
+				DF64F2FF60C4EAC6141F0FD9 /* GlobeTransition.swift in Sources */,
 				2F8B5AE0845C702B8097BAC2 /* OverviewView.swift in Sources */,
 				70B35A4D639578122C776CE2 /* PassportView.swift in Sources */,
 				E0F7FBED9319A014628C971F /* RouteAtlas.swift in Sources */,

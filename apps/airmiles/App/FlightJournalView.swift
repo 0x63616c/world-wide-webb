@@ -39,6 +39,7 @@ struct FlightRow: View {
 
 struct FlightJournalView: View {
     @Environment(FlightStore.self) private var store
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selectedID: String?
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
     private var selection: Flight? { store.flights.first { $0.id == selectedID } }
@@ -55,14 +56,14 @@ struct FlightJournalView: View {
                         .accessibilityIdentifier("yearFilter")
                     Spacer()
                     Menu {
-                        Toggle("Needs review", isOn: $store.reviewOnly)
+                        Toggle("Uncertain details", isOn: $store.reviewOnly)
                     } label: {
-                        Label(store.reviewOnly ? "Needs review" : "Filter", systemImage: "line.3.horizontal.decrease")
+                        Label(store.reviewOnly ? "Uncertain details" : "Filter", systemImage: "line.3.horizontal.decrease")
                             .font(.subheadline)
                     }.accessibilityLabel("Filter flights")
                 }.padding(.horizontal, 20).padding(.vertical, 12)
                 HStack {
-                    Eyebrow("\(store.filtered.count) flights")
+                    Eyebrow("\(store.filtered.count) \(store.filtered.count == 1 ? "flight" : "flights")")
                     Spacer()
                     Text("\(store.filtered.reduce(0) { $0 + $1.miles }.formatted()) mi").font(.caption).foregroundStyle(.secondary)
                 }.padding(.horizontal, 20).padding(.bottom, 12)
@@ -89,7 +90,7 @@ struct FlightJournalView: View {
                 .navigationSplitViewColumnWidth(min: 290, ideal: 340, max: 420)
         } detail: {
             if let selection {
-                FlightDetailView(flight: selection)
+                FlightDetailView(flight: selection, sharedGlobe: true)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button { compactColumn = .sidebar; selectedID = nil } label: {
@@ -99,12 +100,17 @@ struct FlightJournalView: View {
                     }
             } else {
                 VStack(spacing: 24) {
-                    RouteAtlas(flights: store.filtered, airports: store.airports).frame(height: 290).clipShape(RoundedRectangle(cornerRadius: 26))
+                    GlobeSlot(id: "journal", flights: store.filtered, height: 290).clipShape(RoundedRectangle(cornerRadius: 26))
                     Text("Select a flight").font(.headline).foregroundStyle(.secondary)
                 }.padding(28).frame(maxWidth: .infinity, maxHeight: .infinity).background(AMStyle.paper)
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .transformPreference(GlobePlacementKey.self) { slots in
+            if horizontalSizeClass == .compact && compactColumn == .sidebar {
+                slots.removeValue(forKey: "journal")
+            }
+        }
         .onChange(of: selectedID) { _, value in if value != nil { compactColumn = .detail } }
         .onChange(of: store.flights) { _, newFlights in
             if !newFlights.contains(where: { $0.id == selectedID }) { selectedID = nil }
@@ -116,11 +122,18 @@ struct FlightDetailView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var codeSize = 36
     @Environment(FlightStore.self) private var store
     var flight: Flight
+    var sharedGlobe = false
+    @State private var localGlobe = GlobeInteraction()
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                RouteAtlas(flights: [flight], airports: store.airports, emphasized: flight, spinning: false)
-                    .frame(height: 190).clipShape(RoundedRectangle(cornerRadius: 24))
+                Group {
+                    if sharedGlobe { GlobeSlot(id: "journal", flights: [flight], emphasized: flight, height: 190) }
+                    else {
+                        RouteAtlas(flights: [flight], airports: store.airports, emphasized: flight, spinning: false, interaction: localGlobe)
+                            .modifier(GlobeFrame(baseHeight: 190, interaction: localGlobe))
+                    }
+                }.clipShape(RoundedRectangle(cornerRadius: 24))
                 VStack(alignment: .leading, spacing: 18) {
                     HStack(spacing: 10) {
                         AirlineLogo(airline: flight.airline, size: 30)
@@ -142,6 +155,9 @@ struct FlightDetailView: View {
                         info("Distance", value: "\(flight.miles.formatted()) mi")
                     }
                 }.padding(24).panel()
+                if let operation = store.enrichment?.operation(for: flight) {
+                    OperationDetails(operation: operation)
+                }
                 VStack(alignment: .leading, spacing: 8) {
                     if flight.confidence != .high {
                         Label(flight.confidence.label, systemImage: "questionmark.circle")
@@ -153,7 +169,7 @@ struct FlightDetailView: View {
                 }.padding(.horizontal, 4)
 
             }.padding(20).frame(maxWidth: 740).frame(maxWidth: .infinity)
-        }.background(AMStyle.paper).navigationTitle(flight.route).navigationBarTitleDisplayMode(.inline)
+        }.modifier(GlobeClipRegion()).background(AMStyle.paper).navigationTitle(flight.route).navigationBarTitleDisplayMode(.inline)
     }
     private func airport(_ code: String, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 6) {
@@ -172,4 +188,51 @@ struct FlightDetailView: View {
 
 private struct DottedRule: Shape {
     func path(in rect: CGRect) -> Path { Path { $0.move(to: .zero); $0.addLine(to: CGPoint(x: rect.width, y: 0)) } }
+}
+
+private struct OperationDetails: View {
+    let operation: FlightOperation
+    @State private var expanded = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                time("Departure", actual: operation.actualDeparture, scheduled: operation.scheduledDeparture)
+                Spacer()
+                time("Arrival", actual: operation.safeArrival, scheduled: operation.scheduledArrival)
+            }
+            HStack {
+                if let summary = operation.arrivalSummary {
+                    Text(summary).font(.subheadline.weight(.medium))
+                }
+                Spacer()
+                if let duration = operation.duration { Text(duration).font(.subheadline).foregroundStyle(.secondary) }
+            }
+            DisclosureGroup("Flight details", isExpanded: $expanded) {
+                VStack(spacing: 12) {
+                    if let tail = operation.tailNumber { LabeledContent("Tail number", value: tail) }
+                    if !operation.operatingCarrier.isEmpty {
+                        LabeledContent("Operating flight", value: operation.operatingCarrier + operation.operatingFlightNumber)
+                    }
+                    if let delay = operation.departureDelay {
+                        LabeledContent("Departure", value: delay == 0 ? "On time" : "\(abs(delay)) min \(delay < 0 ? "early" : "late")")
+                    }
+                    if !operation.cancelled && !operation.diverted, let minutes = operation.airborneMinutes {
+                        LabeledContent("In the air", value: "\(minutes / 60)h \(minutes % 60)m")
+                    }
+                    if let url = URL(string: operation.sourceURL) {
+                        Link(operation.source == "Sample" ? "Synthetic sample" : "Bureau of Transportation Statistics", destination: url)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }.font(.footnote).padding(.top, 12)
+            }.font(.subheadline).accessibilityIdentifier("operationDetails")
+            Text("Local airport times · \(operation.source)").font(.caption).foregroundStyle(.secondary)
+        }.padding(22).panel()
+    }
+    private func time(_ title: String, actual: String?, scheduled: String?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            if let actual { Text(actual).font(.title2.weight(.medium)).monospacedDigit() }
+            if let scheduled { Text("Scheduled \(scheduled)").font(.caption).foregroundStyle(.secondary) }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
 }

@@ -1,6 +1,15 @@
 import AirMilesCore
 import SceneKit
 import SwiftUI
+import Observation
+
+@MainActor @Observable final class GlobeInteraction {
+    var spinning = true
+    var changedByUser = false
+    var resetToken = 0
+    var zoomCommand = 0
+    var zoom = 1.0
+}
 
 /// An offline, depth-tested globe. Routes are illustrative great circles, not flown tracks.
 struct RouteAtlas: View {
@@ -8,17 +17,25 @@ struct RouteAtlas: View {
     var airports: [String: Airport]
     var emphasized: Flight?
     var spinning = true
+    var interaction: GlobeInteraction?
+    @State private var localInteraction = GlobeInteraction()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var visible = false
 
     var body: some View {
+        let state = interaction ?? localInteraction
         GlobeScene(flights: flights, airports: airports, emphasized: emphasized,
-                   animate: spinning && !reduceMotion && visible && scenePhase == .active && !ProcessInfo.processInfo.arguments.contains("--screenshots"))
+                   animate: spinning && state.spinning && emphasized == nil && !reduceMotion && visible && scenePhase == .active && !ProcessInfo.processInfo.arguments.contains("--screenshots"),
+                   interaction: state, resetToken: state.resetToken, zoomCommand: state.zoomCommand, reduceMotion: reduceMotion)
             .onAppear { visible = true }.onDisappear { visible = false }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Flight globe, \(Set(flights.flatMap { [$0.origin, $0.destination] }).count) airports")
-            .accessibilityHint("Drag to rotate")
+            .accessibilityHint("Drag to rotate. Pinch to zoom. Double-tap to reset.")
+            .accessibilityIdentifier("flightGlobe")
+            .accessibilityAction(named: "Zoom in") { state.zoomCommand += 1 }
+            .accessibilityAction(named: "Zoom out") { state.zoomCommand -= 1 }
+            .accessibilityAction(named: "Reset globe") { state.resetToken += 1 }
     }
 }
 
@@ -27,6 +44,10 @@ private struct GlobeScene: UIViewRepresentable {
     var airports: [String: Airport]
     var emphasized: Flight?
     var animate: Bool
+    var interaction: GlobeInteraction
+    var resetToken: Int
+    var zoomCommand: Int
+    var reduceMotion: Bool
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> SCNView {
@@ -35,15 +56,32 @@ private struct GlobeScene: UIViewRepresentable {
         view.isOpaque = false
         view.antialiasingMode = .multisampling4X
         view.preferredFramesPerSecond = 30
-        view.addGestureRecognizer(UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pan(_:))))
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pan(_:)))
+        let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pinch(_:)))
+        pan.delegate = context.coordinator; pinch.delegate = context.coordinator
+        view.addGestureRecognizer(pan); view.addGestureRecognizer(pinch)
+        let reset = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.reset))
+        reset.numberOfTapsRequired = 2
+        view.addGestureRecognizer(reset)
         context.coordinator.view = view
         return view
     }
     func updateUIView(_ view: SCNView, context: Context) {
+        context.coordinator.interaction = interaction
+        context.coordinator.reduceMotion = reduceMotion
         let signature = flights.map { "\($0.origin)-\($0.destination)" }.sorted().joined(separator: ",") + (emphasized?.id ?? "")
         if context.coordinator.signature != signature {
             context.coordinator.signature = signature
             context.coordinator.build(flights: flights, airports: airports, emphasized: emphasized)
+        }
+        if context.coordinator.resetToken != resetToken {
+            context.coordinator.resetToken = resetToken
+            context.coordinator.reset()
+        }
+        if context.coordinator.zoomCommand != zoomCommand {
+            let change = zoomCommand - context.coordinator.zoomCommand
+            context.coordinator.zoomCommand = zoomCommand
+            context.coordinator.zoom(by: pow(1.25, Double(change)))
         }
         context.coordinator.shouldAnimate = animate
         context.coordinator.updateAnimation()
@@ -54,61 +92,91 @@ private struct GlobeScene: UIViewRepresentable {
         view.scene = nil
     }
 
-    @MainActor final class Coordinator: NSObject {
+    @MainActor final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         weak var view: SCNView?
         var signature: String?
         var world = SCNNode()
         var tilt = SCNNode()
         var shouldAnimate = false
+        var interaction: GlobeInteraction?
+        var reduceMotion = false
+        var resetToken = 0
+        var zoomCommand = 0
+        private var camera = SCNNode()
+        private var routeNodes = SCNNode()
+        private var focusID: String?
+        private var browsePose: (yaw: Float, tilt: Float, scale: Double)?
+        private var homeYaw: Float = .pi / 4
+        private var homeTilt: Float = .pi / 7
+        private var pinching = false
+        private var pinchScale = 1.0
         private var dragging = false
         private var initialYaw: Float = 0
         private var initialTilt: Float = 0
 
         func build(flights: [Flight], airports: [String: Airport], emphasized: Flight?) {
-            let scene = SCNScene()
-            world = SCNNode(); tilt = SCNNode()
-            scene.rootNode.addChildNode(tilt); tilt.addChildNode(world)
-            tilt.eulerAngles.x = .pi / 7
-            world.eulerAngles.y = .pi / 4
-            if let flight = emphasized, let from = airports[flight.origin], let to = airports[flight.destination] {
-                let midpoint = (point(from) + point(to)).unit
-                world.eulerAngles.y = -atan2(midpoint.x, midpoint.z)
-                tilt.eulerAngles.x = asin(midpoint.y)
+            stopSpin()
+            if view?.scene == nil {
+                let scene = SCNScene()
+                scene.rootNode.addChildNode(tilt); tilt.addChildNode(world)
+                tilt.eulerAngles.x = homeTilt
+                world.eulerAngles.y = homeYaw
+                let earth = SCNNode(geometry: Self.sphere())
+                let material = SCNMaterial()
+                material.diffuse.contents = Self.texture
+                material.lightingModel = .lambert
+                earth.geometry?.materials = [material]
+                world.addChildNode(earth)
+                world.addChildNode(routeNodes)
+                let ambient = SCNNode(); ambient.light = SCNLight()
+                ambient.light?.type = .ambient; ambient.light?.intensity = 500
+                scene.rootNode.addChildNode(ambient)
+                let sunlight = SCNNode(); sunlight.light = SCNLight()
+                sunlight.light?.type = .omni; sunlight.light?.intensity = 450
+                sunlight.position = SCNVector3(-3, 5, 5)
+                scene.rootNode.addChildNode(sunlight)
+                camera.camera = SCNCamera()
+                camera.camera?.usesOrthographicProjection = true
+                camera.camera?.orthographicScale = 1.16
+                camera.camera?.zNear = 0.1; camera.camera?.zFar = 10
+                camera.position = SCNVector3(0, 0, 4)
+                scene.rootNode.addChildNode(camera)
+                view?.scene = scene; view?.pointOfView = camera
             }
-            let earth = SCNNode(geometry: Self.sphere())
-            let material = SCNMaterial()
-            material.diffuse.contents = Self.texture
-            material.lightingModel = .constant
-            earth.geometry?.materials = [material]
-            world.addChildNode(earth)
-
+            if focusID != emphasized?.id {
+                if let flight = emphasized, let from = airports[flight.origin], let to = airports[flight.destination] {
+                    if focusID == nil {
+                        browsePose = (world.eulerAngles.y, tilt.eulerAngles.x, camera.camera?.orthographicScale ?? 1.16)
+                    }
+                    let midpoint = (point(from) + point(to)).unit
+                    homeYaw = -atan2(midpoint.x, midpoint.z); homeTilt = asin(midpoint.y)
+                    orient(yaw: homeYaw, pitch: homeTilt, scale: 1.16)
+                } else if let pose = browsePose {
+                    orient(yaw: pose.yaw, pitch: pose.tilt, scale: pose.scale)
+                    homeYaw = .pi / 4; homeTilt = .pi / 7; browsePose = nil
+                }
+                focusID = emphasized?.id
+            }
+            routeNodes.childNodes.forEach { $0.removeFromParentNode() }
             let unique = Dictionary(grouping: flights, by: { [$0.origin, $0.destination].sorted().joined() })
             for key in unique.keys.sorted() {
                 guard let flight = unique[key]?.first, let from = airports[flight.origin], let to = airports[flight.destination] else { continue }
-                world.addChildNode(Self.arc(from: point(from), to: point(to), emphasized: emphasized != nil))
+                routeNodes.addChildNode(Self.arc(from: point(from), to: point(to), emphasized: emphasized != nil, outline: true))
+                routeNodes.addChildNode(Self.arc(from: point(from), to: point(to), emphasized: emphasized != nil))
             }
             for code in Set(flights.flatMap { [$0.origin, $0.destination] }).sorted() {
                 guard let airport = airports[code] else { continue }
-                let dot = SCNSphere(radius: emphasized == nil ? 0.006 : 0.009)
+                let dot = SCNSphere(radius: emphasized == nil ? 0.008 : 0.011)
                 dot.segmentCount = 10
                 dot.firstMaterial = Self.white(opacity: 1)
                 let node = SCNNode(geometry: dot); node.position = point(airport) * 1.012
-                world.addChildNode(node)
+                routeNodes.addChildNode(node)
             }
-            let camera = SCNNode()
-            camera.camera = SCNCamera()
-            camera.camera?.usesOrthographicProjection = true
-            camera.camera?.orthographicScale = 1.16
-            camera.camera?.zNear = 0.1
-            camera.camera?.zFar = 10
-            camera.position = SCNVector3(0, 0, 4)
-            scene.rootNode.addChildNode(camera)
-            view?.scene = scene
-            view?.pointOfView = camera
+
         }
 
         func updateAnimation() {
-            if shouldAnimate && !dragging {
+            if shouldAnimate && !dragging && !pinching {
                 if world.action(forKey: "spin") == nil {
                     let spin = SCNAction.rotateBy(x: 0, y: .pi * 2, z: 0, duration: 180)
                     world.runAction(.repeatForever(spin), forKey: "spin")
@@ -128,7 +196,7 @@ private struct GlobeScene: UIViewRepresentable {
         @objc func pan(_ gesture: UIPanGestureRecognizer) {
             switch gesture.state {
             case .began:
-                dragging = true; stopSpin()
+                dragging = true; beginInteraction()
                 initialYaw = world.eulerAngles.y; initialTilt = tilt.eulerAngles.x
             case .changed:
                 let translation = gesture.translation(in: gesture.view)
@@ -138,6 +206,51 @@ private struct GlobeScene: UIViewRepresentable {
                 dragging = false; updateAnimation()
             default: break
             }
+        }
+        private func beginInteraction() {
+            stopSpin()
+            interaction?.spinning = false
+            interaction?.changedByUser = true
+        }
+        @objc func pinch(_ gesture: UIPinchGestureRecognizer) {
+            switch gesture.state {
+            case .began:
+                pinching = true; beginInteraction()
+                pinchScale = interaction?.zoom ?? 1
+            case .changed:
+                interaction?.zoom = min(1.8, max(0.75, pinchScale * gesture.scale))
+            case .ended, .cancelled, .failed:
+                pinching = false; updateAnimation()
+            default: break
+            }
+        }
+        func zoom(by factor: Double) {
+            beginInteraction()
+            interaction?.zoom = min(1.8, max(0.75, (interaction?.zoom ?? 1) * factor))
+        }
+        @objc func reset() {
+            stopSpin()
+            orient(yaw: homeYaw, pitch: homeTilt, scale: 1.16)
+            // Defer observable updates out of UIViewRepresentable's update pass.
+            Task { @MainActor [weak self] in
+                self?.interaction?.changedByUser = false
+                self?.interaction?.zoom = 1
+            }
+        }
+        private func orient(yaw: Float, pitch: Float, scale: Double) {
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = reduceMotion ? 0 : 0.5
+            SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            // Choose the nearest equivalent longitude rather than orbiting around the far side.
+            let delta = atan2(sin(yaw - world.eulerAngles.y), cos(yaw - world.eulerAngles.y))
+            world.eulerAngles.y += delta
+            tilt.eulerAngles.x = pitch
+            camera.camera?.orthographicScale = scale
+            SCNTransaction.commit()
+        }
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            (gestureRecognizer is UIPinchGestureRecognizer && other is UIPanGestureRecognizer) ||
+            (gestureRecognizer is UIPanGestureRecognizer && other is UIPinchGestureRecognizer)
         }
         private func point(_ airport: Airport) -> SCNVector3 {
             Self.point(longitude: airport.longitude, latitude: airport.latitude)
@@ -171,7 +284,7 @@ private struct GlobeScene: UIViewRepresentable {
             return SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: vertices), SCNGeometrySource(textureCoordinates: uv)],
                                elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
         }
-        private static func arc(from a: SCNVector3, to b: SCNVector3, emphasized: Bool) -> SCNNode {
+        private static func arc(from a: SCNVector3, to b: SCNVector3, emphasized: Bool, outline: Bool = false) -> SCNNode {
             let angle = acos(min(1, max(-1, a.dot(b))))
             guard angle > 0.0001 else { return SCNNode() }
             var points: [SCNVector3] = []
@@ -188,7 +301,7 @@ private struct GlobeScene: UIViewRepresentable {
                 points.append(direction.unit * (1.012 + 0.055 * sin(.pi * t)))
             }
             var vertices: [SCNVector3] = [], indices: [Int32] = []
-            let sides = 6, radius: Float = emphasized ? 0.0028 : 0.0018
+            let sides = 6, radius: Float = (emphasized ? 0.0028 : 0.0018) * (outline ? 2.2 : 1)
             for (index, center) in points.enumerated() {
                 let tangent = (points[min(index + 1, points.count - 1)] - points[max(index - 1, 0)]).unit
                 let normal = tangent.cross(center).unit, binormal = tangent.cross(normal).unit
@@ -205,22 +318,30 @@ private struct GlobeScene: UIViewRepresentable {
                 }
             }
             let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices)], elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
-            let material = white(opacity: emphasized ? 1 : 0.64)
+            let material = white(opacity: emphasized ? 1 : 0.9)
+            if outline {
+                material.diffuse.contents = UIColor(white: 0.04, alpha: 0.55)
+                material.writesToDepthBuffer = false
+            }
             material.isDoubleSided = true
             geometry.materials = [material]
-            return SCNNode(geometry: geometry)
+            let node = SCNNode(geometry: geometry)
+            node.renderingOrder = outline ? 1 : 2
+            return node
         }
         private static let texture: UIImage = {
+            if let url = Bundle.main.url(forResource: "earth", withExtension: "jpg"),
+               let image = UIImage(contentsOfFile: url.path) { return image }
             let size = CGSize(width: 2048, height: 1024)
             let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
             let rendered = UIGraphicsImageRenderer(size: size, format: format).image { renderer in
                 let context = renderer.cgContext
-                context.setFillColor(UIColor.black.cgColor)
+                context.setFillColor(UIColor(red: 0.16, green: 0.36, blue: 0.54, alpha: 1).cgColor)
                 context.fill(CGRect(origin: .zero, size: size))
                 guard let url = Bundle.main.url(forResource: "land", withExtension: "json"),
                       let data = try? Data(contentsOf: url), let land = try? JSONDecoder().decode([[[Double]]].self, from: data) else { return }
-                context.setFillColor(UIColor(white: 0.18, alpha: 1).cgColor)
-                context.setStrokeColor(UIColor(white: 0.30, alpha: 1).cgColor)
+                context.setFillColor(UIColor(red: 0.48, green: 0.61, blue: 0.43, alpha: 1).cgColor)
+                context.setStrokeColor(UIColor(red: 0.57, green: 0.66, blue: 0.49, alpha: 1).cgColor)
                 context.setLineWidth(0.65)
                 for polygon in land {
                     context.beginPath()
@@ -230,17 +351,7 @@ private struct GlobeScene: UIViewRepresentable {
                     }
                     context.closePath(); context.drawPath(using: .fillStroke)
                 }
-                context.setStrokeColor(UIColor(white: 0.5, alpha: 0.1).cgColor)
-                context.setLineWidth(0.5)
-                for longitude in stride(from: 0.0, through: 360, by: 30) {
-                    context.move(to: CGPoint(x: longitude / 360 * size.width, y: 0))
-                    context.addLine(to: CGPoint(x: longitude / 360 * size.width, y: size.height))
-                }
-                for latitude in stride(from: 0.0, through: 180, by: 30) {
-                    context.move(to: CGPoint(x: 0, y: latitude / 180 * size.height))
-                    context.addLine(to: CGPoint(x: size.width, y: latitude / 180 * size.height))
-                }
-                context.strokePath()
+
             }
             // UIGraphics optimizes monochrome drawings into an R8 texture that
             // SceneKit's simulator renderer cannot upload. Supply explicit RGBA8.

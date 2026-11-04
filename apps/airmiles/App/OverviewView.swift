@@ -3,10 +3,8 @@ import SwiftUI
 
 struct OverviewView: View {
     @Environment(FlightStore.self) private var store
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var detail: Flight?
     @State private var tabletop = false
-    @State private var spinning = true
     @ScaledMetric(relativeTo: .largeTitle) private var distanceSize = 44
     var showFlights: () -> Void
 
@@ -14,14 +12,14 @@ struct OverviewView: View {
         GeometryReader { geometry in
             if tabletop && geometry.size.width > 550 {
                 VStack(spacing: 0) {
-                    globe.frame(height: geometry.size.height * 0.47)
+                    globe(height: geometry.size.height * 0.47)
                     ScrollView {
                         HStack(alignment: .top, spacing: 32) {
                             VStack(alignment: .leading, spacing: 24) { distance; metricStrip }
                                 .frame(maxWidth: .infinity)
                             recentFlights(limit: 2).frame(maxWidth: .infinity)
                         }.padding(24)
-                    }
+                    }.modifier(GlobeClipRegion())
                 }
             } else {
                 ScrollView {
@@ -31,21 +29,21 @@ struct OverviewView: View {
                             HStack(alignment: .top, spacing: 40) {
                                 VStack(alignment: .leading, spacing: 12) {
                                     distance
-                                    globe.frame(height: 280)
+                                    globe(height: 280)
                                     metricStrip
                                 }.frame(maxWidth: .infinity)
                                 recentFlights(limit: 3).frame(maxWidth: .infinity)
                             }
                         } else {
                             distance
-                            globe.frame(height: 260)
+                            globe(height: 260)
                             metricStrip
                             recentFlights(limit: 3)
                         }
                     }.padding(.horizontal, geometry.size.width > 600 ? 28 : 20)
                         .padding(.top, 12).padding(.bottom, 24)
                         .frame(maxWidth: 1100).frame(maxWidth: .infinity)
-                }
+                }.modifier(GlobeClipRegion())
             }
         }
         .background(AMStyle.paper)
@@ -66,20 +64,8 @@ struct OverviewView: View {
         }
     }
 
-    private var globe: some View {
-        RouteAtlas(flights: store.flights, airports: store.airports, spinning: spinning)
-            .overlay(alignment: .bottomTrailing) {
-                if !reduceMotion {
-                    Button { spinning.toggle() } label: {
-                        Image(systemName: spinning ? "pause" : "play")
-                            .font(.system(size: 12, weight: .medium))
-                            .frame(width: 44, height: 44)
-                            .background(.thinMaterial, in: Circle())
-                    }.buttonStyle(.plain)
-                        .accessibilityLabel(spinning ? "Pause globe" : "Rotate globe")
-                        .accessibilityIdentifier("globeMotion")
-                }
-            }
+    private func globe(height: CGFloat) -> some View {
+        GlobeSlot(id: "overview", flights: store.flights, height: height)
     }
 
     private var metricStrip: some View {

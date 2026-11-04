@@ -14,7 +14,7 @@ public struct Airport: Codable, Hashable, Sendable, Identifiable {
 public enum Confidence: String, Codable, Sendable {
     case high = "H", medium = "M", low = "L"
     public var label: String {
-        switch self { case .high: "High confidence"; case .medium: "Some details uncertain"; case .low: "Needs review" }
+        switch self { case .high: "High confidence"; case .medium: "Some details uncertain"; case .low: "Uncertain details" }
     }
 }
 

@@ -39,7 +39,12 @@ struct RootView: View {
     @Environment(FlightStore.self) private var store
     @State private var tab = 0
     @State private var importing = false
+    @State private var pendingImport = false
     @State private var showImportInfo = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var globeInteraction = GlobeInteraction()
+    @State private var globePlacement: GlobePlacement?
+    @State private var globeSlots: [String: GlobePlacement] = [:]
     var body: some View {
         @Bindable var store = store
         TabView(selection: $tab) {
@@ -52,11 +57,36 @@ struct RootView: View {
                 PassportView().toolbar { importToolbar }
             }.tabItem { Label("Passport", systemImage: "chart.bar.xaxis") }.tag(2)
         }
+        .environment(globeInteraction)
+        .coordinateSpace(name: "globeRoot")
+        .overlay(alignment: .topLeading) {
+            if let placement = globePlacement {
+                RouteAtlas(flights: placement.flights, airports: store.airports,
+                           emphasized: placement.emphasized, spinning: globeInteraction.spinning && globeIsVisible && !placement.visibleRect.isEmpty,
+                           interaction: globeInteraction)
+                    .overlay(alignment: .bottomTrailing) { GlobeControls(interaction: globeInteraction, allowsRotation: placement.emphasized == nil) }
+                    .frame(width: max(1, placement.rect.width), height: max(1, placement.rect.height))
+                    .clipShape(GlobeClipShape(rect: placement.visibleRect))
+                    .contentShape(GlobeClipShape(rect: placement.visibleRect))
+                    .position(x: placement.rect.midX, y: placement.rect.midY)
+                    .opacity(globeIsVisible ? 1 : 0)
+                    .allowsHitTesting(globeIsVisible)
+                    .accessibilityHidden(!globeIsVisible)
+            }
+        }
+        .onPreferenceChange(GlobePlacementKey.self) { slots in
+            globeSlots = slots
+            moveGlobe()
+        }
+        .onChange(of: tab) { _, _ in moveGlobe() }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.commaSeparatedText, .plainText]) { result in
+            if case .failure(let error) = result, (error as NSError).code == NSUserCancelledError { return }
             do { try store.importCSV(from: result.get()) }
             catch { store.error = error.localizedDescription }
         }
-        .sheet(isPresented: $showImportInfo) {
+        .sheet(isPresented: $showImportInfo, onDismiss: {
+            if pendingImport { pendingImport = false; importing = true }
+        }) {
             NavigationStack {
                 VStack(alignment: .leading, spacing: 24) {
                     Image(systemName: "tray.and.arrow.down").font(.system(size: 36, weight: .light))
@@ -64,8 +94,12 @@ struct RootView: View {
                     Text("Import your flight-history CSV. Everything stays on this device.").foregroundStyle(.secondary)
                     Text("Columns: date, airline, flight, from, to, miles, confidence.").font(.callout.monospaced())
                     Text("A new import replaces the current journal after validation. Original dates, distances and uncertainty are preserved.").font(.footnote).foregroundStyle(.secondary)
-                    Button("Choose CSV") { showImportInfo = false; importing = true }
-                        .buttonStyle(.borderedProminent).controlSize(.large)
+                    Button("Choose CSV") { pendingImport = true; showImportInfo = false }
+                        .buttonStyle(.plain).font(.headline)
+                        .foregroundStyle(AMStyle.paper)
+                        .padding(.horizontal, 24).padding(.vertical, 14)
+                        .background(Color.primary, in: Capsule())
+                        .accessibilityIdentifier("chooseCSV")
                     Spacer()
                     Text("Map: Natural Earth · Airports: OurAirports\nPublic domain. Distances are imported great-circle estimates.").font(.caption).foregroundStyle(.secondary)
                 }.padding(28).navigationTitle("Your data").navigationBarTitleDisplayMode(.inline)
@@ -76,6 +110,17 @@ struct RootView: View {
             Button("OK") { store.error = nil }
         } message: { Text(store.error ?? "") }
     }
+    private var globeIsVisible: Bool { tab != 2 && globeSlots[tab == 0 ? "overview" : "journal"] != nil && globePlacement?.visibleRect.isEmpty == false }
+
+    private func moveGlobe() {
+        let key = tab == 0 ? "overview" : "journal"
+        guard tab != 2, let destination = globeSlots[key], destination.rect.width > 0 else { return }
+        let changingView = globePlacement?.id != destination.id || globePlacement?.emphasized?.id != destination.emphasized?.id
+        withAnimation(changingView && !reduceMotion && globePlacement != nil ? .easeInOut(duration: 0.5) : nil) {
+            globePlacement = destination
+        }
+    }
+
     @ToolbarContentBuilder private var importToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             Image(systemName: "airplane")

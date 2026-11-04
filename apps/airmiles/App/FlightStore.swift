@@ -6,6 +6,8 @@ import Observation
     private(set) var flights: [Flight] = []
     private(set) var airports: [String: Airport] = [:]
     private(set) var isDemo = false
+    private(set) var enrichment: FlightEnrichment?
+    private var enrichmentFile: URL { URL.documentsDirectory.appending(path: "flight-enrichment.json") }
     var error: String?
     var selectedYear: String?
     var query = ""
@@ -28,6 +30,19 @@ import Observation
                 isDemo = true
             }
         } catch { self.error = error.localizedDescription }
+        loadEnrichment()
+    }
+
+    private func loadEnrichment() {
+        if isDemo {
+            enrichment = try? FlightEnrichment.load(Data(Self.demoEnrichment.utf8))
+        } else if FileManager.default.fileExists(atPath: enrichmentFile.path) {
+            do { enrichment = try FlightEnrichment.load(Data(contentsOf: enrichmentFile)) }
+            catch {
+                enrichment = nil
+                self.error = "Flights loaded, but the enrichment file could not be read."
+            }
+        } else { enrichment = nil }
     }
 
     var stats: FlightStats { FlightStats(flights: flights, airports: airports) }
@@ -51,6 +66,7 @@ import Observation
         try sanitized.write(to: savedFile, atomically: true, encoding: .utf8)
         flights = parsed; isDemo = false
         selectedYear = nil; query = ""; reviewOnly = false
+        loadEnrichment()
     }
     private static func csv(for flights: [Flight]) -> String {
         func quote(_ value: String) -> String { "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
@@ -58,6 +74,20 @@ import Observation
             [$0.date, $0.airline, $0.number, $0.origin, $0.destination, String($0.miles), $0.confidence.rawValue].map(quote).joined(separator: ",")
         }.joined(separator: "\n")
     }
+
+    // Synthetic operational details for visual tests, never represented as a BTS match.
+    private static let demoEnrichment = #"""
+    {"version":1,"retrievedAt":"2026-11-04","latestMonth":"2026-08","records":{
+      "2026-08-21|United|UA16|HND|SFO":{
+        "source":"Sample","sourceURL":"https://www.transtats.bts.gov/ONTIME/",
+        "operatingCarrier":"UA","operatingFlightNumber":"16","tailNumber":"N000EX",
+        "scheduledDeparture":"17:00","actualDeparture":"17:08",
+        "scheduledArrival":"10:30","actualArrival":"10:22",
+        "departureDelay":8,"arrivalDelay":-8,"elapsedMinutes":554,"airborneMinutes":527,
+        "cancelled":false,"diverted":false
+      }
+    }}
+    """#
 
     // Deliberately synthetic. Never substitute personal flight history in this fixture.
     static let demoCSV = """

@@ -47,7 +47,7 @@ struct PassportView: View {
                             Text("\(longest.miles.formatted()) mi").font(.subheadline).foregroundStyle(.secondary)
                         }.padding(20).panel()
                     }
-                    Text("\(stats.needsReview) records need review. Countries include connections.")
+                    Text("\(stats.needsReview) flights have uncertain details. Countries include connections.")
                         .font(.caption).foregroundStyle(.secondary)
                 }.padding(24).frame(maxWidth: 1100).frame(maxWidth: .infinity)
             }
@@ -82,7 +82,16 @@ struct PassportView: View {
                         Text("\(store.flights.filter { $0.year == value }.count)").font(.caption2).foregroundStyle(.secondary)
                     }
             }.chartYAxis(.hidden)
-                .chartXAxis { AxisMarks { _ in AxisValueLabel().font(.system(size: 11)) } }
+                .chartXAxis {
+                    AxisMarks(values: store.stats.years.sorted()) { value in
+                        AxisValueLabel {
+                            if let year = value.as(String.self) {
+                                Text(String(year.suffix(2))).font(.system(size: 11))
+                                    .accessibilityLabel(year)
+                            }
+                        }
+                    }
+                }
                 .frame(height: 120).chartXSelection(value: $year)
         }.padding(20).panel()
     }
