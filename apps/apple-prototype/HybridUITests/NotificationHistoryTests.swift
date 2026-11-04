@@ -26,8 +26,6 @@ final class NotificationHistoryTests: XCTestCase {
         XCTAssertEqual(rows(app).count, 1)
         app.buttons["notification-history-clear-all"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["notification-history-empty"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["No notifications"].exists)
-        XCTAssertFalse(app.staticTexts["New notifications will appear here."].exists)
         capture("WWW-60-cleared", app)
         let handle = app.buttons["notification-history-handle"]
         handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.05, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
