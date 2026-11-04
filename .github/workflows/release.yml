@@ -1,7 +1,7 @@
 name: App Store release
 
 # Prepares an app's App Store version for review and stops before Submit for Review.
-# Run it manually, or push a tag app-store/<app>/<anything> (for example app-store/tendr/1.0.1-2).
+# Run it manually with an exact build, or tag app-store/<app>/<version>-<build>.
 # Older tags without an app (app-store/1.0.0-28) mean Tendr.
 on:
   workflow_dispatch:
@@ -10,6 +10,14 @@ on:
         description: 'App folder under apps/ (for example tendr)'
         type: string
         default: tendr
+      version:
+        description: 'Marketing version (blank: app.yml version)'
+        type: string
+        default: ''
+      build:
+        description: 'Exact processed TestFlight build number; use the same source revision'
+        type: string
+        required: true
       skip_screenshots:
         description: 'Upload the listing only and keep the screenshots already in App Store Connect'
         type: boolean
@@ -30,34 +38,63 @@ jobs:
     timeout-minutes: 5
     outputs:
       app: ${{ steps.app.outputs.app }}
+      version: ${{ steps.app.outputs.version }}
+      build: ${{ steps.app.outputs.build }}
     steps:
       - uses: actions/checkout@v4
       - id: app
         env:
           INPUT_APP: ${{ inputs.app }}
-        run: |
-          app=$INPUT_APP
-          if [[ -z "$app" && "$GITHUB_REF_TYPE" == tag ]]; then
-            candidate=$(cut -d/ -f2 <<< "$GITHUB_REF_NAME")
-            [[ -f "apps/$candidate/app.yml" ]] && app=$candidate || app=tendr
-          fi
-          [[ -f "apps/${app:?no app}/app.yml" ]] || { echo "::error::Unknown app '$app'"; exit 1; }
-          echo "app=$app" >> "$GITHUB_OUTPUT"
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUILD: ${{ inputs.build }}
+        run: ruby scripts/release-target.rb
 
   screenshots:
     needs: resolve
     if: ${{ !inputs.skip_screenshots }}
     runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
-    timeout-minutes: 45
+    timeout-minutes: 120
     env:
       DEVELOPER_DIR: ${{ vars.DEVELOPER_DIR || '/Applications/Xcode_26.2.app/Contents/Developer' }}
       APP: ${{ needs.resolve.outputs.app }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install screenshot export dependencies
+        run: python3 -m pip install -r scripts/requirements-screenshots.txt
+      - name: Select Duo-capable Xcode when the app has Duo captures
+        env:
+          REQUESTED_DEVELOPER_DIR: ${{ vars.DUO_DEVELOPER_DIR || '/Applications/Xcode-27.1.app/Contents/Developer' }}
+        run: |
+          if ruby scripts/app-config.rb "$APP" duo_screenshot_test >/dev/null 2>&1; then
+            selected=$(python3 scripts/select-duo-xcode.py "$REQUESTED_DEVELOPER_DIR")
+            echo "DEVELOPER_DIR=$selected" >> "$GITHUB_ENV"
+          fi
+      - name: Generate app project
+        run: |
+          if [[ -f "apps/$APP/project.yml" ]]; then
+            brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+            (cd "apps/$APP" && xcodegen generate --quiet)
+          fi
       - name: Capture and frame App Store screenshots
         run: |
           scripts/capture-screenshots.sh "$APP"
           scripts/frame-screenshots.sh "$APP"
+      - name: Capture and stage Duo App Store screenshots
+        run: |
+          if ruby scripts/app-config.rb "$APP" duo_screenshot_test >/dev/null 2>&1; then
+            scripts/capture-duo-screenshots.sh "$APP"
+            python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
+              "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-duo-capture-${{ needs.resolve.outputs.app }}
+          path: build/duo-screenshots/${{ needs.resolve.outputs.app }}/raw
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: app-store-screenshots-${{ needs.resolve.outputs.app }}
@@ -74,11 +111,17 @@ jobs:
     if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.screenshots.result == 'success' || needs.screenshots.result == 'skipped') }}
     runs-on: ${{ startsWith(vars.MACOS_RUNNER, '[') && fromJSON(vars.MACOS_RUNNER) || vars.MACOS_RUNNER || 'macos-latest' }}
     timeout-minutes: 30
+    concurrency:
+      group: app-store-${{ needs.resolve.outputs.app }}
+      cancel-in-progress: false
     env:
       FASTLANE_SKIP_UPDATE_CHECK: '1'
       FASTLANE_HIDE_CHANGELOG: '1'
       FASTLANE_SKIP_DOCS: '1'
       APP: ${{ needs.resolve.outputs.app }}
+      RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+      RELEASE_BUILD: ${{ needs.resolve.outputs.build }}
+      SKIP_SCREENSHOTS: ${{ inputs.skip_screenshots == true }}
     steps:
       - uses: actions/checkout@v4
       - name: Check release secrets
@@ -105,7 +148,7 @@ jobs:
         with:
           name: app-store-screenshots-${{ needs.resolve.outputs.app }}
           path: apps/${{ needs.resolve.outputs.app }}/fastlane/screenshots/en-US
-      - name: Upload listing, set pricing and select the latest build (no submission)
+      - name: Upload listing, screenshots and select the pinned build (no submission)
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -113,4 +156,4 @@ jobs:
           ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
           ASC_REVIEW_PHONE: ${{ secrets.ASC_REVIEW_PHONE }}
           ASC_REVIEW_EMAIL: ${{ secrets.ASC_REVIEW_EMAIL }}
-        run: bundle exec fastlane ios prepare_review app:"$APP" skip_screenshots:${{ inputs.skip_screenshots == true }}
+        run: bundle exec fastlane ios prepare_review app:"$APP" version:"$RELEASE_VERSION" build:"$RELEASE_BUILD" skip_screenshots:"$SKIP_SCREENSHOTS"

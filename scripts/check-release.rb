@@ -8,9 +8,24 @@ ENV["RUNNER_TEMP"] = File.expand_path("../build", __dir__)
 
 module UI
   def self.important(message); end
+  def self.success(message); end
 
   def self.user_error!(message)
     raise message
+  end
+end
+
+module Spaceship
+  class ConnectAPI
+    module Platform
+      IOS = "IOS"
+    end
+    def self.client
+      @client
+    end
+    def self.client=(value)
+      @client = value
+    end
   end
 end
 
@@ -22,6 +37,8 @@ class ReleaseCheck
     @calls = []
     fastfile = File.expand_path("../fastlane/Fastfile", __dir__)
     instance_eval(File.read(fastfile), fastfile)
+    # This harness records actions; loading installed deliver is outside its scope.
+    define_singleton_method(:guard_first_review_detail) {}
   end
 
   def default_platform(*); end
@@ -141,6 +158,70 @@ check.calls.clear
 check.metadata({ app: "tendr", skip_screenshots: "true" })
 raise "skip_screenshots option" unless check.calls.assoc(:deliver).last[:skip_screenshots]
 
+# A newer build must never replace the explicit selection, including preparation.
+require "ostruct"
+api = Object.new
+api.define_singleton_method(:tunes_request_client) { self }
+api.define_singleton_method(:get) do |_path, params = nil|
+  raise "build query is not pinned" unless params.fetch("filter[version]") == "18" && params.fetch("filter[preReleaseVersion.version]") == tendr_version
+  OpenStruct.new(body: { "data" => [
+    { "id" => "build-19", "attributes" => { "version" => "19", "processingState" => "VALID", "expired" => false } },
+    { "id" => "build-18", "attributes" => { "version" => "18", "processingState" => "VALID", "expired" => false } }
+  ] })
+end
+Spaceship::ConnectAPI.client = api
+selected = nil
+store_version = OpenStruct.new(version_string: tendr_version, app_store_state: "PREPARE_FOR_SUBMISSION", build: nil)
+store_version.define_singleton_method(:select_build) { |build_id:| selected = build_id }
+app_record = OpenStruct.new(id: "app-id")
+app_record.define_singleton_method(:get_edit_app_store_version) { |platform:| store_version }
+check.define_singleton_method(:app_store_app) { |_config| app_record }
+check.select_build(app: "tendr", build: "18")
+raise "selected newest instead of pinned build" unless selected == "build-18"
+%i[select_build prepare_review].each do |lane|
+  check.calls.clear
+  begin
+    check.public_send(lane, app: "tendr")
+    raise "missing build accepted"
+  rescue ArgumentError => error
+    raise unless error.message.include?("explicit build number")
+  end
+  raise "mutated without build" unless check.calls.empty?
+end
+store_version.app_store_state = "WAITING_FOR_REVIEW"
+check.calls.clear
+begin
+  check.prepare_review(app: "tendr", build: "18")
+  raise "prepared a waiting submission"
+rescue RuntimeError => error
+  raise unless error.message.include?("leave the current submission untouched")
+end
+raise "uploaded metadata while waiting" unless check.calls.empty?
+
+store_version.app_store_state = "PREPARE_FOR_SUBMISSION"
+%i[ensure_free_pricing age_rating review_detail_check review_status].each do |lane|
+  check.define_singleton_method(lane) { |**_options| }
+end
+selected = nil
+check.calls.clear
+check.prepare_review(app: "tendr", build: "18", skip_screenshots: true)
+raise "prepare_review lost pinned build" unless selected == "build-18"
+raise "prepare_review lost screenshot skip" unless check.calls.assoc(:deliver).last[:skip_screenshots]
+
+[[], [{ "id" => "expired", "attributes" => { "version" => "18", "processingState" => "VALID", "expired" => true } }],
+ [{ "id" => "pending", "attributes" => { "version" => "18", "processingState" => "PROCESSING", "expired" => false } }]].each do |builds|
+  api.define_singleton_method(:get) { |*_args| OpenStruct.new(body: { "data" => builds }) }
+  check.calls.clear
+  begin
+    check.prepare_review(app: "tendr", build: "18")
+    raise "unavailable build accepted"
+  rescue ArgumentError => error
+    raise unless error.message.include?("Expected one processed")
+  end
+  raise "metadata uploaded before build validation" unless check.calls.empty?
+end
+
+Spaceship::ConnectAPI.client = nil
 check.fail_tests = false
 ENV["GITHUB_ACTIONS"] = "true"
 ENV.delete("R_PROFILE_UUID")
