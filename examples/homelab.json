@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "hosts": {
+    "build-mac": {
+      "adminUser": "admin",
+      "adminUID": 501,
+      "authorizedKeys": [],
+      "activationReady": false,
+      "services": []
+    }
+  },
+  "tailscale": {
+    "tag": "tag:lab",
+    "oauth": { "vault": "Infrastructure", "item": "Enrollment OAuth" }
+  }
+}
