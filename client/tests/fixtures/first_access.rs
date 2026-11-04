@@ -20,10 +20,17 @@ fn main() {
     if args.last().unwrap() == "/usr/bin/true" {
         assert!(options.contains("BatchMode=yes"));
         assert!(options.contains("PreferredAuthentications=publickey"));
+        assert!(!options.contains("PubkeyAuthentication=no"));
+        assert!(!options.contains("PreferredAuthentications=keyboard-interactive,password"));
+        assert_eq!(env::var("LC_ALL").unwrap(), "C");
         fs::write(root.join("check-args"), options).unwrap();
+        if let Ok(message) = fs::read_to_string(root.join("diagnostic")) { eprint!("{message}"); std::process::exit(255); }
         if root.join("fail-check").exists() { eprintln!("private diagnostic"); std::process::exit(255); }
     } else {
         assert!(options.contains("BatchMode=no"));
+        for option in ["PreferredAuthentications=keyboard-interactive,password", "PubkeyAuthentication=no", "PasswordAuthentication=yes", "KbdInteractiveAuthentication=yes"] {
+            assert!(options.contains(option));
+        }
         assert!(options.contains("StrictHostKeyChecking=yes"));
         assert!(!options.contains("accept-new"));
         if root.join("changed-host").exists() { std::process::exit(255); }

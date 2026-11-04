@@ -51,21 +51,29 @@ cancels the form. Failed saves keep your entered values for correction and retry
 Select a host and press Enter to inspect it; Page Up/Down scroll
 details and **q** quits when no inspection is running.
 
-Press **s** on a selected connection to start setup. The first screen explains
-Remote Login and checks existing SSH access. You can explicitly choose **t** to
-trust a previously unknown host on first use; its identity is remembered on your
-personal Mac. This skips independent fingerprint comparison, so use the address
+Press **s** on a selected connection to start setup. Each screen shows a short
+status and a selected next action; use the arrow keys to choose and **Enter** to
+continue. An unknown host gets a separate trust review before its identity is
+remembered on your personal Mac. This skips independent fingerprint comparison, so use the address
 from the target's local setup on your trusted network. Changed saved identities
 are still rejected; the client never deletes them or disables host-key checking.
 
-If connection checking fails, the wizard explains possible causes rather than
-assuming a key is missing. **k** lets you select and review an existing public
-`.pub` key for installation. Its matching private identity must already be
+Connection failures distinguish an untrusted or changed identity, rejected keys,
+an unreachable host and a hostname that could not be resolved. Only an
+authentication rejection makes public-key installation the primary next action;
+ambiguous errors do not imply a missing key. Select and review an existing public
+`.pub` key before installation. Its matching private identity must already be
 available through your SSH agent or SSH configuration. The system SSH client
 handles the target account's password in a normal terminal. Only the public key
 is copied; existing authorized keys are preserved. A fresh key-authenticated
 connection and read-only inspection verify access afterward. No password is
-read or saved by the client, and no local SSH configuration is rewritten.
+read or saved by the client, and no local SSH configuration is rewritten. If
+interactive SSH fails, its message stays visible until you return to the menu.
+
+Headings and selections use colour, with text labels retained for terminals
+without colour. Set `NO_COLOR=1` to disable styling. Use `homelab --version` to
+check the installed version; update through `brew update` and
+`brew upgrade homelab`.
 
 You can finish after access verification without any bootstrap inputs. Trust and
 public-key changes remain in place if you stop; the wizard reports this. To

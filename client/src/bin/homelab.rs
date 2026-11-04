@@ -7,7 +7,7 @@ use homelab_client::{inspect, inventory, tui};
 use serde::Serialize;
 
 #[derive(Parser)]
-#[command(name = "homelab", about = "Guided remote homelab management")]
+#[command(name = "homelab", version, about = "Guided remote homelab management")]
 struct Arguments {
     #[arg(long, global = true)]
     inventory: Option<PathBuf>,

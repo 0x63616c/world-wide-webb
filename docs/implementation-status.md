@@ -64,6 +64,9 @@ Implemented so far:
   activation. Fixtures exercise changed-host refusal, key preservation and
   interrupted installation; terminal tests cover cancellation before connection.
   No successful connection or key installation on the new MacBook is claimed.
+  First-access diagnostics now distinguish known SSH failure classes without
+  exposing raw banners. Short, styled screens select an explicit next action;
+  native password-install failures remain visible before returning to the menu.
 - Update-agent draft with authenticated private Git fetch, exact-main CI gating,
   bounded subprocess calls, GC-rooted candidate, rollback and interruption holds.
   Twelve passing local tests cover eligibility, credential-helper behavior,

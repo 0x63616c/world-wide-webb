@@ -42,6 +42,20 @@ pub enum Error {
     InvalidProfile,
     #[error("A fresh SSH connection using the configured keys could not be established.")]
     Connection,
+    #[error("This address has no trusted SSH host key saved yet.")]
+    HostUnknown,
+    #[error("The target's SSH host key differs from its saved identity.")]
+    HostChanged,
+    #[error("SSH reported that authentication with the available public keys was denied.")]
+    AuthenticationDenied,
+    #[error("The target refused the SSH connection.")]
+    ConnectionRefused,
+    #[error("The SSH connection did not respond before its deadline.")]
+    ConnectionTimeout,
+    #[error("SSH could not resolve the target hostname.")]
+    NameResolution,
+    #[error("Public-key file not found.")]
+    PublicKeyMissing,
     #[error("Choose a regular OpenSSH public-key file containing exactly one key.")]
     InvalidKey,
     #[error("The public-key installation did not report success.")]
@@ -59,6 +73,13 @@ impl Error {
         match self {
             Self::InvalidProfile => "invalid-first-access-input",
             Self::Connection => "first-access-unavailable",
+            Self::HostUnknown => "ssh-host-unknown",
+            Self::HostChanged => "ssh-host-changed",
+            Self::AuthenticationDenied => "ssh-authentication-denied",
+            Self::ConnectionRefused => "ssh-connection-refused",
+            Self::ConnectionTimeout => "ssh-connection-timeout",
+            Self::NameResolution => "ssh-name-resolution-failed",
+            Self::PublicKeyMissing => "public-key-file-missing",
             Self::InvalidKey => "invalid-public-key",
             Self::Installation => "public-key-installation-failed",
             Self::UnknownOutcome => "public-key-installation-unknown",
@@ -73,6 +94,27 @@ impl Error {
             }
             Self::Connection => {
                 "Check Remote Login, address, networking and the saved host identity. If password login works, you may install an existing public key. A failed connection does not prove a key is missing."
+            }
+            Self::HostUnknown => {
+                "Confirm this is the target address from local setup, then explicitly approve first-use trust or verify its fingerprint locally."
+            }
+            Self::HostChanged => {
+                "Check the target identity locally. Do not remove saved host keys or approve first-use trust to bypass this mismatch."
+            }
+            Self::AuthenticationDenied => {
+                "Confirm the administrator username and that your matching private identity is available through SSH configuration or your agent. If password login works, review and install its public key."
+            }
+            Self::ConnectionRefused => {
+                "Enable Remote Login on the target Mac for this administrator and check its address and SSH port."
+            }
+            Self::ConnectionTimeout => {
+                "Check that the target is powered on and reachable through the selected LAN or Tailscale route, then retry."
+            }
+            Self::NameResolution => {
+                "Check the saved hostname and local DNS or Tailscale name resolution, or use the address shown on the target."
+            }
+            Self::PublicKeyMissing => {
+                "Choose an existing public .pub file, not its private key. The suggested filename may not exist on this Mac."
             }
             Self::InvalidKey => {
                 "Choose the public .pub file, never its private key. Its matching private identity must already be available through your SSH agent or SSH configuration."
@@ -93,6 +135,7 @@ fn ssh(host: &HostProfile, tools: &Tools, trust: Trust, batch: bool) -> Result<C
         return Err(Error::InvalidProfile);
     }
     let mut command = Command::new(&tools.ssh);
+    command.env("LC_ALL", "C");
     // A cached master connection would bypass both a new handshake and key testing.
     command.args([
         "-T",
@@ -132,6 +175,19 @@ fn ssh(host: &HostProfile, tools: &Tools, trust: Trust, batch: bool) -> Result<C
     ]);
     if batch {
         command.args(["-o", "PreferredAuthentications=publickey"]);
+    } else {
+        // Installation explicitly uses the target account's password. Agent
+        // keys must not exhaust the server's authentication attempts first.
+        command.args([
+            "-o",
+            "PreferredAuthentications=keyboard-interactive,password",
+            "-o",
+            "PubkeyAuthentication=no",
+            "-o",
+            "PasswordAuthentication=yes",
+            "-o",
+            "KbdInteractiveAuthentication=yes",
+        ]);
     }
     command
         .arg("--")
@@ -142,13 +198,81 @@ fn ssh(host: &HostProfile, tools: &Tools, trust: Trust, batch: bool) -> Result<C
 pub fn check_key_access(host: &HostProfile, tools: &Tools, trust: Trust) -> Result<(), Error> {
     let mut command = ssh(host, tools, trust, true)?;
     command.arg("/usr/bin/true").stdin(Stdio::null());
-    let status = process::run_silent(&mut command, Duration::from_secs(25))
-        .map_err(|_| Error::Connection)?;
-    if status.success() {
+    let output =
+        process::capture(&mut command, Duration::from_secs(25)).map_err(|error| match error {
+            process::ProcessError::Timeout => Error::ConnectionTimeout,
+            _ => Error::Connection,
+        })?;
+    if output.status.success() {
         Ok(())
     } else {
-        Err(Error::Connection)
+        Err(connection_error(&output.stderr))
     }
+}
+
+fn connection_error(stderr: &[u8]) -> Error {
+    let Ok(text) = std::str::from_utf8(stderr) else {
+        return Error::Connection;
+    };
+    // These are diagnostic hints, not identity evidence: remote banners can
+    // contain similar text. Never weaken host checking or install a key here.
+    let lines: Vec<_> = text.lines().map(str::trim).collect();
+    if lines
+        .iter()
+        .any(|line| line.contains("WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!"))
+    {
+        return Error::HostChanged;
+    }
+    if lines.iter().any(|line| {
+        [
+            "No ED25519 host key is known for ",
+            "No RSA host key is known for ",
+            "No ECDSA host key is known for ",
+        ]
+        .iter()
+        .any(|prefix| line.starts_with(prefix))
+            && line.ends_with(" and you have requested strict checking.")
+    }) {
+        return Error::HostUnknown;
+    }
+    // A generic host-verification failure is not evidence that the key is new.
+    if lines.contains(&"Host key verification failed.") {
+        return Error::Connection;
+    }
+    if lines
+        .iter()
+        .any(|line| line.starts_with("ssh: Could not resolve hostname "))
+    {
+        return Error::NameResolution;
+    }
+    if lines.iter().any(|line| {
+        line.starts_with("ssh: connect to host ") && line.ends_with(": Connection refused")
+    }) {
+        return Error::ConnectionRefused;
+    }
+    if lines.iter().any(|line| {
+        (line.starts_with("ssh: connect to host ")
+            && (line.ends_with(": Connection timed out")
+                || line.ends_with(": Operation timed out")))
+            || (line.starts_with("Timeout, server ") && line.ends_with(" not responding."))
+    }) {
+        return Error::ConnectionTimeout;
+    }
+    if lines.iter().any(|line| {
+        let Some((target, methods)) = line.split_once(": Permission denied (") else {
+            return false;
+        };
+        !target.is_empty()
+            && methods.strip_suffix(").").is_some_and(|methods| {
+                !methods.is_empty()
+                    && methods
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b",-@.".contains(&byte))
+            })
+    }) {
+        return Error::AuthenticationDenied;
+    }
+    Error::Connection
 }
 
 pub fn prepare_public_key(path: &Path, tools: &Tools) -> Result<PublicKey, Error> {
@@ -161,7 +285,13 @@ pub fn prepare_public_key(path: &Path, tools: &Tools) -> Result<PublicKey, Error
             OFlags::RDONLY | OFlags::NONBLOCK | OFlags::NOFOLLOW | OFlags::CLOEXEC,
             Mode::empty(),
         )
-        .map_err(|_| Error::InvalidKey)?,
+        .map_err(|error| {
+            if error == rustix::io::Errno::NOENT {
+                Error::PublicKeyMissing
+            } else {
+                Error::InvalidKey
+            }
+        })?,
     );
     if !file.metadata().map_err(|_| Error::InvalidKey)?.is_file() {
         return Err(Error::InvalidKey);

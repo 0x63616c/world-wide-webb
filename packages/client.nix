@@ -1,7 +1,7 @@
 { pkgs }:
 pkgs.rustPlatform.buildRustPackage {
   pname = "homelab";
-  version = "0.1.0";
+  version = "0.1.1";
 
   src = pkgs.lib.fileset.toSource {
     root = ../client;

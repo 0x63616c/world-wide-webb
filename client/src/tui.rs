@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor};
 use crossterm::terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{execute, queue};
 use thiserror::Error;
@@ -299,6 +300,10 @@ impl Menu {
 pub(crate) fn wrap(paragraphs: &[String], width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     for paragraph in paragraphs {
+        if paragraph.trim().is_empty() {
+            lines.push(String::new());
+            continue;
+        }
         let mut line = String::new();
         for word in paragraph.split_whitespace() {
             if !line.is_empty() && line.chars().count() + 1 + word.chars().count() > width {
@@ -319,6 +324,35 @@ pub(crate) fn wrap(paragraphs: &[String], width: usize) -> Vec<String> {
         }
     }
     lines
+}
+
+pub(crate) fn write_styled(
+    output: &mut impl Write,
+    text: &str,
+    heading: bool,
+    help: bool,
+) -> io::Result<()> {
+    let color = std::env::var_os("NO_COLOR").is_none();
+    if color {
+        let foreground = if heading || text.starts_with("> ") || text.starts_with("Enter:") {
+            Color::Cyan
+        } else if text.starts_with("! ") {
+            Color::Yellow
+        } else if help {
+            Color::DarkGrey
+        } else {
+            Color::Reset
+        };
+        queue!(output, SetForegroundColor(foreground))?;
+        if heading || text.starts_with("> ") || text.starts_with("Enter:") {
+            queue!(output, SetAttribute(Attribute::Bold))?;
+        }
+    }
+    write!(output, "{text}")?;
+    if color {
+        queue!(output, ResetColor, SetAttribute(Attribute::Reset))?;
+    }
+    Ok(())
 }
 
 type InspectionWorker = JoinHandle<Result<Inspection, InspectionError>>;
@@ -362,10 +396,16 @@ fn run_menu(path: &Path, menu: &mut Menu, worker: &mut Option<InspectionWorker>)
             menu.detail_offset = 0;
         }
         let (width, height) = terminal::size()?;
+        let width = width.min(78);
         queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
         for (row, line) in menu.lines(width.into(), height.into()).iter().enumerate() {
             queue!(output, MoveTo(0, row as u16))?;
-            write!(output, "{line}")?;
+            write_styled(
+                &mut output,
+                line,
+                row == 0,
+                line.starts_with("Enter ") || line.starts_with("n ") || line.starts_with("Esc "),
+            )?;
         }
         output.flush()?;
         if !event::poll(Duration::from_millis(100))? {

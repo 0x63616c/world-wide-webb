@@ -66,7 +66,7 @@ impl Terminal {
         }
     }
 
-    fn until(&mut self, expected: &str) {
+    fn until(&mut self, expected: &str) -> String {
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut output = Vec::new();
         loop {
@@ -77,7 +77,7 @@ impl Terminal {
                 result => panic!("terminal read failed: {result:?}"),
             }
             if String::from_utf8_lossy(&output).contains(expected) {
-                return;
+                return String::from_utf8_lossy(&output).into_owned();
             }
             assert!(
                 output.len() <= 256 * 1024,
@@ -191,4 +191,31 @@ fn direct_setup_control_c_restores_terminal_before_reporting_cancellation() {
     terminal.wait_and_verify_restoration(false);
     assert_eq!(std::fs::read(&inventory).unwrap(), before);
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+}
+
+#[test]
+fn first_access_primary_action_is_visible_at_minimum_size() {
+    let directory = tempfile::tempdir().unwrap();
+    let inventory = directory.path().join("private/inventory.json");
+    setup_inventory(&inventory);
+    let mut terminal = Terminal::with_arguments(&inventory, &["setup", "--host", "example"]);
+    terminal.until("Connect to your Mac");
+    tcsetwinsize(
+        &terminal.slave,
+        Winsize {
+            ws_row: 12,
+            ws_col: 40,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        },
+    )
+    .unwrap();
+    // Trigger a redraw at the smaller size without starting SSH.
+    terminal.master.write_all(b"\x1b[B").unwrap();
+    let screen = terminal.until("Enter: Check SSH access");
+    assert!(screen.contains("Connect to your Mac"));
+    assert!(screen.contains("Esc back"));
+    assert!(!screen.contains("T approves trust"));
+    terminal.master.write_all(b"\x1b").unwrap();
+    terminal.wait_and_verify_restoration(false);
 }

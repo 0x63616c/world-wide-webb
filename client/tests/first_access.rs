@@ -95,7 +95,23 @@ fn installation_sends_only_validated_public_key_then_rechecks_strictly() {
 #[test]
 fn invalid_keys_and_profiles_never_start_installation() {
     let mut f = Fixture::new();
+    // A missing selection is diagnosed before even launching key validation.
+    let missing = f.root.path().join("absent.pub");
+    let absent_tools = Tools {
+        ssh: missing.clone(),
+        ssh_keygen: missing.clone(),
+    };
+    assert!(matches!(
+        first_access::prepare_public_key(&missing, &absent_tools),
+        Err(Error::PublicKeyMissing)
+    ));
     let path = f.key();
+    let link = f.root.path().join("linked.pub");
+    std::os::unix::fs::symlink(&path, &link).unwrap();
+    assert!(matches!(
+        first_access::prepare_public_key(&link, &f.tools),
+        Err(Error::InvalidKey)
+    ));
     fs::write(&path, "-----BEGIN OPENSSH PRIVATE KEY-----\nprivate\n").unwrap();
     assert!(matches!(
         first_access::prepare_public_key(&path, &f.tools),
@@ -157,4 +173,80 @@ fn checked_shell_preserves_existing_keys_and_refuses_symlink_targets() {
     fs::remove_file(&authorized).unwrap();
     fs::create_dir(&authorized).unwrap();
     assert!(!run().success());
+}
+
+#[test]
+fn bounded_ssh_diagnostics_choose_safe_actions_without_disclosing_output() {
+    let f = Fixture::new();
+    for (diagnostic, expected) in [
+        (
+            "No ED25519 host key is known for 192.0.2.1 and you have requested strict checking.\r\nHost key verification failed.\r\n",
+            Error::HostUnknown,
+        ),
+        (
+            "No RSA host key is known for 192.0.2.1 and you have requested strict checking.\n",
+            Error::HostUnknown,
+        ),
+        (
+            "No ECDSA host key is known for 192.0.2.1 and you have requested strict checking.\n",
+            Error::HostUnknown,
+        ),
+        (
+            "@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @\nadmin@192.0.2.1: Permission denied (publickey,password,keyboard-interactive).\n",
+            Error::HostChanged,
+        ),
+        (
+            "Host key verification failed.\nadmin@192.0.2.1: Permission denied (publickey).\n",
+            Error::Connection,
+        ),
+        (
+            "admin@192.0.2.1: Permission denied (publickey,password,keyboard-interactive).\r\n",
+            Error::AuthenticationDenied,
+        ),
+        (
+            "ssh: connect to host 192.0.2.1 port 22: Connection refused\n",
+            Error::ConnectionRefused,
+        ),
+        (
+            "ssh: connect to host 192.0.2.1 port 22: Operation timed out\n",
+            Error::ConnectionTimeout,
+        ),
+        (
+            "ssh: connect to host 192.0.2.1 port 22: Connection timed out\n",
+            Error::ConnectionTimeout,
+        ),
+        (
+            "Timeout, server 192.0.2.1 not responding.\n",
+            Error::ConnectionTimeout,
+        ),
+        (
+            "ssh: Could not resolve hostname example: nodename nor servname provided\n",
+            Error::NameResolution,
+        ),
+        ("Permission denied\n", Error::Connection),
+        ("Host key verification failed.\n", Error::Connection),
+        ("unexpected server response\n", Error::Connection),
+    ] {
+        fs::write(
+            f.root.path().join("diagnostic"),
+            format!("private-banner-secret\n{diagnostic}"),
+        )
+        .unwrap();
+        let error = first_access::check_key_access(&f.host, &f.tools, Trust::Strict).unwrap_err();
+        assert_eq!(error, expected);
+        assert!(
+            !format!("{error:?} {error} {} {}", error.code(), error.next_action())
+                .contains("private-banner-secret")
+        );
+    }
+    fs::write(
+        f.root.path().join("diagnostic"),
+        "private-banner-secret".repeat(2000),
+    )
+    .unwrap();
+    assert_eq!(
+        first_access::check_key_access(&f.host, &f.tools, Trust::Strict),
+        Err(Error::Connection)
+    );
+    assert!(!f.root.path().join("installed").exists());
 }
