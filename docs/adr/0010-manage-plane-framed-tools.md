@@ -1,6 +1,6 @@
 # Manage: one framed shell for every tool we operate
 
-> **Retired November 3, 2026 ([WWW-74](https://tickets.worldwidewebb.co/t/WWW-74)).**
+> **Retired November 3, 2026.**
 > Calum requested removal of Manage, its Cloudflare hostname and the frame-unlock
 > extension. This document records the historical design. The application,
 > extension, build wiring and edge resources are removed; uninstall any locally
