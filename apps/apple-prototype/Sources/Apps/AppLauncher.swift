@@ -36,7 +36,7 @@ struct AppLauncher: View {
                         .padding(.vertical, 48)
                 }
                 }.frame(minHeight: proxy.size.height, alignment: .top)
-            }.scrollIndicators(.hidden)
+            }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
         }.background { Wallpaper(dimming: 0.12, blurRadius: 0).accessibilityHidden(true) }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
@@ -63,11 +63,11 @@ struct SwipeHomeRegion: View {
 }
 
 struct PanelSettingsPage: View {
-    let showClock: () -> Void
+    @Environment(\.homeIntegration) private var integration
     private enum Page: String, CaseIterable, Identifiable {
-        case display = "Display", clock = "Clock", apps = "Apps"
+        case display = "Display", security = "Security", apps = "Apps"
         var id: String { rawValue }
-        var symbol: String { self == .display ? "display" : (self == .clock ? "clock" : "square.grid.2x2") }
+        var symbol: String { self == .display ? "display" : (self == .security ? "lock.shield" : "square.grid.2x2") }
     }
     @State private var selection: Page? = .display
     var body: some View {
@@ -82,13 +82,20 @@ struct PanelSettingsPage: View {
                 Form {
                     if selection == .apps {
                         Section {
-                            ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { false } }) { app in
+                            ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { $0.route == .timer || $0.route == .photoBooth } }) { app in
                                 NavigationLink { PanelPerAppSettings(app: app) } label: { Label(app.name, systemImage: app.symbol) }
                             }
                         }
-                    } else if selection == .clock {
-                        Section {
-                            Button(action: showClock) { Label("Show clock", systemImage: "clock") }
+                    } else if selection == .security {
+                        Section("Panel PIN") {
+                            if let api = integration?.panelPIN {
+                                NavigationLink { PanelPINChangePage(api: api) } label: {
+                                    Label("Change PIN", systemImage: "key.fill")
+                                }.accessibilityIdentifier("settings-change-pin")
+                            } else {
+                                Label("Connect to your panel server to change the PIN", systemImage: "wifi.slash")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     } else {
                         Section {

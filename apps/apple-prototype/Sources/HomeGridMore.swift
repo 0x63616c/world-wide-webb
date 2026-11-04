@@ -142,9 +142,9 @@ struct GridDogWalk: View {
     private var face: some View {
         Corners {
             Button(action: open) {
-                Cap("Walk Zero", 22, .semibold)
+                Cap("Dog Walker", 22, .semibold)
                     .frame(minHeight: 44, alignment: .topLeading).contentShape(.rect)
-            }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")
+            }.buttonStyle(.plain).accessibilityLabel("Dog Walker history")
         } tr: {
             Image(systemName: "pawprint.fill").font(.system(size: 22))
         } bl: {

@@ -77,12 +77,25 @@ import PanelKit
     func cancelCommand() { requestedAction = nil; errorMessage = nil }
 
     func submit(pin: String) {
-        guard mutation == nil else { return }
+        _ = startSubmission(pin: pin)
+    }
+
+    /// The keypad may disappear as soon as the command is acknowledged. Its
+    /// view task can wait, but must not own/cancel the command's follow-up read.
+    func submitAndWait(pin: String) async -> String? {
+        guard let task = startSubmission(pin: pin) else { return errorMessage }
+        await task.value
+        return errorMessage
+    }
+
+    private func startSubmission(pin: String) -> Task<Void, Never>? {
+        guard mutation == nil else { return nil }
         let version = generation
         mutation = Task { [weak self] in
             await self?.confirm(pin: pin)
             if self?.generation == version { self?.mutation = nil }
         }
+        return mutation
     }
 
     func confirm(pin: String) async {

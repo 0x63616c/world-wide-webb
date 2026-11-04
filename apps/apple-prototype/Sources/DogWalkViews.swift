@@ -12,9 +12,9 @@ struct DogWalkScreen: View {
         DogWalkPage(store: store)
             .safeAreaBar(edge: .top, spacing: 0) {
                 ZStack {
-                    Text("Walk Zero").font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
+                    Text("Dog Walker").font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
                     HStack {
-                        CircleButton(symbol: "xmark", label: "Close Walk Zero", size: sizeClass == .compact ? 40 : 56, action: close)
+                        CircleButton(symbol: "xmark", label: "Close Dog Walker", size: sizeClass == .compact ? 40 : 56, action: close)
                         Spacer()
                     }
                 }.frame(height: sizeClass == .compact ? 64 : 80)
@@ -40,7 +40,7 @@ struct DogWalkTile: View {
             HStack(spacing: compact ? 16 : 24) {
                 Button(action: open) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Label("Walk Zero", systemImage: "pawprint.fill")
+                        Label("Dog Walker", systemImage: "pawprint.fill")
                             .font(.system(size: compact ? 22 : 32, weight: .semibold))
                         Spacer(minLength: 8)
                         if let walk = store.walks.activeWalk {
@@ -60,7 +60,7 @@ struct DogWalkTile: View {
                         Text("History ›").font(.system(size: compact ? 16 : 20, weight: .medium))
                     }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .contentShape(.rect)
-                }.buttonStyle(.plain).accessibilityLabel("Walk Zero history")
+                }.buttonStyle(.plain).accessibilityLabel("Dog Walker history")
                 VStack(spacing: 6) {
                     Button { store.toggleWalk() } label: {
                         Image(systemName: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")

@@ -83,11 +83,16 @@ struct GreenClockDial: View {
                 numeral("3", layout, alignment: .trailing, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2)
                 numeral("6", layout, alignment: .center, glyphTop: face.minY + face.height * 0.975 - layout.digitHeight)
                 if !numeralsOnly {
+                    Text(fixtureTime(date, format: "h:mm a").uppercased())
+                        .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
+                        .monospacedDigit().foregroundStyle(ink)
+                        .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
+                        .position(x: face.midX, y: face.minY + face.height * 0.07)
                     Text(fixtureTime(date, format: "EEE d").uppercased())
                         .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
                         .foregroundStyle(ink).fixedSize()
-                        .alignmentGuide(.leading) { _ in -(layout.inset * 1.25) }
-                        .alignmentGuide(.top) { d in -(face.minY + face.height * 0.915) + d[.firstTextBaseline] }
+                        .frame(width: face.width - 2 * layout.inset, alignment: .leading)
+                        .position(x: face.midX, y: face.minY + face.height * 0.915)
                     hands(layout, hours: hours, minutes: minutes, seconds: seconds)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)

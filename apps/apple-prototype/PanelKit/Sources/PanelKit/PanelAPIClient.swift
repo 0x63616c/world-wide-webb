@@ -100,6 +100,38 @@ public struct PanelAPIClient: Sendable {
         return data
     }
 
+    /// Private photo bytes go straight to the existing ingest route, never the command log.
+    public func uploadBoothPhoto(jpeg: Data, capturedAt: Date) async throws {
+        let milliseconds = capturedAt.timeIntervalSince1970 * 1000
+        guard jpeg.count >= 3, jpeg.prefix(3) == Data([0xff, 0xd8, 0xff]), jpeg.count <= 4 * 1024 * 1024,
+              milliseconds.isFinite, milliseconds > 0, milliseconds < Double(Int64.max) else {
+            throw PanelAPIError.transport("Invalid photo.")
+        }
+        guard let configuration, PanelConfiguration.isValidBaseURL(configuration.baseURL),
+              configuration.requestTimeout.isFinite, configuration.requestTimeout > 0 else { throw PanelAPIError.notConfigured }
+        var request = URLRequest(url: configuration.baseURL.appendingPathComponent("media/booth-photo"),
+            timeoutInterval: configuration.requestTimeout)
+        request.httpMethod = "POST"
+        request.httpBody = jpeg
+        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        request.setValue("photo", forHTTPHeaderField: "x-mode")
+        request.setValue(String(Int64(milliseconds)), forHTTPHeaderField: "x-captured-at")
+        if let id = configuration.accessClientID, let secret = configuration.accessClientSecret {
+            request.setValue(id, forHTTPHeaderField: "CF-Access-Client-Id")
+            request.setValue(secret, forHTTPHeaderField: "CF-Access-Client-Secret")
+        }
+        let data: Data
+        let response: HTTPURLResponse
+        do { (data, response) = try await transport.send(request) }
+        catch is CancellationError { throw CancellationError() }
+        catch { throw PanelAPIError.transport("Photo couldn’t be saved.") }
+        try Task.checkCancellation()
+        guard response.statusCode == 201 else { throw PanelAPIError.http(status: response.statusCode) }
+        struct Receipt: Decodable { let id: String; let path: String }
+        guard let receipt = try? JSONDecoder().decode(Receipt.self, from: data),
+              !receipt.id.isEmpty, !receipt.path.isEmpty else { throw PanelAPIError.decoding("Photo save wasn’t confirmed.") }
+    }
+
     private func encode<Input: Encodable>(_ input: Input) throws -> Data {
         do { return try JSONEncoder().encode(input) }
         catch { throw PanelAPIError.decoding("Could not encode request JSON.") }

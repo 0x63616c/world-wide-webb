@@ -1,9 +1,14 @@
 import XCTest
 
 @MainActor final class HomeViewLaunchTests: XCTestCase {
-    private func launch(unavailable: Bool = false) -> XCUIApplication {
+    override func setUp() {
+        super.setUp()
         continueAfterFailure = false
+        // Extension tests also run first on fresh CI simulators. A full-screen
+        // landscape app frame does not set the device/SpringBoard orientation.
         XCUIDevice.shared.orientation = .landscapeLeft
+    }
+    private func launch(unavailable: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-hybridStill"]
         if unavailable { app.launchArguments.append("-hybridUnavailable") }
@@ -46,6 +51,48 @@ import XCTest
         clock.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 2)
         XCTAssertTrue(clock.exists)
         XCTAssertFalse(app.buttons["diagnostics-done"].exists)
+    }
+    func testClockLeftSwipeCommitsAndShortOrVerticalDragCancels() {
+        let app = launch()
+        defer { app.terminate() }
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: -40, dy: 0)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertFalse(app.buttons["app-settings"].exists)
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -200)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertFalse(app.buttons["app-settings"].exists)
+        app.openAppGrid()
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
+        app.buttons["app-clock"].tap()
+        XCTAssertTrue(app.buttons["app-settings"].waitForNonExistence(timeout: 5))
+    }
+    func testHomeRightSwipeReturnsToClockWithoutTakingOverApps() {
+        let app = launch()
+        defer { app.terminate() }
+        app.openAppGrid()
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.85))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 40, dy: 0)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -150)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
+        // Start over an icon: dragging must navigate, without launching the app.
+        let lights = app.buttons["app-lights"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        lights.press(forDuration: 0.1,
+            thenDragTo: lights.withOffset(CGVector(dx: window.frame.width * 0.6, dy: 0)))
+        XCTAssertTrue(app.buttons["app-settings"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.exists)
+        app.openAppGrid()
+        app.buttons["app-settings"].tap()
+        XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 10))
+        start.press(forDuration: 0.1,
+            thenDragTo: start.withOffset(CGVector(dx: window.frame.width * 0.6, dy: 0)))
+        XCTAssertTrue(app.buttons["app-back"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["app-screen-settings"].firstMatch.exists)
     }
     func testRollbackLaunchesWebWithoutHome() {
         let app = XCUIApplication()

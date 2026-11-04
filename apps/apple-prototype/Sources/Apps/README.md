@@ -1,9 +1,80 @@
 # Native app shell
 
-The panel starts on the green clock. Swipe up from the bottom to open the
-vertically scrolling icon launcher. Each icon opens a full-screen native app;
-swiping up from its bottom edge returns to the launcher. There is no pager, dock or floating Apps button. Apps close with a short fade.
-Settings uses a native split view for Display, Clock and Apps preferences.
+The panel starts on the green clock. Swipe left anywhere on the awake clock to reveal the
+vertically scrolling icon launcher. Swipe right on the launcher or tap the Clock
+icon to return to the full-screen clock. Short swipes spring back; vertical
+scrolling and app controls keep their own interactions. Dog Walker is the walking
+app; route IDs remain stable.
+
+Every app has a fixed upper-left Back control returning to the launcher, including
+Settings, protected pages, unavailable states and Classic. App scroll views only
+bounce when their content overflows. A single-finger content scroll never closes
+an app. Back buttons are the app navigation; accessibility escape remains available.
+Settings uses a native split view for Display, Security and Apps preferences.
+
+The first launcher row is Calendar, Weather, Lights, Climate and Dog Walker.
+Photos, Tesla and Wi-Fi lead the next row. Settings is last. Display order and
+stable IDs live in `PanelAppCatalog`, shared by the native and design hosts.
+
+## Photo Booth
+
+Photo Booth prefers the front camera and has one shutter with a three-second
+countdown. A shot saves to the existing booth gallery; the gallery button opens
+earlier booth photos and every frame of burst/strip captures. Wake photos are
+excluded. Back moves from an enlarged photo to the gallery, then to the camera,
+then Home. The existing booth manifest is private, so each opening requires a
+fresh synced PIN and backgrounding locks the page.
+
+Capture/configuration runs on a serial actor, with a real AVFoundation preview
+and rotation coordinator. Leaving the camera stops it. Saving belongs to the
+app's data source, so a failed JPEG remains available for retry after navigation
+while the app stays open; explicit discard requires the unlocked page. Uploads
+use the existing same-origin booth endpoint and bounded JPEG contract. Capture
+and rotation still require validation on a physical camera; the simulator shows
+its honest camera-unavailable state. No fake camera feed is supplied.
+
+## Timer
+
+The Timer app uses a wide black face, equal-length orange perimeter ticks and a
+large countdown. The border has extra edge padding and begins turning several ticks before each
+corner. It shares the alarm's arc-length sampler, so spacing stays even through turns.
+Tap the orange duration beneath the countdown to choose hours, minutes or seconds.
+Presets live inside that editor. Start, Pause, Resume, Reset and Again operate on
+the real local timer; the fixed Back button returns to Home.
+
+The shell owns a persisted deadline, so leaving the page, idle return to Clock,
+suspension or relaunch does not restart the countdown. Pause preserves the exact
+remaining interval. Settings → Apps → Timer configures its return-to-clock delay.
+An OS local notification supplies the completion alert outside the page, subject
+to notification/sound permissions; denied or silent settings are shown honestly.
+VoiceOver reads a duration and announces completion once. Simulator recordings
+disable only OS notification prompts/sounds, and show the countdown at normal speed.
+
+## Panel PIN
+
+Photos and Tesla command confirmation use the shared `PanelPINEntry`: six masked
+dots, a native glass number pad, delete and automatic six-digit submission. Digits
+stay in memory and clear when leaving the page or backgrounding the app. Photos
+still asks for a fresh PIN on every opening. Tesla keeps command execution in its
+provider so keypad dismissal cannot cancel the reported-state refresh.
+
+Settings → Security → Change PIN verifies the current synced PIN, asks for a new
+six-digit PIN and confirmation, then updates only `pinCode` through the existing
+settings API. Confirmation can restart new-PIN entry; recovery is disabled while
+saving. Wrong PIN, mismatch and connection errors remain in the flow. This retains
+the existing client-side soft-lock policy (ADR-0004), not a new authentication system.
+
+## Clock motion review
+
+The clock has digital time at the upper right and the date at the lower left,
+using the same day/night ink. `ClockLauncherMotion` owns the transition separately
+from app navigation. Reveal shrinks the clock slightly as it slides left; the launcher enters from
+the right and expands into place with a small spring. Swiping right on the
+launcher drives the same transition in reverse;
+Depth and Dissolve are comparison candidates selected only through debug launch
+argument `-launcherTransition reveal|depth|dissolve`. Reduce Motion removes spatial movement.
+Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
+suite records the left swipe and reverse right swipe for each candidate.
 
 ## Adding an app
 
@@ -16,7 +87,7 @@ Settings uses a native split view for Display, Clock and Apps preferences.
 4. Preserve the feature's access gate in its destination. The launcher does not
    grant access or replace photo/PIN permission checks.
 
-The launcher, scrolling, navigation state, bottom-edge gesture and accessibility
+The launcher, scrolling, navigation state, Back control and accessibility
 are shared. Adding an app does not require changing their layout or gesture code.
 `PanelAppCatalogTests` checks unique identity, feature coverage, capability filtering
 and shell transitions. The live host supplies its existing providers; the Mac
@@ -30,9 +101,7 @@ remain native unavailable screens rather than silently opening Classic.
 
 A separate Astra reviewer inspected the real Lighting and launcher screenshots
 and reviewed all app destinations in source. The current pass keeps opacity-only app dismissal, with no floating Apps button.
-The physical iPadOS gesture can still win at the extreme edge; use the lower
-content band or Escape in the simulator. Five-finger pinch remains available
-on the panel, with device verification required under Guided Access.
+Use the fixed Back button from app pages, or Escape in the simulator.
 
 Remaining design findings: Calendar should use aligned agenda rows rather than
 repeated glass cards; Music needs a more balanced mixer layout; Tesla, Walks, Cameras, Photos
@@ -59,9 +128,9 @@ palette without changing the system clock or stored user settings.
 
 Sixty seconds without interaction returns to the clock. The Display preference
 controls whether that clock is also dimmed. Touching a dimmed clock wakes it;
-swiping up from the lower edge opens the launcher. A window-level observer tracks
-taps and drags without an invisible view covering app controls. Five-finger inward
-pinches return to the launcher anywhere on screen; two-finger zoom is untouched.
+swiping left opens the launcher. A window-level observer tracks
+taps and drags without an invisible view covering app controls. It only tracks
+activity and never navigates; the five-finger Home pinch has been removed.
 VoiceOver escape and the named Open apps action provide equivalent navigation.
 
 The chooser includes ten procedural animated art styles. Its previews are frozen,
@@ -78,3 +147,16 @@ and idle return duration are applied by the shared app host. New destinations
 inherit these settings automatically. The default idle duration remains 60 seconds.
 The launcher includes the current local date and time; the car destination is
 labelled Tesla while retaining its stable `car` route ID.
+
+## PIN/navigation review — 3 November 2026
+
+A separate Astra reviewer inspected the actual keypad screenshot, updated source,
+and movie samples every 0.2 seconds. Reveal remains the default: its opaque clock
+edge keeps the launcher readable; Depth and Dissolve briefly superimpose numerals
+over app labels. Clock time/date placement and launcher names fit. This review
+does not establish physical touch feel or frame-rate performance.
+
+Validation on local Xcode 27: 12 PanelKit API/catalog tests; 14 live-provider tests
+including command lifetime after keypad dismissal; nine HomeView launch/access
+UI tests; three recorded motion comparisons. Typecheck passed. The new access
+tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.

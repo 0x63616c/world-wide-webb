@@ -118,7 +118,12 @@ struct PanelRoot: View {
     var body: some View {
         @Bindable var session = session
         ZStack {
-            webBoard
+            VStack(spacing: 0) {
+                if !homeVisible && !nativeVisible && !webOnly {
+                    PanelAppNavigationBar(back: navigation.returnHome)
+                }
+                webBoard
+            }
                 .opacity(nativeVisible || homeVisible ? 0 : 1)
                 .allowsHitTesting(!nativeVisible && !homeVisible)
                 .accessibilityHidden(nativeVisible || homeVisible)
@@ -150,11 +155,6 @@ struct PanelRoot: View {
             }
             .allowsHitTesting(nativeVisible)
             .accessibilityHidden(!nativeVisible)
-        }
-        .overlay(alignment: .bottom) {
-            if !homeVisible && !webOnly {
-                SwipeHomeRegion(action: { navigation.returnHome() })
-            }
         }
         .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
         .background { PanelWindowAttachment().allowsHitTesting(false) }

@@ -33,15 +33,13 @@ import SwiftUI
 /// Owns idle interaction for the whole shell, including native settings and error pages.
 struct PanelIdleDimming: ViewModifier {
     let onIdle: () -> Void
-    let onHome: () -> Void
     let timeout: Int
     private var display = PanelDisplayPreferences()
     @State private var idle = PanelIdleState()
     @Environment(\.scenePhase) private var phase
 
-    init(onIdle: @escaping () -> Void, onHome: @escaping () -> Void, timeout: Int) {
+    init(onIdle: @escaping () -> Void, timeout: Int) {
         self.onIdle = onIdle
-        self.onHome = onHome
         self.timeout = timeout
     }
 
@@ -69,9 +67,7 @@ struct PanelIdleDimming: ViewModifier {
             .background {
                 PanelScreenBrightness(level: display.brightness(dimmed: idle.dimmed), active: phase == .active)
                     .allowsHitTesting(false)
-                PanelInputObserver(activity: { idle.activity() }, home: {
-                    if idle.dimmed { idle.wake() } else { onHome() }
-                })
+                PanelInputObserver(activity: { idle.activity() })
             }
             #else
             .simultaneousGesture(TapGesture().onEnded { idle.activity() })

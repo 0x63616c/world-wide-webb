@@ -1,10 +1,13 @@
 import SwiftUI
+import PanelKit
 
 /// Optional host presentation; nil preserves the design app's own content.
 /// A stable reference keeps behavior out of closure-valued environment keys.
 @MainActor protocol HomeIntegration: AnyObject {
     var caption: String { get }
     var supportsClassic: Bool { get }
+    var panelPIN: PanelPINAPI? { get }
+    func photoBooth(close: @escaping () -> Void) -> AnyView?
     func openClassicApp()
     var classicTile: AnyView? { get }
     func prepareToOpen(_ tile: HomeTile) -> Bool
@@ -19,6 +22,8 @@ import SwiftUI
 }
 
 extension HomeIntegration {
+    func photoBooth(close: @escaping () -> Void) -> AnyView? { nil }
+    var panelPIN: PanelPINAPI? { nil }
     var supportsClassic: Bool { false }
     func openClassicApp() {}
     var classicTile: AnyView? { nil }

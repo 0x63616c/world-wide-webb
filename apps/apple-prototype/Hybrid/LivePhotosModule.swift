@@ -10,9 +10,6 @@ struct LivePhotosModule: View {
     let detail: Bool
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pin = ""
-    @State private var checking = false
-    @State private var rejected = false
     @State private var selectedID: String?
     @State private var removal: LivePhoto?
     @State private var showSessions = false
@@ -72,9 +69,9 @@ struct LivePhotosModule: View {
             }
         }
         #endif
-        .onDisappear { provider.lock(); pin = "" }
+        .onDisappear { provider.lock() }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { provider.lock(); pin = "" }
+            if phase != .active { provider.lock() }
         }
         .confirmationDialog("Remove this whole capture from the gallery?", isPresented: Binding(
             get: { removal != nil }, set: { if !$0 { removal = nil } })) {
@@ -95,24 +92,9 @@ struct LivePhotosModule: View {
     }
 
     private var gate: some View {
-        VStack(spacing: 20) {
-            Label("Photos", systemImage: "lock.fill").font(.title)
-            Text("Enter your panel PIN")
-            SecureField("6-digit PIN", text: $pin)
-                .keyboardType(.numberPad).textContentType(.oneTimeCode)
-                .textFieldStyle(.roundedBorder).frame(width: 260)
-                .accessibilityIdentifier("photos-pin")
-                .onChange(of: pin) { _, value in pin = String(value.filter(\.isNumber).prefix(6)) }
-            Button("Unlock") {
-                checking = true
-                let entered = pin; pin = ""
-                Task {
-                    rejected = !(await provider.unlock(pin: entered))
-                    checking = false
-                }
-            }.buttonStyle(.glassProminent).disabled(pin.count != 6 || checking)
-            if rejected { Text("PIN not accepted. Try again.").foregroundStyle(.secondary) }
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        PanelPINEntry(title: "Photos") { entered in
+            await provider.unlock(pin: entered) ? nil : (provider.error ?? "PIN not accepted. Try again.")
+        }
     }
 
     private var sessions: some View {
@@ -134,7 +116,7 @@ struct LivePhotosModule: View {
     }
 }
 
-private struct AuthenticatedPhoto: View {
+struct AuthenticatedPhoto: View {
     let provider: LivePhotosProvider
     let photo: LivePhoto
     @State private var image: UIImage?
