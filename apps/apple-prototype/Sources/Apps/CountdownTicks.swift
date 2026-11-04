@@ -8,14 +8,16 @@ struct CountdownTicks: View {
     var lineWidth: CGFloat = 4
     var cornerRadius: CGFloat? = nil
     var tickTurningRadius: CGFloat? = nil
+    var alignsCornerTicks = false
     var smoothProgress = false
     var body: some View {
         Canvas { context, size in
             let perimeter = AlarmPerimeter(size: CGSize(width: size.width - 6, height: size.height - 6), cornerRadius: cornerRadius)
             let tickCount = 120
+            let distances = perimeter.tickDistances(count: tickCount, alignCorners: alignsCornerTicks)
             for tick in 0..<tickCount {
                 let progress = Double(tick) / Double(tickCount)
-                let distance = perimeter.length * progress
+                let distance = distances[tick]
                 let sample = perimeter.sample(at: distance)
                 let normal = tickTurningRadius.map { perimeter.tickNormal(at: distance, turningRadius: $0) } ?? sample.normal
                 let outer = CGPoint(x: sample.point.x + 3, y: sample.point.y + 3)
@@ -51,6 +53,46 @@ struct AlarmPerimeter {
     struct Sample {
         let point: CGPoint
         let normal: CGVector
+    }
+
+    /// Anchor an exact diagonal mark at every corner. The two neighbors on
+    /// either side keep equal arc-length spacing; only the middle of each
+    /// straight edge absorbs the small horizontal/vertical spacing difference.
+    func tickDistances(count: Int, alignCorners: Bool = false) -> [CGFloat] {
+        guard count > 0 else { return [] }
+        guard alignCorners, count >= 8, count.isMultiple(of: 4) else {
+            return (0..<count).map { length * CGFloat($0) / CGFloat(count) }
+        }
+        let horizontal = size.width - 2 * radius, vertical = size.height - 2 * radius
+        let arc = .pi * radius / 2
+        let across = horizontal + arc, down = vertical + arc
+        let verticalCount = max(2, min(count / 2 - 2, 2 * Int((CGFloat(count) * down / length / 2).rounded())))
+        let horizontalCount = count / 2 - verticalCount
+        let spacing = length / CGFloat(count)
+        let firstCorner = across / 2
+        let segments = [(verticalCount, down), (horizontalCount, across),
+            (verticalCount, down), (horizontalCount, across)]
+        return (0..<count).map { tick in
+            if tick == 0 { return 0 } // Top center is also the countdown's origin.
+            var index = (tick - horizontalCount / 2 + count) % count
+            var start = firstCorner
+            for (intervals, distance) in segments {
+                if index < intervals {
+                    let neighbors = min(2, (intervals - 1) / 2)
+                    let offset: CGFloat
+                    if index <= neighbors { offset = CGFloat(index) * spacing }
+                    else if index >= intervals - neighbors { offset = distance - CGFloat(intervals - index) * spacing }
+                    else {
+                        let margin = CGFloat(neighbors) * spacing
+                        offset = margin + CGFloat(index - neighbors) / CGFloat(intervals - 2 * neighbors) * (distance - 2 * margin)
+                    }
+                    return (start + offset).truncatingRemainder(dividingBy: length)
+                }
+                index -= intervals
+                start += distance
+            }
+            return 0
+        }
     }
 
     /// Tick orientation has its own turning window, centered on each physical

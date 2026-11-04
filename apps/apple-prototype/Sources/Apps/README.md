@@ -46,7 +46,9 @@ large countdown. The border begins turning several ticks before each corner. It 
 The timer uses a 12-point edge inset and 32-point positioning corners, concentric
 with the shell's 44-point surface. Tick direction has a separate 100-point turning
 radius: marks start tilting while their anchors are still flush with a straight
-edge. Its ring updates at display cadence, fading the fractional last tick even
+edge. An exact diagonal tick anchors every corner, with equally spaced neighbors
+on either side; straight-edge spacing absorbs the small remainder so the corner
+fans remain symmetric. Its ring updates at display cadence, fading the fractional last tick even
 for short durations.
 Tap the orange duration beneath the countdown to choose hours, minutes or seconds.
 Presets live inside that editor. Start, Pause, Resume, Reset and Again operate on

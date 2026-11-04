@@ -168,7 +168,7 @@ private struct TimerTickRing: View {
             CountdownTicks(fraction: countdown.remaining(at: context.date) / countdown.duration,
                 ringing: countdown.phase == .finished, tickLength: 22, lineWidth: 7,
                 cornerRadius: PanelSurface.cornerRadius - Self.edgeInset,
-                tickTurningRadius: 100, smoothProgress: true)
+                tickTurningRadius: 100, alignsCornerTicks: true, smoothProgress: true)
         }
     }
 }
