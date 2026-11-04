@@ -1,0 +1,101 @@
+# Bambuddy (Bambu Lab print archive/control) on homelab (Mac mini, OrbStack).
+# Upstream: https://github.com/maziggy/bambuddy  docs: https://wiki.bambuddy.cool/
+#
+# Networking: bridge mode. Only the web UI/API is published, on 127.0.0.1 only;
+# it reaches the tailnet two ways, never the internet:
+#   - https://bambuddy.tail8c014d.ts.net  via the `tailscale` sidecar below (own node)
+#   - https://homelab.tail8c014d.ts.net:8000  via the host's `tailscale serve` (see README)
+# Outbound MQTT (8883) and FTPS (990) to the printer on the LAN work through NAT,
+# so the printer is added by IP (no SSDP auto-discovery in bridge mode).
+#
+# No secrets in this file. The sidecar's one-time Tailscale auth key (TS_AUTHKEY)
+# is delivered through the private sidecar environment file. After first login
+# the node identity lives in tailscale_state. The printer access code and API keys
+# live in the app database inside the bambuddy_data volume.
+name: bambuddy
+
+services:
+  bambuddy:
+    image: ghcr.io/maziggy/bambuddy@sha256:807f67511fa8c2b644b09de50a5d41794372214d00bd04fda59f576d9958d280
+    container_name: bambuddy
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "127.0.0.1:${BAMBUDDY_PORT:-8000}:8000"
+    volumes:
+      - bambuddy_data:/app/data
+      - bambuddy_logs:/app/logs
+    environment:
+      - TZ=${TZ:-America/Los_Angeles}
+      - PUID=1000
+      - PGID=1000
+      - PORT=8000
+      - BAMBUDDY_COMPOSE_DIR=/etc/homelab/services/bambuddy
+      # Slicer sidecar on the compose network (service bambu-studio-api below).
+      # Used when Settings > Slicer > Bambu Studio API URL is left blank.
+      - BAMBU_STUDIO_API_URL=http://bambu-studio-api:3000
+    restart: always
+    stop_grace_period: 30s
+
+  # Tailscale sidecar: joins the tailnet as its own node "bambuddy" (tag:server)
+  # and serves HTTPS 443 (tailnet only, no funnel) -> bambuddy:8000 on the
+  # compose network. Userspace networking, so no /dev/net/tun or extra caps.
+  tailscale:
+    image: tailscale/tailscale@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c
+    container_name: bambuddy-tailscale
+    env_file:
+      - ${BAMBUDDY_ENV_FILE:?Provision the sidecar environment file}
+    environment:
+      - TS_HOSTNAME=bambuddy
+      - TS_AUTH_ONCE=true
+      - TS_EXTRA_ARGS=--advertise-tags=tag:server
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - type: bind
+        source: ${BAMBUDDY_SERVE_CONFIG:?Stage the sidecar serve configuration}
+        target: /config/serve.json
+        read_only: true
+        bind: {create_host_path: false}
+    depends_on:
+      - bambuddy
+    restart: always
+
+  # Slicer-API sidecar (Bambu Studio CLI over HTTP) for Bambuddy's server-side
+  # Slice action. Upstream: maziggy/bambuddy slicer-api/. The image is
+  # linux/amd64 only; on this Apple Silicon Mac mini it runs under OrbStack's
+  # Rosetta. Not published on the host: Bambuddy reaches it on the compose
+  # network at http://bambu-studio-api:3000 (Settings > Slicer: Use Slicer API
+  # on, Bambu Studio API URL). Without this service every slice job fails with
+  # "Slicer sidecar unreachable".
+  bambu-studio-api:
+    image: ghcr.io/maziggy/bambu-studio-api@sha256:4a104e34e81137f092c84af92814cc39cfa74cdd1fec4b6f6aa0d0464b568a91
+    container_name: bambu-studio-api
+    platform: linux/amd64
+    volumes:
+      - bambu_studio_api_data:/app/data
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      MAX_MODEL_UPLOAD_MB: "${MAX_MODEL_UPLOAD_MB:-512}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: always
+
+volumes:
+  bambuddy_data:
+    external: true
+    name: bambuddy_bambuddy_data
+  bambuddy_logs:
+  tailscale_state:
+    external: true
+    name: bambuddy_tailscale_state
+  bambu_studio_api_data:
+    external: true
+    name: bambuddy_bambu_studio_api_data

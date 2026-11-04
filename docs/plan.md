@@ -1,14 +1,30 @@
 # Homelab plan
 
-Status: proposal, November 3, 2026. Research only; no GitHub repo/PR created and
-no machine configuration applied. See [current-state.md](current-state.md) for
-evidence and the remaining inventory gaps.
+Status: implementation in [draft PR #1](https://github.com/0x63616c/homelab/pull/1),
+following the November 3, 2026 research. No machine configuration applied.
+See [current-state.md](current-state.md) for evidence and inventory gaps, and
+[implementation-status.md](implementation-status.md) for unfinished work.
 
 Agreed starting point: **one local runner job at a time across the homelab**,
 hosted on the MacBook. Calum confirmed approximately 500 GB storage and authorized
 repository/PR implementation without deployment. Verify exact available space
 before bootstrap/migration. The MacBook human administrator is `admin`; the mini
 currently uses `calum`. Preserve these existing accounts.
+
+## Scope rule
+
+Build only what is needed to set up the MacBook, migrate the existing services
+safely, operate them from the personal Mac, and recover their data. Each addition
+must support a concrete step in that sequence or fix a demonstrated failure.
+Use the existing operation behind both the terminal UI and scheduled jobs;
+do not create a second implementation for a new interface.
+
+The first migration does not require a backup-management dashboard, automatic
+artifact retrieval, public release automation, Cloudflare/UniFi management,
+HA OS conversion or additional runner capacity. Keep these deferred. The single
+isolated runner remains an agreed subsequent milestone; it must not compete with
+service migration. A documented and tested restore is required before erasing
+the mini; a general restore framework is not.
 
 ## The idea
 
@@ -57,9 +73,14 @@ persistent state with separate backups.
   Migrating the GUI client is a planned access cutover, not an in-place package
   rename. Preserve existing Serve routes and resolve exit-node use first.
 - **Cloudflare — existing public app access.** Preserve the app/HA/DSM tunnel
-  routes and Access policies. No new router port forwards are needed.
-- **SOPS + age + 1Password — secret handling.** Git stores encrypted values.
-  Each host gets its age private key through 1Password once. sops-nix decrypts
+  routes and Access policies. Homelab owns the Mac's tunnel process and scoped
+  token after cutover; account-wide DNS, tunnel routes and Access policies keep
+  their existing management path during migration. A future declarative
+  Cloudflare change needs one explicit owner. No new router port forwards are needed.
+- **SOPS + age — secret handling.** Git stores encrypted values.
+  Keep 1Password on the personal operator Mac. Transfer only each host's age
+  private key and scoped bootstrap GitHub read token over authenticated SSH.
+  Hosts and runner guests have no password-manager installation or vault access. sops-nix decrypts
   only that host's secrets into protected runtime files, never into the Nix
   store. CI builds without production secrets.
 - **NAS backups — recovery of actual data.** Retain the existing consistent
@@ -148,7 +169,7 @@ release, and app changes do not require rewriting host configuration.
 Complete macOS Setup Assistant with the host-specific administrator (`admin` on
 the MacBook, `calum` on the mini), network access and required Apple
 components. Run the reviewed bootstrap script locally. It installs Determinate
-Nix, places the host age key from 1Password with root-only permissions, obtains
+Nix, places the separately transferred host age key with root-only permissions, obtains
 initial read access to the private repo and activates the selected host recipe.
 Use Determinate's supported nix-darwin integration so two components do not try
 to manage the Nix daemon simultaneously.

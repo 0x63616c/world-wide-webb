@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "0x63616c/world-wide-webb",
+  "sourceRevision": "38afee6c84fcf48c0edb2466aa4b27d287a59c30",
+  "image": "ghcr.io/0x63616c/www-control-center-mini@sha256:7c039963a2d94132d2cae54e5000f24fb1dceb683a685cc7e109ef5bb224afe8",
+  "postgresImage": "postgres@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81"
+}

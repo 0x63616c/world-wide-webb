@@ -1,0 +1,29 @@
+name: hindsight
+services:
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight@sha256:a88678c038b0e4340822b02a5efc566c56d8176b5bffa731bc433fd37f978e4c
+    container_name: hindsight
+    restart: unless-stopped
+    # Preserve existing exposure during migration; narrowing it is a separate change.
+    ports:
+      - '8888:8888'
+      - '9999:9999'
+    env_file:
+      - ${HINDSIGHT_ENV_FILE:?Provision the existing Hindsight runtime environment securely}
+    volumes:
+      - type: bind
+        source: ${HINDSIGHT_DATA_DIR:?Restore Hindsight database state first}
+        target: /home/hindsight/.pg0
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${HINDSIGHT_CODEX_HOME:?Restore Hindsight codex-home state first}
+        target: /home/hindsight/.codex-hindsight
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8888/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s

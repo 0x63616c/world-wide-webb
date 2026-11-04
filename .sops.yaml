@@ -1,0 +1,3 @@
+# Populate with REAL age public recipients before encrypting host secrets.
+# Intentionally no fabricated recipient or ciphertext. See secrets/README.md.
+creation_rules: []

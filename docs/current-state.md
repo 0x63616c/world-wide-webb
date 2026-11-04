@@ -3,8 +3,11 @@
 Research snapshot: November 3, 2026, America/Los_Angeles. No host, service,
 router, or repository settings were changed. This document distinguishes live
 observations from repository documentation and information supplied by Calum.
-It contains no secret values. The GitHub repository and implementation PR have
-not been created: Calum requested research and a plan first.
+It contains no secret values. After this read-only research, Calum authorized
+the private [homelab repository](https://github.com/0x63616c/homelab) and
+[draft implementation PR](https://github.com/0x63616c/homelab/pull/1), without
+deployment. This inventory remains evidence of the existing live system, not
+a claim that the proposed Nix setup has been applied.
 
 ## Sources and freshness
 
@@ -54,6 +57,30 @@ macOS version, FileVault, accounts and its mapping to existing network clients
 remain unverified.
 
 ## Running service inventory
+
+### Control Center drift observed November 3, 2026
+
+A later read-only check over the existing SSH connection found the live Control
+Center container and its image `RepoDigests` at
+`ghcr.io/0x63616c/www-control-center-mini@sha256:bcd15b104035195c5e200758078eac3ea2606d7851917c77210e0e49e63e35af`.
+`bun --version` inside that existing container returned `1.4.4`, and the local
+`/trpc/health.buildHash` endpoint returned
+`61681a864484c1e2c466a9b4bdcdfefbaadebf93`. The GitHub Dockerfile at that revision
+uses `oven/bun:1.4-alpine`; this describes that source and the observed runtime,
+not the older pinned image.
+
+The declared release remains digest
+`sha256:7c039963a2d94132d2cae54e5000f24fb1dceb683a685cc7e109ef5bb224afe8`
+with source revision `38afee6c84fcf48c0edb2466aa4b27d287a59c30`. That image is
+still cached on the mini, and its revision label matches the declaration.
+However, querying that revision through the GitHub tree API returned HTTP 422
+(invalid commit/tree), so its source and exact Bun version were not independently
+verified. No old container was started. The earlier inventory below is a dated
+baseline and does not establish the current Control Center runtime.
+
+The existing `world-wide-webb` deployment still owns the live service. Refreshing
+the declared release and transferring deployment ownership require an explicit
+reviewed cutover; this observation did not change images, pins, or services.
 
 ### OrbStack under calum
 
@@ -281,3 +308,23 @@ mini. Startup estimates in the plan are unmeasured planning ranges.
 Latest owner confirmation: MacBook storage is approximately 500 GB and its
 Setup Assistant administrator is `admin`. Repo/PR implementation is authorized,
 without deployment. Exact free disk space remains to be measured.
+
+### GitHub evidence refresh during implementation
+
+Rechecked `world-wide-webb` main at
+`a53015e758e347cc1c664e258e89c99679a43204` after the initial inventory.
+The original backup/upload/release/Compose sources are unchanged from
+`3368a603cd162caac37e558f4fe88bcafe115b37`; subsequent changes include app UI
+and migration-runbook documentation. The updated
+[mini migration runbook](https://github.com/0x63616c/world-wide-webb/blob/a53015e758e347cc1c664e258e89c99679a43204/docs/runbooks/mac-mini-migration.md)
+records a UniFi HA DHCP reservation `52:55:55:6e:cd:71 → 192.168.0.130` and a
+successful HA VM restart. This is evidence reported by that source, not a fresh
+controller read or a Mac reboot test performed for this repository. Any HA move
+must explicitly transfer the reservation/address after the old VM is stopped.
+
+### MacBook OS confirmation
+
+Calum reports the reset M2/32 GB/~500 GB MacBook runs macOS **27.2** and uses
+the human admin account `admin`. This is owner-provided information, not a
+remote OS measurement. It clears the selected Softnet release's documented
+macOS 26 minimum; actual Tart/Softnet/headless compatibility still needs testing.

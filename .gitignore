@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+*.agekey
+key.txt
+result
+result-*
+__pycache__/
+.DS_Store
+client/target/

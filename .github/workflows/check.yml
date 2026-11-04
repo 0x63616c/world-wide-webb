@@ -1,0 +1,99 @@
+name: Nix checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  darwin:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require native Apple silicon
+        run: test "$(uname -m)" = arm64
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.89.0
+      - name: Build the standalone bootstrap with native macOS libraries
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/bootstrap-native
+          CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER: /usr/bin/clang
+        run: |
+          set -euo pipefail
+          rustup run 1.89.0 cargo test --manifest-path client/Cargo.toml --locked --release
+          rustup run 1.89.0 cargo build --manifest-path client/Cargo.toml --locked --release --bin homelab-host
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - name: Require reviewed lockfile
+        run: test -s flake.lock
+      - name: Validate scripts with the pinned Python runtime
+        run: |
+          nix develop --no-update-lock-file --command bash -n bootstrap.sh
+          nix develop --no-update-lock-file --command python3 -m unittest discover -s tests -v
+      - name: Check and build both hosts without activation
+        run: nix flake check --no-update-lock-file --print-build-logs
+      - name: Check Rust formatting and diagnostics
+        run: |
+          nix develop --no-update-lock-file --command cargo fmt --manifest-path client/Cargo.toml --check
+          nix develop --no-update-lock-file --command cargo clippy --manifest-path client/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Package a portable bootstrap for this exact commit
+        env:
+          REVIEWED_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REVIEWED_REVISION"
+          package="$RUNNER_TEMP/bootstrap-package"
+          mkdir "$package"
+          cp "$RUNNER_TEMP/bootstrap-native/release/homelab-host" "$package/homelab-host"
+          cp bootstrap.sh "$package/bootstrap.sh"
+          chmod 755 "$package/homelab-host" "$package/bootstrap.sh"
+          file "$package/homelab-host" | grep -Eq 'Mach-O 64-bit executable arm64'
+          # A bootstrap must run before Nix exists, with only macOS libraries.
+          otool -L "$package/homelab-host" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib\/|System\/Library\/)/ { print "Non-system dependency: " $1; bad=1 } END { exit bad }'
+          otool -l "$package/homelab-host" | awk '$1 == "cmd" && $2 == "LC_RPATH" { print "Unexpected runtime search path"; bad=1 } END { exit bad }'
+          printf '%s\n' "$REVIEWED_REVISION" > "$package/REVISION"
+          nix eval --json .#lib.setupPlan --no-update-lock-file > "$package/setup-plan.json"
+          (cd "$package" && shasum -a 256 homelab-host bootstrap.sh REVISION setup-plan.json > SHA256SUMS)
+          tar -czf "$RUNNER_TEMP/homelab-bootstrap.tar.gz" -C "$package" homelab-host bootstrap.sh REVISION setup-plan.json SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: homelab-bootstrap-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/homelab-bootstrap.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+  bootstrap-without-nix:
+    needs: darwin
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - name: Require a fresh Apple-silicon runner without Nix
+        run: |
+          test "$(uname -m)" = arm64
+          test ! -e /nix/store
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: homelab-bootstrap-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/bootstrap-download
+      - name: Verify the artifact and open help without starting setup
+        env:
+          REVIEWED_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/bootstrap-smoke"
+          tar -xzf "$RUNNER_TEMP/bootstrap-download/homelab-bootstrap.tar.gz" -C "$RUNNER_TEMP/bootstrap-smoke"
+          cd "$RUNNER_TEMP/bootstrap-smoke"
+          shasum -a 256 -c SHA256SUMS
+          test "$(cat REVISION)" = "$REVIEWED_REVISION"
+          test -s setup-plan.json
+          test -x homelab-host && test -x bootstrap.sh
+          ./homelab-host --help
+          ./bootstrap.sh --help
+          test ! -e /nix/store
