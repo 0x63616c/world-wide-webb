@@ -29,6 +29,13 @@ final class AppModel {
     let transcription: TranscriptionController
     let transcriptionNotifications = TranscriptionNotifications()
     let callDetector = CallDetector()
+    var overlayPosition = OverlayPosition.current {
+        didSet {
+            OverlayPosition.current = overlayPosition
+            callDetector.updatePosition()
+            StatusToast.shared.updatePosition()
+        }
+    }
     private(set) var store: RecordingStore?
     var iCloudEnabled = UserDefaults.standard.object(forKey: "iCloudRecordings") as? Bool ?? true
     var storageStatus = "Checking iCloud Drive…"

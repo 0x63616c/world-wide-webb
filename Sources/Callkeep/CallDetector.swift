@@ -98,6 +98,10 @@ final class CallDetector {
     func previewReminder() { show(CallingApp.supported[0]) }
     #endif
     private func hide() { panel?.close(); panel = nil; shownID = nil }
+    func updatePosition() {
+        guard let panel, let screen = panel.screen ?? NSScreen.main else { return }
+        panel.setFrame(OverlayPosition.current.frame(for: panel.frame.size, on: screen), display: true)
+    }
     private func show(_ app: CallingApp) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let panelWidth: CGFloat = 470
@@ -108,8 +112,7 @@ final class CallDetector {
         panel.contentView = NSHostingView(rootView: CallReminderView(app: app, shortcut: shortcutLabel?() ?? Shortcut.default.label, record: { [weak self] in
             self?.hide(); self?.record?()
         }, dismiss: { [weak self] in self?.hide() }))
-        let frame = screen.visibleFrame
-        panel.setFrameOrigin(NSPoint(x: frame.midX - panelWidth / 2, y: frame.minY + 20))
+        panel.setFrame(OverlayPosition.current.frame(for: NSSize(width: panelWidth, height: 86), on: screen), display: true)
         self.panel = panel; shownID = app.id
         panel.orderFrontRegardless()
     }

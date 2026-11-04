@@ -31,9 +31,17 @@ struct SettingsView: View {
 
                     }
                 }
-                SettingsSection("Call reminders") {
+                SettingsSection("Overlays") {
                     VStack(alignment: .leading, spacing: 0) {
                         SettingsSwitchRow("Remind me to record calls", isOn: Binding(get: { model.callDetector.enabled }, set: { model.callDetector.enabled = $0 }))
+                        SettingsDivider()
+                        SettingsRow {
+                            Text("Position")
+                            Spacer()
+                            Picker("Overlay position", selection: $model.overlayPosition) {
+                                ForEach(OverlayPosition.allCases) { Text($0.title).tag($0) }
+                            }.labelsHidden().fixedSize()
+                        }
                         if let error = model.callDetector.error {
                             Text(error).font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
                         }
