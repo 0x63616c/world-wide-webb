@@ -1,6 +1,6 @@
 # Blocker v1 — design review
 
-[APP-11](https://tickets.worldwidewebb.co/t/APP-11) · Design only · iOS 27 target
+Design only · iOS 27 target
 
 Open [index.html](index.html) locally. It is the contact sheet and links to all 56 states, their standalone HTML and PNGs. Each screen embeds its CSS and SVG icons; nothing requires a server, font download or build tool. Screens are 402 × 874 logical points, rendered at 2× into 804 × 1748 PNGs. [Full contact sheet PNG](screenshots/contact-sheet.png).
 
