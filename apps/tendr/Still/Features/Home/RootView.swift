@@ -61,7 +61,10 @@ struct RootView: View {
             Button("OK") { store.error = nil }
         } message: { Text(store.error ?? "") }
         .preferredColorScheme(store.journal.appearance == "dark" ? .dark : store.journal.appearance == "light" ? .light : nil)
-        .task { await store.syncReminders() }
+        .task {
+            await store.refreshHealthKit()
+            await store.syncReminders()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await store.refreshHealthKit() } }
         }
