@@ -163,6 +163,7 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
     ...accessAppsForPrivateWeb([
       { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
       { exposure: ccManifest.ha.exposure, policies: ["email-otp"] },
+      { exposure: ccManifest.hindsight.exposure, policies: ["email-otp"] },
       // The retained LAN appliance. Synology DSM was previously reachable
       // only on the LAN; putting it on the tunnel gives it an internet-facing
       // hostname, so the Access app is what keeps that from meaning an
