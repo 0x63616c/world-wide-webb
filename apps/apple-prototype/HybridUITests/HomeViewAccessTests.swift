@@ -37,6 +37,7 @@ extension HomeViewLaunchTests {
         app.buttons["app-photos"].tap()
         XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.secureTextFields.count, 0)
+        XCTAssertFalse(app.staticTexts["Enter PIN"].exists)
         enter("135790", app: app)
         XCTAssertTrue(app.staticTexts["PIN not accepted. Try again."].waitForExistence(timeout: 10))
         enter("246802", app: app)
@@ -48,7 +49,8 @@ extension HomeViewLaunchTests {
     @MainActor func testEveryAppHasBackAndClockReturnsToFace() {
         let app = launchAccess()
         XCTAssertTrue(app.buttons["Dog Walker"].exists)
-        for id in ["lights", "climate", "music", "weather", "calendar", "walks", "cameras", "photos", "car", "wifi", "timer", "booth", "settings"] {
+        XCTAssertFalse(app.buttons["app-cameras"].exists)
+        for id in ["lights", "climate", "music", "weather", "calendar", "walks", "photos", "car", "wifi", "timer", "booth", "settings"] {
             app.buttons["app-\(id)"].tap()
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
             app.buttons["app-back"].tap()
