@@ -28,7 +28,7 @@ struct PanelTimerPage: View {
                     // Begin turning about three tick spacings before each edge.
                     // The generous arc gives several progressively tilted marks.
                     CountdownTicks(fraction: remaining / timer.countdown.duration, ringing: phase == .finished,
-                        tickLength: 22, lineWidth: 7, cornerRadius: 112)
+                        tickLength: 22, lineWidth: 7, cornerRadius: 100)
                         .padding(32)
                     VStack(spacing: 24) {
                         Spacer(minLength: 0)
