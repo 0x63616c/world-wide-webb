@@ -19,19 +19,15 @@ struct PanelTimerPage: View {
             .accessibilityIdentifier("timer-page")
     }
     private var face: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
-            // State changes can redraw between scheduled timeline dates.
-            let remaining = timer.countdown.remaining(at: .now)
-            let phase = timer.countdown.phase
-            GeometryReader { proxy in
-                ZStack {
-                    // Keep the generous corner arc and its progressively tilted marks
-                    // while bringing the entire ring closer to the screen edge.
-                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: phase != .running)) { context in
-                        CountdownTicks(fraction: timer.countdown.remaining(at: context.date) / timer.countdown.duration,
-                            ringing: phase == .finished, tickLength: 22, lineWidth: 7, cornerRadius: 100,
-                            smoothProgress: true)
-                    }.padding(12)
+        GeometryReader { proxy in
+            ZStack {
+                // Keep the generous corner arc while bringing the ring to the edge.
+                TimerTickRing(countdown: timer.countdown).padding(12)
+                // The readout and smooth ring have independent clocks. A paused ring
+                // must never pause the readout's schedule after navigation or resume.
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let remaining = timer.countdown.remaining(at: context.date)
+                    let phase = timer.countdown.phase
                     VStack(spacing: 24) {
                         Spacer(minLength: 0)
                         Text(phase == .finished ? "Time’s up" : phase == .paused ? "Paused" : "")
@@ -60,7 +56,7 @@ struct PanelTimerPage: View {
                                 .multilineTextAlignment(.center).frame(maxWidth: 620)
                         }
                     }.padding(.horizontal, 100).padding(.vertical, 86)
-                }
+                }.id(timer.countdown.phase)
             }
         }
     }
@@ -161,5 +157,16 @@ struct PanelTimerPage: View {
 private struct TimerDurationStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.opacity(configuration.isPressed ? 0.65 : 1)
+    }
+}
+
+private struct TimerTickRing: View {
+    let countdown: PanelCountdown
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: countdown.phase != .running)) { context in
+            CountdownTicks(fraction: countdown.remaining(at: context.date) / countdown.duration,
+                ringing: countdown.phase == .finished, tickLength: 22, lineWidth: 7,
+                cornerRadius: 100, smoothProgress: true)
+        }
     }
 }
