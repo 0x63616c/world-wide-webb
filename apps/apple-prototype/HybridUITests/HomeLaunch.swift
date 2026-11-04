@@ -23,10 +23,10 @@ extension XCUIApplication {
         }
         if buttons["app-settings"].exists && buttons["app-settings"].isHittable { return }
         let window = windows.firstMatch
-        // Start inside the bottom 100-point clock gesture area (90% is outside
-        // it on a 1024-point screen), while staying clear of the system edge.
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).press(forDuration: 0.1,
-            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        // A left swipe anywhere on the awake clock opens apps. Start away
+        // from the system edges and the notification strip.
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
         XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
     }
     @MainActor func launchModuleFromHome() {

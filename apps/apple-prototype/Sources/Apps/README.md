@@ -1,6 +1,6 @@
 # Native app shell
 
-The panel starts on the green clock. Swipe up from its bottom edge to reveal the
+The panel starts on the green clock. Swipe left anywhere on the awake clock to reveal the
 vertically scrolling icon launcher. The Clock icon returns to the full-screen
 clock. Dog Walker is the walking app; route IDs remain stable.
 
@@ -28,7 +28,8 @@ the existing client-side soft-lock policy (ADR-0004), not a new authentication s
 
 The clock has digital time at the upper right and the date at the lower left,
 using the same day/night ink. `ClockLauncherMotion` owns the transition separately
-from app navigation. Reveal slides the clock left and settles with a small spring;
+from app navigation. Reveal shrinks the clock slightly as it slides left; the launcher enters from
+the right and expands into place with a small spring;
 Depth and Dissolve are comparison candidates selected only through debug launch
 argument `-launcherTransition reveal|depth|dissolve`. Reduce Motion removes spatial movement.
 Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
@@ -59,8 +60,7 @@ remain native unavailable screens rather than silently opening Classic.
 
 A separate Astra reviewer inspected the real Lighting and launcher screenshots
 and reviewed all app destinations in source. The current pass keeps opacity-only app dismissal, with no floating Apps button.
-The physical iPadOS gesture can still win at the extreme clock edge; use the lower
-clock content band or Escape in the simulator. Five-finger pinch remains available
+Swipe away from the system edges or use Escape in the simulator. Five-finger pinch remains available
 on the panel, with device verification required under Guided Access.
 
 Remaining design findings: Calendar should use aligned agenda rows rather than
@@ -88,7 +88,7 @@ palette without changing the system clock or stored user settings.
 
 Sixty seconds without interaction returns to the clock. The Display preference
 controls whether that clock is also dimmed. Touching a dimmed clock wakes it;
-swiping up from the lower edge opens the launcher. A window-level observer tracks
+swiping left opens the launcher. A window-level observer tracks
 taps and drags without an invisible view covering app controls. Five-finger inward
 pinches return to the launcher anywhere on screen; two-finger zoom is untouched.
 VoiceOver escape and the named Open apps action provide equivalent navigation.

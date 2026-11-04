@@ -47,6 +47,22 @@ import XCTest
         XCTAssertTrue(clock.exists)
         XCTAssertFalse(app.buttons["diagnostics-done"].exists)
     }
+    func testClockLeftSwipeCommitsAndShortOrVerticalDragCancels() {
+        let app = launch()
+        defer { app.terminate() }
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: -40, dy: 0)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertFalse(app.buttons["app-settings"].exists)
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -200)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertFalse(app.buttons["app-settings"].exists)
+        app.openAppGrid()
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
+        app.buttons["app-clock"].tap()
+        XCTAssertTrue(app.buttons["app-settings"].waitForNonExistence(timeout: 5))
+    }
     func testRollbackLaunchesWebWithoutHome() {
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-hybrid.webOnly", "YES"]

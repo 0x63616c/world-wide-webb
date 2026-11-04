@@ -6,14 +6,16 @@ production PIN, private photos or Wi-Fi credentials appear.
 
 - `pin.png`: shared private-page keypad and fixed Back control.
 - `clock.png`: upper-right digital time and lower-left date.
-- `reveal.mp4`: leftward clock reveal, the current default.
+- `reveal.mp4`: paired slide-and-scale reveal, the current default.
 - `depth.mp4`: scale/fade comparison.
 - `dissolve.mp4`: opacity comparison.
 
-Each movie records an upward swipe to the launcher followed by the Clock icon
+The updated Reveal movie records a left swipe to the launcher followed by the Clock icon
 returning to the face. Movies are simulator recordings exported to MP4, not
 rendered mockups. Astra reviewed samples every 0.2 seconds and preferred Reveal;
 the fade variants visibly overlap the large numerals and launcher labels.
 
-The default Reveal clip and clock screenshot reflect the follow-up date and
-direction adjustment. Depth and Dissolve retain the earlier comparison layout.
+The default Reveal clip includes the full-screen left swipe, the clock shrinking
+and sliding left, and Home sliding in from the right while expanding. The clock
+screenshot shows the current time/date placement. Depth and Dissolve retain the
+earlier comparison layout.

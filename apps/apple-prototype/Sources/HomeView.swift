@@ -104,11 +104,12 @@ struct HomeView: View {
         GeometryReader { proxy in
             ZStack {
                 Color.black.ignoresSafeArea()
-                let progress: CGFloat = showingClock ? min(clockDrag / proxy.size.height, 1) : 1
+                let progress: CGFloat = showingClock ? min(clockDrag / proxy.size.width, 1) : 1
                 AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
                     .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
                     .clipShape(.rect(cornerRadius: 44))
                     .scaleEffect(reduceMotion ? 1 : launcherMotion.launcherScale(progress))
+                    .offset(x: reduceMotion ? 0 : launcherMotion.launcherOffset(progress, width: proxy.size.width))
                     .opacity(launcherMotion == .reveal && !reduceMotion ? 1 : Double(progress))
                     .allowsHitTesting(!showingClock && selected == nil)
                     .accessibilityHidden(showingClock || selected != nil)
@@ -119,16 +120,22 @@ struct HomeView: View {
                     .offset(x: reduceMotion ? 0 : launcherMotion.clockOffset(progress, width: proxy.size.width))
                     .opacity(reduceMotion ? Double(1 - progress) : launcherMotion.clockOpacity(progress))
                     .allowsHitTesting(showingClock).accessibilityHidden(!showingClock)
-                    .overlay(alignment: .bottom) {
+                    .overlay {
                         if showingClock {
-                            Color.clear.frame(height: 100).contentShape(.rect)
+                            Color.clear.contentShape(.rect)
                                 .gesture(DragGesture(minimumDistance: 12)
-                                    .onChanged { clockDrag = max(0, -$0.translation.height) }
+                                    .onChanged { value in
+                                        guard clockDrag > 0 || abs(value.translation.width) > abs(value.translation.height) else { return }
+                                        clockDrag = max(0, -value.translation.width)
+                                    }
                                     .onEnded { value in
-                                        if clockDrag > 70 || value.predictedEndTranslation.height < -150 { home() }
+                                        let left = -value.translation.width
+                                        if left > abs(value.translation.height),
+                                           left > proxy.size.width * 0.18 || -value.predictedEndTranslation.width > proxy.size.width * 0.35 { home() }
                                         else { withAnimation(reduceMotion ? nil : launcherMotion.animation) { clockDrag = 0 } }
                                     })
                                 .accessibilityElement().accessibilityLabel("Open apps")
+                                .accessibilityHint("Swipe left to open apps")
                                 .accessibilityAddTraits(.isButton).accessibilityAction { home() }
                         }
                     }

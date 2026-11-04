@@ -23,7 +23,14 @@ enum ClockLauncherMotion: String {
         self == .reveal ? -progress * (width + 24) : 0
     }
     func clockScale(_ progress: CGFloat) -> CGFloat {
-        self == .depth ? 1 + progress * 0.06 : 1
+        switch self {
+        case .reveal: 1 - progress * 0.04
+        case .depth: 1 + progress * 0.06
+        case .dissolve: 1
+        }
+    }
+    func launcherOffset(_ progress: CGFloat, width: CGFloat) -> CGFloat {
+        self == .reveal ? (1 - progress) * (width + 24) : 0
     }
     func clockOpacity(_ progress: CGFloat) -> Double {
         self == .reveal ? 1 : Double(1 - progress)
