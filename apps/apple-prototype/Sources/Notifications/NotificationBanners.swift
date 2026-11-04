@@ -1,8 +1,37 @@
 import SwiftUI
+import PanelKit
 
 struct NotificationSource: Equatable {
     let name: String
     let symbol: String
+    let app: PanelAppDefinition?
+
+    init(name: String, symbol: String, app: PanelAppDefinition? = nil) {
+        self.name = name
+        self.symbol = symbol
+        self.app = app
+    }
+}
+
+/// The launcher and both notification surfaces share the same app artwork.
+struct NotificationSourceIcon: View {
+    let source: NotificationSource
+    var side: CGFloat = 38
+
+    var body: some View {
+        Group {
+            if let app = source.app {
+                PanelAppIcon(app: app, side: side)
+            } else {
+                Image(systemName: source.symbol)
+                    .font(.system(size: side * 0.58, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.85))
+                    .frame(width: side, height: side)
+                    .background(.white.gradient, in: .rect(cornerRadius: side * 0.26))
+            }
+        }
+        .accessibilityHidden(true)
+    }
 }
 
 /// Only cards and controls intercept input; the rest of the board remains usable.
@@ -12,7 +41,6 @@ struct NotificationBanners: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
-    @Namespace private var cards
     @State private var presenterID = UUID()
     @State private var expanded = false
     @State private var interaction = NotificationBannerInteraction()
@@ -59,18 +87,10 @@ struct NotificationBanners: View {
                         .buttonStyle(.glass)
                         .accessibilityIdentifier("notification-stack-collapse")
                 }
-                if expanded {
-                    ScrollView {
-                        LazyVStack(spacing: 10) {
-                            ForEach(items) { item in banner(item, count: 1) }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
-                    .scrollClipDisabled()
-                    .frame(maxHeight: 780)
-                } else if let first = items.first {
-                    banner(first, count: items.count)
+                // Keep the first card in one place in the view tree. Replacing it
+                // with a matched copy in the ScrollView also morphs its glass edge.
+                if let first = items.first {
+                    banner(first, count: expanded ? 1 : items.count)
                         .background(alignment: .bottom) {
                             ForEach(0..<NotificationBannerStack.peekCount(items.count), id: \.self) { index in
                                 RoundedRectangle(cornerRadius: 20)
@@ -82,8 +102,21 @@ struct NotificationBanners: View {
                                     .zIndex(-Double(index))
                                     .accessibilityHidden(true).allowsHitTesting(false)
                             }
+                            .opacity(expanded ? 0 : 1)
                         }
-                        .padding(.bottom, CGFloat(NotificationBannerStack.peekCount(items.count)) * 10)
+                        .padding(.bottom, expanded ? 0 : CGFloat(NotificationBannerStack.peekCount(items.count)) * 10)
+                }
+                if expanded && items.count > 1 {
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(Array(items.dropFirst())) { item in banner(item, count: 1) }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                    .scrollClipDisabled()
+                    .frame(maxHeight: 780)
+                    .transition(.opacity)
                 }
                 if let error = center.lastError {
                     Text(error).font(.callout).padding(12)
@@ -132,7 +165,6 @@ struct NotificationBanners: View {
                 if active { interaction.touching.insert(item.id) } else { interaction.touching.remove(item.id) }
             })
             .id(item.id)
-            .matchedGeometryEffect(id: item.id, in: cards, properties: reduceMotion ? [] : [.position, .size])
             .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
     }
 }
@@ -155,12 +187,7 @@ private struct NotificationBanner: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                Image(systemName: source.symbol)
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.85))
-                    .frame(width: 38, height: 38)
-                    .background(.white.gradient, in: .rect(cornerRadius: 10))
-                    .accessibilityHidden(true)
+                NotificationSourceIcon(source: source)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(source.name).font(.subheadline.weight(.bold)).lineLimit(1)
@@ -189,8 +216,8 @@ private struct NotificationBanner: View {
             touch(pressed || interaction.dragging || leaving)
         }))
         .foregroundStyle(.primary)
-        .background(.regularMaterial, in: .rect(cornerRadius: 20))
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
+        .glassEffectTransition(reduceMotion ? .identity : .materialize)
         .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
         .accessibilityValue(item.priority == .critical ? "Critical" : "")
         .accessibilityHint(count > 1 ? "Expands notifications" : "Opens \(source.name)")

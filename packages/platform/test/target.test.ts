@@ -16,14 +16,6 @@ describe("target model", () => {
         exportPath: "/volume1/Homelab",
         backupRootParts: ["backups", "mac-mini"],
       },
-      capabilities: {
-        certManager: false,
-        cloudflareTunnel: true,
-        cnpg: false,
-        externalSecrets: false,
-        k8s: false,
-        nasBackups: true,
-      },
     });
   });
 });

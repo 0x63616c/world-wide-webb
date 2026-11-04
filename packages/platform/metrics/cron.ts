@@ -8,12 +8,8 @@
  * `time() - www_cron_last_success_timestamp_seconds > <period>` and catches
  * both failure and total silence with one expression.
  *
- * Wired into @www/worker-runtime, which schedules every recurring cycle in the
- * long-lived processes (weather-ingest, the enforcers, the job pollers, the
- * stale-job reaper). Kubernetes `CronJob`s (the nightly pg dump, the retention
- * purges) are deliberately NOT covered: they are short-lived pods that exit
- * before any scrape can reach them, which needs a Pushgateway — out of scope
- * here rather than faked.
+ * Wired into @www/worker-runtime for recurring app cycles. The mini's launchd
+ * backups are separate processes and report through launchd/local backup logs.
  */
 import { Counter, Gauge, Histogram } from "prom-client";
 import { boundedLabel } from "./bounded";

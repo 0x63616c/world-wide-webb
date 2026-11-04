@@ -594,3 +594,83 @@ none newly unavailable; Hindsight had 31 banks, 4,591 memory units, 996 document
 and 4,595 entities. Hindsight and Bambuddy health endpoints were healthy, and
 the tunnel had four ready connections. These service checks do not replace the
 still-pending physical panel check or HA password-login verification.
+
+## Final edge and repository cleanup — November 3
+
+Follow-up cleanup under WWW-74 removes Manage at Calum's request, including
+`apps/manage`, the frame-unlock extension, extension code generation, hostname
+routing, workspace/build/test configuration and Docker bundle copies. Grafana's
+retired DNS, Access app and policy are removed alongside Manage's. The only
+retained edge hosts are `app`, `ha` and `dsm`; each remains behind its existing
+Access policy. The managed tunnel and connector credentials are retained.
+
+Cloudflare origins now declare the verified mini endpoints directly: Control
+Center at `http://127.0.0.1:4201`, HA at `http://192.168.0.130:8123`, and DSM at
+`https://192.168.0.218:5001`. The migration override/disabled-host config is
+removed. Preview changes only the ingress configuration and deletes the six
+Manage/Grafana resources; retained resource protection stays enabled. Only
+those six retirement resources were explicitly unprotected for deletion.
+
+Obsolete CNPG snapshot/restore tooling, its tests, the Kubernetes image-pull
+credential helper, product label/image/digest helpers and retired target
+capability flags and Kubernetes secret namespace/resource metadata are removed. README and the codebase map describe the mini.
+Unused CI/factory token ID entries are removed from Pulumi configuration; this
+neither rotates nor revokes the external tokens.
+
+Host inspection confirmed `k8s.enable: false`; the old Kubernetes API was
+unreachable and no old port-forward or GitHub runner processes were running.
+Five unloaded legacy launch-agent definitions were moved out of LaunchAgents
+into `homelab-backups/retired-launchagents-20261104`. The active OrbStack
+watchdog, HA startup, backup jobs and other services were retained.
+
+Docker cleanup removed ten old Control Center images, the rehearsal image,
+three unused Kubernetes images and four stopped migration-test containers.
+Running-container images and the `current`, `previous` and `recovery-from`
+release image pointers were protected. No volume, archive, Talos disk or other
+project's container was deleted. Build cache younger than 24 hours was retained;
+no older cache was reclaimable. The disabled cluster was not restarted or reset.
+
+Credential review enumerated all 69 vault key names without decrypting values.
+Production still needs app/HA/DB/location/Wi-Fi/alarm secrets, the tunnel and
+Cloudflare/Pulumi credentials, NAS backup credentials, deployment SSH and
+Tailscale credentials, notification topic, and iOS signing/build credentials.
+Grafana webhook keys and other historical service credentials have no tracked
+consumer, but their external consumers and revocation endpoints are not proven;
+they remain retained for a separate credential-owner review. Absence from this
+repository is not evidence that a cross-project credential is unused.
+
+The running mini reported database ok and all nine background cycles with zero
+consecutive failures. HA returned HTTP 200 and its Colima VM was running. The
+installed 04:15 backup agent's last exit code was zero, with two runs and two
+local `NAS_VERIFIED` sets. Both runs were manual; the first calendar-triggered
+run is still pending. Release and compatible recovery remain covered by the
+migration's live exercises plus the retained hermetic deployment/recovery tests.
+Calum subsequently confirmed that the physical panel and normal HA password
+login both work. The existing 51-photo gap remains a separate recovery issue.
+
+### Cleanup deployed and user checks confirmed — 2026-11-03
+
+PR [#894](https://github.com/0x63616c/world-wide-webb/pull/894) merged as
+`3368a603cd162caac37e558f4fe88bcafe115b37`. Main CI
+[41754172391](https://github.com/0x63616c/world-wide-webb/actions/runs/41754172391)
+and the mini release
+[41754533459](https://github.com/0x63616c/world-wide-webb/actions/runs/41754533459)
+passed. A follow-up live check on November 3 reported that exact revision and
+healthy app, PostgreSQL, Bambuddy and Bambu Studio containers; HA returned HTTP
+200. The deployed image no longer contains `apps/manage`.
+
+Cloudflare applied the ingress update and six Manage/Grafana resource deletions.
+The post-deploy preview reported 14 unchanged resources. Only app, HA and DSM
+remain in this project's edge summary and retain their Access redirects. A
+zone-wide wildcard DNS record outside this project still resolves other
+subdomains, including the retired hostnames; deleting their named records does
+not make those names NXDOMAIN. Their project-owned ingress and Access apps are
+gone. The wildcard is retained because its other consumers are not established.
+
+Calum confirmed the physical panel and HA password login work. The remaining
+migration verification gate is the first calendar-triggered NAS backup, due
+2026-11-04 at 04:15 PST. At 18:27 PST on November 3, launchd still reported two
+runs, last exit zero, and two manual `NAS_VERIFIED` sets. Neither manual run
+proves the calendar trigger. Preserve the Talos disks and recovery archives
+while that gate remains open; the 51-photo investigation and uncertain external
+credential consumers remain separately tracked above.

@@ -43,29 +43,6 @@
         "vitest": "^3.2.4",
       },
     },
-    "apps/manage": {
-      "name": "@control-center/manage",
-      "version": "0.0.0",
-      "dependencies": {
-        "@www/theme": "workspace:*",
-        "react": "^19.2.5",
-        "react-dom": "^19.2.5",
-      },
-      "devDependencies": {
-        "@playwright/test": "^1.60.0",
-        "@testing-library/jest-dom": "^6.9.1",
-        "@testing-library/react": "^16.3.2",
-        "@testing-library/user-event": "^14.6.1",
-        "@types/react": "^19.2.14",
-        "@types/react-dom": "^19.2.3",
-        "@vitejs/plugin-react": "^4.7.0",
-        "jsdom": "^29.1.1",
-        "playwright": "^1.60.0",
-        "typescript": "^5.9.3",
-        "vite": "^6.4.2",
-        "vitest": "^3.2.4",
-      },
-    },
     "apps/panel": {
       "name": "@control-center/panel",
       "version": "0.0.0",
@@ -408,8 +385,6 @@
 
     "@control-center/api": ["@control-center/api@workspace:apps/api"],
 
-    "@control-center/manage": ["@control-center/manage@workspace:apps/manage"],
-
     "@control-center/panel": ["@control-center/panel@workspace:apps/panel"],
 
     "@control-center/web": ["@control-center/web@workspace:apps/web"],
@@ -741,8 +716,6 @@
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
-
-    "@playwright/test": ["@playwright/test@1.60.0", "", { "dependencies": { "playwright": "1.60.0" }, "bin": { "playwright": "cli.js" } }, "sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag=="],
 
     "@polka/url": ["@polka/url@1.0.0-next.29", "", {}, "sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww=="],
 

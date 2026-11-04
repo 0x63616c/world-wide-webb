@@ -14,14 +14,13 @@
  * mirrors `apps:gen`'s `cd apps/web && bun run ...` pattern, so every path here
  * is resolved absolutely from the repo root via import.meta.url, never cwd.
  *
- * SCOPE: AGGREGATES covers every current feature aggregate plus the manage
- * extension allowlist artifacts. Keep this list in lockstep with apps:gen so a
+ * SCOPE: AGGREGATES covers every current feature aggregate. Keep this list
+ * in lockstep with apps:gen so a
  * new generated surface cannot land without an authoritative drift check.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderManifest, renderRules } from "../apps/manage/src/extension-rules";
 import { collect } from "./apps-gen/collect";
 import {
   renderHttp,
@@ -36,17 +35,10 @@ import { validate } from "./apps-gen/validate";
 // scripts/apps-check.ts -> repo root is one directory up from scripts/.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const GEN_DIR = join(REPO_ROOT, "features", "_generated");
-const MANAGE_EXT_DIR = join(REPO_ROOT, "apps", "manage", "extension");
 
 interface Aggregate {
-  /** Path relative to `dir` (features/_generated/ by default), also the drift label. */
+  /** Filename within features/_generated/, also the drift label. */
   file: string;
-  /**
-   * Absolute directory holding the committed artifact. Defaults to
-   * features/_generated/; the manage extension's generated files live under
-   * apps/manage/extension/ instead, since Chrome dictates their filenames.
-   */
-  dir?: string;
   render: () => Promise<string>;
 }
 
@@ -82,20 +74,6 @@ const AGGREGATES: readonly Aggregate[] = [
     file: "http.gen.ts",
     render: async () => renderHttp(await collect()),
   },
-  // manage's browser-extension allowlist (ADR-0010). Drift here means a tool is
-  // in the sidebar but not in the extension's allowlist — a pane that renders
-  // blank with nothing in any log, which is exactly the bug class this check
-  // exists to turn into a build failure.
-  {
-    file: "rules.gen.json",
-    dir: MANAGE_EXT_DIR,
-    render: async () => renderRules(),
-  },
-  {
-    file: "manifest.json",
-    dir: MANAGE_EXT_DIR,
-    render: async () => renderManifest(),
-  },
 ];
 
 /** @public consumed by test/scripts/apps-check.test.ts and this module's CLI wrapper. */
@@ -103,7 +81,7 @@ export async function checkDrift(): Promise<{ drifted: boolean; files: string[] 
   const drifted: string[] = [];
   for (const aggregate of AGGREGATES) {
     const fresh = await aggregate.render();
-    const committedPath = join(aggregate.dir ?? GEN_DIR, aggregate.file);
+    const committedPath = join(GEN_DIR, aggregate.file);
     let committed: string;
     try {
       committed = readFileSync(committedPath, "utf8");

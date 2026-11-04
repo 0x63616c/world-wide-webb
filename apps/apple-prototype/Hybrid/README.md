@@ -1293,7 +1293,8 @@ replace remote rows; dismissed tombstones remove them. Read changes hide the
 banner. `history`, `groups`, `bannerGroups`, `unreadCount`, `markRead`, `dismiss`,
 `clear(sourceModule:)` and `clear()` are the shared seam for WWW-60/WWW-61.
 Clear preserves local posts arriving during the server request; failed remote
-actions retain history and show an error. The pull-down history screen below consumes this same store.
+actions retain history and show an error. The pull-down history screen below consumes this same store. Its empty state
+is simply “No notifications”; the offline indicator is “Offline”.
 
 The shared status overlay shows banners on Home, Classic and presented native
 controllers; the Wi-Fi QR presentation also hosts it. These surfaces share the
@@ -1303,7 +1304,9 @@ resolve source taps through `PanelNavigation`, including dismissal of Home's
 current full-screen destination. Unknown routes keep their banner and unread state.
 
 The overlay uses a 380-point dark native Liquid Glass card, a rounded-square
-source glyph, bold source/title, relative time and a two-line body. It sits 20
+source icon, bold source/title, relative time and a two-line body. Launcher apps
+reuse `PanelAppIcon` and the catalog name/symbol/colour, including Calendar and
+Weather artwork. Non-launcher sources retain their fallback glyph. It sits 20
 points from the safe trailing edge and 72 points below the safe top edge, leaving
 the top control row (including Details) accessible on Home, Classic and native
 controllers. Accessibility text sizes widen the card to 560 points.
@@ -1311,7 +1314,9 @@ controllers. Accessibility text sizes widen the card to 560 points.
 All pending banners form one newest-first stack; the inbox's priority/source
 ordering remains unchanged. Up to two smaller, dimmed material cards peek below
 the top card, with a +N count. Tap a stack to expand a scrollable vertical list;
-Show less collapses it. Tap a single/expanded card to open its existing Hybrid
+The top card keeps one view and glass surface while older cards fade in below;
+it stays visible while those older cards scroll. Show less collapses the stack.
+Tap a single/expanded card to open its existing Hybrid
 detail route and mark it read. Disabled/unavailable modules keep the existing
 web fallback, Alarms keep their existing route, and unknown routes remain unread.
 

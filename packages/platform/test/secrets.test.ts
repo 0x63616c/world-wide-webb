@@ -23,10 +23,8 @@ describe("secret catalog and service usage", () => {
 
     expect(usage).toMatchObject({
       mountPath: "/run/secrets",
-      namespaceName: "control-center",
       product: "control-center",
       service: "api",
-      targetSecretName: "control-center-secrets-api",
     });
   });
 
@@ -57,19 +55,5 @@ describe("secret catalog and service usage", () => {
     expect(apiBase).toEqual(usages.worker.secrets);
     expect(WIFI_GUEST_SSID?.vaultKey).toBe("WIFI_GUEST_WIFI_SSID");
     expect(WIFI_GUEST_PASSWORD?.vaultKey).toBe("WIFI_GUEST_WIFI_PASSWORD");
-  });
-
-  test("product service usages no longer use cc-secrets compatibility names", () => {
-    const usages = controlCenterServiceSecretUsages();
-
-    expect(controlCenterServiceSecretUsages().api.targetSecretName).toBe(
-      "control-center-secrets-api",
-    );
-    expect(controlCenterServiceSecretUsages().cloudflared.targetSecretName).toBe(
-      "cloudflare-secrets-cloudflared",
-    );
-    for (const usage of Object.values(usages)) {
-      expect(usage.targetSecretName).not.toMatch(/^cc-secrets-/);
-    }
   });
 });

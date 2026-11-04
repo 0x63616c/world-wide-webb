@@ -1,13 +1,10 @@
 /**
  * A minimal, dedicated listener that serves nothing but the exposition text.
  *
- * Dedicated PORT, not a route on an existing server, and this is a security
- * boundary rather than a style choice: the api's :4201 is mapped through the
- * Cloudflare tunnel (the public, non-Access-gated `hooks.` host resolves to it),
- * so a `/metrics` route there would put the process's full internal state on
- * the public internet. Nothing creates a Kubernetes Service for this port —
- * Prometheus scrapes the pod IP directly off the pod annotations
- * (`WorkloadSpec.scrape`), so the port is reachable in-cluster only.
+ * Keep internal instrumentation separate from the app's tunneled HTTP port.
+ * Compose does not publish this port, and Cloudflare has no route to it.
+ * The former Prometheus deployment is retired; the listener remains available
+ * for internal diagnostics.
  *
  * `node:http` rather than `Bun.serve` so the same listener works on bun and on
  * node.
@@ -19,13 +16,9 @@ import { metricsHandler } from "./registry";
 
 export type MetricsServerOptions = {
   port: number;
-  /**
-   * Bind address. Defaults to every interface: the scrape arrives from the
-   * Prometheus pod over the cluster network, so a loopback bind would make the
-   * endpoint unreachable.
-   */
+  /** Bind address on the internal container network. */
   host?: string;
-  /** Path the exposition is served on. Must match `WorkloadSpec.scrape.path`. */
+  /** Path the exposition is served on. Defaults to the shared metrics path. */
   path?: string;
   logger?: Logger;
 };

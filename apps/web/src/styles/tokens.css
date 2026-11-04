@@ -1,7 +1,6 @@
-/* ===== Evee , hi-fi dashboard tokens (ported verbatim from design evee.css) ===== */
+/* Control Center colour and radius palette. */
 
-/* The colour/radius palette lives in packages/theme so apps/manage renders in
-   the same black theme without forking the values. MUST stay the first rule in
+/* The palette import MUST stay the first rule in
    this file , CSS @import is only legal before any other rule, and the imported
    :root block must land before the overrides further down (accent profiles,
    typeface profiles) that are meant to win over it. */

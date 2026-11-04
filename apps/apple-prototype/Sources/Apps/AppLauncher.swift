@@ -25,7 +25,7 @@ struct AppLauncher: View {
                         ForEach(apps) { app in
                             Button { open(app) } label: {
                                 VStack(spacing: 14) {
-                                    LauncherIcon(app: app, side: iconSide)
+                                    PanelAppIcon(app: app, side: iconSide)
                                         .matchedTransitionSource(id: app.id, in: namespace)
                                     Text(app.name).font(.system(size: sizeClass == .compact ? 15 : 21, weight: .medium))
                                         .foregroundStyle(.white).lineLimit(1)
@@ -111,7 +111,7 @@ struct PanelSettingsPage: View {
 }
 
 /// Icon artwork is separate from the app registration and navigation shell.
-private struct LauncherIcon: View {
+struct PanelAppIcon: View {
     let app: PanelAppDefinition
     let side: CGFloat
     private var accent: Color { Color(hex: app.accent) }

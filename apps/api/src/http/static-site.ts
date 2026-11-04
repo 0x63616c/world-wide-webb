@@ -13,12 +13,10 @@ const TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
 };
 
-/** Same-origin static sites; missing immutable chunks must never return HTML. */
-export async function serveStaticSite(req: Request, root: string, manageHost: string) {
+/** Same-origin Control Center assets; missing immutable chunks must never return HTML. */
+export async function serveStaticSite(req: Request, root: string) {
   const url = new URL(req.url);
-  const manage = url.hostname === manageHost;
   const headers = new Headers({ "X-Content-Type-Options": "nosniff" });
-  if (manage) headers.set("X-Frame-Options", "DENY");
   const missing = () => new Response("Not Found", { status: 404, headers });
   if (req.method !== "GET" && req.method !== "HEAD") return missing();
   let path: string;
@@ -36,7 +34,7 @@ export async function serveStaticSite(req: Request, root: string, manageHost: st
   if (/^\/(maps|api|trpc|media|metrics)(\/|$)/.test(path)) return missing();
   let siteRoot: string;
   try {
-    siteRoot = await realpath(resolve(root, "apps", manage ? "manage" : "web", "dist"));
+    siteRoot = await realpath(resolve(root, "apps", "web", "dist"));
   } catch {
     return missing();
   }
