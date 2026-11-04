@@ -60,6 +60,9 @@ public struct PhotosAPI: Sendable {
     public func booth() async throws -> BoothPhotoListing {
         try await client.query("boothPhotos.list", as: BoothPhotoListing.self)
     }
+    public func savePhoto(jpeg: Data, capturedAt: Date) async throws {
+        try await client.uploadBoothPhoto(jpeg: jpeg, capturedAt: capturedAt)
+    }
     public func wakes() async throws -> WakePhotoListing {
         try await client.query("wakePhotos.list", as: WakePhotoListing.self)
     }
