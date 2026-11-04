@@ -2,7 +2,9 @@
 
 Status: production cutover completed at approximately 08:32 PST, 2026-11-03.
 Control Center, its PostgreSQL database, HA and the public tunnel now run on
-the mini. Talos is retained pending remaining verification and retirement gates.
+the mini. Production and cleanup verification completed on November 4, including
+the first scheduled NAS backup. Talos remains shut down; its disks and recovery
+archives are retained. The pre-existing 51-photo gap is a separate recovery issue.
 Earlier sections below retain the preparation evidence and historical state.
 
 The first real mini release succeeded in workflow run `41652354784`, deploying
@@ -674,3 +676,23 @@ runs, last exit zero, and two manual `NAS_VERIFIED` sets. Neither manual run
 proves the calendar trigger. Preserve the Talos disks and recovery archives
 while that gate remains open; the 51-photo investigation and uncertain external
 credential consumers remain separately tracked above.
+
+### Scheduled backup passed; cleanup closed — 2026-11-04
+
+The first unattended 04:15 PST backup produced `20261104T121502Z` and completed
+at 04:17:24. Launchd advanced from two manual runs to three total runs, with
+last exit zero and no backup process left running. This follow-up did not
+kickstart or manually rerun the job. All 14 payloads (270,272,630 bytes) and the
+completion manifest passed NAS read-back verification. `COMPLETE.json` matches
+the 14 verification receipts; its SHA-256 is
+`93f89f1b92dd5b44110535cfb4d4bce5d19a4755fb4acf85b1a6d780e01ae982`.
+The local completion marker was written at 04:17. Installed backup/uploader
+source hashes match the repository. See [Mini backups](mini-backups.md).
+
+After the backup, Control Center reported database ok, all nine app cycles
+enabled with zero consecutive failures, and HA returned HTTP 200. App,
+PostgreSQL, Bambuddy and Bambu Studio containers were healthy. The physical
+panel and HA password login were already confirmed by Calum. Together with the
+release/recovery exercises and deployed cleanup above, this closes the Mac mini
+cleanup verification gates. Recovery archives, Talos disks and credentials with
+unproven external consumers remain preserved; the 51-photo gap remains separate.
