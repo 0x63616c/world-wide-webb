@@ -29,6 +29,7 @@ final class AppModel {
     let transcription: TranscriptionController
     let transcriptionNotifications = TranscriptionNotifications()
     let callDetector = CallDetector()
+    let launchAtLogin = LaunchAtLogin()
     var overlayPosition = OverlayPosition.current {
         didSet {
             OverlayPosition.current = overlayPosition
@@ -218,7 +219,8 @@ final class AppModel {
             showSettings(); return
         }
         guard screenshotLibrary != nil, var recording = recordings.first else { return }
-        if Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String == "recording" {
+        if let scene = Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String,
+           ["recording", "menu-recording"].contains(scene) {
             recording.state = .recording
             active = recording; selectedID = recording.id; elapsed = 12 * 60 + 34
             @Sendable func samples() -> [LevelSample] {

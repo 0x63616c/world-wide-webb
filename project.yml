@@ -48,6 +48,8 @@ targets:
       - Tests
       - Sources/Callkeep/TranscriptionModels.swift
       - Sources/Callkeep/TranscriptionController.swift
+      - Sources/Callkeep/LaunchAtLogin.swift
+      - Sources/Callkeep/AppIdentity.swift
     dependencies:
       - target: CallkeepCore
       - package: LocalTranscription

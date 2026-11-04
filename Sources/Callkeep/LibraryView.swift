@@ -102,12 +102,12 @@ struct LibraryView: View {
         }
         .onChange(of: model.isRecording) { _, active in if !active, model.selectedIDs.count == 1 { model.select(model.selectedID) } }
         .onAppear {
-            model.presentLibrary = { openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true) }
+            model.presentLibrary = { NSApp.setActivationPolicy(.regular); openWindow(id: "library"); NSApp.activate(ignoringOtherApps: true) }
             if !model.isRecording, model.selectedIDs.count == 1 { model.select(model.selectedID) }
             #if DEBUG
             if let scene = Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String {
                 columnVisibility = ["player", "settings"].contains(scene) ? .detailOnly : .all
-                model.configureScreenshotScene()
+                if !["menu", "menu-recording"].contains(scene) { model.configureScreenshotScene() }
             }
             #endif
         }

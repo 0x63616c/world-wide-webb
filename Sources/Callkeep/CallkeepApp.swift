@@ -22,6 +22,8 @@ struct CallkeepApp: App {
         }
         .defaultSize(width: 1040, height: 690)
         .windowStyle(.titleBar)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updates.checkForUpdates() }
@@ -45,12 +47,28 @@ struct CallkeepApp: App {
         MenuBarExtra {
             MenuPanel(model: model).onAppear { delegate.model = model }
         } label: {
-            Image(systemName: model.isRecording ? "record.circle.fill" : "waveform.circle")
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(model.isRecording ? Color.red : Color.primary, Color.primary)
-                .accessibilityLabel(model.isRecording ? "Callkeep recording" : "Callkeep")
+            CallkeepMenuBarLabel(model: model, delegate: delegate)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+private struct CallkeepMenuBarLabel: View {
+    let model: AppModel
+    let delegate: AppDelegate
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        Image(systemName: model.isRecording ? "record.circle.fill" : "waveform.circle")
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(model.isRecording ? Color.red : Color.primary, Color.primary)
+            .accessibilityLabel(model.isRecording ? "Callkeep recording" : "Callkeep")
+            .onAppear {
+                delegate.connect(model: model) {
+                    NSApp.setActivationPolicy(.regular)
+                    openWindow(id: "library")
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
     }
 }
 
@@ -58,7 +76,45 @@ struct CallkeepApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     weak var model: AppModel?
     private var sleepObserver: NSObjectProtocol?
+    private var openLibrary: (() -> Void)?
+    private var finishedLaunching = false
+    private var quietLaunch = false
+    private var handledInitialPresentation = false
+    #if DEBUG
+    private var menuPreview: NSWindow?
+    #endif
+    func connect(model: AppModel, openLibrary: @escaping () -> Void) {
+        self.model = model; self.openLibrary = openLibrary
+        model.presentLibrary = openLibrary
+        presentInitialWindowIfReady()
+    }
+    private func presentInitialWindowIfReady() {
+        guard finishedLaunching, !handledInitialPresentation, let openLibrary else { return }
+        handledInitialPresentation = true
+        #if DEBUG
+        if let scene = Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String,
+           ["menu", "menu-recording"].contains(scene), let model {
+            if scene == "menu-recording" { model.configureScreenshotScene() }
+            let preview = NSWindow(contentRect: .zero, styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            preview.title = "Callkeep Menu Preview (Dev)"
+            let content = NSHostingView(rootView: MenuPanel(model: model))
+            preview.contentView = content
+            preview.setContentSize(content.fittingSize)
+            preview.center(); preview.makeKeyAndOrderFront(nil)
+            menuPreview = preview
+            return
+        }
+        #endif
+        if !quietLaunch { openLibrary() }
+    }
     func applicationDidFinishLaunching(_ notification: Notification) {
+        quietLaunch = LaunchAtLogin.shouldLaunchQuietly(NSAppleEventManager.shared().currentAppleEvent)
+        #if DEBUG
+        quietLaunch = quietLaunch || Bundle.main.object(forInfoDictionaryKey: "CallkeepSimulateLoginLaunch") as? Bool == true
+        #endif
+        if quietLaunch { NSApp.setActivationPolicy(.accessory) }
+        finishedLaunching = true
+        presentInitialWindowIfReady()
         AppIdentity.configureDock()
         UNUserNotificationCenter.current().delegate = self
         sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
@@ -83,7 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { model?.presentLibrary?() }
+        if !flag { openLibrary?() }
         return true
     }
 }

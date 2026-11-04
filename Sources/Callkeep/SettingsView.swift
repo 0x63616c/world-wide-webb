@@ -10,6 +10,24 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 Text("Settings").font(.system(size: 24, weight: .semibold))
+                SettingsSection("General") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        SettingsSwitchRow("Launch at login", isOn: Binding(get: { model.launchAtLogin.enabled }, set: { model.launchAtLogin.setEnabled($0) }))
+                            .disabled(!model.launchAtLogin.canManage)
+                            .help(model.launchAtLogin.canManage ? "Start quietly in the menu bar when you log in" : "Available in the installed Callkeep app")
+                        if model.launchAtLogin.status == .requiresApproval {
+                            SettingsDivider()
+                            SettingsRow {
+                                Text("Allow Callkeep in Login Items").font(.callout).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Open Settings…") { model.launchAtLogin.openSettings() }
+                            }
+                        }
+                        if let error = model.launchAtLogin.error {
+                            Text(error).font(.callout).foregroundStyle(.orange).padding([.horizontal, .bottom], 16)
+                        }
+                    }
+                }
                 SettingsSection("Recording") {
                     VStack(spacing: 0) {
                         SettingsRow {
@@ -106,6 +124,7 @@ struct SettingsView: View {
             }.frame(maxWidth: 560).padding(32).frame(maxWidth: .infinity, alignment: .top)
         }
         .task {
+            model.launchAtLogin.refresh()
             while !Task.isCancelled {
                 model.permissions.refresh()
                 await model.transcriptionNotifications.refresh()
@@ -113,6 +132,7 @@ struct SettingsView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.launchAtLogin.refresh()
             model.permissions.refresh()
             Task { await model.transcriptionNotifications.refresh() }
         }

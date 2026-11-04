@@ -3,9 +3,16 @@ import CallkeepCore
 
 struct RecordButton: View {
     @Bindable var model: AppModel
+    var showsShortcut = false
     var body: some View {
         Button { model.toggleRecording() } label: {
-            Label(model.isBusy ? "Preparing…" : model.isRecording ? "Stop recording" : "New recording", systemImage: model.isRecording ? "stop.fill" : "record.circle")
+            HStack(spacing: 12) {
+                Label(model.isBusy ? "Preparing…" : model.isRecording ? "Stop recording" : "New recording", systemImage: model.isRecording ? "stop.fill" : "record.circle")
+                if showsShortcut {
+                    Spacer(minLength: 8)
+                    Text(model.shortcutLabel).font(.caption.monospaced()).opacity(0.8)
+                }
+            }
         }
         .buttonStyle(.borderedProminent).tint(model.isRecording ? .red : .accentColor)
         .disabled(model.isBusy || model.store == nil)

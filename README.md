@@ -49,6 +49,7 @@ Choose and download **Parakeet Ultra** or **Whisper Turbo** in Settings to trans
 Get everyone’s agreement before recording. Callkeep captures audio from all apps, and muting your microphone in a calling app does not mute Callkeep. Headphones avoid recording speaker audio twice.
 
 Closing the window keeps Callkeep running. Open it again from the Dock or menu bar.
+Enable **Settings → General → Launch at login** to start quietly in the menu bar when you sign in to your Mac. Opening Callkeep yourself shows the library; **⌘Q** quits the app and stops call detection.
 
 ## Keyboard shortcuts
 
