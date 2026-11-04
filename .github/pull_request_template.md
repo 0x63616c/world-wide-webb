@@ -1,19 +1,12 @@
-<!-- Tickets is the source of truth: https://tickets.worldwidewebb.co.
-     Use a Conventional Commit title ending in [WWW-12].
-     Start with the linked ticket (CI checks it), or use Refs instead of Closes to link without closing. -->
-Closes [WWW-N](https://tickets.worldwidewebb.co/t/WWW-N)
-
 ## What changed
 
 <!-- One or two lines describing the user-visible or behavioral change. Name
      the key files, components, or systems changed when that makes review
      easier. Do not restate the title or paste a commit list. -->
 
-## Why / linked Ticket
+## Why
 
-<!-- Explain why this change is needed. Track dependencies with Tickets
-     dependency edges. The GitHub webhook links the PR and moves the ticket
-     to In review on opening and Done on merge. -->
+<!-- Explain why this change is needed. -->
 
 ## How it was verified
 

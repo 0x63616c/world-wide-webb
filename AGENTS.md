@@ -3,17 +3,7 @@
 ## Start here
 
 - Read `CODEBASE_OVERVIEW.md` first — it's the map; this file is the rules.
-- [Tickets](https://tickets.worldwidewebb.co) is the sole source of truth for
-  work across all projects; this repo uses the `WWW` prefix. GitHub issues and
-  Projects boards are retired. Track dependencies with Tickets dependency edges.
-- PR titles are Conventional Commits ending with the ticket key, for example
-  `feat(app): add thing [WWW-12]`. Start the body with the linked ticket,
-  `Closes [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)` (or `Refs [WWW-12](https://tickets.worldwidewebb.co/t/WWW-12)` to link without closing); CI checks it. The Tickets GitHub webhook links the
-  PR, moves the ticket to In review on opening, and to Done on merge.
-- On the box, start work with `P=$(job new world-wide-webb WWW-12 [slug]); source "$P/.job.env"`.
-  Source an existing `.job.env` before running checks. Model labels remain
-  `model:astra` (`-m gpt-6-astra -c model_reasoning_effort=xhigh`) and
-  `model:sol` (`-m gpt-6.1-sol`).
+- PR titles use Conventional Commits.
 
 ## Agent skills
 
@@ -161,12 +151,9 @@ archive is retained on the NAS. Do not add health alerts without user direction.
   test, working slice, doc update); never batch. For pipeline runs, pushing
   is the publisher's job.
 - Humans and interactive agents Calum asked directly may still push and
-  open PRs. Use title `type(scope): title [KEY-N]` and start the body with
-  `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`; the pipeline
-  uses this format too. Use this repo's `WWW` ticket prefix.
+  open PRs. Use a Conventional Commit title and describe the change and validation.
 - **Nobody merges a red PR or skips required checks.** `main` has a
-  `pipeline-required-checks` ruleset with no bypass: Ticket key,
-  Conventional Commit title, changes, typecheck, test-unit, build-and-test.
+  `pipeline-required-checks` ruleset with no bypass: Conventional Commit title, changes, typecheck, test-unit, build-and-test.
   Never use `gh pr merge --admin`, the "Merge without waiting for
   requirements to be met" button, or the raw merge API to skip checks.
   The separate code-owner ruleset requires one Code Owner (@0x63616c)
