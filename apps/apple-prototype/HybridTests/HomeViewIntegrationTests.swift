@@ -6,7 +6,7 @@ import PanelKit
 
 @MainActor final class HomeViewIntegrationTests: XCTestCase {
     func testEveryHomeTileMapsToAnExistingProviderAndController() {
-        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases).subtracting([.all, .reminders]))
+        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases).subtracting([.all, .reminders, .cameras]))
         for tile in HomeTile.allCases {
             XCTAssertNotEqual(tile.panelModule, .all, tile.rawValue)
             XCTAssertNotEqual(tile.panelModule, .reminders, tile.rawValue)
@@ -61,6 +61,7 @@ import PanelKit
             mediaAPI: HybridMediaFixture(unavailable: false),
             calendarAPI: CalendarAPI(store: calendar),
             now: { HybridCalendarFixtureStore.now })
+        XCTAssertFalse(HomeTile.panelProviders.contains(.cameras))
         for module in HomeTile.panelProviders { await store.refresh(module) }
         defer { store.stop() }
         XCTAssertEqual(store.climate.mode, .off)

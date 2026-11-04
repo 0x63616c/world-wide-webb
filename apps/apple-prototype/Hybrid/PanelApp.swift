@@ -158,7 +158,7 @@ struct PanelRoot: View {
             .allowsHitTesting(nativeVisible)
             .accessibilityHidden(!nativeVisible)
         }
-        .background(Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255))
+        .background(Color.black)
         .background { PanelWindowAttachment().allowsHitTesting(false) }
         .background { PanelDiagnosticsAccess(store: store).allowsHitTesting(false) }
         .onChange(of: homeVisible || nativeVisible, initial: true) { _, nativeOwnsScreen in

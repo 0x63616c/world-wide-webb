@@ -21,7 +21,7 @@ struct KioskWebView: UIViewRepresentable {
         webView.allowsBackForwardNavigationGestures = false
         webView.allowsLinkPreview = false
         webView.isOpaque = false
-        webView.backgroundColor = UIColor(red: 16 / 255, green: 20 / 255, blue: 25 / 255, alpha: 1)
+        webView.backgroundColor = UIColor.black
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
         session.webView = webView

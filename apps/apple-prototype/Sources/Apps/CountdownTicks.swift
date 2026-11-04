@@ -7,20 +7,29 @@ struct CountdownTicks: View {
     var tickLength: CGFloat? = nil
     var lineWidth: CGFloat = 4
     var cornerRadius: CGFloat? = nil
+    var tickTurningRadius: CGFloat? = nil
+    var alignsCornerTicks = false
+    var smoothProgress = false
     var body: some View {
         Canvas { context, size in
             let perimeter = AlarmPerimeter(size: CGSize(width: size.width - 6, height: size.height - 6), cornerRadius: cornerRadius)
             let tickCount = 120
+            let distances = perimeter.tickDistances(count: tickCount, alignCorners: alignsCornerTicks)
             for tick in 0..<tickCount {
                 let progress = Double(tick) / Double(tickCount)
-                let sample = perimeter.sample(at: perimeter.length * progress)
+                let distance = distances[tick]
+                let sample = perimeter.sample(at: distance)
+                let normal = tickTurningRadius.map { perimeter.tickNormal(at: distance, turningRadius: $0) } ?? sample.normal
                 let outer = CGPoint(x: sample.point.x + 3, y: sample.point.y + 3)
                 let length: CGFloat = tickLength ?? (tick.isMultiple(of: 5) ? 28 : 16)
-                let inner = CGPoint(x: outer.x - sample.normal.dx * length,
-                                    y: outer.y - sample.normal.dy * length)
+                let inner = CGPoint(x: outer.x - normal.dx * length,
+                                    y: outer.y - normal.dy * length)
                 var path = Path(); path.move(to: inner); path.addLine(to: outer)
                 let active = ringing || progress < min(1, max(0, fraction))
-                context.stroke(path, with: .color(Color.orange.opacity(active ? 1 : 0.19)), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                // A fractional final mark fades continuously, independent of duration/tick divisibility.
+                let coverage = ringing ? 1 : min(1, max(0, fraction * Double(tickCount) - Double(tick)))
+                let opacity = smoothProgress ? 0.19 + 0.81 * coverage : (active ? 1 : 0.19)
+                context.stroke(path, with: .color(Color.orange.opacity(opacity)), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             }
         }.accessibilityHidden(true)
     }
@@ -44,6 +53,66 @@ struct AlarmPerimeter {
     struct Sample {
         let point: CGPoint
         let normal: CGVector
+    }
+
+    /// Anchor an exact diagonal mark at every corner. The two neighbors on
+    /// either side keep equal arc-length spacing; only the middle of each
+    /// straight edge absorbs the small horizontal/vertical spacing difference.
+    func tickDistances(count: Int, alignCorners: Bool = false) -> [CGFloat] {
+        guard count > 0 else { return [] }
+        guard alignCorners, count >= 8, count.isMultiple(of: 4) else {
+            return (0..<count).map { length * CGFloat($0) / CGFloat(count) }
+        }
+        let horizontal = size.width - 2 * radius, vertical = size.height - 2 * radius
+        let arc = .pi * radius / 2
+        let across = horizontal + arc, down = vertical + arc
+        let verticalCount = max(2, min(count / 2 - 2, 2 * Int((CGFloat(count) * down / length / 2).rounded())))
+        let horizontalCount = count / 2 - verticalCount
+        let spacing = length / CGFloat(count)
+        let firstCorner = across / 2
+        let segments = [(verticalCount, down), (horizontalCount, across),
+            (verticalCount, down), (horizontalCount, across)]
+        return (0..<count).map { tick in
+            if tick == 0 { return 0 } // Top center is also the countdown's origin.
+            var index = (tick - horizontalCount / 2 + count) % count
+            var start = firstCorner
+            for (intervals, distance) in segments {
+                if index < intervals {
+                    let neighbors = min(2, (intervals - 1) / 2)
+                    let offset: CGFloat
+                    if index <= neighbors { offset = CGFloat(index) * spacing }
+                    else if index >= intervals - neighbors { offset = distance - CGFloat(intervals - index) * spacing }
+                    else {
+                        let margin = CGFloat(neighbors) * spacing
+                        offset = margin + CGFloat(index - neighbors) / CGFloat(intervals - 2 * neighbors) * (distance - 2 * margin)
+                    }
+                    return (start + offset).truncatingRemainder(dividingBy: length)
+                }
+                index -= intervals
+                start += distance
+            }
+            return 0
+        }
+    }
+
+    /// Tick orientation has its own turning window, centered on each physical
+    /// corner. A broad window tilts marks while their anchors are still on a
+    /// straight edge; changing the contour radius does not collapse that fan.
+    func tickNormal(at distance: CGFloat, turningRadius: CGFloat) -> CGVector {
+        let horizontal = size.width - 2 * radius, vertical = size.height - 2 * radius
+        let arc = .pi * radius / 2
+        let halfTurn = max(0.001, min(.pi * turningRadius / 4, (min(horizontal, vertical) + arc) / 2))
+        let firstCorner = horizontal / 2 + arc / 2
+        let corners = [firstCorner, firstCorner + arc + vertical,
+            firstCorner + 2 * arc + vertical + horizontal,
+            firstCorner + 3 * arc + 2 * vertical + horizontal]
+        let position = (distance.truncatingRemainder(dividingBy: length) + length).truncatingRemainder(dividingBy: length)
+        for (index, center) in corners.enumerated() where position <= center + halfTurn {
+            let progress = min(1, max(0, (position - (center - halfTurn)) / (2 * halfTurn)))
+            let angle = CGFloat(index - 1) * .pi / 2 + progress * .pi / 2
+            return CGVector(dx: cos(angle), dy: sin(angle))
+        }
+        return CGVector(dx: 0, dy: -1)
     }
 
     func sample(at distance: CGFloat) -> Sample {

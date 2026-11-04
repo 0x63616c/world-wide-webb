@@ -12,7 +12,7 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
         XCTAssertEqual(banner.frame.width, 380, accuracy: 1)
         XCTAssertEqual(app.frame.maxX - banner.frame.maxX, 20, accuracy: 1)
-        XCTAssertGreaterThanOrEqual(banner.frame.minY, 72)
+        XCTAssertEqual(banner.frame.minY - app.frame.minY, 20, accuracy: 1)
         XCTAssertFalse(app.buttons["notification-dismiss-lights"].exists)
         banner.swipeLeft()
         XCTAssertTrue(banner.exists)

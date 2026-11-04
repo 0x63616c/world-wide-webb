@@ -41,7 +41,7 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
 
     func testGridPageTwoCardsOpenTheirDetails() throws {
         let app = launch(["-face", "controls"])
-        for id in ["cameras", "photos", "sonosRooms", "wifi", "dogwalk", "media"] {
+        for id in ["photos", "sonosRooms", "wifi", "dogwalk", "media"] {
             let card = app.descendants(matching: .any)["tile-\(id)"].firstMatch
             XCTAssertTrue(card.waitForExistence(timeout: 30), app.debugDescription)
             card.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.1)).tap()
@@ -154,7 +154,7 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
         let app = launch(["-openTile", "lamps"])
         XCTAssertTrue(app.buttons["color-effects"].waitForExistence(timeout: 30))
         app.buttons["color-effects"].tap()
-        XCTAssertTrue(app.sliders["White temperature"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["lamp-temperature"].firstMatch.waitForExistence(timeout: 10))
         app.buttons["Mood"].tap()
         app.buttons["Fast"].tap()
         app.buttons["Edit"].tap()

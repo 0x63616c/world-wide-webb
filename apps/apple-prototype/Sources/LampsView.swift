@@ -143,6 +143,7 @@ struct LampEffectsView: View {
     @State private var editingSlot: Int?
     @State private var editingColors = false
     @State private var draftHex = ""
+    @State private var previewKelvin: Int?
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             Picker("Lamp scene", selection: Binding(get: { store.lamps.scene == "White" ? "White" : "Mood" }, set: { store.send(.scene($0)) })) {
@@ -151,8 +152,12 @@ struct LampEffectsView: View {
             }.pickerStyle(.segmented)
             if store.lamps.scene == "White" {
             VStack(spacing: 10) {
-                HStack { SectionLabel(text: "White temperature"); Spacer(); Text("\(store.lamps.kelvin) K").font(.system(size: 22)) }
-                Slider(value: Binding(get: { Double(store.lamps.kelvin) }, set: { store.send(.kelvin(Int($0))) }), in: 2000...6500, step: 100).accessibilityLabel("White temperature")
+                HStack { SectionLabel(text: "White temperature"); Spacer(); Text("\(previewKelvin ?? store.lamps.kelvin) K").font(.system(size: 22)) }
+                FilledLevelControl(value: store.lamps.kelvin, label: "White temperature", symbol: "thermometer.medium",
+                    range: 2000...6500, step: 100, unit: "kelvin",
+                    track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color,
+                    preview: { previewKelvin = $0 }) { store.send(.kelvin($0)) }
+                    .frame(height: 70).accessibilityIdentifier("lamp-temperature")
                 HStack { Text("2000 K"); Spacer(); Text("6500 K") }.font(.system(size: 15)).opacity(0.6)
             }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
             } else {
