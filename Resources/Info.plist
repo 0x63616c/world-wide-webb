@@ -43,7 +43,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUScheduledCheckInterval</key>
-	<integer>10800</integer>
+	<integer>3600</integer>
 	<key>SUAllowsAutomaticUpdates</key>
 	<false/>
 	<key>CallkeepProduction</key>
