@@ -248,6 +248,8 @@ jobs:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
           xcrun simctl boot "$SIMULATOR_ID"
+          # UI automation needs the Simulator accessibility host on Intel runners.
+          open -a "$DEVELOPER_DIR/Applications/Simulator.app" --args -CurrentDeviceUDID "$SIMULATOR_ID"
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
       - name: Run UI group
         working-directory: apps/apple-prototype
