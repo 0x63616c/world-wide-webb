@@ -78,7 +78,7 @@ data/SQLite/studio/Tailscale backups were uploaded to
 SHA-256 verification. The complete manual run `20261103T164110Z` uploaded 13 archives and its
 completion manifest with successful read-back verification. All snapshotted
 services recovered. The 04:15 LaunchAgent is installed and loaded; its first
-calendar-triggered run is still pending. Subsequent runs also record the exact
+calendar-triggered run passed on November 4 (evidence below). Subsequent runs also record the exact
 container image IDs and repository digests in images.json. Failure-path tests cover restarting after a snapshot
 exception, preserving previously stopped service state, and refusing to send
 credentials to a server whose certificate does not match the pin.
@@ -91,3 +91,19 @@ This was a manual launchctl kickstart of the installed job, not its first
 04:15 calendar trigger. An earlier run received session error 119 and retained
 its local snapshots; the bounded session-refresh fix was installed before
 the successful run. All snapshotted services recovered.
+
+The first unattended 04:15 PST run on November 4 produced
+`20261104T121502Z`, completing at 04:17:24. At the scheduled follow-up,
+launchd reported three runs (up from two manual runs), last exit zero and no
+running backup process. No kickstart or manual backup was performed for this
+verification. All 14 payloads (270,272,630 bytes) and `COMPLETE.json` passed
+NAS read-back SHA-256 verification; the manifest and all 14 verification
+receipts agree. The completion manifest SHA-256 is
+`93f89f1b92dd5b44110535cfb4d4bce5d19a4755fb4acf85b1a6d780e01ae982`.
+The local `NAS_VERIFIED` marker was written at 04:17. The installed backup and
+uploader scripts match the committed sources; the marker is written only after
+every payload and the remote completion manifest pass read-back verification.
+The app/database and snapshotted containers recovered; HA returned HTTP 200,
+and all nine app cycles reported zero consecutive failures. The old error 119
+in the append-only error log belongs to the earlier failed manual run, not this
+successful calendar run.
