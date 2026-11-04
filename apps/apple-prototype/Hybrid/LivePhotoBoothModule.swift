@@ -138,7 +138,7 @@ struct LivePhotoBoothModule: View {
                 }.buttonStyle(.plain).disabled(camera.status != .ready || camera.saving || camera.hasUnsavedPhoto)
                     .opacity(camera.status == .ready ? 1 : 0.3)
                     .accessibilityLabel(camera.capturing ? "Cancel capture" : camera.mode == .strip ? "Take photo strip" : "Take photo")
-                    .accessibilityHint(camera.mode == .strip ? "Takes four photos with time to pose between them" : "Uses the selected self-timer")
+                    .accessibilityHint(camera.capturing ? "Stops this capture" : camera.mode == .strip ? "Takes four photos with time to pose between them" : "Uses the selected self-timer")
                     .accessibilityIdentifier("booth-shutter")
                 Spacer()
                 Color.clear.frame(width: 88, height: 64).accessibilityHidden(true)
@@ -161,14 +161,14 @@ struct LivePhotoBoothModule: View {
                 Menu {
                     Picker("Self-timer", selection: Binding(get: { camera.timerSeconds }, set: { camera.timerSeconds = $0 })) {
                         ForEach(PhotoBoothCameraModel.timerOptions, id: \.self) { seconds in
-                            Text(seconds == 0 ? "Off" : "\(seconds) seconds").tag(seconds)
+                            Text(seconds == 0 ? "Off" : "\(seconds) \(seconds == 1 ? "second" : "seconds")").tag(seconds)
                         }
                     }
                 } label: {
                     Label(camera.timerSeconds == 0 ? "Off" : "\(camera.timerSeconds)s", systemImage: "timer")
                         .font(.title3.weight(.medium)).frame(minWidth: 76, minHeight: 48)
                 }.buttonStyle(.glass).buttonBorderShape(.capsule)
-                    .accessibilityLabel("Self-timer, \(camera.timerSeconds == 0 ? "off" : "\(camera.timerSeconds) seconds")")
+                    .accessibilityLabel("Self-timer, \(camera.timerSeconds == 0 ? "off" : "\(camera.timerSeconds) \(camera.timerSeconds == 1 ? "second" : "seconds")")")
                     .accessibilityIdentifier("booth-timer")
             }.disabled(camera.capturing || camera.saving)
         }

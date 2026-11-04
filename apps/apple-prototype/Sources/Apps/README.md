@@ -34,8 +34,9 @@ with a three-second posing countdown between shots. The self-timer offers Off,
 becomes Cancel during capture, and leaving/backgrounding cancels partial strips
 without uploading them. Four completed frames become one white-bordered JPEG
 strip, readable in both native and web galleries. A finished strip stays in the
-preview until the next capture or navigation. A shot saves to the existing booth gallery; the gallery button opens
-earlier booth photos and every frame of burst/strip captures. Wake photos are
+preview until the next capture or navigation. A shot saves to the existing booth
+gallery; the gallery button opens earlier booth photos and every frame of older
+burst/strip captures. Wake photos are
 excluded. Back moves from an enlarged photo to the gallery, then to the camera,
 then Home. The existing booth manifest is private, so each opening requires a
 fresh synced PIN and backgrounding locks the page.

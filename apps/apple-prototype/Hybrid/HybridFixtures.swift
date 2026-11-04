@@ -76,13 +76,13 @@ actor HybridFixtureTransport: PanelTransport {
             return (boothCapture, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
                 headerFields: ["Content-Type": "image/jpeg"])!)
         }
-        if url.lastPathComponent == "boothPhotos.list", boothCapture != nil {
+        if url.lastPathComponent == "boothPhotos.list", let boothCapture {
             let captured = Date().timeIntervalSince1970 * 1000
             let group: [String: Any] = ["groupId": "bpg_simulator", "mode": "photo", "capturedAt": captured,
                 "frames": [["id": "bp_simulator", "path": "simulator-strip.jpg", "frameIdx": 0,
                             "capturedAt": captured, "mimeType": "image/jpeg"]]]
             let data = try JSONSerialization.data(withJSONObject: ["result": ["data": [
-                "groups": [group], "totalCount": 1, "totalBytes": boothCapture!.count]]])
+                "groups": [group], "totalCount": 1, "totalBytes": boothCapture.count]]])
             return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
         if url.path.hasPrefix("/media/"), !url.path.hasPrefix("/media/cameras/") {
