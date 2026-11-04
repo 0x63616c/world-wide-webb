@@ -2,6 +2,7 @@ import AppKit
 import AVFoundation
 import Observation
 import SwiftUI
+import UserNotifications
 import CallkeepCore
 
 @MainActor @Observable
@@ -45,6 +46,7 @@ final class Permissions {
 
 struct RecordingAccessView: View {
     @Bindable var permissions: Permissions
+    let notifications: TranscriptionNotifications
     var recording: Bool
 
     var body: some View {
@@ -53,16 +55,24 @@ struct RecordingAccessView: View {
                 if permissions.requestingMicrophone { ProgressView().controlSize(.small) }
                 else { Button("Enable") { Task { await permissions.enableMicrophone() } } }
             }
-            Divider().padding(.leading, 48)
+            SettingsDivider()
             accessRow("System Audio", symbol: "speaker.wave.2", allowed: permissions.system == .allowed, unknown: permissions.system == .unavailable) {
                 Button(permissions.system == .unavailable ? "Settings…" : "Enable") { permissions.openSettings(for: .systemAudio) }
+            }
+            SettingsDivider()
+            accessRow("Notifications", symbol: "bell", allowed: notifications.allowed, unknown: notifications.authorizationStatus == nil) {
+                if notifications.authorizationStatus == .notDetermined {
+                    Button("Enable") { notifications.requestIfNeeded() }
+                } else {
+                    Button("Settings…") { notifications.openSettings() }
+                }
             }
         }.disabled(recording)
     }
 
     private func accessRow<Action: View>(_ title: String, symbol: String, allowed: Bool, unknown: Bool = false, @ViewBuilder action: () -> Action) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol).font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 24)
+        SettingsRow {
+            SettingsRowIcon(symbol)
             Text(title)
             Spacer()
             HStack(spacing: 6) {
@@ -74,6 +84,6 @@ struct RecordingAccessView: View {
                     .foregroundStyle(allowed ? Color.green : unknown ? Color.secondary : Color.red)
                     .frame(width: 14).accessibilityLabel(allowed ? "Allowed" : unknown ? "Status unavailable" : "Access required")
             }.frame(width: 100, alignment: .trailing)
-        }.frame(minHeight: 54).padding(.horizontal, 16)
+        }
     }
 }

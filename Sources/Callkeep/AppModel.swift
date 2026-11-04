@@ -175,6 +175,7 @@ final class AppModel {
         transcription.didFinish = { [weak self] in self?.configureStorage() }
         transcription.kick()
         callDetector.isRecording = { [weak self] in self?.isRecording ?? false }
+        callDetector.shortcutLabel = { [weak self] in self?.shortcutLabel ?? Shortcut.default.label }
         callDetector.record = { [weak self] in
             guard let self, !self.isRecording, !self.isBusy else { return }
             Task { await self.startRecording() }
@@ -194,7 +195,19 @@ final class AppModel {
         (Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotLibrary") as? String).map { URL(fileURLWithPath: $0, isDirectory: true) }
     }
     func configureScreenshotScene() {
+        if Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String == "meeting" {
+            showSettings()
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(6))
+                callDetector.previewReminder()
+            }
+            return
+        }
         if Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String == "settings" {
+            if let screenshotLibrary, Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotICloud") as? Bool == true {
+                iCloudEnabled = true
+                store?.archiveRoot = screenshotLibrary.appendingPathComponent(".icloud-preview", isDirectory: true)
+            }
             showSettings(); return
         }
         guard screenshotLibrary != nil, var recording = recordings.first else { return }

@@ -13,7 +13,7 @@ public struct Shortcut: Codable, Equatable, Sendable {
     public init(keyCode: UInt32, modifiers: UInt32, key: String) { self.keyCode = keyCode; self.modifiers = modifiers; self.key = key }
     public var label: String {
         if modifiers == Self.hyper { return "HYPR + " + key }
-        return [(Self.control, "⌃"), (Self.option, "⌥"), (Self.shift, "⇧"), (Self.command, "⌘")].filter { modifiers & $0.0 != 0 }.map(\.1).joined() + key
+        return ([(Self.control, "⌃"), (Self.option, "⌥"), (Self.shift, "⇧"), (Self.command, "⌘")].filter { modifiers & $0.0 != 0 }.map(\.1) + [key]).joined(separator: " + ")
     }
     public var isValid: Bool { modifiers & (Self.control | Self.option | Self.command) != 0 && !key.isEmpty }
 }

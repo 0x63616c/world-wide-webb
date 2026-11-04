@@ -23,6 +23,14 @@ struct UpdaterHarness {
             let model = AppModel()
             let delegate = AppUpdater(model: model)
             let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+            let originalAutomaticChecks = delegate.automaticallyChecksForUpdates
+            delegate.automaticallyChecksForUpdates = false
+            try await settle()
+            try require(!controller.updater.automaticallyChecksForUpdates, "The settings switch must disable Sparkle background checks")
+            delegate.automaticallyChecksForUpdates = true
+            try await settle()
+            try require(controller.updater.automaticallyChecksForUpdates, "The settings switch must enable Sparkle background checks")
+            delegate.automaticallyChecksForUpdates = originalAutomaticChecks
             model.isRecording = true
             try await settle()
             var blocked = false

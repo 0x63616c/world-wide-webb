@@ -230,41 +230,37 @@ struct RecordingDetail: View {
     @Binding var renamingID: UUID?
     @State private var waveform = RecordingWaveform()
     var body: some View {
-        GeometryReader { geometry in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            RecordingTitleView(model: model, recording: recording, renamingID: $renamingID)
-                            Text(recording.createdAt, format: .dateTime.month(.wide).day().year().hour().minute())
-                                .font(.callout).foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 8)
-                    }
-                    PlaybackTimelineView(playback: model.playback, waveform: waveform)
-                        .disabled(model.isRecording || recording.duration == 0)
-                    HStack(spacing: 30) {
-                        Spacer()
-                        Button { model.playback.seek(model.playback.currentPosition - 10) } label: {
-                            Image(systemName: "gobackward.10").font(.title2)
-                        }.buttonStyle(.plain).help("Back 10 seconds")
-                        Button { model.playback.toggle() } label: {
-                            Image(systemName: model.playback.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 24, weight: .medium)).frame(width: 64, height: 64)
-                                .background(.quaternary, in: Circle())
-                        }.buttonStyle(.plain).accessibilityLabel(model.playback.isPlaying ? "Pause" : "Play recording")
-                        Button { model.playback.seek(model.playback.currentPosition + 10) } label: {
-                            Image(systemName: "goforward.10").font(.title2)
-                        }.buttonStyle(.plain).help("Forward 10 seconds")
-                        Spacer()
-                    }.disabled(model.isRecording || recording.duration == 0)
-                    Divider()
-                    TranscriptView(model: model, recording: recording)
-                        .frame(height: max(240, geometry.size.height - 460))
-                }.padding(.horizontal, 40).padding(.vertical, 28)
-                    .frame(maxWidth: 850).frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: 24) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 8) {
+                    RecordingTitleView(model: model, recording: recording, renamingID: $renamingID)
+                    Text(recording.createdAt, format: .dateTime.month(.wide).day().year().hour().minute())
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
             }
-        }
+            PlaybackTimelineView(playback: model.playback, waveform: waveform)
+                .disabled(model.isRecording || recording.duration == 0)
+            HStack(spacing: 30) {
+                Spacer()
+                Button { model.playback.seek(model.playback.currentPosition - 10) } label: {
+                    Image(systemName: "gobackward.10").font(.title2)
+                }.buttonStyle(.plain).help("Back 10 seconds")
+                Button { model.playback.toggle() } label: {
+                    Image(systemName: model.playback.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 24, weight: .medium)).frame(width: 64, height: 64)
+                        .background(.quaternary, in: Circle())
+                }.buttonStyle(.plain).accessibilityLabel(model.playback.isPlaying ? "Pause" : "Play recording")
+                Button { model.playback.seek(model.playback.currentPosition + 10) } label: {
+                    Image(systemName: "goforward.10").font(.title2)
+                }.buttonStyle(.plain).help("Forward 10 seconds")
+                Spacer()
+            }.disabled(model.isRecording || recording.duration == 0)
+            Divider()
+            TranscriptView(model: model, recording: recording)
+                .frame(maxHeight: .infinity, alignment: .top)
+        }.padding(.horizontal, 40).padding(.vertical, 28)
+            .frame(maxWidth: 850).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: model.store?.folder(for: recording)) {
             guard let store = model.store else { return }
             let folder = store.folder(for: recording)

@@ -6,9 +6,16 @@ import Sparkle
 @MainActor
 final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     @Published private(set) var canCheckForUpdates = false
+    @Published var automaticallyChecksForUpdates = true {
+        didSet {
+            guard let controller, controller.updater.automaticallyChecksForUpdates != automaticallyChecksForUpdates else { return }
+            controller.updater.automaticallyChecksForUpdates = automaticallyChecksForUpdates
+        }
+    }
     private let model: AppModel
     private var controller: SPUStandardUpdaterController!
     private var observation: AnyCancellable?
+    private var automaticCheckObservation: AnyCancellable?
     private var postponedInstallation: (() -> Void)?
 
     init(model: AppModel) {
@@ -18,6 +25,12 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         observation = controller.updater.publisher(for: \.canCheckForUpdates)
             .receive(on: RunLoop.main)
             .sink { [weak self] in self?.canCheckForUpdates = $0 }
+        automaticallyChecksForUpdates = controller.updater.automaticallyChecksForUpdates
+        automaticCheckObservation = controller.updater.publisher(for: \.automaticallyChecksForUpdates)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] value in
+                if self?.automaticallyChecksForUpdates != value { self?.automaticallyChecksForUpdates = value }
+            }
         observeCaptureState()
         // Local builds stay local unless an explicit updater test opts in.
         if AppIdentity.isProduction || Bundle.main.object(forInfoDictionaryKey: "CallkeepEnableUpdaterInDebug") as? Bool == true {

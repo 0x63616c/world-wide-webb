@@ -6,32 +6,25 @@ struct TranscriptionSettingsView: View {
     let notifications: TranscriptionNotifications
     @State private var showingCredits = false
     @State private var removingModel: TranscriptionModel?
+    @State private var hoveredModelID: String?
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Toggle("Transcribe after recording", isOn: $controller.automatic)
-                Spacer()
-            }.frame(minHeight: 54).padding(.horizontal, 16)
+            SettingsSwitchRow("Transcribe after recording", isOn: $controller.automatic)
                 .disabled(!TranscriptionModel.supported)
-            Divider().padding(.leading, 16)
-            Toggle("Notify when a transcript is ready", isOn: $controller.notifyWhenReady)
+            SettingsDivider()
+            SettingsSwitchRow("Notify when a transcript is ready", isOn: $controller.notifyWhenReady)
                 .onChange(of: controller.notifyWhenReady) { _, value in if value { notifications.requestIfNeeded() } }
-                .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading).padding(.horizontal, 16)
-            if notifications.denied {
-                Text("Allow Callkeep notifications in System Settings to receive transcript alerts.")
-                    .font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
-            }
-            Divider().padding(.leading, 16)
-            HStack {
+            SettingsDivider()
+            SettingsRow {
                 Text("Default model")
                 Spacer()
                 Picker("Default model", selection: $controller.selectedModelID) {
                     ForEach(TranscriptionModel.all) { Text($0.name).tag($0.id) }
                 }.labelsHidden().fixedSize()
-            }.frame(minHeight: 54).padding(.horizontal, 16)
+            }
             ForEach(TranscriptionModel.all) { model in
-                Divider().padding(.leading, 16)
-                HStack(spacing: 12) {
+                SettingsDivider()
+                SettingsRow(minHeight: 60) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(model.name)
                         Text(model.detail).font(.caption).foregroundStyle(.secondary)
@@ -49,16 +42,21 @@ struct TranscriptionSettingsView: View {
                         }
                         Button("Cancel") { controller.models.cancelDownload() }
                     } else if controller.models.installed.contains(model.id) {
-                        Button("Remove") { removingModel = model }
-                            .disabled(controller.runningModelID == model.id)
+                        SettingsHoverAction(title: "Remove \(model.name)", symbol: "trash", hovering: hoveredModelID == model.id) {
+                            removingModel = model
+                        }.disabled(controller.runningModelID == model.id)
                     } else {
                         Button("Download") { controller.models.download(model.id) }
                             .disabled(controller.models.downloading != nil || !TranscriptionModel.supported)
                     }
-                }.frame(minHeight: 60).padding(.horizontal, 16)
+                }.contentShape(Rectangle())
+                    .onHover { hovering in
+                        if hovering { hoveredModelID = model.id }
+                        else if hoveredModelID == model.id { hoveredModelID = nil }
+                    }
             }
             HStack {
-                Text("Processed on this Mac. No audio is sent to a transcription service.").font(.caption).foregroundStyle(.secondary)
+                Text("All audio is processed locally").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Credits") { showingCredits = true }.buttonStyle(.link).font(.caption)
             }.padding(16)
@@ -105,33 +103,35 @@ struct TranscriptView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
                 Text("Transcript").font(.headline)
-                if results.count > 1 {
-                    Picker("Transcript", selection: Binding(get: { selected?.id ?? UUID() }, set: { resultID = $0 })) {
-                        ForEach(results) { result in
-                            Text("\(result.modelName) · \(result.createdAt.formatted(date: .omitted, time: .shortened))").tag(result.id)
-                        }
-                    }.labelsHidden().frame(maxWidth: 290)
-                } else if let selected {
-                    Text(selected.modelName).font(.callout).foregroundStyle(.secondary)
-                }
                 Spacer()
                 if let selected {
-                    Button("Copy") {
+                    Button {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(selected.plainText, forType: .string)
-                    }
+                    } label: { Image(systemName: "doc.on.doc").frame(width: 24, height: 24) }
+                        .buttonStyle(.borderless).foregroundStyle(.secondary)
+                        .help("Copy transcript").accessibilityLabel("Copy transcript")
                 }
                 if results.isEmpty, controller.status(for: recording.id) == nil {
                     Button("Transcribe") { controller.enqueue(recording) }
                         .disabled(model.isRecording || !TranscriptionModel.supported)
                 }
-                Menu("Transcribe with…") {
-                    ForEach(TranscriptionModel.all) { choice in
-                        Button(choice.name + (controller.models.installed.contains(choice.id) ? "" : " (download required)")) {
-                            controller.enqueue(recording, modelID: choice.id)
+                Menu {
+                    if let selected {
+                        Button("Transcribe again") { controller.enqueue(recording, modelID: selected.modelID) }
+                        Divider()
+                    }
+                    Section("Transcribe with") {
+                        ForEach(TranscriptionModel.all) { choice in
+                            Button(choice.name + (controller.models.installed.contains(choice.id) ? "" : " (download required)")) {
+                                controller.enqueue(recording, modelID: choice.id)
+                            }
                         }
                     }
-                }.disabled(model.isRecording || !TranscriptionModel.supported)
+                } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                    .help("Transcript actions").accessibilityLabel("Transcript actions")
+                    .disabled(model.isRecording || !TranscriptionModel.supported)
             }
             if let status = controller.status(for: recording.id) {
                 HStack(alignment: .top) {
@@ -158,21 +158,20 @@ struct TranscriptView: View {
                         let currentID = selected.segments.last { $0.start <= position && position < $0.end }?.id
                         ScrollViewReader { proxy in
                             ScrollView {
-                                LazyVStack(alignment: .leading, spacing: 12) {
+                                LazyVStack(alignment: .leading, spacing: 4) {
                                     ForEach(selected.segments) { segment in
-                                        let active = segment.start <= position && position < segment.end
+                                        let active = segment.id == currentID
                                         Button { model.playback.seek(segment.start) } label: {
-                                            HStack(alignment: .top, spacing: 16) {
-                                                Text(Recording.timeString(segment.start))
-                                                    .font(.caption.monospacedDigit())
-                                                    .foregroundStyle(active ? Color.accentColor : Color.secondary)
-                                                    .frame(width: 48, alignment: .leading).padding(.top, 2)
-                                                VStack(alignment: .leading, spacing: 5) {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                HStack(spacing: 12) {
                                                     Text(segment.source.label).font(.caption.weight(.semibold))
                                                         .foregroundStyle(segment.source == .microphone ? VoiceColor.microphone : VoiceColor.systemAudio)
-                                                    Text(segment.text).frame(maxWidth: .infinity, alignment: .leading)
+                                                    Text(Recording.timeString(segment.start))
+                                                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                                                 }
-                                            }.padding(8)
+                                                Text(segment.text).font(.system(size: 16))
+                                                    .lineSpacing(4).frame(maxWidth: .infinity, alignment: .leading)
+                                            }.padding(.horizontal, 12).padding(.vertical, 14)
                                                 .frame(maxWidth: .infinity, alignment: .leading)
                                                 .background(active ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
                                                 .contentShape(Rectangle())
@@ -190,8 +189,27 @@ struct TranscriptView: View {
                         }
                     }
                 }
-                Text("\(selected.modelName) · \(selected.processingSeconds.formatted(.number.precision(.fractionLength(1))))s processing")
-                    .font(.caption).foregroundStyle(.tertiary)
+                HStack {
+                    if results.count > 1 {
+                        Menu {
+                            ForEach(results) { result in
+                                Button { resultID = result.id } label: {
+                                    if result.id == selected.id {
+                                        Label("\(result.modelName) · \(result.createdAt.formatted(date: .omitted, time: .shortened))", systemImage: "checkmark")
+                                    } else {
+                                        Text("\(result.modelName) · \(result.createdAt.formatted(date: .omitted, time: .shortened))")
+                                    }
+                                }
+                            }
+                        } label: { Text(selected.modelName) }
+                            .menuStyle(.borderlessButton).fixedSize()
+                            .accessibilityLabel("Transcript version")
+                    } else { Text(selected.modelName) }
+                    Spacer()
+                    TimelineView(.animation(minimumInterval: 0.2, paused: !model.playback.isPlaying)) { _ in
+                        Text(Recording.timeString(model.playback.currentPosition)).monospacedDigit()
+                    }
+                }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12)
             } else if controller.status(for: recording.id) == nil {
                 ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Choose a model to transcribe this recording locally."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)

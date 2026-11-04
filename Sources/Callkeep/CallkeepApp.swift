@@ -15,6 +15,7 @@ struct CallkeepApp: App {
     var body: some Scene {
         Window(AppIdentity.title, id: "library") {
             LibraryView(model: model)
+                .environmentObject(updates)
                 .onAppear { delegate.model = model }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.configureStorage() }
                 .frame(minWidth: 790, minHeight: 530)

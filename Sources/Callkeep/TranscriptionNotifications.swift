@@ -4,7 +4,15 @@ import UserNotifications
 
 @MainActor @Observable
 final class TranscriptionNotifications {
-    private(set) var denied = false
+    private(set) var authorizationStatus: UNAuthorizationStatus?
+    var denied: Bool { authorizationStatus == .denied }
+    var allowed: Bool { authorizationStatus == .authorized || authorizationStatus == .provisional }
+    func refresh() async {
+        authorizationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+    func openSettings() {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")!)
+    }
     private var authorization: Task<Bool, Never>?
     private func ensureAuthorized() async -> Bool {
         if let authorization { return await authorization.value }
@@ -19,7 +27,8 @@ final class TranscriptionNotifications {
         }
         authorization = task
         let allowed = await task.value
-        denied = !allowed; authorization = nil
+        await refresh()
+        authorization = nil
         return allowed
     }
     func requestIfNeeded() { Task { _ = await ensureAuthorized() } }

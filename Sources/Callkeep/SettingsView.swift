@@ -3,16 +3,17 @@ import CallkeepCore
 
 struct SettingsView: View {
     @Bindable var model: AppModel
+    @EnvironmentObject private var updates: AppUpdater
     @State private var showingInfo = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 Text("Settings").font(.system(size: 24, weight: .semibold))
-                section("Recording") {
+                SettingsSection("Recording") {
                     VStack(spacing: 0) {
-                        HStack(spacing: 12) {
-                            rowIcon("keyboard")
+                        SettingsRow {
+                            SettingsRowIcon("keyboard")
                             Text("Shortcut").frame(maxWidth: .infinity, alignment: .leading)
                             Button {
                                 model.recordingShortcut = .default; model.updateShortcut()
@@ -23,43 +24,41 @@ struct SettingsView: View {
                                 model.recordingShortcut = $0; model.updateShortcut()
                             }, onCaptureChanged: { model.suspendShortcut($0) })
                                 .frame(width: 126, height: 28)
-                        }.frame(minHeight: 54).padding(.horizontal, 16)
+                        }
                         if let error = model.shortcutError {
                             Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).padding([.horizontal, .bottom], 16)
                         }
-                        Divider().padding(.leading, 48)
-                        HStack(spacing: 12) {
-                            rowIcon("folder")
+
+                    }
+                }
+                SettingsSection("Call reminders") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        SettingsSwitchRow("Remind me to record calls", isOn: Binding(get: { model.callDetector.enabled }, set: { model.callDetector.enabled = $0 }))
+                        if let error = model.callDetector.error {
+                            Text(error).font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
+                        }
+                    }
+                }
+                SettingsSection("Storage") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        SettingsRow {
+                            SettingsRowIcon("folder")
                             Text("Recordings Folder")
                             Spacer()
                             Button("Show in Finder") { if let root = model.recordingsFolder {
                                 do { try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true); NSWorkspace.shared.open(root) }
                                 catch { model.errorMessage = error.localizedDescription }
                             } }
-                        }.frame(minHeight: 54).padding(.horizontal, 16)
-                    }
-                }
-                section("Call reminders") {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Toggle("Remind me to record calls", isOn: Binding(get: { model.callDetector.enabled }, set: { model.callDetector.enabled = $0 }))
-                            .frame(minHeight: 54).padding(.horizontal, 16)
-                        if let error = model.callDetector.error {
-                            Text(error).font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
                         }
-                    }
-                }
-                section("Storage") {
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 12) {
-                            Toggle("Save finished recordings to iCloud Drive", isOn: $model.iCloudEnabled)
-                                .onChange(of: model.iCloudEnabled) { _, _ in model.updateStorage() }
-                                .disabled(model.isRecording || model.isBusy || model.isPreparingStorage)
+                        SettingsDivider()
+                        SettingsRow {
+                            Text("Save finished recordings to iCloud Drive")
                             Spacer()
                             if model.isPreparingStorage { ProgressView().controlSize(.small) }
-                            if model.iCloudEnabled, let folder = model.store?.archiveRoot {
-                                Button("Open iCloud Folder") { NSWorkspace.shared.open(folder) }
-                            }
-                        }.frame(minHeight: 54).padding(.horizontal, 16)
+                            SettingsSwitch("Save finished recordings to iCloud Drive", isOn: $model.iCloudEnabled)
+                                .onChange(of: model.iCloudEnabled) { _, _ in model.updateStorage() }
+                                .disabled(model.isRecording || model.isBusy || model.isPreparingStorage)
+                        }
                         if model.storageNeedsRetry {
                             HStack(alignment: .top, spacing: 12) {
                                 Text(model.storageStatus).font(.callout).foregroundStyle(.secondary)
@@ -70,19 +69,26 @@ struct SettingsView: View {
                         }
                     }
                 }
-                section("Transcription") {
+                SettingsSection("Transcription") {
                     TranscriptionSettingsView(controller: model.transcription, notifications: model.transcriptionNotifications)
                 }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("Permissions").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
                         Spacer()
-                        Menu("Manage…") {
+                        Menu {
                             Button("Microphone…") { model.permissions.openSettings(for: .microphone) }
                             Button("System Audio…") { model.permissions.openSettings(for: .systemAudio) }
-                        }.menuStyle(.borderlessButton).fixedSize().font(.callout).disabled(model.isRecording)
+                            Button("Notifications…") { model.transcriptionNotifications.openSettings() }
+                        } label: {
+                            Image(systemName: "ellipsis").frame(width: 24, height: 20)
+                        }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                            .accessibilityLabel("Permission settings").help("Permission settings").disabled(model.isRecording)
                     }
-                    RecordingAccessView(permissions: model.permissions, recording: model.isRecording).modifier(SettingsSurface())
+                    RecordingAccessView(permissions: model.permissions, notifications: model.transcriptionNotifications, recording: model.isRecording).modifier(SettingsSurface())
+                }
+                SettingsSection("Updates") {
+                    SettingsSwitchRow("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
                 }
                 HStack {
                     Text("Callkeep · Build \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4")")
@@ -94,10 +100,14 @@ struct SettingsView: View {
         .task {
             while !Task.isCancelled {
                 model.permissions.refresh()
+                await model.transcriptionNotifications.refresh()
                 do { try await Task.sleep(for: .seconds(1)) } catch { return }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.permissions.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.permissions.refresh()
+            Task { await model.transcriptionNotifications.refresh() }
+        }
         .sheet(isPresented: $showingInfo) {
             VStack(alignment: .leading, spacing: 18) {
                 Text("About Recording").font(.title2.weight(.semibold))
@@ -107,22 +117,5 @@ struct SettingsView: View {
                 HStack { Spacer(); Button("Done") { showingInfo = false }.keyboardShortcut(.defaultAction) }
             }.padding(26).frame(width: 380)
         }
-    }
-    private func rowIcon(_ name: String) -> some View {
-        Image(systemName: name).font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 24)
-    }
-    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
-            content().modifier(SettingsSurface())
-        }
-    }
-}
-
-private struct SettingsSurface: ViewModifier {
-    func body(content: Content) -> some View {
-        content.frame(maxWidth: .infinity, alignment: .leading)
-            .background(.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
     }
 }

@@ -66,6 +66,7 @@ final class CallDetector {
     private(set) var error: String?
     var isRecording: (() -> Bool)?
     var record: (() -> Void)?
+    var shortcutLabel: (() -> String)?
     private var task: Task<Void, Never>?
     private var filter = CallActivityFilter()
     private var panel: NSPanel?
@@ -93,18 +94,22 @@ final class CallDetector {
             }
         }
     }
+    #if DEBUG
+    func previewReminder() { show(CallingApp.supported[0]) }
+    #endif
     private func hide() { panel?.close(); panel = nil; shownID = nil }
     private func show(_ app: CallingApp) {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 390, height: 86), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let panelWidth: CGFloat = 470
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: 86), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .floating; panel.isFloatingPanel = true; panel.hidesOnDeactivate = false
         panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.contentView = NSHostingView(rootView: CallReminderView(app: app, record: { [weak self] in
+        panel.contentView = NSHostingView(rootView: CallReminderView(app: app, shortcut: shortcutLabel?() ?? Shortcut.default.label, record: { [weak self] in
             self?.hide(); self?.record?()
         }, dismiss: { [weak self] in self?.hide() }))
         let frame = screen.visibleFrame
-        panel.setFrameOrigin(NSPoint(x: frame.midX - 195, y: frame.minY + 20))
+        panel.setFrameOrigin(NSPoint(x: frame.midX - panelWidth / 2, y: frame.minY + 20))
         self.panel = panel; shownID = app.id
         panel.orderFrontRegardless()
     }
@@ -112,6 +117,7 @@ final class CallDetector {
 
 private struct CallReminderView: View {
     let app: CallingApp
+    let shortcut: String
     let record: () -> Void
     let dismiss: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -124,10 +130,11 @@ private struct CallReminderView: View {
                 Text(app.name).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            Text(shortcut).font(.caption).foregroundStyle(.secondary).fixedSize()
             Button("Record", action: record).buttonStyle(.borderedProminent)
             Button(action: dismiss) { Image(systemName: "xmark") }.buttonStyle(.plain).help("Dismiss for this call")
                 .accessibilityLabel("Dismiss for this call")
-        }.padding(18).frame(width: 390, height: 86)
+        }.padding(18).frame(width: 470, height: 86)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
     }
 }

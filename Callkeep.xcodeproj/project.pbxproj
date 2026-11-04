@@ -33,6 +33,7 @@
 		570985D9DAFF36D5D45CC2DD /* AudioPermissionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01C97A35720E705D29EE0F4 /* AudioPermissionState.swift */; };
 		619015452585C56A81BA1CAC /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12EFBF98B0BD24E296D7A95E /* AppUpdater.swift */; };
 		6686D3F41FB361F7D0E393B7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3A32C515A628D5135304C7 /* SettingsView.swift */; };
+		6E36113EA5C0F56C3772DC10 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4B00AFF84190095D2BD4E1 /* SettingsComponents.swift */; };
 		8B52B512B807B42485BEEE8E /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = CA65328F746B97494C3AC9D2 /* Sparkle */; };
 		995B9CC9BD7F2B04386C2C29 /* Recording.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A50A74F9445FE631EFBDC2 /* Recording.swift */; };
 		99DEB66B61C4BE225FE86AFA /* LocalTranscription in Frameworks */ = {isa = PBXBuildFile; productRef = 4CA5C5191084B6A024C044F3 /* LocalTranscription */; };
@@ -133,6 +134,7 @@
 		7B3A32C515A628D5135304C7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		859F926E3B119C20EAC9CDE5 /* StatusToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusToast.swift; sourceTree = "<group>"; };
 		88FB2D20D8249EFBF7D38DA7 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		8B4B00AFF84190095D2BD4E1 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
 		8BDD1DD48B5DCA7347272361 /* CallkeepTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CallkeepTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F5E0F3B748A7F9BAF6CF367 /* RecordingWaveformTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWaveformTests.swift; sourceTree = "<group>"; };
 		9015EF263EFEEFF1A91D9E5F /* SystemAudioAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioAuthorization.swift; sourceTree = "<group>"; };
@@ -224,6 +226,7 @@
 				92D25477D52AAA4AABE6EBE1 /* PermissionCompanion.swift */,
 				22EA22B4247390EC38DACF88 /* Permissions.swift */,
 				F7229F5A66E86168A9CEF3F2 /* Playback.swift */,
+				8B4B00AFF84190095D2BD4E1 /* SettingsComponents.swift */,
 				7B3A32C515A628D5135304C7 /* SettingsView.swift */,
 				72DA2C31F3BB2DE2C94247E1 /* ShortcutRecorder.swift */,
 				859F926E3B119C20EAC9CDE5 /* StatusToast.swift */,
@@ -459,6 +462,7 @@
 				0FAE31E232ECAC6B157A3BB2 /* PermissionCompanion.swift in Sources */,
 				ED36662D11F574E44B72984A /* Permissions.swift in Sources */,
 				1360CD0D7D9C91FC3C8D8C15 /* Playback.swift in Sources */,
+				6E36113EA5C0F56C3772DC10 /* SettingsComponents.swift in Sources */,
 				6686D3F41FB361F7D0E393B7 /* SettingsView.swift in Sources */,
 				F2E67C3006CA24A9DA3427F3 /* ShortcutRecorder.swift in Sources */,
 				4C57B834203FC04CCE349850 /* StatusToast.swift in Sources */,
