@@ -7,6 +7,7 @@ struct CountdownTicks: View {
     var tickLength: CGFloat? = nil
     var lineWidth: CGFloat = 4
     var cornerRadius: CGFloat? = nil
+    var smoothProgress = false
     var body: some View {
         Canvas { context, size in
             let perimeter = AlarmPerimeter(size: CGSize(width: size.width - 6, height: size.height - 6), cornerRadius: cornerRadius)
@@ -20,7 +21,10 @@ struct CountdownTicks: View {
                                     y: outer.y - sample.normal.dy * length)
                 var path = Path(); path.move(to: inner); path.addLine(to: outer)
                 let active = ringing || progress < min(1, max(0, fraction))
-                context.stroke(path, with: .color(Color.orange.opacity(active ? 1 : 0.19)), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                // A fractional final mark fades continuously, independent of duration/tick divisibility.
+                let coverage = ringing ? 1 : min(1, max(0, fraction * Double(tickCount) - Double(tick)))
+                let opacity = smoothProgress ? 0.19 + 0.81 * coverage : (active ? 1 : 0.19)
+                context.stroke(path, with: .color(Color.orange.opacity(opacity)), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             }
         }.accessibilityHidden(true)
     }

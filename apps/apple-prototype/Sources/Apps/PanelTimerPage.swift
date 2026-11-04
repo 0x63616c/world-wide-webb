@@ -25,11 +25,13 @@ struct PanelTimerPage: View {
             let phase = timer.countdown.phase
             GeometryReader { proxy in
                 ZStack {
-                    // Begin turning about three tick spacings before each edge.
-                    // The generous arc gives several progressively tilted marks.
-                    CountdownTicks(fraction: remaining / timer.countdown.duration, ringing: phase == .finished,
-                        tickLength: 22, lineWidth: 7, cornerRadius: 100)
-                        .padding(32)
+                    // Keep the generous corner arc and its progressively tilted marks
+                    // while bringing the entire ring closer to the screen edge.
+                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: phase != .running)) { context in
+                        CountdownTicks(fraction: timer.countdown.remaining(at: context.date) / timer.countdown.duration,
+                            ringing: phase == .finished, tickLength: 22, lineWidth: 7, cornerRadius: 100,
+                            smoothProgress: true)
+                    }.padding(12)
                     VStack(spacing: 24) {
                         Spacer(minLength: 0)
                         Text(phase == .finished ? "Time’s up" : phase == .paused ? "Paused" : "")
