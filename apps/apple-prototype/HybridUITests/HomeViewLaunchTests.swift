@@ -105,7 +105,7 @@ import XCTest
     func testUnavailableAppsStayNativeAndReturnHome() {
         let app = launch(unavailable: true)
         defer { app.terminate() }
-        for id in ["climate", "lights", "music", "weather", "walks", "cameras", "car", "wifi"] {
+        for id in ["climate", "lights", "music", "weather", "walks", "car", "wifi"] {
             app.openAppGrid()
             app.buttons["app-\(id)"].tap()
             let screen = app.descendants(matching: .any)["app-screen-\(id)"].firstMatch

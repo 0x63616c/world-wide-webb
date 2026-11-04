@@ -7,6 +7,7 @@ import Testing
         #expect(Array(apps.prefix(5).map(\.id)) == ["calendar", "weather", "lights", "climate", "walks"])
         #expect(Array(apps.dropFirst(5).prefix(3).map(\.id)) == ["photos", "car", "wifi"])
         #expect(apps.last?.id == "settings")
+        #expect(PanelAppCatalog.standard.app(id: "cameras") == nil)
         #expect(apps.first { $0.id == "booth" }?.route == .photoBooth)
     }
     @Test func everyFeatureHasExactlyOneApp() {

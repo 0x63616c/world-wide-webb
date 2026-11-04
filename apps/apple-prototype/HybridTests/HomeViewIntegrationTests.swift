@@ -61,6 +61,7 @@ import PanelKit
             mediaAPI: HybridMediaFixture(unavailable: false),
             calendarAPI: CalendarAPI(store: calendar),
             now: { HybridCalendarFixtureStore.now })
+        XCTAssertFalse(HomeTile.panelProviders.contains(.cameras))
         for module in HomeTile.panelProviders { await store.refresh(module) }
         defer { store.stop() }
         XCTAssertEqual(store.climate.mode, .off)

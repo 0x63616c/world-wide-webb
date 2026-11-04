@@ -2,7 +2,7 @@ import SwiftUI
 import PanelKit
 
 extension HomeTile {
-    static var panelProviders: Set<PanelModule> { Set(allCases.map(\.panelModule)) }
+    static var panelProviders: Set<PanelModule> { Set(allCases.filter { $0 != .cameras }.map(\.panelModule)) }
     var panelModule: PanelModule {
         switch self {
         case .climate: .climate
