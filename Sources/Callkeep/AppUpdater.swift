@@ -35,6 +35,11 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         // Local builds stay local unless an explicit updater test opts in.
         if AppIdentity.isProduction || Bundle.main.object(forInfoDictionaryKey: "CallkeepEnableUpdaterInDebug") as? Bool == true {
             controller.startUpdater()
+            // Sparkle recommends forcing a launch check only immediately after
+            // startup, leaving subsequent checks to its own scheduler.
+            if controller.updater.automaticallyChecksForUpdates {
+                controller.updater.checkForUpdatesInBackground()
+            }
         }
     }
 

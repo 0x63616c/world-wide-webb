@@ -42,6 +42,8 @@
 	<string>upPaWC9aNZDlGMy/YjcD9ec3XwfVb3UuZPyRKGLlsuY=</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>10800</integer>
 	<key>SUAllowsAutomaticUpdates</key>
 	<false/>
 	<key>CallkeepProduction</key>
