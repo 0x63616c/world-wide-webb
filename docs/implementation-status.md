@@ -54,8 +54,10 @@ Implemented so far:
   SSH, obtains explicit approval, transfers private snapshots, hands the terminal
   to SSH/sudo, cleans staging and verifies the selected SSH route. Eight fixture
   journeys cover failure and interruption paths; real terminal tests cover
-  cancellation and restoration. New Tailscale-route verification, public client
-  packaging and on-target validation remain pending.
+  cancellation and restoration. New Tailscale-route verification and on-target
+  validation remain pending. The existing public Homebrew tap packages only the
+  operator CLI using authenticated private source; no private source or assets
+  are published. Full authenticated Homebrew installation remains untested.
 - Guided first access precedes bootstrap: explicit first-use trust, existing-key
   checks, reviewed public-key installation through native SSH authentication,
   and read-only inspection. The operator can finish here without secrets or
@@ -127,14 +129,14 @@ Not complete / do not deploy:
 This list includes later milestones, not just first-migration blockers. The first
 migration needs validated setup/access, consistent backups and real restore
 rehearsals, service health and explicit deployment ownership. Runner lifecycle,
-automated image promotion, public client distribution and additional management
+automated image promotion, public binary releases and additional management
 screens are deferred. Keep automatic updates disabled until recovery and
 ownership transfer are proven. The intended implementation language for our
 operational code is Rust. Fourteen Python scripts remain from the earlier
 implementation, including backup, update and reconciliation operations; this
 does not yet meet that direction. Replace required operations with tested Rust
 and delete unused helpers in a separate change. The owner explicitly deferred
-that conversion while first-access setup and client packaging are completed.
+that conversion to a separate change.
 
 1. Finish and test updater integration, maintenance/backup locks, self-update
    supervision, real service health probes and end-to-end failure recovery.

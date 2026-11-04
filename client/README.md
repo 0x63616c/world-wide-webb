@@ -13,10 +13,23 @@ The operator command `homelab` provides the menu, read-only SSH inspection and
 an explicitly approved setup wizard. Opening the menu does not connect to a host.
 Restore, runner registration and routine management actions remain unfinished.
 
+Install on your personal Apple-silicon Mac through the existing tap:
+
+```sh
+brew install 0x63616c/tap/homelab
+homelab
+```
+
+The formula builds only the operator CLI from a pinned private-source commit.
+It needs access to this repository through your existing GitHub authentication;
+see the [tap's installation and authentication guide](https://github.com/0x63616c/homebrew-tap#homelab).
+It does not install Nix, activate a host or start a background service. Opening
+the menu does not connect until you choose an operation.
+
 On an existing Nix-equipped Apple-silicon operator machine, run
 `nix run .#homelab` from the reviewed repository. Rust development can use
 `cargo run --manifest-path client/Cargo.toml --bin homelab`.
-A Homebrew formula/release is planned, not published.
+These are alternatives to Homebrew, not additional setup requirements.
 
 To install only the operator CLI on your personal Mac from a reviewed checkout,
 with Rust/Cargo and Apple's Command Line Tools already available, run:
@@ -77,8 +90,8 @@ Both current host definitions are unready, so their current artifacts block
 setup before transferring anything. No deployment is authorized by this PR.
 
 `homelab setup --host NAME` opens the same interactive wizard directly. It needs
-a terminal; it is not an unattended deployment interface. Public client
-packaging remains pending; use a development build for review.
+a terminal; it is not an unattended deployment interface. The public tap contains
+only the formula; the source repository remains private.
 
 The menu uses `~/.config/homelab/inventory.json` (or the file selected with
 `--inventory`), stored mode 0600 in an owner-only directory. This file is separate

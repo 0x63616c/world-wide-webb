@@ -139,8 +139,8 @@ key authentication may require one more local step or an interactive password
 prompt. Enter administrator passwords only in the authentication prompt, never
 in chat or configuration files. Later bootstrap may also prompt for sudo.
 
-No manual Nix, Homebrew or password-manager installation is needed for this
-first-access step. Command Line Tools and the remaining bootstrap prerequisites
+No manual Nix, Homebrew or password-manager installation is needed on the target
+for this first-access step. Command Line Tools and the remaining bootstrap prerequisites
 are handled in the separate readiness stage below. See the
 [guided setup design](docs/management.md#setup-is-a-guided-workflow).
 
@@ -156,7 +156,11 @@ interactive administrator authentication, staging cleanup and reconnect through
 the selected SSH route. Both current host definitions remain unready; the
 wizard refuses their artifacts before transfer. No live setup has been run.
 
-Homebrew distribution and subsequent management actions remain pending. The
+Install the operator CLI on your personal Mac with
+`brew install 0x63616c/tap/homelab`, then open `homelab`. The formula builds from
+private source using your GitHub authentication; follow the
+[client installation guide](client/README.md). Routine management actions beyond
+inspection and setup remain pending. The
 numbered details below describe prerequisites and the manual target-side
 mechanism for review, not commands to memorize for routine setup.
 
