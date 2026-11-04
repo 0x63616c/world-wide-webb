@@ -6,6 +6,12 @@ icon to return to the full-screen clock. Short swipes spring back; vertical
 scrolling and app controls keep their own interactions. Dog Walker is the walking
 app; route IDs remain stable.
 
+App opening reuses the clock-to-launcher reveal: the launcher slides left and
+shrinks slightly while the app slides in from the right, using the same spring.
+Back reverses that motion and preserves the launcher's scroll position. System
+Reduce Motion removes the spatial movement. Debug transition previews apply to
+both handoffs.
+
 Every app has a fixed upper-left Back control returning to the launcher, including
 Settings, protected pages, unavailable states and Classic. App scroll views only
 bounce when their content overflows. A single-finger content scroll never closes
