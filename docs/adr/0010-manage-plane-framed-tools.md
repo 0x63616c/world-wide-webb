@@ -1,5 +1,12 @@
 # Manage: one framed shell for every tool we operate
 
+> **Retired November 3, 2026 ([WWW-74](https://tickets.worldwidewebb.co/t/WWW-74)).**
+> Calum requested removal of Manage, its Cloudflare hostname and the frame-unlock
+> extension. This document records the historical design. The application,
+> extension, build wiring and edge resources are removed; uninstall any locally
+> loaded extension copy. Open retained tools directly at their own URLs.
+
+
 `manage.worldwidewebb.co` is Manage, a two-column web app with a grouped sidebar of the tools we operate on
 the left, the selected tool live in a same-page `<iframe>` on the right. It replaces the bookmark
 folder: Control Center, Home Assistant, Grafana, Cloudflare, Cloudflare Zero Trust, Pulumi,

@@ -1,18 +1,4 @@
-/* ===== The palette. ONE source of truth, shared by every app surface. =====
-
-   Hoisted out of apps/web/src/styles/tokens.css so a second app (apps/manage)
-   can render in the same black theme without forking the values. Forked
-   palettes drift silently: the two surfaces stay "nearly" identical for a
-   while and then read as two unrelated products sharing a screen.
-
-   Consumers:
-     - apps/web/src/styles/tokens.css   (@import at the top of the file)
-     - apps/manage/src/styles/app.css
-
-   What belongs here: colour, radius, and the tints derived from them.
-   What does NOT: typography (--ui / --mono / --w-* / --track-*) lives with the
-   typeface profiles in apps/web tokens.css, since a face is a panel-settings
-   choice, not a palette constant. */
+/* Control Center colour and radius palette. */
 
 :root {
   /* Native controls belong to the same dark palette, including isolated component previews. */

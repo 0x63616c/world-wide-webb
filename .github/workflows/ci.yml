@@ -53,7 +53,6 @@ jobs:
               - 'apps/api/**'
               - 'apps/worker/**'
               - 'apps/web/**'
-              - 'apps/manage/**'
               - 'packages/**'
               - 'features/**'
               - 'app-kit/**'
@@ -134,7 +133,7 @@ jobs:
       - name: Install deps
         run: bun install --frozen-lockfile
       - name: Check committed app codegen
-        # This is the authoritative backstop for committed App and manage-extension
+        # This is the authoritative backstop for committed App
         # codegen: a local hook is bypassable, and deployment requires successful CI.
         run: bun run apps:check
       - name: Typecheck

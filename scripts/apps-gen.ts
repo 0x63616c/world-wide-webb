@@ -23,7 +23,6 @@
 import { writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderManifest, renderRules } from "../apps/manage/src/extension-rules";
 import { collect } from "./apps-gen/collect";
 import {
   renderHttp,
@@ -38,10 +37,6 @@ import { validate } from "./apps-gen/validate";
 // scripts/apps-gen.ts -> repo root is one directory up from scripts/.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const GEN_DIR = join(REPO_ROOT, "features", "_generated");
-// The manage browser extension's allowlist is generated from apps/manage's
-// registry for the same reason the feature aggregates are: a hand-maintained
-// copy of a list that lives somewhere else rots silently (ADR-0010).
-const MANAGE_EXT_DIR = join(REPO_ROOT, "apps", "manage", "extension");
 
 async function main(): Promise<void> {
   const model = await collect();
@@ -52,8 +47,6 @@ async function main(): Promise<void> {
   writeFileSync(join(GEN_DIR, "schema.gen.ts"), renderSchema(model));
   writeFileSync(join(GEN_DIR, "workers.gen.ts"), renderWorkers(model));
   writeFileSync(join(GEN_DIR, "http.gen.ts"), renderHttp(model));
-  writeFileSync(join(MANAGE_EXT_DIR, "rules.gen.json"), renderRules());
-  writeFileSync(join(MANAGE_EXT_DIR, "manifest.json"), renderManifest());
 }
 
 main().catch((e) => {

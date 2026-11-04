@@ -4,6 +4,6 @@ runtime:
   options:
     typescript: false
 description: >
-  world-wide-webb Cloudflare edge state (www-j934.2): adopt-only Access apps +
-  tunnel ingress + DNS, a separate Pulumi project from the k8s foundation.
+  Production Cloudflare tunnel, proxied DNS and Access policies for the Mac mini
+  application and retained LAN appliances.
 main: program.ts

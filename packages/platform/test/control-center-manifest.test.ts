@@ -17,6 +17,6 @@ describe("Control Center platform representation", () => {
 
     // `captive-portal` and `storybook` were deleted by The Simplification
     // (§1 Storybook, §2 guest-wifi).
-    expect(serviceNames).toEqual(["api", "cloudflared", "manage", "web", "worker"]);
+    expect(serviceNames).toEqual(["api", "cloudflared", "web", "worker"]);
   });
 });

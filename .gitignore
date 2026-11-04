@@ -32,7 +32,6 @@ build/
 Thumbs.db
 
 # Chrome unpacked-extension metadata; machine-local artifact.
-apps/manage/extension/_metadata/
 
 # IDE
 .idea/

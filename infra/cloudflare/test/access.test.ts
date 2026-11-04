@@ -18,10 +18,7 @@ describe("desiredAccessApps", () => {
       // The LAN appliance (#292): putting DSM on the tunnel gives it an
       // internet-facing hostname, so its Access app is not optional.
       "dsm.worldwidewebb.co",
-      "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
-      // manage has no login of its own — this app IS its authentication.
-      "manage.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("*.worldwidewebb.co");
     expect(domains).not.toContain("hooks.worldwidewebb.co");
@@ -38,9 +35,7 @@ describe("desiredAccessApps", () => {
       "*.worldwidewebb.co",
       "app.worldwidewebb.co",
       "dsm.worldwidewebb.co",
-      "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
-      "manage.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("app--cc.worldwidewebb.co");
     expect(domains).not.toContain("drizzle.worldwidewebb.co");
@@ -62,26 +57,17 @@ describe("desiredAccessApps", () => {
     expect(apps.map((a) => a.domain)).toEqual(["app.worldwidewebb.co"]);
   });
 
-  test("grafana is human-login only — NEVER reachable with the kiosk token", () => {
-    // #209: the panel never calls Grafana, and Grafana can edit datasources and
-    // dashboards, so the on-device kiosk token must not open this door either.
-    const grafana = desiredAccessApps(ZONE, true).find(
-      (entry) => entry.domain === "grafana.worldwidewebb.co",
-    );
-
-    expect(grafana?.policies).toEqual([
-      {
-        decision: "allow",
-        include: { configKey: "allowedEmail", kind: "email-config" },
-        name: "email-otp",
-        precedence: 1,
-      },
-    ]);
+  test("retired hosts have no Access app with or without the optional floor", () => {
+    for (const gate of [false, true]) {
+      const domains = desiredAccessApps(ZONE, gate).map((app) => app.domain);
+      expect(domains).not.toContain("grafana.worldwidewebb.co");
+      expect(domains).not.toContain("manage.worldwidewebb.co");
+    }
   });
 
   test("ha is human-login only — NEVER reachable with the kiosk token", () => {
     // #75/#237: full HA admin surface, no kiosk business reaching it over this
-    // route, same reasoning as Grafana above.
+    // route, independent of the panel kiosk.
     const ha = desiredAccessApps(ZONE, true).find(
       (entry) => entry.domain === "ha.worldwidewebb.co",
     );

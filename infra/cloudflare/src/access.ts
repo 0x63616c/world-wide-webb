@@ -13,7 +13,7 @@ import { controlCenterProductManifest, type ProductServiceDeclaration } from "@w
 // kioskTokenId: the CF service token *id* (UUID) for the kiosk token — NOT
 // the client_id (.access suffix). Access policies reference token_id; the
 // client_id is only sent in CF-Access-Client-Id headers by the iOS kiosk app.
-type AccessConfigKey = "allowedEmail" | "ciClientId" | "kioskTokenId";
+type AccessConfigKey = "allowedEmail" | "kioskTokenId";
 
 export type AccessInclude =
   | Readonly<{ kind: "email-config"; configKey: "allowedEmail" }>
@@ -92,8 +92,8 @@ function emailOtpPolicy(): DesiredAccessPolicy {
 }
 
 function serviceTokenPolicy(
-  name: "ci-service-token" | "kiosk-service-token",
-  configKey: "ciClientId" | "kioskTokenId",
+  name: "kiosk-service-token",
+  configKey: "kioskTokenId",
 ): DesiredAccessPolicy {
   return {
     name,
@@ -162,18 +162,8 @@ export function desiredAccessApps(zone: string, includeGate = false): DesiredAcc
     // human login) plus an email-OTP fallback for browser access (CC-d15).
     ...accessAppsForPrivateWeb([
       { exposure: ccManifest.app.exposure, policies: ["kiosk-service-token", "email-otp"] },
-      // Grafana: email-OTP ONLY. The
-      // panel never calls Grafana, so it gets no kiosk service token, and the
-      // UI can edit datasources and dashboards — a human login only.
-      { exposure: ccManifest.grafana.exposure, policies: ["email-otp"] },
-      // Home Assistant (#75/#237): email-OTP ONLY, same reasoning as Grafana —
-      // full admin surface, no kiosk business reaching it over this route.
       { exposure: ccManifest.ha.exposure, policies: ["email-otp"] },
-      // manage (#292/ADR-0010): email-OTP ONLY. manage has no login of its own
-      // and no session store — this app IS its authentication, so it is not
-      // optional and it never gets a service token.
-      { exposure: ccManifest.services.manage.exposure, policies: ["email-otp"] },
-      // The LAN appliance manage frames. Synology DSM was previously reachable
+      // The retained LAN appliance. Synology DSM was previously reachable
       // only on the LAN; putting it on the tunnel gives it an internet-facing
       // hostname, so the Access app is what keeps that from meaning an
       // internet-facing DSM login. email-OTP only, never a token.
