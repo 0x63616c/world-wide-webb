@@ -12,23 +12,29 @@ import UIKit
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "--screenshots", "--\(appearance)"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["A world of memories."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Total distance"].waitForExistence(timeout: 15))
         capture("\(appearance)-overview")
+        let motion = app.buttons["globeMotion"]
+        XCTAssertTrue(motion.exists)
+        motion.tap()
+        XCTAssertEqual(motion.label, "Rotate globe")
+        motion.tap()
+        XCTAssertEqual(motion.label, "Pause globe")
         app.buttons["viewAllFlights"].tap()
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap()
         search.typeText("HND")
-        XCTAssertTrue(app.staticTexts["2 FLIGHTS"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["2 flights"].waitForExistence(timeout: 5))
         capture("\(appearance)-search")
         let firstFlight = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'flight-'")).firstMatch
         if firstFlight.exists { firstFlight.tap() }
         else { app.cells.containing(NSPredicate(format: "label CONTAINS 'HND'")).firstMatch.tap() }
-        XCTAssertTrue(app.staticTexts["Flight memory"].exists || app.staticTexts["FLIGHT MEMORY"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["United"].waitForExistence(timeout: 5))
         capture("\(appearance)-flight")
         let passport = app.buttons["Passport"]
         if passport.exists { passport.tap() } else { app.tabBars.buttons["Passport"].tap() }
-        XCTAssertTrue(app.staticTexts["Your passport."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Passport"].waitForExistence(timeout: 5))
         capture("\(appearance)-passport")
     }
     private func capture(_ name: String) {

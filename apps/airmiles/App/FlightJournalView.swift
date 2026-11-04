@@ -5,16 +5,19 @@ struct FlightRow: View {
     @Environment(FlightStore.self) private var store
     var flight: Flight
     var selected = false
+    @ScaledMetric(relativeTo: .title2) private var codeSize = 25
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(flight.displayDate).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                AirlineLogo(airline: flight.airline)
+                Text(flight.number == "?" ? flight.airline : flight.number)
+                    .font(.caption.weight(.medium)).lineLimit(1).foregroundStyle(.secondary)
                 Spacer()
-                Text(flight.number == "?" ? flight.airline : flight.number).font(.system(size: 10, weight: .medium, design: .monospaced)).lineLimit(1).foregroundStyle(.secondary)
+                Text(flight.displayDate).font(.caption).foregroundStyle(.secondary)
             }
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(flight.origin).font(.system(size: 25, weight: .semibold, design: .rounded))
+                    Text(flight.origin).font(.system(size: codeSize, weight: .semibold))
                     Text(store.city(flight.origin)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 6) {
@@ -23,7 +26,7 @@ struct FlightRow: View {
                     Rectangle().fill(.secondary.opacity(0.3)).frame(width: 16, height: 0.5)
                 }
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text(flight.destination).font(.system(size: 25, weight: .semibold, design: .rounded))
+                    Text(flight.destination).font(.system(size: codeSize, weight: .semibold))
                     Text(store.city(flight.destination)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }.frame(maxWidth: .infinity, alignment: .trailing)
                 Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
@@ -51,14 +54,17 @@ struct FlightJournalView: View {
                     } label: { Label(store.selectedYear ?? "All years", systemImage: "calendar").font(.subheadline.weight(.medium)) }
                         .accessibilityIdentifier("yearFilter")
                     Spacer()
-                    Button { store.reviewOnly.toggle() } label: {
-                        Image(systemName: store.reviewOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                    }.accessibilityLabel("Needs review").accessibilityValue(store.reviewOnly ? "On" : "Off")
+                    Menu {
+                        Toggle("Needs review", isOn: $store.reviewOnly)
+                    } label: {
+                        Label(store.reviewOnly ? "Needs review" : "Filter", systemImage: "line.3.horizontal.decrease")
+                            .font(.subheadline)
+                    }.accessibilityLabel("Filter flights")
                 }.padding(.horizontal, 20).padding(.vertical, 12)
                 HStack {
                     Eyebrow("\(store.filtered.count) flights")
                     Spacer()
-                    Text("\(store.filtered.reduce(0) { $0 + $1.miles }.formatted()) mi").font(.caption.monospaced()).foregroundStyle(.secondary)
+                    Text("\(store.filtered.reduce(0) { $0 + $1.miles }.formatted()) mi").font(.caption).foregroundStyle(.secondary)
                 }.padding(.horizontal, 20).padding(.bottom, 12)
                 if store.filtered.isEmpty {
                     ContentUnavailableView.search(text: store.query)
@@ -94,8 +100,7 @@ struct FlightJournalView: View {
             } else {
                 VStack(spacing: 24) {
                     RouteAtlas(flights: store.filtered, airports: store.airports).frame(height: 290).clipShape(RoundedRectangle(cornerRadius: 26))
-                    Text("Every flight, remembered.").font(.title2.bold())
-                    Text("Choose a flight to explore its story.").foregroundStyle(.secondary)
+                    Text("Select a flight").font(.headline).foregroundStyle(.secondary)
                 }.padding(28).frame(maxWidth: .infinity, maxHeight: .infinity).background(AMStyle.paper)
             }
         }
@@ -108,19 +113,21 @@ struct FlightJournalView: View {
 }
 
 struct FlightDetailView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var codeSize = 36
     @Environment(FlightStore.self) private var store
     var flight: Flight
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                RouteAtlas(flights: [flight], airports: store.airports, emphasized: flight)
-                    .frame(height: 240).clipShape(RoundedRectangle(cornerRadius: 24))
-                VStack(alignment: .leading, spacing: 24) {
-                    HStack {
-                        Eyebrow("Flight memory")
+                RouteAtlas(flights: [flight], airports: store.airports, emphasized: flight, spinning: false)
+                    .frame(height: 190).clipShape(RoundedRectangle(cornerRadius: 24))
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(spacing: 10) {
+                        AirlineLogo(airline: flight.airline, size: 30)
+                        Text(flight.airline).font(.subheadline.weight(.medium))
                         Spacer()
-                        Image(systemName: "airplane").foregroundStyle(.secondary)
-                    }
+                        Text(flight.flightNumber).font(.subheadline).foregroundStyle(.secondary)
+                    }.accessibilityIdentifier("flightIdentity")
                     HStack(alignment: .top) {
                         airport(flight.origin, alignment: .leading)
                         Spacer()
@@ -134,24 +141,23 @@ struct FlightDetailView: View {
                         Spacer()
                         info("Distance", value: "\(flight.miles.formatted()) mi")
                     }
-                    HStack(alignment: .top) {
-                        info("Airline", value: flight.airline)
-                        Spacer(minLength: 24)
-                        info("Flight", value: flight.flightNumber)
-                    }
                 }.padding(24).panel()
-                VStack(alignment: .leading, spacing: 10) {
-                    Label(flight.confidence.label, systemImage: flight.confidence == .high ? "checkmark.seal" : "questionmark.circle").font(.subheadline.weight(.semibold))
-                    Text(flight.confidence == .high ? "Imported from your flight history. Flight times, seats and aircraft weren’t recorded." : "This record contains uncertain details in the original import. The airline and flight number are shown as recorded.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Text("Distance is a great-circle estimate, not the actual flown track.").font(.caption).foregroundStyle(.tertiary)
-                }.padding(22).panel()
+                VStack(alignment: .leading, spacing: 8) {
+                    if flight.confidence != .high {
+                        Label(flight.confidence.label, systemImage: "questionmark.circle")
+                            .font(.subheadline.weight(.medium))
+                        Text("Airline and flight number are shown as imported.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    Text("Distance is a great-circle estimate.").font(.caption).foregroundStyle(.secondary)
+                }.padding(.horizontal, 4)
+
             }.padding(20).frame(maxWidth: 740).frame(maxWidth: .infinity)
         }.background(AMStyle.paper).navigationTitle(flight.route).navigationBarTitleDisplayMode(.inline)
     }
     private func airport(_ code: String, alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 6) {
-            Text(code).font(.system(size: 39, weight: .semibold, design: .rounded)).tracking(-1)
+            Text(code).font(.system(size: codeSize, weight: .semibold)).tracking(-1)
             Text(store.city(code)).font(.subheadline).foregroundStyle(.secondary)
             Text(store.airports[code]?.countryName ?? "Unknown airport").font(.caption).foregroundStyle(.tertiary)
         }

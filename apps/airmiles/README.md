@@ -6,6 +6,8 @@ All flight data, geography and airport lookups stay offline. Uncertain records a
 
 Appearance follows the system. Dark mode uses true #000000 backgrounds, cards, and map oceans, with graphite land and thin separators. `--dark` and `--light` provide deterministic appearance for fixture screenshots.
 
+The offline 3D globe turns once every three minutes. Drag to explore or use the pause control. Automatic motion stops with Reduce Motion, when the view disappears, or when the app becomes inactive. Flight details keep their route centered and stationary. `--screenshots` freezes motion for reproducible captures. Typography uses Apple's default system San Francisco, with no rounded or custom font.
+
 ## Run
 
 Requires Xcode 26.2+; Xcode 27.1+ enables real hinge observation. Generate from this folder with `xcodegen generate`, then build `AirMiles.xcodeproj`, scheme `AirMiles`, for an iPhone simulator with `CODE_SIGNING_ALLOWED=NO`. The app supports compact, expanded split-view, and partially folded tabletop layouts. The current sidebar selection and filters stay in memory while resizing.
@@ -36,3 +38,4 @@ Terminate the app before importing with the script. A previous simulator CSV is 
 - `App/Resources/airports.json`: IATA-coded non-closed airports from [OurAirports](https://ourairports.com/data/), retrieved 2026-11-04. Public domain; no guarantee of accuracy.
 - `App/Resources/land.json`: exterior polygons, rounded to three decimal degrees, from [Natural Earth 1:110m land](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_land.geojson). Public domain.
 - Visual reference: [Flighty on Duo-ready](https://duo-ready.com/apps/flighty). No Flighty artwork or branding is used.
+- Airline marks: [Kiwi.com airline directory](https://www.kiwi.com/en/travel/all-airlines/), downloaded from `https://images.kiwi.com/airlines/64/{IATA}.png` on 2026-11-04 and displayed in grayscale. These are airline trademarks, not public-domain map data. They are matched to exact recorded airline names; ambiguous carriers use a neutral symbol. Fixture journeys are synthetic even where they use a real airline's mark.

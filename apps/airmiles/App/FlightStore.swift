@@ -62,10 +62,10 @@ import Observation
     // Deliberately synthetic. Never substitute personal flight history in this fixture.
     static let demoCSV = """
     date,airline,flight,from,to,miles,confidence
-    2026-10-18,Example Air,EX204,JFK,LHR,3451,H
-    2026-10-11,Example Air,EX203,LHR,JFK,3451,H
-    2026-08-21,Pacific Air,PA16,HND,SFO,5130,H
-    2026-08-10,Pacific Air,PA15,SFO,HND,5130,H
+    2026-10-18,Delta,DL204,JFK,LHR,3451,H
+    2026-10-11,Delta,DL203,LHR,JFK,3451,H
+    2026-08-21,United,UA16,HND,SFO,5130,H
+    2026-08-10,United,UA15,SFO,HND,5130,H
     2026-04-06,Example Air,?,CDG,LHR,216,M
     2026-04-03,Example Air,EX90,LHR,CDG,216,H
     2025-12-12,Coast Air,CA22,SFO,JFK,2586,H

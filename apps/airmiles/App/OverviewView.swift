@@ -3,55 +3,52 @@ import SwiftUI
 
 struct OverviewView: View {
     @Environment(FlightStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var detail: Flight?
     @State private var tabletop = false
+    @State private var spinning = true
+    @ScaledMetric(relativeTo: .largeTitle) private var distanceSize = 44
     var showFlights: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
             if tabletop && geometry.size.width > 550 {
                 VStack(spacing: 0) {
-                    atlasHero(compact: true).frame(height: geometry.size.height * 0.47)
+                    globe.frame(height: geometry.size.height * 0.47)
                     ScrollView {
-                        HStack(alignment: .top, spacing: 20) {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Eyebrow("Your flight board")
-                                Text("A lifetime of takeoffs.").font(.title2.bold())
-                                metricStrip
-                            }.frame(maxWidth: .infinity)
+                        HStack(alignment: .top, spacing: 32) {
+                            VStack(alignment: .leading, spacing: 24) { distance; metricStrip }
+                                .frame(maxWidth: .infinity)
                             recentFlights(limit: 2).frame(maxWidth: .infinity)
                         }.padding(24)
-                    }.background(AMStyle.paper)
+                    }
                 }
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        HStack(alignment: .bottom) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Eyebrow(store.isDemo ? "Sample journal" : "Your flight journal")
-                                Text("A world of memories.").font(.system(size: 31, weight: .bold, design: .rounded)).tracking(-1)
-                            }
-                            Spacer(minLength: 4)
-                            Text(yearRange).font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
-                        }
-                        atlasHero(compact: geometry.size.width < 500)
-                            .frame(height: geometry.size.width < 500 ? 310 : 340)
-                            .clipShape(RoundedRectangle(cornerRadius: 26))
-                        metricStrip
+                        if store.isDemo { Text("Sample flights").font(.caption).foregroundStyle(.secondary) }
                         if geometry.size.width > 700 {
-                            HStack(alignment: .top, spacing: 20) {
+                            HStack(alignment: .top, spacing: 40) {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    distance
+                                    globe.frame(height: 280)
+                                    metricStrip
+                                }.frame(maxWidth: .infinity)
                                 recentFlights(limit: 3).frame(maxWidth: .infinity)
-                                milestone.frame(maxWidth: .infinity)
                             }
                         } else {
+                            distance
+                            globe.frame(height: 260)
+                            metricStrip
                             recentFlights(limit: 3)
-                            milestone
                         }
-                        Text("Every route has a story.").font(.footnote).foregroundStyle(.tertiary).frame(maxWidth: .infinity).padding(.vertical, 6)
-                    }.padding(geometry.size.width > 600 ? 28 : 20).frame(maxWidth: 1150).frame(maxWidth: .infinity)
-                }.background(AMStyle.paper)
+                    }.padding(.horizontal, geometry.size.width > 600 ? 28 : 20)
+                        .padding(.top, 12).padding(.bottom, 24)
+                        .frame(maxWidth: 1100).frame(maxWidth: .infinity)
+                }
             }
         }
+        .background(AMStyle.paper)
         .navigationBarTitleDisplayMode(.inline)
         .modifier(HingeObserver(tabletop: $tabletop))
         .sheet(item: $detail) { flight in
@@ -59,51 +56,49 @@ struct OverviewView: View {
         }
     }
 
-    private var yearRange: String {
-        guard let first = store.stats.years.last, let last = store.stats.years.first else { return "" }
-        return first == last ? first : "\(first) — \(last)"
+    private var distance: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Total distance").font(.subheadline).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(store.stats.miles.formatted()).font(.system(size: distanceSize, weight: .medium)).tracking(-1.5).minimumScaleFactor(0.7)
+                Text("mi").font(.title3).foregroundStyle(.secondary)
+            }.accessibilityElement(children: .combine).accessibilityIdentifier("totalMiles")
+        }
     }
 
-    private func atlasHero(compact: Bool) -> some View {
-        ZStack(alignment: .topLeading) {
-            RouteAtlas(flights: store.flights, airports: store.airports)
-                .padding(.top, compact ? 76 : 55)
-                .padding(.bottom, 26)
-            LinearGradient(colors: [.black.opacity(0.6), .clear, .black.opacity(0.35)], startPoint: .top, endPoint: .bottom)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("THE WORLD, BY YOU").font(.system(size: 10, weight: .medium, design: .monospaced)).tracking(2.5).foregroundStyle(.white.opacity(0.55))
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(store.stats.miles.formatted()).font(.system(size: compact ? 42 : 50, weight: .light, design: .rounded)).tracking(-2)
-                    Text("miles").font(.subheadline).foregroundStyle(.white.opacity(0.6))
-                }.accessibilityElement(children: .combine).accessibilityIdentifier("totalMiles")
-                Spacer()
-                HStack {
-                    HStack(spacing: 6) { Circle().fill(.white).frame(width: 4, height: 4); Text("\(store.stats.routes) routes across \(store.stats.countryCodes.count) countries") }
-                    Spacer()
-                    Image(systemName: "location.north.circle").font(.title3.weight(.ultraLight))
-                }.font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(.white.opacity(0.65))
-            }.foregroundStyle(.white).padding(24)
-        }.background(AMStyle.map)
-            .overlay { RoundedRectangle(cornerRadius: 26).strokeBorder(.white.opacity(0.10), lineWidth: 0.5) }
+    private var globe: some View {
+        RouteAtlas(flights: store.flights, airports: store.airports, spinning: spinning)
+            .overlay(alignment: .bottomTrailing) {
+                if !reduceMotion {
+                    Button { spinning.toggle() } label: {
+                        Image(systemName: spinning ? "pause" : "play")
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(width: 44, height: 44)
+                            .background(.thinMaterial, in: Circle())
+                    }.buttonStyle(.plain)
+                        .accessibilityLabel(spinning ? "Pause globe" : "Rotate globe")
+                        .accessibilityIdentifier("globeMotion")
+                }
+            }
     }
 
     private var metricStrip: some View {
         HStack(spacing: 0) {
-            Metric(value: "\(store.flights.count)", label: "Flights", symbol: "airplane")
-            Divider().frame(height: 36)
-            Metric(value: "\(store.stats.airportCodes.count)", label: "Airports", symbol: "mappin.and.ellipse")
-            Divider().frame(height: 36)
-            Metric(value: "\(store.stats.countryCodes.count)", label: "Countries", symbol: "globe.europe.africa")
-        }.padding(.vertical, 18).panel()
+            Metric(value: "\(store.flights.count)", label: "Flights")
+            Divider().frame(height: 28)
+            Metric(value: "\(store.stats.airportCodes.count)", label: "Airports")
+            Divider().frame(height: 28)
+            Metric(value: "\(store.stats.countryCodes.count)", label: "Countries")
+        }.padding(.vertical, 16)
     }
 
     private func recentFlights(limit: Int) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Recent flights").font(.title3.bold())
+                Text("Recent flights").font(.title3.weight(.semibold))
                 Spacer()
-                Button { showFlights() } label: { HStack(spacing: 4) { Text("View all"); Image(systemName: "arrow.up.right") } }.font(.caption.weight(.semibold)).accessibilityIdentifier("viewAllFlights")
-            }
+                Button("See all") { showFlights() }.font(.subheadline).accessibilityIdentifier("viewAllFlights")
+            }.padding(.top, 4)
             VStack(spacing: 0) {
                 ForEach(Array(store.flights.prefix(limit))) { flight in
                     Button { detail = flight } label: { FlightRow(flight: flight) }.buttonStyle(.plain)
@@ -112,31 +107,15 @@ struct OverviewView: View {
             }.panel()
         }
     }
-
-    private var milestone: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("A little perspective").font(.title3.bold())
-            HStack(alignment: .center, spacing: 18) {
-                Image(systemName: "globe.americas").font(.system(size: 44, weight: .ultraLight)).foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("\(store.stats.earthLaps.formatted(.number.precision(.fractionLength(1)))) times around Earth")
-                        .font(.title3.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                    Text("And a few stories along the way.").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-            }.padding(22).frame(maxWidth: .infinity, alignment: .leading).panel()
-        }
-    }
 }
 
 struct Metric: View {
     var value: String
     var label: String
-    var symbol: String
     var body: some View {
-        VStack(spacing: 7) {
-            Text(value).font(.system(size: 28, weight: .semibold, design: .rounded))
-            Label(label, systemImage: symbol).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+        VStack(spacing: 5) {
+            Text(value).font(.title2.weight(.semibold))
+            Text(label).font(.caption).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity).accessibilityElement(children: .combine)
     }
 }

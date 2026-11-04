@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		04C5202143FAD61FD5A46E5D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 378AF4709F0B9DC8AE52B3A5 /* PrivacyInfo.xcprivacy */; };
+		0FA7ABA625DE3880AEABE4E1 /* AirlineLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B298545726A9F60F32CB3F /* AirlineLogo.swift */; };
 		15AC0CFDB8D47C3D031AED79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B542936C6999399849EB9BFD /* Assets.xcassets */; };
 		2F8B5AE0845C702B8097BAC2 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C9076455A173F9EE808A72 /* OverviewView.swift */; };
 		4007911BA38A650E95F24006 /* FlightJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846487E25C68EE34B5767A30 /* FlightJournalView.swift */; };
@@ -45,6 +46,7 @@
 		BB8A6402A8C88F4B64495DC3 /* FlightStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightStore.swift; sourceTree = "<group>"; };
 		D4B21E6BDD8E3453C6F80AC8 /* land.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = land.json; sourceTree = "<group>"; };
 		D6711F1035752A9C2EB84058 /* airmiles */ = {isa = PBXFileReference; lastKnownFileType = folder; name = airmiles; path = .; sourceTree = SOURCE_ROOT; };
+		E1B298545726A9F60F32CB3F /* AirlineLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirlineLogo.swift; sourceTree = "<group>"; };
 		E1F300EB9E7713E531C8E3F1 /* AirMilesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirMilesApp.swift; sourceTree = "<group>"; };
 		E52ED9A73DC83C0F42394B68 /* AirMiles.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AirMiles.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F1C9076455A173F9EE808A72 /* OverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewView.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 		A1BB02C99BD289CB579AE365 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				E1B298545726A9F60F32CB3F /* AirlineLogo.swift */,
 				E1F300EB9E7713E531C8E3F1 /* AirMilesApp.swift */,
 				B542936C6999399849EB9BFD /* Assets.xcassets */,
 				846487E25C68EE34B5767A30 /* FlightJournalView.swift */,
@@ -230,6 +233,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F8FB3F11419551D95F737829 /* AirMilesApp.swift in Sources */,
+				0FA7ABA625DE3880AEABE4E1 /* AirlineLogo.swift in Sources */,
 				4007911BA38A650E95F24006 /* FlightJournalView.swift in Sources */,
 				E845EEF0DC4DF5ABC6D2B1AB /* FlightStore.swift in Sources */,
 				2F8B5AE0845C702B8097BAC2 /* OverviewView.swift in Sources */,

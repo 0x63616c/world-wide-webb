@@ -32,7 +32,7 @@ extension View {
 struct Eyebrow: View {
     var title: String
     init(_ title: String) { self.title = title }
-    var body: some View { Text(title.uppercased()).font(.system(size: 10, weight: .semibold, design: .monospaced)).tracking(2).foregroundStyle(.secondary) }
+    var body: some View { Text(title).font(.caption.weight(.medium)).foregroundStyle(.secondary) }
 }
 
 struct RootView: View {
@@ -78,10 +78,10 @@ struct RootView: View {
     }
     @ToolbarContentBuilder private var importToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            HStack(spacing: 8) {
-                Image(systemName: "airplane.circle.fill").font(.title2)
-                Text("Air Miles").font(.headline)
-            }.accessibilityElement(children: .combine)
+            Image(systemName: "airplane")
+                .font(.system(size: 21, weight: .medium))
+                .frame(width: 44, height: 44, alignment: .center)
+                .accessibilityLabel("Air Miles")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button { showImportInfo = true } label: { Image(systemName: "tray.and.arrow.down") }
