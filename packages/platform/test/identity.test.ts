@@ -10,6 +10,5 @@ describe("product identity", () => {
     const app = defineProduct("control-center");
 
     expect(app.slug).toBe("control-center");
-    expect(app.namespace).toBe("control-center");
   });
 });

@@ -28,12 +28,8 @@ export const ENV = defineEnv({
   PORT: int().default(4201).forRuntime("api"),
   WORKER_CYCLES: enumOf("on", "off").default("on").forRuntime("api"),
   BUILD_HASH: str().default("dev"),
-  // Prometheus exposition listener (#214). A DEDICATED port on every backend
-  // runtime, never a route on the service's own port: the api's :4201 is mapped
-  // through the Cloudflare tunnel, so /metrics there would be public. 9464 is
-  // the conventional Prometheus-exporter port. No `.forRuntime()` — api and
-  // worker both serve it, and the default is always right
-  // in-cluster (nothing else in a pod binds it), so it is never set in prod.
+  // Internal exposition listener on a separate port, never tunneled or
+  // published by Compose. The retired Prometheus deployment is not required.
   METRICS_PORT: int().default(DEFAULT_METRICS_PORT),
 
   // ── Database (features + core) ────────────────────────────────────────────

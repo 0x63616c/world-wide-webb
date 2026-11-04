@@ -14,12 +14,12 @@ registration (ADR-0001).
 | `apps/web` | React board. Main route: `src/routes/index.tsx`. |
 | `apps/panel` | Expo iOS kiosk shell for the wall panel. |
 | `apps/api` | Single www process, API, routers, DB schema and migrations. |
-| `apps/worker` | Legacy worker entrypoint retained for rollback. |
+| `apps/worker` | Separate worker entrypoint for local development. |
 | `features/*` | Self-contained feature Apps (tiles), glob-collected into `features/_generated/*.gen.ts` by `bun run apps:gen`. |
 | `packages/api` | Browser-safe tRPC type bridge + wire contracts. |
 | `packages/core` | Shared `device_state` store (`@www/core`). |
 | `packages/logger` | Shared backend logger. |
-| `packages/platform` | Platform primitives for product identity, secrets, DBs, backups, and manifests. |
+| `packages/platform` | Product identity, secret catalog, runtime target and exposure manifests. |
 | `packages/theme` | Shared CSS the Control Center imports. |
 | `packages/worker-runtime` | Shared worker scheduling/runtime primitives. |
 | `deploy/mini` | Compose, releases, HA startup and NAS backups. |
@@ -68,7 +68,9 @@ an optional separate migration. See [the migration runbook](docs/runbooks/mac-mi
 for verification and recovery, and [backups](docs/runbooks/mini-backups.md) for
 persistent media and database protection.
 
-Workers reconcile desired state and ingest background data. UI tiles read
+The production www process runs nine scheduled background tasks; these are
+cycles inside one process, not separate worker containers. They reconcile
+desired state, run alarms, prune notifications and ingest weather data. UI tiles read
 merged state and show skeletons on missing data instead of fake values.
 
 ## Deploy

@@ -613,7 +613,7 @@ those six retirement resources were explicitly unprotected for deletion.
 
 Obsolete CNPG snapshot/restore tooling, its tests, the Kubernetes image-pull
 credential helper, product label/image/digest helpers and retired target
-capability flags are removed. README and the codebase map describe the mini.
+capability flags and Kubernetes secret namespace/resource metadata are removed. README and the codebase map describe the mini.
 Unused CI/factory token ID entries are removed from Pulumi configuration; this
 neither rotates nor revokes the external tokens.
 

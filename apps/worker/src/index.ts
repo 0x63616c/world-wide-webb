@@ -27,12 +27,8 @@ const log = createLogger({ service: "worker" });
 // this process with zero structured output; see docs/logging.md.
 installFatalHandlers(log);
 
-// Prometheus registry + exposition listener (#214). The worker serves no HTTP
-// of its own, so this dedicated port is the ONLY listener it has; it fronts no
-// Kubernetes Service (Prometheus scrapes the pod IP off the annotations set by
-// `WorkloadSpec.scrape`), so it is reachable in-cluster only and never through
-// the Cloudflare tunnel. Started before the loops so the very first cycle's
-// metrics are already collectable.
+// Dedicated internal metrics listener, separate from the production HTTP port.
+// This standalone entrypoint is for local development; www owns prod cycles.
 initMetrics({ service: "worker" });
 startMetricsServer({ port: config.METRICS_PORT, logger: log });
 

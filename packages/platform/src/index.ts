@@ -37,7 +37,6 @@ export type ProductSlug = (typeof productSlugs)[number];
 
 export type ProductIdentity = Readonly<{
   slug: ProductSlug;
-  namespace: ProductSlug;
 }>;
 
 function assertNever(value: never): never {
@@ -45,7 +44,7 @@ function assertNever(value: never): never {
 }
 
 export function defineProduct(slug: ProductSlug): ProductIdentity {
-  return { slug, namespace: slug };
+  return { slug };
 }
 
 export type ImplementedTargetName = "homelab";
@@ -189,12 +188,8 @@ export function internalService(options: { port: number }): InternalServiceExpos
   return { kind: "internal-service", policy: "internal", port: options.port };
 }
 
-// The k8s namespace a service's target Secret lands in. Defaults to the owning
-// product's namespace; only cloudflared varies (it lives in `cloudflare`).
-export type SecretNamespace = ProductSlug | "cloudflare";
-
 // A single declared secret. `vaultKey` is the operative reference: the SOPS
-// ITEM__FIELD key in secrets/vault.yaml that vault.ts/eso.ts resolve (CC-k8t7
+// ITEM__FIELD key in secrets/vault.yaml that vault hydration resolves (CC-k8t7
 // replaced 1Password+ESO with SOPS+age). `item`/`field` are retained purely as
 // provenance/audit metadata (which 1Password Homelab item the value came from);
 // they are NOT a source of truth for the vault key — e.g. the App Store Connect
@@ -210,8 +205,6 @@ export type ServiceSecretUsage = Readonly<{
   product: ProductSlug;
   service: string;
   mountPath: "/run/secrets";
-  namespaceName: SecretNamespace;
-  targetSecretName: string;
   secrets: Readonly<Record<string, SecretCatalogEntry>>;
 }>;
 
@@ -274,20 +267,16 @@ export function defineServiceSecretUsage(
   product: ProductIdentity,
   service: string,
   secrets: Readonly<Record<string, SecretCatalogEntry>>,
-  options: { targetSecretName?: string; namespaceName?: SecretNamespace } = {},
 ): ServiceSecretUsage {
   return {
     product: product.slug,
     service,
     mountPath: "/run/secrets",
-    namespaceName: options.namespaceName ?? product.namespace,
-    targetSecretName: options.targetSecretName ?? `${product.slug}-secrets-${service}`,
     secrets,
   };
 }
 
-// Reshape usages into the flat service -> { envName: vaultKey } view infra
-// consumes (secrets-map.ts SERVICE_SECRETS). Generic over the usage-key set so
+// Reshape usages into the flat service -> { envName: vaultKey } hydration map. Generic over the usage-key set so
 // the caller's literal service keys survive into the result type.
 export function serviceSecretMap<K extends string>(
   usages: Readonly<Record<K, ServiceSecretUsage>>,
@@ -326,12 +315,9 @@ export function controlCenterServiceSecretUsages(): Record<
       ALARM_API_TOKEN: secretCatalog.alarms.apiToken,
     }),
     worker: defineServiceSecretUsage(controlCenter, "worker", apiWorkerSharedSecrets),
-    cloudflared: defineServiceSecretUsage(
-      controlCenter,
-      "cloudflared",
-      { TUNNEL_TOKEN: secretCatalog.cloudflare.managedTunnelToken },
-      { targetSecretName: "cloudflare-secrets-cloudflared", namespaceName: "cloudflare" },
-    ),
+    cloudflared: defineServiceSecretUsage(controlCenter, "cloudflared", {
+      TUNNEL_TOKEN: secretCatalog.cloudflare.managedTunnelToken,
+    }),
   };
 }
 
