@@ -106,7 +106,6 @@ struct ControlsController: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 36) {
                     HStack {
-                        Text("Lights").font(.largeTitle.bold())
                         Spacer()
                         Button { store.send(.toggle(.all)) } label: {
                             Label("All lights", systemImage: "power").padding(8)
@@ -122,8 +121,10 @@ struct ControlsController: View {
                                 Spacer()
                                 Text("\(store.lamps.brightness)%").font(.system(size: 56, weight: .medium, design: .rounded)).monospacedDigit()
                             }
-                            Slider(value: Binding(get: { Double(store.lamps.brightness) }, set: { store.send(.brightness(Int($0))) }), in: 0...100, step: 1)
-                                .tint(.orange).disabled(!store.lamps.anyOn).accessibilityLabel("Lamp brightness")
+                            FilledLevelControl(value: store.lamps.brightness, label: "Lamp brightness", symbol: "sun.max.fill") {
+                                store.send(.brightness($0))
+                            }.frame(height: 70).disabled(!store.lamps.anyOn)
+                                .accessibilityIdentifier("lamp-brightness")
                             LampEffectsView(store: store)
                         }.frame(maxWidth: .infinity).padding(32)
                             .background(.white.opacity(0.045), in: .rect(cornerRadius: 32))

@@ -74,6 +74,7 @@ struct NotificationBanners: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .environment(\.colorScheme, .dark)
         .animation(motion, value: center.historyPresented)
     }
 
@@ -126,9 +127,8 @@ struct NotificationBanners: View {
             }
         }
         .frame(width: typeSize.isAccessibilitySize ? 560 : 380)
-        // Leave a 44-point control row plus spacing for Details and other trailing chrome.
-        // SwiftUI's safe area is already applied by the host; do not add its insets again.
-        .padding(.trailing, 20).padding(.top, 72)
+        // Anchor banners at the top-right margin of their full-screen host.
+        .padding(.trailing, 20).padding(.top, 20)
         .environment(\.colorScheme, .dark)
         .opacity(isActivePresenter ? 1 : 0)
         .accessibilityHidden(!isActivePresenter)

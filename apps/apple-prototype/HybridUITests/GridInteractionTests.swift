@@ -36,10 +36,16 @@ import XCTest
         }
         let lamps = app.buttons["controller-toggle-bedroom"]
         if lamps.value as? String == "Off" { lamps.tap(); expectWrite("controls.toggle", in: app) }
-        let slider = app.sliders["Lamp brightness"]
-        XCTAssertTrue(slider.isHittable)
-        slider.adjust(toNormalizedSliderPosition: 0.3)
+        let bar = app.descendants(matching: .any)["lamp-brightness"].firstMatch
+        XCTAssertTrue(bar.isHittable)
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: bar.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5)))
         expectWrite("controls.setLampBrightness", in: app)
+        let temperature = app.descendants(matching: .any)["lamp-temperature"].firstMatch
+        XCTAssertTrue(temperature.isHittable)
+        temperature.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: temperature.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+        expectWrite("controls.setWhiteKelvin", in: app)
     }
     func testClimateSetpointAndIndependentFanReachBackend() {
         let app = launch()

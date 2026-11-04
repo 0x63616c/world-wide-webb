@@ -4,8 +4,10 @@ extension HomeViewLaunchTests {
     @MainActor private func launchTimer() -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
+        // Timer assertions should not race the launcher's spatial entrance animation.
         app.launchArguments = ["-hybridFixtures", "-hybridStill",
-            "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1", "-timerDisableNotifications"]
+            "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1", "-timerDisableNotifications",
+            "-launcherTransition", "dissolve"]
         app.launch()
         app.alignPanelOrientation()
         app.openAppGrid()
@@ -36,13 +38,16 @@ extension HomeViewLaunchTests {
         app.buttons["app-timer"].tap()
         XCTAssertEqual(remaining.value as? String, paused)
         app.buttons["timer-start-pause"].tap()
+        XCTAssertTrue(app.buttons["timer-start-pause"].label.contains("Pause"))
         let resumes = expectation(for: NSPredicate(format: "value != %@", paused), evaluatedWith: remaining)
         wait(for: [resumes], timeout: 5)
         app.buttons["app-back"].tap()
         app.buttons["app-timer"].tap()
         XCTAssertTrue(app.buttons["timer-start-pause"].label.contains("Pause"))
         app.buttons["timer-reset"].tap()
-        XCTAssertEqual(remaining.value as? String, "15 minutes")
+        let reset = expectation(for: NSPredicate(format: "value == %@", "15 minutes"), evaluatedWith: remaining)
+        wait(for: [reset], timeout: 5)
+        XCTAssertTrue(app.buttons["timer-edit"].isEnabled)
     }
     @MainActor func testCustomTimerFinishesAndCanStartAgain() {
         let app = launchTimer()

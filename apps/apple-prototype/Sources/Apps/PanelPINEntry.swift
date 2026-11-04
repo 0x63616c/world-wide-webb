@@ -5,7 +5,7 @@ import PanelKit
 /// No text field or software keyboard; entered digits are never displayed.
 struct PanelPINEntry: View {
     let title: String
-    var prompt = "Enter PIN"
+    var prompt: String? = nil
     var symbol = "lock.fill"
     var notice: String?
     var busy = false
@@ -23,7 +23,7 @@ struct PanelPINEntry: View {
                 .foregroundStyle(.secondary).frame(height: 40).accessibilityHidden(true)
             VStack(spacing: 8) {
                 Text(title).font(.largeTitle.weight(.semibold))
-                Text(prompt).font(.title3).foregroundStyle(.secondary)
+                if let prompt { Text(prompt).font(.title3).foregroundStyle(.secondary) }
             }
             HStack(spacing: 18) {
                 ForEach(0..<6) { index in
@@ -69,7 +69,7 @@ struct PanelPINEntry: View {
             .onDisappear { reset() }
             .onChange(of: phase) { _, value in if value != .active { reset() } }
             .onAppear {
-                AccessibilityNotification.Announcement([title, prompt, notice].compactMap { $0 }.joined(separator: ". ")).post()
+                AccessibilityNotification.Announcement([title, prompt ?? "Enter PIN", notice].compactMap { $0 }.joined(separator: ". ")).post()
             }
             .onChange(of: message) { _, value in
                 if let value { AccessibilityNotification.Announcement(value).post() }

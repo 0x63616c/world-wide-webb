@@ -7,10 +7,10 @@ struct PanelClassicBoard: View {
 
     var body: some View {
         ZStack {
-            Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255)
+            Color.black
             KioskWebView(session: session).id(session.generation)
             if session.reconnecting {
-                Color(red: 16 / 255, green: 20 / 255, blue: 25 / 255)
+                Color.black
                 Text("Reconnecting…").foregroundStyle(.white.opacity(0.7))
                     .accessibilityAddTraits(.updatesFrequently)
             }

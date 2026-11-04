@@ -42,8 +42,14 @@ its honest camera-unavailable state. No fake camera feed is supplied.
 ## Timer
 
 The Timer app uses a wide black face, equal-length orange perimeter ticks and a
-large countdown. The border has extra edge padding and begins turning several ticks before each
-corner. It shares the alarm's arc-length sampler, so spacing stays even through turns.
+large countdown. The border begins turning several ticks before each corner. It shares the alarm's arc-length sampler, so spacing stays even through turns.
+The timer uses a 12-point edge inset and 32-point positioning corners, concentric
+with the shell's 44-point surface. Tick direction has a separate 100-point turning
+radius: marks start tilting while their anchors are still flush with a straight
+edge. An exact diagonal tick anchors every corner, with equally spaced neighbors
+on either side; straight-edge spacing absorbs the small remainder so the corner
+fans remain symmetric. Its ring updates at display cadence, fading the fractional last tick even
+for short durations.
 Tap the orange duration beneath the countdown to choose hours, minutes or seconds.
 Presets live inside that editor. Start, Pause, Resume, Reset and Again operate on
 the real local timer; the fixed Back button returns to Home.
@@ -61,7 +67,9 @@ disable only OS notification prompts/sounds, and show the countdown at normal sp
 Photos and Tesla command confirmation use the shared `PanelPINEntry`: six masked
 dots, a native glass number pad, delete and automatic six-digit submission. Digits
 stay in memory and clear when leaving the page or backgrounding the app. Photos
-still asks for a fresh PIN on every opening. Tesla keeps command execution in its
+still asks for a fresh PIN on every opening. The default visual “Enter PIN”
+subtitle is omitted; VoiceOver still announces it and multi-step flows keep
+their specific instructions. Tesla keeps command execution in its
 provider so keypad dismissal cannot cancel the reported-state refresh.
 
 Settings → Security → Change PIN verifies the current synced PIN, asks for a new
@@ -72,7 +80,7 @@ the existing client-side soft-lock policy (ADR-0004), not a new authentication s
 
 ## Clock motion review
 
-The clock has digital time at the upper right and the date at the lower left,
+The clock has date at the upper left and digital time at the lower right,
 using the same day/night ink. `ClockLauncherMotion` owns the transition separately
 from app navigation. Reveal shrinks the clock slightly as it slides left; the launcher enters from
 the right and expands into place with a small spring. Swiping right on the
@@ -166,3 +174,15 @@ Validation on local Xcode 27: 12 PanelKit API/catalog tests; 14 live-provider te
 including command lifetime after keypad dismissal; nine HomeView launch/access
 UI tests; three recorded motion comparisons. Typecheck passed. The new access
 tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.
+
+Lights brightness and white temperature use `FilledLevelControl`, shared with
+Music volume: a filled draggable bar with local drag preview, one commit on
+release, bounded values, and adjustable accessibility actions. Cameras is no
+longer registered in the native app catalog. Notification banners sit 20 points
+from the top-right edges, and the entire notification history uses dark mode;
+Classic reconnects against a black native background.
+
+Lights and Calendar omit redundant page titles. The clock places its date at
+the top left and digital time at the bottom right. White temperature previews
+the current drag value in Kelvin and an approximate warm-to-daylight screen
+colour, while committing the lamp change only when the drag ends.

@@ -97,9 +97,8 @@ struct AgendaPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(provider.heading).font(.system(size: compact ? 36 : 56, weight: .bold))
-                    Spacer()
                     Text(provider.dateText(at: now, format: "EEEE, MMMM d")).font(.system(size: compact ? 16 : 24)).foregroundStyle(.secondary)
+                    Spacer()
                     if provider is LiveCalendarProvider {
                         Button("Calendars", systemImage: "calendar") { showingCalendars = true }
                             .buttonStyle(.glass)
