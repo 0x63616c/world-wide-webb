@@ -120,6 +120,13 @@ function productRoutes(): CloudflareRoutes {
       comment: "platform:synology dsm route (#292)",
     },
     {
+      exposure: cc.hindsight.exposure,
+      // The connector uses host networking on the mini. The control plane
+      // proxies its API calls server-side; port 8888 needs no tunnel rule.
+      origin: "http://127.0.0.1:9999",
+      comment: "platform:hindsight control plane route",
+    },
+    {
       exposure: cc.ha.exposure,
       origin: "http://192.168.0.130:8123",
       comment: "platform:home assistant web ui route (#75)",

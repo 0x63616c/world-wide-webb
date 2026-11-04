@@ -342,6 +342,11 @@ export type ControlCenterProductManifest = Readonly<{
   ha: Readonly<{
     exposure: WebExposure;
   }>;
+  // Hindsight runs independently in OrbStack on the mini. Only its control
+  // plane gets a browser hostname; the memory API stays on its existing route.
+  hindsight: Readonly<{
+    exposure: WebExposure;
+  }>;
   // The Synology DSM: a LAN appliance, not a workload
   // of ours at all — it's a box on the LAN — but it gets a tunnel hostname
   // behind Access, and hostnames are owned here. Its origin is HTTPS with a
@@ -368,6 +373,9 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       // Single label under the zone, so Universal SSL's one-label wildcard
       // covers it (see webHostname).
       exposure: privateWeb(target, { host: "ha" }),
+    },
+    hindsight: {
+      exposure: privateWeb(target, { host: "hindsight" }),
     },
     dsm: {
       exposure: privateWeb(target, { host: "dsm" }),

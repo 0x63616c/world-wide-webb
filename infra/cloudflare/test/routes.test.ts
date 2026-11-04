@@ -24,7 +24,9 @@ describe("desiredIngressRules", () => {
       "app.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "ha.worldwidewebb.co",
+      "hindsight.worldwidewebb.co",
     ]);
+    expect(byHost["hindsight.worldwidewebb.co"]).toBe("http://127.0.0.1:9999");
     // Retired hosts keep their absence pinned.
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["unifi.worldwidewebb.co"]).toBeUndefined();
@@ -141,7 +143,12 @@ describe("desiredCnames", () => {
     const hosts = desiredCnames()
       .map((c) => c.hostname)
       .sort();
-    expect(hosts).toEqual(["app.worldwidewebb.co", "dsm.worldwidewebb.co", "ha.worldwidewebb.co"]);
+    expect(hosts).toEqual([
+      "app.worldwidewebb.co",
+      "dsm.worldwidewebb.co",
+      "ha.worldwidewebb.co",
+      "hindsight.worldwidewebb.co",
+    ]);
     expect(hosts).not.toContain("hooks.worldwidewebb.co");
     expect(hosts).not.toContain("unifi.worldwidewebb.co");
     // #127: the EVEE-218 hooks-test leftover was deleted with the old tunnel.

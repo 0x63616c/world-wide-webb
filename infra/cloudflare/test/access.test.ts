@@ -19,6 +19,7 @@ describe("desiredAccessApps", () => {
       // internet-facing hostname, so its Access app is not optional.
       "dsm.worldwidewebb.co",
       "ha.worldwidewebb.co",
+      "hindsight.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("*.worldwidewebb.co");
     expect(domains).not.toContain("hooks.worldwidewebb.co");
@@ -36,6 +37,7 @@ describe("desiredAccessApps", () => {
       "app.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "ha.worldwidewebb.co",
+      "hindsight.worldwidewebb.co",
     ]);
     expect(domains).not.toContain("app--cc.worldwidewebb.co");
     expect(domains).not.toContain("drizzle.worldwidewebb.co");
@@ -65,11 +67,14 @@ describe("desiredAccessApps", () => {
     }
   });
 
-  test("ha is human-login only — NEVER reachable with the kiosk token", () => {
+  test.each([
+    "ha",
+    "hindsight",
+  ])("%s is human-login only — NEVER reachable with the kiosk token", (host) => {
     // #75/#237: full HA admin surface, no kiosk business reaching it over this
     // route, independent of the panel kiosk.
     const ha = desiredAccessApps(ZONE, true).find(
-      (entry) => entry.domain === "ha.worldwidewebb.co",
+      (entry) => entry.domain === `${host}.worldwidewebb.co`,
     );
 
     expect(ha?.policies).toEqual([
