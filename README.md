@@ -6,6 +6,7 @@ Native Apple apps, shared design, and their websites. This repository is still n
 | --- | --- | --- | --- |
 | Tendr | [apps/tendr](apps/tendr) | `com.calumwebb.still` | `swift test --package-path apps/tendr` |
 | Blockr | [apps/blockr](apps/blockr) | `com.calumwebb.blockr` | `swift test --package-path apps/blockr` |
+| Air Miles | [apps/airmiles](apps/airmiles) | `com.calumwebb.airmiles` | `swift test --package-path apps/airmiles` |
 
 [packages/RDesign](packages/RDesign) provides the black, white and graphite palette, type, spacing, cards, rows, info popovers, settings links, splash and optional StoreKit tip jar. Its `rframe` executable renders App Store screenshot frames on macOS. `swift test --package-path packages/RDesign` also runs its portable tests on Linux.
 

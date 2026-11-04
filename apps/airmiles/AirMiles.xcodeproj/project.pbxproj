@@ -1,0 +1,518 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04C5202143FAD61FD5A46E5D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 378AF4709F0B9DC8AE52B3A5 /* PrivacyInfo.xcprivacy */; };
+		15AC0CFDB8D47C3D031AED79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B542936C6999399849EB9BFD /* Assets.xcassets */; };
+		2F8B5AE0845C702B8097BAC2 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C9076455A173F9EE808A72 /* OverviewView.swift */; };
+		4007911BA38A650E95F24006 /* FlightJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846487E25C68EE34B5767A30 /* FlightJournalView.swift */; };
+		410BA346D4FDB716D222E9FF /* land.json in Resources */ = {isa = PBXBuildFile; fileRef = D4B21E6BDD8E3453C6F80AC8 /* land.json */; };
+		4A291321DF49673F24150EF9 /* ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC71A283D177A5158A47D76 /* ScreenshotTests.swift */; };
+		70B35A4D639578122C776CE2 /* PassportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E108D68A049FC2F84F4BD9 /* PassportView.swift */; };
+		ACB44E7E00D17391B2CE391A /* AirMilesCore in Frameworks */ = {isa = PBXBuildFile; productRef = E389C303DD2F300AC927E09B /* AirMilesCore */; };
+		AFDEAF9AB614C62E85089F0B /* RDesign in Frameworks */ = {isa = PBXBuildFile; productRef = FB7A7969140FF7B054022990 /* RDesign */; };
+		CD9BD8F7AB7A4EC3BAFEE613 /* airports.json in Resources */ = {isa = PBXBuildFile; fileRef = F9BD0B95D40BD950F1713B95 /* airports.json */; };
+		E0F7FBED9319A014628C971F /* RouteAtlas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0790406BB5C226FCDFA5FECA /* RouteAtlas.swift */; };
+		E845EEF0DC4DF5ABC6D2B1AB /* FlightStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8A6402A8C88F4B64495DC3 /* FlightStore.swift */; };
+		F8FB3F11419551D95F737829 /* AirMilesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F300EB9E7713E531C8E3F1 /* AirMilesApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		46EA9AC23A5132567F7B70AC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9D9756F25B3ED82BE2FE56CA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C403B8A4A401C0D5C5BDC3D;
+			remoteInfo = AirMiles;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0790406BB5C226FCDFA5FECA /* RouteAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteAtlas.swift; sourceTree = "<group>"; };
+		0CA68BC80CF64751C44E7C49 /* AirMilesUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AirMilesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A1254516EA7D79BD7DF1232 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		378AF4709F0B9DC8AE52B3A5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		69E108D68A049FC2F84F4BD9 /* PassportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportView.swift; sourceTree = "<group>"; };
+		7AC71A283D177A5158A47D76 /* ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests.swift; sourceTree = "<group>"; };
+		846487E25C68EE34B5767A30 /* FlightJournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightJournalView.swift; sourceTree = "<group>"; };
+		9D02523AC90B2AD49B4C408B /* RDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = RDesign; path = ../../packages/RDesign; sourceTree = SOURCE_ROOT; };
+		B542936C6999399849EB9BFD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BB8A6402A8C88F4B64495DC3 /* FlightStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightStore.swift; sourceTree = "<group>"; };
+		D4B21E6BDD8E3453C6F80AC8 /* land.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = land.json; sourceTree = "<group>"; };
+		D6711F1035752A9C2EB84058 /* airmiles */ = {isa = PBXFileReference; lastKnownFileType = folder; name = airmiles; path = .; sourceTree = SOURCE_ROOT; };
+		E1F300EB9E7713E531C8E3F1 /* AirMilesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirMilesApp.swift; sourceTree = "<group>"; };
+		E52ED9A73DC83C0F42394B68 /* AirMiles.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AirMiles.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1C9076455A173F9EE808A72 /* OverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewView.swift; sourceTree = "<group>"; };
+		F9BD0B95D40BD950F1713B95 /* airports.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = airports.json; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E2B15F16112B58E0D1831A0F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AFDEAF9AB614C62E85089F0B /* RDesign in Frameworks */,
+				ACB44E7E00D17391B2CE391A /* AirMilesCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		94E7A451438F769260C9F456 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				D6711F1035752A9C2EB84058 /* airmiles */,
+				9D02523AC90B2AD49B4C408B /* RDesign */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		A0BFC84C59076041DFC7C49C /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				7AC71A283D177A5158A47D76 /* ScreenshotTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		A0EECBEAA77475EAE2FAFE28 = {
+			isa = PBXGroup;
+			children = (
+				A1BB02C99BD289CB579AE365 /* App */,
+				94E7A451438F769260C9F456 /* Packages */,
+				A0BFC84C59076041DFC7C49C /* UITests */,
+				FBD4BEE7DDC826376159AC8F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1BB02C99BD289CB579AE365 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				E1F300EB9E7713E531C8E3F1 /* AirMilesApp.swift */,
+				B542936C6999399849EB9BFD /* Assets.xcassets */,
+				846487E25C68EE34B5767A30 /* FlightJournalView.swift */,
+				BB8A6402A8C88F4B64495DC3 /* FlightStore.swift */,
+				2A1254516EA7D79BD7DF1232 /* Info.plist */,
+				F1C9076455A173F9EE808A72 /* OverviewView.swift */,
+				69E108D68A049FC2F84F4BD9 /* PassportView.swift */,
+				378AF4709F0B9DC8AE52B3A5 /* PrivacyInfo.xcprivacy */,
+				0790406BB5C226FCDFA5FECA /* RouteAtlas.swift */,
+				E1CF0A69170C6F6FC4A93337 /* Resources */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		E1CF0A69170C6F6FC4A93337 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F9BD0B95D40BD950F1713B95 /* airports.json */,
+				D4B21E6BDD8E3453C6F80AC8 /* land.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		FBD4BEE7DDC826376159AC8F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E52ED9A73DC83C0F42394B68 /* AirMiles.app */,
+				0CA68BC80CF64751C44E7C49 /* AirMilesUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4C403B8A4A401C0D5C5BDC3D /* AirMiles */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BDCE48B488B5658D87BA1082 /* Build configuration list for PBXNativeTarget "AirMiles" */;
+			buildPhases = (
+				C66E3D8DB43EF2BAF37583B8 /* Sources */,
+				CC0F261E95E9D30DCE8E178D /* Resources */,
+				E2B15F16112B58E0D1831A0F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AirMiles;
+			packageProductDependencies = (
+				FB7A7969140FF7B054022990 /* RDesign */,
+				E389C303DD2F300AC927E09B /* AirMilesCore */,
+			);
+			productName = AirMiles;
+			productReference = E52ED9A73DC83C0F42394B68 /* AirMiles.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A009B992680227AEC205370A /* AirMilesUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 34D098A4F062E9446D8C6E4C /* Build configuration list for PBXNativeTarget "AirMilesUITests" */;
+			buildPhases = (
+				FD0ADFFFF89B295C88DE4EDB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				885A6535419CEE810FF344BC /* PBXTargetDependency */,
+			);
+			name = AirMilesUITests;
+			packageProductDependencies = (
+			);
+			productName = AirMilesUITests;
+			productReference = 0CA68BC80CF64751C44E7C49 /* AirMilesUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9D9756F25B3ED82BE2FE56CA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					4C403B8A4A401C0D5C5BDC3D = {
+						DevelopmentTeam = X9E4HG27NK;
+					};
+					A009B992680227AEC205370A = {
+						DevelopmentTeam = X9E4HG27NK;
+						TestTargetID = 4C403B8A4A401C0D5C5BDC3D;
+					};
+				};
+			};
+			buildConfigurationList = 4F371C483E07B4DCF2D65FF9 /* Build configuration list for PBXProject "AirMiles" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A0EECBEAA77475EAE2FAFE28;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				78970582CC3F367537A923CC /* XCLocalSwiftPackageReference "." */,
+				99BD9FE9B082597B33288D83 /* XCLocalSwiftPackageReference "../../packages/RDesign" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FBD4BEE7DDC826376159AC8F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4C403B8A4A401C0D5C5BDC3D /* AirMiles */,
+				A009B992680227AEC205370A /* AirMilesUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CC0F261E95E9D30DCE8E178D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15AC0CFDB8D47C3D031AED79 /* Assets.xcassets in Resources */,
+				04C5202143FAD61FD5A46E5D /* PrivacyInfo.xcprivacy in Resources */,
+				CD9BD8F7AB7A4EC3BAFEE613 /* airports.json in Resources */,
+				410BA346D4FDB716D222E9FF /* land.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C66E3D8DB43EF2BAF37583B8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F8FB3F11419551D95F737829 /* AirMilesApp.swift in Sources */,
+				4007911BA38A650E95F24006 /* FlightJournalView.swift in Sources */,
+				E845EEF0DC4DF5ABC6D2B1AB /* FlightStore.swift in Sources */,
+				2F8B5AE0845C702B8097BAC2 /* OverviewView.swift in Sources */,
+				70B35A4D639578122C776CE2 /* PassportView.swift in Sources */,
+				E0F7FBED9319A014628C971F /* RouteAtlas.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD0ADFFFF89B295C88DE4EDB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A291321DF49673F24150EF9 /* ScreenshotTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		885A6535419CEE810FF344BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C403B8A4A401C0D5C5BDC3D /* AirMiles */;
+			targetProxy = 46EA9AC23A5132567F7B70AC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		09FC631530C4F8C3E8B29F5F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = X9E4HG27NK;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		1FA301C9069584C206955E2F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.calumwebb.AirMilesUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = AirMiles;
+			};
+			name = Release;
+		};
+		4484437B96119454FF7FFF6B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Air Miles";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.calumwebb.airmiles;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		643ECFB1A842FE239AB7CEF5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.calumwebb.AirMilesUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = AirMiles;
+			};
+			name = Debug;
+		};
+		6772A05538DE30672656515E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = App/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Air Miles";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.calumwebb.airmiles;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A735AABCC2881CA1DB8A98D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = X9E4HG27NK;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		34D098A4F062E9446D8C6E4C /* Build configuration list for PBXNativeTarget "AirMilesUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				643ECFB1A842FE239AB7CEF5 /* Debug */,
+				1FA301C9069584C206955E2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4F371C483E07B4DCF2D65FF9 /* Build configuration list for PBXProject "AirMiles" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A735AABCC2881CA1DB8A98D0 /* Debug */,
+				09FC631530C4F8C3E8B29F5F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BDCE48B488B5658D87BA1082 /* Build configuration list for PBXNativeTarget "AirMiles" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4484437B96119454FF7FFF6B /* Debug */,
+				6772A05538DE30672656515E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		78970582CC3F367537A923CC /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+		99BD9FE9B082597B33288D83 /* XCLocalSwiftPackageReference "../../packages/RDesign" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../packages/RDesign;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E389C303DD2F300AC927E09B /* AirMilesCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AirMilesCore;
+		};
+		FB7A7969140FF7B054022990 /* RDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RDesign;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 9D9756F25B3ED82BE2FE56CA /* Project object */;
+}
