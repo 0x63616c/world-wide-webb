@@ -594,3 +594,56 @@ none newly unavailable; Hindsight had 31 banks, 4,591 memory units, 996 document
 and 4,595 entities. Hindsight and Bambuddy health endpoints were healthy, and
 the tunnel had four ready connections. These service checks do not replace the
 still-pending physical panel check or HA password-login verification.
+
+## Final edge and repository cleanup — November 3
+
+Follow-up cleanup under WWW-74 removes Manage at Calum's request, including
+`apps/manage`, the frame-unlock extension, extension code generation, hostname
+routing, workspace/build/test configuration and Docker bundle copies. Grafana's
+retired DNS, Access app and policy are removed alongside Manage's. The only
+retained edge hosts are `app`, `ha` and `dsm`; each remains behind its existing
+Access policy. The managed tunnel and connector credentials are retained.
+
+Cloudflare origins now declare the verified mini endpoints directly: Control
+Center at `http://127.0.0.1:4201`, HA at `http://192.168.0.130:8123`, and DSM at
+`https://192.168.0.218:5001`. The migration override/disabled-host config is
+removed. Preview changes only the ingress configuration and deletes the six
+Manage/Grafana resources; retained resource protection stays enabled. Only
+those six retirement resources were explicitly unprotected for deletion.
+
+Obsolete CNPG snapshot/restore tooling, its tests, the Kubernetes image-pull
+credential helper, product label/image/digest helpers and retired target
+capability flags are removed. README and the codebase map describe the mini.
+Unused CI/factory token ID entries are removed from Pulumi configuration; this
+neither rotates nor revokes the external tokens.
+
+Host inspection confirmed `k8s.enable: false`; the old Kubernetes API was
+unreachable and no old port-forward or GitHub runner processes were running.
+Five unloaded legacy launch-agent definitions were moved out of LaunchAgents
+into `homelab-backups/retired-launchagents-20261104`. The active OrbStack
+watchdog, HA startup, backup jobs and other services were retained.
+
+Docker cleanup removed ten old Control Center images, the rehearsal image,
+three unused Kubernetes images and four stopped migration-test containers.
+Running-container images and the `current`, `previous` and `recovery-from`
+release image pointers were protected. No volume, archive, Talos disk or other
+project's container was deleted. Build cache younger than 24 hours was retained;
+no older cache was reclaimable. The disabled cluster was not restarted or reset.
+
+Credential review enumerated all 69 vault key names without decrypting values.
+Production still needs app/HA/DB/location/Wi-Fi/alarm secrets, the tunnel and
+Cloudflare/Pulumi credentials, NAS backup credentials, deployment SSH and
+Tailscale credentials, notification topic, and iOS signing/build credentials.
+Grafana webhook keys and other historical service credentials have no tracked
+consumer, but their external consumers and revocation endpoints are not proven;
+they remain retained for a separate credential-owner review. Absence from this
+repository is not evidence that a cross-project credential is unused.
+
+The running mini reported database ok and all nine background cycles with zero
+consecutive failures. HA returned HTTP 200 and its Colima VM was running. The
+installed 04:15 backup agent's last exit code was zero, with two runs and two
+local `NAS_VERIFIED` sets. Both runs were manual; the first calendar-triggered
+run is still pending. Release and compatible recovery remain covered by the
+migration's live exercises plus the retained hermetic deployment/recovery tests.
+Physical panel behavior and HA password-login verification require direct user
+verification; the existing 51-photo gap remains a separate recovery issue.

@@ -6,16 +6,11 @@
 // is over, `pulumi up` here is a real prod mutation. Every resource is still
 // `protect: true`.
 //
-// CI OWNS THIS PROJECT NOW (www-cred is done): `.github/workflows/ci.yml` has a
-// `deploy-cloudflare` job that runs `pulumi up` on push to `main`. It is gated
-// on the `cloudflareinfra` paths filter — `infra/cloudflare/**` plus
-// `packages/platform/src/index.ts`, because `controlCenterProductManifest()`
-// feeds `desiredAccessApps()` and `productRoutes()`, so a manifest-only change
-// with no diff in this directory must still redeploy. The job runs AFTER
-// `deploy-home-server`, not in parallel: a tunnel-ingress rule that applied
-// before its k8s backend existed would 502 for real users, whereas an unrouted
-// backend just sits inert. A local `pulumi up` here is now a manual override of
-// CI, not the normal path.
+// CI applies this project on main after app checks pass when edge configuration
+// or the platform manifest changes. The mini release follows successful CI;
+// unchanged origins must keep serving the currently deployed app throughout.
+// Every resource is protected; retiring a hostname requires an explicit preview
+// and narrowly unprotecting only that hostname's resources before the apply.
 //
 // The zone-wide ACCESS GATE (default-deny *.<zone> floor + tooling locks, www-cuuw)
 // is flag-gated OFF by `applyAccessGate` (see below): applying the floor would
@@ -42,10 +37,6 @@ const cfg = new pulumi.Config();
 // repo and those identifiers are deliberately kept out of it (same rule as the
 // deploy.config.ts op-secret channel). All sourced from op at `pulumi config set`.
 const zoneName = cfg.require("zoneName");
-// Empty until a verified host cutover. Public hostnames and Access stay fixed.
-const originOverrides = cfg.getObject<Record<string, string>>("originOverrides") ?? {};
-// Retired services fall through to the existing 404; DNS and Access stay gated.
-const disabledIngressHosts = cfg.getObject<string[]>("disabledIngressHosts") ?? [];
 const accountId = cfg.requireSecret("accountId");
 const zoneId = cfg.requireSecret("zoneId");
 // applyAccessGate gates the zone-wide access gate (www-cuuw): the *.<zone>
@@ -97,23 +88,7 @@ const accessName = (host: string) =>
 // sessionDuration is another exception (www-178): we deliberately
 // override CF's 24h default so a human login/OTP lasts 30 days.
 //
-// accessAppAuds (#593): each app's audience tag, keyed by domain, exported
-// below so the home-server Pulumi project can read a consumer's AUD via
-// StackReference instead of a hand-pasted vault secret. The audience is
-// derived infra state minted by THIS resource, not a value anyone should be
-// copying into secrets/vault.yaml by hand.
-//
-// A consumer's FIRST deploy therefore takes two passes, and that is expected:
-// this project only runs after `deploy-home-server` succeeds (see the
-// deploy-cloudflare `needs` in ci.yml), so on pass one the consumer reads an
-// empty AUD, and only on the next run does it see the real one. That is safe
-// because a consumer is expected to fail closed — refusing to start on an empty
-// CLOUDFLARE_ACCESS_AUD rather than serving unauthenticated traffic.
-//
-// The corollary is a gotcha worth knowing: a change that touches only the
-// consumer (or only the vault) does NOT re-run this project, because the
-// `cloudflareinfra` path filter never fires. A new Access-gated hostname needs
-// at least one commit under `infra/cloudflare/**` before its app exists at all.
+// Audience tags remain exported for consumers validating Access JWTs.
 const accessAppAuds: Record<string, pulumi.Output<string>> = {};
 
 for (const app of desiredAccessApps(zoneName, applyAccessGate)) {
@@ -203,7 +178,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(
     tunnelId: managedTunnel.id,
     config: {
       ingressRules: [
-        ...desiredIngressRules(zoneName, originOverrides, disabledIngressHosts).map((r) => ({
+        ...desiredIngressRules().map((r) => ({
           hostname: r.hostname,
           ...(r.path ? { path: r.path } : {}),
           service: r.service,
@@ -235,7 +210,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(
 // VALUE-IDENTICAL live target (verified: live `dig`/API content ==
 // <tunnelId>.cfargotunnel.com). The update is a no-op that self-heals on apply
 // (www-kbiy promoted this stack to a live deploy target).
-for (const c of desiredCnames(zoneName)) {
+for (const c of desiredCnames()) {
   new cloudflare.Record(
     sub(c.hostname),
     {
@@ -260,15 +235,9 @@ for (const c of desiredCnames(zoneName)) {
 export const summary = {
   zoneName,
   accessApps: desiredAccessApps(zoneName, applyAccessGate).map((a) => a.domain),
-  ingressHosts: desiredIngressRules(zoneName, originOverrides, disabledIngressHosts).map(
-    (r) => r.hostname,
-  ),
-  cnames: desiredCnames(zoneName).map((c) => c.hostname),
+  ingressHosts: desiredIngressRules().map((r) => r.hostname),
+  cnames: desiredCnames().map((c) => c.hostname),
 };
 
-// Consumed cross-project by infra/program.ts via `pulumi.StackReference`
-// (#593) — e.g. a consumer needs its own hostname's AUD to
-// validate Access JWTs, and reading it here rather than a vault secret means
-// a recreated app (a destructive replace, since `tag` and `domain` are
-// immutable) can never leave a stale AUD silently accepted downstream.
+// Derived audience tags; never copy them into the credential vault.
 export { accessAppAuds };

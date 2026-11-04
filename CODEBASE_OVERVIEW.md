@@ -14,10 +14,10 @@ run and explain than it returned. What is described below is what survived.
 
 WWW-76 consolidates production into one `www` Bun process: `apps/api/src/www.ts`
 starts the API lifecycle in `application.ts`, the generated worker cycles, and
-host-routed static builds of web and manage. `bun run build:www && bun run www`
+the static web build. `bun run build:www && bun run www`
 runs it locally. `WORKER_CYCLES=off` disables cycles. PostgreSQL remains the
 production database; SQLite is optional future work. The root Dockerfile builds
-one ARM64 image for OrbStack on the mini, serving web and manage by hostname.
+one ARM64 image for OrbStack on the mini, serving web and API on the same origin.
 
 ```text
 iPad panel / phone browser
@@ -55,10 +55,6 @@ deploy
   never sticks on a blank screen. The consolidated server serves `index.html` `no-cache` and
   `/assets/` as immutable with no SPA fallback, so a stale entry can't name a
   bundle a deploy removed.
-- `apps/manage` — a static bundle served by www at `manage.worldwidewebb.co`: an
-  iframe shell over the small set of ops tools this repo doesn't own
-  (`apps/manage/src/registry.ts`), gated by Cloudflare Access alone. See
-  ADR-0010.
 - `features/<id>/` — one folder per self-contained App: `ac`, `booth`, `ctrl`,
   `events`, `sound`, `wakes`, `weather`. Each has a `manifest.ts` (id, tile
   placement, access policy) plus whichever facets it needs — `web.tsx` (tile
@@ -80,8 +76,7 @@ deploy
   and every reader go through this store. See ADR-0005.
 - `packages/logger` — `createLogger`/`getLogger`, with a redaction denylist
   for anything that might get logged whole (`docs/logging.md`).
-- `packages/theme` — the shared CSS the `web` and `manage` bundles both
-  `@import`, so one dark theme serves both.
+- `packages/theme` — the Control Center CSS palette.
 - `packages/worker-runtime` — the shared interval-cycle scheduler: prevents a
   cycle from overlapping itself, isolates a cycle's failure from the others,
   and exposes stats.
@@ -212,7 +207,8 @@ main runs trigger `deploy-mini.yml`, which publishes and releases the tested
 revision by immutable digest. Release/recovery scripts serialize changes and
 verify the exact SHA, database health and worker ownership.
 
-`infra/cloudflare` retains DNS, Access and tunnel ingress management. Talos
+`infra/cloudflare` retains DNS, Access and tunnel ingress for `app`, `ha` and
+`dsm`. Manage, its frame-unlock extension and Grafana are retired. Talos
 provisioning is retired; its disks remain available for recovery. Backups run
 through a mini LaunchAgent and use verified NAS copies. See the
 [migration runbook](docs/runbooks/mac-mini-migration.md) and
@@ -230,8 +226,7 @@ recurring background work.
 
 - `docs/adr/` — architectural decisions for what's still here; ADR-0013 is
   the permanent record of what was deleted and why.
-- `docs/observability.md` — Grafana dashboards, what replaced each removed
-  Prometheus Operator CRD.
+- `docs/observability.md` — production logs and health checks on the mini.
 - `docs/logging.md` — structured logging and redaction.
 - `docs/hardware-inventory.md`, `docs/runbooks/` — the physical node and
   operational runbooks.

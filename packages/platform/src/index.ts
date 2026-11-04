@@ -35,26 +35,9 @@ export const productSlugs = ["control-center"] as const;
 
 export type ProductSlug = (typeof productSlugs)[number];
 
-export type ProductLabels = Readonly<{
-  "app.kubernetes.io/component": string;
-  "app.kubernetes.io/name": ProductSlug;
-  "app.kubernetes.io/part-of": "world-wide-webb";
-  "worldwidewebb.co/product": ProductSlug;
-}>;
-
 export type ProductIdentity = Readonly<{
   slug: ProductSlug;
-  folder: `products/${ProductSlug}`;
   namespace: ProductSlug;
-  imageNamespace: ProductSlug;
-  labels: (component: string) => ProductLabels;
-  pulumiName: (component: string) => string;
-  serviceName: (component: string) => string;
-  imageRepository: (component: string) => string;
-  imageDigestKey: (component: string) => string;
-  backupPathParts: (
-    component: string,
-  ) => readonly ["backups", "world-wide-webb", ProductSlug, string];
 }>;
 
 function assertNever(value: never): never {
@@ -62,25 +45,7 @@ function assertNever(value: never): never {
 }
 
 export function defineProduct(slug: ProductSlug): ProductIdentity {
-  const productPrefix = (component: string) => `${slug}-${component}`;
-
-  return {
-    slug,
-    folder: `products/${slug}`,
-    namespace: slug,
-    imageNamespace: slug,
-    labels: (component) => ({
-      "app.kubernetes.io/component": component,
-      "app.kubernetes.io/name": slug,
-      "app.kubernetes.io/part-of": "world-wide-webb",
-      "worldwidewebb.co/product": slug,
-    }),
-    pulumiName: productPrefix,
-    serviceName: productPrefix,
-    imageRepository: (component) => `ghcr.io/0x63616c/www-${slug}-${component}`,
-    imageDigestKey: productPrefix,
-    backupPathParts: (component) => ["backups", "world-wide-webb", slug, component],
-  };
+  return { slug, namespace: slug };
 }
 
 export type ImplementedTargetName = "homelab";
@@ -92,17 +57,6 @@ export type HomelabTarget = Readonly<{
   nas: Readonly<{
     exportPath: "/volume1/Homelab";
     backupRootParts: readonly ["backups", "mac-mini"];
-  }>;
-  // Inlined (was the separately-exported TargetCapabilities type): homelab is
-  // the only implemented target, so a named plurality type here had exactly
-  // one member and 0 external consumers.
-  capabilities: Readonly<{
-    certManager: boolean;
-    cloudflareTunnel: boolean;
-    cnpg: boolean;
-    externalSecrets: boolean;
-    k8s: boolean;
-    nasBackups: boolean;
   }>;
 }>;
 
@@ -117,14 +71,6 @@ export const homelabTarget = {
   nas: {
     exportPath: "/volume1/Homelab",
     backupRootParts: ["backups", "mac-mini"],
-  },
-  capabilities: {
-    certManager: false,
-    cloudflareTunnel: true,
-    cnpg: false,
-    externalSecrets: false,
-    k8s: false,
-    nasBackups: true,
   },
 } as const satisfies HomelabTarget;
 
@@ -305,9 +251,6 @@ export const secretCatalog = {
       "CONTROL_CENTER_POSTGRES__PASSWORD",
     ),
   },
-  github: {
-    ghcrPat: secret("GitHub Personal Access Token", "token", "GITHUB_PERSONAL_ACCESS_TOKEN__TOKEN"),
-  },
   homeAssistant: {
     token: secret("Home Assistant Token", "credential", "HOME_ASSISTANT_TOKEN__CREDENTIAL"),
   },
@@ -392,10 +335,10 @@ export function controlCenterServiceSecretUsages(): Record<
   };
 }
 
-export type ControlCenterServiceName = "api" | "worker" | "web" | "manage" | "cloudflared";
+export type ControlCenterServiceName = "api" | "worker" | "web" | "cloudflared";
 
 // Logical app surfaces and secret usage. These are not separate containers:
-// the root Dockerfile serves API, web, manage and workers in one process.
+// the root Dockerfile serves API, web and workers in one process.
 export type ProductServiceDeclaration = Readonly<{
   service: ControlCenterServiceName;
   exposure: WebExposure | InternalServiceExposure | null;
@@ -408,22 +351,15 @@ export type ControlCenterProductManifest = Readonly<{
   app: Readonly<{
     exposure: WebExposure;
   }>;
-  // Retired monitoring hostname retained in edge policy metadata. Its tunnel
-  // ingress is disabled; the monitoring data is archived on the NAS.
-  grafana: Readonly<{
-    exposure: WebExposure;
-  }>;
   // Home Assistant runs in the mini's bridged Colima VM and keeps its
   // existing tunnel hostname and Access policy.
   ha: Readonly<{
     exposure: WebExposure;
   }>;
-  // The Synology DSM: a LAN appliance manage frame (ADR-0010), not a workload
+  // The Synology DSM: a LAN appliance, not a workload
   // of ours at all — it's a box on the LAN — but it gets a tunnel hostname
   // behind Access, and hostnames are owned here. Its origin is HTTPS with a
-  // self-signed cert, so the ingress rule that points at it carries
-  // `noTlsVerify` (infra/cloudflare/src/routes.ts): an iframe cannot click
-  // through a certificate warning, so that is required rather than cosmetic.
+  // self-signed cert; its tunnel origin carries `noTlsVerify`.
   dsm: Readonly<{
     exposure: WebExposure;
   }>;
@@ -441,11 +377,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     target,
     app: {
       exposure: privateWeb(target, { host: "app" }),
-    },
-    grafana: {
-      // Single label under the zone, so Universal SSL's one-label wildcard
-      // covers it (see webHostname).
-      exposure: privateWeb(target, { host: "grafana" }),
     },
     ha: {
       // Single label under the zone, so Universal SSL's one-label wildcard
@@ -469,15 +400,6 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
       web: {
         service: "web",
         exposure: privateWeb(target, { host: "app" }),
-      },
-      // The management plane (ADR-0010). A static bundle in www like `web`, with
-      // no api, no database and no secrets — Cloudflare Access is its only gate,
-      // and every tool it frames authenticates for itself.
-      manage: {
-        service: "manage",
-        // Single label under the zone, so Universal SSL's one-label wildcard
-        // covers it (see webHostname).
-        exposure: privateWeb(target, { host: "manage" }),
       },
       cloudflared: {
         service: "cloudflared",

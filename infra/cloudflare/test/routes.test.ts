@@ -17,58 +17,13 @@ import {
 // Simplification's product and feature removals. The guest-WiFi captive
 // portal was never tunneled at all (LAN-only).
 
-const ZONE = "worldwidewebb.co";
-
 describe("desiredIngressRules", () => {
-  test("moves all routes for a host while preserving paths and unrelated origins", () => {
-    const before = desiredIngressRules(ZONE);
-    const after = desiredIngressRules(ZONE, {
-      "app.worldwidewebb.co": "http://host.docker.internal:4201",
-      "ha.worldwidewebb.co": "http://192.168.0.42:8123",
-    });
-    expect(after.filter((r) => r.hostname === "app.worldwidewebb.co")).toEqual(
-      before
-        .filter((r) => r.hostname === "app.worldwidewebb.co")
-        .map((r) => ({ ...r, service: "http://host.docker.internal:4201" })),
-    );
-    expect(after.find((r) => r.hostname === "ha.worldwidewebb.co")?.service).toBe(
-      "http://192.168.0.42:8123",
-    );
-    expect(
-      after.filter((r) => !["app.worldwidewebb.co", "ha.worldwidewebb.co"].includes(r.hostname)),
-    ).toEqual(
-      before.filter((r) => !["app.worldwidewebb.co", "ha.worldwidewebb.co"].includes(r.hostname)),
-    );
-    expect(after.map((r) => [r.hostname, r.path])).toEqual(before.map((r) => [r.hostname, r.path]));
-  });
-
-  test("rejects unknown hosts and unsafe or path-prefixed origin overrides", () => {
-    expect(() =>
-      desiredIngressRules(ZONE, { "typo.worldwidewebb.co": "http://mini:4201" }),
-    ).toThrow("Unknown tunnel hostname");
-    for (const origin of [
-      "file:///etc/passwd",
-      "http://user:password@mini",
-      "http://mini/prefix",
-      "http://mini?token=x",
-      "http://mini#fragment",
-    ]) {
-      expect(() => desiredIngressRules(ZONE, { "app.worldwidewebb.co": origin })).toThrow(
-        "HTTP(S) origin",
-      );
-    }
-  });
-
   test("declares the product-derived private hosts as ingress hosts", () => {
-    const byHost = Object.fromEntries(
-      desiredIngressRules(ZONE).map((r) => [r.hostname, r.service]),
-    );
+    const byHost = Object.fromEntries(desiredIngressRules().map((r) => [r.hostname, r.service]));
     expect(Object.keys(byHost).sort()).toEqual([
       "app.worldwidewebb.co",
       "dsm.worldwidewebb.co",
-      "grafana.worldwidewebb.co",
       "ha.worldwidewebb.co",
-      "manage.worldwidewebb.co",
     ]);
     // Retired hosts keep their absence pinned.
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
@@ -76,18 +31,8 @@ describe("desiredIngressRules", () => {
     expect(byHost["plex.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["db-ui.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["temporal.worldwidewebb.co"]).toBeUndefined();
-    // #209: same cross-NAMESPACE rule — the Grafana Service lives in
-    // `observability`, so a bare `grafana` origin would 502.
-    expect(byHost["grafana.worldwidewebb.co"]).toBe(
-      "http://grafana.observability.svc.cluster.local:3000",
-    );
-    // #75/#237: same cross-NAMESPACE rule — the `ha` ExternalName Service lives
-    // in `control-center`, so a bare `ha` origin from `cloudflare` would 502.
-    expect(byHost["ha.worldwidewebb.co"]).toBe("http://ha.control-center.svc.cluster.local:8123");
-    // #292: manage, same cross-namespace FQDN rule as the app route.
-    expect(byHost["manage.worldwidewebb.co"]).toBe(
-      "http://manage.control-center.svc.cluster.local:80",
-    );
+    expect(byHost["grafana.worldwidewebb.co"]).toBeUndefined();
+    expect(byHost["ha.worldwidewebb.co"]).toBe("http://192.168.0.130:8123");
     expect(byHost["dont-text-your-ex.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["api.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["dashboard.worldwidewebb.co"]).toBeUndefined();
@@ -95,7 +40,7 @@ describe("desiredIngressRules", () => {
     expect(byHost["drizzle.worldwidewebb.co"]).toBeUndefined();
     // Task 7 Step C: the flattened app--cc cutover host is retired.
     expect(byHost["app--cc.worldwidewebb.co"]).toBeUndefined();
-    expect(byHost["app.worldwidewebb.co"]).toBe("http://web.control-center.svc.cluster.local:80");
+    expect(byHost["app.worldwidewebb.co"]).toBe("http://127.0.0.1:4201");
     expect(byHost["portainer.worldwidewebb.co"]).toBeUndefined();
   });
 
@@ -105,7 +50,7 @@ describe("desiredIngressRules", () => {
   // through a cert warning, so the pane would be permanently blank rather than
   // merely ugly.
   test("the LAN appliance routes over https with origin verification disabled", () => {
-    const byHost = Object.fromEntries(desiredIngressRules(ZONE).map((r) => [r.hostname, r]));
+    const byHost = Object.fromEntries(desiredIngressRules().map((r) => [r.hostname, r]));
 
     // .218, NOT .219 — a recurring mis-transcription in this repo's history.
     expect(byHost["dsm.worldwidewebb.co"].service).toBe("https://192.168.0.218:5001");
@@ -115,7 +60,7 @@ describe("desiredIngressRules", () => {
   // Every other rule must stay byte-identical to live, so originRequest is
   // OMITTED rather than rendered empty — an added key is a real tunnel-config diff.
   test("origins that need no options declare none", () => {
-    for (const rule of desiredIngressRules(ZONE)) {
+    for (const rule of desiredIngressRules()) {
       if (rule.service.startsWith("http://")) {
         expect(rule.originRequest, rule.hostname).toBeUndefined();
       }
@@ -123,13 +68,13 @@ describe("desiredIngressRules", () => {
   });
 
   test("captive-portal is NEVER tunneled (LAN-only)", () => {
-    const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
+    const hosts = desiredIngressRules().map((r) => r.hostname);
     expect(hosts).not.toContain("captive-portal.worldwidewebb.co");
     expect(hosts).not.toContain("app--cp.worldwidewebb.co");
   });
 
   test("the retired app--cc cutover host never reappears in the ingress", () => {
-    const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
+    const hosts = desiredIngressRules().map((r) => r.hostname);
     expect(hosts).not.toContain("app--cc.worldwidewebb.co");
     expect(hosts.some((h) => h.includes("--"))).toBe(false);
   });
@@ -139,7 +84,7 @@ describe("desiredIngressRules", () => {
   // ingress (the primitive-level guard lives in exposure.test.ts; this asserts it
   // end-to-end over the REAL control-center routes, not a synthetic product).
   test("never emits an external api.cc route (same-origin /trpc)", () => {
-    const hosts = desiredIngressRules(ZONE).map((r) => r.hostname);
+    const hosts = desiredIngressRules().map((r) => r.hostname);
     expect(hosts).not.toContain("api--cc.worldwidewebb.co");
     expect(hosts.some((h) => h.startsWith("api.cc."))).toBe(false);
   });
@@ -193,16 +138,10 @@ describe("desiredIngressRules", () => {
 
 describe("desiredCnames", () => {
   test("declares exactly the product-derived CNAMEs, with no legacy leftovers", () => {
-    const hosts = desiredCnames(ZONE)
+    const hosts = desiredCnames()
       .map((c) => c.hostname)
       .sort();
-    expect(hosts).toEqual([
-      "app.worldwidewebb.co",
-      "dsm.worldwidewebb.co",
-      "grafana.worldwidewebb.co",
-      "ha.worldwidewebb.co",
-      "manage.worldwidewebb.co",
-    ]);
+    expect(hosts).toEqual(["app.worldwidewebb.co", "dsm.worldwidewebb.co", "ha.worldwidewebb.co"]);
     expect(hosts).not.toContain("hooks.worldwidewebb.co");
     expect(hosts).not.toContain("unifi.worldwidewebb.co");
     // #127: the EVEE-218 hooks-test leftover was deleted with the old tunnel.
@@ -213,21 +152,21 @@ describe("desiredCnames", () => {
 
   test("every CNAME is proxied and targets the tunnel", () => {
     const tunnelId = "abc123";
-    for (const c of desiredCnames(ZONE)) {
+    for (const c of desiredCnames()) {
       expect(c.proxied).toBe(true);
       expect(c.target(tunnelId)).toBe(`${tunnelId}.cfargotunnel.com`);
     }
   });
 
   test("each CNAME carries its EXACT live comment (zero-diff import; varies per record)", () => {
-    const byHost = Object.fromEntries(desiredCnames(ZONE).map((c) => [c.hostname, c.comment]));
+    const byHost = Object.fromEntries(desiredCnames().map((c) => [c.hostname, c.comment]));
     // dashboard.worldwidewebb.co retired in CC-2ff
     expect(byHost).not.toHaveProperty("dashboard.worldwidewebb.co");
     // #127: the EVEE-218 leftover is gone, comment and all.
     expect(byHost).not.toHaveProperty("hooks-test.worldwidewebb.co");
     // product-derived platform route comment (not a frozen legacy value)
     expect(byHost["app.worldwidewebb.co"]).toBe("platform:control-center private app route");
-    expect(byHost["grafana.worldwidewebb.co"]).toBe("platform:grafana web ui route");
+    expect(byHost).not.toHaveProperty("grafana.worldwidewebb.co");
     expect(byHost["ha.worldwidewebb.co"]).toBe("platform:home assistant web ui route (#75)");
     expect(byHost).not.toHaveProperty("hooks.worldwidewebb.co");
     expect(byHost).not.toHaveProperty("unifi.worldwidewebb.co");
@@ -248,7 +187,7 @@ describe("tunnelCnameTarget", () => {
 });
 
 test("releases reaches API before the app catch-all without changing other paths or DNS", () => {
-  const routes = desiredIngressRules(ZONE);
+  const routes = desiredIngressRules();
   const resolve = (path: string) =>
     routes.find(
       (route) =>
@@ -257,7 +196,7 @@ test("releases reaches API before the app catch-all without changing other paths
           new RegExp(route.path).test(new URL(path, "https://app.worldwidewebb.co").pathname)),
     );
   for (const path of ["/api/releases/latest", "/api/releases/latest?app=panel"]) {
-    expect(resolve(path)?.service).toBe("http://api.control-center.svc.cluster.local:4201");
+    expect(resolve(path)?.service).toBe("http://127.0.0.1:4201");
     expect(resolve(path)?.path).toBe("^/api/releases/latest$");
   }
   for (const path of [
@@ -267,27 +206,16 @@ test("releases reaches API before the app catch-all without changing other paths
     "/api/releases/latest/other",
     "/api/releases/latest-other",
   ]) {
-    expect(resolve(path)?.service).toBe("http://web.control-center.svc.cluster.local:80");
+    expect(resolve(path)?.service).toBe("http://127.0.0.1:4201");
   }
-  expect(
-    desiredCnames(ZONE).filter((route) => route.hostname === "app.worldwidewebb.co"),
-  ).toHaveLength(1);
+  expect(desiredCnames().filter((route) => route.hostname === "app.worldwidewebb.co")).toHaveLength(
+    1,
+  );
 });
 
-test("retired ingress preserves other routes and rejects contradictory configuration", () => {
-  const retired = "grafana.worldwidewebb.co";
-  expect(desiredIngressRules(ZONE, {}, [retired])).toEqual(
-    desiredIngressRules(ZONE).filter((r) => r.hostname !== retired),
-  );
-  // DNS/Access management is separate: a retired route falls through to 404.
-  expect(desiredCnames(ZONE).some((r) => r.hostname === retired)).toBe(true);
-  expect(() => desiredIngressRules(ZONE, {}, ["typo.worldwidewebb.co"])).toThrow();
-  expect(() =>
-    desiredIngressRules(ZONE, { [retired]: "http://localhost:3000" }, [retired]),
-  ).toThrow();
-  expect(
-    desiredIngressRules(ZONE, {}, ["app.worldwidewebb.co"]).some(
-      (r) => r.hostname === "app.worldwidewebb.co",
-    ),
-  ).toBe(false);
+test("retired Manage and Grafana have no ingress or DNS records", () => {
+  for (const hostname of ["manage.worldwidewebb.co", "grafana.worldwidewebb.co"]) {
+    expect(desiredIngressRules().some((route) => route.hostname === hostname)).toBe(false);
+    expect(desiredCnames().some((record) => record.hostname === hostname)).toBe(false);
+  }
 });

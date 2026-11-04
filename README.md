@@ -15,13 +15,12 @@ registration (ADR-0001).
 | `apps/panel` | Expo iOS kiosk shell for the wall panel. |
 | `apps/api` | Single www process, API, routers, DB schema and migrations. |
 | `apps/worker` | Legacy worker entrypoint retained for rollback. |
-| `apps/manage` | Static management UI, served by www on the manage hostname. |
 | `features/*` | Self-contained feature Apps (tiles), glob-collected into `features/_generated/*.gen.ts` by `bun run apps:gen`. |
 | `packages/api` | Browser-safe tRPC type bridge + wire contracts. |
 | `packages/core` | Shared `device_state` store (`@www/core`). |
 | `packages/logger` | Shared backend logger. |
 | `packages/platform` | Platform primitives for product identity, secrets, DBs, backups, and manifests. |
-| `packages/theme` | Shared CSS the web and manage bundles both import. |
+| `packages/theme` | Shared CSS the Control Center imports. |
 | `packages/worker-runtime` | Shared worker scheduling/runtime primitives. |
 | `deploy/mini` | Compose, releases, HA startup and NAS backups. |
 | `infra/cloudflare` | Pulumi-managed DNS, Access and tunnel ingress. |
@@ -31,9 +30,9 @@ glossary.
 
 ## Runtime
 
-`www (web + manage + API + tRPC + worker cycles) -> Home Assistant / Sonos / Postgres`
+`www (web + API + tRPC + worker cycles) -> Home Assistant / Sonos / Postgres`
 
-Build the two static bundles once, then start the single backend process:
+Build the web bundle once, then start the single backend process:
 
 ```sh
 bun install --frozen-lockfile
@@ -43,8 +42,7 @@ bun run www
 
 Postgres must be reachable at `DATABASE_URL` (the development default is the
 Postgres service in `docker-compose.yml`). The panel is at `http://localhost:4201`.
-Manage uses the same port with hostname `manage.worldwidewebb.co`; set
-`MANAGE_HOST=localhost` to preview Manage locally. `WORKER_CYCLES=off bun run www`
+`WORKER_CYCLES=off bun run www`
 starts an HTTP-only instance; the default is `on`. Only one instance may have
 cycles enabled against a database. An instance with cycles off still serves writes.
 
@@ -62,7 +60,8 @@ read-only files at `/run/secrets/<NAME>`. Set `APP_ENV=production` to validate t
 `/healthz` returns DB availability, whether cycles are enabled, and per-cycle
 run/failure counts. A cycle failure is reported without restarting the HTTP
 server; database failure and shutdown return 503. `/up` is simple liveness.
-Prometheus stays on the internal metrics port (9464), outside the public listener.
+The metrics listener remains internal on port 9464; the retired Prometheus stack
+is no longer deployed.
 
 Production uses this single image on the Mac mini with PostgreSQL. SQLite is
 an optional separate migration. See [the migration runbook](docs/runbooks/mac-mini-migration.md)
@@ -81,8 +80,12 @@ updates, checks database/worker health and the build SHA, and rejects stale
 releases. No self-hosted GitHub runner is required.
 
 Control Center and PostgreSQL run in OrbStack; Home Assistant runs in a bridged
-Colima VM. Hindsight and Bambuddy stay independent. `deploy/mini/` contain versioned runtime/startup configuration. Cloudflare DNS,
+Colima VM. Hindsight and Bambuddy stay independent. `deploy/mini/` contains versioned runtime/startup configuration. Cloudflare DNS,
 Access and tunnel ingress are managed in `infra/cloudflare` (Pulumi `prod`).
+Only `app`, `ha` and `dsm` hostnames remain in this edge project. Manage and
+its frame-unlock browser extension are retired; uninstall any locally loaded
+copy of the extension. UniFi is managed outside this repository.
+
 Talos is shut down with disks retained. Never restart its old app against stale
 data; use the migration runbook for recovery context.
 

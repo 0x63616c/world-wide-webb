@@ -77,7 +77,7 @@
       "entry": ["src/server.ts", "src/www.ts"]
     },
     "infra/cloudflare": {
-      // Separate Pulumi PROJECT (control-center-cloudflare) for the adopt-only CF
+      // Retained Pulumi project (world-wide-webb-cloudflare) for production CF
       // edge state (www-j934.2). program.ts (the Pulumi program) is auto-detected
       // from package `main`; src/{access,routes}.ts are imported by it; tests in
       // test/.
@@ -97,15 +97,6 @@
       // src/index.ts is auto-detected from the `exports` map.
       // Tests are in test/ - declare explicitly so knip registers them as entries.
       "entry": ["test/**/*.test.ts"]
-    },
-    "apps/manage": {
-      // extension/content.js is loaded by Chrome from the unpacked extension,
-      // never imported — knip sees no edge to it, and the same goes for the
-      // generated manifest/rules it sits beside.
-      // playwright.config.ts is auto-detected at the package root; the e2e specs
-      // are declared so the generator exports they exercise aren't read as dead.
-      "entry": ["e2e/**/*.spec.ts", "test/**/*.test.ts"],
-      "ignore": ["extension/**"]
     },
     "apps/web": {
       // Tests live beside sources; the vite/vitest plugins auto-detect everything.

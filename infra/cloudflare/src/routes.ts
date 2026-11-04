@@ -10,9 +10,6 @@
 // symmetric (a retired record was once a CNAME with no ingress rule). They are
 // symmetric today, but keeping the lists separate leaves room for the next
 // asymmetric host without reshaping the model.
-//
-// Every retired host's ingress rule and CNAME were pruned as its backing
-// service was deleted; both legacy lists below are intentionally empty.
 
 import { controlCenterProductManifest, type ProductServiceDeclaration } from "@www/platform";
 
@@ -24,12 +21,9 @@ export function tunnelCnameTarget(tunnelId: string): string {
 /**
  * Per-origin connection options for an ingress rule.
  *
- * Everything routed here used to be a plaintext in-cluster Service, so the
- * origin was fully described by a `http://host:port` string. The LAN appliances
- * manage frames (ADR-0010) are not: they answer HTTPS with self-signed certs, so
- * cloudflared refuses them unless verification is disabled. That is required,
- * not cosmetic — an iframe cannot click through a certificate warning, so
- * without it the pane is permanently blank.
+ * Mini origins use HTTP on the connector's host network. Synology DSM uses
+ * HTTPS with a self-signed certificate, so cloudflared needs an explicit
+ * per-origin exception to reach it.
  *
  * @public part of the ingress declaration surface — named so a rule's options
  * can be typed at the call site even though every current consumer reaches it
@@ -42,7 +36,7 @@ export interface DesiredOriginRequest {
   originServerName?: string;
 }
 
-/** A live tunnel ingress rule: hostname -> in-cluster origin. */
+/** A live tunnel ingress rule: hostname -> mini or LAN appliance origin. */
 export interface DesiredIngressRule {
   hostname: string;
   // Optional RE2 path regex. Rules sharing a hostname must put the narrower
@@ -74,15 +68,6 @@ export type CloudflareRoutes = Readonly<{
   ingressRules: readonly DesiredIngressRule[];
   cnames: readonly DesiredCname[];
 }>;
-
-// LIVE tunnel ingress: no legacy hosts remain (only the product-derived hosts
-// added by productRoutes below). Every retired host was pruned from here as
-// its origin went away.
-const LEGACY_INGRESS: Record<string, string> = {};
-
-// LIVE proxied CNAMEs beyond the product-derived ones: none. Every retired
-// host's CNAME was pruned alongside its ingress rule above.
-const LEGACY_CNAME_COMMENTS: Record<string, string | undefined> = {};
 
 export function cloudflareRoutesForExposures(
   sources: readonly CloudflareExposureSource[],
@@ -123,24 +108,8 @@ function productRoutes(): CloudflareRoutes {
   const sources: CloudflareExposureSource[] = [
     {
       exposure: cc.app.exposure,
-      origin: "http://web.control-center.svc.cluster.local:80",
+      origin: "http://127.0.0.1:4201",
       comment: "platform:control-center private app route",
-    },
-    {
-      exposure: cc.grafana.exposure,
-      // FQDN, not the short Service name: cloudflared runs in the `cloudflare`
-      // namespace, so `grafana` alone would not resolve across into the
-      // `observability` namespace.
-      origin: "http://grafana.observability.svc.cluster.local:3000",
-      comment: "platform:grafana web ui route",
-    },
-    {
-      exposure: cc.services.manage.exposure,
-      // manage (ADR-0010). Same shape as the app route above: a static nginx
-      // bundle in the control-center namespace, cross-namespace from
-      // cloudflared, so the FQDN is required.
-      origin: "http://manage.control-center.svc.cluster.local:80",
-      comment: "platform:manage management plane route (#292)",
     },
     {
       exposure: cc.dsm.exposure,
@@ -152,11 +121,7 @@ function productRoutes(): CloudflareRoutes {
     },
     {
       exposure: cc.ha.exposure,
-      // FQDN, same cross-namespace reason as the others: cloudflared runs in
-      // `cloudflare`, the `ha` ExternalName Service is in `control-center`
-      // (api/worker reach it via the short name `http://ha:8123` from inside
-      // that namespace; cloudflared cannot).
-      origin: "http://ha.control-center.svc.cluster.local:8123",
+      origin: "http://192.168.0.130:8123",
       comment: "platform:home assistant web ui route (#75)",
     },
   ];
@@ -166,71 +131,24 @@ function productRoutes(): CloudflareRoutes {
     ...routes,
     // Narrow paths precede the app's catch-all. Access still gates this same
     // hostname; POST additionally checks the existing automation bearer.
-    // Route directly because web nginx only forwards the legacy alarms path.
+    // Keep the release path ordering stable; www serves both API and web.
     ingressRules: [
       {
         hostname: cc.app.exposure.hostname,
         path: "^/api/releases/latest$",
-        service: "http://api.control-center.svc.cluster.local:4201",
+        service: "http://127.0.0.1:4201",
       },
       ...routes.ingressRules,
     ],
   };
 }
 
-/** The live tunnel ingress rules for zone `<zone>` (adopt-only import target). */
-export function desiredIngressRules(
-  zone: string,
-  originOverrides: Readonly<Record<string, string>> = {},
-  disabledIngressHosts: readonly string[] = [],
-): DesiredIngressRule[] {
-  const rules = [
-    ...productRoutes().ingressRules,
-    ...Object.entries(LEGACY_INGRESS).map(([sub, service]) => ({
-      hostname: `${sub}.${zone}`,
-      service,
-    })),
-  ];
-  // Hostnames, Access policy and path priority survive hardware moves. Apply
-  // an override to every rule for the host, including narrow API paths.
-  const hosts = new Set(rules.map((rule) => rule.hostname));
-  for (const hostname of disabledIngressHosts) {
-    if (!hosts.has(hostname)) throw new Error(`Unknown disabled tunnel hostname: ${hostname}`);
-    if (hostname in originOverrides) {
-      throw new Error(`Cannot override a disabled tunnel hostname: ${hostname}`);
-    }
-  }
-  for (const [hostname, origin] of Object.entries(originOverrides)) {
-    if (!hosts.has(hostname)) throw new Error(`Unknown tunnel hostname: ${hostname}`);
-    const url = new URL(origin);
-    if (
-      !["http:", "https:"].includes(url.protocol) ||
-      url.username ||
-      url.password ||
-      url.pathname !== "/" ||
-      url.search ||
-      url.hash
-    ) {
-      throw new Error(`Tunnel override must be an HTTP(S) origin: ${hostname}`);
-    }
-  }
-  return rules
-    .filter((rule) => !disabledIngressHosts.includes(rule.hostname))
-    .map((rule) => ({
-      ...rule,
-      service: originOverrides[rule.hostname] ?? rule.service,
-    }));
+/** Production origins as reached by the mini's host-networked connector. */
+export function desiredIngressRules(): DesiredIngressRule[] {
+  return [...productRoutes().ingressRules];
 }
 
-/** The live proxied CNAMEs for zone `<zone>` (adopt-only import target). */
-export function desiredCnames(zone: string): DesiredCname[] {
-  return [
-    ...productRoutes().cnames,
-    ...Object.entries(LEGACY_CNAME_COMMENTS).map(([sub, comment]) => ({
-      hostname: `${sub}.${zone}`,
-      proxied: true as const,
-      target: tunnelCnameTarget,
-      comment,
-    })),
-  ];
+/** Proxied DNS for the retained application and appliance hostnames. */
+export function desiredCnames(): DesiredCname[] {
+  return [...productRoutes().cnames];
 }

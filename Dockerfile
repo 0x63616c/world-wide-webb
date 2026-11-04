@@ -12,7 +12,6 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-COPY apps/manage/package.json apps/manage/
 COPY apps/panel/package.json apps/panel/
 COPY apps/worker/package.json apps/worker/
 COPY packages/api/package.json packages/api/
@@ -29,7 +28,6 @@ RUN bun install --frozen-lockfile --ignore-scripts
 
 COPY apps/api apps/api
 COPY apps/web apps/web
-COPY apps/manage apps/manage
 COPY tsconfig.json tsconfig.json
 COPY packages packages
 # C7 authoring surface: api mounts feature routers + schema from the folder tree.
@@ -46,10 +44,10 @@ ARG BUILD_HASH=dev
 ARG BUILD_TIME
 ENV BUILD_HASH=$BUILD_HASH
 ENV BUILD_TIME=$BUILD_TIME
-RUN bun run --cwd apps/web build && bun run --cwd apps/manage build
+RUN bun run --cwd apps/web build
 RUN cd apps/api && bun build src/www.ts --target=bun --outfile ../../dist/server.js
 
-# Both static sites ship beside the Bun bundle.
+# The Control Center static bundle ships beside the server.
 FROM oven/bun:1.4-alpine AS runtime
 
 # Git SHA of the build; CI passes --build-arg BUILD_HASH=${github.sha} (mirrors
@@ -66,7 +64,6 @@ COPY --from=build /app/dist/server.js server.js
 COPY --from=build /app/apps/api/src/db/migrations migrations
 
 COPY --from=build /app/apps/web/dist apps/web/dist
-COPY --from=build /app/apps/manage/dist apps/manage/dist
 
 EXPOSE 4201
 

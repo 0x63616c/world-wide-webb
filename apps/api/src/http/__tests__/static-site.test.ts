@@ -7,12 +7,10 @@ import { boundedRequest, serveStaticSite } from "../static-site";
 let root: string;
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "www-sites-"));
-  for (const site of ["web", "manage"]) {
-    const dist = join(root, "apps", site, "dist");
-    await mkdir(join(dist, "assets"), { recursive: true });
-    await writeFile(join(dist, "index.html"), `<html>${site}</html>`);
-    await writeFile(join(dist, "assets", "bundle.js"), `const site = '${site}'`);
-  }
+  const dist = join(root, "apps/web/dist");
+  await mkdir(join(dist, "assets"), { recursive: true });
+  await writeFile(join(dist, "index.html"), "<html>web</html>");
+  await writeFile(join(dist, "assets", "bundle.js"), "const site = 'web'");
   await writeFile(join(root, "secret"), "outside the bundle");
   await symlink(join(root, "secret"), join(root, "apps/web/dist/assets/leak.js"));
 });
@@ -20,31 +18,21 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 const serve = (path: string, host = "app.worldwidewebb.co", method = "GET") =>
-  serveStaticSite(
-    new Request(`https://${host}${path}`, { method }),
-    root,
-    "manage.worldwidewebb.co",
-  );
+  serveStaticSite(new Request(`https://${host}${path}`, { method }), root);
 
 describe("static sites", () => {
   it("serves a symlinked deployment root while rejecting escaping assets", async () => {
     const alias = join(root, "alias");
     await symlink(root, alias);
     const request = (path: string) =>
-      serveStaticSite(new Request(`http://localhost${path}`), alias, "manage.worldwidewebb.co");
+      serveStaticSite(new Request(`http://localhost${path}`), alias);
     expect(await (await request("/")).text()).toBe("<html>web</html>");
     expect((await request("/assets/leak.js")).status).toBe(404);
   });
-  it("routes by hostname and revalidates HTML on every SPA navigation", async () => {
-    for (const [host, site] of [
-      ["app.worldwidewebb.co", "web"],
-      ["manage.worldwidewebb.co", "manage"],
-    ]) {
-      const res = await serve("/tools", host);
-      expect(await res.text()).toBe(`<html>${site}</html>`);
-      expect(res.headers.get("cache-control")).toBe("no-cache");
-      expect(res.headers.get("x-frame-options")).toBe(site === "manage" ? "DENY" : null);
-    }
+  it("revalidates HTML on every SPA navigation", async () => {
+    const res = await serve("/settings");
+    expect(await res.text()).toBe("<html>web</html>");
+    expect(res.headers.get("cache-control")).toBe("no-cache");
   });
   it("serves immutable assets with the correct MIME and supports HEAD", async () => {
     const res = await serve("/assets/bundle.js");

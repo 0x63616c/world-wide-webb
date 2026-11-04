@@ -134,14 +134,6 @@ export async function startServer(
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
-    if (
-      options.staticRoot &&
-      url.hostname === config.MANAGE_HOST &&
-      url.pathname !== "/healthz" &&
-      url.pathname !== "/up"
-    ) {
-      return serveStaticSite(req, options.staticRoot, config.MANAGE_HOST);
-    }
     const bounded = await boundedRequest(req);
     if (bounded instanceof Response) return bounded;
     req = bounded;
@@ -157,8 +149,7 @@ export async function startServer(
     }
 
     // Liveness/readiness target: proves the DB pool can still hand out a working
-    // connection. A wedged pool fails this, so Kubernetes restarts the pod
-    // instead of nginx returning 502s for hours.
+    // connection. A wedged pool fails this and marks the Compose service unhealthy.
     if (url.pathname === "/healthz") {
       try {
         await db.$client.query("SELECT 1");
@@ -209,7 +200,7 @@ export async function startServer(
     }
 
     if (options.staticRoot) {
-      return serveStaticSite(req, options.staticRoot, config.MANAGE_HOST);
+      return serveStaticSite(req, options.staticRoot);
     }
     return new Response("Not Found", { status: 404, headers: CORS_HEADERS });
   }

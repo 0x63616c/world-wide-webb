@@ -5,7 +5,6 @@
   "workspaces": [
     "apps/web",
     "apps/panel",
-    "apps/manage",
     "apps/api",
     "apps/worker",
     "packages/*",
@@ -16,7 +15,6 @@
     "dev:web": "bun run --filter @control-center/web dev",
     "dev:api": "bun run --filter @control-center/api dev",
     "dev:worker": "bun run --filter @control-center/worker dev",
-    "dev:manage": "bun run --filter @control-center/manage dev",
     "dev:db": "docker compose -f docker-compose.yml up postgres",
     "ios:prebuild": "bun run --cwd apps/panel prebuild",
     "ios:open": "bun run --cwd apps/panel open",
@@ -41,7 +39,7 @@
     "typecheck:config": "tsc -p tsconfig.config.json --noEmit",
     "prepare": "bunx lefthook install --force",
     "www": "bun run --cwd apps/api src/www.ts",
-    "build:www": "bun run --cwd apps/web build && bun run --cwd apps/manage build"
+    "build:www": "bun run --cwd apps/web build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.14",
