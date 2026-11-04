@@ -1,7 +1,7 @@
 # Calum’s apps: project memory
 
 - Start with [README.md](README.md). App code and core tests live in `apps/<app>`; shared SwiftUI components and `rframe` live in `packages/RDesign`.
-- Track work in [Tickets](https://tickets.worldwidewebb.co), the sole source of truth; this repo uses `APP` keys. Follow [CONTRIBUTING.md](CONTRIBUTING.md): Conventional Commit PR titles end with `[APP-N]`, and bodies link the ticket: `Closes [APP-N](https://tickets.worldwidewebb.co/t/APP-N)` or `Refs [APP-N](https://tickets.worldwidewebb.co/t/APP-N)` (CI checks it). Use Tickets dependency edges for dependencies.
+- Follow [CONTRIBUTING.md](CONTRIBUTING.md). Use Conventional Commit PR titles and describe the change and validation.
 - Git identity: **Calum <6991398+0x63616c@users.noreply.github.com>**. Never use `calum@users.noreply.github.com`. Make small logical commits. When publication is authorized, merge yourself once checks are green; no PR review is required. Explicit session instructions such as “do not push” take precedence.
 - Black, white and graphite only; no green or teal. Keep copy minimal. Tendr dose entry uses mg only; preserve historical records and do not re-enable syringe units. No drug brand names or medical claims in listing copy or screenshots.
 - Use **bun**, not npm or pnpm, for JavaScript tooling.
