@@ -1,9 +1,14 @@
 import XCTest
 
 @MainActor final class HomeViewLaunchTests: XCTestCase {
-    private func launch(unavailable: Bool = false) -> XCUIApplication {
+    override func setUp() {
+        super.setUp()
         continueAfterFailure = false
+        // Extension tests also run first on fresh CI simulators. A full-screen
+        // landscape app frame does not set the device/SpringBoard orientation.
         XCUIDevice.shared.orientation = .landscapeLeft
+    }
+    private func launch(unavailable: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-hybridStill"]
         if unavailable { app.launchArguments.append("-hybridUnavailable") }
