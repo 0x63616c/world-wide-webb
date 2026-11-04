@@ -87,6 +87,16 @@ import PanelKit
     static func source(_ id: String) -> NotificationSource {
         if id == "updates" { return NotificationSource(name: "Updates", symbol: "arrow.down.circle.fill") }
         let module = module(for: "module/\(id)")
+        let appID: String
+        switch module {
+        case .sonos: appID = "music"
+        case .walk: appID = "walks"
+        case .tesla: appID = "car"
+        default: appID = module?.rawValue ?? id
+        }
+        if let app = PanelAppCatalog.standard.app(id: appID) {
+            return NotificationSource(name: app.name, symbol: app.symbol, app: app)
+        }
         let symbol: String
         switch module {
         case .lights: symbol = "lightbulb.fill"

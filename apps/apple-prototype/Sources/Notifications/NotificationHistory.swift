@@ -146,8 +146,11 @@ struct NotificationHistory: View {
                     if !expanded.insert(group.id).inserted { expanded.remove(group.id) }
                 }
             } label: {
-                Label("\(source(group.id).name) · \(group.items.count)", systemImage: source(group.id).symbol)
-                Image(systemName: expanded.contains(group.id) ? "chevron.up" : "chevron.down")
+                HStack(spacing: 8) {
+                    NotificationSourceIcon(source: source(group.id), side: 24)
+                    Text("\(source(group.id).name) · \(group.items.count)")
+                    Image(systemName: expanded.contains(group.id) ? "chevron.up" : "chevron.down")
+                }
             }
             .frame(minHeight: 44)
             .accessibilityValue(expanded.contains(group.id) ? "Expanded" : "Collapsed")

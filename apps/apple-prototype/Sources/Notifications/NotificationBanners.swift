@@ -1,8 +1,37 @@
 import SwiftUI
+import PanelKit
 
 struct NotificationSource: Equatable {
     let name: String
     let symbol: String
+    let app: PanelAppDefinition?
+
+    init(name: String, symbol: String, app: PanelAppDefinition? = nil) {
+        self.name = name
+        self.symbol = symbol
+        self.app = app
+    }
+}
+
+/// The launcher and both notification surfaces share the same app artwork.
+struct NotificationSourceIcon: View {
+    let source: NotificationSource
+    var side: CGFloat = 38
+
+    var body: some View {
+        Group {
+            if let app = source.app {
+                PanelAppIcon(app: app, side: side)
+            } else {
+                Image(systemName: source.symbol)
+                    .font(.system(size: side * 0.58, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.85))
+                    .frame(width: side, height: side)
+                    .background(.white.gradient, in: .rect(cornerRadius: side * 0.26))
+            }
+        }
+        .accessibilityHidden(true)
+    }
 }
 
 /// Only cards and controls intercept input; the rest of the board remains usable.
@@ -158,12 +187,7 @@ private struct NotificationBanner: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                Image(systemName: source.symbol)
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.85))
-                    .frame(width: 38, height: 38)
-                    .background(.white.gradient, in: .rect(cornerRadius: 10))
-                    .accessibilityHidden(true)
+                NotificationSourceIcon(source: source)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(source.name).font(.subheadline.weight(.bold)).lineLimit(1)

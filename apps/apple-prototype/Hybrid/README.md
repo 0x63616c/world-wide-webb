@@ -1304,7 +1304,9 @@ resolve source taps through `PanelNavigation`, including dismissal of Home's
 current full-screen destination. Unknown routes keep their banner and unread state.
 
 The overlay uses a 380-point dark native Liquid Glass card, a rounded-square
-source glyph, bold source/title, relative time and a two-line body. It sits 20
+source icon, bold source/title, relative time and a two-line body. Launcher apps
+reuse `PanelAppIcon` and the catalog name/symbol/colour, including Calendar and
+Weather artwork. Non-launcher sources retain their fallback glyph. It sits 20
 points from the safe trailing edge and 72 points below the safe top edge, leaving
 the top control row (including Details) accessible on Home, Classic and native
 controllers. Accessibility text sizes widen the card to 560 points.
