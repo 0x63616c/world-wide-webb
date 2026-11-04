@@ -1,6 +1,6 @@
 # World Wide Webb — Apple prototype
 
-Native SwiftUI study for [WWW-8](https://tickets.worldwidewebb.co/t/WWW-8), targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
+Native SwiftUI study targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
 ## Iteration 6
 

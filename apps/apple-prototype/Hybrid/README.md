@@ -820,8 +820,7 @@ caller. Since the Mac mini migration, `deploy/mini/compose.yaml` mounts local
 persistent media storage, with nightly NAS backups. This is storage, not a
 catalogue API.
 
-[WWW-50](https://tickets.worldwidewebb.co/t/WWW-50) records the missing additive
-endpoints and blocks WWW-33's production completion:
+Production completion still needs the following additive endpoints:
 
 - A catalogue query (proposed `media.list`) with stable IDs, real titles, types and
   availability, backed by a selected NAS directory or existing service.
