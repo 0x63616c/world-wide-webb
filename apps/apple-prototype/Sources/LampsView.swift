@@ -139,82 +139,122 @@ struct LampBrightness: View {
 
 struct LampEffectsView: View {
     let store: any HomeDataSource
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var editingSlot: Int?
-    @State private var editingColors = false
-    @State private var draftHex = ""
     @State private var previewKelvin: Int?
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Picker("Lamp scene", selection: Binding(get: { store.lamps.scene == "White" ? "White" : "Mood" }, set: { store.send(.scene($0)) })) {
-                Text("White").tag("White")
-                Text("Colour").tag("Mood")
-            }.pickerStyle(.segmented)
-            if store.lamps.scene == "White" {
-            VStack(spacing: 10) {
-                HStack { SectionLabel(text: "White temperature"); Spacer(); Text("\(previewKelvin ?? store.lamps.kelvin) K").font(.system(size: 22)) }
-                FilledLevelControl(value: store.lamps.kelvin, label: "White temperature", symbol: "thermometer.medium",
-                    range: 2000...6500, step: 100, unit: "kelvin",
-                    track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color,
-                    preview: { previewKelvin = $0 }) { store.send(.kelvin($0)) }
-                    .frame(height: 70).accessibilityIdentifier("lamp-temperature")
-                HStack { Text("2000 K"); Spacer(); Text("6500 K") }.font(.system(size: 15)).opacity(0.6)
-            }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
+        VStack(alignment: .leading, spacing: 28) {
+            if let slot = editingSlot {
+                LampColorEditor(slot: slot, initialHex: store.lamps.colors[slot],
+                    cancel: { editingSlot = nil }, save: { hex in
+                        store.send(.color(slot, hex)); editingSlot = nil
+                    })
             } else {
-            HStack {
-                SectionLabel(text: "Colours"); Spacer()
-                Button(editingColors ? "Done" : "Edit") { editingColors.toggle() }.buttonStyle(.glass)
-            }
-            HStack(spacing: 28) {
-                ForEach(0..<3) { slot in
-                    Button {
-                        if editingColors { draftHex = store.lamps.colors[slot]; editingSlot = slot }
-                        else { store.send(.color(slot, nil)) }
+                Picker("Lamp scene", selection: Binding(get: { store.lamps.scene == "White" ? "White" : "Mood" }, set: { store.send(.scene($0)) })) {
+                    Text("White").tag("White")
+                    Text("Colour").tag("Mood")
+                }.pickerStyle(.segmented).controlSize(.extraLarge)
+                if store.lamps.scene == "White" {
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack {
+                            Text("White temperature").font(.title3.weight(.medium))
+                            Spacer()
+                            Text("\(previewKelvin ?? store.lamps.kelvin) K").font(.title2).monospacedDigit()
+                        }
+                        FilledLevelControl(value: store.lamps.kelvin, label: "White temperature", symbol: "thermometer.medium",
+                            range: 2000...6500, step: 100, unit: "kelvin",
+                            track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color,
+                            preview: { previewKelvin = $0 }) { store.send(.kelvin($0)) }
+                            .frame(height: 100).accessibilityIdentifier("lamp-temperature")
+                        HStack { Text("Warm · 2000 K"); Spacer(); Text("Daylight · 6500 K") }
+                            .font(.callout).foregroundStyle(.secondary)
+                    }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
+                } else {
+                    HStack {
+                        Text("Saved colours").font(.title3.weight(.medium))
+                        Spacer()
+                        Text("Tap to use").font(.callout).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 20) {
+                        ForEach(0..<3) { slot in
+                            VStack(spacing: 12) {
+                                Button { store.send(.color(slot, nil)) } label: {
+                                    RoundedRectangle(cornerRadius: 24).fill(Color(hex: store.lamps.colors[slot]))
+                                        .frame(height: 108)
+                                        .overlay {
+                                            if store.lamps.activeColor == slot {
+                                                Image(systemName: "checkmark.circle.fill").font(.largeTitle)
+                                                    .symbolRenderingMode(.palette).foregroundStyle(.black, .white)
+                                            }
+                                        }
+                                }.buttonStyle(.plain).accessibilityLabel("Use Custom \(slot + 1)")
+                                    .accessibilityIdentifier("lamp-color-\(slot)")
+                                    .accessibilityAddTraits(store.lamps.activeColor == slot ? .isSelected : [])
+                                Button { editingSlot = slot } label: {
+                                    Label("Customize", systemImage: "slider.horizontal.3").font(.callout.weight(.medium)).frame(minHeight: 44)
+                                }.buttonStyle(.plain).accessibilityLabel("Edit Custom \(slot + 1)")
+                            }.frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                Divider().overlay(.white.opacity(0.1))
+                HStack {
+                    Label("Party", systemImage: "sparkles").font(.title3.weight(.medium))
+                    Spacer()
+                    Menu {
+                        ForEach(PartySpeed.allCases, id: \.self) { speed in
+                            Button(speed.rawValue) { store.send(.party(speed)) }
+                        }
                     } label: {
-                        VStack(spacing: 12) {
-                            Circle().fill(Color(hex: store.lamps.colors[slot])).frame(width: 72, height: 72)
-                                .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: store.lamps.activeColor == slot ? 4 : 1))
-                                .overlay { if editingColors { Image(systemName: "pencil").font(.system(size: 24)) } }
-
-                        }.frame(maxWidth: .infinity)
-                    }.buttonStyle(.plain).accessibilityLabel("\(editingColors ? "Edit" : "Use") Custom \(slot + 1)")
+                        HStack { Text(store.lamps.party.rawValue); Image(systemName: "chevron.up.chevron.down").font(.caption) }
+                            .padding(.horizontal, 20).frame(height: 52)
+                    }.buttonStyle(.glass).disabled(!store.lamps.anyOn)
                 }
-            }
-            }
-            DisclosureGroup(store.lamps.party == .off ? "Party" : "Party · \(store.lamps.party.rawValue)") {
-            HStack(spacing: 12) {
-                ForEach(PartySpeed.allCases, id: \.self) { speed in
-                    Choice(title: speed.rawValue, selected: store.lamps.party == speed) { store.send(.party(speed)) }
-                }
-            }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
             }
         }.frame(maxWidth: .infinity)
-        .sheet(isPresented: Binding(get: { editingSlot != nil }, set: { if !$0 { editingSlot = nil } })) {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("Edit Custom \((editingSlot ?? 0) + 1)").font(.system(size: 28, weight: .semibold))
-                RoundedRectangle(cornerRadius: 24).fill(Color(hex: draftHex)).frame(height: 120)
-                TextField("Hex color", text: $draftHex).textFieldStyle(.roundedBorder).font(.system(size: 24)).accessibilityLabel("Hex color")
-                Text("Use a six-digit hex color, such as #0066ff.").foregroundStyle(.secondary)
-                HStack {
-                    Button("Cancel") { editingSlot = nil }.keyboardShortcut(.cancelAction)
-                    Spacer()
-                    Button("Save & use") {
-                        if let slot = editingSlot { store.send(.color(slot, draftHex)) }; editingSlot = nil
-                    }.disabled(draftHex.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) == nil).keyboardShortcut(.defaultAction)
-                }.buttonStyle(.glass)
-            }.padding(24).frame(width: sizeClass == .compact ? nil : 440)
-        }
     }
-    private func scene(_ name: String, colors: [Color]) -> some View {
-        Button { store.send(.scene(name)) } label: {
-            HStack(spacing: 12) {
-                Circle().fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 32, height: 32)
-                Text(name).font(.system(size: 21, weight: .semibold))
+}
+
+private struct LampColorEditor: View {
+    let slot: Int
+    let cancel: () -> Void
+    let save: (String) -> Void
+    @State private var color: Color
+    @Environment(\.self) private var environment
+    init(slot: Int, initialHex: String, cancel: @escaping () -> Void, save: @escaping (String) -> Void) {
+        self.slot = slot; self.cancel = cancel; self.save = save
+        _color = State(initialValue: Color(hex: initialHex))
+    }
+    private let presets = ["#ff453a", "#ff9f0a", "#ffd60a", "#30d158", "#40c8e0", "#0a84ff", "#bf5af2", "#ff375f"]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            HStack {
+                Text("Custom \(slot + 1)").font(.title2.weight(.semibold))
                 Spacer()
-                if store.lamps.scene == name && store.lamps.party == .off { Image(systemName: "checkmark") }
-            }.padding(17)
-        }.buttonStyle(.plain).foregroundStyle(.white)
-            .glassEffect(.regular.interactive(), in: .capsule)
-            .environment(\.colorScheme, .dark)
+                Button("Cancel", action: cancel).buttonStyle(.glass)
+            }
+            RoundedRectangle(cornerRadius: 28).fill(color.gradient).frame(height: 150)
+                .accessibilityLabel("Colour preview")
+            ColorPicker("Choose a colour", selection: $color, supportsOpacity: false)
+                .font(.title3.weight(.medium)).padding(20)
+                .background(.white.opacity(0.06), in: .rect(cornerRadius: 20))
+                .accessibilityIdentifier("lamp-custom-color-picker")
+            HStack(spacing: 12) {
+                ForEach(presets, id: \.self) { hex in
+                    Button { color = Color(hex: hex) } label: {
+                        Circle().fill(Color(hex: hex)).frame(maxWidth: .infinity).frame(height: 44)
+                    }.buttonStyle(.plain).accessibilityLabel("Colour \(hex)")
+                }
+            }
+            Button {
+                let resolved = color.resolve(in: environment)
+                let hex = String(format: "#%02x%02x%02x", Int((min(1, max(0, resolved.red)) * 255).rounded()),
+                    Int((min(1, max(0, resolved.green)) * 255).rounded()), Int((min(1, max(0, resolved.blue)) * 255).rounded()))
+                save(hex)
+            } label: {
+                Label("Save & use", systemImage: "checkmark").font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity).padding(12)
+            }.buttonStyle(.glassProminent).tint(.white).foregroundStyle(.black)
+                .accessibilityIdentifier("lamp-save-color")
+        }.accessibilityIdentifier("lamp-color-editor")
     }
 }

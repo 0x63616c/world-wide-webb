@@ -12,24 +12,31 @@ import SwiftUI
     private(set) var alertMessage: String?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let alerts = PanelTimerAlerts()
+    @ObservationIgnored private let backgroundAlertsEnabled: Bool
+    @ObservationIgnored private let sound: any PanelSoundPlaying
+    @ObservationIgnored private var lastSoundSecond: Int?
+    var keepsScreenAwake: Bool { countdown.phase != .ready }
     @ObservationIgnored private var alertTask: Task<Void, Never>?
     @ObservationIgnored private var alertID: String?
     private static let stateKey = "panel.timer.countdown.v1"
     private static let alertKey = "panel.timer.alert.v1"
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, sound: any PanelSoundPlaying = PanelSoundBus.shared, backgroundAlertsEnabled: Bool = true) {
+        self.backgroundAlertsEnabled = backgroundAlertsEnabled
+        self.sound = sound
         self.defaults = defaults
         countdown = defaults.data(forKey: Self.stateKey)
             .flatMap { try? JSONDecoder().decode(PanelCountdown.self, from: $0) } ?? PanelCountdown()
         alertID = defaults.string(forKey: Self.alertKey)
-        tick()
     }
     func setDuration(_ seconds: TimeInterval) { _ = countdown.setDuration(seconds) }
-    func start() {
+    func start(at now: Date = .now) {
         guard countdown.phase != .running else { return }
         cancelAlert()
-        countdown.start(at: .now)
-        guard let deadline = countdown.deadline else { return }
+        countdown.start(at: now)
+        lastSoundSecond = nil
+        tick(at: now)
+        guard backgroundAlertsEnabled, let deadline = countdown.deadline else { return }
         #if DEBUG
         // UI recordings run the real clock without prompting for OS notification permission.
         if ProcessInfo.processInfo.arguments.contains("-timerDisableNotifications") { return }
@@ -42,37 +49,51 @@ import SwiftUI
                 let authorization = try await alerts.authorize()
                 try Task.checkCancellation()
                 guard authorization.permitted else {
-                    alertMessage = "Notifications are off. The timer will finish here without a sound."
+                    alertMessage = "Background alerts are off. Keep the panel open to hear the timer."
                     return
                 }
-                if !authorization.audible { alertMessage = "Notification sounds are off. The timer will finish silently." }
-                try await alerts.schedule(id: id, deadline: deadline)
+                if !authorization.audible { alertMessage = "Background notification sounds are off. Sound still plays while the panel is open." }
+                try await alerts.schedule(id: id, deadline: deadline, audible: defaults.object(forKey: "panel.timerSound") as? Bool ?? true)
                 if Task.isCancelled { alerts.cancel(id: id) }
             } catch {
                 if Task.isCancelled { alerts.cancel(id: id) }
-                else { alertMessage = "The timer is running, but its sound alert couldn’t be scheduled." }
+                else { alertMessage = "The timer is running. Keep the panel open to hear its alert." }
             }
         }
     }
-    func pause() {
+    func pause(at now: Date = .now) {
         guard countdown.phase == .running else { return }
-        countdown.pause(at: .now)
+        countdown.pause(at: now)
+        sound.stop()
         if countdown.phase == .paused { cancelAlert() }
-        else if countdown.phase == .finished { announceCompletion() }
+        else if countdown.phase == .finished { announceCompletion(); lastSoundSecond = nil; tick(at: now) }
     }
     func reset() {
         cancelAlert()
         countdown.reset()
     }
-    func tick() {
+    func tick(at now: Date = .now) {
         // Avoid publishing an unchanged state to the entire shell every second.
-        if let deadline = countdown.deadline, deadline <= Date() {
-            if countdown.finishIfNeeded(at: .now) { announceCompletion() }
+        if let deadline = countdown.deadline, deadline <= now {
+            if countdown.finishIfNeeded(at: now) { announceCompletion(); lastSoundSecond = nil }
         }
+        let second = Int(now.timeIntervalSince1970)
+        guard lastSoundSecond != second else { return }
+        let previousSecond = lastSoundSecond
+        lastSoundSecond = second
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-timerDisableNotifications") { return }
+        #endif
+        guard defaults.object(forKey: "panel.timerSound") as? Bool ?? true else { sound.stop(); return }
+        if countdown.phase == .running { sound.play(.timerTick) }
+        else if countdown.phase == .finished, previousSecond == nil || second % 3 == 0 { sound.play(.timerFinished) }
     }
     func activate() { alerts.activate(); tick() }
+    func deactivate() { sound.stop(); lastSoundSecond = nil }
     private func announceCompletion() { AccessibilityNotification.Announcement("Time’s up. Your timer has finished.").post() }
     private func cancelAlert() {
+        sound.stop()
+        lastSoundSecond = nil
         alertTask?.cancel()
         alertTask = nil
         if let alertID { alerts.cancel(id: alertID) }
@@ -82,7 +103,7 @@ import SwiftUI
     }
 }
 
-/// The OS delivers the sound even if the app is suspended. No audio playback loop.
+/// OS fallback while suspended; foreground cues belong to the native sound bus.
 @MainActor private final class PanelTimerAlerts: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
     func activate() { center.delegate = self }
@@ -95,11 +116,11 @@ import SwiftUI
         return (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional,
             settings.authorizationStatus == .authorized && settings.soundSetting == .enabled)
     }
-    func schedule(id: String, deadline: Date) async throws {
+    func schedule(id: String, deadline: Date, audible: Bool) async throws {
         let content = UNMutableNotificationContent()
         content.title = "Time’s up"
         content.body = "Your timer has finished."
-        content.sound = .default
+        content.sound = audible ? .default : nil
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.timeIntervalSinceNow), repeats: false)
         try await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
     }
@@ -108,5 +129,5 @@ import SwiftUI
         center.removeDeliveredNotifications(withIdentifiers: [id])
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification) async -> UNNotificationPresentationOptions { [.banner, .sound] }
+        willPresent notification: UNNotification) async -> UNNotificationPresentationOptions { [] }
 }

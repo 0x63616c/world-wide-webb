@@ -87,7 +87,6 @@ struct SoundController: View {
             HStack {
                 Text(store.rooms.contains { $0.baseline != nil } ? "Calibrated · volume as a percentage of each room’s baseline" : "Showing raw volume").font(.system(size: 18)).opacity(0.6)
                 Spacer()
-                if store.pending.contains("sound") { ProgressView() }
             }
         }.padding(.horizontal, 46).padding(.top, 34).padding(.bottom, 34)
     }

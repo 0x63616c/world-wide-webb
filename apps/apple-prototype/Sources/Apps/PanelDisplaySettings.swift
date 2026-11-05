@@ -6,6 +6,7 @@ struct PanelDisplayPreferences: DynamicProperty {
     @AppStorage("panel.dimBrightness") var dimBrightness = 0.3
     @AppStorage("panel.wakeBrightness") var wakeBrightness = 1.0
     @AppStorage("panel.dimAfterSeconds") var dimAfterSeconds = 60
+    @AppStorage("panel.returnToClockSeconds") var returnToClockSeconds = 60
 
     func brightness(dimmed: Bool) -> Double {
         let awake = min(1, max(0.1, wakeBrightness))
@@ -22,15 +23,14 @@ struct PanelDisplaySettings: View {
             Toggle("Dim when idle", isOn: display.$idleDimming)
             if display.idleDimming {
                 brightnessSlider("Dim brightness", value: display.$dimBrightness)
-                Picker("Dim after", selection: display.$dimAfterSeconds) {
-                    Text("30 seconds").tag(30)
-                    Text("1 minute").tag(60)
-                    Text("2 minutes").tag(120)
-                    Text("5 minutes").tag(300)
-                    Text("10 minutes").tag(600)
-                }
-                .accessibilityIdentifier("display-dim-timeout")
+                PanelDurationSlider(title: "Dim after", seconds: display.$dimAfterSeconds)
+                    .accessibilityIdentifier("display-dim-timeout")
             }
+        }
+        Section("Return to clock") {
+            PanelDurationSlider(title: "After inactivity", seconds: display.$returnToClockSeconds, allowsNever: true)
+                .accessibilityIdentifier("display-clock-timeout")
+            Text("Active walks and timers keep the screen awake.").foregroundStyle(.secondary)
         }
         .onChange(of: display.wakeBrightness) { _, value in
             if display.dimBrightness > value { display.dimBrightness = value }
@@ -58,5 +58,38 @@ struct PanelDisplaySettings: View {
             .accessibilityValue(value.wrappedValue.formatted(.percent.precision(.fractionLength(0))))
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// The same duration scale is used for dimming and per-app clock behaviour.
+struct PanelDurationSlider: View {
+    let title: String
+    @Binding var seconds: Int
+    var allowsNever = false
+    private var stops: [Int] { (allowsNever ? [0] : []) + [15, 30, 45, 60, 90, 120, 180, 300, 600, 900, 1800] }
+    private var position: Binding<Double> {
+        Binding(get: {
+            Double(stops.indices.min(by: { abs(stops[$0] - seconds) < abs(stops[$1] - seconds) }) ?? 0)
+        }, set: { seconds = stops[Int($0.rounded())] })
+    }
+    static func label(_ seconds: Int) -> String {
+        if seconds == 0 { return "Never" }
+        if seconds < 60 { return "\(seconds) sec" }
+        if seconds % 60 == 0 { return "\(seconds / 60) min" }
+        return "\(seconds / 60) min \(seconds % 60) sec"
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(Self.label(seconds)).monospacedDigit().foregroundStyle(.secondary)
+            }
+            Slider(value: position, in: 0...Double(stops.count - 1), step: 1) { Text(title) }
+                .accessibilityValue(Self.label(seconds))
+            HStack {
+                Text(Self.label(stops[0])); Spacer(); Text("30 min")
+            }.font(.caption).foregroundStyle(.secondary)
+        }.padding(.vertical, 8)
     }
 }

@@ -20,6 +20,9 @@ import OSLog
     private(set) var availability: LiveAvailability = .loading
     private(set) var pending: Set<String> = []
     private(set) var lastError: PanelAPIError?
+    private(set) var errorMessage: String?
+    private(set) var errorRevision = 0
+    @ObservationIgnored private var confirmedClimate: ClimateState?
     @ObservationIgnored private let api: ClimateAPI
     @ObservationIgnored private var queue: [HomeCommand] = []
     @ObservationIgnored private var mutationTask: Task<Void, Never>?
@@ -63,6 +66,7 @@ import OSLog
         revision += 1
         for _ in queue { PanelCommandLog.shared.record(control: "climate.queued", error: "cancelled") }
         queue.removeAll(); pending = []
+        climate = confirmedClimate
     }
 
     @discardableResult func send(_ command: HomeCommand) -> Bool {
@@ -73,6 +77,8 @@ import OSLog
         // Range edits require real confirmed setpoints, never the prototype fixture.
         guard climate != nil else { return false }
         queue.append(command)
+        errorMessage = nil
+        render()
         revision += 1
         pending = ["climate"]
         guard mutationTask == nil else { return true }
@@ -81,14 +87,18 @@ import OSLog
                 do {
                     let state = try await self.perform(command)
                     guard !Task.isCancelled else { return }
-                    self.accept(state)
                     self.queue.removeFirst()
+                    self.accept(state)
                     if self.queue.isEmpty { self.pending = []; self.mutationTask = nil }
                 } catch {
                     guard !Task.isCancelled else { return }
                     for _ in self.queue.dropFirst() { PanelCommandLog.shared.record(control: "climate.queued", error: "dropped: action unavailable") }
                     self.queue.removeAll(); self.pending = []; self.mutationTask = nil
-                    self.fail(error)
+                    self.climate = self.confirmedClimate
+                    self.lastError = error as? PanelAPIError
+                    self.errorMessage = "Couldn’t change the temperature. Try again."
+                    self.errorRevision += 1
+                    Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Climate command failed")
                     return
                 }
             }
@@ -97,7 +107,7 @@ import OSLog
     }
 
     private func perform(_ command: HomeCommand) async throws -> ClimateAPIState {
-        guard let climate else { throw PanelAPIError.notConfigured }
+        guard let climate = confirmedClimate else { throw PanelAPIError.notConfigured }
         switch command {
         case .mode(let mode): return try await api.setMode(ClimateAPIMode(rawValue: mode.rawValue)!)
         case .target(let target): return try await api.setTarget(target)
@@ -112,7 +122,7 @@ import OSLog
     }
 
     private func accept(_ state: ClimateAPIState) {
-        var mapped = climate ?? ClimateState()
+        var mapped = confirmedClimate ?? ClimateState()
         mapped.mode = ClimateMode(rawValue: state.mode.rawValue)!
         mapped.ambient = Int(state.ambient.rounded())
         switch state.setpoints {
@@ -131,12 +141,32 @@ import OSLog
             else if let target { (mapped.low, mapped.high) = Self.range(around: Int(target.rounded())) }
         }
         // fanOn is not exposed by climate.get; do not infer fan activity from HVAC action.
-        climate = mapped
+        confirmedClimate = mapped
+        render()
         serverState = state
         reportedAction = state.action
         ambientFahrenheit = state.ambient
         lastError = nil
         availability = .live
+    }
+
+    /// Rebase pending intent over each confirmed response so an earlier response
+    /// never flashes over the latest mode or setpoint the person selected.
+    private func render() {
+        guard var value = confirmedClimate else { return }
+        for command in queue {
+            switch command {
+            case .mode(let mode): value.mode = mode
+            case .target(let target): value.target = min(77, max(67, target))
+            case .low(let low): value.low = min(value.high - 2, max(67, low))
+            case .high(let high): value.high = min(77, max(value.low + 2, high))
+            case .shiftRange(let delta):
+                let step = min(77 - value.high, max(67 - value.low, delta))
+                value.low += step; value.high += step
+            default: break
+            }
+        }
+        climate = value
     }
 
     private static func range(around target: Int) -> (Int, Int) {

@@ -1193,18 +1193,53 @@ struct WallpaperPicker: View {
         else { NavigationStack { content.toolbar { Button("Done") { dismiss() } } } }
     }
     private var content: some View {
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 24)], spacing: 24) {
-                    ForEach(WallpaperChoice.allCases) { item in
+        ScrollView {
+            VStack(alignment: .leading, spacing: 32) {
+                ZStack(alignment: .bottomLeading) {
+                    Rectangle().fill(.clear)
+                        .background { choice.fill.environment(\.motionPhase, 0) }
+                        .clipped()
+                    LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(choice.title).font(.title.bold())
+                        Label("Current background", systemImage: "checkmark.circle.fill")
+                            .font(.callout).foregroundStyle(.white.opacity(0.8))
+                    }.padding(24)
+                }.frame(height: 250).clipShape(.rect(cornerRadius: 28))
+                    .accessibilityElement(children: .combine).accessibilityIdentifier("wallpaper-preview")
+                wallpaperRow("Photos", choices: [.lake, .coast, .forest, .cloud])
+                wallpaperRow("Animated", choices: WallpaperChoice.allCases.filter { ArtStyle(rawValue: $0.rawValue) != nil })
+                wallpaperRow("Simple", choices: [.black, .graphite, .dusk])
+            }.padding(32)
+        }.navigationTitle("Background")
+    }
+    private func wallpaperRow(_ title: String, choices: [WallpaperChoice]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(title).font(.title3.weight(.semibold))
+            ScrollView(.horizontal) {
+                HStack(spacing: 16) {
+                    ForEach(choices) { item in
                         Button { choice = item } label: {
-                            VStack(spacing: 10) {
-                                item.fill.environment(\.motionPhase, 0).frame(height: 150).clipShape(.rect(cornerRadius: 20))
-                                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(item == choice ? Color.white : .clear, lineWidth: 4))
-                                Text(item.title).font(.system(size: 17, weight: item == choice ? .bold : .medium))
-                            }
+                            VStack(alignment: .leading, spacing: 10) {
+                                // Constrain the image's proposal before scaledToFill. A tall photo
+                                // must not expand its button over neighbouring wallpaper targets.
+                                Rectangle().fill(.clear).frame(width: 168, height: 112)
+                                    .background { item.fill.environment(\.motionPhase, 0) }
+                                    .clipShape(.rect(cornerRadius: 18))
+                                    .overlay(alignment: .bottomTrailing) {
+                                        if item == choice {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.title2).symbolRenderingMode(.palette)
+                                                .foregroundStyle(.black, .white).padding(10)
+                                        }
+                                    }
+                                Text(item.title).font(.body.weight(item == choice ? .semibold : .regular))
+                            }.frame(width: 168).contentShape(.rect)
                         }.buttonStyle(.plain).accessibilityAddTraits(item == choice ? .isSelected : [])
+                            .accessibilityIdentifier("wallpaper-\(item.rawValue)")
                     }
-                }.padding(24)
-            }.navigationTitle("Wallpaper")
+                }.padding(.bottom, 6)
+            }.scrollIndicators(.hidden)
+        }
     }
 }

@@ -62,64 +62,6 @@ struct SwipeHomeRegion: View {
     }
 }
 
-struct PanelSettingsPage: View {
-    let back: () -> Void
-    @Environment(\.homeIntegration) private var integration
-    private enum Page: String, CaseIterable, Identifiable {
-        case display = "Display", security = "Security", apps = "Apps"
-        var id: String { rawValue }
-        var symbol: String { self == .display ? "display" : (self == .security ? "lock.shield" : "square.grid.2x2") }
-    }
-    @State private var selection: Page? = .display
-    var body: some View {
-        NavigationSplitView(columnVisibility: .constant(.all)) {
-            List(Page.allCases, selection: $selection) { page in
-                Label(page.rawValue, systemImage: page.symbol).tag(page)
-            }.navigationTitle("Settings")
-                .toolbar(removing: .sidebarToggle)
-                .toolbar {
-                    #if os(iOS)
-                    ToolbarItem(placement: .topBarLeading) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
-                    #else
-                    ToolbarItem(placement: .navigation) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
-                    #endif
-                }
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 340)
-        } detail: {
-            NavigationStack {
-                Form {
-                    if selection == .apps {
-                        Section {
-                            ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { $0.route == .timer || $0.route == .photoBooth } }) { app in
-                                NavigationLink { PanelPerAppSettings(app: app) } label: { Label(app.name, systemImage: app.symbol) }
-                            }
-                        }
-                    } else if selection == .security {
-                        Section("Panel PIN") {
-                            if let api = integration?.panelPIN {
-                                NavigationLink { PanelPINChangePage(api: api) } label: {
-                                    Label("Change PIN", systemImage: "key.fill")
-                                }.accessibilityIdentifier("settings-change-pin")
-                            } else {
-                                Label("Connect to your panel server to change the PIN", systemImage: "wifi.slash")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    } else {
-                        Section {
-                            NavigationLink { WallpaperPicker(embedded: true) } label: { Label("Background", systemImage: "photo") }
-                        }
-                        PanelDisplaySettings()
-                    }
-                }.formStyle(.grouped)
-                    .navigationTitle(selection?.rawValue ?? "Display")
-            }.id(selection)
-        }.tint(.blue).preferredColorScheme(.dark)
-    }
-}
-
 /// Icon artwork is separate from the app registration and navigation shell.
 struct PanelAppIcon: View {
     let app: PanelAppDefinition

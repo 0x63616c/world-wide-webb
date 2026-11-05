@@ -85,6 +85,7 @@ struct HomeView: View {
     private let launcherMotion = ClockLauncherMotion.current
     @State private var appPreferences = PanelAppPreferences()
     @State private var timer = PanelTimerStore()
+    private var display = PanelDisplayPreferences()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
@@ -173,7 +174,7 @@ struct HomeView: View {
                     store.walkActivity.synchronize(walk: walk, now: store.now)
                 }
                 .task(id: scenePhase) {
-                    guard scenePhase == .active else { return }
+                    guard scenePhase == .active else { timer.deactivate(); return }
                     timer.activate()
                     while !Task.isCancelled {
                         timer.tick()
@@ -192,7 +193,9 @@ struct HomeView: View {
                         return false
                     }) { open(app) }
                 }
-        }.environment(appPreferences).modifier(PanelIdleDimming(onIdle: clock, timeout: selected.map { appPreferences[$0.id].idleSeconds } ?? 60)).ignoresSafeArea()
+        }.environment(appPreferences).modifier(PanelIdleDimming(onIdle: clock,
+            timeout: appPreferences.idleSeconds(for: selected?.id, default: display.returnToClockSeconds),
+            inhibited: selected?.id == "walks" || store.walks.activeWalk != nil || timer.keepsScreenAwake)).ignoresSafeArea()
         #if targetEnvironment(simulator)
         .background {
             Button("Open apps", action: home)
@@ -434,7 +437,6 @@ struct TileFace: View {
                     setpointButton("chevron.up", label: "Raise setpoint", delta: 1)
                 }.padding(.bottom, 8)
             }.padding(38)
-                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(26).allowsHitTesting(false) } }
 
         }
     }
@@ -481,7 +483,6 @@ struct AccessoryFace: View {
                     .foregroundStyle(on ? Color.orange : .white)
                     .frame(width: 120, height: 100)
                     .background { if key != .fan { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180).allowsHitTesting(false) } }
-                    .overlay(alignment: .topTrailing) { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white).allowsHitTesting(false) } }
             }.buttonStyle(.plain).padding(.bottom, 20)
                 .accessibilityLabel("Toggle \(key.name)").accessibilityValue(key == .fan ? store.climate.fanLabel : on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
             Button(action: open) {

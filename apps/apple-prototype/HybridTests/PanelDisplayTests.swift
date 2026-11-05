@@ -52,10 +52,22 @@ import XCTest
         let state = PanelIdleState(now: 0)
         state.activity(now: 20)
         XCTAssertFalse(state.tick(now: 30, dimAfter: 30, returnAfter: 0, dimEnabled: true))
-        XCTAssertTrue(state.tick(now: 50, dimAfter: 30, returnAfter: 0, dimEnabled: true))
+        XCTAssertFalse(state.tick(now: 50, dimAfter: 30, returnAfter: 0, dimEnabled: true))
         XCTAssertTrue(state.dimmed)
         state.wake(now: 60)
         XCTAssertFalse(state.tick(now: 1000, dimAfter: 30, returnAfter: 0, dimEnabled: false))
         XCTAssertFalse(state.dimmed)
     }
+    func testActiveSessionInhibitsBothDeadlinesAndRestartsIdleAfterward() {
+        let state = PanelIdleState(now: 0)
+        XCTAssertFalse(state.tick(now: 1000, dimAfter: 30, returnAfter: 60, dimEnabled: true, inhibited: true))
+        XCTAssertFalse(state.dimmed)
+        XCTAssertFalse(state.tick(now: 1029, dimAfter: 30, returnAfter: 60, dimEnabled: true))
+        XCTAssertFalse(state.dimmed)
+        XCTAssertTrue(state.tick(now: 1060, dimAfter: 30, returnAfter: 60, dimEnabled: true))
+        XCTAssertTrue(state.dimmed)
+        XCTAssertFalse(state.tick(now: 1061, dimAfter: 30, returnAfter: 60, dimEnabled: true, inhibited: true))
+        XCTAssertFalse(state.dimmed)
+    }
+
 }

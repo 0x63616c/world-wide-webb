@@ -229,6 +229,12 @@ struct PanelRoot: View {
                     deepLink: "module/all", priority: .high, dedupeKey: "panel-command-error")
             }
         }
+        .onChange(of: store.climateProvider.errorRevision) { _, _ in
+            if let message = store.climateProvider.errorMessage {
+                notifications.post(sourceModule: "fan", title: "Fan action failed", body: message,
+                    deepLink: "module/fan", priority: .high, dedupeKey: "fan-command-error")
+            }
+        }
         .onChange(of: store.fanProvider.errorRevision) { _, _ in
             if let message = store.fanProvider.errorMessage {
                 notifications.post(sourceModule: "fan", title: "Fan action failed", body: message,

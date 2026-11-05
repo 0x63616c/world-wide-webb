@@ -69,13 +69,15 @@ import XCTest
         XCTAssertTrue(provider.send(.low(76)))
         XCTAssertTrue(provider.send(.high(77)))
         await transport.waitForRequest(2)
-        XCTAssertEqual(provider.climate?.low, 68)
+        XCTAssertEqual(provider.climate?.low, 72)
+        XCTAssertEqual(provider.climate?.high, 77)
         await transport.release(1)
         try await settled(provider)
         XCTAssertEqual(provider.climate?.low, 68)
         XCTAssertEqual(provider.climate?.high, 74)
         XCTAssertEqual(provider.lastError, .server(code: "BAD_REQUEST", message: "low must be at least 2°F below high", httpStatus: 400))
-        XCTAssertEqual(provider.availability, .unavailable("Can't reach server (HTTP 400)"))
+        XCTAssertEqual(provider.availability, .live)
+        XCTAssertEqual(provider.errorMessage, "Couldn’t change the temperature. Try again.")
         let count = await transport.requests.count
         XCTAssertEqual(count, 2)
         await provider.refresh()
@@ -113,6 +115,24 @@ import XCTest
         for _ in 0..<20 { await Task.yield() }
         XCTAssertEqual(provider.climate?.mode, .heatCool)
         XCTAssertTrue(provider.pending.isEmpty)
+    }
+
+    func testLatestIntentRemainsVisibleWhileEarlierCommandIsHeld() async throws {
+        let transport = ClimateProviderTransport([.cool, .heat, .range], held: [1, 2])
+        let provider = make(transport)
+        defer { provider.stop() }
+        await provider.refresh()
+        provider.send(.mode(.heat))
+        XCTAssertEqual(provider.climate?.mode, .heat)
+        await transport.waitForRequest(2)
+        provider.send(.mode(.heatCool))
+        XCTAssertEqual(provider.climate?.mode, .heatCool)
+        await transport.release(1)
+        await transport.waitForRequest(3)
+        XCTAssertEqual(provider.climate?.mode, .heatCool)
+        await transport.release(2)
+        try await settled(provider)
+        XCTAssertEqual(provider.climate?.mode, .heatCool)
     }
 
     private func make(_ transport: ClimateProviderTransport) -> LiveClimateProvider {

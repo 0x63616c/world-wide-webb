@@ -21,10 +21,11 @@ import SwiftUI
     }
 
     /// Returns true once when the shell should show its clock.
-    func tick(now: TimeInterval, dimAfter: Int, returnAfter: Int, dimEnabled: Bool) -> Bool {
+    func tick(now: TimeInterval, dimAfter: Int, returnAfter: Int, dimEnabled: Bool, inhibited: Bool = false) -> Bool {
+        if inhibited { wake(now: now); return false }
         let elapsed = now - lastActivity
         if dimEnabled && dimAfter > 0 && elapsed >= Double(dimAfter) { dimmed = true }
-        guard !returnedToClock, dimmed || (returnAfter > 0 && elapsed >= Double(returnAfter)) else { return false }
+        guard !returnedToClock, returnAfter > 0, elapsed >= Double(returnAfter) else { return false }
         returnedToClock = true
         return true
     }
@@ -34,13 +35,15 @@ import SwiftUI
 struct PanelIdleDimming: ViewModifier {
     let onIdle: () -> Void
     let timeout: Int
+    let inhibited: Bool
     private var display = PanelDisplayPreferences()
     @State private var idle = PanelIdleState()
     @Environment(\.scenePhase) private var phase
 
-    init(onIdle: @escaping () -> Void, timeout: Int) {
+    init(onIdle: @escaping () -> Void, timeout: Int, inhibited: Bool = false) {
         self.onIdle = onIdle
         self.timeout = timeout
+        self.inhibited = inhibited
     }
 
     private var visualOpacity: Double {
@@ -73,14 +76,16 @@ struct PanelIdleDimming: ViewModifier {
             .simultaneousGesture(TapGesture().onEnded { idle.activity() })
             .onContinuousHover { hover in if case .active = hover { idle.wake() } }
             #endif
-            .task(id: "\(phase)-\(timeout)-\(display.dimAfterSeconds)-\(display.idleDimming)") {
+            .task(id: "\(phase)-\(timeout)-\(display.dimAfterSeconds)-\(display.idleDimming)-\(inhibited)") {
                 guard phase == .active else { return }
                 while !Task.isCancelled {
                     do { try await Task.sleep(for: .seconds(1)) } catch { return }
                     if idle.tick(now: ProcessInfo.processInfo.systemUptime, dimAfter: display.dimAfterSeconds,
-                                 returnAfter: timeout, dimEnabled: display.idleDimming) { onIdle() }
+                                 returnAfter: timeout, dimEnabled: display.idleDimming, inhibited: inhibited) { onIdle() }
                 }
             }
+            .onChange(of: inhibited) { _, _ in idle.wake() }
+            .onChange(of: timeout) { _, _ in idle.wake() }
             .onChange(of: display.idleDimming) { _, _ in idle.wake() }
             .onChange(of: display.dimAfterSeconds) { _, _ in idle.wake() }
             .onChange(of: phase) { _, value in if value == .active { idle.wake() } }

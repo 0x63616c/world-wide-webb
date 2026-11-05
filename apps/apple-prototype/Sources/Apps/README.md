@@ -16,7 +16,10 @@ Every app has a fixed upper-left Back control returning to the launcher, includi
 Settings, protected pages, unavailable states and Classic. App scroll views only
 bounce when their content overflows. A single-finger content scroll never closes
 an app. Back buttons are the app navigation; accessibility escape remains available.
-Settings uses a native split view for Display, Security and Apps preferences.
+Settings uses a native split view for Background, Display & idle, Apps and Security.
+Background opens with a large live preview and bounded, static gallery thumbnails.
+Photo thumbnails cannot overlap neighbouring tap targets; procedural previews do
+not create animation timelines.
 Back chrome has no painted full-width background: app backgrounds extend behind
 the transparent top safe-area inset while content remains below the button.
 Settings places Back in its native sidebar toolbar instead of adding a second
@@ -67,13 +70,16 @@ Tap the orange duration beneath the countdown to choose hours, minutes or second
 Presets live inside that editor. Start, Pause, Resume, Reset and Again operate on
 the real local timer; the fixed Back button returns to Home.
 
-The shell owns a persisted deadline, so leaving the page, idle return to Clock,
-suspension or relaunch does not restart the countdown. Pause preserves the exact
-remaining interval. Settings → Apps → Timer configures its return-to-clock delay.
-An OS local notification supplies the completion alert outside the page, subject
-to notification/sound permissions; denied or silent settings are shown honestly.
-VoiceOver reads a duration and announces completion once. Simulator recordings
-disable only OS notification prompts/sounds, and show the countdown at normal speed.
+The shell owns a persisted deadline, so leaving the page, suspension or relaunch
+does not restart the countdown. Running, paused and finished timers keep the panel
+awake until Reset. The shared native sound bus plays a quiet tick each second and
+a repeating completion chime, including while another app is open. Loudness follows
+device volume. Settings → Apps → Timer sound can silence the cues.
+An OS local notification supplies the completion alert while suspended, subject
+to notification/sound permissions; foreground alerts use the sound bus without a
+duplicate notification. Pause preserves the exact remaining interval and silences
+ticking. VoiceOver announces completion once. Explicit simulator recording mode
+disables audio and OS permission prompts; the countdown runs at normal speed.
 
 ## Panel PIN
 
@@ -153,8 +159,10 @@ palette without changing the system clock or stored user settings.
 
 ## Activity and navigation
 
-Sixty seconds without interaction returns to the clock. The Display preference
-controls whether that clock is also dimmed. Touching a dimmed clock wakes it;
+Settings → Display & idle independently controls the return-to-clock delay and
+dimming delay with duration sliders. Return defaults to sixty seconds and can be
+set to Never. Per-app overrides inherit the display setting by default. An active
+walk, an open Dog Walker page, or an active timer inhibits both idle actions. Touching a dimmed clock wakes it;
 swiping left opens the launcher. A window-level observer tracks
 taps and drags without an invisible view covering app controls. It only tracks
 activity and never navigates; the five-finger Home pinch has been removed.
@@ -195,7 +203,13 @@ longer registered in the native app catalog. Notification banners sit 20 points
 from the top-right edges, and the entire notification history uses dark mode;
 Classic reconnects against a black native background.
 
-Lights and Calendar omit redundant page titles. The clock places its date at
+Calendar omits a redundant page title. Lights groups room power controls beside
+brightness, White/Colour selection and editable saved colour swatches. Customize
+opens an inline editor with system colour selection, quick colours and Save & use.
+Climate is a full-page vertical temperature surface: drag up/down or use the
+accessible plus/minus controls. In Auto mode, select the heating or cooling limit
+first. Climate and fan commands show the requested state immediately; a failed
+command restores the last confirmed state and surfaces a retryable error. The clock places its date at
 the top left and digital time at the bottom right. White temperature previews
 the current drag value in Kelvin and an approximate warm-to-daylight screen
 colour, while committing the lamp change only when the drag ends.

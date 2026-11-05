@@ -27,8 +27,17 @@ struct ArtWallpaper: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var fixedPhase
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: reduceMotion || scenePhase != .active || fixedPhase != nil)) { tick in
-            let time = fixedPhase ?? (reduceMotion ? 0 : tick.date.timeIntervalSinceReferenceDate)
+        Group {
+            if let fixedPhase { canvas(time: fixedPhase) }
+            else if reduceMotion || scenePhase != .active { canvas(time: 0) }
+            else {
+                TimelineView(.animation(minimumInterval: 1.0 / 24)) { tick in
+                    canvas(time: tick.date.timeIntervalSinceReferenceDate)
+                }
+            }
+        }.accessibilityHidden(true).allowsHitTesting(false)
+    }
+    private func canvas(time: Double) -> some View {
             Canvas { context, size in
                 let palette = style.palette
                 context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(palette[0]))
@@ -100,6 +109,5 @@ struct ArtWallpaper: View {
                     }
                 }
             }
-        }.accessibilityHidden(true).allowsHitTesting(false)
     }
 }

@@ -58,7 +58,7 @@ import XCTest
         app.buttons["Lower setpoint"].tap()
         expectWrite("climate.setTarget", in: app)
         XCTAssertTrue(app.staticTexts["70°"].waitForExistence(timeout: 10))
-        app.buttons["climate-fan"].tap()
+        app.buttons["climate-fan-on"].tap()
         expectWrite("controls.toggle", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-climate"].firstMatch.exists)
     }
@@ -66,7 +66,7 @@ import XCTest
         let app = launch(writes: false)
         defer { app.terminate() }
         app.openHomeModule("climate")
-        let fan = app.buttons["climate-fan"]
+        let fan = app.buttons["climate-fan-on"]
         XCTAssertTrue(fan.waitForExistence(timeout: 15))
         let original = fan.label
         fan.tap()
