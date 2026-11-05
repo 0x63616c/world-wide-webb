@@ -10,6 +10,7 @@ export const DeviceOwner = {
   ClimateEnforcer: "climate-enforcer",
   SonosVolumeEnforcer: "sonos-volume-enforcer",
   DeviceSync: "device-sync",
+  VehicleTelemetry: "vehicle-telemetry",
 } as const;
 export type DeviceOwner = (typeof DeviceOwner)[keyof typeof DeviceOwner];
 
@@ -41,6 +42,7 @@ export type DeviceOwner = (typeof DeviceOwner)[keyof typeof DeviceOwner];
 export function ownerOf(row: { kind: string; entityId: string }): DeviceOwner {
   if (findLight(row.entityId)) return DeviceOwner.LightEnforcer;
   if (row.kind === DeviceKind.Climate) return DeviceOwner.ClimateEnforcer;
+  if (row.kind === DeviceKind.Vehicle) return DeviceOwner.VehicleTelemetry;
   if (row.kind === DeviceKind.Speaker) return DeviceOwner.SonosVolumeEnforcer;
   return DeviceOwner.DeviceSync;
 }

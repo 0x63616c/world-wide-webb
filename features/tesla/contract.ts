@@ -34,7 +34,12 @@ export const teslaDataSchema = z.object({
   odometerMiles: z.number().nonnegative().max(10_000_000),
 });
 export const teslaStateSchema = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("ready"), data: teslaDataSchema }),
+  z.object({
+    status: z.literal("ready"),
+    data: teslaDataSchema,
+    stale: z.boolean().optional(),
+    lastUpdatedAt: z.iso.datetime().optional(),
+  }),
   z.object({
     status: z.enum(["unconfigured", "unavailable"]),
     data: z.null(),

@@ -38,7 +38,7 @@ describe.skipIf(!url)("walk log against Postgres", () => {
     await pool.query(`DROP SCHEMA "${namespace}" CASCADE`);
     await pool.end();
   });
-  it("posts start/stop only on transitions, including a forgotten stop", async () => {
+  it("starts silently and posts stop only on transitions, including a forgotten stop", async () => {
     await Promise.all([start(), start()]);
     await service.stop({ id });
     await service.stop({ id });
@@ -48,25 +48,20 @@ describe.skipIf(!url)("walk log against Postgres", () => {
     await service.update({ id: next.id, endedAt: new Date().toISOString() });
     await service.update({ id: next.id, endedAt: new Date().toISOString() });
     const rows = (await pool.query("SELECT * FROM notifications ORDER BY revision")).rows;
-    expect(rows.map((r) => r.title)).toEqual([
-      "Walk started",
-      "Walk stopped",
-      "Walk started",
-      "Walk stopped",
-    ]);
+    expect(rows.map((r) => r.title)).toEqual(["Walk stopped", "Walk stopped"]);
     expect(rows.every((r) => r.deep_link === "module/walks")).toBe(true);
   });
-  it("rolls back walk creation if notification persistence fails", async () => {
+  it("starting a walk does not depend on notification persistence", async () => {
     await pool.query(
       "ALTER TABLE notifications ADD CONSTRAINT reject_test CHECK (title = 'rejected')",
     );
     try {
-      await expect(start()).rejects.toThrow();
+      expect((await start()).active?.id).toBe(id);
     } finally {
       await pool.query("ALTER TABLE notifications DROP CONSTRAINT reject_test");
     }
-    expect((await service.state()).active).toBeNull();
-    expect((await start()).active?.id).toBe(id);
+    expect((await service.state()).active?.id).toBe(id);
+    expect((await pool.query("SELECT * FROM notifications")).rowCount).toBe(0);
   });
   it("uses server time, preserves start retries and consumed ids", async () => {
     const before = Date.now();

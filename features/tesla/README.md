@@ -59,9 +59,15 @@ Configured HA with incomplete discovery returns, for example,
 `{status:"unavailable",reason:"Missing Tesla entities: range, odometer",data:null}`.
 The optional reason lists roles only; no entity IDs or upstream errors are exposed.
 PanelKit already decodes `unavailable` and ignores extra keys, so this is compatible
-with the existing native decoder. Missing,
-unavailable, unsupported, or malformed readings return
-{status:"unavailable",data:null}. Complete readings return status ready with
+with the existing native decoder. Before any successful read, missing, unavailable, unsupported, or malformed
+readings return {status:"unavailable",data:null}. After a successful read, the API
+returns the complete last known snapshot with `stale:true` and `lastUpdatedAt`.
+Snapshots persist in the shared device-state table across process restarts, owned
+by vehicle telemetry so the generic HA sync cannot overwrite them. Partial reads
+never mix fresh fields with cached fields. Native clients show “Car offline · Last
+known state” and disable commands until a fresh reading arrives.
+
+Complete readings return status ready with `stale:false`, `lastUpdatedAt` and
 batteryPercent, rangeMiles, chargingState, chargePowerKW, locked, climateOn,
 cabinFahrenheit, and odometerMiles. Numeric bounds match the native decoder.
 Unknown units fail closed; no missing field receives a synthetic reading.

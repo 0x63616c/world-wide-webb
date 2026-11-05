@@ -1,4 +1,12 @@
-import { type HaEntity, type HomeAssistantClient, haFromConfig } from "@www/core";
+import {
+  createFeatureDb,
+  createPgDeviceStateStore,
+  deviceState,
+  type HaEntity,
+  type HomeAssistantClient,
+  haFromConfig,
+} from "@www/core";
+import { getLogger } from "@www/logger";
 import { ENV } from "@www/platform/env";
 import {
   type TeslaAction,
@@ -8,6 +16,7 @@ import {
   teslaEntitiesSchema,
 } from "./contract";
 import { discoverTeslaEntities } from "./discovery";
+import { createTeslaSnapshotStore, type TeslaSnapshotStore } from "./snapshot-store";
 
 type Client = Pick<
   HomeAssistantClient,
@@ -41,7 +50,12 @@ function distance(entity: HaEntity): number {
   }
 }
 
-export function createTeslaService(client: Client, entities: () => TeslaEntities | null) {
+export function createTeslaService(
+  client: Client,
+  entities: () => TeslaEntities | null,
+  snapshots?: TeslaSnapshotStore,
+) {
+  let lastKnown: Extract<TeslaState, { status: "ready" }> | null = null;
   let cached: { ids: TeslaEntities; expires: number } | null = null;
   let discovering: Promise<TeslaEntities> | null = null;
   async function resolveEntities(): Promise<TeslaEntities> {
@@ -114,9 +128,26 @@ export function createTeslaService(client: Client, entities: () => TeslaEntities
           cabinFahrenheit: unit === "°C" ? (number(temperature) * 9) / 5 + 32 : number(temperature),
           odometerMiles: distance(odometer),
         });
-        return { status: "ready", data };
+        const now = new Date();
+        lastKnown = { status: "ready", data, stale: false, lastUpdatedAt: now.toISOString() };
+        if (snapshots) {
+          try {
+            await snapshots.write(data, now);
+          } catch {
+            getLogger().warn("Could not persist Tesla telemetry");
+          }
+        }
+        return lastKnown;
       } catch (error) {
         cached = null;
+        if (!lastKnown && snapshots) {
+          try {
+            lastKnown = await snapshots.read();
+          } catch {
+            getLogger().warn("Could not read cached Tesla telemetry");
+          }
+        }
+        if (lastKnown) return { ...lastKnown, stale: true };
         return {
           status: "unavailable",
           data: null,
@@ -148,7 +179,11 @@ export function createTeslaService(client: Client, entities: () => TeslaEntities
   };
 }
 
-const config = ENV.pick("HA_URL", "HA_TOKEN", "TESLA_ENTITIES");
-export const teslaService = createTeslaService(haFromConfig(config), () =>
-  parseEntities(config.TESLA_ENTITIES),
+const config = ENV.pick("HA_URL", "HA_TOKEN", "TESLA_ENTITIES", "DATABASE_URL");
+export const teslaService = createTeslaService(
+  haFromConfig(config),
+  () => parseEntities(config.TESLA_ENTITIES),
+  createTeslaSnapshotStore(
+    createPgDeviceStateStore(createFeatureDb(config.DATABASE_URL, { deviceState })),
+  ),
 );

@@ -68,7 +68,23 @@ export interface DeviceSpeakerState {
   volume: number;
 }
 
-export type DeviceStateValue = DeviceLightState | DeviceClimateState | DeviceSpeakerState;
+/** Last complete vehicle telemetry; reported-only, never desired/enforced. */
+export interface DeviceVehicleState {
+  batteryPercent: number;
+  rangeMiles: number;
+  chargingState: string;
+  chargePowerKW: number;
+  locked: boolean;
+  climateOn: boolean;
+  cabinFahrenheit: number;
+  odometerMiles: number;
+}
+
+export type DeviceStateValue =
+  | DeviceLightState
+  | DeviceClimateState
+  | DeviceSpeakerState
+  | DeviceVehicleState;
 
 // The pg-contract test derives its CREATE TABLE DDL from this table object via
 // `../../test/schema-ddl.ts`, so it stays in sync automatically when this table
@@ -103,5 +119,6 @@ export const DeviceKind = {
   Climate: "climate",
   // Sonos players (www-5mek) , owned by the sonos-volume-enforcer, never HA-mapped.
   Speaker: "speaker",
+  Vehicle: "vehicle",
 } as const;
 export type DeviceKind = (typeof DeviceKind)[keyof typeof DeviceKind];
