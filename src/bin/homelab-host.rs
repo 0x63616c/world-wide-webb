@@ -18,6 +18,13 @@ struct Arguments {
 
 #[derive(Subcommand)]
 enum Operation {
+    /// Publish reviewed public SSH keys as a root-owned regular file.
+    InstallSshKeys {
+        #[arg(long)]
+        user: String,
+        #[arg(long)]
+        source: PathBuf,
+    },
     /// Set up this target from an explicitly approved, exact reviewed commit.
     Bootstrap {
         #[arg(long)]
@@ -290,6 +297,15 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Operation::InstallSshKeys { user, source } => {
+            match homelab_client::ssh_keys::install(&user, &source) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("SSH key installation incomplete: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Operation::InstallHostKey { source, source_uid } => {
             if !rustix::process::geteuid().is_root() {
                 eprintln!(
