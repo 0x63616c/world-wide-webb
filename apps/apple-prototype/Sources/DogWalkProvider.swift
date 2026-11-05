@@ -28,6 +28,27 @@ struct WalkSummary {
     func start(at date: Date)
     func stop(at date: Date)
 }
+/// Completed-history commands use server timestamps, without applying clock offsets.
+@MainActor protocol WalkHistoryEditing: WalkProvider {
+    var isMutating: Bool { get }
+    var historyFailureMessage: String? { get }
+    func update(id: String, startedAt: Date, endedAt: Date) async -> Bool
+    func delete(id: String) async -> Bool
+}
+
+enum WalkEditValidation {
+    static func failureMessage(startedAt: Date, endedAt: Date, now: Date) -> String? {
+        guard startedAt.timeIntervalSince1970.isFinite, endedAt.timeIntervalSince1970.isFinite,
+              startedAt >= Date(timeIntervalSince1970: 0) else { return "Choose a valid start date." }
+        guard endedAt > startedAt else { return "End must be after start." }
+        guard endedAt <= now else { return "A past walk cannot end in the future." }
+        guard endedAt.timeIntervalSince(startedAt) <= 24 * 60 * 60 else {
+            return "A walk must be 24 hours or less."
+        }
+        return nil
+    }
+}
+
 extension WalkProvider {
     func days(_ count: Int, ending now: Date) -> [WalkDay] {
         let calendar = Self.walkCalendar

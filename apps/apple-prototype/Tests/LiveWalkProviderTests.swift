@@ -162,6 +162,178 @@ import PanelKit
         XCTAssertNil(provider.activeWalk)
     }
 
+    func testUpdateSendsServerDatesAndReloadsHistoryAndAllSummaries() async throws {
+        let start = serverDate.addingTimeInterval(-86_400)
+        let end = start.addingTimeInterval(600)
+        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+            "walks.update": [.fixture("update", held: true)],
+            "walks.history": [.fixture("history"), try historyReply(start: start, end: end)]])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        let before = provider.history
+        let update = Task { await provider.update(id: walkID, startedAt: start, endedAt: end) }
+        try await waitFor(transport, "walks.update")
+        XCTAssertTrue(provider.isMutating)
+        XCTAssertEqual(provider.history, before)
+        let duplicate = await provider.delete(id: walkID)
+        XCTAssertFalse(duplicate)
+        let request = try await transport.request("walks.update")
+        let input = try body(request)
+        XCTAssertEqual(input["id"], walkID)
+        XCTAssertEqual(input["startedAt"], "2026-09-30T12:00:00.000Z")
+        XCTAssertEqual(input["endedAt"], "2026-09-30T12:10:00.000Z")
+        await transport.release("walks.update")
+        let saved = await update.value
+        XCTAssertTrue(saved)
+        XCTAssertFalse(provider.isMutating)
+        XCTAssertEqual(provider.history.count, 1)
+        XCTAssertEqual(provider.history.first?.startedAt, start)
+        XCTAssertEqual(provider.history.first?.endedAt, end)
+        let summary = provider.summary(at: provider.serverNow(at: serverDate))
+        XCTAssertEqual(summary.weeklyMinutes, 10)
+        XCTAssertEqual(summary.averageMinutes, 10)
+        XCTAssertEqual(summary.streak, 1)
+        XCTAssertEqual(provider.days(7, ending: provider.serverNow(at: serverDate)).map(\.minutes).reduce(0, +), 10)
+    }
+
+    func testDeleteReloadsHistoryAndClearsStatisticsWithoutChangingActiveWalk() async throws {
+        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")],
+            "walks.delete": [.fixture("state-active", held: true)],
+            "walks.history": [try historyReply(id: "walk_synthetic_previous", start: serverDate.addingTimeInterval(-86_400),
+                                               end: serverDate.addingTimeInterval(-85_800)), .fixture("history-empty")]])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        let active = provider.activeWalk
+        let deletion = Task { await provider.delete(id: "walk_synthetic_previous") }
+        try await waitFor(transport, "walks.delete")
+        XCTAssertTrue(provider.isMutating)
+        XCTAssertEqual(provider.history.count, 1)
+        let duplicate = await provider.delete(id: "walk_synthetic_previous")
+        XCTAssertFalse(duplicate)
+        let request = try await transport.request("walks.delete")
+        XCTAssertEqual(try body(request), ["id": "walk_synthetic_previous"])
+        await transport.release("walks.delete")
+        let deleted = await deletion.value
+        XCTAssertTrue(deleted)
+        XCTAssertEqual(provider.activeWalk, active)
+        XCTAssertTrue(provider.history.isEmpty)
+        let summary = provider.summary(at: serverDate)
+        XCTAssertEqual(summary.weeklyMinutes, 0)
+        XCTAssertEqual(summary.averageMinutes, 0)
+        XCTAssertEqual(summary.streak, 0)
+        XCTAssertTrue(provider.days(30, ending: serverDate).allSatisfy { $0.minutes == 0 })
+    }
+
+    func testHistoryCommandsRejectActiveAndUnknownWalksWithoutRequests() async throws {
+        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")],
+            "walks.history": [.fixture("history")]])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        for id in [walkID, "missing"] {
+            let deleted = await provider.delete(id: id)
+            let updated = await provider.update(id: id, startedAt: serverDate.addingTimeInterval(-600), endedAt: serverDate)
+            XCTAssertFalse(deleted)
+            XCTAssertFalse(updated)
+        }
+        let deletes = await transport.count("walks.delete")
+        let updates = await transport.count("walks.update")
+        XCTAssertEqual(deletes, 0)
+        XCTAssertEqual(updates, 0)
+        XCTAssertEqual(provider.activeWalk?.id, walkID)
+    }
+
+    func testUpdateRejectsInvalidDatesWithoutRequests() async throws {
+        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+            "walks.history": [.fixture("history")]])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        let invalid: [(Date, Date)] = [
+            (serverDate, serverDate), (serverDate, serverDate.addingTimeInterval(-1)),
+            (serverDate, serverDate.addingTimeInterval(3600)),
+            (serverDate.addingTimeInterval(-90_000), serverDate),
+            (Date(timeIntervalSince1970: -1), serverDate)
+        ]
+        for (start, end) in invalid {
+            let saved = await provider.update(id: walkID, startedAt: start, endedAt: end)
+            XCTAssertFalse(saved)
+            XCTAssertNotNil(provider.historyFailureMessage)
+        }
+        let count = await transport.count("walks.update")
+        XCTAssertEqual(count, 0)
+        XCTAssertEqual(provider.history.count, 2)
+    }
+
+    func testFailedHistoryWritesPreserveConfirmedDataAndAllowRetry() async throws {
+        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+            "walks.update": [.offline], "walks.delete": [.offline, .fixture("delete")],
+            "walks.history": [.fixture("history"), .fixture("history-empty")]])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        let before = provider.history
+        let updated = await provider.update(id: walkID, startedAt: serverDate, endedAt: serverDate.addingTimeInterval(600))
+        XCTAssertFalse(updated)
+        XCTAssertEqual(provider.history, before)
+        XCTAssertNotNil(provider.historyFailureMessage)
+        let deleted = await provider.delete(id: walkID)
+        XCTAssertFalse(deleted)
+        XCTAssertEqual(provider.history, before)
+        XCTAssertFalse(provider.isMutating)
+        let retried = await provider.delete(id: walkID)
+        XCTAssertTrue(retried)
+        XCTAssertTrue(provider.history.isEmpty)
+        XCTAssertNil(provider.historyFailureMessage)
+    }
+
+    func testSuccessfulHistoryWriteWithFailedReloadRetriesOnNextPoll() async throws {
+        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+            "walks.delete": [.fixture("delete")],
+            "walks.history": [.fixture("history"), .offline, .fixture("history-empty")]])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        let deleted = await provider.delete(id: walkID)
+        XCTAssertTrue(deleted) // The write succeeded; do not submit it again to retry a read.
+        XCTAssertFalse(provider.isMutating)
+        XCTAssertNotNil(provider.historyFailureMessage)
+        XCTAssertEqual(provider.history.count, 2)
+        await provider.refresh()
+        XCTAssertTrue(provider.history.isEmpty)
+        XCTAssertNil(provider.historyFailureMessage)
+    }
+
+    func testOlderHistoryReadCannotRestoreDeletedWalks() async throws {
+        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+            "walks.delete": [.fixture("delete")],
+            "walks.history": [.fixture("history"), .fixture("history", held: true), .fixture("history-empty")]])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        provider.setSceneActive(true) // Foreground marks history dirty even with unchanged state.
+        defer { provider.setSceneActive(false) }
+        try await waitFor(transport, "walks.history", count: 2)
+        let deleted = await provider.delete(id: walkID)
+        XCTAssertTrue(deleted)
+        await transport.release("walks.history")
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(provider.history.isEmpty)
+    }
+
+    func testEditValidationAcceptsBoundsAndRejectsNonFiniteDates() {
+        XCTAssertNil(WalkEditValidation.failureMessage(startedAt: serverDate.addingTimeInterval(-86_400),
+                                                       endedAt: serverDate, now: serverDate))
+        XCTAssertNil(WalkEditValidation.failureMessage(startedAt: Date(timeIntervalSince1970: 0),
+                                                       endedAt: Date(timeIntervalSince1970: 60), now: serverDate))
+        XCTAssertNotNil(WalkEditValidation.failureMessage(startedAt: Date(timeIntervalSince1970: .nan),
+                                                          endedAt: serverDate, now: serverDate))
+        XCTAssertNotNil(WalkEditValidation.failureMessage(startedAt: serverDate,
+                                                          endedAt: Date(timeIntervalSince1970: .infinity), now: serverDate))
+    }
+
+    private func historyReply(id: String? = nil, start: Date, end: Date) throws -> WalkProviderTransport.Reply {
+        let formatter = ISO8601DateFormatter()
+        let walk = ["id": id ?? walkID, "startedAt": formatter.string(from: start), "endedAt": formatter.string(from: end),
+                    "source": "ipad", "createdAt": formatter.string(from: start), "updatedAt": formatter.string(from: end)]
+        return .data(try JSONSerialization.data(withJSONObject: ["result": ["data": ["walks": [walk]]]]))
+    }
+
     func testScenePollingStopsAndForegroundRefreshesImmediately() async throws {
         let transport = WalkProviderTransport(["walks.state": [.fixture("state-idle"), .fixture("state-active"), .fixture("stop")]])
         let provider = makeProvider(transport, interval: .milliseconds(20))
@@ -368,6 +540,7 @@ private actor WalkProviderTransport: PanelTransport {
     enum Reply: Sendable {
         case fixture(String, held: Bool = false)
         case offline
+        case data(Data)
     }
     private let replies: [String: [Reply]]
     private var requests: [String: [URLRequest]] = [:]
@@ -387,6 +560,9 @@ private actor WalkProviderTransport: PanelTransport {
         requests[path, default: []].append(request)
         let options = replies[path] ?? [.fixture("history-empty")]
         let reply = options[min(index, options.count - 1)]
+        if case .data(let data) = reply {
+            return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
         guard case .fixture(let name, let held) = reply else { throw URLError(.notConnectedToInternet) }
         if held {
             try await withTaskCancellationHandler {

@@ -88,6 +88,32 @@ import XCTest
         XCTAssertEqual(store.now, localNow)
     }
 
+    func testHistoryEditorForwardsServerDatesAndReloadsHistory() async throws {
+        let transport = try transport()
+        let store = source(transport)
+        await transport.setFixture("walks/delete.json", for: "walks.state")
+        await transport.setFixture("walks/history.json", for: "walks.history")
+        await transport.setFixture("walks/update.json", for: "walks.update")
+        await transport.setFixture("walks/delete.json", for: "walks.delete")
+        await store.refresh(.walk)
+        let presentation = HybridWalkDataSource(store: store)
+        let walk = try XCTUnwrap(presentation.history.first)
+        let start = walk.startedAt.addingTimeInterval(-600)
+        let end = walk.startedAt
+        let saved = await presentation.update(id: walk.id, startedAt: start, endedAt: end)
+        XCTAssertTrue(saved)
+        let writes = await transport.requests.filter { $0.url?.lastPathComponent == "walks.update" }
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(writes.first?.httpBody)) as? [String: String])
+        XCTAssertEqual(body["startedAt"], "2026-10-01T11:50:00.000Z")
+        XCTAssertEqual(body["endedAt"], "2026-10-01T12:00:00.000Z")
+        await transport.setFixture("walks/history-empty.json", for: "walks.history")
+        let deleted = await presentation.delete(id: walk.id)
+        XCTAssertTrue(deleted)
+        XCTAssertTrue(presentation.history.isEmpty)
+        XCTAssertNil(presentation.historyFailureMessage)
+        XCTAssertFalse(presentation.isMutating)
+    }
+
     func testRunUsesWalkCoordinatorCadenceAndCancelsThenRefreshesOnResume() async throws {
         let transport = try transport()
         let clock = HybridWalkClock(date: localNow)
