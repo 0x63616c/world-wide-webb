@@ -15,6 +15,7 @@ describe("desiredAccessApps", () => {
       .sort();
     expect(domains).toEqual([
       "app.worldwidewebb.co",
+      "bambuddy.worldwidewebb.co",
       // The LAN appliance (#292): putting DSM on the tunnel gives it an
       // internet-facing hostname, so its Access app is not optional.
       "dsm.worldwidewebb.co",
@@ -35,6 +36,7 @@ describe("desiredAccessApps", () => {
     expect(domains).toEqual([
       "*.worldwidewebb.co",
       "app.worldwidewebb.co",
+      "bambuddy.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hindsight.worldwidewebb.co",
@@ -68,6 +70,7 @@ describe("desiredAccessApps", () => {
   });
 
   test.each([
+    "bambuddy",
     "ha",
     "hindsight",
   ])("%s is human-login only — NEVER reachable with the kiosk token", (host) => {

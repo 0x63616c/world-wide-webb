@@ -208,7 +208,9 @@ revision by immutable digest. Release/recovery scripts serialize changes and
 verify the exact SHA, database health and worker ownership.
 
 `infra/cloudflare` retains DNS, Access and tunnel ingress for `app`, `ha`,
-`hindsight` and `dsm`. Hindsight’s control plane is routed to mini loopback port
+`hindsight`, `bambuddy` and `dsm`. Bambuddy's web UI and same-origin API use
+mini loopback port 8000 behind email-OTP Access, with no kiosk-token access.
+Hindsight’s control plane is routed to mini loopback port
 9999 behind email-OTP Access; its existing UI login and API access are unchanged.
 Manage, its frame-unlock extension and Grafana are retired. Talos
 provisioning is retired; its disks remain available for recovery. Backups run

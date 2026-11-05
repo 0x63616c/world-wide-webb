@@ -84,6 +84,8 @@ releases. No self-hosted GitHub runner is required.
 Control Center and PostgreSQL run in OrbStack; Home Assistant runs in a bridged
 Colima VM. Hindsight and Bambuddy stay independent. `deploy/mini/` contains versioned runtime/startup configuration. Cloudflare DNS,
 Access and tunnel ingress are managed in `infra/cloudflare` (Pulumi `prod`).
+Bambuddy is available at `https://bambuddy.worldwidewebb.co` behind email-OTP
+Access; the tunnel reaches its existing mini loopback listener on port 8000.
 Only `app`, `ha` and `dsm` hostnames remain in this edge project. Manage and
 its frame-unlock browser extension are retired; uninstall any locally loaded
 copy of the extension. UniFi is managed outside this repository.

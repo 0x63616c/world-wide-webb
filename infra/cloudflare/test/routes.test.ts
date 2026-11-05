@@ -22,11 +22,13 @@ describe("desiredIngressRules", () => {
     const byHost = Object.fromEntries(desiredIngressRules().map((r) => [r.hostname, r.service]));
     expect(Object.keys(byHost).sort()).toEqual([
       "app.worldwidewebb.co",
+      "bambuddy.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hindsight.worldwidewebb.co",
     ]);
     expect(byHost["hindsight.worldwidewebb.co"]).toBe("http://127.0.0.1:9999");
+    expect(byHost["bambuddy.worldwidewebb.co"]).toBe("http://127.0.0.1:8000");
     // Retired hosts keep their absence pinned.
     expect(byHost["hooks.worldwidewebb.co"]).toBeUndefined();
     expect(byHost["unifi.worldwidewebb.co"]).toBeUndefined();
@@ -145,6 +147,7 @@ describe("desiredCnames", () => {
       .sort();
     expect(hosts).toEqual([
       "app.worldwidewebb.co",
+      "bambuddy.worldwidewebb.co",
       "dsm.worldwidewebb.co",
       "ha.worldwidewebb.co",
       "hindsight.worldwidewebb.co",
