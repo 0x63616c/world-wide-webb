@@ -60,7 +60,8 @@ explicitly approved.
 
 The public CLI runs synthetic adapter and terminal journeys on disposable macOS
 CI, without your vault or hosts. Full install/reboot rehearsals need a disposable
-Mac VM. A guarded harness is being prepared for disposable guests on the MacBook;
-live setup/reboot validation has not passed yet. See [VM validation](vm-validation.md)
-for the scope, evidence and remaining limits.
+Mac VM. The guarded rehearsal passed guided setup, SSH recovery and reboot in a
+synthetic guest on the MacBook, including startup without an interactive login.
+See [VM validation](vm-validation.md) for exact revisions and untested production
+workloads; this does not authorize deployment to a physical Mac.
 See the public [testing guide](https://github.com/0x63616c/homelab-cli/blob/main/docs/testing.md).
