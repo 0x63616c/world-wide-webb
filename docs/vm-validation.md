@@ -57,12 +57,57 @@ Homebrew/CLT and cannot prove an untouched Mac's prerequisite path.
 
 ## Evidence so far
 
-November 4, 2026: SSH confirmed physical host macOS 27.2 (26B118), ARM64,
-`admin` UID 501 and about 422 GiB free. Tart/Homebrew/CLT were not found and
-noninteractive sudo was unavailable. Created the private tools directory;
-archive download timed out. Subsequent SSH attempts also timed out. No VM or
-Nix installation has run yet, and no setup/reboot test has passed on a real VM.
+November 4, 2026: the physical MacBook runs macOS 27.2 (26B118), with `admin`
+UID 501 and initially about 422 GiB free. The test guests report macOS 27.2
+(26B123), `VirtualMac2,1`, four vCPUs, 12 GiB RAM and a 120 GB virtual disk.
+Tart and the Determinate 3.24.1 installer passed their pinned checksum checks.
 
-Fresh macOS Git requires Command Line Tools; test the missing-prerequisite error
-explicitly. Do not silently turn an interactive Apple installation into a
-purported unattended guarantee.
+A temporary four-hour `caffeinate -is` assertion prevents physical system sleep
+on AC. Screen locking remains enabled and does not stop SSH or the VMs. No
+permanent physical power, sudo or deployment configuration was changed.
+
+| Check | Evidence |
+| --- | --- |
+| Private Nix evaluation and full build | All nine checks passed at `442ae6adb6b6afabf34f6e0287d2d89f8425b605` |
+| Installer-default adoption fix | All nine private checks passed again at `960a364711b6430a6842318211be1c7bb2826ec9` |
+| Final private configuration | All nine checks passed at `95a0d91caedb3694724b57a5096ec8b1da286754`, including the SSH and activation fixes |
+| Missing CLT | Real helper rejected absent tools before credential reads or journal creation |
+| Nix installation through wizard | Succeeded in clean vanilla guests after CLT preparation |
+| Custom Nix configuration | Modified content was rejected and preserved; untouched installer default activated |
+| Recovery guard | Refused automatic replay after an uncertain activation |
+| Complete guided activation and reboot | Passed on the fourth clean attempt, including SSH recovery, SOPS and boot-time launchd execution |
+| Startup without interactive login | Passed an additional reboot with guest automatic login disabled; console owner was root and the new boot sentinel matched |
+| Completed setup replay | Explicit resume was rejected before reading deliberately absent credential files |
+
+Full private checks use `nix flake check --no-update-lock-file --max-jobs 2
+--cores 2`, including both host systems, the container-enabled variant, Compose,
+SOPS identity and runner tools. Neither real host configuration was activated.
+Logs and failed guests are retained under the MacBook's test directory.
+
+## Findings and fixes
+
+- Fresh macOS requires CLT for Git. The helper now fails early with a specific
+  error. Apple Software Update installed CLT 27.2 unattended in the test guest;
+  that prerequisite installation is not yet a shipped CLI feature.
+- Cirrus permits `sudo -n true` but its default policy can still prompt for
+  `sudo -v`. The harness checks both. Only disposable guests receive the validated
+  test-only `verifypw=never` setting.
+- nix-darwin initially rejected Determinate's untouched `nix.custom.conf`.
+  An exact content hash permits adoption with a backup; customized files remain
+  blocked. Both cases were tested inside a guest.
+- Root activation cannot re-evaluate an administrator-owned Git checkout under
+  Git's ownership rules. The helper now switches the exact prebuilt system using
+  nix-darwin's native profile/activation sequence, without weakening Git checks.
+- SSH key symlinks into the group-writable Nix store conflict with OpenSSH's
+  strict ownership checks. A reviewed Rust helper installs an atomic regular
+  root-owned key file instead. StrictModes remains enabled.
+
+The current clean rehearsal uses synthetic fixture
+`bc018941356081b20ec48331a1a2394eb891ce23` and helper source
+`6fd57fe68d72bd95d710a3bc76798e1c39a0ef4c`. The full wizard and guest reboot
+passed without intervention. Independent post-reboot checks confirmed a regular
+root-owned SSH key file (0644), its root-owned directory (0755), StrictModes enabled,
+the exact activated revision, matching current-boot sentinel and the preserved
+installer-default backup. Final private checks and the logged-out boot test also
+passed. This verifies the base lifecycle; production migration and nested runner
+or container virtualization were not performed.
