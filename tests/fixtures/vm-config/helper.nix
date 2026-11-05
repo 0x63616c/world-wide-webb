@@ -2,7 +2,7 @@
 let
   source = builtins.fetchGit {
     url = "https://github.com/0x63616c/homelab-cli.git";
-    rev = "14628dbba1e85a423c1358fe0c11bb5d0eb4b12f";
+    rev = "6fd57fe68d72bd95d710a3bc76798e1c39a0ef4c";
   };
 in pkgs.rustPlatform.buildRustPackage {
   pname = "homelab-vm-helper";

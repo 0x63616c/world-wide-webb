@@ -16,7 +16,12 @@
         modules = [
           inputs.determinate.darwinModules.default
           inputs.sops-nix.darwinModules.sops
-          ({ config, lib, pkgs, ... }: {
+          ({ config, lib, pkgs, ... }:
+          let
+            helper = import ./helper.nix { inherit pkgs; };
+            keys = pkgs.writeText "vm-authorized-keys"
+              (lib.concatStringsSep "\n" config.homelab.authorizedKeys + "\n");
+          in {
             options.homelab = {
               adminUser = lib.mkOption { type = lib.types.str; };
               adminUID = lib.mkOption { type = lib.types.ints.positive; };
@@ -46,7 +51,7 @@
               ];
               environment.systemPackages = [
                 pkgs.git pkgs.sops
-                (import ./helper.nix { inherit pkgs; })
+                helper
               ];
               services.openssh.enable = true;
               services.openssh.extraConfig = ''
@@ -58,8 +63,10 @@
                 AllowUsers admin
                 AuthorizedKeysFile /etc/ssh/authorized_keys/%u
               '';
-              environment.etc."ssh/authorized_keys/admin".text =
-                lib.concatStringsSep "\n" config.homelab.authorizedKeys + "\n";
+              # StrictModes requires a real key file outside the group-writable store.
+              system.activationScripts.etc.text = lib.mkAfter ''
+                ${helper}/bin/homelab-host install-ssh-keys --user admin --source ${keys}
+              '';
               environment.etc."homelab-vm-e2e.json".text = builtins.toJSON {
                 host = "vm-test";
                 revision = self.rev or (throw "Publish the prepared fixture as an exact clean Git commit.");
