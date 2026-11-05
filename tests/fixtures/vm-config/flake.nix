@@ -39,6 +39,11 @@
               networking.hostName = "vm-test";
               nix.enable = false;
               determinateNix.enable = true;
+              # Adopt only the untouched default written by the pinned Determinate installer.
+              # Any custom content still requires manual review before activation.
+              environment.etc."nix/nix.custom.conf".knownSha256Hashes = [
+                "3bd68ef979a42070a44f8d82c205cfd8e8cca425d91253ec2c10a88179bb34aa"
+              ];
               environment.systemPackages = [
                 pkgs.git pkgs.sops
                 (import ./helper.nix { inherit pkgs; })
