@@ -144,12 +144,21 @@ fn main() {
                 println!("nix fixture");
             } else if args[0] == "eval" {
                 event(root, "evaluate");
+                if flag("build-supervision-fails") {
+                    fs::remove_file(root.join("nix")).unwrap();
+                }
                 print!(
                     "{}",
                     fs::read_to_string(root.join("readiness.json")).unwrap()
                 );
             } else if args[0] == "build" {
                 event(root, "build");
+                if flag("build-fails") {
+                    fail();
+                }
+                if flag("build-output-missing") {
+                    return;
+                }
                 symlink(root.join("system"), after("--out-link")).unwrap();
             } else {
                 panic!("unexpected Nix arguments");

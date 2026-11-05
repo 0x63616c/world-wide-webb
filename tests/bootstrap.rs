@@ -118,6 +118,23 @@ impl Fixture {
 }
 
 #[test]
+fn build_failures_report_the_failed_boundary_before_host_mutation() {
+    for (flag, expected) in [
+        ("build-fails", "bootstrap-build-failed"),
+        (
+            "build-supervision-fails",
+            "bootstrap-build-supervision-failed",
+        ),
+        ("build-output-missing", "bootstrap-build-output-unavailable"),
+    ] {
+        let fixture = Fixture::new(true);
+        fixture.flag(flag);
+        assert_eq!(fixture.run().unwrap_err().code(), expected);
+        fixture.no_host_mutation();
+    }
+}
+
+#[test]
 fn fresh_install_and_existing_nix_reach_activation_without_real_host_tools() {
     for existing_nix in [false, true] {
         let fixture = Fixture::new(existing_nix);

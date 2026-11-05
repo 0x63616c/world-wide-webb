@@ -560,11 +560,18 @@ impl Pty {
         loop {
             let mut bytes = [0; 8192];
             match self.master.read(&mut bytes) {
+                Ok(0) => panic!(
+                    "wizard terminal closed before expected stage: {text}; bootstrap code: {}",
+                    bootstrap_error_code(&self.output).unwrap_or("unavailable")
+                ),
                 Ok(count) => self
                     .output
                     .push_str(&String::from_utf8_lossy(&bytes[..count])),
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
-                _ => panic!("wizard terminal closed before expected stage"),
+                _ => panic!(
+                    "wizard terminal closed before expected stage: {text}; bootstrap code: {}",
+                    bootstrap_error_code(&self.output).unwrap_or("unavailable")
+                ),
             }
             assert!(
                 self.output.len() <= LIMIT,
@@ -580,10 +587,14 @@ impl Pty {
             }
             assert!(
                 Instant::now() < deadline,
-                "wizard stage timed out: {text}; inspect the guest before retrying"
+                "wizard stage timed out: {text}; bootstrap code: {}; inspect the guest before retrying",
+                bootstrap_error_code(&self.output).unwrap_or("unavailable")
             );
             if self.child.try_wait().unwrap().is_some() {
-                panic!("wizard exited before expected stage: {text}");
+                panic!(
+                    "wizard exited before expected stage: {text}; bootstrap code: {}",
+                    bootstrap_error_code(&self.output).unwrap_or("unavailable")
+                );
             }
             thread::sleep(Duration::from_millis(50));
         }
@@ -800,7 +811,47 @@ fn run(config_path: &Path) {
     );
 }
 
+fn bootstrap_error_code(output: &str) -> Option<&str> {
+    const PREFIX: &str = "Bootstrap incomplete [";
+    output.rmatch_indices(PREFIX).find_map(|(index, _)| {
+        let suffix = &output[index + PREFIX.len()..];
+        let (code, _) = suffix.split_once("]:")?;
+        (!code.is_empty()
+            && code.len() <= 80
+            && code
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte == b'-'))
+        .then_some(code)
+    })
+}
+
+fn diagnostic_regressions() {
+    let output = "secret-before\nBootstrap incomplete [bootstrap-build-failed]: SECRET_RESPONSE\n";
+    assert_eq!(bootstrap_error_code(output), Some("bootstrap-build-failed"));
+    for invalid in [
+        "SECRET",
+        "token123",
+        "bad\nsecret",
+        "bad\x1b[31m",
+        "",
+        &"a".repeat(81),
+    ] {
+        assert_eq!(
+            bootstrap_error_code(&format!("Bootstrap incomplete [{invalid}]: secret")),
+            None
+        );
+    }
+    assert_eq!(bootstrap_error_code("unrelated [secret]: secret"), None);
+    assert_eq!(
+        bootstrap_error_code(
+            "Bootstrap incomplete [bootstrap-build-failed]: secret\nBootstrap incomplete [bootstrap-build-output-unavailable]: more-secret"
+        ),
+        Some("bootstrap-build-output-unavailable")
+    );
+}
+
 fn main() {
+    diagnostic_regressions();
     transport_regressions();
     let arguments: Vec<_> = std::env::args_os().collect();
     let name = Path::new(&arguments[0])

@@ -104,6 +104,12 @@ pub enum Error {
     NotReady,
     #[error("The locked host system could not be built.")]
     Build,
+    #[error(
+        "The host build process could not be supervised to completion. Inspect target state before retrying."
+    )]
+    BuildSupervision,
+    #[error("The completed host build did not provide a resolvable system output.")]
+    BuildOutput,
     #[error("The supplied host identity did not pass isolated decryption verification.")]
     Decryption,
     #[error("Host key installation was not confirmed. Inspect the installed key before any retry.")]
@@ -133,6 +139,8 @@ impl Error {
             Self::Evaluation => "bootstrap-evaluation-failed",
             Self::NotReady => "bootstrap-not-ready",
             Self::Build => "bootstrap-build-failed",
+            Self::BuildSupervision => "bootstrap-build-supervision-failed",
+            Self::BuildOutput => "bootstrap-build-output-unavailable",
             Self::Decryption => "bootstrap-identity-unverified",
             Self::KeyInstallation => "bootstrap-key-installation-unconfirmed",
             Self::Activation => "bootstrap-activation-unconfirmed",
@@ -147,6 +155,7 @@ impl Error {
             Self::RecoveryRequired
             | Self::Journal
             | Self::Installation
+            | Self::BuildSupervision
             | Self::KeyInstallation
             | Self::Activation => {
                 "Inspect the private setup journal and actual target state. A privileged process may still be running; do not blindly repeat setup."
@@ -645,16 +654,19 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
         .record(Phase::Building, None)
         .map_err(|_| Error::Journal)?;
     let system_link = work.path().join("system");
-    checked_silent(
+    let build_status = process::run_silent(
         command(&nix, &home)
             .arg("build")
             .arg(format!("{target}.system"))
             .args(["--no-update-lock-file", "--out-link"])
             .arg(&system_link),
         BUILD,
-        Error::Build,
-    )?;
-    let system = fs::canonicalize(&system_link).map_err(|_| Error::Build)?;
+    )
+    .map_err(|_| Error::BuildSupervision)?;
+    if !build_status.success() {
+        return Err(Error::Build);
+    }
+    let system = fs::canonicalize(&system_link).map_err(|_| Error::BuildOutput)?;
     let helper = system.join("sw/bin/homelab-host");
     journal
         .record(Phase::VerifyingSecrets, Some(&system))
