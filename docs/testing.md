@@ -68,6 +68,14 @@ Before running, seed the guest with:
 - `/var/tmp/homelab-vm-e2e.json` containing the exact `nonce` and `hostname`.
 - The command-line tools required by the pinned Nix installer.
 
+Validate both `sudo -n true` and `sudo -n -v` as the guest administrator.
+Mixed password and NOPASSWD rules can permit commands while still requiring a
+password for validation. For this disposable fixture only, use a sudoers drop-in
+validated with `visudo` containing `Defaults:admin verifypw=never` (replace `admin`
+if the fixture uses another administrator), alongside its NOPASSWD rule.
+Validate the complete sudoers configuration and both commands before the run.
+Do not apply this test-only policy to the physical VM host or production Macs.
+
 The fixture Nix configuration must declare `/etc/homelab-vm-e2e.json` with `host`
 and exact `revision`, and launchd service `org.homelab.vm-e2e`. That service checks
 its synthetic decrypted marker and writes the current `kern.boottime` to
@@ -95,7 +103,9 @@ failed-health recovery, repeated setup and idempotent retry remain planned cases
 this runner does not claim them. A failure preserves the VM for inspection and
 must not be retried blindly.
 
-**The real VM rehearsal has not yet been executed.** Local compilation, ordinary
-fixture tests and Clippy do not prove a fresh install and reboot work. Production
+**The real VM rehearsal has not yet passed.** Its first run stopped at sudo
+validation before Nix installation; the harness now checks that prerequisite
+before opening the wizard. Local compilation, ordinary fixture tests and Clippy
+do not prove a fresh install and reboot work. Production
 Macs are never automatic test fixtures; real 1Password authorization remains a
 separate adapter smoke test.

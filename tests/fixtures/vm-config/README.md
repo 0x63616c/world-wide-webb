@@ -38,6 +38,13 @@ Set its hostname to `vm-test` before the harness starts. Install the disposable
 SSH public key and seed `/var/tmp/homelab-vm-e2e.json` with the harness nonce and
 hostname. The harness also checks `hw.model` starts with `VirtualMac`.
 
+The guest administrator must pass both `sudo -n true` and `sudo -n -v`.
+For this disposable VM only, validate a sudoers drop-in with `visudo` containing
+`Defaults:admin verifypw=never`, alongside the fixture's NOPASSWD rule. Mixed
+admin rules otherwise can allow commands but prompt during validation. Validate
+the complete configuration and both commands; never apply this fixture policy
+to the physical host or production Macs.
+
 A vanilla image must first demonstrate the missing Command Line Tools error.
 Install CLT inside that guest before the positive bootstrap run. A base image
 with CLT preinstalled cannot establish that fresh-machine prerequisite behavior.

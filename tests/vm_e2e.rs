@@ -740,7 +740,13 @@ fn run(config_path: &Path) {
     );
     assert!(
         bounded(guarded_ssh("/usr/bin/sudo -n /usr/bin/true")).is_some(),
-        "guest fixture must allow noninteractive sudo"
+        "VM fixture preflight: sudo -n true failed; configure passwordless sudo for the disposable guest administrator before running the wizard"
+    );
+    // A NOPASSWD command rule does not guarantee sudo's validation policy:
+    // mixed admin rules can still make the bootstrap's sudo -v prompt.
+    assert!(
+        bounded(guarded_ssh("/usr/bin/sudo -n -v")).is_some(),
+        "VM fixture preflight: sudo -n -v failed; validate a guest-only sudoers drop-in with Defaults:admin verifypw=never (substitute the fixture administrator), then confirm both sudo -n true and sudo -n -v succeed; do not change physical-host sudo policy"
     );
     let boot = bounded(guarded_ssh("/usr/sbin/sysctl -n kern.boottime")).unwrap();
     let mut terminal = Pty::start(&runner, config_path, home, &bin);
