@@ -12,13 +12,15 @@ The client no longer needs Nix or a locally built bootstrap package. It reads
 the private `homelab.json` and ships its native helper; the target checks the
 fetched manifest and evaluated Nix facts before activation. Credential sources
 are testable adapters, OAuth issuance is scoped and interruption-safe, and local
-preparation is bound to a repository. Synthetic macOS/PTY tests are automated;
-full clean-install/reboot rehearsal remains unfinished. No host was deployed.
+preparation is bound to a repository. Synthetic macOS/PTY tests are automated.
+A clean disposable VM passed guided installation, activation and reboot, followed
+by another reboot without interactive login. No physical host was deployed.
 
 Local private extraction checks: 12 Rust tests and 102 Python tests passed,
 plus Clippy and formatting. The actual-container rehearsal was not run. The
-changed private Nix configuration has not been evaluated on this client; keep
-activation disabled until that validation is completed.
+final private Nix configuration passed all nine checks inside a disposable VM at
+`95a0d91caedb3694724b57a5096ec8b1da286754`. Activation remains disabled pending
+production provisioning and migration approval. See [VM evidence](vm-validation.md).
 
 For the earlier 0.1.4 redesign on November 4, both hosted checks stopped before running
 because GitHub reported failed recent account payments or a spending limit.
@@ -71,18 +73,18 @@ Implemented so far:
   revision gates, failure ordering and persisted interruption holds. A private
   journal excludes concurrent attempts. Uncertain privileged phases require
   manual inspection; automatic repair is deliberately absent. Privileged child
-  processes have root-owned bounded supervision. No real bootstrap has run.
-- Private CI builds the standalone artifact with pinned native Rust because
+  processes have root-owned bounded supervision. Real bootstrap has passed only
+  in a disposable guest with synthetic secrets.
+- Public CLI CI builds the standalone artifact with pinned native Rust because
   Nix-built binaries link to a Nix-store library. A separate no-Nix smoke job
   verifies the artifact can launch before installation.
-- Remote setup wizard verifies the CI-evaluated host plan and artifacts, inspects
+- Remote setup wizard verifies the reviewed manifest and artifacts, inspects
   SSH, obtains explicit approval, transfers private snapshots, hands the terminal
   to SSH/sudo, cleans staging and verifies the selected SSH route. Eight fixture
   journeys cover failure and interruption paths; real terminal tests cover
-  cancellation and restoration. New Tailscale-route verification and on-target
-  validation remain pending. The existing public Homebrew tap packages only the
-  operator CLI using authenticated private source; no private source or assets
-  are published. Full authenticated Homebrew installation remains untested.
+  cancellation and restoration. Tailscale-route verification and production
+  validation remain pending. The public Homebrew tap packages the public operator
+  CLI and bootstrap helper; no private configuration is published.
 - Guided first access precedes bootstrap: explicit first-use trust, existing-key
   checks, reviewed public-key installation through native SSH authentication,
   and read-only inspection. The operator can finish here without secrets or
@@ -145,7 +147,7 @@ Implemented so far:
   behavior and actual data recovery remain unvalidated. See `docs/operations.md`.
 - Runner admission/launch-argument policy with five tests; controller and
   broker remain pending. Selected Softnet 0.25.0 requires macOS 26; MacBook OS
-  version is reported as 27.2, with exact-version runtime validation pending.
+  version is confirmed as 27.2, with real runner lifecycle validation pending.
   See `docs/runner-implementation.md`.
 - Git-tracked Control Center release manifest records observed live digests and
   source label. Reconciler enforces these over environment image overrides; a
@@ -223,8 +225,8 @@ and the fresh-Mac standalone bootstrap smoke passed
 `66b6b7e`. The backup completeness fixes bring the local Python suite to 102
 tests. The [PR checks](https://github.com/0x63616c/homelab/pull/1/checks)
 record each current complete result, including the assignment contract and
-fresh-Mac smoke. These are build checks, not runtime validation. No live
-activation has run.
+fresh-Mac smoke. That historical run established build checks only; the later
+[disposable VM rehearsal](vm-validation.md) adds base activation and reboot evidence.
 
 ## Later: repeated clean-install validation
 

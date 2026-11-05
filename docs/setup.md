@@ -6,6 +6,10 @@ Create the administrator shown in `homelab.json` during Setup Assistant. Enable
 **System Settings → General → Sharing → Remote Login** for that administrator.
 Keep the Mac powered and reachable. Your personal laptop does not need Remote Login.
 
+The current bootstrap also needs Apple Command Line Tools on the target for Git.
+If missing, run `xcode-select --install` there and finish Apple's installer.
+The next CLI update checks this before reading setup credentials or changing state.
+
 ## Use the wizard
 
 Install the public CLI from the Homebrew tap, then run `homelab`:
@@ -56,5 +60,8 @@ explicitly approved.
 
 The public CLI runs synthetic adapter and terminal journeys on disposable macOS
 CI, without your vault or hosts. Full install/reboot rehearsals need a disposable
-Mac VM or a separately approved test Mac; that harness is not yet implemented.
+Mac VM. The guarded rehearsal passed guided setup, SSH recovery and reboot in a
+synthetic guest on the MacBook, including startup without an interactive login.
+See [VM validation](vm-validation.md) for exact revisions and untested production
+workloads; this does not authorize deployment to a physical Mac.
 See the public [testing guide](https://github.com/0x63616c/homelab-cli/blob/main/docs/testing.md).
