@@ -14,6 +14,11 @@ in {
     system.stateVersion = 6;
     system.primaryUser = cfg.adminUser;
     determinateNix.enable = true;
+    # Adopt only the untouched default written by the pinned Determinate installer.
+    # Any custom content still requires manual review before activation.
+    environment.etc."nix/nix.custom.conf".knownSha256Hashes = [
+      "3bd68ef979a42070a44f8d82c205cfd8e8cca425d91253ec2c10a88179bb34aa"
+    ];
     nix.enable = false;
     time.timeZone = "America/Los_Angeles";
     environment.systemPackages = (with pkgs; [ git jq curl age sops ]) ++ [
