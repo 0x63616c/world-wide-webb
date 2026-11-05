@@ -9,6 +9,19 @@ WORKFLOW = (Path(__file__).parents[1] / "workflows/apple-panel-testflight.yml").
 
 
 class ParallelSmokeTests(unittest.TestCase):
+    def test_manual_source_cannot_publish_default_branch_caches(self):
+        build = WORKFLOW.split("  smoke_build:", 1)[1].split("  smoke_tests:", 1)[0]
+        tests = WORKFLOW.split("  smoke_tests:", 1)[1].split("  smoke:\n", 1)[0]
+        self.assertIn("    cache-mode: read\n", build)
+        self.assertIn("    cache-mode: none\n", tests)
+        for job in [build, tests]:
+            self.assertNotIn("actions/cache/save", job)
+            trusted_checkout = job.index("ref: ${{ github.sha }}")
+            select_toolchain = job.index("python3 .github/scripts/apple-toolchain.py")
+            selected_source = job.index("ref: ${{ needs.plan.outputs.source_sha }}")
+            self.assertLess(trusted_checkout, select_toolchain)
+            self.assertLess(select_toolchain, selected_source)
+
     def test_every_built_suite_runs_once(self):
         build = WORKFLOW.split("  smoke_build:", 1)[1].split("  smoke_tests:", 1)[0]
         suites = re.findall(r"-only-testing:PanelUITests/(\w+)", build)

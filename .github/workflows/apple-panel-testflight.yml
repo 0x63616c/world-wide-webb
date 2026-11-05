@@ -81,18 +81,16 @@ jobs:
     needs: plan
     if: needs.plan.outputs.verified_run == ''
     runs-on: xcode-27
+    # A manual ref may execute arbitrary build code. Its token must never be
+    # able to publish caches in the workflow/default-branch cache scope.
+    cache-mode: read
     timeout-minutes: 20
     outputs:
       toolchain: ${{ steps.toolchain.outputs.version }}
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ needs.plan.outputs.source_sha }}
-      - name: Record tested source commit
-        id: source
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "tree=$(python3 .github/scripts/apple-smoke-proof.py --fingerprint)" >> "$GITHUB_OUTPUT"
+          ref: ${{ github.sha }}
 
       - name: Select supported Xcode 27.1+
         run: |
@@ -101,6 +99,15 @@ jobs:
           echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.plan.outputs.source_sha }}
+      - name: Record tested source commit
+        id: source
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tree=$(python3 .github/scripts/apple-smoke-proof.py --fingerprint)" >> "$GITHUB_OUTPUT"
 
       - name: Generate simulator project
         working-directory: apps/apple-prototype
@@ -120,7 +127,7 @@ jobs:
       # Products only: test-without-building needs no compiler intermediates.
       # Exact source tree + toolchain + architecture; never restore a partial match.
       # Namespace by ref: inaccessible PR caches can still conflict on reservation.
-      # Main push checks populate the default-branch cache before release dispatch.
+      # Restores are read-only; shared products are published as run-scoped artifacts.
       - name: Restore simulator test products
         id: products
         uses: actions/cache/restore@v4
@@ -162,24 +169,6 @@ jobs:
             -only-testing:PanelUITests/PanelReturnTests \
             ARCHS="$(uname -m)" CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
-      - name: Save compiled simulator products before tests
-        if: steps.products.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/panel-smoke-build/Build/Products
-          key: ${{ steps.products.outputs.cache-primary-key }}
-
-      - name: Save compiler cache before tests
-        if: steps.products.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ runner.temp }}/panel-smoke-build/Build/Intermediates.noindex
-            ${{ runner.temp }}/panel-smoke-build/ModuleCache.noindex
-            ${{ runner.temp }}/panel-smoke-build/SourcePackages
-            ~/Library/Caches/org.swift.swiftpm
-          key: ${{ steps.compiler.outputs.cache-primary-key }}
-
       - name: Package shared test products
         run: tar -czf "$RUNNER_TEMP/panel-ui-products.tgz" -C "$RUNNER_TEMP/panel-smoke-build" Build/Products
       - name: Share test products with UI runners
@@ -194,6 +183,7 @@ jobs:
     name: UI / ${{ matrix.suite }}
     needs: [plan, smoke_build]
     runs-on: xcode-27
+    cache-mode: none
     # Include simulator boot, XCTest result collection and artifact cleanup.
     # Hosted runners have exceeded 20 minutes despite every test passing.
     timeout-minutes: 30
@@ -204,7 +194,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ needs.plan.outputs.source_sha }}
+          ref: ${{ github.sha }}
       - name: Select supported Xcode 27.1+
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
@@ -212,6 +202,10 @@ jobs:
           echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.plan.outputs.source_sha }}
 
       - name: Verify matching build toolchain
         env:
