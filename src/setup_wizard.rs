@@ -9,7 +9,7 @@ use crossterm::queue;
 use crossterm::terminal::{self, Clear, ClearType};
 
 use crate::inventory::{self, AgentIdentity, HostProfile};
-use crate::remote_setup::{self, Request, Tools};
+use crate::remote_setup::{self, Request};
 use crate::tui::{Terminal, footer, wrap};
 use crate::ui::{self, Role};
 use crate::{config, first_access, inspect, package};
@@ -662,12 +662,11 @@ fn installation_required(
     }
 }
 
-fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<AccessOutcome> {
-    let tools = first_access::Tools {
-        ssh: PathBuf::from("/usr/bin/ssh"),
-        ssh_keygen: PathBuf::from("/usr/bin/ssh-keygen"),
-        ssh_add: PathBuf::from("/usr/bin/ssh-add"),
-    };
+fn connect(
+    profile: &mut HostProfile,
+    inventory_path: &Path,
+    tools: &first_access::Tools,
+) -> io::Result<AccessOutcome> {
     let mut terminal = Some(Terminal::enter()?);
     let mut changes = AccessChanges::default();
     let mut existing_access_worked = false;
@@ -715,10 +714,10 @@ fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<Acces
                     0,
                     "Please wait",
                 )?;
-                first_access::check_key_access(profile, &tools, trust)
+                first_access::check_key_access(profile, tools, trust)
             }
             AccessAction::InstallKey => {
-                let Some(selected_key) = choose_key_source(&tools)? else {
+                let Some(selected_key) = choose_key_source(tools)? else {
                     continue;
                 };
                 let is_agent = selected_key.identity.is_some();
@@ -771,7 +770,7 @@ fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<Acces
                     )?;
                     installation_required(first_access::check_key_access(
                         profile,
-                        &tools,
+                        tools,
                         first_access::Trust::Strict,
                     ))
                 } else {
@@ -791,7 +790,7 @@ fn connect(profile: &mut HostProfile, inventory_path: &Path) -> io::Result<Acces
                             "Installing your approved public key. Enter the target account password at SSH's prompt."
                         );
                         let result =
-                            first_access::install_public_key(profile, &tools, &selected_key.key);
+                            first_access::install_public_key(profile, tools, &selected_key.key);
                         if result.is_err() {
                             println!(
                                 "Read SSH's message above. Press Enter to return to the setup menu."
@@ -967,9 +966,37 @@ fn configured_host<'a>(
 }
 
 /// The parent menu suspends raw mode before entering this independently owned wizard.
+pub struct WizardTools {
+    pub first_access: first_access::Tools,
+    pub remote_setup: remote_setup::Tools,
+}
+
 pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outcome> {
+    launch_with_tools(
+        original,
+        inventory_path,
+        &WizardTools {
+            first_access: first_access::Tools {
+                ssh: "/usr/bin/ssh".into(),
+                ssh_keygen: "/usr/bin/ssh-keygen".into(),
+                ssh_add: "/usr/bin/ssh-add".into(),
+            },
+            remote_setup: remote_setup::Tools {
+                ssh: "/usr/bin/ssh".into(),
+                scp: "/usr/bin/scp".into(),
+            },
+        },
+    )
+}
+
+/// Runs the same guided journey with explicit transport executables for isolated tests.
+pub fn launch_with_tools(
+    original: &HostProfile,
+    inventory_path: &Path,
+    tools: &WizardTools,
+) -> io::Result<Outcome> {
     let mut profile = original.clone();
-    let (changes, mode) = match connect(&mut profile, inventory_path)? {
+    let (changes, mode) = match connect(&mut profile, inventory_path, &tools.first_access)? {
         AccessOutcome::Finished(outcome) => return Ok(outcome),
         AccessOutcome::Continue(changes, mode) => (changes, mode),
     };
@@ -1077,10 +1104,7 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
     if let Some(root) = &state {
         form.prefill_credentials(root);
     }
-    let tools = Tools {
-        ssh: PathBuf::from("/usr/bin/ssh"),
-        scp: PathBuf::from("/usr/bin/scp"),
-    };
+    let tools = &tools.remote_setup;
     let prepared = loop {
         let (width, _) = terminal::size()?;
         draw(
@@ -1104,7 +1128,7 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
                     0,
                     "Please wait",
                 )?;
-                match remote_setup::prepare(form.request(&profile, &workspace), &tools) {
+                match remote_setup::prepare(form.request(&profile, &workspace), tools) {
                     Ok(prepared) => break prepared,
                     Err(error) => {
                         let lines = vec![
@@ -1172,7 +1196,7 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
         "Starting approved setup on {}. SSH may request administrator authentication.",
         profile.address
     );
-    let outcome = match remote_setup::apply(prepared, &tools) {
+    let outcome = match remote_setup::apply(prepared, tools) {
         Ok(report) => Outcome {
             lines: report.lines(),
             completed: true,

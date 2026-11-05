@@ -32,6 +32,7 @@ impl Fixture {
         );
         for name in [
             "git",
+            "xcode-select",
             "uname",
             "id",
             "dseditgroup",
@@ -72,6 +73,7 @@ impl Fixture {
         };
         let tools = Tools {
             git: root.join("git"),
+            xcode_select: root.join("xcode-select"),
             uname: root.join("uname"),
             id: root.join("id"),
             dseditgroup: root.join("dseditgroup"),
@@ -112,6 +114,23 @@ impl Fixture {
             "{:?}",
             self.events()
         );
+    }
+}
+
+#[test]
+fn build_failures_report_the_failed_boundary_before_host_mutation() {
+    for (flag, expected) in [
+        ("build-fails", "bootstrap-build-failed"),
+        (
+            "build-supervision-fails",
+            "bootstrap-build-supervision-failed",
+        ),
+        ("build-output-missing", "bootstrap-build-output-unavailable"),
+    ] {
+        let fixture = Fixture::new(true);
+        fixture.flag(flag);
+        assert_eq!(fixture.run().unwrap_err().code(), expected);
+        fixture.no_host_mutation();
     }
 }
 
@@ -350,4 +369,21 @@ fn authentication_is_refreshed_after_build_before_key_installation() {
     let progress: serde_json::Value =
         serde_json::from_slice(&fs::read(fixture.state().join("progress.json")).unwrap()).unwrap();
     assert_eq!(progress["phase"], "VerifyingSecrets");
+}
+
+#[test]
+fn missing_or_broken_developer_tools_stop_before_secrets_journal_or_network() {
+    for flag in ["missing-clt", "broken-git"] {
+        let fixture = Fixture::new(true);
+        fixture.flag(flag);
+        fs::remove_file(&fixture.request.age_key).unwrap();
+        fs::remove_file(&fixture.request.github_token).unwrap();
+        assert_eq!(fixture.run().unwrap_err(), Error::CommandLineToolsRequired);
+        assert!(!fixture.state().exists());
+        assert!(fixture.events().is_empty());
+        assert_eq!(
+            fixture.directory.path().join("git-invoked").exists(),
+            flag == "broken-git"
+        );
+    }
 }

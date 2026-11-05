@@ -18,6 +18,7 @@ pub mod secrets;
 pub mod setup_wizard;
 mod ssh;
 mod ssh_identity;
+pub mod ssh_keys;
 pub mod tailscale;
 pub mod tailscale_oauth;
 pub mod tui;

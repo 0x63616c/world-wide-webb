@@ -1,6 +1,6 @@
 [package]
 name = "homelab-client"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.89"
 description = "Typed remote management for a declarative macOS homelab"
@@ -26,3 +26,8 @@ unsafe_code = "forbid"
 
 [lints.clippy]
 all = "warn"
+
+[[test]]
+name = "vm_e2e"
+path = "tests/vm_e2e.rs"
+harness = false

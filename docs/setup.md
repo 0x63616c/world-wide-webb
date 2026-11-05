@@ -4,6 +4,10 @@
 
 On the target: create the administrator specified in your configuration and
 turn on Remote Login for that administrator. Keep the Mac powered and reachable.
+Bootstrap also needs Apple's Command Line Tools for Git. On a fresh target, run
+`xcode-select --install` and finish the installation dialog before setup. The
+helper checks this prerequisite without opening the installer or changing host
+settings; a base VM with development tools already installed does not test it.
 On the client: install the CLI and sign in to GitHub CLI for private-repo access.
 Use local 1Password desktop integration if choosing its credential adapter.
 
@@ -28,6 +32,7 @@ the target. Evaluated Nix facts must match the reviewed manifest.
 
 | Situation | Next step |
 | --- | --- |
+| Command Line Tools unavailable | Install or repair the tools on the target; verify `/usr/bin/git --version` before retrying |
 | SSH unavailable | Check address, Remote Login and saved host identity |
 | Vault locked | Unlock 1Password; retry the credential step |
 | Key issuance uncertain | Inspect Tailscale auth keys; do not issue another blindly |

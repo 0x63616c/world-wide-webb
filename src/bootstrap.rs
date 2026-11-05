@@ -33,6 +33,7 @@ pub struct Request {
 
 pub struct Tools {
     pub git: PathBuf,
+    pub xcode_select: PathBuf,
     pub uname: PathBuf,
     pub id: PathBuf,
     pub dseditgroup: PathBuf,
@@ -61,6 +62,8 @@ pub enum Error {
         "Bootstrap requires Apple-silicon macOS and the existing intended non-root administrator."
     )]
     WrongTarget,
+    #[error("Apple Command Line Tools or their Git executable are unavailable on the target.")]
+    CommandLineToolsRequired,
     #[error(
         "Credential inputs must be private, nonempty regular files owned by this user, no larger than 64 KiB."
     )]
@@ -101,6 +104,12 @@ pub enum Error {
     NotReady,
     #[error("The locked host system could not be built.")]
     Build,
+    #[error(
+        "The host build process could not be supervised to completion. Inspect target state before retrying."
+    )]
+    BuildSupervision,
+    #[error("The completed host build did not provide a resolvable system output.")]
+    BuildOutput,
     #[error("The supplied host identity did not pass isolated decryption verification.")]
     Decryption,
     #[error("Host key installation was not confirmed. Inspect the installed key before any retry.")]
@@ -115,6 +124,7 @@ impl Error {
             Self::InvalidRequest => "invalid-bootstrap-request",
             Self::ApprovalRequired => "bootstrap-approval-required",
             Self::WrongTarget => "bootstrap-wrong-target",
+            Self::CommandLineToolsRequired => "bootstrap-command-line-tools-required",
             Self::InvalidCredentials => "bootstrap-invalid-credentials",
             Self::Workspace => "bootstrap-workspace-unavailable",
             Self::Journal => "bootstrap-journal-unavailable",
@@ -129,6 +139,8 @@ impl Error {
             Self::Evaluation => "bootstrap-evaluation-failed",
             Self::NotReady => "bootstrap-not-ready",
             Self::Build => "bootstrap-build-failed",
+            Self::BuildSupervision => "bootstrap-build-supervision-failed",
+            Self::BuildOutput => "bootstrap-build-output-unavailable",
             Self::Decryption => "bootstrap-identity-unverified",
             Self::KeyInstallation => "bootstrap-key-installation-unconfirmed",
             Self::Activation => "bootstrap-activation-unconfirmed",
@@ -143,12 +155,16 @@ impl Error {
             Self::RecoveryRequired
             | Self::Journal
             | Self::Installation
+            | Self::BuildSupervision
             | Self::KeyInstallation
             | Self::Activation => {
                 "Inspect the private setup journal and actual target state. A privileged process may still be running; do not blindly repeat setup."
             }
             Self::ExistingKey => {
                 "Verify the existing identity manually; use the recovery workflow instead of replacing it."
+            }
+            Self::CommandLineToolsRequired => {
+                "On the target Mac, run xcode-select --install and finish Apple's installation dialog. If tools are already installed, repair their selection and verify /usr/bin/git --version, then retry."
             }
             Self::ExistingNix => {
                 "Inspect and repair the existing Nix installation separately before resuming."
@@ -452,6 +468,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     }
     if [
         &tools.git,
+        &tools.xcode_select,
         &tools.uname,
         &tools.id,
         &tools.dseditgroup,
@@ -504,6 +521,19 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     if !membership.starts_with("yes ") {
         return Err(Error::WrongTarget);
     }
+
+    // Apple's Git shim can open an installation dialog on a fresh Mac. Check
+    // developer-tool selection first so SSH setup fails clearly without a GUI.
+    checked_silent(
+        command(&tools.xcode_select, neutral_home).arg("--print-path"),
+        SHORT,
+        Error::CommandLineToolsRequired,
+    )?;
+    checked_silent(
+        command(&tools.git, neutral_home).arg("--version"),
+        SHORT,
+        Error::CommandLineToolsRequired,
+    )?;
 
     let mut journal = Journal::open(
         state_directory,
@@ -624,16 +654,19 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
         .record(Phase::Building, None)
         .map_err(|_| Error::Journal)?;
     let system_link = work.path().join("system");
-    checked_silent(
+    let build_status = process::run_silent(
         command(&nix, &home)
             .arg("build")
             .arg(format!("{target}.system"))
             .args(["--no-update-lock-file", "--out-link"])
             .arg(&system_link),
         BUILD,
-        Error::Build,
-    )?;
-    let system = fs::canonicalize(&system_link).map_err(|_| Error::Build)?;
+    )
+    .map_err(|_| Error::BuildSupervision)?;
+    if !build_status.success() {
+        return Err(Error::Build);
+    }
+    let system = fs::canonicalize(&system_link).map_err(|_| Error::BuildOutput)?;
     let helper = system.join("sw/bin/homelab-host");
     journal
         .record(Phase::VerifyingSecrets, Some(&system))
@@ -681,11 +714,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             .arg(&helper)
             .arg("bootstrap-activate")
             .arg("--system")
-            .arg(&system)
-            .arg("--checkout")
-            .arg(&repo)
-            .arg("--host")
-            .arg(&request.host),
+            .arg(&system),
         Duration::from_secs(2400),
         Error::Activation,
     )?;

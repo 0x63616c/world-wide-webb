@@ -18,6 +18,13 @@ struct Arguments {
 
 #[derive(Subcommand)]
 enum Operation {
+    /// Publish reviewed public SSH keys as a root-owned regular file.
+    InstallSshKeys {
+        #[arg(long)]
+        user: String,
+        #[arg(long)]
+        source: PathBuf,
+    },
     /// Set up this target from an explicitly approved, exact reviewed commit.
     Bootstrap {
         #[arg(long)]
@@ -44,10 +51,6 @@ enum Operation {
     BootstrapActivate {
         #[arg(long)]
         system: PathBuf,
-        #[arg(long)]
-        checkout: PathBuf,
-        #[arg(long)]
-        host: String,
     },
     #[command(hide = true)]
     BootstrapKeyStatus,
@@ -105,6 +108,7 @@ fn bootstrap(request: homelab_client::bootstrap::Request) -> ExitCode {
     };
     let tools = homelab_client::bootstrap::Tools {
         git: "/usr/bin/git".into(),
+        xcode_select: "/usr/bin/xcode-select".into(),
         uname: "/usr/bin/uname".into(),
         id: "/usr/bin/id".into(),
         dseditgroup: "/usr/sbin/dseditgroup".into(),
@@ -254,11 +258,7 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Operation::BootstrapActivate {
-            system,
-            checkout,
-            host,
-        } => {
+        Operation::BootstrapActivate { system } => {
             if !root_bootstrap_operation() {
                 return ExitCode::FAILURE;
             }
@@ -270,7 +270,7 @@ fn main() -> ExitCode {
                 eprintln!("Activation requires a built system in the Nix store.");
                 return ExitCode::FAILURE;
             }
-            match homelab_client::bootstrap_privileged::activate(&system, &checkout, &host) {
+            match homelab_client::bootstrap_privileged::activate(&system) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) => {
                     eprintln!("System activation incomplete: {error}");
@@ -289,6 +289,15 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Operation::InstallSshKeys { user, source } => {
+            match homelab_client::ssh_keys::install(&user, &source) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("SSH key installation incomplete: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Operation::InstallHostKey { source, source_uid } => {
             if !rustix::process::geteuid().is_root() {
                 eprintln!(
