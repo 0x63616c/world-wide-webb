@@ -5,7 +5,7 @@ export const mediaReference = z.object({
   id: z.string().max(2048),
   type: z.string().min(1).max(100),
 });
-export const mediaItem = mediaReference.extend({
+const mediaItem = mediaReference.extend({
   title: z.string(),
   kind: z.string(),
   playable: z.boolean(),
