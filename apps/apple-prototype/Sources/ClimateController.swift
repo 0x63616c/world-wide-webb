@@ -4,6 +4,7 @@ import SwiftUI
 struct ClimateController: View {
     let store: any HomeDataSource
     @State private var editingLow = false
+    @Environment(\.personalNavigation) private var personal
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     private var climate: ClimateState { store.climate }
@@ -36,15 +37,38 @@ struct ClimateController: View {
                         .id("\(climate.mode.rawValue)-\(editingLow)")
                 }
             }
-            controls.padding(.horizontal, compact ? 20 : 64).padding(.top, 24).padding(.bottom, 36)
-        }.background(Color(white: 0.055)).accessibilityIdentifier("climate-page")
+            if !personal { controls.padding(.horizontal, compact ? 16 : 48).padding(.vertical, compact ? 12 : 24) }
+        }.background(.background).accessibilityIdentifier("climate-page")
+            .toolbar {
+                if personal {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        Picker("Climate mode", selection: Binding(get: { climate.mode }, set: { store.send(.mode($0)) })) {
+                            ForEach(ClimateMode.allCases, id: \.self) { Text($0.label).tag($0) }
+                        }.pickerStyle(.menu)
+                        Menu {
+                            Picker("Fan", selection: Binding(get: { climate.selectedFanMode ?? "auto" }, set: { store.send(.fanMode($0)) })) {
+                                ForEach(climate.fanModes, id: \.self) { Text($0.capitalized).tag($0) }
+                            }
+                        } label: { Label("Fan", systemImage: "fan") }
+                    }
+                }
+            }
     }
     private var controls: some View {
         GlassEffectContainer(spacing: 16) {
-            ViewThatFits(in: .horizontal) {
+            if compact {
+                VStack(spacing: 12) {
+                    Picker("Mode", selection: Binding(get: { climate.mode }, set: { store.send(.mode($0)) })) {
+                        ForEach(ClimateMode.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }.pickerStyle(.menu).frame(maxWidth: .infinity, alignment: .leading)
+                    Picker("Fan", selection: Binding(get: { climate.selectedFanMode ?? "auto" }, set: { store.send(.fanMode($0)) })) {
+                        ForEach(climate.fanModes, id: \.self) { Text("Fan \($0.capitalized)").tag($0) }
+                    }.pickerStyle(.segmented)
+                }
+            } else { ViewThatFits(in: .horizontal) {
                 HStack(spacing: 24) { modePicker; Spacer(minLength: 20); fanPicker }
                 VStack(spacing: 20) { modePicker; fanPicker }
-            }
+            } }
         }
     }
     private var modePicker: some View {
@@ -104,7 +128,8 @@ private struct ClimateTemperatureSurface: View {
     private func bounded(_ value: Int) -> Int { min(range.upperBound, max(range.lowerBound, value)) }
     var body: some View {
         GeometryReader { proxy in
-            let fraction = Double(displayed - 67) / 10
+            let controlFrame = PanelFoldLayout.controlFrame(in: proxy)
+            let fraction = min(1, max(0, Double(displayed - 67) / 10))
             ZStack(alignment: .bottom) {
                 Rectangle().fill(color.opacity(0.08))
                 Rectangle().fill(color.gradient.opacity(0.38))
@@ -113,18 +138,21 @@ private struct ClimateTemperatureSurface: View {
                     .offset(y: -proxy.size.height * fraction)
                 VStack(spacing: 16) {
                     Text(title).font(.title2.weight(.medium)).foregroundStyle(.secondary)
-                    HStack(spacing: 28) {
+                    HStack(spacing: 12) {
                         stepButton(delta: -1)
                         Text("\(displayed)°")
-                            .font(.system(size: min(240, proxy.size.width * 0.25), weight: .regular, design: .rounded))
+                            .font(.system(size: min(240, controlFrame.width * 0.25, controlFrame.height * 0.45), weight: .regular, design: .rounded))
                             .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
                             .accessibilityIdentifier("climate-value")
                         stepButton(delta: 1)
                     }
                     Text(subtitle).font(.title3).foregroundStyle(.secondary)
-                    Label("Swipe up or down", systemImage: "arrow.up.arrow.down")
-                        .font(.body).foregroundStyle(.secondary).padding(.top, 24)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    if controlFrame.height > 280 {
+                        Label("Swipe up or down", systemImage: "arrow.up.arrow.down")
+                            .font(.body).foregroundStyle(.secondary).padding(.top, 16)
+                    }
+                }.frame(width: controlFrame.width, height: controlFrame.height)
+                    .position(x: controlFrame.midX, y: controlFrame.midY)
             }.contentShape(.rect)
                 .gesture(DragGesture(minimumDistance: 10)
                     .onChanged { gesture in
@@ -147,7 +175,7 @@ private struct ClimateTemperatureSurface: View {
     private func stepButton(delta: Int) -> some View {
         Button { commit(bounded(value + delta)) } label: {
             Image(systemName: delta < 0 ? "minus" : "plus").font(.title2.weight(.medium))
-                .frame(width: 64, height: 64)
+                .frame(width: 44, height: 44)
         }.buttonStyle(.glass).buttonBorderShape(.circle)
             .disabled(delta < 0 ? displayed <= range.lowerBound : displayed >= range.upperBound)
             .accessibilityLabel(delta < 0 ? "Lower setpoint" : "Raise setpoint")

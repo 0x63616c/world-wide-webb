@@ -1,7 +1,7 @@
 # iPhone Duo redesign notes
 Journey: launcher → Settings, Lights, Climate and Spotify
 Stack: SwiftUI with UIKit host; iOS/macOS 26 minimum; local Xcode 27.2
-Stage: 3  Next: resolve personal-device startup/navigation, then build native changes
+Stage: 5  Next: publish verified changes and check TestFlight processing
 
 ## Findings
 - Shell: Change — custom Back/safe-area handling prevents standard vertical bars [T462].
@@ -18,7 +18,7 @@ Stage: 3  Next: resolve personal-device startup/navigation, then build native ch
 - Camera changes are outside this pass; do not claim physical Duo camera validation.
 
 ## Decisions
-- Personal startup: native navigation recommended; user choice pending (5 November 2026).
+- Personal startup: native navigation chosen by Calum (5 November 2026); shared screens and logic.
 - Wall panel: retain HomeView-style clock/launcher and glanceable faces (user).
 - Appearance: native system components and platform styles; HomeView guides panel content (user).
 - Inner display: expand existing hierarchy, keeping the same controls and state (agent recommendation).
@@ -28,4 +28,9 @@ Stage: 3  Next: resolve personal-device startup/navigation, then build native ch
 - Assessed actual Settings in panel simulator and current shell/build configuration.
 - Existing behavior slice: native unit tests and repo typecheck passed before Spotify additions.
 - Skills: reviewed and pinned SwiftUI Pro, design-system, four focused Duo skills.
-- New adaptive screens and Duo transitions: not built or verified yet.
+- Built both native targets; native tabs/sidebar and shared destinations are implemented.
+- Duo simulator: outer/inner, opening with a Spotify draft, rotation and partial folding verified.
+- Climate readout avoids active vertical/tabletop division regions using the public SDK API.
+- Spotify transport and climate mode/fan use system toolbars; no custom vertical bar.
+- Mac Settings opens with Command–Comma. Phone settings omit wall-only idle controls.
+- Evidence and remaining device-only limits: `../../docs/screenshots/panel-experience/README.md`.

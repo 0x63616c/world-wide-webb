@@ -56,6 +56,7 @@ struct PanelDisplaySettings: View {
             } maximumValueLabel: {
                 Image(systemName: "sun.max.fill")
             }
+            .labelsHidden()
             .accessibilityValue(value.wrappedValue.formatted(.percent.precision(.fractionLength(0))))
         }
         .padding(.vertical, 4)
@@ -85,6 +86,7 @@ struct PanelDurationSlider: View {
                 Text(Self.label(seconds)).monospacedDigit().foregroundStyle(.secondary)
             }
             Slider(value: position, in: 0...Double(stops.count - 1), step: 1) { Text(title) }
+                .labelsHidden()
                 .accessibilityValue(Self.label(seconds))
             HStack {
                 Text(Self.label(stops[0])); Spacer(); Text("30 min")

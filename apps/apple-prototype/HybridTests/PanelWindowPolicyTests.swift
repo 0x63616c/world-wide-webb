@@ -3,21 +3,19 @@ import XCTest
 @testable import Panel
 
 final class PanelWindowPolicyTests: XCTestCase {
-    func testMacUsesLandscapeWallPointSize() throws {
-        let size = try XCTUnwrap(PanelWindowPolicy.fixedSize(isiOSAppOnMac: true))
-        XCTAssertEqual(size, CGSize(width: 1366, height: 1024))
-        XCTAssertGreaterThan(size.width, size.height)
+    func testMacHasUsableMinimumWithoutWallPanelDimensions() {
+        XCTAssertEqual(PanelWindowPolicy.minimumSize(isiOSAppOnMac: true), CGSize(width: 600, height: 480))
+        XCTAssertNil(PanelWindowPolicy.minimumSize(isiOSAppOnMac: false))
     }
-
-    func testWallIPadAndPhoneDoNotReceiveMacRestrictions() {
-        XCTAssertNil(PanelWindowPolicy.fixedSize(isiOSAppOnMac: false))
-    }
-
-    func testHostedAppRequiresFullScreenAndLandscapeOnly() throws {
-        let info = try XCTUnwrap(Bundle.main.infoDictionary)
-        XCTAssertEqual(info["UIRequiresFullScreen"] as? Bool, true)
+    func testPhoneCanRotateAndMultitaskWhileWallIPadStaysLandscape() throws {
+        // Bundle.infoDictionary resolves ~ipad overrides on the test device.
+        let data = try Data(contentsOf: Bundle.main.bundleURL.appendingPathComponent("Info.plist"))
+        let info = try XCTUnwrap(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+        XCTAssertEqual(info["UIRequiresFullScreen"] as? Bool, false)
+        XCTAssertEqual(info["UIRequiresFullScreen~ipad"] as? Bool, true)
         let orientations = try XCTUnwrap(info["UISupportedInterfaceOrientations"] as? [String])
-        XCTAssertEqual(orientations.sorted(), ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"])
-        XCTAssertNil(info["UISupportedInterfaceOrientations~ipad"])
+        XCTAssertTrue(orientations.contains("UIInterfaceOrientationPortrait"))
+        XCTAssertEqual(info["UISupportedInterfaceOrientations~ipad"] as? [String],
+                       ["UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"])
     }
 }

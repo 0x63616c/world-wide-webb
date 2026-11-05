@@ -174,9 +174,9 @@ struct PanelRoot: View {
                 body: "The action could not be completed. Check the connection and try again.",
                 deepLink: "module/all", priority: .high, dedupeKey: "panel-api-command-error")
         }
-        .statusBarHidden()
-        .defersSystemGestures(on: .bottom)
-        .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
+        .statusBarHidden(!PanelExperience.personal)
+        .defersSystemGestures(on: PanelExperience.personal ? [] : .bottom)
+        .persistentSystemOverlays(PanelExperience.personal ? .automatic : .hidden)
         .fullScreenCover(item: $session.browser) { destination in
             PanelBrowser(url: destination.url) { session.browser = nil }
                 .id(destination.id)

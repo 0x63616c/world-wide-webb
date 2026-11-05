@@ -238,7 +238,7 @@ private struct LampColorEditor: View {
                 .font(.title3.weight(.medium)).padding(20)
                 .background(.white.opacity(0.06), in: .rect(cornerRadius: 20))
                 .accessibilityIdentifier("lamp-custom-color-picker")
-            HStack(spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 12) {
                 ForEach(presets, id: \.self) { hex in
                     Button { color = Color(hex: hex) } label: {
                         Circle().fill(Color(hex: hex)).frame(maxWidth: .infinity).frame(height: 44)
@@ -253,7 +253,7 @@ private struct LampColorEditor: View {
             } label: {
                 Label("Save & use", systemImage: "checkmark").font(.title3.weight(.semibold))
                     .frame(maxWidth: .infinity).padding(12)
-            }.buttonStyle(.glassProminent).tint(.white).foregroundStyle(.black)
+            }.buttonStyle(.glassProminent)
                 .accessibilityIdentifier("lamp-save-color")
         }.accessibilityIdentifier("lamp-color-editor")
     }

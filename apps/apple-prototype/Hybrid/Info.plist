@@ -19,10 +19,13 @@
     <key>NSAlarmKitUsageDescription</key><string>Control Center schedules your next alarm so it can ring while the panel is locked.</string>
     <key>NSSupportsLiveActivities</key><true/>
     <key>UILaunchScreen</key><dict/>
-    <key>UIRequiresFullScreen</key><true/>
-    <key>UIStatusBarHidden</key><true/>
-    <key>UIViewControllerBasedStatusBarAppearance</key><false/>
+    <key>UIRequiresFullScreen</key><false/>
+    <key>UIRequiresFullScreen~ipad</key><true/>
+    <key>UIStatusBarHidden</key><false/>
+    <key>UIViewControllerBasedStatusBarAppearance</key><true/>
     <key>UISupportedInterfaceOrientations</key>
+    <array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
     <array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
     <key>UIApplicationSceneManifest</key>
     <dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>

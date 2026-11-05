@@ -1,19 +1,16 @@
 import SwiftUI
 import UIKit
 
-/// Point dimensions of the wall panel, shared by the Mac policy and its tests.
+/// Personal Mac windows are resizable; the physical panel keeps its OS-owned geometry.
 enum PanelWindowPolicy {
-    static let wallSize = CGSize(width: 1366, height: 1024)
-
-    static func fixedSize(isiOSAppOnMac: Bool) -> CGSize? {
-        isiOSAppOnMac ? wallSize : nil
+    static func minimumSize(isiOSAppOnMac: Bool) -> CGSize? {
+        isiOSAppOnMac ? CGSize(width: 600, height: 480) : nil
     }
 
     @MainActor static func apply(to scene: UIWindowScene, isiOSAppOnMac: Bool) {
-        guard let size = fixedSize(isiOSAppOnMac: isiOSAppOnMac),
+        guard let size = minimumSize(isiOSAppOnMac: isiOSAppOnMac),
               let restrictions = scene.sizeRestrictions else { return }
         restrictions.minimumSize = size
-        restrictions.maximumSize = size
     }
 }
 

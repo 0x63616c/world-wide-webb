@@ -27,7 +27,7 @@ import PanelKit
     }
     func run() async {
         await refresh()
-        if library == nil { browse() }
+        browse()
         while !Task.isCancelled {
             do { try await Task.sleep(for: .seconds(3)) } catch { break }
             await refresh()

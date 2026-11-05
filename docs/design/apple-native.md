@@ -60,7 +60,20 @@ same hierarchy one page at a time. System containers handle bars, sheets and
 fold avoidance. Confirm any additional reserved-region APIs in the SDK and
 retain a working older-runtime path. Do not invent pose-specific features.
 
-## Current implementation sequence
+## Implemented structure
+
+Calum chose shared destinations and data with native personal navigation on
+5 November. `PanelAppContent` is the single destination resolver. `PersonalHome`
+owns native tabs on iPhone/Duo and a sidebar on the Mac design host; `HomeView`
+retains the wall clock/launcher. Personal settings omit wall-only background,
+dimming and clock-return controls. The shared app-preferences owner also serves
+the Mac Settings scene, so changes apply immediately to open destinations.
+
+Climate uses the SDK's active division reserved regions for its essential
+readout and adjustment buttons. Navigation and toolbar placement remain owned
+by the system. Spotify drafts and shared providers stay above layout changes.
+
+## Delivery sequence
 
 1. Establish this standard, pin reviewed skills, and settle personal-device
    navigation separately from the wall panel's clock/launcher experience.

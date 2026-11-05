@@ -17,7 +17,8 @@ class ParallelSmokeTests(unittest.TestCase):
         self.assertCountEqual(groups, suites)
         self.assertEqual(len(groups), len(set(groups)))
         self.assertEqual(set(groups), {"HomeViewLaunchTests", "NotificationHistoryTests",
-                                       "UpdateReadyBannerTests", "GridInteractionTests"})
+                                       "UpdateReadyBannerTests", "GridInteractionTests",
+                                       "PersonalNavigationTests", "PanelReturnTests"})
         self.assertIn('"-only-testing:PanelUITests/$TEST_SUITE"', WORKFLOW)
 
     def test_gate_rejects_every_non_success_result(self):

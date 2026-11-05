@@ -1,6 +1,28 @@
 # World Wide Webb — Apple prototype
 
-Native SwiftUI study targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
+Shared SwiftUI screens targeting iPadOS/iOS 26 and macOS 26, built with Xcode
+27.1 or newer for current Apple navigation and Duo reserved-region APIs. The
+`WorldWideWebb` Mac design host uses fixtures; the `Panel` target connects to the
+live backend. Never confuse design-host screenshots with live device readings.
+
+## Current navigation (November 2026)
+
+- Wall iPad: fixed 1366×1024 clock, launcher and full-screen accessory pages.
+- iPhone / Duo: Home, Lights, Climate, Spotify and More in native tabs. The
+  system adapts the bars as Duo opens and rotates; providers and drafts survive.
+- Mac design host: resizable native sidebar and Command–Comma Settings scene.
+  A separately distributed live macOS app remains future work.
+- Both shells resolve the same catalog through `PanelAppContent`. Personal
+  devices have no clock-return or panel-dimming policy, and their Settings omit
+  those device-local controls. Active walks and timers inhibit automatic sleep.
+- Settings uses system lists and forms; Lights uses native colour editing and
+  saved presets; Climate keeps its full-page swipe control and moves its readout
+  clear of active Duo folds. Playback and climate actions use system toolbars on
+  personal devices.
+
+The [Apple design standard](../../docs/design/apple-native.md) and
+[review evidence](../../docs/screenshots/panel-experience/README.md) describe this
+pass. Older iteration notes below are retained as historical context.
 
 ## Iteration 6
 
@@ -51,11 +73,12 @@ and `APPLE-SPEC.md`. The external protocol directory supplies the unchanged
 runs three independent cold reviews; it does not change acceptance floors.
 [WWW-55 decisions and medians](docs/v2/www-55.md) record both rejected candidates.
 
-Use Xcode 27 and XcodeGen on the build mini:
+Use Xcode 27.1+ and XcodeGen:
 
 ```sh
-cd ~/wwwebb-proto
-export DEVELOPER_DIR=/Applications/Xcode-27.0.app/Contents/Developer
+# From the repository root:
+export DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
+cd apps/apple-prototype
 /opt/homebrew/bin/xcodegen generate
 bash scripts/snapshot.sh
 ```

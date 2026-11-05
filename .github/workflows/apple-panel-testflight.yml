@@ -80,7 +80,7 @@ jobs:
   smoke_build:
     needs: plan
     if: needs.plan.outputs.verified_run == ''
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 20
     outputs:
       toolchain: ${{ steps.toolchain.outputs.version }}
@@ -94,7 +94,7 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "tree=$(python3 .github/scripts/apple-smoke-proof.py --fingerprint)" >> "$GITHUB_OUTPUT"
 
-      - name: Select newest Xcode 26.x
+      - name: Select supported Xcode 27.1+
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
           export DEVELOPER_DIR
@@ -158,6 +158,8 @@ jobs:
             -only-testing:PanelUITests/NotificationHistoryTests \
             -only-testing:PanelUITests/UpdateReadyBannerTests \
             -only-testing:PanelUITests/GridInteractionTests \
+            -only-testing:PanelUITests/PersonalNavigationTests \
+            -only-testing:PanelUITests/PanelReturnTests \
             ARCHS="$(uname -m)" CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
 
       - name: Save compiled simulator products before tests
@@ -191,19 +193,19 @@ jobs:
   smoke_tests:
     name: UI / ${{ matrix.suite }}
     needs: [plan, smoke_build]
-    runs-on: macos-26
+    runs-on: xcode-27
     # Include simulator boot, XCTest result collection and artifact cleanup.
     # Hosted runners have exceeded 20 minutes despite every test passing.
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        suite: [HomeViewLaunchTests, NotificationHistoryTests, UpdateReadyBannerTests, GridInteractionTests]
+        suite: [HomeViewLaunchTests, NotificationHistoryTests, UpdateReadyBannerTests, GridInteractionTests, PersonalNavigationTests, PanelReturnTests]
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ needs.plan.outputs.source_sha }}
-      - name: Select newest Xcode 26.x
+      - name: Select supported Xcode 27.1+
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
           export DEVELOPER_DIR
@@ -223,8 +225,10 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/panel-smoke-build"
           tar -xzf "$RUNNER_TEMP/panel-ui-products.tgz" -C "$RUNNER_TEMP/panel-smoke-build"
-      - name: Create 1366x1024 iPad simulator
+      - name: Create panel or personal-device simulator
         id: simulator
+        env:
+          TEST_SUITE: ${{ matrix.suite }}
         run: |
           xcrun simctl list --json > "$RUNNER_TEMP/simulators.json"
           python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
@@ -232,10 +236,13 @@ jobs:
           with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
               catalog = json.load(source)
           # 12.9-inch iPad Pro is 1366x1024 points; the newer 13-inch is 1376x1032.
+          personal = os.environ['TEST_SUITE'] == 'PersonalNavigationTests'
           device_type = next(device['identifier'] for device in catalog['devicetypes']
-                             if '12.9-inch' in device['name'] and '6th generation' in device['name'])
+                             if (device['name'] == 'iPhone 17e' if personal else
+                                 '12.9-inch' in device['name'] and '6th generation' in device['name']))
           runtime = max((runtime for runtime in catalog['runtimes']
-                         if runtime.get('isAvailable') and '.iOS-26' in runtime['identifier']),
+                         if runtime.get('isAvailable') and '.iOS-27' in runtime['identifier']
+                         and any(t['identifier'] == device_type for t in runtime.get('supportedDeviceTypes', []))),
                         key=lambda runtime: tuple(map(int, runtime['version'].split('.'))))
           device_id = subprocess.check_output(
               ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
@@ -312,7 +319,7 @@ jobs:
       (needs.smoke.result == 'success' ||
        (needs.smoke.result == 'skipped' && needs.plan.outputs.verified_run != '')) &&
       (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only))
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
     environment: production
     # Also shared with the manual Expo rollback workflow: one bundle ID, one
@@ -342,7 +349,7 @@ jobs:
             --jq '[.artifacts[] | select(.expired == false)] | length')
           echo "uploaded=$([[ $count -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-      - name: Select newest Xcode 26.x
+      - name: Select supported Xcode 27.1+
         if: steps.receipt.outputs.uploaded != 'true'
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"

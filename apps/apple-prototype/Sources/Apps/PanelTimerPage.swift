@@ -7,6 +7,8 @@ struct PanelTimerPage: View {
     @State private var hours = 0
     @State private var minutes = 15
     @State private var seconds = 0
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var compact: Bool { sizeClass == .compact }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -55,7 +57,7 @@ struct PanelTimerPage: View {
                             Text(message).font(.callout).foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center).frame(maxWidth: 620)
                         }
-                    }.padding(.horizontal, 100).padding(.vertical, 86)
+                    }.padding(.horizontal, compact ? 24 : 100).padding(.vertical, compact ? 32 : 86)
                 }.id(timer.countdown.phase)
             }
         }
@@ -95,7 +97,7 @@ struct PanelTimerPage: View {
     private var durationEditor: some View {
         VStack(spacing: 40) {
             Text("Set duration").font(.largeTitle.weight(.semibold))
-            HStack(spacing: 40) {
+            HStack(spacing: compact ? 8 : 40) {
                 durationWheel("Hours", selection: $hours, range: 0..<24)
                 durationWheel("Minutes", selection: $minutes, range: 0..<60)
                 durationWheel("Seconds", selection: $seconds, range: 0..<60)
@@ -127,7 +129,7 @@ struct PanelTimerPage: View {
             #if os(iOS)
             .pickerStyle(.wheel)
             #endif
-            .labelsHidden().font(.title).frame(width: 160, height: 220)
+            .labelsHidden().font(.title).frame(maxWidth: compact ? .infinity : 160).frame(height: compact ? 160 : 220)
                 .accessibilityIdentifier("timer-\(title.lowercased())")
         }
     }

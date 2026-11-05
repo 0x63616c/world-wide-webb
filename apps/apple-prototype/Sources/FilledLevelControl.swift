@@ -10,7 +10,7 @@ struct FilledLevelControl: View {
     var step = 1
     var unit = "percent"
     var track: Gradient? = nil
-    var fill: (Int) -> Color = { _ in .white.opacity(0.38) }
+    var fill: (Int) -> Color = { _ in .primary.opacity(0.22) }
     var preview: (Int?) -> Void = { _ in }
     let commit: (Int) -> Void
     @Environment(\.isEnabled) private var enabled
@@ -30,8 +30,8 @@ struct FilledLevelControl: View {
                 if let track { LinearGradient(gradient: track, startPoint: .leading, endPoint: .trailing).opacity(0.35) }
                 Rectangle().fill(fill(displayed)).frame(width: proxy.size.width * fraction)
                 Image(systemName: symbol).font(.system(size: 22))
-                    .foregroundStyle(.white).padding(.leading, 24)
-                Capsule().fill(.white.opacity(0.9)).frame(width: 4, height: 22)
+                    .foregroundStyle(.primary).padding(.leading, 24)
+                Capsule().fill(.primary.opacity(0.9)).frame(width: 4, height: 22)
                     .offset(x: max(12, min(proxy.size.width - 16, proxy.size.width * fraction - 10)))
             }.clipShape(.rect(cornerRadius: 24))
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24))

@@ -30,6 +30,9 @@ struct HybridNativeModule: View {
     let detail: Bool
     let open: () -> Void
     var close: () -> Void = {}
+    @Environment(\.personalNavigation) private var personal
+    @Environment(\.colorScheme) private var colorScheme
+    private var nativeAppearance: Bool { personal && [PanelModule.lights, .climate].contains(module) }
 
     var body: some View {
         Group {
@@ -40,9 +43,9 @@ struct HybridNativeModule: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .foregroundStyle(.white).tint(.white)
+        .foregroundStyle(nativeAppearance ? Color.primary : Color.white).tint(nativeAppearance ? Color.accentColor : Color.white)
         .background(Color.clear)
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, nativeAppearance ? colorScheme : .dark)
         .task(id: "\(module.rawValue)-\(detail)") { await signalSnapshotReady() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("native-\(module.rawValue)-\(detail ? "detail" : "tile")")

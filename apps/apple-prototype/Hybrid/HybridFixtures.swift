@@ -111,6 +111,9 @@ actor HybridFixtureTransport: PanelTransport {
         if let override = overrides[procedure] { file = override }
         else {
             switch procedure {
+            case "spotify.state": file = "spotify/state.json"
+            case "spotify.browse": file = "spotify/library.json"
+            case "spotify.play" where controlWrites, "spotify.transport" where controlWrites: file = "spotify/accepted.json"
             case "settings.get": file = "photos/settings.json"
             case "boothPhotos.list":
                 file = ProcessInfo.processInfo.arguments.contains("-hybridBoothBurst") ? "photos/booth-burst.json" : "photos/booth.json"

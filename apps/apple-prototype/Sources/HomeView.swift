@@ -217,26 +217,7 @@ struct HomeView: View {
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
         VStack(spacing: 0) {
-            Group {
-                switch app.route {
-                case .settings: PanelSettingsPage(back: home)
-                case .timer: PanelTimerPage(timer: timer)
-                case .photoBooth:
-                    if let booth = integration?.photoBooth(close: home) { booth }
-                    else {
-                        VStack {
-                            ContentUnavailableView("Photo Booth requires the panel app", systemImage: "camera")
-                        }
-                        .safeAreaInset(edge: .top, spacing: 0) { PanelAppNavigationBar(back: home) }
-                    }
-                case .classic, .clock: EmptyView()
-                case .feature(let feature):
-                    if let integration { integration.destination(feature, close: home) }
-                    else { prototypeScreen(feature) }
-                }
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("app-screen-\(app.id)")
+            PanelAppContent(app: app, store: store, timer: timer, close: home)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if app.route != .timer && app.route != .photoBooth && app.route != .settings {
@@ -256,20 +237,7 @@ struct HomeView: View {
             .transaction { if reduceMotion || appPreferences[app.id].reduceMotion { $0.animation = nil; $0.disablesAnimations = true } }
             .onKeyPress(.escape) { home(); return .handled }
     }
-    @ViewBuilder private func prototypeScreen(_ feature: PanelAppFeature) -> some View {
-        switch feature {
-        case .lights: ControlsController(store: store)
-        case .climate: ClimateController(store: store)
-        case .music: SonosRoomsPage(store: store)
-        case .spotify: ContentUnavailableView("Spotify requires the panel app", systemImage: "music.note")
-        case .weather: WeatherPage(weather: store.weather)
-        case .calendar: AgendaPage(provider: store.calendar, now: store.now)
-        case .walks: DogWalkPage(store: store)
-        case .wifi: WifiController(wifi: store.wifi)
-        case .car: TeslaController(provider: store.tesla)
-        case .photos: ModulePage(tile: .photos, store: store, close: home)
-        }
-    }
+
 }
 
 extension PanelAppFeature {

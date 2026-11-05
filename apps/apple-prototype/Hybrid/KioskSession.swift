@@ -36,7 +36,7 @@ final class KioskSession {
     }
 
     func activate() {
-        UIApplication.shared.isIdleTimerDisabled = true
+        if !PanelExperience.personal { UIApplication.shared.isIdleTimerDisabled = true }
         UIDevice.current.isBatteryMonitoringEnabled = true
         // Equivalent to Expo's playsInSilentMode; WebKit owns media playback.
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])

@@ -1,0 +1,17 @@
+{
+  "result": {
+    "data": {
+      "title": "Test library",
+      "items": [
+        {
+          "id": "spotify:playlist:fixtureplaylist",
+          "type": "playlist",
+          "title": "Test playlist",
+          "kind": "playlist",
+          "playable": true,
+          "expandable": false
+        }
+      ]
+    }
+  }
+}

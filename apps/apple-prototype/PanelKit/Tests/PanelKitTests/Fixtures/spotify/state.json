@@ -1,0 +1,24 @@
+{
+  "result": {
+    "data": {
+      "configured": true,
+      "accounts": [
+        {
+          "id": "media_player.spotify_fixture",
+          "name": "Test Spotify"
+        }
+      ],
+      "rooms": [
+        {
+          "id": "media_player.test_speaker",
+          "name": "Test speaker",
+          "coordinator": "media_player.test_speaker",
+          "available": true,
+          "playing": false,
+          "title": null,
+          "artist": null
+        }
+      ]
+    }
+  }
+}

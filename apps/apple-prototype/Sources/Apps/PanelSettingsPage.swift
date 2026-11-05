@@ -1,58 +1,69 @@
 import SwiftUI
 import PanelKit
 
-struct PanelSettingsPage: View {
-    let back: () -> Void
-    @Environment(\.homeIntegration) private var integration
-    @Environment(PanelAppPreferences.self) private var preferences
-    @AppStorage("panel.timerSound") private var timerSound = true
-    private enum Page: String, CaseIterable, Identifiable {
-        case background = "Background", display = "Display & idle", apps = "Apps", security = "Security"
-        var id: String { rawValue }
-        var symbol: String {
-            switch self { case .background: "photo"; case .display: "sun.max"; case .apps: "square.grid.2x2"; case .security: "lock.shield" }
-        }
+enum PanelSettingsSection: String, CaseIterable, Identifiable {
+    case background = "Background", display = "Display & idle", apps = "Apps", security = "Security"
+    var id: String { rawValue }
+    static func sections(personal: Bool) -> [Self] { personal ? [.apps, .security] : allCases }
+    var symbol: String {
+        switch self { case .background: "photo"; case .display: "sun.max"; case .apps: "square.grid.2x2"; case .security: "lock.shield" }
     }
-    @State private var selection: Page? = .background
+}
+
+struct PanelSettingsPage: View {
+    var back: (() -> Void)? = nil
+    @Environment(\.personalNavigation) private var personal
+    @State private var selection: PanelSettingsSection?
     var body: some View {
-        NavigationSplitView(columnVisibility: .constant(.all)) {
+        NavigationSplitView {
             List(selection: $selection) {
-                ForEach(Page.allCases) { page in
-                    NavigationLink(value: page) {
-                        Label(page.rawValue, systemImage: page.symbol)
-                    }
-                    .accessibilityIdentifier("settings-\(page.id)")
+                ForEach(PanelSettingsSection.sections(personal: personal)) { page in
+                    NavigationLink(value: page) { Label(page.rawValue, systemImage: page.symbol) }
+                        .accessibilityIdentifier("settings-\(page.id)")
                 }
             }.listStyle(.sidebar).navigationTitle("Settings")
-                .toolbar(removing: .sidebarToggle)
                 .toolbar {
-                    #if os(iOS)
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Apps", systemImage: "square.grid.2x2", action: back)
-                            .accessibilityIdentifier("app-back")
+                    if let back {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Apps", systemImage: "square.grid.2x2", action: back)
+                                .accessibilityIdentifier("app-back")
+                        }
                     }
-                    #else
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close settings", systemImage: "xmark", action: back)
-                            .accessibilityIdentifier("app-back")
-                    }
-                    #endif
                 }
-                .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 320)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 300)
         } detail: {
-            NavigationStack {
-                Group {
-                    switch selection ?? .background {
-                    case .background: WallpaperPicker(embedded: true)
-                    case .display:
-                        Form { PanelDisplaySettings() }.formStyle(.grouped)
-                            .navigationTitle("Display & idle")
-                    case .apps: appSettings
-                    case .security: security
-                    }
-                }
-            }.id(selection)
+            NavigationStack { PanelSettingsDetail(page: selection ?? (personal ? .apps : .background)) }.id(selection)
         }.navigationSplitViewStyle(.balanced).tint(.accentColor)
+    }
+}
+
+/// Push into settings on a phone, using the enclosing app NavigationStack.
+struct PanelSettingsList: View {
+    @Environment(\.personalNavigation) private var personal
+    var body: some View {
+        List(PanelSettingsSection.sections(personal: personal)) { page in
+            NavigationLink { PanelSettingsDetail(page: page) } label: {
+                Label(page.rawValue, systemImage: page.symbol)
+            }.accessibilityIdentifier("settings-\(page.id)")
+        }.navigationTitle("Settings")
+    }
+}
+
+struct PanelSettingsDetail: View {
+    let page: PanelSettingsSection
+    @Environment(\.homeIntegration) private var integration
+    @Environment(\.personalNavigation) private var personal
+    @Environment(PanelAppPreferences.self) private var preferences
+    @AppStorage("panel.timerSound") private var timerSound = true
+    var body: some View {
+        Group {
+            switch page {
+            case .background: WallpaperPicker(embedded: true)
+            case .display: Form { PanelDisplaySettings() }.formStyle(.grouped)
+            case .apps: appSettings
+            case .security: security
+            }
+        }.navigationTitle(page.rawValue)
     }
     private var appSettings: some View {
         Form {
@@ -69,7 +80,7 @@ struct PanelSettingsPage: View {
                         HStack(spacing: 16) {
                             Label(app.name, systemImage: app.symbol)
                             Spacer()
-                            Text(preferences[app.id].idleSeconds < 0 ? "Display setting" : PanelDurationSlider.label(preferences[app.id].idleSeconds))
+                            Text(personal ? (preferences[app.id].reduceMotion ? "Reduce motion" : "System motion") : (preferences[app.id].idleSeconds < 0 ? "Display setting" : PanelDurationSlider.label(preferences[app.id].idleSeconds)))
                                 .font(.callout).foregroundStyle(.secondary)
                         }
                     }

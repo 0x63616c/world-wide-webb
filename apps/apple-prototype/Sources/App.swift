@@ -1,6 +1,7 @@
 import SwiftUI
 
 @main struct WorldWideWebbApp: App {
+    @State private var preferences = PanelAppPreferences()
     @State private var store: MockHomeDataSource
     private let openTile: HomeTile?
     private let demo: Bool
@@ -24,26 +25,33 @@ import SwiftUI
                 if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { Color.clear }
                 else if ProcessInfo.processInfo.arguments.contains("-walkActivityPreview") { WalkActivityPreviewPage() }
                 else if let sheet = HomeGrid.sheet { GridSheetPage(card: sheet, store: store, letters: HomeGrid.sheetLetters) }
+                else if PanelExperience.personal { PersonalHome(store: store) }
                 else { HomeView(store: store, initialTile: openTile, demo: demo, initialFace: initialFace) }
             }
                 .task {
                     if openTile == nil { await signalSnapshotReady() }
                 }
                 #if os(macOS)
-                .frame(width: 1376, height: 1032)
+                .frame(minWidth: 640, minHeight: 480)
                 .environment(\.desktopLayout, true)
                 #endif
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(PanelExperience.personal ? nil : .dark)
+                .environment(preferences)
                 .environment(\.motionPhase, ProcessInfo.processInfo.arguments.contains("-snapshot") ? 0 : nil)
                 #if os(iOS)
-                .statusBarHidden(true)
-                .persistentSystemOverlays(.hidden)
+                .statusBarHidden(!PanelExperience.personal)
+                .persistentSystemOverlays(PanelExperience.personal ? .automatic : .hidden)
                 #endif
         }
         .defaultSize(width: 1376, height: 1032)
         #if os(macOS)
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
+        #endif
+        #if os(macOS)
+        Settings {
+            PanelSettingsPage().environment(preferences).environment(\.personalNavigation, true)
+                .frame(minWidth: 680, idealWidth: 850, minHeight: 480, idealHeight: 600)
+        }
         #endif
     }
 }

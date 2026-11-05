@@ -46,7 +46,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.suites != '[]'
     name: Apple / ${{ matrix.suite }}
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Select newest Xcode 26.x
+      - name: Select supported Xcode 27.1+
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
           export DEVELOPER_DIR

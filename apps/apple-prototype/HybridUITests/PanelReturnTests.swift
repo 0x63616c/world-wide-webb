@@ -6,7 +6,9 @@ import XCTest
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridUnavailable", "-previewApp", "settings"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
-        XCTAssertTrue(app.navigationBars["Display"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["settings-Display & idle"].waitForExistence(timeout: 10))
+        app.buttons["settings-Display & idle"].tap()
+        XCTAssertTrue(app.navigationBars["Display & idle"].waitForExistence(timeout: 10))
         swipeHome(app)
         XCTAssertTrue(app.buttons["app-car"].waitForExistence(timeout: 5))
         app.buttons["app-car"].tap()
@@ -20,17 +22,19 @@ import XCTest
                                "-panel.dimBrightness", "0.3", "-panel.wakeBrightness", "1"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
+        XCTAssertTrue(app.buttons["settings-Display & idle"].waitForExistence(timeout: 10))
+        app.buttons["settings-Display & idle"].tap()
         XCTAssertTrue(app.sliders["Wake brightness"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.sliders["Wake brightness"].value as? String, "100%")
         XCTAssertEqual(app.sliders["Dim brightness"].value as? String, "30%")
-        app.buttons["display-dim-timeout"].tap()
-        app.buttons["30 seconds"].tap()
-        XCTAssertTrue(app.buttons["display-dim-timeout"].label.contains("30 seconds"))
+        let duration = app.sliders["display-dim-timeout"]
+        duration.adjust(toNormalizedSliderPosition: 0)
+        XCTAssertEqual(duration.value as? String, "15 sec")
         let settings = XCTAttachment(screenshot: app.screenshot())
         settings.name = "Display brightness settings"
         settings.lifetime = .keepAlways
         add(settings)
-        XCTAssertTrue(app.buttons["Wake panel"].waitForExistence(timeout: 40))
+        XCTAssertTrue(app.buttons["Wake panel"].waitForExistence(timeout: 25))
         app.buttons["Wake panel"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Wake panel"].exists)

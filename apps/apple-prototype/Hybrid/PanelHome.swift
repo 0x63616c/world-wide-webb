@@ -25,6 +25,7 @@ extension HomeTile {
 struct PanelHome: View {
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @State private var presentation: PanelHomePresentation
+    @State private var personalPreferences = PanelAppPreferences()
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
          navigation: PanelNavigation) {
@@ -33,7 +34,11 @@ struct PanelHome: View {
     }
 
     var body: some View {
-        HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock)
+        Group {
+            if PanelExperience.personal { PersonalHome(store: presentation.store) }
+            else { HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock) }
+        }
+            .environment(personalPreferences)
             .environment(\.homeIntegration, presentation)
             .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
@@ -178,6 +183,8 @@ struct PanelHomeDestination: View {
     let router: HybridRouter
     let close: () -> Void
 
+    @Environment(\.personalNavigation) private var personal
+
     private var ready: Bool {
         store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
     }
@@ -200,8 +207,9 @@ struct PanelHomeDestination: View {
         // The shell clips the complete app surface. Keep this host unclipped so
         // module backgrounds can extend beneath the shell's Back safe area.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black).preferredColorScheme(.dark).foregroundStyle(.white)
-        .statusBarHidden().persistentSystemOverlays(.hidden)
+        .background(personal ? Color.clear : Color.black)
+        .preferredColorScheme(personal ? nil : .dark)
+        .statusBarHidden(!personal).persistentSystemOverlays(personal ? .automatic : .hidden)
     }
 }
 

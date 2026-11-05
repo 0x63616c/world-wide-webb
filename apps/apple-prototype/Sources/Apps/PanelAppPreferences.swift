@@ -28,18 +28,21 @@ import PanelKit
 
 struct PanelPerAppSettings: View {
     let app: PanelAppDefinition
+    @Environment(\.personalNavigation) private var personal
     @Environment(PanelAppPreferences.self) private var preferences
     var body: some View {
         Form {
             Section {
                 Toggle("Reduce motion", isOn: Binding(get: { preferences[app.id].reduceMotion }, set: { preferences[app.id].reduceMotion = $0 }))
-                Toggle("Use display setting", isOn: Binding(
-                    get: { preferences[app.id].idleSeconds < 0 },
-                    set: { preferences[app.id].idleSeconds = $0 ? -1 : 60 }))
-                if preferences[app.id].idleSeconds >= 0 {
-                    PanelDurationSlider(title: "Return to clock", seconds: Binding(
-                        get: { preferences[app.id].idleSeconds },
-                        set: { preferences[app.id].idleSeconds = $0 }), allowsNever: true)
+                if !personal {
+                    Toggle("Use display setting", isOn: Binding(
+                        get: { preferences[app.id].idleSeconds < 0 },
+                        set: { preferences[app.id].idleSeconds = $0 ? -1 : 60 }))
+                    if preferences[app.id].idleSeconds >= 0 {
+                        PanelDurationSlider(title: "Return to clock", seconds: Binding(
+                            get: { preferences[app.id].idleSeconds },
+                            set: { preferences[app.id].idleSeconds = $0 }), allowsNever: true)
+                    }
                 }
             }
         }.formStyle(.grouped).navigationTitle(app.name)

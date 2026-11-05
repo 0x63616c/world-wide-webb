@@ -119,7 +119,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine
         PRODUCT_MODULE_NAME: Panel
-        TARGETED_DEVICE_FAMILY: '2'
+        TARGETED_DEVICE_FAMILY: '1,2'
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Hybrid/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
