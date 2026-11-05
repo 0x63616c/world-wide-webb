@@ -73,7 +73,8 @@ and `APPLE-SPEC.md`. The external protocol directory supplies the unchanged
 runs three independent cold reviews; it does not change acceptance floors.
 [WWW-55 decisions and medians](docs/v2/www-55.md) record both rejected candidates.
 
-Use Xcode 27.1+ and XcodeGen:
+Use Xcode 27.1 and XcodeGen for release validation (newer Xcodes can be used for
+development and Duo previews):
 
 ```sh
 # From the repository root:

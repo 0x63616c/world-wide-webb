@@ -20,9 +20,16 @@ class ToolchainTests(unittest.TestCase):
         versions = {"Xcode_27.1.app": "Xcode 27.1", "Xcode_27.2_Release_Candidate.app": "Xcode 27.2"}
         self.assertEqual(toolchain.select(versions, versions.get), "Xcode_27.1.app")
 
-    def test_patch_versions_sort_numerically(self):
-        versions = {"a": "Xcode 27.9", "b": "Xcode 27.10\nBuild version abc"}
-        self.assertEqual(toolchain.select(versions, versions.get), "b")
+    def test_runner_image_rollout_cannot_change_selected_release(self):
+        versions = {"stable": "Xcode 27.1", "new": "Xcode 27.2\nBuild version abc"}
+        self.assertEqual(toolchain.select(versions, versions.get), "stable")
+
+    def test_unpinned_patch_is_not_a_fallback(self):
+        with self.assertRaisesRegex(ValueError, "Xcode 27.1 is required"):
+            toolchain.select(["patched"], lambda _: "Xcode 27.1.1")
+
+    def test_trailing_zero_version_is_equivalent(self):
+        self.assertEqual(toolchain.select(["stable"], lambda _: "Xcode 27.1.0"), "stable")
 
 
 if __name__ == "__main__": unittest.main()

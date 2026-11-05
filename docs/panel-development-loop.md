@@ -14,17 +14,19 @@ Before publishing native changes, run:
 
 ```sh
 python3 scripts/panel-validate.py --preflight-only
-python3 scripts/panel-validate.py --device <booted-iOS-26-iPad-UDID>
+python3 scripts/panel-validate.py --device <booted-iOS-27-iPad-UDID>
 ```
 
-Install Xcode 26.x alongside newer development Xcodes and an iOS 26 simulator
+Install Xcode 27.1 alongside newer development Xcodes and an iOS 27 simulator
 runtime. The 12.9-inch iPad Pro (6th generation) matches CI's 1366×1024 panel.
 The local validator and both Apple workflows use `.github/scripts/apple-toolchain.py`
-to choose the newest installed Xcode 26.x. They never fall back to Xcode 27.
-This aligns the major-version policy; exact installed patch/build versions still
-appear in the logs and CI test-product reuse requires an exact toolchain match.
+to select exactly Xcode 27.1. They fail if that release is unavailable. Pinning
+the release keeps shared UI test products compatible while hosted runner images
+roll out newer Xcodes. Build versions still appear in the logs and CI verifies
+an exact toolchain match before running the shared products.
 
-The validator runs all four release UI suites. Its isolated derived-data cache,
+The validator runs all five wall-panel release UI suites; CI additionally runs
+`PersonalNavigationTests` on iPhone. Its isolated derived-data cache,
 per-stage logs and timings live under `~/.local/state/world-wide-webb/panel-validation`.
 The navigation helper wakes a dimmed panel first and swipes from inside the clock's
 bottom 100-point interaction region. The idle-wake regression deliberately waits

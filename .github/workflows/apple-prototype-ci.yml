@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Select supported Xcode 27.1+
+      - name: Select pinned Xcode 27.1
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
           export DEVELOPER_DIR

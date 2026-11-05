@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Panel's release UI suites locally with the CI Xcode major and runtime."""
+"""Run Panel's release UI suites locally with the pinned CI Xcode release."""
 import argparse
 import importlib.util
 import json
@@ -16,7 +16,7 @@ spec.loader.exec_module(toolchain)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", help="Booted iOS 26 iPad simulator UDID")
+    parser.add_argument("--device", help="Booted iOS 27 iPad simulator UDID")
     parser.add_argument("--preflight-only", action="store_true")
     args = parser.parse_args()
     try:
@@ -30,11 +30,11 @@ def main():
     catalog = json.loads(subprocess.check_output(
         ["xcrun", "simctl", "list", "devices", "booted", "--json"], env=env, text=True))
     devices = [device for runtime, group in catalog["devices"].items()
-               if f".iOS-{toolchain.XCODE_MAJOR}-" in runtime
+               if f".iOS-{toolchain.XCODE_VERSION[0]}-" in runtime
                for device in group if "iPad" in device["name"] and device.get("isAvailable", True)
                and (not args.device or device["udid"] == args.device)]
     if len(devices) != 1:
-        parser.error("Boot an iOS 26 iPad simulator (12.9-inch Pro, 6th generation matches CI), "
+        parser.error("Boot an iOS 27 iPad simulator (12.9-inch Pro, 6th generation matches CI), "
                      "then select it with --device if more than one is booted.")
     state = Path.home() / ".local/state/world-wide-webb/panel-validation"
     state.mkdir(parents=True, exist_ok=True)
@@ -46,6 +46,7 @@ def main():
                   "-derivedDataPath", str(state / "derived"), "-parallel-testing-enabled", "NO",
                   "-only-testing:PanelUITests/HomeViewLaunchTests", "-only-testing:PanelUITests/NotificationHistoryTests",
                   "-only-testing:PanelUITests/UpdateReadyBannerTests", "-only-testing:PanelUITests/GridInteractionTests",
+                  "-only-testing:PanelUITests/PanelReturnTests",
                   "CODE_SIGNING_ALLOWED=NO"]),
     ]:
         started = time.monotonic()

@@ -92,7 +92,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
-      - name: Select supported Xcode 27.1+
+      - name: Select pinned Xcode 27.1
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
           export DEVELOPER_DIR
@@ -195,7 +195,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
-      - name: Select supported Xcode 27.1+
+      - name: Select pinned Xcode 27.1
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
           export DEVELOPER_DIR
@@ -343,7 +343,7 @@ jobs:
             --jq '[.artifacts[] | select(.expired == false)] | length')
           echo "uploaded=$([[ $count -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-      - name: Select supported Xcode 27.1+
+      - name: Select pinned Xcode 27.1
         if: steps.receipt.outputs.uploaded != 'true'
         run: |
           DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
