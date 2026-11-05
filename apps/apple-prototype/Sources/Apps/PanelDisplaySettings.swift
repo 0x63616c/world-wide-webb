@@ -27,10 +27,13 @@ struct PanelDisplaySettings: View {
                     .accessibilityIdentifier("display-dim-timeout")
             }
         }
-        Section("Return to clock") {
+        Section {
             PanelDurationSlider(title: "After inactivity", seconds: display.$returnToClockSeconds, allowsNever: true)
                 .accessibilityIdentifier("display-clock-timeout")
-            Text("Active walks and timers keep the screen awake.").foregroundStyle(.secondary)
+        } header: {
+            Text("Return to clock")
+        } footer: {
+            Text("Active walks and timers keep the screen awake.")
         }
         .onChange(of: display.wakeBrightness) { _, value in
             if display.dimBrightness > value { display.dimBrightness = value }
@@ -42,9 +45,7 @@ struct PanelDisplaySettings: View {
 
     private func brightnessSlider(_ title: String, value: Binding<Double>) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(title)
-                Spacer()
+            LabeledContent(title) {
                 Text(value.wrappedValue, format: .percent.precision(.fractionLength(0)))
                     .foregroundStyle(.secondary).monospacedDigit()
             }
@@ -80,9 +81,7 @@ struct PanelDurationSlider: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(title)
-                Spacer()
+            LabeledContent(title) {
                 Text(Self.label(seconds)).monospacedDigit().foregroundStyle(.secondary)
             }
             Slider(value: position, in: 0...Double(stops.count - 1), step: 1) { Text(title) }

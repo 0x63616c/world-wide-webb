@@ -12,41 +12,33 @@ struct PanelSettingsPage: View {
         var symbol: String {
             switch self { case .background: "photo"; case .display: "sun.max"; case .apps: "square.grid.2x2"; case .security: "lock.shield" }
         }
-        var detail: String {
-            switch self { case .background: "Make it yours"; case .display: "Brightness and timing"; case .apps: "Sound and behaviour"; case .security: "Panel PIN" }
-        }
-        var color: Color {
-            switch self { case .background: .purple; case .display: .orange; case .apps: .blue; case .security: .green }
-        }
     }
     @State private var selection: Page? = .background
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             List(selection: $selection) {
                 ForEach(Page.allCases) { page in
-                    HStack(spacing: 16) {
-                        Image(systemName: page.symbol).font(.title3)
-                            .foregroundStyle(page.color).frame(width: 44, height: 44)
-                            .background(page.color.opacity(0.15), in: .rect(cornerRadius: 12))
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(page.rawValue).font(.headline)
-                            Text(page.detail).font(.subheadline).foregroundStyle(.secondary)
-                        }
-                    }.padding(.vertical, 12).tag(page)
-                        .accessibilityIdentifier("settings-\(page.id)")
+                    NavigationLink(value: page) {
+                        Label(page.rawValue, systemImage: page.symbol)
+                    }
+                    .accessibilityIdentifier("settings-\(page.id)")
                 }
-            }.navigationTitle("Settings")
+            }.listStyle(.sidebar).navigationTitle("Settings")
                 .toolbar(removing: .sidebarToggle)
                 .toolbar {
                     #if os(iOS)
-                    ToolbarItem(placement: .topBarLeading) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Apps", systemImage: "square.grid.2x2", action: back)
+                            .accessibilityIdentifier("app-back")
+                    }
                     #else
-                    ToolbarItem(placement: .navigation) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close settings", systemImage: "xmark", action: back)
+                            .accessibilityIdentifier("app-back")
+                    }
                     #endif
                 }
-                .navigationSplitViewColumnWidth(min: 300, ideal: 330, max: 360)
+                .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 320)
         } detail: {
             NavigationStack {
                 Group {
@@ -60,25 +52,26 @@ struct PanelSettingsPage: View {
                     }
                 }
             }.id(selection)
-        }.navigationSplitViewStyle(.balanced).tint(.blue).preferredColorScheme(.dark)
+        }.navigationSplitViewStyle(.balanced).tint(.accentColor)
     }
     private var appSettings: some View {
         Form {
-            Section("Timer") {
+            Section {
                 Toggle("Timer sound", isOn: $timerSound).accessibilityIdentifier("settings-timer-sound")
+            } header: {
+                Text("Timer")
+            } footer: {
                 Text("A quiet tick while running, then a repeating chime until you reset the timer. Sound uses the device volume.")
-                    .foregroundStyle(.secondary)
             }
             Section("App preferences") {
                 ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { $0.route == .timer || $0.route == .photoBooth } }) { app in
                     NavigationLink { PanelPerAppSettings(app: app) } label: {
                         HStack(spacing: 16) {
-                            PanelAppIcon(app: app, side: 44)
-                            Text(app.name).font(.body.weight(.medium))
+                            Label(app.name, systemImage: app.symbol)
                             Spacer()
                             Text(preferences[app.id].idleSeconds < 0 ? "Display setting" : PanelDurationSlider.label(preferences[app.id].idleSeconds))
                                 .font(.callout).foregroundStyle(.secondary)
-                        }.padding(.vertical, 6)
+                        }
                     }
                 }
             }
@@ -87,7 +80,6 @@ struct PanelSettingsPage: View {
     private var security: some View {
         Form {
             Section {
-                Label("Panel PIN", systemImage: "lock.shield.fill").font(.title2.weight(.semibold)).padding(.vertical, 12)
                 Text("Protect private photos and confirm car commands with your six-digit PIN.")
                     .foregroundStyle(.secondary)
                 if let api = integration?.panelPIN {
