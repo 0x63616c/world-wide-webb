@@ -2,18 +2,22 @@ import XCTest
 
 @MainActor final class PanelReturnTests: XCTestCase {
     func testSettingsAndUnavailableCarCanReturnHome() {
+        continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridUnavailable", "-previewApp", "settings"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridUnavailable", "-previewApp", "settings",
+                               "-panel.idleDimming", "NO", "-panel.returnToClockSeconds", "0"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
+        app.alignPanelOrientation()
+        defer { app.terminate() }
         XCTAssertTrue(app.buttons["settings-Display & idle"].waitForExistence(timeout: 10))
         app.buttons["settings-Display & idle"].tap()
         XCTAssertTrue(app.navigationBars["Display & idle"].waitForExistence(timeout: 10))
-        swipeHome(app)
+        app.buttons["app-back"].tap()
         XCTAssertTrue(app.buttons["app-car"].waitForExistence(timeout: 5))
         app.buttons["app-car"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-car"].firstMatch.waitForExistence(timeout: 5))
-        swipeHome(app)
+        app.buttons["app-back"].tap()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
     }
     func testDisplaySettingsTimeoutDimsAndTapWakes() {
@@ -22,6 +26,7 @@ import XCTest
                                "-panel.dimBrightness", "0.3", "-panel.wakeBrightness", "1"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
+        app.alignPanelOrientation()
         XCTAssertTrue(app.buttons["settings-Display & idle"].waitForExistence(timeout: 10))
         app.buttons["settings-Display & idle"].tap()
         XCTAssertTrue(app.sliders["Wake brightness"].waitForExistence(timeout: 10))
@@ -39,9 +44,28 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Wake panel"].exists)
     }
-    private func swipeHome(_ app: XCUIApplication) {
-        // The application frame can remain portrait while its window is landscape.
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).press(forDuration: 0.1,
-            thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+    func testWallpaperSelectionImmediatelyUpdatesAndPersists() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-previewApp", "settings",
+                               "-panel.idleDimming", "NO", "-panel.returnToClockSeconds", "0"]
+        app.launch()
+        defer { app.terminate() }
+        app.alignPanelOrientation()
+        for choice in ["coast", "lake", "forest"] {
+            let button = app.buttons["wallpaper-\(choice)"]
+            XCTAssertTrue(button.waitForExistence(timeout: 10))
+            button.tap()
+            XCTAssertTrue(button.isSelected)
+            XCTAssertTrue(app.descendants(matching: .any)["wallpaper-preview"].firstMatch.label.lowercased().contains(choice))
+        }
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Wallpaper gallery"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["wallpaper-forest"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["wallpaper-forest"].isSelected)
     }
 }

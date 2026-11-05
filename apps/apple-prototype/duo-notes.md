@@ -1,7 +1,7 @@
 # iPhone Duo redesign notes
 Journey: launcher → Settings, Lights, Climate and Spotify
 Stack: SwiftUI with UIKit host; iOS/macOS 26 minimum; local Xcode 27.2
-Stage: 5  Next: publish verified changes and check TestFlight processing
+Stage: 5  Next: publish PR and simulator evidence; wait for Calum's design review before merging
 
 ## Findings
 - Shell: Change — custom Back/safe-area handling prevents standard vertical bars [T462].

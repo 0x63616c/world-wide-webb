@@ -85,8 +85,9 @@ by the system. Spotify drafts and shared providers stay above layout changes.
    The Mac target is currently a design host, not a separately shipped live app.
 5. Finish behavioral fixes: wallpapers, idle durations, active-walk/timer wake,
    timer cues, optimistic controls, quiet walk start and persisted Tesla readings.
-6. Verify, capture evidence, push a Conventional Commit PR, wait for all required
-   checks, merge as authorized, and verify server/native release processing.
+6. Verify, capture evidence, push a Conventional Commit PR and wait for all required
+   checks. Calum requested review before merge at the end of this pass; leave the
+   PR open and simulators available. Release verification follows a later approved merge.
 
 ## Acceptance evidence
 

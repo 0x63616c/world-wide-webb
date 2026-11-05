@@ -187,6 +187,7 @@ struct LampEffectsView: View {
                                             }
                                         }
                                 }.buttonStyle(.plain).accessibilityLabel("Use Custom \(slot + 1)")
+                                    .accessibilityValue(store.lamps.colors[slot])
                                     .accessibilityIdentifier("lamp-color-\(slot)")
                                     .accessibilityAddTraits(store.lamps.activeColor == slot ? .isSelected : [])
                                 Button { editingSlot = slot } label: {
@@ -253,8 +254,8 @@ private struct LampColorEditor: View {
             } label: {
                 Label("Save & use", systemImage: "checkmark").font(.title3.weight(.semibold))
                     .frame(maxWidth: .infinity).padding(12)
-            }.buttonStyle(.glassProminent)
+            }.buttonStyle(.glassProminent).tint(.blue)
                 .accessibilityIdentifier("lamp-save-color")
-        }.accessibilityIdentifier("lamp-color-editor")
+        }
     }
 }

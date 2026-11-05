@@ -62,6 +62,28 @@ import XCTest
         expectWrite("controls.toggle", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-climate"].firstMatch.exists)
     }
+    func testCustomColorPreviewsLocallyThenSaves() {
+        let app = launch()
+        defer { app.terminate() }
+        let form = app.descendants(matching: .any)["native-lights-detail"].firstMatch
+        form.swipeUp()
+        app.buttons["Colour"].tap()
+        expectWrite("controls.setLampScene", in: app)
+        app.buttons["Edit Custom 1"].tap()
+        let preset = app.buttons["Colour #bf5af2"]
+        if !preset.isHittable { form.swipeUp() }
+        preset.tap()
+        XCTAssertTrue(app.buttons["lamp-save-color"].exists, app.debugDescription)
+        XCTAssertTrue(app.staticTexts["fixture-control-write"].label.hasSuffix(":controls.setLampScene"), "Preview must not write until saved")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Native colour editor"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["lamp-save-color"].tap()
+        expectWrite("controls.setLampColor", in: app)
+        XCTAssertEqual(app.buttons["lamp-color-0"].value as? String, "#bf5af2")
+        XCTAssertFalse(app.buttons["lamp-save-color"].exists)
+    }
     func testFailedFanCommandKeepsNativePageAndShowsBanner() {
         let app = launch(writes: false)
         defer { app.terminate() }

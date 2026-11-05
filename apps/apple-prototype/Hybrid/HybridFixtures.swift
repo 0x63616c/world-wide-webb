@@ -172,6 +172,14 @@ actor HybridFixtureTransport: PanelTransport {
                 var lamps = state["lamps"] as! [String: Any]; lamps["whiteKelvin"] = input["kelvin"]; state["lamps"] = lamps
             } else if procedure == "controls.setLampScene", let input = input as? [String: String] {
                 var lamps = state["lamps"] as! [String: Any]; lamps["activeScene"] = input["scene"]; state["lamps"] = lamps
+            } else if procedure == "controls.setLampColor", let input = input as? [String: String], let slot = input["slot"] {
+                var lamps = state["lamps"] as! [String: Any]
+                var colors = lamps["savedColors"] as! [[String: String]]
+                if let index = colors.firstIndex(where: { $0["slot"] == slot }), let hex = input["hex"] { colors[index]["hex"] = hex }
+                lamps["savedColors"] = colors
+                lamps["activeScene"] = slot == "custom" ? "mood" : slot
+                lamps["brightness"] = 100
+                state["lamps"] = lamps
             } else if procedure == "climate.setMode", let mode = input as? String {
                 state["mode"] = mode
                 if mode == "heat_cool" { state["targetLow"] = 67; state["targetHigh"] = 73 }
