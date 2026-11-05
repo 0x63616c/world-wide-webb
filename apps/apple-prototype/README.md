@@ -189,3 +189,22 @@ Pass 7e restores the existing **LakeWallpaper**, [Boathouse on a mountain lake b
 Pass 7f retains the recorded licensed LakeWallpaper and restores its 2-point blur/28% dimming; the 7e strong-dimming trial is removed. There are no new assets. Home’s module regrouping and wide Sonos summary use the same fixtures and full-screen destinations.
 
 Pass 7g restores the accepted seven-module Home and tall Sonos summary after the 7f candidate regressed. The live panel grid now anchors to its page container; scroll visibility removes offscreen glass contributors on iPhone. New live-window and visible-tile checks supplement the solver geometry suite. LakeWallpaper and its recorded Unsplash licence remain unchanged. See docs/v2/redesign-7g.md and external v2/pass-7g for evidence.
+
+## Panel walk history corrections
+
+On the live Panel Dog Walker screen, tap a completed history row to edit its start
+and end dates. Save requires an end after the start, no future end, a start on or
+after January 1, 1970, and a duration of at most 24 hours. Delete walk asks for
+confirmation. The active walk remains controlled by End walk and cannot be edited
+or deleted through history.
+
+History edits use the existing `walks.update` / `walks.delete` APIs and reload server
+history before completing. Weekly minutes, average, streak and both chart periods
+are recalculated from that history. Write failures preserve the last confirmed data
+and keep the editor open with an error. If the write succeeds but reloading history
+fails, the page shows the history error and polling retries the read.
+
+`LiveWalkProviderTests` covers history commands, date validation, duplicate commands,
+active-walk protection, statistics, failed writes, reload recovery and stale reads.
+Swift compilation, provider tests and touch/simulator verification require macOS CI;
+they cannot run on the Linux box.

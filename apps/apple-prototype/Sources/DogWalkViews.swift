@@ -78,6 +78,8 @@ struct DogWalkTile: View {
 struct DogWalkPage: View {
     let store: any HomeDataSource
     @State private var range = 7
+    @State private var editingWalk: DogWalk?
+    private var historyEditor: (any WalkHistoryEditing)? { store.walks as? any WalkHistoryEditing }
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     // Idle, local and remote walks share the same reading coordinates.
@@ -112,12 +114,21 @@ struct DogWalkPage: View {
                         chartCard
                         historyCard
                     }
+                    if let message = historyEditor?.historyFailureMessage {
+                        Text(message).font(.callout).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("walk-history-error")
+                    }
                     if let reason = store.walkActivity.unavailableReason {
                         Text(reason).font(.callout).foregroundStyle(.secondary)
                     }
                 }.padding(compact ? 24 : 48).frame(maxWidth: 1280).frame(maxWidth: .infinity)
             }
         }.scrollEdgeEffectStyle(.soft, for: .all)
+            .sheet(item: $editingWalk) { walk in
+                if let historyEditor {
+                    WalkHistoryEditor(walk: walk, provider: historyEditor, now: { store.now })
+                }
+            }
     }
 
     private var hero: some View {
@@ -214,20 +225,38 @@ struct DogWalkPage: View {
     private var historyRows: some View {
         LazyVStack(spacing: 0) {
             ForEach(store.walks.history) { walk in
-                HStack {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(fixtureTime(walk.startedAt, format: "EEE, MMM d"))
-                            .font(.system(size: 20, weight: .medium))
-                        Text(fixtureTime(walk.startedAt, format: "h:mm a"))
-                            .font(.system(size: 20)).foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 16)
-                    Text("\(Int(walk.duration(at: store.now) / 60)) min")
-                        .font(.system(size: 24, weight: .medium, design: .rounded)).monospacedDigit()
-                }.frame(height: 96)
-                    .overlay(alignment: .bottom) { Divider() }
+                if let historyEditor, walk.endedAt != nil, walk.id != store.walks.activeWalk?.id {
+                    Button { editingWalk = walk } label: {
+                        historyRow(walk, editable: true)
+                    }.buttonStyle(.plain)
+                        .disabled(historyEditor.isMutating)
+                        .accessibilityHint("Edit or delete this walk")
+                        .accessibilityIdentifier("walk-history-row-\(walk.id)")
+                } else {
+                    historyRow(walk)
+                }
             }
         }
+    }
+
+    private func historyRow(_ walk: DogWalk, editable: Bool = false) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(fixtureTime(walk.startedAt, format: "EEE, MMM d"))
+                    .font(.system(size: 20, weight: .medium))
+                Text(fixtureTime(walk.startedAt, format: "h:mm a"))
+                    .font(.system(size: 20)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 16)
+            Text("\(Int(walk.duration(at: store.now) / 60)) min")
+                .font(.system(size: 24, weight: .medium, design: .rounded)).monospacedDigit()
+            if editable {
+                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+        }.frame(height: 96)
+            .contentShape(.rect)
+            .overlay(alignment: .bottom) { Divider() }
     }
 
     private func metric(_ title: String, value: String, unit: String) -> some View {
@@ -238,6 +267,99 @@ struct DogWalkPage: View {
                 Text(unit).font(.system(size: compact ? 14 : 20)).foregroundStyle(.primary)
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The selected record seeds a draft once; polling never overwrites unsaved edits.
+private struct WalkHistoryEditor: View {
+    let walk: DogWalk
+    let provider: any WalkHistoryEditing
+    let now: () -> Date
+    @Environment(\.dismiss) private var dismiss
+    @State private var startedAt: Date
+    @State private var endedAt: Date
+    @State private var pending = false
+    @State private var confirmDelete = false
+    @State private var failureMessage: String?
+
+    init(walk: DogWalk, provider: any WalkHistoryEditing, now: @escaping () -> Date) {
+        self.walk = walk
+        self.provider = provider
+        self.now = now
+        _startedAt = State(initialValue: walk.startedAt)
+        _endedAt = State(initialValue: walk.endedAt ?? walk.startedAt)
+    }
+
+    private var validationMessage: String? {
+        WalkEditValidation.failureMessage(startedAt: startedAt, endedAt: endedAt, now: now())
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Walk times") {
+                    DatePicker("Start", selection: $startedAt, in: ...now(), displayedComponents: [.date, .hourAndMinute])
+                        .accessibilityIdentifier("walk-edit-start")
+                    DatePicker("End", selection: $endedAt, in: ...now(), displayedComponents: [.date, .hourAndMinute])
+                        .accessibilityIdentifier("walk-edit-end")
+                    if endedAt > startedAt {
+                        LabeledContent("Duration", value: "\(Int(endedAt.timeIntervalSince(startedAt) / 60)) min")
+                    }
+                }
+                if let message = validationMessage ?? failureMessage {
+                    Section {
+                        Text(message).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("walk-edit-error")
+                    }
+                }
+                Section {
+                    Button("Delete walk", role: .destructive) { confirmDelete = true }
+                        .accessibilityIdentifier("walk-edit-delete")
+                        .confirmationDialog("Delete this walk?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                            Button("Delete walk", role: .destructive) { submit(deleting: true) }
+                                .accessibilityIdentifier("walk-edit-delete-confirm")
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("This removes the walk from history and updates your statistics.")
+                        }
+                }
+            }
+            .disabled(pending || provider.isMutating)
+            .navigationTitle("Edit walk")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .disabled(pending)
+                        .accessibilityIdentifier("walk-edit-cancel")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { submit(deleting: false) }
+                        .disabled(pending || provider.isMutating || validationMessage != nil)
+                        .accessibilityIdentifier("walk-edit-save")
+                }
+            }
+        }
+        .environment(\.timeZone, TimeZone(identifier: "America/Los_Angeles")!)
+        .interactiveDismissDisabled(pending)
+        .presentationDetents([.large])
+        .accessibilityIdentifier("walk-edit-sheet")
+    }
+
+    private func submit(deleting: Bool) {
+        guard !pending else { return }
+        pending = true
+        failureMessage = nil
+        Task {
+            let succeeded: Bool
+            if deleting {
+                succeeded = await provider.delete(id: walk.id)
+            } else {
+                succeeded = await provider.update(id: walk.id, startedAt: startedAt, endedAt: endedAt)
+            }
+            pending = false
+            if succeeded { dismiss() }
+            else { failureMessage = provider.historyFailureMessage ?? "The walk could not be changed. Try again." }
+        }
     }
 }
 

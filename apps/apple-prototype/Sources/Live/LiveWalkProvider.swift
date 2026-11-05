@@ -4,13 +4,19 @@ import PanelKit
 
 /// Opt-in live adapter. Retain once per app, then forward scene activity to setSceneActive.
 /// DogWalk dates stay in server time; views pass serverNow(at:) to duration/summary helpers.
-@MainActor @Observable final class LiveWalkProvider: WalkProvider {
+@MainActor @Observable final class LiveWalkProvider: WalkHistoryEditing {
     private(set) var activeWalk: DogWalk?
     private(set) var history: [DogWalk] = []
     private(set) var availability: LiveAvailability = .loading
     private(set) var historyAvailability: LiveAvailability = .loading
     private(set) var isMutating = false
     private(set) var hasLoadedState = false
+    private(set) var historyMutationFailureMessage: String?
+    var historyFailureMessage: String? {
+        if let historyMutationFailureMessage { return historyMutationFailureMessage }
+        if case .unavailable(let message) = historyAvailability { return message }
+        return nil
+    }
     var serverTimeOffset: TimeInterval { sync.serverTimeOffset }
     var lastSyncedAt: Date? { sync.lastSyncedAt }
     private(set) var hasAttemptedMutation = false
@@ -91,6 +97,59 @@ import PanelKit
         begin(.stop(walk.id))
     }
 
+    func update(id: String, startedAt: Date, endedAt: Date) async -> Bool {
+        guard canEditHistory(id: id) else { return false }
+        if let message = WalkEditValidation.failureMessage(startedAt: startedAt, endedAt: endedAt,
+                                                         now: serverNow(at: now())) {
+            historyMutationFailureMessage = message
+            return false
+        }
+        return await mutateHistory(.update(id, startedAt, endedAt))
+    }
+
+    func delete(id: String) async -> Bool {
+        guard canEditHistory(id: id) else { return false }
+        return await mutateHistory(.delete(id))
+    }
+
+    private func canEditHistory(id: String) -> Bool {
+        guard !isMutating else { return false }
+        guard activeWalk?.id != id, confirmedHistory.contains(where: { $0.id == id && $0.endedAt != nil }) else {
+            historyMutationFailureMessage = "This walk is no longer in history. Refresh and try again."
+            return false
+        }
+        return true
+    }
+
+    /// Keep confirmed history until the authoritative reload; failed writes never change statistics.
+    private func mutateHistory(_ operation: HistoryOperation) async -> Bool {
+        revision += 1
+        refreshID = nil
+        historyRequestID = nil
+        isMutating = true
+        hasAttemptedMutation = true
+        historyMutationFailureMessage = nil
+        let version = revision
+        let sentAt = now()
+        defer { isMutating = false }
+        do {
+            let state: WalksState
+            switch operation {
+            case .update(let id, let start, let end):
+                state = try await api.update(id: id, startedAt: start, endedAt: end)
+            case .delete(let id): state = try await api.delete(id: id)
+            }
+            accept(state, sentAt: sentAt)
+            availability = .live
+            historyDirty = true
+            await refreshHistory(version: version)
+            return true
+        } catch {
+            historyMutationFailureMessage = Self.failureMessage(error)
+            return false
+        }
+    }
+
     private func begin(_ operation: Operation) {
         revision += 1
         refreshID = nil
@@ -143,7 +202,7 @@ import PanelKit
         historyRequestID = token
         do {
             let result = try await api.history()
-            guard !Task.isCancelled, revision == version, !isMutating, historyRequestID == token else { return }
+            guard !Task.isCancelled, revision == version, historyRequestID == token else { return }
             confirmedHistory = result.walks.map(Self.map)
             history = confirmedHistory
             historyDirty = false
@@ -167,5 +226,6 @@ import PanelKit
         return "Walks are unavailable. Showing the last known state."
     }
 
+    private enum HistoryOperation { case update(String, Date, Date), delete(String) }
     private enum Operation { case start(UUID), stop(String) }
 }
