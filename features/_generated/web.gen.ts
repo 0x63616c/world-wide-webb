@@ -11,6 +11,7 @@ import eventsManifest from "../events/manifest";
 import notificationsManifest from "../notifications/manifest";
 import releasesManifest from "../releases/manifest";
 import soundManifest from "../sound/manifest";
+import spotifyManifest from "../spotify/manifest";
 import teslaManifest from "../tesla/manifest";
 import wakesManifest from "../wakes/manifest";
 import walksManifest from "../walks/manifest";
@@ -31,6 +32,7 @@ const manifests = [
   notificationsManifest,
   releasesManifest,
   soundManifest,
+  spotifyManifest,
   teslaManifest,
   wakesManifest,
   walksManifest,

@@ -155,6 +155,12 @@ struct PanelHome: View {
         AnyView(SonosModule(store: store, close: close, isFace: true))
     }
 
+    func destination(_ feature: PanelAppFeature, close: @escaping () -> Void) -> AnyView {
+        if feature == .spotify { return AnyView(SpotifyPage(provider: store.spotifyProvider)) }
+        guard let tile = feature.homeTile else { return AnyView(EmptyView()) }
+        return destination(tile, close: close)
+    }
+
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
         AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
             router: router, close: close)

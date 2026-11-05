@@ -3,7 +3,7 @@ import Foundation
 /// Stable feature routes are shared by the live host and the Mac design host.
 /// Adding a feature makes the destination resolver's switch exhaustive at compile time.
 public enum PanelAppFeature: String, Sendable, CaseIterable {
-    case lights, climate, music, weather, calendar, walks, photos, car, wifi
+    case lights, climate, music, spotify, weather, calendar, walks, photos, car, wifi
 }
 public enum PanelAppRoute: Sendable, Equatable {
     case feature(PanelAppFeature)
@@ -52,6 +52,7 @@ public struct PanelAppCatalog: Sendable {
             .init(id: "photos", name: "Photos", symbol: "photo.on.rectangle.angled", accent: "#a563dc", route: .feature(.photos)),
             .init(id: "car", name: "Tesla", symbol: "car.side.fill", accent: "#387eab", route: .feature(.car)),
             .init(id: "wifi", name: "Wi-Fi", symbol: "wifi", accent: "#37aebd", route: .feature(.wifi)),
+            .init(id: "spotify", name: "Spotify", symbol: "waveform", accent: "#1DB954", route: .feature(.spotify)),
             .init(id: "music", name: "Music", symbol: "music.note", accent: "#f34368", route: .feature(.music)),
             .init(id: "clock", name: "Clock", symbol: "clock.fill", accent: "#3f945d", route: .clock),
             .init(id: "timer", name: "Timer", symbol: "timer", accent: "#ed951c", route: .timer),

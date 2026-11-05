@@ -135,6 +135,23 @@ export class HomeAssistantClient {
     });
   }
 
+  /** Actions with response data (for example media browsing). Callers validate
+   * their domain payload rather than treating HA's open response as trusted. */
+  async callServiceWithResponse(
+    domain: string,
+    service: string,
+    params: Record<string, unknown>,
+  ): Promise<unknown> {
+    const result = await this.request<unknown>(
+      `/api/services/${domain}/${service}?return_response`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+      },
+    );
+    return z.object({ service_response: z.unknown() }).parse(result).service_response;
+  }
+
   /** Scene activation returns the states HA applied. Consumers that own desired
    * state can adopt that exact result instead of racing a later /states read. */
   async activateScene(entityId: string): Promise<HaEntity[]> {

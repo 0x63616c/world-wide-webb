@@ -231,7 +231,7 @@ struct HomeView: View {
                     }
                 case .classic, .clock: EmptyView()
                 case .feature(let feature):
-                    if let integration { integration.destination(feature.homeTile, close: home) }
+                    if let integration { integration.destination(feature, close: home) }
                     else { prototypeScreen(feature) }
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -261,22 +261,24 @@ struct HomeView: View {
         case .lights: ControlsController(store: store)
         case .climate: ClimateController(store: store)
         case .music: SonosRoomsPage(store: store)
+        case .spotify: ContentUnavailableView("Spotify requires the panel app", systemImage: "music.note")
         case .weather: WeatherPage(weather: store.weather)
         case .calendar: AgendaPage(provider: store.calendar, now: store.now)
         case .walks: DogWalkPage(store: store)
         case .wifi: WifiController(wifi: store.wifi)
         case .car: TeslaController(provider: store.tesla)
-        case .photos: ModulePage(tile: feature.homeTile, store: store, close: home)
+        case .photos: ModulePage(tile: .photos, store: store, close: home)
         }
     }
 }
 
 extension PanelAppFeature {
-    var homeTile: HomeTile {
+    var homeTile: HomeTile? {
         switch self {
         case .lights: .lights
         case .climate: .climate
         case .music: .sound
+        case .spotify: nil
         case .weather: .weather
         case .calendar: .calendar
         case .walks: .dogwalk

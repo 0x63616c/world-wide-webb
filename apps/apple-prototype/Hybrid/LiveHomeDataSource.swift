@@ -11,6 +11,7 @@ import OSLog
     private(set) var errorRevision = 0
     private static let commandLog = Logger(subsystem: "co.worldwidewebb.panel", category: "commands")
 
+    let spotifyProvider: LiveSpotifyProvider
     let mediaProvider: LiveMediaProvider
     let camerasProvider: LiveCamerasProvider
     let remindersProvider: LiveRemindersProvider
@@ -81,6 +82,7 @@ import OSLog
         let transport = transport ?? URLSession(configuration: session)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
+        spotifyProvider = LiveSpotifyProvider(api: SpotifyAPI(client: client))
         walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
         teslaProvider = LiveTeslaProvider(api: TeslaAPI(client: client))
         let namespace = SHA256.hash(data: Data((configuration?.baseURL.absoluteString ?? "unconfigured").utf8))

@@ -18,10 +18,17 @@ import PanelKit
     func gridTile(_ tile: HomeTile, span: CGSize, open: @escaping () -> Void) -> AnyView?
     func artwork(_ room: SoundRoom) -> AnyView?
     func musicFace(close: @escaping () -> Void) -> AnyView
+    func destination(_ feature: PanelAppFeature, close: @escaping () -> Void) -> AnyView
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView
 }
 
 extension HomeIntegration {
+    func destination(_ feature: PanelAppFeature, close: @escaping () -> Void) -> AnyView {
+        guard let tile = feature.homeTile else {
+            return AnyView(ContentUnavailableView("App unavailable in this host", systemImage: "app.dashed"))
+        }
+        return destination(tile, close: close)
+    }
     func photoBooth(close: @escaping () -> Void) -> AnyView? { nil }
     var panelPIN: PanelPINAPI? { nil }
     var supportsClassic: Bool { false }
