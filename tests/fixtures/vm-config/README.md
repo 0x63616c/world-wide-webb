@@ -1,6 +1,6 @@
 # Disposable macOS fixture
 
-This is a template, not an evaluated or deployed configuration. It exercises the
+This template needs disposable keys and ciphertext before use. It exercises the
 real bootstrap installer, Nix build, host-key installation, SOPS decryption,
 activation and launchd startup. It has no tailnet enrollment, updater, production
 services or Homebrew management. Never use it on physical hardware.
@@ -61,4 +61,5 @@ After activation the harness verifies:
 The fixture's pre-activation guard independently refuses non-VM hardware. Keep
 the VM and test state for inspection on failure; do not reinterpret an interrupted
 connection as proof that setup stopped. No physical host reboot is part of this
-fixture. Nix evaluation and runtime evidence remain pending until a VM is available.
+fixture. A prepared version passed guided activation and reboot on November 4,
+2026; see [recorded evidence](../../../docs/testing.md).

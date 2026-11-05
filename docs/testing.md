@@ -103,9 +103,21 @@ failed-health recovery, repeated setup and idempotent retry remain planned cases
 this runner does not claim them. A failure preserves the VM for inspection and
 must not be retried blindly.
 
-**The real VM rehearsal has not yet passed.** Its first run stopped at sudo
-validation before Nix installation; the harness now checks that prerequisite
-before opening the wizard. Local compilation, ordinary fixture tests and Clippy
-do not prove a fresh install and reboot work. Production
-Macs are never automatic test fixtures; real 1Password authorization remains a
-separate adapter smoke test.
+The November 4, 2026 rehearsal passed guided installation, activation, SSH recovery
+and guest reboot on a disposable macOS 27.2 VM. It used helper source
+`6fd57fe68d72bd95d710a3bc76798e1c39a0ef4c` and synthetic fixture
+`bc018941356081b20ec48331a1a2394eb891ce23`.
+
+An additional guest reboot with automatic login disabled passed the same verifier:
+SSH and the decrypted-secret boot sentinel returned while the console owner was
+root. An explicit replay of completed setup was also rejected before credential
+reads. These additional checks were driven separately from the main harness.
+
+Earlier attempts caught missing developer tools, a sudo validation prompt, an
+installer-default file conflict, root Git ownership rejection and SSH key placement
+incompatible with StrictModes. The final run includes the reviewed fixes.
+
+This establishes the base setup lifecycle with synthetic credentials. It does not
+validate production services, tailnet enrollment, FileVault recovery or nested
+runner VMs. Production Macs are never automatic test fixtures; real 1Password
+authorization remains a separate adapter smoke test.
