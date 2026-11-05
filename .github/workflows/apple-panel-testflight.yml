@@ -81,9 +81,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.verified_run == ''
     runs-on: xcode-27
-    # A manual ref may execute arbitrary build code. Its token must never be
-    # able to publish caches in the workflow/default-branch cache scope.
-    cache-mode: read
+    # Manual refs can execute arbitrary build code. Keep the entire build out
+    # of shared caches; test products are shared only within this workflow run.
+    cache-mode: none
     timeout-minutes: 20
     outputs:
       toolchain: ${{ steps.toolchain.outputs.version }}
@@ -124,36 +124,10 @@ jobs:
         id: toolchain
         run: echo "version=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      # Products only: test-without-building needs no compiler intermediates.
-      # Exact source tree + toolchain + architecture; never restore a partial match.
-      # Namespace by ref: inaccessible PR caches can still conflict on reservation.
-      # Restores are read-only; shared products are published as run-scoped artifacts.
-      - name: Restore simulator test products
-        id: products
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/panel-smoke-build/Build/Products
-          key: panel-launch-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}-${{ github.ref }}
-
-      - name: Restore incremental compiler cache
-        if: steps.products.outputs.cache-hit != 'true'
-        id: compiler
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ${{ runner.temp }}/panel-smoke-build/Build/Intermediates.noindex
-            ${{ runner.temp }}/panel-smoke-build/ModuleCache.noindex
-            ${{ runner.temp }}/panel-smoke-build/SourcePackages
-            ~/Library/Caches/org.swift.swiftpm
-          key: panel-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ github.ref }}-${{ steps.source.outputs.tree }}
-          restore-keys: |
-            panel-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ github.ref }}-
-
       # Let XCTest boot after compilation. On the small Intel runners, early
       # simulator boot coincided with 15-20 minute cold builds; unit compilation
       # without early boot completed in 126 seconds even on a cache miss.
       - name: Build only the Panel launch UI suite
-        if: steps.products.outputs.cache-hit != 'true'
         working-directory: apps/apple-prototype
         run: |
           set -o pipefail
