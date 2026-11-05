@@ -16,6 +16,11 @@
   scenes and windows; `animation-patterns` for springs, phase/keyframe
   animators, transitions, symbol effects, `TimelineView` and `MeshGradient`; `apple-hig` for HIG rules and exact
   measurements.
+- Follow `docs/design/apple-native.md` for native UI changes. Apple system
+  navigation and controls are the default; HomeView is the wall-panel reference.
+  Use `design-system` for shared styles, `swiftui-pro` for review, and the
+  `iphone-duo-*` skills for adaptive design, implementation and verification.
+  Confirm new OS APIs against the installed SDK; never simulate system chrome.
 - Vendored skills are copied verbatim; update by re-copying from upstream and
   bumping the pinned commit in `SOURCES.md`, not by editing in place.
 
