@@ -90,6 +90,7 @@ const accessName = (host: string) =>
 //
 // Audience tags remain exported for consumers validating Access JWTs.
 const accessAppAuds: Record<string, pulumi.Output<string>> = {};
+const accessResources: pulumi.Resource[] = [];
 
 for (const app of desiredAccessApps(zoneName, applyAccessGate)) {
   const name = accessName(app.domain);
@@ -124,9 +125,10 @@ for (const app of desiredAccessApps(zoneName, applyAccessGate)) {
     opts,
   );
   accessAppAuds[app.domain] = cfApp.aud;
+  accessResources.push(cfApp);
 
   for (const policy of app.policies) {
-    new cloudflare.ZeroTrustAccessPolicy(
+    const cfPolicy = new cloudflare.ZeroTrustAccessPolicy(
       `${name}-${policy.name}`,
       {
         accountId,
@@ -139,6 +141,7 @@ for (const app of desiredAccessApps(zoneName, applyAccessGate)) {
       },
       opts,
     );
+    accessResources.push(cfPolicy);
   }
 }
 
@@ -223,7 +226,8 @@ for (const c of desiredCnames()) {
       ttl: 1,
       ...(c.comment ? { comment: c.comment } : {}),
     },
-    opts,
+    // New hostnames must not resolve until their Access apps and policies exist.
+    { ...opts, dependsOn: accessResources },
   );
 }
 

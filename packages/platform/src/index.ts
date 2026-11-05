@@ -347,6 +347,11 @@ export type ControlCenterProductManifest = Readonly<{
   hindsight: Readonly<{
     exposure: WebExposure;
   }>;
+  // Bambuddy runs independently in OrbStack on the mini; only its web UI
+  // and same-origin API are exposed through the authenticated tunnel.
+  bambuddy: Readonly<{
+    exposure: WebExposure;
+  }>;
   // The Synology DSM: a LAN appliance, not a workload
   // of ours at all — it's a box on the LAN — but it gets a tunnel hostname
   // behind Access, and hostnames are owned here. Its origin is HTTPS with a
@@ -376,6 +381,9 @@ export function controlCenterProductManifest(): ControlCenterProductManifest {
     },
     hindsight: {
       exposure: privateWeb(target, { host: "hindsight" }),
+    },
+    bambuddy: {
+      exposure: privateWeb(target, { host: "bambuddy" }),
     },
     dsm: {
       exposure: privateWeb(target, { host: "dsm" }),

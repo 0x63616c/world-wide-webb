@@ -127,6 +127,11 @@ function productRoutes(): CloudflareRoutes {
       comment: "platform:hindsight control plane route",
     },
     {
+      exposure: cc.bambuddy.exposure,
+      origin: "http://127.0.0.1:8000",
+      comment: "platform:bambuddy web ui route",
+    },
+    {
       exposure: cc.ha.exposure,
       origin: "http://192.168.0.130:8123",
       comment: "platform:home assistant web ui route (#75)",
