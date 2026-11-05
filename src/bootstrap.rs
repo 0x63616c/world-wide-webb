@@ -714,11 +714,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             .arg(&helper)
             .arg("bootstrap-activate")
             .arg("--system")
-            .arg(&system)
-            .arg("--checkout")
-            .arg(&repo)
-            .arg("--host")
-            .arg(&request.host),
+            .arg(&system),
         Duration::from_secs(2400),
         Error::Activation,
     )?;

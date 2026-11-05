@@ -54,17 +54,6 @@ impl Fixture {
             rustix::process::geteuid().as_raw(),
         )
     }
-
-    fn activation_paths(&self) -> (PathBuf, PathBuf) {
-        let system = self.directory.path().join("system");
-        let checkout = self.directory.path().join("checkout");
-        fs::create_dir_all(system.join("sw/bin")).unwrap();
-        fs::create_dir(&checkout).unwrap();
-        let rebuild = system.join("sw/bin/darwin-rebuild");
-        fs::copy(&self.executable, &rebuild).unwrap();
-        fs::set_permissions(rebuild, fs::Permissions::from_mode(0o700)).unwrap();
-        (system, checkout)
-    }
 }
 
 #[test]
@@ -152,39 +141,18 @@ fn installer_failure_requires_inspection_and_cleans_snapshot() {
 }
 
 #[test]
-fn activation_uses_only_selected_system_checkout_and_host() {
+fn activation_rejects_non_store_paths_without_execution() {
     let fixture = Fixture::new();
-    let (system, checkout) = fixture.activation_paths();
-    activate(&system, &checkout, "workstation").unwrap();
     assert_eq!(
-        PathBuf::from(fs::read_to_string(&fixture.marker).unwrap())
-            .canonicalize()
-            .unwrap(),
-        system.join("sw/bin/darwin-rebuild").canonicalize().unwrap()
-    );
-    fs::write(fixture.marker.with_extension("fail"), "").unwrap();
-    assert_eq!(
-        activate(&system, &checkout, "workstation"),
-        Err(Error::ActivationUnconfirmed)
-    );
-}
-
-#[test]
-fn invalid_activation_never_runs_rebuild() {
-    let fixture = Fixture::new();
-    let (system, checkout) = fixture.activation_paths();
-    for host in ["../unknown", "workstation;echo", "--help"] {
-        assert_eq!(
-            activate(&system, &checkout, host),
-            Err(Error::InvalidActivation)
-        );
-    }
-    assert_eq!(
-        activate(Path::new("relative"), &checkout, "workstation"),
+        activate(fixture.directory.path()),
         Err(Error::InvalidActivation)
     );
     assert_eq!(
-        activate(&system, Path::new("relative"), "workstation"),
+        activate(Path::new("relative")),
+        Err(Error::InvalidActivation)
+    );
+    assert_eq!(
+        activate(Path::new("/nix/store")),
         Err(Error::InvalidActivation)
     );
     assert!(!fixture.marker.exists());

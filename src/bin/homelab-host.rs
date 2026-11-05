@@ -51,10 +51,6 @@ enum Operation {
     BootstrapActivate {
         #[arg(long)]
         system: PathBuf,
-        #[arg(long)]
-        checkout: PathBuf,
-        #[arg(long)]
-        host: String,
     },
     #[command(hide = true)]
     BootstrapKeyStatus,
@@ -262,11 +258,7 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Operation::BootstrapActivate {
-            system,
-            checkout,
-            host,
-        } => {
+        Operation::BootstrapActivate { system } => {
             if !root_bootstrap_operation() {
                 return ExitCode::FAILURE;
             }
@@ -278,7 +270,7 @@ fn main() -> ExitCode {
                 eprintln!("Activation requires a built system in the Nix store.");
                 return ExitCode::FAILURE;
             }
-            match homelab_client::bootstrap_privileged::activate(&system, &checkout, &host) {
+            match homelab_client::bootstrap_privileged::activate(&system) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) => {
                     eprintln!("System activation incomplete: {error}");
