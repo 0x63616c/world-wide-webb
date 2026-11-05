@@ -1,5 +1,0 @@
-Choose apps and websites, set a duration, and commit to a lock. Blockr uses Screen Time on iPhone and iPad.
-
-Keep groups and custom durations, see completed lock history, and keep app selections on your device. No Blockr account, ads or analytics. iCloud sync is unavailable until configured in a future signed build.
-
-The Mac companion manages groups and shows schedules. Mac app and timed website blocking are not available in this build.

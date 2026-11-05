@@ -1,1 +1,0 @@
-No Blockr account required. Screen Time access is required for iOS protection. iCloud is unavailable until its container is provisioned. Mac companion has no timed website enforcement in this build.

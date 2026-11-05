@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
         shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
     (root / "packages/RDesign").mkdir(parents=True)
     (root / "packages/RDesign/code.swift").write_text("// Shared\n")
-    for app in ["tendr", "blockr"]:
+    for app in ["tendr", "samplr"]:
         path = root / "apps" / app
         path.mkdir(parents=True)
         (path / "app.yml").write_text(
@@ -60,45 +60,51 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     base = change("apps/tendr/code.swift")
     for fallback in [base, "", "0" * 40, "f" * 40]:
         expect(fallback, ["tendr"], ["tendr"])
-    base = change("apps/blockr/code.swift")
-    expect(base, ["blockr"], ["blockr"])
+    base = change("apps/samplr/code.swift")
+    expect(base, ["samplr"], ["samplr"])
     base = change("packages/RDesign/code.swift")
     expect(base, ["tendr"], ["tendr"], True, True)
     for path in ["fastlane/Fastfile", "fastlane/Appfile", "Gemfile", "Gemfile.lock",
                  ".github/workflows/ci.yml", "scripts/build.sh"]:
-        expect(change(path), ["blockr", "tendr"], rdesign=True, template=True)
+        expect(change(path), ["samplr", "tendr"], rdesign=True, template=True)
     for path in ["README.md", "AGENTS.md", "docs/guide.md", "scripts/README.md",
-                 "apps/tendr/docs/guide.md", "apps/blockr/README.md", "apps/blockr/notes.md",
-                 "apps/blockr/fastlane/metadata/en-US/description.txt",
-                 "apps/blockr/screenshots.json", "apps/blockr/docs/guide.txt"]:
+                 "apps/tendr/docs/guide.md", "apps/samplr/README.md", "apps/samplr/notes.md",
+                 "apps/samplr/fastlane/metadata/en-US/description.txt",
+                 "apps/samplr/screenshots.json", "apps/samplr/docs/guide.txt"]:
         expect(change(path))
     expect(change("site/tendr/privacy/index.html"))
     expect(change("templates/new-app/Example.swift"), template=True)
-    expect(change("apps/blocker/design.png"))
+    expect(change("apps/design-fixture/design.png"))
     # A move must affect both sides even if Git would identify it as a rename.
     base = git("rev-parse", "HEAD")
-    git("mv", "apps/tendr/code.swift", "apps/blockr/moved.swift")
+    git("mv", "apps/tendr/code.swift", "apps/samplr/moved.swift")
     git("commit", "-qm", "Cross-app move")
-    expect(base, ["blockr", "tendr"], ["blockr", "tendr"])
+    expect(base, ["samplr", "tendr"], ["samplr", "tendr"])
     # Extra globs and TestFlight eligibility are app-local declarations.
-    change("apps/blockr/app.yml", "testflight: false\nuses: []\npaths: ['shared/blockr/**']\n")
-    expect(change("shared/blockr/nested/code.swift"), ["blockr"])
-    expect(change("apps/blockr/app.yml", "testflight: false\nuses: []\npaths: []\n"), ["blockr"])
-    expect(change("apps/blockr/app.yml", "testflight: true\nuses: []\npaths: []\n"), ["blockr"], ["blockr"])
-    expect(change("apps/blockr/app.yml", "testflight: true\nuses: []\npaths: ['extra/**']\n"), ["blockr"])
+    change("apps/samplr/app.yml", "testflight: false\nuses: []\npaths: ['shared/samplr/**']\n")
+    expect(change("shared/samplr/nested/code.swift"), ["samplr"])
+    expect(change("apps/samplr/app.yml", "testflight: false\nuses: []\npaths: []\n"), ["samplr"])
+    expect(change("apps/samplr/app.yml", "testflight: true\nuses: []\npaths: []\n"), ["samplr"], ["samplr"])
+    expect(change("apps/samplr/app.yml", "testflight: true\nuses: []\npaths: ['extra/**']\n"), ["samplr"])
     # Unknown packages must fail rather than silently lose dependency coverage.
-    change("apps/blockr/app.yml", "uses: [Missing]\n")
+    change("apps/samplr/app.yml", "uses: [Missing]\n")
     result = subprocess.run(["scripts/affected", "HEAD", "--intent", "verify"],
                             cwd=root, text=True, capture_output=True)
     assert result.returncode != 0 and "unknown package" in result.stderr
-    change("apps/blockr/app.yml", "uses: []\n")
+    change("apps/samplr/app.yml", "uses: []\n")
     # Main without a remote base compares its previous commit; branches fail clearly.
     git("checkout", "-q", "main")
     git("update-ref", "-d", "refs/remotes/origin/main")
-    change("apps/blockr/code.swift")
-    expect("", ["blockr"], ["blockr"])
+    change("apps/samplr/code.swift")
+    expect("", ["samplr"], ["samplr"])
     git("checkout", "-qb", "no-base")
     result = subprocess.run(["scripts/affected", "", "--intent", "ship"],
                             cwd=root, text=True, capture_output=True)
     assert result.returncode != 0 and "fetch main history" in result.stderr
+    # Removing another app leaves a valid single-app result for workflow matrices.
+    base = git("rev-parse", "HEAD")
+    git("rm", "-qr", "apps/samplr")
+    git("commit", "-qm", "Remove synthetic app")
+    expect(base)
+    expect(change("scripts/build.sh"), ["tendr"], rdesign=True, template=True)
 print("Impact fixtures passed (both intents, dependencies, tooling, docs, metadata, globs, renames and base fallbacks).")

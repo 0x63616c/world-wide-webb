@@ -226,32 +226,7 @@ check.fail_tests = false
 ENV["GITHUB_ACTIONS"] = "true"
 ENV.delete("R_PROFILE_UUID")
 
-# iPad multitasking requires all four orientations in the iOS app's generated Info.plist.
-blockr_spec = YAML.safe_load_file(File.expand_path("../apps/blockr/project.yml", __dir__))
-blockr_settings = blockr_spec.fetch("targets").fetch("Blockr").fetch("settings").fetch("base")
-orientations = %w[UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight]
-%w[INFOPLIST_KEY_UISupportedInterfaceOrientations INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad].each do |key|
-  raise "Blockr #{key} must support all orientations" unless blockr_settings.fetch(key).split == orientations
-end
-
-# Blockr regenerates all five profiles and verifies the managed entitlement before archive.
-check.calls.clear
-blockr_project = File.expand_path("../apps/blockr/Blockr.xcodeproj/project.pbxproj", __dir__)
-blockr_original = File.binread(blockr_project)
-check.beta({ app: "blockr" })
-raise "Blockr signing leaked" unless File.binread(blockr_project) == blockr_original
-blockr_profiles = check.calls.select { |name, _| name == :profile }.map(&:last)
-expected_blockr_ids = ["com.calumwebb.blockr", "com.calumwebb.blockr.ShieldConfiguration", "com.calumwebb.blockr.ShieldAction", "com.calumwebb.blockr.DeviceActivityMonitor", "com.calumwebb.blockr.DeviceActivityReport"]
-raise "Blockr profiles incomplete" unless blockr_profiles.map { |args| args[:app_identifier] } == expected_blockr_ids
-raise "Blockr profiles must regenerate" unless blockr_profiles.all? { |args| args[:force] == true }
-verifications = check.calls.select { |name, args| name == :sh && args.first.end_with?("verify-blockr-profile.sh") }.map(&:last)
-raise "Blockr profile verification missing" unless verifications.map(&:last) == expected_blockr_ids
-raise "profile verifier must work from Fastlane's directory" unless verifications.all? { |args| args.first.start_with?("/") && File.executable?(args.first) }
-build = check.calls.assoc(:build).last
-raise "global profile overrides extensions" if build[:xcargs].include?("PROVISIONING_PROFILE_SPECIFIER")
-raise "missing export profiles" unless build[:export_options][:provisioningProfiles].keys == expected_blockr_ids
-raise "wrong archive project" unless build[:project].end_with?("apps/blockr/Blockr.xcodeproj")
-raise "non-Blockr profile regeneration changed" if profile[:force]
+raise "profile unexpectedly regenerated" if profile[:force]
 
 Dir[File.expand_path("../apps/*/fastlane/metadata", __dir__)].sort.each do |metadata|
   limits = { "name" => 30, "subtitle" => 30, "keywords" => 100, "promotional_text" => 170, "description" => 4000, "release_notes" => 4000 }

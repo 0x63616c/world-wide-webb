@@ -29,18 +29,18 @@ with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
     (root / "scripts").mkdir()
     for script in ["build-site.sh", "publish-site.sh"]:
         shutil.copy2(ROOT / "scripts" / script, root / "scripts" / script)
-    write("site/.retain", "# Keep retired apps\n\noldapp\nretired\nblockr\nmissing")
-    write("site/.legacy-root", "blockr\n")
+    write("site/.retain", "# Keep retired apps\n\noldapp\nretired\nsamplr\nmissing")
+    write("site/.legacy-root", "samplr\n")
     write("site/README.md", "Private publishing instructions\n")
-    write("site/blockr/index.html", "New Blockr\n")
-    write("site/blockr/privacy/index.html", "New privacy\n")
+    write("site/samplr/index.html", "New Samplr\n")
+    write("site/samplr/privacy/index.html", "New privacy\n")
     git("add", ".")
     git("commit", "-qm", "Source fixture")
     git("push", "-q", "origin", "main")
 
     git("checkout", "-qb", "gh-pages")
     git("rm", "-rq", ".")
-    for app in ["oldapp", "retired", "blockr", "obsolete"]:
+    for app in ["oldapp", "retired", "samplr", "obsolete"]:
         write(f"{app}/index.html", f"Old {app}\n")
         write(f"{app}/support/index.html", f"Old {app} support\n")
     git("add", ".")
@@ -60,12 +60,12 @@ with tempfile.TemporaryDirectory(prefix="publish-site-") as directory:
     for app in ["oldapp", "retired"]:
         assert published(f"{app}/index.html") == f"Old {app}"
         assert published(f"{app}/support/index.html") == f"Old {app} support"
-    assert published("blockr/index.html") == "New Blockr"
-    assert published("blockr/privacy/index.html") == "New privacy"
-    assert published("index.html") == "New Blockr", "Legacy root must still mirror"
+    assert published("samplr/index.html") == "New Samplr"
+    assert published("samplr/privacy/index.html") == "New privacy"
+    assert published("index.html") == "New Samplr", "Legacy root must still mirror"
     assert published("privacy/index.html") == "New privacy"
     files = git("ls-tree", "-r", "--name-only", "origin/gh-pages").splitlines()
-    assert not any(path.startswith(("obsolete/", "missing/", "blockr/support/")) for path in files)
+    assert not any(path.startswith(("obsolete/", "missing/", "samplr/support/")) for path in files)
     assert not {".retain", ".legacy-root", "README.md"}.intersection(files)
     assert ".nojekyll" in files
     assert "[skip ci]" in git("log", "-1", "--format=%s", "origin/gh-pages")

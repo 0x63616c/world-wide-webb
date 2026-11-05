@@ -5,7 +5,7 @@ No repository rename or remote publication is part of this migration. Until auth
 - https://0x63616c.github.io/tendr/privacy/
 - https://0x63616c.github.io/tendr/support/
 
-`scripts/build-site.sh` and `scripts/publish-site.sh` mirror `site/tendr` at the Pages root while `site/.legacy-root` contains `tendr`. The same content also exists under `/tendr/tendr/`; Blockr lives at `/tendr/blockr/`. Preview locally with `scripts/build-site.sh /tmp/apps-pages-preview` (the directory must be empty).
+`scripts/build-site.sh` and `scripts/publish-site.sh` mirror `site/tendr` at the Pages root while `site/.legacy-root` contains `tendr`. The same content also exists under `/tendr/tendr/`. Preview locally with `scripts/build-site.sh /tmp/apps-pages-preview` (the directory must be empty).
 
 When the rename is authorized:
 

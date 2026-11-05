@@ -68,14 +68,14 @@ class ReleaseTests(unittest.TestCase):
         result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "branch", "INPUT_APP": "tendr", "INPUT_VERSION": "1.1.0", "INPUT_BUILD": "18"})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("build=18", result.stdout)
-        for tag, app in (("app-store/tendr/1.1.0-18", "tendr"), ("app-store/blockr/1.2-9", "blockr"), ("app-store/1.0.0-28", "tendr")):
+        for tag, app in (("app-store/tendr/1.1.0-18", "tendr"), ("app-store/tendr/1.2-9", "tendr"), ("app-store/1.0.0-28", "tendr")):
             result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "tag", "GITHUB_REF_NAME": tag})
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(f"app={app}\n", result.stdout)
         for tag in ("app-store/tendr/latest", "app-store/tendr/1.1.0", "app-store/unknown/1.1.0-18", "app-store/tendr/1.1.0-18/extra"):
             result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "tag", "GITHUB_REF_NAME": tag})
             self.assertNotEqual(result.returncode, 0, tag)
-        for build in ("", "0", "latest", "18\napp=blockr", "18;echo nope"):
+        for build in ("", "0", "latest", "18\napp=samplr", "18;echo nope"):
             result = self.run_ruby("release-target.rb", {"GITHUB_REF_TYPE": "branch", "INPUT_APP": "tendr", "INPUT_BUILD": build})
             self.assertNotEqual(result.returncode, 0, build)
 

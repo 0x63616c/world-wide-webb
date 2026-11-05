@@ -53,6 +53,8 @@ jobs:
         run: python3 -m pip install -r scripts/requirements-screenshots.txt
       - name: Release target, Duo export and submission checks
         run: python3 scripts/test-release.py
+      - name: ASC retirement guard checks
+        run: python3 scripts/test-asc-retire.py
       - name: Site publication retention checks
         run: python3 scripts/test-publish-site.py
       - uses: actions/setup-go@v5
@@ -121,20 +123,6 @@ jobs:
         run: |
           xcodebuild -project "$(ruby scripts/app-config.rb "$APP" project_path)" -scheme "$(ruby scripts/app-config.rb "$APP" scheme)" \
             -destination 'generic/platform=iOS Simulator' -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build -quiet
-
-      - name: Build native macOS app when declared
-        timeout-minutes: 15
-        run: |
-          if scheme=$(ruby scripts/app-config.rb "$APP" macos_scheme 2>/dev/null); then
-            xcodebuild -project "$(ruby scripts/app-config.rb "$APP" project_path)" -scheme "$scheme" \
-              -destination 'generic/platform=macOS' -configuration Debug -jobs 4 CODE_SIGNING_ALLOWED=NO build -quiet
-          fi
-      - uses: actions/upload-artifact@v4
-        if: always() && matrix.app == 'blockr'
-        with:
-          name: blockr-generated-project
-          path: apps/blockr/Blockr.xcodeproj
-          if-no-files-found: error
 
   template:
     needs: changes

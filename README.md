@@ -5,11 +5,10 @@ Native Apple apps, shared design, and their websites. This repository is still n
 | App | Source | Bundle ID | Core tests |
 | --- | --- | --- | --- |
 | Tendr | [apps/tendr](apps/tendr) | `com.calumwebb.still` | `swift test --package-path apps/tendr` |
-| Blockr | [apps/blockr](apps/blockr) | `com.calumwebb.blockr` | `swift test --package-path apps/blockr` |
 
 [packages/RDesign](packages/RDesign) provides the black, white and graphite palette, type, spacing, cards, rows, info popovers, settings links, splash and optional StoreKit tip jar. Its `rframe` executable renders App Store screenshot frames on macOS. `swift test --package-path packages/RDesign` also runs its portable tests on Linux.
 
-Native builds require macOS and Xcode 26.2 or later. Tendr and Blockr use XcodeGen 2.44.1: run `xcodegen generate` inside the app directory after changing `project.yml`. Open the app’s `.xcodeproj`; schemes are `Still` and `Blockr` respectively. Simulator builds use `CODE_SIGNING_ALLOWED=NO`. Blockr also has a `BlockrMac` scheme; its [README](apps/blockr/README.md) documents the Mac content filter, iCloud switch and current distribution-signing blocker. Blockr uses Xcode 27.
+Native builds require macOS and Xcode 26.2 or later. Tendr uses XcodeGen 2.44.1: run `xcodegen generate` inside the app directory after changing `project.yml`. Open `Still.xcodeproj` with the `Still` scheme. Simulator builds use `CODE_SIGNING_ALLOWED=NO`.
 
 Shared release commands run from the repository root with `app:<slug>`; see [docs/RELEASE.md](docs/RELEASE.md). CI selects changed apps using `scripts/affected --intent verify`.
 

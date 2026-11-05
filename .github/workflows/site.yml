@@ -39,5 +39,5 @@ jobs:
       - name: Live URLs
         run: |
           echo 'https://0x63616c.github.io/apps/'
-          echo 'https://0x63616c.github.io/apps/blockr/privacy/'
-          echo 'https://0x63616c.github.io/apps/blockr/support/'
+          echo 'https://0x63616c.github.io/apps/tendr/privacy/'
+          echo 'https://0x63616c.github.io/apps/tendr/support/'

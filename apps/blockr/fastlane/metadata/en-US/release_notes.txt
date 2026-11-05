@@ -1,1 +1,0 @@
-First internal beta. Screen Time locks, groups and custom durations on iPhone and iPad; native Mac companion.

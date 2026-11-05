@@ -26,33 +26,6 @@ def r_app(options)
   )
 end
 
-# Best-effort evidence from the signed archive; never print the complete entitlements.
-def report_screen_time_entitlements
-  require "open3"
-  require "json"
-  archive = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
-  apps = Dir[File.join(archive.to_s, "Products", "Applications", "*.app")]
-  if apps.empty?
-    UI.important("Shield signing diagnostics: archive app unavailable")
-    return
-  end
-  apps.flat_map { |app| [app] + Dir[File.join(app, "{PlugIns,Extensions}", "*.appex")] }.each do |bundle|
-    begin
-      xml, _stderr, status = Open3.capture3("codesign", "-d", "--entitlements", ":-", bundle)
-      raise "codesign failed" unless status.success?
-      json, _stderr, parsed = Open3.capture3("plutil", "-convert", "json", "-o", "-", "-", stdin_data: xml)
-      raise "entitlements unavailable" unless parsed.success?
-      entitlements = JSON.parse(json)
-      values = ["com.apple.security.application-groups", "com.apple.developer.family-controls"].to_h { |key| [key, entitlements[key]] }
-      UI.message("#{File.basename(bundle)}: #{values.inspect}")
-    rescue StandardError
-      UI.important("Shield signing diagnostics unavailable for #{File.basename(bundle)}")
-    end
-  end
-rescue StandardError
-  UI.important("Shield signing diagnostics unavailable")
-end
-
 # Internal groups set to receive every build reject manual assignment, so skip those.
 def assignable_groups(app)
   name = app["testflight_group"]
@@ -145,34 +118,15 @@ platform :ios do
   lane :register_ids do |options|
     app = r_app(options)
     connect_api_key
-    targets = app["signed_targets"] || { app["scheme"] => { "bundle_id" => app["bundle_id"] } }
-    if app["macos_registration_targets"]
-      UI.user_error!("Mac registration is limited to Blockr") unless app["bundle_id"] == "com.calumwebb.blockr"
-      targets = targets.merge(app["macos_registration_targets"])
-    end
+    targets = { app["scheme"] => { "bundle_id" => app["bundle_id"] } }
     targets.each do |target, info|
       identifier = info.fetch("bundle_id")
       bundle = Spaceship::ConnectAPI::BundleId.find(identifier)
       if bundle
         UI.message("Bundle ID #{identifier} already registered")
       else
-        bundle = Spaceship::ConnectAPI::BundleId.create(name: "#{app['name']} #{target}", platform: info["macos"] ? "MAC_OS" : "IOS", identifier: identifier)
+        bundle = Spaceship::ConnectAPI::BundleId.create(name: "#{app['name']} #{target}", platform: "IOS", identifier: identifier)
         UI.success("Registered bundle ID #{identifier}")
-      end
-      if app["family_controls"] && !info["macos"]
-        UI.user_error!("Family Controls registration is limited to Blockr IDs") unless app["bundle_id"] == "com.calumwebb.blockr" && (identifier == "com.calumwebb.blockr" || identifier.start_with?("com.calumwebb.blockr."))
-        unless bundle.get_capabilities.any? { |capability| capability.capability_type == "FAMILY_CONTROLS" }
-          bundle.create_capability("FAMILY_CONTROLS")
-          UI.success("Enabled FAMILY_CONTROLS on #{identifier}")
-        end
-        UI.message("#{identifier}: distribution support must also be present in its regenerated App Store profile")
-      end
-      if info["macos"]
-        UI.user_error!("Only Blockr Mac identifiers may be changed") unless ["com.calumwebb.blockr", "com.calumwebb.blockr.ContentFilter"].include?(identifier)
-        Array(info["capabilities"]).each do |capability|
-          UI.user_error!("Unexpected Blockr Mac capability") unless ["NETWORK_EXTENSIONS", "SYSTEM_EXTENSION_INSTALL"].include?(capability)
-          bundle.create_capability(capability) unless bundle.get_capabilities.any? { |existing| existing.capability_type == capability }
-        end
       end
       types = bundle.get_capabilities.map(&:capability_type)
       if types.include?("APP_GROUPS")
@@ -253,38 +207,8 @@ platform :ios do
 
     xcargs = "MARKETING_VERSION=#{version} CURRENT_PROJECT_VERSION=#{build_number}"
     export_options = {}
-    profile_uuid = app["signed_targets"] ? nil : ENV["R_PROFILE_UUID"]
-    signing_original = nil
-    signing_project = File.join(app["dir"], app["project"], "project.pbxproj")
-    if ENV["GITHUB_ACTIONS"] == "true" && app["signed_targets"]
-      signing_original = File.binread(signing_project)
-      profiles = {}
-      begin
-        app["signed_targets"].each do |target, info|
-          uuid = get_provisioning_profile(
-            api_key: api_key, app_identifier: info.fetch("bundle_id"),
-            provisioning_name: info.fetch("profile_name"), ignore_profiles_with_different_name: true,
-            output_path: ENV.fetch("RUNNER_TEMP"), filename: "#{app['slug']}-#{target}.mobileprovision",
-            force: app["regenerate_profiles"] == true
-          )
-          UI.user_error!("CI provisioning did not return a profile UUID for #{target}") if uuid.to_s.empty?
-          if app["family_controls"]
-            sh(File.join(REPO_ROOT, "scripts", "verify-blockr-profile.sh"), File.join(ENV.fetch("RUNNER_TEMP"), "#{app['slug']}-#{target}.mobileprovision"), info.fetch("bundle_id"))
-          end
-          update_code_signing_settings(
-            path: File.join(app["dir"], app["project"]), targets: [target], build_configurations: ["Release"],
-            use_automatic_signing: false, team_id: "X9E4HG27NK", code_sign_identity: "Apple Distribution",
-            profile_uuid: uuid, profile_name: info.fetch("profile_name"), bundle_identifier: info.fetch("bundle_id")
-          )
-          profiles[info.fetch("bundle_id")] = uuid
-        end
-      rescue StandardError
-        File.binwrite(signing_project, signing_original)
-        raise
-      end
-      profile_uuid = nil
-      export_options = { signingStyle: "manual", signingCertificate: "Apple Distribution", provisioningProfiles: profiles }
-    elsif ENV["GITHUB_ACTIONS"] == "true"
+    profile_uuid = ENV["R_PROFILE_UUID"]
+    if ENV["GITHUB_ACTIONS"] == "true"
       # Xcode-managed profiles cannot be used with manual archive signing.
       # sigh selects an installed certificate and owns this separate profile.
       profile_uuid = get_provisioning_profile(
@@ -307,8 +231,7 @@ platform :ios do
       }
     end
 
-    begin
-      build_app(
+    build_app(
       project: File.join(app["dir"], app["project"]),
       scheme: app["scheme"],
       clean: true,
@@ -318,12 +241,7 @@ platform :ios do
       xcargs: xcargs,
       export_options: export_options,
       export_xcargs: export_options.empty? ? "-allowProvisioningUpdates" : ""
-      )
-    ensure
-      File.binwrite(signing_project, signing_original) if signing_original
-    end
-
-    report_screen_time_entitlements if app["family_controls"]
+    )
 
     upload_to_testflight(
       api_key: api_key,

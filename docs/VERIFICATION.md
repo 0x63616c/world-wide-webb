@@ -43,4 +43,4 @@ Verified on Linux on 2026-11-01. Each command below exited 0:
 - `ruby -c scripts/check-release.rb`
 - `git diff --check`
 
-Ruby 3.3.8 was extracted under ignored `build/tools` for these checks; shared system configuration was unchanged. App discovery lists only Blockr and Tendr. The retired app names have no remaining tracked-content matches. No files under `site/` changed. Swift tests, native builds, simulator screenshots and Apple service checks were not run on this Linux box; Swift and Xcode are unavailable.
+Ruby 3.3.8 was extracted under ignored `build/tools` for these checks; shared system configuration was unchanged. App discovery at that checkpoint listed two apps; only Tendr remains. The retired app names have no remaining tracked-content matches. No files under `site/` changed. Swift tests, native builds, simulator screenshots and Apple service checks were not run on this Linux box; Swift and Xcode are unavailable.
