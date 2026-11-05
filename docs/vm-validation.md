@@ -82,7 +82,9 @@ permanent physical power, sudo or deployment configuration was changed.
 Full private checks use `nix flake check --no-update-lock-file --max-jobs 2
 --cores 2`, including both host systems, the container-enabled variant, Compose,
 SOPS identity and runner tools. Neither real host configuration was activated.
-Logs and failed guests are retained under the MacBook's test directory.
+Logs and machine-readable results are retained under the MacBook's test directory.
+After review, failed disposable copies were removed. The clean prepared baseline,
+successful guest and private-validation cache remain stopped for repeat tests.
 
 ## Findings and fixes
 
