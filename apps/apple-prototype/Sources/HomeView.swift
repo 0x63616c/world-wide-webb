@@ -247,13 +247,13 @@ struct HomeView: View {
                 .accessibilityIdentifier("app-screen-\(app.id)")
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if app.route != .timer && app.route != .photoBooth && app.route != .settings {
+                if app.route != .timer && app.route != .photoBooth && app.route != .settings && app.route != .feature(.climate) {
                     PanelAppNavigationBar(back: home)
                 }
             }
-            .overlay(alignment: .topLeading) {
-                if app.route == .timer {
-                    PanelAppNavigationBar(back: home).padding(72)
+            .overlay(alignment: .topTrailing) {
+                if app.route == .timer || app.route == .feature(.climate) {
+                    PanelAppBackButton(back: home).padding(.horizontal, 24).padding(.top, 16)
                 }
             }
             .scrollBounceBehavior(.basedOnSize)

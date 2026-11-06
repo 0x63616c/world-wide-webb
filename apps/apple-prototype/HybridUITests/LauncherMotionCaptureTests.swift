@@ -41,8 +41,12 @@ import XCTest
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
         snapshot("home")
         app.buttons["app-climate"].tap()
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(timeout: 10))
+        let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
         snapshot("climate")
+        more.tap()
+        XCTAssertTrue(app.buttons["mode-heat"].waitForExistence(timeout: 5))
+        snapshot("climate-more")
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE home-controls")
     }

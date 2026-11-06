@@ -45,8 +45,7 @@ struct AppLauncher: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 20, weight: .semibold))
                             .frame(width: 48, height: 48)
-                            .background(.white.opacity(0.12), in: .circle)
-                            .contentShape(.circle)
+                            .contentShape(.rect)
                     }.buttonStyle(.plain)
                         .frame(width: 48, height: 48)
                         .accessibilityLabel("Close Home")
@@ -106,15 +105,6 @@ struct PanelSettingsPage: View {
                 Label(page.rawValue, systemImage: page.symbol).tag(page)
             }.navigationTitle("Settings")
                 .toolbar(removing: .sidebarToggle)
-                .toolbar {
-                    #if os(iOS)
-                    ToolbarItem(placement: .topBarLeading) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
-                    #else
-                    ToolbarItem(placement: .navigation) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
-                    #endif
-                }
                 .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 340)
         } detail: {
             NavigationStack {
@@ -135,6 +125,10 @@ struct PanelSettingsPage: View {
                     }
                 }.formStyle(.grouped)
                     .navigationTitle(selection?.rawValue ?? "Display")
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) { PanelAppBackButton(back: back) }
+                            .sharedBackgroundVisibility(.hidden)
+                    }
             }.id(selection)
         }.tint(.blue).preferredColorScheme(.dark)
     }

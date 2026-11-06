@@ -13,7 +13,6 @@ struct ClimateController: View {
         guard climate.mode == .heatCool else { return 67...77 }
         return editingLow ? 67...max(67, climate.high - 2) : min(77, climate.low + 2)...77
     }
-    private var color: Color { climate.mode == .heat || (climate.mode == .heatCool && editingLow) ? .orange : .cyan }
     var body: some View {
         VStack(spacing: 0) {
             if climate.mode == .off {
@@ -31,19 +30,18 @@ struct ClimateController: View {
                             rangeSelection(low: false)
                         }.padding(.horizontal, 32).padding(.top, 16)
                     }
-                    ClimateTemperatureSurface(value: target, range: bounds, color: color,
+                    ClimateTemperatureSurface(value: target, range: bounds,
                         title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
-                        subtitle: "Inside \(climate.ambient)° · \(climate.action)", commit: setTemperature)
+                        subtitle: "Inside \(climate.ambient)°", commit: setTemperature)
                         .id("\(climate.mode.rawValue)-\(editingLow)")
                 }
             }
-            controls.padding(.horizontal, compact ? 20 : 64).padding(.top, 24).padding(.bottom, 36)
-        }.background(Color(white: 0.055)).accessibilityIdentifier("climate-page")
+        }.background(Color(white: 0.055))
+            .overlay(alignment: .bottomTrailing) { controls.padding(24) }
+            .accessibilityIdentifier("climate-page")
     }
     private var controls: some View {
         HStack {
-            Text(climate.mode.label)
-            Spacer()
             Button {
                 showingMore = true
             } label: {
@@ -104,7 +102,7 @@ struct ClimateController: View {
 private struct ClimateTemperatureSurface: View {
     let value: Int
     let range: ClosedRange<Int>
-    let color: Color
+    private let color = Color.yellow
     let title: String
     let subtitle: String
     let commit: (Int) -> Void
@@ -122,15 +120,16 @@ private struct ClimateTemperatureSurface: View {
                 Rectangle().fill(color.opacity(0.8)).frame(height: 2)
                     .offset(y: -proxy.size.height * fraction)
                 VStack(spacing: 16) {
-                    Text(title).font(.title2.weight(.medium)).foregroundStyle(.secondary)
                     Text("\(displayed)°")
                         .font(.system(size: min(240, proxy.size.width * 0.25), weight: .regular, design: .rounded))
                         .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
                         .accessibilityIdentifier("climate-value")
                     Text(subtitle).font(.title3).foregroundStyle(.secondary)
-                    Label("Swipe up or down", systemImage: "arrow.up.arrow.down")
-                        .font(.body).foregroundStyle(.secondary).padding(.top, 24)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                Capsule().fill(.yellow)
+                    .frame(width: 48, height: 6)
+                    .offset(y: -min(proxy.size.height - 9, max(9, proxy.size.height * fraction)))
+                    .allowsHitTesting(false).accessibilityHidden(true)
             }.contentShape(.rect)
                 .gesture(DragGesture(minimumDistance: 10)
                     .onChanged { gesture in
