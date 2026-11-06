@@ -33,7 +33,8 @@
               cp ${./fixture-tools.rs} fixture-tools.rs
               cp ${./tailscale-status.json} tailscale-status.json
               rustc --edition=2024 fixture-tools.rs -o $out/bin/tailscale
-              ln -s tailscale $out/bin/homelab-health
+              # Verification canonicalizes executables before running them.
+              cp $out/bin/tailscale $out/bin/homelab-health
             '';
             keys = pkgs.writeText "vm-authorized-keys"
               (lib.concatStringsSep "\n" config.homelab.authorizedKeys + "\n");
@@ -90,6 +91,11 @@
               environment.etc."homelab-vm-e2e.json".text = builtins.toJSON {
                 host = "vm-test";
                 revision = self.rev or (throw "Publish the prepared fixture as an exact clean Git commit.");
+              };
+              environment.etc."homelab/revision.json".text = builtins.toJSON {
+                repository = fixture.repository;
+                host = "vm-test";
+                revision = config.system.configurationRevision;
               };
               environment.etc."homelab/deployment.json".text = builtins.toJSON {
                 host = "vm-test";
