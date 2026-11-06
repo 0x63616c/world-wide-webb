@@ -271,40 +271,63 @@ private struct PanelRingDial: View {
     }
 }
 
-/// Each digit is part of the native glass shape, so the photograph refracts along
-/// the outline of the numerals, including the counters.
+/// The dial uses real glyph outlines so the system can lens around each numeral.
 private struct PanelGlassClockFace: View {
     let date: Date
 
     var body: some View {
         GeometryReader { proxy in
             let time = fixtureTime(date, format: "h:mm")
-            let shape = ClockGlyphShape(text: time)
+            let box = CGRect(x: proxy.size.width * 0.075, y: proxy.size.height * 0.21,
+                width: proxy.size.width * 0.85, height: proxy.size.height * 0.58)
             ZStack {
                 Image("ForestPhoto").resizable().scaledToFill()
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .clipped()
-                Color.black.opacity(0.42)
-                Color.clear
-                    .frame(width: proxy.size.width * 0.85, height: proxy.size.height * 0.58)
-                    .glassEffect(.clear.tint(.white.opacity(0.17)), in: shape)
+                Color.black.opacity(0.48)
+                GlassEffectContainer(spacing: 0) {
+                    ZStack(alignment: .topLeading) {
+                        ForEach(Array(ClockGlassGlyph.layout(time, in: box).enumerated()), id: \.offset) { _, glyph in
+                            Color.clear
+                                .frame(width: glyph.frame.width, height: glyph.frame.height)
+                                .glassEffect(material, in: glyph.shape)
+                                .position(x: glyph.frame.midX, y: glyph.frame.midY)
+                        }
+                    }.frame(width: proxy.size.width, height: proxy.size.height)
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
     }
+
+    private var material: Glass {
+        #if DEBUG
+        if UserDefaults.standard.string(forKey: "previewClockGlass") == "regular" { return .regular }
+        #endif
+        return .clear
+    }
 }
 
-private struct ClockGlyphShape: Shape {
-    let text: String
+private struct ClockGlassGlyph {
+    let frame: CGRect
+    let shape: Outline
 
-    func path(in rect: CGRect) -> Path {
+    struct Outline: Shape {
+        let path: Path
+        func path(in rect: CGRect) -> Path {
+            path.offsetBy(dx: rect.minX, dy: rect.minY)
+        }
+    }
+
+    static func layout(_ text: String, in box: CGRect) -> [Self] {
         let font = CTFontCreateUIFontForLanguage(.system, 100, nil)!
         let line = CTLineCreateWithAttributedString(NSAttributedString(
             string: text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
         ))
-        let outline = CGMutablePath()
+        var paths: [CGPath] = []
+        var bounds = CGRect.null
         for run in CTLineGetGlyphRuns(line) as! [CTRun] {
             let count = CTRunGetGlyphCount(run)
             var glyphs = Array(repeating: CGGlyph(), count: count)
@@ -312,15 +335,21 @@ private struct ClockGlyphShape: Shape {
             CTRunGetGlyphs(run, CFRange(location: 0, length: 0), &glyphs)
             CTRunGetPositions(run, CFRange(location: 0, length: 0), &positions)
             for (glyph, position) in zip(glyphs, positions) {
-                guard let path = CTFontCreatePathForGlyph(font, glyph, nil) else { continue }
-                outline.addPath(path, transform: CGAffineTransform(translationX: position.x, y: position.y))
+                var translation = CGAffineTransform(translationX: position.x, y: position.y)
+                guard let path = CTFontCreatePathForGlyph(font, glyph, nil)?.copy(using: &translation) else { continue }
+                let outline = path.normalized()
+                bounds = bounds.union(outline.boundingBoxOfPath)
+                paths.append(outline)
             }
         }
-        let bounds = outline.boundingBoxOfPath
-        guard bounds.width > 0, bounds.height > 0 else { return Path() }
-        let scale = min(rect.width / bounds.width, rect.height / bounds.height)
+        guard bounds.width > 0, bounds.height > 0 else { return [] }
+        let scale = min(box.width / bounds.width, box.height / bounds.height)
         let transform = CGAffineTransform(a: scale, b: 0, c: 0, d: -scale,
-            tx: rect.midX - bounds.midX * scale, ty: rect.midY + bounds.midY * scale)
-        return Path(outline.normalized()).applying(transform)
+            tx: box.midX - bounds.midX * scale, ty: box.midY + bounds.midY * scale)
+        return paths.map { outline in
+            let path = Path(outline).applying(transform)
+            let frame = path.boundingRect
+            return Self(frame: frame, shape: Outline(path: path.offsetBy(dx: -frame.minX, dy: -frame.minY)))
+        }
     }
 }

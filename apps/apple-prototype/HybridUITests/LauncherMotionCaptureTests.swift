@@ -66,18 +66,20 @@ import XCTest
     }
     func testGlassClockFace() {
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-            "-updateCheckFakeBuild", "1", "-panel.clockFace", "glass"]
-        app.launch()
-        defer { app.terminate() }
-        app.alignPanelOrientation()
-        let clock = app.buttons["launcher-clock"]
-        XCTAssertTrue(clock.waitForExistence(timeout: 15))
-        XCTAssertEqual(clock.value as? String, "Glass")
-        let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-        shot.name = "glass-clock"
-        shot.lifetime = .keepAlways
-        add(shot)
+        for material in ["clear", "regular"] {
+            app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+                "-updateCheckFakeBuild", "1", "-panel.clockFace", "glass", "-previewClockGlass", material]
+            app.launch()
+            app.alignPanelOrientation()
+            let clock = app.buttons["launcher-clock"]
+            XCTAssertTrue(clock.waitForExistence(timeout: 15))
+            XCTAssertEqual(clock.value as? String, "Glass")
+            let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            shot.name = "glass-clock-\(material)"
+            shot.lifetime = .keepAlways
+            add(shot)
+            app.terminate()
+        }
     }
 
     func testLauncherGlassOptions() {
