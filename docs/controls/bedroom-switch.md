@@ -18,10 +18,31 @@ or HA call. The verification flag is an operator assertion, not device discovery
 Do not set it until Calum verifies the actual Input 0 ID, Detached mode, and the
 representation below. Calum confirmed that competing automations are absent
 across Shelly, Home Assistant, and Apple Home.
-The deployment currently does not forward these keys: activation later requires
-an approved Compose environment change plus process restart. There are no changes
-to deployed environment values in this implementation. Roll back by setting either
-flag to `false` or removing the entity ID, then restarting the process.
+Compose forwards these keys with safe defaults (`false`, `false`, empty), including
+when a value is unset or empty in `runtime.env`. This change does not set deployed
+environment values or activate the binding.
+
+Only after Calum approves the verification below, an operator can set all three
+values in the mini's private `$HOME/www-control-center/runtime.env`, using the
+verified entity ID. Release env files normally contain only `WWW_IMAGE`; keep
+the input settings in `runtime.env` so the next release retains the approved
+configuration. Ensure no later release env file overrides those settings.
+With the reviewed Compose file installed through the normal release path, recreate
+only `www` to apply environment changes (a plain `docker compose restart` does
+not reload environment):
+
+```sh
+cd "$HOME/www-control-center"
+docker compose --env-file runtime.env --env-file current.env -f compose.yaml config --quiet
+docker compose --env-file runtime.env --env-file current.env -f compose.yaml \
+  up -d --no-deps --force-recreate --wait --wait-timeout 180 www
+```
+
+Coordinate this operation with the release owner so no release/recovery is in
+progress. Roll back by setting both flags to `false` and clearing the entity ID
+in `runtime.env`, then running the same recreate command. If an explicit release
+override was used, remove it too. Leave PostgreSQL running. These commands are a
+future approved operator procedure; none were run against the mini for this change.
 
 ## Required verification before approval
 

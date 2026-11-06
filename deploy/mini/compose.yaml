@@ -37,6 +37,9 @@ services:
       POSTGRES_USER: postgres
       HA_URL: ${HA_URL:?Set the Home Assistant origin}
       WORKER_CYCLES: ${WORKER_CYCLES:?Explicitly choose on or off}
+      BEDROOM_SWITCH_INPUT_ENABLED: ${BEDROOM_SWITCH_INPUT_ENABLED:-false}
+      BEDROOM_SWITCH_INPUT_VERIFIED: ${BEDROOM_SWITCH_INPUT_VERIFIED:-false}
+      BEDROOM_SWITCH_INPUT_ENTITY_ID: ${BEDROOM_SWITCH_INPUT_ENTITY_ID:-}
       MEDIA_STORAGE_DIR: /app/media
     volumes:
       - ${WWW_SECRETS_DIR}:/run/secrets:ro
