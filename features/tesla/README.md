@@ -26,7 +26,7 @@ and common tesla_custom variants (`battery`, `range`, `charging`,
 `charge_state_charging_state` and `climate_state_inside_temp` also work.
 Numeric roles require the units in the table. Odometer may need enabling in HA.
 
-All nine roles are required, including the charge switch. Canonical names take
+The nine vehicle roles are required, including the charge switch. A software update entity is optional; when present, its availability, installation status and versions are returned without making other telemetry dependent on it. Canonical names take
 priority; remaining ties use entity ID order, independent of HA response order.
 Vehicle lock/climate fallbacks exclude charge-cable/port locks and cabin overheat
 protection. Renamed entities that no longer match these conventions require an
@@ -46,6 +46,7 @@ cached.
 | lock | lock | locked/unlocked; lock.lock/unlock |
 | climate | climate | HVAC mode; climate.turn_on/turn_off |
 | chargeSwitch | switch | switch.turn_on/turn_off |
+| softwareUpdate | update (optional) | Software update status and reported versions |
 
 Use the vehicle door lock, not the charge-cable lock; use the vehicle climate,
 not cabin overheat protection. These entity types are supported by the official
@@ -86,7 +87,7 @@ No PIN is logged, returned, or placed in a query string. Invalid input is reject
 before checking the PIN or calling HA. HA failures return a generic 503.
 
 {accepted:true} means HA accepted the service call, not that the vehicle changed.
-Clients re-read state and do not automatically retry commands. Vehicle state may
+The native Tesla app exposes only lock and unlock; its other vehicle data is read-only. Clients re-read state and do not automatically retry commands. Vehicle state may
 lag until the integration next updates. The rollout check must confirm the
 specific HA entities and command signing setup; no real vehicle commands were
 issued during development.

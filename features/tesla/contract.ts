@@ -12,6 +12,7 @@ export const teslaEntitiesSchema = z
     lock: entity("lock"),
     climate: entity("climate"),
     chargeSwitch: entity("switch"),
+    softwareUpdate: entity("update").optional(),
   })
   .strict();
 export type TeslaEntities = z.infer<typeof teslaEntitiesSchema>;
@@ -32,6 +33,13 @@ export const teslaDataSchema = z.object({
   climateOn: z.boolean(),
   cabinFahrenheit: z.number().min(-100).max(250),
   odometerMiles: z.number().nonnegative().max(10_000_000),
+  softwareUpdate: z
+    .object({
+      status: z.enum(["available", "up_to_date", "installing"]),
+      installedVersion: z.string().optional(),
+      latestVersion: z.string().optional(),
+    })
+    .optional(),
 });
 export const teslaStateSchema = z.discriminatedUnion("status", [
   z.object({

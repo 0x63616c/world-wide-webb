@@ -18,14 +18,13 @@ struct TeslaData: Equatable {
     var locked = true
     var odo = "12,480"
     var climate = 64
+    var softwareUpdate: String? = nil
 }
 enum TeslaAvailability: String, CaseIterable { case online, asleep, offline }
-enum TeslaCommand { case setCharging(Bool), setPreconditioning(Bool) }
 
 @MainActor protocol TeslaProvider: AnyObject, Observable {
     var data: TeslaData { get }
     var availability: TeslaAvailability { get }
-    func send(_ command: TeslaCommand)
 }
 
 @MainActor @Observable final class MockTeslaProvider: TeslaProvider {
@@ -38,18 +37,7 @@ enum TeslaCommand { case setCharging(Bool), setPreconditioning(Bool) }
         self.data = data
         self.availability = availability
     }
-    func send(_ command: TeslaCommand) {
-        guard availability == .online else { return }
-        switch command {
-        case .setCharging(let on):
-            // A disconnected/no-power vehicle cannot begin a charge session.
-            guard !on || !["disconnected", "no_power", ""].contains(data.chargingState) else { return }
-            data.charging = on
-            data.chargingState = on ? "charging" : "stopped"
-            data.rate = on ? 11 : 0
-        case .setPreconditioning(let on): data.preconditioning = on
-        }
-    }
+
 }
 
 struct TeslaTile: View {
@@ -99,6 +87,7 @@ struct TeslaChargeComplication: View {
 
 struct TeslaController: View {
     let provider: any TeslaProvider
+    var lockAction: (() -> Void)? = nil
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
@@ -120,27 +109,26 @@ struct TeslaController: View {
                     HStack {
                         Label(provider.data.chargingState.replacingOccurrences(of: "_", with: " ").capitalized, systemImage: provider.data.charging ? "bolt.fill" : "battery.75percent")
                         Spacer()
-                        Text(provider.data.charging ? "\(provider.data.rate.formatted()) kW" : "\(provider.data.range) mi")
+                        if provider.data.charging { Text("\(provider.data.rate.formatted()) kW") }
                     }.font(.system(size: compact ? 18 : 26, weight: .medium)).foregroundStyle(.primary)
                     if provider.availability != .online {
                         Text("\(provider.availability.rawValue.capitalized) · Last reported values")
                             .foregroundStyle(.secondary)
-                    } else {
-                        Text("\(provider.data.range) mi range").font(.system(size: compact ? 20 : 28, weight: .medium)).foregroundStyle(.primary)
                     }
+                    HStack { Text("Estimated range"); Spacer(); Text("\(provider.data.range) mi") }
+                        .font(.system(size: compact ? 18 : 26, weight: .medium))
                 }
-                VStack(spacing: 0) {
-                    Toggle("Charge", isOn: Binding(get: { provider.data.charging }, set: { provider.send(.setCharging($0)) }))
-                        .padding(.vertical, 18)
-                    Divider()
-                    Toggle(isOn: Binding(get: { provider.data.preconditioning }, set: { provider.send(.setPreconditioning($0)) })) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Precondition")
-                            Text("Cabin · \(provider.data.climate)°F").font(.system(size: compact ? 15 : 20)).foregroundStyle(.secondary)
-                        }
-                    }.padding(.vertical, 18)
-                }.font(.system(size: compact ? 20 : 28, weight: .medium))
-                    .disabled(provider.availability != .online).tint(.green)
+                HStack { Text("Software update"); Spacer(); Text(provider.data.softwareUpdate ?? "Unknown").foregroundStyle(.secondary) }
+                    .font(.system(size: compact ? 16 : 22))
+                if let lockAction {
+                    HStack {
+                        Text("Doors")
+                        Spacer()
+                        Text(provider.data.locked ? "Locked" : "Unlocked").foregroundStyle(.secondary)
+                        Button(provider.data.locked ? "Unlock" : "Lock", action: lockAction)
+                            .buttonStyle(.glass)
+                    }.font(.system(size: compact ? 16 : 22))
+                }
                 HStack { Text("Odometer"); Spacer(); Text("\(provider.data.odo) mi").monospacedDigit() }
                     .font(.system(size: compact ? 16 : 22)).foregroundStyle(.secondary)
             }.frame(maxWidth: compact ? 600 : 680).padding(compact ? 24 : 32)

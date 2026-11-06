@@ -80,6 +80,41 @@ describe("Tesla HA adapter", () => {
       },
     });
   });
+  it("reports optional software update status without making telemetry depend on it", async () => {
+    const { client } = fixture();
+    const updateId = "update.test_software_update";
+    const original = client.getEntity;
+    client.getEntity = vi.fn(async (id: string) =>
+      id === updateId
+        ? {
+            entity_id: id,
+            state: "on",
+            attributes: { latest_version: "2026.40", installed_version: "2026.32" },
+            last_updated: "2026-01-01T00:00:00Z",
+          }
+        : original(id),
+    );
+    const result = await createTeslaService(client, () => ({
+      ...ids,
+      softwareUpdate: updateId,
+    })).state();
+    expect(result).toMatchObject({
+      status: "ready",
+      data: {
+        softwareUpdate: {
+          status: "available",
+          latestVersion: "2026.40",
+          installedVersion: "2026.32",
+        },
+      },
+    });
+    client.getEntity = vi.fn(async (id: string) =>
+      id === updateId ? Promise.reject(new Error("offline")) : original(id),
+    );
+    expect(
+      await createTeslaService(client, () => ({ ...ids, softwareUpdate: updateId })).state(),
+    ).toMatchObject({ status: "ready", data: {} });
+  });
   it("accepts zero/off and imperial units without inventing activity", async () => {
     const { values, service } = fixture();
     values[ids.battery] = ["0", "%"];

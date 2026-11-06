@@ -58,7 +58,7 @@ private actor TeslaProviderTransport: PanelTransport {
         let live = provider(transport)
         XCTAssertFalse(live.hasLiveData); XCTAssertEqual(live.availability, .offline)
         XCTAssertNil(live.snapshot); XCTAssertNil(live.data.lat); XCTAssertEqual(live.data.range, 0)
-        live.send(.setCharging(false))
+        live.request(.chargeStop)
         XCTAssertNil(live.requestedAction)
         await live.refresh()
         XCTAssertTrue(live.hasLiveData); XCTAssertEqual(live.availability, .online)
@@ -72,13 +72,9 @@ private actor TeslaProviderTransport: PanelTransport {
         let transport = TeslaProviderTransport(["ready", "accepted", "ready"])
         let live = provider(transport)
         await live.refresh()
-        for (command, expected) in [(TeslaCommand.setCharging(true), TeslaAction.chargeStart),
-                                    (.setCharging(false), .chargeStop),
-                                    (.setPreconditioning(true), .climateOn),
-                                    (.setPreconditioning(false), .climateOff)] {
-            live.send(command)
-            XCTAssertEqual(live.requestedAction, expected)
-            live.cancelCommand()
+        for action in [TeslaAction.chargeStart, .chargeStop, .climateOn, .climateOff] {
+            live.request(action)
+            XCTAssertNil(live.requestedAction)
         }
         let count = await transport.requests.count
         XCTAssertEqual(count, 1)
@@ -97,10 +93,10 @@ private actor TeslaProviderTransport: PanelTransport {
         let transport = TeslaProviderTransport(["ready", "forbidden", "accepted", "ready"])
         let live = provider(transport)
         await live.refresh()
-        live.send(.setPreconditioning(true))
+        live.request(.unlock)
         await live.confirm(pin: "123456")
         XCTAssertTrue(live.hasLiveData)
-        XCTAssertEqual(live.requestedAction, .climateOn)
+        XCTAssertEqual(live.requestedAction, .unlock)
         XCTAssertFalse(live.data.preconditioning)
         XCTAssertEqual(live.errorMessage, "PIN not accepted. Try again.")
         await live.confirm(pin: "123456")
