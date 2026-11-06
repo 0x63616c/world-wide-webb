@@ -29,14 +29,24 @@ import XCTest
         let faces = ["Green", "Midnight", "Paper", "Ember"]
         let initial = try XCTUnwrap(faces.firstIndex(of: clock.value as? String ?? ""))
         snapshot("clock-\(faces[initial].lowercased())")
+        func waitForFace(_ face: String) {
+            let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", face), object: clock)
+            XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
+        }
+        let right = window.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5))
+        let left = window.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5))
+        right.press(forDuration: 0.1,
+            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.69, dy: 0.5)),
+            withVelocity: .slow, thenHoldForDuration: 0.3)
+        waitForFace(faces[initial])
         for step in 1...3 {
-            window.swipeLeft()
+            right.press(forDuration: 0.1, thenDragTo: left, withVelocity: .slow, thenHoldForDuration: 0.2)
             let face = faces[(initial + step) % faces.count]
-            XCTAssertEqual(clock.value as? String, face)
+            waitForFace(face)
             snapshot("clock-\(face.lowercased())")
         }
-        window.swipeRight()
-        XCTAssertEqual(clock.value as? String, faces[(initial + 2) % faces.count])
+        left.press(forDuration: 0.1, thenDragTo: right, withVelocity: .slow, thenHoldForDuration: 0.2)
+        waitForFace(faces[(initial + 2) % faces.count])
         clock.tap()
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home-profile"].exists)
@@ -54,6 +64,23 @@ import XCTest
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE home-controls")
     }
+    func testLauncherGlassOptions() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        for option in ["regular", "clear", "clearDim"] {
+            app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+                "-updateCheckFakeBuild", "1", "-previewNightClock", "-panel.clockFace", "green",
+                "-previewLauncherGlass", option]
+            app.launch()
+            app.openAppGrid()
+            let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+            shot.name = "glass-\(option)"
+            shot.lifetime = .keepAlways
+            add(shot)
+            app.terminate()
+        }
+    }
+
     @MainActor func testGlassOverlay() { capture("swipePop") }
     @MainActor func testSwipePop() { capture("swipePop") }
     @MainActor func testDepth() { capture("depth") }
