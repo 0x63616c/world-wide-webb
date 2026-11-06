@@ -10,7 +10,7 @@ import XCTest
         let app = XCUIApplication()
         // Controls assertions must not depend on a slow CI gesture racing the
         // idle wake overlay. PanelReturnTests separately exercises idle/wake.
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-notificationHold", "-panel.idleDimming", "NO", "-moduleFlag.fan", "native", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hideFixtureTrace", "-notificationHold", "-panel.idleDimming", "NO", "-moduleFlag.fan", "native", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native"]
         if writes { app.launchArguments.append("-hybridControlWrites") }
         app.launch()
         app.openHomeModule("lights")

@@ -121,13 +121,15 @@ struct TeslaController: View {
                 HStack { Text("Software update"); Spacer(); Text(provider.data.softwareUpdate ?? "Unknown").foregroundStyle(.secondary) }
                     .font(.system(size: compact ? 16 : 22))
                 if let lockAction {
-                    HStack {
-                        Text("Doors")
-                        Spacer()
-                        Text(provider.data.locked ? "Locked" : "Unlocked").foregroundStyle(.secondary)
-                        Button(provider.data.locked ? "Unlock" : "Lock", action: lockAction)
-                            .buttonStyle(.glass)
+                    Toggle(isOn: Binding(get: { provider.data.locked }, set: { _ in lockAction() })) {
+                        HStack {
+                            Text("Doors")
+                            Spacer()
+                            Text(provider.data.locked ? "Locked" : "Unlocked").foregroundStyle(.secondary)
+                        }
                     }.font(.system(size: compact ? 16 : 22))
+                        .tint(.green)
+                        .accessibilityIdentifier("tesla-door-lock")
                 }
                 HStack { Text("Odometer"); Spacer(); Text("\(provider.data.odo) mi").monospacedDigit() }
                     .font(.system(size: compact ? 16 : 22)).foregroundStyle(.secondary)

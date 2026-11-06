@@ -93,10 +93,13 @@ import XCTest
         app.openHomeModule("tesla")
         XCTAssertTrue(app.staticTexts["Estimated range"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Software update"].exists)
-        XCTAssertTrue(app.buttons["Unlock"].exists)
+        XCTAssertTrue(app.switches["tesla-door-lock"].exists)
         XCTAssertFalse(app.switches["Charge"].exists)
         XCTAssertFalse(app.switches["Precondition"].exists)
         capture("tesla-telemetry", app)
+        app.switches["tesla-door-lock"].tap()
+        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+        app.buttons["Cancel"].tap()
     }
     func testRollbackLaunchesWebWithoutHome() {
         let app = XCUIApplication()
