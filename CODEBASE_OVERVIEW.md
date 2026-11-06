@@ -206,6 +206,10 @@ Colima VM. The root Dockerfile is validated on native ARM64 in CI; successful
 main runs trigger `deploy-mini.yml`, which publishes and releases the tested
 revision by immutable digest. Release/recovery scripts serialize changes and
 verify the exact SHA, database health and worker ownership.
+The same deployment installs the tunnel's host-side recovery LaunchAgent from
+the tested revision. It probes connection readiness every 30 seconds and restarts
+only a persistently disconnected, running tunnel; see
+[tunnel recovery](docs/runbooks/tunnel-recovery.md).
 
 `infra/cloudflare` retains DNS, Access and tunnel ingress for `app`, `ha`,
 `hindsight`, `bambuddy` and `dsm`. Bambuddy's web UI and same-origin API use

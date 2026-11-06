@@ -82,6 +82,22 @@ jobs:
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts" \
             calum@homelab.tail8c014d.ts.net \
             "bash /Users/calum/www-control-center/release.sh '$IMAGE' '$REVISION' '$GENERATION'"
+      - name: Install tunnel recovery
+        env:
+          GENERATION: ${{ github.event.workflow_run.run_number }}
+        run: |
+          # Ship these host files from the same tested checkout as the app image.
+          remote=calum@homelab.tail8c014d.ts.net
+          ssh_options=(-i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts")
+          stage=$(ssh "${ssh_options[@]}" "$remote" 'mktemp -d /Users/calum/tunnel-recovery-install.XXXXXX')
+          [[ "$stage" =~ ^/Users/calum/tunnel-recovery-install\.[[:alnum:]]+$ ]]
+          cleanup() { ssh "${ssh_options[@]}" "$remote" "rm -rf -- '$stage'"; }
+          trap cleanup EXIT
+          scp "${ssh_options[@]}" deploy/mini/tunnel_watchdog.py \
+            deploy/mini/com.calum.tunnel-recovery.plist deploy/mini/install-tunnel-recovery.sh \
+            "$remote:$stage/"
+          ssh "${ssh_options[@]}" "$remote" "bash '$stage/install-tunnel-recovery.sh' '$GENERATION'"
       - name: Remove temporary key
         if: always()
         run: rm -f "$RUNNER_TEMP/mini-key"

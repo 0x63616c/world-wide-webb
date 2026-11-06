@@ -101,8 +101,8 @@ jobs:
         run: bash scripts/test-mini-release.sh
       - name: Mac mini recovery scenarios
         run: bash scripts/test-mini-recovery.sh
-      - name: Mac mini backup safety checks
-        run: python3 -m unittest discover -s deploy/mini -p 'test_backup.py'
+      - name: Mac mini backup and tunnel recovery safety checks
+        run: python3 -m unittest discover -s deploy/mini -p 'test_*.py'
       - name: Native ARM64 build guard
         run: bash scripts/test-build-matrix.sh
       - name: Wall-panel health classifier tests

@@ -23,5 +23,15 @@ assert.equal(release.env.GENERATION, '${{ github.event.workflow_run.run_number }
 assert(release.run.includes('StrictHostKeyChecking=yes'));
 assert(release.env.IMAGE.includes('@${{ steps.image.outputs.digest }}'));
 assert(release.run.includes('release.sh'));
+const recovery = job.steps.find(s => s.name === 'Install tunnel recovery');
+assert(recovery, 'tested tunnel recovery must be installed on the mini');
+assert.equal(recovery.env.GENERATION, '${{ github.event.workflow_run.run_number }}');
+assert(job.steps.indexOf(recovery) > job.steps.indexOf(release));
+assert(recovery.run.includes('StrictHostKeyChecking=yes'));
+for (const file of ['tunnel_watchdog.py', 'com.calum.tunnel-recovery.plist', 'install-tunnel-recovery.sh']) {
+  assert(recovery.run.includes(`deploy/mini/${file}`));
+}
+assert(ci.jobs['test-unit'].steps.some(s => s.run?.includes("-s deploy/mini -p 'test_*.py'")),
+  'CI must exercise tunnel recovery failure cases');
 console.log('PASS: successful main CI deploys the tested SHA and immutable digest');
 JS
