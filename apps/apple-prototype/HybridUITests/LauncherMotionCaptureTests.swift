@@ -7,11 +7,11 @@ import XCTest
         super.setUp()
         XCUIDevice.shared.orientation = .landscapeLeft
     }
-    func testPanelHomeAndClockFaces() {
+    func testPanelHomeAndClockFaces() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-            "-updateCheckFakeBuild", "1", "-panel.clockFace", "green", "-previewNightClock"]
+            "-updateCheckFakeBuild", "1", "-previewNightClock"]
         app.launch()
         defer { app.terminate() }
         app.alignPanelOrientation()
@@ -26,19 +26,22 @@ import XCTest
         }
         print("MOTION_CAPTURE_READY home-controls")
         Thread.sleep(forTimeInterval: 1)
-        snapshot("clock-green-night")
-        for face in ["Midnight", "Paper", "Ember"] {
+        let faces = ["Green", "Midnight", "Paper", "Ember"]
+        let initial = try XCTUnwrap(faces.firstIndex(of: clock.value as? String ?? ""))
+        snapshot("clock-\(faces[initial].lowercased())")
+        for step in 1...3 {
             window.swipeLeft()
+            let face = faces[(initial + step) % faces.count]
             XCTAssertEqual(clock.value as? String, face)
             snapshot("clock-\(face.lowercased())")
         }
         window.swipeRight()
-        XCTAssertEqual(clock.value as? String, "Paper")
+        XCTAssertEqual(clock.value as? String, faces[(initial + 2) % faces.count])
         clock.tap()
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
         snapshot("home")
         app.buttons["app-climate"].tap()
-        XCTAssertTrue(app.buttons["climate-more"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(timeout: 10))
         snapshot("climate")
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE home-controls")

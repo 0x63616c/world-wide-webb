@@ -1,22 +1,18 @@
 # Native app shell
 
-The panel starts on the green clock. Swipe left anywhere on the awake clock to reveal the
-vertically scrolling icon launcher. Swipe right on the launcher or tap the Clock
-icon to return to the full-screen clock. Short swipes spring back; vertical
-scrolling and app controls keep their own interactions. Dog Walker is the walking
-app; route IDs remain stable.
+Tap the clock to slide Home up over it. Tap Close or choose Clock to slide Home
+back down. Swipe left or right on the clock to cycle Green, Midnight, Paper and
+Ember. The panel remembers the selected face.
 
-App opening reuses the clock-to-launcher reveal: the launcher slides left and
-shrinks slightly while the app slides in from the right, using the same spring.
-Back reverses that motion and preserves the launcher's scroll position. System
-Reduce Motion removes the spatial movement. Debug transition previews apply to
-both handoffs.
+When an app opens, the clock, glass and app selectors slide left and shrink
+together as the app enters from the right. Back reverses the motion and restores
+the launcher's scroll position. System Reduce Motion uses a fade.
 
 Every app has a fixed upper-left Back control returning to the launcher, including
 Settings, protected pages, unavailable states and Classic. App scroll views only
 bounce when their content overflows. A single-finger content scroll never closes
 an app. Back buttons are the app navigation; accessibility escape remains available.
-Settings uses a native split view for Display, Security and Apps preferences.
+Settings uses a native split view for Display and Security preferences.
 Back chrome has no painted full-width background: app backgrounds extend behind
 the transparent top safe-area inset while content remains below the button.
 Settings places Back in its native sidebar toolbar instead of adding a second
@@ -67,9 +63,9 @@ Tap the orange duration beneath the countdown to choose hours, minutes or second
 Presets live inside that editor. Start, Pause, Resume, Reset and Again operate on
 the real local timer; the fixed Back button returns to Home.
 
-The shell owns a persisted deadline, so leaving the page, idle return to Clock,
-suspension or relaunch does not restart the countdown. Pause preserves the exact
-remaining interval. Settings → Apps → Timer configures its return-to-clock delay.
+The shell persists the timer deadline across navigation, suspension and relaunch.
+Pause preserves the exact remaining interval. The active timer holds the panel
+awake and plays ticks and a completion sound.
 An OS local notification supplies the completion alert outside the page, subject
 to notification/sound permissions; denied or silent settings are shown honestly.
 VoiceOver reads a duration and announces completion once. Simulator recordings
@@ -153,11 +149,12 @@ palette without changing the system clock or stored user settings.
 
 ## Activity and navigation
 
-Sixty seconds without interaction returns to the clock. The Display preference
-controls whether that clock is also dimmed. Touching a dimmed clock wakes it;
-swiping left opens the launcher. A window-level observer tracks
-taps and drags without an invisible view covering app controls. It only tracks
-activity and never navigates; the five-finger Home pinch has been removed.
+The Display settings slider controls the return-to-clock delay, which defaults to
+60 seconds. Screen dimming has a separate deadline. An active timer or dog walk
+suspends both deadlines. A tap wakes the dimmed panel. On the native iPad kiosk,
+that wake triggers a short front-camera burst, with camera permission, and
+uploads the frames as one Activity session. A window observer tracks interaction
+without forwarding the wake tap into app controls.
 VoiceOver escape and the named Open apps action provide equivalent navigation.
 
 The chooser includes ten procedural animated art styles. Its previews are frozen,
@@ -168,10 +165,6 @@ use a full-screen system Safari controller.
 
 Simulator builds also accept Escape to open the app grid (enable Device Hub's
 Capture Keyboard and focus the simulated display). This adds no on-screen chrome.
-Settings keeps its sidebar visible. Its Apps section is catalog-driven and stores
-options under each stable app ID through PanelAppPreferences: motion reduction
-and idle return duration are applied by the shared app host. New destinations
-inherit these settings automatically. The default idle duration remains 60 seconds.
 The launcher includes the current local date and time; the car destination is
 labelled Tesla while retaining its stable `car` route ID.
 

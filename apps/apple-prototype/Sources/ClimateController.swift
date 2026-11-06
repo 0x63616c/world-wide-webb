@@ -4,6 +4,7 @@ import SwiftUI
 struct ClimateController: View {
     let store: any HomeDataSource
     @State private var editingLow = false
+    @State private var showingMore = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     private var climate: ClimateState { store.climate }
@@ -43,37 +44,46 @@ struct ClimateController: View {
         HStack {
             Text(climate.mode.label)
             Spacer()
-            Menu {
-                Section("Climate mode") {
-                    ForEach(ClimateMode.allCases, id: \.self) { mode in
-                        Button {
-                            store.send(.mode(mode))
-                        } label: {
-                            if climate.mode == mode { Label(mode.label, systemImage: "checkmark") }
-                            else { Text(mode.label) }
-                        }.accessibilityIdentifier("mode-\(mode.rawValue)")
-                    }
-                }
-                Button("Fan · \(climate.fanLabel)") { store.send(.toggle(.fan)) }
-                    .accessibilityIdentifier("climate-fan")
-                if !climate.fanModes.isEmpty {
-                    Section("Fan") {
-                        ForEach(climate.fanModes, id: \.self) { mode in
-                            Button {
-                                store.send(.fanMode(mode))
-                            } label: {
-                                if climate.selectedFanMode == mode { Label(mode.capitalized, systemImage: "checkmark") }
-                                else { Text(mode.capitalized) }
-                            }.accessibilityIdentifier("climate-fan-\(mode)")
-                        }
-                    }
-                }
+            Button {
+                showingMore = true
             } label: {
                 Label("More", systemImage: "ellipsis.circle")
                     .padding(.horizontal, 16).frame(minHeight: 48)
             }.buttonStyle(.glass).accessibilityIdentifier("climate-more")
+                .popover(isPresented: $showingMore, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Climate mode").font(.headline)
+                        ForEach(ClimateMode.allCases, id: \.self) { mode in
+                            choice(mode.label, selected: climate.mode == mode, id: "mode-\(mode.rawValue)") {
+                                store.send(.mode(mode))
+                            }
+                        }
+                        Divider()
+                        Text("Fan").font(.headline)
+                        ForEach(climate.fanModes, id: \.self) { mode in
+                            choice(mode.capitalized, selected: climate.selectedFanMode == mode, id: "climate-fan-\(mode)") {
+                                store.send(.fanMode(mode))
+                            }
+                        }
+                    }.padding(20).frame(minWidth: 240)
+                        .presentationCompactAdaptation(.popover)
+                }
         }.font(.title3.weight(.medium))
     }
+    private func choice(_ title: String, selected: Bool, id: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            showingMore = false
+        } label: {
+            HStack {
+                Text(title)
+                Spacer()
+                if selected { Image(systemName: "checkmark") }
+            }.frame(minHeight: 44).contentShape(.rect)
+        }.buttonStyle(.plain).accessibilityIdentifier(id)
+            .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
     private func rangeSelection(low: Bool) -> some View {
         Button { editingLow = low } label: {
             HStack(spacing: 12) {

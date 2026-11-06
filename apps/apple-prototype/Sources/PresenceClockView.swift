@@ -20,7 +20,7 @@ struct PresenceClockFace: View {
             let hour = Calendar.current.component(.hour, from: now)
             let night = previewNight || (SolarClock.isNight(at: now, sunrise: store.weather.sunrise,
                 sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise)
-                ?? (store.weather.symbol.contains("moon") || hour < 7 || hour >= 18))
+                ?? (store.status(for: .weather) != .live || store.weather.symbol.contains("moon") || hour < 7 || hour >= 18))
             ZStack {
                 switch face {
                 case .green:

@@ -101,10 +101,10 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
         app.terminate()
         app.launchArguments = ["-snapshot", "-openTile", "climate"]
         app.launch()
-        XCTAssertTrue(app.buttons["climate-more"].waitForExistence(timeout: 30))
-        app.buttons["climate-more"].tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(timeout: 30))
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.tap()
         app.buttons["mode-off"].tap()
-        app.buttons["climate-more"].tap()
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.tap()
         app.buttons["mode-heat_cool"].tap()
         XCTAssertTrue(app.buttons["climate-range-low"].waitForExistence(timeout: 10))
     }

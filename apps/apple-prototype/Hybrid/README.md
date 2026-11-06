@@ -1,14 +1,13 @@
 # Current native navigation
 
-Panel starts on the green clock. Tap the clock to reveal the vertically scrolling app
+Panel starts on the selected clock face. Tap the clock to reveal the vertically scrolling app
 launcher on one full-screen native Liquid Glass surface over the same living clock.
 The clock stays fixed as the glass slides up from the bottom. Close Home with the
 top-right close button (or choose Clock); the glass slides back down. Horizontal
-swipes no longer navigate between the clock and Home.
-The glass follows the screen corners with an 8-point inset, extra system-material
-frosting, and a 0.3-second reveal. The hands cast a subtle shadow on the dial.
+swipes on the clock cycle Green, Midnight, Paper and Ember.
+The glass follows the screen corners with an 8-point inset, and a 0.3-second reveal. The hands cast a subtle shadow on the dial.
 The launcher has no photographic wallpaper or Background picker. Each app opens
-full screen, and its Back button restores the launcher. Reduce Motion replaces
+full screen as the clock and launcher move away together. Back restores both. Reduce Motion replaces
 the slide with a fade.
 Only Classic opens the web board. See [app registration](../Sources/Apps/README.md)
 for the typed catalog and extension recipe. Older dashboard descriptions below

@@ -118,43 +118,43 @@ struct HomeView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 ZStack {
-                PresenceClockFace(store: store, face: clockFace)
-                    .id(clockFace)
-                    .transition(reduceMotion ? .opacity : ClockLauncherMotion.reveal.faceTransition(width: proxy.size.width, direction: faceDirection))
-                    .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
-                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .allowsHitTesting(false).accessibilityHidden(true)
-                if showingClock {
-                    // A tap recognizer cancels on movement; a full-screen Button
-                    // can activate after a drag that ends inside its large bounds.
-                    Color.clear.contentShape(.rect)
-                        .onTapGesture(perform: home)
-                        .gesture(DragGesture(minimumDistance: 20).onEnded { gesture in
-                            let delta = gesture.predictedEndTranslation
-                            guard abs(delta.width) > max(60, abs(delta.height)) else { return }
-                            changeClockFace(by: delta.width < 0 ? 1 : -1)
-                        })
-                        .accessibilityAdjustableAction { direction in
-                            if direction == .increment { changeClockFace(by: 1) }
-                            if direction == .decrement { changeClockFace(by: -1) }
-                        }
-                        .accessibilityElement()
-                        .accessibilityLabel("Open apps")
-                        .accessibilityValue(clockFace.rawValue.capitalized)
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityAction { home() }
-                        .accessibilityIdentifier("launcher-clock")
-                }
-                AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
-                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
-                    .background {
-                        LauncherGlassSurface()
+                    PresenceClockFace(store: store, face: clockFace)
+                        .id(clockFace)
+                        .transition(reduceMotion ? .opacity : ClockLauncherMotion.reveal.faceTransition(width: proxy.size.width, direction: faceDirection))
+                        .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
+                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                    if showingClock {
+                        // A tap recognizer cancels on movement; a full-screen Button
+                        // can activate after a drag that ends inside its large bounds.
+                        Color.clear.contentShape(.rect)
+                            .onTapGesture(perform: home)
+                            .gesture(DragGesture(minimumDistance: 20).onEnded { gesture in
+                                let delta = gesture.predictedEndTranslation
+                                guard abs(delta.width) > max(60, abs(delta.height)) else { return }
+                                changeClockFace(by: delta.width < 0 ? 1 : -1)
+                            })
+                            .accessibilityAdjustableAction { direction in
+                                if direction == .increment { changeClockFace(by: 1) }
+                                if direction == .decrement { changeClockFace(by: -1) }
+                            }
+                            .accessibilityElement()
+                            .accessibilityLabel("Open apps")
+                            .accessibilityValue(clockFace.rawValue.capitalized)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { home() }
+                            .accessibilityIdentifier("launcher-clock")
                     }
-                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .offset(y: !reduceMotion && showingClock ? proxy.size.height : 0)
-                    .opacity(reduceMotion && showingClock ? 0 : 1)
-                    .allowsHitTesting(!showingClock && selected == nil)
-                    .accessibilityHidden(showingClock || selected != nil)
+                    AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
+                        .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                        .background {
+                            LauncherGlassSurface()
+                        }
+                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                        .offset(y: !reduceMotion && showingClock ? proxy.size.height : 0)
+                        .opacity(reduceMotion && showingClock ? 0 : 1)
+                        .allowsHitTesting(!showingClock && selected == nil)
+                        .accessibilityHidden(showingClock || selected != nil)
                 }
                 .modifier(LauncherSurfaceMotion(motion: launcherMotion,
                     progress: selected == nil ? 0 : 1, width: proxy.size.width,
