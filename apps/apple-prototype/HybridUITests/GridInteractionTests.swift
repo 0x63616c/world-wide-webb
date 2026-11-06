@@ -57,6 +57,14 @@ import XCTest
             .press(forDuration: 0.1, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
         expectWrite("climate.setTarget", in: app)
         app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.tap()
+        XCTAssertTrue(app.buttons["mode-heat"].exists)
+        XCTAssertTrue(app.buttons["mode-cool"].exists)
+        XCTAssertTrue(app.buttons["mode-off"].exists)
+        XCTAssertFalse(app.buttons["mode-heat_cool"].exists)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "climate-mode-choices"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         app.buttons["climate-fan-auto"].tap()
         expectWrite("controls.toggle", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-climate"].firstMatch.exists)

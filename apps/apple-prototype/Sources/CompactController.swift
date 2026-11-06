@@ -14,8 +14,12 @@ struct CompactController: View {
             Form {
                 Section {
                     Text("Inside \(store.climate.ambient)° · \(store.climate.action)")
-                    Picker("Mode", selection: Binding(get: { store.climate.mode }, set: { store.send(.mode($0)) })) {
-                        ForEach(ClimateMode.allCases, id: \.self) { Text($0.label).tag($0) }
+                    Menu {
+                        ForEach(ClimateMode.selectable, id: \.self) { mode in
+                            Button(mode.label) { store.send(.mode(mode)) }
+                        }
+                    } label: {
+                        LabeledContent("Mode", value: store.climate.mode.label)
                     }
                     if store.climate.mode == .heatCool {
                         Stepper("Heat to \(store.climate.low)°", onIncrement: { store.send(.low(store.climate.low + 1)) }, onDecrement: { store.send(.low(store.climate.low - 1)) })
