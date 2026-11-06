@@ -1,5 +1,7 @@
 # Local transcription
 
+After transcription, Callkeep can suggest a title using the on-device Apple Intelligence model and recent non-default recording titles as style examples. The suggestion is stored with the recording, including when that recording is moved to iCloud Drive. Accept, edit, or dismiss it in the recording detail; existing custom titles are not replaced. Disable suggestions under Settings → Title suggestions. This feature requires macOS 26 or later and an available Apple Intelligence on-device model. Voice recognition is not used.
+
 Callkeep transcribes each finished call on this Mac, after audio capture has closed its files. This feature requires Apple silicon and macOS 15 or later. Recording and playback still support Intel.
 
 ## Choose and download a model

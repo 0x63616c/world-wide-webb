@@ -50,9 +50,11 @@ final class TranscriptionQueueTests: XCTestCase {
         let engine = StubSpeechEngine()
         let controller = TranscriptionController(root: root, defaults: defaults, engine: engine, manifestURL: manifest)
         var completed: [UUID] = []
+        var completedTranscripts: [Transcript] = []
         var permissionRequests = 0
         controller.requestNotifications = { permissionRequests += 1 }
         controller.didComplete = { completed.append($0) }
+        controller.transcriptCompleted = { completedTranscripts.append($0) }
         controller.recording = { _ in (record, folder) }
         controller.canRun = { true }
         controller.setSuspended(true)
@@ -81,6 +83,7 @@ final class TranscriptionQueueTests: XCTestCase {
         let calls = await engine.calls
         XCTAssertEqual(calls, 3)
         XCTAssertEqual(completed, [record.id])
+        XCTAssertEqual(completedTranscripts.map(\.id), [result.id])
         XCTAssertEqual(permissionRequests, 1)
         controller.automatic = false
         controller.enqueue(record, automatic: true)

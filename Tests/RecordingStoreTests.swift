@@ -3,6 +3,16 @@ import AVFoundation
 @testable import CallkeepCore
 
 final class RecordingStoreTests: XCTestCase {
+    func testSuggestedTitleRoundTripsAndOldRecordingsDecode() throws {
+        var recording = Recording(title: "Recording 1")
+        let legacy = try JSONEncoder().encode(recording)
+        let decoded = try JSONDecoder().decode(Recording.self, from: legacy)
+        XCTAssertNil(decoded.suggestedTitle)
+        XCTAssertNil(decoded.titleSuggestionDismissed)
+        recording.suggestedTitle = "Project planning"
+        recording.titleSuggestionDismissed = true
+        XCTAssertEqual(try JSONDecoder().decode(Recording.self, from: JSONEncoder().encode(recording)), recording)
+    }
     private var root: URL!
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
