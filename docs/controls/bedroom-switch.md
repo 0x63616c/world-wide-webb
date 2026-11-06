@@ -16,8 +16,8 @@ All three environment values must be present on the worker/www process:
 Missing, false, or malformed config creates no input connection, desired write,
 or HA call. The verification flag is an operator assertion, not device discovery.
 Do not set it until Calum verifies the actual Input 0 ID, Detached mode, and the
-representation below. No Shelly/HA automation should own this input (Calum's
-stated decision); Apple Home ownership remains unconfirmed and must be checked.
+representation below. Calum confirmed that competing automations are absent
+across Shelly, Home Assistant, and Apple Home.
 The deployment currently does not forward these keys: activation later requires
 an approved Compose environment change plus process restart. There are no changes
 to deployed environment values in this implementation. Roll back by setting either
@@ -30,8 +30,9 @@ With Calum's explicit authorization for live work, confirm Input 0 is a stateful
 with `on`/`off`, UTC `last_changed` (up to six fractional digits), and no restored
 flag. Event-only Shelly click representations are deliberately unsupported; do
 not guess an entity or translate events without a separate implementation/test.
-Confirm Detached mode leaves lamp mains powered. Check HA, Shelly and Apple Home
-for competing automations. Confirm both physical directions emit one edge.
+Confirm Detached mode leaves lamp mains powered. Competing Shelly, Home Assistant,
+and Apple Home automations are confirmed absent by Calum. Confirm both physical
+directions emit one edge.
 Verify startup, reconnect and availability recovery baseline without toggling.
 Then verify both bedside lamps plus Mirror invert together and bedroom-off stays
 off during party while other lamps continue animating. This is a future manual
@@ -70,7 +71,8 @@ for an already-running party HA call to finish before committing off; subsequent
 ticks skip every desired-off/missing lamp, preserving other lamps' wave positions.
 The lock spans bounded HA requests, so a slow HA can delay input/app commands; this
 is an intentional correctness tradeoff. External HA/Apple/Shelly writers do not
-participate in this lock, which is why ownership verification remains a gate.
+participate in this lock. Calum confirmed no competing automations exist; retain
+that ownership arrangement when enabling the binding.
 
 Offline tests mock transport/state entirely. Optional real PostgreSQL store contract
 tests require an isolated test database (`CORE_PG_TEST_URL`); they are skipped when
