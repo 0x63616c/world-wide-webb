@@ -51,6 +51,12 @@ describe("Tesla entity discovery", () => {
     const result = discoverTeslaEntities([...fleet(), entity("update", "software_update")]);
     expect(result.missing).toEqual([]);
     expect(result.entities?.softwareUpdate).toBe(`update.${prefix}_software_update`);
+    const defaultName = discoverTeslaEntities([...fleet(), entity("update", "update")]);
+    expect(defaultName.entities?.softwareUpdate).toBe(`update.${prefix}_update`);
+    expect(
+      discoverTeslaEntities([...fleet(), entity("update", "charger_update")]).entities
+        ?.softwareUpdate,
+    ).toBeUndefined();
     const pathName = discoverTeslaEntities([
       ...fleet(),
       entity("update", "vehicle_state_software_update_status"),
@@ -117,6 +123,21 @@ function setup() {
   return { all, client, service: createTeslaService(client, () => null) };
 }
 describe("discovery lifecycle", () => {
+  it("reports the default Tesla update entity through the state API", async () => {
+    const { all, service } = setup();
+    const update = entity("update", "update");
+    update.state = "off";
+    update.attributes = {
+      installed_version: "2026.38.5.11",
+      latest_version: "2026.38.5.11",
+      in_progress: false,
+    };
+    all.push(update);
+    expect(await service.state()).toMatchObject({
+      status: "ready",
+      data: { softwareUpdate: { status: "up_to_date", installedVersion: "2026.38.5.11" } },
+    });
+  });
   it("caches shared state/command discovery for five minutes and coalesces concurrent reads", async () => {
     const { service, client } = setup();
     const now = vi.spyOn(Date, "now").mockReturnValue(1000);
