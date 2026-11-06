@@ -42,14 +42,14 @@ import XCTest
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
         capture("launcher-after-idle-wake", app)
     }
-    func testClockTapOpensHomeAndCloseReturnsToClock() {
+    func testClockTapOpensHomeAndSwipeDownReturnsToClock() {
         let app = launch()
         defer { app.terminate() }
         app.buttons["launcher-clock"].tap()
-        XCTAssertTrue(app.buttons["home-close"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
         XCTAssertFalse(app.buttons["launcher-clock"].exists)
-        app.buttons["home-close"].tap()
+        app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.buttons["app-settings"].exists)
         app.openAppGrid()
@@ -70,14 +70,14 @@ import XCTest
         XCTAssertFalse(app.buttons["home-close"].exists)
         app.openAppGrid()
         left.press(forDuration: 0.1, thenDragTo: right)
-        XCTAssertTrue(app.buttons["home-close"].isHittable)
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
         app.buttons["app-settings"].tap()
         XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["home-close"].exists)
         app.buttons["app-back"].tap()
-        XCTAssertTrue(app.buttons["home-close"].waitForExistence(timeout: 5))
-        app.buttons["home-close"].tap()
+        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
+        app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
     }
     func testRollbackLaunchesWebWithoutHome() {

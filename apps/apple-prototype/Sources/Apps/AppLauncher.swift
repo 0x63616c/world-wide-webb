@@ -8,6 +8,8 @@ struct AppLauncher: View {
     let isPresented: Bool
     let namespace: Namespace.ID
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var isAtTop = true
+    @State private var swipeStartedAtTop: Bool?
     var body: some View {
         GeometryReader { proxy in
             let columns = sizeClass == .compact ? 3 : 5
@@ -46,19 +48,24 @@ struct AppLauncher: View {
                 }
                 }.frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
-                if isPresented {
-                    HStack(spacing: 8) {
-                        PanelProfilePhoto()
-                    Button(action: close) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .semibold))
-                            .frame(width: 48, height: 48)
-                            .contentShape(.rect)
-                    }.buttonStyle(.plain)
-                        .frame(width: 48, height: 48)
-                        .accessibilityLabel("Close Home")
-                        .accessibilityIdentifier("home-close")
+                .onScrollGeometryChange(for: Bool.self) { geometry in
+                    geometry.contentOffset.y <= -geometry.contentInsets.top + 1
+                } action: { _, atTop in
+                    isAtTop = atTop
+                }
+                .simultaneousGesture(DragGesture(minimumDistance: 12)
+                    .onChanged { _ in
+                        if swipeStartedAtTop == nil { swipeStartedAtTop = isAtTop }
                     }
+                    .onEnded { value in
+                        defer { swipeStartedAtTop = nil }
+                        guard isPresented, swipeStartedAtTop == true,
+                              value.translation.height > abs(value.translation.width),
+                              value.translation.height > 80 || value.predictedEndTranslation.height > 180 else { return }
+                        close()
+                    })
+                if isPresented {
+                    PanelProfilePhoto()
                         .padding(24)
                         .zIndex(1)
                 }
@@ -66,6 +73,7 @@ struct AppLauncher: View {
         }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
+            .accessibilityAction(named: "Return to clock") { close() }
     }
 }
 

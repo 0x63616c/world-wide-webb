@@ -14,12 +14,8 @@ extension HomeViewLaunchTests {
         for digit in value { app.buttons["pin-digit-\(digit)"].tap() }
     }
     @MainActor private func waitForLauncherToSettle(_ app: XCUIApplication) {
-        let homeClose = app.buttons["home-close"]
-        let window = app.windows.firstMatch
-        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            homeClose.exists && abs(window.frame.maxX - homeClose.frame.maxX - 24) < 4
-        }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
     }
     @MainActor func testPINChangeConfirmationAndPrivatePageUnlock() {
         let app = launchAccess()
