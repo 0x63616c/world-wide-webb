@@ -96,10 +96,10 @@ struct HomeView: View {
         return nil
     }
     private func home() {
-        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showLauncher(); faceDrag = 0 }
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.25, bounce: 0)) { shell.showLauncher(); faceDrag = 0 }
     }
     private func clock() {
-        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showClock(); faceDrag = 0 }
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.25, bounce: 0)) { shell.showClock(); faceDrag = 0 }
     }
     private func clockLauncherSwipe(width: CGFloat, towardClock: Bool) -> some Gesture {
         DragGesture(minimumDistance: 12, coordinateSpace: .global)
@@ -116,7 +116,7 @@ struct HomeView: View {
                    distance > width * 0.18 || projected > width * 0.35 {
                     if towardClock { clock() } else { home() }
                 } else {
-                    withAnimation(reduceMotion ? nil : launcherMotion.animation) { faceDrag = 0 }
+                    withAnimation(reduceMotion ? nil : .spring(duration: 0.25, bounce: 0)) { faceDrag = 0 }
                 }
             }
     }
@@ -142,10 +142,9 @@ struct HomeView: View {
                     .accessibilityIdentifier("launcher-clock")
                 AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
                     .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
-                    .scaleEffect(reduceMotion ? 1 : 1.025 - 0.025 * progress)
+                    .scaleEffect(reduceMotion ? 1 : 1.015 - 0.015 * progress)
                     .background {
-                        // One native navigation surface samples the living clock below.
-                        Color.clear.glassEffect(.regular, in: .rect(cornerRadius: PanelSurface.cornerRadius))
+                        LauncherGlassSurface()
                     }
                     .opacity(Double(progress))
                     .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))

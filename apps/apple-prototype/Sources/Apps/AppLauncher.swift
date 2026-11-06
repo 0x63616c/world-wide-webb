@@ -43,6 +43,23 @@ struct AppLauncher: View {
     }
 }
 
+/// Native glass above the clock, with system material supplying additional frost.
+/// The inset and concentric corners leave a slim, uninterrupted rim of the dial.
+struct LauncherGlassSurface: View {
+    private let edgeInset: CGFloat = 5
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
+        Rectangle().fill(.ultraThinMaterial).opacity(0.35)
+            .clipShape(shape)
+            .overlay {
+                Color.clear.glassEffect(.regular.tint(.white.opacity(0.06)), in: shape)
+            }
+            .padding(edgeInset)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
 /// Shared edge gesture: only the bottom centre 88 pt are reserved, leaving app scroll
 /// views and controls alone. No visible navigation bar or page dots.
 struct SwipeHomeRegion: View {

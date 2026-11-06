@@ -104,16 +104,19 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 15))
         print("MOTION_CAPTURE_READY \(style)")
         Thread.sleep(forTimeInterval: 2) // Capture lead-in; never used for correctness assertions.
-        app.openAppGrid()
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)).press(forDuration: 0.05,
+            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)),
+            withVelocity: .fast, thenHoldForDuration: 0)
         XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10))
         let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         screenshot.name = "clock-glass-home"
         screenshot.lifetime = .keepAlways
         add(screenshot)
         Thread.sleep(forTimeInterval: 2)
-        let window = app.windows.firstMatch
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.85)).press(forDuration: 0.1,
-            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.85)))
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.85)).press(forDuration: 0.05,
+            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.85)),
+            withVelocity: .fast, thenHoldForDuration: 0)
         XCTAssertTrue(app.buttons["app-clock"].waitForNonExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE \(style)")
