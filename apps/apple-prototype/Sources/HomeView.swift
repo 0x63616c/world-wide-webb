@@ -86,7 +86,13 @@ struct HomeView: View {
     @State private var timer = PanelTimerStore()
     private var display = PanelDisplayPreferences()
     @AppStorage("panel.clockFace") private var clockFace = PanelClockFace.green
-    @State private var faceDirection: CGFloat = 1
+    @GestureState private var faceDrag: CGFloat = 0
+    @State private var faceSettle: FaceSettle?
+
+    private struct FaceSettle {
+        let step: Int
+        var offset: CGFloat
+    }
     private var keepsAwake: Bool { timer.keepsScreenAwake || store.walks.activeWalk != nil }
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
@@ -107,13 +113,75 @@ struct HomeView: View {
         if case .app(let id) = shell.screen { return catalog.app(id: id) }
         return nil
     }
-    private func changeClockFace(by step: Int) {
-        faceDirection = CGFloat(step)
+    private func adjacentFace(by step: Int) -> PanelClockFace {
         let faces = PanelClockFace.allCases
-        guard let index = faces.firstIndex(of: clockFace) else { return }
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : ClockLauncherMotion.swipePop.animation) {
-            clockFace = faces[(index + step + faces.count) % faces.count]
+        let index = faces.firstIndex(of: clockFace) ?? 0
+        return faces[(index + step + faces.count) % faces.count]
+    }
+
+    private func settleFace(by step: Int, width: CGFloat, offset: CGFloat = 0, commit: Bool = true) {
+        guard faceSettle == nil else { return }
+        if reduceMotion {
+            if commit {
+                withAnimation(.easeInOut(duration: 0.15)) { clockFace = adjacentFace(by: step) }
+            }
+            return
         }
+
+        let next = adjacentFace(by: step)
+        faceSettle = FaceSettle(step: step, offset: offset)
+        withAnimation(ClockLauncherMotion.swipePop.animation, completionCriteria: .removed) {
+            faceSettle?.offset = commit ? -CGFloat(step) * (width + 24) : 0
+        } completion: {
+            if commit { clockFace = next }
+            faceSettle = nil
+        }
+    }
+
+    private func faceDragGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 14)
+            .updating($faceDrag) { gesture, offset, _ in
+                guard faceSettle == nil, !reduceMotion,
+                      abs(gesture.translation.width) > abs(gesture.translation.height) else { return }
+                offset = min(width, max(-width, gesture.translation.width))
+            }
+            .onEnded { gesture in
+                let movement = gesture.translation
+                guard abs(movement.width) > abs(movement.height) else { return }
+                let projected = gesture.predictedEndTranslation.width
+                let step = movement.width < 0 ? 1 : -1
+                let commit = abs(movement.width) >= width * 0.18 ||
+                    -CGFloat(step) * projected >= width * 0.24
+                settleFace(by: step, width: width,
+                    offset: min(width, max(-width, movement.width)), commit: commit)
+            }
+    }
+
+    @ViewBuilder private func clockSurface(width: CGFloat) -> some View {
+        let offset = faceSettle?.offset ?? faceDrag
+        let step = faceSettle?.step ?? (offset < 0 ? 1 : -1)
+        let distance = width + 24
+        let progress = min(1, abs(offset) / max(1, distance))
+
+        clockDial(clockFace)
+            .id(clockFace)
+            .transition(reduceMotion ? .opacity : .identity)
+            .scaleEffect(1 - progress * 0.12)
+            .offset(x: offset)
+
+        if faceSettle != nil || offset != 0 {
+            clockDial(adjacentFace(by: step))
+                .scaleEffect(0.88 + progress * 0.12)
+                .offset(x: offset + CGFloat(step) * distance)
+        }
+    }
+
+    private func clockDial(_ face: PanelClockFace) -> some View {
+        PresenceClockFace(store: store, face: face)
+            .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
+            .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private func home() {
@@ -127,25 +195,16 @@ struct HomeView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 ZStack {
-                    PresenceClockFace(store: store, face: clockFace)
-                        .id(clockFace)
-                        .transition(reduceMotion ? .opacity : ClockLauncherMotion.swipePop.faceTransition(width: proxy.size.width, direction: faceDirection))
-                        .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
-                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .allowsHitTesting(false).accessibilityHidden(true)
+                    clockSurface(width: proxy.size.width)
                     if showingClock {
                         // A tap recognizer cancels on movement; a full-screen Button
                         // can activate after a drag that ends inside its large bounds.
                         Color.clear.contentShape(.rect)
                             .onTapGesture(perform: home)
-                            .gesture(DragGesture(minimumDistance: 20).onEnded { gesture in
-                                let delta = gesture.predictedEndTranslation
-                                guard abs(delta.width) > max(60, abs(delta.height)) else { return }
-                                changeClockFace(by: delta.width < 0 ? 1 : -1)
-                            })
+                            .gesture(faceDragGesture(width: proxy.size.width))
                             .accessibilityAdjustableAction { direction in
-                                if direction == .increment { changeClockFace(by: 1) }
-                                if direction == .decrement { changeClockFace(by: -1) }
+                                if direction == .increment { settleFace(by: 1, width: proxy.size.width) }
+                                if direction == .decrement { settleFace(by: -1, width: proxy.size.width) }
                             }
                             .accessibilityElement()
                             .accessibilityLabel("Open apps")
