@@ -35,7 +35,7 @@ struct PanelTimerPage: View {
                             .frame(height: 30)
                             .accessibilityIdentifier("timer-status")
                         Text(Self.readout(remaining))
-                            .font(.system(size: min(proxy.size.width * 0.18, 210), weight: .regular, design: .rounded))
+                            .font(.system(size: min(proxy.size.width * 0.18, 210), weight: .medium, design: .rounded))
                             .monospacedDigit().fontWidth(.condensed)
                             .contentTransition(.numericText(countsDown: true))
                             .minimumScaleFactor(0.6).lineLimit(1)

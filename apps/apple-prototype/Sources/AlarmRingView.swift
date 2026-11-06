@@ -19,7 +19,7 @@ struct AlarmRingView: View {
                         Text(next?.ringing == true ? "Alarm" : next?.snoozed == true ? "Snoozed" : "Next alarm in")
                             .font(.system(size: 28, weight: .medium)).foregroundStyle(.white.opacity(0.55))
                         Text(next.map { countdown($0.remaining(at: now)) } ?? "—")
-                            .font(.system(size: min(proxy.size.width * 0.13, 176), weight: .regular, design: .rounded)).monospacedDigit().fontWidth(.condensed)
+                            .font(.system(size: min(proxy.size.width * 0.13, 176), weight: .medium, design: .rounded)).monospacedDigit().fontWidth(.condensed)
                             .contentTransition(.numericText())
                         Text(next.map { "\($0.alarm.label) · \($0.alarm.time)" } ?? "No upcoming alarms")
                             .font(.system(size: 34, weight: .medium)).foregroundStyle(orange)

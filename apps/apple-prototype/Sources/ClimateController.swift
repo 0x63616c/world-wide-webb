@@ -20,7 +20,6 @@ struct ClimateController: View {
                     Image(systemName: "power").font(.system(size: 64, weight: .light)).foregroundStyle(.secondary)
                     Text("Off").font(.system(size: compact ? 100 : 180, weight: .regular, design: .rounded))
                         .accessibilityIdentifier("climate-value")
-                    Text("Inside \(climate.ambient)°").font(.title2).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 0) {
@@ -30,9 +29,9 @@ struct ClimateController: View {
                             rangeSelection(low: false)
                         }.padding(.horizontal, 32).padding(.top, 16)
                     }
-                    ClimateTemperatureSurface(value: target, range: bounds,
+                    ClimateTemperatureSurface(value: target, midpoint: climate.ambient, range: bounds,
                         title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
-                        subtitle: "Inside \(climate.ambient)°", commit: setTemperature)
+                        commit: setTemperature)
                         .id("\(climate.mode.rawValue)-\(editingLow)")
                 }
             }
@@ -45,9 +44,10 @@ struct ClimateController: View {
             Button {
                 showingMore = true
             } label: {
-                Label("More", systemImage: "ellipsis.circle")
-                    .padding(.horizontal, 16).frame(minHeight: 48)
-            }.buttonStyle(.glass).accessibilityIdentifier("climate-more")
+                Image(systemName: "ellipsis")
+                    .frame(width: 52, height: 52)
+            }.buttonStyle(.glass).buttonBorderShape(.circle)
+                .accessibilityLabel("More").accessibilityIdentifier("climate-more")
                 .popover(isPresented: $showingMore, arrowEdge: .bottom) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Climate mode").font(.headline)
@@ -101,50 +101,70 @@ struct ClimateController: View {
 
 private struct ClimateTemperatureSurface: View {
     let value: Int
+    let midpoint: Int
     let range: ClosedRange<Int>
-    private let color = Color.yellow
     let title: String
-    let subtitle: String
     let commit: (Int) -> Void
-    @State private var draft: Int?
-    @State private var dragStart: Int?
-    private var displayed: Int { draft ?? value }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dragFraction: Double?
+
+    // Put the room temperature at the center while preserving the full setpoint range.
+    private var center: Double { Double(min(76, max(68, midpoint))) }
+    private func fraction(for value: Double) -> Double {
+        value <= center ? 0.5 * (value - 67) / (center - 67)
+            : 0.5 + 0.5 * (value - center) / (77 - center)
+    }
+    private func temperature(at fraction: Double) -> Double {
+        fraction <= 0.5 ? 67 + fraction * 2 * (center - 67)
+            : center + (fraction - 0.5) * 2 * (77 - center)
+    }
     private func bounded(_ value: Int) -> Int { min(range.upperBound, max(range.lowerBound, value)) }
+    private var position: Double { dragFraction ?? fraction(for: Double(value)) }
+    private var displayed: Int { bounded(Int(temperature(at: position).rounded())) }
+
     var body: some View {
         GeometryReader { proxy in
-            let fraction = Double(displayed - 67) / 10
+            let height = proxy.size.height
             ZStack(alignment: .bottom) {
-                Rectangle().fill(color.opacity(0.08))
-                Rectangle().fill(color.gradient.opacity(0.38))
-                    .frame(height: proxy.size.height * fraction)
-                Rectangle().fill(color.opacity(0.8)).frame(height: 2)
-                    .offset(y: -proxy.size.height * fraction)
-                VStack(spacing: 16) {
-                    Text("\(displayed)°")
-                        .font(.system(size: min(240, proxy.size.width * 0.25), weight: .regular, design: .rounded))
-                        .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
-                        .accessibilityIdentifier("climate-value")
-                    Text(subtitle).font(.title3).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                Rectangle().fill(.yellow.opacity(0.08))
+                Rectangle().fill(Color.yellow.gradient.opacity(0.38))
+                    .frame(height: height * position)
+                Rectangle().fill(.yellow.opacity(0.65)).frame(height: 1)
+                    .offset(y: -height * position)
                 Capsule().fill(.yellow)
-                    .frame(width: 48, height: 6)
-                    .offset(y: -min(proxy.size.height - 9, max(9, proxy.size.height * fraction)))
-                    .allowsHitTesting(false).accessibilityHidden(true)
+                    .frame(width: 112, height: 7)
+                    .offset(y: -min(max(0, height - 9), max(9, height * position - 3.5)))
+                    .accessibilityHidden(true)
+                Text("\(displayed)°")
+                    .font(.system(size: min(310, proxy.size.width * 0.32), weight: .medium, design: .rounded))
+                    .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
+                    .contentTransition(.numericText(value: Double(displayed)))
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: displayed)
+                    .shadow(color: .black.opacity(0.55), radius: 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityIdentifier("climate-value")
             }.contentShape(.rect)
-                .gesture(DragGesture(minimumDistance: 10)
+                .gesture(DragGesture(minimumDistance: 6)
                     .onChanged { gesture in
-                        if dragStart == nil { dragStart = value }
-                        draft = bounded((dragStart ?? value) - Int((gesture.translation.height / max(1, proxy.size.height) * 10).rounded()))
+                        let start = fraction(for: Double(value))
+                        let proposed = start - gesture.translation.height / max(1, height)
+                        dragFraction = min(fraction(for: Double(range.upperBound)),
+                            max(fraction(for: Double(range.lowerBound)), proposed))
                     }
                     .onEnded { _ in
-                        if let draft { commit(draft) }
-                        draft = nil; dragStart = nil
+                        let target = displayed
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
+                            if target != value { commit(target) }
+                            dragFraction = nil
+                        }
                     })
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(title).accessibilityValue("\(displayed) degrees Fahrenheit")
                 .accessibilityAdjustableAction { direction in
-                    if direction == .increment { commit(bounded(value + 1)) }
-                    else if direction == .decrement { commit(bounded(value - 1)) }
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
+                        if direction == .increment { commit(bounded(value + 1)) }
+                        else if direction == .decrement { commit(bounded(value - 1)) }
+                    }
                 }
                 .accessibilityIdentifier("climate-temperature-surface")
         }

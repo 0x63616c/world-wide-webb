@@ -4,6 +4,7 @@ Tap the clock to slide Home up over it. Tap Close or choose Clock to slide Home
 back down. Swipe left or right on the clock to cycle Green, Midnight, Paper and
 Ember. The panel remembers the selected face.
 
+Swipe Pop is the spring transition for app opens and clock-face swipes.
 When an app opens, the clock, glass and app selectors slide left and shrink
 together as the app enters from the right. Back reverses the motion and restores
 the launcher's scroll position. System Reduce Motion uses a fade.
@@ -94,7 +95,7 @@ from app navigation. Reveal shrinks the clock slightly as it slides left; the la
 the right and expands into place with a small spring. Swiping right on the
 launcher drives the same transition in reverse;
 Depth and Dissolve are comparison candidates selected only through debug launch
-argument `-launcherTransition reveal|depth|dissolve`. Reduce Motion removes spatial movement.
+argument `-launcherTransition swipePop|depth|dissolve`. Reduce Motion removes spatial movement.
 Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
 suite records the left swipe and reverse right swipe for each candidate.
 
@@ -164,8 +165,7 @@ use a full-screen system Safari controller.
 
 Simulator builds also accept Escape to open the app grid (enable Device Hub's
 Capture Keyboard and focus the simulated display). This adds no on-screen chrome.
-The launcher includes the current local date and time; the car destination is
-labelled Tesla while retaining its stable `car` route ID.
+The launcher greets Calum by time of day. The top-right photo picker stores a circular avatar on the device. The car destination retains its stable `car` route ID.
 
 ## PIN/navigation review — 3 November 2026
 

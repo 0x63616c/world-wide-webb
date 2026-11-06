@@ -51,7 +51,7 @@ struct LampsController: View {
         VStack(spacing: 4) {
             Text("Global brightness").font(.system(size: compact ? 22 : 28, weight: .semibold))
             Text("\(store.lamps.brightness)%")
-                .font(.system(size: compact ? 72 : 96, weight: .regular, design: .rounded)).monospacedDigit()
+                .font(.system(size: compact ? 72 : 96, weight: .medium, design: .rounded)).monospacedDigit()
                 .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
                 .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
             Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 22, weight: .medium))

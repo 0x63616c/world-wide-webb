@@ -42,7 +42,7 @@ actor PhotoBoothCaptureSession {
         wantsRunning = false
         if pending == nil && session.isRunning { session.stopRunning() }
     }
-    func capture(angle: CGFloat) async throws -> Data {
+    func capture(angle: CGFloat, quiet: Bool = false) async throws -> Data {
         guard pending == nil, session.isRunning else { throw Failure.capture }
         return try await withCheckedThrowingContinuation { continuation in
             pending = continuation
@@ -59,6 +59,7 @@ actor PhotoBoothCaptureSession {
             }
             let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
             settings.photoQualityPrioritization = .balanced
+            settings.isShutterSoundSuppressionEnabled = quiet && output.isShutterSoundSuppressionSupported
             output.capturePhoto(with: settings, delegate: processor)
         }
     }

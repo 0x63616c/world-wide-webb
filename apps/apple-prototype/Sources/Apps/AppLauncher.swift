@@ -15,14 +15,18 @@ struct AppLauncher: View {
             ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 VStack(spacing: 32) {
-                    TimelineView(.periodic(from: Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 60) * 60), by: 60)) { context in
-                        VStack(spacing: 6) {
-                            Text(context.date, format: .dateTime.hour().minute())
-                                .font(.system(size: 56, weight: .light, design: .rounded)).monospacedDigit()
-                            Text(context.date, format: .dateTime.weekday(.wide).month(.wide).day())
-                                .font(.title3.weight(.medium))
-                        }.foregroundStyle(.white)
-                    }.padding(.top, 36)
+                    TimelineView(.everyMinute) { context in
+                        let hour = Calendar.current.component(.hour, from: context.date)
+                        let greeting = hour < 5 || hour >= 21 ? "GOOD NIGHT" :
+                            hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING"
+                        Text("\(greeting), CALUM")
+                            .font(.system(size: sizeClass == .compact ? 18 : 26, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.leading, sizeClass == .compact ? 20 : 72)
+                    .padding(.trailing, 132)
+                    .padding(.top, 40)
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48) {
                         ForEach(apps) { app in
@@ -41,6 +45,8 @@ struct AppLauncher: View {
                 }.frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
                 if isPresented {
+                    HStack(spacing: 8) {
+                        PanelProfilePhoto()
                     Button(action: close) {
                         Image(systemName: "xmark")
                             .font(.system(size: 20, weight: .semibold))
@@ -50,6 +56,7 @@ struct AppLauncher: View {
                         .frame(width: 48, height: 48)
                         .accessibilityLabel("Close Home")
                         .accessibilityIdentifier("home-close")
+                    }
                         .padding(24)
                         .zIndex(1)
                 }

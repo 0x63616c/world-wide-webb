@@ -111,7 +111,7 @@ struct HomeView: View {
         faceDirection = CGFloat(step)
         let faces = PanelClockFace.allCases
         guard let index = faces.firstIndex(of: clockFace) else { return }
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : ClockLauncherMotion.reveal.animation) {
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : ClockLauncherMotion.swipePop.animation) {
             clockFace = faces[(index + step + faces.count) % faces.count]
         }
     }
@@ -129,7 +129,7 @@ struct HomeView: View {
                 ZStack {
                     PresenceClockFace(store: store, face: clockFace)
                         .id(clockFace)
-                        .transition(reduceMotion ? .opacity : ClockLauncherMotion.reveal.faceTransition(width: proxy.size.width, direction: faceDirection))
+                        .transition(reduceMotion ? .opacity : ClockLauncherMotion.swipePop.faceTransition(width: proxy.size.width, direction: faceDirection))
                         .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
                         .allowsHitTesting(false).accessibilityHidden(true)

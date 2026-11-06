@@ -65,7 +65,7 @@ struct TeslaTile: View {
                 } else { ChargingPulse(active: provider.data.charging).frame(width: 28, height: 28) }
             }
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text("\(provider.data.pct)").font(.system(size: 84, weight: .regular, design: .rounded)).monospacedDigit()
+                Text("\(provider.data.pct)").font(.system(size: 84, weight: .medium, design: .rounded)).monospacedDigit()
                 Text("%").font(.system(size: 32)).foregroundStyle(.secondary)
             }.contentTransition(.numericText())
             Text("\(provider.data.range) mi").font(.system(size: 26, weight: .medium))
@@ -111,7 +111,7 @@ struct TeslaController: View {
                 }
                 VStack(spacing: 12) {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(provider.data.pct)").font(.system(size: compact ? 92 : 112, weight: .regular, design: .rounded)).monospacedDigit()
+                        Text("\(provider.data.pct)").font(.system(size: compact ? 92 : 112, weight: .medium, design: .rounded)).monospacedDigit()
                         Text("%").font(.system(size: compact ? 36 : 48)).foregroundStyle(.secondary)
                     }
                     Gauge(value: Double(provider.data.pct), in: 0...100) { EmptyView() }
