@@ -42,14 +42,21 @@ import XCTest
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
         capture("launcher-after-idle-wake", app)
     }
-    func testClockTapOpensHomeAndCloseReturnsToClock() {
+    func testClockTapOpensHomeAndSwipeDownReturnsToClock() {
         let app = launch()
         defer { app.terminate() }
         app.buttons["launcher-clock"].tap()
-        XCTAssertTrue(app.buttons["home-close"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
+        let profile = app.buttons["home-profile"]
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            profile.exists && profile.frame.maxY < app.frame.height / 2
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+        Thread.sleep(forTimeInterval: 1) // Allow the visual transition to settle for the capture.
+        capture("home-header", app)
         XCTAssertFalse(app.buttons["launcher-clock"].exists)
-        app.buttons["home-close"].tap()
+        app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.buttons["app-settings"].exists)
         app.openAppGrid()
@@ -70,15 +77,29 @@ import XCTest
         XCTAssertFalse(app.buttons["home-close"].exists)
         app.openAppGrid()
         left.press(forDuration: 0.1, thenDragTo: right)
-        XCTAssertTrue(app.buttons["home-close"].isHittable)
+        XCTAssertTrue(app.buttons["app-settings"].isHittable)
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
         app.buttons["app-settings"].tap()
         XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["home-close"].exists)
         app.buttons["app-back"].tap()
-        XCTAssertTrue(app.buttons["home-close"].waitForExistence(timeout: 5))
-        app.buttons["home-close"].tap()
+        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
+        app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
+    }
+    func testTeslaShowsTelemetryAndOnlyLockControl() {
+        let app = launch()
+        defer { app.terminate() }
+        app.openHomeModule("tesla")
+        XCTAssertTrue(app.staticTexts["Estimated range"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Software update"].exists)
+        XCTAssertTrue(app.switches["tesla-door-lock"].exists)
+        XCTAssertFalse(app.switches["Charge"].exists)
+        XCTAssertFalse(app.switches["Precondition"].exists)
+        capture("tesla-telemetry", app)
+        app.switches["tesla-door-lock"].tap()
+        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+        app.buttons["Cancel"].tap()
     }
     func testRollbackLaunchesWebWithoutHome() {
         let app = XCUIApplication()

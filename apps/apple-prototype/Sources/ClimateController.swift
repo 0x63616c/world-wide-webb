@@ -51,7 +51,7 @@ struct ClimateController: View {
                 .popover(isPresented: $showingMore, arrowEdge: .bottom) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Climate mode").font(.headline)
-                        ForEach(ClimateMode.allCases, id: \.self) { mode in
+                        ForEach(ClimateMode.selectable, id: \.self) { mode in
                             choice(mode.label, selected: climate.mode == mode, id: "mode-\(mode.rawValue)") {
                                 store.send(.mode(mode))
                             }

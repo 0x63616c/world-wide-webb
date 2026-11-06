@@ -42,6 +42,7 @@ struct PanelHome: View {
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-hybridControlWrites") {
                     Text(HybridControlWriteTrace.shared.value).font(.caption2)
+                        .foregroundStyle(ProcessInfo.processInfo.arguments.contains("-hideFixtureTrace") ? Color.clear : Color.primary)
                         .accessibilityIdentifier("fixture-control-write").allowsHitTesting(false)
                 }
                 #endif

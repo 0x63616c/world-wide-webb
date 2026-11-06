@@ -249,7 +249,7 @@ import XCTest
         screenshot.lifetime = .keepAlways
         add(screenshot)
         Thread.sleep(forTimeInterval: 2)
-        app.buttons["home-close"].tap()
+        app.swipeDown()
         XCTAssertTrue(app.buttons["app-clock"].waitForNonExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE \(style)")

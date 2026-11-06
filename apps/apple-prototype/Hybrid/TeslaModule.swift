@@ -23,7 +23,9 @@ struct TeslaModule: View {
                         .disabled(provider.busy || provider.availability != .online)
                 }
             } else {
-                TeslaController(provider: provider)
+                TeslaController(provider: provider, lockAction: {
+                    provider.request(provider.data.locked ? .unlock : .lock)
+                })
                     .safeAreaInset(edge: .top) {
                         if provider.availability != .online {
                             HStack(spacing: 10) {
@@ -39,13 +41,7 @@ struct TeslaModule: View {
                         }
                     }
                     .disabled(provider.busy || provider.availability != .online)
-                    .safeAreaInset(edge: .bottom) {
-                        if let snapshot = provider.snapshot {
-                            Button(snapshot.locked ? "Unlock car" : "Lock car") {
-                                provider.request(snapshot.locked ? .unlock : .lock)
-                            }.buttonStyle(.glass).disabled(provider.busy || provider.availability != .online).padding()
-                        }
-                    }
+
             }
         }
         .onDisappear { provider.cancelCommand() }

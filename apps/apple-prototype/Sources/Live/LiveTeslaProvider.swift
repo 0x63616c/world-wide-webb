@@ -40,7 +40,15 @@ import PanelKit
             pct: Int(snapshot.batteryPercent.rounded()), range: Int(snapshot.rangeMiles.rounded()),
             maxRange: maxRange,
             locked: snapshot.locked,
-            odo: Int(snapshot.odometerMiles.rounded()).formatted(), climate: Int(snapshot.cabinFahrenheit.rounded()))
+            odo: Int(snapshot.odometerMiles.rounded()).formatted(), climate: Int(snapshot.cabinFahrenheit.rounded()),
+            softwareUpdate: snapshot.softwareUpdate.map { update in
+                switch update.status {
+                case "available": "Available" + (update.latestVersion.map { " · \($0)" } ?? "")
+                case "up_to_date": "Up to date"
+                case "installing": "Installing"
+                default: "Unknown"
+                }
+            })
     }
 
     func refresh() async {
@@ -59,14 +67,8 @@ import PanelKit
         }
     }
 
-    /// Existing view bindings only stage a command. No network write precedes PIN confirmation.
-    func send(_ command: TeslaCommand) {
-        switch command {
-        case .setCharging(let on): request(on ? .chargeStart : .chargeStop)
-        case .setPreconditioning(let on): request(on ? .climateOn : .climateOff)
-        }
-    }
     func request(_ action: TeslaAction) {
+        guard action == .lock || action == .unlock else { return }
         guard hasLiveData, availability == .online, !busy, requestedAction == nil else { return }
         requestedAction = action
         errorMessage = nil

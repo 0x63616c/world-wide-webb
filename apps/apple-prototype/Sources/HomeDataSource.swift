@@ -34,6 +34,7 @@ enum Accessory: String, CaseIterable, Identifiable {
 }
 enum ClimateMode: String, CaseIterable {
     case cool, heat, heatCool = "heat_cool", off
+    static let selectable: [ClimateMode] = [.heat, .cool, .off]
     var label: String {
         switch self { case .cool: "Cool"; case .heat: "Heat"; case .heatCool: "Heat·Cool"; case .off: "Off" }
     }

@@ -22,7 +22,7 @@ export function discoverTeslaEntities(all: readonly HaEntity[]): {
     }
   }
   const missing = (Object.keys(teslaEntitiesSchema.shape) as (keyof TeslaEntities)[]).filter(
-    (role) => !found[role],
+    (role) => role !== "softwareUpdate" && !found[role],
   );
   const parsed = teslaEntitiesSchema.safeParse(found);
   return { entities: parsed.success ? parsed.data : null, missing };
@@ -39,6 +39,8 @@ function matchScore(role: keyof TeslaEntities, entity: HaEntity): number {
     return index < 0 ? 0 : 100 - index + (name === names[index] ? 100 : 0);
   };
   switch (role) {
+    case "softwareUpdate":
+      return domain === "update" ? suffix("software_update", "software", "firmware") : 0;
     case "battery":
       return domain === "sensor" && unit === "%"
         ? suffix("battery_level", "battery") || (deviceClass === "battery" ? 10 : 0)

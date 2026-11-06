@@ -116,7 +116,31 @@ export function createTeslaService(
         if (unit !== "°C" && unit !== "°F") throw new TeslaUnavailable();
         const powerUnit = power.attributes.unit_of_measurement;
         if (powerUnit !== "W" && powerUnit !== "kW") throw new TeslaUnavailable();
+        // Optional update telemetry must never make the rest of the car unavailable.
+        const update = ids.softwareUpdate
+          ? await client.getEntity(ids.softwareUpdate).catch(() => null)
+          : null;
+        const updateStatus =
+          update?.attributes.in_progress === true
+            ? "installing"
+            : update?.state === "on"
+              ? "available"
+              : update?.state === "off"
+                ? "up_to_date"
+                : undefined;
+        const softwareUpdate = updateStatus
+          ? {
+              status: updateStatus,
+              ...(typeof update?.attributes.installed_version === "string"
+                ? { installedVersion: update.attributes.installed_version }
+                : {}),
+              ...(typeof update?.attributes.latest_version === "string"
+                ? { latestVersion: update.attributes.latest_version }
+                : {}),
+            }
+          : undefined;
         const data = teslaDataSchema.parse({
+          softwareUpdate,
           batteryPercent: number(battery),
           rangeMiles: distance(range),
           chargingState: charging.entity_id.startsWith("binary_sensor.")

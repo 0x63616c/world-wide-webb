@@ -1588,3 +1588,5 @@ actual 408-point tile size. Selection is saved locally in `panel.weatherDesign`.
 Animation pauses when inactive or Reduce Motion is enabled. The shared native Home
 and detail views dim to 30% after 60 seconds and consume the wake tap; Mac pointer
 movement also wakes the view. This is in-app dimming, not system display brightness.
+
+The home app launcher returns to the clock with a downward swipe when its scroll view is at the top. Scrolling through apps remains available, and VoiceOver exposes a Return to clock action on the launcher.

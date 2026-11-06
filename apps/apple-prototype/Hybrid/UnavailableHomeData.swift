@@ -41,7 +41,6 @@ extension WeatherState {
     let activeWalk: DogWalk? = nil
     let history: [DogWalk] = []
     func next(at date: Date) -> AgendaEvent? { nil }
-    func send(_ command: TeslaCommand) {}
     func start(at date: Date) {}
     func stop(at date: Date) {}
 }

@@ -8,11 +8,14 @@ struct AppLauncher: View {
     let isPresented: Bool
     let namespace: Namespace.ID
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var isAtTop = true
+    @State private var swipeStartedAtTop: Bool?
     var body: some View {
         GeometryReader { proxy in
             let columns = sizeClass == .compact ? 3 : 5
             let iconFrameSide: CGFloat = sizeClass == .compact ? 76 : 112
             let iconSide = iconFrameSide * 0.9
+            let headerInset: CGFloat = sizeClass == .compact ? 20 : 40
             ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 VStack(spacing: 32) {
@@ -20,14 +23,14 @@ struct AppLauncher: View {
                         let hour = Calendar.current.component(.hour, from: context.date)
                         let greeting = hour < 5 || hour >= 21 ? "GOOD NIGHT" :
                             hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING"
-                        Text("\(greeting), CALUM")
+                        Text("\(greeting),\nCALUM")
                             .font(.system(size: sizeClass == .compact ? 18 : 26, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.leading, sizeClass == .compact ? 20 : 72)
-                    .padding(.trailing, 132)
-                    .padding(.top, 40)
+                    .padding(.leading, headerInset)
+                    .padding(.trailing, headerInset + 64)
+                    .padding(.top, headerInset)
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48) {
                         ForEach(apps) { app in
@@ -46,26 +49,32 @@ struct AppLauncher: View {
                 }
                 }.frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
-                if isPresented {
-                    HStack(spacing: 8) {
-                        PanelProfilePhoto()
-                    Button(action: close) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .semibold))
-                            .frame(width: 48, height: 48)
-                            .contentShape(.rect)
-                    }.buttonStyle(.plain)
-                        .frame(width: 48, height: 48)
-                        .accessibilityLabel("Close Home")
-                        .accessibilityIdentifier("home-close")
+                .onScrollGeometryChange(for: Bool.self) { geometry in
+                    geometry.contentOffset.y <= -geometry.contentInsets.top + 1
+                } action: { _, atTop in
+                    isAtTop = atTop
+                }
+                .simultaneousGesture(DragGesture(minimumDistance: 12)
+                    .onChanged { _ in
+                        if swipeStartedAtTop == nil { swipeStartedAtTop = isAtTop }
                     }
-                        .padding(24)
+                    .onEnded { value in
+                        defer { swipeStartedAtTop = nil }
+                        guard isPresented, swipeStartedAtTop == true,
+                              value.translation.height > abs(value.translation.width),
+                              value.translation.height > 80 || value.predictedEndTranslation.height > 180 else { return }
+                        close()
+                    })
+                if isPresented {
+                    PanelProfilePhoto()
+                        .padding(headerInset)
                         .zIndex(1)
                 }
             }
         }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
+            .accessibilityAction(named: "Return to clock") { close() }
     }
 }
 

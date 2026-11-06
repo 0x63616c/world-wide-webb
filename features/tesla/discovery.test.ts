@@ -47,6 +47,11 @@ describe("Tesla entity discovery", () => {
     expect(Object.values(expected.entities ?? {})).toEqual(all.map((e) => e.entity_id));
     expect(discoverTeslaEntities([...distractions, ...all].reverse())).toEqual(expected);
   });
+  it("discovers an optional Tesla software update entity", () => {
+    const result = discoverTeslaEntities([...fleet(), entity("update", "software_update")]);
+    expect(result.missing).toEqual([]);
+    expect(result.entities?.softwareUpdate).toBe(`update.${prefix}_software_update`);
+  });
   it("supports legacy custom integration and API path suffixes", () => {
     const all = fleet();
     all[0] = entity("sensor", "battery", "%");

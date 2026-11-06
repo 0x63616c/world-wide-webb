@@ -167,7 +167,8 @@ positions; the QR caption is “scan to connect.”
 The clock uses the weather provider's absolute sunrise, sunset and next-sunrise
 values. At sunset its green background becomes black, numerals become silver and
 hands stay brighter. At sunrise it returns to green. Missing solar data can use
-the reported moon symbol; stale solar schedules do not extrapolate new sunset
+the reported moon symbol and local hour; while weather loads, the local hour selects
+the initial palette. Stale solar schedules do not extrapolate new sunset
 times. The debug launch argument `-previewNightClock` previews only the night
 palette without changing the system clock or stored user settings.
 
@@ -189,7 +190,7 @@ use a full-screen system Safari controller.
 
 Simulator builds also accept Escape to open the app grid (enable Device Hub's
 Capture Keyboard and focus the simulated display). This adds no on-screen chrome.
-The launcher greets Calum by time of day. The top-right photo picker stores a circular avatar on the device. The car destination retains its stable `car` route ID.
+The launcher greets Calum by time of day. Climate mode choices are Heat, Cool and Off; an existing Heat·Cool state remains visible until changed. The top-right photo picker stores a circular avatar on the device. The car destination retains its stable `car` route ID.
 
 ## PIN/navigation review — 3 November 2026
 
