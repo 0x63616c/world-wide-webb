@@ -52,7 +52,7 @@ import XCTest
         let state = PanelIdleState(now: 0)
         state.activity(now: 20)
         XCTAssertFalse(state.tick(now: 30, dimAfter: 30, returnAfter: 0, dimEnabled: true))
-        XCTAssertTrue(state.tick(now: 50, dimAfter: 30, returnAfter: 0, dimEnabled: true))
+        XCTAssertFalse(state.tick(now: 50, dimAfter: 30, returnAfter: 0, dimEnabled: true))
         XCTAssertTrue(state.dimmed)
         state.wake(now: 60)
         XCTAssertFalse(state.tick(now: 1000, dimAfter: 30, returnAfter: 0, dimEnabled: false))

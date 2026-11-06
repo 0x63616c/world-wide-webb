@@ -7,6 +7,42 @@ import XCTest
         super.setUp()
         XCUIDevice.shared.orientation = .landscapeLeft
     }
+    func testPanelHomeAndClockFaces() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-panel.clockFace", "green", "-previewNightClock"]
+        app.launch()
+        defer { app.terminate() }
+        app.alignPanelOrientation()
+        let clock = app.buttons["launcher-clock"]
+        XCTAssertTrue(clock.waitForExistence(timeout: 15))
+        let window = app.windows.firstMatch
+        func snapshot(_ name: String) {
+            let attachment = XCTAttachment(screenshot: window.screenshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        print("MOTION_CAPTURE_READY home-controls")
+        Thread.sleep(forTimeInterval: 1)
+        snapshot("clock-green-night")
+        for face in ["Midnight", "Paper", "Ember"] {
+            window.swipeLeft()
+            XCTAssertEqual(clock.value as? String, face)
+            snapshot("clock-\(face.lowercased())")
+        }
+        window.swipeRight()
+        XCTAssertEqual(clock.value as? String, "Paper")
+        clock.tap()
+        XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
+        snapshot("home")
+        app.buttons["app-climate"].tap()
+        XCTAssertTrue(app.buttons["climate-more"].waitForExistence(timeout: 10))
+        snapshot("climate")
+        Thread.sleep(forTimeInterval: 1)
+        print("MOTION_CAPTURE_DONE home-controls")
+    }
     @MainActor func testGlassOverlay() { capture("reveal") }
     @MainActor func testReveal() { capture("reveal") }
     @MainActor func testDepth() { capture("depth") }

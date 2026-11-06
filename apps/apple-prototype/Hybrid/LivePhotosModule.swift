@@ -30,7 +30,6 @@ struct LivePhotosModule: View {
                                 Spacer()
                                 Button(showSessions ? "Photos" : "Activity sessions") { showSessions.toggle() }
                                     .buttonStyle(.glass)
-                                Button("Lock") { provider.lock() }.buttonStyle(.glass)
                             }
                         }
                         if showSessions && detail { sessions }

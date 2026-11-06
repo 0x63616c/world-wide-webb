@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum PanelSurface { static let cornerRadius: CGFloat = 44 }
+enum PanelSurface { static let cornerRadius: CGFloat = 24 }
 
 /// Fixed navigation chrome; the app supplies the background beneath its safe area.
 struct PanelAppNavigationBar: View {

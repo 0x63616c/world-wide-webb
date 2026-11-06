@@ -42,7 +42,7 @@ final class NotificationHistoryTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertFalse(app.buttons["notification-banner-lights"].exists)
         app.openHomeModule("climate")
-        XCTAssertTrue(app.buttons["Raise setpoint"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["climate-more"].waitForExistence(timeout: 20))
         openHistory(app)
         XCTAssertEqual(rows(app).count, 2)
         capture("WWW-60-restored-over-controller", app)

@@ -159,7 +159,7 @@ import OSLog
             value.reportedAction = climateProvider.reportedAction?.rawValue ?? "Unavailable"
             // An off response may have no remembered setpoints. Do not leak the
             // provider's prototype defaults into the composed source.
-            if case .off(let target, let low, let high) = climateProvider.serverState?.setpoints {
+            if value.mode == .off, case .off(let target, let low, let high) = climateProvider.serverState?.setpoints {
                 value.target = target.map { Int($0.rounded()) } ?? 0
                 value.low = low.map { Int($0.rounded()) } ?? 0
                 value.high = high.map { Int($0.rounded()) } ?? 0

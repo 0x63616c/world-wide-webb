@@ -132,6 +132,31 @@ public struct PanelAPIClient: Sendable {
               !receipt.id.isEmpty, !receipt.path.isEmpty else { throw PanelAPIError.decoding("Photo save wasn’t confirmed.") }
     }
 
+    public func uploadWakePhoto(jpeg: Data, capturedAt: Date, sessionID: UUID, frame: Int) async throws {
+        let milliseconds = capturedAt.timeIntervalSince1970 * 1000
+        guard jpeg.starts(with: [0xff, 0xd8, 0xff]), jpeg.count <= 2 * 1024 * 1024,
+              milliseconds.isFinite, milliseconds > 0, milliseconds < Double(Int64.max), frame >= 0 else {
+            throw PanelAPIError.transport("Invalid wake photo.")
+        }
+        guard let configuration, PanelConfiguration.isValidBaseURL(configuration.baseURL),
+              configuration.requestTimeout.isFinite, configuration.requestTimeout > 0 else { throw PanelAPIError.notConfigured }
+        var request = URLRequest(url: configuration.baseURL.appendingPathComponent("media/wake-photo"),
+            timeoutInterval: configuration.requestTimeout)
+        request.httpMethod = "POST"
+        request.httpBody = jpeg
+        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        request.setValue(String(Int64(milliseconds)), forHTTPHeaderField: "x-captured-at")
+        request.setValue(String(frame), forHTTPHeaderField: "x-frame-idx")
+        request.setValue("isn_" + sessionID.uuidString.lowercased().replacingOccurrences(of: "-", with: ""), forHTTPHeaderField: "x-session-id")
+        if let id = configuration.accessClientID, let secret = configuration.accessClientSecret {
+            request.setValue(id, forHTTPHeaderField: "CF-Access-Client-Id")
+            request.setValue(secret, forHTTPHeaderField: "CF-Access-Client-Secret")
+        }
+        let (_, response) = try await transport.send(request)
+        try Task.checkCancellation()
+        guard response.statusCode == 201 else { throw PanelAPIError.http(status: response.statusCode) }
+    }
+
     private func encode<Input: Encodable>(_ input: Input) throws -> Data {
         do { return try JSONEncoder().encode(input) }
         catch { throw PanelAPIError.decoding("Could not encode request JSON.") }

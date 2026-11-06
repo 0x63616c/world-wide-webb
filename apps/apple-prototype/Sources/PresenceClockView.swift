@@ -2,21 +2,40 @@ import CoreText
 import SwiftUI
 import PanelKit
 
+enum PanelClockFace: String, CaseIterable {
+    case green, midnight, paper, ember
+}
+
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
 /// 13 Oct 2026): a full-bleed green field, four huge black cardinal numerals
 /// pushed to the screen edges, white hands and a small date. No complications.
 struct PresenceClockFace: View {
     let store: any HomeDataSource
+    var face: PanelClockFace = .green
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
         TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
+            let hour = Calendar.current.component(.hour, from: now)
             let night = previewNight || (SolarClock.isNight(at: now, sunrise: store.weather.sunrise,
-                sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise) ?? (store.weather.sunrise == nil && store.weather.symbol.contains("moon")))
+                sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise)
+                ?? (store.weather.symbol.contains("moon") || hour < 7 || hour >= 18))
             ZStack {
-                night ? Color.black : GreenClockDial.green
-                GreenClockDial(date: now, night: night)
+                switch face {
+                case .green:
+                    night ? Color.black : GreenClockDial.green
+                    GreenClockDial(date: now, night: night)
+                case .midnight:
+                    Color(red: 0.04, green: 0.07, blue: 0.16)
+                    PanelDigitalDial(date: now, ink: Color(red: 0.67, green: 0.78, blue: 1), design: .monospaced)
+                case .paper:
+                    night ? Color(white: 0.09) : Color(red: 0.92, green: 0.87, blue: 0.77)
+                    PanelDigitalDial(date: now, ink: night ? .white : Color(white: 0.15), design: .serif)
+                case .ember:
+                    Color(red: 0.15, green: 0.05, blue: 0.035)
+                    PanelDigitalDial(date: now, ink: Color(red: 1, green: 0.55, blue: 0.31), design: .rounded, stacked: true)
+                }
             }.accessibilityIdentifier("clock-face")
         }.ignoresSafeArea()
     }
@@ -137,5 +156,35 @@ struct GreenClockDial: View {
             Rectangle().fill(handColor).frame(width: width * 0.36, height: neck - width / 2)
         }.frame(height: length)
             .offset(y: -length / 2).rotationEffect(.degrees(degrees))
+    }
+}
+
+private struct PanelDigitalDial: View {
+    let date: Date
+    let ink: Color
+    let design: Font.Design
+    var stacked = false
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = min(proxy.size.width * 0.21, proxy.size.height * (stacked ? 0.25 : 0.38))
+            VStack(spacing: stacked ? 0 : 24) {
+                if stacked {
+                    Text(fixtureTime(date, format: "HH"))
+                    Text(fixtureTime(date, format: "mm"))
+                } else {
+                    Text(fixtureTime(date, format: "HH:mm"))
+                }
+                Text(date, format: .dateTime.weekday(.wide).month(.wide).day())
+                    .font(.system(size: 24, weight: .medium, design: design))
+                    .padding(.top, stacked ? 24 : 0)
+            }
+            .font(.system(size: size, weight: .light, design: design))
+            .monospacedDigit()
+            .foregroundStyle(ink)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
     }
 }

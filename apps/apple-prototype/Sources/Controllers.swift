@@ -41,63 +41,6 @@ struct ControllerHost: View {
         .accessibilityIdentifier("controller-\(tile.id)")
     }
 }
-struct ClimateController: View {
-    let store: any HomeDataSource
-    var body: some View {
-        VStack(spacing: 22) {
-            Spacer(minLength: 20)
-            Text(caption).font(.system(size: 31)).foregroundStyle(.white.opacity(0.8))
-            if store.climate.mode == .off {
-                Text("Off").font(.system(size: 220, weight: .ultraLight)).accessibilityIdentifier("climate-value")
-            } else if store.climate.mode == .heatCool {
-                HStack(spacing: 50) {
-                    rangeValue(value: store.climate.low, label: "Heat to", low: true)
-                    Text("–").font(.system(size: 80, weight: .ultraLight)).opacity(0.5)
-                    rangeValue(value: store.climate.high, label: "Cool to", low: false)
-                }
-            } else {
-                HStack(spacing: 85) {
-                    CircleButton(symbol: "minus", label: "Lower setpoint", size: 76) { store.send(.target(store.climate.target - 1)) }.disabled(store.climate.target == 67)
-                    Text("\(store.climate.target)°").font(.system(size: 240, weight: .ultraLight)).monospacedDigit().accessibilityIdentifier("climate-value")
-                    CircleButton(symbol: "plus", label: "Raise setpoint", size: 76) { store.send(.target(store.climate.target + 1)) }.disabled(store.climate.target == 77)
-                }
-            }
-            HStack(spacing: 20) {
-                Label("Now \(store.climate.ambient)°", systemImage: "thermometer.medium")
-                Text(store.climate.action)
-                if store.pending.contains("climate") { ProgressView() }
-            }.font(.system(size: 26)).foregroundStyle(.white.opacity(0.75))
-            Spacer(minLength: 20)
-            HStack(spacing: 14) {
-                ForEach(ClimateMode.allCases, id: \.self) { mode in
-                    Choice(title: mode.label, selected: store.climate.mode == mode) { store.send(.mode(mode)) }.accessibilityIdentifier("mode-\(mode.rawValue)")
-                }
-            }
-            HStack {
-                Spacer()
-                Button { store.send(.toggle(.fan)) } label: {
-                    Label("Fan · \(store.climate.fanLabel)", systemImage: "fan.fill").font(.system(size: 21, weight: .medium)).padding(14)
-                }.buttonStyle(.glass).accessibilityIdentifier("climate-fan")
-                    .overlay(alignment: .trailing) { if store.pending.contains("fan") { ProgressView() } }
-            }.padding(.horizontal, 44).padding(.bottom, 26)
-        }
-    }
-    private var caption: String {
-        switch store.climate.mode { case .cool: "Set to"; case .heat: "Set to"; case .heatCool: "Temperature range"; case .off: "Climate" }
-    }
-    private func rangeValue(value: Int, label: String, low: Bool) -> some View {
-        VStack(spacing: 14) {
-            Text(label).font(.system(size: 22)).opacity(0.7)
-            Text("\(value)°").font(.system(size: 140, weight: .ultraLight)).monospacedDigit()
-            HStack(spacing: 30) {
-                CircleButton(symbol: "minus", label: "Lower \(label)") { store.send(low ? .low(value - 1) : .high(value - 1)) }
-                    .disabled(low ? value == 67 : value == store.climate.low + 2)
-                CircleButton(symbol: "plus", label: "Raise \(label)") { store.send(low ? .low(value + 1) : .high(value + 1)) }
-                    .disabled(low ? value == store.climate.high - 2 : value == 77)
-            }
-        }
-    }
-}
 struct ControlsController: View {
     let store: any HomeDataSource
     var fanIsOn: Bool? = nil

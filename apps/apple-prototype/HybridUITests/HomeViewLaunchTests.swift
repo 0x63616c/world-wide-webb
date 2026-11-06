@@ -110,7 +110,7 @@ import XCTest
             app.buttons["app-\(id)"].tap()
             switch id {
             case "lights": XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
-            case "climate": XCTAssertTrue(app.buttons["Raise setpoint"].waitForExistence(timeout: 20))
+            case "climate": XCTAssertTrue(app.buttons["climate-more"].waitForExistence(timeout: 20))
             case "weather": XCTAssertTrue(app.staticTexts["HOURLY FORECAST"].waitForExistence(timeout: 20))
             default: XCTAssertTrue(app.staticTexts["Odometer"].waitForExistence(timeout: 20))
             }

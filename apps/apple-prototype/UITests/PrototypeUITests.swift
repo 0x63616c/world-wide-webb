@@ -101,11 +101,12 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
         app.terminate()
         app.launchArguments = ["-snapshot", "-openTile", "climate"]
         app.launch()
-        XCTAssertTrue(app.buttons["mode-off"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["climate-more"].waitForExistence(timeout: 30))
+        app.buttons["climate-more"].tap()
         app.buttons["mode-off"].tap()
-        XCTAssertTrue(app.buttons["climate-fan"].label.contains("Off"))
+        app.buttons["climate-more"].tap()
         app.buttons["mode-heat_cool"].tap()
-        XCTAssertTrue(app.staticTexts["Temperature range"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["climate-range-low"].waitForExistence(timeout: 10))
     }
     func testPagingPreservesSharedState() throws {
         let app = launch(["-face", "home"])

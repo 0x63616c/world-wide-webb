@@ -7,6 +7,8 @@ struct PanelDisplayPreferences: DynamicProperty {
     @AppStorage("panel.wakeBrightness") var wakeBrightness = 1.0
     @AppStorage("panel.dimAfterSeconds") var dimAfterSeconds = 60
 
+    @AppStorage("panel.returnToClockSeconds") var returnToClockSeconds = 60
+
     func brightness(dimmed: Bool) -> Double {
         let awake = min(1, max(0.1, wakeBrightness))
         return dimmed ? min(awake, max(0.1, dimBrightness)) : awake
@@ -17,6 +19,16 @@ struct PanelDisplaySettings: View {
     private var display = PanelDisplayPreferences()
 
     var body: some View {
+        Section("Return to Clock") {
+            let seconds = Binding<Double>(
+                get: { Double(display.returnToClockSeconds) },
+                set: { display.returnToClockSeconds = Int($0) }
+            )
+            LabeledContent("After inactivity", value: Duration.seconds(display.returnToClockSeconds).formatted(.units(allowed: [.minutes, .seconds])))
+            Slider(value: seconds, in: 30...600, step: 30) {
+                Text("Return to clock after")
+            }.accessibilityIdentifier("display-return-timeout")
+        }
         Section("Brightness") {
             brightnessSlider("Wake brightness", value: display.$wakeBrightness)
             Toggle("Dim when idle", isOn: display.$idleDimming)
