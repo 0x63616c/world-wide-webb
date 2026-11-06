@@ -31,10 +31,9 @@ struct PresenceClockFace: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: reduceMotion || face.glassWallpaper != nil ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
-            let hour = Calendar.current.component(.hour, from: now)
-            let night = previewNight || (SolarClock.isNight(at: now, sunrise: store.weather.sunrise,
-                sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise)
-                ?? (store.status(for: .weather) != .live || store.weather.symbol.contains("moon") || hour < 7 || hour >= 18))
+            let night = previewNight || SolarClock.appearanceIsNight(at: now, sunrise: store.weather.sunrise,
+                sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
+                weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil)
             ZStack {
                 switch face {
                 case .green:
