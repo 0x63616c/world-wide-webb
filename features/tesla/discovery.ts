@@ -41,7 +41,8 @@ function matchScore(role: keyof TeslaEntities, entity: HaEntity): number {
   switch (role) {
     case "softwareUpdate":
       return domain === "update"
-        ? suffix("software_update", "software_update_status", "software", "firmware")
+        ? suffix("software_update", "software_update_status", "software", "firmware") ||
+            (name === "update" ? 100 : 0)
         : 0;
     case "battery":
       return domain === "sensor" && unit === "%"

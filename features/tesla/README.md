@@ -26,7 +26,7 @@ and common tesla_custom variants (`battery`, `range`, `charging`,
 `charge_state_charging_state` and `climate_state_inside_temp` also work.
 Numeric roles require the units in the table. Odometer may need enabling in HA.
 
-The nine vehicle roles are required, including the charge switch. A software update entity is optional; when present, its availability, installation status and versions are returned without making other telemetry dependent on it. Canonical names take
+The nine vehicle roles are required, including the charge switch. A software update entity is optional; discovery recognizes the default `update.<prefix>_update` name as well as software-update suffixes. When present, its availability, installation status and versions are returned without making other telemetry dependent on it. Canonical names take
 priority; remaining ties use entity ID order, independent of HA response order.
 Vehicle lock/climate fallbacks exclude charge-cable/port locks and cabin overheat
 protection. Renamed entities that no longer match these conventions require an
