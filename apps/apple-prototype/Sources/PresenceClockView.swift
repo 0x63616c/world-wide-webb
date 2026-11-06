@@ -8,7 +8,7 @@ import UIKit
 #endif
 
 enum PanelClockFace: String, CaseIterable {
-    case green, midnight, paper, ember
+    case green, midnight, paper, ember, glass
 }
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
@@ -20,7 +20,7 @@ struct PresenceClockFace: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+        TimelineView(.animation(minimumInterval: reduceMotion || face == .glass ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
             let hour = Calendar.current.component(.hour, from: now)
             let night = previewNight || (SolarClock.isNight(at: now, sunrise: store.weather.sunrise,
@@ -39,6 +39,8 @@ struct PresenceClockFace: View {
                 case .ember:
                     Color(red: 0.15, green: 0.05, blue: 0.035)
                     PanelRingDial(date: now)
+                case .glass:
+                    PanelGlassClockFace(date: now)
                 }
             }.accessibilityIdentifier("clock-face")
         }.ignoresSafeArea()
@@ -266,5 +268,70 @@ private struct PanelRingDial: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }.accessibilityElement(children: .ignore)
             .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
+    }
+}
+
+/// Each digit is part of the native glass shape, so the photograph refracts along
+/// the outline of the numerals, including the counters.
+private struct PanelGlassClockFace: View {
+    let date: Date
+
+    var body: some View {
+        GeometryReader { proxy in
+            let time = fixtureTime(date, format: "h:mm")
+            let shape = ClockGlyphShape(text: time)
+            ZStack {
+                Image("ForestPhoto").resizable().scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+                Color.black.opacity(0.42)
+                Color.clear
+                    .frame(width: proxy.size.width * 0.85, height: proxy.size.height * 0.58)
+                    .glassEffect(.clear, in: shape)
+                    .overlay {
+                        shape.stroke(
+                            LinearGradient(stops: [
+                                .init(color: .white.opacity(0.78), location: 0),
+                                .init(color: .white.opacity(0.22), location: 0.28),
+                                .init(color: .white.opacity(0.30), location: 0.54),
+                                .init(color: Color(red: 0.70, green: 0.91, blue: 0.82).opacity(0.57), location: 1)
+                            ], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: max(1.5, min(proxy.size.width, proxy.size.height) * 0.003)
+                        )
+                    }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
+    }
+}
+
+private struct ClockGlyphShape: Shape {
+    let text: String
+
+    func path(in rect: CGRect) -> Path {
+        let font = CTFontCreateUIFontForLanguage(.system, 100, nil)!
+        let line = CTLineCreateWithAttributedString(NSAttributedString(
+            string: text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
+        ))
+        let outline = CGMutablePath()
+        for run in CTLineGetGlyphRuns(line) as! [CTRun] {
+            let count = CTRunGetGlyphCount(run)
+            var glyphs = Array(repeating: CGGlyph(), count: count)
+            var positions = Array(repeating: CGPoint.zero, count: count)
+            CTRunGetGlyphs(run, CFRange(location: 0, length: 0), &glyphs)
+            CTRunGetPositions(run, CFRange(location: 0, length: 0), &positions)
+            for (glyph, position) in zip(glyphs, positions) {
+                guard let path = CTFontCreatePathForGlyph(font, glyph, nil) else { continue }
+                outline.addPath(path, transform: CGAffineTransform(translationX: position.x, y: position.y))
+            }
+        }
+        let bounds = outline.boundingBoxOfPath
+        guard bounds.width > 0, bounds.height > 0 else { return Path() }
+        let scale = min(rect.width / bounds.width, rect.height / bounds.height)
+        let transform = CGAffineTransform(a: scale, b: 0, c: 0, d: -scale,
+            tx: rect.midX - bounds.midX * scale, ty: rect.midY + bounds.midY * scale)
+        return Path(outline.normalized()).applying(transform)
     }
 }
