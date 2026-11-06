@@ -4,7 +4,9 @@ Tap the clock to slide Home up over it. Tap Close or choose Clock to slide Home
 back down. Swipe left or right on the clock to cycle Green, Midnight, Paper and
 Ember. The panel remembers the selected face.
 
-Swipe Pop is the spring transition for app opens and clock-face swipes.
+Swipe Pop is the spring transition for app opens and clock-face swipes. The dial
+follows your finger and shrinks as the adjacent face enters. Release to settle
+on the next face, or let a short drag spring back.
 When an app opens, the clock, glass and app selectors slide left and shrink
 together as the app enters from the right. Back reverses the motion and restores
 the launcher's scroll position. System Reduce Motion uses a fade.

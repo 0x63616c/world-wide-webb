@@ -75,8 +75,17 @@ struct LauncherGlassSurface: View {
     private let edgeInset: CGFloat = 8
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
-        Color.clear.glassEffect(.regular.tint(.white.opacity(0.06)), in: shape)
+        Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
+            .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
             .padding(edgeInset)
+    }
+
+    private var preview: String {
+        #if DEBUG
+        if let value = UserDefaults.standard.string(forKey: "previewLauncherGlass"),
+           value == "clear" || value == "clearDim" { return value }
+        #endif
+        return "regular"
     }
 }
 

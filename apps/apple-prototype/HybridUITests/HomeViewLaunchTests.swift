@@ -62,7 +62,11 @@ import XCTest
         let window = app.windows.firstMatch
         let right = window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
         let left = window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+        let clock = app.buttons["launcher-clock"]
+        let original = clock.value as? String ?? ""
         right.press(forDuration: 0.1, thenDragTo: left)
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value != %@", original), object: clock)
+        XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
         XCTAssertFalse(app.buttons["home-close"].exists)
         app.openAppGrid()
         left.press(forDuration: 0.1, thenDragTo: right)
