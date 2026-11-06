@@ -1,8 +1,9 @@
 { pkgs }:
 let
-  source = builtins.fetchGit {
+  fixture = builtins.fromJSON (builtins.readFile ./fixture.json);
+  source = assert builtins.match "[0-9a-f]{40}" fixture.helperRevision != null; builtins.fetchGit {
     url = "https://github.com/0x63616c/homelab-cli.git";
-    rev = "6fd57fe68d72bd95d710a3bc76798e1c39a0ef4c";
+    rev = fixture.helperRevision;
   };
 in pkgs.rustPlatform.buildRustPackage {
   pname = "homelab-vm-helper";

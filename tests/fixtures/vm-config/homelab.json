@@ -11,5 +11,7 @@
       "services": []
     }
   },
-  "tailscale": null
+  "tailscale": {
+    "tag": "tag:vm-test"
+  }
 }
