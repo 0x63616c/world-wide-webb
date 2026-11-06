@@ -15,6 +15,7 @@ struct AppLauncher: View {
             let columns = sizeClass == .compact ? 3 : 5
             let iconFrameSide: CGFloat = sizeClass == .compact ? 76 : 112
             let iconSide = iconFrameSide * 0.9
+            let headerInset: CGFloat = sizeClass == .compact ? 20 : 40
             ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 VStack(spacing: 32) {
@@ -22,14 +23,14 @@ struct AppLauncher: View {
                         let hour = Calendar.current.component(.hour, from: context.date)
                         let greeting = hour < 5 || hour >= 21 ? "GOOD NIGHT" :
                             hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING"
-                        Text("\(greeting), CALUM")
+                        Text("\(greeting),\nCALUM")
                             .font(.system(size: sizeClass == .compact ? 18 : 26, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.leading, sizeClass == .compact ? 20 : 72)
-                    .padding(.trailing, 132)
-                    .padding(.top, 40)
+                    .padding(.leading, headerInset)
+                    .padding(.trailing, headerInset + 64)
+                    .padding(.top, headerInset)
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48) {
                         ForEach(apps) { app in
@@ -66,7 +67,7 @@ struct AppLauncher: View {
                     })
                 if isPresented {
                     PanelProfilePhoto()
-                        .padding(24)
+                        .padding(headerInset)
                         .zIndex(1)
                 }
             }
