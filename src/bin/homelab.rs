@@ -1,13 +1,16 @@
 use std::io::{self, IsTerminal, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
-use homelab_client::{inspect, inventory, tui};
-use serde::Serialize;
+use homelab_client::{inventory, tui};
 
 #[derive(Parser)]
-#[command(name = "homelab", version, about = "Guided remote homelab management")]
+#[command(
+    name = "homelab",
+    version,
+    about = "Set up a Mac from your Git configuration"
+)]
 struct Arguments {
     #[arg(long, global = true)]
     inventory: Option<PathBuf>,
@@ -17,35 +20,22 @@ struct Arguments {
 
 #[derive(Subcommand)]
 enum Operation {
-    /// Guide setup of a selected host from a reviewed artifact.
+    /// Start or resume setup of a saved Mac.
     Setup {
         #[arg(long)]
         host: String,
     },
-    /// Inspect a host through verified SSH without changing its settings.
-    Inspect {
-        #[arg(long)]
-        host: String,
-        #[arg(long)]
-        json: bool,
-    },
 }
 
-#[derive(Serialize)]
 struct Failure {
-    schema: u8,
-    state: &'static str,
     code: &'static str,
     message: String,
-    #[serde(rename = "nextAction")]
     next_action: &'static str,
 }
 
 impl Failure {
     fn new(code: &'static str, message: impl Into<String>, next_action: &'static str) -> Self {
         Self {
-            schema: 1,
-            state: "blocked",
             code,
             message: message.into(),
             next_action,
@@ -59,13 +49,7 @@ impl From<inventory::InventoryError> for Failure {
     }
 }
 
-impl From<inspect::InspectionError> for Failure {
-    fn from(error: inspect::InspectionError) -> Self {
-        Self::new(error.code(), error.to_string(), error.next_action())
-    }
-}
-
-fn execute(arguments: Arguments, ssh: &Path) -> Result<Option<inspect::Inspection>, Failure> {
+fn execute(arguments: Arguments) -> Result<(), Failure> {
     let path = arguments
         .inventory
         .or_else(|| {
@@ -90,101 +74,110 @@ fn execute(arguments: Arguments, ssh: &Path) -> Result<Option<inspect::Inspectio
                     "Open an interactive terminal and retry. Saved host profiles are retained.",
                 ),
             })?;
-            Ok(None)
+            Ok(())
         }
-        Some(operation) => {
-            let host = match &operation {
-                Operation::Inspect { host, .. } | Operation::Setup { host } => host,
-            };
+        Some(Operation::Setup { host }) => {
             let hosts = inventory::load(&path)?;
             let profile = hosts
                 .iter()
-                .find(|profile| profile.name == *host)
+                .find(|profile| profile.name == host)
                 .ok_or_else(|| {
                     Failure::new(
                         "unknown-host",
                         "That host is not in your private inventory.",
-                        "Choose a host listed in the menu; do not guess an address.",
+                        "Run homelab to choose or add the Mac you want to set up.",
                     )
                 })?;
-            match operation {
-                Operation::Inspect { .. } => Ok(Some(inspect::inspect(profile, ssh)?)),
-                Operation::Setup { .. } => {
-                    let outcome =
-                        homelab_client::setup_wizard::launch(profile, &path).map_err(|_| {
-                            Failure::new(
-                                "terminal-unavailable",
-                                "Setup could not continue in this terminal.",
-                                "Preserve setup evidence and inspect the target before retrying.",
-                            )
-                        })?;
-                    writeln!(io::stdout().lock(), "{}", outcome.lines.join("\n")).map_err(
-                        |_| {
-                            Failure::new(
-                                "output-unavailable",
-                                "The setup result could not be displayed.",
-                                "Inspect the target before attempting setup again.",
-                            )
-                        },
-                    )?;
-                    if !outcome.completed {
-                        return Err(Failure::new(
-                            "setup-incomplete",
-                            "Setup did not complete.",
-                            "Review the result above before retrying.",
-                        ));
-                    }
-                    Ok(None)
-                }
+            let outcome = homelab_client::setup_wizard::launch(profile, &path).map_err(|_| {
+                Failure::new(
+                    "terminal-unavailable",
+                    "Setup could not continue in this terminal.",
+                    "Preserve setup evidence and inspect the target before retrying.",
+                )
+            })?;
+            writeln!(io::stdout().lock(), "{}", outcome.lines.join("\n")).map_err(|_| {
+                Failure::new(
+                    "output-unavailable",
+                    "The setup result could not be displayed.",
+                    "Inspect the target before attempting setup again.",
+                )
+            })?;
+            if !outcome.completed {
+                return Err(Failure::new(
+                    "setup-incomplete",
+                    "Setup did not complete.",
+                    "Review the result above before retrying.",
+                ));
             }
+            Ok(())
         }
     }
-}
-
-fn write_json(value: &impl Serialize) -> io::Result<()> {
-    let mut output = io::stdout().lock();
-    serde_json::to_writer(&mut output, value)?;
-    writeln!(output)
 }
 
 fn main() -> ExitCode {
     let arguments = Arguments::parse();
-    if (arguments.operation.is_none()
-        || matches!(arguments.operation, Some(Operation::Setup { .. })))
-        && (!io::stdin().is_terminal() || !io::stdout().is_terminal())
-    {
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         Arguments::command()
             .error(
                 clap::error::ErrorKind::InvalidValue,
-                "The menu needs a terminal. Use inspect --host NAME --json for automation.",
+                "Setup needs an interactive terminal. Open Terminal and run homelab to start or resume setup.",
             )
             .exit();
     }
-    let json = matches!(
-        arguments.operation,
-        Some(Operation::Inspect { json: true, .. })
-    );
-    match execute(arguments, Path::new("/usr/bin/ssh")) {
-        Ok(None) => ExitCode::SUCCESS,
-        Ok(Some(report)) => {
-            let output = if json {
-                write_json(&report)
-            } else {
-                writeln!(io::stdout().lock(), "{}", report.lines().join("\n"))
-            };
-            if output.is_ok() && report.is_ready() {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::FAILURE
-            }
-        }
+    match execute(arguments) {
+        Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            if json {
-                let _ = write_json(&error);
-            } else {
-                eprintln!("{}\nNext: {}", error.message, error.next_action);
-            }
+            eprintln!(
+                "{} [{}]\nNext: {}",
+                error.message, error.code, error.next_action
+            );
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn setup_reports_missing_inventory_without_starting_the_wizard() {
+        let directory = tempfile::tempdir().unwrap();
+        let error = execute(Arguments {
+            inventory: Some(directory.path().join("missing.json")),
+            operation: Some(Operation::Setup {
+                host: "missing".into(),
+            }),
+        })
+        .unwrap_err();
+        assert_eq!(error.code, "inventory-missing");
+        assert!(error.next_action.contains("profile"));
+    }
+
+    #[test]
+    fn unknown_profile_never_becomes_an_ssh_address() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("private/inventory.json");
+        inventory::add(
+            &path,
+            inventory::HostProfile {
+                name: "saved".into(),
+                address: "example.invalid".into(),
+                user: "operator".into(),
+                identity: None,
+                configuration_host: None,
+            },
+        )
+        .unwrap();
+        let original = std::fs::read(&path).unwrap();
+        let error = execute(Arguments {
+            inventory: Some(path.clone()),
+            operation: Some(Operation::Setup {
+                host: "arbitrary".into(),
+            }),
+        })
+        .unwrap_err();
+        assert_eq!(error.code, "unknown-host");
+        assert_eq!(std::fs::read(path).unwrap(), original);
     }
 }

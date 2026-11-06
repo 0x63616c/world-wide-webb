@@ -14,118 +14,6 @@ use crate::tui::{Terminal, footer, wrap};
 use crate::ui::{self, Role};
 use crate::{config, first_access, inspect, package};
 
-const LABELS: [&str; 6] = [
-    "Configuration host",
-    "Reviewed commit (40 characters)",
-    "Bootstrap artifact directory",
-    "Host age identity file (private)",
-    "GitHub read-token file (private)",
-    "Setup attempt",
-];
-
-struct Form {
-    values: [String; 5],
-    field: usize,
-    resume: bool,
-}
-
-impl Form {
-    fn new(configuration_host: &str) -> Self {
-        Self {
-            values: [
-                configuration_host.into(),
-                String::new(),
-                String::new(),
-                String::new(),
-                String::new(),
-            ],
-            field: 3,
-            resume: false,
-        }
-    }
-
-    fn prefill_credentials(&mut self, root: &Path) {
-        let directory = root.join("hosts").join(&self.values[0]);
-        for (field, filename) in [(3, "host-age-key.txt"), (4, "github-read-token")] {
-            let path = directory.join(filename);
-            self.values[field] = if path.is_file() {
-                path.display().to_string()
-            } else {
-                String::new()
-            };
-        }
-        self.field = (3..5)
-            .find(|field| self.values[*field].is_empty())
-            .unwrap_or(5);
-    }
-
-    fn edit(&mut self, code: KeyCode) {
-        match code {
-            KeyCode::Left | KeyCode::Right if self.field == 5 => self.resume = !self.resume,
-            KeyCode::BackTab => self.field = self.field.saturating_sub(1).max(3),
-            KeyCode::Backspace if (3..5).contains(&self.field) => {
-                self.values[self.field].pop();
-            }
-            KeyCode::Char(character)
-                if (3..5).contains(&self.field)
-                    && !character.is_control()
-                    && self.values[self.field].len() < 4096 =>
-            {
-                self.values[self.field].push(character);
-            }
-            _ => {}
-        }
-    }
-
-    fn request(&self, profile: &HostProfile, workspace: &config::Workspace) -> Request {
-        Request {
-            profile: profile.clone(),
-            repository: workspace.repository.clone(),
-            configuration_host: self.values[0].clone(),
-            revision: self.values[1].clone(),
-            artifact_directory: PathBuf::from(&self.values[2]),
-            age_key: PathBuf::from(&self.values[3]),
-            github_token: PathBuf::from(&self.values[4]),
-            resume: self.resume,
-        }
-    }
-
-    fn lines(&self, _profile: &HostProfile, width: usize) -> Vec<String> {
-        let value = if self.field == 5 {
-            if self.resume {
-                "Resume a verified safe phase"
-            } else {
-                "New setup"
-            }
-        } else {
-            &self.values[self.field]
-        };
-        let tail: String = value
-            .chars()
-            .rev()
-            .take(width.saturating_sub(2))
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
-        vec![
-            "Set up a Mac".into(),
-            format!("Host: {}", self.values[0]),
-            String::new(),
-            LABELS[self.field].into(),
-            format!("> {tail}"),
-            if self.field == 5 {
-                "←/→ changes selection"
-            } else if self.field == 1 {
-                "Paste the exact reviewed commit"
-            } else {
-                "Path only; never paste a secret."
-            }
-            .into(),
-        ]
-    }
-}
-
 fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> io::Result<usize> {
     let (width, height) = terminal::size()?;
     let mut output = io::stdout();
@@ -136,10 +24,7 @@ fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> 
         return Ok(0);
     }
     let width = ui::content_width(width);
-    let footer = wrap(
-        &footer.lines().map(str::to_owned).collect::<Vec<_>>(),
-        width,
-    );
+    let footer = ui::help_lines(footer, width);
     let wrapped: Vec<_> = body
         .iter()
         .flat_map(|(text, role)| {
@@ -576,18 +461,25 @@ fn select_agent_key(mut keys: Vec<first_access::AgentKey>) -> io::Result<Option<
     }
 }
 
-fn choose_key_source(tools: &first_access::Tools) -> io::Result<Option<SelectedKey>> {
+fn choose_key_source(
+    tools: &first_access::Tools,
+    agent_only: bool,
+) -> io::Result<Option<SelectedKey>> {
     loop {
         let Some(source) = choose(
             &[
                 "Choose a key source".into(),
                 "Private keys stay on your Mac.".into(),
             ],
-            &[
-                "1Password SSH agent",
-                "Current SSH agent",
-                "Public-key file",
-            ],
+            if agent_only {
+                &["1Password SSH agent", "Current SSH agent"]
+            } else {
+                &[
+                    "1Password SSH agent",
+                    "Current SSH agent",
+                    "Public-key file",
+                ]
+            },
         )?
         else {
             return Ok(None);
@@ -648,7 +540,7 @@ fn choose_key_source(tools: &first_access::Tools) -> io::Result<Option<SelectedK
 }
 
 enum AccessOutcome {
-    Continue(AccessChanges, usize),
+    Continue(AccessChanges),
     Finished(Outcome),
 }
 
@@ -717,7 +609,7 @@ fn connect(
                 first_access::check_key_access(profile, tools, trust)
             }
             AccessAction::InstallKey => {
-                let Some(selected_key) = choose_key_source(tools)? else {
+                let Some(selected_key) = choose_key_source(tools, false)? else {
                     continue;
                 };
                 let is_agent = selected_key.identity.is_some();
@@ -851,15 +743,13 @@ fn connect(
             lines.push("! Bootstrap requires an Apple-silicon Mac.".into());
         }
         let choices = if inspection.is_ready() {
-            vec!["Prepare credentials", "Review & set up", "Finish"]
+            vec!["Set up this Mac", "Finish"]
         } else {
             vec!["Finish"]
         };
         let choice = choose(&lines, &choices)?;
-        if inspection.is_ready()
-            && let Some(mode @ 0..=1) = choice
-        {
-            return Ok(AccessOutcome::Continue(changes, mode));
+        if inspection.is_ready() && choice == Some(0) {
+            return Ok(AccessOutcome::Continue(changes));
         }
         changes.append_notice(&mut lines);
         return Ok(AccessOutcome::Finished(Outcome {
@@ -872,15 +762,6 @@ fn connect(
 pub(crate) fn usable_size() -> io::Result<bool> {
     let (width, height) = terminal::size()?;
     Ok(width >= 40 && height >= 12)
-}
-
-fn approval_lines(host: &str, confirmation: &str) -> Vec<String> {
-    vec![
-        "Approve setup".into(),
-        format!("Type {host} to begin."),
-        "Apply the reviewed configuration.".into(),
-        format!("> {confirmation}"),
-    ]
 }
 
 fn attached_workspace(path: &Path) -> io::Result<Option<config::Workspace>> {
@@ -989,21 +870,71 @@ pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outco
     )
 }
 
+/// Explicit provider boundary for isolated enrollment tests. Completion always runs
+/// the real verifier; only its Tailscale executable can be selected.
+pub type PrepareCredentials =
+    fn(
+        &Path,
+        &str,
+        &config::Workspace,
+        bool,
+        &dyn Fn(&str),
+    ) -> Result<crate::provisioning::Details, crate::enrollment_credentials::Error>;
+
+pub struct EnrollmentDependencies {
+    pub prepare_credentials: PrepareCredentials,
+    pub tailscale: Option<std::path::PathBuf>,
+}
+
+impl Default for EnrollmentDependencies {
+    fn default() -> Self {
+        Self {
+            prepare_credentials: |root, host, workspace, started, progress| {
+                crate::enrollment_credentials::prepare(root, host, workspace, started, progress)
+            },
+            tailscale: None,
+        }
+    }
+}
+
 /// Runs the same guided journey with explicit transport executables for isolated tests.
 pub fn launch_with_tools(
     original: &HostProfile,
     inventory_path: &Path,
     tools: &WizardTools,
 ) -> io::Result<Outcome> {
+    launch_with_dependencies(
+        original,
+        inventory_path,
+        tools,
+        &EnrollmentDependencies::default(),
+    )
+}
+
+/// Run enrollment with explicit credentials and route dependencies, without
+/// changing target identity checks, approved revisions or completion verification.
+pub fn launch_with_dependencies(
+    original: &HostProfile,
+    inventory_path: &Path,
+    tools: &WizardTools,
+    dependencies: &EnrollmentDependencies,
+) -> io::Result<Outcome> {
     let mut profile = original.clone();
-    let (changes, mode) = match connect(&mut profile, inventory_path, &tools.first_access)? {
+    let changes = match connect(&mut profile, inventory_path, &tools.first_access)? {
         AccessOutcome::Finished(outcome) => return Ok(outcome),
-        AccessOutcome::Continue(changes, mode) => (changes, mode),
+        AccessOutcome::Continue(changes) => changes,
     };
     let terminal = Terminal::enter()?;
-    let Some(workspace) = attached_workspace(&inventory_path.with_file_name("repository.json"))?
-    else {
-        return Ok(cancelled(changes));
+    let saved = match saved_installation_workspace(&profile) {
+        Ok(workspace) => workspace,
+        Err(error) => return Ok(enrollment_failure(error)),
+    };
+    let workspace = match saved {
+        Some(workspace) => workspace,
+        None => match attached_workspace(&inventory_path.with_file_name("repository.json"))? {
+            Some(workspace) => workspace,
+            None => return Ok(cancelled(changes)),
+        },
     };
     let configuration_host = match configured_host(&profile, &workspace) {
         Some(host) => host.to_owned(),
@@ -1043,7 +974,7 @@ pub fn launch_with_tools(
             host.to_owned()
         }
     };
-    let state = crate::provision_wizard::state_directory();
+    let state = crate::enrollment_credentials::state_directory();
     if let Some(root) = &state {
         if root.exists() && !root.join("repository.json").exists() {
             let legacy_hosts = std::fs::read_dir(root.join("hosts"))
@@ -1070,148 +1001,545 @@ pub fn launch_with_tools(
         }
     }
 
-    if mode == 0 {
-        return match state {
-            Some(root) => crate::provision_wizard::launch(&root, &configuration_host, &workspace),
-            None => Ok(Outcome {
-                completed: false,
-                lines: vec!["HOME is unavailable. Local credentials were not prepared.".into()],
-            }),
-        };
+    match state {
+        Some(root) => enroll(
+            &mut profile,
+            &workspace,
+            &root,
+            &configuration_host,
+            inventory_path,
+            (tools, dependencies),
+            terminal,
+        ),
+        None => Ok(enrollment_failure(
+            "HOME is unavailable. No credentials were prepared.",
+        )),
     }
-    let host = &workspace.manifest.hosts[&configuration_host];
-    if !review(&[
-        "Review private configuration".into(),
-        format!("Repository: {}", workspace.repository),
-        format!("Revision: {}", workspace.revision),
-        format!("Host: {configuration_host}"),
-        format!("Administrator: {} (UID {})", host.admin_user, host.admin_uid),
-        format!("Services: {}", if host.services.is_empty() { "none".into() } else { host.services.join(", ") }),
-        "Use the installed public helper. Target Nix must match this manifest before activation.".into(),
-    ], "Prepare setup")? { return Ok(cancelled(changes)); }
-    let package = match package::prepare(&workspace) {
-        Ok(package) => package,
-        Err(error) => {
-            return Ok(Outcome {
-                completed: false,
-                lines: vec!["Bootstrap package unavailable".into(), error.to_string()],
-            });
-        }
+}
+
+fn saved_installation_workspace(
+    profile: &HostProfile,
+) -> Result<Option<config::Workspace>, Box<dyn std::error::Error>> {
+    let Some(root) = crate::enrollment_credentials::state_directory() else {
+        return Ok(None);
     };
-    let mut form = Form::new(&configuration_host);
-    form.values[1] = workspace.revision.clone();
-    form.values[2] = package.directory.display().to_string();
-    if let Some(root) = &state {
-        form.prefill_credentials(root);
+    let host = profile.resolved_configuration().unwrap_or(&profile.name);
+    if !config::valid_host(host) {
+        return Ok(None);
     }
-    let tools = &tools.remote_setup;
-    let prepared = loop {
-        let (width, _) = terminal::size()?;
-        draw(
-            &form.lines(&profile, usize::from(width).saturating_sub(4).min(76)),
-            0,
-            &footer("Next", "Tab/Shift-Tab edit · Esc back"),
-        )?;
-        match key()? {
-            KeyCode::Esc => return Ok(cancelled(changes)),
-            KeyCode::Enter | KeyCode::Tab if form.field < 5 && usable_size()? => {
-                form.field = ((form.field + 1)..5)
-                    .find(|field| form.values[*field].is_empty())
-                    .unwrap_or(5);
+    let Some(saved) = crate::provisioning::approved_installation(&root, host)? else {
+        return Ok(None);
+    };
+    Ok(Some(config::fetch_revision(
+        &saved.repository,
+        &saved.revision,
+    )?))
+}
+
+fn enrollment_failure(error: impl std::fmt::Display) -> Outcome {
+    Outcome {
+        completed: false,
+        lines: vec![
+            "Setup needs attention".into(),
+            error.to_string(),
+            "Your saved progress and recovery identities have been preserved.".into(),
+        ],
+    }
+}
+
+fn queued_cancellation() -> io::Result<bool> {
+    while event::poll(std::time::Duration::ZERO)? {
+        if let Event::Key(key) = event::read()?
+            && (key.code == KeyCode::Esc
+                || (key.code == KeyCode::Char('c')
+                    && key.modifiers.contains(KeyModifiers::CONTROL)))
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn saved_enrollment(url: &str) -> Outcome {
+    Outcome {
+        completed: false,
+        lines: vec![
+            "Setup saved. Reopen setup to continue from this PR.".into(),
+            url.into(),
+        ],
+    }
+}
+
+fn save_and_release(
+    url: &str,
+    profile: &HostProfile,
+    attempt: &crate::enrollment_reservation::Attempt,
+    helper: &Path,
+    tools: &remote_setup::Tools,
+    bootstrap_started: bool,
+) -> Outcome {
+    let mut outcome = saved_enrollment(url);
+    if !bootstrap_started
+        && remote_setup::release_enrollment(profile, attempt, helper, tools).is_err()
+    {
+        outcome.lines.push("The target reservation could not be released. Resume this same saved attempt to reconcile it.".into());
+    }
+    outcome
+}
+
+fn enroll(
+    profile: &mut HostProfile,
+    workspace: &config::Workspace,
+    root: &Path,
+    host_name: &str,
+    inventory_path: &Path,
+    dependencies: (&WizardTools, &EnrollmentDependencies),
+    terminal: Terminal,
+) -> io::Result<Outcome> {
+    let (tools, dependencies) = dependencies;
+    let _enrollment = match crate::provisioning::lock_enrollment(root) {
+        Ok(lock) => lock,
+        Err(error) => return Ok(enrollment_failure(error)),
+    };
+    let host = &workspace.manifest.hosts[host_name];
+    let public_key = if let Some(identity) = &profile.identity {
+        identity.public_key.clone()
+    } else {
+        let Some(selected) = choose_key_source(&tools.first_access, true)? else {
+            return Ok(enrollment_failure(
+                "Setup cancelled before credential preparation.",
+            ));
+        };
+        let key = selected.key.as_openssh().to_owned();
+        if let Some(identity) = selected.identity {
+            let mut candidate = profile.clone();
+            candidate.identity = Some(identity.clone());
+            if let Err(error) = first_access::check_key_access(
+                &candidate,
+                &tools.first_access,
+                first_access::Trust::Strict,
+            ) {
+                return Ok(enrollment_failure(error));
             }
-            KeyCode::Enter if usable_size()? => {
-                draw(
-                    &[
-                        "Checking bootstrap readiness".into(),
-                        "Validating artifact and SSH. No bootstrap changes yet.".into(),
-                    ],
-                    0,
-                    "Please wait",
-                )?;
-                match remote_setup::prepare(form.request(&profile, &workspace), tools) {
-                    Ok(prepared) => break prepared,
-                    Err(error) => {
-                        let lines = vec![
-                            "Bootstrap preparation blocked".into(),
-                            error.to_string(),
-                            String::new(),
-                            format!("Next: {}", error.next_action()),
-                        ];
-                        let mut offset = 0;
-                        loop {
-                            let last = draw(
-                                &lines,
-                                offset,
-                                &footer("Edit inputs", "↑/↓ read · Esc back"),
-                            )?;
-                            match key()? {
-                                KeyCode::Esc => return Ok(cancelled(changes)),
-                                KeyCode::Enter => {
-                                    form.field = 3;
-                                    break;
-                                }
-                                KeyCode::Down | KeyCode::PageDown => {
-                                    offset = (offset + 1).min(last)
-                                }
-                                KeyCode::Up | KeyCode::PageUp => offset = offset.saturating_sub(1),
-                                _ => {}
-                            }
+            match inventory::set_identity(inventory_path, profile, Some(identity)) {
+                Ok(updated) => *profile = updated,
+                Err(error) => return Ok(enrollment_failure(error)),
+            }
+        }
+        key
+    };
+    let inspection = match inspect::inspect(profile, &tools.first_access.ssh) {
+        Ok(inspection)
+            if inspection.is_ready()
+                && inspection.user == host.admin_user
+                && inspection.uid == u64::from(host.admin_uid) =>
+        {
+            inspection
+        }
+        Ok(_) => {
+            return Ok(enrollment_failure(
+                "This connection does not match the configured Mac administrator.",
+            ));
+        }
+        Err(error) => return Ok(enrollment_failure(error)),
+    };
+    if let Err(error) = remote_setup::check_prerequisites(profile, &tools.remote_setup) {
+        return Ok(enrollment_failure(format!(
+            "{error} {}",
+            error.next_action()
+        )));
+    }
+    if dependencies.tailscale.is_none()
+        && let Err(error) = crate::remote_completion::discover_tailscale()
+    {
+        return Ok(enrollment_failure(error));
+    }
+    if !review(
+        &[
+            format!("Set up {host_name}"),
+            format!(
+                "{}@{} · {:.0} GiB free",
+                profile.user, profile.address, inspection.free_gib
+            ),
+            format!("Configuration: {}", workspace.repository),
+            String::new(),
+            "Back up recovery keys to 1Password and prepare encrypted configuration.".into(),
+            "Give this Mac read-only repository access and open an enrollment PR.".into(),
+            "After you merge that PR, install its approved configuration on this Mac.".into(),
+            "Restart the Mac, verify its services and remote access, then hand over to Git updates.".into(),
+            "If FileVault is enabled, you may need to unlock the Mac locally after restart.".into(),
+        ],
+        "Begin setup",
+    )? {
+        return Ok(enrollment_failure(
+            "Setup cancelled before credential preparation.",
+        ));
+    }
+    let progress = |message: &str| {
+        let _ = draw(
+            &[format!("Setting up {host_name}"), message.into()],
+            0,
+            "Please wait",
+        );
+    };
+    let attempt =
+        match crate::provisioning::enrollment_attempt(root, &workspace.repository, host_name) {
+            Ok(attempt) => attempt,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+    loop {
+        let current_workspace = match saved_installation_workspace(profile) {
+            Ok(Some(workspace)) => workspace,
+            Ok(None) => match config::fetch(&workspace.repository) {
+                Ok(workspace) => workspace,
+                Err(error) => return Ok(enrollment_failure(error)),
+            },
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        let workspace = &current_workspace;
+        let directory = root.join("hosts").join(host_name);
+        progress("Preparing this Mac's read-only Git access");
+        let package = match package::prepare(workspace) {
+            Ok(package) => package,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        let identity = match remote_setup::prepare_git_identity(
+            profile,
+            &attempt,
+            &package.directory.join("homelab-host"),
+            &tools.remote_setup,
+        ) {
+            Ok(identity) => identity,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        if let Some(revision) = &identity.activated_revision {
+            let installed = match config::fetch_revision(&workspace.repository, revision) {
+                Ok(workspace) => workspace,
+                Err(error) => return Ok(enrollment_failure(error)),
+            };
+            drop(terminal);
+            return Ok(finish_enrollment(
+                profile,
+                host_name,
+                &installed,
+                tools,
+                dependencies,
+            ));
+        }
+        // Before the target claims a revision, expired preparations can still
+        // renew. Each replacement PR must be based on what main contains now.
+        let current_workspace = if identity.bootstrap_started {
+            current_workspace
+        } else {
+            match config::fetch(&workspace.repository) {
+                Ok(workspace) => workspace,
+                Err(error) => return Ok(enrollment_failure(error)),
+            }
+        };
+        let workspace = &current_workspace;
+        if !workspace.manifest.hosts.get(host_name).is_some_and(|host| {
+            host.admin_user == inspection.user && u64::from(host.admin_uid) == inspection.uid
+        }) {
+            return Ok(enrollment_failure(
+                "The current configuration no longer matches this Mac's administrator. Review the host configuration before continuing.",
+            ));
+        }
+        let credentials = match (dependencies.prepare_credentials)(
+            root,
+            host_name,
+            workspace,
+            identity.bootstrap_started,
+            &progress,
+        ) {
+            Ok(prepared) => prepared,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        let registry = crate::deploy_keys::GitHub::new(Path::new("gh"));
+        if let Err(error) = crate::deploy_keys::register_saved(
+            &registry,
+            &crate::deploy_keys::Request {
+                repository: workspace.repository.clone(),
+                host: host_name.into(),
+                public_key: identity.public_key,
+            },
+            &directory.join("deploy-key.json"),
+        ) {
+            return Ok(enrollment_failure(error));
+        }
+        progress("Preparing the enrollment pull request");
+        let api = crate::configuration_pr::GitHub {
+            executable: "gh".into(),
+        };
+        let proposal_path = directory.join("proposal.json");
+        let proposal = if proposal_path.exists() {
+            crate::configuration_pr::Changes::load(&proposal_path, &workspace.repository, host_name)
+        } else {
+            match crate::enrollment_credentials::proposal(
+                root,
+                host_name,
+                workspace,
+                &public_key,
+                &api,
+            ) {
+                Ok(proposal) => Ok(proposal),
+                Err(error) => return Ok(enrollment_failure(error)),
+            }
+        };
+        let proposal = match proposal {
+            Ok(proposal) => proposal,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        let selected = crate::ssh_identity::canonical_key(&public_key);
+        if !proposal.manifest.hosts[host_name]
+            .authorized_keys
+            .iter()
+            .any(|key| crate::ssh_identity::canonical_key(key) == selected)
+        {
+            return Ok(enrollment_failure(
+                "This saved proposal authorizes a different SSH identity. Restore the original selection before continuing.",
+            ));
+        }
+        if let Err(error) = proposal.save(&proposal_path) {
+            return Ok(enrollment_failure(error));
+        }
+        let pull = match crate::configuration_pr::publish(&api, &proposal) {
+            Ok(pull) => pull,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        let approved = loop {
+            match crate::configuration_pr::approved_workspace(&api, &proposal, pull.number) {
+                Ok(Some(workspace)) => {
+                    if queued_cancellation()? {
+                        return Ok(save_and_release(
+                            &pull.html_url,
+                            profile,
+                            &attempt,
+                            &package.directory.join("homelab-host"),
+                            &tools.remote_setup,
+                            identity.bootstrap_started,
+                        ));
+                    }
+                    break workspace;
+                }
+                Ok(None) => {}
+                Err(error) => return Ok(enrollment_failure(error)),
+            }
+            draw(
+            &[
+                format!("Waiting for approval · {host_name}"),
+                "Review and merge the enrollment PR in GitHub.".into(),
+                pull.html_url.clone(),
+                String::new(),
+                "Setup continues automatically after merge. You can close this and resume later."
+                    .into(),
+            ],
+            0,
+            "Enter Open PR · Esc Save and exit",
+        )?;
+            if event::poll(std::time::Duration::from_secs(5))? {
+                match key()? {
+                    KeyCode::Esc => {
+                        return Ok(save_and_release(
+                            &pull.html_url,
+                            profile,
+                            &attempt,
+                            &package.directory.join("homelab-host"),
+                            &tools.remote_setup,
+                            identity.bootstrap_started,
+                        ));
+                    }
+                    KeyCode::Enter => {
+                        let expected = format!(
+                            "https://github.com/{}/pull/{}",
+                            workspace.repository, pull.number
+                        );
+                        if pull.html_url == expected {
+                            let _ = std::process::Command::new("/usr/bin/open")
+                                .arg(expected)
+                                .stdin(std::process::Stdio::null())
+                                .stdout(std::process::Stdio::null())
+                                .stderr(std::process::Stdio::null())
+                                .status();
                         }
                     }
+                    _ => {}
                 }
             }
-            code => form.edit(code),
+        };
+        match crate::enrollment_credentials::valid_for_installation(
+            root,
+            host_name,
+            &workspace.repository,
+        ) {
+            Ok(true) => {}
+            Ok(false) if identity.bootstrap_started => {
+                return Ok(enrollment_failure(
+                    crate::enrollment_credentials::Error::ExpiredStartedSetup,
+                ));
+            }
+            Ok(false) => continue,
+            Err(error) => return Ok(enrollment_failure(error)),
         }
+        progress("Preparing the approved installation");
+        let package = match package::prepare(&approved) {
+            Ok(package) => package,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        let prepared = match remote_setup::prepare(
+            Request {
+                attempt: attempt.id.clone(),
+                repository: approved.repository.clone(),
+                profile: profile.clone(),
+                configuration_host: host_name.into(),
+                revision: approved.revision.clone(),
+                artifact_directory: package.directory.clone(),
+                age_key: credentials.host_key_path,
+                deploy_key: identity.path,
+                resume: true,
+            },
+            &tools.remote_setup,
+        ) {
+            Ok(prepared) => prepared,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        if queued_cancellation()? {
+            return Ok(save_and_release(
+                &pull.html_url,
+                profile,
+                &attempt,
+                &package.directory.join("homelab-host"),
+                &tools.remote_setup,
+                identity.bootstrap_started,
+            ));
+        }
+        if let Err(error) = crate::provisioning::save_approved_installation(
+            root,
+            &approved.repository,
+            host_name,
+            &approved.revision,
+        ) {
+            return Ok(enrollment_failure(error));
+        }
+        drop(terminal);
+        println!("Installing on {host_name}. SSH may ask for the Mac's administrator password.");
+        return match remote_setup::apply(prepared, &tools.remote_setup) {
+            Ok(_) => Ok(finish_enrollment(
+                profile,
+                host_name,
+                &approved,
+                tools,
+                dependencies,
+            )),
+            Err(error) => Ok(enrollment_failure(error)),
+        };
+    }
+}
+
+fn finish_enrollment(
+    profile: &HostProfile,
+    host: &str,
+    workspace: &config::Workspace,
+    tools: &WizardTools,
+    dependencies: &EnrollmentDependencies,
+) -> Outcome {
+    let Some(tailscale) = workspace.manifest.tailscale.as_ref() else {
+        return enrollment_failure("The approved configuration is missing its Tailscale tag.");
     };
-    let mut lines = vec!["Review & set up".into()];
-    lines.extend(prepared.lines());
-    lines.push("This will transfer host-specific credentials and apply the reviewed configuration. Migration and service health still require separate checks.".into());
-    if !review(&lines, "Continue to approval")? {
-        return Ok(cancelled(changes));
-    }
-    let mut confirmation = String::new();
-    loop {
-        draw(
-            &approval_lines(&form.values[0], &confirmation),
-            0,
-            &footer("Approve setup", "Esc back"),
-        )?;
-        match key()? {
-            KeyCode::Esc => return Ok(cancelled(changes)),
-            KeyCode::Backspace => {
-                confirmation.pop();
-            }
-            KeyCode::Char(character) if character.is_ascii_alphanumeric() || character == '-' => {
-                if confirmation.len() < 32 {
-                    confirmation.push(character);
-                }
-            }
-            KeyCode::Enter if confirmation == form.values[0] && usable_size()? => break,
-            _ => {}
-        }
-    }
-    // SSH and sudo need a normal terminal, including echo handling for passwords.
-    drop(terminal);
-    println!(
-        "Starting approved setup on {}. SSH may request administrator authentication.",
-        profile.address
-    );
-    let outcome = match remote_setup::apply(prepared, tools) {
+    let tailscale_executable = match dependencies
+        .tailscale
+        .clone()
+        .map(Ok)
+        .unwrap_or_else(crate::remote_completion::discover_tailscale)
+    {
+        Ok(path) => path,
+        Err(error) => return enrollment_failure(error),
+    };
+    match crate::remote_completion::finish_with_tools(
+        profile,
+        &tools.remote_setup.ssh,
+        &tailscale_executable,
+        crate::remote_completion::Installation {
+            repository: &workspace.repository,
+            host,
+            revision: &workspace.revision,
+            tag: &tailscale.tag,
+        },
+        |message| println!("{message}"),
+    ) {
         Ok(report) => Outcome {
-            lines: report.lines(),
             completed: true,
+            lines: vec![
+                format!("{host} is set up."),
+                "Reboot, services, Tailscale access and Git access verified.".into(),
+                format!("Setup configuration: {}", workspace.revision),
+                format!("Tailscale: {}", report.tailscale.dns_name),
+            ],
         },
-        Err(error) => Outcome {
-            lines: vec![error.to_string(), format!("Next: {}", error.next_action())],
-            completed: false,
-        },
-    };
-    Ok(outcome)
+        Err(error) => enrollment_failure(error),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saved_installation_does_not_consult_current_main() {
+        const CHILD: &str = "HOMELAB_TEST_APPROVED_MANIFEST";
+        if std::env::var_os(CHILD).is_some() {
+            let profile = HostProfile {
+                name: "saved-connection".into(),
+                address: "example-host".into(),
+                user: "original-admin".into(),
+                identity: None,
+                configuration_host: Some("removed-from-main".into()),
+            };
+            let workspace = saved_installation_workspace(&profile).unwrap().unwrap();
+            assert_eq!(workspace.revision, "a".repeat(40));
+            assert_eq!(
+                workspace.manifest.hosts["removed-from-main"].admin_user,
+                "original-admin"
+            );
+            return;
+        }
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join(".local/state/homelab/provisioning");
+        crate::provisioning::save_approved_installation(
+            &root,
+            "example/config",
+            "removed-from-main",
+            &"a".repeat(40),
+        )
+        .unwrap();
+        let output = std::process::Command::new("rustc")
+            .args(["--edition=2024", "-o"])
+            .arg(temporary.path().join("gh"))
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/approved_manifest.rs"))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "setup_wizard::tests::saved_installation_does_not_consult_current_main",
+                "--test-threads=1",
+            ])
+            .env(CHILD, "1")
+            .env("HOME", temporary.path())
+            .env("PATH", temporary.path())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
     fn workspace() -> config::Workspace {
         config::Workspace {
             repository: "example/config".into(),
@@ -1245,6 +1573,18 @@ mod tests {
             identity: None,
             configuration_host: None,
         }
+    }
+
+    #[test]
+    fn exact_names_and_saved_aliases_resolve_without_another_host_question() {
+        let workspace = workspace();
+        let mut profile = profile();
+        assert_eq!(configured_host(&profile, &workspace), None);
+        profile.configuration_host = Some("service-mac".into());
+        assert_eq!(configured_host(&profile, &workspace), Some("service-mac"));
+        profile.configuration_host = None;
+        profile.name = "build-mac".into();
+        assert_eq!(configured_host(&profile, &workspace), Some("build-mac"));
     }
     #[test]
     fn attach_terminal_child() {
@@ -1366,185 +1706,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "visual QA harness; synthetic inputs only"]
-    fn render_preview() {
-        let scene = std::env::var("HOMELAB_PREVIEW").unwrap();
-        let _terminal = Terminal::enter().unwrap();
-        let profile = profile();
-        match scene.as_str() {
-            "form" => {
-                let mut form = Form::new("build-mac");
-                form.field = 3;
-                form.values[3] = "/Users/operator/private/host-age-key.txt".into();
-                draw(
-                    &form.lines(&profile, ui::content_width(terminal::size().unwrap().0)),
-                    0,
-                    &footer("Next", "Tab/Shift-Tab edit · Esc back"),
-                )
-                .unwrap();
-                key().unwrap();
-            }
-            "failure" => {
-                let (title, message, actions) =
-                    failure_screen(&first_access::Error::AuthenticationDenied);
-                choose(
-                    &[
-                        title.into(),
-                        "operator@macbook.local".into(),
-                        message.into(),
-                    ],
-                    &actions
-                        .iter()
-                        .copied()
-                        .map(AccessAction::label)
-                        .collect::<Vec<_>>(),
-                )
-                .unwrap();
-            }
-            "source" => {
-                choose_key_source(&first_access::Tools {
-                    ssh: "/usr/bin/ssh".into(),
-                    ssh_keygen: "/usr/bin/ssh-keygen".into(),
-                    ssh_add: "/usr/bin/ssh-add".into(),
-                })
-                .unwrap();
-            }
-            "keys" => {
-                let (width, height) = terminal::size().unwrap();
-                let lines = agent_key_lines(
-                    &[
-                        (
-                            "Personal Mac",
-                            "SHA256:abcdefghijklmnopqrstuvwxy0123456789012345678",
-                        ),
-                        (
-                            "Homelab",
-                            "SHA256:zyxwvutsrqponmlkjihgfedcba9876543210987654321",
-                        ),
-                    ],
-                    1,
-                    ui::content_width(width),
-                    usize::from(height).saturating_sub(7),
-                );
-                draw(
-                    &lines,
-                    0,
-                    &footer("Review this key", "↑/↓ select · Esc back"),
-                )
-                .unwrap();
-                key().unwrap();
-            }
-            "approval" => {
-                draw(
-                    &approval_lines("build-mac", "build-mac"),
-                    0,
-                    &footer("Approve setup", "Esc back"),
-                )
-                .unwrap();
-                key().unwrap();
-            }
-            "review" => {
-                review(
-                    &[
-                        "Review encryption".into(),
-                        "Host: build-mac".into(),
-                        String::new(),
-                        "Host recipient: age1syntheticpublicrecipientforlayoutonly".into(),
-                        "Recovery recipient: age1othersyntheticpublicrecipient".into(),
-                        String::new(),
-                        "Encrypted: Tailscale + GitHub tokens".into(),
-                        "Bootstrap: GitHub token retained in an owner-only file outside Git."
-                            .into(),
-                        "No deployment will start.".into(),
-                    ],
-                    "Encrypt configuration",
-                )
-                .unwrap();
-            }
-            _ => panic!("unknown preview scene"),
-        }
-    }
-
-    #[test]
-    fn reviewed_configuration_prefills_only_existing_selected_host_credentials() {
-        let root = tempfile::tempdir().unwrap();
-        let directory = root.path().join("hosts/build-mac");
-        std::fs::create_dir_all(&directory).unwrap();
-        std::fs::write(directory.join("host-age-key.txt"), "synthetic").unwrap();
-        std::fs::write(directory.join("github-read-token"), "synthetic").unwrap();
-        let mut form = Form::new("build-mac");
-        form.prefill_credentials(root.path());
-        assert_eq!(
-            Path::new(&form.values[3]),
-            directory.join("host-age-key.txt")
-        );
-        assert_eq!(
-            Path::new(&form.values[4]),
-            directory.join("github-read-token")
-        );
-        let mut form = Form::new("service-mac");
-        form.prefill_credentials(root.path());
-        assert!(form.values[3].is_empty() && form.values[4].is_empty());
-        assert!(!root.path().join("hosts/service-mac").exists());
-    }
-
-    #[test]
-    fn configuration_selection_is_separate_from_the_connection_alias() {
-        let profile = profile();
-        let mut form = Form::new("service-mac");
-        form.edit(KeyCode::Right);
-        let request = form.request(&profile, &workspace());
-        assert_eq!(request.configuration_host, "service-mac");
-        assert_eq!(request.profile.name, "lan-mini");
-        assert!(!request.resume);
-    }
-    #[test]
-    fn saved_or_exact_configuration_stays_fixed_through_form_navigation() {
-        let root = tempfile::tempdir().unwrap();
-        let path = root.path().join("private/inventory.json");
-        let alias = profile();
-        assert!(alias.resolved_configuration().is_none());
-        inventory::add(&path, alias.clone()).unwrap();
-        inventory::set_configuration(&path, &alias, "service-mac").unwrap();
-        let saved = inventory::load(&path).unwrap().remove(0);
-        assert_eq!(saved.resolved_configuration(), Some("service-mac"));
-        let mut exact = profile();
-        exact.name = "build-mac".into();
-        for profile in [saved, exact] {
-            let workspace = workspace();
-            let host = configured_host(&profile, &workspace).unwrap();
-            let mut form = Form::new(host);
-            assert_eq!(form.field, 3);
-            for key in [
-                KeyCode::BackTab,
-                KeyCode::BackTab,
-                KeyCode::Right,
-                KeyCode::Left,
-            ] {
-                form.edit(key);
-            }
-            assert_eq!(form.field, 3);
-            assert_eq!(form.request(&profile, &workspace).configuration_host, host);
-        }
-    }
-
-    #[test]
-    fn editing_retains_paths_and_requires_explicit_resume_selection() {
-        let mut form = Form::new("build-mac");
-        form.field = 3;
-        for c in "/private/path with spaces".chars() {
-            form.edit(KeyCode::Char(c));
-        }
-        form.edit(KeyCode::BackTab);
-        assert_eq!(form.values[3], "/private/path with spaces");
-        form.field = 5;
-        form.edit(KeyCode::Right);
-        assert!(form.resume);
-        form.edit(KeyCode::Left);
-        assert!(!form.resume);
-    }
-
-    #[test]
     fn failures_offer_the_relevant_primary_action_without_guessing() {
         use first_access::Error;
         assert_eq!(
@@ -1566,22 +1727,6 @@ mod tests {
             assert_eq!(failure_screen(&error).2[0], AccessAction::Check);
         }
         assert_eq!(failure_screen(&Error::HostChanged).2, [AccessAction::Check]);
-    }
-
-    #[test]
-    fn bootstrap_form_keeps_the_path_tail_visible_at_minimum_size() {
-        let profile = profile();
-        let mut form = Form::new("service-mac");
-        form.field = 3;
-        form.values[3] = "/a/long/private/directory/host-age-key.txt".into();
-        let lines = form.lines(&profile, 36);
-        let body = wrap(&lines[1..], 36);
-        assert!(body.len() <= 6, "form must fit above the two-line footer");
-        assert!(
-            body.iter()
-                .any(|line| line.starts_with("> ") && line.ends_with("host-age-key.txt"))
-        );
-        assert!(body.iter().all(|line| line.chars().count() <= 36));
     }
 
     #[test]
@@ -1639,16 +1784,9 @@ mod tests {
             }
         }
         let help = footer("Review this key", "↑/↓ select · Esc back");
-        assert_eq!(help.lines().count(), 2);
+        assert_eq!(help.lines().count(), 1);
+        assert_eq!(crate::ui::help_lines(&help, 36).len(), 2);
         assert!(!help.contains("SHA256"));
-    }
-
-    #[test]
-    fn final_approval_keeps_typed_host_visible_at_minimum_size() {
-        let lines = approval_lines("build-mac", "build-mac");
-        let visible = wrap(&lines[1..], 36);
-        assert!(visible.len() <= 5);
-        assert_eq!(visible.last().unwrap(), "> build-mac");
     }
 
     #[test]

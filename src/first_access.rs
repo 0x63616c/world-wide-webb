@@ -33,6 +33,10 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
+    pub fn as_openssh(&self) -> &str {
+        &self.line
+    }
+
     pub fn fingerprint(&self) -> &str {
         &self.fingerprint
     }

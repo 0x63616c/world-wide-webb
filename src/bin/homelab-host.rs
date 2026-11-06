@@ -16,8 +16,89 @@ struct Arguments {
     operation: Operation,
 }
 
+#[derive(clap::Args)]
+struct SetupCheck {
+    #[arg(long)]
+    request_id: String,
+    #[arg(long)]
+    repository: String,
+    #[arg(long)]
+    revision: String,
+    #[arg(long)]
+    system: PathBuf,
+    #[arg(long)]
+    binding: String,
+    #[arg(long)]
+    host: String,
+    #[arg(long)]
+    tag: String,
+}
+
+impl SetupCheck {
+    fn matches_binding(&self) -> bool {
+        homelab_client::config::setup_binding(&self.repository, &self.host, &self.revision)
+            .is_some_and(|binding| binding == self.binding)
+    }
+}
+
 #[derive(Subcommand)]
 enum Operation {
+    #[command(hide = true)]
+    RunUpdater {
+        #[arg(long)]
+        executable: PathBuf,
+        #[arg(long)]
+        config: PathBuf,
+    },
+    #[command(hide = true)]
+    CurrentSystem,
+    #[command(hide = true)]
+    ReadSetupCompletion {
+        #[arg(long)]
+        binding: String,
+    },
+    #[command(hide = true)]
+    ReadSetupReport {
+        #[arg(long)]
+        binding: String,
+        #[arg(long)]
+        request_id: String,
+    },
+    #[command(hide = true)]
+    VerifySetup(SetupCheck),
+    #[command(hide = true)]
+    RequestSetupReboot(SetupCheck),
+    #[command(hide = true)]
+    CompleteSetup(SetupCheck),
+    #[command(hide = true)]
+    ReleaseEnrollment {
+        #[arg(long)]
+        repository: String,
+        #[arg(long)]
+        host: String,
+        #[arg(long)]
+        attempt: String,
+    },
+    #[command(hide = true)]
+    PrepareDeployKey {
+        #[arg(long)]
+        repository: String,
+        #[arg(long)]
+        host: String,
+        #[arg(long)]
+        attempt: String,
+    },
+    #[command(hide = true)]
+    InstallDeployKey {
+        #[arg(long)]
+        source: PathBuf,
+        #[arg(long)]
+        public_key: String,
+        #[arg(long)]
+        reuse_matching: bool,
+    },
+    #[command(hide = true)]
+    DeployKeyStatus,
     /// Publish reviewed public SSH keys as a root-owned regular file.
     InstallSshKeys {
         #[arg(long)]
@@ -28,13 +109,15 @@ enum Operation {
     /// Set up this target from an explicitly approved, exact reviewed commit.
     Bootstrap {
         #[arg(long)]
+        attempt: String,
+        #[arg(long)]
         repository: String,
         #[arg(long)]
         manifest: PathBuf,
         host: String,
         revision: String,
         age_key: PathBuf,
-        github_token: PathBuf,
+        deploy_key: PathBuf,
         #[arg(long)]
         resume: bool,
     },
@@ -51,11 +134,18 @@ enum Operation {
     BootstrapActivate {
         #[arg(long)]
         system: PathBuf,
+        #[arg(long)]
+        binding: String,
+    },
+    #[command(hide = true)]
+    BootstrapActivationStatus {
+        #[arg(long)]
+        system: PathBuf,
+        #[arg(long)]
+        binding: String,
     },
     #[command(hide = true)]
     BootstrapKeyStatus,
-    #[command(hide = true)]
-    CredentialAskpass { prompt: String },
     /// Apply and verify the AC power policy, preserving battery settings.
     Power,
     /// Verify decryption using only the supplied host age identity.
@@ -73,6 +163,8 @@ enum Operation {
         source: PathBuf,
         #[arg(long)]
         source_uid: u32,
+        #[arg(long)]
+        reuse_matching: bool,
     },
     /// Enroll or reconcile the host's Tailscale settings.
     Tailscale {
@@ -94,7 +186,7 @@ fn root_bootstrap_operation() -> bool {
     }
 }
 
-fn bootstrap(request: homelab_client::bootstrap::Request) -> ExitCode {
+fn bootstrap(request: homelab_client::bootstrap::Request, attempt: String) -> ExitCode {
     let Some(home) = std::env::var_os("HOME")
         .map(PathBuf::from)
         .filter(|path| path.is_absolute())
@@ -102,6 +194,27 @@ fn bootstrap(request: homelab_client::bootstrap::Request) -> ExitCode {
         eprintln!("Bootstrap needs an absolute home directory for its private setup journal.");
         return ExitCode::FAILURE;
     };
+    if rustix::process::geteuid().as_raw() == 0
+        || request.approved_host.as_deref() != Some(request.host.as_str())
+    {
+        eprintln!("Bootstrap requires approval for this host from its non-root administrator.");
+        return ExitCode::FAILURE;
+    }
+    let reservation = homelab_client::enrollment_reservation::Reservation::open(&home);
+    let claim = reservation.and_then(|reservation| {
+        reservation.claim_bootstrap(
+            &homelab_client::enrollment_reservation::Attempt {
+                id: attempt,
+                repository: request.repository.clone(),
+                host: request.host.clone(),
+            },
+            &request.revision,
+        )
+    });
+    if let Err(error) = claim {
+        eprintln!("Setup reservation could not be confirmed: {error}");
+        return ExitCode::FAILURE;
+    }
     let Ok(helper) = std::env::current_exe() else {
         eprintln!("The bootstrap helper location could not be determined.");
         return ExitCode::FAILURE;
@@ -190,13 +303,308 @@ fn reviewed_host(
 fn main() -> ExitCode {
     let arguments = Arguments::parse();
     match arguments.operation {
+        Operation::RunUpdater { executable, config } => {
+            if !root_bootstrap_operation() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::updater_gate::run(&executable, &config) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("Updater startup could not be verified: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::CurrentSystem => match Path::new("/run/current-system").canonicalize() {
+            Ok(system) if system.parent() == Some(Path::new("/nix/store")) => {
+                println!(
+                    "{}",
+                    serde_json::to_string(&system).expect("path serializes")
+                );
+                ExitCode::SUCCESS
+            }
+            _ => ExitCode::FAILURE,
+        },
+        Operation::ReadSetupCompletion { binding } => {
+            match homelab_client::setup_report::completion(&binding) {
+                Ok(report) => {
+                    println!(
+                        "{}",
+                        serde_json::to_string(&report).expect("report serializes")
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("Setup completion receipt unavailable: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::ReadSetupReport {
+            binding,
+            request_id,
+        } => match homelab_client::setup_report::read(&binding, &request_id) {
+            Ok(report) => {
+                println!(
+                    "{}",
+                    serde_json::to_string(&report).expect("verification report serializes")
+                );
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("Verified setup report unavailable: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        Operation::CompleteSetup(check) => {
+            if !root_bootstrap_operation() || !check.matches_binding() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::bootstrap_privileged::complete_setup(
+                &check.system,
+                &check.binding,
+                &check.repository,
+                &check.host,
+                &check.tag,
+                &check.request_id,
+            ) {
+                Ok(_) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("Setup completion unconfirmed; resume this attempt: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::VerifySetup(check) => {
+            if !root_bootstrap_operation() || !check.matches_binding() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::bootstrap_privileged::verify_setup(
+                &check.system,
+                &check.binding,
+                &check.repository,
+                &check.host,
+                &check.tag,
+                &check.request_id,
+            ) {
+                Ok(report) => {
+                    if let Err(error) = homelab_client::setup_report::publish(&report) {
+                        eprintln!("Verification result could not be saved: {error}");
+                        return ExitCode::FAILURE;
+                    }
+                    println!(
+                        "{}",
+                        serde_json::to_string(&report).expect("verification report serializes")
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("Setup verification incomplete: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::RequestSetupReboot(check) => {
+            if !root_bootstrap_operation() || !check.matches_binding() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::bootstrap_privileged::request_reboot(
+                &check.system,
+                &check.binding,
+                &check.repository,
+                &check.host,
+                &check.tag,
+                &check.request_id,
+            ) {
+                Ok(result) => {
+                    println!(
+                        "{}",
+                        serde_json::to_string(&result).expect("reboot result serializes")
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("Reboot outcome unconfirmed; preserve this setup attempt: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::ReleaseEnrollment {
+            repository,
+            host,
+            attempt,
+        } => {
+            if rustix::process::geteuid().as_raw() == 0 {
+                return ExitCode::FAILURE;
+            }
+            let Some(home) = std::env::var_os("HOME") else {
+                return ExitCode::FAILURE;
+            };
+            let result =
+                homelab_client::enrollment_reservation::Reservation::open(Path::new(&home))
+                    .and_then(|reservation| {
+                        reservation.release_preparation(
+                            &homelab_client::enrollment_reservation::Attempt {
+                                id: attempt,
+                                repository,
+                                host,
+                            },
+                        )
+                    });
+            match result {
+                Ok(()) => {
+                    println!("released");
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("Setup reservation retained: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::PrepareDeployKey {
+            repository,
+            host,
+            attempt,
+        } => {
+            if rustix::process::geteuid().as_raw() == 0 {
+                eprintln!(
+                    "Prepare the repository identity as the SSH administrator, without sudo."
+                );
+                return ExitCode::FAILURE;
+            }
+            let Some(home) = std::env::var_os("HOME") else {
+                eprintln!("The administrator home directory is unavailable.");
+                return ExitCode::FAILURE;
+            };
+            let reservation =
+                match homelab_client::enrollment_reservation::Reservation::open(Path::new(&home)) {
+                    Ok(reservation) => reservation,
+                    Err(error) => {
+                        eprintln!("Setup reservation failed: {error}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+            let attempt = homelab_client::enrollment_reservation::Attempt {
+                id: attempt,
+                repository: repository.clone(),
+                host,
+            };
+            let phase = match reservation.acquire(&attempt) {
+                Ok(phase) => phase,
+                Err(error) => {
+                    eprintln!("Setup reservation failed: {error}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            if phase == homelab_client::enrollment_reservation::Phase::Preparing
+                && let Err(error) = reservation.renewal_allowed(&attempt)
+            {
+                eprintln!("Setup preparation is not available: {error}");
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::deploy_identity::prepare_for_repository(
+                Path::new(&home),
+                &repository,
+                Path::new("/usr/bin/ssh-keygen"),
+            ) {
+                Ok(mut identity) => {
+                    identity.bootstrap_started =
+                        phase != homelab_client::enrollment_reservation::Phase::Preparing;
+                    if let homelab_client::enrollment_reservation::Phase::BootstrapClaimed {
+                        revision,
+                    } = &phase
+                    {
+                        match homelab_client::bootstrap_state::activation_candidate(
+                            Path::new(&home),
+                            &repository,
+                            &attempt.host,
+                            revision,
+                        ) {
+                            Ok(true) => identity.activated_revision = Some(revision.clone()),
+                            Ok(false) => {}
+                            Err(error) => {
+                                eprintln!("Saved bootstrap progress could not be read: {error}");
+                                return ExitCode::FAILURE;
+                            }
+                        }
+                    }
+                    println!(
+                        "{}",
+                        serde_json::to_string(&identity).expect("public identity serializes")
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("Git identity preparation failed: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::InstallDeployKey {
+            source,
+            public_key,
+            reuse_matching,
+        } => {
+            if !root_bootstrap_operation() {
+                return ExitCode::FAILURE;
+            }
+            let Some(source_uid) = std::env::var("SUDO_UID")
+                .ok()
+                .and_then(|value| value.parse::<u32>().ok())
+                .filter(|uid| *uid != 0)
+            else {
+                eprintln!(
+                    "Git identity installation must be elevated by the target administrator."
+                );
+                return ExitCode::FAILURE;
+            };
+            let publish = if reuse_matching {
+                homelab_client::deploy_identity::ensure
+            } else {
+                homelab_client::deploy_identity::install
+            };
+            match publish(
+                &source,
+                source_uid,
+                Path::new("/var/lib/homelab-git"),
+                &public_key,
+                Path::new("/usr/bin/ssh-keygen"),
+            ) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("Git identity installation incomplete: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::DeployKeyStatus => {
+            if !root_bootstrap_operation() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::deploy_identity::public_key(
+                Path::new("/var/lib/homelab-git/key.txt"),
+                0,
+                Path::new("/usr/bin/ssh-keygen"),
+            ) {
+                Ok(public_key) => {
+                    println!("{public_key}");
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("Git identity could not be verified: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Operation::Bootstrap {
+            attempt,
             repository,
             manifest,
             host,
             revision,
             age_key,
-            github_token,
+            deploy_key,
             resume,
         } => {
             let expected_host = match reviewed_host(&manifest, &repository, &revision, &host) {
@@ -208,25 +616,19 @@ fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            bootstrap(homelab_client::bootstrap::Request {
-                repository,
-                expected_host,
-                host,
-                revision,
-                age_key,
-                github_token,
-                resume,
-                approved_host: std::env::var("HOMELAB_BOOTSTRAP_APPROVED").ok(),
-            })
-        }
-        Operation::CredentialAskpass { prompt } => {
-            match homelab_client::git_credentials::respond(&prompt) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(error) => {
-                    eprintln!("Git credential request failed: {error}");
-                    ExitCode::FAILURE
-                }
-            }
+            bootstrap(
+                homelab_client::bootstrap::Request {
+                    repository,
+                    expected_host,
+                    host,
+                    revision,
+                    age_key,
+                    deploy_key,
+                    resume,
+                    approved_host: std::env::var("HOMELAB_BOOTSTRAP_APPROVED").ok(),
+                },
+                attempt,
+            )
         }
         Operation::BootstrapKeyStatus => {
             if !root_bootstrap_operation() {
@@ -258,7 +660,19 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Operation::BootstrapActivate { system } => {
+        Operation::BootstrapActivationStatus { system, binding } => {
+            if !root_bootstrap_operation() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::bootstrap_privileged::activation_status(&system, &binding) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("Activation completion is not verified: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::BootstrapActivate { system, binding } => {
             if !root_bootstrap_operation() {
                 return ExitCode::FAILURE;
             }
@@ -270,7 +684,7 @@ fn main() -> ExitCode {
                 eprintln!("Activation requires a built system in the Nix store.");
                 return ExitCode::FAILURE;
             }
-            match homelab_client::bootstrap_privileged::activate(&system) {
+            match homelab_client::bootstrap_privileged::activate_recorded(&system, &binding) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) => {
                     eprintln!("System activation incomplete: {error}");
@@ -298,18 +712,23 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Operation::InstallHostKey { source, source_uid } => {
+        Operation::InstallHostKey {
+            source,
+            source_uid,
+            reuse_matching,
+        } => {
             if !rustix::process::geteuid().is_root() {
                 eprintln!(
                     "Host key installation requires administrator elevation through bootstrap."
                 );
                 return ExitCode::FAILURE;
             }
-            match homelab_client::host_key::install(
-                &source,
-                Path::new("/var/lib/sops-nix"),
-                source_uid,
-            ) {
+            let publish = if reuse_matching {
+                homelab_client::host_key::ensure
+            } else {
+                homelab_client::host_key::install
+            };
+            match publish(&source, Path::new("/var/lib/sops-nix"), source_uid) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(error) => {
                     eprintln!("Host key installation incomplete: {error}");

@@ -46,6 +46,25 @@ pub fn install(
     destination_directory: &Path,
     source_uid: u32,
 ) -> Result<(), InstallError> {
+    install_inner(source, destination_directory, source_uid, false)
+}
+
+/// Resume an interrupted publication only when the protected destination is
+/// byte-for-byte identical. An unexpected identity is never overwritten.
+pub fn ensure(
+    source: &Path,
+    destination_directory: &Path,
+    source_uid: u32,
+) -> Result<(), InstallError> {
+    install_inner(source, destination_directory, source_uid, true)
+}
+
+fn install_inner(
+    source: &Path,
+    destination_directory: &Path,
+    source_uid: u32,
+    reuse_matching: bool,
+) -> Result<(), InstallError> {
     let source = open(
         source,
         OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
@@ -134,14 +153,48 @@ pub fn install(
         .map_err(|_| InstallError::PrepareFailed)?;
     // Hard-link publication fails for every existing entry, including dangling
     // symlinks. Concurrent installers therefore cannot replace a host identity.
-    linkat(
+    let published = linkat(
         &directory,
         staged.name.as_str(),
         &directory,
         "key.txt",
         AtFlags::empty(),
-    )
-    .map_err(|error| {
+    );
+    if published == Err(rustix::io::Errno::EXIST) && reuse_matching {
+        let mut existing = openat(
+            &directory,
+            "key.txt",
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map(File::from)
+        .map_err(|_| InstallError::AlreadyExists)?;
+        let metadata = existing
+            .metadata()
+            .map_err(|_| InstallError::AlreadyExists)?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || !matches!(metadata.mode() & 0o7777, 0o400 | 0o600)
+        {
+            return Err(InstallError::AlreadyExists);
+        }
+        let mut bytes = Vec::new();
+        (&mut existing)
+            .take(65_537)
+            .read_to_end(&mut bytes)
+            .map_err(|_| InstallError::AlreadyExists)?;
+        if bytes != contents {
+            return Err(InstallError::AlreadyExists);
+        }
+        existing
+            .sync_all()
+            .map_err(|_| InstallError::ConfirmationFailed)?;
+        unlinkat(&directory, staged.name.as_str(), AtFlags::empty())
+            .map_err(|_| InstallError::ConfirmationFailed)?;
+        fsync(&directory).map_err(|_| InstallError::ConfirmationFailed)?;
+        return Ok(());
+    }
+    published.map_err(|error| {
         if error == rustix::io::Errno::EXIST {
             InstallError::AlreadyExists
         } else {

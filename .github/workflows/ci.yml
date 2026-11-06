@@ -27,7 +27,7 @@ jobs:
         run: |
           cargo fmt --check
           cargo clippy --locked --all-targets -- -D warnings
-          shellcheck src/probe.sh src/git-askpass.sh src/remote/*.sh src/first-access/*.sh
+          shellcheck src/probe.sh src/remote/*.sh src/first-access/*.sh
       - name: Test synthetic setup journeys
         run: cargo test --locked
       - name: Build native release

@@ -77,31 +77,21 @@ fn main() {
             assert_eq!(std::env::var("GIT_CONFIG_KEY_1").unwrap(), "core.hooksPath");
             assert_eq!(std::env::var("GIT_CONFIG_VALUE_1").unwrap(), "/dev/null");
             if args[0] == "clone" {
-                if let Ok(git) = fs::read_to_string(root.join("actual-git")) {
-                    let mut child = std::process::Command::new(git.trim())
-                        .args(["credential", "fill"])
-                        .stdin(std::process::Stdio::piped())
-                        .stdout(std::process::Stdio::piped())
-                        .stderr(std::process::Stdio::piped())
-                        .spawn()
-                        .unwrap();
-                    child
-                        .stdin
-                        .take()
-                        .unwrap()
-                        .write_all(b"protocol=https\nhost=github.com\n\n")
-                        .unwrap();
-                    let result = child.wait_with_output().unwrap();
-                    assert!(result.status.success(), "real Git askpass failed");
-                    let output = String::from_utf8(result.stdout).unwrap();
-                    assert!(output.contains("username=x-access-token\n"));
-                    assert!(output.contains("password=github_pat_synthetic123\n"));
-                    assert!(result.stderr.is_empty());
-                    event(root, "git-askpass-verified");
+                let ssh = std::env::var("GIT_SSH_COMMAND").unwrap();
+                for required in [
+                    "StrictHostKeyChecking=yes",
+                    "IdentitiesOnly=yes",
+                    "IdentityAgent=none",
+                    "-F /dev/null",
+                    "github_known_hosts",
+                ] {
+                    assert!(ssh.contains(required));
                 }
+                assert!(std::env::var_os("GIT_ASKPASS").is_none());
+                event(root, "git-ssh-verified");
                 assert!(
                     args.iter()
-                        .any(|arg| arg == "https://github.com/example/private-config.git")
+                        .any(|arg| arg == "git@github.com:example/private-config.git")
                 );
                 event(root, "fetch");
                 let repo = Path::new(args.last().unwrap());
@@ -159,7 +149,7 @@ fn main() {
                 if flag("build-output-missing") {
                     return;
                 }
-                symlink(root.join("system"), after("--out-link")).unwrap();
+                symlink(root.join(if flag("different-system") { "system-other" } else { "system" }), after("--out-link")).unwrap();
             } else {
                 panic!("unexpected Nix arguments");
             }
@@ -180,6 +170,10 @@ fn main() {
             if args.iter().any(|arg| arg == "bootstrap-key-status") {
                 std::process::exit(if flag("existing-key") { 0 } else { 3 });
             }
+            if args.iter().any(|arg| arg == "bootstrap-activation-status") {
+                event(root, "activation-status");
+                std::process::exit(if flag("activation-confirmed") { 0 } else { 1 });
+            }
             if args.iter().any(|arg| arg == "install-host-key") {
                 assert!(
                     fs::read_to_string(root.join("state/progress.json"))
@@ -191,6 +185,13 @@ fn main() {
                     fail();
                 }
                 fs::write(root.join("installed-key"), "installed fixture identity").unwrap();
+            } else if args.iter().any(|arg| arg == "install-deploy-key") {
+                assert!(
+                    fs::read_to_string(root.join("state/progress.json"))
+                        .unwrap()
+                        .contains("InstallingKey")
+                );
+                event(root, "install-deploy-key");
             } else if args.iter().any(|arg| arg == "bootstrap-install-nix")
                 || args.get(2).is_some_and(|arg| arg == "install")
             {
@@ -216,6 +217,12 @@ fn main() {
             }
         }
         "homelab-host" | "helper" => {
+            if args.len() == 2 && args[1] == "--help" && ["install-deploy-key", "bootstrap-activation-status", "complete-setup", "run-updater"].contains(&args[0].as_str()) {
+                if flag("old-helper") {
+                    fail();
+                }
+                return;
+            }
             assert_eq!(args[0], "verify-host-secrets");
             event(root, "verify-secrets");
             if flag("decrypt-fails") {

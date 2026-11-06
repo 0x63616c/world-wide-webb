@@ -9,6 +9,20 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 use thiserror::Error;
 
+pub fn setup_binding(repository: &str, host: &str, revision: &str) -> Option<String> {
+    use sha2::{Digest, Sha256};
+
+    if !valid_repository(repository) || !valid_host(host) || !valid_revision(revision) {
+        return None;
+    }
+    Some(
+        Sha256::digest(format!("{repository}\n{host}\n{revision}"))
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+    )
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Host {
@@ -189,6 +203,13 @@ pub fn fetch(repository: &str) -> Result<Workspace, Error> {
     if !valid_revision(&revision) {
         return Err(Error::Fetch);
     }
+    fetch_revision(repository, &revision)
+}
+
+pub fn fetch_revision(repository: &str, revision: &str) -> Result<Workspace, Error> {
+    if !valid_repository(repository) || !valid_revision(revision) {
+        return Err(Error::InvalidRepository);
+    }
     let manifest: Manifest = serde_json::from_slice(&api(
         &format!("repos/{repository}/contents/homelab.json?ref={revision}"),
         true,
@@ -197,7 +218,7 @@ pub fn fetch(repository: &str) -> Result<Workspace, Error> {
     manifest.validate()?;
     Ok(Workspace {
         repository: repository.into(),
-        revision,
+        revision: revision.into(),
         manifest,
     })
 }
@@ -272,6 +293,29 @@ pub fn attach(repository: &str, path: &Path) -> Result<Workspace, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn setup_binding_cannot_be_reused_for_another_selection() {
+        let revision = "a".repeat(40);
+        let binding = setup_binding("example/config", "macbook", &revision).unwrap();
+        assert_eq!(binding.len(), 64);
+        assert_eq!(
+            Some(binding.clone()),
+            setup_binding("example/config", "macbook", &revision)
+        );
+        for changed in [
+            setup_binding("example/other", "macbook", &revision),
+            setup_binding("example/config", "mini", &revision),
+            setup_binding("example/config", "macbook", &"b".repeat(40)),
+        ] {
+            assert_ne!(Some(binding.clone()), changed);
+        }
+        assert_eq!(
+            None,
+            setup_binding("example/config\nother", "macbook", &revision)
+        );
+        assert_eq!(None, setup_binding("example/config", "macbook", "main"));
+    }
     #[test]
     fn rejects_repository_shell_or_url_input() {
         for s in [

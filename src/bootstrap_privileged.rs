@@ -2,15 +2,16 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use rustix::fs::{Mode, OFlags, open};
+use rustix::fs::{FlockOperation, Mode, OFlags, flock, open};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+use crate::bootstrap_state::{Journal, Phase};
 use crate::process;
 
 const MAX_INSTALLER_BYTES: u64 = 100 * 1024 * 1024;
@@ -32,6 +33,337 @@ pub enum Error {
         "System activation could not be confirmed. Inspect the target before resuming bootstrap."
     )]
     ActivationUnconfirmed,
+    #[error(
+        "Setup health verification did not pass. The update hold remains in place; retry verification after checking the target services."
+    )]
+    VerificationUnconfirmed,
+    #[error(
+        "Setup was verified and Git updates were released, but reconciliation is not yet confirmed. Resume to check the running updater; do not reinstall."
+    )]
+    ReconciliationUnconfirmed,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct VerifiedSetup {
+    pub request_id: String,
+    pub schema: u8,
+    pub main_revision: String,
+    pub system: std::path::PathBuf,
+    pub binding: String,
+    pub rebooted: bool,
+    pub completed: bool,
+    pub completed_at: Option<i64>,
+    pub reconciled_revision: Option<String>,
+    pub boot_session: String,
+    pub tailscale: crate::tailscale::VerifiedNode,
+}
+
+#[derive(Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RebootRequest {
+    Requested,
+    AlreadyRequested,
+    AlreadyRebooted,
+}
+
+fn record_reboot(directory: &Path, boot: &str) -> Result<RebootRequest, Error> {
+    if !valid_boot_session(boot) {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    let metadata = fs::symlink_metadata(directory).map_err(|_| Error::VerificationUnconfirmed)?;
+    if !metadata.is_dir()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o7777 != 0o700
+    {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    let path = directory.join("reboot-requested");
+    match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            file.write_all(boot.to_ascii_lowercase().as_bytes())
+                .and_then(|()| file.sync_all())
+                .map_err(|_| Error::VerificationUnconfirmed)?;
+            File::open(directory)
+                .and_then(|file| file.sync_all())
+                .map_err(|_| Error::VerificationUnconfirmed)?;
+            Ok(RebootRequest::Requested)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            let file = File::from(
+                open(
+                    &path,
+                    OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+                    Mode::empty(),
+                )
+                .map_err(|_| Error::VerificationUnconfirmed)?,
+            );
+            let metadata = file
+                .metadata()
+                .map_err(|_| Error::VerificationUnconfirmed)?;
+            if !metadata.is_file()
+                || metadata.uid() != rustix::process::geteuid().as_raw()
+                || metadata.mode() & 0o7777 != 0o600
+            {
+                return Err(Error::VerificationUnconfirmed);
+            }
+            let mut saved = String::new();
+            file.take(37)
+                .read_to_string(&mut saved)
+                .map_err(|_| Error::VerificationUnconfirmed)?;
+            if !valid_boot_session(&saved) {
+                return Err(Error::VerificationUnconfirmed);
+            }
+            Ok(if saved.eq_ignore_ascii_case(boot) {
+                RebootRequest::AlreadyRequested
+            } else {
+                RebootRequest::AlreadyRebooted
+            })
+        }
+        Err(_) => Err(Error::VerificationUnconfirmed),
+    }
+}
+
+pub fn request_reboot(
+    system: &Path,
+    binding: &str,
+    repository: &str,
+    host: &str,
+    tag: &str,
+    request_id: &str,
+) -> Result<RebootRequest, Error> {
+    let report = verify_setup(system, binding, repository, host, tag, request_id)?;
+    crate::setup_report::publish(&report)?;
+    if report.rebooted {
+        return Ok(RebootRequest::AlreadyRebooted);
+    }
+    let result = record_reboot(
+        &Path::new("/var/lib/homelab-bootstrap").join(binding),
+        &report.boot_session,
+    )?;
+    if result == RebootRequest::Requested {
+        let mut command = Command::new("/sbin/shutdown");
+        command
+            .args(["-r", "now"])
+            .env_clear()
+            .env("PATH", SYSTEM_PATH)
+            .stdin(Stdio::null());
+        // The durable marker intentionally survives a lost acknowledgement or a
+        // failed shutdown request. Neither proves that repeating it is safe.
+        if !process::run_silent(&mut command, Duration::from_secs(30))
+            .is_ok_and(|status| status.success())
+        {
+            return Err(Error::VerificationUnconfirmed);
+        }
+    }
+    Ok(result)
+}
+
+fn read_hold(root: &Path, system: &Path, binding: &str) -> Result<HoldRecord, Error> {
+    let metadata = fs::symlink_metadata(root).map_err(|_| Error::InvalidActivation)?;
+    if !metadata.is_dir()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o7777 != 0o700
+    {
+        return Err(Error::InvalidActivation);
+    }
+    let file = File::from(
+        open(
+            root.join("hold"),
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK,
+            Mode::empty(),
+        )
+        .map_err(|_| Error::InvalidActivation)?,
+    );
+    decode_hold(&file, system, binding)
+}
+
+fn decode_hold(file: &File, system: &Path, binding: &str) -> Result<HoldRecord, Error> {
+    let metadata = file.metadata().map_err(|_| Error::InvalidActivation)?;
+    if !metadata.is_file()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o7777 != 0o600
+    {
+        return Err(Error::InvalidActivation);
+    }
+    let mut bytes = Vec::new();
+    file.take(8193)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Error::InvalidActivation)?;
+    if bytes.len() > 8192 {
+        return Err(Error::InvalidActivation);
+    }
+    let record: HoldRecord =
+        serde_json::from_slice(&bytes).map_err(|_| Error::InvalidActivation)?;
+    if record.schema != 1
+        || record.system != system
+        || record.binding != binding
+        || !valid_boot_session(&record.initial_boot_session)
+    {
+        return Err(Error::InvalidActivation);
+    }
+    Ok(record)
+}
+
+pub fn verify_setup(
+    system: &Path,
+    binding: &str,
+    repository: &str,
+    host: &str,
+    tag: &str,
+    request_id: &str,
+) -> Result<VerifiedSetup, Error> {
+    if !crate::setup_report::valid_binding(request_id) {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    let system = trusted_store_path(system, Path::new("/nix/store"), 0)?;
+    activation_status(&system, binding)?;
+    let hold = read_hold(Path::new("/var/lib/homelab"), &system, binding)?;
+    let boot_session = boot_session()?;
+    let health = trusted_store_path(
+        &system.join("sw/bin/homelab-health"),
+        Path::new("/nix/store"),
+        0,
+    )?;
+    let tailscale =
+        trusted_store_path(&system.join("sw/bin/tailscale"), Path::new("/nix/store"), 0)?;
+    let mut command = Command::new(health);
+    command
+        .env_clear()
+        .env("PATH", SYSTEM_PATH)
+        .env("HOME", "/var/root")
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null());
+    if !process::run_silent(&mut command, Duration::from_secs(180))
+        .is_ok_and(|status| status.success())
+    {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    let mut updater = Command::new("/bin/launchctl");
+    updater
+        .args(["print", "system/com.github.nlewo.comin"])
+        .env_clear()
+        .stdin(Stdio::null());
+    if !process::run_silent(&mut updater, Duration::from_secs(10))
+        .is_ok_and(|status| status.success())
+    {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    let node = crate::tailscale::verify_node(&tailscale, host, tag)
+        .map_err(|_| Error::VerificationUnconfirmed)?;
+    let main_revision = crate::git_ssh::verify_read_access(
+        Path::new("/usr/bin/git"),
+        Path::new("/var/lib/homelab-git/key.txt"),
+        repository,
+    )
+    .map_err(|_| Error::VerificationUnconfirmed)?;
+    activation_status(&system, binding)?;
+    let after = read_hold(Path::new("/var/lib/homelab"), &system, binding)?;
+    if after.initial_boot_session != hold.initial_boot_session {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    Ok(VerifiedSetup {
+        request_id: request_id.into(),
+        schema: 1,
+        main_revision,
+        rebooted: !hold
+            .initial_boot_session
+            .eq_ignore_ascii_case(&boot_session),
+        completed: false,
+        completed_at: None,
+        reconciled_revision: None,
+        boot_session,
+        system,
+        binding: binding.into(),
+        tailscale: node,
+    })
+}
+
+pub fn complete_setup(
+    system: &Path,
+    binding: &str,
+    repository: &str,
+    host: &str,
+    tag: &str,
+    request_id: &str,
+) -> Result<VerifiedSetup, Error> {
+    let mut report = complete_with(
+        Path::new("/var/lib/homelab"),
+        system,
+        binding,
+        request_id,
+        || crate::setup_report::completion(binding),
+        || verify_setup(system, binding, repository, host, tag, request_id),
+        crate::setup_report::save_completion,
+    )?;
+    report.reconciled_revision = Some(crate::comin::wait_for_reconciliation(
+        repository,
+        host,
+        report
+            .completed_at
+            .ok_or(Error::ReconciliationUnconfirmed)?,
+    )?);
+    crate::setup_report::publish(&report)?;
+    Ok(report)
+}
+
+fn complete_with(
+    root: &Path,
+    system: &Path,
+    binding: &str,
+    request_id: &str,
+    read_completion: impl FnOnce() -> Result<Option<VerifiedSetup>, Error>,
+    verify: impl FnOnce() -> Result<VerifiedSetup, Error>,
+    save_completion: impl FnOnce(&VerifiedSetup) -> Result<(), Error>,
+) -> Result<VerifiedSetup, Error> {
+    if !crate::setup_report::valid_binding(binding)
+        || !crate::setup_report::valid_binding(request_id)
+        || system.parent() != Some(Path::new("/nix/store"))
+        || system
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    let _lock = updater_lock(root)?;
+    let mut report = match read_completion()? {
+        Some(report) => report,
+        None => {
+            let mut report = verify()?;
+            if !report.rebooted || report.binding != binding || report.system != system {
+                return Err(Error::VerificationUnconfirmed);
+            }
+            report.completed = true;
+            report.completed_at = Some(time::OffsetDateTime::now_utc().unix_timestamp());
+            // Persist proof before releasing the hold. A lost acknowledgement can
+            // then finish this transaction even after the updater advances main.
+            save_completion(&report)?;
+            report
+        }
+    };
+    if !report.completed || !report.rebooted || report.binding != binding || report.system != system
+    {
+        return Err(Error::VerificationUnconfirmed);
+    }
+    let hold = root.join("hold");
+    match fs::symlink_metadata(&hold) {
+        Ok(_) => {
+            read_hold(root, system, binding)?;
+            fs::remove_file(&hold).map_err(|_| Error::VerificationUnconfirmed)?;
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err(Error::VerificationUnconfirmed),
+    }
+    File::open(root)
+        .and_then(|file| file.sync_all())
+        .map_err(|_| Error::VerificationUnconfirmed)?;
+    report.request_id = request_id.into();
+    Ok(report)
 }
 
 /// Execute a verified private snapshot, so replacing the download cannot change it.
@@ -131,7 +463,244 @@ pub fn activate(system: &Path) -> Result<(), Error> {
     )
 }
 
-fn trusted_store_path(path: &Path, store: &Path, owner: u32) -> Result<std::path::PathBuf, Error> {
+fn activation_journal(system: &Path, binding: &str, root: &Path) -> Result<Journal, Error> {
+    if binding.len() != 64 || !binding.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(Error::InvalidActivation);
+    }
+    match fs::symlink_metadata(root) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::DirBuilder::new()
+                .mode(0o700)
+                .create(root)
+                .map_err(|_| Error::ActivationUnconfirmed)?;
+            File::open(root.parent().ok_or(Error::InvalidActivation)?)
+                .and_then(|file| file.sync_all())
+                .map_err(|_| Error::ActivationUnconfirmed)?;
+        }
+        Err(_) => return Err(Error::ActivationUnconfirmed),
+    }
+    let metadata = fs::symlink_metadata(root).map_err(|_| Error::ActivationUnconfirmed)?;
+    if !metadata.is_dir()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o7777 != 0o700
+    {
+        return Err(Error::ActivationUnconfirmed);
+    }
+    Journal::open_for_reconciliation(
+        &root.join(binding),
+        binding,
+        "activation",
+        system.to_str().ok_or(Error::InvalidActivation)?,
+    )
+    .map_err(|_| Error::ActivationUnconfirmed)
+}
+
+fn current_system_matches(system: &Path, profile: &Path) -> bool {
+    profile
+        .canonicalize()
+        .is_ok_and(|current| current == system)
+}
+
+pub fn activation_status(system: &Path, binding: &str) -> Result<(), Error> {
+    let system = trusted_store_path(system, Path::new("/nix/store"), 0)?;
+    let root = Path::new("/var/lib/homelab-bootstrap");
+    // A status probe must never manufacture a receipt for an absent attempt.
+    if !root.join(binding).join("progress.json").exists() {
+        return Err(Error::ActivationUnconfirmed);
+    }
+    let journal = activation_journal(&system, binding, root)?;
+    if journal.phase() != Phase::Activated
+        || journal.built_system() != Some(system.as_path())
+        || !current_system_matches(&system, Path::new("/nix/var/nix/profiles/system"))
+        || !current_system_matches(&system, Path::new("/run/current-system"))
+    {
+        return Err(Error::ActivationUnconfirmed);
+    }
+    Ok(())
+}
+
+pub fn activate_recorded(system: &Path, binding: &str) -> Result<(), Error> {
+    let system = trusted_store_path(system, Path::new("/nix/store"), 0)?;
+    let _hold = enrollment_hold(
+        Path::new("/var/lib/homelab"),
+        &system,
+        binding,
+        &boot_session()?,
+    )?;
+    recorded_activation(
+        &system,
+        binding,
+        Path::new("/var/lib/homelab-bootstrap"),
+        || activate(&system),
+        || {
+            current_system_matches(&system, Path::new("/nix/var/nix/profiles/system"))
+                && current_system_matches(&system, Path::new("/run/current-system"))
+        },
+    )
+}
+
+struct EnrollmentHold {
+    lock: File,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct HoldRecord {
+    schema: u8,
+    binding: String,
+    system: std::path::PathBuf,
+    initial_boot_session: String,
+}
+
+pub(crate) fn valid_boot_session(value: &str) -> bool {
+    value.len() == 36
+        && value.bytes().enumerate().all(|(index, byte)| {
+            if [8, 13, 18, 23].contains(&index) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_hexdigit()
+            }
+        })
+}
+
+fn boot_session() -> Result<String, Error> {
+    let mut command = Command::new("/usr/sbin/sysctl");
+    command
+        .args(["-n", "kern.bootsessionuuid"])
+        .env_clear()
+        .stdin(Stdio::null());
+    let output = process::capture(&mut command, Duration::from_secs(10))
+        .map_err(|_| Error::ActivationUnconfirmed)?;
+    let value = std::str::from_utf8(&output.stdout)
+        .map_err(|_| Error::ActivationUnconfirmed)?
+        .trim();
+    if !output.status.success() || !valid_boot_session(value) {
+        return Err(Error::ActivationUnconfirmed);
+    }
+    Ok(value.to_ascii_lowercase())
+}
+
+impl Drop for EnrollmentHold {
+    fn drop(&mut self) {
+        // The persistent hold remains until verified completion, even on failure.
+        let _ = flock(&self.lock, FlockOperation::Unlock);
+    }
+}
+
+fn enrollment_hold(
+    root: &Path,
+    system: &Path,
+    binding: &str,
+    boot: &str,
+) -> Result<EnrollmentHold, Error> {
+    if !valid_boot_session(boot) {
+        return Err(Error::InvalidActivation);
+    }
+    if binding.len() != 64 || !binding.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(Error::InvalidActivation);
+    }
+    let guard = updater_lock(root)?;
+    let bytes = serde_json::to_vec(&HoldRecord {
+        schema: 1,
+        binding: binding.into(),
+        system: system.into(),
+        initial_boot_session: boot.to_ascii_lowercase(),
+    })
+    .map_err(|_| Error::InvalidActivation)?;
+    let path = root.join("hold");
+    match open(
+        &path,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK,
+        Mode::empty(),
+    ) {
+        Ok(descriptor) => {
+            let file = File::from(descriptor);
+            decode_hold(&file, system, binding)?;
+            file.sync_all().map_err(|_| Error::ActivationUnconfirmed)?;
+        }
+        Err(rustix::io::Errno::NOENT) => {
+            let mut file =
+                tempfile::NamedTempFile::new_in(root).map_err(|_| Error::ActivationUnconfirmed)?;
+            file.write_all(&bytes)
+                .and_then(|()| file.as_file().sync_all())
+                .map_err(|_| Error::ActivationUnconfirmed)?;
+            file.persist_noclobber(&path)
+                .map_err(|_| Error::ActivationUnconfirmed)?;
+        }
+        Err(_) => return Err(Error::InvalidActivation),
+    }
+    File::open(root)
+        .and_then(|file| file.sync_all())
+        .map_err(|_| Error::ActivationUnconfirmed)?;
+    Ok(guard)
+}
+
+fn updater_lock(root: &Path) -> Result<EnrollmentHold, Error> {
+    match fs::DirBuilder::new().mode(0o700).create(root) {
+        Ok(()) => File::open(root.parent().ok_or(Error::InvalidActivation)?)
+            .and_then(|file| file.sync_all())
+            .map_err(|_| Error::ActivationUnconfirmed)?,
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(_) => return Err(Error::ActivationUnconfirmed),
+    }
+    let metadata = fs::symlink_metadata(root).map_err(|_| Error::InvalidActivation)?;
+    if !metadata.is_dir()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o7777 != 0o700
+    {
+        return Err(Error::InvalidActivation);
+    }
+    let lock = File::from(
+        open(
+            root.join("update.lock"),
+            OFlags::CREATE | OFlags::RDWR | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK,
+            Mode::RUSR | Mode::WUSR,
+        )
+        .map_err(|_| Error::InvalidActivation)?,
+    );
+    let metadata = lock.metadata().map_err(|_| Error::InvalidActivation)?;
+    if !metadata.is_file()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o022 != 0
+    {
+        return Err(Error::InvalidActivation);
+    }
+    flock(&lock, FlockOperation::NonBlockingLockExclusive)
+        .map_err(|_| Error::ActivationUnconfirmed)?;
+    Ok(EnrollmentHold { lock })
+}
+
+fn recorded_activation(
+    system: &Path,
+    binding: &str,
+    root: &Path,
+    activate: impl FnOnce() -> Result<(), Error>,
+    matches: impl Fn() -> bool,
+) -> Result<(), Error> {
+    let mut journal = activation_journal(system, binding, root)?;
+    match journal.phase() {
+        Phase::Activated if journal.built_system() == Some(system) && matches() => return Ok(()),
+        Phase::Preparing => {}
+        _ => return Err(Error::ActivationUnconfirmed),
+    }
+    journal
+        .record(Phase::Activating, Some(system))
+        .map_err(|_| Error::ActivationUnconfirmed)?;
+    activate()?;
+    if !matches() {
+        return Err(Error::ActivationUnconfirmed);
+    }
+    journal
+        .record(Phase::Activated, Some(system))
+        .map_err(|_| Error::ActivationUnconfirmed)
+}
+
+pub(crate) fn trusted_store_path(
+    path: &Path,
+    store: &Path,
+    owner: u32,
+) -> Result<std::path::PathBuf, Error> {
     if !path.is_absolute() {
         return Err(Error::InvalidActivation);
     }
@@ -202,7 +771,268 @@ fn activate_built(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn verified_report() -> VerifiedSetup {
+        VerifiedSetup {
+            schema: 1,
+            request_id: "c".repeat(64),
+            binding: "a".repeat(64),
+            main_revision: "b".repeat(40),
+            system: "/nix/store/test-system".into(),
+            boot_session: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".into(),
+            rebooted: true,
+            completed: false,
+            completed_at: None,
+            reconciled_revision: None,
+            tailscale: crate::tailscale::VerifiedNode {
+                dns_name: "test.example.ts.net".into(),
+                addresses: vec!["100.80.1.2".parse().unwrap()],
+            },
+        }
+    }
+
+    #[test]
+    fn completion_keeps_hold_until_proof_is_durable_and_recovers_lost_ack() {
+        use std::cell::RefCell;
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("updates");
+        let report = verified_report();
+        drop(
+            enrollment_hold(&root, &report.system, &report.binding, &report.boot_session).unwrap(),
+        );
+        let saved = RefCell::new(None);
+        let first = complete_with(
+            &root,
+            &report.system,
+            &report.binding,
+            &report.request_id,
+            || Ok(None),
+            || {
+                assert!(updater_lock(&root).is_err());
+                Ok(report.clone())
+            },
+            |receipt| {
+                assert!(updater_lock(&root).is_err());
+                assert!(root.join("hold").exists());
+                *saved.borrow_mut() = Some(receipt.clone());
+                Err(Error::VerificationUnconfirmed)
+            },
+        );
+        assert!(first.is_err());
+        assert!(root.join("hold").exists());
+        for _ in 0..2 {
+            let recovered = complete_with(
+                &root,
+                &report.system,
+                &report.binding,
+                &"d".repeat(64),
+                || Ok(saved.borrow().clone()),
+                || panic!("durable completion does not rerun setup after updates resume"),
+                |_| panic!("durable completion is not replaced"),
+            )
+            .unwrap();
+            assert!(recovered.completed && recovered.rebooted);
+            assert_eq!(recovered.request_id, "d".repeat(64));
+            assert!(!root.join("hold").exists());
+        }
+    }
+
+    #[test]
+    fn completion_rejects_missing_proof_wrong_hold_and_unrebooted_host() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("updates");
+        let report = verified_report();
+        drop(
+            enrollment_hold(&root, &report.system, &report.binding, &report.boot_session).unwrap(),
+        );
+        let mut before_reboot = report.clone();
+        before_reboot.rebooted = false;
+        assert!(
+            complete_with(
+                &root,
+                &report.system,
+                &report.binding,
+                &report.request_id,
+                || Ok(None),
+                || Ok(before_reboot),
+                |_| panic!("unrebooted host cannot complete"),
+            )
+            .is_err()
+        );
+        assert!(root.join("hold").exists());
+        fs::write(root.join("hold"), b"maintenance").unwrap();
+        let mut receipt = report.clone();
+        receipt.completed = true;
+        assert!(
+            complete_with(
+                &root,
+                &report.system,
+                &report.binding,
+                &report.request_id,
+                || Ok(Some(receipt)),
+                || panic!("receipt exists"),
+                |_| panic!("receipt exists"),
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read(root.join("hold")).unwrap(), b"maintenance");
+        fs::remove_file(root.join("hold")).unwrap();
+        assert!(
+            complete_with(
+                &root,
+                &report.system,
+                &report.binding,
+                &report.request_id,
+                || Ok(None),
+                || Err(Error::VerificationUnconfirmed),
+                |_| panic!("no verified proof"),
+            )
+            .is_err()
+        );
+    }
+    const BOOT: &str = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    #[test]
+    fn reboot_request_is_not_repeated_after_lost_acknowledgement() {
+        let temporary = tempfile::tempdir().unwrap();
+        fs::set_permissions(temporary.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(
+            record_reboot(temporary.path(), BOOT).unwrap(),
+            RebootRequest::Requested
+        );
+        assert_eq!(
+            record_reboot(temporary.path(), BOOT).unwrap(),
+            RebootRequest::AlreadyRequested
+        );
+        assert_eq!(
+            record_reboot(temporary.path(), "bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee").unwrap(),
+            RebootRequest::AlreadyRebooted
+        );
+        let path = temporary.path().join("reboot-requested");
+        assert_eq!(fs::read_to_string(&path).unwrap(), BOOT);
+        fs::write(&path, b"interrupted").unwrap();
+        assert!(record_reboot(temporary.path(), BOOT).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "interrupted");
+    }
+
+    #[test]
+    fn enrollment_hold_excludes_updater_and_survives_activation_scope() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("updater");
+        let system = Path::new("/nix/store/reviewed-system");
+        let binding = "a".repeat(64);
+        let guard = enrollment_hold(&root, system, &binding, BOOT).unwrap();
+        let updater = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(root.join("update.lock"))
+            .unwrap();
+        assert!(flock(&updater, FlockOperation::NonBlockingLockExclusive).is_err());
+        let original = fs::read(root.join("hold")).unwrap();
+        drop(guard);
+        flock(&updater, FlockOperation::NonBlockingLockExclusive).unwrap();
+        assert!(enrollment_hold(&root, system, &binding, BOOT).is_err());
+        flock(&updater, FlockOperation::Unlock).unwrap();
+        assert_eq!(fs::read(root.join("hold")).unwrap(), original);
+        let saved = read_hold(&root, system, &binding).unwrap();
+        assert_eq!(saved.initial_boot_session, BOOT);
+        assert!(read_hold(&root, system, &"f".repeat(64)).is_err());
+        drop(
+            enrollment_hold(
+                &root,
+                system,
+                &binding,
+                "bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee",
+            )
+            .unwrap(),
+        );
+        assert!(enrollment_hold(&root, system, &"b".repeat(64), BOOT).is_err());
+        assert!(
+            enrollment_hold(&root, Path::new("/nix/store/other-system"), &binding, BOOT).is_err()
+        );
+        assert_eq!(fs::read(root.join("hold")).unwrap(), original);
+    }
+
+    #[test]
+    fn enrollment_cannot_replace_an_existing_maintenance_hold() {
+        use std::os::unix::fs::symlink;
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("updater");
+        fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
+        let path = root.join("hold");
+        fs::write(&path, b"maintenance").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(
+            enrollment_hold(&root, Path::new("/nix/store/system"), &"a".repeat(64), BOOT).is_err()
+        );
+        assert_eq!(fs::read(&path).unwrap(), b"maintenance");
+        fs::remove_file(&path).unwrap();
+        symlink(temporary.path().join("missing"), &path).unwrap();
+        assert!(matches!(
+            enrollment_hold(&root, Path::new("/nix/store/system"), &"a".repeat(64), BOOT),
+            Err(Error::InvalidActivation)
+        ));
+    }
     use std::path::PathBuf;
+
+    #[test]
+    fn activation_receipt_confirms_success_but_never_replays_an_unknown_result() {
+        use std::cell::Cell;
+        for successful in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let root = directory.path().join("receipts");
+            let system = directory.path().join("system");
+            let binding = "a".repeat(64);
+            let calls = Cell::new(0);
+            let action = || {
+                calls.set(calls.get() + 1);
+                if successful {
+                    Ok(())
+                } else {
+                    Err(Error::ActivationUnconfirmed)
+                }
+            };
+            let first = recorded_activation(&system, &binding, &root, action, || successful);
+            assert_eq!(first.is_ok(), successful);
+            let second = recorded_activation(&system, &binding, &root, action, || successful);
+            assert_eq!(second.is_ok(), successful);
+            assert_eq!(calls.get(), 1);
+            assert_eq!(
+                recorded_activation(&system, &binding, &root, action, || false),
+                Err(Error::ActivationUnconfirmed)
+            );
+            assert_eq!(calls.get(), 1);
+            assert_eq!(
+                recorded_activation(
+                    &directory.path().join("other"),
+                    &binding,
+                    &root,
+                    action,
+                    || true
+                ),
+                Err(Error::ActivationUnconfirmed)
+            );
+            assert_eq!(calls.get(), 1);
+        }
+    }
+
+    #[test]
+    fn unsafe_receipt_parent_cannot_authorize_activation() {
+        use std::os::unix::fs::symlink;
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("receipts");
+        symlink(directory.path(), &root).unwrap();
+        assert_eq!(
+            recorded_activation(
+                &directory.path().join("system"),
+                &"a".repeat(64),
+                &root,
+                || panic!("unsafe journal must never activate"),
+                || true
+            ),
+            Err(Error::ActivationUnconfirmed)
+        );
+    }
 
     struct ActivationFixture {
         directory: tempfile::TempDir,

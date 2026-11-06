@@ -88,12 +88,14 @@ pub fn discover_op() -> Result<PathBuf, Error> {
 
 #[derive(Deserialize)]
 struct Item {
+    id: String,
     title: String,
     vault: Vault,
     fields: Vec<Field>,
 }
 #[derive(Deserialize)]
 struct Vault {
+    id: String,
     name: String,
 }
 #[derive(Deserialize)]
@@ -105,6 +107,24 @@ struct Field {
     #[serde(default)]
     value: String,
 }
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResolvedIdentity {
+    pub vault: String,
+    pub item: String,
+}
+
+impl ResolvedIdentity {
+    pub(crate) fn valid(&self) -> bool {
+        [&self.vault, &self.item].iter().all(|value| {
+            value.len() == 26
+                && value
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        })
+    }
+}
+
 pub struct Credentials {
     pub client_id: String,
     pub client_secret: String,
@@ -128,6 +148,13 @@ fn token_value(value: &str) -> bool {
 }
 
 fn read_credentials(op: &Path, reference: &OAuthReference) -> Result<Credentials, Error> {
+    resolve_credentials(op, reference).map(|(credentials, _)| credentials)
+}
+
+pub fn resolve_credentials(
+    op: &Path,
+    reference: &OAuthReference,
+) -> Result<(Credentials, ResolvedIdentity), Error> {
     let mut command = Command::new(op);
     // Desktop integration needs the operator environment. No credential is exported to it.
     command
@@ -147,7 +174,11 @@ fn read_credentials(op: &Path, reference: &OAuthReference) -> Result<Credentials
         return Err(Error::ItemUnavailable);
     }
     let item: Item = serde_json::from_slice(&output.stdout).map_err(|_| Error::InvalidItem)?;
-    if item.title != reference.item || item.vault.name != reference.vault {
+    let identity = ResolvedIdentity {
+        vault: item.vault.id.clone(),
+        item: item.id.clone(),
+    };
+    if !identity.valid() || item.title != reference.item || item.vault.name != reference.vault {
         return Err(Error::InvalidItem);
     }
     let field = |label: &str| {
@@ -163,10 +194,13 @@ fn read_credentials(op: &Path, reference: &OAuthReference) -> Result<Credentials
     if secret.kind != "CONCEALED" || !secret.value.starts_with("tskey-client-") {
         return Err(Error::InvalidItem);
     }
-    Ok(Credentials {
-        client_id: id.value.clone(),
-        client_secret: secret.value.clone(),
-    })
+    Ok((
+        Credentials {
+            client_id: id.value.clone(),
+            client_secret: secret.value.clone(),
+        },
+        identity,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -203,6 +237,7 @@ struct KeyResponse {
     id: String,
     key: String,
     capabilities: Capabilities,
+    expires: String,
 }
 
 fn capabilities(tag: &str) -> Capabilities {
@@ -256,6 +291,7 @@ pub struct IssuedKey {
     access_token: String,
     agent: ureq::Agent,
     keys_url: String,
+    expires_at: i64,
 }
 impl IssuedKey {
     pub fn secret(&self) -> &str {
@@ -263,6 +299,9 @@ impl IssuedKey {
     }
     pub fn id(&self) -> &str {
         &self.id
+    }
+    pub fn expires_at(&self) -> i64 {
+        self.expires_at
     }
     /// Explicit cleanup only. Dropping a successfully encrypted key must not revoke it.
     pub fn revoke(&self) -> Result<(), Error> {
@@ -295,6 +334,10 @@ pub fn create_auth_key_from(
     tag: &str,
 ) -> Result<IssuedKey, Error> {
     let credentials = source.load(reference)?;
+    create_auth_key_with(credentials, tag)
+}
+
+pub fn create_auth_key_with(credentials: Credentials, tag: &str) -> Result<IssuedKey, Error> {
     issue(
         credentials,
         agent(true, Duration::from_secs(30)),
@@ -347,6 +390,14 @@ fn issue(
         .send(body.as_slice())
         .map_err(|_| Error::IssuanceUnknown)?;
     let key: KeyResponse = json_body(response).map_err(|_| Error::IssuanceUnknown)?;
+    let expires_at =
+        time::OffsetDateTime::parse(&key.expires, &time::format_description::well_known::Rfc3339)
+            .map_err(|_| Error::IssuanceUnknown)?
+            .unix_timestamp();
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    if expires_at <= now + 600 || expires_at > now + i64::from(KEY_LIFETIME_SECONDS) + 300 {
+        return Err(Error::IssuanceUnknown);
+    }
     if key.id.is_empty()
         || key.id.len() > 128
         || !key
@@ -365,6 +416,7 @@ fn issue(
         access_token: token.access_token,
         agent,
         keys_url: keys_url.into(),
+        expires_at,
     })
 }
 
@@ -382,7 +434,7 @@ mod tests {
         }
     }
     const ACCESS: &str = r#"{"access_token":"synthetic-access","token_type":"Bearer","expires_in":3600,"scope":"auth_keys"}"#;
-    const ITEM: &str = r#"{"title":"Test OAuth","vault":{"name":"test-vault"},"fields":[{"label":"client-id","type":"STRING","value":"synthetic-id"},{"label":"client-secret","type":"CONCEALED","value":"tskey-client-synthetic-secret"}]}"#;
+    const ITEM: &str = r#"{"id":"bbbbbbbbbbbbbbbbbbbbbbbbbb","title":"Test OAuth","vault":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaa","name":"test-vault"},"fields":[{"label":"client-id","type":"STRING","value":"synthetic-id"},{"label":"client-secret","type":"CONCEALED","value":"tskey-client-synthetic-secret"}]}"#;
 
     fn fake_op(directory: &Path, json: &str) -> PathBuf {
         let path = directory.join("op");
@@ -446,7 +498,10 @@ mod tests {
         }
     }
     fn issued_response(reusable: bool) -> String {
-        serde_json::json!({"id":"synthetic-key-id","key":"tskey-auth-synthetic-key","capabilities":{"devices":{"create":{"reusable":reusable,"ephemeral":false,"preauthorized":true,"tags":["tag:lab"]}}}}).to_string()
+        let expires = (time::OffsetDateTime::now_utc() + time::Duration::hours(24))
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        serde_json::json!({"id":"synthetic-key-id","key":"tskey-auth-synthetic-key","expires":expires,"capabilities":{"devices":{"create":{"reusable":reusable,"ephemeral":false,"preauthorized":true,"tags":["tag:lab"]}}}}).to_string()
     }
 
     #[test]
@@ -519,6 +574,28 @@ mod tests {
         .unwrap();
         assert_eq!(key.secret(), "tskey-auth-synthetic-key");
         assert_eq!(thread.join().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn resolved_identity_comes_from_the_same_credential_response() {
+        let directory = tempfile::tempdir().unwrap();
+        let op = fake_op(directory.path(), ITEM);
+        let (_, identity) = resolve_credentials(&op, &reference()).unwrap();
+        assert_eq!(identity.vault, "aaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert_eq!(identity.item, "bbbbbbbbbbbbbbbbbbbbbbbbbb");
+        for field in ["id", "vault"] {
+            let mut changed: serde_json::Value = serde_json::from_str(ITEM).unwrap();
+            if field == "id" {
+                changed["id"] = "bad".into();
+            } else {
+                changed["vault"]["id"] = "bad".into();
+            }
+            let op = fake_op(directory.path(), &changed.to_string());
+            assert!(matches!(
+                resolve_credentials(&op, &reference()),
+                Err(Error::InvalidItem)
+            ));
+        }
     }
 
     #[test]

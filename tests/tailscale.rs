@@ -9,6 +9,46 @@ use tempfile::TempDir;
 const RUNNING: &str = r#"{"BackendState":"Running"}"#;
 const NEEDS_LOGIN: &str = r#"{"BackendState":"NeedsLogin"}"#;
 
+#[test]
+fn verification_matches_local_identity_without_mutating_tailscale() {
+    let expected = serde_json::json!({"BackendState":"Running","Self":{
+        "HostName":"build-mac","DNSName":"build-mac.example.ts.net.",
+        "Tags":["tag:build-machines"],"TailscaleIPs":["100.80.1.2","fd7a:115c:a1e0::1"]
+    }});
+    let fixture = Fixture::new(&expected.to_string());
+    let verify = || {
+        homelab_client::tailscale::verify_node(
+            &fixture.executable,
+            "build-mac",
+            "tag:build-machines",
+        )
+    };
+    assert_eq!(verify().unwrap().dns_name, "build-mac.example.ts.net");
+    for (pointer, replacement) in [
+        ("/Self/HostName", serde_json::json!("other-mac")),
+        (
+            "/Self/DNSName",
+            serde_json::json!("other-mac.example.ts.net"),
+        ),
+        ("/Self/Tags", serde_json::json!(["tag:other"])),
+        ("/Self/TailscaleIPs", serde_json::json!(["192.168.0.1"])),
+        ("/Self/TailscaleIPs", serde_json::json!([])),
+        ("/BackendState", serde_json::json!("NeedsLogin")),
+    ] {
+        let mut status = expected.clone();
+        *status.pointer_mut(pointer).unwrap() = replacement;
+        fs::write(fixture.directory.path().join("status"), status.to_string()).unwrap();
+        assert!(verify().is_err());
+    }
+    assert!(
+        fixture
+            .calls()
+            .lines()
+            .all(|line| line == "status --json --peers=false")
+    );
+    assert!(!fixture.key.exists());
+}
+
 struct Fixture {
     directory: TempDir,
     executable: PathBuf,

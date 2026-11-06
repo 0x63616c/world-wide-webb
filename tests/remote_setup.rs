@@ -62,6 +62,7 @@ impl Fixture {
     fn request(&self) -> Request {
         let root = self.directory.path();
         Request {
+            attempt: "c".repeat(64),
             repository: "example/config".into(),
             profile: HostProfile {
                 identity: None,
@@ -74,7 +75,7 @@ impl Fixture {
             revision: "a".repeat(40),
             artifact_directory: root.join("artifact"),
             age_key: root.join("source-age"),
-            github_token: root.join("source-token"),
+            deploy_key: PathBuf::from("/Users/admin/.local/state/homelab/git/key.txt"),
             resume: false,
         }
     }
@@ -110,6 +111,100 @@ impl Fixture {
     fn path(&self, name: &str) -> PathBuf {
         self.directory.path().join(name)
     }
+}
+
+#[test]
+fn prerequisite_probe_is_read_only_and_fails_before_staging() {
+    let fixture = Fixture::new();
+    remote_setup::check_prerequisites(&fixture.request().profile, &fixture.tools).unwrap();
+    fixture.flag("missing-prerequisites");
+    let error =
+        remote_setup::check_prerequisites(&fixture.request().profile, &fixture.tools).unwrap_err();
+    assert_eq!(error.code(), "setup-prerequisites-unavailable");
+    assert_eq!(fixture.events(), ["prerequisites", "prerequisites"]);
+}
+
+#[test]
+fn git_identity_stages_only_public_helper_and_cleans_on_invalid_response() {
+    let attempt = homelab_client::enrollment_reservation::Attempt {
+        id: "c".repeat(64),
+        repository: "example/config".into(),
+        host: "build-mac".into(),
+    };
+    let fixture = Fixture::new();
+    fixture.flag("git-identity");
+    fs::write(
+        fixture.path("git-directory"),
+        homelab_client::deploy_identity::repository_directory("example/config"),
+    )
+    .unwrap();
+    let helper = fixture.path("artifact/homelab-host");
+    fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
+    let identity = remote_setup::prepare_git_identity(
+        &fixture.request().profile,
+        &attempt,
+        &helper,
+        &fixture.tools,
+    )
+    .unwrap();
+    assert_eq!(identity.public_key, "ssh-ed25519 AAAA");
+    assert!(!identity.bootstrap_started);
+    assert_eq!(
+        fixture.events(),
+        ["stage", "transfer", "prepare-git", "cleanup"]
+    );
+    remote_setup::release_enrollment(
+        &fixture.request().profile,
+        &attempt,
+        &helper,
+        &fixture.tools,
+    )
+    .unwrap();
+    fixture.flag("bootstrap-started");
+    assert!(
+        remote_setup::release_enrollment(
+            &fixture.request().profile,
+            &attempt,
+            &helper,
+            &fixture.tools
+        )
+        .is_err()
+    );
+    assert_eq!(fixture.events().last().unwrap(), "cleanup");
+    let resumed = remote_setup::prepare_git_identity(
+        &fixture.request().profile,
+        &attempt,
+        &helper,
+        &fixture.tools,
+    )
+    .unwrap();
+    assert!(resumed.bootstrap_started);
+    fixture.flag("unsafe-key-path");
+    let error = remote_setup::prepare_git_identity(
+        &fixture.request().profile,
+        &attempt,
+        &helper,
+        &fixture.tools,
+    )
+    .err()
+    .unwrap();
+    assert_eq!(error.code(), "setup-git-identity-unconfirmed");
+    assert_eq!(fixture.events().last().unwrap(), "cleanup");
+    fs::remove_file(fixture.path("unsafe-key-path")).unwrap();
+    fs::write(
+        fixture.path("git-directory"),
+        homelab_client::deploy_identity::repository_directory("example/other"),
+    )
+    .unwrap();
+    assert!(
+        remote_setup::prepare_git_identity(
+            &fixture.request().profile,
+            &attempt,
+            &helper,
+            &fixture.tools,
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -246,7 +341,7 @@ fn failure_cleanup_and_reconnect_results_are_not_reported_as_success() {
 fn unsafe_credentials_and_remote_paths_are_rejected() {
     let fixture = Fixture::new();
     fs::set_permissions(
-        fixture.path("source-token"),
+        fixture.path("source-age"),
         fs::Permissions::from_mode(0o644),
     )
     .unwrap();
@@ -259,7 +354,7 @@ fn unsafe_credentials_and_remote_paths_are_rejected() {
     );
     assert_eq!(fixture.events(), ["inspect"]);
     fs::set_permissions(
-        fixture.path("source-token"),
+        fixture.path("source-age"),
         fs::Permissions::from_mode(0o600),
     )
     .unwrap();

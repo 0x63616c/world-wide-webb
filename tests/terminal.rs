@@ -127,14 +127,14 @@ fn first_run_add_quit_and_reopen_restore_the_terminal() {
     let directory = tempfile::tempdir().unwrap();
     let inventory = directory.path().join("private/inventory.json");
     let mut terminal = Terminal::start(&inventory);
-    terminal.until("No hosts yet");
+    terminal.until("Add the Mac you want to set up");
     terminal.master.write_all(b"n").unwrap();
     terminal.until("Add a host connection");
     terminal
         .master
         .write_all(b"example\rexample.invalid\roperator\r\r")
         .unwrap();
-    terminal.until("Connection profile saved locally");
+    terminal.until("Connection saved on this Mac.");
     terminal.quit_and_verify_restoration();
     drop(terminal);
 

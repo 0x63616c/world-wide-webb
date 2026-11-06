@@ -1,7 +1,7 @@
 //! Target-side first setup. The operator UI and CLI supply the same reviewed request.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -26,7 +26,7 @@ pub struct Request {
     pub host: String,
     pub revision: String,
     pub age_key: PathBuf,
-    pub github_token: PathBuf,
+    pub deploy_key: PathBuf,
     pub approved_host: Option<String>,
     pub resume: bool,
 }
@@ -263,22 +263,9 @@ fn copy_credential(source: &Path, destination: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn git_command(tools: &Tools, home: &Path, token: &Path) -> Command {
+fn git_command(tools: &Tools, home: &Path, key: &Path) -> Command {
     let mut git = command(&tools.git, home);
-    // Git executes askpass as a filename. The fixed adapter supplies the
-    // subcommand without interpreting helper paths or prompts as shell code.
-    git.env("GIT_ASKPASS", home.join("git-askpass"))
-        .env("HOMELAB_BOOTSTRAP_HELPER", &tools.helper)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_SYSTEM", "/dev/null")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
-        .env("GIT_CONFIG_COUNT", "2")
-        .env("GIT_CONFIG_KEY_0", "credential.helper")
-        .env("GIT_CONFIG_VALUE_0", "")
-        .env("GIT_CONFIG_KEY_1", "core.hooksPath")
-        .env("GIT_CONFIG_VALUE_1", "/dev/null")
-        .env("HOMELAB_GITHUB_TOKEN_FILE", token);
+    crate::git_ssh::configure(&mut git, key, &home.join("github_known_hosts"));
     git
 }
 
@@ -535,48 +522,94 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
         Error::CommandLineToolsRequired,
     )?;
 
-    let mut journal = Journal::open(
-        state_directory,
-        &request.repository,
-        &request.host,
-        &request.revision,
-        request.resume,
-    )
-    .map_err(|error| match error {
+    let journal = if request.resume {
+        Journal::open_for_reconciliation(
+            state_directory,
+            &request.repository,
+            &request.host,
+            &request.revision,
+        )
+    } else {
+        Journal::open(
+            state_directory,
+            &request.repository,
+            &request.host,
+            &request.revision,
+            false,
+        )
+    };
+    let mut journal = journal.map_err(|error| match error {
         StateError::NeedsInspection => Error::RecoveryRequired,
         _ => Error::Journal,
     })?;
+    let binding =
+        crate::config::setup_binding(&request.repository, &request.host, &request.revision)
+            .ok_or(Error::Journal)?;
+    match journal.phase() {
+        Phase::InstallingNix => return Err(Error::RecoveryRequired),
+        Phase::Activating | Phase::Activated => {
+            let system = journal
+                .built_system()
+                .ok_or(Error::RecoveryRequired)?
+                .to_owned();
+            authenticate(tools, neutral_home)?;
+            checked_silent(
+                command(&tools.sudo, neutral_home)
+                    .arg("-n")
+                    .arg(&tools.helper)
+                    .arg("bootstrap-activation-status")
+                    .arg("--system")
+                    .arg(&system)
+                    .arg("--binding")
+                    .arg(&binding),
+                SHORT,
+                Error::RecoveryRequired,
+            )?;
+            journal
+                .record(Phase::Activated, Some(&system))
+                .map_err(|_| Error::Journal)?;
+            return Ok(Report {
+                host: request.host.clone(),
+                revision: request.revision.clone(),
+                phase: Phase::Activated,
+                message: "The approved activation was verified without repeating installation. Post-install verification still remains.",
+            });
+        }
+        _ => {}
+    }
+    let resuming_keys = journal.phase() == Phase::InstallingKey;
+    if resuming_keys && journal.built_system().is_none() {
+        return Err(Error::RecoveryRequired);
+    }
     let work = tempfile::tempdir().map_err(|_| Error::Workspace)?;
     fs::set_permissions(work.path(), fs::Permissions::from_mode(0o700))
         .map_err(|_| Error::Workspace)?;
     let home = work.path().join("home");
     fs::create_dir(&home).map_err(|_| Error::Workspace)?;
     fs::set_permissions(&home, fs::Permissions::from_mode(0o700)).map_err(|_| Error::Workspace)?;
-    let mut askpass = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o700)
-        .open(home.join("git-askpass"))
+    fs::write(home.join("github_known_hosts"), crate::git_ssh::KNOWN_HOSTS)
         .map_err(|_| Error::Workspace)?;
-    askpass
-        .write_all(include_bytes!("git-askpass.sh"))
-        .map_err(|_| Error::Workspace)?;
-    drop(askpass);
     let age_key = work.path().join("host.age");
-    let token = work.path().join("github-token");
+    let key = work.path().join("deploy-key");
     copy_credential(&request.age_key, &age_key)?;
-    copy_credential(&request.github_token, &token)?;
+    copy_credential(&request.deploy_key, &key)?;
+    let deploy_public = crate::deploy_identity::public_key(
+        &key,
+        rustix::process::geteuid().as_raw(),
+        Path::new("/usr/bin/ssh-keygen"),
+    )
+    .map_err(|_| Error::InvalidCredentials)?;
     let repo = work.path().join("repo");
     checked_silent(
-        git_command(tools, &home, &token)
+        git_command(tools, &home, &key)
             .args(["clone", "--no-checkout", "--template="])
-            .arg(format!("https://github.com/{}.git", request.repository))
+            .arg(format!("git@github.com:{}.git", request.repository))
             .arg(&repo),
         FETCH,
         Error::Repository,
     )?;
     checked_silent(
-        git_command(tools, &home, &token)
+        git_command(tools, &home, &key)
             .arg("-C")
             .arg(&repo)
             .args(["checkout", "--detach"])
@@ -585,7 +618,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
         Error::Repository,
     )?;
     let actual_revision = checked_text(
-        git_command(tools, &home, &token)
+        git_command(tools, &home, &key)
             .arg("-C")
             .arg(&repo)
             .args(["rev-parse", "HEAD"]),
@@ -625,11 +658,12 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     // Authentication happens explicitly in the terminal; mutation commands use
     // -n so they cannot unexpectedly wait for a password in the background.
     authenticate(tools, &home)?;
-    if existing_key(tools, &home)? {
+    if existing_key(tools, &home)? && !resuming_keys {
         return Err(Error::ExistingKey);
     }
     let nix = match usable_nix(tools, &home)? {
         Some(nix) => nix,
+        None if resuming_keys => return Err(Error::RecoveryRequired),
         None => install_nix(tools, &home, &repo, work.path(), &mut journal, uid)?,
     };
     let target = format!("{}#darwinConfigurations.{}", repo.display(), request.host);
@@ -650,9 +684,11 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     if &readiness != approved {
         return Err(Error::NotReady);
     }
-    journal
-        .record(Phase::Building, None)
-        .map_err(|_| Error::Journal)?;
+    if !resuming_keys {
+        journal
+            .record(Phase::Building, None)
+            .map_err(|_| Error::Journal)?;
+    }
     let system_link = work.path().join("system");
     let build_status = process::run_silent(
         command(&nix, &home)
@@ -667,10 +703,29 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
         return Err(Error::Build);
     }
     let system = fs::canonicalize(&system_link).map_err(|_| Error::BuildOutput)?;
+    if resuming_keys && journal.built_system() != Some(system.as_path()) {
+        return Err(Error::RecoveryRequired);
+    }
     let helper = system.join("sw/bin/homelab-host");
-    journal
-        .record(Phase::VerifyingSecrets, Some(&system))
-        .map_err(|_| Error::Journal)?;
+    // Older private configurations may pin an older helper. Detect that before
+    // installing either identity, when returning to the review is still safe.
+    for operation in [
+        "install-deploy-key",
+        "bootstrap-activation-status",
+        "complete-setup",
+        "run-updater",
+    ] {
+        checked_silent(
+            command(&helper, &home).args([operation, "--help"]),
+            SHORT,
+            Error::BuildOutput,
+        )?;
+    }
+    if !resuming_keys {
+        journal
+            .record(Phase::VerifyingSecrets, Some(&system))
+            .map_err(|_| Error::Journal)?;
+    }
     checked_silent(
         command(&helper, &home)
             .arg("verify-host-secrets")
@@ -698,10 +753,24 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             .arg("-n")
             .arg(&helper)
             .arg("install-host-key")
+            .arg("--reuse-matching")
             .arg("--source")
             .arg(&age_key)
             .arg("--source-uid")
             .arg(uid.to_string()),
+        SHORT,
+        Error::KeyInstallation,
+    )?;
+    checked_silent(
+        command(&tools.sudo, &home)
+            .arg("-n")
+            .arg(&helper)
+            .arg("install-deploy-key")
+            .arg("--reuse-matching")
+            .arg("--source")
+            .arg(&key)
+            .arg("--public-key")
+            .arg(&deploy_public),
         SHORT,
         Error::KeyInstallation,
     )?;
@@ -714,7 +783,9 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             .arg(&helper)
             .arg("bootstrap-activate")
             .arg("--system")
-            .arg(&system),
+            .arg(&system)
+            .arg("--binding")
+            .arg(&binding),
         Duration::from_secs(2400),
         Error::Activation,
     )?;

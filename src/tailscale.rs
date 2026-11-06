@@ -3,7 +3,7 @@ use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::Duration;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::process;
@@ -26,6 +26,89 @@ pub enum EnrollmentError {
         "Tailscale has not reached Running. Check connectivity and device approval before retrying."
     )]
     NotRunning,
+    #[error(
+        "Tailscale is running, but its hostname, tag or tailnet addresses do not match this host's setup."
+    )]
+    IdentityMismatch,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VerifiedNode {
+    pub dns_name: String,
+    pub addresses: Vec<std::net::IpAddr>,
+}
+
+/// Inspect the local node only; this never changes enrollment or preferences.
+pub fn verify_node(
+    executable: &Path,
+    hostname: &str,
+    tag: &str,
+) -> Result<VerifiedNode, EnrollmentError> {
+    if !crate::config::valid_host(hostname) {
+        return Err(EnrollmentError::InvalidHostname);
+    }
+    if !tag
+        .strip_prefix("tag:")
+        .is_some_and(crate::config::valid_host)
+    {
+        return Err(EnrollmentError::InvalidTag);
+    }
+    #[derive(Deserialize)]
+    struct Node {
+        #[serde(rename = "HostName")]
+        hostname: String,
+        #[serde(rename = "DNSName")]
+        dns_name: String,
+        #[serde(rename = "Tags")]
+        tags: Vec<String>,
+        #[serde(rename = "TailscaleIPs")]
+        addresses: Vec<std::net::IpAddr>,
+    }
+    #[derive(Deserialize)]
+    struct LocalStatus {
+        #[serde(rename = "BackendState")]
+        state: BackendState,
+        #[serde(rename = "Self")]
+        node: Node,
+    }
+    let output = process::run(
+        executable,
+        &["status", "--json", "--peers=false"],
+        Duration::from_secs(15),
+    )
+    .map_err(|_| EnrollmentError::StatusUnavailable)?;
+    if !output.status.success() {
+        return Err(EnrollmentError::StatusUnavailable);
+    }
+    let status: LocalStatus =
+        serde_json::from_slice(&output.stdout).map_err(|_| EnrollmentError::StatusUnavailable)?;
+    if status.state != BackendState::Running {
+        return Err(EnrollmentError::NotRunning);
+    }
+    let node = status.node;
+    let dns_name = node.dns_name.trim_end_matches('.');
+    let address_valid = |address: &std::net::IpAddr| match address {
+        std::net::IpAddr::V4(address) => {
+            let bytes = address.octets();
+            bytes[0] == 100 && (64..=127).contains(&bytes[1])
+        }
+        std::net::IpAddr::V6(address) => address.segments()[..3] == [0xfd7a, 0x115c, 0xa1e0],
+    };
+    if node.hostname != hostname
+        || !node.tags.iter().any(|value| value == tag)
+        || !dns_name.starts_with(&format!("{hostname}."))
+        || dns_name.len() > 253
+        || !dns_name.split('.').all(crate::config::valid_host)
+        || node.addresses.is_empty()
+        || node.addresses.len() > 8
+        || !node.addresses.iter().all(address_valid)
+    {
+        return Err(EnrollmentError::IdentityMismatch);
+    }
+    Ok(VerifiedNode {
+        dns_name: dns_name.into(),
+        addresses: node.addresses,
+    })
 }
 
 #[derive(Deserialize)]

@@ -18,10 +18,12 @@ Run locally with `cargo test --locked`, `cargo fmt --check` and
 
 ## Opt-in VM rehearsal
 
-The Rust runner in `tests/vm_e2e.rs` exercises the actual guided wizard core in
-a pseudo-terminal, using injected SSH/SCP adapters. It does not replace target
-bootstrap checks or claim to test the released CLI argument parser. Normal
-`cargo test` runs its transport argument checks and skips all machine operations.
+The Rust runner in `tests/vm_e2e.rs` exercises real completion on an already
+activated synthetic guest: verify, reboot, reconnect, release the hold, and
+confirm Comin reconciliation. A second completion must not reboot again. Normal
+`cargo test` checks transport arguments and skips all machine operations.
+Provider preparation is tested separately with real age/SOPS and synthetic
+providers. The full new enrollment journey is still a release gate.
 
 Build on a development Mac:
 
@@ -58,9 +60,9 @@ Replace every example value. Generate a fresh nonce and disposable identities;
 never use production keys. All input files except the executable helper must be
 owned by the runner's user and mode 0600. The known-hosts file must contain
 exactly the guest's IP and pinned SSH host key. The manifest describes one ready
-host, with `tailscale: null`, and must match the committed public synthetic
-fixture. The repository is public so the placeholder GitHub token is never needed
-for Git authentication. No vault or tailnet is accessed.
+host and must match the committed synthetic fixture. Completion uses a synthetic
+Tailscale route over the same pinned guest SSH connection. It proves sequencing,
+not real Tailscale enrollment, routing or policy. No vault or tailnet is accessed.
 
 Before running, seed the guest with:
 
@@ -81,27 +83,30 @@ and exact `revision`, and launchd service `org.homelab.vm-e2e`. That service che
 its synthetic decrypted marker and writes the current `kern.boottime` to
 `/var/tmp/homelab-vm-e2e-boot`. The synthetic flake template is in
 `tests/fixtures/vm-config`; its placeholders are not a deployable configuration.
+The guest must have completed real bootstrap activation with the current helper,
+its protected hold and activation receipt. Never fabricate these receipts. It
+also needs real Comin, immutable health/revision metadata and synthetic Tailscale
+status. The configured Git repository must contain the exact encrypted files
+installed in that revision; mocked merge results are insufficient.
 
 Run only on the approved VM host:
 
 ```sh
-/private/tmp/vm-fixture/vm_e2e --run /private/tmp/vm-fixture/fixture.json
+/private/tmp/vm-fixture/vm_e2e --complete /private/tmp/vm-fixture/fixture.json
 ```
 
 The runner requires the local hostname to match `physicalHostname` and rejects
 any guest whose model is not `VirtualMac*`, whose hostname is the physical host,
 or whose marker differs. It freezes input snapshots, isolates HOME and environment,
 and uses native SSH with an explicit private key and known-hosts file; it never
-reads or writes the operator's SSH configuration. A fixture GitHub adapter serves
-only the reviewed manifest and pinned revision. The target still fetches and
-checks that real commit independently.
+reads or writes the operator's SSH configuration. The target independently verifies
+its activated system and actual Git reconciliation.
 
-Implemented coverage is successful guided activation, SSH reconnect, guest-only
-reboot, current-system and revision checks, launchd execution in the current boot,
-and root-only host age-key permissions. Interrupted download/build/activation,
-failed-health recovery, repeated setup and idempotent retry remain planned cases;
-this runner does not claim them. A failure preserves the VM for inspection and
-must not be retried blindly.
+The new completion runner has not yet passed its real-VM rehearsal. A failure
+preserves the VM for inspection and must not be retried blindly. The removed
+manual-token `--run` journey is rejected before contacting a target.
+
+## Historical rehearsal
 
 The November 4, 2026 rehearsal passed guided installation, activation, SSH recovery
 and guest reboot on a disposable macOS 27.2 VM. It used helper source
@@ -117,7 +122,8 @@ Earlier attempts caught missing developer tools, a sudo validation prompt, an
 installer-default file conflict, root Git ownership rejection and SSH key placement
 incompatible with StrictModes. The final run includes the reviewed fixes.
 
-This establishes the base setup lifecycle with synthetic credentials. It does not
+That older result establishes the previous base setup lifecycle, not the new
+enrollment and Comin flow. It does not
 validate production services, tailnet enrollment, FileVault recovery or nested
 runner VMs. Production Macs are never automatic test fixtures; real 1Password
 authorization remains a separate adapter smoke test.

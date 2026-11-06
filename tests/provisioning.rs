@@ -22,9 +22,180 @@ fn tools() -> Tools {
 }
 fn tokens() -> BaseTokens {
     BaseTokens {
-        github_read: "synthetic-github-token-with-\"quote".into(),
         tailscale_auth: "synthetic-tailscale-token".into(),
     }
+}
+
+#[test]
+fn approved_installation_survives_restart_and_rejects_unsafe_or_cross_repo_state() {
+    use homelab_client::provisioning::{approved_installation, save_approved_installation};
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("state");
+    assert!(approved_installation(&root, "build-mac").unwrap().is_none());
+    assert!(!root.exists());
+    save_approved_installation(&root, "example/config", "build-mac", &"a".repeat(40)).unwrap();
+    let saved = approved_installation(&root, "build-mac").unwrap().unwrap();
+    assert_eq!(saved.revision, "a".repeat(40));
+    assert_eq!(saved.repository, "example/config");
+    assert!(
+        save_approved_installation(&root, "example/other", "build-mac", &"b".repeat(40)).is_err()
+    );
+    assert_eq!(
+        approved_installation(&root, "build-mac").unwrap().unwrap(),
+        saved
+    );
+    let path = root.join("installations/build-mac.json");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o666)).unwrap();
+    assert!(approved_installation(&root, "build-mac").is_err());
+    assert!(
+        save_approved_installation(&root, "example/config", "build-mac", &"b".repeat(40)).is_err()
+    );
+    fs::remove_file(&path).unwrap();
+    symlink(temporary.path().join("missing"), &path).unwrap();
+    assert!(approved_installation(&root, "build-mac").is_err());
+    assert!(
+        save_approved_installation(&root, "example/config", "build-mac", &"b".repeat(40)).is_err()
+    );
+    assert!(
+        fs::symlink_metadata(&path)
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+}
+
+#[test]
+fn enrollment_attempt_survives_restart_and_is_bound_to_repository_and_host() {
+    use homelab_client::provisioning::enrollment_attempt;
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("state");
+    let first = enrollment_attempt(&root, "example/config", "build-mac").unwrap();
+    assert_eq!(
+        first,
+        enrollment_attempt(&root, "example/config", "build-mac").unwrap()
+    );
+    assert_ne!(
+        first.id,
+        enrollment_attempt(&root, "example/config", "other-mac")
+            .unwrap()
+            .id
+    );
+    assert!(matches!(
+        enrollment_attempt(&root, "example/other", "build-mac"),
+        Err(Error::RepositoryMismatch)
+    ));
+    assert!(!root.join("hosts/build-mac").exists());
+}
+
+#[test]
+fn whole_enrollment_lock_excludes_other_wizards_but_allows_its_credential_sessions() {
+    use homelab_client::provisioning::lock_enrollment;
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("state");
+    let tools = tools();
+    let enrollment = lock_enrollment(&root).unwrap();
+    assert!(matches!(lock_enrollment(&root), Err(Error::Busy)));
+    let session = Session::open("build-mac", "example/config", &root, &tools).unwrap();
+    drop(session);
+    assert!(matches!(lock_enrollment(&root), Err(Error::Busy)));
+    drop(enrollment);
+    assert!(lock_enrollment(&root).is_ok());
+    assert!(root.join(".enrollment-lock").exists());
+}
+
+#[test]
+fn issued_credentials_cannot_be_rebound_to_changed_provider_settings() {
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("state");
+    let tools = tools();
+    let mut session = Session::open("build-mac", "example/config", &root, &tools).unwrap();
+    let original = homelab_client::config::TailscaleConfig {
+        tag: "tag:homelab".into(),
+        oauth: Some(homelab_client::config::OAuthReference {
+            vault: "vault".into(),
+            item: "item".into(),
+        }),
+    };
+    session.bind_enrollment_config(&original).unwrap();
+    session.encrypt(tokens()).unwrap();
+    session.bind_enrollment_config(&original).unwrap();
+    let mut changed = original.clone();
+    changed.tag = "tag:other".into();
+    assert!(matches!(
+        session.bind_enrollment_config(&changed),
+        Err(Error::UnsafeState)
+    ));
+    changed = original.clone();
+    changed.oauth.as_mut().unwrap().item = "different-credential".into();
+    assert!(matches!(
+        session.bind_enrollment_config(&changed),
+        Err(Error::UnsafeState)
+    ));
+    fs::remove_file(root.join("hosts/build-mac/issuer.json")).unwrap();
+    assert!(matches!(
+        session.bind_enrollment_config(&original),
+        Err(Error::UnsafeState)
+    ));
+}
+
+#[test]
+fn enrollment_expiry_is_bound_to_the_exact_encrypted_preparation() {
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("state");
+    let tools = tools();
+    let mut session = Session::open("build-mac", "example/config", &root, &tools).unwrap();
+    session.encrypt(tokens()).unwrap();
+    assert!(!session.enrollment_valid_for(1000, 60).unwrap());
+    session.record_enrollment("key-123", 2000).unwrap();
+    session.record_enrollment("key-123", 2000).unwrap();
+    assert!(session.enrollment_valid_for(1000, 999).unwrap());
+    assert!(!session.enrollment_valid_for(1000, 1000).unwrap());
+    assert!(matches!(
+        session.record_enrollment("key-other", 3000),
+        Err(Error::UnsafeState)
+    ));
+
+    let receipt = root.join("hosts/build-mac/enrollment.json");
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&fs::read(&receipt).unwrap()).unwrap();
+    value["ciphertextSha256"] = "different-preparation".into();
+    fs::write(receipt, serde_json::to_vec(&value).unwrap()).unwrap();
+    assert!(matches!(
+        session.enrollment_valid_for(1000, 60),
+        Err(Error::UnsafeState)
+    ));
+}
+
+#[test]
+fn retiring_expired_preparation_preserves_all_recovery_material() {
+    let temporary = tempfile::tempdir().unwrap();
+    let root = temporary.path().join("state");
+    let tools = tools();
+    let mut session = Session::open("build-mac", "example/config", &root, &tools).unwrap();
+    let details = session.encrypt(tokens()).unwrap();
+    session.record_enrollment("key-123", 2000).unwrap();
+    let host_key = fs::read(&details.host_key_path).unwrap();
+    let recovery_key = fs::read(&details.recovery_key_path).unwrap();
+    let ciphertext = fs::read(&details.ciphertext_path).unwrap();
+    let archive = session.retire_for_renewal(2001, 60).unwrap();
+    assert!(!root.join("hosts/build-mac").exists());
+    assert_eq!(
+        fs::read(archive.join(details.host_key_path.file_name().unwrap())).unwrap(),
+        host_key
+    );
+    assert_eq!(fs::read(&details.recovery_key_path).unwrap(), recovery_key);
+    assert_eq!(
+        fs::read(archive.join("review/build-mac.sops.yaml")).unwrap(),
+        ciphertext
+    );
+    assert!(archive.join("enrollment.json").is_file());
+    let reopened = Session::open("build-mac", "example/config", &root, &tools).unwrap();
+    let renewed = reopened.details();
+    assert!(!renewed.completed);
+    assert_eq!(renewed.host_recipient, details.host_recipient);
+    assert_eq!(renewed.recovery_recipient, details.recovery_recipient);
+    assert_eq!(fs::read(renewed.host_key_path).unwrap(), host_key);
+    assert!(reopened.matches_retired_ciphertext(&ciphertext).unwrap());
 }
 
 #[test]
@@ -54,7 +225,6 @@ fn real_tools_prepare_dual_recipient_ciphertext_and_resume_without_replacing_key
     for path in [
         &details.host_key_path,
         &details.recovery_key_path,
-        &details.github_token_path,
         &details.ciphertext_path,
     ] {
         assert_eq!(
@@ -62,9 +232,13 @@ fn real_tools_prepare_dual_recipient_ciphertext_and_resume_without_replacing_key
             0o600
         );
     }
-    assert_eq!(
-        fs::read_to_string(&details.github_token_path).unwrap(),
-        tokens().github_read
+    assert!(
+        !details
+            .host_key_path
+            .parent()
+            .unwrap()
+            .join("github-read-token")
+            .exists()
     );
     assert!(matches!(
         session.encrypt(tokens()),
@@ -148,13 +322,19 @@ fn unsafe_locations_partial_generation_and_invalid_tokens_fail_without_publicati
     let details = session.details();
     assert!(matches!(
         session.encrypt(BaseTokens {
-            github_read: "token\nsecond-line".into(),
-            tailscale_auth: "synthetic".into()
+            tailscale_auth: "token\nsecond-line".into()
         }),
         Err(Error::InvalidToken)
     ));
     assert!(!details.review_directory.exists());
-    assert!(!details.github_token_path.exists());
+    assert!(
+        !details
+            .host_key_path
+            .parent()
+            .unwrap()
+            .join("github-read-token")
+            .exists()
+    );
     drop(session);
     let marker = details.host_key_path.with_extension("creating");
     fs::write(marker, b"interrupted").unwrap();
@@ -175,7 +355,14 @@ fn failed_sops_output_is_never_published_and_keys_remain_reusable() {
     let details = session.details();
     assert!(matches!(session.encrypt(tokens()), Err(Error::Encryption)));
     assert!(!details.review_directory.exists());
-    assert!(!details.github_token_path.exists());
+    assert!(
+        !details
+            .host_key_path
+            .parent()
+            .unwrap()
+            .join("github-read-token")
+            .exists()
+    );
     drop(session);
     assert!(Session::open("build-mac", "example/config", &root, &tools).is_ok());
 }

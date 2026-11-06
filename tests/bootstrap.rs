@@ -45,10 +45,16 @@ impl Fixture {
         }
         fs::create_dir_all(root.join("system/sw/bin")).unwrap();
         symlink(&executable, root.join("system/sw/bin/homelab-host")).unwrap();
-        for name in ["age-key", "github-token"] {
-            fs::write(root.join(name), "fixture-only-never-a-real-secret").unwrap();
-            fs::set_permissions(root.join(name), fs::Permissions::from_mode(0o600)).unwrap();
-        }
+        fs::write(root.join("age-key"), "fixture-only-never-a-real-secret").unwrap();
+        fs::set_permissions(root.join("age-key"), fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(
+            std::process::Command::new("/usr/bin/ssh-keygen")
+                .args(["-q", "-t", "ed25519", "-N", "", "-f"])
+                .arg(root.join("deploy-key"))
+                .status()
+                .unwrap()
+                .success()
+        );
         fs::write(root.join("installer.json"), serde_json::to_vec(&json!({
             "url":"https://github.com/DeterminateSystems/nix-installer/releases/download/v1.2.3/nix-installer-aarch64-darwin",
             "sha256":Sha256::digest(b"fixture-installer").iter().map(|byte| format!("{byte:02x}")).collect::<String>()
@@ -67,7 +73,7 @@ impl Fixture {
             host: "workstation".into(),
             revision: "a".repeat(40),
             age_key: root.join("age-key"),
-            github_token: root.join("github-token"),
+            deploy_key: root.join("deploy-key"),
             approved_host: Some("workstation".into()),
             resume: false,
         };
@@ -258,6 +264,124 @@ fn decryption_failure_and_existing_key_block_identity_changes() {
 }
 
 #[test]
+fn completed_activation_reconciles_without_secrets_fetch_or_reinstallation() {
+    for confirmed in [false, true] {
+        let mut fixture = Fixture::new(true);
+        let system = fixture.directory.path().join("system");
+        let mut journal = Journal::open(
+            &fixture.state(),
+            &fixture.request.repository,
+            &fixture.request.host,
+            &fixture.request.revision,
+            false,
+        )
+        .unwrap();
+        journal.record(Phase::Activating, Some(&system)).unwrap();
+        drop(journal);
+        fixture.request.resume = true;
+        fs::remove_file(&fixture.request.age_key).unwrap();
+        fs::remove_file(&fixture.request.deploy_key).unwrap();
+        if confirmed {
+            fixture.flag("activation-confirmed");
+        }
+        let result = fixture.run();
+        if confirmed {
+            assert_eq!(result.unwrap().phase, Phase::Activated);
+        } else {
+            assert_eq!(result.unwrap_err(), Error::RecoveryRequired);
+        }
+        assert!(fixture.events().contains(&"activation-status".into()));
+        fixture.no_host_mutation();
+        assert!(
+            !fixture
+                .events()
+                .iter()
+                .any(|event| event.contains("clone") || event == "activate")
+        );
+    }
+}
+
+#[test]
+fn interrupted_key_installation_revalidates_build_and_keeps_its_phase_on_failure() {
+    for fail_build in [false, true] {
+        let mut fixture = Fixture::new(true);
+        let mut journal = Journal::open(
+            &fixture.state(),
+            &fixture.request.repository,
+            &fixture.request.host,
+            &fixture.request.revision,
+            false,
+        )
+        .unwrap();
+        journal
+            .record(
+                Phase::InstallingKey,
+                Some(
+                    &fixture
+                        .directory
+                        .path()
+                        .join("system")
+                        .canonicalize()
+                        .unwrap(),
+                ),
+            )
+            .unwrap();
+        drop(journal);
+        fixture.request.resume = true;
+        fixture.flag("existing-key");
+        if fail_build {
+            fixture.flag("build-fails");
+        }
+        let result = fixture.run();
+        if fail_build {
+            assert_eq!(result.unwrap_err(), Error::Build);
+            let state: serde_json::Value =
+                serde_json::from_slice(&fs::read(fixture.state().join("progress.json")).unwrap())
+                    .unwrap();
+            assert_eq!(state["phase"], "InstallingKey");
+            fixture.no_host_mutation();
+        } else {
+            assert_eq!(result.unwrap().phase, Phase::Activated);
+            assert!(fixture.events().contains(&"verify-secrets".into()));
+        }
+    }
+}
+
+#[test]
+fn interrupted_key_installation_cannot_switch_to_a_different_rebuilt_system() {
+    let mut fixture = Fixture::new(true);
+    let original = fixture
+        .directory
+        .path()
+        .join("system")
+        .canonicalize()
+        .unwrap();
+    fs::create_dir(fixture.directory.path().join("system-other")).unwrap();
+    let mut journal = Journal::open(
+        &fixture.state(),
+        &fixture.request.repository,
+        &fixture.request.host,
+        &fixture.request.revision,
+        false,
+    )
+    .unwrap();
+    journal
+        .record(Phase::InstallingKey, Some(&original))
+        .unwrap();
+    drop(journal);
+    let saved = fs::read(fixture.state().join("progress.json")).unwrap();
+    fixture.request.resume = true;
+    fixture.flag("different-system");
+    fixture.flag("existing-key");
+    assert_eq!(fixture.run().unwrap_err(), Error::RecoveryRequired);
+    assert_eq!(
+        fs::read(fixture.state().join("progress.json")).unwrap(),
+        saved
+    );
+    fixture.no_host_mutation();
+}
+
+#[test]
 fn uncertain_journal_phases_block_replay_before_fetch() {
     for phase in [Phase::InstallingKey, Phase::Activating, Phase::Activated] {
         let mut fixture = Fixture::new(true);
@@ -336,12 +460,12 @@ fn manifest_and_evaluated_configuration_must_match_reviewed_host() {
 }
 
 #[test]
-fn actual_git_uses_the_private_askpass_adapter_with_quoted_helper_path() {
+fn bootstrap_uses_isolated_ssh_transport() {
     let mut fixture = Fixture::new(true);
     let git = std::env::split_paths(&std::env::var_os("PATH").unwrap())
         .map(|directory| directory.join("git"))
         .find(|path| path.is_file())
-        .expect("Git is required for the askpass integration check")
+        .expect("Git is required for the SSH transport integration check")
         .canonicalize()
         .unwrap();
     fs::write(
@@ -352,9 +476,8 @@ fn actual_git_uses_the_private_askpass_adapter_with_quoted_helper_path() {
     let helper = fixture.directory.path().join("helper with ' spaces");
     symlink(env!("CARGO_BIN_EXE_homelab-host"), &helper).unwrap();
     fixture.tools.helper = helper;
-    fs::write(&fixture.request.github_token, "github_pat_synthetic123\n").unwrap();
     fixture.run().unwrap();
-    assert!(fixture.events().contains(&"git-askpass-verified".into()));
+    assert!(fixture.events().contains(&"git-ssh-verified".into()));
 }
 
 #[test]
@@ -372,12 +495,20 @@ fn authentication_is_refreshed_after_build_before_key_installation() {
 }
 
 #[test]
+fn older_built_helper_is_rejected_before_installing_any_identity() {
+    let fixture = Fixture::new(true);
+    fixture.flag("old-helper");
+    assert_eq!(fixture.run().unwrap_err(), Error::BuildOutput);
+    fixture.no_host_mutation();
+}
+
+#[test]
 fn missing_or_broken_developer_tools_stop_before_secrets_journal_or_network() {
     for flag in ["missing-clt", "broken-git"] {
         let fixture = Fixture::new(true);
         fixture.flag(flag);
         fs::remove_file(&fixture.request.age_key).unwrap();
-        fs::remove_file(&fixture.request.github_token).unwrap();
+        fs::remove_file(&fixture.request.deploy_key).unwrap();
         assert_eq!(fixture.run().unwrap_err(), Error::CommandLineToolsRequired);
         assert!(!fixture.state().exists());
         assert!(fixture.events().is_empty());

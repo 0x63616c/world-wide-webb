@@ -1,6 +1,6 @@
 # homelab
 
-A guided terminal client for declarative macOS homelabs.
+A guided installer for declarative macOS homelabs.
 Your configuration stays in your own repository. Nix runs on the target Mac,
 not your personal laptop.
 
@@ -22,6 +22,8 @@ homelab
 
 Use **↑ / ↓** to choose, **Enter** to continue and **Esc** to go back.
 Opening the CLI never deploys. It never installs Nix on your client laptop.
+To resume a saved Mac directly, run `homelab setup --host NAME` in a terminal.
+The CLI handles enrollment; ongoing configuration changes belong in Git.
 
 ## How it fits together
 
