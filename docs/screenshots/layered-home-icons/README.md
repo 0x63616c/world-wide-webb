@@ -37,7 +37,7 @@ From `apps/apple-prototype`, after `xcodegen generate`:
 xcodebuild -project WorldWideWebb.xcodeproj -scheme Panel-Smoke \
   -destination 'platform=iOS Simulator,id=226E5ED5-37D5-4813-B777-18FDA3B96E15' \
   -derivedDataPath /tmp/layered-icons-dd \
-  -resultBundlePath /tmp/layered-icons-final-wifi.xcresult \
+  -resultBundlePath /tmp/layered-icons-integrated.xcresult \
   -parallel-testing-enabled NO \
   -only-testing:PanelUITests/LauncherMotionCaptureTests/testGlassOverlay \
   -only-testing:PanelUITests/LauncherMotionCaptureTests/testLayeredAppIcons \
@@ -58,3 +58,10 @@ before and after the change. `bun run typecheck` passed from the repository root
 
 The interaction check covers the touch press effect. Mac pointer movement and
 Reduce Motion are implemented but were not separately exercised in these captures.
+
+An additional `NotificationHistoryTests/testPersistedHistoryDeepLinksAbovePresentedController`
+recheck on iOS 27.2 fails at the notification-edge accessibility wait (line 74),
+both on this branch and on unchanged `main` at `c3f80c9af`. The existing test and
+notification behavior were not changed. The hosted iOS 26 smoke suite remains
+the release gate; its first attempt failed earlier, while Xcode was relaunching
+the app, before reaching that assertion.
