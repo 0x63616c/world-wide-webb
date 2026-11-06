@@ -113,10 +113,10 @@ private actor TeslaProviderTransport: PanelTransport {
             await live.refresh()
             live.request(.unlock)
             await live.refresh()
-            XCTAssertFalse(live.hasLiveData)
+            XCTAssertEqual(live.hasLiveData, failure != "unconfigured")
             XCTAssertEqual(live.availability, .offline)
             XCTAssertNil(live.requestedAction)
-            XCTAssertEqual(live.data.pct, 0)
+            XCTAssertEqual(live.data.pct, failure == "unconfigured" ? 0 : 72)
             await live.refresh()
             XCTAssertTrue(live.hasLiveData)
             live.stop()
@@ -128,7 +128,8 @@ private actor TeslaProviderTransport: PanelTransport {
         let live = provider(transport)
         await live.refresh(); live.request(.unlock)
         await live.confirm(pin: "123456")
-        XCTAssertFalse(live.hasLiveData)
+        XCTAssertTrue(live.hasLiveData)
+        XCTAssertEqual(live.availability, .offline)
         XCTAssertNil(live.requestedAction)
         XCTAssertEqual(live.snapshot?.locked, true)
         let count = await transport.requests.count
@@ -159,7 +160,8 @@ private actor TeslaProviderTransport: PanelTransport {
         let count = await transport.requests.count
         XCTAssertEqual(count, 1)
         await live.confirm(pin: "123456")
-        XCTAssertFalse(live.hasLiveData)
+        XCTAssertTrue(live.hasLiveData)
+        XCTAssertEqual(live.availability, .offline)
         XCTAssertNil(live.requestedAction)
     }
     func testMaxRangeRoundsToFiveAndHoldsBelowTenPercent() async {
