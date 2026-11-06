@@ -54,6 +54,16 @@ struct SettingsView: View {
                         SettingsSwitchRow("Remind me to record calls", isOn: Binding(get: { model.callDetector.enabled }, set: { model.callDetector.enabled = $0 }))
                         SettingsDivider()
                         SettingsRow {
+                            Text("Reminder delay")
+                            Spacer()
+                            Picker("Reminder delay", selection: Binding(get: { model.callDetector.reminderDelay }, set: { model.callDetector.reminderDelay = $0 })) {
+                                ForEach(CallDetector.delayOptions, id: \.self) { delay in
+                                    Text(delay == 0.5 ? "0.5 seconds" : "\(Int(delay)) \(delay == 1 ? "second" : "seconds")").tag(delay)
+                                }
+                            }.labelsHidden().fixedSize().disabled(!model.callDetector.enabled)
+                        }
+                        SettingsDivider()
+                        SettingsRow {
                             Text("Position")
                             Spacer()
                             Picker("Overlay position", selection: $model.overlayPosition) {

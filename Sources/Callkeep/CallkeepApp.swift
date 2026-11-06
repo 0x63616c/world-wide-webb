@@ -92,6 +92,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard finishedLaunching, !handledInitialPresentation, let openLibrary else { return }
         handledInitialPresentation = true
         #if DEBUG
+        if Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String == "indicator", let model {
+            model.micLevel = 0.24; model.systemLevel = 0.16
+            Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak model] _ in
+                Task { @MainActor in
+                    let t = ProcessInfo.processInfo.systemUptime
+                    model?.micLevel = Float(0.04 + 0.35 * abs(sin(t * 2.7) * cos(t * 0.8)))
+                    model?.systemLevel = Float(0.04 + 0.3 * abs(sin(t * 1.9 + 1)))
+                }
+            }
+            let preview = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 100), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            preview.title = "Recording indicator preview"
+            preview.contentView = NSHostingView(rootView: RecordingIndicatorView(model: model).padding(4).frame(width: 112, height: 50).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color(nsColor: .windowBackgroundColor)))
+            preview.center(); preview.makeKeyAndOrderFront(nil)
+            menuPreview = preview
+            return
+        }
         if let scene = Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotScene") as? String,
            ["menu", "menu-recording"].contains(scene), let model {
             if scene == "menu-recording" { model.configureScreenshotScene() }
