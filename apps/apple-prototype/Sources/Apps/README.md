@@ -15,8 +15,7 @@ an app. Back buttons are the app navigation; accessibility escape remains availa
 Settings uses a native split view for Display and Security preferences.
 Back chrome has no painted full-width background: app backgrounds extend behind
 the transparent top safe-area inset while content remains below the button.
-Settings places Close in the detail toolbar. Timer and Climate float the close
-button above their full-screen content.
+Settings, Timer and Climate float the close button above their content.
 
 The first launcher row is Calendar, Weather, Lights, Climate and Dog Walker.
 Photos, Tesla and Wi-Fi lead the next row. Settings is last. Display order and

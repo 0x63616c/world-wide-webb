@@ -125,12 +125,12 @@ struct PanelSettingsPage: View {
                     }
                 }.formStyle(.grouped)
                     .navigationTitle(selection?.rawValue ?? "Display")
-                    .toolbar {
-                        ToolbarItem(placement: .primaryAction) { PanelAppBackButton(back: back) }
-                            .sharedBackgroundVisibility(.hidden)
-                    }
             }.id(selection)
-        }.tint(.blue).preferredColorScheme(.dark)
+        }
+        .overlay(alignment: .topTrailing) {
+            PanelAppBackButton(back: back).padding(.horizontal, 24).padding(.top, 16)
+        }
+        .tint(.blue).preferredColorScheme(.dark)
     }
 }
 

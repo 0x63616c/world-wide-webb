@@ -13,6 +13,14 @@ extension HomeViewLaunchTests {
     @MainActor private func enter(_ value: String, app: XCUIApplication) {
         for digit in value { app.buttons["pin-digit-\(digit)"].tap() }
     }
+    @MainActor private func waitForLauncherToSettle(_ app: XCUIApplication) {
+        let homeClose = app.buttons["home-close"]
+        let window = app.windows.firstMatch
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            homeClose.exists && abs(window.frame.maxX - homeClose.frame.maxX - 24) < 4
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+    }
     @MainActor func testPINChangeConfirmationAndPrivatePageUnlock() {
         let app = launchAccess()
         app.buttons["app-settings"].tap()
@@ -34,6 +42,7 @@ extension HomeViewLaunchTests {
         enter("246802", app: app)
         XCTAssertTrue(app.staticTexts["PIN changed"].waitForExistence(timeout: 10))
         app.buttons["app-back"].tap()
+        waitForLauncherToSettle(app)
         app.buttons["app-photos"].tap()
         XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.secureTextFields.count, 0)
@@ -44,6 +53,7 @@ extension HomeViewLaunchTests {
         XCTAssertTrue(app.buttons["Activity sessions"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["Lock"].exists)
         app.buttons["app-back"].tap()
+        waitForLauncherToSettle(app)
         app.buttons["app-photos"].tap()
         XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
     }
