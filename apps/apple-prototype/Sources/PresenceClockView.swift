@@ -124,7 +124,9 @@ struct GreenClockDial: View {
             Circle().strokeBorder(handColor, lineWidth: max(1.5, w * 0.16))
                 .background(Circle().fill(night ? .black : Self.green))
                 .frame(width: w * 0.75, height: w * 0.75)
-        }.frame(width: 0, height: 0).position(layout.center)
+        }.compositingGroup()
+            .shadow(color: .black.opacity(0.32), radius: 5, x: 0, y: 5)
+            .frame(width: 0, height: 0).position(layout.center)
     }
 
     /// HomeView-style hand: a thin neck from the pin, then a full-width rounded blade.

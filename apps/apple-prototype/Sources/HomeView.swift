@@ -81,7 +81,6 @@ struct HomeView: View {
     var demo = false
     var initialFace = 0
     @State private var shell = PanelShellState()
-    @State private var faceDrag: CGFloat = 0
     private let launcherMotion = ClockLauncherMotion.current
     @State private var appPreferences = PanelAppPreferences()
     @State private var timer = PanelTimerStore()
@@ -96,77 +95,55 @@ struct HomeView: View {
         return nil
     }
     private func home() {
-        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showLauncher(); faceDrag = 0 }
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3, bounce: 0)) { shell.showLauncher() }
     }
     private func clock() {
-        withAnimation(reduceMotion ? nil : launcherMotion.animation) { shell.showClock(); faceDrag = 0 }
-    }
-    private func clockLauncherSwipe(width: CGFloat, towardClock: Bool) -> some Gesture {
-        DragGesture(minimumDistance: 12, coordinateSpace: .global)
-            .onChanged { value in
-                guard selected == nil, showingClock != towardClock,
-                      faceDrag > 0 || abs(value.translation.width) > abs(value.translation.height) else { return }
-                faceDrag = max(0, value.translation.width * (towardClock ? 1 : -1))
-            }
-            .onEnded { value in
-                guard selected == nil, showingClock != towardClock else { return }
-                let distance = value.translation.width * (towardClock ? 1 : -1)
-                let projected = value.predictedEndTranslation.width * (towardClock ? 1 : -1)
-                if distance > abs(value.translation.height),
-                   distance > width * 0.18 || projected > width * 0.35 {
-                    if towardClock { clock() } else { home() }
-                } else {
-                    withAnimation(reduceMotion ? nil : launcherMotion.animation) { faceDrag = 0 }
-                }
-            }
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3, bounce: 0)) { shell.showClock() }
     }
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 Color.black.ignoresSafeArea()
-                let dragProgress = min(faceDrag / proxy.size.width, 1)
-                let progress: CGFloat = showingClock ? dragProgress : 1 - dragProgress
-                AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
-                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                PresenceClockFace(store: store)
+                    .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
                     .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
-                        progress: progress, width: proxy.size.width,
-                        incoming: true, reduceMotion: reduceMotion))
-                    // The launcher leaves like the clock when an app takes its place.
+                    .allowsHitTesting(false).accessibilityHidden(true)
+                if showingClock {
+                    // A tap recognizer cancels on movement; a full-screen Button
+                    // can activate after a drag that ends inside its large bounds.
+                    Color.clear.contentShape(.rect)
+                        .onTapGesture(perform: home)
+                        .accessibilityElement()
+                        .accessibilityLabel("Open apps")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { home() }
+                        .accessibilityIdentifier("launcher-clock")
+                }
+                AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
+                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                    .background {
+                        LauncherGlassSurface()
+                    }
+                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                    .offset(y: !reduceMotion && showingClock ? proxy.size.height : 0)
+                    .opacity(reduceMotion && showingClock ? 0 : 1)
+                    // App destinations retain their existing surface transition.
                     // Keep it mounted so Back restores its scroll position.
                     .modifier(LauncherSurfaceMotion(motion: launcherMotion,
                         progress: selected == nil ? 0 : 1, width: proxy.size.width,
                         incoming: false, reduceMotion: reduceMotion))
                     .allowsHitTesting(!showingClock && selected == nil)
                     .accessibilityHidden(showingClock || selected != nil)
-                    .simultaneousGesture(clockLauncherSwipe(width: proxy.size.width, towardClock: true))
-                PresenceClockFace(store: store)
-                    .environment(\.motionPhase, showingClock ? inheritedMotionPhase : 0)
-                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
-                        progress: progress, width: proxy.size.width,
-                        incoming: false, reduceMotion: reduceMotion))
-                    .allowsHitTesting(showingClock).accessibilityHidden(!showingClock)
-                    .overlay {
-                        if showingClock {
-                            Color.clear.contentShape(.rect)
-                                .gesture(clockLauncherSwipe(width: proxy.size.width, towardClock: false))
-                                .accessibilityElement().accessibilityLabel("Open apps")
-                                .accessibilityHint("Swipe left to open apps")
-                                .accessibilityAddTraits(.isButton).accessibilityAction { home() }
-                        }
-                    }
-                    .accessibilityIdentifier("launcher-clock")
                 if let selected {
                     appScreen(selected)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
                         .transition(reduceMotion ? .opacity : launcherMotion.incomingTransition(width: proxy.size.width))
                         .zIndex(2)
                 }
-            }.frame(width: proxy.size.width, height: proxy.size.height)
+            }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
                 .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
                 #if os(macOS)
-                .onExitCommand { home() }
+                .onExitCommand { if showingClock || selected != nil { home() } else { clock() } }
                 #endif
                 .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
                 .onChange(of: store.walks.activeWalk, initial: true) { _, walk in

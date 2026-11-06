@@ -4,12 +4,15 @@ import PanelKit
 struct AppLauncher: View {
     let apps: [PanelAppDefinition]
     let open: (PanelAppDefinition) -> Void
+    let close: () -> Void
+    let isPresented: Bool
     let namespace: Namespace.ID
     @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
         GeometryReader { proxy in
             let columns = sizeClass == .compact ? 3 : 5
             let iconSide: CGFloat = sizeClass == .compact ? 76 : 112
+            ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 VStack(spacing: 32) {
                     TimelineView(.periodic(from: Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 60) * 60), by: 60)) { context in
@@ -37,9 +40,39 @@ struct AppLauncher: View {
                 }
                 }.frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
-        }.background { Wallpaper(dimming: 0.12, blurRadius: 0).accessibilityHidden(true) }
+                if isPresented {
+                    Button(action: close) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 20, weight: .semibold))
+                            .frame(width: 48, height: 48)
+                            .background(.white.opacity(0.12), in: .circle)
+                            .contentShape(.circle)
+                    }.buttonStyle(.plain)
+                        .frame(width: 48, height: 48)
+                        .accessibilityLabel("Close Home")
+                        .accessibilityIdentifier("home-close")
+                        .padding(24)
+                        .zIndex(1)
+                }
+            }
+        }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
+    }
+}
+
+/// Native glass above the clock, with system material supplying additional frost.
+/// The inset and concentric corners leave a slim, uninterrupted rim of the dial.
+struct LauncherGlassSurface: View {
+    private let edgeInset: CGFloat = 8
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
+        Rectangle().fill(.ultraThinMaterial).opacity(0.35)
+            .clipShape(shape)
+            .overlay {
+                Color.clear.glassEffect(.regular.tint(.white.opacity(0.06)), in: shape)
+            }
+            .padding(edgeInset)
     }
 }
 
@@ -108,9 +141,6 @@ struct PanelSettingsPage: View {
                             }
                         }
                     } else {
-                        Section {
-                            NavigationLink { WallpaperPicker(embedded: true) } label: { Label("Background", systemImage: "photo") }
-                        }
                         PanelDisplaySettings()
                     }
                 }.formStyle(.grouped)
