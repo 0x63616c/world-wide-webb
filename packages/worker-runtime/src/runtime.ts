@@ -192,6 +192,7 @@ export function createWorkerRuntime(workers: Worker[], opts: WorkerRuntimeOption
           state.timer = null;
         }
       }
+      await Promise.all(states.map((state) => state.worker.stop?.()));
       await Promise.all(inFlight);
       // Final stats snapshot per worker at shutdown for post-mortem.
       for (const state of states) {

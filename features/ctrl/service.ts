@@ -1,7 +1,6 @@
 import {
   CLIMATE_DEVICE_ID,
   type DeviceClimateState,
-  DeviceKind,
   type DeviceLightState,
   type DeviceStateStore,
   type deviceState,
@@ -36,6 +35,7 @@ import {
   MOOD_PALETTE,
   RED_RGB,
 } from "./lamp-scenes";
+import { writeLightGroup } from "./light-command";
 import {
   LAMP_MODE_SINGLETON_ID,
   LampColorSlot,
@@ -580,32 +580,7 @@ async function writeDesired(
 ): Promise<void> {
   if (entries.length === 0) return;
 
-  let rows: (typeof deviceState.$inferSelect)[] = [];
-  try {
-    rows = await store.list({ entityIds: entries.map((e) => e.entityId) });
-  } catch {
-    rows = [];
-  }
-  const rowByEntityId = new Map(rows.map((r) => [r.entityId, r]));
-
-  await Promise.all(
-    entries.map(async (entry) => {
-      const prev =
-        (rowByEntityId.get(entry.entityId)?.desiredState as DeviceLightState | null) ?? null;
-      const desired = mutate(entry, prev);
-      // The store owns the command-window stamp and throws on DB failure , a
-      // swallowed write would be fabricated success (www-unxz.1). The error
-      // propagates to the tRPC layer, which maps it.
-      await store.upsertDesired({
-        id: entry.id,
-        kind: entry.kind === LightKind.Lamp ? DeviceKind.Light : DeviceKind.Switch,
-        entityId: entry.entityId,
-        domain: entry.domain,
-        label: entry.label,
-        desired,
-      });
-    }),
-  );
+  await store.lightTransaction((locked) => writeLightGroup(entries, mutate, locked));
 }
 
 /**

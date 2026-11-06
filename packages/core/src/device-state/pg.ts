@@ -1,9 +1,9 @@
-import { and, eq, inArray, isNotNull, lt } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { windowEnd } from "./command-window";
 import { mergeDeviceState } from "./merge";
-import { deviceState } from "./schema";
+import { deviceState, inputCheckpoint } from "./schema";
 import type {
   DeviceStateRow,
   DeviceStateStore,
@@ -17,7 +17,7 @@ import type {
 /** The minimal structural surface this adapter needs from a drizzle db instance. */
 export type PgDeviceStateDb = Pick<
   NodePgDatabase<Record<string, unknown>>,
-  "select" | "insert" | "update"
+  "select" | "insert" | "update" | "transaction" | "execute"
 >;
 
 /** A pg-backed `DeviceStateStore` over the shared `device_state` table (drizzle). */
@@ -29,6 +29,27 @@ export function createPgDeviceStateStore(db: PgDeviceStateDb): DeviceStateStore 
 
   return {
     read,
+    async lightTransaction(run) {
+      return db.transaction(async (tx) => {
+        // Transaction-scoped, stable key: all light commands and actuation use it.
+        await tx.execute(sql`select pg_advisory_xact_lock(7800431)`);
+        return run(createPgDeviceStateStore(tx));
+      });
+    },
+    async readInput(entityId) {
+      const rows = await db
+        .select()
+        .from(inputCheckpoint)
+        .where(eq(inputCheckpoint.entityId, entityId))
+        .limit(1);
+      return rows[0]?.value ?? null;
+    },
+    async writeInput(entityId, value) {
+      await db
+        .insert(inputCheckpoint)
+        .values({ entityId, value })
+        .onConflictDoUpdate({ target: inputCheckpoint.entityId, set: { value } });
+    },
 
     async list(filter?: ListFilter) {
       if (filter?.kind !== undefined && filter?.entityIds !== undefined) {

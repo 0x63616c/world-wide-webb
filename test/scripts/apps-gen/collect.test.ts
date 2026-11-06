@@ -166,6 +166,7 @@ it("collect() sources worker cycles from owning App facets", () => {
   expect(model.workerCycles.map((cycle) => cycle.name).sort()).toEqual([
     "alarm-clock",
     "alarm-lights",
+    "bedroom-switch-input",
     "climate-enforcer",
     "device-sync",
     "light-enforcer",

@@ -17,6 +17,7 @@ export {
   type DeviceSpeakerState,
   type DeviceStateValue,
   deviceState,
+  inputCheckpoint,
   integrationSyncStatus,
   type LightColor,
 } from "@www/core";

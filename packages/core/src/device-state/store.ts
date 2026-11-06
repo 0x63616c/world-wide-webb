@@ -60,6 +60,12 @@ export interface ListFilter {
   entityIds?: readonly string[];
 }
 
+export interface InputCheckpoint {
+  changed: string;
+  state: "on" | "off" | null;
+  actedAt: number | null;
+}
+
 /**
  * The device-state store: the ONLY code that touches the device_state table.
  * DB failures always throw — a desired write is the mutation's only effect; a
@@ -70,6 +76,11 @@ export interface ListFilter {
  * doc for its exact semantics.
  */
 export interface DeviceStateStore {
+  /** Serialized, rollback-safe light command/actuation boundary, shared across processes.
+   * Callers must use the supplied store inside the callback; never nest. */
+  lightTransaction<T>(run: (store: DeviceStateStore) => Promise<T>): Promise<T>;
+  readInput(entityId: string): Promise<InputCheckpoint | null>;
+  writeInput(entityId: string, checkpoint: InputCheckpoint): Promise<void>;
   read(id: string): Promise<DeviceStateRow | null>;
   /** All rows matching `filter` (or all rows with no filter). No ordering guarantee. */
   list(filter?: ListFilter): Promise<DeviceStateRow[]>;

@@ -26,6 +26,42 @@ export function runDeviceStateStoreContract(
     desired: { on: true, brightness: 200 },
   } as const;
 
+  describe("light transactions", () => {
+    it("rolls back desired and input watermark together on failure", async () => {
+      const store = await freshStore();
+      await expect(
+        store.lightTransaction(async (locked) => {
+          await locked.upsertDesired(lampInput);
+          await locked.writeInput("binary_sensor.fixture", {
+            state: "on",
+            changed: "2026-11-05T00:00:01.000000Z",
+            actedAt: 1,
+          });
+          throw new Error("rollback");
+        }),
+      ).rejects.toThrow("rollback");
+      expect(await store.read(lampInput.id)).toBeNull();
+      expect(await store.readInput("binary_sensor.fixture")).toBeNull();
+    });
+
+    it("orders concurrent read/modify/write transactions without lost updates", async () => {
+      const store = await freshStore();
+      await store.upsertDesired({ ...lampInput, desired: { on: false } });
+      const invert = () =>
+        store.lightTransaction(async (locked) => {
+          const current = await locked.read(lampInput.id);
+          const on = !!(
+            current?.desiredState &&
+            "on" in current.desiredState &&
+            current.desiredState.on
+          );
+          await locked.updateDesired({ id: lampInput.id, desired: { on: !on } });
+        });
+      await Promise.all([invert(), invert()]);
+      expect((await store.read(lampInput.id))?.desiredState).toEqual({ on: false });
+    });
+  });
+
   describe("upsertDesired", () => {
     it("creates a full row on first sight: available:true, desiredAtUtc set, default command window", async () => {
       const store = await freshStore();
