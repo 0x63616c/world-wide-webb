@@ -51,7 +51,7 @@ import XCTest
             renderer.proposedSize = ProposedViewSize(canvas)
             renderer.scale = 2
             let image = try XCTUnwrap(renderer.uiImage)
-            try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("\(name)-imagerenderer.png"))
+            try await writePNG(image, name: "\(name)-imagerenderer", output: output)
 
             // Faithful fallback: render the same view in one persistent unit-test window.
             // drawHierarchy includes native glass/backdrop compositing, unlike ImageRenderer.
@@ -75,13 +75,22 @@ import XCTest
             XCTAssertTrue(rendered, "Native hierarchy failed for \(name)")
             XCTAssertEqual(hosted.cgImage?.width, 2752)
             XCTAssertEqual(hosted.cgImage?.height, 2064)
-            try XCTUnwrap(hosted.pngData()).write(to: output.appendingPathComponent("\(name).png"))
+            try await writePNG(hosted, name: name, output: output)
             if name == "home" {
                 // Gives the capture script a bounded opportunity for the one-time sim check.
                 try Data().write(to: output.appendingPathComponent("glass-check-ready"))
                 try await Task.sleep(for: .seconds(4))
             }
         }
+    }
+
+    private func writePNG(_ image: UIImage, name: String, output: URL) async throws {
+        // ImageRenderer can return an image backed by a deferred render provider.
+        // Encoding on the main actor blocks that provider and times out on CI.
+        // Keep the UI actor free while the immutable image resolves and encodes.
+        let data = await Task.detached(priority: .userInitiated) { image.pngData() }.value
+        try XCTUnwrap(data, "PNG export failed for \(name)")
+            .write(to: output.appendingPathComponent("\(name).png"))
     }
 }
 
