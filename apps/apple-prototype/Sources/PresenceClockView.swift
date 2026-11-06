@@ -125,7 +125,7 @@ struct GreenClockDial: View {
                 .background(Circle().fill(night ? .black : Self.green))
                 .frame(width: w * 0.75, height: w * 0.75)
         }.compositingGroup()
-            .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 3)
+            .shadow(color: .black.opacity(0.32), radius: 5, x: 0, y: 5)
             .frame(width: 0, height: 0).position(layout.center)
     }
 

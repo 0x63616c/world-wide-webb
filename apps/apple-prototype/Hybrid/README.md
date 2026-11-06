@@ -3,7 +3,7 @@
 Panel starts on the green clock. Swipe left to reveal the vertically scrolling app
 launcher on one full-screen native Liquid Glass surface over the same living clock.
 The clock stays fixed beneath the glass; swipe right or choose Clock to uncover it.
-The glass follows the screen corners with a 5-point inset, extra system-material
+The glass follows the screen corners with a 8-point inset, extra system-material
 frosting, and a quarter-second reveal. The hands cast a subtle shadow on the dial.
 The launcher has no photographic wallpaper or Background picker. Each app opens
 full screen, and its Back button restores the launcher. Reduce Motion removes
