@@ -32,7 +32,7 @@ struct AppLauncher: View {
                         ForEach(apps) { app in
                             Button { open(app) } label: {
                                 VStack(spacing: 14) {
-                                    PanelAppIcon(app: app, side: iconSide)
+                                    LauncherAppIcon(app: app, side: iconSide)
                                         .matchedTransitionSource(id: app.id, in: namespace)
                                     Text(app.name).font(.system(size: sizeClass == .compact ? 15 : 21, weight: .medium))
                                         .foregroundStyle(.white).lineLimit(1)
@@ -141,44 +141,12 @@ struct PanelSettingsPage: View {
     }
 }
 
-/// Icon artwork is separate from the app registration and navigation shell.
-struct PanelAppIcon: View {
-    let app: PanelAppDefinition
-    let side: CGFloat
-    private var accent: Color { Color(hex: app.accent) }
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: side * 0.23)
-                .fill(LinearGradient(colors: [accent.mix(with: .white, by: 0.18), accent, accent.mix(with: .black, by: 0.3)], startPoint: .topLeading, endPoint: .bottomTrailing))
-            if app.id == "calendar" {
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    VStack(spacing: 0) {
-                        Text(context.date.formatted(.dateTime.weekday(.abbreviated)).uppercased())
-                            .font(.system(size: side * 0.14, weight: .bold)).foregroundStyle(.red)
-                        Text(context.date.formatted(.dateTime.day()))
-                            .font(.system(size: side * 0.49, weight: .light)).foregroundStyle(.black)
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.white)
-                }.clipShape(.rect(cornerRadius: side * 0.23))
-            } else if app.id == "weather" {
-                Circle().fill(.yellow.gradient).frame(width: side * 0.38, height: side * 0.38).offset(x: side * 0.16, y: -side * 0.14)
-                Image(systemName: "cloud.fill").font(.system(size: side * 0.49)).foregroundStyle(.white.gradient)
-                    .shadow(color: .black.opacity(0.18), radius: 4, y: 3).offset(x: -side * 0.05, y: side * 0.08)
-            } else {
-                Image(systemName: app.symbol).font(.system(size: side * 0.46, weight: .medium))
-                    .symbolRenderingMode(.hierarchical).foregroundStyle(.white.gradient)
-                    .shadow(color: .black.opacity(0.2), radius: 2, y: 3)
-            }
-        }.frame(width: side, height: side)
-            .overlay { RoundedRectangle(cornerRadius: side * 0.23).strokeBorder(.white.opacity(0.18), lineWidth: 0.5) }
-            .accessibilityHidden(true)
-    }
-}
-
 /// Small, interruptible press feedback; screen navigation itself stays a crossfade.
 private struct LauncherPressStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .environment(\.launcherIconPressed, configuration.isPressed)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.8 : 1)
             .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: configuration.isPressed)
