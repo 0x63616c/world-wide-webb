@@ -32,6 +32,8 @@ public struct Recording: Identifiable, Codable, Equatable, Sendable {
     public var microphone: AudioTrack?
     public var systemAudio: AudioTrack?
     public var note: String?
+    public var suggestedTitle: String?
+    public var titleSuggestionDismissed: Bool?
     public var schemaVersion = 1
     public init(id: UUID = UUID(), title: String, createdAt: Date = .now) {
         self.id = id; self.title = title; self.createdAt = createdAt

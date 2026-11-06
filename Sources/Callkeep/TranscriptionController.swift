@@ -18,6 +18,7 @@ final class TranscriptionController {
     var notifyWhenReady: Bool { didSet { defaults.set(notifyWhenReady, forKey: "notifyWhenTranscriptReady") } }
     var requestNotifications: (() -> Void)?
     var didComplete: ((UUID) -> Void)?
+    var transcriptCompleted: ((Transcript) -> Void)?
     var recording: ((UUID) -> (Recording, URL)?)?
     var canRun: (() -> Bool)?
     var didFinish: (() -> Void)?
@@ -157,6 +158,7 @@ final class TranscriptionController {
             let completed = result
             try await Task.detached(priority: .utility) { try TranscriptFiles.save(completed, folder: folder) }.valueWithCancellation()
             jobs.removeAll { $0.id == job.id }; persist(); resultsVersion += 1
+            transcriptCompleted?(completed)
             if notifyWhenReady { didComplete?(job.recordingID) }
         } catch is CancellationError {
             // Last completed chunk is durable. Resume it after capture or next launch.

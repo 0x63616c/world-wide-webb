@@ -222,6 +222,9 @@ struct TranscriptView: View {
                 let loaded = try await Task.detached(priority: .utility) { try TranscriptFiles.load(folder: folder) }.valueWithCancellation()
                 guard !Task.isCancelled else { return }
                 results = loaded; readError = nil
+                if model.suggestTitles, let transcript = loaded.first {
+                    model.suggestTitle(for: recording.id, transcript: transcript)
+                }
             } catch is CancellationError { }
             catch { readError = "Couldn’t load transcripts: \(error.localizedDescription)" }
         }

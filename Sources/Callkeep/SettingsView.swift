@@ -108,6 +108,18 @@ struct SettingsView: View {
                 SettingsSection("Transcription") {
                     TranscriptionSettingsView(controller: model.transcription, notifications: model.transcriptionNotifications)
                 }
+                SettingsSection("Title suggestions") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        SettingsSwitchRow("Suggest recording titles", isOn: $model.suggestTitles)
+                            .disabled(!model.titleModelAvailable)
+                        Text("Uses your transcript and recent recording titles on this Mac. Suggestions are saved with the recording.")
+                            .font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
+                        if !model.titleModelAvailable {
+                            Text("Requires macOS 26 and an available Apple Intelligence on-device model.")
+                                .font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
+                        }
+                    }
+                }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("Permissions").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)

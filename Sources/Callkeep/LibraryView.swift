@@ -229,6 +229,7 @@ struct RecordingDetail: View {
                 }
                 Spacer(minLength: 8)
             }
+            TitleSuggestionView(model: model, recording: recording)
             PlaybackTimelineView(playback: model.playback, waveform: waveform)
                 .disabled(model.isRecording || recording.duration == 0)
             HStack(spacing: 30) {
@@ -265,6 +266,41 @@ struct RecordingDetail: View {
         }
     }
 
+}
+
+private struct TitleSuggestionView: View {
+    let model: AppModel
+    let recording: Recording
+    @State private var editing = false
+    @State private var draft = ""
+    var body: some View {
+        if let suggestion = recording.suggestedTitle {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Suggested title").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                HStack {
+                    if editing {
+                        TextField("Suggested title", text: $draft).textFieldStyle(.roundedBorder)
+                            .onSubmit { model.rename(recording, to: draft); editing = false }
+                    } else {
+                        Text(suggestion).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Button(editing ? "Save" : "Use title") {
+                        model.rename(recording, to: editing ? draft : suggestion); editing = false
+                    }.disabled(editing && draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if !editing { Button("Edit") { draft = suggestion; editing = true } }
+                    Button { model.dismissTitleSuggestion(recording); editing = false } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.plain).help("Dismiss suggestion").accessibilityLabel("Dismiss suggested title")
+                }
+            }.padding(12).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        } else if model.titleSuggestionInProgress.contains(recording.id) {
+            Label("Suggesting a title…", systemImage: "sparkles").font(.caption).foregroundStyle(.secondary)
+        } else if let error = model.titleSuggestionErrors[recording.id], model.suggestTitles {
+            HStack {
+                Text(error).font(.caption).foregroundStyle(.secondary)
+                Button("Retry") { model.suggestTitle(for: recording.id) }.controlSize(.small)
+            }
+        }
+    }
 }
 
 private struct RecordingInfoView: View {
