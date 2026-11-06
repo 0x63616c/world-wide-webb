@@ -12,6 +12,12 @@ https://huggingface.co/argmaxinc/whisperkit-coreml
 
 FluidAudio 0.18.2 — MIT
 
+Speaker diarization: Community-1 by pyannote, using WeSpeaker and BUT Speech@FIT PLDA,
+converted and modified for Core ML by Fluid Inference. CC BY 4.0.
+https://huggingface.co/FluidInference/speaker-diarization-coreml/blob/7eab74f3463c736418d0eb10296261ae581146c9/NOTICE.md
+https://huggingface.co/FluidInference/speaker-diarization-coreml/blob/7eab74f3463c736418d0eb10296261ae581146c9/README.md
+https://creativecommons.org/licenses/by/4.0/
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/

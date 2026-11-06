@@ -4,6 +4,7 @@ import CallkeepCore
 
 struct LibraryView: View {
     @Bindable var model: AppModel
+    @EnvironmentObject private var updates: AppUpdater
     @Environment(\.openWindow) private var openWindow
     @State private var deleting = false
     @State private var renamingID: UUID?
@@ -45,15 +46,23 @@ struct LibraryView: View {
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 8) {
                     Divider()
-                    Button { model.showSettings() } label: {
-                        HStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        Button { model.showSettings() } label: {
+                            HStack(spacing: 10) {
                             Image(systemName: "gearshape").frame(width: 22)
                             Text("Settings")
                             Spacer()
-                            Text(AppIdentity.version).font(.caption).foregroundStyle(.secondary)
-                        }.padding(.horizontal, 10).padding(.vertical, 9).contentShape(Rectangle())
+                            }.padding(.horizontal, 10).padding(.vertical, 9).contentShape(Rectangle())
                             .background(model.showingSettings ? Color.primary.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 7))
-                    }.buttonStyle(.plain)
+                        }.buttonStyle(.plain)
+                        Text(AppIdentity.version).font(.caption).foregroundStyle(.secondary)
+                        if updates.updateAvailable {
+                            Button { updates.checkForUpdates() } label: {
+                                Image(systemName: "arrow.down.circle.fill").foregroundStyle(Color.accentColor)
+                            }.buttonStyle(.plain).disabled(!updates.canCheckForUpdates || model.isRecording || model.isBusy)
+                                .help("Update available").accessibilityLabel("Update available. Open updater")
+                        }
+                    }
                 }.padding(.horizontal, 12).padding(.bottom, 12)
             }
         } detail: {
