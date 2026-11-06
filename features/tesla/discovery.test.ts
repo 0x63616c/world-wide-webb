@@ -51,6 +51,13 @@ describe("Tesla entity discovery", () => {
     const result = discoverTeslaEntities([...fleet(), entity("update", "software_update")]);
     expect(result.missing).toEqual([]);
     expect(result.entities?.softwareUpdate).toBe(`update.${prefix}_software_update`);
+    const pathName = discoverTeslaEntities([
+      ...fleet(),
+      entity("update", "vehicle_state_software_update_status"),
+    ]);
+    expect(pathName.entities?.softwareUpdate).toBe(
+      `update.${prefix}_vehicle_state_software_update_status`,
+    );
   });
   it("supports legacy custom integration and API path suffixes", () => {
     const all = fleet();
