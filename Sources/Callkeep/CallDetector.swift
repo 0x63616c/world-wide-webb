@@ -56,6 +56,13 @@ enum CallActivityScanner {
 
 @MainActor @Observable
 final class CallDetector {
+    static let delayOptions: [Double] = [0.5, 1, 2, 5, 10]
+    var reminderDelay: Double = {
+        let stored = UserDefaults.standard.object(forKey: "callReminderDelay") as? Double ?? 0.5
+        return delayOptions.contains(stored) ? stored : 0.5
+    }() {
+        didSet { UserDefaults.standard.set(reminderDelay, forKey: "callReminderDelay") }
+    }
     var enabled = UserDefaults.standard.object(forKey: "callReminders") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(enabled, forKey: "callReminders")
@@ -82,7 +89,7 @@ final class CallDetector {
                     self.error = nil
                     let now = ProcessInfo.processInfo.systemUptime
                     let recording = self.isRecording?() ?? false
-                    let candidate = self.filter.update(apps, now: now, recording: recording)
+                    let candidate = self.filter.update(apps, now: now, recording: recording, delay: self.reminderDelay)
                     if recording || self.shownID.map({ !self.filter.isActive($0, now: now) }) == true { self.hide() }
                     if let candidate, self.panel == nil { self.show(candidate) }
                 } catch {
@@ -90,7 +97,7 @@ final class CallDetector {
                     self.error = "Call activity is unavailable on this Mac."
                     self.hide()
                 }
-                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
             }
         }
     }

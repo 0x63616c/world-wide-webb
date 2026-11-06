@@ -13,18 +13,25 @@ final class CallActivityTests: XCTestCase {
     }
     func testDebounceDismissalAndNewCall() {
         var filter = CallActivityFilter()
-        for now in 0..<5 { XCTAssertNil(filter.update([faceTime], now: Double(now), recording: false)) }
-        XCTAssertEqual(filter.update([faceTime], now: 5, recording: false), faceTime)
+        XCTAssertNil(filter.update([faceTime], now: 0, recording: false))
+        XCTAssertNil(filter.update([faceTime], now: 0.49, recording: false))
+        XCTAssertEqual(filter.update([faceTime], now: 0.5, recording: false), faceTime)
         XCTAssertNil(filter.update([faceTime], now: 6, recording: false))
         XCTAssertNil(filter.update([], now: 10, recording: false))
         XCTAssertNil(filter.update([faceTime], now: 11, recording: false), "Brief gaps must not repeat a reminder")
         XCTAssertNil(filter.update([], now: 27, recording: false))
-        for now in 28..<33 { XCTAssertNil(filter.update([faceTime], now: Double(now), recording: false)) }
-        XCTAssertEqual(filter.update([faceTime], now: 33, recording: false), faceTime)
+        XCTAssertNil(filter.update([faceTime], now: 28, recording: false))
+        XCTAssertEqual(filter.update([faceTime], now: 28.5, recording: false), faceTime)
     }
     func testAlreadyRecordingDoesNotPromptWhenRecordingStops() {
         var filter = CallActivityFilter()
         XCTAssertNil(filter.update([faceTime], now: 0, recording: true))
         XCTAssertNil(filter.update([faceTime], now: 6, recording: false))
+    }
+    func testConfiguredReminderDelay() {
+        var filter = CallActivityFilter()
+        XCTAssertNil(filter.update([faceTime], now: 0, recording: false, delay: 2))
+        XCTAssertNil(filter.update([faceTime], now: 1.5, recording: false, delay: 2))
+        XCTAssertEqual(filter.update([faceTime], now: 2, recording: false, delay: 2), faceTime)
     }
 }

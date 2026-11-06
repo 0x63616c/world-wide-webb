@@ -35,7 +35,7 @@ public struct CallActivityFilter: Sendable {
     private struct Seen: Sendable { var first: Double; var last: Double; var reminded = false }
     private var seen: [String: Seen] = [:]
     public init() {}
-    public mutating func update(_ apps: [CallingApp], now: Double, recording: Bool) -> CallingApp? {
+    public mutating func update(_ apps: [CallingApp], now: Double, recording: Bool, delay: Double = 0.5) -> CallingApp? {
         seen = seen.filter { now - $0.value.last < 15 }
         for app in apps {
             var state = seen[app.id] ?? Seen(first: now, last: now)
@@ -46,7 +46,7 @@ public struct CallActivityFilter: Sendable {
         }
         guard !recording else { return nil }
         for app in apps.sorted(by: { $0.id < $1.id }) {
-            guard var state = seen[app.id], !state.reminded, now - state.first >= 5 else { continue }
+            guard var state = seen[app.id], !state.reminded, now - state.first >= delay else { continue }
             state.reminded = true; seen[app.id] = state
             return app
         }

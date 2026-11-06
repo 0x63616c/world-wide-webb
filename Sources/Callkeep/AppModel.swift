@@ -35,6 +35,7 @@ final class AppModel {
             OverlayPosition.current = overlayPosition
             callDetector.updatePosition()
             StatusToast.shared.updatePosition()
+            RecordingIndicator.shared.updatePosition()
         }
     }
     private(set) var store: RecordingStore?
@@ -223,6 +224,8 @@ final class AppModel {
            ["recording", "menu-recording"].contains(scene) {
             recording.state = .recording
             active = recording; selectedID = recording.id; elapsed = 12 * 60 + 34
+            micLevel = 0.24; systemLevel = 0.16
+            RecordingIndicator.shared.show(model: self)
             @Sendable func samples() -> [LevelSample] {
                 let now = ProcessInfo.processInfo.systemUptime
                 return (0..<120).map { i in
@@ -287,7 +290,7 @@ final class AppModel {
             }
             active = recording; elapsed = 0; checkpoint = 0; selectedID = recording.id
             try reload(); statusMessage = "Recording started"
-            StatusToast.shared.show("Recording started", recording: true)
+            RecordingIndicator.shared.show(model: self)
             timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in Task { @MainActor in self?.tick() } }
             if let timer { RunLoop.main.add(timer, forMode: .common) }
         } catch {
@@ -331,10 +334,16 @@ final class AppModel {
         recording.state = reason == nil && tracks.microphone != nil && tracks.system != nil ? .saved : .interrupted
         recording.note = reason ?? ((tracks.microphone == nil || tracks.system == nil) ? "One audio source didn’t deliver samples. Check permissions and audio devices before the next recording." : nil)
         active = nil; micLevel = 0; systemLevel = 0
+        RecordingIndicator.shared.hide()
         do {
             try store?.save(recording)
-            try reload()
-            try reload(); statusMessage = "Recording saved"; StatusToast.shared.show("Recording saved", recording: false) }
+            try reload(); statusMessage = "Recording saved"
+            let recordingID = recording.id
+            StatusToast.shared.show("Recording saved", recording: false) { [weak self] in
+                self?.select(recordingID)
+                self?.presentLibrary?()
+            }
+        }
         catch { errorMessage = "Audio was kept on this Mac, but saving to the library or iCloud Drive failed: \(error.localizedDescription)" }
         if let reason { errorMessage = reason }
         isBusy = false
