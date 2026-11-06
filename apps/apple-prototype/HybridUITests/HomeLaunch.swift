@@ -16,17 +16,18 @@ extension XCUIApplication {
             wake.tap()
             XCTAssertTrue(wake.waitForNonExistence(timeout: 5))
         }
+        if buttons["classic-home"].exists {
+            buttons["classic-home"].tap()
+            XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
+            return
+        }
         if buttons["app-back"].exists {
             buttons["app-back"].tap()
             XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
             return
         }
         if buttons["app-settings"].exists && buttons["app-settings"].isHittable { return }
-        let window = windows.firstMatch
-        // A left swipe anywhere on the awake clock opens apps. Start away
-        // from the system edges and the notification strip.
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)).press(forDuration: 0.1,
-            thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
+        buttons["launcher-clock"].tap()
         XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
     }
     @MainActor func launchModuleFromHome() {

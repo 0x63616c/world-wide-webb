@@ -4,12 +4,15 @@ import PanelKit
 struct AppLauncher: View {
     let apps: [PanelAppDefinition]
     let open: (PanelAppDefinition) -> Void
+    let close: () -> Void
+    let isPresented: Bool
     let namespace: Namespace.ID
     @Environment(\.horizontalSizeClass) private var sizeClass
     var body: some View {
         GeometryReader { proxy in
             let columns = sizeClass == .compact ? 3 : 5
             let iconSide: CGFloat = sizeClass == .compact ? 76 : 112
+            ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 VStack(spacing: 32) {
                     TimelineView(.periodic(from: Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 60) * 60), by: 60)) { context in
@@ -37,6 +40,21 @@ struct AppLauncher: View {
                 }
                 }.frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
+                if isPresented {
+                    Button(action: close) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 20, weight: .semibold))
+                            .frame(width: 48, height: 48)
+                            .background(.white.opacity(0.12), in: .circle)
+                            .contentShape(.circle)
+                    }.buttonStyle(.plain)
+                        .frame(width: 48, height: 48)
+                        .accessibilityLabel("Close Home")
+                        .accessibilityIdentifier("home-close")
+                        .padding(24)
+                        .zIndex(1)
+                }
+            }
         }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
