@@ -3,7 +3,9 @@
 The four `approved-*.png` files are the design references approved in the icon
 design conversation. Their style is extended across all 14 home apps, with
 consistent optical padding. Lights is scaled down 14% from the first implementation
-to balance the narrow bulb against the wider artwork. The production artwork is
+to balance the narrow bulb against the wider artwork. All launcher tiles are also
+10% smaller within the original grid slots, retaining label positions and tap areas.
+The production artwork is
 authored as independent SwiftUI vector layers in `Sources/Apps/Icons`; the
 references are not runtime assets.
 
@@ -35,8 +37,9 @@ From `apps/apple-prototype`, after `xcodegen generate`:
 xcodebuild -project WorldWideWebb.xcodeproj -scheme Panel-Smoke \
   -destination 'platform=iOS Simulator,id=226E5ED5-37D5-4813-B777-18FDA3B96E15' \
   -derivedDataPath /tmp/layered-icons-dd \
-  -resultBundlePath /tmp/layered-icons-full-interaction.xcresult \
+  -resultBundlePath /tmp/layered-icons-final-size.xcresult \
   -parallel-testing-enabled NO \
+  -only-testing:PanelUITests/LauncherMotionCaptureTests/testGlassOverlay \
   -only-testing:PanelUITests/LauncherMotionCaptureTests/testLayeredAppIcons \
   -only-testing:PanelUITests/HomeViewLaunchTests/testClockTapOpensHomeAndCloseReturnsToClock \
   CODE_SIGNING_ALLOWED=NO test
@@ -46,7 +49,7 @@ xcodebuild -project WorldWideWebb.xcodeproj -scheme WorldWideWebb \
   -derivedDataPath /tmp/layered-icons-mac-dd CODE_SIGNING_ALLOWED=NO build
 ```
 
-Both commands passed: two UI tests with zero failures, and a successful Mac build.
+Both commands passed: three UI tests with zero failures, and a successful Mac build.
 The icon interaction test opens all 14 apps, including the Clock route back to the
 clock face, checks the Photos PIN gate and returns to Home after each app.
 The home screenshots came from the existing

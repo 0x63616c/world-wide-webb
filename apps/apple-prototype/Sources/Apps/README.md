@@ -32,6 +32,9 @@ retain flat faces and separate depth layers. Artwork occupies approximately
 cloud, vehicle and stacked cards. The bulb is reduced to match that visual inset.
 `PanelAppIcon` is the shared entry point for the launcher and notification
 surfaces. Calendar retains its live weekday and date on two layered pages.
+The launcher renders tiles 10% smaller inside the existing grid slots (100.8 pt
+in the 112 pt panel slot; 68.4 pt in the 76 pt compact slot), retaining the label
+positions and button hit areas. Notification artwork keeps its own requested size.
 
 `LauncherAppIcon` adds a restrained pointer tilt and foreground parallax on the
 existing button press. It introduces no touch gesture or device-motion sensor.

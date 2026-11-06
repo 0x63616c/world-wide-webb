@@ -11,7 +11,8 @@ struct AppLauncher: View {
     var body: some View {
         GeometryReader { proxy in
             let columns = sizeClass == .compact ? 3 : 5
-            let iconSide: CGFloat = sizeClass == .compact ? 76 : 112
+            let iconFrameSide: CGFloat = sizeClass == .compact ? 76 : 112
+            let iconSide = iconFrameSide * 0.9
             ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 VStack(spacing: 32) {
@@ -34,6 +35,7 @@ struct AppLauncher: View {
                                 VStack(spacing: 14) {
                                     LauncherAppIcon(app: app, side: iconSide)
                                         .matchedTransitionSource(id: app.id, in: namespace)
+                                        .frame(width: iconFrameSide, height: iconFrameSide)
                                     Text(app.name).font(.system(size: sizeClass == .compact ? 15 : 21, weight: .medium))
                                         .foregroundStyle(.white).lineLimit(1)
                                 }.frame(maxWidth: .infinity).contentShape(.rect)
