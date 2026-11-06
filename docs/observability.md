@@ -18,6 +18,13 @@ The existing Hindsight healthcheck and OrbStack watchdog remain independent;
 this migration introduced no notification channel. Backup exit status is visible
 in launchd and its local logs; see [mini backups](runbooks/mini-backups.md).
 
+Tunnel connectivity is checked separately every 30 seconds by
+`com.calum.tunnel-recovery`. A running container can still have no Cloudflare
+connections. After a two-minute startup grace and three failed local `/ready`
+checks, recovery restarts only that tunnel container, with a five-minute cooldown.
+It leaves stopped or paused containers alone and adds no notifications.
+See [tunnel recovery](runbooks/tunnel-recovery.md) for deployment, logs and maintenance.
+
 The retired monitoring stack's final archive is on the NAS at
 `/Homelab/backups/mac-mini/monitoring-final-20261103/monitoring-final-20261103.tar.gz`.
 Its SHA-256 is `b057a37fe45fc8c1ae4074a729becbdc818ffb272eddfe39f085472cd52458d6`.
