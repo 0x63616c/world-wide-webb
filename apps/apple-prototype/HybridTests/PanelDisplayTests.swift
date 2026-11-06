@@ -48,11 +48,18 @@ import XCTest
         XCTAssertFalse(state.tick(now: 150, dimAfter: 120, returnAfter: 60, dimEnabled: true))
     }
 
+    func testEarlierDimmingDoesNotShortenReturnToClockDelay() {
+        let state = PanelIdleState(now: 0)
+        XCTAssertFalse(state.tick(now: 30, dimAfter: 30, returnAfter: 120, dimEnabled: true))
+        XCTAssertTrue(state.dimmed)
+        XCTAssertTrue(state.tick(now: 120, dimAfter: 30, returnAfter: 120, dimEnabled: true))
+    }
+
     func testGlobalDimmingWorksEvenWhenAppNeverReturnsToClock() {
         let state = PanelIdleState(now: 0)
         state.activity(now: 20)
         XCTAssertFalse(state.tick(now: 30, dimAfter: 30, returnAfter: 0, dimEnabled: true))
-        XCTAssertTrue(state.tick(now: 50, dimAfter: 30, returnAfter: 0, dimEnabled: true))
+        XCTAssertFalse(state.tick(now: 50, dimAfter: 30, returnAfter: 0, dimEnabled: true))
         XCTAssertTrue(state.dimmed)
         state.wake(now: 60)
         XCTAssertFalse(state.tick(now: 1000, dimAfter: 30, returnAfter: 0, dimEnabled: false))

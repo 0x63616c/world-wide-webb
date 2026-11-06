@@ -2,8 +2,7 @@ import Foundation
 import Observation
 import PanelKit
 
-/// No fixture defaults escape this provider. Hybrid requires a current complete
-/// snapshot before mounting the unchanged Tesla views.
+/// Keep the last complete reported snapshot visible when the car or network sleeps.
 @MainActor @Observable final class LiveTeslaProvider: TeslaProvider {
     private(set) var moduleStatus: HomeModuleStatus = .loading
     private(set) var snapshot: TeslaSnapshot?
@@ -29,7 +28,7 @@ import PanelKit
         guard batteryPercent >= 10, rangeMiles > 0 else { return nil }
         return Int((rangeMiles * 100 / batteryPercent / 5).rounded()) * 5
     }
-    var availability: TeslaAvailability { hasLiveData ? .online : .offline }
+    var availability: TeslaAvailability { hasLiveData && snapshot?.stale != true ? .online : .offline }
     var data: TeslaData {
         guard hasLiveData, let snapshot else {
             return TeslaData(name: "Unavailable", nick: "Tesla", place: "", charging: false,
@@ -56,9 +55,7 @@ import PanelKit
             accept(state)
         } catch {
             guard version == generation else { return }
-            hasLiveData = false
-            moduleStatus = .unavailable(panelFailureReason(error, fallback: "Tesla is unavailable"))
-            requestedAction = nil
+            retainSnapshot(reason: panelFailureReason(error, fallback: "Tesla is unavailable"))
         }
     }
 
@@ -70,7 +67,7 @@ import PanelKit
         }
     }
     func request(_ action: TeslaAction) {
-        guard hasLiveData, !busy, requestedAction == nil else { return }
+        guard hasLiveData, availability == .online, !busy, requestedAction == nil else { return }
         requestedAction = action
         errorMessage = nil
     }
@@ -99,7 +96,7 @@ import PanelKit
     }
 
     func confirm(pin: String) async {
-        guard hasLiveData, !busy, let action = requestedAction else { return }
+        guard hasLiveData, availability == .online, !busy, let action = requestedAction else { return }
         guard pin.utf8.count == 6, pin.utf8.allSatisfy({ (48...57).contains($0) }) else {
             errorMessage = "Enter the six-digit panel PIN."
             return
@@ -124,28 +121,34 @@ import PanelKit
             if case .server(let code, _, _) = error as? PanelAPIError, code == "FORBIDDEN" {
                 errorMessage = "PIN not accepted. Try again."
             } else {
-                hasLiveData = false
-                moduleStatus = .unavailable(panelFailureReason(error, fallback: "Tesla is unavailable"))
-                requestedAction = nil
+                retainSnapshot(reason: panelFailureReason(error, fallback: "Tesla is unavailable"))
                 errorMessage = "Tesla is unavailable."
             }
         }
     }
 
+    private func retainSnapshot(reason: String) {
+        snapshot?.stale = true
+        hasLiveData = snapshot != nil
+        moduleStatus = hasLiveData ? .live : .unavailable(reason)
+        requestedAction = nil
+    }
+
     private func accept(_ state: TeslaState) {
         switch state {
-        case .ready: moduleStatus = .live
-        case .unconfigured: moduleStatus = .unconfigured("Tesla isn't set up on the server")
-        case .unavailable: moduleStatus = .unavailable("Tesla is unavailable on the server")
-        }
-        if case .ready(let value) = state {
-            snapshot = value; hasLiveData = true
+        case .ready(let value):
+            snapshot = value; hasLiveData = true; moduleStatus = .live
+            if value.stale == true { requestedAction = nil }
             if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent), estimate != maxRange {
                 maxRange = estimate
                 defaults.set(estimate, forKey: Self.maxRangeKey)
             }
+        case .unconfigured:
+            snapshot = nil; hasLiveData = false; requestedAction = nil
+            moduleStatus = .unconfigured("Tesla isn't set up on the server")
+        case .unavailable:
+            retainSnapshot(reason: "Tesla is unavailable on the server")
         }
-        else { snapshot = nil; hasLiveData = false; requestedAction = nil }
     }
     func stop() {
         generation += 1

@@ -77,16 +77,6 @@ export function createWalkService(database: Database) {
             createdAt: now,
             updatedAt: now,
           });
-          await createNotification(
-            {
-              source_module: "walks",
-              title: "Walk started",
-              body: "Dog Walk is in progress.",
-              deep_link: "module/walks",
-              dedupe_key: `${id}:started`,
-            },
-            tx,
-          );
         }
         return snapshot(tx);
       }),

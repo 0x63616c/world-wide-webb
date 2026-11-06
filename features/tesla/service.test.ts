@@ -1,7 +1,8 @@
-import type { HaEntity } from "@www/core";
+import { createInMemoryDeviceStateStore, DeviceOwner, type HaEntity, ownerOf } from "@www/core";
 import { describe, expect, it, vi } from "vitest";
 import { type TeslaAction, type TeslaEntities, teslaStateSchema } from "./contract";
 import { createTeslaService, parseEntities, TeslaUnavailable } from "./service";
+import { createTeslaSnapshotStore } from "./snapshot-store";
 
 const ids: TeslaEntities = {
   battery: "sensor.test_battery",
@@ -65,7 +66,7 @@ describe("Tesla HA adapter", () => {
   it("normalizes reported units and matches the synthetic native wire fixture", async () => {
     const { service } = fixture();
     const result = teslaStateSchema.parse(await service.state());
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       status: "ready",
       data: {
         batteryPercent: 72,
@@ -116,6 +117,29 @@ describe("Tesla HA adapter", () => {
     const { values, service } = fixture();
     values[id] = [value, unit];
     expect(await service.state()).toEqual({ status: "unavailable", data: null });
+  });
+  it("retains complete telemetry across outages and service restarts without refreshing its timestamp", async () => {
+    const { client, values } = fixture();
+    const store = createInMemoryDeviceStateStore();
+    const snapshots = createTeslaSnapshotStore(store);
+    const first = createTeslaService(client, () => ids, snapshots);
+    const live = await first.state();
+    expect(live).toMatchObject({ status: "ready", stale: false });
+    values[ids.temperature] = ["unavailable", "°F"];
+    values[ids.battery] = ["1", "%"];
+    const stale = await first.state();
+    expect(stale).toEqual({ ...live, stale: true });
+    const restarted = createTeslaService(client, () => ids, snapshots);
+    expect(await restarted.state()).toEqual(stale);
+    const [row] = await store.list();
+    expect(ownerOf(row)).toBe(DeviceOwner.VehicleTelemetry);
+    expect(row.desiredState).toBeNull();
+    values[ids.temperature] = ["69", "°F"];
+    expect(await restarted.state()).toMatchObject({
+      status: "ready",
+      stale: false,
+      data: { batteryPercent: 1, cabinFahrenheit: 69 },
+    });
   });
   it.each([
     ["lock", "lock", "lock", ids.lock],

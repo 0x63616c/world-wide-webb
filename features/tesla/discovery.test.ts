@@ -148,9 +148,9 @@ describe("discovery lifecycle", () => {
   });
   it("invalidates cached discovery after read and command failures, redacting upstream errors", async () => {
     const { client, service } = setup();
-    await service.state();
+    const confirmed = await service.state();
     client.getEntity.mockRejectedValueOnce(new Error("private"));
-    expect(await service.state()).toEqual({ status: "unavailable", data: null });
+    expect(await service.state()).toEqual({ ...confirmed, stale: true });
     await service.state();
     client.callService.mockRejectedValueOnce(new Error("private"));
     await expect(service.command("unlock")).rejects.toMatchObject({ message: "" });

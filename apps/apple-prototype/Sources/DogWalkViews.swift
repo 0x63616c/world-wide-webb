@@ -174,7 +174,9 @@ struct DogWalkPage: View {
                     .frame(width: compact ? 200 : 216, height: 48)
             }.frame(height: compact ? nil : 48)
             Text("Minutes per day").font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
-            Chart(store.walks.days(range, ending: store.now)) { day in
+            let days = store.walks.days(range, ending: store.now)
+            let maximum = max(60, days.map(\.minutes).max() ?? 0)
+            Chart(days) { day in
                 BarMark(x: .value("Day", day.date, unit: .day), y: .value("Minutes", day.minutes))
                     .foregroundStyle(.green.gradient).cornerRadius(5)
                     .accessibilityLabel(fixtureTime(day.date, format: "EEEE, MMMM d"))
@@ -187,12 +189,12 @@ struct DogWalkPage: View {
                 }
             }
             .chartYAxis {
-                AxisMarks(position: .leading, values: [0, 15, 30, 45, 60]) {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 5)) {
                     AxisGridLine()
                     AxisValueLabel().font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
                 }
             }
-            .chartYScale(domain: 0...60)
+            .chartYScale(domain: 0...maximum)
             .frame(height: compact ? 220 : 288)
         }.padding(compact ? 24 : 28)
             .frame(maxWidth: .infinity)

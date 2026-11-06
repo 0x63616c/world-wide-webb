@@ -42,6 +42,14 @@ enum ClockLauncherMotion: String {
         case .dissolve: 1
         }
     }
+    func faceTransition(width: CGFloat, direction: CGFloat) -> AnyTransition {
+        let distance = width + 24
+        return .asymmetric(
+            insertion: .offset(x: direction * distance).combined(with: .scale(scale: launcherScale(0))),
+            removal: .offset(x: -direction * distance).combined(with: .scale(scale: clockScale(1)))
+        )
+    }
+
     /// App entry uses the same incoming surface as the launcher; removal reverses it.
     func incomingTransition(width: CGFloat) -> AnyTransition {
         .modifier(

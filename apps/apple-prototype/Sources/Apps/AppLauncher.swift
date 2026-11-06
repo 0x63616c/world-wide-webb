@@ -45,8 +45,7 @@ struct AppLauncher: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 20, weight: .semibold))
                             .frame(width: 48, height: 48)
-                            .background(.white.opacity(0.12), in: .circle)
-                            .contentShape(.circle)
+                            .contentShape(.rect)
                     }.buttonStyle(.plain)
                         .frame(width: 48, height: 48)
                         .accessibilityLabel("Close Home")
@@ -61,17 +60,13 @@ struct AppLauncher: View {
     }
 }
 
-/// Native glass above the clock, with system material supplying additional frost.
+/// Native Liquid Glass above the clock.
 /// The inset and concentric corners leave a slim, uninterrupted rim of the dial.
 struct LauncherGlassSurface: View {
     private let edgeInset: CGFloat = 8
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
-        Rectangle().fill(.ultraThinMaterial).opacity(0.35)
-            .clipShape(shape)
-            .overlay {
-                Color.clear.glassEffect(.regular.tint(.white.opacity(0.06)), in: shape)
-            }
+        Color.clear.glassEffect(.regular.tint(.white.opacity(0.06)), in: shape)
             .padding(edgeInset)
     }
 }
@@ -99,9 +94,9 @@ struct PanelSettingsPage: View {
     let back: () -> Void
     @Environment(\.homeIntegration) private var integration
     private enum Page: String, CaseIterable, Identifiable {
-        case display = "Display", security = "Security", apps = "Apps"
+        case display = "Display", security = "Security"
         var id: String { rawValue }
-        var symbol: String { self == .display ? "display" : (self == .security ? "lock.shield" : "square.grid.2x2") }
+        var symbol: String { self == .display ? "display" : "lock.shield" }
     }
     @State private var selection: Page? = .display
     var body: some View {
@@ -110,26 +105,11 @@ struct PanelSettingsPage: View {
                 Label(page.rawValue, systemImage: page.symbol).tag(page)
             }.navigationTitle("Settings")
                 .toolbar(removing: .sidebarToggle)
-                .toolbar {
-                    #if os(iOS)
-                    ToolbarItem(placement: .topBarLeading) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
-                    #else
-                    ToolbarItem(placement: .navigation) { PanelAppBackButton(back: back) }
-                        .sharedBackgroundVisibility(.hidden)
-                    #endif
-                }
                 .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 340)
         } detail: {
             NavigationStack {
                 Form {
-                    if selection == .apps {
-                        Section {
-                            ForEach(PanelAppCatalog.standard.apps.filter { if case .feature = $0.route { true } else { $0.route == .timer || $0.route == .photoBooth } }) { app in
-                                NavigationLink { PanelPerAppSettings(app: app) } label: { Label(app.name, systemImage: app.symbol) }
-                            }
-                        }
-                    } else if selection == .security {
+                    if selection == .security {
                         Section("Panel PIN") {
                             if let api = integration?.panelPIN {
                                 NavigationLink { PanelPINChangePage(api: api) } label: {
@@ -146,7 +126,11 @@ struct PanelSettingsPage: View {
                 }.formStyle(.grouped)
                     .navigationTitle(selection?.rawValue ?? "Display")
             }.id(selection)
-        }.tint(.blue).preferredColorScheme(.dark)
+        }
+        .overlay(alignment: .topTrailing) {
+            PanelAppBackButton(back: back).padding(.horizontal, 24).padding(.top, 16)
+        }
+        .tint(.blue).preferredColorScheme(.dark)
     }
 }
 

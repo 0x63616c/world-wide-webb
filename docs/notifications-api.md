@@ -236,3 +236,6 @@ bun run knip
 The Postgres tests create and drop their own generated schema and are skipped
 unless that test URL is supplied. HTTP, tRPC, validation and SSE lifecycle tests
 run without a database. All fixtures are synthetic.
+
+Dog Walk start is silent: starting or resuming an active walk does not create a
+notification. A completed walk still posts its existing stop notification.

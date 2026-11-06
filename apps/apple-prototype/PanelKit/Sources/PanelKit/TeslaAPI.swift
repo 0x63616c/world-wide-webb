@@ -9,6 +9,8 @@ public enum TeslaChargingState: String, Decodable, Sendable {
 }
 
 public struct TeslaSnapshot: Decodable, Sendable, Equatable {
+    public var stale: Bool?
+    public var lastUpdatedAt: String?
     public let batteryPercent: Double
     public let rangeMiles: Double
     public let chargingState: TeslaChargingState
@@ -28,12 +30,14 @@ public struct TeslaSnapshot: Decodable, Sendable, Equatable {
 public enum TeslaState: Decodable, Sendable, Equatable {
     case ready(TeslaSnapshot), unconfigured, unavailable
 
-    private enum CodingKeys: String, CodingKey { case status, data }
+    private enum CodingKeys: String, CodingKey { case status, data, stale, lastUpdatedAt }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         switch try values.decode(String.self, forKey: .status) {
         case "ready":
-            let snapshot = try values.decode(TeslaSnapshot.self, forKey: .data)
+            var snapshot = try values.decode(TeslaSnapshot.self, forKey: .data)
+            snapshot.stale = try values.decodeIfPresent(Bool.self, forKey: .stale)
+            snapshot.lastUpdatedAt = try values.decodeIfPresent(String.self, forKey: .lastUpdatedAt)
             guard snapshot.isValid else {
                 throw DecodingError.dataCorruptedError(forKey: .data, in: values, debugDescription: "Invalid Tesla state.")
             }

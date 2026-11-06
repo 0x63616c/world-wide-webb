@@ -7,6 +7,49 @@ import XCTest
         super.setUp()
         XCUIDevice.shared.orientation = .landscapeLeft
     }
+    func testPanelHomeAndClockFaces() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-previewNightClock"]
+        app.launch()
+        defer { app.terminate() }
+        app.alignPanelOrientation()
+        let clock = app.buttons["launcher-clock"]
+        XCTAssertTrue(clock.waitForExistence(timeout: 15))
+        let window = app.windows.firstMatch
+        func snapshot(_ name: String) {
+            let attachment = XCTAttachment(screenshot: window.screenshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        print("MOTION_CAPTURE_READY home-controls")
+        Thread.sleep(forTimeInterval: 1)
+        let faces = ["Green", "Midnight", "Paper", "Ember"]
+        let initial = try XCTUnwrap(faces.firstIndex(of: clock.value as? String ?? ""))
+        snapshot("clock-\(faces[initial].lowercased())")
+        for step in 1...3 {
+            window.swipeLeft()
+            let face = faces[(initial + step) % faces.count]
+            XCTAssertEqual(clock.value as? String, face)
+            snapshot("clock-\(face.lowercased())")
+        }
+        window.swipeRight()
+        XCTAssertEqual(clock.value as? String, faces[(initial + 2) % faces.count])
+        clock.tap()
+        XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
+        snapshot("home")
+        app.buttons["app-climate"].tap()
+        let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        snapshot("climate")
+        more.tap()
+        XCTAssertTrue(app.buttons["mode-heat"].waitForExistence(timeout: 5))
+        snapshot("climate-more")
+        Thread.sleep(forTimeInterval: 1)
+        print("MOTION_CAPTURE_DONE home-controls")
+    }
     @MainActor func testGlassOverlay() { capture("reveal") }
     @MainActor func testReveal() { capture("reveal") }
     @MainActor func testDepth() { capture("depth") }

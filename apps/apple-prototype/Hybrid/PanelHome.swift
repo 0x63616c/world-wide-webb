@@ -33,7 +33,7 @@ struct PanelHome: View {
     }
 
     var body: some View {
-        HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock)
+        HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock, onWake: presentation.captureWake)
             .environment(\.homeIntegration, presentation)
             .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
@@ -71,6 +71,14 @@ struct PanelHome: View {
     func photoBooth(close: @escaping () -> Void) -> AnyView? {
         AnyView(LivePhotoBoothModule(camera: store.photoBoothCamera, photos: store.photosProvider, close: close))
     }
+    private let wakeCapture = PanelWakeCapture()
+    func captureWake() {
+        #if DEBUG
+        guard !ProcessInfo.processInfo.arguments.contains("-hybridFixtures") else { return }
+        #endif
+        wakeCapture.capture(using: store.diagnosticsClient)
+    }
+
     func openClassicApp() { navigation.openClassic() }
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,

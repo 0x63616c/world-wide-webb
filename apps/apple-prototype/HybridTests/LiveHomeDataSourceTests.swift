@@ -238,6 +238,25 @@ import PanelKit
         }
     }
 
+    func testTurningOnClimatePreservesPendingSetpointOverOffResponse() async throws {
+        let transport = try fixtureTransport()
+        await transport.setFixture("climate/off.json", for: "climate.get")
+        await transport.setFixture("climate/cool.json", for: "climate.setMode")
+        await transport.setFixture("climate/cool.json", for: "climate.setTarget")
+        let store = source(transport)
+        defer { store.stop() }
+        await store.refresh(.climate)
+        XCTAssertEqual(store.climate.target, 0)
+
+        store.send(.mode(.cool))
+        store.send(.target(74))
+        XCTAssertEqual(store.climate.mode, .cool)
+        XCTAssertEqual(store.climate.target, 74)
+        XCTAssertTrue(store.pending.contains("climate"))
+        try await waitFor { store.pending.isEmpty }
+        XCTAssertEqual(store.climate.target, 70)
+    }
+
     func testMissingLampFieldsDoNotInheritMockValuesAndPendingNamesMap() async throws {
         let transport = try fixtureTransport()
         await transport.setFixture("null-scene.json", for: "controls.list")

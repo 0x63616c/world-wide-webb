@@ -7,11 +7,11 @@ import XCTest
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
         XCTAssertTrue(app.navigationBars["Display"].waitForExistence(timeout: 10))
-        swipeHome(app)
+        app.buttons["app-back"].tap()
         XCTAssertTrue(app.buttons["app-car"].waitForExistence(timeout: 5))
         app.buttons["app-car"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-car"].firstMatch.waitForExistence(timeout: 5))
-        swipeHome(app)
+        app.buttons["app-back"].tap()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
     }
     func testDisplaySettingsTimeoutDimsAndTapWakes() {
@@ -26,6 +26,9 @@ import XCTest
         app.buttons["display-dim-timeout"].tap()
         app.buttons["30 seconds"].tap()
         XCTAssertTrue(app.buttons["display-dim-timeout"].label.contains("30 seconds"))
+        let returnSlider = app.sliders["display-return-timeout"]
+        XCTAssertTrue(returnSlider.exists)
+        returnSlider.adjust(toNormalizedSliderPosition: 0)
         let settings = XCTAttachment(screenshot: app.screenshot())
         settings.name = "Display brightness settings"
         settings.lifetime = .keepAlways
@@ -34,10 +37,5 @@ import XCTest
         app.buttons["Wake panel"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Wake panel"].exists)
-    }
-    private func swipeHome(_ app: XCUIApplication) {
-        // The application frame can remain portrait while its window is landscape.
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).press(forDuration: 0.1,
-            thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
     }
 }

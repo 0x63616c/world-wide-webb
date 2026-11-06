@@ -51,14 +51,13 @@ import XCTest
         let app = launch()
         defer { app.terminate() }
         app.openHomeModule("climate")
-        XCTAssertTrue(app.buttons["Raise setpoint"].waitForExistence(timeout: 15))
-        app.buttons["Raise setpoint"].tap()
+        XCTAssertTrue(app.staticTexts["climate-value"].waitForExistence(timeout: 15), app.debugDescription)
+        let slider = app.windows.firstMatch
+        slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            .press(forDuration: 0.1, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)))
         expectWrite("climate.setTarget", in: app)
-        XCTAssertTrue(app.staticTexts["71°"].waitForExistence(timeout: 10))
-        app.buttons["Lower setpoint"].tap()
-        expectWrite("climate.setTarget", in: app)
-        XCTAssertTrue(app.staticTexts["70°"].waitForExistence(timeout: 10))
-        app.buttons["climate-fan"].tap()
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.tap()
+        app.buttons["climate-fan-auto"].tap()
         expectWrite("controls.toggle", in: app)
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-climate"].firstMatch.exists)
     }
@@ -66,12 +65,14 @@ import XCTest
         let app = launch(writes: false)
         defer { app.terminate() }
         app.openHomeModule("climate")
-        let fan = app.buttons["climate-fan"]
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.tap()
+        let fan = app.buttons["climate-fan-auto"]
         XCTAssertTrue(fan.waitForExistence(timeout: 15))
-        let original = fan.label
+        let original = fan.isSelected
         fan.tap()
         XCTAssertTrue(app.buttons["notification-banner-fan"].waitForExistence(timeout: 15))
-        XCTAssertEqual(fan.label, original)
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.tap()
+        XCTAssertEqual(fan.isSelected, original)
         XCTAssertTrue(app.descendants(matching: .any)["app-screen-climate"].firstMatch.exists)
     }
 }

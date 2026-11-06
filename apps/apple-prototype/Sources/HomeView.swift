@@ -80,20 +80,42 @@ struct HomeView: View {
     var initialTile: HomeTile?
     var demo = false
     var initialFace = 0
+    var onWake: () -> Void = {}
     @State private var shell = PanelShellState()
     private let launcherMotion = ClockLauncherMotion.current
-    @State private var appPreferences = PanelAppPreferences()
     @State private var timer = PanelTimerStore()
+    private var display = PanelDisplayPreferences()
+    @AppStorage("panel.clockFace") private var clockFace = PanelClockFace.green
+    @State private var faceDirection: CGFloat = 1
+    private var keepsAwake: Bool { timer.keepsScreenAwake || store.walks.activeWalk != nil }
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let catalog = PanelAppCatalog.standard
+    init(store: any HomeDataSource, initialTile: HomeTile? = nil, demo: Bool = false,
+         initialFace: Int = 0, onWake: @escaping () -> Void = {}) {
+        self.store = store
+        self.initialTile = initialTile
+        self.demo = demo
+        self.initialFace = initialFace
+        self.onWake = onWake
+    }
+
     private var showingClock: Bool { shell.screen == .clock }
     private var selected: PanelAppDefinition? {
         if case .app(let id) = shell.screen { return catalog.app(id: id) }
         return nil
     }
+    private func changeClockFace(by step: Int) {
+        faceDirection = CGFloat(step)
+        let faces = PanelClockFace.allCases
+        guard let index = faces.firstIndex(of: clockFace) else { return }
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : ClockLauncherMotion.reveal.animation) {
+            clockFace = faces[(index + step + faces.count) % faces.count]
+        }
+    }
+
     private func home() {
         withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3, bounce: 0)) { shell.showLauncher() }
     }
@@ -104,36 +126,48 @@ struct HomeView: View {
         GeometryReader { proxy in
             ZStack {
                 Color.black.ignoresSafeArea()
-                PresenceClockFace(store: store)
-                    .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
-                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .allowsHitTesting(false).accessibilityHidden(true)
-                if showingClock {
-                    // A tap recognizer cancels on movement; a full-screen Button
-                    // can activate after a drag that ends inside its large bounds.
-                    Color.clear.contentShape(.rect)
-                        .onTapGesture(perform: home)
-                        .accessibilityElement()
-                        .accessibilityLabel("Open apps")
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityAction { home() }
-                        .accessibilityIdentifier("launcher-clock")
-                }
-                AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
-                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
-                    .background {
-                        LauncherGlassSurface()
+                ZStack {
+                    PresenceClockFace(store: store, face: clockFace)
+                        .id(clockFace)
+                        .transition(reduceMotion ? .opacity : ClockLauncherMotion.reveal.faceTransition(width: proxy.size.width, direction: faceDirection))
+                        .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
+                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                    if showingClock {
+                        // A tap recognizer cancels on movement; a full-screen Button
+                        // can activate after a drag that ends inside its large bounds.
+                        Color.clear.contentShape(.rect)
+                            .onTapGesture(perform: home)
+                            .gesture(DragGesture(minimumDistance: 20).onEnded { gesture in
+                                let delta = gesture.predictedEndTranslation
+                                guard abs(delta.width) > max(60, abs(delta.height)) else { return }
+                                changeClockFace(by: delta.width < 0 ? 1 : -1)
+                            })
+                            .accessibilityAdjustableAction { direction in
+                                if direction == .increment { changeClockFace(by: 1) }
+                                if direction == .decrement { changeClockFace(by: -1) }
+                            }
+                            .accessibilityElement()
+                            .accessibilityLabel("Open apps")
+                            .accessibilityValue(clockFace.rawValue.capitalized)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { home() }
+                            .accessibilityIdentifier("launcher-clock")
                     }
-                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .offset(y: !reduceMotion && showingClock ? proxy.size.height : 0)
-                    .opacity(reduceMotion && showingClock ? 0 : 1)
-                    // App destinations retain their existing surface transition.
-                    // Keep it mounted so Back restores its scroll position.
-                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
-                        progress: selected == nil ? 0 : 1, width: proxy.size.width,
-                        incoming: false, reduceMotion: reduceMotion))
-                    .allowsHitTesting(!showingClock && selected == nil)
-                    .accessibilityHidden(showingClock || selected != nil)
+                    AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
+                        .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                        .background {
+                            LauncherGlassSurface()
+                        }
+                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                        .offset(y: !reduceMotion && showingClock ? proxy.size.height : 0)
+                        .opacity(reduceMotion && showingClock ? 0 : 1)
+                        .allowsHitTesting(!showingClock && selected == nil)
+                        .accessibilityHidden(showingClock || selected != nil)
+                }
+                .modifier(LauncherSurfaceMotion(motion: launcherMotion,
+                    progress: selected == nil ? 0 : 1, width: proxy.size.width,
+                    incoming: false, reduceMotion: reduceMotion))
                 if let selected {
                     appScreen(selected)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
@@ -150,7 +184,7 @@ struct HomeView: View {
                     store.walkActivity.synchronize(walk: walk, now: store.now)
                 }
                 .task(id: scenePhase) {
-                    guard scenePhase == .active else { return }
+                    guard scenePhase == .active else { timer.deactivate(); return }
                     timer.activate()
                     while !Task.isCancelled {
                         timer.tick()
@@ -169,7 +203,7 @@ struct HomeView: View {
                         return false
                     }) { open(app) }
                 }
-        }.environment(appPreferences).modifier(PanelIdleDimming(onIdle: clock, timeout: selected.map { appPreferences[$0.id].idleSeconds } ?? 60)).ignoresSafeArea()
+        }.modifier(PanelIdleDimming(onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)).ignoresSafeArea()
         #if targetEnvironment(simulator)
         .background {
             Button("Open apps", action: home)
@@ -213,21 +247,21 @@ struct HomeView: View {
                 .accessibilityIdentifier("app-screen-\(app.id)")
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if app.route != .timer && app.route != .photoBooth && app.route != .settings {
+                if app.route != .timer && app.route != .photoBooth && app.route != .settings && app.route != .feature(.climate) {
                     PanelAppNavigationBar(back: home)
                 }
             }
-            .overlay(alignment: .topLeading) {
-                if app.route == .timer {
-                    PanelAppNavigationBar(back: home).padding(72)
+            .overlay(alignment: .topTrailing) {
+                if app.route == .timer || app.route == .feature(.climate) {
+                    PanelAppBackButton(back: home).padding(.horizontal, 24).padding(.top, 16)
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
             .background(Color.black)
             .accessibilityAction(.escape) { home() }
             .accessibilityAction(named: "Open apps") { home() }
-            .environment(\.motionPhase, appPreferences[app.id].reduceMotion ? 0 : inheritedMotionPhase)
-            .transaction { if reduceMotion || appPreferences[app.id].reduceMotion { $0.animation = nil; $0.disablesAnimations = true } }
+            .environment(\.motionPhase, inheritedMotionPhase)
+            .transaction { if reduceMotion { $0.animation = nil; $0.disablesAnimations = true } }
             .onKeyPress(.escape) { home(); return .handled }
     }
     @ViewBuilder private func prototypeScreen(_ feature: PanelAppFeature) -> some View {
@@ -411,7 +445,6 @@ struct TileFace: View {
                     setpointButton("chevron.up", label: "Raise setpoint", delta: 1)
                 }.padding(.bottom, 8)
             }.padding(38)
-                .overlay(alignment: .topTrailing) { if store.pending.contains("climate") { ProgressView().padding(26).allowsHitTesting(false) } }
 
         }
     }
@@ -458,7 +491,6 @@ struct AccessoryFace: View {
                     .foregroundStyle(on ? Color.orange : .white)
                     .frame(width: 120, height: 100)
                     .background { if key != .fan { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180).allowsHitTesting(false) } }
-                    .overlay(alignment: .topTrailing) { if store.pending.contains(key.rawValue) { ProgressView().tint(on ? Palette.ink : .white).allowsHitTesting(false) } }
             }.buttonStyle(.plain).padding(.bottom, 20)
                 .accessibilityLabel("Toggle \(key.name)").accessibilityValue(key == .fan ? store.climate.fanLabel : on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
             Button(action: open) {

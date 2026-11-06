@@ -26,6 +26,29 @@ final class PhotosAPITests: XCTestCase {
         }
     }
 
+    func testWakeBurstUploadsAnAttributedSession() async throws {
+        let transport = PhotosTestTransport()
+        let api = client(transport)
+        let id = UUID()
+        let jpeg = Data([0xff, 0xd8, 0xff, 0xd9])
+        let capturedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        for index in 0..<3 {
+            try await api.uploadWakePhoto(jpeg: jpeg, capturedAt: capturedAt, sessionID: id, frame: index)
+        }
+        let requests = await transport.requests
+        XCTAssertEqual(requests.count, 3)
+        let session = try XCTUnwrap(requests.first?.value(forHTTPHeaderField: "x-session-id"))
+        XCTAssertNotNil(session.range(of: "^isn_[0-9a-z]{1,32}$", options: .regularExpression))
+        for (index, request) in requests.enumerated() {
+            XCTAssertEqual(request.url?.path, "/media/wake-photo")
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.httpBody, jpeg)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-session-id"), session)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-frame-idx"), String(index))
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-captured-at"), "1800000000000")
+        }
+    }
+
     func testImagesUseAccessHeadersAndRejectUntrustedPaths() async throws {
         let transport = PhotosTestTransport()
         let api = PhotosAPI(client: client(transport))
@@ -87,6 +110,7 @@ private actor PhotosTestTransport: PanelTransport {
         let url = request.url!
         let name: String
         switch url.lastPathComponent {
+        case "wake-photo": return reply(Data(), url: url, status: 201)
         case "boothPhotos.list": name = "booth"
         case "wakePhotos.list": name = "wakes"
         case "sessions.list": name = "sessions"
@@ -100,8 +124,8 @@ private actor PhotosTestTransport: PanelTransport {
         let file = Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/photos")!
         return reply(try Data(contentsOf: file), url: url)
     }
-    private func reply(_ data: Data, url: URL, image: Bool = false) -> (Data, HTTPURLResponse) {
-        (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+    private func reply(_ data: Data, url: URL, image: Bool = false, status: Int = 200) -> (Data, HTTPURLResponse) {
+        (data, HTTPURLResponse(url: url, statusCode: status, httpVersion: nil,
                               headerFields: ["Content-Type": image ? "image/png" : "application/json"])!)
     }
 }
