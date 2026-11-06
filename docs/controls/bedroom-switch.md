@@ -96,5 +96,8 @@ participate in this lock. Calum confirmed no competing automations exist; retain
 that ownership arrangement when enabling the binding.
 
 Offline tests mock transport/state entirely. Optional real PostgreSQL store contract
-tests require an isolated test database (`CORE_PG_TEST_URL`); they are skipped when
-that prerequisite is absent. No tests require contacting HA or devices.
+tests and `features/ctrl/bedroom-switch-pg.test.ts` require an isolated test
+database (`CORE_PG_TEST_URL`); they are skipped when that prerequisite is absent.
+The bedroom PG tests apply migration 0045 in a private schema and cover concurrent
+session deduplication, replay after reconnect, and atomic group rollback when
+checkpoint persistence fails. No tests require contacting HA or devices.
