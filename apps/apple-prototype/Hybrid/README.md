@@ -4,7 +4,9 @@ Panel starts on the selected clock face. Tap the clock to reveal the vertically 
 launcher on one full-screen native Liquid Glass surface over the same living clock.
 The clock stays fixed as the glass slides up from the bottom. Close Home with the
 top-right close button (or choose Clock); the glass slides back down. Horizontal
-swipes on the clock cycle Green, Midnight, Paper and Ember.
+swipes on the clock cycle Green, Midnight, Paper, Ember, Glass, Moonlight and
+Woodland. The last three share untinted Clear Liquid Glass numerals over
+different artwork, so the wallpaper is the main variable when comparing their edges.
 The glass follows the screen corners with an 8-point inset, and a 0.3-second reveal. The hands cast a subtle shadow on the dial.
 The launcher has no photographic wallpaper or Background picker. Each app opens
 full screen as the clock and launcher move away together. Back restores both. Reduce Motion replaces

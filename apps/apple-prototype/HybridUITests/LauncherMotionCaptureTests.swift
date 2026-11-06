@@ -26,7 +26,7 @@ import XCTest
         }
         print("MOTION_CAPTURE_READY home-controls")
         Thread.sleep(forTimeInterval: 1)
-        let faces = ["Green", "Midnight", "Paper", "Ember", "Glass"]
+        let faces = ["Green", "Midnight", "Paper", "Ember", "Glass", "Moonlight", "Woodland"]
         let initial = try XCTUnwrap(faces.firstIndex(of: clock.value as? String ?? ""))
         snapshot("clock-\(faces[initial].lowercased())")
         func waitForFace(_ face: String) {
@@ -66,16 +66,16 @@ import XCTest
     }
     func testGlassClockFace() {
         let app = XCUIApplication()
-        for material in ["clear", "regular"] {
+        for face in ["glass", "moonlight", "woodland"] {
             app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-                "-updateCheckFakeBuild", "1", "-panel.clockFace", "glass", "-previewClockGlass", material]
+                "-updateCheckFakeBuild", "1", "-panel.clockFace", face]
             app.launch()
             app.alignPanelOrientation()
             let clock = app.buttons["launcher-clock"]
             XCTAssertTrue(clock.waitForExistence(timeout: 15))
-            XCTAssertEqual(clock.value as? String, "Glass")
+            XCTAssertEqual(clock.value as? String, face.capitalized)
             let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-            shot.name = "glass-clock-\(material)"
+            shot.name = "glass-clock-\(face)"
             shot.lifetime = .keepAlways
             add(shot)
             app.terminate()

@@ -8,7 +8,16 @@ import UIKit
 #endif
 
 enum PanelClockFace: String, CaseIterable {
-    case green, midnight, paper, ember, glass
+    case green, midnight, paper, ember, glass, moonlight, woodland
+
+    var glassWallpaper: String? {
+        switch self {
+        case .glass: "GlassBotanical"
+        case .moonlight: "GlassMoonlight"
+        case .woodland: "ForestPhoto"
+        default: nil
+        }
+    }
 }
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
@@ -20,7 +29,7 @@ struct PresenceClockFace: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion || face == .glass ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+        TimelineView(.animation(minimumInterval: reduceMotion || face.glassWallpaper != nil ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
             let hour = Calendar.current.component(.hour, from: now)
             let night = previewNight || (SolarClock.isNight(at: now, sunrise: store.weather.sunrise,
@@ -39,8 +48,10 @@ struct PresenceClockFace: View {
                 case .ember:
                     Color(red: 0.15, green: 0.05, blue: 0.035)
                     PanelRingDial(date: now)
-                case .glass:
-                    PanelGlassClockFace(date: now)
+                case .glass, .moonlight, .woodland:
+                    if let wallpaper = face.glassWallpaper {
+                        PanelGlassClockFace(date: now, wallpaper: wallpaper, dimming: face == .woodland ? 0.48 : 0)
+                    }
                 }
             }.accessibilityIdentifier("clock-face")
         }.ignoresSafeArea()
@@ -274,6 +285,8 @@ private struct PanelRingDial: View {
 /// The dial uses real glyph outlines so the system can lens around each numeral.
 private struct PanelGlassClockFace: View {
     let date: Date
+    let wallpaper: String
+    let dimming: Double
 
     var body: some View {
         GeometryReader { proxy in
@@ -281,16 +294,16 @@ private struct PanelGlassClockFace: View {
             let box = CGRect(x: proxy.size.width * 0.075, y: proxy.size.height * 0.21,
                 width: proxy.size.width * 0.85, height: proxy.size.height * 0.58)
             ZStack {
-                Image("ForestPhoto").resizable().scaledToFill()
+                Image(wallpaper).resizable().scaledToFill()
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .clipped()
-                Color.black.opacity(0.48)
+                Color.black.opacity(dimming)
                 GlassEffectContainer(spacing: 0) {
                     ZStack(alignment: .topLeading) {
                         ForEach(Array(ClockGlassGlyph.layout(time, in: box).enumerated()), id: \.offset) { _, glyph in
                             Color.clear
                                 .frame(width: glyph.frame.width, height: glyph.frame.height)
-                                .glassEffect(material, in: glyph.shape)
+                                .glassEffect(.clear, in: glyph.shape)
                                 .position(x: glyph.frame.midX, y: glyph.frame.midY)
                         }
                     }.frame(width: proxy.size.width, height: proxy.size.height)
@@ -302,12 +315,6 @@ private struct PanelGlassClockFace: View {
         .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
     }
 
-    private var material: Glass {
-        #if DEBUG
-        if UserDefaults.standard.string(forKey: "previewClockGlass") == "regular" { return .regular }
-        #endif
-        return .clear
-    }
 }
 
 private struct ClockGlassGlyph {
