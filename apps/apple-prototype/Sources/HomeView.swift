@@ -93,6 +93,15 @@ struct HomeView: View {
     @Namespace private var zoom
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let catalog = PanelAppCatalog.standard
+    init(store: any HomeDataSource, initialTile: HomeTile? = nil, demo: Bool = false,
+         initialFace: Int = 0, onWake: @escaping () -> Void = {}) {
+        self.store = store
+        self.initialTile = initialTile
+        self.demo = demo
+        self.initialFace = initialFace
+        self.onWake = onWake
+    }
+
     private var showingClock: Bool { shell.screen == .clock }
     private var selected: PanelAppDefinition? {
         if case .app(let id) = shell.screen { return catalog.app(id: id) }
