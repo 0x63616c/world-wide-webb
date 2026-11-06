@@ -100,7 +100,7 @@ struct GreenClockDial: View {
         let font = Self.roundedFont(size: 100)
         return CTFontGetCapHeight(font) / 100
     }()
-    private static func roundedFont(size: CGFloat) -> CTFont {
+    fileprivate static func roundedFont(size: CGFloat) -> CTFont {
         #if os(macOS)
         let base = NSFont.systemFont(ofSize: size, weight: .medium)
         let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) }
@@ -328,8 +328,8 @@ private struct ClockGlassGlyph {
         }
     }
 
-    static func layout(_ text: String, in box: CGRect) -> [Self] {
-        let font = CTFontCreateUIFontForLanguage(.system, 100, nil)!
+    @MainActor static func layout(_ text: String, in box: CGRect) -> [Self] {
+        let font = GreenClockDial.roundedFont(size: 100)
         let line = CTLineCreateWithAttributedString(NSAttributedString(
             string: text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
         ))
