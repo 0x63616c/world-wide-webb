@@ -68,38 +68,29 @@ struct WifiIconArtwork: View {
     let parallax: CGSize
     var body: some View {
         ZStack {
-            IconSignalArc()
-                .stroke(Color(hex: "#B4F5EE"), style: StrokeStyle(lineWidth: side * 0.071, lineCap: .round))
-                .frame(width: side * 0.57, height: side * 0.19)
-                .position(x: side * 0.50, y: side * 0.37)
+            IconSignalArc(radius: 0.425)
+                .stroke(.white, style: StrokeStyle(lineWidth: side * 0.063, lineCap: .round))
                 .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
             ZStack {
-                IconSignalArc()
-                    .stroke(.white, style: StrokeStyle(lineWidth: side * 0.071, lineCap: .round))
-                    .frame(width: side * 0.57, height: side * 0.19)
-                    .position(x: side * 0.50, y: side * 0.32)
-                IconSignalArc()
-                    .stroke(.white, style: StrokeStyle(lineWidth: side * 0.071, lineCap: .round))
-                    .frame(width: side * 0.36, height: side * 0.12)
-                    .position(x: side * 0.50, y: side * 0.49)
-                IconSignalArc()
-                    .stroke(.white, style: StrokeStyle(lineWidth: side * 0.071, lineCap: .round))
-                    .frame(width: side * 0.16, height: side * 0.055)
-                    .position(x: side * 0.50, y: side * 0.645)
+                IconSignalArc(radius: 0.28)
+                    .stroke(.white, style: StrokeStyle(lineWidth: side * 0.063, lineCap: .round))
+                IconSignalArc(radius: 0.135)
+                    .stroke(.white, style: StrokeStyle(lineWidth: side * 0.063, lineCap: .round))
                 Circle().fill(.white)
-                    .frame(width: side * 0.087, height: side * 0.087)
-                    .position(x: side * 0.50, y: side * 0.79)
+                    .frame(width: side * 0.083, height: side * 0.083)
+                    .position(x: side * 0.50, y: side * 0.71)
             }.modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
         }.frame(width: side, height: side)
     }
 }
 
 private struct IconSignalArc: Shape {
+    let radius: CGFloat
     func path(in rect: CGRect) -> Path {
         Path { path in
-            path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-            path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.maxY),
-                              control: CGPoint(x: rect.midX, y: rect.minY - rect.height))
+            path.addArc(center: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.71),
+                        radius: rect.width * radius,
+                        startAngle: .degrees(225), endAngle: .degrees(315), clockwise: false)
         }
     }
 }

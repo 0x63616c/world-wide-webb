@@ -37,7 +37,7 @@ From `apps/apple-prototype`, after `xcodegen generate`:
 xcodebuild -project WorldWideWebb.xcodeproj -scheme Panel-Smoke \
   -destination 'platform=iOS Simulator,id=226E5ED5-37D5-4813-B777-18FDA3B96E15' \
   -derivedDataPath /tmp/layered-icons-dd \
-  -resultBundlePath /tmp/layered-icons-final-size.xcresult \
+  -resultBundlePath /tmp/layered-icons-final-wifi.xcresult \
   -parallel-testing-enabled NO \
   -only-testing:PanelUITests/LauncherMotionCaptureTests/testGlassOverlay \
   -only-testing:PanelUITests/LauncherMotionCaptureTests/testLayeredAppIcons \
