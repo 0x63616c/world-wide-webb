@@ -1,8 +1,11 @@
 # Layered home app icons
 
 The four `approved-*.png` files are the design references approved in the icon
-design conversation. The production artwork is authored as independent SwiftUI
-vector layers in `Sources/Apps/Icons`; the references are not runtime assets.
+design conversation. Their style is extended across all 14 home apps, with
+consistent optical padding. Lights is scaled down 14% from the first implementation
+to balance the narrow bulb against the wider artwork. The production artwork is
+authored as independent SwiftUI vector layers in `Sources/Apps/Icons`; the
+references are not runtime assets.
 
 ## Real application captures
 
@@ -13,7 +16,7 @@ compressed with AVFoundation for review. No artwork has been composited into the
 captures.
 
 - [Before](home-before.png): `origin/main` at `90f2c0347`, before implementation.
-- [After](home-after.png): the four new icons on the same home screen.
+- [After](home-after.png): the complete set of 14 new icons on the same home screen.
 - [Press and open](press-and-open.mp4): real button presses, app opening and return
   to home for Weather, Lights, Music and Photos.
 - Opened screens: [Weather](weather-opened.png), [Lights](lights-opened.png),
@@ -32,7 +35,7 @@ From `apps/apple-prototype`, after `xcodegen generate`:
 xcodebuild -project WorldWideWebb.xcodeproj -scheme Panel-Smoke \
   -destination 'platform=iOS Simulator,id=226E5ED5-37D5-4813-B777-18FDA3B96E15' \
   -derivedDataPath /tmp/layered-icons-dd \
-  -resultBundlePath /tmp/layered-icons-interaction.xcresult \
+  -resultBundlePath /tmp/layered-icons-full-interaction.xcresult \
   -parallel-testing-enabled NO \
   -only-testing:PanelUITests/LauncherMotionCaptureTests/testLayeredAppIcons \
   -only-testing:PanelUITests/HomeViewLaunchTests/testClockTapOpensHomeAndCloseReturnsToClock \
@@ -44,6 +47,8 @@ xcodebuild -project WorldWideWebb.xcodeproj -scheme WorldWideWebb \
 ```
 
 Both commands passed: two UI tests with zero failures, and a successful Mac build.
+The icon interaction test opens all 14 apps, including the Clock route back to the
+clock face, checks the Photos PIN gate and returns to Home after each app.
 The home screenshots came from the existing
 `PanelUITests/LauncherMotionCaptureTests/testGlassOverlay`, which also passed
 before and after the change. `bun run typecheck` passed from the repository root.

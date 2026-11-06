@@ -87,6 +87,19 @@ import XCTest
         }
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE layered-icons")
+        // The recording stays short; every remaining redesigned app is also opened.
+        for id in ["calendar", "climate", "walks", "car", "wifi", "timer", "booth", "classic", "settings"] {
+            let button = app.buttons["app-\(id)"]
+            XCTAssertTrue(button.isHittable, id)
+            button.tap()
+            XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
+            app.buttons["app-back"].tap()
+            XCTAssertTrue(app.buttons["app-\(id)"].waitForExistence(timeout: 10))
+        }
+        app.buttons["app-clock"].tap()
+        XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 10))
+        app.buttons["launcher-clock"].tap()
+        XCTAssertTrue(app.buttons["app-calendar"].waitForExistence(timeout: 10))
     }
     @MainActor func testSwipePop() { capture("swipePop") }
     @MainActor func testDepth() { capture("depth") }
