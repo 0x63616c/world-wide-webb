@@ -24,11 +24,14 @@ stable IDs live in `PanelAppCatalog`, shared by the native and design hosts.
 
 ## App artwork
 
-Weather, Lights, Music and Photos use the approved custom vector artwork in
-`Icons/`. Their backgrounds run from light at the top to darker at the bottom;
-foreground shapes retain flat faces and separate depth layers. `PanelAppIcon`
-is the shared entry point for the launcher and notification surfaces, and keeps
-the existing artwork for other apps (including Calendar's live date).
+All 14 apps use custom vector artwork in `Icons/`, extending the approved
+Weather, Lights, Music and Photos designs across the complete home screen.
+Backgrounds run from light at the top to darker at the bottom; foreground shapes
+retain flat faces and separate depth layers. Artwork occupies approximately
+62–66% of the tile along its dominant axis, with optical adjustments for the
+cloud, vehicle and stacked cards. The bulb is reduced to match that visual inset.
+`PanelAppIcon` is the shared entry point for the launcher and notification
+surfaces. Calendar retains its live weekday and date on two layered pages.
 
 `LauncherAppIcon` adds a restrained pointer tilt and foreground parallax on the
 existing button press. It introduces no touch gesture or device-motion sensor.

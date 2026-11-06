@@ -1,15 +1,25 @@
 import SwiftUI
 
 enum PanelIconArtwork: String, CaseIterable {
-    case weather, lights, music, photos
+    case calendar, weather, lights, climate, walks, photos, car, wifi, music, clock, timer, booth, classic, settings
 
-    /// Fixed artwork colors from the approved designs. Light always comes from above.
+    /// The approved palette extended across the complete app family. Light comes from above.
     var background: LinearGradient {
         let colors: [Color] = switch self {
+        case .calendar: [Color(hex: "#FF796D"), Color(hex: "#EF344E")]
         case .weather: [Color(hex: "#05D5ED"), Color(hex: "#0085FF")]
         case .lights: [Color(hex: "#FFD500"), Color(hex: "#FF6500")]
+        case .climate: [Color(hex: "#56D9FA"), Color(hex: "#007FCF")]
+        case .walks: [Color(hex: "#60DD9C"), Color(hex: "#0CAA69")]
         case .music: [Color(hex: "#FF5275"), Color(hex: "#D60040")]
         case .photos: [Color(hex: "#BE85FC"), Color(hex: "#7A12F8")]
+        case .car: [Color(hex: "#6CBFFC"), Color(hex: "#2367D2")]
+        case .wifi: [Color(hex: "#59E0DD"), Color(hex: "#009BAE")]
+        case .clock: [Color(hex: "#65D9B7"), Color(hex: "#15936F")]
+        case .timer: [Color(hex: "#FFC65E"), Color(hex: "#F47A12")]
+        case .booth: [Color(hex: "#FF8DAD"), Color(hex: "#DF3979")]
+        case .classic: [Color(hex: "#8CA9FF"), Color(hex: "#4753D9")]
+        case .settings: [Color(hex: "#ADB8C8"), Color(hex: "#586A84")]
         }
         return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
     }
@@ -26,10 +36,20 @@ struct PanelIconArtworkView: View {
         ZStack {
             artwork.background
             switch artwork {
+            case .calendar: CalendarIconArtwork(side: side, parallax: parallax)
             case .weather: WeatherIconArtwork(side: side, parallax: parallax)
             case .lights: LightsIconArtwork(side: side, parallax: parallax)
+            case .climate: ClimateIconArtwork(side: side, parallax: parallax)
+            case .walks: WalksIconArtwork(side: side, parallax: parallax)
             case .music: MusicIconArtwork(side: side, parallax: parallax)
             case .photos: PhotosIconArtwork(side: side, parallax: parallax)
+            case .car: CarIconArtwork(side: side, parallax: parallax)
+            case .wifi: WifiIconArtwork(side: side, parallax: parallax)
+            case .clock: ClockIconArtwork(side: side, parallax: parallax)
+            case .timer: TimerIconArtwork(side: side, parallax: parallax)
+            case .booth: BoothIconArtwork(side: side, parallax: parallax)
+            case .classic: ClassicIconArtwork(side: side, parallax: parallax)
+            case .settings: SettingsIconArtwork(side: side, parallax: parallax)
             }
         }
         .frame(width: side, height: side)
@@ -38,7 +58,7 @@ struct PanelIconArtworkView: View {
     }
 }
 
-private struct IconLayer: ViewModifier {
+struct IconLayer: ViewModifier {
     let parallax: CGSize
     let side: CGFloat
     let depth: CGFloat
@@ -82,7 +102,10 @@ private struct LightsIconArtwork: View {
             }.modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
             PanelIconShape.bulb.fill(.white)
                 .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
-        }.frame(width: side, height: side)
+        }
+        .frame(width: side, height: side)
+        // The slender bulb needs the same visual inset as the wider cloud/notes.
+        .scaleEffect(0.86)
     }
 }
 
