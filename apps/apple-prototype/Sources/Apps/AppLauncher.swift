@@ -37,7 +37,7 @@ struct AppLauncher: View {
                 }
                 }.frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
-        }.background { Wallpaper(dimming: 0.12, blurRadius: 0).accessibilityHidden(true) }
+        }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
     }
@@ -108,9 +108,6 @@ struct PanelSettingsPage: View {
                             }
                         }
                     } else {
-                        Section {
-                            NavigationLink { WallpaperPicker(embedded: true) } label: { Label("Background", systemImage: "photo") }
-                        }
                         PanelDisplaySettings()
                     }
                 }.formStyle(.grouped)

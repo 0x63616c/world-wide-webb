@@ -126,26 +126,9 @@ struct HomeView: View {
                 Color.black.ignoresSafeArea()
                 let dragProgress = min(faceDrag / proxy.size.width, 1)
                 let progress: CGFloat = showingClock ? dragProgress : 1 - dragProgress
-                AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
-                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
-                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
-                        progress: progress, width: proxy.size.width,
-                        incoming: true, reduceMotion: reduceMotion))
-                    // The launcher leaves like the clock when an app takes its place.
-                    // Keep it mounted so Back restores its scroll position.
-                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
-                        progress: selected == nil ? 0 : 1, width: proxy.size.width,
-                        incoming: false, reduceMotion: reduceMotion))
-                    .allowsHitTesting(!showingClock && selected == nil)
-                    .accessibilityHidden(showingClock || selected != nil)
-                    .simultaneousGesture(clockLauncherSwipe(width: proxy.size.width, towardClock: true))
                 PresenceClockFace(store: store)
-                    .environment(\.motionPhase, showingClock ? inheritedMotionPhase : 0)
+                    .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
                     .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
-                        progress: progress, width: proxy.size.width,
-                        incoming: false, reduceMotion: reduceMotion))
                     .allowsHitTesting(showingClock).accessibilityHidden(!showingClock)
                     .overlay {
                         if showingClock {
@@ -157,6 +140,23 @@ struct HomeView: View {
                         }
                     }
                     .accessibilityIdentifier("launcher-clock")
+                AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, namespace: zoom)
+                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                    .scaleEffect(reduceMotion ? 1 : 1.025 - 0.025 * progress)
+                    .background {
+                        // One native navigation surface samples the living clock below.
+                        Color.clear.glassEffect(.regular, in: .rect(cornerRadius: PanelSurface.cornerRadius))
+                    }
+                    .opacity(Double(progress))
+                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                    // App destinations retain their existing surface transition.
+                    // Keep it mounted so Back restores its scroll position.
+                    .modifier(LauncherSurfaceMotion(motion: launcherMotion,
+                        progress: selected == nil ? 0 : 1, width: proxy.size.width,
+                        incoming: false, reduceMotion: reduceMotion))
+                    .allowsHitTesting(!showingClock && selected == nil)
+                    .accessibilityHidden(showingClock || selected != nil)
+                    .simultaneousGesture(clockLauncherSwipe(width: proxy.size.width, towardClock: true))
                 if let selected {
                     appScreen(selected)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))

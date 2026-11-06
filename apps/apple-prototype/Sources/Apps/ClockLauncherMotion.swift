@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Three real SwiftUI candidates for the clock/launcher review. The production
-/// default slides the clock left; preview overrides are process-local, never saved.
+/// Surface motion for opening app destinations. The clock itself stays fixed
+/// beneath the launcher glass; preview overrides are process-local, never saved.
 enum ClockLauncherMotion: String {
     case reveal, depth, dissolve
     static var current: Self {
@@ -51,7 +51,7 @@ enum ClockLauncherMotion: String {
     }
 }
 
-/// Shared geometry for the clock → launcher and launcher → app surface handoff.
+/// Geometry for the launcher → app surface handoff.
 struct LauncherSurfaceMotion: ViewModifier {
     let motion: ClockLauncherMotion
     let progress: CGFloat

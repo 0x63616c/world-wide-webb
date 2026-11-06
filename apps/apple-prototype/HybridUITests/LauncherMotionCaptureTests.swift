@@ -7,6 +7,7 @@ import XCTest
         super.setUp()
         XCUIDevice.shared.orientation = .landscapeLeft
     }
+    @MainActor func testGlassOverlay() { capture("reveal") }
     @MainActor func testReveal() { capture("reveal") }
     @MainActor func testDepth() { capture("depth") }
     @MainActor func testDissolve() { capture("dissolve") }
@@ -105,7 +106,11 @@ import XCTest
         Thread.sleep(forTimeInterval: 2) // Capture lead-in; never used for correctness assertions.
         app.openAppGrid()
         XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10))
-        Thread.sleep(forTimeInterval: 1)
+        let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+        screenshot.name = "clock-glass-home"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        Thread.sleep(forTimeInterval: 2)
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.85)).press(forDuration: 0.1,
             thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.85)))
