@@ -14,6 +14,8 @@ export interface Worker {
   runOnStart?: boolean;
   /** One reconcile/ingest cycle. The runtime wraps this; it may throw. */
   run(): Promise<void>;
+  /** Release owned subscriptions before the runtime drains in-flight work. */
+  stop?(): Promise<void>;
 }
 
 /** Per-worker health/telemetry, tracked internally for failure streaks and the debug snapshot. */

@@ -53,6 +53,8 @@ vi.mock("./db", async () => {
     select: mockDbSelect,
     update: mockDbUpdate,
     insert: mockDbInsert,
+    execute: vi.fn().mockResolvedValue(undefined),
+    transaction: async (run: (tx: unknown) => Promise<unknown>) => run(mockDb),
   };
   return {
     db: mockDb,

@@ -175,8 +175,10 @@ export async function runEnforcerCycle(store: DeviceStateStore = deviceStateStor
     heartbeat(integrationSyncStore, ENFORCER_INTEGRATION_ID),
     "light-enforcer",
     async () => {
-      const snapshot = await fetchSnapshot();
-      await reconcile(snapshot, store);
+      await store.lightTransaction(async (locked) => {
+        const snapshot = await fetchSnapshot();
+        await reconcile(snapshot, locked);
+      });
     },
   );
 }

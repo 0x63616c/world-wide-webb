@@ -107,13 +107,11 @@ function createPartyEngine(): PartyEngine {
     const activeSpeed = speed;
     try {
       const colors = partyColorsAtTick(tick, LAMP_ENTITY_IDS.length);
-      await Promise.all(
-        LAMP_ENTITY_IDS.map((entityId, i) =>
-          ha.callService(
-            "light",
-            HaLightService.TurnOn,
-            partyTurnOnParams(entityId, colors[i], activeSpeed),
-          ),
+      await runPartyTick(deviceStateStore, (entityId, i) =>
+        ha.callService(
+          "light",
+          HaLightService.TurnOn,
+          partyTurnOnParams(entityId, colors[i], activeSpeed),
         ),
       );
       tick += 1;
@@ -199,7 +197,29 @@ async function anyLampDesiredOn(store: DeviceStateStore): Promise<boolean> {
   const lampIds = new Set<string>(LAMP_ENTITY_IDS);
   const rows = await store.list();
   return rows.some(
-    (r) =>
-      lampIds.has(r.entityId) && r.available && isLightState(r.desiredState) && r.desiredState.on,
+    (r) => lampIds.has(r.entityId) && isLightState(r.desiredState) && r.desiredState.on,
   );
+}
+
+/** Order the complete tick before/after commands, including an HA call already in flight.
+ * Off/missing desired is never animated; other lamps keep their original wave positions. */
+export async function runPartyTick(
+  store: DeviceStateStore,
+  turnOn: (entityId: string, index: number) => Promise<void>,
+): Promise<void> {
+  await store.lightTransaction(async (locked) => {
+    const rows = await locked.list({ entityIds: LAMP_ENTITY_IDS });
+    const on = new Set(
+      rows.filter((r) => isLightState(r.desiredState) && r.desiredState.on).map((r) => r.entityId),
+    );
+    // Drain every request even on failure: early Promise.all rejection would release
+    // the lock while another turn_on is still in flight, racing a subsequent off.
+    const results = await Promise.allSettled(
+      LAMP_ENTITY_IDS.map(async (entityId, i) => {
+        if (on.has(entityId)) await turnOn(entityId, i);
+      }),
+    );
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
+  });
 }

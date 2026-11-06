@@ -1,9 +1,11 @@
 import { defineWorkerCycles } from "@app-kit";
+import { bedroomSwitchWorker } from "./bedroom-switch-worker";
 import { runDeviceSyncCycle } from "./device-sync";
 import { runEnforcerCycle } from "./light-enforcer";
 import { reconcilePartyMode } from "./party";
 
 export const cycles = defineWorkerCycles([
+  bedroomSwitchWorker,
   {
     name: "light-enforcer",
     intervalMs: 1_000,

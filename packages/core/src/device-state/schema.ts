@@ -105,3 +105,9 @@ export const DeviceKind = {
   Speaker: "speaker",
 } as const;
 export type DeviceKind = (typeof DeviceKind)[keyof typeof DeviceKind];
+
+/** Durable input watermark, committed with the resulting group command. Never an actuator. */
+export const inputCheckpoint = pgTable("input_checkpoint", {
+  entityId: text("entity_id").primaryKey(),
+  value: jsonb("value").$type<import("./store").InputCheckpoint>().notNull(),
+});

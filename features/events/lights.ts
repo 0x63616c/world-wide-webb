@@ -19,6 +19,15 @@ export async function turnOnAlarmLights(
   client: HomeAssistantClient = ha,
   devices: DeviceStateStore = store,
 ) {
+  return devices.lightTransaction((locked) => applyAlarmLights(target, client, locked));
+}
+
+// Alarm commands share the ordering boundary with app/input commands and reconciliation.
+async function applyAlarmLights(
+  target: string,
+  client: HomeAssistantClient,
+  devices: DeviceStateStore,
+) {
   if (target.startsWith("scene.")) {
     const scene = await client.getEntity(target);
     const members = scene.attributes.entity_id;

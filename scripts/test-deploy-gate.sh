@@ -3,6 +3,15 @@
 set -euo pipefail
 bun - <<'JS'
 const assert = require('node:assert/strict');
+const compose = Bun.YAML.parse(await Bun.file('deploy/mini/compose.yaml').text());
+for (const [key, fallback] of Object.entries({
+  BEDROOM_SWITCH_INPUT_ENABLED: 'false',
+  BEDROOM_SWITCH_INPUT_VERIFIED: 'false',
+  BEDROOM_SWITCH_INPUT_ENTITY_ID: '',
+})) {
+  assert.equal(compose.services.www.environment[key], '${' + key + ':-' + fallback + '}',
+    `${key} must reach www with an unset/empty-safe disabled default`);
+}
 const ci = Bun.YAML.parse(await Bun.file('.github/workflows/ci.yml').text());
 const deploy = Bun.YAML.parse(await Bun.file('.github/workflows/deploy-mini.yml').text());
 assert.deepEqual(ci.on.push.branches, ['main']);

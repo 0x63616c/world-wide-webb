@@ -422,3 +422,21 @@ describe("shutdown and health", () => {
     await rt.stop();
   });
 });
+
+it("closes owned subscriptions before draining their active work", async () => {
+  let release = () => {};
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const close = vi.fn(async () => {
+    release();
+  });
+  const rt = createWorkerRuntime(
+    [{ name: "subscription", intervalMs: 1000, runOnStart: true, run: () => pending, stop: close }],
+    { logger: makeLogger() },
+  );
+  rt.start();
+  await rt.stop();
+  expect(close).toHaveBeenCalledOnce();
+  expect(rt.snapshot()[0].totalRuns).toBe(1);
+});

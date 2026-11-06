@@ -33,10 +33,11 @@ describe.skipIf(!url)("pg contract", () => {
     // queries (see `./schema-ddl`), so it can't drift from
     // `../src/device-state/schema.ts` when a column or index changes.
     await pool.query(ddlForTable(schema.deviceState, namespace));
+    await pool.query(ddlForTable(schema.inputCheckpoint, namespace));
   });
 
   afterEach(async () => {
-    await pool.query(`TRUNCATE TABLE "${namespace}".device_state`);
+    await pool.query(`TRUNCATE TABLE "${namespace}".device_state, "${namespace}".input_checkpoint`);
   });
 
   afterAll(async () => {

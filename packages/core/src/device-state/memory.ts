@@ -3,6 +3,7 @@ import { mergeDeviceState } from "./merge";
 import type {
   DeviceStateRow,
   DeviceStateStore,
+  InputCheckpoint,
   ListFilter,
   SeedDevice,
   UpdateDesired,
@@ -38,7 +39,36 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
     }
   }
 
-  return {
+  const checkpoints = new Map<string, InputCheckpoint>();
+  let tail = Promise.resolve();
+  const store: DeviceStateStore = {
+    async lightTransaction(run) {
+      const previous = tail;
+      let release = () => {};
+      tail = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await previous;
+      const before = structuredClone(rows);
+      const inputsBefore = structuredClone(checkpoints);
+      try {
+        return await run(this);
+      } catch (err) {
+        rows.clear();
+        for (const [id, row] of before) rows.set(id, row);
+        checkpoints.clear();
+        for (const [id, value] of inputsBefore) checkpoints.set(id, value);
+        throw err;
+      } finally {
+        release();
+      }
+    },
+    async readInput(entityId) {
+      return structuredClone(checkpoints.get(entityId) ?? null);
+    },
+    async writeInput(entityId, value) {
+      checkpoints.set(entityId, structuredClone(value));
+    },
     async read(id) {
       const row = rows.get(id);
       return row ? cloneRow(row) : null;
@@ -162,4 +192,5 @@ export function createInMemoryDeviceStateStore(): DeviceStateStore {
       }
     },
   };
+  return store;
 }

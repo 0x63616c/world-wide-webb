@@ -536,6 +536,37 @@ describe("runEnforcerCycle", () => {
     });
   });
 
+  it("orders stale reconciliation before a concurrent command, never erasing newer desired", async () => {
+    const store = await seededStore({
+      desiredState: { on: true },
+      reportedState: { on: true },
+      available: true,
+    });
+    let release = () => {};
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mockGetEntities.mockImplementation(async (domain: string) => {
+      await blocked;
+      return domain === "light" ? [haEntity("light.living_room_globe", "off")] : [];
+    });
+    const cycle = runEnforcerCycle(store);
+    await vi.waitFor(() => expect(mockGetEntities).toHaveBeenCalled());
+    const command = store.lightTransaction((locked) =>
+      locked.updateDesired({ id: "living-globe", desired: { on: true, brightness: 99 } }),
+    );
+    release();
+    await Promise.all([cycle, command]);
+    expect((await store.read("living-globe"))?.desiredState).toEqual({ on: true, brightness: 99 });
+    await runEnforcerCycle(store);
+    expect((await store.read("living-globe"))?.desiredState).toEqual({ on: true, brightness: 99 });
+    expect(mockCallService).toHaveBeenCalledWith(
+      "light",
+      "turn_on",
+      expect.objectContaining({ brightness: 99 }),
+    );
+  });
+
   it("unreachable device marks unavailable and leaves desired untouched", async () => {
     const store = await seededStore({
       desiredState: { on: true, brightness: 180 },

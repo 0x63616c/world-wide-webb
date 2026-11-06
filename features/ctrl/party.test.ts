@@ -182,3 +182,63 @@ describe("reconcilePartyMode", () => {
     expect(eng.stop).toHaveBeenCalled();
   });
 });
+
+it("orders bedroom-off after an in-flight tick and keeps other lamps animating", async () => {
+  const { runPartyTick } = await import("./party");
+  const { BEDROOM_LAMPS, writeLightGroup } = await import("./light-command");
+  const { LIGHTS, LightKind } = await import("@www/core");
+  const store = createInMemoryDeviceStateStore();
+  const lamps = LIGHTS.filter((e) => e.kind === LightKind.Lamp);
+  for (const entry of lamps)
+    await store.seed({ ...entry, kind: DeviceKind.Light, available: true, desired: { on: true } });
+  let release = () => {};
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const turnOn = vi.fn(() => blocked);
+  const tick = runPartyTick(store, turnOn);
+  await vi.waitFor(() => expect(turnOn).toHaveBeenCalledTimes(lamps.length));
+  let committed = false;
+  const off = store.lightTransaction(async (locked) => {
+    await writeLightGroup(BEDROOM_LAMPS, (_e, prev) => ({ ...prev, on: false }), locked);
+    committed = true;
+  });
+  await Promise.resolve();
+  expect(committed).toBe(false);
+  release();
+  await Promise.all([tick, off]);
+  const next = vi.fn().mockResolvedValue(undefined);
+  await runPartyTick(store, next);
+  expect(next).toHaveBeenCalledTimes(lamps.length - BEDROOM_LAMPS.length);
+  for (const entry of BEDROOM_LAMPS)
+    expect(next).not.toHaveBeenCalledWith(entry.entityId, expect.anything());
+});
+
+it("keeps the party ordering lock until all requests settle when one fails", async () => {
+  const { runPartyTick } = await import("./party");
+  const { BEDROOM_LAMPS, writeLightGroup } = await import("./light-command");
+  const store = createInMemoryDeviceStateStore();
+  await store.lightTransaction((locked) =>
+    writeLightGroup(BEDROOM_LAMPS, () => ({ on: true }), locked),
+  );
+  let release = () => {};
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const turnOn = vi.fn((entityId: string) =>
+    entityId === BEDROOM_LAMPS[0].entityId ? Promise.reject(new Error("HA failure")) : blocked,
+  );
+  const tick = runPartyTick(store, turnOn);
+  const failed = expect(tick).rejects.toThrow("HA failure");
+  await vi.waitFor(() => expect(turnOn).toHaveBeenCalledTimes(BEDROOM_LAMPS.length));
+  let committed = false;
+  const off = store.lightTransaction(async (locked) => {
+    await writeLightGroup(BEDROOM_LAMPS, () => ({ on: false }), locked);
+    committed = true;
+  });
+  await Promise.resolve();
+  expect(committed).toBe(false);
+  release();
+  await Promise.all([failed, off]);
+  expect(committed).toBe(true);
+});

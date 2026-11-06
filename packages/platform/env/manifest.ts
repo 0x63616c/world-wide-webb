@@ -42,6 +42,11 @@ export const ENV = defineEnv({
   // JSON entity mapping; unset until the existing HA Tesla integration is configured.
   TESLA_ENTITIES: str().optional().forRuntime("api").forFeatures("tesla"),
 
+  // Inert unless all three are explicitly configured after physical verification.
+  BEDROOM_SWITCH_INPUT_ENABLED: str().default("false").forFeatures("ctrl"),
+  BEDROOM_SWITCH_INPUT_VERIFIED: str().default("false").forFeatures("ctrl"),
+  BEDROOM_SWITCH_INPUT_ENTITY_ID: str().default("").forFeatures("ctrl"),
+
   // ── Clock alarms (events) ─────────────────────────────────────────────────
   ALARM_API_TOKEN: secret().optionalSecret().forRuntime("api").forFeatures("events", "releases"),
   ALARM_LIGHT_TARGET: str()
