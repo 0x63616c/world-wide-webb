@@ -11,9 +11,9 @@ references are not runtime assets.
 
 Captured on an iPad Pro 12.9-inch simulator at the panel's 1366 × 1024 point
 viewport, with Xcode 27.2 / iOS 27.2. PNGs are full-resolution XCTest window
-captures (2× scale, with orientation metadata). The video is a simulator recording
-compressed with AVFoundation for review. No artwork has been composited into the
-captures.
+captures (2× scale, with orientation metadata). The video is the original H.264
+simulator recording; retaining it avoids the edge and color changes introduced
+by the smaller AVFoundation export. No artwork has been composited into the captures.
 
 - [Before](home-before.png): `origin/main` at `90f2c0347`, before implementation.
 - [After](home-after.png): the complete set of 14 new icons on the same home screen.
