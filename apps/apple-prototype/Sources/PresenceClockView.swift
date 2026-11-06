@@ -1,6 +1,11 @@
 import CoreText
 import SwiftUI
 import PanelKit
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 enum PanelClockFace: String, CaseIterable {
     case green, midnight, paper, ember
@@ -28,13 +33,12 @@ struct PresenceClockFace: View {
                     GreenClockDial(date: now, night: night)
                 case .midnight:
                     Color(red: 0.04, green: 0.07, blue: 0.16)
-                    PanelDigitalDial(date: now, ink: Color(red: 0.67, green: 0.78, blue: 1), design: .monospaced)
+                    PanelDuoDial(date: now)
                 case .paper:
-                    night ? Color(white: 0.09) : Color(red: 0.92, green: 0.87, blue: 0.77)
-                    PanelDigitalDial(date: now, ink: night ? .white : Color(white: 0.15), design: .serif)
+                    PanelSolarDial(date: now, night: night)
                 case .ember:
                     Color(red: 0.15, green: 0.05, blue: 0.035)
-                    PanelDigitalDial(date: now, ink: Color(red: 1, green: 0.55, blue: 0.31), design: .rounded, stacked: true)
+                    PanelRingDial(date: now)
                 }
             }.accessibilityIdentifier("clock-face")
         }.ignoresSafeArea()
@@ -57,7 +61,7 @@ struct GreenClockDial: View {
     let date: Date
     var numeralsOnly = false
     var night = false
-    private var ink: Color { night ? Color(white: 0.68) : .black }
+    private var ink: Color { night ? Color(red: 0.94, green: 0.21, blue: 0.23) : .black }
     private var handColor: Color { night ? Color(white: 0.9) : .white }
 
     /// Geometry shared with tests so they can check the reference proportions.
@@ -78,13 +82,23 @@ struct GreenClockDial: View {
         var hourLength: CGFloat { face.height * 0.26 }
         var handWidth: CGFloat { max(6, face.height * 0.022) }
     }
-    static let weight: Font.Weight = .light
+    static let weight: Font.Weight = .medium
     static let capHeightRatio: CGFloat = {
-        let font = CTFontCreateUIFontForLanguage(.system, 100, nil)!
+        let font = Self.roundedFont(size: 100)
         return CTFontGetCapHeight(font) / 100
     }()
+    private static func roundedFont(size: CGFloat) -> CTFont {
+        #if os(macOS)
+        let base = NSFont.systemFont(ofSize: size, weight: .medium)
+        let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) }
+        #else
+        let base = UIFont.systemFont(ofSize: size, weight: .medium)
+        let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) }
+        #endif
+        return CTFontCreateWithName((rounded ?? base).fontName as CFString, size, nil)
+    }
     private static func verticalMetrics(_ size: CGFloat) -> (ascent: CGFloat, descent: CGFloat) {
-        let font = CTFontCreateUIFontForLanguage(.system, size, nil)!
+        let font = roundedFont(size: size)
         return (CTFontGetAscent(font), CTFontGetDescent(font))
     }
 
@@ -102,7 +116,7 @@ struct GreenClockDial: View {
                 numeral("3", layout, alignment: .trailing, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2)
                 numeral("6", layout, alignment: .center, glyphTop: face.minY + face.height * 0.975 - layout.digitHeight)
                 if !numeralsOnly {
-                    Text(fixtureTime(date, format: "h:mm a").uppercased())
+                    Text(fixtureTime(date, format: "h:mm"))
                         .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
                         .monospacedDigit().foregroundStyle(ink)
                         .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
@@ -123,7 +137,7 @@ struct GreenClockDial: View {
         let metrics = Self.verticalMetrics(layout.fontSize)
         let baseline = glyphTop + layout.digitHeight
         return Text(text)
-            .font(.system(size: layout.fontSize, weight: Self.weight))
+            .font(.system(size: layout.fontSize, weight: Self.weight, design: .rounded))
             .foregroundStyle(ink).fixedSize()
             .frame(width: layout.face.width - layout.inset * 2, height: metrics.ascent + metrics.descent, alignment: alignment)
             .offset(x: layout.face.minX + layout.inset, y: baseline - metrics.ascent)
@@ -159,32 +173,98 @@ struct GreenClockDial: View {
     }
 }
 
-private struct PanelDigitalDial: View {
+private struct PanelDuoDial: View {
     let date: Date
-    let ink: Color
-    let design: Font.Design
-    var stacked = false
 
     var body: some View {
         GeometryReader { proxy in
-            let size = min(proxy.size.width * 0.21, proxy.size.height * (stacked ? 0.25 : 0.38))
-            VStack(spacing: stacked ? 0 : 24) {
-                if stacked {
-                    Text(fixtureTime(date, format: "HH"))
-                    Text(fixtureTime(date, format: "mm"))
-                } else {
-                    Text(fixtureTime(date, format: "HH:mm"))
-                }
-                Text(date, format: .dateTime.weekday(.wide).month(.wide).day())
-                    .font(.system(size: 24, weight: .medium, design: design))
-                    .padding(.top, stacked ? 24 : 0)
+            let size = min(proxy.size.width * 0.29, proxy.size.height * 0.43)
+            HStack(spacing: size * 0.035) {
+                Text(fixtureTime(date, format: "h"))
+                    .foregroundStyle(Color(red: 0.76, green: 0.85, blue: 1))
+                Text(fixtureTime(date, format: "mm"))
+                    .foregroundStyle(Color(red: 0.40, green: 0.63, blue: 1))
             }
-            .font(.system(size: size, weight: .light, design: design))
+            .font(.system(size: size, weight: .medium, design: .rounded))
             .monospacedDigit()
-            .foregroundStyle(ink)
+            .lineLimit(1).minimumScaleFactor(0.55)
+            .padding(.horizontal, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.accessibilityElement(children: .ignore)
+            .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
+    }
+}
+
+private struct PanelSolarDial: View {
+    let date: Date
+    let night: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height) * 0.80
+            let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+            let hours = Double(components.hour ?? 0)
+            let minutes = Double(components.minute ?? 0)
+            let seconds = Double(components.second ?? 0)
+            let ink = night ? Color(red: 0.85, green: 0.77, blue: 0.65) : Color(red: 0.22, green: 0.15, blue: 0.10)
+            ZStack {
+                Circle().fill(night ? Color(white: 0.11) : Color(red: 0.94, green: 0.88, blue: 0.76))
+                    .overlay {
+                        LinearGradient(colors: [.white.opacity(0.20), .clear, .black.opacity(0.18)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing)
+                            .rotationEffect(.degrees(hours * 15)).clipShape(.circle)
+                    }
+                ForEach(0..<60) { index in
+                    Capsule().fill(ink.opacity(index.isMultiple(of: 5) ? 0.9 : 0.25))
+                        .frame(width: index.isMultiple(of: 5) ? 4 : 2, height: index.isMultiple(of: 5) ? 23 : 8)
+                        .offset(y: -side * 0.45)
+                        .rotationEffect(.degrees(Double(index) * 6))
+                }
+                hand(length: side * 0.25, width: 12, color: ink, angle: (hours + minutes / 60) * 30)
+                hand(length: side * 0.38, width: 8, color: ink, angle: (minutes + seconds / 60) * 6)
+                hand(length: side * 0.40, width: 3, color: .orange, angle: seconds * 6)
+                Circle().fill(.orange).frame(width: 14, height: 14)
+            }.frame(width: side, height: side)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(night ? Color.black : Color(red: 0.78, green: 0.71, blue: 0.61))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(fixtureTime(date, format: "h:mm a, EEEE MMMM d"))
+        .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
+    }
+
+    private func hand(length: CGFloat, width: CGFloat, color: Color, angle: Double) -> some View {
+        Capsule().fill(color).frame(width: width, height: length)
+            .offset(y: -length / 2).rotationEffect(.degrees(angle))
+    }
+}
+
+/// A timer-style clock. The tick ring marks the minutes and the arc tracks the hour.
+private struct PanelRingDial: View {
+    let date: Date
+    private let ink = Color(red: 1, green: 0.64, blue: 0.36)
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height) * 0.87
+            let minute = Double(Calendar.current.component(.minute, from: date))
+            let second = Double(Calendar.current.component(.second, from: date))
+            ZStack {
+                ForEach(0..<60) { index in
+                    Capsule().fill(ink.opacity(index.isMultiple(of: 5) ? 0.75 : 0.3))
+                        .frame(width: index.isMultiple(of: 5) ? 4 : 2, height: index.isMultiple(of: 5) ? 19 : 8)
+                        .offset(y: -side / 2 + 10)
+                        .rotationEffect(.degrees(Double(index) * 6))
+                }
+                Circle().trim(from: 0, to: (minute + second / 60) / 60)
+                    .stroke(ink, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: side - 52, height: side - 52)
+                Text(fixtureTime(date, format: "h:mm"))
+                    .font(.system(size: side * 0.25, weight: .medium, design: .rounded))
+                    .monospacedDigit().foregroundStyle(ink)
+            }.frame(width: side, height: side)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.accessibilityElement(children: .ignore)
+            .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
     }
 }

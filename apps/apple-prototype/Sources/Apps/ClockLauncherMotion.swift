@@ -3,41 +3,41 @@ import SwiftUI
 /// Surface motion for opening app destinations. The clock itself stays fixed
 /// beneath the launcher glass; preview overrides are process-local, never saved.
 enum ClockLauncherMotion: String {
-    case reveal, depth, dissolve
+    case swipePop, depth, dissolve
     static var current: Self {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
         if let index = args.firstIndex(of: "-launcherTransition"), args.indices.contains(index + 1),
-           let value = Self(rawValue: args[index + 1]) { return value }
+           let value = Self(rawValue: args[index + 1] == "reveal" ? "swipePop" : args[index + 1]) { return value }
         #endif
-        return .reveal
+        return .swipePop
     }
     var animation: Animation {
         switch self {
-        case .reveal: .spring(duration: 0.55, bounce: 0.06)
+        case .swipePop: .spring(duration: 0.55, bounce: 0.06)
         case .depth: .smooth(duration: 0.48)
         case .dissolve: .easeInOut(duration: 0.32)
         }
     }
     func clockOffset(_ progress: CGFloat, width: CGFloat) -> CGFloat {
-        self == .reveal ? -progress * (width + 24) : 0
+        self == .swipePop ? -progress * (width + 24) : 0
     }
     func clockScale(_ progress: CGFloat) -> CGFloat {
         switch self {
-        case .reveal: 1 - progress * 0.04
+        case .swipePop: 1 - progress * 0.04
         case .depth: 1 + progress * 0.06
         case .dissolve: 1
         }
     }
     func launcherOffset(_ progress: CGFloat, width: CGFloat) -> CGFloat {
-        self == .reveal ? (1 - progress) * (width + 24) : 0
+        self == .swipePop ? (1 - progress) * (width + 24) : 0
     }
     func clockOpacity(_ progress: CGFloat) -> Double {
-        self == .reveal ? 1 : Double(1 - progress)
+        self == .swipePop ? 1 : Double(1 - progress)
     }
     func launcherScale(_ progress: CGFloat) -> CGFloat {
         switch self {
-        case .reveal: 0.96 + progress * 0.04
+        case .swipePop: 0.96 + progress * 0.04
         case .depth: 0.90 + progress * 0.10
         case .dissolve: 1
         }
@@ -71,6 +71,6 @@ struct LauncherSurfaceMotion: ViewModifier {
         content
             .scaleEffect(reduceMotion ? 1 : incoming ? motion.launcherScale(progress) : motion.clockScale(progress))
             .offset(x: reduceMotion ? 0 : incoming ? motion.launcherOffset(progress, width: width) : motion.clockOffset(progress, width: width))
-            .opacity(motion == .reveal && !reduceMotion ? 1 : Double(incoming ? progress : 1 - progress))
+            .opacity(motion == .swipePop && !reduceMotion ? 1 : Double(incoming ? progress : 1 - progress))
     }
 }

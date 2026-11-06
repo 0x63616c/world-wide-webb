@@ -33,7 +33,7 @@ import UIKit
                     try await Task.sleep(for: .milliseconds(index == 0 ? 700 : 600))
                     guard UIApplication.shared.applicationState == .active else { break }
                     let capturedAt = Date()
-                    let jpeg = try await camera.capture(angle: rotation.videoRotationAngleForHorizonLevelCapture)
+                    let jpeg = try await camera.capture(angle: rotation.videoRotationAngleForHorizonLevelCapture, quiet: true)
                     frames.append((index, capturedAt, jpeg))
                 }
             } catch {

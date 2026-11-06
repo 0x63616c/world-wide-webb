@@ -39,19 +39,23 @@ import XCTest
         XCTAssertEqual(clock.value as? String, faces[(initial + 2) % faces.count])
         clock.tap()
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home-profile"].exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ", CALUM")).firstMatch.exists)
         snapshot("home")
         app.buttons["app-climate"].tap()
         let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
         XCTAssertTrue(more.waitForExistence(timeout: 10))
         snapshot("climate")
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.70))
+            .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.32)))
         more.tap()
         XCTAssertTrue(app.buttons["mode-heat"].waitForExistence(timeout: 5))
         snapshot("climate-more")
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE home-controls")
     }
-    @MainActor func testGlassOverlay() { capture("reveal") }
-    @MainActor func testReveal() { capture("reveal") }
+    @MainActor func testGlassOverlay() { capture("swipePop") }
+    @MainActor func testSwipePop() { capture("swipePop") }
     @MainActor func testDepth() { capture("depth") }
     @MainActor func testDissolve() { capture("dissolve") }
     @MainActor func testBackButtons() {
