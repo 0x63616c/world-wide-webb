@@ -287,18 +287,7 @@ private struct PanelGlassClockFace: View {
                 Color.black.opacity(0.42)
                 Color.clear
                     .frame(width: proxy.size.width * 0.85, height: proxy.size.height * 0.58)
-                    .glassEffect(.clear, in: shape)
-                    .overlay {
-                        shape.stroke(
-                            LinearGradient(stops: [
-                                .init(color: .white.opacity(0.78), location: 0),
-                                .init(color: .white.opacity(0.22), location: 0.28),
-                                .init(color: .white.opacity(0.30), location: 0.54),
-                                .init(color: Color(red: 0.70, green: 0.91, blue: 0.82).opacity(0.57), location: 1)
-                            ], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: max(1.5, min(proxy.size.width, proxy.size.height) * 0.003)
-                        )
-                    }
+                    .glassEffect(.clear.tint(.white.opacity(0.17)), in: shape)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
