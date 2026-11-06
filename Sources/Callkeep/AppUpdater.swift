@@ -6,6 +6,7 @@ import Sparkle
 @MainActor
 final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     @Published private(set) var canCheckForUpdates = false
+    @Published private(set) var updateAvailable = false
     @Published var automaticallyChecksForUpdates = true {
         didSet {
             guard let controller, controller.updater.automaticallyChecksForUpdates != automaticallyChecksForUpdates else { return }
@@ -32,6 +33,9 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
                 if self?.automaticallyChecksForUpdates != value { self?.automaticallyChecksForUpdates = value }
             }
         observeCaptureState()
+        #if DEBUG
+        if Bundle.main.object(forInfoDictionaryKey: "CallkeepScreenshotUpdateAvailable") as? Bool == true { updateAvailable = true }
+        #endif
         // Local builds stay local unless an explicit updater test opts in.
         if AppIdentity.isProduction || Bundle.main.object(forInfoDictionaryKey: "CallkeepEnableUpdaterInDebug") as? Bool == true {
             controller.startUpdater()
@@ -44,6 +48,20 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
 
     func checkForUpdates() { controller.checkForUpdates(nil) }
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        updateAvailable = true
+        AppLog.shared.record(.updateAvailable)
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        updateAvailable = false
+        AppLog.shared.record(.updateNotFound)
+    }
+
+    func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        AppLog.shared.record(.updateFailed, error: error)
+    }
 
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
         guard !model.isRecording, !model.isBusy else {

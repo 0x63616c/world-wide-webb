@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Bindable var model: AppModel
     @EnvironmentObject private var updates: AppUpdater
     @State private var showingInfo = false
+    @State private var showingLogs = false
 
     var body: some View {
         ScrollView {
@@ -120,6 +121,46 @@ struct SettingsView: View {
                         }
                     }
                 }
+                SettingsSection("Speaker recognition") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        SettingsSwitchRow("Recognize speakers", isOn: Binding(get: { model.voiceRecognition.enabled }, set: { model.voiceRecognition.enabled = $0 }))
+                            .disabled(!TranscriptionModel.supported)
+                        Text("Speaker analysis, voiceprints and labels stay on this Mac until cleared. Matches need your confirmation.")
+                            .font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom], 16)
+                        if model.voiceRecognition.enabled {
+                            SettingsDivider()
+                            SettingsRow {
+                                Text("Speaker model · 22 MB")
+                                Spacer()
+                                if model.transcription.models.installed.contains(TranscriptionModel.speakers.id) {
+                                    Button("Remove model") { model.transcription.models.remove(TranscriptionModel.speakers.id) }
+                                        .disabled(model.voiceRecognition.processingID != nil)
+                                } else if model.transcription.models.downloading == TranscriptionModel.speakers.id {
+                                    ProgressView(value: model.transcription.models.progress).frame(width: 90)
+                                    Button("Cancel") { model.transcription.models.cancelDownload() }
+                                } else {
+                                    Button("Download") { model.transcription.models.download(TranscriptionModel.speakers.id) }
+                                        .disabled(model.transcription.models.downloading != nil)
+                                }
+                            }
+                        }
+                        ForEach(model.voiceRecognition.profiles) { profile in
+                            SettingsDivider()
+                            RememberedVoiceRow(voice: model.voiceRecognition, profile: profile)
+                        }
+                        if !model.voiceRecognition.profiles.isEmpty || !model.voiceRecognition.recordings.isEmpty {
+                            SettingsDivider()
+                            SettingsRow {
+                                Text("Saved speaker labels and voice profiles")
+                                Spacer()
+                                Button("Clear all") { model.voiceRecognition.clearAll() }
+                            }
+                        }
+                        if let error = model.voiceRecognition.error ?? model.transcription.models.error {
+                            Text(error).font(.caption).foregroundStyle(.orange).padding([.horizontal, .bottom], 16)
+                        }
+                    }
+                }
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("Permissions").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
@@ -137,6 +178,13 @@ struct SettingsView: View {
                 }
                 SettingsSection("Updates") {
                     SettingsSwitchRow("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
+                }
+                SettingsSection("Diagnostics") {
+                    SettingsRow {
+                        Text("Application logs")
+                        Spacer()
+                        Button("View Logs…") { showingLogs = true }
+                    }
                 }
                 HStack {
                     Text("Callkeep · Build \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4")")
@@ -166,6 +214,50 @@ struct SettingsView: View {
                 Text("Get everyone’s agreement before recording.")
                 HStack { Spacer(); Button("Done") { showingInfo = false }.keyboardShortcut(.defaultAction) }
             }.padding(26).frame(width: 380)
+        }
+        .sheet(isPresented: $showingLogs) { DiagnosticLogView() }
+    }
+}
+
+private struct DiagnosticLogView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var contents = ""
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Application Logs").font(.title2.weight(.semibold))
+            Text("Events, timestamps and error codes only. Recordings, transcript text, titles, and speaker names are not included.")
+                .font(.callout).foregroundStyle(.secondary)
+            ScrollView([.vertical, .horizontal]) {
+                Text(contents).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(12)
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+            HStack {
+                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([AppLog.shared.directory]) }
+                Button("Refresh") { contents = AppLog.shared.contents() }
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            }
+        }.padding(24).frame(minWidth: 560, minHeight: 380)
+        .onAppear { contents = AppLog.shared.contents() }
+    }
+}
+
+private struct RememberedVoiceRow: View {
+    let voice: VoiceRecognition
+    let profile: RememberedVoice
+    @State private var editing = false
+    @State private var name = ""
+    var body: some View {
+        SettingsRow {
+            if editing { TextField("Speaker name", text: $name).textFieldStyle(.roundedBorder) }
+            else { Text(profile.name) }
+            Spacer()
+            Button(editing ? "Save" : "Rename") {
+                if editing { voice.renameProfile(profile.id, name: name); editing = false }
+                else { name = profile.name; editing = true }
+            }.disabled(editing && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Forget voice") { voice.removeProfile(profile.id) }
         }
     }
 }

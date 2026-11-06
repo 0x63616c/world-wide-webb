@@ -15,6 +15,34 @@ private actor StubSpeechEngine: SpeechEngine {
     }
 }
 final class TranscriptionQueueTests: XCTestCase {
+    func testSpeakerModelSmokeWhenRequested() async throws {
+        guard let model = ProcessInfo.processInfo.environment["CALLKEEP_SPEAKER_MODEL"],
+              let audio = ProcessInfo.processInfo.environment["CALLKEEP_SPEAKER_AUDIO"] else {
+            throw XCTSkip("Set CALLKEEP_SPEAKER_MODEL and CALLKEEP_SPEAKER_AUDIO for a diarization smoke test")
+        }
+        let result = try await LocalSpeakerEngine.analyze(audio: URL(fileURLWithPath: audio), modelFolder: URL(fileURLWithPath: model), offset: 0)
+        XCTAssertFalse(result.turns.isEmpty)
+        XCTAssertFalse(result.embeddings.isEmpty)
+        XCTAssertTrue(result.embeddings.values.allSatisfy { !$0.isEmpty && $0.allSatisfy(\.isFinite) })
+        if let same = ProcessInfo.processInfo.environment["CALLKEEP_SPEAKER_AUDIO_SAME"],
+           let different = ProcessInfo.processInfo.environment["CALLKEEP_SPEAKER_AUDIO_DIFFERENT"] {
+            let modelURL = URL(fileURLWithPath: model)
+            let a = try XCTUnwrap(result.embeddings.values.first)
+            let sameResult = try await LocalSpeakerEngine.analyze(audio: URL(fileURLWithPath: same), modelFolder: modelURL, offset: 0)
+            let differentResult = try await LocalSpeakerEngine.analyze(audio: URL(fileURLWithPath: different), modelFolder: modelURL, offset: 0)
+            let b = try XCTUnwrap(sameResult.embeddings.values.first)
+            let c = try XCTUnwrap(differentResult.embeddings.values.first)
+            let sameScore = try XCTUnwrap(VoiceMatching.similarity(a, b))
+            let otherScore = try XCTUnwrap(VoiceMatching.similarity(a, c))
+            print("Synthetic voice similarity: same=\(sameScore), different=\(otherScore)")
+            XCTAssertGreaterThan(sameScore, otherScore)
+        }
+        if let multi = ProcessInfo.processInfo.environment["CALLKEEP_SPEAKER_AUDIO_MULTI"] {
+            let multiResult = try await LocalSpeakerEngine.analyze(audio: URL(fileURLWithPath: multi), modelFolder: URL(fileURLWithPath: model), offset: 2)
+            XCTAssertGreaterThanOrEqual(multiResult.embeddings.count, 2)
+            XCTAssertTrue(multiResult.turns.allSatisfy { $0.start >= 2 && $0.end > $0.start })
+        }
+    }
     @MainActor func testPausedQueueResumesAndKeepsModelResults() async throws {
         guard TranscriptionModel.supported else { throw XCTSkip("Apple silicon transcription") }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

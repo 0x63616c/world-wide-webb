@@ -150,6 +150,9 @@ struct TranscriptView: View {
             }
             if let readError = readError ?? controller.error { Text(readError).font(.callout).foregroundStyle(.orange) }
             if let selected, status == nil {
+                if model.voiceRecognition.enabled && model.voiceRecognition.analysis(for: recording.id) == nil {
+                    SpeakerRecognitionView(model: model, recording: recording)
+                }
                 if selected.segments.isEmpty {
                     ContentUnavailableView("No speech found", systemImage: "text.bubble", description: Text("The selected model didn’t detect speech in this recording."))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -162,23 +165,26 @@ struct TranscriptView: View {
                                 LazyVStack(alignment: .leading, spacing: 4) {
                                     ForEach(selected.segments) { segment in
                                         let active = segment.id == currentID
-                                        Button { model.playback.seek(segment.start) } label: {
-                                            VStack(alignment: .leading, spacing: 6) {
-                                                HStack(spacing: 12) {
-                                                    Text(segment.source.label).font(.caption.weight(.semibold))
+                                        let label = speakerLabel(for: segment)
+                                        VStack(alignment: .leading, spacing: 6) {
+                                                HStack(spacing: 10) {
+                                                    if let speaker = speakerID(for: segment), model.voiceRecognition.enabled {
+                                                        SpeakerIdentityButton(model: model, recording: recording, speaker: speaker, label: label)
+                                                    } else {
+                                                    Text(label).font(.caption.weight(.semibold))
                                                         .foregroundStyle(segment.source == .microphone ? VoiceColor.microphone : VoiceColor.systemAudio)
+                                                    }
                                                     Text(Recording.timeString(segment.start))
                                                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                                                 }
-                                                Text(segment.text).font(.system(size: 16))
-                                                    .lineSpacing(4).frame(maxWidth: .infinity, alignment: .leading)
+                                                Button { model.playback.seek(segment.start) } label: {
+                                                    Text(segment.text).font(.system(size: 16))
+                                                        .lineSpacing(4).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                                                }.buttonStyle(.plain).help("Seek to \(Recording.timeString(segment.start))")
+                                                    .accessibilityLabel("\(label), \(Recording.timeString(segment.start)): \(segment.text)")
                                             }.padding(.horizontal, 12).padding(.vertical, 14)
                                                 .frame(maxWidth: .infinity, alignment: .leading)
                                                 .background(active ? Color.accentColor.opacity(0.10) : .clear, in: RoundedRectangle(cornerRadius: 8))
-                                                .contentShape(Rectangle())
-                                        }.buttonStyle(.plain)
-                                            .help("Seek to \(Recording.timeString(segment.start))")
-                                            .accessibilityLabel("\(segment.source.label), \(Recording.timeString(segment.start)): \(segment.text)")
                                             .id(segment.id)
                                     }
                                 }.padding(.vertical, 4)
@@ -225,9 +231,100 @@ struct TranscriptView: View {
                 if model.suggestTitles, let transcript = loaded.first {
                     model.suggestTitle(for: recording.id, transcript: transcript)
                 }
+                if !loaded.isEmpty { model.identifySpeakers(for: recording.id) }
             } catch is CancellationError { }
             catch { readError = "Couldn’t load transcripts: \(error.localizedDescription)" }
         }
+    }
+    private func speakerLabel(for segment: TranscriptSegment) -> String {
+        guard let id = speakerID(for: segment), let speakers = model.voiceRecognition.analysis(for: recording.id) else { return segment.source.label }
+        if let name = speakers.confirmedNames[id] { return name }
+        let ids = Array(NSOrderedSet(array: speakers.analysis.turns.map(\.speakerID))) as? [String] ?? []
+        return "Speaker \((ids.firstIndex(of: id) ?? 0) + 1)"
+    }
+    private func speakerID(for segment: TranscriptSegment) -> String? {
+        guard segment.source == .systemAudio, let speakers = model.voiceRecognition.analysis(for: recording.id) else { return nil }
+        let overlap = speakers.analysis.turns.filter { $0.start < segment.end && $0.end > segment.start }
+        return overlap.max(by: { min($0.end, segment.end) - max($0.start, segment.start) < min($1.end, segment.end) - max($1.start, segment.start) })?.speakerID
+    }
+}
+
+private struct SpeakerRecognitionView: View {
+    let model: AppModel
+    let recording: Recording
+    var body: some View {
+        let voice = model.voiceRecognition
+        if voice.processingID == recording.id {
+            Label("Identifying speakers…", systemImage: "waveform").font(.caption).foregroundStyle(.secondary)
+        } else if !model.transcription.models.installed.contains(TranscriptionModel.speakers.id) {
+            Text("Download the speaker model in Settings to identify voices.").font(.caption).foregroundStyle(.secondary)
+        } else if let error = voice.error {
+            HStack { Text(error).font(.caption).foregroundStyle(.secondary); Button("Retry") { model.identifySpeakers(for: recording.id) } }
+        } else {
+            Button("Identify speakers") { model.identifySpeakers(for: recording.id) }.disabled(model.isRecording || model.isBusy)
+        }
+    }
+}
+
+private struct SpeakerIdentityButton: View {
+    let model: AppModel
+    let recording: Recording
+    let speaker: String
+    let label: String
+    @State private var showing = false
+    @State private var name = ""
+    @State private var remember = false
+    var body: some View {
+        let voice = model.voiceRecognition
+        let confirmed = voice.analysis(for: recording.id)?.confirmedNames[speaker]
+        let suggested = confirmed == nil ? voice.suggestedName(for: speaker, in: recording.id) : nil
+        Button { name = confirmed ?? ""; remember = false; showing = true } label: {
+            HStack(spacing: 4) {
+                Text(label).font(.caption.weight(.semibold))
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+            }
+            .foregroundStyle(VoiceColor.systemAudio)
+        }
+        .buttonStyle(.plain).help("Name or review speaker")
+        .popover(isPresented: $showing, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(confirmed == nil ? "Name this speaker" : "Speaker name").font(.headline)
+                if let suggested {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Possible match").font(.caption).foregroundStyle(.secondary)
+                            Text(suggested).font(.callout.weight(.medium))
+                        }
+                        Spacer()
+                        Button("Use name") { voice.confirm(speaker, name: suggested, remember: false, in: recording.id); showing = false }
+                    }.padding(10).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                }
+                TextField("Enter a name", text: $name).textFieldStyle(.roundedBorder)
+                    .onSubmit { save() }
+                Toggle("Remember this voice", isOn: $remember).toggleStyle(.checkbox)
+                HStack {
+                    Button("Listen") {
+                        if let turn = voice.analysis(for: recording.id)?.analysis.turns.first(where: { $0.speakerID == speaker }) {
+                            model.playback.seek(turn.start)
+                            if !model.playback.isPlaying { model.playback.toggle() }
+                        }
+                    }.buttonStyle(.link)
+                    Spacer()
+                    Button("Save") { save() }.buttonStyle(.borderedProminent)
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                if model.suggestTitles, model.titleModelAvailable, AppModel.isDefaultTitle(recording.title), confirmed != nil,
+                   recording.titleSuggestionDismissed != true {
+                    Button("Suggest title with confirmed speakers") { model.suggestTitle(for: recording.id, useConfirmedSpeakers: true); showing = false }
+                        .buttonStyle(.link).font(.caption).disabled(model.titleSuggestionInProgress.contains(recording.id))
+                }
+            }.padding(16).frame(width: 280)
+        }
+    }
+    private func save() {
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        model.voiceRecognition.confirm(speaker, name: name, remember: remember, in: recording.id)
+        showing = false
     }
 }
 

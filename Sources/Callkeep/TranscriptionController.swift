@@ -19,6 +19,7 @@ final class TranscriptionController {
     var requestNotifications: (() -> Void)?
     var didComplete: ((UUID) -> Void)?
     var transcriptCompleted: ((Transcript) -> Void)?
+    var diagnostic: ((AppLog.Event, Error?) -> Void)?
     var recording: ((UUID) -> (Recording, URL)?)?
     var canRun: (() -> Bool)?
     var didFinish: (() -> Void)?
@@ -102,6 +103,7 @@ final class TranscriptionController {
         guard worker == nil, !suspended, canRun?() == true, TranscriptionModel.supported,
               let job = jobs.first(where: { $0.state == .queued && models.installed.contains($0.modelID) }) else { return }
         runningID = job.recordingID; runningModelID = job.modelID; progress = "Loading model…"
+        diagnostic?(.transcriptionStarted, nil)
         progressFraction = nil
         worker = Task {
             await process(job)
@@ -158,12 +160,14 @@ final class TranscriptionController {
             let completed = result
             try await Task.detached(priority: .utility) { try TranscriptFiles.save(completed, folder: folder) }.valueWithCancellation()
             jobs.removeAll { $0.id == job.id }; persist(); resultsVersion += 1
+            diagnostic?(.transcriptionCompleted, nil)
             transcriptCompleted?(completed)
             if notifyWhenReady { didComplete?(job.recordingID) }
         } catch is CancellationError {
             // Last completed chunk is durable. Resume it after capture or next launch.
         } catch {
             guard !Task.isCancelled else { return }
+            diagnostic?(.transcriptionFailed, error)
             job.state = .failed; job.error = error.localizedDescription
             do { try checkpoint(job) }
             catch {

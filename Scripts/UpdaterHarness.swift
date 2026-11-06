@@ -23,6 +23,9 @@ struct UpdaterHarness {
             let model = AppModel()
             let delegate = AppUpdater(model: model)
             let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+            try require(delegate.responds(to: NSSelectorFromString("updater:didFindValidUpdate:")), "The updater must receive available-update callbacks")
+            try require(delegate.responds(to: NSSelectorFromString("updaterDidNotFindUpdate:")), "The updater must receive no-update callbacks")
+            try require(delegate.responds(to: NSSelectorFromString("updater:didAbortWithError:")), "The updater must receive update errors")
             let originalAutomaticChecks = delegate.automaticallyChecksForUpdates
             delegate.automaticallyChecksForUpdates = false
             try await settle()

@@ -11,7 +11,9 @@ struct TranscriptionModel: Identifiable, Sendable {
         Self(id: "parakeet-ultra", name: "Parakeet Ultra", detail: "632 MB · 25 languages", revision: "95eaa59a39d4394f047a4dc5cce480388a60d1b6"),
         Self(id: "whisper-turbo", name: "Whisper Turbo", detail: "629 MB · English transcription", revision: "0f63a7800b00dd0226abd051b906c246e1907482")
     ]
-    static func find(_ id: String) -> Self? { all.first { $0.id == id } }
+    static let speakers = Self(id: "speaker-diarization", name: "Speaker recognition", detail: "22 MB · on-device", revision: "7eab74f3463c736418d0eb10296261ae581146c9")
+    static var downloadable: [Self] { all + [speakers] }
+    static func find(_ id: String) -> Self? { downloadable.first { $0.id == id } }
     static var supported: Bool {
         #if arch(arm64)
         true
@@ -84,7 +86,7 @@ final class TranscriptionModels {
     }
     func folder(_ id: String) -> URL { root.appendingPathComponent(id, isDirectory: true) }
     func refresh() {
-        installed = Set(TranscriptionModel.all.filter { model in
+        installed = Set(TranscriptionModel.downloadable.filter { model in
             (try? String(contentsOf: folder(model.id).appendingPathComponent(".installed"), encoding: .utf8)) == model.revision
         }.map(\.id))
     }

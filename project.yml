@@ -48,6 +48,9 @@ targets:
       - Tests
       - Sources/Callkeep/TranscriptionModels.swift
       - Sources/Callkeep/TranscriptionController.swift
+      - Sources/Callkeep/VoiceRecognition.swift
+      - Sources/Callkeep/AppLog.swift
+      - Sources/Callkeep/TitleFailure.swift
       - Sources/Callkeep/LaunchAtLogin.swift
       - Sources/Callkeep/AppIdentity.swift
     dependencies:

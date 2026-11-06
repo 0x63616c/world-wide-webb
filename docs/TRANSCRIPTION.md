@@ -1,6 +1,14 @@
 # Local transcription
 
-After transcription, Callkeep can suggest a title using the on-device Apple Intelligence model and recent non-default recording titles as style examples. The suggestion is stored with the recording, including when that recording is moved to iCloud Drive. Accept, edit, or dismiss it in the recording detail; existing custom titles are not replaced. Disable suggestions under Settings → Title suggestions. This feature requires macOS 26 or later and an available Apple Intelligence on-device model. Voice recognition is not used.
+After transcription, Callkeep can suggest a title using the on-device Apple Intelligence model and recent non-default recording titles as style examples. The suggestion is stored with the recording, including when that recording is moved to iCloud Drive. Accept, edit, or dismiss it in the recording detail; existing custom titles are not replaced. Disable suggestions under Settings → Title suggestions. This feature requires macOS 26 or later and an available Apple Intelligence on-device model. Confirmed speaker names can optionally be used to request a new suggestion.
+
+Apple's on-device model may decline to process a conversation; in that case, name the recording manually. Settings → Diagnostics → View Logs shows diagnostic event names, timestamps, and sanitized error codes. The logs do not contain audio, transcript text, recording titles, speaker names, or file paths.
+
+## Speaker recognition
+
+Speaker recognition is off by default. Enable it in Settings → Speaker recognition and explicitly download the 22 MB speaker model. Callkeep analyzes the call-audio track locally after transcription and shows numbered speakers. Name a speaker to label that recording, or choose **Remember voice** to make a local voiceprint available for comparisons with later calls. Possible matches are suggestions that must be confirmed; they do not automatically label a person or change a title. Audio quality, short speech, overlapping voices, and different microphones can cause mistakes. Your own microphone remains labelled You.
+
+Speaker analysis, labels, and remembered voiceprints are stored on this Mac under Callkeep's application-support folder; they are not moved with recordings into iCloud Drive. Deleting a recording removes its local speaker analysis; remembered voices remain until forgotten. Rename or forget a voice, remove the downloaded model, or clear all local speaker data in Settings. Turning the feature off stops future analysis and matching but retains saved data until you clear it. Model files are pinned and verified before use. Diarization and voice matching require Apple silicon.
 
 Callkeep transcribes each finished call on this Mac, after audio capture has closed its files. This feature requires Apple silicon and macOS 15 or later. Recording and playback still support Intel.
 
