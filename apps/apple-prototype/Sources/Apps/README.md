@@ -24,6 +24,28 @@ The first launcher row is Calendar, Weather, Lights, Climate and Dog Walker.
 Photos, Tesla and Wi-Fi lead the next row. Settings is last. Display order and
 stable IDs live in `PanelAppCatalog`, shared by the native and design hosts.
 
+## App artwork
+
+All 14 apps use custom vector artwork in `Icons/`, extending the approved
+Weather, Lights, Music and Photos designs across the complete home screen.
+Backgrounds run from light at the top to darker at the bottom; foreground shapes
+retain flat faces and separate depth layers. Artwork occupies approximately
+62–66% of the tile along its dominant axis, with optical adjustments for the
+cloud, vehicle and stacked cards. The bulb is reduced to match that visual inset.
+`PanelAppIcon` is the shared entry point for the launcher and notification
+surfaces. Calendar retains its live weekday and date on two layered pages.
+The launcher renders tiles 10% smaller inside the existing grid slots (100.8 pt
+in the 112 pt panel slot; 68.4 pt in the 76 pt compact slot), retaining the label
+positions and button hit areas. Notification artwork keeps its own requested size.
+
+`LauncherAppIcon` adds a restrained pointer tilt and foreground parallax on the
+existing button press. It introduces no touch gesture or device-motion sensor.
+Reduce Motion keeps the artwork still, and notification icons are always static.
+These are in-app launcher illustrations, not the operating system's app-bundle
+icon: they render as SwiftUI shapes at the requested size, with no bitmap upscale
+or simulated glass layer. The launcher surface continues to use native Liquid
+Glass. Home comparison captures live in `docs/screenshots/layered-home-icons/`.
+
 ## Photo Booth
 
 Photo Booth prefers the front camera. Photo takes one shot; Strip takes four,

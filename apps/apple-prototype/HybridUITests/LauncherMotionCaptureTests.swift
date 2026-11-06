@@ -82,6 +82,52 @@ import XCTest
     }
 
     @MainActor func testGlassOverlay() { capture("swipePop") }
+    @MainActor func testLayeredAppIcons() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1"]
+        app.launch()
+        defer { app.terminate() }
+        app.openAppGrid()
+        let window = app.windows.firstMatch
+        func snapshot(_ name: String) {
+            let attachment = XCTAttachment(screenshot: window.screenshot())
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        snapshot("layered-icons-home")
+        print("MOTION_CAPTURE_READY layered-icons")
+        Thread.sleep(forTimeInterval: 2) // Video lead-in, not a correctness wait.
+        for id in ["weather", "lights", "music", "photos"] {
+            let button = app.buttons["app-\(id)"]
+            XCTAssertTrue(button.isHittable, id)
+            // Hold the real button long enough to see its depth feedback, then release.
+            button.press(forDuration: 0.7)
+            XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
+            if id == "photos" {
+                XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+            }
+            snapshot("layered-icons-\(id)")
+            app.buttons["app-back"].tap()
+            XCTAssertTrue(app.buttons["app-\(id)"].waitForExistence(timeout: 10))
+        }
+        Thread.sleep(forTimeInterval: 1)
+        print("MOTION_CAPTURE_DONE layered-icons")
+        // The recording stays short; every remaining redesigned app is also opened.
+        for id in ["calendar", "climate", "walks", "car", "wifi", "timer", "booth", "classic", "settings"] {
+            let button = app.buttons["app-\(id)"]
+            XCTAssertTrue(button.isHittable, id)
+            button.tap()
+            XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
+            app.buttons["app-back"].tap()
+            XCTAssertTrue(app.buttons["app-\(id)"].waitForExistence(timeout: 10))
+        }
+        app.buttons["app-clock"].tap()
+        XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 10))
+        app.buttons["launcher-clock"].tap()
+        XCTAssertTrue(app.buttons["app-calendar"].waitForExistence(timeout: 10))
+    }
     @MainActor func testSwipePop() { capture("swipePop") }
     @MainActor func testDepth() { capture("depth") }
     @MainActor func testDissolve() { capture("dissolve") }
