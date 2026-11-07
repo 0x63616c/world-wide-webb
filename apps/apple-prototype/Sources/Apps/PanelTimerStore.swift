@@ -10,11 +10,12 @@ import SwiftUI
         didSet { defaults.set(try? JSONEncoder().encode(countdown), forKey: Self.stateKey) }
     }
     private(set) var alertMessage: String?
+    var openRequested = false
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let alerts = PanelTimerAlerts()
+    @ObservationIgnored private let alerts = PanelTimerAlerts.shared
     @ObservationIgnored private let backgroundAlertsEnabled: Bool
     @ObservationIgnored private let sound: any PanelSoundPlaying
-    @ObservationIgnored private var lastSoundSecond: Int?
+    @ObservationIgnored private var nextAlarmCue: Date?
     var keepsScreenAwake: Bool { countdown.phase != .ready }
     @ObservationIgnored private var alertTask: Task<Void, Never>?
     @ObservationIgnored private var alertID: String?
@@ -34,8 +35,6 @@ import SwiftUI
         guard countdown.phase != .running else { return }
         cancelAlert()
         countdown.start(at: now)
-        lastSoundSecond = nil
-        tick(at: now)
         guard backgroundAlertsEnabled, let deadline = countdown.deadline else { return }
         #if DEBUG
         // UI recordings run the real clock without prompting for OS notification permission.
@@ -62,38 +61,56 @@ import SwiftUI
         }
     }
     func pause(at now: Date = .now) {
-        guard countdown.phase == .running else { return }
+        guard let deadline = countdown.deadline, now < deadline else { return }
         countdown.pause(at: now)
-        sound.stop()
-        if countdown.phase == .paused { cancelAlert() }
-        else if countdown.phase == .finished { announceCompletion(); lastSoundSecond = nil; tick(at: now) }
+        cancelAlert()
     }
     func reset() {
         cancelAlert()
         countdown.reset()
     }
-    func tick(at now: Date = .now) {
+    @discardableResult func tick(at now: Date = .now) -> Bool {
         // Avoid publishing an unchanged state to the entire shell every second.
+        var completed = false
         if let deadline = countdown.deadline, deadline <= now {
-            if countdown.finishIfNeeded(at: now) { announceCompletion(); lastSoundSecond = nil }
+            completed = countdown.finishIfNeeded(at: now)
+            if completed { announceCompletion() }
         }
-        let second = Int(now.timeIntervalSince1970)
-        guard lastSoundSecond != second else { return }
-        let previousSecond = lastSoundSecond
-        lastSoundSecond = second
+        if countdown.phase == .finished { ring(at: now) }
+        return completed
+    }
+    private func ring(at now: Date) {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-timerDisableNotifications") { return }
         #endif
         guard defaults.object(forKey: "panel.timerSound") as? Bool ?? true else { sound.stop(); return }
-        if countdown.phase == .running { sound.play(.timerTick) }
-        else if countdown.phase == .finished, previousSecond == nil || second % 3 == 0 { sound.play(.timerFinished) }
+        guard nextAlarmCue.map({ now >= $0 }) ?? true else { return }
+        nextAlarmCue = now.addingTimeInterval(3)
+        sound.play(.timerFinished)
     }
-    func activate() { alerts.activate(); tick() }
-    func deactivate() { sound.stop(); lastSoundSecond = nil }
+    func run(while scenePhase: ScenePhase, onCompletion: (() -> Void)? = nil) async {
+        guard scenePhase == .active else {
+            if nextAlarmCue != nil { sound.stop(); nextAlarmCue = nil }
+            return
+        }
+        alerts.activate()
+        // A deadline reached while suspended already has a system notification.
+        tick()
+        while !Task.isCancelled {
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            if tick(), let onCompletion {
+                alertTask?.cancel()
+                alertTask = nil
+                if let alertID { alerts.cancel(id: alertID) }
+                onCompletion()
+            }
+        }
+    }
+    func matchesNotification(_ id: String?) -> Bool { id != nil && id == alertID }
     private func announceCompletion() { AccessibilityNotification.Announcement("Time’s up. Your timer has finished.").post() }
     private func cancelAlert() {
-        sound.stop()
-        lastSoundSecond = nil
+        if countdown.phase == .finished { sound.stop() }
+        nextAlarmCue = nil
         alertTask?.cancel()
         alertTask = nil
         if let alertID { alerts.cancel(id: alertID) }
@@ -103,9 +120,14 @@ import SwiftUI
     }
 }
 
-/// OS fallback while suspended; foreground cues belong to the native sound bus.
-@MainActor private final class PanelTimerAlerts: NSObject, UNUserNotificationCenterDelegate {
+/// System delivery persists across suspension. The sound bus owns foreground audio.
+@MainActor @Observable final class PanelTimerAlerts: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = PanelTimerAlerts()
+    nonisolated private static let thread = "panel.timer"
     private let center = UNUserNotificationCenter.current()
+    private(set) var openedTimerID: String?
+
+    func clearOpenedTimer() { openedTimerID = nil }
     func activate() { center.delegate = self }
     func authorize() async throws -> (permitted: Bool, audible: Bool) {
         var settings = await center.notificationSettings()
@@ -121,6 +143,7 @@ import SwiftUI
         content.title = "Time’s up"
         content.body = "Your timer has finished."
         content.sound = audible ? .default : nil
+        content.threadIdentifier = Self.thread
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.timeIntervalSinceNow), repeats: false)
         try await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
     }
@@ -128,6 +151,17 @@ import SwiftUI
         center.removePendingNotificationRequests(withIdentifiers: [id])
         center.removeDeliveredNotifications(withIdentifiers: [id])
     }
+    // With the delegate installed, the system does not present a foreground
+    // alert. Panel posts its own banner; the OS still handles background delivery.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification) async -> UNNotificationPresentationOptions { [] }
+        didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping @Sendable () -> Void) {
+        let request = response.notification.request
+        let id = response.actionIdentifier == UNNotificationDefaultActionIdentifier
+            && request.content.threadIdentifier == Self.thread ? request.identifier : nil
+        // UIKit finishes the foreground transition from this completion handler.
+        Task { @MainActor in
+            if let id { openedTimerID = id }
+            completionHandler()
+        }
+    }
 }

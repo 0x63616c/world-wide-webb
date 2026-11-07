@@ -55,32 +55,39 @@ final class AlarmPerimeterTests: XCTestCase {
         }
     }
 
-    func testDiagonalCornerTicksAndTheirNeighborsAreExactlyAligned() {
-        let path = AlarmPerimeter(size: CGSize(width: 1336, height: 994), cornerRadius: 32)
-        let distances = path.tickDistances(count: 120, alignCorners: true)
-        XCTAssertEqual(distances.count, 120)
+    func testEachCornerFansTenTicksOnEachSide() {
+        let path = AlarmPerimeter(size: CGSize(width: 1336, height: 994), cornerRadius: 12)
+        let count = 120
+        let fan = 10
+        let distances = path.tickDistances(count: count, cornerFanTicks: fan)
+        let spacing = path.length / CGFloat(count)
+        let turningRadius = CGFloat(fan) * spacing * 4 / .pi
+        XCTAssertEqual(distances.count, count)
         XCTAssertEqual(distances.first, 0)
         for (a, b) in zip(distances, distances.dropFirst()) { XCTAssertLessThan(a, b) }
         let arc = CGFloat.pi * path.radius / 2
-        let horizontal = path.size.width - 2 * path.radius
-        let vertical = path.size.height - 2 * path.radius
-        let first = (horizontal + arc) / 2
-        let corners = [first, first + vertical + arc, first + vertical + horizontal + 2 * arc,
-            first + 2 * vertical + horizontal + 3 * arc]
+        let across = path.size.width - 2 * path.radius + arc
+        let down = path.size.height - 2 * path.radius + arc
+        let first = across / 2
+        let corners = [first, first + down, first + down + across, first + 2 * down + across]
         for (corner, center) in corners.enumerated() {
-            let index = distances.indices.min { abs(distances[$0] - center) < abs(distances[$1] - center) }!
-            XCTAssertEqual(distances[index], center, accuracy: 0.00001)
-            let normal = path.tickNormal(at: center, turningRadius: 100)
-            XCTAssertEqual(abs(normal.dx), sqrt(0.5), accuracy: 0.00001)
-            XCTAssertEqual(abs(normal.dy), sqrt(0.5), accuracy: 0.00001)
-            for neighbor in 1...2 {
-                XCTAssertEqual(center - distances[index - neighbor], distances[index + neighbor] - center, accuracy: 0.00001)
+            let after = distances.firstIndex { $0 > center }!
+            let angle = CGFloat(corner - 1) * .pi / 2
+            let edge = CGVector(dx: cos(angle), dy: sin(angle))
+            func tilt(_ index: Int) -> CGFloat {
+                let normal = path.tickNormal(at: distances[index], turningRadius: turningRadius)
+                return acos(min(1, max(-1, normal.dx * edge.dx + normal.dy * edge.dy)))
             }
-            let sample = path.sample(at: center)
-            let expectedX = corner < 2 ? path.size.width - path.radius + path.radius / sqrt(2) : path.radius - path.radius / sqrt(2)
-            let expectedY = corner == 0 || corner == 3 ? path.radius - path.radius / sqrt(2) : path.size.height - path.radius + path.radius / sqrt(2)
-            XCTAssertEqual(sample.point.x, expectedX, accuracy: 0.00001)
-            XCTAssertEqual(sample.point.y, expectedY, accuracy: 0.00001)
+            XCTAssertEqual(tilt(after - fan - 1), 0, accuracy: 0.00001)
+            XCTAssertEqual(tilt(after + fan), .pi / 2, accuracy: 0.00001)
+            for index in (after - fan)..<after {
+                XCTAssertGreaterThan(tilt(index), tilt(index - 1))
+            }
+            for offset in 0..<fan {
+                XCTAssertEqual(center - distances[after - 1 - offset], (CGFloat(offset) + 0.5) * spacing, accuracy: 0.00001)
+                XCTAssertEqual(distances[after + offset] - center, (CGFloat(offset) + 0.5) * spacing, accuracy: 0.00001)
+                XCTAssertEqual(tilt(after - 1 - offset) + tilt(after + offset), .pi / 2, accuracy: 0.00001)
+            }
         }
     }
 }

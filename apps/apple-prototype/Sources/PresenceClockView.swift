@@ -133,7 +133,7 @@ struct GreenClockDial: View {
                         .monospacedDigit().foregroundStyle(ink)
                         .frame(width: face.width - 2 * layout.inset, alignment: .trailing)
                         .position(x: face.midX, y: face.minY + face.height * 0.915)
-                    Text(fixtureTime(date, format: "EEE d").uppercased())
+                    Text(fixtureTime(date, format: "EEE d MMM").uppercased())
                         .font(.system(size: max(17, face.height * 0.042), weight: .semibold))
                         .foregroundStyle(ink).fixedSize()
                         .frame(width: face.width - 2 * layout.inset, alignment: .leading)
@@ -162,16 +162,15 @@ struct GreenClockDial: View {
             hand(length: layout.minuteLength, width: w, degrees: minutes * 6)
             Circle().fill(handColor).frame(width: w * 1.5, height: w * 1.5)
             // Thin seconds hand with a short counterweight tail, as in the reference.
-            Rectangle().fill(handColor)
+            Capsule().fill(handColor)
                 .frame(width: max(1.5, w * 0.16), height: layout.minuteLength * 1.05 + w * 3)
                 .offset(y: -(layout.minuteLength * 1.05 - w * 3) / 2)
                 .rotationEffect(.degrees(seconds * 6))
+                .modifier(HandShadow())
             Circle().strokeBorder(handColor, lineWidth: max(1.5, w * 0.16))
                 .background(Circle().fill(night ? .black : Self.green))
                 .frame(width: w * 0.75, height: w * 0.75)
-        }.compositingGroup()
-            .shadow(color: .black.opacity(0.32), radius: 5, x: 0, y: 5)
-            .frame(width: 0, height: 0).position(layout.center)
+        }.frame(width: 0, height: 0).position(layout.center)
     }
 
     /// HomeView-style hand: a thin neck from the pin, then a full-width rounded blade.
@@ -182,6 +181,15 @@ struct GreenClockDial: View {
             Rectangle().fill(handColor).frame(width: width * 0.36, height: neck - width / 2)
         }.frame(height: length)
             .offset(y: -length / 2).rotationEffect(.degrees(degrees))
+            .modifier(HandShadow())
+    }
+
+    private struct HandShadow: ViewModifier {
+        func body(content: Content) -> some View {
+            // Treat each hand as one piece so it can cast a shadow on the one below.
+            content.compositingGroup()
+                .shadow(color: .black.opacity(0.40), radius: 5, y: 5)
+        }
     }
 }
 

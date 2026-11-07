@@ -10,7 +10,8 @@ struct PanelTimerPage: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Group {
+        ZStack {
+            TimerTickRing(countdown: timer.countdown).padding(TimerTickRing.edgeInset)
             if editing { durationEditor }
             else { face }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -21,8 +22,6 @@ struct PanelTimerPage: View {
     private var face: some View {
         GeometryReader { proxy in
             ZStack {
-                // Tight corner positions and a broad angular fan are independent.
-                TimerTickRing(countdown: timer.countdown).padding(TimerTickRing.edgeInset)
                 // The readout and smooth ring have independent clocks. A paused ring
                 // must never pause the readout's schedule after navigation or resume.
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -48,7 +47,7 @@ struct PanelTimerPage: View {
                                 .frame(minWidth: 140, minHeight: 56).contentShape(.rect)
                         }.buttonStyle(TimerDurationStyle()).accessibilityIdentifier("timer-edit")
                             .accessibilityHint("Changes the timer duration")
-                            .disabled(phase == .running || phase == .paused)
+                            .disabled(phase != .ready)
                         Spacer(minLength: 0)
                         controls.offset(y: -20)
                         if let message = timer.alertMessage {
@@ -56,6 +55,7 @@ struct PanelTimerPage: View {
                                 .multilineTextAlignment(.center).frame(maxWidth: 620)
                         }
                     }.padding(.horizontal, 100).padding(.vertical, 86)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }.id(timer.countdown.phase)
             }
         }
@@ -63,19 +63,29 @@ struct PanelTimerPage: View {
     private var controls: some View {
         GlassEffectContainer(spacing: 24) {
             HStack(spacing: 24) {
-                Button { timer.reset() } label: {
-                    Label("Reset", systemImage: "arrow.counterclockwise")
-                        .labelStyle(.iconOnly).font(.system(size: 28, weight: .medium)).frame(width: 64, height: 64)
-                }.buttonStyle(.glass).buttonBorderShape(.circle).disabled(timer.countdown.phase == .ready)
-                    .accessibilityIdentifier("timer-reset")
-                Button {
-                    if timer.countdown.phase == .running { timer.pause() }
-                    else { timer.start() }
-                } label: {
-                    Label(primaryTitle, systemImage: timer.countdown.phase == .running ? "pause.fill" : "play.fill")
-                        .labelStyle(.iconOnly).font(.system(size: 30, weight: .semibold)).frame(width: 64, height: 64)
-                        .foregroundStyle(.black)
-                }.buttonStyle(.glassProminent).buttonBorderShape(.circle).accessibilityIdentifier("timer-start-pause")
+                if timer.countdown.phase == .finished {
+                    Button { timer.reset() } label: {
+                        Label("Stop", systemImage: "stop.fill")
+                            .font(.title3.weight(.semibold))
+                            .padding(.horizontal, 20).frame(height: 64)
+                            .foregroundStyle(.black)
+                    }.buttonStyle(.glassProminent).buttonBorderShape(.capsule)
+                        .accessibilityIdentifier("timer-stop")
+                } else {
+                    Button { timer.reset() } label: {
+                        Label("Reset", systemImage: "arrow.counterclockwise")
+                            .labelStyle(.iconOnly).font(.system(size: 28, weight: .medium)).frame(width: 64, height: 64)
+                    }.buttonStyle(.glass).buttonBorderShape(.circle).disabled(timer.countdown.phase == .ready)
+                        .accessibilityIdentifier("timer-reset")
+                    Button {
+                        if timer.countdown.phase == .running { timer.pause() }
+                        else { timer.start() }
+                    } label: {
+                        Label(primaryTitle, systemImage: timer.countdown.phase == .running ? "pause.fill" : "play.fill")
+                            .labelStyle(.iconOnly).font(.system(size: 30, weight: .semibold)).frame(width: 64, height: 64)
+                            .foregroundStyle(.black)
+                    }.buttonStyle(.glassProminent).buttonBorderShape(.circle).accessibilityIdentifier("timer-start-pause")
+                }
             }
         }
     }
@@ -83,7 +93,7 @@ struct PanelTimerPage: View {
         switch timer.countdown.phase {
         case .running: "Pause"
         case .paused: "Resume"
-        case .finished: "Again"
+        case .finished: "Stop"
         case .ready: "Start"
         }
     }
@@ -94,7 +104,7 @@ struct PanelTimerPage: View {
     }
     private var durationEditor: some View {
         VStack(spacing: 40) {
-            Text("Set duration").font(.largeTitle.weight(.semibold))
+            Text("Set Timer").font(.largeTitle.weight(.semibold))
             HStack(spacing: 40) {
                 durationWheel("Hours", selection: $hours, range: 0..<24)
                 durationWheel("Minutes", selection: $minutes, range: 0..<60)
@@ -168,7 +178,7 @@ private struct TimerTickRing: View {
             CountdownTicks(fraction: countdown.remaining(at: context.date) / countdown.duration,
                 ringing: countdown.phase == .finished, tickLength: 22, lineWidth: 7,
                 cornerRadius: PanelSurface.cornerRadius - Self.edgeInset,
-                tickTurningRadius: 100, alignsCornerTicks: true, smoothProgress: true)
+                cornerFanTicks: 10, smoothProgress: true)
         }
     }
 }
