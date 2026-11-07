@@ -80,11 +80,11 @@ struct SonosRoomsPage: View {
                         for room in speakers where room.id != desk.id { store.send(.join(room.id, desk.id)) }
                     }
                 } label: {
-                    Label("Play Desk line-in", systemImage: "hifispeaker.2")
+                    Label("Play together", systemImage: "hifispeaker.2")
                         .font(.subheadline.weight(.semibold)).padding(10)
                 }
                 .buttonStyle(.glass)
-                .accessibilityHint("Plays Desk’s line-in on the Home speakers")
+                .accessibilityHint("Plays audio from Desk on the other Home speakers")
                 .disabled(busy || desk == nil)
             }
         }
@@ -95,6 +95,7 @@ struct SonosRoomsPage: View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {
                 Text("Master").font(.title3.weight(.semibold))
+                Spacer()
                 Button {
                     store.send(.globalLock)
                 } label: {
@@ -110,7 +111,6 @@ struct SonosRoomsPage: View {
                 .accessibilityHint("Moving a Home speaker volume adjusts the other Home speakers")
                 .accessibilityAddTraits(store.globalLock ? .isSelected : [])
                 .accessibilityIdentifier("sonos-volume-lock")
-                Spacer()
             }
             volumeBar(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill")
         }

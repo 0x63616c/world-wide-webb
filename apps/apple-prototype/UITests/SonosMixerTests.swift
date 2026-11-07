@@ -25,7 +25,7 @@ import XCTest
         XCTAssertTrue(app.staticTexts["TV"].exists)
         XCTAssertEqual(app.staticTexts.matching(identifier: "Desk").count, 1)
         XCTAssertFalse(app.staticTexts["Home speakers"].exists)
-        XCTAssertTrue(app.buttons["Play Desk line-in"].exists)
+        XCTAssertTrue(app.buttons["Play together"].exists)
         snapshot("sonos-mixer", app: app)
 
         func percentage(_ slider: XCUIElement) -> String {
@@ -79,7 +79,7 @@ import XCTest
             XCTAssertTrue(sonos.waitForExistence(timeout: 15))
             sonos.tap()
             XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 10))
-            XCTAssertFalse(app.buttons["Play Desk line-in"].exists)
+            XCTAssertFalse(app.buttons["Play together"].exists)
             snapshot("sonos-\(state)", app: app)
             app.terminate()
         }
