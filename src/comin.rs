@@ -1,6 +1,7 @@
-//! Read-only readiness checks for the pinned Comin status protocol.
-use std::fs::File;
+//! Trigger native reconciliation once, then verify the pinned Comin status protocol.
+use std::fs::{self, File};
 use std::io::Read;
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -160,7 +161,76 @@ fn reconciled(
     Some(metadata.revision.clone())
 }
 
-fn probe(repository: &str, host: &str, since: i64) -> Option<String> {
+fn remaining(deadline: Instant) -> Option<Duration> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|remaining| !remaining.is_zero())
+        .map(|remaining| remaining.min(Duration::from_secs(10)))
+}
+
+fn trusted_socket(socket: &Path, owner: u32) -> bool {
+    let Ok(metadata) = fs::symlink_metadata(socket) else {
+        return false;
+    };
+    let Some(parent) = socket.parent() else {
+        return false;
+    };
+    let Ok(parent) = fs::metadata(parent) else {
+        return false;
+    };
+    metadata.file_type().is_socket()
+        && metadata.uid() == owner
+        && parent.is_dir()
+        && parent.uid() == owner
+        && parent.mode() & 0o022 == 0
+}
+
+fn command(executable: &Path, operation: &str, socket: &Path) -> Command {
+    let mut command = Command::new(executable);
+    command.arg(operation);
+    if operation == "status" {
+        command.arg("--json");
+    }
+    command
+        .arg("--unix-socket-path")
+        .arg(socket)
+        .env_clear()
+        .env("HOME", "/var/root")
+        .stdin(Stdio::null());
+    command
+}
+
+fn request_fetch(
+    executable: &Path,
+    socket: &Path,
+    status: &std::process::Output,
+    attempted: &mut bool,
+    deadline: Instant,
+) {
+    if *attempted
+        || !status.status.success()
+        || !serde_json::from_slice::<serde_json::Value>(&status.stdout)
+            .is_ok_and(|value| value.is_object())
+    {
+        return;
+    }
+    let Some(timeout) = remaining(deadline) else {
+        return;
+    };
+    // The scheduler waits a full poll interval on startup. Ask Comin to fetch
+    // once after its RPC endpoint responds, without duplicating its controller.
+    // An ambiguous request must not cause repeated fetches in this wait loop.
+    *attempted = true;
+    let _ = crate::process::run_silent(&mut command(executable, "fetch", socket), timeout);
+}
+
+fn probe(
+    repository: &str,
+    host: &str,
+    since: i64,
+    attempted: &mut bool,
+    deadline: Instant,
+) -> Option<String> {
     let current = Path::new("/run/current-system");
     let system = trusted_store_path(current, Path::new("/nix/store"), 0).ok()?;
     let metadata_path = trusted_store_path(
@@ -184,19 +254,25 @@ fn probe(repository: &str, host: &str, since: i64) -> Option<String> {
     }
     let executable =
         trusted_store_path(&system.join("sw/bin/comin"), Path::new("/nix/store"), 0).ok()?;
-    let mut command = Command::new(executable);
-    command
-        .args([
-            "status",
-            "--json",
-            "--unix-socket-path",
-            "/run/comin-grpc.sock",
-        ])
-        .env_clear()
-        .env("HOME", "/var/root")
-        .stdin(Stdio::null());
-    let output = crate::process::capture_status(&mut command, Duration::from_secs(10)).ok()?;
+    let socket = Path::new("/run/comin-grpc.sock");
+    if !trusted_socket(socket, 0) {
+        return None;
+    }
+    let output = crate::process::capture_status(
+        &mut command(&executable, "status", socket),
+        remaining(deadline)?,
+    )
+    .ok()?;
     if !output.status.success() || current.canonicalize().ok()? != system {
+        return None;
+    }
+    let was_attempted = *attempted;
+    request_fetch(&executable, socket, &output, attempted, deadline);
+    // Never accept the status snapshot taken before our fetch request.
+    if !was_attempted && *attempted {
+        return None;
+    }
+    if current.canonicalize().ok()? != system {
         return None;
     }
     reconciled(
@@ -214,14 +290,19 @@ pub(crate) fn wait_for_reconciliation(
     since: i64,
 ) -> Result<String, Error> {
     let deadline = Instant::now() + Duration::from_secs(600);
+    let mut attempted = false;
     loop {
-        if let Some(revision) = probe(repository, host, since) {
+        if let Some(revision) = probe(repository, host, since, &mut attempted, deadline) {
             return Ok(revision);
         }
         if Instant::now() >= deadline {
             return Err(Error::ReconciliationUnconfirmed);
         }
-        std::thread::sleep(Duration::from_secs(2));
+        std::thread::sleep(
+            deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_secs(2)),
+        );
     }
 }
 
@@ -229,6 +310,69 @@ pub(crate) fn wait_for_reconciliation(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn fetch_is_requested_once_after_rpc_readiness_even_when_request_fails() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::os::unix::process::ExitStatusExt;
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("comin");
+        fs::write(&executable, b"#!/bin/sh\nprintf '%s\n' \"$@\" >> \"$0.calls\"\nprintf 'synthetic sensitive vendor output'\nexit 1\n").unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        let socket = directory.path().join("socket");
+        let mut attempted = false;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut status = std::process::Output {
+            status: std::process::ExitStatus::from_raw(256),
+            stdout: b"{}".to_vec(),
+            stderr: b"synthetic secret".to_vec(),
+        };
+        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
+        assert!(!attempted);
+        status.status = std::process::ExitStatus::from_raw(0);
+        status.stdout = b"not JSON".to_vec();
+        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
+        assert!(!attempted);
+        status.stdout = b"{}".to_vec();
+        request_fetch(
+            &executable,
+            &socket,
+            &status,
+            &mut attempted,
+            Instant::now(),
+        );
+        assert!(!attempted);
+        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
+        assert!(attempted);
+        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
+        assert_eq!(
+            fs::read_to_string(executable.with_extension("calls")).unwrap(),
+            format!("fetch\n--unix-socket-path\n{}\n", socket.display())
+        );
+    }
+
+    #[test]
+    fn root_socket_boundary_accepts_run_alias_but_rejects_replaceable_endpoints() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        use std::os::unix::net::UnixListener;
+        let directory = tempfile::tempdir().unwrap();
+        let owner = rustix::process::geteuid().as_raw();
+        let run = directory.path().join("real-run");
+        fs::create_dir(&run).unwrap();
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o755)).unwrap();
+        let alias = directory.path().join("run");
+        symlink(&run, &alias).unwrap();
+        let socket = alias.join("comin.sock");
+        assert!(!trusted_socket(&socket, owner));
+        let _listener = UnixListener::bind(&socket).unwrap();
+        assert!(trusted_socket(&socket, owner));
+        assert!(!trusted_socket(&socket, owner + 1));
+        let symlink_socket = alias.join("link.sock");
+        symlink(&socket, &symlink_socket).unwrap();
+        assert!(!trusted_socket(&symlink_socket, owner));
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o777)).unwrap();
+        assert!(!trusted_socket(&socket, owner));
+    }
 
     fn status() -> serde_json::Value {
         json!({
