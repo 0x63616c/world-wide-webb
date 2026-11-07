@@ -13,5 +13,8 @@ wheel circles separated by transparent wheel-arch gaps, and two broad window
 shapes. No outlines, panel seams, handles, lights, trim, spokes, logos, seats,
 shading, reflections, shadows or ground. Full vehicle centered in a 3:1 frame.”
 
+A follow-up edit kept the geometry and removed residual shading, requesting
+uniform gray and white fills.
+
 The edit used the earlier generated Evee illustration as a reference. Vehicle
 telemetry and animation remain native SwiftUI elements separate from the artwork.

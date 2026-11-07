@@ -2,7 +2,8 @@
 
 Actual SwiftUI Panel app on the 1366×1024-point iPad simulator (2× captures).
 All values are synthetic fixtures, not a screenshot of the owner's live location
-or vehicle telemetry. Artwork is generated; provenance is in
+or vehicle telemetry. The car uses a simple gray-and-white pictogram. Artwork is
+generated; provenance is in
 `apps/apple-prototype/docs/evee-artwork.md`.
 
 `TeslaDashboardTests/testReadOnlyVehicleStates` captured parked, unlocked,
