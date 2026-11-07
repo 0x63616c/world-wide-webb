@@ -25,6 +25,8 @@ subtle = "2"
 async-stream = "0.3"
 futures-core = "0.3"
 utoipa = { version = "5", features = ["chrono"] }
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
+futures-util = { version = "0.3.34", features = ["sink"] }
 
 [dev-dependencies]
 tempfile = "3"

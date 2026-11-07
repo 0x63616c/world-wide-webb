@@ -84,3 +84,48 @@ impl HomeAssistant {
         Ok(())
     }
 }
+
+pub type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+impl HomeAssistant {
+    pub async fn websocket(&self) -> Result<Socket, Error> {
+        use futures_util::{SinkExt, StreamExt};
+        use tokio_tungstenite::tungstenite::{Message, protocol::WebSocketConfig};
+        let mut url = self.url("api/websocket")?;
+        let scheme = if url.scheme() == "https" { "wss" } else { "ws" };
+        url.set_scheme(scheme).map_err(|_| Error)?;
+        let config = WebSocketConfig::default()
+            .max_message_size(Some(8 * 1024 * 1024))
+            .max_frame_size(Some(8 * 1024 * 1024));
+        let authenticate = async {
+            let (mut socket, _) =
+                tokio_tungstenite::connect_async_with_config(url.as_str(), Some(config), false)
+                    .await
+                    .map_err(|_| Error)?;
+            let read = socket.next().await.ok_or(Error)?.map_err(|_| Error)?;
+            let value: Value =
+                serde_json::from_str(read.to_text().map_err(|_| Error)?).map_err(|_| Error)?;
+            if value["type"] != "auth_required" {
+                return Err(Error);
+            }
+            socket
+                .send(Message::Text(
+                    serde_json::json!({"type":"auth","access_token":self.token})
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .map_err(|_| Error)?;
+            let read = socket.next().await.ok_or(Error)?.map_err(|_| Error)?;
+            let value: Value =
+                serde_json::from_str(read.to_text().map_err(|_| Error)?).map_err(|_| Error)?;
+            if value["type"] != "auth_ok" {
+                return Err(Error);
+            }
+            Ok(socket)
+        };
+        tokio::time::timeout(Duration::from_secs(15), authenticate)
+            .await
+            .map_err(|_| Error)?
+    }
+}

@@ -6,6 +6,7 @@ use std::{env, fs, path::PathBuf};
 pub struct Config {
     pub ha: Option<HomeAssistant>,
     pub climate_entity: Option<String>,
+    pub bedroom_input: Option<String>,
     pub tesla_entities: Option<std::collections::BTreeMap<String, String>>,
     pub weather: Option<(f64, f64)>,
     pub wifi_qr: Option<String>,
@@ -48,6 +49,26 @@ impl Config {
             (None, None) => None,
             _ => return Err("Weather configuration incomplete".into()),
         };
+        let bedroom_input = match (
+            value("BEDROOM_SWITCH_INPUT_ENABLED")?,
+            value("BEDROOM_SWITCH_INPUT_VERIFIED")?,
+            value("BEDROOM_SWITCH_INPUT_ENTITY_ID")?,
+        ) {
+            (Some(enabled), Some(verified), Some(id))
+                if enabled == "true" && verified == "true" =>
+            {
+                let valid = id.strip_prefix("binary_sensor.").is_some_and(|v| {
+                    !v.is_empty()
+                        && v.bytes()
+                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                });
+                if !valid {
+                    return Err("Invalid bedroom switch input entity".into());
+                }
+                Some(id)
+            }
+            _ => None,
+        };
         let tesla_entities = value("TESLA_ENTITIES")?
             .map(|raw| {
                 let ids =
@@ -71,6 +92,7 @@ impl Config {
             wifi_qr,
             climate_entity: value("CLIMATE_ENTITY_ID")?,
             tesla_entities,
+            bedroom_input,
         })
     }
 }

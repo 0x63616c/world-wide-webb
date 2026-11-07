@@ -708,3 +708,126 @@ pub async fn party(s: &AppState, clock: &mut PartyClock) -> Result<()> {
     clock.tick = clock.tick.wrapping_add(1);
     Ok(())
 }
+
+/// Input watermark and all three lamp intents commit together. Reconnects and
+/// invalid samples rebaseline; only a contiguous HA old/new edge can act.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InputSample {
+    state: String,
+    changed: String,
+    #[serde(default)]
+    acted_at: Option<i64>,
+}
+fn input_sample(
+    entity: Option<&crate::integrations::homeassistant::Entity>,
+    id: &str,
+) -> Option<InputSample> {
+    let e = entity?;
+    if e.entity_id != id
+        || !["on", "off"].contains(&e.state.as_str())
+        || e.attributes.get("restored") == Some(&json!(true))
+    {
+        return None;
+    }
+    let raw = e.last_changed.as_deref()?;
+    if !(raw.ends_with('Z') || raw.ends_with("+00:00")) {
+        return None;
+    }
+    let time = chrono::DateTime::parse_from_rfc3339(raw).ok()?;
+    if time.timestamp_subsec_nanos() % 1000 != 0 {
+        return None;
+    }
+    Some(InputSample {
+        state: e.state.clone(),
+        changed: time
+            .with_timezone(&Utc)
+            .to_rfc3339_opts(SecondsFormat::Micros, true),
+        acted_at: None,
+    })
+}
+#[derive(Default)]
+pub struct BedroomInput {
+    previous: Option<InputSample>,
+}
+impl BedroomInput {
+    pub async fn sample(
+        &mut self,
+        s: &AppState,
+        id: &str,
+        current: Option<&crate::integrations::homeassistant::Entity>,
+        snapshot: bool,
+        old: Option<&crate::integrations::homeassistant::Entity>,
+    ) -> Result<()> {
+        let Some(next) = input_sample(current, id) else {
+            self.previous = None;
+            return Ok(());
+        };
+        let mut tx = s.db.begin().await?;
+        let saved: Option<String> =
+            sqlx::query_scalar("SELECT value FROM input_checkpoint WHERE entity_id=?")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        let saved = saved
+            .map(|v| serde_json::from_str::<InputSample>(&v))
+            .transpose()
+            .map_err(|_| unavailable())?;
+        if saved.as_ref().is_some_and(|v| next.changed <= v.changed) {
+            if self
+                .previous
+                .as_ref()
+                .is_none_or(|v| next.changed > v.changed)
+            {
+                self.previous = Some(next);
+            }
+            return Ok(());
+        }
+        let old = input_sample(old, id);
+        let edge = !snapshot
+            && self
+                .previous
+                .as_ref()
+                .zip(old.as_ref())
+                .is_some_and(|(before, old)| {
+                    before.changed == old.changed
+                        && before.state == old.state
+                        && before.state != next.state
+                        && before.changed < next.changed
+                });
+        let changed = chrono::DateTime::parse_from_rfc3339(&next.changed)
+            .map_err(|_| unavailable())?
+            .timestamp_millis();
+        let mut next = next;
+        next.acted_at = saved.as_ref().and_then(|v| v.acted_at);
+        if edge && next.acted_at.is_none_or(|at| changed - at >= 150) {
+            let mut values = vec![];
+            for e in LIGHTS.iter().filter(|e| e.bedroom && e.lamp) {
+                let raw: Option<String> =
+                    sqlx::query_scalar("SELECT desired_state FROM device_state WHERE entity_id=?")
+                        .bind(e.entity)
+                        .fetch_optional(&mut *tx)
+                        .await?
+                        .flatten();
+                if let Some(v) = raw.and_then(|v| serde_json::from_str::<Light>(&v).ok()) {
+                    values.push((e.entity, v));
+                }
+            }
+            if values.len() == 3 {
+                let on = !values.iter().any(|(_, v)| v.on);
+                let stamp = now();
+                let until = (Utc::now() + chrono::Duration::seconds(10))
+                    .to_rfc3339_opts(SecondsFormat::Micros, true);
+                for (entity, mut value) in values {
+                    value.on = on;
+                    sqlx::query("UPDATE device_state SET desired_state=?,desired_at_utc=?,desired_until_utc=?,updated_at_utc=? WHERE entity_id=?").bind(serde_json::to_string(&value).map_err(|_|unavailable())?).bind(&stamp).bind(&until).bind(&stamp).bind(entity).execute(&mut *tx).await?;
+                }
+                next.acted_at = Some(changed);
+            }
+        }
+        sqlx::query("INSERT INTO input_checkpoint(entity_id,value) VALUES(?,?) ON CONFLICT(entity_id) DO UPDATE SET value=excluded.value").bind(id).bind(serde_json::to_string(&next).map_err(|_|unavailable())?).execute(&mut *tx).await?;
+        tx.commit().await?;
+        self.previous = Some(next);
+        Ok(())
+    }
+}

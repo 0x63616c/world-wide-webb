@@ -89,6 +89,7 @@ impl Runtime {
                 .expect("worker lock")
                 .insert("climate-enforcer".into(), WorkerHealth::default());
             let mut stopping = stop.subscribe();
+            let s = s.clone();
             tasks.push(tokio::spawn(async move {
                 let mut last_fan=None;
                 let mut interval=tokio::time::interval(Duration::from_secs(1));
@@ -108,6 +109,17 @@ impl Runtime {
                     }
                 }
             }));
+        }
+        if let Some(id) = s.config.bedroom_input.clone() {
+            s.workers
+                .write()
+                .expect("worker lock")
+                .insert("bedroom-switch-input".into(), WorkerHealth::default());
+            tasks.push(tokio::spawn(crate::features::bedroom_input::run(
+                s.clone(),
+                id,
+                stop.subscribe(),
+            )));
         }
         Ok(Self { stop, tasks })
     }

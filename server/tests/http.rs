@@ -806,3 +806,174 @@ async fn tesla_converts_real_telemetry_keeps_snapshot_and_checks_pin_before_comm
     assert_eq!(calls.read().unwrap().len(), 1);
     task.abort();
 }
+
+#[tokio::test]
+async fn bedroom_input_edges_are_atomic_debounced_and_never_replayed_after_restart() {
+    use www_server::{features::lights::BedroomInput, integrations::homeassistant::Entity};
+    let (dir, _, db) = fixture().await;
+    let state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    for (id, entity) in [
+        ("bed-left", "light.bed_lamp_left"),
+        ("bed-right", "light.bed_lamp_right"),
+        ("mirror", "light.mirror"),
+    ] {
+        sqlx::query("INSERT INTO device_state(id,kind,entity_id,domain,label,desired_state,created_at_utc,updated_at_utc) VALUES(?,'light',?,'light',?,'{\"on\":false,\"brightness\":128}',?,?)").bind(id).bind(entity).bind(id).bind("2026-11-07T00:00:00Z").bind("2026-11-07T00:00:00Z").execute(&db).await.unwrap();
+    }
+    let id = "binary_sensor.bedroom_input";
+    let sample = |on: bool, time: &str| -> Entity {
+        serde_json::from_value(json!({"entity_id":id,"state":if on{"on"}else{"off"},"attributes":{},"last_changed":time})).unwrap()
+    };
+    let base = sample(false, "2026-11-07T10:00:00Z");
+    let a = sample(true, "2026-11-07T10:00:01.000001Z");
+    let bounce = sample(false, "2026-11-07T10:00:01.100001Z");
+    let b = sample(true, "2026-11-07T10:00:01.250001Z");
+    let on_count = || async {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM device_state WHERE json_extract(desired_state,'$.on')=1",
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap()
+    };
+    let mut input = BedroomInput::default();
+    input
+        .sample(&state, id, Some(&base), true, None)
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 0);
+    input
+        .sample(&state, id, Some(&a), false, Some(&base))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 3);
+    input
+        .sample(&state, id, Some(&bounce), false, Some(&a))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 3);
+    input
+        .sample(&state, id, Some(&b), false, Some(&bounce))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 0);
+    // Same durable snapshot on a new connection establishes continuity without replaying it.
+    let mut input = BedroomInput::default();
+    input
+        .sample(&state, id, Some(&b), true, None)
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 0);
+    let c = sample(false, "2026-11-07T10:00:02.000001Z");
+    // Force a failure after lamp updates; checkpoint and all lamp intents must roll back.
+    sqlx::query("CREATE TRIGGER fail_checkpoint BEFORE UPDATE ON input_checkpoint BEGIN SELECT RAISE(ABORT,'fixture'); END").execute(&db).await.unwrap();
+    assert!(
+        input
+            .sample(&state, id, Some(&c), false, Some(&b))
+            .await
+            .is_err()
+    );
+    assert_eq!(on_count().await, 0);
+    sqlx::query("DROP TRIGGER fail_checkpoint")
+        .execute(&db)
+        .await
+        .unwrap();
+    input
+        .sample(&state, id, Some(&c), false, Some(&b))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 3);
+    input
+        .sample(&state, id, Some(&a), false, Some(&base))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 3);
+    input.sample(&state, id, None, false, None).await.unwrap();
+    let d = sample(true, "2026-11-07T10:00:03Z");
+    input
+        .sample(&state, id, Some(&d), false, Some(&c))
+        .await
+        .unwrap();
+    assert_eq!(on_count().await, 3);
+}
+
+#[tokio::test]
+async fn bedroom_websocket_subscribes_before_snapshot_and_ignores_early_events() {
+    use futures_util::{SinkExt, StreamExt};
+    use std::sync::Arc;
+    use tokio_tungstenite::tungstenite::Message;
+    use www_server::{
+        config::Config, features::bedroom_input, integrations::homeassistant::HomeAssistant,
+    };
+    let (dir, _, db) = fixture().await;
+    let id = "binary_sensor.bedroom_input";
+    let entity =
+        |time: &str| json!({"entity_id":id,"state":"off","attributes":{},"last_changed":time});
+    let baseline = entity("2026-11-07T10:00:00Z");
+    let early = entity("2026-11-07T09:00:00Z");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move {
+        let (tcp, _) = listener.accept().await.unwrap();
+        let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
+        ws.send(Message::Text(
+            json!({"type":"auth_required"}).to_string().into(),
+        ))
+        .await
+        .unwrap();
+        let read = ws.next().await.unwrap().unwrap();
+        let auth: Value = serde_json::from_str(read.to_text().unwrap()).unwrap();
+        assert_eq!(auth["type"], "auth");
+        assert_eq!(auth["access_token"], "fixture");
+        ws.send(Message::Text(json!({"type":"auth_ok"}).to_string().into()))
+            .await
+            .unwrap();
+        let read = ws.next().await.unwrap().unwrap();
+        let subscribe: Value = serde_json::from_str(read.to_text().unwrap()).unwrap();
+        assert_eq!(
+            subscribe,
+            json!({"id":1,"type":"subscribe_events","event_type":"state_changed"})
+        );
+        ws.send(Message::Text(
+            json!({"type":"result","id":1,"success":true})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .unwrap();
+        let read = ws.next().await.unwrap().unwrap();
+        let snapshot: Value = serde_json::from_str(read.to_text().unwrap()).unwrap();
+        assert_eq!(snapshot, json!({"id":2,"type":"get_states"}));
+        ws.send(Message::Text(json!({"type":"event","id":1,"event":{"data":{"entity_id":id,"new_state":early,"old_state":null}}}).to_string().into())).await.unwrap();
+        ws.send(Message::Text(
+            json!({"type":"result","id":2,"success":true,"result":[baseline]})
+                .to_string()
+                .into(),
+        ))
+        .await
+        .unwrap();
+        ws.close(None).await.unwrap();
+    });
+    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    state.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    assert!(
+        tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            bedroom_input::session(&state, id)
+        )
+        .await
+        .unwrap()
+        .is_err()
+    );
+    task.await.unwrap();
+    let raw: String = sqlx::query_scalar("SELECT value FROM input_checkpoint WHERE entity_id=?")
+        .bind(id)
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    let saved: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(saved["changed"], "2026-11-07T10:00:00.000000Z");
+    assert!(saved["actedAt"].is_null());
+}
