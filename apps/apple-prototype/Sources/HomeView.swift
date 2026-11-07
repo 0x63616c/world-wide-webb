@@ -199,6 +199,7 @@ struct HomeView: View {
                 Color.black.ignoresSafeArea()
                 ZStack {
                     clockSurface(width: proxy.size.width)
+                        .blur(radius: showingClock ? 0 : 1.5)
                     if showingClock {
                         // A tap recognizer cancels on movement; a full-screen Button
                         // can activate after a drag that ends inside its large bounds.
