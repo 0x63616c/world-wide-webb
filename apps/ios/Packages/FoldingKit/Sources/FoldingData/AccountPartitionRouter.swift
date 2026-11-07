@@ -90,8 +90,15 @@ public struct AccountPartitionRouter: Sendable {
   /// If the process dies after this commit, intents stay paused until app reconciliation.
   public func suspend() throws -> PartitionTransition {
     try locked(exclusive: true) {
+      let old = try read()
       let epoch = UUID()
       try write(State(epoch: epoch, key: nil, active: false, installationID: nil))
+      if let key = old?.key, !key.contains("/"), !key.contains("\\"), key != ".", key != ".." {
+        // Route is already fenced. Failure under file protection does not reopen it.
+        try? ExportFiles.purge(
+          directory.appendingPathComponent("partitions").appendingPathComponent(key)
+            .appendingPathComponent("journal/exports"))
+      }
       return PartitionTransition(root: directory, epoch: epoch)
     }
   }

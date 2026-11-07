@@ -38,6 +38,8 @@ public struct SetupAttempt: Sendable, Equatable {
 public actor TrackingStore {
   private let database: SQLiteConnection
   private let partitionLease: PartitionLease?
+  nonisolated let exportDirectory: URL
+  private var exportPurgePending = false
   public nonisolated let deviceID: UUID
 
   public init(directory: URL, installationID: UUID, partitionLease: PartitionLease? = nil) throws {
@@ -54,6 +56,7 @@ public actor TrackingStore {
       self.database = try Self.openConnection(directory: directory, installationID: installationID)
     }
     self.partitionLease = partitionLease
+    self.exportDirectory = directory.appendingPathComponent("exports", isDirectory: true)
     self.deviceID = installationID
   }
 
@@ -408,6 +411,47 @@ public actor TrackingStore {
     return try PersonalHistory.snapshot(
       events: input.0, interruptions: input.1, generation: input.2, homeTimezone: homeTimezone,
       asOfMS: asOfMS, period: period, offset: offset)
+  }
+
+  public func lastObservedAtMS() throws -> Int64? {
+    try journalTransaction(write: false) {
+      let row = try database.rows(
+        "SELECT observed_at_ms FROM events WHERE device_id=? AND event_id NOT IN (SELECT entity_id FROM quarantines) ORDER BY sequence DESC LIMIT 1",
+        [.text(deviceID.canonical)]
+      ).first
+      return row?["observed_at_ms"].flatMap(Int64.init)
+    }
+  }
+
+  func captureExportSnapshot() throws -> TrackingExportSnapshot {
+    try journalTransaction(write: false) {
+      let excluded = Set(
+        try database.rows("SELECT DISTINCT entity_id FROM quarantines").compactMap {
+          $0["entity_id"].flatMap(UUID.init(uuidString:))
+        })
+      var uploads: [UUID: ExportUploadState] = [:]
+      for row in try database.rows(
+        "SELECT entity_id,state FROM work_outbox WHERE kind='competition_event'")
+      {
+        guard let raw = row["entity_id"], let id = UUID(uuidString: raw), let state = row["state"]
+        else { throw StoreError.invalidInput }
+        switch state {
+        case "pending", "leased", "retry_wait": uploads[id] = .pending
+        case "acknowledged": uploads[id] = .acknowledged
+        case "quarantined", "permanently_rejected": uploads[id] = .rejected
+        default: uploads[id] = .unknown
+        }
+      }
+      return TrackingExportSnapshot(
+        generation: try generation(), events: try events(includeQuarantined: true),
+        interruptions: try interruptions(), excludedEventIDs: excluded, uploadStates: uploads)
+    }
+  }
+
+  func validateExportGeneration(_ expected: ResetGeneration) throws {
+    try journalTransaction(write: false) {
+      guard try generation() == expected else { throw TrackingExportError.staleSnapshot }
+    }
   }
 
   public func retainedEvents() throws -> [TrackingEvent] {
@@ -875,6 +919,7 @@ public actor TrackingStore {
       "INSERT INTO reset_markers VALUES (?,?,?)",
       [.text(marker.resetID.canonical), .integer(marker.revision), .integer(nowMS)])
     guard marker > old else { return }
+    exportPurgePending = true
     try database.execute("DELETE FROM events")
     try database.execute("DELETE FROM interruptions")
     try database.execute("DELETE FROM setup_attempt")
@@ -893,7 +938,15 @@ public actor TrackingStore {
   }
 
   private func fencedJournalTransaction<T>(write: Bool, _ operation: () throws -> T) throws -> T {
-    try database.transaction(write: write) {
+    defer {
+      if exportPurgePending {
+        // The generation fence is authoritative even if protected files cannot be removed yet.
+        // Export service startup/prepare retries stale-manifest cleanup after unlock.
+        try? ExportFiles.purge(exportDirectory)
+        exportPurgePending = false
+      }
+    }
+    return try database.transaction(write: write) {
       guard
         try database.rows("SELECT value FROM settings WHERE key='installation_id'").first?["value"]
           == deviceID.canonical

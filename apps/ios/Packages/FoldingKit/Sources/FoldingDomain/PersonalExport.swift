@@ -126,7 +126,7 @@ public enum PersonalExport {
     events: [TrackingEvent], interruptions: [TrackingInterruption] = [],
     transferMarkers: [PrivateTransferMarker] = [],
     generation: ResetGeneration, homeTimezone: String, exportedAtMS: Int64,
-    uploadStates: [UUID: ExportUploadState] = [:]
+    uploadStates: [UUID: ExportUploadState] = [:], excludedEventIDs: Set<UUID> = []
   ) throws -> PersonalExportDocument {
     guard (0...TrackingReducer.maximumInteger).contains(exportedAtMS) else {
       throw AnalyticsError.invalidRange
@@ -146,7 +146,8 @@ public enum PersonalExport {
         byAdding: .day, value: 1, to: cal.startOfDay(for: PersonalAnalytics.date(last)))
     else { throw AnalyticsError.calendarFailure }
     let snapshot = try PersonalAnalytics.snapshot(
-      events: events, interruptions: interruptions, generation: generation,
+      events: events.filter { !excludedEventIDs.contains($0.eventID) },
+      interruptions: interruptions, generation: generation,
       homeTimezone: homeTimezone, asOfMS: exportedAtMS,
       range: PersonalDateRange(
         startMS: PersonalAnalytics.milliseconds(start), endMS: PersonalAnalytics.milliseconds(end)),
