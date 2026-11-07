@@ -208,7 +208,7 @@ tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.
 Lights brightness and white temperature use `FilledLevelControl`, shared with
 Sonos volume: a filled draggable bar with local drag preview, one commit on
 release, bounded values, and adjustable accessibility actions. The Sonos Home
-mixer shows live percentages above the bars, with TV below the other rooms.
+mixer shows live percentages inside the bars, with TV below the other rooms.
 Master shows the average raw volume of the Home speakers and moves them to
 the chosen level. The lock beside Master links their room adjustments. TV has
 its own volume control. Cameras is no

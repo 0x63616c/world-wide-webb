@@ -14,8 +14,6 @@ import XCTest
         XCTAssertEqual(sonos.label, "Sonos")
         snapshot("sonos-launcher", app: app)
 
-        print("MOTION_CAPTURE_READY sonos-mixer")
-        Thread.sleep(forTimeInterval: 1)
         sonos.tap()
         let master = app.descendants(matching: .any)["sonos-volume-master"].firstMatch
         let desk = app.descendants(matching: .any)["sonos-volume-Desk"].firstMatch
@@ -26,10 +24,15 @@ import XCTest
         XCTAssertTrue(app.staticTexts["Home"].exists)
         XCTAssertTrue(app.staticTexts["TV"].exists)
         XCTAssertEqual(app.staticTexts.matching(identifier: "Desk").count, 1)
+        XCTAssertFalse(app.staticTexts["Home speakers"].exists)
         snapshot("sonos-mixer", app: app)
 
-        func percentage(_ room: String) -> String {
-            app.staticTexts["sonos-percent-\(room)"].label
+        func percentage(_ slider: XCUIElement) -> String {
+            guard let value = slider.value as? String else {
+                XCTFail("Missing volume for \(slider.identifier)")
+                return ""
+            }
+            return value
         }
         func drag(_ slider: XCUIElement, from start: CGFloat, to end: CGFloat) {
             slider.coordinate(withNormalizedOffset: CGVector(dx: start, dy: 0.5))
@@ -38,31 +41,30 @@ import XCTest
                        withVelocity: .slow, thenHoldForDuration: 0.4)
         }
 
-        let initialTV = percentage("Living Room")
+        let initialTV = percentage(tv)
+        XCTAssertEqual(percentage(desk), "32 percent")
         drag(desk, from: 0.32, to: 0.59)
-        XCTAssertNotEqual(percentage("Desk"), "32%")
-        XCTAssertEqual(percentage("Living Room"), initialTV)
+        XCTAssertNotEqual(percentage(desk), "32 percent")
+        XCTAssertEqual(percentage(tv), initialTV)
 
         drag(master, from: 0.28, to: 0.47)
-        XCTAssertEqual(percentage("Living Room"), initialTV)
-        XCTAssertEqual(percentage("Desk"), percentage("Bedroom"))
-        XCTAssertEqual(percentage("master"), percentage("Desk"))
+        XCTAssertEqual(percentage(tv), initialTV)
+        XCTAssertEqual(percentage(desk), percentage(bedroom))
+        XCTAssertEqual(percentage(master), percentage(desk))
 
         app.buttons["sonos-volume-lock"].tap()
-        let before = percentage("Desk")
+        let before = percentage(desk)
         drag(bedroom, from: 0.47, to: 0.36)
-        let linked = percentage("Desk")
+        let linked = percentage(desk)
         XCTAssertNotEqual(linked, before)
-        XCTAssertEqual(linked, percentage("Bedroom"))
-        XCTAssertEqual(linked, percentage("master"))
-        XCTAssertEqual(percentage("Living Room"), initialTV)
+        XCTAssertEqual(linked, percentage(bedroom))
+        XCTAssertEqual(linked, percentage(master))
+        XCTAssertEqual(percentage(tv), initialTV)
 
         drag(tv, from: 0.76, to: 0.64)
-        XCTAssertNotEqual(percentage("Living Room"), initialTV)
-        XCTAssertEqual(percentage("Desk"), linked)
-        XCTAssertEqual(percentage("master"), linked)
-        snapshot("sonos-linked", app: app)
-        print("MOTION_CAPTURE_DONE sonos-mixer")
+        XCTAssertNotEqual(percentage(tv), initialTV)
+        XCTAssertEqual(percentage(desk), linked)
+        XCTAssertEqual(percentage(master), linked)
     }
 
     private func snapshot(_ name: String, app: XCUIApplication) {

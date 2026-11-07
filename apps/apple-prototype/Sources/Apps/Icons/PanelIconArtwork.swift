@@ -11,7 +11,7 @@ enum PanelIconArtwork: String, CaseIterable {
         case .lights: [Color(hex: "#FFD500"), Color(hex: "#FF6500")]
         case .climate: [Color(hex: "#56D9FA"), Color(hex: "#007FCF")]
         case .walks: [Color(hex: "#60DD9C"), Color(hex: "#0CAA69")]
-        case .music: [Color(hex: "#FF5275"), Color(hex: "#D60040")]
+        case .music: [Color(hex: "#252527"), .black]
         case .photos: [Color(hex: "#BE85FC"), Color(hex: "#7A12F8")]
         case .car: [Color(hex: "#6CBFFC"), Color(hex: "#2367D2")]
         case .wifi: [Color(hex: "#59E0DD"), Color(hex: "#009BAE")]
@@ -115,10 +115,10 @@ private struct SonosIconArtwork: View {
 
     var body: some View {
         ZStack {
-            speaker(scale: 0.85, cabinet: Color(hex: "#FFA4B7"), driver: Color(hex: "#D72F5A"))
+            speaker(scale: 0.85, cabinet: Color(hex: "#A6A6AC"), driver: Color(hex: "#39393E"))
                 .position(x: side * 0.644, y: side * 0.428)
                 .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            speaker(scale: 1, cabinet: .white, driver: Color(hex: "#CE2853"))
+            speaker(scale: 1, cabinet: .white, driver: Color(hex: "#232326"))
                 .position(x: side * 0.409, y: side * 0.548)
                 .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
         }.frame(width: side, height: side)

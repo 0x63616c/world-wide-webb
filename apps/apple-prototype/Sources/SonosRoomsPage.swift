@@ -70,27 +70,25 @@ struct SonosRoomsPage: View {
     }
 
     private var master: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Master").font(.title3.weight(.semibold))
-                    Text("Home speakers").font(.caption).foregroundStyle(.secondary)
-                }
+        VStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Text("Master").font(.title3.weight(.semibold))
                 Button {
                     store.send(.globalLock)
                 } label: {
                     Image(systemName: store.globalLock ? "lock.fill" : "lock.open")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .glassEffect(.regular.interactive(), in: .circle)
                         .frame(width: 44, height: 44)
+                        .contentShape(.rect)
                 }
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+                .buttonStyle(.plain)
                 .accessibilityLabel("Link Home speaker volumes")
                 .accessibilityHint("Moving a Home speaker volume adjusts the other Home speakers")
                 .accessibilityAddTraits(store.globalLock ? .isSelected : [])
                 .accessibilityIdentifier("sonos-volume-lock")
                 Spacer()
-                percentage(masterVolume, id: "master")
             }
             volumeBar(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill")
         }
@@ -105,22 +103,10 @@ struct SonosRoomsPage: View {
     }
 
     private func roomVolume(_ room: SoundRoom, title: String, symbol: String) -> some View {
-        let value = shownVolume(for: room)
-        return VStack(spacing: 6) {
-            HStack {
-                Text(title).font(.headline)
-                Spacer()
-                percentage(value, id: room.id)
-            }
-            volumeBar(value: value, title: title, symbol: symbol, roomID: room.id)
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.headline)
+            volumeBar(value: shownVolume(for: room), title: title, symbol: symbol, roomID: room.id)
         }
-    }
-
-    private func percentage(_ value: Int, id: String) -> some View {
-        Text("\(value)%")
-            .font(.body.monospacedDigit())
-            .foregroundStyle(.secondary)
-            .accessibilityIdentifier("sonos-percent-\(id)")
     }
 
     private func volumeBar(value: Int, title: String, symbol: String, roomID: String? = nil) -> some View {
@@ -130,7 +116,7 @@ struct SonosRoomsPage: View {
         } else {
             targetIDs = Set(speakers.map(\.id))
         }
-        return FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol, preview: { value in
+        return FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol, showsPercentage: true, preview: { value in
             dragPreview = value.map { VolumePreview(roomIDs: targetIDs, value: $0) }
         }) { value in
             store.send(.roomVolumes(targetIDs, value))

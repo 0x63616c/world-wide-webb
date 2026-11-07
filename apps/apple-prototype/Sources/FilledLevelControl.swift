@@ -9,6 +9,7 @@ struct FilledLevelControl: View {
     var range: ClosedRange<Int> = 0...100
     var step = 1
     var unit = "percent"
+    var showsPercentage = false
     var track: Gradient? = nil
     var fill: (Int) -> Color = { _ in .white.opacity(0.38) }
     var preview: (Int?) -> Void = { _ in }
@@ -26,6 +27,7 @@ struct FilledLevelControl: View {
         GeometryReader { proxy in
             let span = Double(max(1, range.upperBound - range.lowerBound))
             let fraction = Double(displayed - range.lowerBound) / span
+            let thumbX = max(12, min(proxy.size.width - 16, proxy.size.width * fraction - 10))
             let valueAt: (CGFloat) -> Int = { x in
                 let fraction = max(0, min(1, x / proxy.size.width))
                 return stepped(Double(range.lowerBound) + fraction * span)
@@ -36,8 +38,18 @@ struct FilledLevelControl: View {
                 Rectangle().fill(fill(displayed)).frame(width: proxy.size.width * fraction)
                 Image(systemName: symbol).font(.system(size: 22))
                     .foregroundStyle(.white).padding(.leading, 24)
-                Capsule().fill(.white.opacity(0.9)).frame(width: 4, height: 22)
-                    .offset(x: max(12, min(proxy.size.width - 16, proxy.size.width * fraction - 10)))
+                // The fill still reaches the end of the bar when the thumb enters the label area.
+                if !showsPercentage || thumbX <= proxy.size.width - 68 {
+                    Capsule().fill(.white.opacity(0.9)).frame(width: 4, height: 22)
+                        .offset(x: thumbX)
+                }
+                if showsPercentage {
+                    Text("\(displayed)%")
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                        .padding(.trailing, 24)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }.clipShape(.rect(cornerRadius: 24))
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24))
                 .contentShape(.rect)
