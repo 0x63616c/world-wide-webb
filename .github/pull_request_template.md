@@ -15,11 +15,5 @@
      command output or an observed behavior), never invented results or
      "looks fine". -->
 
-## Screenshot
 
-<!-- Required for EVERY PR (see AGENTS.md, Workflow). UI change: a native app
-     screenshot of the real thing running, tile and detail page, and say what
-     it demonstrates. No UI change: a screenshot of the evidence instead (the
-     passing test run, an operations check, the API response). Commit the PNGs
-     under docs/screenshots/<feature>/ and embed them by raw GitHub URL pinned
-     to the commit SHA. -->
+<!-- Visual evidence is optional. Keep screenshots and recordings outside Git. -->
