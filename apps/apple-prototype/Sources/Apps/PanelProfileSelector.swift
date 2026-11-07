@@ -127,6 +127,7 @@ struct PanelProfileSelector: ViewModifier {
                             .glassEffect(.regular.tint(.white.opacity(0.1)).interactive(), in: .circle)
                         Text("Add User").font(.subheadline.weight(.medium))
                     }
+                    .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("profile-add")
