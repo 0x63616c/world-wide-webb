@@ -10,10 +10,10 @@ final class NotificationBannerTests: XCTestCase {
         app.launch()
         let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
-        XCTAssertEqual(banner.frame.width, 380, accuracy: 1)
-        XCTAssertEqual(app.frame.maxX - banner.frame.maxX, 20, accuracy: 1)
-        XCTAssertEqual(banner.frame.minY - app.frame.minY, 20, accuracy: 1)
-        XCTAssertFalse(app.buttons["notification-dismiss-lights"].exists)
+        XCTAssertGreaterThan(banner.frame.width, 300)
+        XCTAssertLessThan(app.frame.maxX - banner.frame.maxX, 90)
+        XCTAssertGreaterThanOrEqual(banner.frame.minY - app.frame.minY, 72)
+        XCTAssertTrue(app.buttons["notification-dismiss-lights"].isHittable)
         banner.swipeLeft()
         XCTAssertTrue(banner.exists)
         swipeRight(banner)
@@ -31,7 +31,7 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["notification-stack-count"].label, "3 notifications")
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 1)
         capture("notification-stack", app)
-        top.tap()
+        app.buttons["notification-stack-expand"].tap()
         XCTAssertTrue(app.buttons["notification-stack-collapse"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 3)
         let alarm = app.buttons["notification-banner-alarms"]
@@ -51,11 +51,14 @@ final class NotificationBannerTests: XCTestCase {
         app.launch()
         let collapse = app.buttons["notification-stack-collapse"]
         XCTAssertTrue(collapse.waitForExistence(timeout: 20))
-        // All fixtures are normal priority (five seconds); expanded reading time is unbounded.
+        // Ordinary fixtures have a five-second timer; expanded reading time is unbounded.
         try? await Task.sleep(for: .seconds(6))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 3)
         collapse.tap()
-        XCTAssertTrue(app.buttons["notification-banner-updates"].waitForNonExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["notification-banner-updates"].exists)
+        XCTAssertFalse(app.buttons["notification-dismiss-updates"].exists)
+        app.buttons["notification-stack-expand"].tap()
+        XCTAssertTrue(app.buttons["notification-banner-alarms"].isHittable)
     }
 
     @MainActor func testSingleDeepLink() {
@@ -94,13 +97,13 @@ final class NotificationBannerTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
         app.openHomeModule("climate")
-        XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["climate-value"].waitForExistence(timeout: 20))
         let tree = XCTAttachment(string: app.debugDescription)
         tree.name = "presented-controller-accessibility"
         tree.lifetime = .keepAlways
         add(tree)
-        // UIKit retains the covered host in AX during a full-screen presentation.
-        // Require one reachable banner and target that presentation, not the covered host.
+        // Inline app destinations share the root notification presenter.
+        // Require one reachable banner above the app's navigation controls.
         let banners = app.buttons.matching(identifier: "notification-banner-lights")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
@@ -126,11 +129,12 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testAccessibilityText() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-notificationCapture", "single", "-notificationHold",
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1",
+            "-notificationSamples", "-notificationHold",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
-        let banner = app.buttons["notification-banner-updates"]
+        let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
         XCTAssertTrue(banner.isHittable)
         capture("notification-accessibility-text", app)

@@ -212,7 +212,8 @@ their levels proportionally. Each room also has its own volume control. The Sono
 available Home speakers are grouped on Desk’s line-in. The header reports
 when they’re playing together or when the group is paused. Cameras is no
 longer registered in the native app catalog. Notification banners sit 20 points
-from the top-right edges, and the entire notification history uses dark mode;
+from the trailing edge and below the top controls. The v2 glass inbox and banners
+follow the host appearance;
 Classic reconnects against a black native background.
 
 Lights and Calendar omit redundant page titles. The clock places its date at

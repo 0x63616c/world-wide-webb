@@ -169,7 +169,8 @@ struct PanelHome: View {
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
         AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
             router: router, close: close)
-            .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation) }
+            // Home destinations are inline. The root overlay must stay above
+            // HomeView's navigation controls, including its trailing close button.
             .modifier(NotificationHistoryAccess()))
     }
 }

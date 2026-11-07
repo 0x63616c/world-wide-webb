@@ -1307,38 +1307,40 @@ banner. `history`, `groups`, `bannerGroups`, `unreadCount`, `markRead`, `dismiss
 `clear(sourceModule:)` and `clear()` are the shared seam for WWW-60/WWW-61.
 Clear preserves local posts arriving during the server request; failed remote
 actions retain history and show an error. The pull-down history screen below consumes this same store. Its empty state
-is simply “No notifications”; the offline indicator is “Offline”.
+is simply “All caught up”; the offline indicator is “Offline”.
 
-The shared status overlay shows banners on Home, Classic and presented native
-controllers; the Wi-Fi QR presentation also hosts it. These surfaces share the
-same environment service. A presentation stack gives only the top visible surface
+The root status overlay shows banners above Home, Classic and inline native
+controllers, including their navigation controls. These surfaces share the
+same environment service; inline Home destinations do not register a second overlay. A presentation stack gives only the top visible surface
 ownership of auto-dismiss timing and haptics. Root-injected navigation callbacks
 resolve source taps through `PanelNavigation`, including dismissal of Home's
 current full-screen destination. Unknown routes keep their banner and unread state.
 
-The overlay uses a 380-point dark native Liquid Glass card, a rounded-square
-source icon, bold source/title, relative time and a two-line body. Launcher apps
-reuse `PanelAppIcon` and the catalog name/symbol/colour, including Calendar and
-Weather artwork. Non-launcher sources retain their fallback glyph. It sits 20
-points from the safe trailing edge and 72 points below the safe top edge, leaving
-the top control row (including Details) accessible on Home, Classic and native
-controllers. Accessibility text sizes widen the card to 560 points.
+The v2 overlay uses a 420-point native Liquid Glass banner (600 points at
+accessibility text sizes), with semantic foreground colors that follow the host
+appearance. It sits 20 points from the trailing edge and 72 points below the safe
+top edge, preserving the host's top controls. Launcher sources reuse the app
+catalog artwork. Neutral source labels, a strong title and a short secondary body
+share the same `NotificationMessage` hierarchy as history. Critical items use an
+exclamation symbol as well as red; unread items have a small dot. Large text can
+wrap without the compact two-line limit.
+Timestamps sit on the right and show only the largest completed age unit (Now,
+minutes, hours, days, weeks, months or years), refreshed once a minute.
 
-All pending banners form one newest-first stack; the inbox's priority/source
-ordering remains unchanged. Up to two smaller, dimmed material cards peek below
-the top card, with a +N count. Tap a stack to expand a scrollable vertical list;
-The top card keeps one view and glass surface while older cards fade in below;
-it stays visible while those older cards scroll. Show less collapses the stack.
-Tap a single/expanded card to open its existing Hybrid
-detail route and mark it read. Disabled/unavailable modules keep the existing
-web fallback, Alarms keep their existing route, and unknown routes remain unread.
+Pending banners form one newest-first stack. The stack-count button expands or
+collapses older cards; tapping a notification always opens its module and marks
+it read. The tray button opens history directly and remains available after banners
+disappear while saved history exists. Disabled/unavailable modules
+retain their web fallback, Alarms retain their route, and unknown routes stay
+unread. Expanded stacks pause reading time and let older cards scroll.
 
-Swipe right to hide a banner, individually when expanded. The card tracks the
-finger, resists leftward drags and springs back on a short drag. A horizontal
-90-point right drag or a projected rightward fling dismisses it off the edge.
-There is no close button; VoiceOver retains a Dismiss action. Banner dismissal,
-like timeout, hides presentation only and preserves unread pull-down history;
-explicit Clear actions in history still use the existing dismiss API.
+Swipe right or tap × to hide a banner. Both preserve its saved history and unread
+state; clearing in history uses the existing dismiss API. Dragging keeps the
+existing directional resistance, spring return and velocity-aware dismissal.
+Persistent app-update notices have no dismiss button, swipe or clear action;
+they remain until the installed release is current.
+All icon controls have accessible names; history also offers native swipe and
+context-menu actions.
 
 Normal/low banners last five visible seconds, high lasts ten, and critical
 remains until acted on. Covered items retain their full reading time. Touching
@@ -1383,18 +1385,23 @@ source copy and derived data were removed from the shared mini after export.
 
 
 
-## Pull-down Notification Center (WWW-60)
+## Notification Center v2
 
 Pull down at least 60 points from the top 24-point edge strip to open history
 above Home, Classic or a presented native controller. The edge also exposes a
-VoiceOver activation action. Swipe up on the header or bottom handle to close;
-the Close button and accessibility escape action do the same. Scrolling the
+VoiceOver activation action. The tray button below incoming banners also opens
+history. The inbox is a trailing 600-point panel (760 at accessibility sizes),
+leaving the current app visible. It uses a floating system glass header above a neutral reading surface;
+notification rows do not add extra glass. Swipe up on the header or bottom handle to close;
+the up-chevron, tapping outside the inbox and accessibility escape do the same. Scrolling the
 list keeps history open. Opening history pauses banner reading time and hides
 the banner stack until history closes.
 
 Each module initially exposes its highest-priority/newest notification. Tap the
 module header to expand or collapse older items. Swipe a row left to Clear,
-use its accessible Clear action, clear one group, or Clear All. Server records
+use its accessible Clear action or context menu, or tap × beside a source to
+clear its group. The header × clears the inbox; the up-chevron closes it without
+clearing. Single-item groups have no disclosure chevron. Server records
 use the existing authenticated `notifications.dismiss` / `notifications.dismissAll`
 procedures (the WWW-58 HTTP equivalents); group clear dismisses that group's
 IDs individually. Failed requests retain affected history and show an error.

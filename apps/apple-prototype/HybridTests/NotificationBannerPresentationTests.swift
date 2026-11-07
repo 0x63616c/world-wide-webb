@@ -2,6 +2,23 @@ import XCTest
 @testable import Panel
 
 @MainActor final class NotificationBannerPresentationTests: XCTestCase {
+    func testAgeUsesOnlyLargestCompletedUnit() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1))!
+        for (elapsed, expected) in [
+            (-1.0, DateComponents()), (59, DateComponents()),
+            (60, DateComponents(minute: 1)), (3599, DateComponents(minute: 59)),
+            (3600, DateComponents(hour: 1)), (7199, DateComponents(hour: 1)),
+            (86399, DateComponents(hour: 23)), (86400, DateComponents(day: 1)),
+            (604800, DateComponents(weekOfMonth: 1)),
+            (31 * 86400, DateComponents(month: 1)),
+            (365 * 86400, DateComponents(year: 1))
+        ] {
+            XCTAssertEqual(NotificationAge.components(from: start, to: start + elapsed, calendar: calendar), expected)
+        }
+    }
+
     func testRightDragAndFlingOnly() {
         XCTAssertTrue(NotificationBannerGesture.dismisses(x: 90, y: 5))
         XCTAssertTrue(NotificationBannerGesture.dismisses(x: 25, y: 3, predictedX: 220))
