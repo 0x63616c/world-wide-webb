@@ -1331,6 +1331,8 @@ unread. Expanded stacks pause reading time and let older cards scroll.
 Swipe right or tap × to hide a banner. Both preserve its saved history and unread
 state; clearing in history uses the existing dismiss API. Dragging keeps the
 existing directional resistance, spring return and velocity-aware dismissal.
+Persistent app-update notices have no dismiss button, swipe or clear action;
+they remain until the installed release is current.
 All icon controls have accessible names; history also offers native swipe and
 context-menu actions.
 

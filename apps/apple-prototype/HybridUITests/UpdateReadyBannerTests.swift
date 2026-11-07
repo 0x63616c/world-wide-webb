@@ -11,6 +11,7 @@ final class UpdateReadyBannerTests: XCTestCase {
             app.launchModuleFromHome()
             let banner = app.buttons.matching(identifier: "notification-banner-updates").firstMatch
             XCTAssertTrue(banner.waitForExistence(timeout: 30))
+            XCTAssertFalse(app.buttons["notification-dismiss-updates"].exists)
             XCTAssertTrue(app.staticTexts["Build 999999 is available in TestFlight."].exists)
             banner.swipeRight()
             XCTAssertTrue(banner.exists)

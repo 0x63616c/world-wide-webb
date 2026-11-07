@@ -227,8 +227,8 @@ private struct NotificationBanner: View {
             }
             if !item.isPersistentUpdate {
                 NotificationIconButton(label: "Dismiss \(source.name) banner", symbol: "xmark", action: dismiss)
-                .padding(.trailing, 8).padding(.top, 8)
-                .accessibilityIdentifier("notification-dismiss-\(item.sourceModule)")
+                    .padding(.trailing, 8).padding(.top, 8)
+                    .accessibilityIdentifier("notification-dismiss-\(item.sourceModule)")
             }
         }
         .foregroundStyle(.primary)

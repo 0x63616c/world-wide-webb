@@ -51,11 +51,14 @@ final class NotificationBannerTests: XCTestCase {
         app.launch()
         let collapse = app.buttons["notification-stack-collapse"]
         XCTAssertTrue(collapse.waitForExistence(timeout: 20))
-        // All fixtures are normal priority (five seconds); expanded reading time is unbounded.
+        // Ordinary fixtures have a five-second timer; expanded reading time is unbounded.
         try? await Task.sleep(for: .seconds(6))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 3)
         collapse.tap()
-        XCTAssertTrue(app.buttons["notification-banner-updates"].waitForNonExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["notification-banner-updates"].exists)
+        XCTAssertFalse(app.buttons["notification-dismiss-updates"].exists)
+        app.buttons["notification-stack-expand"].tap()
+        XCTAssertTrue(app.buttons["notification-banner-alarms"].isHittable)
     }
 
     @MainActor func testSingleDeepLink() {
@@ -126,11 +129,12 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testReduceMotionAndAccessibilityText() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-notificationCapture", "single", "-notificationReduceMotion", "-notificationHold",
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1",
+            "-notificationSamples", "-notificationReduceMotion", "-notificationHold",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
-        let banner = app.buttons["notification-banner-updates"]
+        let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
         XCTAssertTrue(banner.isHittable)
         capture("notification-accessibility-reduce-motion", app)
