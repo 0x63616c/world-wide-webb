@@ -62,21 +62,25 @@ struct WeatherAtmosphere: View {
                                 }
                             }
                         }
-                        if rain || snow {
+                        if (rain || snow) && canvas.width > 0 {
                             for index in 0..<120 {
                                 let x = sample(index, 11) * canvas.width
                                 let offset = sample(index, 12)
                                 let speed = snow ? 0.025 + sample(index, 13) * 0.025 : 0.35 + sample(index, 13) * 0.35
-                                let y = (offset + time * speed).truncatingRemainder(dividingBy: 1) * (canvas.height + 40) - 20
+                                let progress = (offset + time * speed).truncatingRemainder(dividingBy: 1)
+                                let y = progress * (canvas.height + 40) - 20
                                 if snow {
                                     let size = 2 + sample(index, 14) * 3
                                     context.fill(Path(ellipseIn: CGRect(x: x + sin(time * 0.7 + offset * 10) * 12, y: y, width: size, height: size)), with: .color(.white.opacity(0.45)))
                                 } else {
                                     let length = 10 + sample(index, 14) * 23
                                     let alpha = 0.08 + sample(index, 15) * 0.19
+                                    // Match the drop's path to the angle of its streak.
+                                    let drift = (x - progress * (canvas.height + 40) * 0.22).truncatingRemainder(dividingBy: canvas.width)
+                                    let rainX = drift < 0 ? drift + canvas.width : drift
                                     var streak = Path()
-                                    streak.move(to: CGPoint(x: x, y: y))
-                                    streak.addLine(to: CGPoint(x: x - length * 0.22, y: y + length))
+                                    streak.move(to: CGPoint(x: rainX, y: y))
+                                    streak.addLine(to: CGPoint(x: rainX - length * 0.22, y: y + length))
                                     context.stroke(streak, with: .color(.white.opacity(alpha)), lineWidth: 0.6 + sample(index, 16) * 0.5)
                                 }
                             }
