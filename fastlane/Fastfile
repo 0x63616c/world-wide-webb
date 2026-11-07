@@ -33,6 +33,15 @@ end
 
 default_platform(:ios)
 platform :ios do
+  desc "Enable required capabilities on Folding identifiers; preserve existing services"
+  lane :configure_capabilities do
+    begin
+      UI.message(JSON.pretty_generate(FoldingAppleAccount.configure_capabilities))
+    rescue StandardError => error
+      UI.user_error!("Apple capability setup failed (#{error.class}); inspect inventory before retrying")
+    end
+  end
+
   desc "Read Folding Apple app and bundle registration state without changing it"
   lane :apple_inventory do
     begin

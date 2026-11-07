@@ -48,3 +48,20 @@ No simulator result proves live CloudKit, device App Attest or physical tracking
 
 References: [Fastlane API-key support](https://docs.fastlane.tools/app-store-connect-api/),
 [create_app_online](https://docs.fastlane.tools/actions/create_app_online/).
+
+## Capability configuration
+
+Fastlane `ios configure_capabilities` successfully enabled and read back App
+Groups, Push Notifications, iCloud (Xcode 6 compatible) and Sign in with Apple
+(primary app) on both app identifiers. In-App Purchase was already enabled.
+Both widget identifiers now have App Groups enabled. No existing services were
+removed. Group/container registration and association still remain pending.
+
+The App Attest creation request failed with `Spaceship::UnexpectedResponse`;
+subsequent inventory showed App Groups had succeeded before that failure. The
+lane now configures the supported services independently; App Attest remains an
+explicit separate setup requirement, not silently considered enabled.
+
+Apple account references were saved in the Folding vault as “Folding Apple
+account references”. This references the existing team credential rather than
+copying its secret material into another item.

@@ -32,7 +32,8 @@ module FoldingAppleAccount
       bundles = ["bundle_id", "widget_bundle_id"].to_h do |kind|
         identifier = entry.fetch(kind)
         bundle = Spaceship::ConnectAPI::BundleId.find(identifier, client: client)
-        [kind, bundle && {"id" => bundle.id, "identifier" => bundle.identifier, "seed_id" => bundle.seed_id}]
+        [kind, bundle && {"id" => bundle.id, "identifier" => bundle.identifier, "seed_id" => bundle.seed_id,
+          "capabilities" => bundle.get_capabilities(client: client).map { |capability| {"type" => capability.capability_type, "settings" => capability.settings} }}]
       end
       [environment, {"app" => app && {"id" => app.id, "name" => app.name, "bundle_id" => app.bundle_id}, "bundles" => bundles}]
     end
@@ -51,6 +52,43 @@ module FoldingAppleAccount
           bundle = Spaceship::ConnectAPI::BundleId.find(identifier, client: client)
         end
         raise "Bundle registration was not confirmed" unless bundle && bundle.identifier == identifier
+      end
+    end
+    inventory(client: client)
+  end
+
+  # APP_ATTEST requires separate portal setup: its creation request failed through the public API.
+  # Enabling a capability does not register/associate its group or container.
+  # Never remove existing services or silently rewrite their settings.
+  def self.configure_capabilities(client: self.client)
+    app_services = {
+      "APP_GROUPS" => [], "PUSH_NOTIFICATIONS" => [],
+      "IN_APP_PURCHASE" => [],
+      "ICLOUD" => [{key: "ICLOUD_VERSION", options: [{key: "XCODE_6"}]}],
+      "APPLE_ID_AUTH" => [{key: "APPLE_ID_AUTH_APP_CONSENT", options: [{key: "PRIMARY_APP_CONSENT"}]}]
+    }
+    %w[production staging].each do |environment|
+      entry = config.fetch(environment)
+      {"bundle_id" => app_services, "widget_bundle_id" => {"APP_GROUPS" => []}}.each do |kind, services|
+        bundle = Spaceship::ConnectAPI::BundleId.find(entry.fetch(kind), client: client)
+        raise "Register bundle identifiers first" unless bundle
+        existing = bundle.get_capabilities(client: client).map(&:capability_type)
+        services.each do |type, settings|
+          bundle.create_capability(type, settings: settings, client: client) unless existing.include?(type)
+        end
+        actual = bundle.get_capabilities(client: client)
+        raise "Capability readback incomplete" unless (services.keys - actual.map(&:capability_type)).empty?
+        services.each do |type, settings|
+          next if settings.empty?
+          observed = actual.find { |capability| capability.capability_type == type }.settings || []
+          settings.each do |setting|
+            value = observed.find { |item| item["key"] == setting[:key] }
+            options = value && value["options"] || []
+            expected = setting[:options].map { |option| option[:key] }
+            selected = options.select { |option| option["enabled"] != false }.map { |option| option["key"] }
+            raise "Capability settings need explicit reconciliation" unless (expected - selected).empty?
+          end
+        end
       end
     end
     inventory(client: client)
