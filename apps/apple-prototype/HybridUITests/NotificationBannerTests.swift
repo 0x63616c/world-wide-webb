@@ -94,13 +94,13 @@ final class NotificationBannerTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
         app.openHomeModule("climate")
-        XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["climate-value"].waitForExistence(timeout: 20))
         let tree = XCTAttachment(string: app.debugDescription)
         tree.name = "presented-controller-accessibility"
         tree.lifetime = .keepAlways
         add(tree)
-        // UIKit retains the covered host in AX during a full-screen presentation.
-        // Require one reachable banner and target that presentation, not the covered host.
+        // Inline app destinations share the root notification presenter.
+        // Require one reachable banner above the app's navigation controls.
         let banners = app.buttons.matching(identifier: "notification-banner-lights")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate { _, _ in
