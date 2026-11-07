@@ -168,21 +168,49 @@ fn remaining(deadline: Instant) -> Option<Duration> {
         .map(|remaining| remaining.min(Duration::from_secs(10)))
 }
 
-fn trusted_socket(socket: &Path, owner: u32) -> bool {
-    let Ok(metadata) = fs::symlink_metadata(socket) else {
-        return false;
-    };
-    let Some(parent) = socket.parent() else {
-        return false;
-    };
-    let Ok(parent) = fs::metadata(parent) else {
-        return false;
-    };
-    metadata.file_type().is_socket()
-        && metadata.uid() == owner
-        && parent.is_dir()
-        && parent.uid() == owner
-        && parent.mode() & 0o022 == 0
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SocketIdentity {
+    device: u64,
+    inode: u64,
+    changed_seconds: i64,
+    changed_nanoseconds: i64,
+}
+
+fn trusted_socket(socket: &Path, owner: u32) -> Option<SocketIdentity> {
+    let metadata = fs::symlink_metadata(socket).ok()?;
+    let parent = fs::metadata(socket.parent()?).ok()?;
+    if !metadata.file_type().is_socket()
+        || metadata.uid() != owner
+        || !parent.is_dir()
+        || parent.uid() != owner
+        || parent.mode() & 0o022 != 0
+    {
+        return None;
+    }
+    Some(SocketIdentity {
+        device: metadata.dev(),
+        inode: metadata.ino(),
+        changed_seconds: metadata.ctime(),
+        changed_nanoseconds: metadata.ctime_nsec(),
+    })
+}
+
+fn read_status(
+    executable: &Path,
+    socket: &Path,
+    owner: u32,
+    deadline: Instant,
+) -> Option<(SocketIdentity, std::process::Output)> {
+    let identity = trusted_socket(socket, owner)?;
+    let output = crate::process::capture_status(
+        &mut command(executable, "status", socket),
+        remaining(deadline)?,
+    )
+    .ok()?;
+    if !output.status.success() || trusted_socket(socket, owner) != Some(identity) {
+        return None;
+    }
+    Some((identity, output))
 }
 
 fn command(executable: &Path, operation: &str, socket: &Path) -> Command {
@@ -204,31 +232,41 @@ fn request_fetch(
     executable: &Path,
     socket: &Path,
     status: &std::process::Output,
-    attempted: &mut bool,
+    identity: SocketIdentity,
+    attempted: &mut Option<SocketIdentity>,
     deadline: Instant,
-) {
-    if *attempted
+) -> bool {
+    if *attempted == Some(identity)
         || !status.status.success()
-        || !serde_json::from_slice::<serde_json::Value>(&status.stdout)
-            .is_ok_and(|value| value.is_object())
+        || !serde_json::from_slice::<serde_json::Value>(&status.stdout).is_ok_and(|value| {
+            value
+                .pointer("/fetcher/git_repository_status/remotes")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(|remotes| {
+                    remotes.iter().any(|remote| {
+                        remote.get("name").and_then(serde_json::Value::as_str) == Some("origin")
+                    })
+                })
+        })
     {
-        return;
+        return false;
     }
     let Some(timeout) = remaining(deadline) else {
-        return;
+        return false;
     };
     // The scheduler waits a full poll interval on startup. Ask Comin to fetch
-    // once after its RPC endpoint responds, without duplicating its controller.
-    // An ambiguous request must not cause repeated fetches in this wait loop.
-    *attempted = true;
+    // once per daemon socket, including Comin's normal post-activation restart.
+    // An ambiguous request must not repeat against the same socket instance.
+    *attempted = Some(identity);
     let _ = crate::process::run_silent(&mut command(executable, "fetch", socket), timeout);
+    true
 }
 
 fn probe(
     repository: &str,
     host: &str,
     since: i64,
-    attempted: &mut bool,
+    attempted: &mut Option<SocketIdentity>,
     deadline: Instant,
 ) -> Option<String> {
     let current = Path::new("/run/current-system");
@@ -255,24 +293,15 @@ fn probe(
     let executable =
         trusted_store_path(&system.join("sw/bin/comin"), Path::new("/nix/store"), 0).ok()?;
     let socket = Path::new("/var/lib/homelab/comin.sock");
-    if !trusted_socket(socket, 0) {
-        return None;
-    }
-    let output = crate::process::capture_status(
-        &mut command(&executable, "status", socket),
-        remaining(deadline)?,
-    )
-    .ok()?;
-    if !output.status.success() || current.canonicalize().ok()? != system {
-        return None;
-    }
-    let was_attempted = *attempted;
-    request_fetch(&executable, socket, &output, attempted, deadline);
-    // Never accept the status snapshot taken before our fetch request.
-    if !was_attempted && *attempted {
-        return None;
-    }
+    let (identity, output) = read_status(&executable, socket, 0, deadline)?;
     if current.canonicalize().ok()? != system {
+        return None;
+    }
+    // Never accept the status snapshot taken before our fetch request.
+    if request_fetch(&executable, socket, &output, identity, attempted, deadline) {
+        return None;
+    }
+    if current.canonicalize().ok()? != system || trusted_socket(socket, 0) != Some(identity) {
         return None;
     }
     reconciled(
@@ -290,7 +319,7 @@ pub(crate) fn wait_for_reconciliation(
     since: i64,
 ) -> Result<String, Error> {
     let deadline = Instant::now() + Duration::from_secs(600);
-    let mut attempted = false;
+    let mut attempted = None;
     loop {
         if let Some(revision) = probe(repository, host, since, &mut attempted, deadline) {
             return Ok(revision);
@@ -320,35 +349,142 @@ mod tests {
         fs::write(&executable, b"#!/bin/sh\nprintf '%s\n' \"$@\" >> \"$0.calls\"\nprintf 'synthetic sensitive vendor output'\nexit 1\n").unwrap();
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
         let socket = directory.path().join("socket");
-        let mut attempted = false;
+        let _listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+        let owner = rustix::process::geteuid().as_raw();
+        let identity = trusted_socket(&socket, owner).unwrap();
+        let mut attempted = None;
         let deadline = Instant::now() + Duration::from_secs(10);
         let mut status = std::process::Output {
             status: std::process::ExitStatus::from_raw(256),
             stdout: b"{}".to_vec(),
             stderr: b"synthetic secret".to_vec(),
         };
-        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
-        assert!(!attempted);
-        status.status = std::process::ExitStatus::from_raw(0);
-        status.stdout = b"not JSON".to_vec();
-        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
-        assert!(!attempted);
-        status.stdout = b"{}".to_vec();
         request_fetch(
             &executable,
             &socket,
             &status,
+            identity,
+            &mut attempted,
+            deadline,
+        );
+        assert!(attempted.is_none());
+        status.status = std::process::ExitStatus::from_raw(0);
+        status.stdout = b"not JSON".to_vec();
+        request_fetch(
+            &executable,
+            &socket,
+            &status,
+            identity,
+            &mut attempted,
+            deadline,
+        );
+        assert!(attempted.is_none());
+        for uninitialized in [
+            json!({}),
+            json!({"fetcher":{"git_repository_status":null}}),
+            json!({"fetcher":{"git_repository_status":{"remotes":[]}}}),
+            json!({"fetcher":{"git_repository_status":{"remotes":[{"name":"other"}]}}}),
+        ] {
+            status.stdout = serde_json::to_vec(&uninitialized).unwrap();
+            assert!(!request_fetch(
+                &executable,
+                &socket,
+                &status,
+                identity,
+                &mut attempted,
+                deadline
+            ));
+            assert!(attempted.is_none());
+        }
+        status.stdout = serde_json::to_vec(
+            &json!({"fetcher":{"git_repository_status":{"remotes":[{"name":"origin"}]}}}),
+        )
+        .unwrap();
+        request_fetch(
+            &executable,
+            &socket,
+            &status,
+            identity,
             &mut attempted,
             Instant::now(),
         );
-        assert!(!attempted);
-        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
-        assert!(attempted);
-        request_fetch(&executable, &socket, &status, &mut attempted, deadline);
+        assert!(attempted.is_none());
+        request_fetch(
+            &executable,
+            &socket,
+            &status,
+            identity,
+            &mut attempted,
+            deadline,
+        );
+        assert_eq!(attempted, Some(identity));
+        request_fetch(
+            &executable,
+            &socket,
+            &status,
+            identity,
+            &mut attempted,
+            deadline,
+        );
         assert_eq!(
             fs::read_to_string(executable.with_extension("calls")).unwrap(),
             format!("fetch\n--unix-socket-path\n{}\n", socket.display())
         );
+        fs::remove_file(&socket).unwrap();
+        let _replacement = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+        let next_identity = trusted_socket(&socket, owner).unwrap();
+        assert_ne!(next_identity, identity);
+        assert!(request_fetch(
+            &executable,
+            &socket,
+            &status,
+            next_identity,
+            &mut attempted,
+            deadline
+        ));
+        assert!(!request_fetch(
+            &executable,
+            &socket,
+            &status,
+            next_identity,
+            &mut attempted,
+            deadline
+        ));
+        assert_eq!(
+            fs::read_to_string(executable.with_extension("calls")).unwrap(),
+            format!("fetch\n--unix-socket-path\n{}\n", socket.display()).repeat(2)
+        );
+    }
+
+    #[test]
+    fn status_from_replaced_socket_is_discarded() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::os::unix::net::UnixListener;
+        let directory = tempfile::tempdir().unwrap();
+        let socket = directory.path().join("socket");
+        let _first = UnixListener::bind(&socket).unwrap();
+        let _second = UnixListener::bind(socket.with_extension("replacement")).unwrap();
+        let executable = directory.path().join("comin");
+        fs::write(
+            &executable,
+            b"#!/bin/sh\n/bin/mv \"$4.replacement\" \"$4\"\nprintf '{}'\n",
+        )
+        .unwrap();
+        // Use a matching adjacent socket name; both listeners remain alive so
+        // inode reuse cannot make the replacement look like the old endpoint.
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+        let owner = rustix::process::geteuid().as_raw();
+        let before = trusted_socket(&socket, owner).unwrap();
+        assert!(
+            read_status(
+                &executable,
+                &socket,
+                owner,
+                Instant::now() + Duration::from_secs(10)
+            )
+            .is_none()
+        );
+        assert_ne!(trusted_socket(&socket, owner), Some(before));
     }
 
     #[test]
@@ -363,16 +499,16 @@ mod tests {
         let alias = directory.path().join("run");
         symlink(&run, &alias).unwrap();
         let socket = alias.join("comin.sock");
-        assert!(!trusted_socket(&socket, owner));
+        assert!(trusted_socket(&socket, owner).is_none());
         let _listener = UnixListener::bind(&socket).unwrap();
-        assert!(trusted_socket(&socket, owner));
-        assert!(!trusted_socket(&socket, owner + 1));
+        assert!(trusted_socket(&socket, owner).is_some());
+        assert!(trusted_socket(&socket, owner + 1).is_none());
         let symlink_socket = alias.join("link.sock");
         symlink(&socket, &symlink_socket).unwrap();
-        assert!(!trusted_socket(&symlink_socket, owner));
+        assert!(trusted_socket(&symlink_socket, owner).is_none());
         // Darwin's native /private/var/run is 0775; it must remain rejected.
         fs::set_permissions(&run, fs::Permissions::from_mode(0o775)).unwrap();
-        assert!(!trusted_socket(&socket, owner));
+        assert!(trusted_socket(&socket, owner).is_none());
     }
 
     fn status() -> serde_json::Value {
