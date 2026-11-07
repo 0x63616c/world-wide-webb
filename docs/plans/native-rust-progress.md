@@ -7,11 +7,11 @@ No remote project/issues, PR, push, deploy or OpenTofu apply has been performed.
 ## Packages
 
 1. **Foundation and preservation — in progress.** Precautionary backup verified on NAS;
-   isolated restore/import rehearsal and full workload baseline still required. Plan and instructions committed.
+   isolated restore/import rehearsal and initial workload baseline completed. Final frozen-writer import and after measurements remain.
 2. **Complete replacement — in progress.** Primary agent owns all implementation; agents are reserved for final review.
 3. **Delivery and cutover — not started.** Local CI redesign follows complete layout; hosted checks and
    production cutover occur only at final publication.
-4. **Cleanup and evidence — not started.** No old implementation removed until replacement coverage proven.
+4. **Cleanup and evidence — in progress.** Web/Expo/TypeScript backend and Pulumi code removed locally; Swift moved to apple/. Rust container/release/recovery and standalone hooks are implemented. Docs and final evidence remain.
 
 ## Ownership
 
@@ -51,3 +51,5 @@ Complete the working faithful iPad app against Rust, verified database and Photo
 and removal of the old stack first. iPhone/Duo and Mac remain important and in scope, but their
 remaining adaptation and full interaction testing come last, after the core migration and cleanup.
 Do not delay core implementation for phone or Mac polish. Final review and publication follow.
+
+Latest local evidence: production iPad target builds after relocation; Swift REST round trip against an isolated Rust process passes. Rust 21 tests plus strict Clippy pass; backup/release operations 30 tests and migration tooling 11 tests pass. The older Swift wire fixtures/assertions are partly migrated and the full Swift suite is not yet green. No push or live cutover.
