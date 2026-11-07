@@ -14,6 +14,17 @@ struct TideClockDial: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     private var glass: Glass {
+        #if DEBUG
+        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-tideGlassPreview"),
+           ProcessInfo.processInfo.arguments.indices.contains(index + 1) {
+            switch ProcessInfo.processInfo.arguments[index + 1] {
+            case "clear": return .clear
+            case "tinted": return .clear.tint(.white.opacity(0.15))
+            case "regular": return .regular
+            default: break
+            }
+        }
+        #endif
         return .clear.tint(Color(red: 0.70, green: 0.91, blue: 1).opacity(0.65))
     }
 

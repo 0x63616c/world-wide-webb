@@ -22,9 +22,9 @@ struct PresenceClockFace: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: reduceMotion || face == .tide ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
-            let night = previewNight || SolarClock.appearanceIsNight(at: now, sunrise: store.weather.sunrise,
+            let night = !previewDay && (previewNight || SolarClock.appearanceIsNight(at: now, sunrise: store.weather.sunrise,
                 sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
-                weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil)
+                weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil))
             ZStack {
                 switch face {
                 case .green:
@@ -39,6 +39,14 @@ struct PresenceClockFace: View {
     private var previewNight: Bool {
         #if DEBUG
         ProcessInfo.processInfo.arguments.contains("-previewNightClock")
+        #else
+        false
+        #endif
+    }
+
+    private var previewDay: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-previewDayClock")
         #else
         false
         #endif
