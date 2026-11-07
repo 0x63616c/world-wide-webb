@@ -27,27 +27,7 @@ Nix runs on the target Mac. You do not need Nix on your personal laptop.
 
 ## How it works
 
-```mermaid
-flowchart TD
-  subgraph Client[Your laptop]
-    CLI[homelab wizard]
-    Vault[1Password]
-    CLI <-->|Credentials and verified key backups| Vault
-  end
-  Git[Your configuration repository]
-  CLI -->|Open encrypted enrollment PR| Git
-  Git -->|You review and merge| Approved[Approved commit]
-  CLI -->|Set up over trusted SSH| Mac
-  Approved --> Mac
-  subgraph Target[Homelab Mac]
-    Mac[Nix and nix-darwin]
-    Services[launchd services and Tailscale]
-    Updates[Comin]
-    Mac --> Services
-    Updates -->|Apply configuration| Mac
-  end
-  Git -->|Later merges to main| Updates
-```
+![Your laptop enrolls each Mac once. Each node runs SSH, Tailscale, Nix, nix-darwin and Comin. Comin pulls configuration from your private GitHub repo. Optional containers and runner VMs are configured separately.](docs/images/architecture.svg)
 
 The public CLI contains the installer and tests. **Your own repository contains
 hosts, services, Nix configuration and encrypted secrets.** This enrollment flow
