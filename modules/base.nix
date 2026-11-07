@@ -29,10 +29,10 @@ in {
       casks = [ ];
     };
     system.activationScripts.preActivation.text = lib.mkBefore ''
-      if [ '${if cfg.authorizedKeys != [] then "yes" else "no"}' != yes ]; then
+      ${lib.optionalString (cfg.authorizedKeys == []) ''
         echo 'Activation blocked: configure an administrator SSH public key first.' >&2
         exit 1
-      fi
+      ''}
       if [ "$(/usr/bin/id -u ${lib.escapeShellArg cfg.adminUser})" != '${toString cfg.adminUID}' ]; then
         echo 'Existing administrator UID differs from reviewed configuration.' >&2
         exit 1
