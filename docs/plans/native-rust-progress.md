@@ -2,7 +2,8 @@
 
 Approved 2026-11-07. Source plan: [native-rust-reset.md](native-rust-reset.md).
 All code remains local until implementation, verification and one independent final review are complete.
-No push, PR, GitHub project/issues, production deployment or real OpenTofu apply has occurred.
+Final independent review is complete and both findings are fixed. Final publication is beginning;
+production deployment and real OpenTofu ownership import/apply remain outstanding.
 
 ## Implemented locally
 
@@ -19,15 +20,19 @@ No push, PR, GitHub project/issues, production deployment or real OpenTofu apply
 
 ## Verification recorded
 
-- Rust: strict Clippy/format checks and 22 tests pass (3 unit, 19 HTTP/integration).
+- Rust: strict Clippy/format checks and 23 tests pass (3 unit, 20 HTTP/integration, including the delayed-alarm regression).
 - Python: 49 tests pass (30 operations, 19 migration/CI/provisioning), including synthetic credential handling.
 - Swift package: all 101 tests pass.
 - Actual isolated Swift-to-Rust read/mutation/auth and Photo Booth upload/list/download bytes pass.
 - OpenTofu: fmt/validate and both mocked route tests pass. Isolated backend proof passes encryption,
   competing-writer lock rejection, wrong-key rejection and encrypted backup restore.
-- Rust/Python/shell/workflow lint checks pass. Swift formatting is applied; final full check follows fixes.
-- Production iPad target compiles. Native unit tests are being converted from obsolete wire assertions and
-  fixture locations; final suite is not yet green. Full interaction/device checks remain outstanding.
+- Rust/Python/Swift/shell/workflow lint checks pass. Final independent source review found an alarm occurrence
+  identity bug and device walk provenance bug; both are fixed. The reviewer inspected the alarm fix; actual
+  Swift-to-Rust requests now verify all three device source values.
+- Production iPad target compiles. The full 258-test run passed 256 tests; the two grid assertions were fixed
+  and all eight layout tests passed on rerun. Both selected iPad UI tests passed (clock/launcher and live feature
+  navigation). Duo clock/launcher UI test passed. Mac Catalyst builds, including the device-provenance fix.
+  Physical-device connectivity/background behavior and broader interaction acceptance remain outstanding.
 - Local Docker is unavailable. The required hosted image job must prove actual container runtime/persistence
   before release. Production state import and real device enrollment are not certified by isolated tests.
 

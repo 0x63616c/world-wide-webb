@@ -413,8 +413,8 @@ to open a draft PR early and push batches. The original review predates this wor
 
 ## References
 
-- Repo: infra/cloudflare/program.ts, deploy/mini/backup.py, docs/runbooks/mini-backups.md,
-  docs/observability.md, .github/workflows/*.yml, apps/apple-prototype/project.yml.
+- Current repo: infra/cloudflare/main.tf, deploy/mini/backup.py, docs/runbooks/native-rust-cutover.md,
+  .github/workflows/*.yml, apple/project.yml. Original inventory remains in Git history.
 - https://opentofu.org/docs/cli/import/
 - https://opentofu.org/docs/language/state/remote/
 - https://opentofu.org/docs/language/state/encryption/
