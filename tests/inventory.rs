@@ -394,3 +394,54 @@ fn configuration_binding_is_durable_preserves_agent_and_rejects_stale_route() {
     fs::write(&path, serde_json::to_vec(&invalid).unwrap()).unwrap();
     assert_eq!(load(&path), Err(InventoryError::Invalid));
 }
+
+#[test]
+fn reviewed_git_connection_updates_cache_without_losing_other_profiles() {
+    use homelab_client::inventory::save_connection;
+    let directory = private_directory();
+    let path = directory.path().join("inventory.json");
+    let original = profile("build-mac");
+    let other = profile("unrelated-alias");
+    add(&path, original.clone()).unwrap();
+    add(&path, other.clone()).unwrap();
+    let mut updated = original.clone();
+    updated.user = "git-admin".into();
+    updated.configuration_host = Some("build-mac".into());
+    assert_eq!(
+        save_connection(&path, Some(&original), updated.clone()).unwrap(),
+        updated
+    );
+    assert_eq!(load(&path).unwrap(), [updated.clone(), other]);
+    assert_eq!(
+        save_connection(&path, Some(&original), updated),
+        Err(InventoryError::Changed)
+    );
+}
+
+#[test]
+fn connection_save_rechecks_bindings_added_since_review() {
+    use homelab_client::inventory::save_connection;
+    let directory = private_directory();
+    let path = directory.path().join("inventory.json");
+    let mut proposed = profile("build-mac");
+    proposed.configuration_host = Some("build-mac".into());
+    let mut competitor = profile("another-alias");
+    competitor.configuration_host = Some("build-mac".into());
+    add(&path, competitor.clone()).unwrap();
+    assert_eq!(
+        save_connection(&path, None, proposed.clone()),
+        Err(InventoryError::Changed)
+    );
+    assert_eq!(load(&path).unwrap(), [competitor]);
+    let second = directory.path().join("second.json");
+    let mut saved = save_connection(&second, None, proposed.clone()).unwrap();
+    saved.address = "reviewed-new-address.local".into();
+    save_connection(&second, Some(&proposed), saved.clone()).unwrap();
+    let mut renamed = saved.clone();
+    renamed.name = "different-journal-name".into();
+    assert_eq!(
+        save_connection(&second, Some(&saved), renamed),
+        Err(InventoryError::Changed)
+    );
+    assert_eq!(load(&second).unwrap(), [saved]);
+}

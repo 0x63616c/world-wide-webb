@@ -18,19 +18,25 @@ The wizard does not change tailnet access rules.
 
 ## Three stages
 
-**Connect.** Select the host. The wizard checks SSH, offers first-use host trust
+**Choose & connect.** Open your GitHub configuration repository once, then select
+a host from its manifest. Its name and administrator come from Git. For a new
+connection, enter only its address; saved addresses and SSH identities are reused.
+Select a saved connection and press **e** to correct its address. Saving returns
+to the host list without connecting or changing its SSH identity.
+The wizard checks SSH, offers first-use host trust
 and public-key installation when needed, and reads macOS/account/storage facts.
 Changed saved host keys are blocked. SSH-agent keys stay in your agent.
 
-**Prepare.** Attach the configuration repository once. The wizard creates or
+**Approve setup.** One approval covers installing missing Command Line Tools and
+preparing this host. The wizard creates or
 restores age identities, saves and verifies their backups in 1Password, and
 encrypts the host's enrollment key. It generates a Git key on the target and
 registers its public half as a read-only deploy key using your client GitHub login.
 No 1Password credential or GitHub account token is installed on the target.
 
-**Review & set up.** The CLI uses the helper installed alongside it and the exact
-configuration commit you approve. Review the setup once; the wizard opens an
-enrollment PR. After you merge it, setup installs that exact configuration on the
+**Merge & verify.** The wizard opens an enrollment PR. The CLI uses the helper
+installed alongside it and the exact configuration commit you approve.
+After you merge the PR, setup installs that exact configuration on the
 target. Nix is installed on the target, not your client. Evaluated Nix facts must
 match the reviewed manifest.
 
@@ -42,13 +48,22 @@ Tailscale check-mode policy may also request browser approval.
 
 ## If something stops
 
+Previously saved aliases, addresses, SSH identities and recovery files are kept.
+A saved approved setup retains its exact Git commit even if `main` changes or
+removes that host. These rows show **Resume**, including completed setups retained
+for verification. A host absent from a successfully loaded `main` also shows
+**Saved setup (not in main)**; it does not become a new desired host. Ambiguous old
+connections stop for review rather than being silently rebound. A changed Git
+administrator requires connection review before SSH.
+
 | Situation | Next step |
 | --- | --- |
 | Command Line Tools installation stopped | Read the installation error; reopen the same setup to verify completion. An uncertain installation is not started again blindly. |
-| SSH unavailable | Check address, Remote Login and saved host identity |
+| SSH unavailable | Use **e Edit address** if the route is wrong; otherwise check Remote Login and saved host identity |
 | Vault locked | Unlock 1Password; retry the credential step |
 | Key issuance uncertain | Inspect Tailscale auth keys; do not issue another blindly |
 | Encryption failed | Read cleanup result; preserve identities and inspect local state |
+| Approved enrollment key expired | Preserve the saved attempt and inspect target bootstrap state before approving a replacement; setup does not silently renew an approved attempt |
 | Setup interrupted | Reopen the same saved host; the wizard resumes the saved attempt |
 | Restart not confirmed | Check administrator authentication and resume; do not reinstall |
 | Waiting for restart | Keep the Mac powered on; unlock FileVault locally if required |

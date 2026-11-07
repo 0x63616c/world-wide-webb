@@ -37,3 +37,5 @@ pub mod deploy_keys;
 pub mod package;
 
 pub mod developer_tools;
+
+pub mod repository_hosts;

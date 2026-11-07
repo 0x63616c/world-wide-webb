@@ -90,8 +90,19 @@ There is no dynamic plugin loader or provider-selection workflow.
 
 ## Local state
 
-Repository binding lives beside the private inventory in `repository.json`.
-It refuses to switch repositories silently. Existing connection profiles,
-SSH-agent identities and preparation files survive upgrades. If moving to a
+Git's manifest defines the host list, administrator accounts and desired state.
+The CLI keeps only the attached repository, connection addresses/SSH identities,
+and setup recovery records locally. There is no separately maintained host list.
+
+For compatibility, the connection cache remains at
+`~/.config/homelab/inventory.json`, beside `repository.json`. Existing aliases,
+SSH-agent identities and preparation files survive upgrades. An exact legacy
+host-name match is bound automatically; ambiguous matches are never guessed.
+Saved approved setups use their pinned Git revision rather than substituting
+`main`; a removed host remains available for recovery and is labeled accordingly.
+The **e Edit address** action changes only the connection route, not Git host facts
+or the selected SSH identity.
+
+Repository binding refuses to switch repositories silently. If moving to a
 second repository, migrate that state deliberately rather than reusing keys
 by matching host name alone.

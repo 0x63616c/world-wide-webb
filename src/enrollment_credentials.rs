@@ -32,6 +32,10 @@ pub enum Error {
     )]
     ExpiredStartedSetup,
     #[error(
+        "The saved approval's enrollment key has expired. No replacement was issued. Preserve this setup and review the target's bootstrap state before approving a replacement enrollment."
+    )]
+    ExpiredApprovedSetup,
+    #[error(
         "Encryption failed and enrollment-key cleanup could not be confirmed. Local state was preserved for recovery."
     )]
     Cleanup,
@@ -165,7 +169,8 @@ pub fn prepare(
     let (credentials, issuer) = tailscale_oauth::resolve_credentials(&executable, reference)?;
     session.bind_issuer(&issuer)?;
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
-    let retained = retire_expired(session, bootstrap_started, now, || {
+    let approved = provisioning::approved_installation(root, host)?.is_some();
+    let retained = retire_expired(session, bootstrap_started, approved, now, || {
         progress("Renewing the expired enrollment preparation");
         let proposal_path = root.join("hosts").join(host).join("proposal.json");
         if proposal_path
@@ -205,6 +210,7 @@ pub fn prepare(
 fn retire_expired(
     session: Session,
     bootstrap_started: bool,
+    approved: bool,
     now: i64,
     resolve_proposal: impl FnOnce() -> Result<(), Error>,
 ) -> Result<Option<Session>, Error> {
@@ -215,6 +221,9 @@ fn retire_expired(
     }
     if bootstrap_started {
         return Err(Error::ExpiredStartedSetup);
+    }
+    if approved {
+        return Err(Error::ExpiredApprovedSetup);
     }
     resolve_proposal()?;
     session.retire_for_renewal(now, INSTALLATION_MARGIN_SECONDS)?;
@@ -812,20 +821,26 @@ mod tests {
             })
             .unwrap();
         session.record_enrollment("key-old", 2000).unwrap();
-        let retained = retire_expired(session, true, 3000, || {
+        let retained = retire_expired(session, true, false, 3000, || {
             panic!("started setup must not resolve its PR")
         });
         assert!(matches!(retained, Err(Error::ExpiredStartedSetup)));
         assert!(original.ciphertext_path.exists());
         assert!(
-            retire_expired(open(), false, 3000, || Err(
+            retire_expired(open(), false, false, 3000, || Err(
                 crate::configuration_pr::Error::Unconfirmed.into()
             ))
             .is_err()
         );
         assert!(original.ciphertext_path.exists());
         assert!(open().details().completed);
-        let retired = retire_expired(open(), false, 3000, || {
+        assert!(matches!(
+            retire_expired(open(), false, true, 3000, || panic!(
+                "approved setup must not retire credentials"
+            )),
+            Err(Error::ExpiredApprovedSetup)
+        ));
+        let retired = retire_expired(open(), false, false, 3000, || {
             assert!(
                 original.ciphertext_path.exists(),
                 "resolve PR before moving preparation"

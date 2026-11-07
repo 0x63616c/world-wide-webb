@@ -52,6 +52,11 @@ impl Terminal {
             .arg(inventory)
             .args(arguments)
             .env("TERM", "xterm-256color")
+            .env("HOME", inventory.parent().unwrap().parent().unwrap())
+            .env(
+                "PATH",
+                inventory.parent().unwrap().parent().unwrap().join("bin"),
+            )
             .stdin(Stdio::from(slave.try_clone().unwrap()))
             .stdout(Stdio::from(slave.try_clone().unwrap()))
             .stderr(Stdio::from(slave.try_clone().unwrap()))
@@ -108,9 +113,10 @@ impl Terminal {
             assert!(Instant::now() < deadline, "menu did not exit");
             thread::sleep(Duration::from_millis(10));
         }
+        // PENDIN is a kernel input-reprocessing flag, not a user terminal mode.
         assert_eq!(
-            tcgetattr(&self.slave).unwrap().local_modes,
-            self.original_modes
+            tcgetattr(&self.slave).unwrap().local_modes & !LocalModes::PENDIN,
+            self.original_modes & !LocalModes::PENDIN
         );
     }
 }
@@ -122,86 +128,141 @@ impl Drop for Terminal {
     }
 }
 
-#[test]
-fn first_run_add_quit_and_reopen_restore_the_terminal() {
-    let directory = tempfile::tempdir().unwrap();
-    let inventory = directory.path().join("private/inventory.json");
-    let mut terminal = Terminal::start(&inventory);
-    terminal.until("Add the Mac you want to set up");
-    terminal.master.write_all(b"n").unwrap();
-    terminal.until("Add a host connection");
-    terminal
-        .master
-        .write_all(b"example\rexample.invalid\roperator\r\r")
+struct Fixture {
+    directory: tempfile::TempDir,
+    inventory: std::path::PathBuf,
+}
+impl Fixture {
+    fn new() -> Self {
+        use std::os::unix::fs::PermissionsExt;
+        use std::sync::OnceLock;
+        static BINARY: OnceLock<tempfile::TempDir> = OnceLock::new();
+        let binary = BINARY.get_or_init(|| {
+            let directory = tempfile::tempdir().unwrap();
+            let source = directory.path().join("gh.rs");
+            std::fs::write(&source, r#"
+                use std::{env,fs,process};
+                fn main() {
+                    let root=env::current_exe().unwrap().parent().unwrap().parent().unwrap().to_owned();
+                    let args:Vec<String>=env::args().skip(1).collect();
+                    assert_eq!(&args[..3], ["api", "--hostname", "github.com"]);
+                    assert!(args[3].starts_with("repos/example/config/"));
+                    if args[3].ends_with("/commits/main") {
+                        if root.join("main-unavailable").exists() { process::exit(1); }
+                        println!("{}", "b".repeat(40));
+                    } else if args[3].ends_with(&format!("?ref={}","a".repeat(40))) {
+                        print!("{}",fs::read_to_string(root.join("approved.json")).unwrap());
+                    } else {
+                        assert!(args[3].ends_with(&format!("?ref={}","b".repeat(40))));
+                        print!("{}",fs::read_to_string(root.join("main.json")).unwrap());
+                    }
+                }
+            "#).unwrap();
+            assert!(Command::new("rustc").arg("--edition=2024").arg(source).arg("-o").arg(directory.path().join("gh")).status().unwrap().success());
+            directory
+        });
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir(directory.path().join("bin")).unwrap();
+        std::fs::copy(binary.path().join("gh"), directory.path().join("bin/gh")).unwrap();
+        let parent = directory.path().join("private");
+        std::fs::create_dir(&parent).unwrap();
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let inventory = parent.join("inventory.json");
+        let result = Self {
+            directory,
+            inventory,
+        };
+        result.manifest("main.json", "build-mac", "admin");
+        result
+    }
+    fn manifest(&self, file: &str, host: &str, user: &str) {
+        std::fs::write(self.directory.path().join(file),serde_json::json!({"schema":1,"hosts":{host:{"adminUser":user,"adminUID":501,"authorizedKeys":[],"activationReady":false,"services":[]}},"tailscale":null}).to_string()).unwrap();
+    }
+    fn attach(&self) {
+        use std::os::unix::fs::PermissionsExt;
+        let path = self.inventory.with_file_name("repository.json");
+        std::fs::write(&path, r#"{"schema":1,"repository":"example/config"}"#).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    fn cache(&self) {
+        homelab_client::inventory::add(
+            &self.inventory,
+            homelab_client::inventory::HostProfile {
+                name: "legacy-alias".into(),
+                address: "example.invalid".into(),
+                user: "original-admin".into(),
+                identity: None,
+                configuration_host: Some("build-mac".into()),
+            },
+        )
         .unwrap();
-    terminal.until("Connection saved on this Mac.");
-    terminal.quit_and_verify_restoration();
-    drop(terminal);
-
-    let hosts = homelab_client::inventory::load(&inventory).unwrap();
-    assert_eq!(hosts.len(), 1);
-    assert_eq!(hosts[0].address, "example.invalid");
-    let mut reopened = Terminal::start(&inventory);
-    reopened.until("> example");
-    reopened.quit_and_verify_restoration();
+    }
 }
 
-fn setup_inventory(path: &Path) {
-    homelab_client::inventory::add(
-        path,
-        homelab_client::inventory::HostProfile {
-            name: "example".into(),
-            address: "example.invalid".into(),
-            user: "operator".into(),
-            identity: None,
-            configuration_host: None,
-        },
+#[test]
+fn first_run_attaches_git_then_cancels_address_without_creating_inventory() {
+    let fixture = Fixture::new();
+    let mut terminal = Terminal::start(&fixture.inventory);
+    terminal.until("Attach your configuration");
+    terminal.master.write_all(b"example/config\r").unwrap();
+    terminal.until("> build-mac");
+    terminal.master.write_all(b"\r").unwrap();
+    terminal.until("Connect to this Mac");
+    terminal.master.write_all(b"\x1b").unwrap();
+    terminal.until("> build-mac");
+    terminal.quit_and_verify_restoration();
+    assert!(!fixture.inventory.exists());
+    assert!(
+        fixture
+            .inventory
+            .with_file_name("repository.json")
+            .is_file()
+    );
+}
+
+#[test]
+fn changed_git_admin_requires_review_before_saving_or_ssh() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    fixture.cache();
+    let before = std::fs::read(&fixture.inventory).unwrap();
+    let mut terminal =
+        Terminal::with_arguments(&fixture.inventory, &["setup", "--host", "legacy-alias"]);
+    terminal.until("Administrator changed in Git");
+    terminal.master.write_all(b"\x1b").unwrap();
+    terminal.wait_and_verify_restoration(false);
+    assert_eq!(std::fs::read(&fixture.inventory).unwrap(), before);
+}
+
+#[test]
+fn approved_setup_is_listed_when_main_is_unavailable() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    fixture.cache();
+    fixture.manifest("approved.json", "build-mac", "original-admin");
+    std::fs::write(fixture.directory.path().join("main-unavailable"), "").unwrap();
+    homelab_client::provisioning::save_approved_installation(
+        &fixture
+            .directory
+            .path()
+            .join(".local/state/homelab/provisioning"),
+        "example/config",
+        "build-mac",
+        &"a".repeat(40),
     )
     .unwrap();
-}
-
-#[test]
-fn cancelling_after_automatic_read_only_check_returns_without_changes() {
-    let directory = tempfile::tempdir().unwrap();
-    let inventory = directory.path().join("private/inventory.json");
-    setup_inventory(&inventory);
-    let before = std::fs::read(&inventory).unwrap();
-    let mut terminal = Terminal::start(&inventory);
-    terminal.until("> example");
-    terminal.master.write_all(b"\r").unwrap();
-    terminal.until("Address not found");
-    // The reserved .invalid address cannot reach a target. Failed inspection
-    // does not authorize trust or installation; K must not bypass that.
-    terminal.master.write_all(b"k").unwrap();
-    terminal.master.write_all(b"\x1b").unwrap();
-    terminal.until("Setup cancelled.");
+    let mut terminal = Terminal::start(&fixture.inventory);
+    terminal.until("build-mac · Resume");
     terminal.quit_and_verify_restoration();
-    assert_eq!(std::fs::read(&inventory).unwrap(), before);
-    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
 }
 
 #[test]
-fn direct_setup_control_c_restores_terminal_before_reporting_cancellation() {
-    let directory = tempfile::tempdir().unwrap();
-    let inventory = directory.path().join("private/inventory.json");
-    setup_inventory(&inventory);
-    let before = std::fs::read(&inventory).unwrap();
-    let mut terminal = Terminal::with_arguments(&inventory, &["setup", "--host", "example"]);
-    terminal.until("Address not found");
-    terminal.master.write_all(b"\x03").unwrap();
-    terminal.until("No bootstrap credentials were transferred");
-    terminal.wait_and_verify_restoration(false);
-    assert_eq!(std::fs::read(&inventory).unwrap(), before);
-    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
-}
-
-#[test]
-fn first_access_primary_action_is_visible_at_minimum_size() {
-    let directory = tempfile::tempdir().unwrap();
-    let inventory = directory.path().join("private/inventory.json");
-    setup_inventory(&inventory);
-    let mut terminal = Terminal::with_arguments(&inventory, &["setup", "--host", "example"]);
-    terminal.until("Address not found");
+fn address_only_form_keeps_actions_visible_at_minimum_size() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    let mut terminal =
+        Terminal::with_arguments(&fixture.inventory, &["setup", "--host", "build-mac"]);
+    terminal.until("Connect to this Mac");
     tcsetwinsize(
         &terminal.slave,
         Winsize {
@@ -212,12 +273,93 @@ fn first_access_primary_action_is_visible_at_minimum_size() {
         },
     )
     .unwrap();
-    // Trigger a redraw at the smaller size without retrying SSH.
-    terminal.master.write_all(b"\x1b[B").unwrap();
-    let screen = terminal.until("Enter: Select");
-    assert!(screen.contains("Address not found"));
-    assert!(screen.contains("Esc back"));
-    assert!(!screen.contains("T approves trust"));
+    terminal.master.write_all(b"x").unwrap();
+    let screen = terminal.until("Esc back");
+    assert!(screen.contains("SSH address"));
+    assert!(screen.contains("Enter: Connect"));
     terminal.master.write_all(b"\x1b").unwrap();
     terminal.wait_and_verify_restoration(false);
+    assert!(!fixture.inventory.exists());
+}
+
+#[test]
+fn correcting_cached_address_preserves_identity_and_returns_without_ssh() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    fixture.cache();
+    let original = homelab_client::inventory::load(&fixture.inventory)
+        .unwrap()
+        .remove(0);
+    let original = homelab_client::inventory::set_identity(
+        &fixture.inventory,
+        &original,
+        Some(homelab_client::inventory::AgentIdentity {
+            public_key: "ssh-ed25519 AAAA".into(),
+            agent_socket: "/tmp/synthetic-agent.sock".into(),
+        }),
+    )
+    .unwrap();
+    let mut terminal = Terminal::start(&fixture.inventory);
+    terminal.until("e Edit address");
+    terminal.master.write_all(b"e").unwrap();
+    terminal.until("Edit SSH address");
+    terminal
+        .master
+        .write_all(b"\x15corrected.invalid\r")
+        .unwrap();
+    terminal.until("> build-mac");
+    terminal.quit_and_verify_restoration();
+    let updated = homelab_client::inventory::load(&fixture.inventory)
+        .unwrap()
+        .remove(0);
+    assert_eq!(updated.address, "corrected.invalid");
+    assert_eq!(updated.identity, original.identity);
+    assert_eq!(updated.name, original.name);
+    assert_eq!(
+        updated.user, original.user,
+        "editing address must not approve Git admin change"
+    );
+    assert_eq!(updated.configuration_host, original.configuration_host);
+}
+
+#[test]
+fn cancelling_cached_address_edit_preserves_bytes() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    fixture.cache();
+    let before = std::fs::read(&fixture.inventory).unwrap();
+    let mut terminal = Terminal::start(&fixture.inventory);
+    terminal.until("e Edit address");
+    terminal.master.write_all(b"e").unwrap();
+    terminal.until("Edit SSH address");
+    terminal
+        .master
+        .write_all(b"\x15changed.invalid\x1b")
+        .unwrap();
+    terminal.until("> build-mac");
+    terminal.quit_and_verify_restoration();
+    assert_eq!(std::fs::read(&fixture.inventory).unwrap(), before);
+}
+
+#[test]
+fn a_local_only_profile_cannot_become_a_git_host_or_ssh_target() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    homelab_client::inventory::add(
+        &fixture.inventory,
+        homelab_client::inventory::HostProfile {
+            name: "stale-local-only".into(),
+            address: "example.invalid".into(),
+            user: "admin".into(),
+            identity: None,
+            configuration_host: None,
+        },
+    )
+    .unwrap();
+    let before = std::fs::read(&fixture.inventory).unwrap();
+    let mut terminal =
+        Terminal::with_arguments(&fixture.inventory, &["setup", "--host", "stale-local-only"]);
+    terminal.until("Choose a Git host or an unambiguous saved connection");
+    terminal.wait_and_verify_restoration(false);
+    assert_eq!(std::fs::read(&fixture.inventory).unwrap(), before);
 }

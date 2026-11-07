@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -429,6 +429,9 @@ fn binding(path: &Path) -> Result<Option<Binding>, Error> {
 pub fn load(path: &Path) -> Result<Option<Workspace>, Error> {
     binding(path)?.map(|b| fetch(&b.repository)).transpose()
 }
+pub fn attached_repository(path: &Path) -> Result<Option<String>, Error> {
+    binding(path).map(|binding| binding.map(|binding| binding.repository))
+}
 pub fn attach(repository: &str, path: &Path) -> Result<Workspace, Error> {
     if let Some(b) = binding(path)? {
         if b.repository != repository {
@@ -438,6 +441,11 @@ pub fn attach(repository: &str, path: &Path) -> Result<Workspace, Error> {
     }
     let workspace = fetch(repository)?;
     let parent = path.parent().ok_or(Error::State)?;
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(parent)
+        .map_err(|_| Error::State)?;
     let m = fs::symlink_metadata(parent).map_err(|_| Error::State)?;
     if !m.is_dir() || m.uid() != rustix::process::geteuid().as_raw() || m.mode() & 0o077 != 0 {
         return Err(Error::State);
