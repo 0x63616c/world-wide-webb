@@ -108,13 +108,7 @@ struct LauncherGlassSurface: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
         Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
-            .background {
-                shape.strokeBorder(
-                    LinearGradient(colors: [.white.opacity(Self.edgeOpacity), .white.opacity(Self.edgeOpacity * 0.25)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: Self.edgeWidth)
-                    .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
-            }
+            .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
             .padding(Self.edgeInset)
     }
 
@@ -124,6 +118,21 @@ struct LauncherGlassSurface: View {
            value == "clear" || value == "clearDim" { return value }
         #endif
         return "regular"
+    }
+}
+
+/// This sits in the clock layer, below the native glass, so the glass can refract it.
+struct LauncherGlassOutline: View {
+    private let innerInset: CGFloat = 4
+    var body: some View {
+        let inset = LauncherGlassSurface.edgeInset + innerInset
+        RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - inset)
+            .strokeBorder(
+                LinearGradient(colors: [.white.opacity(LauncherGlassSurface.edgeOpacity),
+                                        .white.opacity(LauncherGlassSurface.edgeOpacity * 0.25)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                lineWidth: LauncherGlassSurface.edgeWidth)
+            .padding(inset)
     }
 }
 
