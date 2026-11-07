@@ -11,7 +11,12 @@ import SwiftUI
             guard let index = args.firstIndex(of: key), args.indices.contains(index + 1) else { return nil }
             return args[index + 1]
         }
-        _store = State(initialValue: MockHomeDataSource(wifiFixture: option("-wifiFixture") ?? "secured", mode: ClimateMode(rawValue: option("-climateMode") ?? "cool") ?? .cool, fixedNow: args.contains("-snapshot") ? FixtureClock.now : nil, ringing: args.contains("-alarmRinging")))
+        let groupedSonosPlaying: Bool? = switch option("-groupedSonos") {
+        case "playing": true
+        case "paused": false
+        default: nil
+        }
+        _store = State(initialValue: MockHomeDataSource(wifiFixture: option("-wifiFixture") ?? "secured", mode: ClimateMode(rawValue: option("-climateMode") ?? "cool") ?? .cool, fixedNow: args.contains("-snapshot") ? FixtureClock.now : nil, ringing: args.contains("-alarmRinging"), groupedSonosPlaying: groupedSonosPlaying))
         openTile = HomeTile(rawValue: option("-openTile") ?? "")
         demo = args.contains("-demo")
         initialFace = HomeFacePage.names.firstIndex(of: option("-face") ?? "clock") ?? HomeFacePage.clock

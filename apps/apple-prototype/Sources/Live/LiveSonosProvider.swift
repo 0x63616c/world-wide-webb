@@ -132,10 +132,14 @@ import PanelKit
                 else { return nil }
                 return candidate.id
             }
-            operation = .volume(ids, min(100, max(0, value)), raw: false)
+            operation = .volume(Dictionary(uniqueKeysWithValues: ids.map { ($0, min(100, max(0, value))) }), raw: false)
         case .rawVolume(let id, let value):
             guard availableRoom(id) != nil else { return false }
-            operation = .volume([id], min(100, max(0, value)), raw: true)
+            operation = .volume([id: min(100, max(0, value))], raw: true)
+        case .roomVolumes(let selected):
+            let levels = selected.filter { availableRoom($0.key) != nil }.mapValues { min(100, max(0, $0)) }
+            guard !levels.isEmpty else { return false }
+            operation = .volume(levels, raw: true)
         case .mute(let id):
             guard availableRoom(id) != nil, let room = rooms.first(where: { $0.id == id }) else { return false }
             operation = .mute(id, !room.muted)
@@ -170,8 +174,9 @@ import PanelKit
     private func enqueue(_ operation: Operation) -> Bool {
         // Collapse consecutive slider updates behind the in-flight operation. Retain
         // ordering across mute, topology and calibration changes.
-        if queue.count > 1, case .volume(let ids, _, let raw) = operation,
-           case .volume(let lastIDs, _, let lastRaw) = queue.last, ids == lastIDs, raw == lastRaw {
+        if queue.count > 1, case .volume(let levels, let raw) = operation,
+           case .volume(let lastLevels, let lastRaw) = queue.last,
+           Set(levels.keys) == Set(lastLevels.keys), raw == lastRaw {
             PanelCommandLog.shared.record(control: "sonos.volume.coalesced", error: "cancelled")
             queue[queue.count - 1] = operation
         } else {
@@ -231,11 +236,13 @@ import PanelKit
         confirmedRooms = state.rooms.filter { seen.insert($0.uuid).inserted }.map { room in
             let leader = roomDetails[room.coordinatorUuid]
             let sample = leader?.availability == .available ? leader?.playbackPosition : nil
+            let transportState = leader?.availability == .available ? leader?.transportState : nil
             return SoundRoom(metadata: .init(id: room.uuid, title: leader?.trackTitle, artist: leader?.trackArtist,
                                              coordinatorName: leader?.name),
                       name: room.name, rawVolume: Int(room.volume.rounded()),
                       baseline: room.baseline.map { Int($0.rounded()) }, muted: room.muted,
-                      coordinator: room.coordinatorUuid, playing: leader?.transportState == "PLAYING",
+                      coordinator: room.coordinatorUuid, playing: transportState == "PLAYING",
+                      reportedTransportState: transportState ?? "UNKNOWN",
                       positionSeconds: sample?.position ?? 0, durationSeconds: sample?.duration ?? 0,
                       positionUpdatedAt: sample?.updatedAt ?? .distantPast,
                       sourceKind: SoundSource(rawValue: leader?.sourceKind.rawValue ?? "idle") ?? .other,
@@ -251,9 +258,12 @@ import PanelKit
             pending.formUnion(operation.affectedIDs(details: roomDetails))
             pending.insert("sound")
             switch operation {
-            case .volume(let ids, let value, let raw):
-                for index in rooms.indices where ids.contains(rooms[index].id) {
-                    rooms[index].rawVolume = raw ? value : roomDetails[rooms[index].id]?.rawVolume(forDisplay: value) ?? value
+            case .volume(let levels, let raw):
+                for index in rooms.indices {
+                    let id = rooms[index].id
+                    if let value = levels[id] {
+                        rooms[index].rawVolume = raw ? value : roomDetails[id]?.rawVolume(forDisplay: value) ?? value
+                    }
                 }
             case .mute(let id, let value):
                 if let index = rooms.firstIndex(where: { $0.id == id }) { rooms[index].muted = value }
@@ -267,7 +277,7 @@ import PanelKit
     }
 
     private enum Operation {
-        case volume([String], Int, raw: Bool), mute(String, Bool)
+        case volume([String: Int], raw: Bool), mute(String, Bool)
         case transport(String, SonosTransportCommand), join(String, String), joinAll(String), leave(String)
         case seek(String, Double), source(String, SourceAction)
         case calibrate, clearCalibration
@@ -275,7 +285,7 @@ import PanelKit
 
         func affectedIDs(details: [String: SonosRoom]) -> Set<String> {
             switch self {
-            case .volume(let ids, _, _): Set(ids)
+            case .volume(let levels, _): Set(levels.keys)
             case .mute(let id, _), .leave(let id): [id]
             case .transport(let id, _), .seek(let id, _):
                 Set(details.values.filter { $0.coordinatorUuid == details[id]?.coordinatorUuid }.map(\.uuid))
@@ -292,8 +302,8 @@ import PanelKit
                 return room
             }
             switch self {
-            case .volume(let ids, let value, let raw):
-                for id in ids {
+            case .volume(let levels, let raw):
+                for (id, value) in levels.sorted(by: { $0.key < $1.key }) {
                     try Task.checkCancellation()
                     let target = try room(id)
                     try await api.setVolume(deviceIp: target.deviceIp, volume: raw ? value : target.rawVolume(forDisplay: value))
@@ -364,7 +374,7 @@ import PanelKit
     func refresh() async {}
     @discardableResult func send(_ command: HomeCommand) -> Bool {
         switch command {
-        case .transport, .seek, .rawVolume, .volume, .mute, .globalLock, .groupLock,
+        case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock,
              .calibrate, .clearCalibration, .joinAll, .join, .leave, .playMedia:
             source.send(command)
             return true

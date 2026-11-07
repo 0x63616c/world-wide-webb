@@ -239,6 +239,7 @@ struct SoundRoom: Identifiable {
     var muted = false
     var coordinator: String
     var playing: Bool
+    var reportedTransportState: String? = nil
     var trackIndex = 0
     var positionSeconds: Double = 107
     var durationSeconds: Double = 232
@@ -262,7 +263,7 @@ struct SoundRoom: Identifiable {
         if let metadata { return metadata.coordinatorName ?? "Unavailable" }
         return coordinator
     }
-    var transportState: String { playing ? "PLAYING" : "PAUSED_PLAYBACK" }
+    var transportState: String { reportedTransportState ?? (playing ? "PLAYING" : "PAUSED_PLAYBACK") }
     var displayVolume: Int { baseline.map { $0 > 0 ? Int((Double(rawVolume) / Double($0) * 100).rounded()) : rawVolume } ?? rawVolume }
 }
 enum HomeCommand {
@@ -273,7 +274,7 @@ enum HomeCommand {
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
     case snoozeAlarm(Int, Int), stopAlarm(Int, Int)
     case playMedia(String, Int)
-    case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int)
+    case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int), roomVolumes([String: Int])
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
 /// Shared presentation status; reasons are authored by providers, never raw server text.
@@ -372,7 +373,7 @@ extension HomeDataSource {
     private let fixtureDate = ISO8601DateFormatter().date(from: "2026-10-29T22:41:00Z")!
     private let fixedNow: Date?
     var now: Date { fixedNow ?? fixtureDate.addingTimeInterval(Date().timeIntervalSince(launched)) }
-    init(latency: Duration = .milliseconds(150), wifiFixture: String = "secured", mode: ClimateMode = .cool, fixedNow: Date? = nil, ringing: Bool = false) {
+    init(latency: Duration = .milliseconds(150), wifiFixture: String = "secured", mode: ClimateMode = .cool, fixedNow: Date? = nil, ringing: Bool = false, groupedSonosPlaying: Bool? = nil) {
         self.latency = latency
         self.fixedNow = fixedNow
         #if os(iOS)
@@ -391,6 +392,19 @@ extension HomeDataSource {
         if wifiFixture == "unconfigured" { wifi = .unconfigured }
         climate.mode = mode
         for i in rooms.indices { rooms[i].positionUpdatedAt = now }
+        if let groupedSonosPlaying {
+            for i in rooms.indices where rooms[i].name != "Living Room" {
+                rooms[i].coordinator = "Desk"
+                rooms[i].sourceKind = .lineIn
+                rooms[i].sourceLabel = "Line-in"
+                rooms[i].playing = groupedSonosPlaying
+            }
+            if let tv = rooms.firstIndex(where: { $0.name == "Living Room" }) {
+                rooms[tv].coordinator = rooms[tv].id
+                rooms[tv].sourceKind = .tv
+                rooms[tv].sourceLabel = "TV"
+            }
+        }
     }
     private func markPending(_ key: String) {
         let generation = (generations[key] ?? 0) + 1
@@ -506,6 +520,11 @@ extension HomeDataSource {
         case .rawVolume(let id, let value):
             guard let i = rooms.firstIndex(where: { $0.id == id }) else { return }
             rooms[i].rawVolume = min(100, max(0, value)); markPending("sound")
+        case .roomVolumes(let levels):
+            for i in rooms.indices {
+                if let level = levels[rooms[i].id] { rooms[i].rawVolume = min(100, max(0, level)) }
+            }
+            markPending("sound")
         case .volume(let id, let value):
             guard let room = rooms.first(where: { $0.id == id }) else { return }
             let display = min(100, max(0, value))
