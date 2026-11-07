@@ -72,6 +72,31 @@ struct WeatherAtmosphere: View {
                                 context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: size, height: size)), with: .color(.white.opacity(alpha)))
                             }
                         }
+                        if night && !clouds {
+                            // One brief meteor at a different time and location each cycle.
+                            let cycle = Int(floor(time / 32))
+                            let elapsed = time - Double(cycle) * 32
+                            let start = 6 + sample(cycle, 23) * 18
+                            let progress = (elapsed - start) / 1.4
+                            if progress >= 0 && progress <= 1 {
+                                let origin = CGPoint(x: canvas.width * (0.12 + sample(cycle, 24) * 0.55),
+                                                     y: canvas.height * (0.05 + sample(cycle, 25) * 0.27))
+                                let head = CGPoint(x: origin.x + canvas.width * 0.22 * progress,
+                                                   y: origin.y + canvas.height * 0.11 * progress)
+                                let tail = CGPoint(x: head.x - canvas.width * 0.08,
+                                                   y: head.y - canvas.height * 0.04)
+                                let opacity = sin(.pi * progress) * 0.8
+                                var streak = Path()
+                                streak.move(to: tail)
+                                streak.addLine(to: head)
+                                context.stroke(streak, with: .linearGradient(
+                                    Gradient(colors: [.white.opacity(0), .white.opacity(opacity)]),
+                                    startPoint: tail, endPoint: head),
+                                    style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                                context.fill(Path(ellipseIn: CGRect(x: head.x - 1.5, y: head.y - 1.5, width: 3, height: 3)),
+                                             with: .color(.white.opacity(opacity)))
+                            }
+                        }
                         if clouds {
                             context.drawLayer { layer in
                                 layer.addFilter(.blur(radius: fog ? 65 : 34))
