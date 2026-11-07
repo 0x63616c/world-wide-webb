@@ -173,9 +173,10 @@ palette without changing the system clock or stored user settings.
 ## Activity and navigation
 
 The Display settings slider controls the return-to-clock delay, which defaults to
-60 seconds. Screen dimming has a separate deadline. An active timer or dog walk
-suspends both deadlines. A tap wakes the dimmed panel. On the native iPad kiosk,
-that wake triggers a short front-camera burst, with camera permission, and
+60 seconds. Screen dimming has a separate deadline. A running timer or active
+dog walk suspends both deadlines. A paused or finished timer lets the panel
+return to the clock and dim. A tap wakes the dimmed panel. On the native iPad
+kiosk, that wake triggers a short front-camera burst, with camera permission, and
 uploads the frames as one Activity session. A window observer tracks interaction
 without forwarding the wake tap into app controls.
 VoiceOver escape and the named Open apps action provide equivalent navigation.
