@@ -31,9 +31,18 @@ It contains synthetic encrypted data only. Its real bootstrap attempt at `7fc9a4
 stopped during build before activation: the fixture Rust adapter lacked a compiler
 environment. After fixing that, fixture revision `0ddaa7e` passed `nix flake check`,
 including checks of actual revision metadata and canonical health executable names.
-The failed guest is preserved. A fresh `homelab-enrollment-1` clone of the stopped
-prepared image is used for the corrected setup; the validation guest is stopped.
-This is still preparation evidence, not a passed reboot/reconciliation rehearsal.
+The failed guest is preserved. The subsequent `homelab-enrollment-1` attempt at
+`0ddaa7e` stopped with `bootstrap-nix-installation-unconfirmed`. Inspection found
+no surviving installer/helper processes, Nix store, installer receipt or activated
+system; `/nix` existed and the journal retained `InstallingNix`. That guest is
+preserved and stopped, not retried or treated as a successful installation.
+
+The full-wizard rehearsal uses a fresh `homelab-enrollment-full-1` clone and the
+private [`homelab-vm-enrollment`](https://github.com/0x63616c/homelab-vm-enrollment)
+repository. Its unready baseline has no host ciphertext or administrator keys;
+the real wizard must create and merge its enrollment PR. Guest identity, pinned
+SSH through the approved VM host, and noninteractive sudo have been checked.
+This is preparation evidence, not a passed full enrollment rehearsal.
 
 ## Authorized boundary
 
