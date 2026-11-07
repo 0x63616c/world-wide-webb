@@ -6,7 +6,9 @@ owns guided enrollment; private health and restore operations live in `host/`.
 No physical host has received this configuration. Public CLI
 [0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2) provides
 Git-first host selection, automatic Command Line Tools installation and earlier
-client prerequisite checks.
+client prerequisite checks. Upcoming **0.4.0** adds a live enrollment checklist
+and direct publication to `main` when GitHub permits it. Its final VM/CI validation
+and release remain pending.
 
 ## What is implemented
 
@@ -16,9 +18,11 @@ a scoped Tailscale enrollment key. The target generates its own read-only Git
 key. Schema 2 names the backup vault separately from the OAuth issuer. Neither
 reusable OAuth credentials nor recovery identities reach the target.
 
-An enrollment PR contains public recipients, the selected SSH public key and
-ciphertext. After merge, bootstrap installs the approved revision, verifies it,
-reboots and reconciles completion. Journals preserve uncertain outcomes; setup
+Enrollment publishes public recipients, the selected SSH public key and
+ciphertext. Released 0.3.2 uses a PR; the 0.4.0 candidate publishes directly when
+branch rules permit, while preserving existing PRs and required PR review.
+Bootstrap installs the exact approved revision, verifies it, reboots and
+reconciles completion. Journals preserve uncertain outcomes; setup
 does not silently reinstall or regenerate identities after failure. Nix runs on
 the target, not the operator laptop.
 
@@ -49,6 +53,19 @@ local cache another desired-host inventory. Missing Apple developer tools are
 installed within approved setup using only the matching Apple CLT catalog item;
 working Xcode selections are preserved and uncertain installs are not replayed.
 These changes do not authorize physical deployment.
+
+## Upcoming checklist and publication behavior
+
+Begin setup approves the enrollment operation once. The checklist retains stage
+results and elapsed time, yielding the terminal for native authentication. A stop
+request takes effect at a safe boundary; it does not undo an operation already
+in flight. Saved progress and uncertain outcomes remain available for resume.
+
+Direct publication uses a non-force update, preserves unrelated configuration
+changes and rejects conflicting host changes. A private receipt records the exact
+candidate commit before publication, allowing lost responses to be reconciled.
+Existing enrollment PRs and GitHub-required PR review are not bypassed. Expired
+approved credentials are preserved for inspection rather than silently renewed.
 
 ## Current evidence
 

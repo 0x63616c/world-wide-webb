@@ -1,8 +1,9 @@
 # Set up a Mac
 
-Use [CLI 0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
-for this guide. It includes Git-first host selection and automatic prerequisite
-installation; version 0.3.0 does not.
+This guide previews **CLI 0.4.0**. Final validation and release are pending.
+Released [0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
+has Git-first selection and automatic prerequisites, but always uses an
+enrollment PR. The checklist and direct-publication flow below are new in 0.4.0.
 
 ## One-time work on the target
 
@@ -44,7 +45,14 @@ as the configured administrator to `tag:homelab`. Setup does not change that pol
 | --- | --- |
 | Connect | SSH trust, agent public-key selection if needed, read-only host checks |
 | Begin setup | Review the Mac once; install missing Command Line Tools, back up and verify age keys in 1Password, encrypt the scoped enrollment key and register the Mac's read-only Git key |
-| Merge the PR | Review generated configuration in GitHub; the wizard waits for merge, installs that commit, reboots and verifies services and remote access |
+| Publish configuration | Publish ciphertext and host enrollment settings to `main`; wait for review instead when GitHub requires a PR or this setup already has one |
+| Install and verify | Install the exact published or merged commit, reboot, verify services and remote access, then hand over to Comin |
+
+A live checklist keeps completed stages visible and shows the current operation
+and elapsed time. It marks stages complete only after their checks succeed.
+Escape requests a stop at a safe boundary; a running publication or installation
+is not rolled back. Reopen the saved setup to reconcile its result rather than
+starting again.
 
 The wizard checks required client executables before starting a new enrollment.
 It supplies the installer and remembers repository, host binding and private
@@ -56,15 +64,27 @@ on your personal laptop.
 
 Apple administrator authentication, 1Password unlock/SSH-agent approval and
 Tailscale policy approval may still appear. These are the underlying systems
-authorizing access; the wizard does not save passwords or bypass them. GitHub PR
-review remains required before installing the configuration.
+authorizing access; the wizard does not save passwords or bypass them. The
+fullscreen checklist temporarily returns control to the native terminal for
+SSH, sudo and other interactive authentication, then resumes when appropriate.
 
 ## Review before activation
 
-The wizard opens a PR with ciphertext, public recipients, the administrator's
-SSH public key and host readiness. Review the account, UID and service assignments
-before merging. You do not copy keys or manually commit generated files.
-Nix imports these same host facts and checks they agree with the reviewed setup.
+**Begin setup** authorizes backing up keys, publishing encrypted enrollment
+configuration and installing its exact commit. Review the Mac, account and
+service assignments before beginning. The published files contain ciphertext,
+public recipients, the administrator’s SSH public key and host readiness; no
+private identity or plaintext credential is committed.
+
+When GitHub permits direct updates, the wizard publishes to `main` without a
+second PR step. It checks branch rules, never force-pushes, and stops on conflicting
+host changes. Unrelated repository changes can be preserved when preparing the
+commit. If GitHub requires a PR, or this setup already has an enrollment PR, the
+wizard waits for its review and merge instead. Unknown publication results are
+reconciled against the saved exact commit before another action.
+
+Nix imports the same host facts and checks they agree with the approved setup.
+You do not copy keys or manually commit generated files.
 
 The reusable Tailscale OAuth item stays in the operator's 1Password vault.
 Only the generated single-use enrollment key is encrypted for the target.
@@ -82,7 +102,7 @@ restart. See [updates](updates.md) for what future merges authorize.
 1. Add its entry to `homelab.json`, initially disabled, and its `hosts/<name>.nix`.
 2. Add the Darwin configuration in `flake.nix` and review account/UID assumptions.
 3. Reload the repository in the CLI, select the new host and confirm its address.
-4. Merge the enrollment PR and let the wizard complete its reboot and health checks.
+4. Review Begin setup and let the checklist complete; merge a PR if required.
 
 For key backup and rotation see [secrets](secrets.md). Never wipe the existing
 mini until replacement services and recovery have been verified and erasure is
@@ -93,7 +113,7 @@ explicitly approved.
 The public CLI runs synthetic adapter and terminal journeys on disposable macOS
 CI, without your vault or hosts. Full install/reboot rehearsals need a disposable
 Mac VM. An earlier bootstrap rehearsal passed in a synthetic guest on the MacBook,
-including startup without an interactive login. The new full enrollment,
+including startup without an interactive login. The previously tested full enrollment,
 reboot, Comin handover and completed-wizard replay also passed with synthetic
 providers and Tailscale transport; real production policy remains untested.
 See [VM validation](vm-validation.md) for exact revisions and untested production

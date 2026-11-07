@@ -11,12 +11,15 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 
 1. On the target Mac, create its administrator and enable Remote Login.
 2. Attach this repository in the CLI, select its Git-defined Mac and confirm the address.
-3. The wizard backs up keys, prepares encrypted secrets and opens an enrollment PR.
-4. Review and merge that PR; the wizard installs, reboots and verifies the Mac.
+3. Review **Begin setup**; follow the live checklist as the wizard prepares enrollment.
+4. It publishes encrypted configuration to `main`, installs that exact commit,
+   reboots and verifies the Mac. Required or existing PRs still wait for review.
 
-Use [CLI 0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
-for Git-first host selection and automatic installation of missing Apple Command
-Line Tools. Version 0.3.0 does not include these changes.
+This guide previews **CLI 0.4.0**, whose release and final validation are pending.
+Released [0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
+has Git-first selection and automatic prerequisites but uses PR-based enrollment.
+In 0.4.0, Begin setup authorizes direct publication when GitHub rules permit it;
+the CLI never force-pushes or bypasses required PR review.
 
 `homelab.json` supplies the host list and administrator accounts. The CLI asks only
 for a new host’s connection address, defaulting to `<host>.local`. Saved aliases,
