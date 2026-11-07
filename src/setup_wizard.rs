@@ -882,6 +882,7 @@ pub type PrepareCredentials =
     ) -> Result<crate::provisioning::Details, crate::enrollment_credentials::Error>;
 
 pub struct EnrollmentDependencies {
+    pub check_client_tools: fn() -> Result<(), crate::enrollment_credentials::Error>,
     pub prepare_credentials: PrepareCredentials,
     pub tailscale: Option<std::path::PathBuf>,
 }
@@ -889,6 +890,7 @@ pub struct EnrollmentDependencies {
 impl Default for EnrollmentDependencies {
     fn default() -> Self {
         Self {
+            check_client_tools: crate::enrollment_credentials::check_client_tools,
             prepare_credentials: |root, host, workspace, started, progress| {
                 crate::enrollment_credentials::prepare(root, host, workspace, started, progress)
             },
@@ -1053,9 +1055,25 @@ fn enrollment_failure(error: impl std::fmt::Display) -> Outcome {
         lines: vec![
             "Setup needs attention".into(),
             error.to_string(),
-            "Your saved progress and recovery identities have been preserved.".into(),
+            "Existing saved progress and recovery identities are preserved.".into(),
         ],
     }
+}
+
+fn remote_setup_failure(error: remote_setup::Error) -> Outcome {
+    enrollment_failure(format!("{error} {}", error.next_action()))
+}
+
+fn check_enrollment_tools(
+    root: &Path,
+    host: &str,
+    dependencies: &EnrollmentDependencies,
+) -> Result<(), crate::enrollment_credentials::Error> {
+    // An approved attempt may only need completion, without reopening providers.
+    if crate::provisioning::approved_installation(root, host)?.is_none() {
+        (dependencies.check_client_tools)()?;
+    }
+    Ok(())
 }
 
 fn queued_cancellation() -> io::Result<bool> {
@@ -1113,6 +1131,9 @@ fn enroll(
     {
         return Ok(enrollment_failure(error));
     }
+    if let Err(error) = check_enrollment_tools(root, host_name, dependencies) {
+        return Ok(enrollment_failure(error));
+    }
     let _enrollment = match crate::provisioning::lock_enrollment(root) {
         Ok(lock) => lock,
         Err(error) => return Ok(enrollment_failure(error)),
@@ -1159,12 +1180,12 @@ fn enroll(
         }
         Err(error) => return Ok(enrollment_failure(error)),
     };
-    if let Err(error) = remote_setup::check_prerequisites(profile, &tools.remote_setup) {
-        return Ok(enrollment_failure(format!(
-            "{error} {}",
-            error.next_action()
-        )));
-    }
+    let prerequisites = match remote_setup::check_prerequisites(profile, &tools.remote_setup) {
+        Ok(prerequisites) => prerequisites,
+        Err(error) => {
+            return Ok(remote_setup_failure(error));
+        }
+    };
     if dependencies.tailscale.is_none()
         && let Err(error) = crate::remote_completion::discover_tailscale()
     {
@@ -1179,6 +1200,7 @@ fn enroll(
             ),
             format!("Configuration: {}", workspace.repository),
             String::new(),
+            "Install Apple's Command Line Tools if this Mac needs them.".into(),
             "Back up recovery keys to 1Password and prepare encrypted configuration.".into(),
             "Give this Mac read-only repository access and open an enrollment PR.".into(),
             "After you merge that PR, install its approved configuration on this Mac.".into(),
@@ -1191,6 +1213,26 @@ fn enroll(
             "Setup cancelled before credential preparation.",
         ));
     }
+    let terminal = if prerequisites == remote_setup::Prerequisites::DeveloperToolsMissing {
+        let package = match package::prepare(workspace) {
+            Ok(package) => package,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
+        drop(terminal);
+        println!(
+            "Installing required Command Line Tools on {host_name}. Enter that Mac's administrator password if asked."
+        );
+        if let Err(error) = remote_setup::install_developer_tools(
+            profile,
+            &package.directory.join("homelab-host"),
+            &tools.remote_setup,
+        ) {
+            return Ok(remote_setup_failure(error));
+        }
+        Terminal::enter()?
+    } else {
+        terminal
+    };
     let progress = |message: &str| {
         let _ = draw(
             &[format!("Setting up {host_name}"), message.into()],
@@ -1231,7 +1273,7 @@ fn enroll(
             &tools.remote_setup,
         ) {
             Ok(identity) => identity,
-            Err(error) => return Ok(enrollment_failure(error)),
+            Err(error) => return Ok(remote_setup_failure(error)),
         };
         if let Some(revision) = &identity.activated_revision {
             let installed = match config::fetch_revision(&workspace.repository, revision) {
@@ -1418,7 +1460,7 @@ fn enroll(
             &tools.remote_setup,
         ) {
             Ok(prepared) => prepared,
-            Err(error) => return Ok(enrollment_failure(error)),
+            Err(error) => return Ok(remote_setup_failure(error)),
         };
         if queued_cancellation()? {
             return Ok(save_and_release(
@@ -1448,7 +1490,7 @@ fn enroll(
                 tools,
                 dependencies,
             )),
-            Err(error) => Ok(enrollment_failure(error)),
+            Err(error) => Ok(remote_setup_failure(error)),
         };
     }
 }
@@ -1540,6 +1582,33 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    #[test]
+    fn client_preflight_fails_without_creating_state_and_skips_approved_resume() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("provisioning");
+        let dependencies = EnrollmentDependencies {
+            check_client_tools: || Err(crate::provisioning::Error::ToolsUnavailable.into()),
+            ..EnrollmentDependencies::default()
+        };
+        assert!(matches!(
+            check_enrollment_tools(&root, "test-host", &dependencies),
+            Err(crate::enrollment_credentials::Error::Preparation(
+                crate::provisioning::Error::ToolsUnavailable
+            ))
+        ));
+        assert!(!root.exists());
+        crate::provisioning::save_approved_installation(
+            &root,
+            "example/config",
+            "test-host",
+            &"a".repeat(40),
+        )
+        .unwrap();
+        check_enrollment_tools(&root, "test-host", &dependencies).unwrap();
+        // A different, new host still needs the client tools.
+        assert!(check_enrollment_tools(&root, "other-host", &dependencies).is_err());
     }
 
     #[test]

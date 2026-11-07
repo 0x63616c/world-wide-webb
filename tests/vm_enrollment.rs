@@ -850,6 +850,7 @@ fn wizard(f: &Fixture) {
         },
     };
     let dependencies = setup_wizard::EnrollmentDependencies {
+        check_client_tools: || Ok(()),
         prepare_credentials: prepare,
         tailscale: Some(f.state_directory.join("vm-tailnet")),
     };

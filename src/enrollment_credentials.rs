@@ -45,6 +45,13 @@ pub enum Error {
     },
 }
 
+/// Check local executables without opening the vault or issuing credentials.
+pub fn check_client_tools() -> Result<(), Error> {
+    Tools::discover()?;
+    tailscale_oauth::discover_op()?;
+    Ok(())
+}
+
 pub fn state_directory() -> Option<PathBuf> {
     std::env::var_os("HOME")
         .map(|home| PathBuf::from(home).join(".local/state/homelab/provisioning"))

@@ -4,10 +4,9 @@
 
 On the target: create the administrator specified in your configuration and
 turn on Remote Login for that administrator. Keep the Mac powered and reachable.
-Bootstrap also needs Apple's Command Line Tools for Git. On a fresh target, run
-`xcode-select --install` and finish the installation dialog before setup. The
-helper checks this prerequisite without opening the installer or changing host
-settings; a base VM with development tools already installed does not test it.
+After you approve setup, the wizard installs missing Apple Command Line Tools
+automatically over SSH, then continues. It installs only that prerequisite, not
+full Xcode or macOS updates. Existing working developer tools are left alone.
 On the client: install the CLI and sign in to GitHub CLI for private-repo access.
 Install the `op` CLI and unlock 1Password with desktop CLI integration enabled. Connect the standalone
 Tailscale client, with its CLI available. The App Store variant does not support
@@ -45,7 +44,7 @@ Tailscale check-mode policy may also request browser approval.
 
 | Situation | Next step |
 | --- | --- |
-| Command Line Tools unavailable | Install or repair the tools on the target; verify `/usr/bin/git --version` before retrying |
+| Command Line Tools installation stopped | Read the installation error; reopen the same setup to verify completion. An uncertain installation is not started again blindly. |
 | SSH unavailable | Check address, Remote Login and saved host identity |
 | Vault locked | Unlock 1Password; retry the credential step |
 | Key issuance uncertain | Inspect Tailscale auth keys; do not issue another blindly |

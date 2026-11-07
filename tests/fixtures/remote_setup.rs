@@ -111,6 +111,17 @@ fn main() {
         "admin"
     );
     if args[0] == "-tt" {
+        if args.last().unwrap().contains("install-developer-tools") {
+            event("install-tools");
+            assert!(args.last().unwrap().contains("shasum -a 256 homelab-host"));
+            assert!(args.last().unwrap().contains("exec /usr/bin/sudo -- ./homelab-host"));
+            if let Ok(status) = fs::read_to_string(root.join("interrupted-status")) {
+                std::process::exit(status.parse().unwrap());
+            }
+            if root.join("tools-install-fails").exists() { std::process::exit(1); }
+            fs::remove_file(root.join("missing-prerequisites")).unwrap();
+            return;
+        }
         event("bootstrap");
         let remote = args.last().unwrap();
         assert!(remote.contains("HOMELAB_BOOTSTRAP_APPROVED='build-mac'"));
@@ -148,6 +159,8 @@ fn main() {
         assert!(input.contains("xcode-select --print-path"));
         assert!(input.contains("git --version"));
         assert!(!input.contains("sudo"));
+        if root.join("not-admin").exists() { std::process::exit(10); }
+        if root.join("probe-disconnected").exists() { std::process::exit(255); }
         if root.join("missing-prerequisites").exists() { std::process::exit(11); }
     } else if input.contains("mktemp") {
         event("stage");

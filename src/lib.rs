@@ -35,3 +35,5 @@ pub mod configuration_pr;
 pub mod deploy_identity;
 pub mod deploy_keys;
 pub mod package;
+
+pub mod developer_tools;

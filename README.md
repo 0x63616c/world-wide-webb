@@ -35,7 +35,7 @@ The CLI finishes after enrollment.
 | Where | What you need |
 | --- | --- |
 | Your laptop | Apple silicon macOS; GitHub CLI signed in; 1Password with its `op` CLI and desktop integration; the standalone Tailscale app and CLI, connected to your tailnet |
-| New Mac | Apple silicon macOS; an administrator account; Remote Login enabled for that account; Apple's Command Line Tools; power and network access |
+| New Mac | Apple silicon macOS; an administrator account; Remote Login enabled for that account; power and network access |
 | Configuration | A GitHub repository implementing the [configuration contract](docs/configuration.md), including a locked nix-darwin flake |
 | Tailscale | A tag-scoped OAuth credential saved in 1Password, and tailnet policy allowing your administrator's Tailscale SSH connection |
 
