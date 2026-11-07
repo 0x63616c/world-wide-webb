@@ -55,7 +55,7 @@ struct SonosArtwork: View {
                 VStack(spacing: 24) {
                     Image(systemName: room.sourceKind == .tv ? "tv" : room.sourceKind == .lineIn ? "cable.connector" : "music.note")
                         .font(.system(size: 96, weight: .light)).foregroundStyle(.white.opacity(0.85))
-                    Text(room.sourceKind == .tv ? "TV audio" : room.sourceKind == .lineIn ? "Line-in" : room.sourceLabel ?? "Sonos")
+                    Text(room.sourceKind == .tv ? "TV audio" : room.sourceKind == .lineIn ? "Home" : room.sourceLabel ?? "Sonos")
                         .font(.title2.weight(.medium))
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(LinearGradient(colors: [.indigo.opacity(0.3), .black], startPoint: .topLeading, endPoint: .bottomTrailing))

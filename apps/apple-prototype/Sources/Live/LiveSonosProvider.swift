@@ -136,6 +136,10 @@ import PanelKit
         case .rawVolume(let id, let value):
             guard availableRoom(id) != nil else { return false }
             operation = .volume([id], min(100, max(0, value)), raw: true)
+        case .masterVolume(let value):
+            let ids = confirmedRooms.map(\.id).filter { availableRoom($0) != nil }
+            guard !ids.isEmpty else { return false }
+            operation = .volume(ids, min(100, max(0, value)), raw: true)
         case .mute(let id):
             guard availableRoom(id) != nil, let room = rooms.first(where: { $0.id == id }) else { return false }
             operation = .mute(id, !room.muted)
@@ -364,7 +368,7 @@ import PanelKit
     func refresh() async {}
     @discardableResult func send(_ command: HomeCommand) -> Bool {
         switch command {
-        case .transport, .seek, .rawVolume, .volume, .mute, .globalLock, .groupLock,
+        case .transport, .seek, .rawVolume, .masterVolume, .volume, .mute, .globalLock, .groupLock,
              .calibrate, .clearCalibration, .joinAll, .join, .leave, .playMedia:
             source.send(command)
             return true

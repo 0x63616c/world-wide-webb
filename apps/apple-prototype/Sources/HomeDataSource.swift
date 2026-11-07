@@ -273,7 +273,7 @@ enum HomeCommand {
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
     case snoozeAlarm(Int, Int), stopAlarm(Int, Int)
     case playMedia(String, Int)
-    case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int)
+    case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int), masterVolume(Int)
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
 /// Shared presentation status; reasons are authored by providers, never raw server text.
@@ -506,6 +506,10 @@ extension HomeDataSource {
         case .rawVolume(let id, let value):
             guard let i = rooms.firstIndex(where: { $0.id == id }) else { return }
             rooms[i].rawVolume = min(100, max(0, value)); markPending("sound")
+        case .masterVolume(let value):
+            let volume = min(100, max(0, value))
+            for i in rooms.indices { rooms[i].rawVolume = volume }
+            markPending("sound")
         case .volume(let id, let value):
             guard let room = rooms.first(where: { $0.id == id }) else { return }
             let display = min(100, max(0, value))

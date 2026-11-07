@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shared filled bar for Music and Lights. Preview locally during a drag and
+/// Shared filled bar for Sonos and Lights. Preview locally during a drag and
 /// commit once on release, with the same range and stepping for VoiceOver.
 struct FilledLevelControl: View {
     let value: Int
@@ -14,8 +14,9 @@ struct FilledLevelControl: View {
     var preview: (Int?) -> Void = { _ in }
     let commit: (Int) -> Void
     @Environment(\.isEnabled) private var enabled
-    @State private var dragging: Int?
-    private var displayed: Int { min(range.upperBound, max(range.lowerBound, dragging ?? value)) }
+    @GestureState private var dragging: Int?
+    private var dragValue: Int? { enabled ? dragging : nil }
+    private var displayed: Int { min(range.upperBound, max(range.lowerBound, dragValue ?? value)) }
     private func stepped(_ value: Double) -> Int {
         let step = max(1, step)
         let rounded = range.lowerBound + Int(((value - Double(range.lowerBound)) / Double(step)).rounded()) * step
@@ -25,6 +26,10 @@ struct FilledLevelControl: View {
         GeometryReader { proxy in
             let span = Double(max(1, range.upperBound - range.lowerBound))
             let fraction = Double(displayed - range.lowerBound) / span
+            let valueAt: (CGFloat) -> Int = { x in
+                let fraction = max(0, min(1, x / proxy.size.width))
+                return stepped(Double(range.lowerBound) + fraction * span)
+            }
             ZStack(alignment: .leading) {
                 Color.clear
                 if let track { LinearGradient(gradient: track, startPoint: .leading, endPoint: .trailing).opacity(0.35) }
@@ -37,16 +42,13 @@ struct FilledLevelControl: View {
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24))
                 .contentShape(.rect)
                 .gesture(DragGesture(minimumDistance: 0)
-                    .onChanged { drag in
+                    .updating($dragging) { drag, value, _ in
                         guard enabled, proxy.size.width > 0 else { return }
-                        let fraction = max(0, min(1, drag.location.x / proxy.size.width))
-                        dragging = stepped(Double(range.lowerBound) + fraction * span)
-                        preview(dragging)
+                        value = valueAt(drag.location.x)
                     }
-                    .onEnded { _ in
-                        if enabled, let dragging { commit(dragging) }
-                        dragging = nil
-                        preview(nil)
+                    .onEnded { drag in
+                        guard enabled, proxy.size.width > 0 else { return }
+                        commit(valueAt(drag.location.x))
                     })
         }.opacity(enabled ? 1 : 0.4)
             .accessibilityElement(children: .ignore).accessibilityLabel(label)
@@ -60,7 +62,7 @@ struct FilledLevelControl: View {
                 @unknown default: break
                 }
             }
-            .onChange(of: enabled) { _, enabled in if !enabled { dragging = nil; preview(nil) } }
+            .onChange(of: dragValue) { _, value in preview(value) }
             .onDisappear { preview(nil) }
     }
 }

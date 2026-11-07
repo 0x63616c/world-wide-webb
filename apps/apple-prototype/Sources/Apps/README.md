@@ -206,8 +206,12 @@ UI tests; three recorded motion comparisons. Typecheck passed. The new access
 tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.
 
 Lights brightness and white temperature use `FilledLevelControl`, shared with
-Music volume: a filled draggable bar with local drag preview, one commit on
-release, bounded values, and adjustable accessibility actions. Cameras is no
+Sonos volume: a filled draggable bar with local drag preview, one commit on
+release, bounded values, and adjustable accessibility actions. The Sonos Home
+mixer shows live percentages above the bars, with TV below the other rooms.
+Master shows the average raw volume and moves every available speaker to the
+chosen level. The lock beside Master links subsequent room adjustments across
+all available speakers. Cameras is no
 longer registered in the native app catalog. Notification banners sit 20 points
 from the top-right edges, and the entire notification history uses dark mode;
 Classic reconnects against a black native background.
