@@ -580,7 +580,7 @@ import struct FoldingData.SetupProgress
     try await service.saveResultPreferences(
       value, transport: api.transport, participantID: participantID,
       homeTimezone: homeTimezone ?? presentation.preferences.homeTimezone,
-      locale: Locale.preferredLanguages.first ?? "en")
+      locale: Bundle.main.preferredLocalizations.first ?? "en")
     guard identity == competitionIdentityRevision else { throw CancellationError() }
   }
 

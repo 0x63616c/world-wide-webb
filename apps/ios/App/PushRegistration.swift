@@ -148,9 +148,10 @@ struct CompetitionResultPreferences: Codable, Equatable, Sendable {
     transport: CompetitionTransport, participantID: String, homeTimezone: String,
     locale: String
   ) async throws {
-    guard TimeZone(identifier: homeTimezone) != nil,
-      let locale = Self.supportedLocale(locale)
-    else { throw CompetitionTransportError.invalidResponse }
+    guard TimeZone(identifier: homeTimezone) != nil else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    let locale = Self.supportedLocale(locale)
     let value = CompetitionResultPreferences(
       weekly: requested.weeklyResult.rawValue,
       monthly: requested.monthlyResult.rawValue, home_timezone: homeTimezone, locale: locale)
@@ -268,7 +269,7 @@ struct CompetitionResultPreferences: Codable, Equatable, Sendable {
 
   private func persist() throws { try storage.write(JSONEncoder().encode(state), account: "state") }
 
-  static func supportedLocale(_ identifier: String) -> String? {
+  static func supportedLocale(_ identifier: String) -> String {
     let tag = identifier.replacingOccurrences(of: "_", with: "-")
     let supported = ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"]
     if supported.contains(tag) { return tag }
@@ -276,6 +277,6 @@ struct CompetitionResultPreferences: Codable, Equatable, Sendable {
     if tag.hasPrefix("zh") { return "zh-Hans" }
     if tag.hasPrefix("pt") { return "pt-BR" }
     if tag.hasPrefix("es-") && tag != "es-ES" { return "es-419" }
-    return supported.first { tag.hasPrefix($0 + "-") }
+    return supported.first { tag.hasPrefix($0 + "-") } ?? "en"
   }
 }
