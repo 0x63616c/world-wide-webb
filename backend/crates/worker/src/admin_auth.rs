@@ -123,18 +123,47 @@ impl Administrator {
         token: &str,
         config: &Configuration,
     ) -> std::result::Result<(), Failure> {
-        if request.method() != Method::Post
-            || request
+        if request.method() != Method::Post {
+            return Err(reject("csrf_method"));
+        }
+        let origin = request
+            .headers()
+            .get("Origin")
+            .map_err(|_| reject("csrf_origin_header"))?;
+        if !crate::access_identity::admin_form_origin_allowed(
+            origin.as_deref(),
+            &self.origin,
+            request
                 .headers()
-                .get("Origin")
-                .map_err(|_| reject("csrf_origin_header"))?
-                .as_deref()
-                != Some(&self.origin)
-        {
+                .get("Sec-Fetch-Site")
+                .ok()
+                .flatten()
+                .as_deref(),
+            request
+                .headers()
+                .get("Sec-Fetch-Mode")
+                .ok()
+                .flatten()
+                .as_deref(),
+            request
+                .headers()
+                .get("Sec-Fetch-Dest")
+                .ok()
+                .flatten()
+                .as_deref(),
+            request
+                .headers()
+                .get("Sec-Fetch-User")
+                .ok()
+                .flatten()
+                .as_deref(),
+        ) {
             return Err(reject("csrf_origin_mismatch"));
         }
         let (expiry, signature) = token.split_once('.').ok_or_else(|| reject("csrf_format"))?;
-        let expiry = expiry.parse::<u64>().map_err(|_| reject("csrf_expiry_format"))?;
+        let expiry = expiry
+            .parse::<u64>()
+            .map_err(|_| reject("csrf_expiry_format"))?;
         if expiry <= (now() / 1000) as u64 || expiry > self.expires {
             return Err(reject("csrf_expired"));
         }

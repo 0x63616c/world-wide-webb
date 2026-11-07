@@ -37,6 +37,23 @@ pub struct Identity {
 }
 #[derive(Debug)]
 pub struct InvalidAccess;
+/// A few embedded browsers serialize same-origin form navigation as Origin: null.
+/// The caller still requires a valid Access JWT and a JWT-bound CSRF token.
+pub(crate) fn admin_form_origin_allowed(
+    origin: Option<&str>,
+    expected: &str,
+    fetch_site: Option<&str>,
+    fetch_mode: Option<&str>,
+    fetch_dest: Option<&str>,
+    fetch_user: Option<&str>,
+) -> bool {
+    origin == Some(expected)
+        || (origin == Some("null")
+            && fetch_site == Some("same-origin")
+            && fetch_mode == Some("navigate")
+            && fetch_dest == Some("document")
+            && fetch_user == Some("?1"))
+}
 pub fn verify(
     token: &str,
     jwks: &[u8],
@@ -116,4 +133,49 @@ pub fn verify(
         return Err(InvalidAccess);
     }
     Ok(claims)
+}
+
+#[cfg(test)]
+mod origin_tests {
+    use super::admin_form_origin_allowed as allowed;
+
+    #[test]
+    fn admin_form_accepts_exact_origin_or_user_initiated_same_origin_navigation() {
+        let host = "https://admin-staging.getfolding.app";
+        assert!(allowed(Some(host), host, None, None, None, None));
+        assert!(allowed(
+            Some("null"),
+            host,
+            Some("same-origin"),
+            Some("navigate"),
+            Some("document"),
+            Some("?1")
+        ));
+        for site in [None, Some("same-site"), Some("cross-site")] {
+            assert!(!allowed(
+                Some("null"),
+                host,
+                site,
+                Some("navigate"),
+                Some("document"),
+                Some("?1")
+            ));
+        }
+        assert!(!allowed(
+            Some("null"),
+            host,
+            Some("same-origin"),
+            Some("navigate"),
+            Some("document"),
+            None
+        ));
+        assert!(!allowed(
+            Some("https://evil.example"),
+            host,
+            Some("same-origin"),
+            Some("navigate"),
+            Some("document"),
+            Some("?1")
+        ));
+    }
 }
