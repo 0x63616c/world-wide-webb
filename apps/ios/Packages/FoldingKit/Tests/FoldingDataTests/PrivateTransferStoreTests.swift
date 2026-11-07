@@ -217,7 +217,7 @@ private func transferEvent(
     try db.execute("PRAGMA user_version=4")
   }
   let reopened = try TrackingStore(directory: root, installationID: identity)
-  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "6")
+  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "7")
   let marker = try await reopened.selectTrackingDevice(other, nowMS: 9000)
   #expect(marker.sourceWatermarks == [identity: 7])
   #expect(try await reopened.retainedEvents().count == 1)

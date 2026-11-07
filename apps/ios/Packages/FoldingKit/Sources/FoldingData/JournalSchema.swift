@@ -4,17 +4,14 @@ extension SQLiteConnection {
   func migrate() throws {
     try transaction {
       let version = try rows("PRAGMA user_version").first?["user_version"]
-      guard
-        version == "0" || version == "1" || version == "2" || version == "3" || version == "4"
-          || version == "5" || version == "6"
-      else {
+      guard let version, let schemaVersion = Int(version), (0...7).contains(schemaVersion) else {
         throw StoreError.incompatibleSchema
       }
-      if version == "0" { for statement in Self.schema { try execute(statement) } }
-      if version == "0" || version == "1" {
+      if schemaVersion == 0 { for statement in Self.schema { try execute(statement) } }
+      if schemaVersion < 2 {
         try execute("ALTER TABLE work_outbox ADD COLUMN lease_token TEXT")
       }
-      if version != "3" && version != "4" && version != "5" && version != "6" && version != "6" {
+      if schemaVersion < 3 {
         try execute(
           "CREATE TABLE sync_checkpoints (store_id TEXT PRIMARY KEY, token TEXT NOT NULL)")
         try execute(
@@ -26,7 +23,7 @@ extension SQLiteConnection {
         try execute("CREATE TABLE rejected_reset_ids (reset_id TEXT PRIMARY KEY)")
         try execute("PRAGMA user_version=3")
       }
-      if version != "4" && version != "5" && version != "6" {
+      if schemaVersion < 4 {
         try execute(
           "ALTER TABLE deferred_imports ADD COLUMN generation_revision INTEGER NOT NULL DEFAULT 0")
         try execute(
@@ -56,7 +53,7 @@ extension SQLiteConnection {
         try execute("CREATE INDEX deferred_reset ON deferred_imports(generation_id)")
         try execute("PRAGMA user_version=4")
       }
-      if version != "5" && version != "6" {
+      if schemaVersion < 5 {
         try execute(
           "CREATE TABLE transfer_markers (transfer_id TEXT PRIMARY KEY, revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 9007199254740991), payload_json TEXT NOT NULL)"
         )
@@ -75,7 +72,7 @@ extension SQLiteConnection {
         )
         try execute("PRAGMA user_version=5")
       }
-      if version != "6" {
+      if schemaVersion < 6 {
         try execute(
           "CREATE TABLE IF NOT EXISTS derived_state (id INTEGER PRIMARY KEY CHECK(id=1), journal_id TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision BETWEEN 0 AND 9007199254740991), epoch INTEGER NOT NULL CHECK(epoch BETWEEN 0 AND 9007199254740991))"
         )
@@ -100,6 +97,16 @@ extension SQLiteConnection {
           }
         }
         try execute("PRAGMA user_version=6")
+      }
+      if schemaVersion < 7 {
+        try execute(
+          "CREATE TABLE IF NOT EXISTS daily_limit_preferences (id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL CHECK(enabled IN (0,1)), threshold INTEGER NOT NULL CHECK(threshold BETWEEN 1 AND 1000000), evaluated_device TEXT NOT NULL, evaluated_sequence INTEGER NOT NULL CHECK(evaluated_sequence BETWEEN 0 AND 9007199254740991))"
+        )
+        try execute("INSERT OR IGNORE INTO daily_limit_preferences VALUES (1,0,100,'',0)")
+        try execute(
+          "CREATE TABLE IF NOT EXISTS daily_limit_claim (id INTEGER PRIMARY KEY CHECK(id=1),claim_id TEXT NOT NULL,payload_json TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','leased','acknowledged','cancelled','expired')),lease_token TEXT,lease_until_ms INTEGER,next_attempt_ms INTEGER NOT NULL)"
+        )
+        try execute("PRAGMA user_version=7")
       }
       // Seed durable high-water marks for journals created before recovery diagnostics existed.
       if try rows("SELECT value FROM settings WHERE key='highest_reset_revision'").isEmpty {
