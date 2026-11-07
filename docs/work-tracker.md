@@ -92,3 +92,7 @@ Foundation and personal persistence are in progress. Reducer, journal and local 
 - Independent foundation review found no blocking code defect; architecture documentation now records the XcodeGen decision consistently.
 - Added an unprivileged GitHub contract-check workflow. [First run42396408581](https://github.com/0x63616c/folding/actions/runs/42396408581) was rejected before job startup by GitHub account billing/spending limits; owner action requested. No CI pass is claimed. Native hosted CI is not enabled: the current hosted image has Xcode 27B48 and Duo runtime27.1 rather than the verified local pins. No self-hosted repo runners were registered at this checkpoint.
 - Owner now permits implementation agents for speed. Backend Rust work is assigned separately; primary retains credential/deployment access and integrates results.
+
+## Owner CI deferral
+
+The owner deferred GitHub CI while arranging runners in another project. Automatic workflow triggers are disabled; no CI retries until requested. Continue local core/backend/simulator/Fastlane validation. Restore CI and verify runner isolation before release acceptance; the earlier billing rejection remains historical evidence, not an active request for owner action.

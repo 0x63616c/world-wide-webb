@@ -1,8 +1,6 @@
+# Owner deferred GitHub CI until runner setup is ready. No automatic triggers.
 name: Checks
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
