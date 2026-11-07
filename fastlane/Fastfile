@@ -114,6 +114,13 @@ platform :ios do
     FoldingRelease::Operations.archive(self, FoldingRelease::Record.new(options.fetch(:tag)))
   end
 
+  desc "Archive a 0.x TestFlight preview with distribution signing, before storefront assets"
+  lane :archive_beta_preview do |options|
+    apple_destination
+    generate_project
+    FoldingRelease::Operations.archive(self, FoldingRelease::Record.new(options.fetch(:tag)), preview: true)
+  end
+
   desc "Replace an interrupted archive with an audited fresh build reservation"
   lane :recover_archive do |options|
     FoldingRelease::Operations.replace_interrupted_archive(

@@ -109,11 +109,16 @@ module FoldingRelease
       end
     end
 
-    def self.archive(context, record)
+    def self.archive(context, record, preview: false)
       return %w[archive ipa dsym].each { |kind| record.artifact(kind) } if STATES.index(record.data.fetch("state")) >= STATES.index("archived")
-      require_state!(record, "assets_ready")
+      if preview
+        require_state!(record, "planned")
+        raise "TestFlight preview requires a 0.x version" unless record.data.fetch("marketing_version").start_with?("0.")
+      else
+        require_state!(record, "assets_ready")
+      end
       FoldingRelease.clean_commit!
-      restore_assets(record)
+      restore_assets(record) unless preview
       if record.data["archive_candidates"]
         return publish_archive(record)
       end
