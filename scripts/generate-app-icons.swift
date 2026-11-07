@@ -45,9 +45,9 @@ guard parser.parse(), Set(geometry.shapes.map(\.id)) == ["left", "right", "top"]
 else { fatalError("Invalid icon vector geometry") }
 let output = root.appendingPathComponent("apps/ios/App/Assets.xcassets/AppIcon.appiconset")
 let variants: [(name: String, background: UInt32?, paper: UInt32, top: UInt32)] = [
-  ("AppIcon", 0x2263e9, 0xffffff, 0xb4d2ff),
-  ("AppIcon-Dark", nil, 0x74aaff, 0xc3dcff),
-  ("AppIcon-Tinted", 0x000000, 0xffffff, 0xbababa),
+  ("AppIcon", 0x000000, 0xffffff, 0x9e9e9e),
+  ("AppIcon-Dark", 0x000000, 0xffffff, 0x9e9e9e),
+  ("AppIcon-Tinted", 0x000000, 0xffffff, 0x9e9e9e),
 ]
 for variant in variants {
   let alpha: CGImageAlphaInfo = variant.background == nil ? .premultipliedLast : .noneSkipLast
