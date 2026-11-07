@@ -13,12 +13,17 @@ homelab
 
 1. **Connect:** select a Mac and verify SSH access. On a fresh Mac, first create
    its administrator account and enable Remote Login.
-2. **Prepare:** attach your configuration repository once (`owner/repository`),
-   then prepare the missing credentials. The wizard remembers the repository and
-   host binding. It uses the bootstrap helper shipped with this release.
-3. **Review & set up:** review the exact configuration commit and target, then
-   approve installation. The target installs Nix, checks the configuration and
-   builds it before activation.
+2. **Approve setup:** attach your configuration repository once (`owner/repository`)
+   and review the selected Mac. The wizard backs up keys to 1Password, prepares
+   encrypted secrets and gives the Mac read-only repository access.
+3. **Merge the enrollment PR:** review it in GitHub. The wizard waits for your
+   merge, then installs that exact configuration, reboots the Mac and checks
+   services, Git access and Tailscale connectivity.
+
+After setup, the configuration repo's updater owns changes. With Comin, merging
+to `main` is deployment approval: each Mac pulls and applies its configuration.
+See [setup prerequisites and recovery](docs/setup.md) before starting; FileVault
+can require a local unlock after reboot.
 
 Use **↑ / ↓** to choose, **Enter** to continue and **Esc** to go back.
 Opening the CLI never deploys. It never installs Nix on your client laptop.
@@ -31,10 +36,13 @@ The CLI handles enrollment; ongoing configuration changes belong in Git.
 flowchart LR
   Release[Public CLI release] --> Client[Your laptop: homelab]
   Repo[Your private configuration] --> Client
-  Vault[Credential source: 1Password] --> Client
+  Client <-->|Read credentials and verify key backups| Vault[1Password on your laptop]
+  Client -->|Encrypted enrollment PR| Repo
   Client -->|Reviewed setup over SSH| Mac[Target Mac]
   Repo -->|Exact approved commit| Mac
   Mac --> Nix[Nix builds and launchd services]
+  Repo -->|Later merges to main| Updates[Comin on the Mac]
+  Updates --> Nix
 ```
 
 | Keep here | Keep in your configuration repo |
@@ -51,7 +59,7 @@ adapter runs only on your laptop; targets receive only their scoped secrets.
 - [Setup and recovery](docs/setup.md) — what each step changes and how to resume.
 - [Testing](docs/testing.md) — automated macOS journeys and their limits.
 
-**Current scope:** SSH onboarding, local secret preparation and explicitly
-approved bootstrap. Publishing encrypted configuration still requires repository
-review. Runner registration, service migration and a persistent node agent are
-not implemented by this wizard.
+**Scope:** enrollment, verified credential backups, an encrypted configuration PR,
+bootstrap and post-reboot checks. Runner registration and service migration belong
+in your configuration project. The CLI does not install a management agent;
+your configuration supplies the updater and services.
