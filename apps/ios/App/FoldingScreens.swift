@@ -498,6 +498,17 @@ private struct SettingsScreen: View {
           }
         }
         Section(String(localized: "settings.data", defaultValue: "Data")) {
+          if model.privateHistoryHealth?.requiresAttention == true {
+            NavigationLink {
+              HistoryRecoveryScreen(
+                model: model, actions: actions,
+                export: { exportChoices = true }, reset: { resetConfirmation = true })
+            } label: {
+              Label(
+                String(localized: "recovery.title", defaultValue: "History needs attention"),
+                systemImage: "exclamationmark.triangle")
+            }
+          }
           if actions.export != nil, actions.exportURL != nil {
             Button(String(localized: "data.export", defaultValue: "Export")) {
               exportChoices = true
@@ -507,6 +518,7 @@ private struct SettingsScreen: View {
             Button(
               String(localized: "data.reset", defaultValue: "Reset history"), role: .destructive
             ) { resetConfirmation = true }
+            .disabled(!model.canResetHistory)
           }
         }
         Section(String(localized: "settings.support", defaultValue: "Support")) {
@@ -545,11 +557,7 @@ private struct SettingsScreen: View {
         Button(
           String(localized: "reset.confirm", defaultValue: "Reset History"), role: .destructive
         ) {
-          Task {
-            await model.command(
-              String(localized: "reset.progress", defaultValue: "Resetting history")
-            ) { try await actions.reset?() }
-          }
+          Task { await model.requestReset(using: actions) }
         }
       } message: {
         Text(
@@ -1079,6 +1087,41 @@ private struct InformationSheet: View {
           }
         }
     }.presentationDetents([.medium])
+  }
+}
+
+private struct HistoryRecoveryScreen: View {
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  let export: () -> Void
+  let reset: () -> Void
+
+  var body: some View {
+    Form {
+      Section {
+        Text(
+          String(
+            localized: "recovery.explanation",
+            defaultValue: "Some synced history couldn’t be verified."))
+      }
+      Section {
+        if actions.export != nil, actions.exportURL != nil {
+          Button(String(localized: "data.export", defaultValue: "Export"), action: export)
+        }
+        if actions.reset != nil {
+          Button(
+            String(localized: "data.reset", defaultValue: "Reset history"), role: .destructive,
+            action: reset
+          ).disabled(!model.canResetHistory)
+        }
+        Link(
+          String(localized: "leaderboard.appeal", defaultValue: "Contact support"),
+          destination: URL(string: "mailto:support@getfolding.app")!)
+      }
+    }
+    .disabled(model.operation != nil)
+    .navigationTitle(String(localized: "recovery.title", defaultValue: "History needs attention"))
+    .navigationBarTitleDisplayMode(.inline)
   }
 }
 

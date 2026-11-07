@@ -202,6 +202,28 @@ import XCTest
     XCTAssertNil(model.error)
   }
 
+  func testHistoryRecoveryResetAvailabilityTracksAuthoritativeHealth() async {
+    let model = FoldingPresentation()
+    XCTAssertTrue(model.canResetHistory)
+    model.privateHistoryHealth = .init(
+      conflictingResetCount: 1,
+      highestKnownResetRevision: .max, requiresAttention: true, canResetHistory: false)
+    XCTAssertFalse(model.canResetHistory)
+    var resets = 0
+    var actions = self.actions()
+    actions.reset = { resets += 1 }
+    await model.requestReset(using: actions)
+    XCTAssertEqual(resets, 0)
+    XCTAssertEqual(model.privateHistoryHealth?.requiresAttention, true)
+    model.privateHistoryHealth = .init(
+      conflictingResetCount: 1,
+      highestKnownResetRevision: 4, requiresAttention: false, canResetHistory: true)
+    XCTAssertTrue(model.canResetHistory)
+    XCTAssertEqual(model.privateHistoryHealth?.requiresAttention, false)
+    await model.requestReset(using: actions)
+    XCTAssertEqual(resets, 1)
+  }
+
   func testTrackingPhoneStatusUsesExplicitSelectionOnly() throws {
     let model = FoldingPresentation()
     let local = UUID()

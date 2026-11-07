@@ -4,6 +4,7 @@ import Foundation
 import Observation
 import SwiftUI
 
+import struct FoldingData.PrivateHistoryHealth
 import enum FoldingData.SetupAction
 import struct FoldingData.SetupProgress
 
@@ -244,6 +245,16 @@ enum ExportChoice { case json, csv }
   var personalFailure: String?
   var error: String?
   var operation: String?
+  var privateHistoryHealth: PrivateHistoryHealth?
+  var canResetHistory: Bool { privateHistoryHealth?.canResetHistory ?? true }
+
+  func requestReset(using actions: FoldingActions) async {
+    guard canResetHistory, let reset = actions.reset else { return }
+    await command(String(localized: "reset.progress", defaultValue: "Resetting history")) {
+      try await reset()
+    }
+  }
+
   var localDeviceID: UUID?
   var lastEventAt: Date?
   var needsSetup: Bool { setup?.step != .complete }
