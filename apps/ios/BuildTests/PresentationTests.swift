@@ -131,6 +131,77 @@ import XCTest
       range: PersonalDateRange.trailingDays(1, throughMS: now, homeTimezone: "America/Los_Angeles"))
   }
 
+  func testInvalidationRemovesActiveAndQueuedExports() {
+    let model = FoldingPresentation()
+    let first = UUID()
+    model.present(.settings)
+    model.present(.export(first))
+    XCTAssertNil(model.sheet)
+    XCTAssertEqual(Set(model.dismissExports()), [first])
+    model.didDismissSheet()
+    XCTAssertNil(model.sheet, "Invalidation must not open the queued export")
+    let second = UUID()
+    model.present(.export(second))
+    XCTAssertEqual(Set(model.dismissExports()), [second])
+    XCTAssertNil(model.sheet)
+    model.present(.settings)
+    XCTAssertTrue(model.dismissExports().isEmpty)
+    XCTAssertEqual(model.sheet, .settings, "Unrelated modals stay intact")
+  }
+
+  func testExportCreationReturningAfterInvalidationIsCleanedWithoutPresentation() async throws {
+    let model = FoldingPresentation()
+    let ticket = UUID()
+    var pending: CheckedContinuation<UUID, Error>?
+    var cleaned: [UUID] = []
+    var actions = actions()
+    actions.export = { _ in try await withCheckedThrowingContinuation { pending = $0 } }
+    actions.exportURL = { _ in
+      XCTFail("Must not resolve a queued ticket")
+      throw Failure.unavailable
+    }
+    actions.exportFinished = { cleaned.append($0) }
+    let task = Task { await model.requestExport(.json, using: actions) }
+    try await waitFor { pending != nil }
+    model.dismissExports()
+    pending!.resume(returning: ticket)
+    await task.value
+    XCTAssertEqual(cleaned, [ticket])
+    XCTAssertNil(model.sheet)
+    model.didDismissSheet()
+    XCTAssertNil(model.sheet)
+  }
+
+  func testExportTicketWaitsForSettingsDismissalWithoutResolvingURL() async {
+    let model = FoldingPresentation()
+    let ticket = UUID()
+    var actions = actions()
+    actions.export = { _ in ticket }
+    actions.exportURL = { _ in
+      XCTFail("URL resolution belongs to active share host")
+      throw Failure.unavailable
+    }
+    model.present(.settings)
+    await model.requestExport(.csv, using: actions)
+    XCTAssertNil(model.sheet)
+    model.didDismissSheet()
+    XCTAssertEqual(model.sheet, .export(ticket))
+  }
+
+  func testInvalidatedExportFailureDoesNotShowStaleError() async throws {
+    let model = FoldingPresentation()
+    var pending: CheckedContinuation<UUID, Error>?
+    var actions = actions()
+    actions.export = { _ in try await withCheckedThrowingContinuation { pending = $0 } }
+    actions.exportURL = { _ in throw Failure.unavailable }
+    let task = Task { await model.requestExport(.json, using: actions) }
+    try await waitFor { pending != nil }
+    model.dismissExports()
+    pending!.resume(throwing: Failure.unavailable)
+    await task.value
+    XCTAssertNil(model.error)
+  }
+
   private func actions() -> FoldingActions {
     FoldingActions(
       refresh: {}, setup: { _ in throw Failure.unavailable }, savePreferences: { _ in })

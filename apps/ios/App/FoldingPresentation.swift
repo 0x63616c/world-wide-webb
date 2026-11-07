@@ -150,7 +150,7 @@ enum CompetitionPresentation {
 enum PresentedSheet: Identifiable, Equatable {
   case settings, setup, editSummary, travelInfo, leaderboardInfo
   case tiedRank(Int)
-  case export(URL)
+  case export(UUID)
   var id: String {
     switch self {
     case .settings: "settings"
@@ -159,7 +159,7 @@ enum PresentedSheet: Identifiable, Equatable {
     case .travelInfo: "travel"
     case .leaderboardInfo: "leaderboard-info"
     case .tiedRank(let rank): "tie-\(rank)"
-    case .export(let file): "export-\(file.lastPathComponent)"
+    case .export(let ticket): "export-\(ticket.uuidString)"
     }
   }
 }
@@ -204,8 +204,9 @@ enum ExportChoice { case json, csv }
   var loadLeaderboard: ((CompetitionPeriod) async throws -> LeaderboardPresentation)?
   var openShortcuts: (() -> Void)?
   var reset: (() async throws -> Void)?
-  var export: ((ExportChoice) async throws -> URL)?
-  var exportFinished: ((URL) async -> Void)?
+  var export: ((ExportChoice) async throws -> UUID)?
+  var exportURL: ((UUID) async throws -> URL)?
+  var exportFinished: ((UUID) async -> Void)?
   var appleRequest: ((ASAuthorizationAppleIDRequest) -> Void)?
   var appleCompletion: ((Result<ASAuthorization, Error>) -> Void)?
   /// Verified per-OS/localized instructions, supplied by composition rather than invented by views.
@@ -233,6 +234,7 @@ enum ExportChoice { case json, csv }
   var lastEventAt: Date?
   var needsSetup: Bool { setup?.step != .complete }
   private var nextSheet: PresentedSheet?
+  private var exportRevision = UUID()
   private var historyRequest = UUID()
   private var competitionRequest = UUID()
 
@@ -250,6 +252,40 @@ enum ExportChoice { case json, csv }
     if let nextSheet {
       sheet = nextSheet
       self.nextSheet = nil
+    }
+  }
+
+  /// Invalidates creation already in flight as well as tickets waiting for Settings to dismiss.
+  @discardableResult func dismissExports() -> [UUID] {
+    exportRevision = UUID()
+    var tickets: Set<UUID> = []
+    if case .export(let ticket) = sheet {
+      tickets.insert(ticket)
+      sheet = nil
+    }
+    if case .export(let ticket) = nextSheet {
+      tickets.insert(ticket)
+      nextSheet = nil
+    }
+    return Array(tickets)
+  }
+
+  func requestExport(_ choice: ExportChoice, using actions: FoldingActions) async {
+    guard let export = actions.export, actions.exportURL != nil else { return }
+    let revision = exportRevision
+    await command(String(localized: "export.progress", defaultValue: "Preparing export")) {
+      let ticket: UUID
+      do {
+        ticket = try await export(choice)
+      } catch {
+        guard revision == self.exportRevision, !Task.isCancelled else { return }
+        throw error
+      }
+      guard revision == self.exportRevision, !Task.isCancelled else {
+        await actions.exportFinished?(ticket)
+        return
+      }
+      self.present(.export(ticket))
     }
   }
 

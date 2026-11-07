@@ -9,7 +9,6 @@ struct FoldingRootView: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   @State private var historyPath: [HistoryRoute] = []
-  @State private var activeExport: URL?
 
   var body: some View {
     TabView(selection: $model.selectedTab) {
@@ -54,7 +53,7 @@ struct FoldingRootView: View {
     .tint(model.preferences.accent.color)
     .environment(\.timeZone, TimeZone(identifier: model.preferences.homeTimezone) ?? .current)
     .preferredColorScheme(model.preferences.appearance.scheme)
-    .sheet(item: ordinarySheet, onDismiss: dismissed) { sheet in
+    .sheet(item: ordinarySheet, onDismiss: model.didDismissSheet) { sheet in
       sheetContent(sheet)
         .preferredColorScheme(model.preferences.appearance.scheme)
         .tint(model.preferences.accent.color)
@@ -118,20 +117,12 @@ struct FoldingRootView: View {
           }
         }
       }
-    case .export(let file):
-      ExportShareSheet(file: file) { model.sheet = nil }
-        .onAppear { activeExport = file }
+    case .export(let ticket):
+      ExportShareHost(ticket: ticket, model: model, actions: actions)
     case .setup: EmptyView()
     }
   }
 
-  private func dismissed() {
-    if let file = activeExport {
-      activeExport = nil
-      Task { await actions.exportFinished?(file) }
-    }
-    model.didDismissSheet()
-  }
 }
 
 private struct TodayScreen: View {
@@ -479,7 +470,7 @@ private struct SettingsScreen: View {
           }
         }
         Section(String(localized: "settings.data", defaultValue: "Data")) {
-          if actions.export != nil {
+          if actions.export != nil, actions.exportURL != nil {
             Button(String(localized: "data.export", defaultValue: "Export")) {
               exportChoices = true
             }
@@ -560,14 +551,9 @@ private struct SettingsScreen: View {
   }
 
   private func export(_ format: ExportChoice) {
-    guard let export = actions.export else { return }
-    Task {
-      await model.command(String(localized: "export.progress", defaultValue: "Preparing export")) {
-        let file = try await export(format)
-        model.present(.export(file))
-      }
-    }
+    Task { await model.requestExport(format, using: actions) }
   }
+
 }
 
 private struct SummaryEditor: View {
@@ -1068,12 +1054,66 @@ private struct InformationSheet: View {
   }
 }
 
+/// No file URL survives the Settings-to-share transition. Resolve the opaque ticket only
+/// on the active share surface, allowing the service to recheck account/reset validity.
+private struct ExportShareHost: View {
+  let ticket: UUID
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  @State private var file: URL?
+  @State private var finished = false
+
+  var body: some View {
+    Group {
+      if model.sheet == .export(ticket), let file, !finished {
+        ExportShareSheet(file: file) { error in
+          if error != nil, !finished, model.sheet == .export(ticket) {
+            model.error = String(
+              localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+          }
+          Task { await finish(dismiss: true) }
+        }
+      } else {
+        ProgressView(String(localized: "export.progress", defaultValue: "Preparing export"))
+      }
+    }
+    .task(id: ticket) {
+      do {
+        guard let resolve = actions.exportURL else { throw ExportPresentationError.unavailable }
+        let resolved = try await resolve(ticket)
+        guard !Task.isCancelled, !finished, model.sheet == .export(ticket) else {
+          await finish(dismiss: false)
+          return
+        }
+        file = resolved
+      } catch {
+        if !Task.isCancelled, !finished, model.sheet == .export(ticket) {
+          model.error = String(
+            localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+        }
+        await finish(dismiss: true)
+      }
+    }
+    .onDisappear { Task { await finish(dismiss: false) } }
+  }
+
+  private func finish(dismiss: Bool) async {
+    guard !finished else { return }
+    finished = true
+    file = nil
+    if dismiss, model.sheet == .export(ticket) { model.sheet = nil }
+    await actions.exportFinished?(ticket)
+  }
+}
+
+private enum ExportPresentationError: Error { case unavailable }
+
 private struct ExportShareSheet: UIViewControllerRepresentable {
   let file: URL
-  let completion: () -> Void
+  let completion: (Error?) -> Void
   func makeUIViewController(context: Context) -> UIActivityViewController {
     let controller = UIActivityViewController(activityItems: [file], applicationActivities: nil)
-    controller.completionWithItemsHandler = { _, _, _, _ in completion() }
+    controller.completionWithItemsHandler = { _, _, _, error in completion(error) }
     return controller
   }
   func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
