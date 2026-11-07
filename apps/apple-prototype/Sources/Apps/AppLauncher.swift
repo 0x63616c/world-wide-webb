@@ -81,12 +81,16 @@ struct AppLauncher: View {
 /// Native Liquid Glass above the clock.
 /// The inset and concentric corners leave a slim, uninterrupted rim of the dial.
 struct LauncherGlassSurface: View {
-    private let edgeInset: CGFloat = 8
+    static let edgeInset: CGFloat = 8
+    static var footprint: some View {
+        RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
+            .padding(edgeInset)
+    }
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
+        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
         Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.08)) : .clear, in: shape)
             .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
-            .padding(edgeInset)
+            .padding(Self.edgeInset)
     }
 
     private var preview: String {
