@@ -2,7 +2,7 @@
 
 Native SwiftUI study targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
-The current app launcher places its first icon row 24 points below the profile selector. Its native Liquid Glass panel has a 3-point blur confined to the glass footprint and a 10-point upper-left edge highlight in the clock layer, 4 points inside the glass footprint, at 0.75 opacity; the material tint is 0.06 white opacity. DEBUG captures can override the blur with `-previewLauncherBlur` (0–3), edge opacity with `-previewLauncherEdge` (0–0.75), and edge width with `-previewLauncherEdgeWidth` (0–10 pt).
+The current app launcher places its first icon row 24 points below the profile selector. Its native Liquid Glass panel has a 3-point blur confined to the glass footprint and uses the system's glass edge without an added outline; the material tint is 0.06 white opacity. DEBUG captures can override the blur with `-previewLauncherBlur` (0–3).
 
 ## Iteration 6
 

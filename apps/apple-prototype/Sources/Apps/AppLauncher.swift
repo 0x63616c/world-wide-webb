@@ -81,26 +81,6 @@ struct LauncherGlassSurface: View {
         #endif
         return 3
     }
-    static var edgeOpacity: Double {
-        #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-previewLauncherEdge"), args.indices.contains(index + 1),
-           let value = Double(args[index + 1]) {
-            return max(0, min(value, 0.75))
-        }
-        #endif
-        return 0.75
-    }
-    static var edgeWidth: CGFloat {
-        #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-previewLauncherEdgeWidth"), args.indices.contains(index + 1),
-           let value = Double(args[index + 1]) {
-            return CGFloat(max(0, min(value, 10)))
-        }
-        #endif
-        return 10
-    }
     static var footprint: some View {
         RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
             .padding(edgeInset)
@@ -118,21 +98,6 @@ struct LauncherGlassSurface: View {
            value == "clear" || value == "clearDim" { return value }
         #endif
         return "regular"
-    }
-}
-
-/// This sits in the clock layer, below the native glass, so the glass can refract it.
-struct LauncherGlassOutline: View {
-    private let innerInset: CGFloat = 4
-    var body: some View {
-        let inset = LauncherGlassSurface.edgeInset + innerInset
-        RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - inset)
-            .strokeBorder(
-                LinearGradient(colors: [.white.opacity(LauncherGlassSurface.edgeOpacity),
-                                        .white.opacity(LauncherGlassSurface.edgeOpacity * 0.25)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: LauncherGlassSurface.edgeWidth)
-            .padding(inset)
     }
 }
 

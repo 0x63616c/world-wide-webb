@@ -207,11 +207,6 @@ struct HomeView: View {
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
-                    if !showingClock {
-                        LauncherGlassOutline()
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                    }
                     if showingClock {
                         // A tap recognizer cancels on movement; a full-screen Button
                         // can activate after a drag that ends inside its large bounds.
