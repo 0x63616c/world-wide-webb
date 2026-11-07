@@ -44,6 +44,8 @@ impl SetupCheck {
 #[derive(Subcommand)]
 enum Operation {
     #[command(hide = true)]
+    InstallDeveloperTools,
+    #[command(hide = true)]
     RunUpdater {
         #[arg(long)]
         executable: PathBuf,
@@ -304,6 +306,20 @@ fn reviewed_host(
 fn main() -> ExitCode {
     let arguments = Arguments::parse();
     match arguments.operation {
+        Operation::InstallDeveloperTools => {
+            if !root_bootstrap_operation() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::developer_tools::ensure_installed(|message| {
+                eprintln!("{message}")
+            }) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("Command Line Tools setup stopped: {error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Operation::RunUpdater { executable, config } => {
             if !root_bootstrap_operation() {
                 return ExitCode::FAILURE;

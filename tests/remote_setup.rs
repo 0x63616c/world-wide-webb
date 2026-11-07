@@ -114,14 +114,86 @@ impl Fixture {
 }
 
 #[test]
-fn prerequisite_probe_is_read_only_and_fails_before_staging() {
+fn prerequisite_probe_distinguishes_missing_tools_admin_and_transport() {
     let fixture = Fixture::new();
     remote_setup::check_prerequisites(&fixture.request().profile, &fixture.tools).unwrap();
     fixture.flag("missing-prerequisites");
-    let error =
-        remote_setup::check_prerequisites(&fixture.request().profile, &fixture.tools).unwrap_err();
-    assert_eq!(error.code(), "setup-prerequisites-unavailable");
+    assert_eq!(
+        remote_setup::check_prerequisites(&fixture.request().profile, &fixture.tools).unwrap(),
+        remote_setup::Prerequisites::DeveloperToolsMissing
+    );
     assert_eq!(fixture.events(), ["prerequisites", "prerequisites"]);
+    for (flag, code) in [
+        ("not-admin", "setup-administrator-required"),
+        ("probe-disconnected", "setup-prerequisites-unavailable"),
+    ] {
+        let fixture = Fixture::new();
+        fixture.flag(flag);
+        assert_eq!(
+            remote_setup::check_prerequisites(&fixture.request().profile, &fixture.tools)
+                .unwrap_err()
+                .code(),
+            code
+        );
+        assert_eq!(fixture.events(), ["prerequisites"]);
+    }
+}
+
+#[test]
+fn missing_tools_install_without_secret_transfer_and_ready_tools_are_untouched() {
+    let fixture = Fixture::new();
+    let helper = fixture.path("artifact/homelab-host");
+    fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
+    remote_setup::install_developer_tools(&fixture.request().profile, &helper, &fixture.tools)
+        .unwrap();
+    assert_eq!(fixture.events(), ["prerequisites"]);
+    fixture.flag("missing-prerequisites");
+    fixture.flag("git-identity");
+    remote_setup::install_developer_tools(&fixture.request().profile, &helper, &fixture.tools)
+        .unwrap();
+    assert_eq!(
+        fixture.events(),
+        [
+            "prerequisites",
+            "prerequisites",
+            "stage",
+            "transfer",
+            "install-tools",
+            "cleanup",
+            "prerequisites"
+        ]
+    );
+}
+
+#[test]
+fn tools_install_failure_is_distinct_and_disconnect_preserves_staging() {
+    for interrupted in [false, true] {
+        let fixture = Fixture::new();
+        let helper = fixture.path("artifact/homelab-host");
+        fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
+        fixture.flag("missing-prerequisites");
+        fixture.flag("git-identity");
+        if interrupted {
+            fs::write(fixture.path("interrupted-status"), "255").unwrap();
+        } else {
+            fixture.flag("tools-install-fails");
+        }
+        let error = remote_setup::install_developer_tools(
+            &fixture.request().profile,
+            &helper,
+            &fixture.tools,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.code(),
+            if interrupted {
+                "setup-outcome-unknown"
+            } else {
+                "setup-developer-tools-incomplete"
+            }
+        );
+        assert_eq!(fixture.events().contains(&"cleanup".into()), !interrupted);
+    }
 }
 
 #[test]

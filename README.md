@@ -35,7 +35,7 @@ The CLI finishes after enrollment.
 | Where | What you need |
 | --- | --- |
 | Your laptop | Apple silicon macOS; GitHub CLI signed in; 1Password with its `op` CLI and desktop integration; the standalone Tailscale app and CLI, connected to your tailnet |
-| New Mac | Apple silicon macOS; an administrator account; Remote Login enabled for that account; Apple's Command Line Tools; power and network access |
+| New Mac | Apple silicon macOS; an administrator account; Remote Login enabled for that account; power and network access |
 | Configuration | A GitHub repository implementing the [configuration contract](docs/configuration.md), including a locked nix-darwin flake |
 | Tailscale | A tag-scoped OAuth credential saved in 1Password, and tailnet policy allowing your administrator's Tailscale SSH connection |
 
@@ -54,17 +54,21 @@ homelab
 
 Setup follows four steps:
 
-1. **Choose your Mac.** Enter its address and administrator account. The wizard
-   checks SSH access and guides you through trusting the host and choosing a key.
-2. **Attach your configuration.** Enter `owner/repository` once, select the host
-   configuration if needed, and review setup.
+1. **Open your repository.** Enter `owner/repository` once. Git supplies the host
+   list, administrator accounts and desired configuration.
+2. **Choose your Mac.** Enter its initial address once, then approve setup. Saved
+   addresses and SSH identities are reused; missing developer tools install automatically.
 3. **Merge the PR.** The wizard prepares credentials and opens an enrollment PR.
    Review and merge it in GitHub; setup continues automatically.
 4. **Wait for verification.** The wizard installs, reboots and reconnects before
    handing over to Git-managed updates.
 
 Use **↑ / ↓** to choose, **Enter** to continue and **Esc** to go back. To reopen a
-saved attempt, use `homelab setup --host NAME`.
+saved attempt, select the same host again. Press **e** to edit a saved connection's
+address without starting setup. `homelab setup --host NAME` also works.
+
+Local files remember connection details and recovery progress, not a second host
+configuration. Existing saved connections and keys survive this upgrade.
 
 Administrator authentication may be needed during setup. FileVault can require
 someone to unlock the target locally after reboot. See the [setup guide](docs/setup.md)

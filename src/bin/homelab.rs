@@ -12,7 +12,7 @@ use homelab_client::{inventory, tui};
     about = "Set up a Mac from your Git configuration"
 )]
 struct Arguments {
-    #[arg(long, global = true)]
+    #[arg(long, global = true, hide = true)]
     inventory: Option<PathBuf>,
     #[command(subcommand)]
     operation: Option<Operation>,
@@ -25,7 +25,7 @@ enum Operation {
         #[command(subcommand)]
         operation: ConfigOperation,
     },
-    /// Start or resume setup of a saved Mac.
+    /// Start or resume setup of a host from your GitHub repository.
     Setup {
         #[arg(long)]
         host: String,
@@ -59,6 +59,27 @@ impl Failure {
 impl From<inventory::InventoryError> for Failure {
     fn from(error: inventory::InventoryError) -> Self {
         Self::new(error.code(), error.to_string(), error.next_action())
+    }
+}
+
+fn menu_failure(error: tui::MenuError) -> Failure {
+    match error {
+        tui::MenuError::Inventory(error) => Failure::from(error),
+        tui::MenuError::Terminal => Failure::new(
+            "terminal-unavailable",
+            error.to_string(),
+            "Open an interactive terminal and retry. Saved connection details are retained.",
+        ),
+        tui::MenuError::Cancelled => Failure::new(
+            "setup-cancelled",
+            error.to_string(),
+            "Reopen homelab when ready; existing setup state is preserved.",
+        ),
+        _ => Failure::new(
+            "setup-unavailable",
+            error.to_string(),
+            "Reopen homelab to choose a repository host or resume its saved setup.",
+        ),
     }
 }
 
@@ -101,56 +122,18 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
             Failure::new(
                 "inventory-unavailable",
                 "The home directory could not be determined.",
-                "Select your private host list with --inventory PATH.",
+                "Restore your HOME environment so the CLI can locate its connection and recovery state.",
             )
         })?;
 
     match arguments.operation {
         Some(Operation::Config { .. }) => unreachable!("configuration handled before inventory"),
         None => {
-            tui::launch(&path).map_err(|error| match error {
-                tui::MenuError::Inventory(error) => Failure::from(error),
-                tui::MenuError::Terminal => Failure::new(
-                    "terminal-unavailable",
-                    error.to_string(),
-                    "Open an interactive terminal and retry. Saved host profiles are retained.",
-                ),
-            })?;
+            tui::launch(&path).map_err(menu_failure)?;
             Ok(())
         }
         Some(Operation::Setup { host }) => {
-            let hosts = inventory::load(&path)?;
-            let profile = hosts
-                .iter()
-                .find(|profile| profile.name == host)
-                .ok_or_else(|| {
-                    Failure::new(
-                        "unknown-host",
-                        "That host is not in your private inventory.",
-                        "Run homelab to choose or add the Mac you want to set up.",
-                    )
-                })?;
-            let outcome = homelab_client::setup_wizard::launch(profile, &path).map_err(|_| {
-                Failure::new(
-                    "terminal-unavailable",
-                    "Setup could not continue in this terminal.",
-                    "Preserve setup evidence and inspect the target before retrying.",
-                )
-            })?;
-            writeln!(io::stdout().lock(), "{}", outcome.lines.join("\n")).map_err(|_| {
-                Failure::new(
-                    "output-unavailable",
-                    "The setup result could not be displayed.",
-                    "Inspect the target before attempting setup again.",
-                )
-            })?;
-            if !outcome.completed {
-                return Err(Failure::new(
-                    "setup-incomplete",
-                    "Setup did not complete.",
-                    "Review the result above before retrying.",
-                ));
-            }
+            tui::launch_selected(&path, Some(&host)).map_err(menu_failure)?;
             Ok(())
         }
     }
@@ -177,51 +160,5 @@ fn main() -> ExitCode {
             );
             ExitCode::FAILURE
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn setup_reports_missing_inventory_without_starting_the_wizard() {
-        let directory = tempfile::tempdir().unwrap();
-        let error = execute(Arguments {
-            inventory: Some(directory.path().join("missing.json")),
-            operation: Some(Operation::Setup {
-                host: "missing".into(),
-            }),
-        })
-        .unwrap_err();
-        assert_eq!(error.code, "inventory-missing");
-        assert!(error.next_action.contains("profile"));
-    }
-
-    #[test]
-    fn unknown_profile_never_becomes_an_ssh_address() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("private/inventory.json");
-        inventory::add(
-            &path,
-            inventory::HostProfile {
-                name: "saved".into(),
-                address: "example.invalid".into(),
-                user: "operator".into(),
-                identity: None,
-                configuration_host: None,
-            },
-        )
-        .unwrap();
-        let original = std::fs::read(&path).unwrap();
-        let error = execute(Arguments {
-            inventory: Some(path.clone()),
-            operation: Some(Operation::Setup {
-                host: "arbitrary".into(),
-            }),
-        })
-        .unwrap_err();
-        assert_eq!(error.code, "unknown-host");
-        assert_eq!(std::fs::read(path).unwrap(), original);
     }
 }

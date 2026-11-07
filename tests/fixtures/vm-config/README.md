@@ -77,9 +77,10 @@ admin rules otherwise can allow commands but prompt during validation. Validate
 the complete configuration and both commands; never apply this fixture policy
 to the physical host or production Macs.
 
-A vanilla image must first demonstrate the missing Command Line Tools error.
-Install CLT inside that guest before the positive bootstrap run. A base image
-with CLT preinstalled cannot establish that fresh-machine prerequisite behavior.
+A vanilla image must first demonstrate absent Command Line Tools, then let the
+approved setup install them automatically. Verify the Apple package receipt,
+selected developer directory and working Git before the positive bootstrap run.
+A base image with CLT preinstalled cannot establish that fresh-machine behavior.
 
 After activation the harness verifies:
 

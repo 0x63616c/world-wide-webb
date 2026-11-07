@@ -11,7 +11,8 @@ fn help_describes_setup_from_an_unrelated_directory() {
     assert!(output.status.success());
     let help = String::from_utf8(output.stdout).unwrap();
     assert!(help.contains("setup"));
-    assert!(help.contains("--inventory"));
+    assert!(!help.contains("--inventory"));
+    assert!(help.contains("Git configuration"));
     assert!(!help.contains("inspect"));
     assert!(!help.contains("management"));
 }

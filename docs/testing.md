@@ -74,7 +74,10 @@ Before running, seed the guest with:
 
 - SSH access for the manifest administrator and fixture-only passwordless sudo.
 - `/var/tmp/homelab-vm-e2e.json` containing the exact `nonce` and `hostname`.
-- The command-line tools required by the pinned Nix installer.
+
+For the full enrollment rehearsal, start without Command Line Tools so the
+approved wizard must install them. The standalone completion diagnostic below
+starts after activation and cannot validate prerequisite installation.
 
 Validate both `sudo -n true` and `sudo -n -v` as the guest administrator.
 Mixed password and NOPASSWD rules can permit commands while still requiring a

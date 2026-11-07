@@ -211,7 +211,7 @@ fn two_merged_expirations_preserve_receipts_and_create_distinct_renewals() {
         .collect();
         let ciphertext = fs::read(&details.ciphertext_path).unwrap();
         assert!(
-            retire_expired(session, false, 2001, || {
+            retire_expired(session, false, false, 2001, || {
                 let merged =
                     configuration_pr::resolve_for_renewal(&repository, &proposal)?.unwrap();
                 assert_eq!(merged.revision, repository.current.revision);

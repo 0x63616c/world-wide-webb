@@ -113,6 +113,8 @@ enum Failure {
     Reconnect,
     GitIdentity,
     Prerequisites,
+    Administrator,
+    DeveloperTools,
 }
 
 #[derive(Debug)]
@@ -151,6 +153,8 @@ impl Error {
             Failure::Reconnect => "setup-reconnect-failed",
             Failure::GitIdentity => "setup-git-identity-unconfirmed",
             Failure::Prerequisites => "setup-prerequisites-unavailable",
+            Failure::Administrator => "setup-administrator-required",
+            Failure::DeveloperTools => "setup-developer-tools-incomplete",
         }
     }
     pub fn next_action(&self) -> String {
@@ -174,7 +178,13 @@ impl Error {
                 "Confirm staging cleanup and SSH access before continuing; do not rerun bootstrap blindly."
             }
             Failure::Prerequisites => {
-                "Use the target's administrator account and install Apple's Command Line Tools on that Mac before retrying. No enrollment credentials were issued."
+                "Check the SSH connection and retry setup. This check did not issue enrollment credentials."
+            }
+            Failure::Administrator => {
+                "Connect using the administrator created in Setup Assistant. This check did not issue enrollment credentials."
+            }
+            Failure::DeveloperTools => {
+                "Read the installation result above, then reopen this saved setup. It will check the tools again before continuing; your saved keys are preserved."
             }
             Failure::GitIdentity => {
                 "Retry to check the same target-local Git identity. No private Git key was transferred to this client."
@@ -209,7 +219,9 @@ impl std::fmt::Display for Error {
             Failure::Cleanup => "Remote staging cleanup could not be confirmed.",
             Failure::Reconnect => "Setup completed, but the selected SSH connection was not verified afterward.",
             Failure::GitIdentity => "The target's Git identity could not be confirmed.",
-            Failure::Prerequisites => "The target's administrator membership and developer tools could not be verified.",
+            Failure::Prerequisites => "The prerequisite check could not finish over SSH.",
+            Failure::Administrator => "The connected account is not a member of this Mac's administrator group.",
+            Failure::DeveloperTools => "Apple's Command Line Tools installation did not complete.",
         })
     }
 }
@@ -514,19 +526,27 @@ fn failed_before_start(
     }
 }
 
-pub fn check_prerequisites(profile: &HostProfile, tools: &Tools) -> Result<(), Error> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Prerequisites {
+    Ready,
+    DeveloperToolsMissing,
+}
+
+pub fn check_prerequisites(profile: &HostProfile, tools: &Tools) -> Result<Prerequisites, Error> {
     inventory::validate_profile(profile).map_err(|_| Error::new(Failure::Inputs))?;
-    if !script(
+    let output = script(
         profile,
         tools,
         include_str!("remote/prerequisites.sh"),
         None,
     )
-    .is_ok_and(|output| output.status.success())
-    {
-        return Err(Error::new(Failure::Prerequisites));
+    .map_err(|_| Error::new(Failure::Prerequisites))?;
+    match output.status.code() {
+        Some(0) => Ok(Prerequisites::Ready),
+        Some(10) => Err(Error::new(Failure::Administrator)),
+        Some(11) => Ok(Prerequisites::DeveloperToolsMissing),
+        _ => Err(Error::new(Failure::Prerequisites)),
     }
-    Ok(())
 }
 
 fn new_stage(profile: &HostProfile, tools: &Tools) -> Result<String, Error> {
@@ -609,6 +629,39 @@ fn enrollment_rpc(
     if !crate::config::valid_repository(repository) {
         return Err(Error::new(Failure::Inputs));
     }
+    let (stage, digest) = stage_helper(profile, helper, tools)?;
+    let result = (|| {
+        let mut input = tempfile::tempfile().map_err(|_| Error::new(Failure::Stage))?;
+        input
+            .write_all(include_bytes!("remote/prepare-git.sh"))
+            .and_then(|()| input.rewind())
+            .map_err(|_| Error::new(Failure::Stage))?;
+        let (mut command, _identity) = ssh(profile, tools, false)?;
+        command
+            .arg(format!(
+                "/bin/sh -s -- '{stage}' '{digest}' '{repository}' '{}' '{}' '{operation}'",
+                attempt.host, attempt.id
+            ))
+            .stdin(Stdio::from(input));
+        let output = process::capture(&mut command, Duration::from_secs(90))
+            .map_err(|_| Error::new(Failure::GitIdentity))?;
+        if !output.status.success() {
+            return Err(Error::new(Failure::GitIdentity));
+        }
+        Ok(output.stdout)
+    })();
+    if !cleanup(profile, tools, &stage) {
+        return Err(Error::staged(Failure::Cleanup, &stage));
+    }
+    result
+}
+
+fn stage_helper(
+    profile: &HostProfile,
+    helper: &Path,
+    tools: &Tools,
+) -> Result<(String, String), Error> {
+    inventory::validate_profile(profile).map_err(|_| Error::new(Failure::Inputs))?;
     let metadata = fs::symlink_metadata(helper).map_err(|_| Error::new(Failure::Artifact))?;
     if !metadata.is_file() || metadata.mode() & 0o022 != 0 || metadata.mode() & 0o111 == 0 {
         return Err(Error::new(Failure::Artifact));
@@ -633,29 +686,44 @@ fn enrollment_rpc(
         {
             return Err(Error::new(Failure::Transfer));
         }
-        let mut input = tempfile::tempfile().map_err(|_| Error::new(Failure::Stage))?;
-        input
-            .write_all(include_bytes!("remote/prepare-git.sh"))
-            .and_then(|()| input.rewind())
-            .map_err(|_| Error::new(Failure::Stage))?;
-        let (mut command, _identity) = ssh(profile, tools, false)?;
-        command
-            .arg(format!(
-                "/bin/sh -s -- '{stage}' '{digest}' '{repository}' '{}' '{}' '{operation}'",
-                attempt.host, attempt.id
-            ))
-            .stdin(Stdio::from(input));
-        let output = process::capture(&mut command, Duration::from_secs(90))
-            .map_err(|_| Error::new(Failure::GitIdentity))?;
-        if !output.status.success() {
-            return Err(Error::new(Failure::GitIdentity));
-        }
-        Ok(output.stdout)
+        Ok(())
     })();
+    if let Err(error) = result {
+        return Err(failed_before_start(profile, tools, &stage, error.failure));
+    }
+    Ok((stage, digest))
+}
+
+/// Called after setup approval, with the terminal released for administrator authentication.
+pub fn install_developer_tools(
+    profile: &HostProfile,
+    helper: &Path,
+    tools: &Tools,
+) -> Result<(), Error> {
+    if check_prerequisites(profile, tools)? == Prerequisites::Ready {
+        return Ok(());
+    }
+    let (stage, digest) = stage_helper(profile, helper, tools)?;
+    let (mut command, _identity) = ssh(profile, tools, true)?;
+    let source = include_str!("remote/install-tools.sh").replace('\'', "'\\''");
+    command
+        .arg(format!("/bin/sh -c '{source}' -- '{stage}' '{digest}'"))
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    let status = command
+        .status()
+        .map_err(|_| Error::staged(Failure::UnknownOutcome, &stage))?;
+    if status.code().is_none_or(|code| code >= 128) {
+        return Err(Error::staged(Failure::UnknownOutcome, &stage));
+    }
     if !cleanup(profile, tools, &stage) {
         return Err(Error::staged(Failure::Cleanup, &stage));
     }
-    result
+    if !status.success() || check_prerequisites(profile, tools)? != Prerequisites::Ready {
+        return Err(Error::new(Failure::DeveloperTools));
+    }
+    Ok(())
 }
 
 fn valid_target_key_path(path: &Path) -> bool {

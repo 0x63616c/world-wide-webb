@@ -234,7 +234,42 @@ pub fn set_configuration(
     Ok(updated)
 }
 
+/// Persist a reviewed Git-derived connection without replacing unrelated cache entries.
+pub fn save_connection(
+    path: &Path,
+    expected: Option<&HostProfile>,
+    updated: HostProfile,
+) -> Result<HostProfile, InventoryError> {
+    validate_profile(&updated)?;
+    let binding = updated
+        .configuration_host
+        .as_deref()
+        .ok_or(InventoryError::Invalid)?;
+    if expected.is_some_and(|old| {
+        old.name != updated.name
+            || old.identity != updated.identity
+            || old
+                .configuration_host
+                .as_deref()
+                .is_some_and(|host| host != binding)
+    }) {
+        return Err(InventoryError::Changed);
+    }
+    save(
+        path,
+        Change::Connection {
+            expected,
+            updated: updated.clone(),
+        },
+    )?;
+    Ok(updated)
+}
+
 enum Change<'a> {
+    Connection {
+        expected: Option<&'a HostProfile>,
+        updated: HostProfile,
+    },
     Add(HostProfile),
     Replace {
         expected: &'a HostProfile,
@@ -300,6 +335,42 @@ fn save(path: &Path, change: Change<'_>) -> Result<Vec<HostProfile>, InventoryEr
         Err(error) => return Err(error),
     };
     match change {
+        Change::Connection { expected, updated } => {
+            let binding = updated
+                .configuration_host
+                .as_deref()
+                .ok_or(InventoryError::Invalid)?;
+            // Recheck host bindings under the same lock as the write: another
+            // client may have added an alias since the review screen opened.
+            if hosts
+                .iter()
+                .filter(|profile| expected.is_none_or(|old| profile.name != old.name))
+                .any(|profile| {
+                    profile.configuration_host.as_deref() == Some(binding)
+                        || (profile.configuration_host.is_none() && profile.name == binding)
+                })
+            {
+                return Err(InventoryError::Changed);
+            }
+            if let Some(expected) = expected {
+                let current = hosts
+                    .iter_mut()
+                    .find(|profile| profile.name == expected.name)
+                    .ok_or(InventoryError::Changed)?;
+                if current != expected {
+                    return Err(InventoryError::Changed);
+                }
+                *current = updated;
+            } else {
+                if hosts.iter().any(|profile| profile.name == updated.name) {
+                    return Err(InventoryError::Changed);
+                }
+                if hosts.len() == 32 {
+                    return Err(InventoryError::Full);
+                }
+                hosts.push(updated);
+            }
+        }
         Change::Add(host) => {
             if hosts.iter().any(|existing| existing.name == host.name) {
                 return Err(InventoryError::DuplicateName);

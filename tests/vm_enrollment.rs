@@ -850,6 +850,7 @@ fn wizard(f: &Fixture) {
         },
     };
     let dependencies = setup_wizard::EnrollmentDependencies {
+        check_client_tools: || Ok(()),
         prepare_credentials: prepare,
         tailscale: Some(f.state_directory.join("vm-tailnet")),
     };
@@ -1012,8 +1013,6 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut terminal = Terminal::start(f);
-    terminal.wait("SSH access verified", Duration::from_secs(90));
-    terminal.enter();
     terminal.wait("Begin setup", Duration::from_secs(90));
     terminal.enter();
     let merged = if let Some(revision) = resumed_revision {
@@ -1067,8 +1066,6 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut replay = Terminal::start(f);
-    replay.wait("SSH access verified", Duration::from_secs(90));
-    replay.enter();
     replay.wait("Begin setup", Duration::from_secs(90));
     replay.enter();
     replay.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(600));
