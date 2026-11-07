@@ -7,10 +7,6 @@ Mac, approve its configuration, and let the wizard handle credentials,
 installation and reboot checks. Afterwards, your configuration repository owns
 ongoing changes.
 
-> **Enrollment redesign in progress:** this README describes the upcoming
-> release. The published Homebrew version does not yet include the complete flow.
-> Follow [PR #2](https://github.com/0x63616c/homelab-cli/pull/2) for validation and release progress.
-
 ## What it handles
 
 - **Connect:** verify the Mac and use your existing SSH key, including keys in
@@ -56,7 +52,7 @@ brew install 0x63616c/tap/homelab
 homelab
 ```
 
-For the upcoming enrollment flow:
+Setup follows four steps:
 
 1. **Choose your Mac.** Enter its address and administrator account. The wizard
    checks SSH access and guides you through trusting the host and choosing a key.
