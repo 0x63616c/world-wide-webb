@@ -31,6 +31,7 @@ def outside_git(path):
         ["git", "-C", str(parent), "rev-parse", "--is-inside-work-tree"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env={key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
     )
     if probe.returncode == 0:
         raise ValueError("runtime credentials must stay outside every Git checkout")
