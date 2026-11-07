@@ -382,10 +382,123 @@ public actor TrackingStore {
       [.text(try encode(progress))])
   }
 
+  /// Select a private tracking phone. This does not issue or change a public competition epoch.
+  /// The transaction captures exactly the source sequences known at this handover.
+  public func selectTrackingDevice(_ activeDeviceID: UUID, nowMS: Int64) throws
+    -> PrivateTransferMarker
+  {
+    try validateTime(nowMS)
+    return try journalTransaction {
+      let markers = try transferMarkersInTransaction()
+      let knownSource = try !database.rows(
+        "SELECT device_id FROM known_source_sequences WHERE device_id=?",
+        [.text(activeDeviceID.canonical)]
+      ).isEmpty
+      guard
+        activeDeviceID == deviceID || knownSource
+          || markers.contains(where: {
+            $0.activeDeviceID == activeDeviceID || $0.sourceWatermarks[activeDeviceID] != nil
+          })
+      else { throw StoreError.invalidInput }
+      var watermarks: [UUID: Int64] = [:]
+      // Remember earlier captured knowledge even if that source has since been selected active.
+      for prior in markers {
+        for (source, sequence) in prior.sourceWatermarks {
+          watermarks[source] = max(watermarks[source, default: 0], sequence)
+        }
+      }
+      for row in try database.rows("SELECT device_id,sequence FROM known_source_sequences") {
+        guard let source = row["device_id"].flatMap(UUID.init(uuidString:)),
+          let sequence = row["sequence"].flatMap(Int64.init)
+        else { throw StoreError.invalidInput }
+        watermarks[source] = max(watermarks[source, default: 0], sequence)
+      }
+      watermarks.removeValue(forKey: activeDeviceID)
+      let highest =
+        try database.rows("SELECT MAX(revision) AS revision FROM transfer_markers").first?[
+          "revision"
+        ].flatMap(Int64.init) ?? 0
+      guard highest < TrackingReducer.maximumInteger else { throw StoreError.exhaustedSequence }
+      let marker = PrivateTransferMarker(
+        transferID: UUID(), revision: highest + 1, activeDeviceID: activeDeviceID,
+        sourceWatermarks: watermarks, createdAtMS: nowMS)
+      try importTransferInTransaction(marker)
+      let current = try generation()
+      for (source, sequence) in watermarks {
+        let boundary = TrackingInterruption(
+          interruptionID: UUID(), deviceID: source, generation: current,
+          afterSequence: sequence, reason: .transferAway, observedAtMS: nowMS)
+        try importInterruptionInTransaction(boundary)
+        try enqueue("mirror_interruption", entity: boundary.interruptionID, generation: current)
+      }
+      // Transfer work is generation-independent and survives all event reset cleanup.
+      try enqueue("mirror_transfer", entity: marker.transferID, generation: .initial)
+      return marker
+    }
+  }
+
+  public func privateTransferMarkers() throws -> [PrivateTransferMarker] {
+    try journalTransaction(write: false) { try transferMarkersInTransaction() }
+  }
+
+  private func transferMarkersInTransaction() throws -> [PrivateTransferMarker] {
+    try database.rows(
+      "SELECT payload_json FROM transfer_markers WHERE transfer_id NOT IN (SELECT transfer_id FROM rejected_transfer_ids) ORDER BY revision,transfer_id"
+    )
+    .map { try decode($0["payload_json"]!) }
+  }
+
+  private func importTransferInTransaction(_ marker: PrivateTransferMarker) throws {
+    _ = try PrivateTransferPolicy.winner([marker])
+    let id = marker.transferID.canonical
+    let rejected = try !database.rows(
+      "SELECT transfer_id FROM rejected_transfer_ids WHERE transfer_id=?", [.text(id)]
+    ).isEmpty
+    if let row = try database.rows(
+      "SELECT payload_json FROM transfer_markers WHERE transfer_id=?", [.text(id)]
+    ).first {
+      let old: PrivateTransferMarker = try decode(row["payload_json"]!)
+      if rejected || old != marker {
+        try rejectTransferInTransaction(marker.transferID)
+        // Never choose the first/last conflicting payload. The rejection survives reset and replay.
+      }
+      return
+    }
+    guard !rejected else { return }
+    try database.execute(
+      "INSERT INTO transfer_markers VALUES (?,?,?)",
+      [
+        .text(id), .integer(marker.revision), .text(try encode(marker)),
+      ])
+  }
+
+  private func rejectTransferInTransaction(_ id: UUID) throws {
+    let existing = try !database.rows(
+      "SELECT transfer_id FROM rejected_transfer_ids WHERE transfer_id=?", [.text(id.canonical)]
+    ).isEmpty
+    try database.execute(
+      "INSERT OR IGNORE INTO rejected_transfer_ids VALUES (?)", [.text(id.canonical)])
+    // Reuse this logical record's work. A rejection supersedes any already-leased original.
+    if !existing {
+      try database.execute(
+        "UPDATE work_outbox SET state='pending',lease_token=NULL,lease_until_ms=NULL,next_attempt_ms=0 WHERE kind='mirror_transfer' AND entity_id=?",
+        [.text(id.canonical)])
+    }
+    try database.execute(
+      "INSERT OR IGNORE INTO work_outbox(work_id,kind,entity_id,generation_id) VALUES (?,'mirror_transfer',?,?)",
+      [
+        .text(UUID().canonical), .text(id.canonical),
+        .text(ResetGeneration.initial.resetID.canonical),
+      ])
+  }
+
   public func summary() throws -> TrackingSummary {
     try journalTransaction(write: false) {
-      try TrackingReducer.reduce(
-        events: events(), interruptions: interruptions(), generation: generation())
+      try PersonalAnalytics.snapshot(
+        events: events(), interruptions: interruptions(), generation: generation(),
+        homeTimezone: "UTC", asOfMS: 0, range: PersonalDateRange(startMS: 0, endMS: 1),
+        transferMarkers: transferMarkersInTransaction()
+      ).lifetime
     }
   }
 
@@ -395,22 +508,22 @@ public actor TrackingStore {
     -> PersonalAnalyticsSnapshot
   {
     let input = try journalTransaction(write: false) {
-      (try events(), try interruptions(), try generation())
+      (try events(), try interruptions(), try generation(), try transferMarkersInTransaction())
     }
     return try PersonalAnalytics.snapshot(
       events: input.0, interruptions: input.1, generation: input.2, homeTimezone: homeTimezone,
-      asOfMS: asOfMS, range: range)
+      asOfMS: asOfMS, range: range, transferMarkers: input.3)
   }
 
   public func history(
     homeTimezone: String, asOfMS: Int64, period: PersonalHistoryPeriod, offset: Int
   ) throws -> PersonalHistorySnapshot {
     let input = try journalTransaction(write: false) {
-      (try events(), try interruptions(), try generation())
+      (try events(), try interruptions(), try generation(), try transferMarkersInTransaction())
     }
     return try PersonalHistory.snapshot(
       events: input.0, interruptions: input.1, generation: input.2, homeTimezone: homeTimezone,
-      asOfMS: asOfMS, period: period, offset: offset)
+      asOfMS: asOfMS, period: period, offset: offset, transferMarkers: input.3)
   }
 
   public func lastObservedAtMS() throws -> Int64? {
@@ -444,7 +557,8 @@ public actor TrackingStore {
       }
       return TrackingExportSnapshot(
         generation: try generation(), events: try events(includeQuarantined: true),
-        interruptions: try interruptions(), excludedEventIDs: excluded, uploadStates: uploads)
+        interruptions: try interruptions(), transferMarkers: try transferMarkersInTransaction(),
+        excludedEventIDs: excluded, uploadStates: uploads)
     }
   }
 
@@ -621,7 +735,7 @@ public actor TrackingStore {
       let rows = try database.rows(
         """
         SELECT work_id,kind,entity_id FROM work_outbox
-        WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption') AND next_attempt_ms<=?
+        WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption','mirror_transfer') AND next_attempt_ms<=?
         AND (state='pending' OR (state='leased' AND lease_until_ms<=?))
         ORDER BY CASE kind WHEN 'mirror_reset' THEN 0 ELSE 1 END, work_id LIMIT ?
         """, [.integer(nowMS), .integer(nowMS), .integer(Int64(limit))])
@@ -646,6 +760,20 @@ public actor TrackingStore {
             ).first?["payload_json"]
           else { throw StoreError.invalidInput }
           record = .interruption(try decode(payload))
+        case "mirror_transfer":
+          if try !database.rows(
+            "SELECT transfer_id FROM rejected_transfer_ids WHERE transfer_id=?", [.text(entity)]
+          ).isEmpty {
+            guard let id = UUID(uuidString: entity) else { throw StoreError.invalidInput }
+            record = .transferRejection(id)
+            break
+          }
+          guard
+            let payload = try database.rows(
+              "SELECT payload_json FROM transfer_markers WHERE transfer_id=?", [.text(entity)]
+            ).first?["payload_json"]
+          else { throw StoreError.invalidInput }
+          record = .transfer(try decode(payload))
         case "mirror_reset":
           guard
             let marker = try database.rows(
@@ -691,7 +819,7 @@ public actor TrackingStore {
       guard previous != storeID else { return }
       // Local mirror saves are not cloud acknowledgments. A replaced mirror must be rebuilt.
       try database.execute(
-        "UPDATE work_outbox SET state='pending',lease_token=NULL,lease_until_ms=NULL,next_attempt_ms=0 WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption')"
+        "UPDATE work_outbox SET state='pending',lease_token=NULL,lease_until_ms=NULL,next_attempt_ms=0 WHERE kind IN ('mirror_event','mirror_reset','mirror_interruption','mirror_transfer')"
       )
       try database.execute(
         "INSERT INTO settings(key,value) VALUES ('mirror_store_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -757,12 +885,21 @@ public actor TrackingStore {
       ).map { try decode($0["payload_json"]!) }
       for record in queued + records {
         if case .reset = record { continue }
+        if case .transferRejection(let id) = record {
+          try rejectTransferInTransaction(id)
+          continue
+        }
+        if case .transfer(let marker) = record {
+          try importTransferInTransaction(marker)
+          continue
+        }
+        guard let recordGeneration = record.generation else { throw StoreError.invalidInput }
         let current = try generation()
-        if record.generation > current {
+        if recordGeneration > current {
           let payload = try encode(record)
           let rejected = try !database.rows(
             "SELECT reset_id FROM rejected_reset_ids WHERE reset_id=?",
-            [.text(record.generation.resetID.canonical)]
+            [.text(recordGeneration.resetID.canonical)]
           ).isEmpty
           if rejected {
             try database.execute(
@@ -773,20 +910,20 @@ public actor TrackingStore {
           try database.execute(
             "INSERT OR IGNORE INTO deferred_imports(payload_hash,payload_json,generation_revision,generation_id) VALUES (?,?,?,?)",
             [
-              .text(digest(payload)), .text(payload), .integer(record.generation.revision),
-              .text(record.generation.resetID.canonical),
+              .text(digest(payload)), .text(payload), .integer(recordGeneration.revision),
+              .text(recordGeneration.resetID.canonical),
             ])
           continue
         }
         let payload = try encode(record)
         try database.execute(
           "DELETE FROM deferred_imports WHERE payload_hash=?", [.text(digest(payload))])
-        if record.generation < current { continue }
+        if recordGeneration < current { continue }
         do {
           switch record {
           case .event(let event): try importEventInTransaction(event)
           case .interruption(let marker): try importInterruptionInTransaction(marker)
-          case .reset: break
+          case .reset, .transfer, .transferRejection: break
           }
         } catch StoreError.identityConflict {
           // Preserve both versions; neither wins by arrival order.
@@ -838,13 +975,18 @@ public actor TrackingStore {
   public func quarantinedRecordCount() throws -> Int {
     try journalTransaction(write: false) {
       Int(
-        try database.rows("SELECT count(DISTINCT entity_id) AS n FROM quarantines").first?["n"]
+        try database.rows(
+          "SELECT (SELECT count(DISTINCT entity_id) FROM quarantines) + (SELECT count(*) FROM rejected_transfer_ids) AS n"
+        ).first?["n"]
           ?? "0") ?? 0
     }
   }
 
   private func validateMirrorRecord(_ record: MirrorRecord) throws {
     switch record {
+    case .transferRejection: break
+    case .transfer(let marker):
+      _ = try PrivateTransferPolicy.winner([marker])
     case .event(let event):
       _ = try TrackingReducer.reduce(events: [event], generation: event.generation)
     case .interruption(let marker):
@@ -885,19 +1027,20 @@ public actor TrackingStore {
       device = marker.deviceID
       sequence = marker.afterSequence
       time = marker.observedAtMS
-    case .reset: return
+    case .reset, .transfer, .transferRejection: return
     }
+    guard let recordGeneration = record.generation else { throw StoreError.invalidInput }
     let barrier = TrackingInterruption(
-      interruptionID: UUID(), deviceID: device, generation: record.generation,
+      interruptionID: UUID(), deviceID: device, generation: recordGeneration,
       afterSequence: sequence, reason: .trackingInterruption, observedAtMS: time)
     try database.execute(
       "INSERT INTO interruptions VALUES (?,?,?,?,?)",
       [
         .text(barrier.interruptionID.canonical), .text(device.canonical),
-        .text(record.generation.resetID.canonical), .integer(sequence), .text(try encode(barrier)),
+        .text(recordGeneration.resetID.canonical), .integer(sequence), .text(try encode(barrier)),
       ])
     try enqueue(
-      "mirror_interruption", entity: barrier.interruptionID, generation: record.generation)
+      "mirror_interruption", entity: barrier.interruptionID, generation: recordGeneration)
   }
 
   private func digest(_ text: String) -> String {
@@ -924,7 +1067,8 @@ public actor TrackingStore {
     try database.execute("DELETE FROM interruptions")
     try database.execute("DELETE FROM setup_attempt")
     try database.execute("DELETE FROM quarantines")
-    try database.execute("DELETE FROM work_outbox WHERE kind!='mirror_reset'")
+    try database.execute(
+      "DELETE FROM work_outbox WHERE kind NOT IN ('mirror_reset','mirror_transfer')")
     if try competitionEpoch() != nil {
       try enqueue("competition_reset", entity: marker.resetID, generation: marker)
     }

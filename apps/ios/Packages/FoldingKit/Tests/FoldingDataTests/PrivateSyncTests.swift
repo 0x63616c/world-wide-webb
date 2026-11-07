@@ -392,10 +392,14 @@ private func event(
       "INSERT INTO old_deferred SELECT payload_hash,payload_json FROM deferred_imports")
     try db.execute("DROP TABLE deferred_imports")
     try db.execute("ALTER TABLE old_deferred RENAME TO deferred_imports")
+    try db.execute("DROP TRIGGER remember_source_sequence")
+    try db.execute("DROP TABLE known_source_sequences")
+    try db.execute("DROP TABLE rejected_transfer_ids")
+    try db.execute("DROP TABLE transfer_markers")
     try db.execute("PRAGMA user_version=3")
   }
   let reopened = try TrackingStore(directory: root, installationID: identity)
-  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "4")
+  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "5")
   try await reopened.importMirrorBatch(
     [.reset(generation, createdAtMS: 1)], storeID: "m", checkpoint: nil)
   #expect(try await reopened.retainedEvents() == [waiting])

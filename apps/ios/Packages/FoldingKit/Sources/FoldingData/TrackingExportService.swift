@@ -49,6 +49,7 @@ public actor TrackingExportService {
         try Task.checkCancellation()
         let document = try PersonalExport.document(
           events: snapshot.events, interruptions: snapshot.interruptions,
+          transferMarkers: snapshot.transferMarkers,
           generation: snapshot.generation, homeTimezone: homeTimezone, exportedAtMS: nowMS,
           uploadStates: snapshot.uploadStates, excludedEventIDs: snapshot.excludedEventIDs)
         try Task.checkCancellation()

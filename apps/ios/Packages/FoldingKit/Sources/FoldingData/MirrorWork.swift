@@ -5,6 +5,8 @@ public enum MirrorRecord: Codable, Sendable, Equatable {
   case event(TrackingEvent)
   case reset(ResetGeneration, createdAtMS: Int64)
   case interruption(TrackingInterruption)
+  case transfer(PrivateTransferMarker)
+  case transferRejection(UUID)
 }
 
 public struct MirrorLease: Sendable, Equatable {
@@ -19,13 +21,16 @@ extension MirrorRecord {
     case .event(let event): event.eventID
     case .reset(let generation, _): generation.resetID
     case .interruption(let marker): marker.interruptionID
+    case .transfer(let marker): marker.transferID
+    case .transferRejection(let id): id
     }
   }
-  public var generation: ResetGeneration {
+  public var generation: ResetGeneration? {
     switch self {
     case .event(let event): event.generation
     case .reset(let generation, _): generation
     case .interruption(let marker): marker.generation
+    case .transfer, .transferRejection: nil
     }
   }
   var entityName: String {
@@ -33,6 +38,7 @@ extension MirrorRecord {
     case .event: "ReplicatedEvent"
     case .reset: "ResetMarker"
     case .interruption: "TrackingInterruption"
+    case .transfer, .transferRejection: "TransferMarker"
     }
   }
 }

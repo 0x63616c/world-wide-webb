@@ -10,6 +10,7 @@ struct TrackingExportSnapshot: Sendable {
   let generation: ResetGeneration
   let events: [TrackingEvent]
   let interruptions: [TrackingInterruption]
+  let transferMarkers: [PrivateTransferMarker]
   let excludedEventIDs: Set<UUID>
   let uploadStates: [UUID: ExportUploadState]
 }

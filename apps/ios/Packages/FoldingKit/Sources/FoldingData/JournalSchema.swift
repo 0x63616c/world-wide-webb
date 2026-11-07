@@ -4,7 +4,9 @@ extension SQLiteConnection {
   func migrate() throws {
     try transaction {
       let version = try rows("PRAGMA user_version").first?["user_version"]
-      guard version == "0" || version == "1" || version == "2" || version == "3" || version == "4"
+      guard
+        version == "0" || version == "1" || version == "2" || version == "3" || version == "4"
+          || version == "5"
       else {
         throw StoreError.incompatibleSchema
       }
@@ -12,7 +14,7 @@ extension SQLiteConnection {
       if version == "0" || version == "1" {
         try execute("ALTER TABLE work_outbox ADD COLUMN lease_token TEXT")
       }
-      if version != "3" && version != "4" {
+      if version != "3" && version != "4" && version != "5" {
         try execute(
           "CREATE TABLE sync_checkpoints (store_id TEXT PRIMARY KEY, token TEXT NOT NULL)")
         try execute(
@@ -24,7 +26,7 @@ extension SQLiteConnection {
         try execute("CREATE TABLE rejected_reset_ids (reset_id TEXT PRIMARY KEY)")
         try execute("PRAGMA user_version=3")
       }
-      if version != "4" {
+      if version != "4" && version != "5" {
         try execute(
           "ALTER TABLE deferred_imports ADD COLUMN generation_revision INTEGER NOT NULL DEFAULT 0")
         try execute(
@@ -38,11 +40,12 @@ extension SQLiteConnection {
           for row in batch {
             let record = try JSONDecoder().decode(
               MirrorRecord.self, from: Data(row["payload_json"]!.utf8))
+            guard let generation = record.generation else { throw StoreError.invalidInput }
             try execute(
               "UPDATE deferred_imports SET generation_revision=?,generation_id=? WHERE payload_hash=?",
               [
-                .integer(record.generation.revision),
-                .text(record.generation.resetID.uuidString.lowercased()),
+                .integer(generation.revision),
+                .text(generation.resetID.uuidString.lowercased()),
                 .text(row["payload_hash"]!),
               ])
           }
@@ -52,6 +55,25 @@ extension SQLiteConnection {
           "CREATE INDEX deferred_generation ON deferred_imports(generation_revision,generation_id)")
         try execute("CREATE INDEX deferred_reset ON deferred_imports(generation_id)")
         try execute("PRAGMA user_version=4")
+      }
+      if version != "5" {
+        try execute(
+          "CREATE TABLE transfer_markers (transfer_id TEXT PRIMARY KEY, revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 9007199254740991), payload_json TEXT NOT NULL)"
+        )
+        try execute("CREATE TABLE rejected_transfer_ids (transfer_id TEXT PRIMARY KEY)")
+        try execute(
+          "CREATE TABLE known_source_sequences (device_id TEXT PRIMARY KEY, sequence INTEGER NOT NULL CHECK(sequence BETWEEN 0 AND 9007199254740991))"
+        )
+        try execute(
+          "INSERT INTO known_source_sequences SELECT device_id,MAX(sequence) FROM events GROUP BY device_id"
+        )
+        try execute(
+          "INSERT INTO known_source_sequences SELECT device_id,next_sequence-1 FROM source_state WHERE 1 ON CONFLICT(device_id) DO UPDATE SET sequence=MAX(sequence,excluded.sequence)"
+        )
+        try execute(
+          "CREATE TRIGGER remember_source_sequence AFTER INSERT ON events BEGIN INSERT INTO known_source_sequences VALUES (NEW.device_id,NEW.sequence) ON CONFLICT(device_id) DO UPDATE SET sequence=MAX(sequence,excluded.sequence); END"
+        )
+        try execute("PRAGMA user_version=5")
       }
     }
   }
