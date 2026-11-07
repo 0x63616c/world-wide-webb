@@ -10,14 +10,19 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 `homelab`, and attach **`0x63616c/homelab`** when asked.
 
 1. On the target Mac, create its administrator and enable Remote Login.
-2. In the CLI, select the Mac, attach this repository and review setup.
+2. Attach this repository in the CLI, select its Git-defined Mac and confirm the address.
 3. The wizard backs up keys, prepares encrypted secrets and opens an enrollment PR.
 4. Review and merge that PR; the wizard installs, reboots and verifies the Mac.
 
-Use [CLI 0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0)
-or later for this enrollment flow. Automatic installation of missing Apple
-Command Line Tools is planned for 0.3.1; fresh targets without those tools should
-wait for that release.
+This guide describes upcoming **CLI 0.3.1**, whose expanded validation and release
+are pending. Version 0.3.0 is released but does not include this Git-first host
+selection or automatic installation of missing Apple Command Line Tools.
+
+`homelab.json` supplies the host list and administrator accounts. The CLI asks only
+for a new host’s connection address, defaulting to `<host>.local`. Saved aliases,
+SSH identities and setup state are reused; local connection settings are not a
+second desired-host inventory. Resuming approved setup uses its saved exact Git
+revision even if `main` changes or removes the host.
 
 The CLI ships its bootstrap helper. Your personal laptop needs neither Nix nor a local
 bootstrap build. Nix is installed and runs on the target only after approval.
