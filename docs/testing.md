@@ -33,6 +33,13 @@ synthetic no-echo prompt: password keys, public-key stdin, separate JSON stdout,
 resize, failure acknowledgment, cancellation, timeout, and inert clipboard escape
 sequences. It checks that passwords never appear in the rendered transcript.
 
+The scoped-authentication tests cover fragmented acceptance markers, misleading
+output, rejected credentials, cancellation, input overflow and unsupported edits.
+A nested PTY test enters one synthetic password for two exchanges through the
+embedded event loop. It uses a direct child under libtest; the integration test
+above covers the executable bridge. Neither substitutes for password-required
+sudo and SSH verification in a disposable Mac VM.
+
 Bootstrap fixtures cover accepted and refused interrupted-Nix recovery, including
 a failed installer exit with verified completion. Recovery must never rerun the
 installer. Receipt tests reject missing, partial and mismatched evidence. These

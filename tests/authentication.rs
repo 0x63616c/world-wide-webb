@@ -65,6 +65,7 @@ fn scenario(mode: &str, fixture: &Path) {
         })
         .unwrap();
     let mut command = CommandBuilder::new(std::env::current_exe().unwrap());
+    command.cwd(std::env::current_dir().unwrap());
     command.args(["--child", mode]);
     command.arg(fixture);
     command.env("HOMELAB_NO_UPDATE_CHECK", "1");

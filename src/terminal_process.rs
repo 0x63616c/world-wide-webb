@@ -1,4 +1,4 @@
-//! Native authentication in a bounded PTY; password keystrokes are never recorded.
+//! Native authentication in a bounded PTY; credentials are never logged or persisted.
 use crate::ui::actions::Action;
 use std::cell::RefCell;
 use std::fs::File;
@@ -497,8 +497,8 @@ fn private_file(path: &Path, write: bool) -> io::Result<File> {
     Ok(file)
 }
 
-/// Internal same-user exec bridge. Only native SSH/sudo reads the controlling PTY;
-/// public-key stdin and protocol stdout must remain separate from authentication.
+/// Internal same-user exec bridge. Native SSH/sudo owns the child controlling PTY;
+/// public-key stdin and protocol stdout remain separate from authentication.
 pub fn exec_bridge(
     input: Option<&Path>,
     output: Option<&Path>,

@@ -45,10 +45,13 @@ saved PR still requires its review. Nix is installed on the target, not your
 client. Evaluated Nix facts must match the approved manifest.
 
 The wizard checks services and Git access, verifies Tailscale SSH, restarts the
-Mac, and checks it again before releasing the update hold. Expect administrator
-authentication during installation and potentially again after reboot. Native
-SSH/sudo prompts stay inside the TUI with masked typing feedback; passwords and terminal transcripts are not
-stored. Completed stages wait for **Enter**. A FileVault-protected Mac may need a local unlock after restart.
+Mac, and checks it again before releasing the update hold. Administrator prompts
+stay inside the TUI with masked typing feedback. During one setup attempt, the
+CLI can reuse the accepted password in memory for the same pinned SSH identity.
+It clears that password when the attempt ends or authentication fails; it never
+writes it to disk, Git, logs or 1Password. Reopening the CLI requires authentication
+again. A Tailscale-native fallback may also need a separate prompt.
+Completed stages wait for **Enter**. A FileVault-protected Mac may need a local unlock after restart.
 Tailscale check-mode policy may also request browser approval.
 
 ## If something stops
