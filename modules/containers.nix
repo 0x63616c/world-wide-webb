@@ -8,7 +8,7 @@ let
         export DOCKER_HOST=unix:///var/lib/_containers/.colima/services/docker.sock
         export WORKER_CYCLES=${if cfg.controlCenter.workersEnabled then "on" else "off"}
         export HA_URL=${lib.escapeShellArg cfg.controlCenter.homeAssistantURL}
-        [ "$(id -u)" = 350 ] || { echo 'Run as _containers.' >&2; exit 1; }
+        [ "$(id -u)" = ${toString config.users.users._containers.uid} ] || { echo 'Run as _containers.' >&2; exit 1; }
         for attempt in $(seq 1 120); do
           if docker info >/dev/null 2>&1 && [ -s /run/secrets/containers-env ]; then break; fi
           sleep 5

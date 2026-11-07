@@ -54,12 +54,12 @@ The modules now expose `homelab-backup-now`, `homelab-reconcile-ha`,
 uses these same entry points. The aggregate starts HA reconciliation before the
 general services, then runs health checks. The commands carry their reviewed
 PATH, HOME, Docker socket and worker settings rather than depending on a human
-login environment. Mutating service entry points reject a UID other than 350.
+login environment. Mutating service entry points reject a UID other than 450.
 
 `scripts/service-child.py` supplies the updater's root-to-service boundary. It
 accepts only backup/reconcile/health operations, requires the configured
 `_containers` UID/GID/home, resolves the command from a built system under
-`/nix/store`, and launches with UID/GID 350 and only that supplemental group.
+`/nix/store`, and launches with UID/GID 450 and only that supplemental group.
 The child receives a minimal environment and the inherited lock descriptor;
 root GitHub, age and shell environment variables are not forwarded.
 

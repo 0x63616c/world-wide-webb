@@ -1,6 +1,7 @@
 { config, lib, ... }:
 let
-  accounts = { _containers = 350; _runner = 351; };
+  # Determinate Nix uses GID 350 and build UIDs starting at 351.
+  accounts = { _containers = 450; _runner = 451; };
 in {
   users.knownUsers = builtins.attrNames accounts;
   users.knownGroups = builtins.attrNames accounts;

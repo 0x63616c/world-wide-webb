@@ -12,7 +12,7 @@ let
     set -eu
     export PATH=${lib.makeBinPath [ pkgs.python3 pkgs.docker pkgs.coreutils pkgs.gnutar pkgs.gzip ]}
     export HOME=/var/lib/_containers
-    [ "$(id -u)" = 350 ] || { echo 'Run as _containers.' >&2; exit 1; }
+    [ "$(id -u)" = ${toString config.users.users._containers.uid} ] || { echo 'Run as _containers.' >&2; exit 1; }
     exec /run/current-system/sw/bin/homelab-operation -- \
       python3 ${../scripts}/backup.py --config ${settings}
   '';
