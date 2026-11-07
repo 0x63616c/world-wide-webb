@@ -173,7 +173,7 @@ impl Error {
                 "Review activationReady, the existing administrator identity and authorized SSH keys in the selected commit. Nix may already have been installed."
             }
             Self::InvalidCredentials | Self::Decryption => {
-                "Supply only this host's private age identity and scoped repository read token using owner-only files."
+                "Check this host's private age identity and target-local Git deploy key. Resume through the setup wizard; do not supply a GitHub account token."
             }
             Self::Elevation => {
                 "Use an interactive target terminal to authenticate the existing administrator; do not store or pipe a password."

@@ -5,7 +5,7 @@
 A guided terminal installer for Apple silicon macOS homelabs. Connect to a new
 Mac, approve its configuration, and let the wizard handle credentials,
 installation and reboot checks. Afterwards, your configuration repository owns
-changes—not another dashboard.
+ongoing changes.
 
 > **Enrollment redesign in progress:** this README describes the upcoming
 > release. The published Homebrew version does not yet include the complete flow.

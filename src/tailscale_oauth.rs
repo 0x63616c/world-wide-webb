@@ -46,13 +46,13 @@ impl Error {
     pub fn next_action(&self) -> &'static str {
         match self {
             Self::MissingCli => {
-                "Install the 1Password CLI on this Mac and enable its desktop integration, or paste a manual auth key."
+                "Install the 1Password CLI on this Mac and enable its desktop integration."
             }
             Self::ItemUnavailable | Self::InvalidItem => {
                 "Unlock 1Password and check the configured vault/item and its client-id/client-secret fields."
             }
             Self::Authorization => {
-                "Check the saved OAuth client grants auth_keys for the configured tag, then explicitly retry or use a manual auth key."
+                "Check that the saved OAuth client grants auth_keys for the configured tag, then retry setup."
             }
             Self::IssuanceUnknown => {
                 "Inspect auth keys in the Tailscale admin console before retrying. No automatic retry was made."
