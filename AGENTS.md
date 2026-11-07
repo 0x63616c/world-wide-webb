@@ -7,7 +7,7 @@
 
 ## Keep completion tracking current
 
-- GitHub Issues in `0x63616c/folding` are the live work tracker; `docs/work-tracker.md` is its repository summary.
+- [Folding — Ship v1](https://github.com/users/0x63616c/projects/9) and GitHub Issues in `0x63616c/folding` are the live work tracker; `docs/work-tracker.md` is its repository summary.
 - Track concrete deliverables as linked sub-issues under the original work orders. Keep each deliverable’s issue state/status label and GitHub Project Status consistent: Next, In progress, Blocked, Deferred, or Done. A verified local component may be Done while its broader live-integration parent remains open; state that scope explicitly. Never present ticket-count percentage as an effort-weighted shipping percentage.
 - Tick individual issue checklist items as soon as their work is completed and verified. Update the issue body, not only progress comments. Split broad items into concrete subitems when only part is complete; preserve every original requirement.
 - Link the implementing commit and relevant test/deployment evidence. Distinguish implemented, verified, deferred and blocked work; do not tick unverified acceptance criteria.

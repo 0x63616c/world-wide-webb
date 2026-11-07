@@ -1,6 +1,6 @@
 # Folding work tracker
 
-GitHub Issues are the live execution tracker. Owner authorized parallel implementation agents on November 7; the primary agent coordinates ownership, integration, credentials and deployment. Physical-device evidence is deferred to F13 after submission by owner instruction.
+[Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Owner authorized parallel implementation agents on November 7; the primary agent coordinates ownership, integration, credentials and deployment. Physical-device evidence is deferred to F13 after submission by owner instruction.
 
 Update issue-body checkboxes as individual requirements are verified, with commit/evidence links. Progress comments supplement these checklists. Close fully accepted issues and tick their work-order entries below; partial or deferred work remains unchecked. These rules are enforced as agent instructions in `AGENTS.md`.
 
