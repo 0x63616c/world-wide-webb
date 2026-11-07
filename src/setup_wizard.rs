@@ -1458,7 +1458,7 @@ fn enroll(
             crate::configuration_pr::Publication::PullRequest(pull) => {
                 checklist.begin(
                     Step::Configuration,
-                    "Repository policy needs a PR merge. Setup continues automatically.",
+                    "Review and merge the setup PR. Setup continues automatically.",
                 );
                 if !checklist.pull_request(&workspace.repository, pull.number, &pull.html_url) {
                     return Ok(enrollment_failure(
@@ -1476,7 +1476,9 @@ fn enroll(
                             )
                         })? {
                             Ok(Some(approved)) => break approved,
-                            Ok(None) => (),
+                            Ok(None) => checklist.message(
+                                "Review and merge the setup PR. Setup continues automatically.",
+                            ),
                             Err(error) => return Ok(enrollment_failure(error)),
                         }
                         next_poll = std::time::Instant::now() + std::time::Duration::from_secs(5);

@@ -1042,7 +1042,7 @@ fn drive(f: &Fixture, resume: bool) {
         Some(revision)
     } else if f.review_required {
         terminal.wait(
-            "Repository policy needs a PR merge",
+            "Review and merge the setup PR",
             Duration::from_secs(300),
         );
         Some(merge_enrollment(f))
