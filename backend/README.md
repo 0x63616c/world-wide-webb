@@ -145,3 +145,9 @@ Historical corrections require **0014**. `/admin/periods` lists published period
 wait for the queued immutable preview, then explicitly publish the exact digest within ten minutes.
 Privacy changes invalidate that preview. Publication is versioned/audited and cannot create another
 original award notification. Full concurrency and realistic D1-size acceptance remains outstanding.
+
+Apply **0015** for moderation cases and annual ban reviews. The admin case/review queues and failed-job
+page support reasoned, confirmed, revision/attempt-fenced actions. Case evidence expires90days after
+closure; annual review records upheld bans without automatically lifting them. Failed logical awards
+reuse their existing identity when retried and still recheck all delivery eligibility. Full retention and
+concurrency acceptance remains pending.

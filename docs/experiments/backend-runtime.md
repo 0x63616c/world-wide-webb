@@ -289,3 +289,24 @@ Original finalization time remains unchanged, so correction does not move notifi
 Actual Wasm compilation passes. Fourteen migrations apply and literal plus multiline SQL guards prepare
 on SQLite. Full original-finalization/correction/privacy interleavings, large-roster D1 statement limits
 and browser review remain final acceptance work; no live results have been corrected or published.
+
+## Moderation cases and failed-job management checkpoint
+
+Migration 0015 adds explicit case closure and minimal annual ban-review records. Restriction/submission
+actions attach to an open case; closing it starts the 90-day evidence window. Unban, suspension expiry
+and completed account deletion close associated cases; expiry also advances the participant revision.
+Reviewing a permanent ban records `upheld` and the next annual due date, without lifting the restriction.
+The active-ban identity remains minimal after account deletion; closed evidence expires independently.
+Appeals use the agreed support/appeal channel, with their administrative outcome captured in the reason.
+Names/avatar decisions remain individually completed decisions with their existing 90-day audit window.
+
+The protected UI lists open cases, due ban reviews, failed dispatch jobs and failed logical awards.
+Retry requires explicit confirmation, reason, expected failed-state attempt count, Access/CSRF and an
+atomic audit. It resets the same failed record; it cannot recreate a logical award or bypass paused
+categories, restrictions, generations, consent or token validity. Destructive moderation choices require
+confirmation. Audit/evidence/quarantine lists now paginate; quarantine cursors distinguish identical event
+IDs from different participants. These approved narrow admin amendments are in the HTTP catalog.
+
+Focused checkpoint: Wasm compiles and 368 SQL preparations across 15 migrations pass. Final browser,
+retention-time, retry/idempotency and concurrent moderation tests remain deferred. No live account
+restriction, case closure, job retry or external communication was performed by this implementation.

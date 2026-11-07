@@ -46,6 +46,8 @@ mod enrollment_runtime;
 mod finalization_runtime;
 pub mod ingestion;
 #[cfg(target_arch = "wasm32")]
+mod jobs_admin;
+#[cfg(target_arch = "wasm32")]
 mod jobs_runtime;
 #[cfg(target_arch = "wasm32")]
 mod leaderboard_runtime;

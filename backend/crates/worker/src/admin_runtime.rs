@@ -52,6 +52,7 @@ struct Evidence {
 }
 #[derive(Deserialize)]
 struct Audit {
+    cursor: i64,
     participant_id: String,
     actor: String,
     action: String,
@@ -71,6 +72,8 @@ pub(crate) struct Command {
     pub(crate) until_ms: String,
     #[serde(default)]
     pub(crate) event_id: String,
+    #[serde(default)]
+    pub(crate) confirmation: String,
 }
 #[derive(Deserialize, Serialize)]
 struct State {
@@ -128,6 +131,9 @@ pub(crate) async fn dispatch(
     let config = Configuration::load(env)?;
     let admin = admin_auth::authorize(request, env, &config).await?;
     let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+    if request.path() == "/admin/jobs" || request.path().starts_with("/admin/jobs/") {
+        return crate::jobs_admin::admin(request, &db, &config, &admin, body).await;
+    }
     if request.path() == "/admin/periods" {
         return crate::correction_runtime::list(request, &db).await;
     }
@@ -183,11 +189,28 @@ pub(crate) async fn dispatch(
         .find(|(key, _)| key == "kind")
         .map(|(_, value)| value.as_ref())
         .unwrap_or("names");
-    if !["names", "reports", "quarantine", "avatars"].contains(&queue_kind) {
+    if ![
+        "names",
+        "reports",
+        "quarantine",
+        "avatars",
+        "ban_reviews",
+        "cases",
+    ]
+    .contains(&queue_kind)
+    {
         return Err(Failure::malformed());
     }
-    if !after.is_empty() {
+    if after.len() > 128 {
+        return Err(Failure::malformed());
+    }
+    if !after.is_empty() && path != "/admin/audit" && queue_kind != "quarantine" {
         Id::parse(after).map_err(|_| Failure::malformed())?;
+    }
+    if !after.is_empty() && queue_kind == "quarantine" {
+        let (event, participant) = after.split_once('.').ok_or_else(Failure::malformed)?;
+        Id::parse(event).map_err(|_| Failure::malformed())?;
+        Id::parse(participant).map_err(|_| Failure::malformed())?;
     }
     if path == "/admin" || path == "/admin/participants" {
         let rows=statement(&db,"SELECT p.participant_id,coalesce(f.nickname,'Deleted') AS nickname,p.membership,p.restriction,r.revision FROM participants p JOIN participant_revisions r ON r.participant_id=p.participant_id LEFT JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id>?1 ORDER BY p.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Person>().map_err(|_|Failure::unavailable())?;
@@ -201,11 +224,69 @@ pub(crate) async fn dispatch(
                 revision: row.revision,
                 event_id: String::new(),
                 operation: uuid()?,
-                actions: vec!["suspend".into(), "ban".into(), "unban".into()],
+                actions: vec![
+                    "suspend".into(),
+                    "ban".into(),
+                    "unban".into(),
+                    "review_ban".into(),
+                    "close_case".into(),
+                ],
             });
         }
         if rows.len() > 50 {
             page.next = format!("/admin/participants?after={}", rows[49].participant_id);
+        }
+    } else if path == "/admin/queue" && ["ban_reviews", "cases"].contains(&queue_kind) {
+        page.title = if queue_kind == "cases" {
+            "Open cases"
+        } else {
+            "Ban reviews"
+        }
+        .into();
+        #[derive(Deserialize)]
+        struct Review {
+            participant_id: String,
+            revision: i64,
+            due_ms: i64,
+        }
+        let sql = if queue_kind == "cases" {
+            "SELECT c.participant_id,r.revision,c.opened_at_ms AS due_ms FROM moderation_cases c JOIN participant_revisions r ON r.participant_id=c.participant_id WHERE c.closed_at_ms IS NULL AND c.participant_id>?1 ORDER BY c.participant_id LIMIT 51"
+        } else {
+            "SELECT b.participant_id,r.revision,b.next_review_at_ms AS due_ms FROM ban_reviews b JOIN participant_revisions r ON r.participant_id=b.participant_id JOIN participants p ON p.participant_id=b.participant_id WHERE p.restriction='banned' AND b.next_review_at_ms<=?2 AND b.participant_id>?1 ORDER BY b.participant_id LIMIT 51"
+        };
+        let values = if queue_kind == "cases" {
+            vec![text(after)]
+        } else {
+            vec![text(after), number(now())]
+        };
+        let rows = statement(&db, sql, &values)?
+            .all()
+            .await
+            .map_err(|_| Failure::unavailable())?
+            .results::<Review>()
+            .map_err(|_| Failure::unavailable())?;
+        for row in rows.iter().take(50) {
+            page.rows.push(Row {
+                image: String::new(),
+                participant: row.participant_id.clone(),
+                label: row.participant_id.clone(),
+                details: format!("{}", row.due_ms),
+                path: "/admin/moderation".into(),
+                revision: row.revision,
+                event_id: String::new(),
+                operation: uuid()?,
+                actions: if queue_kind == "cases" {
+                    vec!["close_case".into()]
+                } else {
+                    vec!["review_ban".into(), "unban".into()]
+                },
+            });
+        }
+        if rows.len() > 50 {
+            page.next = format!(
+                "/admin/queue?kind={queue_kind}&after={}",
+                rows[49].participant_id
+            );
         }
     } else if path == "/admin/queue" && queue_kind == "avatars" {
         page.title = "Avatars".into();
@@ -277,7 +358,7 @@ pub(crate) async fn dispatch(
             event_json: String,
             revision: i64,
         }
-        let rows=statement(&db,"SELECT o.participant_id,o.event_id,o.reason_code,o.event_json,r.revision FROM observations o JOIN participant_revisions r ON r.participant_id=o.participant_id WHERE o.disposition='quarantined' AND o.event_id>?1 ORDER BY o.event_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Quarantine>().map_err(|_|Failure::unavailable())?;
+        let rows=statement(&db,"SELECT o.participant_id,o.event_id,o.reason_code,o.event_json,r.revision FROM observations o JOIN participant_revisions r ON r.participant_id=o.participant_id WHERE o.disposition='quarantined' AND o.event_id||'.'||o.participant_id>?1 ORDER BY o.event_id,o.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Quarantine>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
                 image: String::new(),
@@ -300,7 +381,10 @@ pub(crate) async fn dispatch(
             });
         }
         if rows.len() > 50 {
-            page.next = format!("/admin/queue?kind=quarantine&after={}", rows[49].event_id);
+            page.next = format!(
+                "/admin/queue?kind=quarantine&after={}.{}",
+                rows[49].event_id, rows[49].participant_id
+            );
         }
     } else if path == "/admin/queue" {
         page.title = "Queue".into();
@@ -323,8 +407,16 @@ pub(crate) async fn dispatch(
         }
     } else if path == "/admin/audit" {
         page.title = "Audit".into();
-        let rows=statement(&db,"SELECT participant_id,actor,action,reason,created_at_ms FROM moderation_actions ORDER BY created_at_ms DESC LIMIT 50",&[])?.all().await.map_err(|_|Failure::unavailable())?.results::<Audit>().map_err(|_|Failure::unavailable())?;
-        for row in rows {
+        let cursor = if after.is_empty() {
+            i64::MAX
+        } else {
+            after.parse::<i64>().map_err(|_| Failure::malformed())?
+        };
+        let rows=statement(&db,"SELECT rowid AS cursor,participant_id,actor,action,reason,created_at_ms FROM moderation_actions WHERE rowid<?1 ORDER BY rowid DESC LIMIT 51",&[number(cursor)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Audit>().map_err(|_|Failure::unavailable())?;
+        if rows.len() > 50 {
+            page.next = format!("/admin/audit?after={}", rows[49].cursor);
+        }
+        for row in rows.into_iter().take(50) {
             page.rows.push(Row {
                 image: String::new(),
                 participant: row.participant_id,
@@ -350,10 +442,23 @@ pub(crate) async fn dispatch(
             revision: person.revision,
             event_id: String::new(),
             operation: uuid()?,
-            actions: vec!["suspend".into(), "ban".into(), "unban".into()],
+            actions: vec![
+                "suspend".into(),
+                "ban".into(),
+                "unban".into(),
+                "review_ban".into(),
+                "close_case".into(),
+            ],
         });
-        let events=statement(&db,"SELECT event_id,event_json,disposition,reason_code,received_at_ms FROM observations WHERE participant_id=?1 ORDER BY received_at_ms DESC LIMIT 50",&[text(id.as_str())])?.all().await.map_err(|_|Failure::unavailable())?.results::<Evidence>().map_err(|_|Failure::unavailable())?;
-        for event in events {
+        let events=statement(&db,"SELECT event_id,event_json,disposition,reason_code,received_at_ms FROM observations WHERE participant_id=?1 AND event_id>?2 ORDER BY event_id LIMIT 51",&[text(id.as_str()),text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Evidence>().map_err(|_|Failure::unavailable())?;
+        if events.len() > 50 {
+            page.next = format!(
+                "/admin/participants/{}?after={}",
+                id.as_str(),
+                events[49].event_id
+            );
+        }
+        for event in events.into_iter().take(50) {
             page.rows.push(Row {
                 image: String::new(),
                 participant: person.participant_id.clone(),
@@ -430,10 +535,24 @@ async fn mutate(
                 "suspend",
                 "ban",
                 "unban",
+                "review_ban",
+                "close_case",
                 "quarantine_submission",
                 "reinstate_submission",
             ]
             .contains(&input.action.as_str()))
+    {
+        return Err(Failure::malformed());
+    }
+    if [
+        "ban",
+        "suspend",
+        "quarantine_submission",
+        "remove",
+        "close_case",
+    ]
+    .contains(&input.action.as_str())
+        && input.confirmation != "yes"
     {
         return Err(Failure::malformed());
     }
@@ -513,6 +632,7 @@ async fn mutate(
         match input.action.as_str() {
             "ban" => {
                 writes.push(statement(db,"UPDATE participants SET restriction='banned',suspended_until_ms=NULL WHERE participant_id=?1",&[text(participant)])?);
+                writes.push(statement(db,"INSERT INTO ban_reviews VALUES (?1,?2,?3,'imposed') ON CONFLICT(participant_id) DO UPDATE SET reviewed_at_ms=excluded.reviewed_at_ms,next_review_at_ms=excluded.next_review_at_ms,outcome='imposed'",&[text(participant),number(time),number(time+31536000000)])?);
                 writes.extend(crate::lifecycle_runtime::erase_results(db, participant)?);
                 serde_json::json!({"restriction":"banned"})
             }
@@ -527,7 +647,23 @@ async fn mutate(
                 writes.push(statement(db,"UPDATE participants SET restriction='suspended',suspended_until_ms=?1 WHERE participant_id=?2",&[number(until),text(participant)])?);
                 serde_json::json!({"restriction":"suspended","until_ms":until})
             }
+            "review_ban" => {
+                if before.restriction != "banned" {
+                    return Err(Failure::conflict());
+                }
+                writes.push(statement(db,"INSERT INTO ban_reviews VALUES (?1,?2,?3,'upheld') ON CONFLICT(participant_id) DO UPDATE SET reviewed_at_ms=excluded.reviewed_at_ms,next_review_at_ms=excluded.next_review_at_ms,outcome='upheld'",&[text(participant),number(time),number(time+31536000000)])?);
+                serde_json::json!({"restriction":"banned","review_outcome":"upheld","next_review_at_ms":time+31536000000})
+            }
+            "close_case" => {
+                writes.push(statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM moderation_cases WHERE participant_id=?2 AND closed_at_ms IS NULL) THEN 1 ELSE 0 END)",&[text(&format!("{guard}-case")),text(participant)])?);
+                serde_json::json!({"case_state":"closed","closed_at_ms":time})
+            }
             "unban" => {
+                writes.push(statement(
+                    db,
+                    "DELETE FROM ban_reviews WHERE participant_id=?1",
+                    &[text(participant)],
+                )?);
                 writes.push(statement(db,"UPDATE participants SET restriction='none',suspended_until_ms=NULL WHERE participant_id=?1",&[text(participant)])?);
                 serde_json::json!({"restriction":"none"})
             }
@@ -570,6 +706,23 @@ async fn mutate(
             number(time + 7776000000),
         ],
     )?);
+    if !names && input.action != "review_ban" {
+        if input.action != "close_case" {
+            writes.push(statement(db,"INSERT INTO moderation_cases SELECT ?1,?2,?3,NULL WHERE NOT EXISTS(SELECT 1 FROM moderation_cases WHERE participant_id=?2 AND closed_at_ms IS NULL)",&[text(&uuid()?),text(participant),number(time)])?);
+        }
+        writes.push(statement(db,"INSERT INTO moderation_action_cases SELECT ?1,?2,case_id FROM moderation_cases WHERE participant_id=?3 AND closed_at_ms IS NULL",&[text(&admin.actor),text(input.operation_id.as_str()),text(participant)])?);
+        if ["close_case", "unban"].contains(&input.action.as_str()) {
+            writes.push(statement(db,"UPDATE moderation_actions SET expires_at_ms=?1 WHERE EXISTS(SELECT 1 FROM moderation_action_cases a JOIN moderation_cases c ON c.case_id=a.case_id WHERE a.actor=moderation_actions.actor AND a.operation_id=moderation_actions.operation_id AND c.participant_id=?2 AND c.closed_at_ms IS NULL)",&[number(time+7776000000),text(participant)])?);
+            writes.push(statement(db,"UPDATE moderation_cases SET closed_at_ms=?1 WHERE participant_id=?2 AND closed_at_ms IS NULL",&[number(time),text(participant)])?);
+        }
+        if input.action == "close_case" {
+            writes.push(statement(
+                db,
+                "DELETE FROM mutation_guards WHERE guard_id=?1",
+                &[text(&format!("{guard}-case"))],
+            )?);
+        }
+    }
     writes.push(statement(
         db,
         crate::mutation::ADVANCE_REVISION,
