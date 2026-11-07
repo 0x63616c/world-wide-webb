@@ -218,7 +218,7 @@ private struct ProfileCreationSheet: View {
 
     @ViewBuilder private var challenge: some View {
         if let pin {
-            PanelPINEntry(title: "Add User", prompt: "Enter the panel PIN to access Photos") { entered in
+            PanelPINEntry(title: "Enter Pin") { entered in
                 do {
                     guard try await pin.verify(entered) else { return "PIN not accepted. Try again." }
                     guard !Task.isCancelled else { return nil }
