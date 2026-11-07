@@ -17,6 +17,7 @@ import {
 } from "./contract";
 import { discoverTeslaEntities } from "./discovery";
 import { createTeslaSnapshotStore, type TeslaSnapshotStore } from "./snapshot-store";
+import { readTeslaExtras } from "./telemetry";
 
 type Client = Pick<
   HomeAssistantClient,
@@ -121,7 +122,11 @@ export function createTeslaService(
           ? await client.getEntity(ids.softwareUpdate).catch(() => null)
           : null;
         const updateStatus =
-          update?.attributes.in_progress === true
+          update?.attributes.in_progress === true ||
+          (typeof update?.attributes.in_progress === "number" &&
+            Number.isFinite(update.attributes.in_progress) &&
+            update.attributes.in_progress >= 0 &&
+            update.attributes.in_progress <= 100)
             ? "installing"
             : update?.state === "on"
               ? "available"
@@ -140,6 +145,7 @@ export function createTeslaService(
             }
           : undefined;
         const data = teslaDataSchema.parse({
+          ...(await readTeslaExtras(client, ids)),
           softwareUpdate,
           batteryPercent: number(battery),
           rangeMiles: distance(range),

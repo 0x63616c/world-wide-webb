@@ -13,6 +13,11 @@ export const teslaEntitiesSchema = z
     climate: entity("climate"),
     chargeSwitch: entity("switch"),
     softwareUpdate: entity("update").optional(),
+    shiftState: entity("sensor").optional(),
+    vehicleOnline: entity("binary_sensor").optional(),
+    cableConnected: entity("binary_sensor").optional(),
+    chargeLimit: entity("number").optional(),
+    chargeCompleteAt: entity("sensor").optional(),
   })
   .strict();
 export type TeslaEntities = z.infer<typeof teslaEntitiesSchema>;
@@ -33,6 +38,11 @@ export const teslaDataSchema = z.object({
   climateOn: z.boolean(),
   cabinFahrenheit: z.number().min(-100).max(250),
   odometerMiles: z.number().nonnegative().max(10_000_000),
+  driveState: z.enum(["parked", "driving", "reversing", "neutral"]).optional(),
+  vehicleOnline: z.boolean().optional(),
+  cableConnected: z.boolean().optional(),
+  chargeLimitPercent: z.number().min(0).max(100).optional(),
+  chargeCompleteAt: z.iso.datetime({ offset: true }).optional(),
   softwareUpdate: z
     .object({
       status: z.enum(["available", "up_to_date", "installing"]),
