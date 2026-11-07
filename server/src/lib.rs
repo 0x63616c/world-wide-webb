@@ -1,6 +1,9 @@
 //! Native application's server. No static web hosting or frontend registration framework.
+pub mod config;
 pub mod features;
 pub mod http;
+pub mod integrations;
+pub mod runtime;
 pub mod storage;
 
 use chrono::{SecondsFormat, Utc};
@@ -10,6 +13,8 @@ use std::{path::PathBuf, sync::Arc};
 pub struct AppState {
     pub db: sqlx::SqlitePool,
     pub media: PathBuf,
+    pub config: Arc<config::Config>,
+    pub workers: runtime::Health,
     // Provisioned per installation outside the application bundle. Never logged.
     token: Arc<str>,
 }
@@ -22,6 +27,8 @@ impl AppState {
             db,
             media,
             token: token.into(),
+            config: Arc::new(config::Config::default()),
+            workers: Default::default(),
         })
     }
 }

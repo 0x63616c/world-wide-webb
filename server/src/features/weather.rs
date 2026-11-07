@@ -167,3 +167,113 @@ pub async fn current(State(s): State<AppState>) -> Result<Json<Value>> {
         "sunriseIso":sunrise,"tomorrowSunriseIso":tomorrow,"solarLabel":label,"solarValue":solar,"city":"Los Angeles"}),
     ))
 }
+
+#[derive(serde::Deserialize)]
+pub struct Forecast {
+    hourly: HourlyForecast,
+    daily: DailyForecast,
+}
+#[derive(serde::Deserialize)]
+struct HourlyForecast {
+    time: Vec<i64>,
+    temperature_2m: Vec<f64>,
+    apparent_temperature: Vec<f64>,
+    relative_humidity_2m: Vec<f64>,
+    weather_code: Vec<i64>,
+    wind_speed_10m: Vec<f64>,
+    is_day: Vec<i64>,
+    precipitation_probability: Vec<Option<f64>>,
+    uv_index: Vec<Option<f64>>,
+}
+#[derive(serde::Deserialize)]
+struct DailyForecast {
+    time: Vec<i64>,
+    temperature_2m_max: Vec<f64>,
+    temperature_2m_min: Vec<f64>,
+    weather_code: Vec<i64>,
+    precipitation_probability_max: Vec<Option<f64>>,
+    sunrise: Vec<i64>,
+    sunset: Vec<i64>,
+}
+fn instant(epoch: i64) -> Result<DateTime<Utc>> {
+    DateTime::from_timestamp(epoch, 0).ok_or_else(unavailable)
+}
+fn rounded(value: f64) -> Result<i64> {
+    if !value.is_finite() || value.abs() > 1_000_000.0 {
+        return Err(unavailable());
+    }
+    Ok(value.round() as i64)
+}
+pub async fn ingest(s: &AppState, client: &reqwest::Client) -> Result<()> {
+    let (lat, lon) = s.config.weather.ok_or_else(unavailable)?;
+    let tz = timezone(s).await?;
+    let response=client.get("https://api.open-meteo.com/v1/forecast").query(&[
+        ("latitude",lat.to_string()),("longitude",lon.to_string()),("timezone",tz.to_string()),
+        ("temperature_unit","fahrenheit".into()),("wind_speed_unit","mph".into()),("timeformat","unixtime".into()),
+        ("past_days","1".into()),("forecast_days","7".into()),
+        ("hourly","temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day,precipitation_probability,uv_index".into()),
+        ("daily","temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,sunrise,sunset".into()),
+    ]).send().await.map_err(|_|unavailable())?.error_for_status().map_err(|_|unavailable())?;
+    let forecast: Forecast = response.json().await.map_err(|_| unavailable())?;
+    store_forecast(s, forecast, Utc::now(), tz).await
+}
+pub async fn store_forecast(s: &AppState, f: Forecast, at: DateTime<Utc>, tz: Tz) -> Result<()> {
+    let h = f.hourly;
+    let d = f.daily;
+    let nh = h.time.len();
+    let nd = d.time.len();
+    if nh == 0
+        || nh > 400
+        || nd == 0
+        || nd > 16
+        || [
+            h.temperature_2m.len(),
+            h.apparent_temperature.len(),
+            h.relative_humidity_2m.len(),
+            h.weather_code.len(),
+            h.wind_speed_10m.len(),
+            h.is_day.len(),
+            h.precipitation_probability.len(),
+            h.uv_index.len(),
+        ]
+        .iter()
+        .any(|n| *n != nh)
+        || [
+            d.temperature_2m_max.len(),
+            d.temperature_2m_min.len(),
+            d.weather_code.len(),
+            d.precipitation_probability_max.len(),
+            d.sunrise.len(),
+            d.sunset.len(),
+        ]
+        .iter()
+        .any(|n| *n != nd)
+    {
+        return Err(unavailable());
+    }
+    let recorded = at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let boundary = at.timestamp().div_euclid(3600) * 3600;
+    let mut tx = s.db.begin().await?;
+    for i in 0..nh {
+        if ![0, 1].contains(&h.is_day[i]) {
+            return Err(unavailable());
+        }
+        sqlx::query("INSERT INTO weather_reading(kind,target_hour,recorded_at,temp_f,feels_f,humidity,weather_code,wind_mph,is_day,precip_probability,uv_index) VALUES(?,?,?,?,?,?,?,?,?,?,?)")
+            .bind(if h.time[i]<boundary {"observed"} else {"forecast"})
+            .bind(instant(h.time[i])?.to_rfc3339_opts(chrono::SecondsFormat::Micros,true)).bind(&recorded)
+            .bind(rounded(h.temperature_2m[i])?).bind(rounded(h.apparent_temperature[i])?).bind(rounded(h.relative_humidity_2m[i])?)
+            .bind(h.weather_code[i]).bind(rounded(h.wind_speed_10m[i])?).bind(h.is_day[i])
+            .bind(h.precipitation_probability[i].map(rounded).transpose()?).bind(h.uv_index[i].map(rounded).transpose()?)
+            .execute(&mut *tx).await?;
+    }
+    for i in 0..nd {
+        sqlx::query("INSERT INTO weather_daily_reading(target_date,recorded_at,hi_f,lo_f,weather_code,precip_probability,sunrise_iso,sunset_iso) VALUES(?,?,?,?,?,?,?,?)")
+            .bind(instant(d.time[i])?.with_timezone(&tz).format("%Y-%m-%d").to_string()).bind(&recorded)
+            .bind(rounded(d.temperature_2m_max[i])?).bind(rounded(d.temperature_2m_min[i])?).bind(d.weather_code[i])
+            .bind(d.precipitation_probability_max[i].map(rounded).transpose()?)
+            .bind(instant(d.sunrise[i])?.with_timezone(&tz).format("%Y-%m-%dT%H:%M").to_string())
+            .bind(instant(d.sunset[i])?.with_timezone(&tz).format("%Y-%m-%dT%H:%M").to_string()).execute(&mut *tx).await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}

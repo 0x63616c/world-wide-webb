@@ -13,6 +13,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
+    if env::args().nth(1).as_deref() == Some("healthcheck") {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()?
+            .get("http://127.0.0.1:4201/healthz")
+            .send()
+            .await?
+            .error_for_status()?;
+        return Ok(());
+    }
     let data = PathBuf::from(env::var("WWW_DATA_DIR").unwrap_or_else(|_| "data".into()));
     tokio::fs::create_dir_all(&data).await?;
     let media = env::var("MEDIA_STORAGE_DIR")
@@ -29,13 +39,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let token_path = env::var("WWW_API_TOKEN_FILE")?;
     let token = tokio::fs::read_to_string(token_path).await?;
-    let state = AppState::new(db.clone(), media, token.trim().to_owned())?;
+    let mut state = AppState::new(db.clone(), media, token.trim().to_owned())?;
+    state.config = std::sync::Arc::new(www_server::config::Config::load()?);
     let listen = env::var("WWW_LISTEN").unwrap_or_else(|_| "127.0.0.1:4201".into());
     let listener = tokio::net::TcpListener::bind(&listen).await?;
     tracing::info!(address = %listen, "server ready");
+    let runtime = www_server::runtime::Runtime::start(state.clone())?;
     axum::serve(listener, http::router(state))
         .with_graceful_shutdown(shutdown())
         .await?;
+    runtime.stop().await;
     db.close().await;
     Ok(())
 }

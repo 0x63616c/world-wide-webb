@@ -227,3 +227,217 @@ async fn booth_upload_rejects_bad_bytes_and_removal_preserves_file() {
         StatusCode::NOT_FOUND
     );
 }
+
+#[tokio::test]
+async fn weather_ingest_is_atomic_and_newest_forecast_wins() {
+    use chrono::{Timelike, Utc};
+    use www_server::features::weather::{Forecast, store_forecast};
+    let (dir, app, db) = fixture().await;
+    let s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let at = Utc::now();
+    let hour = at
+        .with_minute(0)
+        .unwrap()
+        .with_second(0)
+        .unwrap()
+        .with_nanosecond(0)
+        .unwrap()
+        .timestamp();
+    let mut source = json!({"hourly":{"time":[hour],"temperature_2m":[70.0],"apparent_temperature":[69.0],
+        "relative_humidity_2m":[50.0],"weather_code":[0],"wind_speed_10m":[5.0],"is_day":[1],
+        "precipitation_probability":[0.0],"uv_index":[2.0]},
+        "daily":{"time":[at.timestamp()],"temperature_2m_max":[76.0],"temperature_2m_min":[62.0],
+        "weather_code":[0],"precipitation_probability_max":[0.0],"sunrise":[hour-3600],"sunset":[hour+3600]}});
+    let tz = chrono_tz::America::Los_Angeles;
+    let f: Forecast = serde_json::from_value(source.clone()).unwrap();
+    store_forecast(&s, f, at, tz).await.unwrap();
+    source["hourly"]["temperature_2m"] = json!([72.0]);
+    store_forecast(
+        &s,
+        serde_json::from_value(source.clone()).unwrap(),
+        at + chrono::Duration::seconds(1),
+        tz,
+    )
+    .await
+    .unwrap();
+    let (status, body) = call(&app, "GET", "/api/v1/weather/hourly", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.as_array().unwrap().len(), 1);
+    assert_eq!(body[0]["temp"], 72);
+    assert_eq!(
+        call(&app, "GET", "/api/v1/weather/now", Value::Null)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    source["daily"]["temperature_2m_max"] = json!([]);
+    assert!(
+        store_forecast(&s, serde_json::from_value(source).unwrap(), at, tz)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM weather_reading")
+            .fetch_one(&db)
+            .await
+            .unwrap(),
+        2
+    );
+}
+
+#[tokio::test]
+async fn release_publication_is_monotonic_and_weather_has_no_fake_defaults() {
+    let (_dir, app, _db) = fixture().await;
+    assert_eq!(
+        call(&app, "GET", "/api/v1/weather/now", Value::Null)
+            .await
+            .0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    call(
+        &app,
+        "POST",
+        "/api/v1/releases/latest",
+        json!({"app":"panel","build":100}),
+    )
+    .await;
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/releases/latest",
+        json!({"app":"panel","build":99}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["build"], 100);
+    assert_eq!(
+        call(
+            &app,
+            "GET",
+            "/api/v1/releases/latest?app=panel",
+            Value::Null
+        )
+        .await
+        .1["build"],
+        100
+    );
+}
+
+#[tokio::test]
+async fn ha_adapter_rejects_invalid_routes_and_never_retries() {
+    use axum::routing::post;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    use www_server::integrations::homeassistant::HomeAssistant;
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = calls.clone();
+    let app = Router::new().route(
+        "/api/services/light/turn_on",
+        post(move || {
+            let c = counter.clone();
+            async move {
+                c.fetch_add(1, Ordering::SeqCst);
+                StatusCode::SERVICE_UNAVAILABLE
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let ha = HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap();
+    assert!(
+        ha.call("light", "turn_on", json!({"entity_id":"light.test"}))
+            .await
+            .is_err()
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert!(ha.call("../light", "turn_on", json!({})).await.is_err());
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    task.abort();
+}
+
+#[tokio::test]
+async fn climate_keeps_live_temperature_and_adopts_external_changes() {
+    use axum::{
+        Json,
+        extract::Path,
+        routing::{get, post},
+    };
+    use std::sync::{Arc, RwLock};
+    use www_server::{
+        config::Config, features::climate, integrations::homeassistant::HomeAssistant,
+    };
+    let (dir, _, db) = fixture().await;
+    let live = Arc::new(RwLock::new(
+        json!({"entity_id":"climate.home","state":"cool",
+        "attributes":{"temperature":70,"current_temperature":73,"hvac_action":"idle","fan_mode":"auto","fan_modes":["auto","on"]}}),
+    ));
+    let calls = Arc::new(RwLock::new(Vec::<String>::new()));
+    let read = live.clone();
+    let mutate = live.clone();
+    let called = calls.clone();
+    let ha_app = Router::new()
+        .route(
+            "/api/states",
+            get(move || {
+                let x = read.clone();
+                async move { Json(json!([x.read().unwrap().clone()])) }
+            }),
+        )
+        .route(
+            "/api/services/climate/{service}",
+            post(
+                move |Path(service): Path<String>, Json(body): Json<Value>| {
+                    let x = mutate.clone();
+                    let c = called.clone();
+                    async move {
+                        c.write().unwrap().push(service.clone());
+                        if service == "set_temperature" {
+                            x.write().unwrap()["attributes"]["temperature"] =
+                                body["temperature"].clone();
+                        }
+                        Json(json!([]))
+                    }
+                },
+            ),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
+    let mut s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    s.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    let mut last_fan = None;
+    climate::reconcile(&s, &mut last_fan).await.unwrap();
+    assert!(calls.read().unwrap().is_empty());
+    let app = http::router(s.clone());
+    assert_eq!(
+        call(&app, "PATCH", "/api/v1/climate", json!({"target":72}))
+            .await
+            .0,
+        StatusCode::OK
+    );
+    climate::reconcile(&s, &mut last_fan).await.unwrap();
+    assert_eq!(
+        *calls.read().unwrap(),
+        vec!["set_temperature", "set_fan_mode"]
+    );
+    live.write().unwrap()["attributes"]["current_temperature"] = json!(74);
+    climate::reconcile(&s, &mut last_fan).await.unwrap();
+    let (_, body) = call(&app, "GET", "/api/v1/climate", Value::Null).await;
+    assert_eq!(body["ambient"], 74.0);
+    assert_eq!(body["target"], 72.0);
+    sqlx::query("UPDATE device_state SET desired_until_utc='2000-01-01T00:00:00.000000Z' WHERE id='climate-thermostat'").execute(&db).await.unwrap();
+    live.write().unwrap()["attributes"]["temperature"] = json!(71);
+    climate::reconcile(&s, &mut last_fan).await.unwrap();
+    assert_eq!(calls.read().unwrap().len(), 2);
+    assert_eq!(
+        call(&app, "GET", "/api/v1/climate", Value::Null).await.1["target"],
+        71.0
+    );
+    task.abort();
+}

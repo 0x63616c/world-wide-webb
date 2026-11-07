@@ -1,6 +1,6 @@
 use crate::{
     AppState,
-    features::{booth, notifications, releases, settings, walks, weather},
+    features::{booth, climate, notifications, releases, settings, walks, weather},
 };
 use axum::{
     Json, Router,
@@ -62,6 +62,7 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
+        .route("/api/v1/climate", get(climate::get).patch(climate::command))
         .route(
             "/api/v1/releases/latest",
             get(releases::latest).post(releases::publish),
@@ -69,6 +70,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/weather/now", get(weather::current))
         .route("/api/v1/weather/hourly", get(weather::hourly))
         .route("/api/v1/weather/daily", get(weather::daily))
+        .route("/api/v1/wifi/guest", get(wifi))
         .route("/api/v1/walks/state", get(walks::state))
         .route("/api/v1/walks/history", get(walks::history))
         .route("/api/v1/walks/start", post(walks::start))
@@ -139,6 +141,12 @@ async fn authenticate(State(state): State<AppState>, request: Request, next: Nex
 async fn health(State(state): State<AppState>) -> Result<Json<Value>> {
     sqlx::query("SELECT 1").execute(&state.db).await?;
     Ok(Json(
-        json!({"database":"ok", "backend":"rust", "build": option_env!("BUILD_HASH").unwrap_or("local")}),
+        json!({"database":"ok", "workers":state.workers.read().expect("worker lock").clone(), "backend":"rust", "build": option_env!("BUILD_HASH").unwrap_or("local")}),
+    ))
+}
+
+async fn wifi(State(s): State<AppState>) -> Result<Json<Value>> {
+    Ok(Json(
+        json!({"qr":s.config.wifi_qr.as_deref().unwrap_or("")}),
     ))
 }
