@@ -16,6 +16,7 @@ struct AppLauncher: View {
             let iconFrameSide: CGFloat = sizeClass == .compact ? 76 : 112
             let iconSide = iconFrameSide * 0.9
             let headerInset: CGFloat = sizeClass == .compact ? 20 : 40
+            let firstRowTop = headerInset + PanelProfilePhoto.side + 24
             ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 GlassEffectContainer(spacing: 32) {
@@ -32,7 +33,8 @@ struct AppLauncher: View {
                             }.buttonStyle(LauncherPressStyle()).accessibilityIdentifier("app-\(app.id)")
                         }
                     }.padding(.horizontal, sizeClass == .compact ? 20 : 72)
-                        .padding(.vertical, 48)
+                        .padding(.top, firstRowTop)
+                        .padding(.bottom, 48)
                 }
                 .frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
@@ -77,7 +79,17 @@ struct LauncherGlassSurface: View {
             return CGFloat(max(0, min(value, 3)))
         }
         #endif
-        return 1.5
+        return 3
+    }
+    static var edgeOpacity: Double {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-previewLauncherEdge"), args.indices.contains(index + 1),
+           let value = Double(args[index + 1]) {
+            return max(0, min(value, 0.2))
+        }
+        #endif
+        return 0.08
     }
     static var footprint: some View {
         RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
@@ -85,8 +97,14 @@ struct LauncherGlassSurface: View {
     }
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
-        Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.08)) : .clear, in: shape)
+        Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
             .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
+            .overlay {
+                shape.strokeBorder(
+                    LinearGradient(colors: [.white.opacity(Self.edgeOpacity), .white.opacity(Self.edgeOpacity * 0.25)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 0.5)
+            }
             .padding(Self.edgeInset)
     }
 

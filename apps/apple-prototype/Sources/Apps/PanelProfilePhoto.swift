@@ -4,6 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct PanelProfilePhoto: View {
+    static let side: CGFloat = 48
     @AppStorage("panel.profilePhoto") private var photo = Data()
     @State private var selection: PhotosPickerItem?
     @State private var thumbnail: CGImage?
@@ -19,7 +20,7 @@ struct PanelProfilePhoto: View {
                         .foregroundStyle(.white.opacity(0.85))
                 }
             }
-            .frame(width: 48, height: 48)
+            .frame(width: Self.side, height: Self.side)
             .clipShape(.circle)
             .contentShape(.circle)
         }
