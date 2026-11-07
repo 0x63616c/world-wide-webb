@@ -4490,7 +4490,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verlauf zurücksetzen"
+            "value": "Zurücksetzen"
           }
         },
         "fr": {
@@ -4550,61 +4550,61 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deletes your history, leaderboard scores, and medals."
+            "value": "Deletes history, scores and medals."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Löscht deinen Verlauf, Ranglistenpunkte und Medaillen."
+            "value": "Löscht Verlauf, Punkte und Medaillen."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Supprime votre historique, vos scores et vos médailles."
+            "value": "Supprime historique, scores et médailles."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina tu historial, puntuaciones y medallas."
+            "value": "Elimina historial, puntos y medallas."
           }
         },
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elimina tu historial, puntuaciones y medallas."
+            "value": "Elimina historial, puntos y medallas."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "履歴、ランキングのスコア、メダルを削除します。"
+            "value": "履歴、スコア、メダルを削除します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기록, 순위표 점수 및 메달을 삭제합니다."
+            "value": "기록, 점수, 메달을 삭제합니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apaga seu histórico, pontuações e medalhas."
+            "value": "Apaga histórico, pontos e medalhas."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除你的历史记录、排行榜分数和奖牌。"
+            "value": "删除记录、分数和奖牌。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "刪除你的記錄、排行榜分數和獎牌。"
+            "value": "刪除記錄、分數和獎牌。"
           }
         }
       }
@@ -4688,7 +4688,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verlauf zurücksetzen?"
+            "value": "Zurücksetzen?"
           }
         },
         "fr": {

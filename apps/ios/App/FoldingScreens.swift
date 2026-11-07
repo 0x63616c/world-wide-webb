@@ -527,7 +527,7 @@ private struct SettingsScreen: View {
         Text(
           String(
             localized: "reset.message",
-            defaultValue: "Deletes your history, leaderboard scores, and medals."))
+            defaultValue: "Deletes history, scores and medals."))
       }
     }
     .interactiveDismissDisabled(model.operation != nil)
