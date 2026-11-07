@@ -73,4 +73,16 @@ private actor TeslaAPITransport: PanelTransport {
             try await api(TeslaAPITransport(fixture("forbidden"))).command(.unlock, pin: "123456")
         }
     }
+    @Test func optionalDashboardFieldsPreserveUnknownAndReportedStates() async throws {
+        guard case .ready(let old) = try await api(TeslaAPITransport(fixture("ready"))).state() else { return }
+        #expect(old.driveState == nil && old.vehicleOnline == nil && old.softwareUpdate == nil)
+        guard case .ready(let driving) = try await api(TeslaAPITransport(fixture("driving"))).state() else { return }
+        #expect(driving.driveState == .driving && driving.driveState?.isInGear == true)
+        guard case .ready(let charging) = try await api(TeslaAPITransport(fixture("charging"))).state() else { return }
+        #expect(charging.chargeLimitPercent == 80 && charging.cableConnected == true)
+        #expect(charging.chargeCompleteAt != nil)
+        guard case .ready(let offline) = try await api(TeslaAPITransport(fixture("offline"))).state() else { return }
+        #expect(offline.vehicleOnline == false && offline.stale == true && offline.batteryPercent == 72)
+    }
+
 }

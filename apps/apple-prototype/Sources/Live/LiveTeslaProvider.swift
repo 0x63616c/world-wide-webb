@@ -10,6 +10,14 @@ import PanelKit
     private(set) var requestedAction: TeslaAction?
     private(set) var busy = false
     private(set) var errorMessage: String?
+    private(set) var acknowledgedAction: TeslaAction?
+    var commandNotice: String? {
+        switch acknowledgedAction {
+        case .lock: "Lock requested"
+        case .unlock: "Unlock requested"
+        default: nil
+        }
+    }
     @ObservationIgnored private let api: TeslaAPI
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var mutation: Task<Void, Never>?
@@ -28,27 +36,25 @@ import PanelKit
         guard batteryPercent >= 10, rangeMiles > 0 else { return nil }
         return Int((rangeMiles * 100 / batteryPercent / 5).rounded()) * 5
     }
-    var availability: TeslaAvailability { hasLiveData && snapshot?.stale != true ? .online : .offline }
+    var availability: TeslaAvailability { hasLiveData && snapshot?.stale != true && snapshot?.vehicleOnline != false ? .online : .offline }
     var data: TeslaData {
         guard hasLiveData, let snapshot else {
             return TeslaData(name: "Unavailable", nick: "Tesla", place: "", charging: false,
                 chargingState: "", preconditioning: false, rate: 0, pct: 0, range: 0, maxRange: 0, odo: "", climate: 0)
         }
-        return TeslaData(name: "Tesla", nick: "Tesla", place: "",
+        return TeslaData(name: "Model Y", nick: "Evee", place: "",
             charging: snapshot.chargingState == .charging, chargingState: snapshot.chargingState.rawValue,
             preconditioning: snapshot.climateOn, rate: snapshot.chargePowerKW,
             pct: Int(snapshot.batteryPercent.rounded()), range: Int(snapshot.rangeMiles.rounded()),
             maxRange: maxRange,
             locked: snapshot.locked,
             odo: Int(snapshot.odometerMiles.rounded()).formatted(), climate: Int(snapshot.cabinFahrenheit.rounded()),
-            softwareUpdate: snapshot.softwareUpdate.map { update in
-                switch update.status {
-                case "available": "Available" + (update.latestVersion.map { " · \($0)" } ?? "")
-                case "up_to_date": "Up to date"
-                case "installing": "Installing"
-                default: "Unknown"
-                }
-            })
+            softwareUpdate: snapshot.softwareUpdate,
+            driveState: snapshot.driveState,
+            cableConnected: snapshot.cableConnected,
+            chargeLimitPercent: snapshot.chargeLimitPercent,
+            chargeCompleteAt: TeslaData.date(snapshot.chargeCompleteAt),
+            lastUpdatedAt: TeslaData.date(snapshot.lastUpdatedAt))
     }
 
     func refresh() async {
@@ -67,10 +73,15 @@ import PanelKit
         }
     }
 
+    var canControl: Bool {
+        hasLiveData && availability == .online && !data.isInGear && !data.isInstalling
+    }
+
     func request(_ action: TeslaAction) {
         guard action == .lock || action == .unlock else { return }
-        guard hasLiveData, availability == .online, !busy, requestedAction == nil else { return }
+        guard canControl, !busy, requestedAction == nil else { return }
         requestedAction = action
+        acknowledgedAction = nil
         errorMessage = nil
     }
     func cancelCommand() { requestedAction = nil; errorMessage = nil }
@@ -98,7 +109,7 @@ import PanelKit
     }
 
     func confirm(pin: String) async {
-        guard hasLiveData, availability == .online, !busy, let action = requestedAction else { return }
+        guard canControl, !busy, let action = requestedAction else { return }
         guard pin.utf8.count == 6, pin.utf8.allSatisfy({ (48...57).contains($0) }) else {
             errorMessage = "Enter the six-digit panel PIN."
             return
@@ -111,6 +122,7 @@ import PanelKit
             try Task.checkCancellation()
             guard version == generation else { return }
             requestedAction = nil
+            acknowledgedAction = action
             errorMessage = nil
             // Acknowledgement never invents vehicle state. Read HA again; later
             // polls handle eventual consistency without retrying the command.
@@ -130,6 +142,7 @@ import PanelKit
     }
 
     private func retainSnapshot(reason: String) {
+        acknowledgedAction = nil
         snapshot?.stale = true
         hasLiveData = snapshot != nil
         moduleStatus = hasLiveData ? .live : .unavailable(reason)
@@ -140,12 +153,16 @@ import PanelKit
         switch state {
         case .ready(let value):
             snapshot = value; hasLiveData = true; moduleStatus = .live
-            if value.stale == true { requestedAction = nil }
+            if !canControl { requestedAction = nil; acknowledgedAction = nil }
+            if (acknowledgedAction == .lock && value.locked) || (acknowledgedAction == .unlock && !value.locked) {
+                acknowledgedAction = nil
+            }
             if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent), estimate != maxRange {
                 maxRange = estimate
                 defaults.set(estimate, forKey: Self.maxRangeKey)
             }
         case .unconfigured:
+            acknowledgedAction = nil
             snapshot = nil; hasLiveData = false; requestedAction = nil
             moduleStatus = .unconfigured("Tesla isn't set up on the server")
         case .unavailable:
@@ -159,6 +176,7 @@ import PanelKit
         busy = false
         hasLiveData = false
         moduleStatus = .loading
+        acknowledgedAction = nil
         cancelCommand()
     }
 }

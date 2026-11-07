@@ -91,13 +91,13 @@ import XCTest
         let app = launch()
         defer { app.terminate() }
         app.openHomeModule("tesla")
-        XCTAssertTrue(app.staticTexts["Estimated range"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Software update"].exists)
-        XCTAssertTrue(app.switches["tesla-door-lock"].exists)
+        XCTAssertTrue(app.staticTexts["Evee"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["tesla-energy"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["tesla-door-lock"].exists)
         XCTAssertFalse(app.switches["Charge"].exists)
         XCTAssertFalse(app.switches["Precondition"].exists)
         capture("tesla-telemetry", app)
-        app.switches["tesla-door-lock"].tap()
+        app.buttons["tesla-door-lock"].tap()
         XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
         app.buttons["Cancel"].tap()
     }

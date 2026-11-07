@@ -8,6 +8,11 @@ public enum TeslaChargingState: String, Decodable, Sendable {
     case charging, stopped, complete, disconnected, noPower = "no_power", starting
 }
 
+public enum TeslaDriveState: String, Decodable, Sendable {
+    case parked, driving, reversing, neutral
+    public var isInGear: Bool { self != .parked }
+}
+
 public struct TeslaSoftwareUpdate: Decodable, Sendable, Equatable {
     public let status: String
     public let installedVersion: String?
@@ -26,11 +31,17 @@ public struct TeslaSnapshot: Decodable, Sendable, Equatable {
     public let cabinFahrenheit: Double
     public let odometerMiles: Double
     public let softwareUpdate: TeslaSoftwareUpdate?
+    public let driveState: TeslaDriveState?
+    public let vehicleOnline: Bool?
+    public let cableConnected: Bool?
+    public let chargeLimitPercent: Double?
+    public let chargeCompleteAt: String?
 
     var isValid: Bool {
         (0...100).contains(batteryPercent) && (0...10_000).contains(rangeMiles)
             && (0...1_000).contains(chargePowerKW) && (-100...250).contains(cabinFahrenheit)
             && (0...10_000_000).contains(odometerMiles)
+            && chargeLimitPercent.map { (0...100).contains($0) } != false
     }
 }
 

@@ -105,3 +105,49 @@ all six service targets, malformed/unavailable data, PIN failures, missing setti
 database failures, generic upstream errors, prefix/domain/unit filtering, naming
 variants and priorities, discovery expiry, concurrent requests, override precedence,
 and recovery after failures. Fixtures do not verify the live HA inventory.
+
+## Evee dashboard
+
+The Swift dashboard identifies the owner's original Model Y as **Evee**. The cartoon car
+illustration matches the supplied Space Gray paint, upgraded dark wheels and white
+interior; it is artwork, not live camera imagery. Battery and estimated range
+share one display. Cabin temperature is read-only. The lock button retains the
+fresh-PIN flow and does not optimistically change the reported lock state.
+Acknowledgement displays “Lock requested” / “Unlock requested” until telemetry
+confirms it. Only odometer and installed software version are under Details. Normal/up-to-date software adds no main-screen banner; available and
+installing updates do. Installation stays in the Tesla app.
+
+Additional optional roles are discovered independently:
+
+| Role | Matching HA entity | Native use |
+| --- | --- | --- |
+| vehicleOnline | binary_sensor, status/online, connectivity class | False shows last-reported readings and disables controls |
+| cableConnected | binary_sensor, charge_cable/charger_connected | Available to clients; omitted from the minimal dashboard |
+| chargeLimit | number, charge_limit, % | Reported target while actively charging |
+| chargeCompleteAt | sensor, time_to_full_charge, timestamp class | Reported completion time while actively charging |
+| shiftState | sensor, shift_state/gear (including API-path suffixes) | P/D/R/N → parked/driving/reversing/neutral |
+
+Unknown, unavailable, malformed or missing optional readings stay absent and do
+not make the base snapshot unavailable. Missing shift state never means parked;
+charge rate in mph is **not vehicle speed**. A reported non-P gear or software
+installation disables native lock commands both in the view and at PIN submission.
+Older servers/fixtures without these optional fields remain readable.
+
+A read-only inventory on 2026-11-06 verified Evee's cable, charge limit, completion
+sensor, connectivity, temperatures, windows/doors, covers and software entities.
+The completion sensor was unavailable while unplugged, and **no active shift-state
+sensor existed**. Driving presentation is therefore implemented and fixture-tested
+but will only appear live after the integration exposes a recognized gear entity.
+No HA configuration or real vehicle state was changed. Connectivity false cannot
+distinguish sleep from loss of connection; the UI says “Last reported”, not “Asleep”.
+
+Future controls supported upstream include climate, charge start/stop, charge
+limit/current, boot/froot, windows, sentry, wake, flash and horn. This redesign
+preserves the panel's lock-only control policy; it does not add those actions or
+software-install commands. The existing HA integration remains the source rather
+than adding a second Fleet OAuth/streaming service.
+
+References: [HA Tesla Fleet](https://www.home-assistant.io/integrations/tesla_fleet/),
+[Tesla Fleet Telemetry fields](https://developer.tesla.com/docs/fleet-api/fleet-telemetry/available-data),
+[Apple materials](https://developer.apple.com/design/human-interface-guidelines/materials),
+[Apple motion](https://developer.apple.com/design/human-interface-guidelines/motion).

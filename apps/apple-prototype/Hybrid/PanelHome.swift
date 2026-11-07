@@ -405,17 +405,7 @@ private struct PanelAccessoryCard: View {
         }.padding(28).background(LinearGradient(colors: [.blue.opacity(0.45), .indigo.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing))
     }
     private var car: some View {
-        let t = store.tesla.data
-        return HStack(spacing: 22) {
-            PanelCardGlyph(symbol: "car.side.fill", color: .green).frame(width: 64)
-            VStack(alignment: .leading, spacing: 7) {
-                Text(t.name).font(.system(size: 22, weight: .semibold))
-                Text("\(t.pct)% · \(t.range) mi").font(.system(size: 20, weight: .medium))
-                Text(t.charging ? "Charging" : t.locked ? "Locked" : "Unlocked")
-                    .font(.system(size: 17)).foregroundStyle(.white.opacity(0.65))
-            }
-            Spacer(minLength: 0)
-        }.padding(28)
+        TeslaTile(provider: store.tesla)
     }
     private var calendar: some View {
         VStack(alignment: .leading, spacing: 0) {

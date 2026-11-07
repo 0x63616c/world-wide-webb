@@ -175,4 +175,36 @@ private actor TeslaProviderTransport: PanelTransport {
         XCTAssertEqual(live.data.maxRange, 280)
         XCTAssertEqual(defaults.integer(forKey: LiveTeslaProvider.maxRangeKey), 280)
     }
+    func testDrivingInstallingAndOfflineNeverStageOrSendLockCommands() async {
+        for scenario in ["driving", "installing", "offline"] {
+            let transport = TeslaProviderTransport([scenario])
+            let live = provider(transport)
+            await live.refresh()
+            XCTAssertTrue(live.hasLiveData)
+            XCTAssertFalse(live.canControl, scenario)
+            live.request(.unlock)
+            await live.confirm(pin: "123456")
+            XCTAssertNil(live.requestedAction)
+            let count = await transport.requests.count
+            XCTAssertEqual(count, 1)
+        }
+    }
+    func testReportedDataKeepsUnknownDistinctAndMapsEvee() async {
+        let unknown = provider(TeslaProviderTransport(["ready"]))
+        await unknown.refresh()
+        XCTAssertEqual(unknown.data.nick, "Evee")
+        XCTAssertEqual(unknown.data.name, "Model Y")
+        XCTAssertNil(unknown.data.driveState)
+        XCTAssertNil(unknown.data.softwareUpdate)
+        let charging = provider(TeslaProviderTransport(["charging"]))
+        await charging.refresh()
+        XCTAssertEqual(charging.data.chargeLimitPercent, 80)
+        XCTAssertEqual(charging.data.cableConnected, true)
+        XCTAssertNotNil(charging.data.chargeCompleteAt)
+        let update = provider(TeslaProviderTransport(["update"]))
+        await update.refresh()
+        XCTAssertEqual(update.data.softwareUpdate?.status, "available")
+        XCTAssertTrue(update.canControl)
+    }
+
 }

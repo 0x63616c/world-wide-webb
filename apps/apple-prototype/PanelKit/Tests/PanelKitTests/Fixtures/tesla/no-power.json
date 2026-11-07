@@ -1,0 +1,20 @@
+{
+  "result": {
+    "data": {
+      "status": "ready",
+      "data": {
+        "batteryPercent": 72,
+        "rangeMiles": 200,
+        "chargingState": "no_power",
+        "chargePowerKW": 0,
+        "locked": true,
+        "climateOn": false,
+        "cabinFahrenheit": 68,
+        "odometerMiles": 10000,
+        "cableConnected": true
+      },
+      "stale": false,
+      "lastUpdatedAt": "2026-11-07T01:00:00Z"
+    }
+  }
+}

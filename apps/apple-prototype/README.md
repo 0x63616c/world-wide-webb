@@ -12,9 +12,17 @@ Native Liquid Glass supplies tile refraction, highlights and button chrome, with
 
 Lamps has an All lamps brightness fader, room power controls, expandable members and Color & Effects. The next-alarm face has 120 uniformly weighted ticks around an arc-length sampled rounded rectangle. The design corner radius is 112 points, with an 80-point inset ring radius. It is **not a measured iPad 13-inch hardware radius**: Apple does not publish that measurement in the available resources. The separate 18-point research token describes older documented iPad models and is not misrepresented as current hardware.
 
-Tesla preserves the retired service's field names and types: `name`, `nick`, `place`, optional `lat`/`lon`, `charging`, `chargingState`, `preconditioning`, `rate`, `pct`, `range`, `odo` and `climate`. Online/asleep/offline availability is separate. The fixture is Model Y / Car, Home, 78%, 241 mi, charging at 11 kW, cabin 64°F, with no coordinates. Vehicle telemetry is read-only; only lock and unlock are available on the live panel. There is no map.
+Tesla presents Evee, the owner's original Space Gray Model Y with white interior.
+The landscape dashboard pairs a vehicle illustration with a compact battery/range
+display; narrow layouts stack the same content. A native glass lock button keeps
+fresh-PIN confirmation; cabin and charging data remain read-only. Software alerts
+appear only for available/installing updates. Only mileage and installed software version live under Details. Optional HA telemetry supplies cable, charge limit,
+completion time, connectivity and gear without inventing missing readings. There
+is no active shift-state entity on Evee yet, so live driving presentation requires
+that entity; previews cover it. Last-reported, in-gear and installing states disable
+commands. See `features/tesla/README.md` for the inventory and state contract.
 
-Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses through KeyframeAnimator only while charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
+Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses its charging symbol only while actively charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
 
 The research specification, reference images, independent reviews, comparison sheets, live log and motion proof remain outside this repository at `/workspace/wwwebb-ui/prototype/v2/`. Reference images are never bundled or committed. Images under `docs/screenshots/v2/` document the previous iteration, not this pass. `mac-home.png` is explicitly an **iOS-hosted Mac layout render**; the build mini runs macOS 15.6 and cannot launch a macOS 26 app.
 
