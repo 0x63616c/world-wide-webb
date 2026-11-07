@@ -11,6 +11,10 @@ pub(crate) struct Administrator {
     expires: u64,
     origin: String,
 }
+fn reject(stage: &'static str) -> Failure {
+    console_error!("admin_request_rejected:{stage}");
+    Failure::unauthorized()
+}
 pub(crate) async fn authorize(
     request: &Request,
     env: &Env,
@@ -49,7 +53,7 @@ pub(crate) async fn authorize(
             .ascii_serialization()
             != origin
     {
-        return Err(Failure::unauthorized());
+        return Err(reject("canonical_origin"));
     }
     let aud = env
         .var("ACCESS_AUDIENCE")
@@ -67,10 +71,10 @@ pub(crate) async fn authorize(
     let token = request
         .headers()
         .get("Cf-Access-Jwt-Assertion")
-        .map_err(|_| Failure::unauthorized())?
-        .ok_or_else(Failure::unauthorized)?;
+        .map_err(|_| reject("access_header"))?
+        .ok_or_else(|| reject("missing_access_assertion"))?;
     if token.len() > 16384 {
-        return Err(Failure::unauthorized());
+        return Err(reject("access_assertion_length"));
     }
     let mut init = RequestInit::new();
     init.with_redirect(RequestRedirect::Manual);
@@ -95,7 +99,7 @@ pub(crate) async fn authorize(
     }
     let time = (now() / 1000) as u64;
     let identity = crate::access_identity::verify(&token, &bytes, &team, &aud, &allowlist, time)
-        .map_err(|_| Failure::unauthorized())?;
+        .map_err(|_| reject("access_assertion_invalid"))?;
     let session_hash = crate::assertion::hex(&Sha256::digest(token.as_bytes()));
     let expires = identity.exp.min(time + 1800);
     let message = format!("{session_hash}:{expires}:{origin}");
@@ -123,27 +127,27 @@ impl Administrator {
             || request
                 .headers()
                 .get("Origin")
-                .map_err(|_| Failure::unauthorized())?
+                .map_err(|_| reject("csrf_origin_header"))?
                 .as_deref()
                 != Some(&self.origin)
         {
-            return Err(Failure::unauthorized());
+            return Err(reject("csrf_origin_mismatch"));
         }
-        let (expiry, signature) = token.split_once('.').ok_or_else(Failure::unauthorized)?;
-        let expiry = expiry.parse::<u64>().map_err(|_| Failure::unauthorized())?;
+        let (expiry, signature) = token.split_once('.').ok_or_else(|| reject("csrf_format"))?;
+        let expiry = expiry.parse::<u64>().map_err(|_| reject("csrf_expiry_format"))?;
         if expiry <= (now() / 1000) as u64 || expiry > self.expires {
-            return Err(Failure::unauthorized());
+            return Err(reject("csrf_expired"));
         }
         let signature = URL_SAFE_NO_PAD
             .decode(signature)
-            .map_err(|_| Failure::unauthorized())?;
+            .map_err(|_| reject("csrf_signature_format"))?;
         if !crate::secrets::verify_keyed_digest(
             &config.network_key,
             "admin-csrf",
             &format!("{}:{expiry}:{}", self.session_hash, self.origin),
             &signature,
         ) {
-            return Err(Failure::unauthorized());
+            return Err(reject("csrf_signature_mismatch"));
         }
         Ok(())
     }

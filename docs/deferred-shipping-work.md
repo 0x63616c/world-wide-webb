@@ -12,7 +12,7 @@ The owner cleared the broader shipping goal. These tasks are retained for a late
 - [ ] Complete visual/accessibility/localization review and all ten-locale storefront screenshots/listing.
 - [ ] Finish tip reviewer asset processing/readiness. Three products are configured; screenshot capture succeeded in `/tmp/folding-release-assets/build/store-assets/03084e4d55c3e80effedfc28cd6858be93a7ef1f/production/assets`. Upload timed out: read Apple state before retrying.
 - [ ] Complete signed archive validation, Apple privacy/age-rating/review details, processed TestFlight build and release rehearsal. Existing profiles/recovery do not prove archive acceptance.
-- [ ] Verify public pages and support-email forwarding end-to-end. Production site is live; final acceptance remains open.
+- [ ] Verify public pages. Production site is live; final acceptance remains open. The owner reports personally testing that `support@getfolding.app` forwards successfully; no additional inbox test is requested.
 - [ ] Submit app and tips; verify submission and automatic publication after approval.
 - [ ] Run owner-deferred physical Duo checks **after submission**, fix/resubmit as needed (#47/F13).
 - [ ] Restore CI on owner-provided runners when available (#46); do not retry hosted-CI billing.
