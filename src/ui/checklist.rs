@@ -195,12 +195,9 @@ impl Checklist {
             code if Action::Back.matches(code) => self.cancelled = true,
             KeyCode::Char('o' | 'O') => {
                 if let Some(url) = &self.link {
-                    let _ = std::process::Command::new("/usr/bin/open")
-                        .arg(url)
-                        .stdin(std::process::Stdio::null())
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::null())
-                        .status();
+                    let mut command = std::process::Command::new("/usr/bin/open");
+                    command.arg(url).stdin(std::process::Stdio::null());
+                    let _ = crate::process::run_silent(&mut command, Duration::from_secs(5));
                 }
             }
             _ => (),
