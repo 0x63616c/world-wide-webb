@@ -173,7 +173,7 @@ struct HomeView: View {
 
     private func clockDial(_ face: PanelClockFace) -> some View {
         PresenceClockFace(store: store, face: face)
-            .environment(\.motionPhase, selected == nil ? inheritedMotionPhase : 0)
+            .environment(\.motionPhase, selected == nil && showingClock ? inheritedMotionPhase : 0)
             .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
@@ -191,18 +191,6 @@ struct HomeView: View {
                 Color.black.ignoresSafeArea()
                 ZStack {
                     clockSurface(width: proxy.size.width)
-                    if LauncherGlassSurface.blurRadius > 0 {
-                        // Move the blur footprint with the glass. Keeping this layer
-                        // mounted also prevents a full-screen blur flash on tap.
-                        clockSurface(width: proxy.size.width)
-                            .blur(radius: LauncherGlassSurface.blurRadius)
-                            .mask {
-                                LauncherGlassSurface.footprint
-                                    .offset(y: showingClock ? proxy.size.height : 0)
-                            }
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                    }
                     if showingClock {
                         // A tap recognizer cancels on movement; a full-screen Button
                         // can activate after a drag that ends inside its large bounds.
