@@ -14,7 +14,8 @@ The owner cleared the broader shipping goal. These tasks are retained for a late
 - [ ] Measure realistic large-history/population resource use and address resulting issues.
 - [ ] Complete visual/accessibility/localization review and all ten-locale storefront screenshots/listing.
 - [ ] Finish tip reviewer asset processing/readiness. Three products are configured; screenshot capture succeeded in `/tmp/folding-release-assets/build/store-assets/03084e4d55c3e80effedfc28cd6858be93a7ef1f/production/assets`. Upload timed out: read Apple state before retrying.
-- [ ] Complete signed archive validation, Apple privacy/age-rating/review details, processed TestFlight build and release rehearsal. Existing profiles/recovery do not prove archive acceptance.
+- [x] Sign, upload and distribute a production-app TestFlight preview to the owner's internal group; Apple processed version 0.1.1 (build 2) and API readback confirmed exact build/group/tester membership (`docs/experiments/testflight-preview-2026-11-07.md`).
+- [ ] Complete Apple privacy/age-rating/review details and final release rehearsal. The preview is not an App Store submission.
 - [ ] Verify public pages. Production site is live; final acceptance remains open. Support forwarding is complete based on the owner's test; no additional inbox test is requested.
 - [ ] Submit app and tips; verify submission and automatic publication after approval.
 - [ ] Run owner-deferred physical Duo checks **after submission**, fix/resubmit as needed (#47/F13).

@@ -55,6 +55,7 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
         FoldingAPIOrigin: '$(FOLDING_API_ORIGIN)'
         FoldingEnvironment: '$(FOLDING_ENVIRONMENT)'
         FoldingSourceCommit: '$(FOLDING_SOURCE_COMMIT)'

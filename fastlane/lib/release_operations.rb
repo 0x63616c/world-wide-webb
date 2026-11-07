@@ -267,10 +267,15 @@ module FoldingRelease
       end
       groups = ENV.fetch(CONFIG.fetch("testflight_groups_env")).split(",").map(&:strip).reject(&:empty?)
       raise "Explicit TestFlight groups are required" if groups.empty?
+      if record.data["testflight_distributed_build_id"] == build.id
+        raise "Previously distributed groups differ" unless record.data["testflight_groups"] == groups
+        return
+      end
       context.upload_to_testflight(api_key: FoldingRelease.api_key, app_identifier: record.data.fetch("bundle_id"),
-        apple_id: record.data.fetch("asc_app_id"), skip_binary_upload: true,
+        apple_id: record.data.fetch("asc_app_id"), app_platform: "ios",
         app_version: record.data.fetch("marketing_version"), build_number: record.data.fetch("build_number").to_s,
-        distribute_only: true, groups: groups, distribute_external: false, notify_external_testers: false)
+        distribute_only: true, groups: groups, distribute_external: false,
+        submit_beta_review: false, notify_external_testers: false)
       record.save("testflight_distributed_build_id" => build.id, "testflight_groups" => groups)
     end
 
