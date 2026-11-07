@@ -90,3 +90,14 @@ Both app identifiers were assigned only their environment's group/container and 
 `fastlane ios setup_signing` completed successfully on November 7. Match generated/imported distribution certificate `BT34CHX6H5`, created all four App Store profiles and pushed encrypted assets to private `0x63616c/folding-signing` at `85dcb487173509652d7ee9c9521df4a1e4b76716`. The temporary keychain was deleted. The setup helper parsed every resulting profile and checked exact bundle/team/App Group, plus each app's iCloud container, production App Attest permission and production APNs environment. This is profile validation, not a signed archive or physical-device pass.
 
 Encryption-password recovery: Folding vault item `nwphu5b7fycuyloxgh6nw33bla`. The encrypted repository bundle is also stored in the vault as **Folding encrypted signing repository recovery**. Nonsecret profile inventory is generated at `build/signing/profile-inventory.json`.
+
+## App-scoped service keys
+
+Following explicit owner approval, registered separate Apple service keys on November 7:
+
+| Environment | Key ID | Allowed APNs topic and Sign in with Apple primary ID | Folding vault document |
+| --- | --- | --- | --- |
+| Production | `P2KG29RQ4Y` | `app.getfolding.Folding` | `colom74fmpe5wq3qyqgpmghshu` |
+| Staging | `VT9XF8PF52` | `app.getfolding.Folding.Staging` | `7lcpject4qixtwzmyqvoozfqpu` |
+
+Both keys use Production APNs with Topic Specific restriction; staging is intended for TestFlight. Each enables Sign in with Apple only for its corresponding primary app. No unrelated apps or additional services were selected. Both downloaded private keys were saved to the Folding 1Password vault, retrieved and compared byte-for-byte before removing the temporary downloads. No private-key material is committed. Runtime binding and live transport acceptance remain pending; registration alone does not prove notification delivery or sign-in token exchange.
