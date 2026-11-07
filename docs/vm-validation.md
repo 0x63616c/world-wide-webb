@@ -58,9 +58,22 @@ verify merge ancestry. A direct read returned `identical`. This is an adapter
 defect, not evidence of successful installation. The merged PR, operator state
 and guest remain preserved for an explicitly guarded resume test.
 
-The private worktree now pins schema-aware helper `a7b3ce8` and schema 2 with an
-explicit backup vault. Its final private Nix validation is still pending; the
-earlier full check does not cover this candidate.
+The guarded resume of the second attempt installed Nix, built and activated the
+exact merged configuration, and rebooted successfully. Its final reconciliation
+check did not complete: the published report had `rebooted=true` and no verified
+reconciliation, while Comin had started but not yet performed its first poll.
+The guest is preserved and stopped. This is not a passed full wizard run.
+
+Pinned Comin waits 600 seconds for its first scheduled fetch, matching the old
+setup verification deadline. Helper `583788d` now requests one native Comin fetch
+after its protected RPC socket is ready, then retains the existing strict Git and
+deployment verification. Focused tests and independent review passed. A fresh
+`homelab-enrollment-full-3` rehearsal is running against unready baseline `034d093`;
+no successful completion is claimed yet.
+
+The private helper now pins `583788d` and schema 2 uses an explicit backup vault.
+Final private Nix validation is still pending; the earlier full check does not
+cover this candidate.
 
 ## Authorized boundary
 
