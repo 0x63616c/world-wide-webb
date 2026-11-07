@@ -217,7 +217,7 @@ import OSLog
         switch command {
         case .brightness(let value), .kelvin(let value), .target(let value), .low(let value), .high(let value), .shiftRange(let value):
             commandPayload = try? JSONEncoder().encode(["value": value])
-        case .rawVolume(_, let value), .masterVolume(let value), .volume(_, let value):
+        case .rawVolume(_, let value), .roomVolumes(_, let value), .volume(_, let value):
             commandPayload = try? JSONEncoder().encode(["volume": value])
         case .fan(let on), .enableAlarm(_, let on):
             commandPayload = try? JSONEncoder().encode(["on": on])
@@ -256,7 +256,7 @@ import OSLog
             guard let member = roomID(member), let target = roomID(target), sonosProvider.send(.join(member, target)) else {
                 rejectCommand("The selected speakers are unavailable."); return
             }
-        case .transport, .seek, .rawVolume, .masterVolume, .volume, .mute, .globalLock, .groupLock, .calibrate, .clearCalibration, .leave:
+        case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock, .calibrate, .clearCalibration, .leave:
             guard requireLive(.sonos) else { return }
             if !sonosProvider.send(command) { rejectCommand("This speaker action is unavailable.") }
         case .playMedia:

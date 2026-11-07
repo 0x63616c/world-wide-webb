@@ -8,7 +8,7 @@ struct SonosRoomsPage: View {
     @State private var dragPreview: VolumePreview?
 
     private struct VolumePreview {
-        let roomID: String? // nil previews the same value on every speaker.
+        let roomIDs: Set<String>
         let value: Int
     }
 
@@ -19,7 +19,7 @@ struct SonosRoomsPage: View {
     private var speakers: [SoundRoom] { store.rooms.filter { $0.id != tv?.id } }
 
     private var masterVolume: Int {
-        let volumes = store.rooms.map { shownVolume(for: $0) }
+        let volumes = speakers.map { shownVolume(for: $0) }
         guard !volumes.isEmpty else { return 0 }
         return Int((Double(volumes.reduce(0, +)) / Double(volumes.count)).rounded())
     }
@@ -52,10 +52,7 @@ struct SonosRoomsPage: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Home").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
-                Text("Desk").font(.subheadline).foregroundStyle(.secondary)
-            }
+            Text("Home").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
             Spacer()
             Button {
                 if let playEverywhere { playEverywhere() }
@@ -67,19 +64,18 @@ struct SonosRoomsPage: View {
                     .font(.subheadline.weight(.semibold)).padding(10)
             }
             .buttonStyle(.glass)
+            .accessibilityHint("Plays Desk’s line-in on the Home speakers")
             .disabled(busy)
         }
     }
 
     private var master: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 12) {
+        VStack(spacing: 16) {
+            HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Master").font(.title3.weight(.semibold))
-                    Text("All speakers").font(.caption).foregroundStyle(.secondary)
+                    Text("Home speakers").font(.caption).foregroundStyle(.secondary)
                 }
-                Spacer()
-                percentage(masterVolume, id: "master")
                 Button {
                     store.send(.globalLock)
                 } label: {
@@ -88,18 +84,21 @@ struct SonosRoomsPage: View {
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.glass)
-                .accessibilityLabel("Link speaker volumes")
-                .accessibilityHint("Moving any speaker volume adjusts all speakers")
+                .buttonBorderShape(.circle)
+                .accessibilityLabel("Link Home speaker volumes")
+                .accessibilityHint("Moving a Home speaker volume adjusts the other Home speakers")
                 .accessibilityAddTraits(store.globalLock ? .isSelected : [])
                 .accessibilityIdentifier("sonos-volume-lock")
+                Spacer()
+                percentage(masterVolume, id: "master")
             }
             volumeBar(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill")
         }
-        .disabled(store.rooms.isEmpty)
+        .disabled(speakers.isEmpty)
     }
 
     private func shownVolume(for room: SoundRoom) -> Int {
-        if let dragPreview, dragPreview.roomID == nil || dragPreview.roomID == room.id {
+        if let dragPreview, dragPreview.roomIDs.contains(room.id) {
             return dragPreview.value
         }
         return room.rawVolume
@@ -125,12 +124,16 @@ struct SonosRoomsPage: View {
     }
 
     private func volumeBar(value: Int, title: String, symbol: String, roomID: String? = nil) -> some View {
-        let target = store.globalLock ? nil : roomID
+        let targetIDs: Set<String>
+        if let roomID, !store.globalLock || roomID == tv?.id {
+            targetIDs = [roomID]
+        } else {
+            targetIDs = Set(speakers.map(\.id))
+        }
         return FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol, preview: { value in
-            dragPreview = value.map { VolumePreview(roomID: target, value: $0) }
+            dragPreview = value.map { VolumePreview(roomIDs: targetIDs, value: $0) }
         }) { value in
-            if let target { store.send(.rawVolume(target, value)) }
-            else { store.send(.masterVolume(value)) }
+            store.send(.roomVolumes(targetIDs, value))
         }
         .frame(height: 58)
         .accessibilityIdentifier("sonos-volume-\(roomID ?? "master")")

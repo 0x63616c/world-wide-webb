@@ -89,22 +89,25 @@ import XCTest
         }
     }
 
-    func testMasterVolumeOptimisticallySetsAllAvailableRoomsToTheSameRawVolume() async throws {
-        let transport = SonosProviderStub([.state(), .void, .void, .void, .state()], held: [1])
+    func testRoomVolumesOptimisticallySetOnlySelectedAvailableRooms() async throws {
+        let transport = SonosProviderStub([.state(), .void, .void, .state()], held: [1])
         let provider = makeProvider(transport)
         defer { provider.stop() }
         await provider.refresh()
 
         XCTAssertFalse(provider.globalLock)
-        XCTAssertTrue(provider.send(.masterVolume(42)))
-        XCTAssertEqual(provider.rooms.prefix(3).map(\.rawVolume), [42, 42, 42])
-        XCTAssertEqual(provider.pending, [alpha, beta, gamma, "sound"])
+        let originalGammaVolume = provider.rooms.first { $0.id == gamma }?.rawVolume
+        XCTAssertTrue(provider.send(.roomVolumes([alpha, beta, offline], 42)))
+        XCTAssertEqual(provider.rooms.prefix(2).map(\.rawVolume), [42, 42])
+        XCTAssertEqual(provider.rooms.first { $0.id == gamma }?.rawVolume, originalGammaVolume)
+        XCTAssertEqual(provider.pending, [alpha, beta, "sound"])
         try await waitFor(transport, count: 2)
         await transport.release(1)
         try await settled(provider)
         try await assertRequest(transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":42}"#)
         try await assertRequest(transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":42}"#)
-        try await assertRequest(transport, at: 3, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_gamma","volume":42}"#)
+        let count = await transport.count
+        XCTAssertEqual(count, 4) // Initial query, two writes and confirmation.
     }
 
     func testRawVolumeMuteTransportAndTopologyUseExactTargets() async throws {

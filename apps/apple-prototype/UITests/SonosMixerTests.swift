@@ -19,11 +19,13 @@ import XCTest
         sonos.tap()
         let master = app.descendants(matching: .any)["sonos-volume-master"].firstMatch
         let desk = app.descendants(matching: .any)["sonos-volume-Desk"].firstMatch
+        let bedroom = app.descendants(matching: .any)["sonos-volume-Bedroom"].firstMatch
         let tv = app.descendants(matching: .any)["sonos-volume-Living Room"].firstMatch
         XCTAssertTrue(master.waitForExistence(timeout: 10))
         XCTAssertTrue(tv.isHittable)
         XCTAssertTrue(app.staticTexts["Home"].exists)
         XCTAssertTrue(app.staticTexts["TV"].exists)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "Desk").count, 1)
         snapshot("sonos-mixer", app: app)
 
         func percentage(_ room: String) -> String {
@@ -42,16 +44,23 @@ import XCTest
         XCTAssertEqual(percentage("Living Room"), initialTV)
 
         drag(master, from: 0.28, to: 0.47)
-        XCTAssertNotEqual(percentage("Living Room"), initialTV)
-        XCTAssertEqual(percentage("Desk"), percentage("Living Room"))
-        XCTAssertEqual(percentage("master"), percentage("Living Room"))
+        XCTAssertEqual(percentage("Living Room"), initialTV)
+        XCTAssertEqual(percentage("Desk"), percentage("Bedroom"))
+        XCTAssertEqual(percentage("master"), percentage("Desk"))
 
         app.buttons["sonos-volume-lock"].tap()
         let before = percentage("Desk")
-        drag(tv, from: 0.47, to: 0.26)
-        XCTAssertNotEqual(percentage("Desk"), before)
-        XCTAssertEqual(percentage("Desk"), percentage("Living Room"))
-        XCTAssertEqual(percentage("master"), percentage("Living Room"))
+        drag(bedroom, from: 0.47, to: 0.36)
+        let linked = percentage("Desk")
+        XCTAssertNotEqual(linked, before)
+        XCTAssertEqual(linked, percentage("Bedroom"))
+        XCTAssertEqual(linked, percentage("master"))
+        XCTAssertEqual(percentage("Living Room"), initialTV)
+
+        drag(tv, from: 0.76, to: 0.64)
+        XCTAssertNotEqual(percentage("Living Room"), initialTV)
+        XCTAssertEqual(percentage("Desk"), linked)
+        XCTAssertEqual(percentage("master"), linked)
         snapshot("sonos-linked", app: app)
         print("MOTION_CAPTURE_DONE sonos-mixer")
     }
