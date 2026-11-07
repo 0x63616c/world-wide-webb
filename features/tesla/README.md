@@ -109,8 +109,8 @@ and recovery after failures. Fixtures do not verify the live HA inventory.
 ## Evee dashboard
 
 The Swift dashboard identifies the owner's original Model Y as **Evee**. A flat,
-right-facing side-profile illustration matches the supplied Space Gray paint,
-upgraded dark wheels and white interior. It is artwork, not live camera imagery.
+right-facing side-profile pictogram uses Space Gray for the body and simple wheel
+circles, and white for the interior. It is artwork, not live camera imagery.
 The summary follows the simple centered layout: title and lock indicator, mileage
 without a visible label, car, battery/range and cabin temperature. All native
 vehicle UI is read-only; there is no lock button, PIN flow or Details disclosure.
