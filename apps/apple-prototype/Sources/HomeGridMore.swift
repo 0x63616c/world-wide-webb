@@ -23,7 +23,6 @@ struct GridCameras: View {
 struct GridPhotos: View {
     let store: any HomeDataSource
     @Environment(\.motionPhase) private var phase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var index = 1
     private var photo: PhotoItem? {
         let photos = store.photos.photos
@@ -41,8 +40,8 @@ struct GridPhotos: View {
                     if let photo { Cap(photo.credit, 17).opacity(0.75) }
                 }
             } br: { EmptyView() }
-        }.task(id: reduceMotion) {
-            guard !reduceMotion, phase == nil else { return }
+        }.task(id: phase) {
+            guard phase == nil else { return }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(12)) } catch { return }
                 guard !store.photos.photos.isEmpty else { continue }

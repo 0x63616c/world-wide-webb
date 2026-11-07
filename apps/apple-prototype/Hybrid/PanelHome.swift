@@ -55,7 +55,7 @@ struct PanelHome: View {
     // become idle and the shared simulator does not render them continuously.
     private static var fixtureMotionPhase: Double? {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-hybridFixtures") ? 0 : nil
+        ProcessInfo.processInfo.arguments.contains("-hybridFixtures") && !ProcessInfo.processInfo.arguments.contains("-hybridMotion") ? 0 : nil
         #else
         nil
         #endif
@@ -169,7 +169,8 @@ struct PanelHome: View {
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
         AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
             router: router, close: close)
-            .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation) }
+            // Home destinations are inline. The root overlay must stay above
+            // HomeView's navigation controls, including its trailing close button.
             .modifier(NotificationHistoryAccess()))
     }
 }

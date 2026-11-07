@@ -16,20 +16,8 @@ struct AppLauncher: View {
             let iconFrameSide: CGFloat = sizeClass == .compact ? 76 : 112
             let iconSide = iconFrameSide * 0.9
             let headerInset: CGFloat = sizeClass == .compact ? 20 : 40
+            let firstRowTop = headerInset + PanelProfileSelector.avatarSide + 24
             ScrollView(.vertical) {
-                VStack(spacing: 32) {
-                    TimelineView(.everyMinute) { context in
-                        let hour = Calendar.current.component(.hour, from: context.date)
-                        let greeting = hour < 5 || hour >= 21 ? "GOOD NIGHT" :
-                            hour < 12 ? "GOOD MORNING" : hour < 17 ? "GOOD AFTERNOON" : "GOOD EVENING"
-                        Text("\(greeting),\nCALUM")
-                            .font(.system(size: sizeClass == .compact ? 18 : 26, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.leading, headerInset)
-                    .padding(.trailing, headerInset + 64)
-                    .padding(.top, headerInset)
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48) {
                         ForEach(apps) { app in
@@ -44,9 +32,10 @@ struct AppLauncher: View {
                             }.buttonStyle(LauncherPressStyle()).accessibilityIdentifier("app-\(app.id)")
                         }
                     }.padding(.horizontal, sizeClass == .compact ? 20 : 72)
-                        .padding(.vertical, 48)
+                        .padding(.top, firstRowTop)
+                        .padding(.bottom, 48)
                 }
-                }.frame(minHeight: proxy.size.height, alignment: .top)
+                .frame(minHeight: proxy.size.height, alignment: .top)
             }.scrollIndicators(.hidden).scrollBounceBehavior(.basedOnSize)
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y <= -geometry.contentInsets.top + 1
@@ -75,12 +64,26 @@ struct AppLauncher: View {
 /// Native Liquid Glass above the clock.
 /// The inset and concentric corners leave a slim, uninterrupted rim of the dial.
 struct LauncherGlassSurface: View {
-    private let edgeInset: CGFloat = 8
+    static let edgeInset: CGFloat = 8
+    static var blurRadius: CGFloat {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-previewLauncherBlur"), args.indices.contains(index + 1),
+           let value = Double(args[index + 1]) {
+            return CGFloat(max(0, min(value, 3)))
+        }
+        #endif
+        return 3
+    }
+    static var footprint: some View {
+        RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
+            .padding(edgeInset)
+    }
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
+        let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
         Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
             .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
-            .padding(edgeInset)
+            .padding(Self.edgeInset)
     }
 
     private var preview: String {
@@ -157,12 +160,11 @@ struct PanelSettingsPage: View {
 
 /// Small, interruptible press feedback; screen navigation itself stays a crossfade.
 private struct LauncherPressStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .environment(\.launcherIconPressed, configuration.isPressed)
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.8 : 1)
-            .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: configuration.isPressed)
+            .animation(.smooth(duration: 0.2), value: configuration.isPressed)
     }
 }

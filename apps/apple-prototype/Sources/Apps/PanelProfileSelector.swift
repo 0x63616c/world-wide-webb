@@ -18,6 +18,8 @@ private struct PanelProfiles: Codable {
 }
 
 struct PanelProfileSelector: ViewModifier {
+    static let avatarSide: CGFloat = 48
+
     let isAvailable: Bool
     let inset: CGFloat
 
@@ -58,7 +60,7 @@ struct PanelProfileSelector: ViewModifier {
                     Button {
                         showProfiles(!isOpen)
                     } label: {
-                        ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: 48)
+                        ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: Self.avatarSide)
                             .foregroundStyle(.white.opacity(0.85))
                             .contentShape(.circle)
                     }

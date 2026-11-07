@@ -23,12 +23,11 @@ enum ArtStyle: String, CaseIterable, Identifiable {
 /// Procedural SwiftUI art, no downloaded images or per-frame random allocation.
 struct ArtWallpaper: View {
     let style: ArtStyle
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var fixedPhase
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: reduceMotion || scenePhase != .active || fixedPhase != nil)) { tick in
-            let time = fixedPhase ?? (reduceMotion ? 0 : tick.date.timeIntervalSinceReferenceDate)
+        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: scenePhase != .active || fixedPhase != nil)) { tick in
+            let time = fixedPhase ?? tick.date.timeIntervalSinceReferenceDate
             Canvas { context, size in
                 let palette = style.palette
                 context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(palette[0]))

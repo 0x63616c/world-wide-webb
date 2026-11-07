@@ -9,7 +9,7 @@ follows your finger and shrinks as the adjacent face enters. Release to settle
 on the next face, or let a short drag spring back.
 When an app opens, the clock, glass and app selectors slide left and shrink
 together as the app enters from the right. Back reverses the motion and restores
-the launcher's scroll position. System Reduce Motion uses a fade.
+the launcher's scroll position.
 
 App pages use a plain close button at the top right to return to the launcher, including
 Settings, protected pages, unavailable states and Classic. App scroll views only
@@ -40,7 +40,7 @@ positions and button hit areas. Notification artwork keeps its own requested siz
 
 `LauncherAppIcon` adds a restrained pointer tilt and foreground parallax on the
 existing button press. It introduces no touch gesture or device-motion sensor.
-Reduce Motion keeps the artwork still, and notification icons are always static.
+Notification icons are always static.
 These are in-app launcher illustrations, not the operating system's app-bundle
 icon: they render as SwiftUI shapes at the requested size, with no bitmap upscale
 or simulated glass layer. The launcher surface continues to use native Liquid
@@ -117,7 +117,7 @@ from app navigation. Reveal shrinks the clock slightly as it slides left; the la
 the right and expands into place with a small spring. Swiping right on the
 launcher drives the same transition in reverse;
 Depth and Dissolve are comparison candidates selected only through debug launch
-argument `-launcherTransition swipePop|depth|dissolve`. Reduce Motion removes spatial movement.
+argument `-launcherTransition swipePop|depth|dissolve`.
 Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
 suite records the left swipe and reverse right swipe for each candidate.
 
@@ -157,7 +157,7 @@ every live screen. Private photo and Wi-Fi content was not captured.
 ## Weather and night appearance
 
 Weather uses a full-screen condition-driven SwiftUI atmosphere (day/night, clouds,
-overcast, rain, snow and fog), paused for Reduce Motion and inactive scenes. The
+overcast, rain, snow and fog), paused in inactive scenes. The
 comparison gallery has been removed from the live app. Forecast and metrics use
 one aligned region. Wi-Fi keeps the reveal target and text slot at fixed layout
 positions; the QR caption is “scan to connect.”
@@ -173,15 +173,16 @@ palette without changing the system clock or stored user settings.
 ## Activity and navigation
 
 The Display settings slider controls the return-to-clock delay, which defaults to
-60 seconds. Screen dimming has a separate deadline. An active timer or dog walk
-suspends both deadlines. A tap wakes the dimmed panel. On the native iPad kiosk,
-that wake triggers a short front-camera burst, with camera permission, and
+60 seconds. Screen dimming has a separate deadline. A running timer or active
+dog walk suspends both deadlines. A paused or finished timer lets the panel
+return to the clock and dim. A tap wakes the dimmed panel. On the native iPad
+kiosk, that wake triggers a short front-camera burst, with camera permission, and
 uploads the frames as one Activity session. A window observer tracks interaction
 without forwarding the wake tap into app controls.
 VoiceOver escape and the named Open apps action provide equivalent navigation.
 
 The chooser includes ten procedural animated art styles. Its previews are frozen,
-launcher animation pauses beneath an open app, and Reduce Motion freezes all art.
+launcher animation pauses beneath an open app.
 Local simulator builds remember an explicitly supplied localhost server address,
 so icon relaunches do not silently switch to production. Authentication browsers
 use a full-screen system Safari controller.
@@ -208,10 +209,16 @@ UI tests; three recorded motion comparisons. Typecheck passed. The new access
 tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.
 
 Lights brightness and white temperature use `FilledLevelControl`, shared with
-Music volume: a filled draggable bar with local drag preview, one commit on
-release, bounded values, and adjustable accessibility actions. Cameras is no
+Sonos volume: a filled draggable bar with local drag preview, one commit on
+release, bounded values, and adjustable accessibility actions. The Sonos Home
+mixer shows live percentages inside the bars, with TV below the other rooms.
+Master shows the average raw volume of the Home speakers and raises or lowers
+their levels proportionally. Each room also has its own volume control. The Sonos header offers Play together until the
+available Home speakers are grouped on Desk’s line-in. The header reports
+when they’re playing together or when the group is paused. Cameras is no
 longer registered in the native app catalog. Notification banners sit 20 points
-from the top-right edges, and the entire notification history uses dark mode;
+from the trailing edge and below the top controls. The v2 glass inbox and banners
+follow the host appearance;
 Classic reconnects against a black native background.
 
 Lights and Calendar omit redundant page titles. The clock places its date at
