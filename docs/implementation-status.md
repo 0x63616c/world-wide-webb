@@ -4,10 +4,9 @@ The private [homelab repository](https://github.com/0x63616c/homelab) owns host 
 service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
 owns guided enrollment; private health and restore operations live in `host/`.
 No physical host has received this configuration. Public CLI
-[0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0) is released.
-Upcoming 0.3.1 adds Git-first host selection, automatic Command Line Tools
-installation and earlier client prerequisite checks. Validation of the expanded
-candidate and its release are still pending.
+[0.3.1](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.1) provides
+Git-first host selection, automatic Command Line Tools installation and earlier
+client prerequisite checks.
 
 ## What is implemented
 
@@ -36,12 +35,13 @@ runtimes until their backup and deployment workflow is reviewed. Runner lifecycl
 and registration remain disabled. Existing Python backup/snapshot/reconciliation
 operations remain where used; the custom Python updater was removed.
 
-## Upcoming Git-first flow
+## Git-first flow
 
 `homelab.json` is the host and administrator source of truth. New connections need
 only an address, defaulting to `<host>.local`. Existing local aliases, addresses,
 SSH identities and journal names are preserved as connection data. Changed Git
-logins require review; ambiguous aliases are not selected automatically.
+logins require review; ambiguous aliases are not selected automatically. Saved
+addresses can be edited without recreating connection or enrollment state.
 
 Approved setup remains pinned to its saved Git workspace even if `main` changes
 or removes the host. This preserves interrupted enrollment without making the

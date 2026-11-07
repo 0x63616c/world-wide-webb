@@ -1,8 +1,8 @@
 # Set up a Mac
 
-This guide describes upcoming CLI **0.3.1**. Its Git-first host selection and
-automatic prerequisite installation are not in released 0.3.0. Expanded validation
-and release are pending; wait for that release before following this guide.
+Use [CLI 0.3.1](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.1)
+for this guide. It includes Git-first host selection and automatic prerequisite
+installation; version 0.3.0 does not.
 
 ## One-time work on the target
 
@@ -10,7 +10,7 @@ Create the administrator shown in `homelab.json` during Setup Assistant. Enable
 **System Settings → General → Sharing → Remote Login** for that administrator.
 Keep the Mac powered and reachable. Your personal laptop does not need Remote Login.
 
-In 0.3.1, **Begin setup** also authorizes installation of Apple Command Line Tools
+**Begin setup** also authorizes installation of Apple Command Line Tools
 when missing. The wizard installs the required tools before preparing enrollment
 credentials; it does not install general macOS updates or replace a working Xcode
 selection. There is no separate installer confirmation in the wizard.
@@ -30,7 +30,9 @@ Git-defined administrator. Select the host and confirm its address, which defaul
 to `<host>.local`; there is no separate profile-name or administrator form.
 Existing connection aliases, addresses and SSH identities are reused. A changed
 Git administrator requires a connection review before SSH, and ambiguous saved
-connections require resolution rather than an automatic choice.
+connections require resolution rather than an automatic choice. Select **Edit
+address** to correct a saved route; its alias, SSH identity and setup state remain
+intact.
 
 On your laptop, GitHub CLI must be signed in with access to this private repository.
 Install the `op` CLI and unlock 1Password with desktop integration enabled. Connect
