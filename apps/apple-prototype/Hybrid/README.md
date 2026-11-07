@@ -9,8 +9,7 @@ Woodland. The last three share untinted Clear Liquid Glass numerals over
 different artwork, so the wallpaper is the main variable when comparing their edges.
 The glass follows the screen corners with an 8-point inset, and a 0.3-second reveal. The hands cast a subtle shadow on the dial.
 The launcher has no photographic wallpaper or Background picker. Each app opens
-full screen as the clock and launcher move away together. Back restores both. Reduce Motion replaces
-the slide with a fade.
+full screen as the clock and launcher move away together. Back restores both.
 Only Classic opens the web board. See [app registration](../Sources/Apps/README.md)
 for the typed catalog and extension recipe. Older dashboard descriptions below
 refer to the retained preview components, not the current landing screen.
@@ -112,7 +111,7 @@ still render `Color.clear` without starting WebKit or providers.
 readings and the Settings rollback. Existing Hybrid UI suites enter from Home
 before exercising their provider/controller paths. `Panel-Smoke` reaches the real
 offline recovery screen through Classic. Fixture runs freeze decorative animation through the existing `motionPhase` seam
-while keeping interactive transitions. Fixture alarm ownership ignores retries of
+while keeping interactive transitions. Add `-hybridMotion` when recording live decorative motion. Fixture alarm ownership ignores retries of
 the deliberately unreachable loopback web board. Wi-Fi purges credentials on
 backgrounding and keeps its controller mounted behind a loading state until the
 foreground read finishes. Captures are synthetic XCTest attachments,
@@ -557,8 +556,7 @@ Native routing requires successful `boothPhotos.list`, `wakePhotos.list` and
 `sessions.list` reads with at least one photo. Empty/unavailable listings keep
 WebKit mounted. Only opted-in Photos polls (60 seconds).
 
-The native frame cycles captures every 12 seconds, pausing automatic rotation
-for Reduce Motion. Previous/Next remain available. Details show the capture,
+The native frame cycles captures every 12 seconds. Previous/Next remain available. Details show the capture,
 remove/clear-filter controls for booth groups, and read-only Activity sessions.
 Wake photos have no delete or clear endpoint, and expose no such actions.
 Remove acts on the entire booth group, with confirmation; clear means the
@@ -1341,8 +1339,7 @@ context-menu actions.
 Normal/low banners last five visible seconds, high lasts ten, and critical
 remains until acted on. Covered items retain their full reading time. Touching
 any card, expanding the stack, VoiceOver, history and backgrounding pause timers.
-Reduce Motion uses fades for arrival/removal and stack expansion. Existing arrival
-and open haptics remain; physical haptics depend on device support.
+Arrival and open haptics remain; physical haptics depend on device support.
 
 Debug-only, synthetic captures (no notification API traffic):
 
@@ -1365,8 +1362,7 @@ the device to portrait and letterbox the app; use the retained landscape images.
 Validate the upright PNG with `~/bin/www8-validate-png`.
 
 `-notificationHold` pauses banner timers for deterministic captures.
-`-notificationReduceMotion` exercises reduced-motion presentation without changing
-shared simulator settings. `-UIPreferredContentSizeCategoryName
+`-UIPreferredContentSizeCategoryName
 UICTContentSizeCategoryAccessibilityXXXL` exercises accessibility text.
 `PanelUITests/NotificationBannerTests` captures the banner, destination, stack,
 expanded/swiped overlay and accessibility presentation as retained XCTest attachments.
@@ -1569,7 +1565,7 @@ calendar-color rendering remain native validation requirements.
 The live Home grid uses `PanelAccessoryCard` and shared glyph/summary styling in
 `PanelHome.swift`. Both pages retain their fixed grid spans. The green clock is
 unchanged; Weather occupies the upper centre and Climate the lower centre.
-Weather opens the native full-screen current-conditions and hourly forecast page.
+Weather opens the native full-screen current-conditions and hourly forecast page. On the panel, the forecast and weather metrics stay fixed in place; all available forecast hours fit in the page without horizontal scrolling. The main temperature uses the rounded system font. Compact layouts wrap the forecast and retain vertical scrolling when needed.
 Accessory cards expose compact quick actions: native light switches, fan mode
 segments, lamp power, Sonos transport, and walk start/stop. Full controls remain in
 native destinations. Only the dedicated Classic card opens the web dashboard.
@@ -1593,7 +1589,7 @@ Classic calibration APIs remain compatible; the native UI no longer uses them.
 
 Weather’s “Compare 5 tile designs” view displays live animated alternatives at the
 actual 408-point tile size. Selection is saved locally in `panel.weatherDesign`.
-Animation pauses when inactive or Reduce Motion is enabled. The shared native Home
+Animation pauses when inactive. The shared native Home
 and detail views dim to 30% after 60 seconds and consume the wake tap; Mac pointer
 movement also wakes the view. This is in-app dimming, not system display brightness.
 

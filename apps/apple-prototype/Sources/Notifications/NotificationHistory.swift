@@ -73,12 +73,10 @@ private struct NotificationEdgePan: UIViewRepresentable {
 /// navigation; a neutral reading surface keeps colorful wallpapers out of text.
 struct NotificationHistory: View {
     @Environment(NotificationCenter.self) private var center
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
     let source: (String) -> NotificationSource
     @State private var expanded: Set<String> = []
     @State private var clearing = false
-    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -134,7 +132,7 @@ struct NotificationHistory: View {
         #endif
         .scrollContentBackground(.hidden)
         .scrollBounceBehavior(.basedOnSize)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: expanded)
+        .animation(.snappy(duration: 0.25), value: expanded)
     }
 
     private var header: some View {

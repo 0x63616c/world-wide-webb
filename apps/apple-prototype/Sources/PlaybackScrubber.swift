@@ -5,7 +5,6 @@ struct PlaybackScrubber: View {
     let store: any HomeDataSource
     let room: SoundRoom
     @State private var dragPosition: Double?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         TimelineView(.periodic(from: store.now, by: 1)) { _ in
             let position = dragPosition ?? room.position(at: store.now)
@@ -24,7 +23,7 @@ struct PlaybackScrubber: View {
                                 if let dragPosition { store.send(.seek(room.id, dragPosition)) }
                                 dragPosition = nil
                             })
-                        .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: dragPosition != nil)
+                        .animation(.smooth(duration: 0.2), value: dragPosition != nil)
                 }.frame(height: 44)
                 HStack {
                     Text(Self.time(position))

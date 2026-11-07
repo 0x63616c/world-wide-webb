@@ -9,11 +9,10 @@ extension EnvironmentValues {
 struct LampGlow: View {
     let on: Bool
     let brightness: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     private var intensity: Double { on ? Double(brightness) / 100 : 0 }
     var body: some View {
-        if reduceMotion || phase != nil || !on {
+        if phase != nil || !on {
             glow.opacity(intensity * 0.30)
         } else {
             glow.phaseAnimator([0.25, 0.37]) { content, value in
@@ -31,11 +30,10 @@ struct LampGlow: View {
 
 struct ChargingPulse: View {
     let active: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     struct Values { var opacity = 0.65 }
     var body: some View {
-        if active && !reduceMotion && phase == nil {
+        if active && phase == nil {
             KeyframeAnimator(initialValue: Values(), repeating: true) { values in
                 Image(systemName: "bolt.fill").foregroundStyle(.green).opacity(values.opacity)
             } keyframes: { _ in
@@ -52,23 +50,21 @@ struct ChargingPulse: View {
 
 struct FanSymbol: View {
     let on: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
         Image(systemName: "fan.fill")
-            .symbolEffect(.rotate, options: .speed(0.25), isActive: on && !reduceMotion && phase == nil)
+            .symbolEffect(.rotate, options: .speed(0.25), isActive: on && phase == nil)
     }
 }
 
 struct WeatherSky: View {
     let condition: String
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var fixedPhase
     private var raining: Bool { condition.localizedCaseInsensitiveContains("rain") }
     private var cloudy: Bool { condition.localizedCaseInsensitiveContains("cloud") || raining }
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: reduceMotion || fixedPhase != nil)) { timeline in
-            let t = fixedPhase ?? (reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate)
+        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: fixedPhase != nil)) { timeline in
+            let t = fixedPhase ?? timeline.date.timeIntervalSinceReferenceDate
             GeometryReader { proxy in
                 ZStack {
                     MeshGradient(width: 3, height: 3, points: [
@@ -124,11 +120,10 @@ struct WeatherTile: View {
 
 struct PlayingEqualizer: View {
     let playing: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !playing || reduceMotion || phase != nil)) { context in
-            let t = phase ?? (reduceMotion || !playing ? 0 : context.date.timeIntervalSinceReferenceDate)
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !playing || phase != nil)) { context in
+            let t = phase ?? (!playing ? 0 : context.date.timeIntervalSinceReferenceDate)
             HStack(alignment: .center, spacing: 4) {
                 ForEach(0..<5) { i in
                     Capsule().frame(width: 4, height: playing ? 8 + 16 * (sin(t * 3 + Double(i) * 1.6) + 1) / 2 : 4)
@@ -243,7 +238,6 @@ private struct WeatherDesignSky: View {
     let condition: String
     let symbol: String
     let style: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var fixedPhase
     private var wet: Bool { condition.localizedCaseInsensitiveContains("rain") }
@@ -261,8 +255,8 @@ private struct WeatherDesignSky: View {
         }
     }
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 20, paused: reduceMotion || scenePhase != .active || fixedPhase != nil)) { timeline in
-            let t = fixedPhase ?? (reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate)
+        TimelineView(.animation(minimumInterval: 1 / 20, paused: scenePhase != .active || fixedPhase != nil)) { timeline in
+            let t = fixedPhase ?? timeline.date.timeIntervalSinceReferenceDate
             GeometryReader { proxy in
                 let s = proxy.size
                 ZStack {

@@ -9,7 +9,7 @@ follows your finger and shrinks as the adjacent face enters. Release to settle
 on the next face, or let a short drag spring back.
 When an app opens, the clock, glass and app selectors slide left and shrink
 together as the app enters from the right. Back reverses the motion and restores
-the launcher's scroll position. System Reduce Motion uses a fade.
+the launcher's scroll position.
 
 App pages use a plain close button at the top right to return to the launcher, including
 Settings, protected pages, unavailable states and Classic. App scroll views only
@@ -40,7 +40,7 @@ positions and button hit areas. Notification artwork keeps its own requested siz
 
 `LauncherAppIcon` adds a restrained pointer tilt and foreground parallax on the
 existing button press. It introduces no touch gesture or device-motion sensor.
-Reduce Motion keeps the artwork still, and notification icons are always static.
+Notification icons are always static.
 These are in-app launcher illustrations, not the operating system's app-bundle
 icon: they render as SwiftUI shapes at the requested size, with no bitmap upscale
 or simulated glass layer. The launcher surface continues to use native Liquid
@@ -48,29 +48,27 @@ Glass. Home comparison captures live in `docs/screenshots/layered-home-icons/`.
 
 ## Photo Booth
 
-Photo Booth prefers the front camera. Photo takes one shot; Strip takes four,
-with a three-second posing countdown between shots. The self-timer offers Off,
-1, 3, 5 and 10 seconds before the first shot (3 seconds by default). The shutter
-becomes Cancel during capture, and leaving/backgrounding cancels partial strips
-without uploading them. Four completed frames become one white-bordered JPEG
-strip, readable in both native and web galleries. A finished strip stays in the
-preview until the next capture or navigation. A shot saves to the existing booth
-gallery; the gallery button opens earlier booth photos and every frame of older
-burst/strip captures. Wake photos are
-excluded. Back moves from an enlarged photo to the gallery, then to the camera,
-then Home. The existing booth manifest is private, so each opening requires a
-fresh synced PIN and backgrounding locks the page.
+Photo Booth opens to a full-screen, mirrored front-camera preview on devices
+with a front camera. Photo takes one shot. Strip takes four, with a three-second
+posing countdown between shots. Switch modes with the Liquid Glass control
+under the shutter. The self-timer offers Off, 1, 3, 5, and 10 seconds before the
+first shot. The shutter cancels an active countdown or partial strip.
 
-Capture/configuration runs on a serial actor, with a real AVFoundation preview
-and rotation coordinator. Leaving the camera stops it. Saving belongs to the
-app's data source, so a failed JPEG remains available for retry after navigation
-while the app stays open; explicit discard requires the unlocked page. Uploads
-use the existing same-origin booth endpoint and bounded JPEG contract. Capture
-of single photos has been confirmed on Calum's panel; physical strip capture and
-rotation remain unverified. Without a camera the simulator shows its unavailable
-state. The explicit DEBUG-only `-hybridBoothCamera` fixture supplies numbered,
-clearly labelled simulator test images to exercise capture, composition, upload
-and gallery display without private photos or a fabricated live camera feed.
+The lower-left thumbnail opens Booth photos, the gallery for this app. A dense
+grid groups captures by local date, with sticky Today, Yesterday, and date
+headings. Tap a photo or strip to open it, swipe or use the filmstrip to browse,
+and go back to the same place in the grid. Four completed frames save as one
+white-bordered JPEG and open a saved-strip screen. Older burst frames remain
+available as individual gallery items. The Photos launcher entry has been
+removed. A fresh synced PIN protects each opening, and backgrounding locks it.
+
+Capture runs on a serial actor. Leaving the camera stops it and cancels partial
+strips. The app owns each completed upload. An unsuccessful save can be retried
+or discarded from the unlocked camera. Without a camera the simulator shows
+the unavailable state. The DEBUG-only `-hybridBoothCamera` fixture supplies
+numbered frames for testing composition and saving. `-hybridBoothLibrary`
+adds dated gallery fixtures. For visual review, four sample JPEGs can be staged
+as `photos/review/0.jpg` through `3.jpg` under the fixture bundle before building.
 
 ## Timer
 
@@ -119,7 +117,7 @@ from app navigation. Reveal shrinks the clock slightly as it slides left; the la
 the right and expands into place with a small spring. Swiping right on the
 launcher drives the same transition in reverse;
 Depth and Dissolve are comparison candidates selected only through debug launch
-argument `-launcherTransition swipePop|depth|dissolve`. Reduce Motion removes spatial movement.
+argument `-launcherTransition swipePop|depth|dissolve`.
 Real simulator clips live in `docs/screenshots/panel-pin-navigation/`. The capture
 suite records the left swipe and reverse right swipe for each candidate.
 
@@ -159,7 +157,7 @@ every live screen. Private photo and Wi-Fi content was not captured.
 ## Weather and night appearance
 
 Weather uses a full-screen condition-driven SwiftUI atmosphere (day/night, clouds,
-overcast, rain, snow and fog), paused for Reduce Motion and inactive scenes. The
+overcast, rain, snow and fog), paused in inactive scenes. The
 comparison gallery has been removed from the live app. Forecast and metrics use
 one aligned region. Wi-Fi keeps the reveal target and text slot at fixed layout
 positions; the QR caption is “scan to connect.”
@@ -183,7 +181,7 @@ without forwarding the wake tap into app controls.
 VoiceOver escape and the named Open apps action provide equivalent navigation.
 
 The chooser includes ten procedural animated art styles. Its previews are frozen,
-launcher animation pauses beneath an open app, and Reduce Motion freezes all art.
+launcher animation pauses beneath an open app.
 Local simulator builds remember an explicitly supplied localhost server address,
 so icon relaunches do not silently switch to production. Authentication browsers
 use a full-screen system Safari controller.
@@ -206,10 +204,16 @@ UI tests; three recorded motion comparisons. Typecheck passed. The new access
 tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.
 
 Lights brightness and white temperature use `FilledLevelControl`, shared with
-Music volume: a filled draggable bar with local drag preview, one commit on
-release, bounded values, and adjustable accessibility actions. Cameras is no
-longer registered in the native app catalog. Notification banners sit 20 points from the trailing edge and below the top
-controls. The v2 glass inbox and banners follow the host appearance;
+Sonos volume: a filled draggable bar with local drag preview, one commit on
+release, bounded values, and adjustable accessibility actions. The Sonos Home
+mixer shows live percentages inside the bars, with TV below the other rooms.
+Master shows the average raw volume of the Home speakers and raises or lowers
+their levels proportionally. Each room also has its own volume control. The Sonos header offers Play together until the
+available Home speakers are grouped on Desk’s line-in. The header reports
+when they’re playing together or when the group is paused. Cameras is no
+longer registered in the native app catalog. Notification banners sit 20 points
+from the trailing edge and below the top controls. The v2 glass inbox and banners
+follow the host appearance;
 Classic reconnects against a black native background.
 
 Lights and Calendar omit redundant page titles. The clock places its date at

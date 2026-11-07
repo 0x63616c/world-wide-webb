@@ -78,9 +78,9 @@ final class NotificationHistoryTests: XCTestCase {
         capture("notification-v2-reopened", app)
     }
 
-    @MainActor func testLargeTextHistoryAndReduceMotion() {
+    @MainActor func testLargeTextHistory() {
         continueAfterFailure = false
-        let app = launch(extraArguments: ["-notificationReduceMotion", "-UIPreferredContentSizeCategoryName",
+        let app = launch(extraArguments: ["-UIPreferredContentSizeCategoryName",
             "UICTContentSizeCategoryAccessibilityXXXL"])
         openHistory(app)
         XCTAssertTrue(app.buttons["notification-history-close"].isHittable)

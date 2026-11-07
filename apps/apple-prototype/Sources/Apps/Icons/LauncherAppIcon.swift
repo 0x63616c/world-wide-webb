@@ -10,12 +10,11 @@ extension EnvironmentValues {
 struct LauncherAppIcon: View {
     let app: PanelAppDefinition
     let side: CGFloat
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.launcherIconPressed) private var isPressed
     @State private var pointer: CGSize = .zero
 
     private var motion: CGSize {
-        guard !reduceMotion, PanelIconArtwork(rawValue: app.id) != nil else { return .zero }
+        guard PanelIconArtwork(rawValue: app.id) != nil else { return .zero }
         return isPressed ? CGSize(width: -0.35, height: -0.7) : pointer
     }
 
@@ -23,7 +22,7 @@ struct LauncherAppIcon: View {
         PanelAppIcon(app: app, side: side, parallax: motion)
             .rotation3DEffect(.degrees(-motion.height * 4), axis: (x: 1, y: 0, z: 0))
             .rotation3DEffect(.degrees(motion.width * 4), axis: (x: 0, y: 1, z: 0))
-            .animation(reduceMotion ? nil : .smooth(duration: 0.22), value: motion)
+            .animation(.smooth(duration: 0.22), value: motion)
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let location):
