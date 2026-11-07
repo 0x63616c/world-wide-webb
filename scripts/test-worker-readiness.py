@@ -41,6 +41,16 @@ class ReadinessTests(unittest.TestCase):
                     input=json.dumps(bindings), text=True, capture_output=True)
             self.assertEqual(run(False).returncode, 0)
             self.assertEqual(json.loads(output.read_text())['vars']['APNS_ENABLED'], 'false')
+            preview = subprocess.run(command + ['--testflight-preview'],
+                                     input=json.dumps(bindings), text=True, capture_output=True)
+            self.assertEqual(preview.returncode, 0, preview.stderr)
+            preview_vars = json.loads(output.read_text())['vars']
+            self.assertEqual(preview_vars['APNS_ENABLED'], 'true')
+            self.assertEqual(preview_vars['AVATAR_UPLOADS_ENABLED'], 'true')
+            self.assertEqual(preview_vars['ADMIN_EMAIL_ENABLED'], 'false')
+            self.assertEqual(preview_vars['VERIFIED_CAPABILITIES'], '[]')
+            self.assertNotEqual(subprocess.run(command + ['--testflight-preview', '--readiness', str(readiness)],
+                             input=json.dumps(bindings), text=True, capture_output=True).returncode, 0)
             self.assertEqual(run().returncode, 0)
             initial = output.read_bytes()
             self.assertEqual(json.loads(initial)['vars']['APNS_ENABLED'], 'true')

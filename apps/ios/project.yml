@@ -50,6 +50,11 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: app.getfolding.navigation
             CFBundleURLSchemes: [folding]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         FoldingAPIOrigin: '$(FOLDING_API_ORIGIN)'
         FoldingEnvironment: '$(FOLDING_ENVIRONMENT)'
         FoldingSourceCommit: '$(FOLDING_SOURCE_COMMIT)'

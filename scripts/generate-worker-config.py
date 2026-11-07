@@ -15,7 +15,11 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--configuration', type=pathlib.Path, required=True)
 parser.add_argument('--output', type=pathlib.Path, required=True)
 parser.add_argument('--readiness', type=pathlib.Path, help='Reviewed, version-bound public acceptance overlay')
+parser.add_argument('--testflight-preview', action='store_true',
+    help='Enable avatar uploads and APNs for an owner TestFlight build without advertising release readiness')
 args = parser.parse_args()
+if args.testflight_preview and args.readiness:
+    raise SystemExit('TestFlight preview and reviewed release readiness are separate deployment modes')
 bindings = json.load(sys.stdin)
 configuration = json.loads(args.configuration.read_text())
 environment = bindings['environment']
@@ -108,6 +112,9 @@ if args.readiness:
             raise SystemExit('Acceptance evidence hash differs: ' + claim)
     variables.update({key: str(enabled).lower() for key, enabled in features.items()})
     variables['VERIFIED_CAPABILITIES'] = json.dumps(sorted(capabilities), separators=(',', ':'))
+if args.testflight_preview:
+    variables['APNS_ENABLED'] = 'true'
+    variables['AVATAR_UPLOADS_ENABLED'] = 'true'
 root = pathlib.Path(__file__).resolve().parent.parent
 # Absolute paths make the generated file safe to keep outside the checkout.
 result = {
@@ -127,4 +134,5 @@ result = {
 }
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text(json.dumps(result, indent=2) + '\n')
-print(f'Generated {environment} Worker bindings; readiness overlay: {bool(args.readiness)}.', file=sys.stderr)
+print(f'Generated {environment} Worker bindings; readiness overlay: {bool(args.readiness)}; '
+      f'TestFlight preview: {args.testflight_preview}.', file=sys.stderr)
