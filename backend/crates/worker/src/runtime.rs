@@ -43,14 +43,21 @@ async fn fetch(mut request: Request, _env: Env, _context: Context) -> Result<Res
                 return error(413, "body_too_large", id, false);
             }
         }
-        let mut stream = request.stream()?;
+        let Ok(mut stream) = request.stream() else {
+            return error(400, "malformed_request", id, false);
+        };
         let mut length = 0usize;
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk?;
+            let Ok(chunk) = chunk else {
+                return error(400, "malformed_request", id, false);
+            };
             length = length.saturating_add(chunk.len());
             if length > MAX_JSON_BYTES {
                 return error(413, "body_too_large", id, false);
             }
+        }
+        if length == 0 {
+            return error(400, "malformed_request", id, false);
         }
     }
     error(503, "temporarily_unavailable", id, true)

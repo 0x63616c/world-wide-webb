@@ -14,6 +14,8 @@ This catalog fixes wire names and request/response ownership. JSON schemas under
 - `Enrollment`: `{epoch_id, device_id, generation: Generation, joined_at_ms, issued_at_ms}`. ID ownership and times are server-derived. A transfer creates a different epoch without resetting accepted history.
 - `OperationStatus`: `{operation_id, state: pending|completed|failed, error_code: string|null}`. `failed` requires a retry instruction represented by the error contract; visibility changes are immediate on accepted leave/delete even while cleanup is pending.
 
+Event `timezone_id` accepts supported IANA identifiers and canonical Foundation fixed-offset identifiers `GMT±HHMM` (maximum ±1800, minutes 00–59). Zero offset is `GMT`; `GMT+0000`, `GMT-0000`, and noncanonical aliases such as `GMT+1` or `GMT+01:00` are rejected. Shared `contracts/fixtures/timezones.json` records actual Foundation behavior and the wire policy.
+
 All successes return `request_id` in JSON or `X-Request-ID` for binary responses. All errors use [error.schema.json](../../contracts/schemas/error.schema.json). Request sizes/string bounds in backend-and-security.md also apply. Server never trusts participant ownership, timestamps, roles, or totals merely because they fit a schema.
 
 ## Authentication

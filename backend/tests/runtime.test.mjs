@@ -26,6 +26,9 @@ test("compiled Rust Worker fails closed and bounds untrusted bodies", async () =
   const oversized = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST", body: "x".repeat(256 * 1024 + 1) });
   assert.equal(oversized.status, 413);
   assert.equal((await oversized.json()).code, "body_too_large");
+  const empty = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST" });
+  assert.equal(empty.status, 400);
+  assert.equal((await empty.json()).code, "malformed_request");
   const admin = await runtime.dispatchFetch("https://api.example/admin/participants");
   assert.equal(admin.status, 404);
 });

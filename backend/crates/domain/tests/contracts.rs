@@ -207,3 +207,19 @@ fn tied_comparison_population_ignores_zero_scores() {
         && entry.percentile == Some(0)
         && entry.medal == Some(Medal::Gold)));
 }
+
+#[test]
+fn foundation_timezone_vectors() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../contracts/fixtures/timezones.json"
+    ))
+    .unwrap();
+    for case in fixture["cases"].as_array().unwrap() {
+        let name = case["timezone_id"].as_str().unwrap();
+        assert_eq!(
+            folding_domain::wire::valid_timezone(name),
+            case["valid"].as_bool().unwrap(),
+            "{name}"
+        );
+    }
+}

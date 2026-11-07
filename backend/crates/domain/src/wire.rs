@@ -93,7 +93,7 @@ impl Event {
             || !(1..=MAX_SAFE_INTEGER).contains(&self.sequence)
             || self.observed_at_ms > MAX_SAFE_INTEGER
             || self.timezone_id.chars().count() > 100
-            || self.timezone_id.parse::<chrono_tz::Tz>().is_err()
+            || !valid_timezone(&self.timezone_id)
         {
             return Err(DomainError::InvalidEnvelope);
         }
@@ -209,4 +209,20 @@ pub struct WireError {
     pub retryable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_seconds: Option<u32>,
+}
+
+/// Swift capture emits canonical GMT±HHMM for fixed-offset zones; zero offset is simply GMT.
+pub fn valid_timezone(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if value.starts_with("GMT+") || value.starts_with("GMT-") {
+        if bytes.len() != 8 || !bytes[4..].iter().all(u8::is_ascii_digit) {
+            return false;
+        }
+        let hours = (bytes[4] - b'0') * 10 + bytes[5] - b'0';
+        let minutes = (bytes[6] - b'0') * 10 + bytes[7] - b'0';
+        return minutes < 60
+            && (hours < 18 || (hours == 18 && minutes == 0))
+            && (hours != 0 || minutes != 0);
+    }
+    value.parse::<chrono_tz::Tz>().is_ok()
 }
