@@ -1,10 +1,12 @@
 import Foundation
 import XCTest
+
 @testable import Panel
 
 final class AlarmSnapshotTests: XCTestCase {
     func testNextPresentPreservesServerFieldsAndIgnoresUnrelatedFields() throws {
-        let data = Data(#"{"next":{"id":"alarm_test","label":"Morning","at":"2099-01-02T08:30:00.123Z"},"alarms":[]}"#.utf8)
+        let data = Data(
+            #"{"next":{"id":"alarm_test","label":"Morning","at":"2099-01-02T08:30:00.123Z"},"alarms":[]}"#.utf8)
         let next = try XCTUnwrap(JSONDecoder().decode(AlarmSnapshot.self, from: data).next)
         XCTAssertEqual(next.id, "alarm_test")
         XCTAssertEqual(next.label, "Morning")
@@ -18,9 +20,11 @@ final class AlarmSnapshotTests: XCTestCase {
     }
 
     func testMalformedSnapshotThrows() {
-        for json in ["not json", "null", "[]", #"{"next":true}"#, #"{"next":{}}"#,
-                     #"{"next":{"id":7,"label":"Alarm","at":"2099-01-02T08:30:00Z"}}"#,
-                     #"{"next":{"id":"alarm_test","label":"Alarm","at":null}}"#] {
+        for json in [
+            "not json", "null", "[]", #"{"next":true}"#, #"{"next":{}}"#,
+            #"{"next":{"id":7,"label":"Alarm","at":"2099-01-02T08:30:00Z"}}"#,
+            #"{"next":{"id":"alarm_test","label":"Alarm","at":null}}"#,
+        ] {
             XCTAssertThrowsError(try JSONDecoder().decode(AlarmSnapshot.self, from: Data(json.utf8)), json)
         }
     }
@@ -64,8 +68,9 @@ final class PanelAlarmTests: XCTestCase {
     func testRefreshWaitsForConfigurationAndRunsOnEachForeground() async {
         let coordinator = AlarmCoordinatorSpy()
         let alarms = PanelAlarms(coordinator: coordinator)
-        alarms.configure(serverURL: URL(string: "https://example.test")!, token: "test-token",
-                         cfID: "test-id", cfSecret: "test-secret")
+        alarms.configure(
+            serverURL: URL(string: "https://example.test")!, token: "test-token",
+            cfID: "test-id", cfSecret: "test-secret")
         await alarms.refresh()
         await alarms.refresh()
         let calls = await coordinator.calls

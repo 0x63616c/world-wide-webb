@@ -30,9 +30,9 @@ struct NotificationHistorySnapshot: Codable {
         try directory.setResourceValues(values)
         let data = try JSONEncoder().encode(snapshot)
         #if os(iOS)
-        try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         #else
-        try data.write(to: url, options: .atomic)
+            try data.write(to: url, options: .atomic)
         #endif
     }
 }

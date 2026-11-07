@@ -5,21 +5,22 @@ enum PanelIconArtwork: String, CaseIterable {
 
     /// The approved palette extended across the complete app family. Light comes from above.
     var background: LinearGradient {
-        let colors: [Color] = switch self {
-        case .calendar: [Color(hex: "#FF796D"), Color(hex: "#EF344E")]
-        case .weather: [Color(hex: "#05D5ED"), Color(hex: "#0085FF")]
-        case .lights: [Color(hex: "#FFD500"), Color(hex: "#FF6500")]
-        case .climate: [Color(hex: "#56D9FA"), Color(hex: "#007FCF")]
-        case .walks: [Color(hex: "#60DD9C"), Color(hex: "#0CAA69")]
-        case .music: [Color(hex: "#252527"), .black]
-        case .photos: [Color(hex: "#BE85FC"), Color(hex: "#7A12F8")]
-        case .car: [Color(hex: "#6CBFFC"), Color(hex: "#2367D2")]
-        case .wifi: [Color(hex: "#59E0DD"), Color(hex: "#009BAE")]
-        case .clock: [Color(hex: "#65D9B7"), Color(hex: "#15936F")]
-        case .timer: [Color(hex: "#FFC65E"), Color(hex: "#F47A12")]
-        case .booth: [Color(hex: "#FF8DAD"), Color(hex: "#DF3979")]
-        case .settings: [Color(hex: "#ADB8C8"), Color(hex: "#586A84")]
-        }
+        let colors: [Color] =
+            switch self {
+            case .calendar: [Color(hex: "#FF796D"), Color(hex: "#EF344E")]
+            case .weather: [Color(hex: "#05D5ED"), Color(hex: "#0085FF")]
+            case .lights: [Color(hex: "#FFD500"), Color(hex: "#FF6500")]
+            case .climate: [Color(hex: "#56D9FA"), Color(hex: "#007FCF")]
+            case .walks: [Color(hex: "#60DD9C"), Color(hex: "#0CAA69")]
+            case .music: [Color(hex: "#252527"), .black]
+            case .photos: [Color(hex: "#BE85FC"), Color(hex: "#7A12F8")]
+            case .car: [Color(hex: "#6CBFFC"), Color(hex: "#2367D2")]
+            case .wifi: [Color(hex: "#59E0DD"), Color(hex: "#009BAE")]
+            case .clock: [Color(hex: "#65D9B7"), Color(hex: "#15936F")]
+            case .timer: [Color(hex: "#FFC65E"), Color(hex: "#F47A12")]
+            case .booth: [Color(hex: "#FF8DAD"), Color(hex: "#DF3979")]
+            case .settings: [Color(hex: "#ADB8C8"), Color(hex: "#586A84")]
+            }
         return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
     }
 }
@@ -72,7 +73,10 @@ private struct WeatherIconArtwork: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(LinearGradient(colors: [Color(hex: "#FFE000"), Color(hex: "#FFD000")], startPoint: .top, endPoint: .bottom))
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "#FFE000"), Color(hex: "#FFD000")], startPoint: .top, endPoint: .bottom)
+                )
                 .frame(width: side * 0.362, height: side * 0.362)
                 .position(x: side * 0.347, y: side * 0.415)
                 .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))

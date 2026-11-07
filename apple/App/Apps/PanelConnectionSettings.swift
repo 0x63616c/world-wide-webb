@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 struct PanelConnectionSettings: View {
     @State private var details = ""
@@ -13,7 +13,10 @@ struct PanelConnectionSettings: View {
             Button(connecting ? "Connecting…" : "Verify and connect") {
                 connecting = true
                 Task { @MainActor in
-                    defer { connecting = false; details = "" }
+                    defer {
+                        connecting = false
+                        details = ""
+                    }
                     do {
                         let enrollment = try PanelEnrollment.parse(details)
                         try await enrollment.verify()
@@ -26,8 +29,10 @@ struct PanelConnectionSettings: View {
             .disabled(connecting || details.isEmpty)
             .accessibilityIdentifier("connection-save")
             Button("Disconnect this device", role: .destructive) {
-                do { try PanelEnrollment.disconnect(); message = "Disconnected." }
-                catch { message = "Couldn’t remove this device’s connection." }
+                do {
+                    try PanelEnrollment.disconnect()
+                    message = "Disconnected."
+                } catch { message = "Couldn’t remove this device’s connection." }
             }
             .disabled(connecting)
             if let message { Text(message).foregroundStyle(.secondary) }

@@ -1,11 +1,14 @@
-import SwiftUI
 import AVFoundation
 import Observation
 import PanelKit
+import SwiftUI
 
 @MainActor @Observable final class PhotoBoothCameraModel {
     enum Status { case starting, ready, denied, unavailable, failed }
-    enum Mode: String, CaseIterable { case photo = "Photo", strip = "Strip" }
+    enum Mode: String, CaseIterable {
+        case photo = "Photo"
+        case strip = "Strip"
+    }
     static let timerOptions = [0, 1, 3, 5, 10]
     var mode: Mode = .photo
     var timerSeconds = 3
@@ -36,10 +39,16 @@ import PanelKit
     var usesTestCamera: Bool { capturePhoto != nil }
     var hasSavedStrip: Bool { retainsPreview && unsaved == nil && preview != nil }
 
-    init(api: PhotosAPI, photos: LivePhotosProvider,
-         capturePhoto: (@MainActor () async throws -> Data)? = nil, testPreview: UIImage? = nil,
-         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
-        self.api = api; self.photos = photos; self.capturePhoto = capturePhoto; self.testPreview = testPreview; self.sleep = sleep
+    init(
+        api: PhotosAPI, photos: LivePhotosProvider,
+        capturePhoto: (@MainActor () async throws -> Data)? = nil, testPreview: UIImage? = nil,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) {
+        self.api = api
+        self.photos = photos
+        self.capturePhoto = capturePhoto
+        self.testPreview = testPreview
+        self.sleep = sleep
     }
     func activate(_ active: Bool) async {
         generation += 1
@@ -50,8 +59,14 @@ import PanelKit
             return
         }
         // Only explicit injected test cameras bypass the hardware permission path.
-        if capturePhoto != nil { status = .ready; return }
-        guard AVCaptureDevice.default(for: .video) != nil else { status = .unavailable; return }
+        if capturePhoto != nil {
+            status = .ready
+            return
+        }
+        guard AVCaptureDevice.default(for: .video) != nil else {
+            status = .unavailable
+            return
+        }
         status = .starting
         let permission = AVCaptureDevice.authorizationStatus(for: .video)
         var allowed = permission == .authorized
@@ -61,7 +76,10 @@ import PanelKit
             requestingPermission = false
         }
         guard revision == generation else { return }
-        guard allowed else { status = .denied; return }
+        guard allowed else {
+            status = .denied
+            return
+        }
         do {
             let device = try await capture.start()
             await capture.run()
@@ -78,9 +96,17 @@ import PanelKit
         guard status == .ready, !saving, unsaved == nil else { return }
         let selectedMode = mode
         let delay = Self.timerOptions.contains(timerSeconds) ? timerSeconds : 3
-        error = nil; preview = nil; saved = false; capturing = true
+        error = nil
+        preview = nil
+        saved = false
+        capturing = true
         countdownTask = Task {
-            defer { countdown = 0; shotNumber = 0; capturing = false; countdownTask = nil }
+            defer {
+                countdown = 0
+                shotNumber = 0
+                capturing = false
+                countdownTask = nil
+            }
             do {
                 var frames: [Data] = []
                 let count = selectedMode == .strip ? 4 : 1
@@ -89,15 +115,20 @@ import PanelKit
                     try await countDown(index == 0 ? delay : 3)
                     try Task.checkCancellation()
                     let data: Data
-                    if let capturePhoto { data = try await capturePhoto() }
-                    else { data = try await capture.capture(angle: rotation) }
+                    if let capturePhoto {
+                        data = try await capturePhoto()
+                    } else {
+                        data = try await capture.capture(angle: rotation)
+                    }
                     try Task.checkCancellation()
                     frames.append(data)
                     if count == 4 { AccessibilityNotification.Announcement("Photo \(index + 1) of 4").post() }
                 }
                 let capturedFrames = frames
-                let bytes = selectedMode == .strip
-                    ? try await Task.detached(priority: .userInitiated) { try PhotoBoothStrip.render(capturedFrames) }.value
+                let bytes =
+                    selectedMode == .strip
+                    ? try await Task.detached(priority: .userInitiated) { try PhotoBoothStrip.render(capturedFrames) }
+                        .value
                     : frames[0]
                 try Task.checkCancellation()
                 // Once complete, the app owns the save even if the page disappears.
@@ -119,9 +150,14 @@ import PanelKit
     }
     func cancelCapture() { countdownTask?.cancel() }
     /// A captured JPEG is retained by the app-owned model until saved or explicitly discarded.
-    @discardableResult func saveCapturedPhoto(_ data: Data, at date: Date, keepPreview: Bool = false) -> Task<Void, Never> {
+    @discardableResult func saveCapturedPhoto(_ data: Data, at date: Date, keepPreview: Bool = false) -> Task<
+        Void, Never
+    > {
         retainsPreview = keepPreview
-        capturedAt = date; unsaved = data; preview = UIImage(data: data); saving = true
+        capturedAt = date
+        unsaved = data
+        preview = UIImage(data: data)
+        saving = true
         let task = Task { await upload() }
         saveTask = task
         return task
@@ -134,11 +170,15 @@ import PanelKit
         return task
     }
     private func upload() async {
-        guard let data = unsaved else { saving = false; return }
+        guard let data = unsaved else {
+            saving = false
+            return
+        }
         error = nil
         do {
             try await api.savePhoto(jpeg: data, capturedAt: capturedAt)
-            unsaved = nil; saved = true
+            unsaved = nil
+            saved = true
             AccessibilityNotification.Announcement("Photo saved").post()
             await photos.refresh()
             try? await Task.sleep(for: .seconds(2))
@@ -148,9 +188,16 @@ import PanelKit
         saving = false
     }
     func dismissSavedPreview() {
-        if hasSavedStrip { preview = nil; saved = false }
+        if hasSavedStrip {
+            preview = nil
+            saved = false
+        }
     }
 
-    func discard() { unsaved = nil; preview = nil; error = nil; saved = false }
+    func discard() {
+        unsaved = nil
+        preview = nil
+        error = nil
+        saved = false
+    }
 }
-

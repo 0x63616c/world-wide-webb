@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 struct PanelTimerPage: View {
     let timer: PanelTimerStore
@@ -11,8 +11,7 @@ struct PanelTimerPage: View {
     var body: some View {
         ZStack {
             TimerTickRing(countdown: timer.countdown).padding(TimerTickRing.edgeInset)
-            if editing { durationEditor }
-            else { face }
+            if editing { durationEditor } else { face }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.black).foregroundStyle(.white).tint(.orange)
             .accessibilityElement(children: .contain)
@@ -40,7 +39,9 @@ struct PanelTimerPage: View {
                             .accessibilityIdentifier("timer-remaining")
                             .accessibilityLabel("Time remaining")
                             .accessibilityValue(Self.accessibleDuration(remaining))
-                        Button { editDuration() } label: {
+                        Button {
+                            editDuration()
+                        } label: {
                             Text(Self.durationLabel(timer.countdown.duration))
                                 .font(.system(size: 28, weight: .medium)).foregroundStyle(.orange)
                                 .frame(minWidth: 140, minHeight: 56).contentShape(.rect)
@@ -53,8 +54,10 @@ struct PanelTimerPage: View {
                             Text(message).font(.callout).foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center).frame(maxWidth: 620)
                         }
-                    }.padding(.horizontal, min(100, proxy.size.width * 0.06)).padding(.vertical, min(86, proxy.size.height * 0.08))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }.padding(.horizontal, min(100, proxy.size.width * 0.06)).padding(
+                        .vertical, min(86, proxy.size.height * 0.08)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }.id(timer.countdown.phase)
             }
         }
@@ -63,7 +66,9 @@ struct PanelTimerPage: View {
         GlassEffectContainer(spacing: 24) {
             HStack(spacing: 24) {
                 if timer.countdown.phase == .finished {
-                    Button { timer.reset() } label: {
+                    Button {
+                        timer.reset()
+                    } label: {
                         Label("Stop", systemImage: "stop.fill")
                             .font(.title3.weight(.semibold))
                             .padding(.horizontal, 20).frame(height: 64)
@@ -71,19 +76,23 @@ struct PanelTimerPage: View {
                     }.buttonStyle(.glassProminent).buttonBorderShape(.capsule)
                         .accessibilityIdentifier("timer-stop")
                 } else {
-                    Button { timer.reset() } label: {
+                    Button {
+                        timer.reset()
+                    } label: {
                         Label("Reset", systemImage: "arrow.counterclockwise")
                             .labelStyle(.iconOnly).font(.system(size: 28, weight: .medium)).frame(width: 64, height: 64)
                     }.buttonStyle(.glass).buttonBorderShape(.circle).disabled(timer.countdown.phase == .ready)
                         .accessibilityIdentifier("timer-reset")
                     Button {
-                        if timer.countdown.phase == .running { timer.pause() }
-                        else { timer.start() }
+                        if timer.countdown.phase == .running { timer.pause() } else { timer.start() }
                     } label: {
                         Label(primaryTitle, systemImage: timer.countdown.phase == .running ? "pause.fill" : "play.fill")
-                            .labelStyle(.iconOnly).font(.system(size: 30, weight: .semibold)).frame(width: 64, height: 64)
+                            .labelStyle(.iconOnly).font(.system(size: 30, weight: .semibold)).frame(
+                                width: 64, height: 64
+                            )
                             .foregroundStyle(.black)
-                    }.buttonStyle(.glassProminent).buttonBorderShape(.circle).accessibilityIdentifier("timer-start-pause")
+                    }.buttonStyle(.glassProminent).buttonBorderShape(.circle).accessibilityIdentifier(
+                        "timer-start-pause")
                 }
             }
         }
@@ -98,7 +107,9 @@ struct PanelTimerPage: View {
     }
     private func editDuration() {
         let total = Int(timer.countdown.duration)
-        hours = total / 3600; minutes = total / 60 % 60; seconds = total % 60
+        hours = total / 3600
+        minutes = total / 60 % 60
+        seconds = total % 60
         withAnimation(.easeOut(duration: 0.18)) { editing = true }
     }
     private var durationEditor: some View {
@@ -111,8 +122,12 @@ struct PanelTimerPage: View {
             }
             HStack(spacing: 16) {
                 ForEach([5, 15, 30], id: \.self) { value in
-                    Button("\(value) min") { hours = 0; minutes = value; seconds = 0 }
-                        .accessibilityIdentifier("timer-preset-\(value)")
+                    Button("\(value) min") {
+                        hours = 0
+                        minutes = value
+                        seconds = 0
+                    }
+                    .accessibilityIdentifier("timer-preset-\(value)")
                 }
             }.buttonStyle(.glass).controlSize(.large)
             HStack(spacing: 24) {
@@ -121,9 +136,11 @@ struct PanelTimerPage: View {
                 Button {
                     timer.setDuration(Double(hours * 3600 + minutes * 60 + seconds))
                     editing = false
-                } label: { Text("Done").foregroundStyle(.black) }
+                } label: {
+                    Text("Done").foregroundStyle(.black)
+                }
                 .buttonStyle(.glassProminent).disabled(hours + minutes + seconds == 0)
-                    .accessibilityIdentifier("timer-edit-save")
+                .accessibilityIdentifier("timer-edit-save")
             }.font(.title3.weight(.semibold)).controlSize(.extraLarge)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -134,10 +151,10 @@ struct PanelTimerPage: View {
                 ForEach(range, id: \.self) { Text("\($0)").tag($0) }
             }
             #if os(iOS)
-            .pickerStyle(.wheel)
+                .pickerStyle(.wheel)
             #endif
             .labelsHidden().font(.title).frame(maxWidth: 160).frame(height: 220)
-                .accessibilityIdentifier("timer-\(title.lowercased())")
+            .accessibilityIdentifier("timer-\(title.lowercased())")
         }
     }
     static func readout(_ remaining: TimeInterval) -> String {
@@ -174,7 +191,8 @@ private struct TimerTickRing: View {
     let countdown: PanelCountdown
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: countdown.phase != .running)) { context in
-            CountdownTicks(fraction: countdown.remaining(at: context.date) / countdown.duration,
+            CountdownTicks(
+                fraction: countdown.remaining(at: context.date) / countdown.duration,
                 ringing: countdown.phase == .finished, tickLength: 22, lineWidth: 7,
                 cornerRadius: PanelSurface.cornerRadius - Self.edgeInset,
                 cornerFanTicks: 10, smoothProgress: true)

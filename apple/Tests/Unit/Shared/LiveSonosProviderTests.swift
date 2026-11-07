@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveSonosProviderTests: XCTestCase {
@@ -54,7 +55,9 @@ import XCTest
     }
 
     func testFollowersUseTheCoordinatorsExactTransportState() async {
-        let transport = SonosProviderStub([.state(alphaTransport: "PAUSED_PLAYBACK"), .state(alphaTransport: "STOPPED")])
+        let transport = SonosProviderStub([
+            .state(alphaTransport: "PAUSED_PLAYBACK"), .state(alphaTransport: "STOPPED"),
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         XCTAssertEqual(provider.rooms.first { $0.id == beta }?.transportState, "PAUSED_PLAYBACK")
@@ -72,7 +75,8 @@ import XCTest
         XCTAssertEqual(provider.rooms[0].rawVolume, 24)
         XCTAssertEqual(provider.pending, [alpha, "sound"])
         try await waitFor(transport, count: 2)
-        try await assertRequest(transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":24}"#)
+        try await assertRequest(
+            transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":24}"#)
         await transport.release(1)
         try await settled(provider)
         XCTAssertEqual(provider.rooms[0].rawVolume, 24)
@@ -91,10 +95,14 @@ import XCTest
             provider.send(global ? .globalLock : .groupLock)
             provider.send(.volume(beta, 50))
             try await settled(provider)
-            try await assertRequest(transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":60}"#)
-            try await assertRequest(transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":10}"#)
+            try await assertRequest(
+                transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":60}"#)
+            try await assertRequest(
+                transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":10}"#)
             if global {
-                try await assertRequest(transport, at: 3, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_gamma","volume":50}"#)
+                try await assertRequest(
+                    transport, at: 3, path: "sonosSetVolume",
+                    json: #"{"deviceIp":"media_player.test_gamma","volume":50}"#)
             }
         }
     }
@@ -114,10 +122,12 @@ import XCTest
         try await waitFor(transport, count: 2)
         await transport.release(1)
         try await settled(provider)
-        try await assertRequest(transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":42}"#)
-        try await assertRequest(transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":23}"#)
+        try await assertRequest(
+            transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":42}"#)
+        try await assertRequest(
+            transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":23}"#)
         let count = await transport.count
-        XCTAssertEqual(count, 4) // Initial query, two writes and confirmation.
+        XCTAssertEqual(count, 4)  // Initial query, two writes and confirmation.
     }
 
     func testMasterVolumeScalesTheRoomMixAndHandlesTheVolumeLimits() {
@@ -139,11 +149,26 @@ import XCTest
         let cases: [(HomeCommand, String, String)] = [
             (.rawVolume(beta, 200), "sonosSetVolume", #"{"deviceIp":"media_player.test_beta","volume":100}"#),
             (.mute(beta), "sonosSetMute", #"{"deviceIp":"media_player.test_beta","muted":false}"#),
-            (.transport(beta, .next), "sonosTransport", #"{"coordinatorIp":"media_player.test_alpha","command":"next"}"#),
-            (.transport(beta, .pause), "sonosTransport", #"{"coordinatorIp":"media_player.test_alpha","command":"pause"}"#),
-            (.join(gamma, beta), "sonosGroupJoin", #"{"memberIp":"media_player.test_gamma","coordinatorUuid":"media_player.test_alpha"}"#),
-            (.joinAll(beta), "sonosGroupJoinAll", #"{"coordinatorEntityId":"media_player.test_alpha","memberEntityIds":["media_player.test_gamma"]}"#),
-            (.leave(beta), "sonosGroupLeave", #"{"memberIp":"media_player.test_beta","memberUuid":"media_player.test_beta"}"#)
+            (
+                .transport(beta, .next), "sonosTransport",
+                #"{"coordinatorIp":"media_player.test_alpha","command":"next"}"#
+            ),
+            (
+                .transport(beta, .pause), "sonosTransport",
+                #"{"coordinatorIp":"media_player.test_alpha","command":"pause"}"#
+            ),
+            (
+                .join(gamma, beta), "sonosGroupJoin",
+                #"{"memberIp":"media_player.test_gamma","coordinatorUuid":"media_player.test_alpha"}"#
+            ),
+            (
+                .joinAll(beta), "sonosGroupJoinAll",
+                #"{"coordinatorEntityId":"media_player.test_alpha","memberEntityIds":["media_player.test_gamma"]}"#
+            ),
+            (
+                .leave(beta), "sonosGroupLeave",
+                #"{"memberIp":"media_player.test_beta","memberUuid":"media_player.test_beta"}"#
+            ),
         ]
         for (command, path, json) in cases {
             let transport = SonosProviderStub([.state(), .void, .state()])
@@ -158,7 +183,9 @@ import XCTest
     }
 
     func testCalibrationUsesServerBaselinesAndClearUnlocksAfterConfirmation() async throws {
-        let transport = SonosProviderStub([.state(), .calibration, .state(alphaBaseline: 160), .void, .state(alphaBaseline: nil)])
+        let transport = SonosProviderStub([
+            .state(), .calibration, .state(alphaBaseline: 160), .void, .state(alphaBaseline: nil),
+        ])
         let provider = makeProvider(transport)
         defer { provider.stop() }
         await provider.refresh()
@@ -206,7 +233,8 @@ import XCTest
     }
 
     func testStaleRefreshCannotOverwriteMutationAndStopCancelsPendingWork() async throws {
-        let transport = SonosProviderStub([.state(), .state(alphaVolume: 1), .void, .state(alphaVolume: 36), .void], held: [1, 4])
+        let transport = SonosProviderStub(
+            [.state(), .state(alphaVolume: 1), .void, .state(alphaVolume: 36), .void], held: [1, 4])
         let provider = makeProvider(transport)
         await provider.refresh()
         let refresh = Task { await provider.refresh() }
@@ -228,7 +256,8 @@ import XCTest
     }
 
     func testSliderQueueCoalescesTrailingValuesAndRetainsLatestOptimism() async throws {
-        let transport = SonosProviderStub([.state(), .void, .state(alphaVolume: 12), .void, .state(alphaVolume: 48)], held: [1, 3])
+        let transport = SonosProviderStub(
+            [.state(), .void, .state(alphaVolume: 12), .void, .state(alphaVolume: 48)], held: [1, 3])
         let provider = makeProvider(transport)
         defer { provider.stop() }
         await provider.refresh()
@@ -239,7 +268,8 @@ import XCTest
         await transport.release(1)
         try await waitFor(transport, count: 4)
         XCTAssertEqual(provider.rooms[0].rawVolume, 48)
-        try await assertRequest(transport, at: 3, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":48}"#)
+        try await assertRequest(
+            transport, at: 3, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":48}"#)
         await transport.release(3)
         try await settled(provider)
         let count = await transport.count
@@ -289,15 +319,22 @@ import XCTest
         XCTAssertFalse(provider.send(.seek(beta, .nan)))
         XCTAssertTrue(provider.send(.seek(beta, 500)))
         try await settled(provider)
-        try await assertRequest(transport, at: 1, path: "sonosSeek", json: #"{"room":"media_player.test_alpha","positionSeconds":200}"#)
+        try await assertRequest(
+            transport, at: 1, path: "sonosSeek", json: #"{"room":"media_player.test_alpha","positionSeconds":200}"#)
         XCTAssertEqual(provider.rooms[1].positionSeconds, 12.5, "Only a server sample confirms progress.")
     }
 
     func testSourceActionsTargetChosenRoomAndTVRejoinsFollowers() async throws {
         let cases: [(LiveSonosProvider.SourceAction, String, String)] = [
-            (.lineIn, "sonosSetLineIn", #"{"deviceIp":"media_player.test_beta","sourceUuid":"media_player.test_beta"}"#),
+            (
+                .lineIn, "sonosSetLineIn",
+                #"{"deviceIp":"media_player.test_beta","sourceUuid":"media_player.test_beta"}"#
+            ),
             (.tv, "sonosGrabTvToBeam", #"{"beamIp":"media_player.test_beta","beamUuid":"media_player.test_beta"}"#),
-            (.joinAllToTV, "sonosGroupJoinAllToTv", #"{"tvEntityId":"media_player.test_beta","memberEntityIds":["media_player.test_alpha","media_player.test_gamma"]}"#)
+            (
+                .joinAllToTV, "sonosGroupJoinAllToTv",
+                #"{"tvEntityId":"media_player.test_beta","memberEntityIds":["media_player.test_alpha","media_player.test_gamma"]}"#
+            ),
         ]
         for (action, path, json) in cases {
             let transport = SonosProviderStub([.state(), .void, .state()])
@@ -330,15 +367,20 @@ import XCTest
         defaults.removePersistentDomain(forName: name)
         defer { defaults.removePersistentDomain(forName: name) }
         func make(_ replies: [SonosProviderStub.Reply]) -> LiveSonosProvider {
-            LiveSonosProvider(api: SonosAPI(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
-                transport: SonosProviderStub(replies)), lockDefaults: defaults)
+            LiveSonosProvider(
+                api: SonosAPI(
+                    configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                    transport: SonosProviderStub(replies)), lockDefaults: defaults)
         }
         let first = make([.state()])
         await first.refresh()
-        first.send(.globalLock); first.send(.groupLock); first.stop()
+        first.send(.globalLock)
+        first.send(.groupLock)
+        first.stop()
         let next = make([.state(), .void, .state(alphaBaseline: nil)])
         defer { next.stop() }
-        XCTAssertTrue(next.globalLock); XCTAssertTrue(next.groupLock)
+        XCTAssertTrue(next.globalLock)
+        XCTAssertTrue(next.groupLock)
         await next.refresh()
         next.send(.clearCalibration)
         try await settled(next)
@@ -348,9 +390,11 @@ import XCTest
     }
 
     private func makeProvider(_ transport: SonosProviderStub) -> LiveSonosProvider {
-        LiveSonosProvider(api: SonosAPI(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!
-        ), transport: transport))
+        LiveSonosProvider(
+            api: SonosAPI(
+                configuration: PanelConfiguration(
+                    baseURL: URL(string: "https://panel.example.invalid")!
+                ), transport: transport))
     }
 
     private func assertRequest(_ transport: SonosProviderStub, at index: Int, path: String, json: String) async throws {
@@ -358,8 +402,9 @@ import XCTest
         let request = try XCTUnwrap(captured)
         XCTAssertEqual(request.url?.path, "/trpc/sound." + path)
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? NSDictionary,
-                       try JSONSerialization.jsonObject(with: Data(json.utf8)) as? NSDictionary)
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? NSDictionary,
+            try JSONSerialization.jsonObject(with: Data(json.utf8)) as? NSDictionary)
     }
 
     private func settled(_ provider: LiveSonosProvider) async throws {
@@ -384,7 +429,9 @@ import XCTest
 
 private actor SonosProviderStub: PanelTransport {
     enum Reply: Sendable {
-        case state(alphaVolume: Int = 60, alphaBaseline: Int? = 120, playback: Bool = false, alphaTransport: String = "PLAYING")
+        case state(
+            alphaVolume: Int = 60, alphaBaseline: Int? = 120, playback: Bool = false, alphaTransport: String = "PLAYING"
+        )
         case void, calibration, unavailable, empty
 
         var json: String {
@@ -392,7 +439,8 @@ private actor SonosProviderStub: PanelTransport {
             case .void: return #"{"result":{}}"#
             case .calibration: return #"{"result":{"data":{"media_player.test_alpha":160}}}"#
             case .unavailable:
-                return #"{"error":{"message":"Synthetic failure","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"#
+                return
+                    #"{"error":{"message":"Synthetic failure","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"#
             case .empty: return envelope("[]")
             case .state(let volume, let baseline, let playback, let alphaTransport):
                 // Synthetic contract from features/sound/api.ts; legacy IP/UUID fields are HA IDs.
@@ -400,7 +448,7 @@ private actor SonosProviderStub: PanelTransport {
                     ("alpha", "alpha", volume, baseline, false, true),
                     ("beta", "alpha", 30, 20, true, true),
                     ("gamma", "gamma", 40, nil, false, true),
-                    ("offline", "offline", 10, 0, false, false)
+                    ("offline", "offline", 10, 0, false, false),
                 ]
                 let rooms = specifications.map { id, coordinator, raw, baseline, muted, available in
                     """
@@ -434,7 +482,10 @@ private actor SonosProviderStub: PanelTransport {
     private let held: Set<Int>
     private var gates: [Int: CheckedContinuation<Void, any Error>] = [:]
     var count: Int { requests.count }
-    init(_ replies: [Reply], held: Set<Int> = []) { self.replies = replies; self.held = held }
+    init(_ replies: [Reply], held: Set<Int> = []) {
+        self.replies = replies
+        self.held = held
+    }
     func request(_ index: Int) -> URLRequest? { requests.indices.contains(index) ? requests[index] : nil }
     func release(_ index: Int) { gates.removeValue(forKey: index)?.resume() }
     private func cancel(_ index: Int) { gates.removeValue(forKey: index)?.resume(throwing: CancellationError()) }
@@ -447,10 +498,15 @@ private actor SonosProviderStub: PanelTransport {
             try await withTaskCancellationHandler {
                 try Task.checkCancellation()
                 try await withCheckedThrowingContinuation { gates[index] = $0 }
-            } onCancel: { Task { await self.cancel(index) } }
+            } onCancel: {
+                Task { await self.cancel(index) }
+            }
         }
         let status: Int
         if case .unavailable = replies[index] { status = 503 } else { status = 200 }
-        return (Data(replies[index].json.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+        return (
+            Data(replies[index].json.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        )
     }
 }

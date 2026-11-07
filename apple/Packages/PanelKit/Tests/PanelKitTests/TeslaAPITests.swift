@@ -1,9 +1,11 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Testing
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 private actor TeslaAPITransport: PanelTransport {
     let data: Data
@@ -20,13 +22,18 @@ private actor TeslaAPITransport: PanelTransport {
         try Data(contentsOf: Bundle.module.resourceURL!.appendingPathComponent("Fixtures/tesla/\(name).json"))
     }
     private func api(_ transport: TeslaAPITransport) -> TeslaAPI {
-        TeslaAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!,
-            accessClientID: "fixture-id", accessClientSecret: "fixture-secret"), transport: transport))
+        TeslaAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(
+                    baseURL: URL(string: "https://panel.example.invalid")!,
+                    accessClientID: "fixture-id", accessClientSecret: "fixture-secret"), transport: transport))
     }
     @Test func decodesBackendFixtureAndUsesAuthenticatedGET() async throws {
         let transport = TeslaAPITransport(try fixture("ready"))
-        guard case .ready(let data) = try await api(transport).state() else { Issue.record("Expected ready"); return }
+        guard case .ready(let data) = try await api(transport).state() else {
+            Issue.record("Expected ready")
+            return
+        }
         #expect(data.batteryPercent == 72 && data.rangeMiles == 200)
         #expect(data.chargingState == .charging && data.chargePowerKW == 7)
         #expect(data.locked && !data.climateOn && data.cabinFahrenheit == 68 && data.odometerMiles == 10000)
@@ -47,7 +54,7 @@ private actor TeslaAPITransport: PanelTransport {
             raw.replacingOccurrences(of: "\"rangeMiles\": 200", with: "\"rangeMiles\": null"),
             raw.replacingOccurrences(of: "\"charging\"", with: "\"future\""),
             raw.replacingOccurrences(of: "\"ready\"", with: "\"unavailable\""),
-            #"{"status":"ready","data":null}"#
+            #"{"status":"ready","data":null}"#,
         ] {
             await #expect(throws: PanelAPIError.self) {
                 try await api(TeslaAPITransport(Data(invalid.utf8))).state()
@@ -63,7 +70,10 @@ private actor TeslaAPITransport: PanelTransport {
             #expect(request.httpMethod == "POST" && request.url?.path == "/api/v1/tesla/commands")
             #expect(request.url?.query == nil)
             let body = try #require(request.httpBody)
-            #expect(try JSONSerialization.jsonObject(with: body) as? [String: String] == ["action": action.rawValue, "pin": "123456"])
+            #expect(
+                try JSONSerialization.jsonObject(with: body) as? [String: String] == [
+                    "action": action.rawValue, "pin": "123456",
+                ])
         }
         for invalid in ["", "12345", "１２３４５６", "abcdef"] {
             await #expect(throws: PanelAPIError.self) { try await api(transport).command(.unlock, pin: invalid) }

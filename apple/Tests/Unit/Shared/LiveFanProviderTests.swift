@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 private actor FanProviderTransport: PanelTransport {
@@ -12,13 +13,19 @@ private actor FanProviderTransport: PanelTransport {
         self.responses = responses
         self.blockedRequest = blockedRequest
     }
-    func release() { continuation?.resume(); continuation = nil }
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !responses.isEmpty else { throw URLError(.notConnectedToInternet) }
         let response = responses.removeFirst()
         if requests.count == blockedRequest { await withCheckedContinuation { continuation = $0 } }
-        return (Data(response.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (
+            Data(response.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 
@@ -27,7 +34,11 @@ private actor FanProviderTransport: PanelTransport {
         "{\"result\":{\"data\":{\"fan\":{\"on\":\(on),\"sub\":\"\(label)\",\"pending\":\(pending)}}}}"
     }
     private func provider(_ transport: FanProviderTransport) -> LiveFanProvider {
-        LiveFanProvider(api: FanAPI(client: PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)))
+        LiveFanProvider(
+            api: FanAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                    transport: transport)))
     }
     func testUnloadedDoesNotInventStateOrToggle() async {
         let transport = FanProviderTransport([])
@@ -40,13 +51,15 @@ private actor FanProviderTransport: PanelTransport {
         XCTAssertEqual(count, 0)
     }
     func testAutoAndACOffMatchWebWithoutChangingClimateFields() async {
-        let live = provider(FanProviderTransport([response(false, "Auto"), response(false, "Off"), response(true, "On")]))
+        let live = provider(
+            FanProviderTransport([response(false, "Auto"), response(false, "Off"), response(true, "On")]))
         for (label, on) in [("Auto", false), ("Off", false), ("On", true)] {
             await live.refresh()
             XCTAssertEqual(live.fanLabel, label)
             XCTAssertEqual(live.fanOn, on)
             var climate = ClimateState()
-            climate.mode = .heat; climate.target = 75
+            climate.mode = .heat
+            climate.target = 75
             let mapped = live.applying(to: climate)
             XCTAssertEqual(mapped.mode, .heat)
             XCTAssertEqual(mapped.target, 75)
@@ -54,7 +67,9 @@ private actor FanProviderTransport: PanelTransport {
         }
     }
     func testToggleUsesReturnedPendingAndFailurePreservesState() async throws {
-        let transport = FanProviderTransport([response(false, "Auto"), response(true, "On", pending: true), response(false, "Off")])
+        let transport = FanProviderTransport([
+            response(false, "Auto"), response(true, "On", pending: true), response(false, "Off"),
+        ])
         let live = provider(transport)
         await live.refresh()
         await live.toggle()
@@ -66,7 +81,8 @@ private actor FanProviderTransport: PanelTransport {
         let requests = await transport.requests
         for (index, on) in [(1, true), (2, false)] {
             let body = try XCTUnwrap(requests[index].httpBody)
-            XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["key": "fan", "on": on] as NSDictionary)
+            XCTAssertEqual(
+                try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["key": "fan", "on": on] as NSDictionary)
         }
         await live.toggle()
         XCTAssertEqual(live.fanOn, false)
@@ -84,7 +100,8 @@ private actor FanProviderTransport: PanelTransport {
     }
 
     func testSelectionIsOptimisticAndQueuedWritesKeepLatestIntent() async throws {
-        let transport = FanProviderTransport([response(true, "On"), response(false, "Auto"), response(true, "On")], blockedRequest: 2)
+        let transport = FanProviderTransport(
+            [response(true, "On"), response(false, "Auto"), response(true, "On")], blockedRequest: 2)
         let live = provider(transport)
         await live.refresh()
         live.setOn(false)
@@ -100,12 +117,14 @@ private actor FanProviderTransport: PanelTransport {
         let requests = await transport.requests
         for (index, on) in [(1, false), (2, true)] {
             let body = try XCTUnwrap(requests[index].httpBody)
-            XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["key": "fan", "on": on] as NSDictionary)
+            XCTAssertEqual(
+                try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["key": "fan", "on": on] as NSDictionary)
         }
     }
 
     func testPollStartedBeforeSelectionCannotUndoIt() async throws {
-        let transport = FanProviderTransport([response(true, "On"), response(true, "On"), response(false, "Auto")], blockedRequest: 2)
+        let transport = FanProviderTransport(
+            [response(true, "On"), response(true, "On"), response(false, "Auto")], blockedRequest: 2)
         let live = provider(transport)
         await live.refresh()
         let poll = Task { await live.refresh() }
@@ -136,7 +155,8 @@ private actor FanProviderTransport: PanelTransport {
     }
 
     func testMockOffLabelAndToggle() async {
-        var climate = ClimateState(); climate.mode = .off
+        var climate = ClimateState()
+        climate.mode = .off
         let mock = MockFanProvider(climate: climate)
         XCTAssertEqual(mock.fanLabel, "Off")
         await mock.toggle()

@@ -26,7 +26,10 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
     @ObservationIgnored private var refreshAgain = false
     @ObservationIgnored private var contentRevision = 0
 
-    init(api: PhotosAPI, cache: PhotoCache) { self.api = api; self.cache = cache }
+    init(api: PhotosAPI, cache: PhotoCache) {
+        self.api = api
+        self.cache = cache
+    }
 
     func unlock(pin: String) async -> Bool {
         error = nil
@@ -37,25 +40,34 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
             guard revision == generation else { return false }
             unlocked = accepted
             return accepted
-        } catch is CancellationError { return false }
-        catch {
+        } catch is CancellationError { return false } catch {
             guard revision == generation else { return false }
             self.error = "Couldn’t connect. Try again."
             return false
         }
     }
 
-    func lock() { generation += 1; unlocked = false; error = nil }
+    func lock() {
+        generation += 1
+        unlocked = false
+        error = nil
+    }
 
     func openBooth() { boothOpen = true }
-    func closeBooth() { generation += 1; boothOpen = false }
+    func closeBooth() {
+        generation += 1
+        boothOpen = false
+    }
 
     private func canAccess(_ photo: LivePhoto) -> Bool {
         unlocked || (boothOpen && photo.collection == "booth-photos")
     }
 
     func refresh() async {
-        guard !refreshing else { refreshAgain = true; return }
+        guard !refreshing else {
+            refreshAgain = true
+            return
+        }
         refreshing = true
         repeat {
             refreshAgain = false
@@ -69,18 +81,23 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
         do {
             let b = try await api.booth()
             try Task.checkCancellation()
-            guard revision == contentRevision else { refreshAgain = true; return }
+            guard revision == contentRevision else {
+                refreshAgain = true
+                return
+            }
             frames = b.groups.flatMap { group in
                 group.frames.map { frame in
-                    LivePhoto(id: "booth:" + frame.id, collection: "booth-photos", path: frame.path,
-                              capturedAt: frame.capturedAt, groupID: group.groupId, filter: group.filter)
+                    LivePhoto(
+                        id: "booth:" + frame.id, collection: "booth-photos", path: frame.path,
+                        capturedAt: frame.capturedAt, groupID: group.groupId, filter: group.filter)
                 }
             }.sorted { $0.capturedAt > $1.capturedAt }
             // Existing protocol remains usable, but live bytes are rendered by Hybrid.
             photos = frames.map { PhotoItem(id: $0.id, asset: $0.path, title: "Photo", credit: "") }
             availability = .live
         } catch {
-            frames = []; photos = []
+            frames = []
+            photos = []
             availability = .unavailable(panelFailureReason(error, fallback: "Photos are unavailable."))
             lock()
         }
@@ -106,18 +123,20 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
 
     private func mutate(_ photo: LivePhoto, clear: Bool) async {
         guard canAccess(photo), photo.collection == "booth-photos", !pending, let group = photo.groupID,
-              frames.contains(where: { $0.id == photo.id && $0.groupID == group }) else { return }
-        pending = true; error = nil
+            frames.contains(where: { $0.id == photo.id && $0.groupID == group })
+        else { return }
+        pending = true
+        error = nil
         defer { pending = false }
         do {
-            if clear { try await api.clearFilter(groupID: group) }
-            else { try await api.remove(groupID: group) }
+            if clear { try await api.clearFilter(groupID: group) } else { try await api.remove(groupID: group) }
             contentRevision += 1
             if clear {
                 frames = frames.map {
                     guard $0.groupID == group else { return $0 }
-                    return LivePhoto(id: $0.id, collection: $0.collection, path: $0.path,
-                                     capturedAt: $0.capturedAt, groupID: group, filter: nil)
+                    return LivePhoto(
+                        id: $0.id, collection: $0.collection, path: $0.path,
+                        capturedAt: $0.capturedAt, groupID: group, filter: nil)
                 }
             } else {
                 frames.removeAll { $0.groupID == group }

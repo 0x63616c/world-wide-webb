@@ -24,7 +24,9 @@ struct PanelDisplaySettings: View {
                 get: { Double(display.returnToClockSeconds) },
                 set: { display.returnToClockSeconds = Int($0) }
             )
-            LabeledContent("After inactivity", value: Duration.seconds(display.returnToClockSeconds).formatted(.units(allowed: [.minutes, .seconds])))
+            LabeledContent(
+                "After inactivity",
+                value: Duration.seconds(display.returnToClockSeconds).formatted(.units(allowed: [.minutes, .seconds])))
             Slider(value: seconds, in: 30...600, step: 30) {
                 Text("Return to clock after")
             }.accessibilityIdentifier("display-return-timeout")

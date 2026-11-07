@@ -1,5 +1,5 @@
-import SwiftUI
 import Charts
+import SwiftUI
 
 /// The native bars reserve their own space and register scroll-edge effects.
 /// Keeping them on the scrolling screen prevents chart content crossing the
@@ -14,7 +14,9 @@ struct DogWalkScreen: View {
                 ZStack {
                     Text("Dog Walker").font(.system(size: sizeClass == .compact ? 20 : 25, weight: .semibold))
                     HStack {
-                        CircleButton(symbol: "xmark", label: "Close Dog Walker", size: sizeClass == .compact ? 40 : 56, action: close)
+                        CircleButton(
+                            symbol: "xmark", label: "Close Dog Walker", size: sizeClass == .compact ? 40 : 56,
+                            action: close)
                         Spacer()
                     }
                 }.frame(height: sizeClass == .compact ? 64 : 80)
@@ -47,14 +49,18 @@ struct DogWalkTile: View {
                             HStack(alignment: .firstTextBaseline, spacing: 12) {
                                 Text("Elapsed").font(.system(size: compact ? 16 : 20, weight: .medium))
                                 Text(walkElapsed(walk.duration(at: store.now)))
-                                    .font(.system(size: compact ? 26 : 40, weight: .medium, design: .rounded)).monospacedDigit()
+                                    .font(.system(size: compact ? 26 : 40, weight: .medium, design: .rounded))
+                                    .monospacedDigit()
                             }
                             Text("Started on \(walk.startedBy.rawValue)")
                                 .font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary)
                                 .padding(.top, 4)
                         } else {
-                            Text("\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min")
-                                .font(.system(size: compact ? 16 : 24)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                            Text(
+                                "\(store.walks.lastWalkLabel(at: store.now)) · \(Int(store.walks.history.first?.duration(at: store.now) ?? 0) / 60) min"
+                            )
+                            .font(.system(size: compact ? 16 : 24)).lineLimit(2).fixedSize(
+                                horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 8)
                         Text("History ›").font(.system(size: compact ? 16 : 20, weight: .medium))
@@ -62,9 +68,13 @@ struct DogWalkTile: View {
                         .contentShape(.rect)
                 }.buttonStyle(.plain).accessibilityLabel("Dog Walker history")
                 VStack(spacing: 6) {
-                    Button { store.toggleWalk() } label: {
+                    Button {
+                        store.toggleWalk()
+                    } label: {
                         Image(systemName: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
-                            .font(.system(size: 24, weight: .semibold)).foregroundStyle(.white).frame(width: 72, height: 72)
+                            .font(.system(size: 24, weight: .semibold)).foregroundStyle(.white).frame(
+                                width: 72, height: 72
+                            )
                             .glassEffect(.regular.tint(.green).interactive(), in: .circle)
                     }.buttonStyle(.plain)
                         .accessibilityLabel(store.walks.activeWalk == nil ? "Start walking Zero" : "Stop walking Zero")
@@ -109,7 +119,10 @@ struct DogWalkPage: View {
                             }
                         }
                     }.padding(.vertical, 8)
-                    let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 24)) : AnyLayout(HStackLayout(alignment: .top, spacing: 24))
+                    let layout =
+                        compact
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 24))
+                        : AnyLayout(HStackLayout(alignment: .top, spacing: 24))
                     layout {
                         chartCard
                         historyCard
@@ -132,7 +145,10 @@ struct DogWalkPage: View {
     }
 
     private var hero: some View {
-        let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout(alignment: .center, spacing: 32))
+        let layout =
+            compact
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 32))
         return layout {
             TimelineView(.periodic(from: store.now, by: 1)) { _ in
                 VStack(alignment: .leading, spacing: 6) {
@@ -152,7 +168,10 @@ struct DogWalkPage: View {
                 }.frame(height: 144, alignment: .center)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Button(store.walks.activeWalk == nil ? "Start walk" : "End walk", systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill") {
+            Button(
+                store.walks.activeWalk == nil ? "Start walk" : "End walk",
+                systemImage: store.walks.activeWalk == nil ? "play.fill" : "stop.fill"
+            ) {
                 store.toggleWalk()
             }
             .font(.system(size: compact ? 18 : 24, weight: .semibold))
@@ -184,8 +203,10 @@ struct DogWalkPage: View {
             }
             .chartXAxis {
                 AxisMarks(values: .stride(by: .day, count: range == 7 ? 1 : 5)) {
-                    AxisValueLabel(format: range == 7 ? .dateTime.weekday(.abbreviated) : .dateTime.day(), centered: true)
-                        .font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
+                    AxisValueLabel(
+                        format: range == 7 ? .dateTime.weekday(.abbreviated) : .dateTime.day(), centered: true
+                    )
+                    .font(.system(size: compact ? 14 : 18)).foregroundStyle(.primary)
                 }
             }
             .chartYAxis {
@@ -215,9 +236,13 @@ struct DogWalkPage: View {
                     .frame(height: 288)
                     .scrollEdgeEffectStyle(.soft, for: .all)
             }
-            Text(compact ? "\(store.walks.history.count) walks · Last 3 weeks" : "\(store.walks.history.count) walks · Scroll for more")
-                .font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(
+                compact
+                    ? "\(store.walks.history.count) walks · Last 3 weeks"
+                    : "\(store.walks.history.count) walks · Scroll for more"
+            )
+            .font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }.padding(compact ? 24 : 28)
             .frame(width: compact ? nil : 384, height: compact ? nil : panelCardHeight, alignment: .topLeading)
             .background(.regularMaterial, in: .rect(cornerRadius: 32))
@@ -228,7 +253,9 @@ struct DogWalkPage: View {
         LazyVStack(spacing: 0) {
             ForEach(store.walks.history) { walk in
                 if let historyEditor, walk.endedAt != nil, walk.id != store.walks.activeWalk?.id {
-                    Button { editingWalk = walk } label: {
+                    Button {
+                        editingWalk = walk
+                    } label: {
                         historyRow(walk, editable: true)
                     }.buttonStyle(.plain)
                         .disabled(historyEditor.isMutating)
@@ -300,8 +327,10 @@ private struct WalkHistoryEditor: View {
         NavigationStack {
             Form {
                 Section("Walk times") {
-                    DatePicker("Start", selection: $startedAt, in: ...now(), displayedComponents: [.date, .hourAndMinute])
-                        .accessibilityIdentifier("walk-edit-start")
+                    DatePicker(
+                        "Start", selection: $startedAt, in: ...now(), displayedComponents: [.date, .hourAndMinute]
+                    )
+                    .accessibilityIdentifier("walk-edit-start")
                     DatePicker("End", selection: $endedAt, in: ...now(), displayedComponents: [.date, .hourAndMinute])
                         .accessibilityIdentifier("walk-edit-end")
                     if endedAt > startedAt {
@@ -317,13 +346,14 @@ private struct WalkHistoryEditor: View {
                 Section {
                     Button("Delete walk", role: .destructive) { confirmDelete = true }
                         .accessibilityIdentifier("walk-edit-delete")
-                        .confirmationDialog("Delete this walk?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                            Button("Delete walk", role: .destructive) { submit(deleting: true) }
-                                .accessibilityIdentifier("walk-edit-delete-confirm")
-                            Button("Cancel", role: .cancel) {}
-                        } message: {
-                            Text("This removes the walk from history and updates your statistics.")
-                        }
+                        .confirmationDialog("Delete this walk?", isPresented: $confirmDelete, titleVisibility: .visible)
+                    {
+                        Button("Delete walk", role: .destructive) { submit(deleting: true) }
+                            .accessibilityIdentifier("walk-edit-delete-confirm")
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This removes the walk from history and updates your statistics.")
+                    }
                 }
             }
             .disabled(pending || provider.isMutating)
@@ -359,8 +389,11 @@ private struct WalkHistoryEditor: View {
                 succeeded = await provider.update(id: walk.id, startedAt: startedAt, endedAt: endedAt)
             }
             pending = false
-            if succeeded { dismiss() }
-            else { failureMessage = provider.historyFailureMessage ?? "The walk could not be changed. Try again." }
+            if succeeded {
+                dismiss()
+            } else {
+                failureMessage = provider.historyFailureMessage ?? "The walk could not be changed. Try again."
+            }
         }
     }
 }
@@ -388,9 +421,15 @@ struct WalkActivityPreviewPage: View {
                 }.padding(24).background(.black, in: .rect(cornerRadius: 44))
                 Text("Compact / Minimal").font(.headline)
                 HStack(spacing: 24) {
-                    HStack { Image(systemName: "pawprint.fill"); Spacer(); Text("12:34").monospacedDigit() }
-                        .foregroundStyle(.green).padding(.horizontal, 14).frame(width: 230, height: 37).background(.black, in: .capsule)
-                    Image(systemName: "pawprint.fill").foregroundStyle(.green).frame(width: 37, height: 37).background(.black, in: .circle)
+                    HStack {
+                        Image(systemName: "pawprint.fill")
+                        Spacer()
+                        Text("12:34").monospacedDigit()
+                    }
+                    .foregroundStyle(.green).padding(.horizontal, 14).frame(width: 230, height: 37).background(
+                        .black, in: .capsule)
+                    Image(systemName: "pawprint.fill").foregroundStyle(.green).frame(width: 37, height: 37).background(
+                        .black, in: .circle)
                 }
                 Spacer()
                 Text("Shared WidgetKit content · Simulator preview").font(.footnote).foregroundStyle(.secondary)

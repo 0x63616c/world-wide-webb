@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import XCTest
+
 @testable import Panel
 
 /// WWW-68: the clock follows Apple HomeView's green numeral face, so the four
@@ -8,7 +9,9 @@ import XCTest
 /// to sweep over them, as in the reference). Measures the rendered glyph pixels.
 @MainActor final class ClockFaceLayoutTests: XCTestCase {
     func testNumeralsReachTheScreenEdges() throws {
-        for size in [CGSize(width: 1376, height: 1032), CGSize(width: 1366, height: 1024), CGSize(width: 402, height: 874)] {
+        for size in [
+            CGSize(width: 1376, height: 1032), CGSize(width: 1366, height: 1024), CGSize(width: 402, height: 874),
+        ] {
             let ink = try inkBounds(GreenClockDial(date: FixtureClock.now, numeralsOnly: true), size: size)
             let face = GreenClockDial.Layout(size: size).face
             XCTAssertLessThanOrEqual(ink.minY - face.minY, face.height * 0.10, "12 must reach the top at \(size)")
@@ -21,8 +24,9 @@ import XCTest
     func testFaceIsTheHomeViewGreenWithNoComplications() throws {
         let store = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
         let size = CGSize(width: 1376, height: 1032)
-        let renderer = ImageRenderer(content: PresenceClockFace(store: store)
-            .frame(width: size.width, height: size.height).environment(\.motionPhase, 0))
+        let renderer = ImageRenderer(
+            content: PresenceClockFace(store: store)
+                .frame(width: size.width, height: size.height).environment(\.motionPhase, 0))
         renderer.scale = 1
         let image = try XCTUnwrap(renderer.uiImage?.cgImage)
         let pixels = try rgba(image)
@@ -40,12 +44,18 @@ import XCTest
         renderer.scale = 1
         let cg = try XCTUnwrap(renderer.uiImage?.cgImage)
         let pixels = try rgba(cg)
-        var minX = Int.max, minY = Int.max, maxX = Int.min, maxY = Int.min
+        var minX = Int.max
+        var minY = Int.max
+        var maxX = Int.min
+        var maxY = Int.min
         for y in 0..<cg.height {
             for x in 0..<cg.width {
                 let o = (y * cg.width + x) * 4
                 guard pixels[o] < 128, pixels[o + 1] < 128, pixels[o + 2] < 128 else { continue }
-                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+                minX = min(minX, x)
+                maxX = max(maxX, x)
+                minY = min(minY, y)
+                maxY = max(maxY, y)
             }
         }
         XCTAssertLessThan(minX, Int.max, "Must measure rendered numerals")
@@ -54,9 +64,11 @@ import XCTest
 
     private func rgba(_ cg: CGImage) throws -> [UInt8] {
         var pixels = [UInt8](repeating: 255, count: cg.width * cg.height * 4)
-        let context = try XCTUnwrap(CGContext(data: &pixels, width: cg.width, height: cg.height,
-            bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let context = try XCTUnwrap(
+            CGContext(
+                data: &pixels, width: cg.width, height: cg.height,
+                bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
         return pixels
     }

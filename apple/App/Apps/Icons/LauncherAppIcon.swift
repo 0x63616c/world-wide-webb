@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 extension EnvironmentValues {
     @Entry var launcherIconPressed = false

@@ -1,32 +1,34 @@
 import Foundation
+import PanelKit
 import XCTest
+
 @testable import Panel
 
 final class ConfigurationTests: XCTestCase {
-    func testMissingSettingsLoadWithoutHeaders() throws {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: "PanelTests.configuration.empty"))
-        let config = PanelConfiguration(info: [:], defaults: defaults, environment: [:])
-        XCTAssertEqual(config.serverURL.absoluteString, "https://app.worldwidewebb.co")
+    func testDisconnectedDefaultsToAPIWithoutCredentials() {
+        let config = PanelConfiguration(environment: [:], enrollment: nil)
+        XCTAssertEqual(config.serverURL.absoluteString, "https://api.worldwidewebb.co")
         XCTAssertTrue(config.accessHeaders.isEmpty)
-        XCTAssertTrue(config.alarmAPIToken.isEmpty)
+        XCTAssertTrue(config.apiToken.isEmpty)
     }
 
-    func testURLOverridesPreferEnvironmentThenDefaultsThenPlist() throws {
-        let name = "PanelTests.configuration.precedence"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        let info = ["PanelServerURL": "https://plist.example"]
-        XCTAssertEqual(PanelConfiguration(info: info, defaults: defaults, environment: [:]).serverURL.host, "plist.example")
-        defaults.set("https://defaults.example", forKey: "serverUrl")
-        XCTAssertEqual(PanelConfiguration(info: info, defaults: defaults, environment: [:]).serverURL.host, "defaults.example")
-        XCTAssertEqual(PanelConfiguration(info: info, defaults: defaults, environment: ["PANEL_SERVER_URL": "https://environment.example"]).serverURL.host, "environment.example")
+    func testDebugLoopbackOverrideUsesExplicitDevelopmentToken() {
+        let config = PanelConfiguration(
+            environment: ["PANEL_SERVER_URL": "http://localhost:18733", "WWW_API_TOKEN": "fixture-development-token"],
+            enrollment: nil)
+        XCTAssertEqual(config.serverURL.host, "localhost")
+        XCTAssertEqual(config.apiToken, "fixture-development-token")
     }
 
-    func testUnresolvedBuildSettingsAreEmpty() throws {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: "PanelTests.configuration.empty"))
-        let config = PanelConfiguration(info: ["PanelServerURL": "$(PANEL_SERVER_URL)", "PanelCFAccessClientID": "$(PANEL_CF_ACCESS_CLIENT_ID)",
-                                               "PanelCFAccessClientSecret": "$(PANEL_CF_ACCESS_CLIENT_SECRET)"], defaults: defaults, environment: [:])
-        XCTAssertTrue(config.accessHeaders.isEmpty)
-        XCTAssertEqual(config.serverURL.host, "app.worldwidewebb.co")
+    func testPrivatelyEnrolledCredentialsAreUsedTogether() throws {
+        let enrollment = try PanelEnrollment.parse(
+            """
+            {"baseURL":"https://api.example.invalid","apiToken":"fixture-installation-token-at-least-32-bytes",\
+            "accessClientID":"fixture-device","accessClientSecret":"fixture-secret"}
+            """)
+        let config = PanelConfiguration(environment: [:], enrollment: enrollment)
+        XCTAssertEqual(config.serverURL.host, "api.example.invalid")
+        XCTAssertEqual(config.apiToken, enrollment.apiToken)
+        XCTAssertEqual(config.accessHeaders["CF-Access-Client-Id"], "fixture-device")
     }
 }

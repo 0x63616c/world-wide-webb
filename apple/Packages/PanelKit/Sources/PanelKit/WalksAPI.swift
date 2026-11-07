@@ -55,23 +55,39 @@ public struct WalksAPI: Sendable {
 
     public func history(limit: Int? = nil, before: Date? = nil) async throws -> WalksHistory {
         if let limit, !(1...500).contains(limit) { throw invalidInput("History limit must be 1–500.") }
-        struct Input: Encodable, Sendable { let limit: Int?; let before: String? }
-        return try await client.get("walks/history", input: Input(limit: limit, before: before.map(WalkDate.string)),
-                                      as: WalksHistory.self)
+        struct Input: Encodable, Sendable {
+            let limit: Int?
+            let before: String?
+        }
+        return try await client.get(
+            "walks/history", input: Input(limit: limit, before: before.map(WalkDate.string)),
+            as: WalksHistory.self)
     }
 
     /// Omit startedAt for a live start: the server supplies the authoritative time.
-    public func start(id: UUID? = nil, startedAt: Date? = nil, source: WalkSource = .unknown) async throws -> WalksState {
-        struct Input: Encodable, Sendable { let id: String?; let startedAt: String?; let source: WalkSource }
-        return try await client.post("walks/start", input: Input(id: id?.uuidString.lowercased(),
-            startedAt: startedAt.map(WalkDate.string), source: source), as: WalksState.self)
+    public func start(id: UUID? = nil, startedAt: Date? = nil, source: WalkSource = .unknown) async throws -> WalksState
+    {
+        struct Input: Encodable, Sendable {
+            let id: String?
+            let startedAt: String?
+            let source: WalkSource
+        }
+        return try await client.post(
+            "walks/start",
+            input: Input(
+                id: id?.uuidString.lowercased(),
+                startedAt: startedAt.map(WalkDate.string), source: source), as: WalksState.self)
     }
 
     public func stop(id: String, endedAt: Date? = nil) async throws -> WalksState {
         try validateID(id)
-        struct Input: Encodable, Sendable { let id: String; let endedAt: String? }
-        return try await client.post("walks/stop", input: Input(id: id, endedAt: endedAt.map(WalkDate.string)),
-                                         as: WalksState.self)
+        struct Input: Encodable, Sendable {
+            let id: String
+            let endedAt: String?
+        }
+        return try await client.post(
+            "walks/stop", input: Input(id: id, endedAt: endedAt.map(WalkDate.string)),
+            as: WalksState.self)
     }
 
     public func delete(id: String) async throws -> WalksState {
@@ -82,9 +98,14 @@ public struct WalksAPI: Sendable {
     public func update(id: String, startedAt: Date? = nil, endedAt: Date? = nil) async throws -> WalksState {
         try validateID(id)
         if let startedAt, let endedAt, endedAt < startedAt { throw invalidInput("End must be at or after start.") }
-        struct Input: Encodable, Sendable { let startedAt: String?; let endedAt: String? }
-        return try await client.patch("walks/" + PanelAPIClient.component(id), input: Input(
-            startedAt: startedAt.map(WalkDate.string), endedAt: endedAt.map(WalkDate.string)), as: WalksState.self)
+        struct Input: Encodable, Sendable {
+            let startedAt: String?
+            let endedAt: String?
+        }
+        return try await client.patch(
+            "walks/" + PanelAPIClient.component(id),
+            input: Input(
+                startedAt: startedAt.map(WalkDate.string), endedAt: endedAt.map(WalkDate.string)), as: WalksState.self)
     }
 
     private func validateID(_ id: String) throws {
@@ -104,7 +125,10 @@ private struct WalkDate: Decodable {
         let string = try container.decode(String.self)
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: string) { value = date; return }
+        if let date = formatter.date(from: string) {
+            value = date
+            return
+        }
         formatter.formatOptions = [.withInternetDateTime]
         guard let date = formatter.date(from: string) else {
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Expected an ISO-8601 timestamp.")

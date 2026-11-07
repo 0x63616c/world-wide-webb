@@ -16,8 +16,10 @@ import XCTest
     }
     func testDisplaySettingsTimeoutDimsAndTapWakes() {
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-previewApp", "settings", "-panel.idleDimming", "YES",
-                               "-panel.dimBrightness", "0.3", "-panel.wakeBrightness", "1"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-previewApp", "settings", "-panel.idleDimming", "YES",
+            "-panel.dimBrightness", "0.3", "-panel.wakeBrightness", "1",
+        ]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
         XCTAssertTrue(app.sliders["Wake brightness"].waitForExistence(timeout: 10))

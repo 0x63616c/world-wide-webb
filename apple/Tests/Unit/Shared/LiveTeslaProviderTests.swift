@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 private actor TeslaProviderTransport: PanelTransport {
@@ -10,10 +11,15 @@ private actor TeslaProviderTransport: PanelTransport {
     private var continuation: CheckedContinuation<Void, Never>?
     private(set) var requests: [URLRequest] = []
     init(_ files: [String], holdNext: Bool = false, holdRequest: Int? = nil) {
-        self.files = files; self.holdNext = holdNext; self.holdRequest = holdRequest
+        self.files = files
+        self.holdNext = holdNext
+        self.holdRequest = holdRequest
     }
     var isHolding: Bool { continuation != nil }
-    func release() { continuation?.resume(); continuation = nil }
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !files.isEmpty else { throw URLError(.notConnectedToInternet) }
@@ -23,7 +29,10 @@ private actor TeslaProviderTransport: PanelTransport {
         }
         let url = Bundle(for: LiveTeslaProviderTests.self).resourceURL!
             .appendingPathComponent("Fixtures/tesla/\(files.removeFirst()).json")
-        return (try Data(contentsOf: url), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (
+            try Data(contentsOf: url),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 @MainActor final class LiveTeslaProviderTests: XCTestCase {
@@ -50,22 +59,33 @@ private actor TeslaProviderTransport: PanelTransport {
         XCTAssertEqual(requests.filter { $0.httpMethod == "POST" }.count, 1)
     }
     private func provider(_ transport: TeslaProviderTransport) -> LiveTeslaProvider {
-        LiveTeslaProvider(api: TeslaAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)))
+        LiveTeslaProvider(
+            api: TeslaAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(
+                        baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)))
     }
     func testStartsUnavailableAndMapsOnlyReportedData() async {
         let transport = TeslaProviderTransport(["ready"])
         let live = provider(transport)
-        XCTAssertFalse(live.hasLiveData); XCTAssertEqual(live.availability, .offline)
-        XCTAssertNil(live.snapshot); XCTAssertNil(live.data.lat); XCTAssertEqual(live.data.range, 0)
+        XCTAssertFalse(live.hasLiveData)
+        XCTAssertEqual(live.availability, .offline)
+        XCTAssertNil(live.snapshot)
+        XCTAssertNil(live.data.lat)
+        XCTAssertEqual(live.data.range, 0)
         live.request(.chargeStop)
         XCTAssertNil(live.requestedAction)
         await live.refresh()
-        XCTAssertTrue(live.hasLiveData); XCTAssertEqual(live.availability, .online)
-        XCTAssertEqual(live.data.pct, 72); XCTAssertEqual(live.data.range, 200)
-        XCTAssertEqual(live.data.rate, 7); XCTAssertTrue(live.data.charging)
-        XCTAssertFalse(live.data.preconditioning); XCTAssertEqual(live.data.climate, 68)
-        XCTAssertEqual(live.snapshot?.locked, true); XCTAssertEqual(live.data.place, "")
+        XCTAssertTrue(live.hasLiveData)
+        XCTAssertEqual(live.availability, .online)
+        XCTAssertEqual(live.data.pct, 72)
+        XCTAssertEqual(live.data.range, 200)
+        XCTAssertEqual(live.data.rate, 7)
+        XCTAssertTrue(live.data.charging)
+        XCTAssertFalse(live.data.preconditioning)
+        XCTAssertEqual(live.data.climate, 68)
+        XCTAssertEqual(live.snapshot?.locked, true)
+        XCTAssertEqual(live.data.place, "")
         XCTAssertNil(live.data.lon)
     }
     func testEveryProtocolCommandStagesWithoutWritingAndRequiresFreshPIN() async {
@@ -116,13 +136,15 @@ private actor TeslaProviderTransport: PanelTransport {
             await live.refresh()
             XCTAssertTrue(live.hasLiveData)
             live.stop()
-            XCTAssertFalse(live.hasLiveData); XCTAssertNil(live.requestedAction)
+            XCTAssertFalse(live.hasLiveData)
+            XCTAssertNil(live.requestedAction)
         }
     }
     func testFailedWriteDoesNotRetryOrInventSuccess() async {
         let transport = TeslaProviderTransport(["ready"])
         let live = provider(transport)
-        await live.refresh(); live.request(.unlock)
+        await live.refresh()
+        live.request(.unlock)
         await live.confirm(pin: "123456")
         XCTAssertTrue(live.hasLiveData)
         XCTAssertEqual(live.availability, .offline)
@@ -150,7 +172,8 @@ private actor TeslaProviderTransport: PanelTransport {
     func testInvalidPINNeverWritesAndMalformedAcknowledgementFallsBack() async {
         let transport = TeslaProviderTransport(["ready", "ready"])
         let live = provider(transport)
-        await live.refresh(); live.request(.unlock)
+        await live.refresh()
+        live.request(.unlock)
         await live.confirm(pin: "bad")
         XCTAssertEqual(live.errorMessage, "Enter the six-digit panel PIN.")
         let count = await transport.requests.count
@@ -168,8 +191,12 @@ private actor TeslaProviderTransport: PanelTransport {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set(305, forKey: LiveTeslaProvider.maxRangeKey)
-        let live = LiveTeslaProvider(api: TeslaAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!), transport: TeslaProviderTransport(["ready"]))), defaults: defaults)
+        let live = LiveTeslaProvider(
+            api: TeslaAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(
+                        baseURL: URL(string: "https://panel.example.invalid")!),
+                    transport: TeslaProviderTransport(["ready"]))), defaults: defaults)
         XCTAssertEqual(live.maxRange, 305)
         await live.refresh()
         XCTAssertEqual(live.data.maxRange, 280)

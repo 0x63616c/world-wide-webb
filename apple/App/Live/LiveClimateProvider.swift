@@ -1,7 +1,7 @@
 import Foundation
+import OSLog
 import Observation
 import PanelKit
-import OSLog
 
 @MainActor protocol ClimateProvider: AnyObject, Observable {
     var climate: ClimateState? { get }
@@ -31,7 +31,10 @@ import OSLog
     @ObservationIgnored private var refreshing = false
 
     init(api: ClimateAPI) { self.api = api }
-    deinit { mutationTask?.cancel(); pollingTask?.cancel() }
+    deinit {
+        mutationTask?.cancel()
+        pollingTask?.cancel()
+    }
 
     func refresh() async {
         guard queue.isEmpty, !refreshing else { return }
@@ -61,11 +64,14 @@ import OSLog
     }
 
     func stop() {
-        pollingTask?.cancel(); pollingTask = nil
-        mutationTask?.cancel(); mutationTask = nil
+        pollingTask?.cancel()
+        pollingTask = nil
+        mutationTask?.cancel()
+        mutationTask = nil
         revision += 1
         for _ in queue { PanelCommandLog.shared.record(control: "climate.queued", error: "cancelled") }
-        queue.removeAll(); pending = []
+        queue.removeAll()
+        pending = []
         climate = confirmedClimate
     }
 
@@ -89,11 +95,18 @@ import OSLog
                     guard !Task.isCancelled else { return }
                     self.queue.removeFirst()
                     self.accept(state)
-                    if self.queue.isEmpty { self.pending = []; self.mutationTask = nil }
+                    if self.queue.isEmpty {
+                        self.pending = []
+                        self.mutationTask = nil
+                    }
                 } catch {
                     guard !Task.isCancelled else { return }
-                    for _ in self.queue.dropFirst() { PanelCommandLog.shared.record(control: "climate.queued", error: "dropped: action unavailable") }
-                    self.queue.removeAll(); self.pending = []; self.mutationTask = nil
+                    for _ in self.queue.dropFirst() {
+                        PanelCommandLog.shared.record(control: "climate.queued", error: "dropped: action unavailable")
+                    }
+                    self.queue.removeAll()
+                    self.pending = []
+                    self.mutationTask = nil
                     self.climate = self.confirmedClimate
                     self.lastError = error as? PanelAPIError
                     self.errorMessage = "Couldn’t change the temperature. Try again."
@@ -130,15 +143,18 @@ import OSLog
             mapped.target = target
             (mapped.low, mapped.high) = Self.range(around: target)
         case .range(let low, let high):
-            mapped.low = low; mapped.high = high
+            mapped.low = low
+            mapped.high = high
             mapped.target = Int((Double(low + high) / 2).rounded())
         case .off(let target, let low, let high):
             if let target { mapped.target = Int(target.rounded()) }
             if let low, let high {
-                mapped.low = Int(low.rounded()); mapped.high = Int(high.rounded())
+                mapped.low = Int(low.rounded())
+                mapped.high = Int(high.rounded())
                 if target == nil { mapped.target = Int(((low + high) / 2).rounded()) }
+            } else if let target {
+                (mapped.low, mapped.high) = Self.range(around: Int(target.rounded()))
             }
-            else if let target { (mapped.low, mapped.high) = Self.range(around: Int(target.rounded())) }
         }
         // fanOn is not exposed by climate.get; do not infer fan activity from HVAC action.
         confirmedClimate = mapped
@@ -162,7 +178,8 @@ import OSLog
             case .high(let high): value.high = min(77, max(value.low + 2, high))
             case .shiftRange(let delta):
                 let step = min(77 - value.high, max(67 - value.low, delta))
-                value.low += step; value.high += step
+                value.low += step
+                value.high += step
             default: break
             }
         }
@@ -191,7 +208,9 @@ import OSLog
     func refresh() async {}
     @discardableResult func send(_ command: HomeCommand) -> Bool {
         switch command {
-        case .mode, .target, .low, .high, .shiftRange: source.send(command); return true
+        case .mode, .target, .low, .high, .shiftRange:
+            source.send(command)
+            return true
         default: return false
         }
     }

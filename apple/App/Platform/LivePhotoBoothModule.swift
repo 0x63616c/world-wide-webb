@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 /// The camera and its booth-only gallery open directly from the launcher.
 struct LivePhotoBoothModule: View {
@@ -31,7 +31,8 @@ struct LivePhotoBoothModule: View {
             } else if showSavedStrip, let image = camera.preview {
                 savedStrip(image)
             } else {
-                PhotoBoothCameraPage(camera: camera, provider: photos, latest: boothPhotos.first,
+                PhotoBoothCameraPage(
+                    camera: camera, provider: photos, latest: boothPhotos.first,
                     close: back, openGallery: { gallery = true })
             }
         }
@@ -52,11 +53,18 @@ struct LivePhotoBoothModule: View {
             if saved && camera.mode == .strip { showSavedStrip = true }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { photos.openBooth(); Task { await photos.refresh() } }
-            else if phase == .background || !camera.requestingPermission { leaveBooth() }
+            if phase == .active {
+                photos.openBooth()
+                Task { await photos.refresh() }
+            } else if phase == .background || !camera.requestingPermission {
+                leaveBooth()
+            }
         }
         .confirmationDialog("Discard the unsaved photo?", isPresented: $confirmDiscard) {
-            Button("Discard", role: .destructive) { camera.discard(); close() }
+            Button("Discard", role: .destructive) {
+                camera.discard()
+                close()
+            }
         }
     }
 
@@ -69,11 +77,17 @@ struct LivePhotoBoothModule: View {
     }
 
     private func back() {
-        if selection != nil { selection = nil }
-        else if gallery { gallery = false }
-        else if showSavedStrip { finishStrip() }
-        else if camera.hasUnsavedPhoto { confirmDiscard = true }
-        else { close() }
+        if selection != nil {
+            selection = nil
+        } else if gallery {
+            gallery = false
+        } else if showSavedStrip {
+            finishStrip()
+        } else if camera.hasUnsavedPhoto {
+            confirmDiscard = true
+        } else {
+            close()
+        }
     }
 
     private func finishStrip() {
@@ -93,8 +107,11 @@ struct LivePhotoBoothModule: View {
                     .accessibilityIdentifier("booth-capture-preview")
             }
             HStack(spacing: 12) {
-                Button("View gallery") { finishStrip(); gallery = true }
-                    .buttonStyle(.glass).accessibilityIdentifier("booth-gallery")
+                Button("View gallery") {
+                    finishStrip()
+                    gallery = true
+                }
+                .buttonStyle(.glass).accessibilityIdentifier("booth-gallery")
                 Button(action: finishStrip) {
                     Text("Done").foregroundStyle(.black)
                 }.buttonStyle(.glassProminent).tint(.white)

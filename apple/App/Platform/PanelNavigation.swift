@@ -31,10 +31,13 @@ struct PanelStatusOverlays: View {
     var body: some View {
         ZStack {
             if !navigation.ringHidden, session.nativeAlarms.ownsRinging,
-               store.hasLiveData(for: .alarms), !store.alarmsProvider.ringing(at: store.now).isEmpty {
-                AlarmRingView(store: store, close: navigation.openNativeAlarms,
-                    edit: navigation.openNativeAlarms, dataCaption: "")
-                    .disabled(store.alarmsProvider.pending)
+                store.hasLiveData(for: .alarms), !store.alarmsProvider.ringing(at: store.now).isEmpty
+            {
+                AlarmRingView(
+                    store: store, close: navigation.openNativeAlarms,
+                    edit: navigation.openNativeAlarms, dataCaption: ""
+                )
+                .disabled(store.alarmsProvider.pending)
             }
 
         }

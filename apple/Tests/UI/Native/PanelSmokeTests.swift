@@ -11,7 +11,9 @@ final class PanelSmokeTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["native-home"].firstMatch.waitForExistence(timeout: 30))
         app.openHomeModule("lights")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "unavailable")).firstMatch.waitForExistence(timeout: 40))
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "unavailable")).firstMatch
+                .waitForExistence(timeout: 40))
         XCTAssertGreaterThan(app.frame.width, app.frame.height)
         let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         screenshot.name = "panel-sim"

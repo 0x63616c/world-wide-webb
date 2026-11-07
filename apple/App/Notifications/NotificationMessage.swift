@@ -63,8 +63,10 @@ enum NotificationAge {
         return result
     }
 
-    static func formatted(from date: Date, to now: Date,
-                          unitsStyle: DateComponentsFormatter.UnitsStyle = .abbreviated) -> String {
+    static func formatted(
+        from date: Date, to now: Date,
+        unitsStyle: DateComponentsFormatter.UnitsStyle = .abbreviated
+    ) -> String {
         let age = components(from: date, to: now)
         guard age != DateComponents() else { return String(localized: "Now") }
         let formatter = DateComponentsFormatter()

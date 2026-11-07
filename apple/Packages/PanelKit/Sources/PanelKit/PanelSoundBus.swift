@@ -15,14 +15,15 @@ public enum PanelSoundCue: String, Sendable { case timerFinished }
 
     public func play(_ cue: PanelSoundCue) {
         if players[cue] == nil,
-           let url = Bundle.module.url(forResource: cue.rawValue, withExtension: "wav"),
-           let player = try? AVAudioPlayer(contentsOf: url) {
+            let url = Bundle.module.url(forResource: cue.rawValue, withExtension: "wav"),
+            let player = try? AVAudioPlayer(contentsOf: url)
+        {
             player.prepareToPlay()
             players[cue] = player
         }
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try? AVAudioSession.sharedInstance().setActive(true)
         #endif
         players[cue]?.currentTime = 0
         players[cue]?.play()

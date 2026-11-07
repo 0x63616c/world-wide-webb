@@ -1,7 +1,7 @@
 import AVFoundation
 import Observation
-import UIKit
 import PanelKit
+import UIKit
 
 @MainActor @Observable
 final class PanelSession {
@@ -9,13 +9,16 @@ final class PanelSession {
     let nativeAlarms: NativeAlarmsRuntime
     @ObservationIgnored private let alarms: PanelAlarms
 
-    init(configuration: PanelConfiguration, alarms: PanelAlarms = PanelAlarms(),
-         nativeAlarms: NativeAlarmsRuntime = NativeAlarmsRuntime()) {
+    init(
+        configuration: PanelConfiguration, alarms: PanelAlarms = PanelAlarms(),
+        nativeAlarms: NativeAlarmsRuntime = NativeAlarmsRuntime()
+    ) {
         self.configuration = configuration
         self.alarms = alarms
         self.nativeAlarms = nativeAlarms
-        alarms.configure(serverURL: configuration.serverURL, token: configuration.apiToken,
-                         cfID: configuration.cfAccessClientID, cfSecret: configuration.cfAccessClientSecret)
+        alarms.configure(
+            serverURL: configuration.serverURL, token: configuration.apiToken,
+            cfID: configuration.cfAccessClientID, cfSecret: configuration.cfAccessClientSecret)
     }
 
     func activate() {
@@ -30,7 +33,8 @@ final class PanelSession {
     }
 
     func reconcileAlarms(_ provider: LiveAlarmsProvider) async {
-        await nativeAlarms.reconcile(snapshot: provider.snapshot, available: provider.availability == .live,
+        await nativeAlarms.reconcile(
+            snapshot: provider.snapshot, available: provider.availability == .live,
             configured: !configuration.apiToken.isEmpty || isAlarmFixture,
             syncWidget: { next in
                 if self.isAlarmFixture { return }
@@ -40,9 +44,9 @@ final class PanelSession {
 
     private var isAlarmFixture: Bool {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
+            ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
         #else
-        false
+            false
         #endif
     }
 }

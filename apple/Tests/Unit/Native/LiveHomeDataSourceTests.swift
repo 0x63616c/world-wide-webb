@@ -1,22 +1,29 @@
 import Foundation
 import Observation
-import XCTest
 import PanelKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveHomeDataSourceTests: XCTestCase {
-    private func fixtureTransport(writes: Bool = false, fanOffSupported: Bool = false, unavailable: Bool = false) throws -> HybridFixtureTransport {
+    private func fixtureTransport(writes: Bool = false, fanOffSupported: Bool = false, unavailable: Bool = false) throws
+        -> HybridFixtureTransport
+    {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL)
             .appendingPathComponent("Fixtures")
         XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("all-on.json").path))
-        return HybridFixtureTransport(root: root, unavailable: unavailable, controlWrites: writes, fanOffSupported: fanOffSupported)
+        return HybridFixtureTransport(
+            root: root, unavailable: unavailable, controlWrites: writes, fanOffSupported: fanOffSupported)
     }
 
     private func source(_ transport: HybridFixtureTransport) -> LiveHomeDataSource {
-        LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
-            baseURL: URL(string: "http://localhost:18733")!), transport: transport,
-            calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root:
-                Bundle(for: LiveHomeDataSource.self).resourceURL!.appendingPathComponent("Fixtures"))),
+        LiveHomeDataSource(
+            configuration: PanelKit.PanelConfiguration(
+                baseURL: URL(string: "http://localhost:18733")!), transport: transport,
+            calendarAPI: CalendarAPI(
+                store: HybridCalendarFixtureStore(
+                    root:
+                        Bundle(for: LiveHomeDataSource.self).resourceURL!.appendingPathComponent("Fixtures"))),
             now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
     }
 
@@ -54,10 +61,15 @@ import PanelKit
 
     func testStatusReasonsNeverEchoServerOrTransportSecrets() {
         let secret = "https://user:credential@example.invalid/?token=private"
-        XCTAssertEqual(panelFailureReason(PanelAPIError.transport(secret), fallback: "Unavailable"), "Can't reach server")
-        XCTAssertEqual(panelFailureReason(PanelAPIError.server(code: secret, message: secret, httpStatus: 503),
-            fallback: "Unavailable"), "Can't reach server (HTTP 503)")
-        XCTAssertEqual(panelFailureReason(PanelAPIError.decoding(secret), fallback: "Unavailable"), "Server response couldn't be read")
+        XCTAssertEqual(
+            panelFailureReason(PanelAPIError.transport(secret), fallback: "Unavailable"), "Can't reach server")
+        XCTAssertEqual(
+            panelFailureReason(
+                PanelAPIError.server(code: secret, message: secret, httpStatus: 503),
+                fallback: "Unavailable"), "Can't reach server (HTTP 503)")
+        XCTAssertEqual(
+            panelFailureReason(PanelAPIError.decoding(secret), fallback: "Unavailable"),
+            "Server response couldn't be read")
     }
 
     func testAllLiveProvidersProjectExistingFixtures() async throws {
@@ -82,7 +94,7 @@ import PanelKit
         XCTAssertEqual(store.weather.humidity, 70)
         XCTAssertEqual(store.weather.wind, 10)
         XCTAssertFalse(store.weather.hours.isEmpty)
-        XCTAssertEqual(store.rooms.count, 4) // Unknown/unavailable devices are not actionable.
+        XCTAssertEqual(store.rooms.count, 4)  // Unknown/unavailable devices are not actionable.
         XCTAssertEqual(store.rooms[0].name, store.rooms[1].name)
         XCTAssertNotEqual(store.rooms[0].id, store.rooms[1].id)
         XCTAssertEqual(store.rooms[1].coordinator, store.rooms[0].id)
@@ -94,7 +106,7 @@ import PanelKit
         XCTAssertEqual(store.rooms[0].durationSeconds, 0)
         XCTAssertEqual(store.rooms[0].position(at: .now), 0)
         XCTAssertNil(store.rooms[2].trackTitle)
-        XCTAssertNil(store.rooms[3].trackTitle) // Missing metadata on a non-idle source must stay nil.
+        XCTAssertNil(store.rooms[3].trackTitle)  // Missing metadata on a non-idle source must stay nil.
         XCTAssertEqual(store.rooms[3].sourceKind, .lineIn)
     }
 
@@ -107,7 +119,9 @@ import PanelKit
         XCTAssertFalse(store.hasLiveData(for: .weather))
         XCTAssertTrue(store.weather.hours.isEmpty)
         XCTAssertEqual(store.weather.temperature, 0)
-        for module in [PanelModule.lights, .climate, .fan, .wifi, .sonos] { XCTAssertTrue(store.hasLiveData(for: module)) }
+        for module in [PanelModule.lights, .climate, .fan, .wifi, .sonos] {
+            XCTAssertTrue(store.hasLiveData(for: module))
+        }
         await transport.setFixture("weather/now.json", for: "weather.now")
         await store.refresh(.weather)
         XCTAssertTrue(store.hasLiveData(for: .weather))
@@ -120,7 +134,7 @@ import PanelKit
         for (procedure, fixture, module) in [
             ("wifi.guestQr", "wifi/unconfigured.json", PanelModule.wifi),
             ("sound.soundSystem", "sonos/empty.json", .sonos),
-            ("weather.hourly", "weather/empty-hourly.json", .weather)
+            ("weather.hourly", "weather/empty-hourly.json", .weather),
         ] {
             await transport.setFixture(fixture, for: procedure)
             await store.refresh(module)
@@ -130,7 +144,9 @@ import PanelKit
         XCTAssertNil(store.wifi.password)
         XCTAssertTrue(store.rooms.isEmpty)
         XCTAssertTrue(store.weather.hours.isEmpty)
-        for (procedure, module) in [("controls.list", PanelModule.lights), ("climate.get", .climate), ("controls.list", .fan)] {
+        for (procedure, module) in [
+            ("controls.list", PanelModule.lights), ("climate.get", .climate), ("controls.list", .fan),
+        ] {
             await transport.setFixture("sonos/unavailable.json", for: procedure)
             await store.refresh(module)
             XCTAssertFalse(store.hasLiveData(for: module))
@@ -201,12 +217,13 @@ import PanelKit
         XCTAssertEqual(store.lamps.scene, "White")
         await transport.setFixture("null-scene.json", for: "controls.list")
         await store.refresh(.lights)
-        XCTAssertEqual(store.lamps.scene, "Unavailable") // A later null must also clear the previous scene.
+        XCTAssertEqual(store.lamps.scene, "Unavailable")  // A later null must also clear the previous scene.
         await transport.setFixture("pending.json", for: "controls.list")
         await store.refresh(.lights)
-        let expected = Set(store.lightsProvider.pending.filter { $0 != "fan" }.map {
-            $0 == "bedroomLamps" ? "bedroom" : $0 == "otherLamps" ? "livingRoom" : $0
-        })
+        let expected = Set(
+            store.lightsProvider.pending.filter { $0 != "fan" }.map {
+                $0 == "bedroomLamps" ? "bedroom" : $0 == "otherLamps" ? "livingRoom" : $0
+            })
         XCTAssertEqual(store.pending, expected)
     }
 
@@ -216,7 +233,9 @@ import PanelKit
         let changed = expectation(description: "Composed source invalidates the view")
         withObservationTracking {
             _ = store.weather.temperature
-        } onChange: { changed.fulfill() }
+        } onChange: {
+            changed.fulfill()
+        }
         await store.refresh(.weather)
         await fulfillment(of: [changed], timeout: 2)
     }
@@ -251,7 +270,7 @@ import PanelKit
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: input) as? [String: Any])
         XCTAssertEqual(object["key"] as? String, "fan")
         XCTAssertEqual(object["on"] as? Bool, false)
-        XCTAssertTrue(store.lamps.anyOn) // Fan acknowledgements cannot overwrite lamp state.
+        XCTAssertTrue(store.lamps.anyOn)  // Fan acknowledgements cannot overwrite lamp state.
 
         await transport.setFixture("all-off.json", for: "controls.toggle")
         store.send(.toggle(.lamps))
@@ -273,11 +292,11 @@ import PanelKit
         let volume = try XCTUnwrap(requests.first { $0.url?.lastPathComponent == "sound.sonosSetVolume" })
         object = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(volume.httpBody)) as? [String: Any])
         XCTAssertEqual(object["deviceIp"] as? String, "media_player.test_alpha")
-        XCTAssertEqual(object["volume"] as? Int, 48) // 40% of the fixture's 120 baseline.
+        XCTAssertEqual(object["volume"] as? Int, 48)  // 40% of the fixture's 120 baseline.
         XCTAssertEqual(store.sonosProvider.availability, .live)
 
         let before = requests.count
-        store.send(.joinAll("Test Room")) // Two rooms share this label: ambiguous shortcut is rejected.
+        store.send(.joinAll("Test Room"))  // Two rooms share this label: ambiguous shortcut is rejected.
         store.send(.seek("media_player.test_alpha", 50))
         await Task.yield()
         requests = await transport.requests
@@ -322,8 +341,10 @@ import PanelKit
             let request = try XCTUnwrap(writes.first, procedure)
             XCTAssertEqual(request.url?.lastPathComponent, procedure)
             let actual = try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody), options: .fragmentsAllowed)
-            let actualJSON = try JSONSerialization.data(withJSONObject: actual, options: [.fragmentsAllowed, .sortedKeys])
-            let expectedJSON = try JSONSerialization.data(withJSONObject: input, options: [.fragmentsAllowed, .sortedKeys])
+            let actualJSON = try JSONSerialization.data(
+                withJSONObject: actual, options: [.fragmentsAllowed, .sortedKeys])
+            let expectedJSON = try JSONSerialization.data(
+                withJSONObject: input, options: [.fragmentsAllowed, .sortedKeys])
             XCTAssertEqual(actualJSON, expectedJSON, procedure)
             XCTAssertNil(store.errorMessage)
             store.stop()
@@ -344,8 +365,10 @@ import PanelKit
     func testUnloadedAndUnsupportedCommandsExposeAnErrorWithoutNetworkWrites() async throws {
         let transport = try fixtureTransport()
         let store = source(transport)
-        for command in [HomeCommand.toggle(.lamps), .brightness(30), .kelvin(3000), .scene("white"),
-                        .mode(.heat), .target(72), .low(68), .high(74), .fan(true), .fanMode("off")] {
+        for command in [
+            HomeCommand.toggle(.lamps), .brightness(30), .kelvin(3000), .scene("white"),
+            .mode(.heat), .target(72), .low(68), .high(74), .fan(true), .fanMode("off"),
+        ] {
             let revision = store.errorRevision
             store.send(command)
             XCTAssertNotNil(store.errorMessage)
@@ -358,7 +381,9 @@ import PanelKit
     func testUnavailableModulesRejectCommandsVisiblyAfterFailedRefresh() async throws {
         let transport = try fixtureTransport(unavailable: true)
         let store = source(transport)
-        let cases: [(PanelModule, HomeCommand)] = [(.lights, .toggle(.lamps)), (.climate, .target(72)), (.fan, .fan(false))]
+        let cases: [(PanelModule, HomeCommand)] = [
+            (.lights, .toggle(.lamps)), (.climate, .target(72)), (.fan, .fan(false)),
+        ]
         for (module, command) in cases {
             await store.refresh(module)
             XCTAssertFalse(store.hasLiveData(for: module))

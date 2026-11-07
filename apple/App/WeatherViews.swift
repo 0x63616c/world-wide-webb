@@ -71,17 +71,24 @@ struct HourlyChart: View {
                     VStack(spacing: compact ? 5 : 18) {
                         ZStack(alignment: .bottom) {
                             Capsule().fill(.white.opacity(selected == hour.id ? 0.9 : 0.35))
-                                .frame(width: compact ? 15 : 35, height: chartHeight * (Double(hour.temperature) - minTemp) / (maxTemp - minTemp))
+                                .frame(
+                                    width: compact ? 15 : 35,
+                                    height: chartHeight * (Double(hour.temperature) - minTemp) / (maxTemp - minTemp))
                             Rectangle().fill(.white.opacity(0.7)).frame(width: compact ? 24 : 47, height: 1)
                                 .offset(y: -chartHeight * (Double(hour.feels) - minTemp) / (maxTemp - minTemp))
                             Text("\(hour.temperature)°").font(.system(size: compact ? 12 : 22, weight: .medium))
-                                .offset(y: -chartHeight * (Double(hour.temperature) - minTemp) / (maxTemp - minTemp) - (compact ? 2 : 8))
+                                .offset(
+                                    y: -chartHeight * (Double(hour.temperature) - minTemp) / (maxTemp - minTemp)
+                                        - (compact ? 2 : 8))
                         }.frame(maxWidth: .infinity).frame(height: chartHeight, alignment: .bottom)
                         Image(systemName: hour.symbol).font(.system(size: compact ? 14 : 29))
                         Text(hour.time).font(.system(size: compact ? 12 : 21)).opacity(0.65)
                     }
                     .contentShape(Rectangle())
-                    .gesture(TapGesture().onEnded { selected = selected == hour.id ? nil : hour.id }, including: compact ? .none : .all)
+                    .gesture(
+                        TapGesture().onEnded { selected = selected == hour.id ? nil : hour.id },
+                        including: compact ? .none : .all
+                    )
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(hour.time), \(hour.temperature) degrees, feels like \(hour.feels)")
                 }

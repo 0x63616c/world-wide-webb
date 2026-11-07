@@ -29,7 +29,8 @@ import PanelKit
 
     func playback(for id: String) -> SonosPlaybackPosition? {
         guard availability == .live, let room = availableRoom(id),
-              let leader = availableRoom(room.coordinatorUuid) else { return nil }
+            let leader = availableRoom(room.coordinatorUuid)
+        else { return nil }
         return leader.playbackPosition
     }
 
@@ -117,18 +118,20 @@ import PanelKit
         let operation: Operation
         switch command {
         case .globalLock:
-            globalLock.toggle(); persistLocks()
+            globalLock.toggle()
+            persistLocks()
             PanelCommandLog.shared.record(control: "sonos.globalLock")
             return true
         case .groupLock:
-            groupLock.toggle(); persistLocks()
+            groupLock.toggle()
+            persistLocks()
             PanelCommandLog.shared.record(control: "sonos.groupLock")
             return true
         case .volume(let id, let value):
             guard let room = availableRoom(id) else { return false }
             let ids = confirmedRooms.compactMap { candidate -> String? in
                 guard availableRoom(candidate.id) != nil,
-                      globalLock || candidate.id == id || (groupLock && candidate.coordinator == room.coordinatorUuid)
+                    globalLock || candidate.id == id || (groupLock && candidate.coordinator == room.coordinatorUuid)
                 else { return nil }
                 return candidate.id
             }
@@ -144,7 +147,9 @@ import PanelKit
             guard availableRoom(id) != nil, let room = rooms.first(where: { $0.id == id }) else { return false }
             operation = .mute(id, !room.muted)
         case .transport(let id, let command):
-            guard availableRoom(id) != nil, let value = SonosTransportCommand(rawValue: command.rawValue) else { return false }
+            guard availableRoom(id) != nil, let value = SonosTransportCommand(rawValue: command.rawValue) else {
+                return false
+            }
             operation = .transport(id, value)
         case .seek(let id, let seconds):
             guard seconds.isFinite, let sample = playback(for: id) else { return false }
@@ -175,8 +180,9 @@ import PanelKit
         // Collapse consecutive slider updates behind the in-flight operation. Retain
         // ordering across mute, topology and calibration changes.
         if queue.count > 1, case .volume(let levels, let raw) = operation,
-           case .volume(let lastLevels, let lastRaw) = queue.last,
-           Set(levels.keys) == Set(lastLevels.keys), raw == lastRaw {
+            case .volume(let lastLevels, let lastRaw) = queue.last,
+            Set(levels.keys) == Set(lastLevels.keys), raw == lastRaw
+        {
             PanelCommandLog.shared.record(control: "sonos.volume.coalesced", error: "cancelled")
             queue[queue.count - 1] = operation
         } else {
@@ -200,7 +206,10 @@ import PanelKit
                     try await operation.perform(api, details: details)
                     try Task.checkCancellation()
                     guard self?.lifecycle == generation else { return }
-                    if case .clearCalibration = operation { self?.globalLock = false; self?.persistLocks() }
+                    if case .clearCalibration = operation {
+                        self?.globalLock = false
+                        self?.persistLocks()
+                    }
                     // Sonos writes return void, not state. Only a fresh query confirms it.
                     let state = try await api.soundSystem()
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
@@ -212,7 +221,9 @@ import PanelKit
                     guard !Task.isCancelled, let self, self.lifecycle == generation else { return }
                     // Also covers local topology/position failures before any HTTP call.
                     PanelCommandLog.shared.record(control: "sonos.command", error: "request failed")
-                    for _ in self.queue.dropFirst() { PanelCommandLog.shared.record(control: "sonos.queued", error: "dropped: action unavailable") }
+                    for _ in self.queue.dropFirst() {
+                        PanelCommandLog.shared.record(control: "sonos.queued", error: "dropped: action unavailable")
+                    }
                     self.queue.removeAll()
                     self.mutationTask = nil
                     self.render()
@@ -237,16 +248,18 @@ import PanelKit
             let leader = roomDetails[room.coordinatorUuid]
             let sample = leader?.availability == .available ? leader?.playbackPosition : nil
             let transportState = leader?.availability == .available ? leader?.transportState : nil
-            return SoundRoom(metadata: .init(id: room.uuid, title: leader?.trackTitle, artist: leader?.trackArtist,
-                                             coordinatorName: leader?.name),
-                      name: room.name, rawVolume: Int(room.volume.rounded()),
-                      baseline: room.baseline.map { Int($0.rounded()) }, muted: room.muted,
-                      coordinator: room.coordinatorUuid, playing: transportState == "PLAYING",
-                      reportedTransportState: transportState ?? "UNKNOWN",
-                      positionSeconds: sample?.position ?? 0, durationSeconds: sample?.duration ?? 0,
-                      positionUpdatedAt: sample?.updatedAt ?? .distantPast,
-                      sourceKind: SoundSource(rawValue: leader?.sourceKind.rawValue ?? "idle") ?? .other,
-                      sourceLabel: leader?.sourceLabel, albumArtUri: leader?.albumArtUri)
+            return SoundRoom(
+                metadata: .init(
+                    id: room.uuid, title: leader?.trackTitle, artist: leader?.trackArtist,
+                    coordinatorName: leader?.name),
+                name: room.name, rawVolume: Int(room.volume.rounded()),
+                baseline: room.baseline.map { Int($0.rounded()) }, muted: room.muted,
+                coordinator: room.coordinatorUuid, playing: transportState == "PLAYING",
+                reportedTransportState: transportState ?? "UNKNOWN",
+                positionSeconds: sample?.position ?? 0, durationSeconds: sample?.duration ?? 0,
+                positionUpdatedAt: sample?.updatedAt ?? .distantPast,
+                sourceKind: SoundSource(rawValue: leader?.sourceKind.rawValue ?? "idle") ?? .other,
+                sourceLabel: leader?.sourceLabel, albumArtUri: leader?.albumArtUri)
         }
         render()
     }
@@ -267,7 +280,7 @@ import PanelKit
                 }
             case .mute(let id, let value):
                 if let index = rooms.firstIndex(where: { $0.id == id }) { rooms[index].muted = value }
-            default: break // Topology/transport are only shown when reported by the backend.
+            default: break  // Topology/transport are only shown when reported by the backend.
             }
         }
     }
@@ -277,9 +290,14 @@ import PanelKit
     }
 
     private enum Operation {
-        case volume([String: Int], raw: Bool), mute(String, Bool)
-        case transport(String, SonosTransportCommand), join(String, String), joinAll(String), leave(String)
-        case seek(String, Double), source(String, SourceAction)
+        case volume([String: Int], raw: Bool)
+        case mute(String, Bool)
+        case transport(String, SonosTransportCommand)
+        case join(String, String)
+        case joinAll(String)
+        case leave(String)
+        case seek(String, Double)
+        case source(String, SourceAction)
         case calibrate, clearCalibration
         case lineInGroup(String, Set<String>)
 
@@ -297,7 +315,8 @@ import PanelKit
         func perform(_ api: SonosAPI, details: [String: SonosRoom]) async throws {
             func room(_ id: String) throws -> SonosRoom {
                 guard let room = details[id], room.availability == .available else {
-                    throw PanelAPIError.server(code: "SERVICE_UNAVAILABLE", message: "Room unavailable.", httpStatus: 503)
+                    throw PanelAPIError.server(
+                        code: "SERVICE_UNAVAILABLE", message: "Room unavailable.", httpStatus: 503)
                 }
                 return room
             }
@@ -306,7 +325,8 @@ import PanelKit
                 for (id, value) in levels.sorted(by: { $0.key < $1.key }) {
                     try Task.checkCancellation()
                     let target = try room(id)
-                    try await api.setVolume(deviceIp: target.deviceIp, volume: raw ? value : target.rawVolume(forDisplay: value))
+                    try await api.setVolume(
+                        deviceIp: target.deviceIp, volume: raw ? value : target.rawVolume(forDisplay: value))
                 }
             case .mute(let id, let muted):
                 try await api.setMute(deviceIp: room(id).deviceIp, muted: muted)
@@ -317,7 +337,8 @@ import PanelKit
                 let member = try room(id)
                 let leader = try room(room(target).coordinatorUuid)
                 guard member.coordinatorUuid != leader.uuid else {
-                    PanelCommandLog.shared.record(control: "sonos.join.alreadyGrouped"); return
+                    PanelCommandLog.shared.record(control: "sonos.join.alreadyGrouped")
+                    return
                 }
                 try await api.join(memberIp: member.deviceIp, coordinatorUuid: leader.uuid)
             case .joinAll(let target):
@@ -326,7 +347,8 @@ import PanelKit
                     $0.availability == .available && $0.coordinatorUuid != leader.uuid
                 }.map(\.deviceIp).sorted()
                 guard !members.isEmpty else {
-                    PanelCommandLog.shared.record(control: "sonos.joinAll.alreadyGrouped"); return
+                    PanelCommandLog.shared.record(control: "sonos.joinAll.alreadyGrouped")
+                    return
                 }
                 try await api.joinAll(coordinatorEntityId: leader.uuid, memberEntityIds: members)
             case .leave(let id):
@@ -335,7 +357,8 @@ import PanelKit
             case .seek(let id, let seconds):
                 let leader = try room(room(id).coordinatorUuid)
                 guard let sample = leader.playbackPosition else {
-                    throw PanelAPIError.server(code: "SERVICE_UNAVAILABLE", message: "Position unavailable.", httpStatus: 503)
+                    throw PanelAPIError.server(
+                        code: "SERVICE_UNAVAILABLE", message: "Position unavailable.", httpStatus: 503)
                 }
                 try await api.seek(room: leader.uuid, positionSeconds: min(sample.duration, seconds))
             case .source(let id, let action):
@@ -346,12 +369,13 @@ import PanelKit
                 case .joinAllToTV:
                     // Switching a follower to TV makes it the leader; rejoin its old group too.
                     let members = details.values.filter {
-                        $0.availability == .available && $0.uuid != target.uuid &&
-                        (!target.isCoordinator || $0.coordinatorUuid != target.uuid)
+                        $0.availability == .available && $0.uuid != target.uuid
+                            && (!target.isCoordinator || $0.coordinatorUuid != target.uuid)
                     }.map(\.deviceIp).sorted()
                     try await api.joinAllToTV(tvEntityId: target.deviceIp, memberEntityIds: members)
                 }
-            case .lineInGroup(let source, let excluded): try await api.groupLineIn(sourceID: source, excluding: excluded)
+            case .lineInGroup(let source, let excluded):
+                try await api.groupLineIn(sourceID: source, excluding: excluded)
             case .calibrate: _ = try await api.calibrate()
             case .clearCalibration: try await api.clearCalibration()
             }
@@ -375,7 +399,7 @@ import PanelKit
     @discardableResult func send(_ command: HomeCommand) -> Bool {
         switch command {
         case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock,
-             .calibrate, .clearCalibration, .joinAll, .join, .leave:
+            .calibrate, .clearCalibration, .joinAll, .join, .leave:
             source.send(command)
             return true
         default: return false

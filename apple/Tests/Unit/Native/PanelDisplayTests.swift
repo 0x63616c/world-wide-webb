@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Panel
 
 @MainActor final class PanelDisplayTests: XCTestCase {

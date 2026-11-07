@@ -15,7 +15,9 @@ struct WifiModule: View {
                 Text(provider.wifi.ssid ?? "Not configured").font(.system(size: 44, weight: .semibold))
                 if let password = provider.wifi.password {
                     HStack(alignment: .top, spacing: 16) {
-                        Button { passwordVisible.toggle() } label: {
+                        Button {
+                            passwordVisible.toggle()
+                        } label: {
                             Image(systemName: passwordVisible ? "eye.slash" : "eye")
                                 .font(.title3).frame(width: 52, height: 52)
                         }.buttonStyle(.glass).buttonBorderShape(.circle)
@@ -27,7 +29,9 @@ struct WifiModule: View {
                             .accessibilityHidden(!passwordVisible)
                             .allowsHitTesting(passwordVisible)
                     }
-                } else if provider.wifi.ssid != nil { Text("No password required") }
+                } else if provider.wifi.ssid != nil {
+                    Text("No password required")
+                }
             }.frame(maxWidth: .infinity, alignment: .leading)
             if let payload = provider.qrPayload, let image = GuestWifiCode.render(payload: payload) {
                 VStack(spacing: 20) {
@@ -104,7 +108,10 @@ struct WifiQRFullScreen: View {
         .onDisappear { brightness.restore() }
     }
 
-    private func finish() { brightness.restore(); close() }
+    private func finish() {
+        brightness.restore()
+        close()
+    }
 }
 
 /// Idempotent scope: a second attachment cannot overwrite the original brightness.
@@ -134,11 +141,17 @@ private struct WifiScreenAttachment: UIViewRepresentable {
 
     final class Attachment: UIView {
         let lease: WifiBrightnessLease
-        init(lease: WifiBrightnessLease) { self.lease = lease; super.init(frame: .zero) }
+        init(lease: WifiBrightnessLease) {
+            self.lease = lease
+            super.init(frame: .zero)
+        }
         required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            guard let screen = window?.screen else { lease.restore(); return }
+            guard let screen = window?.screen else {
+                lease.restore()
+                return
+            }
             lease.acquire(read: { screen.brightness }, write: { screen.brightness = $0 })
         }
     }

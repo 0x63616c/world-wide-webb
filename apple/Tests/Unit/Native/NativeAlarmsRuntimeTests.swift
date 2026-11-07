@@ -1,13 +1,17 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 @MainActor private final class AlarmSchedulerSpy: NativeAlarmScheduling {
     var events: [String] = []
     var authorized = true
     var failCancel = false
-    func authorize() async throws -> Bool { events.append("authorize"); return authorized }
+    func authorize() async throws -> Bool {
+        events.append("authorize")
+        return authorized
+    }
     func sync(_ snapshot: AlarmsSnapshot) async throws { events.append("schedule") }
     func cancel() throws {
         events.append("cancel")
@@ -20,13 +24,18 @@ import XCTest
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let transport = HybridFixtureTransport(root: root)
         await transport.setFixture("alarms/\(name).json", for: "alarms.list")
-        return try await AlarmsAPI(client: PanelAPIClient(configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://alarms.example.invalid")!), transport: transport)).list()
+        return try await AlarmsAPI(
+            client: PanelAPIClient(
+                configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://alarms.example.invalid")!),
+                transport: transport)
+        ).list()
     }
 
     func testScheduleAndRelease() async throws {
         let driver = AlarmSchedulerSpy()
         let runtime = NativeAlarmsRuntime(scheduler: driver)
-        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
+        await runtime.reconcile(
+            snapshot: try await snapshot("scheduled"), available: true, configured: true,
             syncWidget: { _ in driver.events.append("widget") })
         XCTAssertEqual(driver.events, ["authorize", "schedule", "widget"])
         XCTAssertTrue(runtime.ownsRinging)
@@ -40,7 +49,8 @@ import XCTest
         let driver = AlarmSchedulerSpy()
         driver.authorized = false
         let runtime = NativeAlarmsRuntime(scheduler: driver)
-        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
+        await runtime.reconcile(
+            snapshot: try await snapshot("scheduled"), available: true, configured: true,
             syncWidget: { _ in XCTFail("No widget sync") })
         XCTAssertFalse(runtime.ownsRinging)
         XCTAssertFalse(driver.events.contains("schedule"))
@@ -49,7 +59,8 @@ import XCTest
     func testFailedCancellationRetainsOwnershipForRetry() async throws {
         let driver = AlarmSchedulerSpy()
         let runtime = NativeAlarmsRuntime(scheduler: driver)
-        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
+        await runtime.reconcile(
+            snapshot: try await snapshot("scheduled"), available: true, configured: true,
             syncWidget: { _ in })
         driver.failCancel = true
         await runtime.release()
@@ -62,11 +73,13 @@ import XCTest
         let value = try await snapshot("scheduled")
         var widgets = 0
         for _ in 0..<2 {
-            await runtime.reconcile(snapshot: value, available: true, configured: true,
+            await runtime.reconcile(
+                snapshot: value, available: true, configured: true,
                 syncWidget: { _ in widgets += 1 })
         }
         XCTAssertEqual(widgets, 1)
-        await runtime.reconcile(snapshot: value, available: false, configured: true,
+        await runtime.reconcile(
+            snapshot: value, available: false, configured: true,
             syncWidget: { _ in XCTFail() })
         XCTAssertFalse(runtime.ownsRinging)
     }

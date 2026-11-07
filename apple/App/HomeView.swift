@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
@@ -45,19 +45,19 @@ enum HomeTile: String, CaseIterable, Identifiable {
     }
     var cells: (x: Int, y: Int, w: Int, h: Int) {
         switch self {
-        case .climate: (0,0,2,2)
-        case .clock: (2,0,1,1)
-        case .wifi: (2,1,1,1)
-        case .bedroom: (0,2,1,1)
-        case .livingRoom: (1,2,1,1)
-        case .ceiling: (2,2,1,1)
-        case .cabinet: (0,2,1,1)
-        case .fan: (1,2,1,1)
-        case .all: (2,2,1,1)
-        case .weather: (0,0,2,2)
-        case .tesla: (2,0,1,1)
-        case .sound: (2,1,1,1)
-        default: (0,0,1,1)
+        case .climate: (0, 0, 2, 2)
+        case .clock: (2, 0, 1, 1)
+        case .wifi: (2, 1, 1, 1)
+        case .bedroom: (0, 2, 1, 1)
+        case .livingRoom: (1, 2, 1, 1)
+        case .ceiling: (2, 2, 1, 1)
+        case .cabinet: (0, 2, 1, 1)
+        case .fan: (1, 2, 1, 1)
+        case .all: (2, 2, 1, 1)
+        case .weather: (0, 0, 2, 2)
+        case .tesla: (2, 0, 1, 1)
+        case .sound: (2, 1, 1, 1)
+        default: (0, 0, 1, 1)
         }
     }
     @MainActor func fill(_ store: any HomeDataSource) -> Color {
@@ -97,8 +97,10 @@ struct HomeView: View {
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
     private let catalog = PanelAppCatalog.standard
-    init(store: any HomeDataSource, initialTile: HomeTile? = nil, demo: Bool = false,
-         initialFace: Int = 0, managedTimer: PanelTimerStore? = nil, onWake: @escaping () -> Void = {}) {
+    init(
+        store: any HomeDataSource, initialTile: HomeTile? = nil, demo: Bool = false,
+        initialFace: Int = 0, managedTimer: PanelTimerStore? = nil, onWake: @escaping () -> Void = {}
+    ) {
         self.store = store
         self.initialTile = initialTile
         self.demo = demo
@@ -135,7 +137,8 @@ struct HomeView: View {
         DragGesture(minimumDistance: 14)
             .updating($faceDrag) { gesture, offset, _ in
                 guard faceSettle == nil,
-                      abs(gesture.translation.width) > abs(gesture.translation.height) else { return }
+                    abs(gesture.translation.width) > abs(gesture.translation.height)
+                else { return }
                 offset = min(width, max(-width, gesture.translation.width))
             }
             .onEnded { gesture in
@@ -146,9 +149,9 @@ struct HomeView: View {
                 }
                 let projected = gesture.predictedEndTranslation.width
                 let step = movement.width < 0 ? 1 : -1
-                let commit = abs(movement.width) >= width * 0.18 ||
-                    -CGFloat(step) * projected >= width * 0.24
-                settleFace(by: step, width: width,
+                let commit = abs(movement.width) >= width * 0.18 || -CGFloat(step) * projected >= width * 0.24
+                settleFace(
+                    by: step, width: width,
                     offset: min(width, max(-width, movement.width)), commit: commit)
             }
     }
@@ -209,19 +212,24 @@ struct HomeView: View {
                             .accessibilityAction { home() }
                             .accessibilityIdentifier("launcher-clock")
                     }
-                    AppLauncher(apps: catalog.apps, open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
-                        .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
-                        .background {
-                            LauncherGlassSurface()
-                        }
-                        .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .offset(y: showingClock ? proxy.size.height : 0)
-                        .allowsHitTesting(!showingClock && selected == nil)
-                        .accessibilityHidden(showingClock || selected != nil)
+                    AppLauncher(
+                        apps: catalog.apps, open: open, close: clock, isPresented: !showingClock && selected == nil,
+                        namespace: zoom
+                    )
+                    .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
+                    .background {
+                        LauncherGlassSurface()
+                    }
+                    .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
+                    .offset(y: showingClock ? proxy.size.height : 0)
+                    .allowsHitTesting(!showingClock && selected == nil)
+                    .accessibilityHidden(showingClock || selected != nil)
                 }
-                .modifier(LauncherSurfaceMotion(motion: launcherMotion,
-                    progress: selected == nil ? 0 : 1, width: proxy.size.width,
-                    incoming: false))
+                .modifier(
+                    LauncherSurfaceMotion(
+                        motion: launcherMotion,
+                        progress: selected == nil ? 0 : 1, width: proxy.size.width,
+                        incoming: false))
                 if let selected {
                     appScreen(selected)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
@@ -231,7 +239,7 @@ struct HomeView: View {
             }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
                 .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
                 #if os(macOS)
-                .onExitCommand { if showingClock || selected != nil { home() } else { clock() } }
+                    .onExitCommand { if showingClock || selected != nil { home() } else { clock() } }
                 #endif
                 .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
                 .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
@@ -247,28 +255,42 @@ struct HomeView: View {
                 }
                 .task {
                     #if DEBUG
-                    let arguments = ProcessInfo.processInfo.arguments
-                    if let index = arguments.firstIndex(of: "-previewApp"), arguments.indices.contains(index + 1),
-                       let app = catalog.app(id: arguments[index + 1]) { open(app); return }
+                        let arguments = ProcessInfo.processInfo.arguments
+                        if let index = arguments.firstIndex(of: "-previewApp"), arguments.indices.contains(index + 1),
+                            let app = catalog.app(id: arguments[index + 1])
+                        {
+                            open(app)
+                            return
+                        }
                     #endif
                     guard selected == nil else { return }
                     if initialFace != HomeFacePage.clock { shell.showLauncher() }
-                    if let initialTile, let app = catalog.apps.first(where: { definition in
-                        if case .feature(let feature) = definition.route { return feature.homeTile == initialTile }
-                        return false
-                    }) { open(app) }
+                    if let initialTile,
+                        let app = catalog.apps.first(where: { definition in
+                            if case .feature(let feature) = definition.route { return feature.homeTile == initialTile }
+                            return false
+                        })
+                    {
+                        open(app)
+                    }
                 }
-        }.modifier(PanelIdleDimming(onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake))
+        }.modifier(
+            PanelIdleDimming(
+                onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)
+        )
         #if targetEnvironment(simulator) || targetEnvironment(macCatalyst)
-        .background {
-            Button("Open apps") { if showingClock || selected != nil { home() } else { clock() } }
+            .background {
+                Button("Open apps") { if showingClock || selected != nil { home() } else { clock() } }
                 .keyboardShortcut(.escape, modifiers: [])
                 .frame(width: 0, height: 0).opacity(0).accessibilityHidden(true)
-        }
+            }
         #endif
     }
     private func open(_ app: PanelAppDefinition) {
-        if app.route == .clock { clock(); return }
+        if app.route == .clock {
+            clock()
+            return
+        }
         withAnimation(launcherMotion.animation) {
             _ = shell.open(app.id, catalog: catalog)
         }
@@ -280,8 +302,9 @@ struct HomeView: View {
                 case .settings: PanelSettingsPage(back: home)
                 case .timer: PanelTimerPage(timer: timer)
                 case .photoBooth:
-                    if let booth = integration?.photoBooth(close: home) { booth }
-                    else {
+                    if let booth = integration?.photoBooth(close: home) {
+                        booth
+                    } else {
                         VStack {
                             ContentUnavailableView("Photo Booth requires the panel app", systemImage: "camera")
                         }
@@ -289,15 +312,20 @@ struct HomeView: View {
                     }
                 case .clock: EmptyView()
                 case .feature(let feature):
-                    if let integration { integration.destination(feature.homeTile, close: home) }
-                    else { prototypeScreen(feature) }
+                    if let integration {
+                        integration.destination(feature.homeTile, close: home)
+                    } else {
+                        prototypeScreen(feature)
+                    }
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("app-screen-\(app.id)")
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if app.route != .timer && app.route != .photoBooth && app.route != .settings && app.route != .feature(.climate) {
+                if app.route != .timer && app.route != .photoBooth && app.route != .settings
+                    && app.route != .feature(.climate)
+                {
                     PanelAppNavigationBar(back: home)
                 }
             }
@@ -314,7 +342,10 @@ struct HomeView: View {
             .accessibilityAction(.escape) { home() }
             .accessibilityAction(named: "Open apps") { home() }
             .environment(\.motionPhase, inheritedMotionPhase)
-            .onKeyPress(.escape) { home(); return .handled }
+            .onKeyPress(.escape) {
+                home()
+                return .handled
+            }
     }
     @ViewBuilder private func prototypeScreen(_ feature: PanelAppFeature) -> some View {
         switch feature {
@@ -369,7 +400,9 @@ struct FacePicker: View {
     var body: some View {
         HStack(spacing: sizeClass == .compact ? 4 : 10) {
             ForEach(0..<4) { page in
-                Button { withAnimation(.easeInOut(duration: 0.25)) { selection = page } } label: {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) { selection = page }
+                } label: {
                     Circle().fill(.white.opacity(selection == page ? 0.95 : 0.3))
                         .frame(width: 8, height: 8).frame(width: 44, height: 44)
                         .contentShape(.rect)
@@ -402,7 +435,8 @@ struct HomeGlassFace: View {
         } else {
             GeometryReader { _ in
                 GlassEffectContainer(spacing: 12) {
-                    HomeFaceGrid(store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)
+                    HomeFaceGrid(
+                        store: store, size: size, controls: controls, selected: selected, zoom: zoom, open: open)
                 }
             }
         }
@@ -416,7 +450,11 @@ struct HomeFaceGrid: View {
     let zoom: Namespace.ID
     let open: (HomeTile) -> Void
     var body: some View {
-        if HomeGrid.enabled { GridHomeFace(store: store, size: size, page: controls ? 1 : 0, open: open, zoom: zoom) } else { legacy }
+        if HomeGrid.enabled {
+            GridHomeFace(store: store, size: size, page: controls ? 1 : 0, open: open, zoom: zoom)
+        } else {
+            legacy
+        }
     }
     private var legacy: some View {
         let layout = HomeFaceLayout.panel(in: size, controls: controls)
@@ -430,7 +468,11 @@ struct HomeFaceGrid: View {
             ForEach(layout.items) { item in
                 MixedHomeTile(tile: item.tile, store: store, open: { open(item.tile) })
                     .frame(width: item.frame.width, height: item.frame.height)
-                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos].contains(item.tile)))
+                    .modifier(
+                        MixedTileMaterial(
+                            round: item.round, on: tileOn(item.tile),
+                            imageContent: [.weather, .photos].contains(item.tile))
+                    )
                     .glassEffectID("\(controls)-\(item.id)", in: zoom)
                     .matchedTransitionSource(id: "\(controls ? 1 : 0)-\(item.id)", in: zoom)
                     .position(x: item.frame.midX, y: item.frame.midY)
@@ -477,10 +519,17 @@ struct TileFace: View {
     private var climate: some View {
         GeometryReader { proxy in
             VStack(spacing: 0) {
-                Text(store.climate.mode == .off ? "Off" : store.climate.mode == .heatCool ? "\(store.climate.low)–\(store.climate.high)" : "\(store.climate.target)")
-                    .font(.system(size: proxy.size.height * (store.climate.mode == .heatCool ? 0.29 : 0.46), weight: .regular))
-                    .monospacedDigit().contentTransition(.numericText()).minimumScaleFactor(0.5).lineLimit(1)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text(
+                    store.climate.mode == .off
+                        ? "Off"
+                        : store.climate.mode == .heatCool
+                            ? "\(store.climate.low)–\(store.climate.high)" : "\(store.climate.target)"
+                )
+                .font(
+                    .system(size: proxy.size.height * (store.climate.mode == .heatCool ? 0.29 : 0.46), weight: .regular)
+                )
+                .monospacedDigit().contentTransition(.numericText()).minimumScaleFactor(0.5).lineLimit(1)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 HStack(alignment: .center) {
                     setpointButton("chevron.down", label: "Lower setpoint", delta: -1)
                     Spacer(minLength: 0)
@@ -497,7 +546,9 @@ struct TileFace: View {
         }
     }
     private func setpointButton(_ symbol: String, label: String, delta: Int) -> some View {
-        Button { step(delta) } label: {
+        Button {
+            step(delta)
+        } label: {
             Image(systemName: symbol).font(.system(size: 62, weight: .semibold))
                 .frame(width: 92, height: 92).contentShape(Circle())
         }.buttonStyle(.plain)
@@ -516,8 +567,12 @@ struct AccessoryFace: View {
     let store: any HomeDataSource
     let open: () -> Void
     var fanIsOn: Bool? = nil
-    var on: Bool { key == .fan ? (fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off)) : store.lamps.isOn(key) }
-    var title: String { key == .bedroom ? "Bedroom" : key == .livingRoom ? "Living Room" : key == .ceiling ? "Ceiling" : key.name }
+    var on: Bool {
+        key == .fan ? (fanIsOn ?? (store.climate.fanOn && store.climate.mode != .off)) : store.lamps.isOn(key)
+    }
+    var title: String {
+        key == .bedroom ? "Bedroom" : key == .livingRoom ? "Living Room" : key == .ceiling ? "Ceiling" : key.name
+    }
     var subtitle: String {
         switch key {
         case .all: on ? "All lights on" : "Some lights off"
@@ -531,16 +586,28 @@ struct AccessoryFace: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            Button { store.send(.toggle(key)) } label: {
+            Button {
+                store.send(.toggle(key))
+            } label: {
                 Group {
-                    if key == .fan { FanSymbol(on: on) }
-                    else { Image(systemName: key.symbol).symbolRenderingMode(.hierarchical) }
+                    if key == .fan {
+                        FanSymbol(on: on)
+                    } else {
+                        Image(systemName: key.symbol).symbolRenderingMode(.hierarchical)
+                    }
                 }.font(.system(size: 64, weight: .regular))
                     .foregroundStyle(on ? Color.orange : .white)
                     .frame(width: 120, height: 100)
-                    .background { if key != .fan { LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180).allowsHitTesting(false) } }
+                    .background {
+                        if key != .fan {
+                            LampGlow(on: on, brightness: store.lamps.brightness).frame(width: 200, height: 180)
+                                .allowsHitTesting(false)
+                        }
+                    }
             }.buttonStyle(.plain).padding(.bottom, 20)
-                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(key == .fan ? store.climate.fanLabel : on ? "On" : "Off").accessibilityIdentifier("toggle-\(key.rawValue)")
+                .accessibilityLabel("Toggle \(key.name)").accessibilityValue(
+                    key == .fan ? store.climate.fanLabel : on ? "On" : "Off"
+                ).accessibilityIdentifier("toggle-\(key.rawValue)")
             Button(action: open) {
                 VStack(spacing: 7) {
                     Text(title).font(.system(size: key == .cabinet ? 30 : 32, weight: .semibold)).lineLimit(1)
@@ -550,4 +617,6 @@ struct AccessoryFace: View {
         }.foregroundStyle(on ? Color.black : Color.white).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-#Preview("Home face · 1376 × 1032", traits: .fixedLayout(width: 1376, height: 1032)) { HomeView(store: MockHomeDataSource()) }
+#Preview("Home face · 1376 × 1032", traits: .fixedLayout(width: 1376, height: 1032)) {
+    HomeView(store: MockHomeDataSource())
+}

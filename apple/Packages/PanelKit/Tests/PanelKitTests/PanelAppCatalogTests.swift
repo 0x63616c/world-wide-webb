@@ -1,4 +1,5 @@
 import Testing
+
 @testable import PanelKit
 
 @Suite struct PanelAppCatalogTests {
@@ -28,7 +29,9 @@ import Testing
     }
     @Test func rejectsMissingMetadata() {
         #expect(throws: PanelAppCatalog.ValidationError.emptyMetadata) {
-            try PanelAppCatalog(apps: [.init(id: "empty", name: "", symbol: "gear", accent: "#ffffff", route: .settings)])
+            try PanelAppCatalog(apps: [
+                .init(id: "empty", name: "", symbol: "gear", accent: "#ffffff", route: .settings)
+            ])
         }
     }
     @Test func navigationReturnsToLauncherAndRejectsUnknownApps() {

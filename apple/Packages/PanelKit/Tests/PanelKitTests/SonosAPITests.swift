@@ -1,9 +1,11 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Testing
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 @Suite struct SonosAPITests {
     @Test func decodesExactRoomContractAndCalibrationMath() async throws {
@@ -30,7 +32,7 @@ import Testing
         #expect(state.rooms[2].trackTitle == nil)
         #expect(state.rooms[2].rawVolume(forDisplay: 37) == 37)
         #expect(state.rooms[3].availability == .unavailable)
-        #expect(state.rooms[3].displayVolume == 40) // zero baseline is uncalibrated
+        #expect(state.rooms[3].displayVolume == 40)  // zero baseline is uncalibrated
         #expect(state.rooms[3].rawVolume(forDisplay: 37) == 37)
         #expect(state.rooms[4].availability == .unknown)
         #expect(state.rooms[5].sourceKind == .lineIn)
@@ -60,14 +62,18 @@ import Testing
             try await api.transport(coordinatorIp: "media_player.test_alpha", command: command)
         }
         try await api.join(memberIp: "media_player.test_beta", coordinatorUuid: "media_player.test_alpha")
-        try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: ["media_player.test_beta"])
+        try await api.joinAll(
+            coordinatorEntityId: "media_player.test_alpha", memberEntityIds: ["media_player.test_beta"])
         try await api.leave(memberIp: "media_player.test_beta", memberUuid: "media_player.test_beta")
         try await api.clearCalibration()
         try await api.seek(room: "media_player.test_alpha", positionSeconds: 42.5)
         try await api.setLineIn(deviceIp: "media_player.test_beta", sourceUuid: "media_player.test_beta")
         try await api.grabTV(beamIp: "media_player.test_beta", beamUuid: "media_player.test_beta")
         try await api.joinAllToTV(tvEntityId: "media_player.test_beta", memberEntityIds: [])
-        let expected = ["volume","mute","transport","transport","transport","transport","join","join","leave","clear","seek","source","source","tv"]
+        let expected = [
+            "volume", "mute", "transport", "transport", "transport", "transport", "join", "join", "leave", "clear",
+            "seek", "source", "source", "tv",
+        ]
         let requests = await transport.requests
         #expect(requests.count == expected.count)
         for (request, action) in zip(requests, expected) {
@@ -76,7 +82,7 @@ import Testing
                 #expect(request.httpBody == nil)
             } else {
                 #expect(request.httpMethod == "POST" && request.url?.path == "/api/v1/sound")
-                let body = try JSONSerialization.jsonObject(with: #require(request.httpBody)) as! [String:Any]
+                let body = try JSONSerialization.jsonObject(with: #require(request.httpBody)) as! [String: Any]
                 #expect(body["action"] as? String == action)
             }
         }
@@ -96,15 +102,25 @@ import Testing
         let transport = SonosAPIStub(try fixture("void"))
         let api = api(transport)
         for volume in [-1, 101] {
-            await #expect(throws: PanelAPIError.self) { try await api.setVolume(deviceIp: "media_player.test_alpha", volume: volume) }
+            await #expect(throws: PanelAPIError.self) {
+                try await api.setVolume(deviceIp: "media_player.test_alpha", volume: volume)
+            }
         }
         await #expect(throws: PanelAPIError.self) { try await api.join(memberIp: "test", coordinatorUuid: "") }
         await #expect(throws: PanelAPIError.self) { try await api.leave(memberIp: "test", memberUuid: "") }
-        await #expect(throws: PanelAPIError.self) { try await api.joinAll(coordinatorEntityId: "192.0.2.10", memberEntityIds: ["media_player.test_beta"]) }
-        await #expect(throws: PanelAPIError.self) { try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: []) }
-        await #expect(throws: PanelAPIError.self) { try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: ["invalid"]) }
+        await #expect(throws: PanelAPIError.self) {
+            try await api.joinAll(coordinatorEntityId: "192.0.2.10", memberEntityIds: ["media_player.test_beta"])
+        }
+        await #expect(throws: PanelAPIError.self) {
+            try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: [])
+        }
+        await #expect(throws: PanelAPIError.self) {
+            try await api.joinAll(coordinatorEntityId: "media_player.test_alpha", memberEntityIds: ["invalid"])
+        }
         for position in [-1, Double.infinity, Double.nan] {
-            await #expect(throws: PanelAPIError.self) { try await api.seek(room: "media_player.test_alpha", positionSeconds: position) }
+            await #expect(throws: PanelAPIError.self) {
+                try await api.seek(room: "media_player.test_alpha", positionSeconds: position)
+            }
         }
         await #expect(throws: PanelAPIError.self) { try await api.seek(room: "media_player.x?bad", positionSeconds: 0) }
         #expect(await transport.requests.isEmpty)
@@ -139,18 +155,24 @@ import Testing
             try JSONDecoder().decode(SonosRoom.self, from: JSONSerialization.data(withJSONObject: value))
         }
         #expect(try decode(room).playbackPosition == nil)
-        room["position"] = 12.5; room["duration"] = 200; room["positionAt"] = "2026-01-01T00:00:00.123Z"
+        room["position"] = 12.5
+        room["duration"] = 200
+        room["positionAt"] = "2026-01-01T00:00:00.123Z"
         let sample = try #require(decode(room).playbackPosition)
         #expect(sample.position == 12.5)
         #expect(sample.duration == 200)
         for key in ["position", "duration", "positionAt"] {
-            var partial = room; partial.removeValue(forKey: key)
+            var partial = room
+            partial.removeValue(forKey: key)
             #expect(try decode(partial).playbackPosition == nil)
         }
-        for (key, value) in [("position", -1 as Any), ("duration", 0), ("positionAt", "invalid"),
-                             ("sourceKind", "tv"), ("sourceKind", "line-in"), ("availability", "unavailable"),
-                             ("transportState", "STOPPED")] {
-            var invalid = room; invalid[key] = value
+        for (key, value) in [
+            ("position", -1 as Any), ("duration", 0), ("positionAt", "invalid"),
+            ("sourceKind", "tv"), ("sourceKind", "line-in"), ("availability", "unavailable"),
+            ("transportState", "STOPPED"),
+        ] {
+            var invalid = room
+            invalid[key] = value
             #expect(try decode(invalid).playbackPosition == nil)
         }
         room["position"] = 250
@@ -159,7 +181,9 @@ import Testing
 
     @Test func lineInGroupingNeverWritesToProtectedTV() async throws {
         let transport = LineInTransport(state: try fixture("rooms"))
-        let api = SonosAPI(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)
+        let api = SonosAPI(
+            configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+            transport: transport)
         try await api.groupLineIn(sourceID: "media_player.test_beta", excluding: ["media_player.test_alpha"])
         let writes = await transport.requests.filter { $0.httpMethod == "POST" }
         #expect(writes.count == 3)
@@ -167,13 +191,21 @@ import Testing
             let body = String(data: try #require(request.httpBody), encoding: .utf8)!
             #expect(!body.contains("media_player.test_alpha"))
         }
-        #expect(writes[0].url!.path.hasSuffix("sound.sonosGroupLeave"))
-        #expect(writes[1].url!.path.hasSuffix("sound.sonosSetLineIn"))
+        #expect(
+            try JSONSerialization.jsonObject(with: #require(writes[0].httpBody)) as? [String: String] == [
+                "action": "leave", "room": "media_player.test_beta",
+            ])
+        #expect(
+            try JSONSerialization.jsonObject(with: #require(writes[1].httpBody)) as? [String: String] == [
+                "action": "source", "room": "media_player.test_beta", "source": "Line-in",
+            ])
     }
 
     @Test func lineInRefusesToSwitchSourceWithProtectedFollower() async throws {
         let transport = LineInTransport(state: try fixture("rooms"))
-        let api = SonosAPI(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)
+        let api = SonosAPI(
+            configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+            transport: transport)
         await #expect(throws: PanelAPIError.self) {
             try await api.groupLineIn(sourceID: "media_player.test_alpha", excluding: ["media_player.test_beta"])
         }
@@ -181,12 +213,15 @@ import Testing
     }
 
     private func fixture(_ name: String) throws -> Data {
-        let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/sonos"))
+        let url = try #require(
+            Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/sonos"))
         return try Data(contentsOf: url)
     }
 
     private func api(_ transport: SonosAPIStub) -> SonosAPI {
-        SonosAPI(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)
+        SonosAPI(
+            configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+            transport: transport)
     }
 }
 
@@ -194,7 +229,10 @@ private actor SonosAPIStub: PanelTransport {
     private(set) var requests: [URLRequest] = []
     let data: Data
     let status: Int
-    init(_ data: Data, status: Int = 200) { self.data = data; self.status = status }
+    init(_ data: Data, status: Int = 200) {
+        self.data = data
+        self.status = status
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
@@ -207,7 +245,9 @@ private actor LineInTransport: PanelTransport {
     init(state: Data) { self.state = state }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
-        return (request.httpMethod == "POST" ? Data(#"null"#.utf8) : state,
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (
+            request.httpMethod == "POST" ? Data(#"null"#.utf8) : state,
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
     }
 }

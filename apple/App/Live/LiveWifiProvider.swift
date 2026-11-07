@@ -100,7 +100,8 @@ import PanelKit
             }
         }
         guard ended, !escaped, key.isEmpty, !inValue,
-              let ssid = fields["S"], !ssid.isEmpty else { throw PayloadError.invalid }
+            let ssid = fields["S"], !ssid.isEmpty
+        else { throw PayloadError.invalid }
         switch fields["T"] {
         case "nopass":
             guard fields["P"] == nil || fields["P"] == "" else { throw PayloadError.invalid }

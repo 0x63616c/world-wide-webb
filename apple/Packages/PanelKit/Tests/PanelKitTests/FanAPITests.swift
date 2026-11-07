@@ -1,9 +1,11 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Testing
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 private actor FanTransport: PanelTransport {
     let data: Data
@@ -16,12 +18,18 @@ private actor FanTransport: PanelTransport {
 }
 
 @Test func fanFixturesDecodeAndQuery() async throws {
-    for (name, on, sub, pending) in [("on", true, "On", false), ("auto", false, "Auto", false),
-                                     ("off", false, "Off", false), ("pending", true, "On", true),
-                                     ("unknown", false, "", false)] {
-        let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/fan"))
+    for (name, on, sub, pending) in [
+        ("on", true, "On", false), ("auto", false, "Auto", false),
+        ("off", false, "Off", false), ("pending", true, "On", true),
+        ("unknown", false, "", false),
+    ] {
+        let url = try #require(
+            Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/fan"))
         let transport = FanTransport(try Data(contentsOf: url))
-        let api = FanAPI(client: PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport))
+        let api = FanAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                transport: transport))
         let state = try await api.list()
         #expect(state.fan.on == on)
         #expect(state.fan.sub == sub)
@@ -34,10 +42,14 @@ private actor FanTransport: PanelTransport {
 }
 
 @Test func fanToggleSendsExactInputInBothDirections() async throws {
-    let url = try #require(Bundle.module.url(forResource: "pending", withExtension: "json", subdirectory: "Fixtures/fan"))
+    let url = try #require(
+        Bundle.module.url(forResource: "pending", withExtension: "json", subdirectory: "Fixtures/fan"))
     for on in [true, false] {
         let transport = FanTransport(try Data(contentsOf: url))
-        let api = FanAPI(client: PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport))
+        let api = FanAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                transport: transport))
         let state = try await api.toggle(on: on)
         #expect(state.fan.pending)
         let request = try #require(await transport.requests.first)
@@ -45,6 +57,6 @@ private actor FanTransport: PanelTransport {
         #expect(request.url?.path == "/api/v1/controls")
         let body = try #require(request.httpBody)
         let object = try #require(JSONSerialization.jsonObject(with: body) as? NSDictionary)
-        #expect(object == ["action":"toggle", "key": "fan", "on": on] as NSDictionary)
+        #expect(object == ["action": "toggle", "key": "fan", "on": on] as NSDictionary)
     }
 }

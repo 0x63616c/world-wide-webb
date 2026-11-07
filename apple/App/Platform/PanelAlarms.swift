@@ -22,8 +22,9 @@ final class PanelAlarms {
     func configure(serverURL: URL, token: String, cfID: String, cfSecret: String) {
         guard !token.isEmpty else { return }
         configuration = Task {
-            try await coordinator.configure(url: serverURL.absoluteString, token: token,
-                                            clientID: cfID, clientSecret: cfSecret)
+            try await coordinator.configure(
+                url: serverURL.absoluteString, token: token,
+                clientID: cfID, clientSecret: cfSecret)
         }
     }
 
@@ -48,8 +49,7 @@ private struct NextAlarmPayload: Encodable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        if let next { try container.encode(next, forKey: .next) }
-        else { try container.encodeNil(forKey: .next) }
+        if let next { try container.encode(next, forKey: .next) } else { try container.encodeNil(forKey: .next) }
     }
 
     private enum CodingKeys: String, CodingKey { case next }

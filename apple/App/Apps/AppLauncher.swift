@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 /// Shared iPad/iPhone/desktop geometry, based on the available window, not a device model.
 struct LauncherLayout {
@@ -37,9 +37,13 @@ struct AppLauncher: View {
             let firstRowTop = headerInset + PanelProfileSelector.avatarSide + 24
             ScrollView(.vertical) {
                 GlassEffectContainer(spacing: 32) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48) {
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48
+                    ) {
                         ForEach(apps) { app in
-                            Button { open(app) } label: {
+                            Button {
+                                open(app)
+                            } label: {
                                 VStack(spacing: 14) {
                                     LauncherAppIcon(app: app, side: iconSide)
                                         .matchedTransitionSource(id: app.id, in: namespace)
@@ -60,22 +64,25 @@ struct AppLauncher: View {
                 } action: { _, atTop in
                     isAtTop = atTop
                 }
-                .simultaneousGesture(DragGesture(minimumDistance: 12)
-                    .onChanged { _ in
-                        if swipeStartedAtTop == nil { swipeStartedAtTop = isAtTop }
-                    }
-                    .onEnded { value in
-                        defer { swipeStartedAtTop = nil }
-                        guard isPresented, swipeStartedAtTop == true,
-                              value.translation.height > abs(value.translation.width),
-                              value.translation.height > 80 || value.predictedEndTranslation.height > 180 else { return }
-                        close()
-                    })
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 12)
+                        .onChanged { _ in
+                            if swipeStartedAtTop == nil { swipeStartedAtTop = isAtTop }
+                        }
+                        .onEnded { value in
+                            defer { swipeStartedAtTop = nil }
+                            guard isPresented, swipeStartedAtTop == true,
+                                value.translation.height > abs(value.translation.width),
+                                value.translation.height > 80 || value.predictedEndTranslation.height > 180
+                            else { return }
+                            close()
+                        }
+                )
                 .modifier(PanelProfileSelector(isAvailable: isPresented, inset: headerInset))
         }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("app-launcher")
-            .accessibilityAction(named: "Return to clock") { close() }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("app-launcher")
+        .accessibilityAction(named: "Return to clock") { close() }
     }
 }
 
@@ -92,8 +99,11 @@ struct LauncherGlassSurface: View {
 
     private var preview: String {
         #if DEBUG
-        if let value = UserDefaults.standard.string(forKey: "previewLauncherGlass"),
-           value == "clear" || value == "clearDim" { return value }
+            if let value = UserDefaults.standard.string(forKey: "previewLauncherGlass"),
+                value == "clear" || value == "clearDim"
+            {
+                return value
+            }
         #endif
         return "regular"
     }
@@ -107,12 +117,17 @@ struct SwipeHomeRegion: View {
     var cancelled: () -> Void = {}
     var body: some View {
         Color.clear.frame(width: 220, height: 88).contentShape(.rect)
-            .gesture(DragGesture(minimumDistance: 12)
-                .onChanged { dragChanged($0.translation.height) }
-                .onEnded { value in
-                    if value.translation.height < -60 || value.predictedEndTranslation.height < -150 { action() }
-                    else { cancelled() }
-                })
+            .gesture(
+                DragGesture(minimumDistance: 12)
+                    .onChanged { dragChanged($0.translation.height) }
+                    .onEnded { value in
+                        if value.translation.height < -60 || value.predictedEndTranslation.height < -150 {
+                            action()
+                        } else {
+                            cancelled()
+                        }
+                    }
+            )
             .accessibilityElement().accessibilityLabel("Home")
             .accessibilityAddTraits(.isButton).accessibilityAction { action() }
     }
@@ -122,7 +137,8 @@ struct PanelSettingsPage: View {
     let back: () -> Void
     @Environment(\.homeIntegration) private var integration
     private enum Page: String, CaseIterable, Identifiable {
-        case display = "Display", security = "Security"
+        case display = "Display"
+        case security = "Security"
         var id: String { rawValue }
         var symbol: String { self == .display ? "display" : "lock.shield" }
     }
@@ -141,7 +157,9 @@ struct PanelSettingsPage: View {
                         PanelConnectionSettings()
                         Section("Panel PIN") {
                             if let api = integration?.panelPIN {
-                                NavigationLink { PanelPINChangePage(api: api) } label: {
+                                NavigationLink {
+                                    PanelPINChangePage(api: api)
+                                } label: {
                                     Label("Change PIN", systemImage: "key.fill")
                                 }.accessibilityIdentifier("settings-change-pin")
                             } else {

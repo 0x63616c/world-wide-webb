@@ -28,8 +28,7 @@ extension XCUIApplication {
     @MainActor func launchModuleFromHome(_ module: String? = nil) {
         launch()
         if launchArguments.contains("-hybridAlarmRinging") { return }
-        if let module { openHomeModule(module) }
-        else { openAppGrid() }
+        if let module { openHomeModule(module) } else { openAppGrid() }
     }
     @MainActor func returnHomeFromModule() { openAppGrid() }
     @MainActor func selectHomeFace(_ index: Int) { openAppGrid() }
@@ -39,8 +38,15 @@ extension XCUIApplication {
             open(URL(string: "controlcenter://alarms")!)
             return
         }
-        let ids = ["lights": "lights", "climate": "climate", "fan": "climate", "wifi": "wifi", "sonos": "music", "weather": "weather", "photos": "photos", "walk": "walks", "calendar": "calendar", "media": "music", "tesla": "car", "cameras": "cameras"]
-        guard let id = ids[module] else { XCTFail("Missing app route for \(module)"); return }
+        let ids = [
+            "lights": "lights", "climate": "climate", "fan": "climate", "wifi": "wifi", "sonos": "music",
+            "weather": "weather", "photos": "photos", "walk": "walks", "calendar": "calendar", "media": "music",
+            "tesla": "car", "cameras": "cameras",
+        ]
+        guard let id = ids[module] else {
+            XCTFail("Missing app route for \(module)")
+            return
+        }
         buttons["app-\(id)"].tap()
         XCTAssertTrue(descendants(matching: .any)["app-screen-\(id)"].firstMatch.waitForExistence(timeout: 15))
     }

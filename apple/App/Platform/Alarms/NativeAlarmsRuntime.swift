@@ -11,8 +11,10 @@ import PanelKit
     private var didSyncNext = false
     init(scheduler: any NativeAlarmScheduling = NativeAlarmScheduler.shared) { self.scheduler = scheduler }
 
-    func reconcile(snapshot: AlarmsSnapshot?, available: Bool, configured: Bool,
-                   syncWidget: (AlarmNext?) async throws -> Void) async {
+    func reconcile(
+        snapshot: AlarmsSnapshot?, available: Bool, configured: Bool,
+        syncWidget: (AlarmNext?) async throws -> Void
+    ) async {
         guard !reconciling else { return }
         reconciling = true
         defer { reconciling = false }
@@ -48,9 +50,9 @@ import PanelKit
 }
 
 #if DEBUG
-@MainActor final class FixtureAlarmScheduler: NativeAlarmScheduling {
-    func authorize() async throws -> Bool { true }
-    func sync(_ snapshot: AlarmsSnapshot) async throws {}
-    func cancel() throws {}
-}
+    @MainActor final class FixtureAlarmScheduler: NativeAlarmScheduling {
+        func authorize() async throws -> Bool { true }
+        func sync(_ snapshot: AlarmsSnapshot) async throws {}
+        func cancel() throws {}
+    }
 #endif

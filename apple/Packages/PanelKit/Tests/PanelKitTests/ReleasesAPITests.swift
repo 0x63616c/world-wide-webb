@@ -1,9 +1,11 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Testing
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 @Suite struct ReleasesAPITests {
     @Test func decodesReleaseAndUsesPanelTransport() async throws {
@@ -19,11 +21,12 @@ import Testing
         #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "synthetic-secret")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         let components = try #require(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
-        #expect(components.queryItems?.first?.value == #"{"app":"panel"}"#)
+        #expect(components.queryItems?.first?.value == "panel")
     }
 
     @Test func missingReleasePreserves404() async throws {
-        await #expect(throws: PanelAPIError.server(code: "NOT_FOUND", message: "No release recorded", httpStatus: 404)) {
+        await #expect(throws: PanelAPIError.server(code: "NOT_FOUND", message: "No release recorded", httpStatus: 404))
+        {
             _ = try await api(ReleaseStub(try fixture("missing"), status: 404)).latest()
         }
     }
@@ -35,7 +38,7 @@ import Testing
         #"{"app":"panel","build":1.5,"updatedAt":"2026-10-30T12:00:00Z"}"#,
         #"{"app":"panel","build":"123","updatedAt":"2026-10-30T12:00:00Z"}"#,
         #"{"app":"panel","build":123,"updatedAt":"bad"}"#,
-        #"{"app":"panel","build":123}"#
+        #"{"app":"panel","build":123}"#,
     ]) func rejectsMalformedReleases(_ json: String) async {
         await #expect(throws: PanelAPIError.self) {
             _ = try await api(ReleaseStub(Data(json.utf8))).latest()
@@ -52,12 +55,16 @@ import Testing
     }
 
     private func fixture(_ name: String) throws -> Data {
-        try Data(contentsOf: #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/releases")))
+        try Data(
+            contentsOf: #require(
+                Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/releases")))
     }
     private func api(_ transport: ReleaseStub) -> ReleasesAPI {
-        ReleasesAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!, accessClientID: "synthetic-id",
-            accessClientSecret: "synthetic-secret"), transport: transport))
+        ReleasesAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(
+                    baseURL: URL(string: "https://panel.example.invalid")!, accessClientID: "synthetic-id",
+                    accessClientSecret: "synthetic-secret"), transport: transport))
     }
 }
 
@@ -65,7 +72,10 @@ private actor ReleaseStub: PanelTransport {
     private(set) var requests: [URLRequest] = []
     let data: Data
     let status: Int
-    init(_ data: Data, status: Int = 200) { self.data = data; self.status = status }
+    init(_ data: Data, status: Int = 200) {
+        self.data = data
+        self.status = status
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)

@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// Credentials are memory-only. This type deliberately has no Encodable conformance.
@@ -22,8 +23,10 @@ public struct WifiAPI: Sendable {
         sessionConfiguration.urlCache = nil
         sessionConfiguration.httpCookieStorage = nil
         sessionConfiguration.urlCredentialStorage = nil
-        self.client = PanelAPIClient(configuration: configuration,
-                                     transport: URLSession(configuration: sessionConfiguration, delegate: PhotoSessionDelegate(), delegateQueue: nil))
+        self.client = PanelAPIClient(
+            configuration: configuration,
+            transport: URLSession(
+                configuration: sessionConfiguration, delegate: PhotoSessionDelegate(), delegateQueue: nil))
     }
 
     public func guestQr() async throws -> GuestWifiQR {

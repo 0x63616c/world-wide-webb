@@ -1,21 +1,22 @@
 import XCTest
+
 @testable import Panel
 
 final class HomeFaceLayoutTests: XCTestCase {
     func testPanelHasEqualGuttersAndSafeMarginsAbovePager() {
         for controls in [false, true] {
-        let layout = HomeFaceLayout.panel(in: CGSize(width: 1376, height: 1032), controls: controls)
-        checkFrames(layout)
-        let lastEdge = layout.items.map(\.frame.maxY).max()!
-        let bottomMargin = layout.viewport.height - layout.pagerBand - lastEdge
-        XCTAssertEqual(bottomMargin, layout.header.minY, accuracy: 0.5)
-        XCTAssertEqual(bottomMargin, layout.header.minX, accuracy: 0.5)
-        for item in layout.items {
-            XCTAssertLessThanOrEqual(item.frame.maxY, layout.viewport.height - layout.pagerBand - layout.margin)
-            XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
-            XCTAssertEqual(item.frame.minY.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
-        }
-        XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 1)
+            let layout = HomeFaceLayout.panel(in: CGSize(width: 1376, height: 1032), controls: controls)
+            checkFrames(layout)
+            let lastEdge = layout.items.map(\.frame.maxY).max()!
+            let bottomMargin = layout.viewport.height - layout.pagerBand - lastEdge
+            XCTAssertEqual(bottomMargin, layout.header.minY, accuracy: 0.5)
+            XCTAssertEqual(bottomMargin, layout.header.minX, accuracy: 0.5)
+            for item in layout.items {
+                XCTAssertLessThanOrEqual(item.frame.maxY, layout.viewport.height - layout.pagerBand - layout.margin)
+                XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
+                XCTAssertEqual(item.frame.minY.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)
+            }
+            XCTAssertEqual(layout.items.filter(\.round).count, controls ? 5 : 1)
         }
     }
 
@@ -69,11 +70,15 @@ final class HomeFaceLayoutTests: XCTestCase {
     }
 
     func testEveryModuleAndAccessoryIsReachableOnBothDeviceLayouts() {
-        let required: Set<HomeTile> = [.climate, .lamps, .weather, .calendar, .sound, .tesla, .fan,
-                                       .photos, .sonosRooms, .dogwalk, .clock, .ceiling, .cabinet, .wifi, .all]
+        let required: Set<HomeTile> = [
+            .climate, .lamps, .weather, .calendar, .sound, .tesla, .fan,
+            .photos, .sonosRooms, .dogwalk, .clock, .ceiling, .cabinet, .wifi, .all,
+        ]
         let size = CGSize(width: 1376, height: 1032)
         let panel = [false, true].flatMap { HomeFaceLayout.panel(in: size, controls: $0).items.map(\.tile) }
-        let phone = [false, true].flatMap { HomeFaceLayout.phone(in: CGSize(width: 402, height: 778), controls: $0).items.map(\.tile) }
+        let phone = [false, true].flatMap {
+            HomeFaceLayout.phone(in: CGSize(width: 402, height: 778), controls: $0).items.map(\.tile)
+        }
         XCTAssertEqual(Set(panel), required)
         XCTAssertEqual(Set(phone), required)
         // Quick-access duplicates across pages are intentional; identity is unique

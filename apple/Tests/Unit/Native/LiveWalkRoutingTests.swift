@@ -3,6 +3,7 @@ import PanelKit
 import SwiftUI
 import UIKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveWalkRoutingTests: XCTestCase {
@@ -14,9 +15,10 @@ import XCTest
     }
 
     private func source(_ transport: HybridFixtureTransport, clock: SyncClock? = nil) -> LiveHomeDataSource {
-        LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
-            baseURL: URL(string: "https://fixtures.example.invalid/panel")!,
-            accessClientID: "synthetic-access-id", accessClientSecret: "synthetic-access-secret"),
+        LiveHomeDataSource(
+            configuration: PanelKit.PanelConfiguration(
+                baseURL: URL(string: "https://fixtures.example.invalid/panel")!,
+                accessClientID: "synthetic-access-id", accessClientSecret: "synthetic-access-secret"),
             transport: transport, now: { self.localNow }, walkClock: clock)
     }
 
@@ -40,11 +42,12 @@ import XCTest
         presentation.walks.start(at: presentation.now)
         XCTAssertTrue(store.walkProvider.isMutating)
         XCTAssertEqual(store.walks.activeWalk?.startedAt, presentation.now, "Apply server offset exactly once.")
-        presentation.walks.start(at: presentation.now) // Duplicate tap is ignored by the provider.
+        presentation.walks.start(at: presentation.now)  // Duplicate tap is ignored by the provider.
         try await waitFor { !store.walkProvider.isMutating && store.walkProvider.historyAvailability == .live }
         let writes = await transport.requests.filter { $0.httpMethod == "POST" }
         XCTAssertEqual(writes.count, 1)
-        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(writes.first?.httpBody)) as? [String: Any])
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: XCTUnwrap(writes.first?.httpBody)) as? [String: Any])
         XCTAssertEqual(body["source"] as? String, "ipad")
         XCTAssertNil(body["startedAt"], "The server owns the authoritative start time.")
         await transport.setFixture("walks/stop.json", for: "walks.stop")
@@ -70,7 +73,8 @@ import XCTest
         let saved = await presentation.update(id: walk.id, startedAt: start, endedAt: end)
         XCTAssertTrue(saved)
         let writes = await transport.requests.filter { $0.url?.lastPathComponent == "walks.update" }
-        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(writes.first?.httpBody)) as? [String: String])
+        let body = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: XCTUnwrap(writes.first?.httpBody)) as? [String: String])
         XCTAssertEqual(body["startedAt"], "2026-10-01T11:50:00.000Z")
         XCTAssertEqual(body["endedAt"], "2026-10-01T12:00:00.000Z")
         await transport.setFixture("walks/history-empty.json", for: "walks.history")
@@ -89,7 +93,10 @@ import XCTest
         var requests = await transport.requests
         XCTAssertTrue(requests.isEmpty)
         let task = Task { await store.run(modules: [.walk]) }
-        defer { task.cancel(); store.stop() }
+        defer {
+            task.cancel()
+            store.stop()
+        }
         try await waitFor { store.hasLiveData(for: .walk) && clock.waiting }
         requests = await transport.requests
         XCTAssertEqual(requests.map { $0.url!.lastPathComponent }, ["walks.state", "walks.history"])
@@ -107,7 +114,10 @@ import XCTest
         XCTAssertEqual(requests.count, stopped)
         await transport.setFixture("walks/stop.json", for: "walks.state")
         let resumed = Task { await store.run(modules: [.walk]) }
-        defer { resumed.cancel(); store.stop() }
+        defer {
+            resumed.cancel()
+            store.stop()
+        }
         try await waitFor { store.walks.activeWalk == nil && clock.waiting }
         store.stop()
         try await waitFor { !clock.waiting }
@@ -123,7 +133,10 @@ import XCTest
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(origin: .zero, size: canvas)
         window.windowLevel = .alert + 1
-        defer { window.isHidden = true; window.rootViewController = nil }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WalkVerification")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -143,7 +156,8 @@ import XCTest
                 host.view.layoutIfNeeded()
                 try await Task.sleep(for: .milliseconds(700))
                 let format = UIGraphicsImageRendererFormat()
-                format.scale = 1; format.opaque = true
+                format.scale = 1
+                format.opaque = true
                 var rendered = false
                 let image = UIGraphicsImageRenderer(size: canvas, format: format).image { _ in
                     rendered = host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
@@ -154,7 +168,8 @@ import XCTest
                 let name = "walk-\(active ? "active" : "idle")-\(detail ? "detail" : "tile")"
                 try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("\(name).png"))
                 let attachment = XCTAttachment(image: image)
-                attachment.name = name; attachment.lifetime = .keepAlways
+                attachment.name = name
+                attachment.lifetime = .keepAlways
                 add(attachment)
             }
         }
@@ -165,13 +180,19 @@ import XCTest
         let clock = HybridWalkClock(date: localNow)
         let store = source(transport, clock: clock.value)
         let old = Task { await store.run(modules: [.walk]) }
-        defer { old.cancel(); store.stop() }
+        defer {
+            old.cancel()
+            store.stop()
+        }
         try await waitFor { store.hasLiveData(for: .walk) && clock.waiting }
         store.stop()
         try await waitFor { !clock.waiting }
         await transport.setFixture("walks/state-active.json", for: "walks.state")
         let foreground = Task { await store.run(modules: [.walk]) }
-        defer { foreground.cancel(); store.stop() }
+        defer {
+            foreground.cancel()
+            store.stop()
+        }
         try await waitFor { store.walks.activeWalk != nil && clock.waiting }
         old.cancel()
         await old.value
@@ -201,19 +222,21 @@ import XCTest
     var waiting: Bool { sleeper != nil }
     init(date: Date) { self.date = date }
     var value: SyncClock {
-        SyncClock(now: { self.date }, elapsed: { self.elapsed }, sleep: { delay in
-            self.delay = delay
-            try await withTaskCancellationHandler {
-                try Task.checkCancellation()
-                try await withCheckedThrowingContinuation { self.sleeper = $0 }
-            } onCancel: {
-                Task { @MainActor in
-                    let pending = self.sleeper
-                    self.sleeper = nil
-                    pending?.resume(throwing: CancellationError())
+        SyncClock(
+            now: { self.date }, elapsed: { self.elapsed },
+            sleep: { delay in
+                self.delay = delay
+                try await withTaskCancellationHandler {
+                    try Task.checkCancellation()
+                    try await withCheckedThrowingContinuation { self.sleeper = $0 }
+                } onCancel: {
+                    Task { @MainActor in
+                        let pending = self.sleeper
+                        self.sleeper = nil
+                        pending?.resume(throwing: CancellationError())
+                    }
                 }
-            }
-        })
+            })
     }
     func advance() {
         elapsed += delay

@@ -1,8 +1,10 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 extension HomeTile {
-    static var panelProviders: Set<PanelModule> { [.climate, .fan, .wifi, .alarms, .weather, .sonos, .tesla, .calendar, .walk, .lights, .photos] }
+    static var panelProviders: Set<PanelModule> {
+        [.climate, .fan, .wifi, .alarms, .weather, .sonos, .tesla, .calendar, .walk, .lights, .photos]
+    }
     var panelModule: PanelModule {
         switch self {
         case .climate: .climate
@@ -25,38 +27,49 @@ struct PanelHome: View {
     @State private var presentation: PanelHomePresentation
     let timer: PanelTimerStore
 
-    init(store: LiveHomeDataSource, session: PanelSession,
-         navigation: PanelNavigation, timer: PanelTimerStore) {
+    init(
+        store: LiveHomeDataSource, session: PanelSession,
+        navigation: PanelNavigation, timer: PanelTimerStore
+    ) {
         self.timer = timer
-        _presentation = State(initialValue: PanelHomePresentation(store: store, session: session,
-            navigation: navigation))
+        _presentation = State(
+            initialValue: PanelHomePresentation(
+                store: store, session: session,
+                navigation: navigation))
     }
 
     var body: some View {
-        HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock, managedTimer: timer)
-            .environment(\.homeIntegration, presentation)
-            .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("native-home")
-            .overlay(alignment: .topLeading) {
-                #if DEBUG
+        HomeView(
+            store: presentation.store,
+            initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock,
+            managedTimer: timer
+        )
+        .environment(\.homeIntegration, presentation)
+        .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("native-home")
+        .overlay(alignment: .topLeading) {
+            #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-hybridControlWrites") {
                     Text(HybridControlWriteTrace.shared.value).font(.caption2)
-                        .foregroundStyle(ProcessInfo.processInfo.arguments.contains("-hideFixtureTrace") ? Color.clear : Color.primary)
+                        .foregroundStyle(
+                            ProcessInfo.processInfo.arguments.contains("-hideFixtureTrace")
+                                ? Color.clear : Color.primary
+                        )
                         .accessibilityIdentifier("fixture-control-write").allowsHitTesting(false)
                 }
-                #endif
-            }
+            #endif
+        }
 
     }
     // The snapshot seam pauses decorative loops in fixture runs so XCTest can
     // become idle and the shared simulator does not render them continuously.
     private static var fixtureMotionPhase: Double? {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
-            && !ProcessInfo.processInfo.arguments.contains("-hybridMotion") ? 0 : nil
+            ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
+                && !ProcessInfo.processInfo.arguments.contains("-hybridMotion") ? 0 : nil
         #else
-        nil
+            nil
         #endif
     }
 
@@ -72,8 +85,10 @@ struct PanelHome: View {
         AnyView(LivePhotoBoothModule(camera: store.photoBoothCamera, photos: store.photosProvider, close: close))
     }
 
-    init(store: LiveHomeDataSource, session: PanelSession,
-         navigation: PanelNavigation) {
+    init(
+        store: LiveHomeDataSource, session: PanelSession,
+        navigation: PanelNavigation
+    ) {
         self.store = store
         self.session = session
         self.navigation = navigation
@@ -96,33 +111,43 @@ struct PanelHome: View {
     func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView? {
         if Self.isInformationalFace(tile) {
             if tile != .clock, let module = HomeModule(rawValue: tile.panelModule.rawValue),
-               store.status(for: module) != .live {
-                return AnyView(ModuleStatusFace(title: tile.title, status: store.status(for: module))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity))
+                store.status(for: module) != .live
+            {
+                return AnyView(
+                    ModuleStatusFace(title: tile.title, status: store.status(for: module))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity))
             }
             return AnyView(TileFace(tile: tile, store: store, open: {}).allowsHitTesting(false))
         }
         if tile != .clock, let module = HomeModule(rawValue: tile.panelModule.rawValue),
-           store.status(for: module) != .live {
-            return AnyView(Button(action: open) {
-                ModuleStatusFace(title: tile == .fan ? "Fan" : tile.title,
-                    status: store.status(for: module))
+            store.status(for: module) != .live
+        {
+            return AnyView(
+                Button(action: open) {
+                    ModuleStatusFace(
+                        title: tile == .fan ? "Fan" : tile.title,
+                        status: store.status(for: module)
+                    )
                     .frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(.rect)
-            }.buttonStyle(.plain).accessibilityIdentifier("tile-unavailable-\(tile.id)"))
+                }.buttonStyle(.plain).accessibilityIdentifier("tile-unavailable-\(tile.id)"))
         }
         switch tile {
         case .sound: return AnyView(PanelSoundTile(store: store, open: open))
         case .fan:
-            return AnyView(AccessoryFace(key: .fan, store: store, open: open,
-                fanIsOn: store.fanProvider.fanOn))
+            return AnyView(
+                AccessoryFace(
+                    key: .fan, store: store, open: open,
+                    fanIsOn: store.fanProvider.fanOn))
         case .dogwalk:
-            return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
-                .disabled(store.walkProvider.isMutating))
+            return AnyView(
+                DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
+                    .disabled(store.walkProvider.isMutating))
         case .photos:
-            return AnyView(Button(action: open) {
-                Label("Photos", systemImage: "lock.fill").font(.title2)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }.buttonStyle(.plain))
+            return AnyView(
+                Button(action: open) {
+                    Label("Photos", systemImage: "lock.fill").font(.title2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }.buttonStyle(.plain))
         default: return nil
         }
     }
@@ -143,8 +168,11 @@ struct PanelHome: View {
     }
 
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
-        AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
-            close: close)
+        AnyView(
+            PanelHomeDestination(
+                module: tile.panelModule, store: store, session: session,
+                close: close
+            )
             .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation) }
             .modifier(NotificationHistoryAccess()))
     }
@@ -173,8 +201,10 @@ struct PanelHomeDestination: View {
                     .opacity(awaitingWifi ? 0 : 1).allowsHitTesting(!awaitingWifi)
                     .overlay { if awaitingWifi { ProgressView("Refreshing Wi-Fi") } }
             } else {
-                ModuleStatusFace(title: module.title,
-                    status: store.status(for: HomeModule(rawValue: module.rawValue) ?? .lights)).padding(48)
+                ModuleStatusFace(
+                    title: module.title,
+                    status: store.status(for: HomeModule(rawValue: module.rawValue) ?? .lights)
+                ).padding(48)
             }
         }
         // The shell clips the complete app surface. Keep this host unclipped so
@@ -279,14 +309,20 @@ private struct PanelAccessoryCard: View {
         case .calendar: calendar
         case .sound: sound
         case .sonosRooms:
-            PanelCardSummary(symbol: "hifispeaker.2.fill", color: .orange, title: "Sonos rooms",
+            PanelCardSummary(
+                symbol: "hifispeaker.2.fill", color: .orange, title: "Sonos rooms",
                 subtitle: "\(store.rooms.count { $0.playing }) playing · \(store.rooms.count) rooms")
         case .wifi:
-            PanelCardSummary(symbol: "wifi", color: .blue, title: "Wi-Fi",
+            PanelCardSummary(
+                symbol: "wifi", color: .blue, title: "Wi-Fi",
                 subtitle: store.wifi.ssid ?? "Guest network unavailable")
         case .photos:
             VStack(alignment: .leading, spacing: 0) {
-                HStack { PanelCardGlyph(symbol: "photo.stack", color: .pink); Spacer(); Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.65)) }
+                HStack {
+                    PanelCardGlyph(symbol: "photo.stack", color: .pink)
+                    Spacer()
+                    Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.65))
+                }
                 Spacer()
                 title("Photos", subtitle: "Unlock to view your library")
             }.padding(28)
@@ -305,23 +341,33 @@ private struct PanelAccessoryCard: View {
         let temperature = c.mode == .off ? "Off" : c.mode == .heatCool ? "\(c.low)–\(c.high)°" : "\(c.target)°"
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                PanelCardGlyph(symbol: c.mode == .heat ? "sun.max.fill" : "snowflake", color: c.mode == .heat ? .orange : .cyan)
+                PanelCardGlyph(
+                    symbol: c.mode == .heat ? "sun.max.fill" : "snowflake", color: c.mode == .heat ? .orange : .cyan)
                 Spacer()
                 Text(c.action).font(.system(size: 17, weight: .medium)).foregroundStyle(.white.opacity(0.65))
             }
             Spacer()
-            Text(temperature).font(.system(size: 88, weight: .regular, design: .rounded)).monospacedDigit().minimumScaleFactor(0.7).lineLimit(1)
+            Text(temperature).font(.system(size: 88, weight: .regular, design: .rounded)).monospacedDigit()
+                .minimumScaleFactor(0.7).lineLimit(1)
             title("Climate", subtitle: "Set temperature · Inside \(c.ambient)°")
-        }.padding(28).background { LinearGradient(colors: [.cyan.opacity(0.28), .blue.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing).allowsHitTesting(false) }
+        }.padding(28).background {
+            LinearGradient(
+                colors: [.cyan.opacity(0.28), .blue.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing
+            ).allowsHitTesting(false)
+        }
     }
     private var lamps: some View {
         HStack(spacing: 20) {
-            Button { store.send(.toggle(.lamps)) } label: {
+            Button {
+                store.send(.toggle(.lamps))
+            } label: {
                 Image(systemName: "lamp.table.fill").font(.system(size: 30))
                     .foregroundStyle(store.lamps.anyOn ? .yellow : .secondary)
                     .frame(width: 64, height: 64).background(.white.opacity(0.08), in: .circle)
             }.buttonStyle(.plain).accessibilityLabel("Toggle lamps")
-            title("Lamps", subtitle: store.lamps.anyOn ? "\(store.lamps.onCount()) on · \(store.lamps.brightness)%" : "Off")
+            title(
+                "Lamps",
+                subtitle: store.lamps.anyOn ? "\(store.lamps.onCount()) on · \(store.lamps.brightness)%" : "Off")
             Spacer(minLength: 0)
         }.padding(28)
     }
@@ -329,13 +375,16 @@ private struct PanelAccessoryCard: View {
         let accessory: Accessory = tile == .cabinet ? .cabinet : .ceiling
         let on = store.lamps.isOn(accessory)
         return HStack(spacing: 22) {
-            Button { store.send(.toggle(accessory)) } label: {
+            Button {
+                store.send(.toggle(accessory))
+            } label: {
                 Image(systemName: accessory.symbol).font(.system(size: 36))
                     .foregroundStyle(on ? .yellow : .white.opacity(0.5))
                     .frame(width: 72, height: 72)
                     .background(.white.opacity(0.08), in: .circle)
             }.buttonStyle(.plain).accessibilityLabel("Toggle \(accessory.name)")
-            Text(accessory == .cabinet ? "Cabinet" : "Ceiling").font(.system(size: 22, weight: .semibold)).accessibilityValue(on ? "On" : "Off")
+            Text(accessory == .cabinet ? "Cabinet" : "Ceiling").font(.system(size: 22, weight: .semibold))
+                .accessibilityValue(on ? "On" : "Off")
             Spacer(minLength: 0)
         }.padding(28)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -349,7 +398,10 @@ private struct PanelAccessoryCard: View {
                 Spacer(minLength: 0)
             }
             Spacer(minLength: 0)
-            Picker("Fan mode", selection: Binding(get: { store.climate.selectedFanMode ?? "auto" }, set: { store.send(.fanMode($0)) })) {
+            Picker(
+                "Fan mode",
+                selection: Binding(get: { store.climate.selectedFanMode ?? "auto" }, set: { store.send(.fanMode($0)) })
+            ) {
                 ForEach(store.climate.fanModes, id: \.self) { Text($0.capitalized).tag($0) }
             }.pickerStyle(.segmented).labelsHidden()
         }.padding(28)
@@ -370,12 +422,16 @@ private struct PanelAccessoryCard: View {
                 ForEach(w.hours.prefix(5)) { hour in
                     VStack(spacing: 10) {
                         Text(hour.time).font(.system(size: 14)).foregroundStyle(.white.opacity(0.65))
-                        Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 19)).frame(height: 24)
+                        Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 19)).frame(
+                            height: 24)
                         Text("\(hour.temperature)°").font(.system(size: 18, weight: .medium))
                     }.frame(maxWidth: .infinity)
                 }
             }
-        }.padding(28).background(LinearGradient(colors: [.blue.opacity(0.45), .indigo.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing))
+        }.padding(28).background(
+            LinearGradient(
+                colors: [.blue.opacity(0.45), .indigo.opacity(0.15)], startPoint: .topLeading, endPoint: .bottomTrailing
+            ))
     }
     private var car: some View {
         TeslaTile(provider: store.tesla)
@@ -397,7 +453,10 @@ private struct PanelAccessoryCard: View {
                     ForEach(store.calendar.events.prefix(3)) { event in
                         HStack(spacing: 14) {
                             Capsule().fill(.red.opacity(0.8)).frame(width: 4)
-                            title(event.title, subtitle: "\(event.time) \(event.period)" + (event.location.isEmpty ? "" : " · \(event.location)"))
+                            title(
+                                event.title,
+                                subtitle: "\(event.time) \(event.period)"
+                                    + (event.location.isEmpty ? "" : " · \(event.location)"))
                         }.fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -420,13 +479,17 @@ private struct PanelAccessoryCard: View {
                 HStack {
                     Text(room.name).font(.system(size: 17)).foregroundStyle(.white.opacity(0.65))
                     Spacer()
-                    Button { store.send(.transport(room.id, room.playing ? .pause : .play)) } label: {
+                    Button {
+                        store.send(.transport(room.id, room.playing ? .pause : .play))
+                    } label: {
                         Image(systemName: room.playing ? "pause.fill" : "play.fill")
                             .font(.system(size: 24)).frame(width: 56, height: 56)
                             .background(.white.opacity(0.1), in: .circle)
                     }.buttonStyle(.plain).accessibilityLabel(room.playing ? "Pause" : "Play")
                 }.padding(.top, 20)
-            } else { title("Now Playing", subtitle: "Nothing playing") }
+            } else {
+                title("Now Playing", subtitle: "Nothing playing")
+            }
         }.padding(28)
     }
     private var walk: some View {
@@ -446,7 +509,9 @@ private struct PanelAccessoryCard: View {
                     Text("\(data.walks.summary(at: data.now).weeklyMinutes) min this week")
                         .font(.system(size: 17)).foregroundStyle(.white.opacity(0.65))
                     Spacer()
-                    Button { data.toggleWalk() } label: {
+                    Button {
+                        data.toggleWalk()
+                    } label: {
                         Image(systemName: data.activeWalk == nil ? "play.fill" : "stop.fill")
                             .font(.system(size: 22)).foregroundStyle(.green)
                             .frame(width: 56, height: 56).background(.green.opacity(0.12), in: .circle)

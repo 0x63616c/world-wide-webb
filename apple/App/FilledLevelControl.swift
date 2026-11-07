@@ -34,7 +34,9 @@ struct FilledLevelControl: View {
             }
             ZStack(alignment: .leading) {
                 Color.clear
-                if let track { LinearGradient(gradient: track, startPoint: .leading, endPoint: .trailing).opacity(0.35) }
+                if let track {
+                    LinearGradient(gradient: track, startPoint: .leading, endPoint: .trailing).opacity(0.35)
+                }
                 Rectangle().fill(fill(displayed)).frame(width: proxy.size.width * fraction)
                 Image(systemName: symbol).font(.system(size: 22))
                     .foregroundStyle(.white).padding(.leading, 24)
@@ -53,15 +55,16 @@ struct FilledLevelControl: View {
             }.clipShape(.rect(cornerRadius: 24))
                 .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24))
                 .contentShape(.rect)
-                .gesture(DragGesture(minimumDistance: 0)
-                    .updating($dragging) { drag, value, _ in
-                        guard enabled, proxy.size.width > 0 else { return }
-                        value = valueAt(drag.location.x)
-                    }
-                    .onEnded { drag in
-                        guard enabled, proxy.size.width > 0 else { return }
-                        commit(valueAt(drag.location.x))
-                    })
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .updating($dragging) { drag, value, _ in
+                            guard enabled, proxy.size.width > 0 else { return }
+                            value = valueAt(drag.location.x)
+                        }
+                        .onEnded { drag in
+                            guard enabled, proxy.size.width > 0 else { return }
+                            commit(valueAt(drag.location.x))
+                        })
         }.opacity(enabled ? 1 : 0.4)
             .accessibilityElement(children: .ignore).accessibilityLabel(label)
             .accessibilityValue("\(displayed) \(unit)")

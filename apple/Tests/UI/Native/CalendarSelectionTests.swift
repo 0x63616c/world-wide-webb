@@ -12,7 +12,8 @@ final class CalendarSelectionTests: XCTestCase {
         app.buttons["calendar-show-all"].tap()
         let work = app.switches["calendar-selection-fixture_work"]
         XCTAssertTrue(work.waitForExistence(timeout: 10))
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true AND value == '1'"), object: work)
+        let enabled = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true AND value == '1'"), object: work)
         XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 10), .completed)
         work.tap()
         app.buttons["calendar-picker-done"].tap()
@@ -41,7 +42,8 @@ final class CalendarSelectionTests: XCTestCase {
 
     @MainActor private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = name; attachment.lifetime = .keepAlways
+        attachment.name = name
+        attachment.lifetime = .keepAlways
         add(attachment)
     }
 }

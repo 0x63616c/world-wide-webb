@@ -29,8 +29,9 @@ struct HybridNativeModule: View {
 
     var body: some View {
         Group {
-            if detail { controller }
-            else {
+            if detail {
+                controller
+            } else {
                 face.frame(maxWidth: 660, maxHeight: 520)
                     .modifier(MixedTileMaterial(round: module == .fan, on: faceOn))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -64,7 +65,8 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var controller: some View {
         switch module {
-        case .lights: ControlsController(store: store, fanIsOn: store.hasLiveData(for: .fan) ? store.fanProvider.fanOn : nil)
+        case .lights:
+            ControlsController(store: store, fanIsOn: store.hasLiveData(for: .fan) ? store.fanProvider.fanOn : nil)
         case .climate: ClimateController(store: store)
         case .fan:
             fan.frame(maxWidth: 660, maxHeight: 520)
@@ -76,9 +78,11 @@ struct HybridNativeModule: View {
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: AgendaPage(provider: store.calendar, now: store.now)
         case .alarms:
-            ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
-                            timeZone: .current, locationLabel: TimeZone.current.identifier)
-                .disabled(store.alarmsProvider.pending)
+            ClockController(
+                store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
+                timeZone: .current, locationLabel: TimeZone.current.identifier
+            )
+            .disabled(store.alarmsProvider.pending)
         case .tesla: TeslaModule(provider: store.teslaProvider)
         case .walk:
             DogWalkPage(store: HybridWalkDataSource(store: store))

@@ -21,7 +21,9 @@ struct GridPhotos: View {
                     Cap(photo?.title ?? "No photos", 26, .semibold, lines: 2)
                     if let photo { Cap(photo.credit, 17).opacity(0.75) }
                 }
-            } br: { EmptyView() }
+            } br: {
+                EmptyView()
+            }
         }.task(id: phase) {
             guard phase == nil else { return }
             while !Task.isCancelled {
@@ -44,7 +46,8 @@ private struct GridCaptionImage<Caption: View>: View {
                         .frame(width: proxy.size.width, height: proxy.size.height).clipped()
                         .accessibilityHidden(true).id(asset).transition(.opacity)
                 }
-                LinearGradient(colors: [.black.opacity(0.45), .clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
+                LinearGradient(
+                    colors: [.black.opacity(0.45), .clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
                 caption
             }.frame(width: proxy.size.width, height: proxy.size.height)
                 .clipShape(.rect(cornerRadius: HomeGrid.radius))
@@ -87,7 +90,9 @@ struct GridSonosRooms: View {
                     Cap("All \(store.rooms.count) rooms ›", 17).opacity(0.65)
                 }
             }
-        } br: { EmptyView() }
+        } br: {
+            EmptyView()
+        }
     }
 }
 
@@ -107,7 +112,9 @@ struct GridWifi: View {
                 Cap(store.wifi.ssid ?? "Not configured", 26, .medium, lines: 2)
                 Cap(store.wifi.ssid == nil ? "Guest network unavailable" : "Tap to join ›", 17).opacity(0.65)
             }
-        } br: { EmptyView() }
+        } br: {
+            EmptyView()
+        }
     }
 }
 
@@ -117,8 +124,7 @@ struct GridDogWalk: View {
     let open: () -> Void
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        if phase != nil { face }
-        else { TimelineView(.periodic(from: store.now, by: 1)) { _ in face } }
+        if phase != nil { face } else { TimelineView(.periodic(from: store.now, by: 1)) { _ in face } }
     }
     private var face: some View {
         Corners {
@@ -143,7 +149,9 @@ struct GridDogWalk: View {
                 }
             }
         } br: {
-            Button { store.toggleWalk() } label: {
+            Button {
+                store.toggleWalk()
+            } label: {
                 Image(systemName: store.walks.activeWalk == nil ? "play.fill" : "stop.fill")
                     .font(.system(size: 24, weight: .semibold)).foregroundStyle(.black)
                     .frame(width: 64, height: 64).background(.green, in: .circle)
@@ -152,4 +160,3 @@ struct GridDogWalk: View {
         }
     }
 }
-

@@ -10,8 +10,10 @@ import XCTest
     func testPanelHomeAndClockFaces() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-            "-updateCheckFakeBuild", "1", "-previewNightClock"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-previewNightClock",
+        ]
         app.launch()
         defer { app.terminate() }
         app.alignPanelOrientation()
@@ -35,7 +37,8 @@ import XCTest
         }
         let right = window.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5))
         let left = window.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5))
-        right.press(forDuration: 0.1,
+        right.press(
+            forDuration: 0.1,
             thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.69, dy: 0.5)),
             withVelocity: .slow, thenHoldForDuration: 0.3)
         waitForFace(faces[initial])
@@ -50,7 +53,8 @@ import XCTest
         clock.tap()
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home-profile"].exists)
-        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ",\nCALUM")).firstMatch.exists)
+        XCTAssertFalse(
+            app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ",\nCALUM")).firstMatch.exists)
         snapshot("home")
         app.buttons["app-climate"].tap()
         let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
@@ -67,14 +71,16 @@ import XCTest
     func testClockCollection() {
         let app = XCUIApplication()
         for face in ["green", "tide"] {
-            app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-                "-updateCheckFakeBuild", "1", "-panel.clockFace", face]
+            app.launchArguments = [
+                "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+                "-updateCheckFakeBuild", "1", "-panel.clockFace", face,
+            ]
             app.launch()
             app.alignPanelOrientation()
             let clock = app.buttons["launcher-clock"]
             XCTAssertTrue(clock.waitForExistence(timeout: 15))
             XCTAssertEqual(clock.value as? String, face.capitalized)
-            Thread.sleep(forTimeInterval: 2) // Let the launch transition settle before visual capture.
+            Thread.sleep(forTimeInterval: 2)  // Let the launch transition settle before visual capture.
             let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
             shot.name = "clock-\(face)"
             shot.lifetime = .keepAlways
@@ -85,8 +91,10 @@ import XCTest
 
     func testRetiredClockSelectionFallsBackToGreen() {
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-            "-updateCheckFakeBuild", "1", "-panel.clockFace", "woodland"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-panel.clockFace", "woodland",
+        ]
         app.launch()
         defer { app.terminate() }
         app.alignPanelOrientation()
@@ -103,9 +111,11 @@ import XCTest
         continueAfterFailure = false
         let app = XCUIApplication()
         for option in ["regular", "clear", "clearDim"] {
-            app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            app.launchArguments = [
+                "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
                 "-updateCheckFakeBuild", "1", "-previewNightClock", "-panel.clockFace", "green",
-                "-previewLauncherGlass", option]
+                "-previewLauncherGlass", option,
+            ]
             app.launch()
             app.openAppGrid()
             let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
@@ -120,7 +130,9 @@ import XCTest
     @MainActor func testLayeredAppIcons() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1",
+        ]
         app.launch()
         defer { app.terminate() }
         app.openAppGrid()
@@ -133,7 +145,7 @@ import XCTest
         }
         snapshot("layered-icons-home")
         print("MOTION_CAPTURE_READY layered-icons")
-        Thread.sleep(forTimeInterval: 2) // Video lead-in, not a correctness wait.
+        Thread.sleep(forTimeInterval: 2)  // Video lead-in, not a correctness wait.
         for id in ["weather", "lights", "music", "booth"] {
             let button = app.buttons["app-\(id)"]
             XCTAssertTrue(button.isHittable, id)
@@ -169,17 +181,19 @@ import XCTest
     @MainActor func testBackButtons() {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1",
+        ]
         app.launch()
         defer { app.terminate() }
         app.openAppGrid()
         print("MOTION_CAPTURE_READY back-buttons")
-        Thread.sleep(forTimeInterval: 1) // Recording lead-in, not a correctness wait.
+        Thread.sleep(forTimeInterval: 1)  // Recording lead-in, not a correctness wait.
         for id in ["weather", "booth", "settings"] {
             app.buttons["app-\(id)"].tap()
             let back = app.buttons["app-back"]
             XCTAssertTrue(back.waitForExistence(timeout: 10), id)
-            Thread.sleep(forTimeInterval: 1) // Hold the screen for the review video.
+            Thread.sleep(forTimeInterval: 1)  // Hold the screen for the review video.
             let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
             screenshot.name = "app-navigation-\(id)"
             screenshot.lifetime = .keepAlways
@@ -193,8 +207,10 @@ import XCTest
     @MainActor func testTimer() {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-            "-updateCheckFakeBuild", "1", "-timerDisableNotifications"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-timerDisableNotifications",
+        ]
         app.launch()
         defer { app.terminate() }
         app.openAppGrid()
@@ -208,7 +224,7 @@ import XCTest
         app.buttons["timer-edit-save"].tap()
         Thread.sleep(forTimeInterval: 1)
         app.buttons["timer-start-pause"].tap()
-        Thread.sleep(forTimeInterval: 4) // Show a real countdown, at normal speed.
+        Thread.sleep(forTimeInterval: 4)  // Show a real countdown, at normal speed.
         app.buttons["timer-start-pause"].tap()
         XCTAssertEqual(app.staticTexts["timer-status"].label, "Paused")
         Thread.sleep(forTimeInterval: 1)
@@ -223,7 +239,9 @@ import XCTest
     @MainActor func testPhotoBooth() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1",
+        ]
         app.launch()
         defer { app.terminate() }
         app.openAppGrid()
@@ -250,13 +268,15 @@ import XCTest
     @MainActor private func capture(_ style: String) {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
-            "-updateCheckFakeBuild", "1", "-launcherTransition", style]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-launcherTransition", style,
+        ]
         app.launch()
         app.alignPanelOrientation()
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 15))
         print("MOTION_CAPTURE_READY \(style)")
-        Thread.sleep(forTimeInterval: 2) // Capture lead-in; never used for correctness assertions.
+        Thread.sleep(forTimeInterval: 2)  // Capture lead-in; never used for correctness assertions.
         app.buttons["launcher-clock"].tap()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 10))
         let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())

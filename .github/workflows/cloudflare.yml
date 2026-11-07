@@ -81,8 +81,10 @@ jobs:
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts")
           stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/calum/homelab-infra/candidate.XXXXXX')
           [[ "$stage" =~ ^/Users/calum/homelab-infra/candidate\.[[:alnum:]]+$ ]]
+          # shellcheck disable=SC2029 # The validated staging path must expand locally.
           cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
           trap cleanup EXIT
           scp "${options[@]}" infra/cloudflare/*.tf infra/cloudflare/.terraform.lock.hcl \
             .opentofu-version tools/infra_apply.py "$remote:$stage/"
+          # shellcheck disable=SC2029 # Pass locally validated paths and release identity.
           ssh "${options[@]}" "$remote" "python3 '$stage/infra_apply.py' '$stage'"

@@ -28,11 +28,13 @@ struct ModuleTile: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.weather.city).font(.system(size: compact ? 18 : 23, weight: .medium))
-                    Text("\(store.weather.temperature)°").font(.system(size: compact ? 64 : 88, weight: .light)).monospacedDigit()
+                    Text("\(store.weather.temperature)°").font(.system(size: compact ? 64 : 88, weight: .light))
+                        .monospacedDigit()
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 8) {
-                    Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(.system(size: compact ? 30 : 40))
+                    Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(
+                        .system(size: compact ? 30 : 40))
                     Text(store.weather.condition).font(.system(size: compact ? 16 : 24, weight: .medium))
                     Text("H:\(store.weather.high)°  L:\(store.weather.low)°").font(.system(size: compact ? 15 : 24))
                 }
@@ -42,8 +44,11 @@ struct ModuleTile: View {
     private var calendar: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(spacing: 0) {
-                Text(store.calendar.dateText(at: store.now, format: "EEE").uppercased()).font(.system(size: compact ? 14 : 20, weight: .semibold)).foregroundStyle(.red)
-                Text(store.calendar.dateText(at: store.now, format: "d")).font(.system(size: compact ? 44 : 60, weight: .light))
+                Text(store.calendar.dateText(at: store.now, format: "EEE").uppercased()).font(
+                    .system(size: compact ? 14 : 20, weight: .semibold)
+                ).foregroundStyle(.red)
+                Text(store.calendar.dateText(at: store.now, format: "d")).font(
+                    .system(size: compact ? 44 : 60, weight: .light))
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("UP NEXT").font(.system(size: compact ? 11 : 13, weight: .semibold)).foregroundStyle(.primary)
@@ -51,14 +56,17 @@ struct ModuleTile: View {
                     Text(event.title).font(.system(size: compact ? 20 : 32, weight: .semibold)).lineLimit(1)
                     Text("\(event.time) \(event.period)").font(.system(size: compact ? 16 : 24))
                     Text(event.location).font(.system(size: compact ? 15 : 20)).foregroundStyle(.primary).lineLimit(1)
-                } else { Text("Nothing else today").font(.title3) }
+                } else {
+                    Text("Nothing else today").font(.title3)
+                }
             }
             Spacer(minLength: 0)
         }.padding(compact ? 24 : 32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
     private var rooms: some View {
         VStack(alignment: .leading, spacing: compact ? 16 : 24) {
-            Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(.system(size: compact ? 20 : 23, weight: .semibold))
+            Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(
+                .system(size: compact ? 20 : 23, weight: .semibold))
             ForEach(store.rooms.prefix(compact ? 2 : 4)) { room in
                 VStack(alignment: .leading, spacing: 5) {
                     Text(room.name).font(.system(size: compact ? 17 : 24, weight: .semibold)).lineLimit(1)
@@ -71,6 +79,5 @@ struct ModuleTile: View {
         }.padding(compact ? 24 : 24)
     }
 }
-
 
 /// Home owns its caption arrangement; full-screen feed composition is separate.

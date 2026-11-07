@@ -4,11 +4,20 @@ public enum NotificationPriority: String, Codable, Sendable, CaseIterable {
     case low, normal, high, critical
 
     public var rank: Int {
-        switch self { case .low: 0; case .normal: 1; case .high: 2; case .critical: 3 }
+        switch self {
+        case .low: 0
+        case .normal: 1
+        case .high: 2
+        case .critical: 3
+        }
     }
 
     public var bannerDuration: TimeInterval? {
-        switch self { case .low, .normal: 5; case .high: 10; case .critical: nil }
+        switch self {
+        case .low, .normal: 5
+        case .high: 10
+        case .critical: nil
+        }
     }
 }
 
@@ -29,8 +38,13 @@ public struct PanelNotification: Decodable, Equatable, Sendable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, title, body, priority, revision
-        case sourceModule = "source_module", deepLink = "deep_link", dedupeKey = "dedupe_key"
-        case createdAt = "created_at", updatedAt = "updated_at", readAt = "read_at", dismissedAt = "dismissed_at"
+        case sourceModule = "source_module"
+        case deepLink = "deep_link"
+        case dedupeKey = "dedupe_key"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case readAt = "read_at"
+        case dismissedAt = "dismissed_at"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -50,7 +64,8 @@ public struct PanelNotification: Decodable, Equatable, Sendable, Identifiable {
             if let date = format.date(from: value) { return date }
             format.formatOptions = [.withInternetDateTime]
             guard let date = format.date(from: value) else {
-                throw DecodingError.dataCorruptedError(forKey: key, in: c, debugDescription: "Invalid notification timestamp")
+                throw DecodingError.dataCorruptedError(
+                    forKey: key, in: c, debugDescription: "Invalid notification timestamp")
             }
             return date
         }
@@ -59,7 +74,8 @@ public struct PanelNotification: Decodable, Equatable, Sendable, Identifiable {
         readAt = try c.decodeNil(forKey: .readAt) ? nil : date(.readAt)
         dismissedAt = try c.decodeNil(forKey: .dismissedAt) ? nil : date(.dismissedAt)
         guard NotificationsAPI.validCursor(revision) else {
-            throw DecodingError.dataCorruptedError(forKey: .revision, in: c, debugDescription: "Invalid notification revision")
+            throw DecodingError.dataCorruptedError(
+                forKey: .revision, in: c, debugDescription: "Invalid notification revision")
         }
     }
 }
@@ -68,10 +84,15 @@ public struct NotificationPage: Decodable, Sendable {
     public let items: [PanelNotification]
     public let cursor: String
     public let hasMore: Bool
-    enum CodingKeys: String, CodingKey { case items, cursor; case hasMore = "has_more" }
+    enum CodingKeys: String, CodingKey {
+        case items, cursor
+        case hasMore = "has_more"
+    }
 
     public init(items: [PanelNotification], cursor: String, hasMore: Bool) {
-        self.items = items; self.cursor = cursor; self.hasMore = hasMore
+        self.items = items
+        self.cursor = cursor
+        self.hasMore = hasMore
     }
 }
 
@@ -90,11 +111,15 @@ public struct NotificationsAPI: NotificationsServing {
 
     public func list(since: String? = nil) async throws -> NotificationPage {
         if let since, !Self.validCursor(since) { throw PanelAPIError.decoding("Invalid notification cursor.") }
-        struct Input: Encodable, Sendable { let since: String?; let limit = 200 }
+        struct Input: Encodable, Sendable {
+            let since: String?
+            let limit = 200
+        }
         let page = try await client.get("notifications", input: Input(since: since), as: NotificationPage.self)
         guard Self.validCursor(page.cursor), let cursor = Int64(page.cursor),
-              cursor >= Int64(since ?? "0")!, page.items.count <= 200,
-              !page.hasMore || !page.items.isEmpty else {
+            cursor >= Int64(since ?? "0")!, page.items.count <= 200,
+            !page.hasMore || !page.items.isEmpty
+        else {
             throw PanelAPIError.decoding("Invalid notification page.")
         }
         var previous = Int64(since ?? "0")!
@@ -123,7 +148,8 @@ public struct NotificationsAPI: NotificationsServing {
 
     public static func validCursor(_ value: String) -> Bool {
         guard !value.isEmpty, value == "0" || value.first != "0",
-              value.allSatisfy({ $0.isASCII && $0.isNumber }), let number = Int64(value) else { return false }
+            value.allSatisfy({ $0.isASCII && $0.isNumber }), let number = Int64(value)
+        else { return false }
         return number >= 0
     }
 }

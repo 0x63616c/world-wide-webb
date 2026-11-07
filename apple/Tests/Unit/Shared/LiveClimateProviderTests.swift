@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveClimateProviderTests: XCTestCase {
@@ -30,10 +31,16 @@ import XCTest
             // Actual device action can disagree with the prototype's temperature heuristic.
             XCTAssertEqual(provider.reportedAction, .idle)
             XCTAssertEqual(provider.climate?.fanOn, false)
-            if response == .range { XCTAssertEqual(provider.climate?.low, 68); XCTAssertEqual(provider.climate?.high, 74) }
+            if response == .range {
+                XCTAssertEqual(provider.climate?.low, 68)
+                XCTAssertEqual(provider.climate?.high, 74)
+            }
             if response == .cool { XCTAssertEqual(provider.climate?.target, 70) }
             if response == .heat { XCTAssertEqual(provider.climate?.target, 75) }
-            if response == .remembered { XCTAssertEqual(provider.climate?.target, 72); XCTAssertEqual(provider.climate?.low, 69) }
+            if response == .remembered {
+                XCTAssertEqual(provider.climate?.target, 72)
+                XCTAssertEqual(provider.climate?.low, 69)
+            }
         }
     }
 
@@ -49,14 +56,19 @@ import XCTest
         try await settled(provider)
         let requests = await transport.requests
         XCTAssertEqual(requests.count, 6)
-        let expected = [("setMode", ##""heat_cool""##), ("setTarget", "71"),
-                        ("setRange", ##"{"low":69,"high":73}"##),
-                        ("setRange", ##"{"low":68,"high":75}"##),
-                        ("setRange", ##"{"low":71,"high":77}"##)]
+        let expected = [
+            ("setMode", ##""heat_cool""##), ("setTarget", "71"),
+            ("setRange", ##"{"low":69,"high":73}"##),
+            ("setRange", ##"{"low":68,"high":75}"##),
+            ("setRange", ##"{"low":71,"high":77}"##),
+        ]
         for (request, (path, body)) in zip(requests.dropFirst(), expected) {
             XCTAssertEqual(request.url?.path, "/trpc/climate.\(path)")
-            let actual = try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody), options: [.fragmentsAllowed]) as! NSObject
-            let wanted = try JSONSerialization.jsonObject(with: Data(body.utf8), options: [.fragmentsAllowed]) as! NSObject
+            let actual =
+                try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody), options: [.fragmentsAllowed])
+                as! NSObject
+            let wanted =
+                try JSONSerialization.jsonObject(with: Data(body.utf8), options: [.fragmentsAllowed]) as! NSObject
             XCTAssertTrue(actual.isEqual(wanted))
         }
     }
@@ -75,7 +87,9 @@ import XCTest
         try await settled(provider)
         XCTAssertEqual(provider.climate?.low, 68)
         XCTAssertEqual(provider.climate?.high, 74)
-        XCTAssertEqual(provider.lastError, .server(code: "BAD_REQUEST", message: "low must be at least 2°F below high", httpStatus: 400))
+        XCTAssertEqual(
+            provider.lastError,
+            .server(code: "BAD_REQUEST", message: "low must be at least 2°F below high", httpStatus: 400))
         XCTAssertEqual(provider.availability, .live)
         XCTAssertEqual(provider.errorMessage, "Couldn’t change the temperature. Try again.")
         let count = await transport.requests.count
@@ -90,7 +104,8 @@ import XCTest
         await provider.refresh()
         await provider.refresh()
         XCTAssertEqual(provider.climate?.mode, .cool)
-        XCTAssertEqual(provider.lastError, .server(code: "SERVICE_UNAVAILABLE", message: "Climate unavailable", httpStatus: 503))
+        XCTAssertEqual(
+            provider.lastError, .server(code: "SERVICE_UNAVAILABLE", message: "Climate unavailable", httpStatus: 503))
         await provider.refresh()
         XCTAssertEqual(provider.climate?.mode, .heat)
         XCTAssertEqual(provider.availability, .live)
@@ -136,7 +151,11 @@ import XCTest
     }
 
     private func make(_ transport: ClimateProviderTransport) -> LiveClimateProvider {
-        LiveClimateProvider(api: ClimateAPI(client: PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)))
+        LiveClimateProvider(
+            api: ClimateAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                    transport: transport)))
     }
     private func settled(_ provider: LiveClimateProvider) async throws {
         let deadline = ContinuousClock.now + .seconds(3)
@@ -148,18 +167,30 @@ import XCTest
 private enum ClimateReply: Equatable, Sendable {
     case off, cool, heat, range, remembered, invalid, unavailable
     var mode: String {
-        switch self { case .off, .remembered, .invalid, .unavailable: "off"; case .cool: "cool"; case .heat: "heat"; case .range: "heat_cool" }
+        switch self {
+        case .off, .remembered, .invalid, .unavailable: "off"
+        case .cool: "cool"
+        case .heat: "heat"
+        case .range: "heat_cool"
+        }
     }
     var json: String {
-        if self == .unavailable { return ##"{"error":{"message":"Climate unavailable","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"## }
-        if self == .invalid { return ##"{"error":{"message":"low must be at least 2°F below high","code":-32600,"data":{"code":"BAD_REQUEST","httpStatus":400}}}"## }
-        let setpoints: String = switch self {
-        case .off, .invalid, .unavailable: ##""target":null,"targetLow":null,"targetHigh":null"##
-        case .remembered: ##""target":71.5,"targetLow":68.5,"targetHigh":74.5"##
-        case .cool: ##""target":70"##
-        case .heat: ##""target":75"##
-        case .range: ##""targetLow":68,"targetHigh":74"##
+        if self == .unavailable {
+            return
+                ##"{"error":{"message":"Climate unavailable","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"##
         }
+        if self == .invalid {
+            return
+                ##"{"error":{"message":"low must be at least 2°F below high","code":-32600,"data":{"code":"BAD_REQUEST","httpStatus":400}}}"##
+        }
+        let setpoints: String =
+            switch self {
+            case .off, .invalid, .unavailable: ##""target":null,"targetLow":null,"targetHigh":null"##
+            case .remembered: ##""target":71.5,"targetLow":68.5,"targetHigh":74.5"##
+            case .cool: ##""target":70"##
+            case .heat: ##""target":75"##
+            case .range: ##""targetLow":68,"targetHigh":74"##
+            }
         return "{\"result\":{\"data\":{\"mode\":\"\(mode)\",\"ambient\":72.5,\"action\":\"Idle\",\(setpoints)}}}"
     }
 }
@@ -169,14 +200,22 @@ private actor ClimateProviderTransport: PanelTransport {
     let held: Set<Int>
     private var gates: [Int: CheckedContinuation<Void, Never>] = [:]
     private(set) var requests: [URLRequest] = []
-    init(_ replies: [ClimateReply], held: Set<Int> = []) { self.replies = replies; self.held = held }
+    init(_ replies: [ClimateReply], held: Set<Int> = []) {
+        self.replies = replies
+        self.held = held
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let index = requests.count
         requests.append(request)
         if held.contains(index) { await withCheckedContinuation { gates[index] = $0 } }
         guard replies.indices.contains(index) else { throw URLError(.badServerResponse) }
         let reply = replies[index]
-        return (Data(reply.json.utf8), HTTPURLResponse(url: request.url!, statusCode: reply == .invalid ? 400 : reply == .unavailable ? 503 : 200, httpVersion: nil, headerFields: nil)!)
+        return (
+            Data(reply.json.utf8),
+            HTTPURLResponse(
+                url: request.url!, statusCode: reply == .invalid ? 400 : reply == .unavailable ? 503 : 200,
+                httpVersion: nil, headerFields: nil)!
+        )
     }
     func release(_ index: Int) { gates.removeValue(forKey: index)?.resume() }
     func waitForRequest(_ count: Int) async {

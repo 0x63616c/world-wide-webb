@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 import PanelKit
-import UserNotifications
 import SwiftUI
+import UserNotifications
 
 /// Root-owned so leaving the Timer page never stops the countdown.
 @MainActor @Observable final class PanelTimerStore {
@@ -22,11 +22,15 @@ import SwiftUI
     private static let stateKey = "panel.timer.countdown.v1"
     private static let alertKey = "panel.timer.alert.v1"
 
-    init(defaults: UserDefaults = .standard, sound: any PanelSoundPlaying = PanelSoundBus.shared, backgroundAlertsEnabled: Bool = true) {
+    init(
+        defaults: UserDefaults = .standard, sound: any PanelSoundPlaying = PanelSoundBus.shared,
+        backgroundAlertsEnabled: Bool = true
+    ) {
         self.backgroundAlertsEnabled = backgroundAlertsEnabled
         self.sound = sound
         self.defaults = defaults
-        countdown = defaults.data(forKey: Self.stateKey)
+        countdown =
+            defaults.data(forKey: Self.stateKey)
             .flatMap { try? JSONDecoder().decode(PanelCountdown.self, from: $0) } ?? PanelCountdown()
         alertID = defaults.string(forKey: Self.alertKey)
     }
@@ -37,10 +41,10 @@ import SwiftUI
         countdown.start(at: now)
         guard backgroundAlertsEnabled, let deadline = countdown.deadline else { return }
         #if DEBUG
-        // UI recordings run the real clock without prompting for OS notification permission.
-        if ProcessInfo.processInfo.arguments.contains("-timerDisableNotifications") { return }
+            // UI recordings run the real clock without prompting for OS notification permission.
+            if ProcessInfo.processInfo.arguments.contains("-timerDisableNotifications") { return }
         #endif
-        let id = UUID().uuidString // Local OS notification identifier, not a backend record.
+        let id = UUID().uuidString  // Local OS notification identifier, not a backend record.
         alertID = id
         defaults.set(id, forKey: Self.alertKey)
         alertTask = Task {
@@ -51,12 +55,18 @@ import SwiftUI
                     alertMessage = "Background alerts are off. Keep the panel open to hear the timer."
                     return
                 }
-                if !authorization.audible { alertMessage = "Background notification sounds are off. Sound still plays while the panel is open." }
-                try await alerts.schedule(id: id, deadline: deadline, audible: defaults.object(forKey: "panel.timerSound") as? Bool ?? true)
+                if !authorization.audible {
+                    alertMessage = "Background notification sounds are off. Sound still plays while the panel is open."
+                }
+                try await alerts.schedule(
+                    id: id, deadline: deadline, audible: defaults.object(forKey: "panel.timerSound") as? Bool ?? true)
                 if Task.isCancelled { alerts.cancel(id: id) }
             } catch {
-                if Task.isCancelled { alerts.cancel(id: id) }
-                else { alertMessage = "The timer is running. Keep the panel open to hear its alert." }
+                if Task.isCancelled {
+                    alerts.cancel(id: id)
+                } else {
+                    alertMessage = "The timer is running. Keep the panel open to hear its alert."
+                }
             }
         }
     }
@@ -81,16 +91,22 @@ import SwiftUI
     }
     private func ring(at now: Date) {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-timerDisableNotifications") { return }
+            if ProcessInfo.processInfo.arguments.contains("-timerDisableNotifications") { return }
         #endif
-        guard defaults.object(forKey: "panel.timerSound") as? Bool ?? true else { sound.stop(); return }
+        guard defaults.object(forKey: "panel.timerSound") as? Bool ?? true else {
+            sound.stop()
+            return
+        }
         guard nextAlarmCue.map({ now >= $0 }) ?? true else { return }
         nextAlarmCue = now.addingTimeInterval(3)
         sound.play(.timerFinished)
     }
     func run(while scenePhase: ScenePhase, onCompletion: (() -> Void)? = nil) async {
         guard scenePhase == .active else {
-            if nextAlarmCue != nil { sound.stop(); nextAlarmCue = nil }
+            if nextAlarmCue != nil {
+                sound.stop()
+                nextAlarmCue = nil
+            }
             return
         }
         alerts.activate()
@@ -107,7 +123,9 @@ import SwiftUI
         }
     }
     func matchesNotification(_ id: String?) -> Bool { id != nil && id == alertID }
-    private func announceCompletion() { AccessibilityNotification.Announcement("Time’s up. Your timer has finished.").post() }
+    private func announceCompletion() {
+        AccessibilityNotification.Announcement("Time’s up. Your timer has finished.").post()
+    }
     private func cancelAlert() {
         if countdown.phase == .finished { sound.stop() }
         nextAlarmCue = nil
@@ -135,8 +153,10 @@ import SwiftUI
             _ = try await center.requestAuthorization(options: [.alert, .sound])
             settings = await center.notificationSettings()
         }
-        return (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional,
-            settings.authorizationStatus == .authorized && settings.soundSetting == .enabled)
+        return (
+            settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional,
+            settings.authorizationStatus == .authorized && settings.soundSetting == .enabled
+        )
     }
     func schedule(id: String, deadline: Date, audible: Bool) async throws {
         let content = UNMutableNotificationContent()
@@ -144,7 +164,8 @@ import SwiftUI
         content.body = "Your timer has finished."
         content.sound = audible ? .default : nil
         content.threadIdentifier = Self.thread
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, deadline.timeIntervalSinceNow), repeats: false)
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: max(1, deadline.timeIntervalSinceNow), repeats: false)
         try await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
     }
     func cancel(id: String) {
@@ -152,20 +173,26 @@ import SwiftUI
         center.removeDeliveredNotifications(withIdentifiers: [id])
     }
     #if targetEnvironment(macCatalyst)
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void) {
-        // Timer banners/audio are owned by the app; macOS alarm notifications are system-delivered.
-        completionHandler(notification.request.identifier == "panel.next-alarm" ? [.banner, .sound] : [])
-    }
+        nonisolated func userNotificationCenter(
+            _ center: UNUserNotificationCenter,
+            willPresent notification: UNNotification,
+            withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void
+        ) {
+            // Timer banners/audio are owned by the app; macOS alarm notifications are system-delivered.
+            completionHandler(notification.request.identifier == "panel.next-alarm" ? [.banner, .sound] : [])
+        }
     #endif
     // With the delegate installed, the system does not present a foreground
     // alert. Panel posts its own banner; the OS still handles background delivery.
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping @Sendable () -> Void) {
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
         let request = response.notification.request
-        let id = response.actionIdentifier == UNNotificationDefaultActionIdentifier
-            && request.content.threadIdentifier == Self.thread ? request.identifier : nil
+        let id =
+            response.actionIdentifier == UNNotificationDefaultActionIdentifier
+                && request.content.threadIdentifier == Self.thread ? request.identifier : nil
         // UIKit finishes the foreground transition from this completion handler.
         Task { @MainActor in
             if let id { openedTimerID = id }

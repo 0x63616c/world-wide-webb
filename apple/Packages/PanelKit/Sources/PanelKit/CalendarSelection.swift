@@ -27,7 +27,8 @@ public actor CalendarSelection {
         var selected = self.selected(from: [identifier])
         if shown { selected.insert(identifier) } else { selected.remove(identifier) }
         var saved = Set(defaults.stringArray(forKey: selectedKey) ?? [])
-        saved.subtract([identifier]); saved.formUnion(selected)
+        saved.subtract([identifier])
+        saved.formUnion(selected)
         defaults.set(saved.sorted(), forKey: selectedKey)
     }
 
@@ -46,9 +47,16 @@ public struct CalendarInfo: Identifiable, Sendable, Equatable {
     public let green: Double
     public let blue: Double
 
-    public init(id: String, title: String, sourceID: String, sourceTitle: String,
-                red: Double, green: Double, blue: Double) {
-        self.id = id; self.title = title; self.sourceID = sourceID; self.sourceTitle = sourceTitle
-        self.red = red; self.green = green; self.blue = blue
+    public init(
+        id: String, title: String, sourceID: String, sourceTitle: String,
+        red: Double, green: Double, blue: Double
+    ) {
+        self.id = id
+        self.title = title
+        self.sourceID = sourceID
+        self.sourceTitle = sourceTitle
+        self.red = red
+        self.green = green
+        self.blue = blue
     }
 }

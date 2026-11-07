@@ -1,5 +1,6 @@
 import CoreImage
 import XCTest
+
 @testable import Panel
 
 final class WifiQRCodeTests: XCTestCase {
@@ -14,14 +15,18 @@ final class WifiQRCodeTests: XCTestCase {
 
     func testOpenAndUnconfiguredNetworks() {
         XCTAssertEqual(WifiQRCode.payload(for: .open), "WIFI:T:nopass;S:WWW-Guest;;")
-        XCTAssertEqual(WifiQRCode.payload(for: WifiState(ssid: "Guest;Open", password: "")), #"WIFI:T:nopass;S:Guest\;Open;;"#)
+        XCTAssertEqual(
+            WifiQRCode.payload(for: WifiState(ssid: "Guest;Open", password: "")), #"WIFI:T:nopass;S:Guest\;Open;;"#)
         XCTAssertNil(WifiQRCode.payload(for: .unconfigured))
         XCTAssertNil(WifiQRCode.payload(for: WifiState(ssid: "", password: "unused")))
         XCTAssertNil(WifiQRCode.render(.unconfigured))
     }
 
     func testRenderedCodesDecodeToTheirPayloads() throws {
-        let detector = try XCTUnwrap(CIDetector(ofType: CIDetectorTypeQRCode, context: CIContext(), options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]))
+        let detector = try XCTUnwrap(
+            CIDetector(
+                ofType: CIDetectorTypeQRCode, context: CIContext(),
+                options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]))
         for wifi in [WifiState(), .open, WifiState(ssid: #"Café;Guest\""#, password: #"test:,;\""#)] {
             let image = try XCTUnwrap(WifiQRCode.render(wifi))
             XCTAssertEqual(image.width, image.height)

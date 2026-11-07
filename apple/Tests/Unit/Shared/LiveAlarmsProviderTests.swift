@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 private actor AlarmProviderTransport: PanelTransport {
@@ -12,14 +13,21 @@ private actor AlarmProviderTransport: PanelTransport {
         guard !fixtures.isEmpty else { throw URLError(.notConnectedToInternet) }
         let url = Bundle(for: LiveAlarmsProviderTests.self).resourceURL!
             .appendingPathComponent("Fixtures/alarms/\(fixtures.removeFirst()).json")
-        return (try Data(contentsOf: url), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (
+            try Data(contentsOf: url),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 
 @MainActor final class LiveAlarmsProviderTests: XCTestCase {
     private let now = AlarmDate.parse("2099-01-01T07:00:01Z")!
     private func provider(_ transport: AlarmProviderTransport) -> LiveAlarmsProvider {
-        LiveAlarmsProvider(api: AlarmsAPI(client: PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://alarms.example.invalid")!), transport: transport)))
+        LiveAlarmsProvider(
+            api: AlarmsAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(baseURL: URL(string: "https://alarms.example.invalid")!),
+                    transport: transport)))
     }
 
     func testEmptyIsLiveButAbsentEndpointFallsBack() async {
@@ -61,13 +69,18 @@ private actor AlarmProviderTransport: PanelTransport {
         XCTAssertTrue(again.ringing)
         XCTAssertEqual(again.alarm.id, first.alarm.id)
         XCTAssertEqual(again.version, 2)
-        do { try await live.act(first.alarm.id, version: 0, snooze: false, now: later); XCTFail("Stale version") } catch {}
+        do {
+            try await live.act(first.alarm.id, version: 0, snooze: false, now: later)
+            XCTFail("Stale version")
+        } catch {}
         try await live.act(again.alarm.id, version: 2, snooze: false, now: later)
         XCTAssertFalse(try XCTUnwrap(live.upcoming(at: later)).ringing)
         let writes = await transport.requests.filter { $0.httpMethod == "POST" }
         XCTAssertEqual(writes.map { $0.url!.lastPathComponent }, ["alarms.snooze", "alarms.stop"])
         let body = try XCTUnwrap(writes[1].httpBody)
-        XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["id": "alr_example", "version": 2] as NSDictionary)
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: body) as? NSDictionary,
+            ["id": "alr_example", "version": 2] as NSDictionary)
     }
 
     func testConflictRefreshesStateWithoutRetryingOrOptimisticSuccess() async throws {
@@ -75,7 +88,10 @@ private actor AlarmProviderTransport: PanelTransport {
         let live = provider(transport)
         await live.refresh()
         let ring = try XCTUnwrap(live.upcoming(at: now))
-        do { try await live.act(ring.alarm.id, version: 0, snooze: true, now: now); XCTFail("Conflict") } catch {}
+        do {
+            try await live.act(ring.alarm.id, version: 0, snooze: true, now: now)
+            XCTFail("Conflict")
+        } catch {}
         XCTAssertTrue(try XCTUnwrap(live.upcoming(at: now)).snoozed)
         XCTAssertNotNil(live.errorMessage)
         XCTAssertFalse(live.pending)
@@ -84,13 +100,17 @@ private actor AlarmProviderTransport: PanelTransport {
     }
 
     func testCreateEditEnableDeleteUseBackendIDsAndDefaults() async throws {
-        let transport = AlarmProviderTransport(["scheduled", "ack", "scheduled", "ack", "scheduled", "ack", "scheduled", "ack", "empty"])
+        let transport = AlarmProviderTransport([
+            "scheduled", "ack", "scheduled", "ack", "scheduled", "ack", "scheduled", "ack", "empty",
+        ])
         let live = provider(transport)
         await live.refresh()
         var alarm = live.newAlarm
-        alarm.label = "Test alarm"; alarm.timeZone = "Etc/UTC"
+        alarm.label = "Test alarm"
+        alarm.timeZone = "Etc/UTC"
         try await live.save(alarm)
-        var edit = live.alarms[0]; edit.label = "Updated"
+        var edit = live.alarms[0]
+        edit.label = "Updated"
         let id = edit.id
         try await live.save(edit)
         XCTAssertEqual(live.alarms[0].id, id)
@@ -98,7 +118,9 @@ private actor AlarmProviderTransport: PanelTransport {
         try await live.delete(id)
         XCTAssertTrue(live.alarms.isEmpty)
         let writes = await transport.requests.filter { $0.httpMethod == "POST" }
-        XCTAssertEqual(writes.map { $0.url!.lastPathComponent }, ["alarms.create", "alarms.update", "alarms.setEnabled", "alarms.delete"])
+        XCTAssertEqual(
+            writes.map { $0.url!.lastPathComponent },
+            ["alarms.create", "alarms.update", "alarms.setEnabled", "alarms.delete"])
         let input = try JSONDecoder().decode(AlarmInput.self, from: XCTUnwrap(writes[0].httpBody))
         XCTAssertNil(input.snoozeMinutes)
         XCTAssertNil(input.lightTarget)

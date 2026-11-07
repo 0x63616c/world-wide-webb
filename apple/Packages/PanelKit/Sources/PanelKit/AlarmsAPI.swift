@@ -11,11 +11,17 @@ public struct AlarmInput: Codable, Equatable, Sendable {
     public var snoozeMinutes: Int?
     public var lightTarget: String?
 
-    public init(label: String, time: String, timeZone: String, repeatDays: [Int] = [],
-                at: String? = nil, snoozeMinutes: Int? = nil, lightTarget: String? = nil) {
-        self.label = label; self.time = time; self.timeZone = timeZone
-        self.repeatDays = repeatDays; self.at = at
-        self.snoozeMinutes = snoozeMinutes; self.lightTarget = lightTarget
+    public init(
+        label: String, time: String, timeZone: String, repeatDays: [Int] = [],
+        at: String? = nil, snoozeMinutes: Int? = nil, lightTarget: String? = nil
+    ) {
+        self.label = label
+        self.time = time
+        self.timeZone = timeZone
+        self.repeatDays = repeatDays
+        self.at = at
+        self.snoozeMinutes = snoozeMinutes
+        self.lightTarget = lightTarget
     }
 }
 
@@ -84,9 +90,11 @@ public struct AlarmsAPI: Sendable {
     public func list() async throws -> AlarmsSnapshot {
         let value = try await client.get("alarms", as: AlarmsSnapshot.self)
         guard AlarmDate.parse(value.serverNow) != nil,
-              value.next.map({ AlarmDate.parse($0.at) != nil }) ?? true,
-              value.alarms.allSatisfy({ $0.nextFireAt.map { AlarmDate.parse($0) != nil } ?? true }),
-              value.active.allSatisfy({ AlarmDate.parse($0.ringAt) != nil && AlarmDate.parse($0.expiresAt) != nil && $0.version >= 0 })
+            value.next.map({ AlarmDate.parse($0.at) != nil }) ?? true,
+            value.alarms.allSatisfy({ $0.nextFireAt.map { AlarmDate.parse($0) != nil } ?? true }),
+            value.active.allSatisfy({
+                AlarmDate.parse($0.ringAt) != nil && AlarmDate.parse($0.expiresAt) != nil && $0.version >= 0
+            })
         else { throw PanelAPIError.decoding("Invalid alarm snapshot.") }
         return value
     }
@@ -99,7 +107,8 @@ public struct AlarmsAPI: Sendable {
     }
     public func setEnabled(id: String, enabled: Bool) async throws {
         struct Input: Encodable, Sendable { let enabled: Bool }
-        _ = try await client.patch("alarms/" + PanelAPIClient.component(id), input: Input(enabled: enabled), as: Acknowledgement.self)
+        _ = try await client.patch(
+            "alarms/" + PanelAPIClient.component(id), input: Input(enabled: enabled), as: Acknowledgement.self)
     }
     public func delete(id: String) async throws {
         _ = try await client.delete("alarms/" + PanelAPIClient.component(id), as: Acknowledgement.self)
@@ -108,7 +117,12 @@ public struct AlarmsAPI: Sendable {
     public func stop(id: String, version: Int) async throws { try await act("stop", id: id, version: version) }
 
     private func act(_ procedure: String, id: String, version: Int) async throws {
-        struct Input: Encodable, Sendable { let id: String; let version: Int; let action: String }
-        _ = try await client.post("alarms/action", input: Input(id: id, version: version, action: procedure), as: Acknowledgement.self)
+        struct Input: Encodable, Sendable {
+            let id: String
+            let version: Int
+            let action: String
+        }
+        _ = try await client.post(
+            "alarms/action", input: Input(id: id, version: version, action: procedure), as: Acknowledgement.self)
     }
 }

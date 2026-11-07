@@ -9,8 +9,10 @@ import XCTest
     func testReadOnlyVehicleStates() {
         for scenario in ["parked", "charging", "unlocked", "update", "installing", "driving", "offline", "no-power"] {
             let app = XCUIApplication()
-            app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridTeslaScenario", scenario,
-                                   "-panel.idleDimming", "NO"]
+            app.launchArguments = [
+                "-hybridFixtures", "-hybridStill", "-hybridTeslaScenario", scenario,
+                "-panel.idleDimming", "NO",
+            ]
             app.launch()
             XCUIDevice.shared.orientation = .portrait
             XCUIDevice.shared.orientation = .landscapeLeft
@@ -24,7 +26,9 @@ import XCTest
             XCTAssertFalse(app.buttons["tesla-door-lock"].exists, scenario)
             XCTAssertFalse(app.switches["tesla-door-lock"].exists, scenario)
             XCTAssertFalse(app.buttons["pin-digit-0"].exists, scenario)
-            XCTAssertEqual(app.descendants(matching: .any)["tesla-update"].firstMatch.exists, ["update", "installing"].contains(scenario), scenario)
+            XCTAssertEqual(
+                app.descendants(matching: .any)["tesla-update"].firstMatch.exists,
+                ["update", "installing"].contains(scenario), scenario)
             XCTAssertTrue(app.descendants(matching: .any)["tesla-odometer"].firstMatch.exists, scenario)
             capture("evee-\(scenario)", app)
             app.terminate()

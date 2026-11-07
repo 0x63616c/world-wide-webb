@@ -18,7 +18,8 @@ public struct PanelPINAPI: Sendable {
         guard Self.isValid(current), Self.isValid(replacement) else { throw Failure.invalidFormat }
         struct Reply: Decodable, Sendable { let changed: Bool }
         do {
-            _ = try await client.patch("settings/pin", input: ["current": current, "replacement": replacement], as: Reply.self)
+            _ = try await client.patch(
+                "settings/pin", input: ["current": current, "replacement": replacement], as: Reply.self)
         } catch PanelAPIError.server(_, _, let status) where status == 403 {
             throw Failure.incorrectCurrentPIN
         }

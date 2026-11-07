@@ -75,7 +75,9 @@ struct ClockIconArtwork: View {
                     path.move(to: CGPoint(x: side * 0.50, y: side * 0.32))
                     path.addLine(to: CGPoint(x: side * 0.50, y: side * 0.50))
                     path.addLine(to: CGPoint(x: side * 0.65, y: side * 0.57))
-                }.stroke(Color(hex: "#228D70"), style: StrokeStyle(lineWidth: side * 0.043, lineCap: .round, lineJoin: .round))
+                }.stroke(
+                    Color(hex: "#228D70"),
+                    style: StrokeStyle(lineWidth: side * 0.043, lineCap: .round, lineJoin: .round))
                 Circle().fill(Color(hex: "#228D70")).frame(width: side * 0.065, height: side * 0.065)
             }.modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
         }.frame(width: side, height: side)
@@ -152,18 +154,26 @@ private enum PanelEverydayShape: Shape {
         switch self {
         case .pawPad:
             path.move(to: CGPoint(x: 500, y: 453))
-            path.addCurve(to: CGPoint(x: 652, y: 587), control1: CGPoint(x: 575, y: 453), control2: CGPoint(x: 587, y: 523))
-            path.addCurve(to: CGPoint(x: 659, y: 760), control1: CGPoint(x: 745, y: 676), control2: CGPoint(x: 740, y: 760))
-            path.addCurve(to: CGPoint(x: 500, y: 725), control1: CGPoint(x: 594, y: 760), control2: CGPoint(x: 561, y: 725))
-            path.addCurve(to: CGPoint(x: 341, y: 760), control1: CGPoint(x: 439, y: 725), control2: CGPoint(x: 406, y: 760))
-            path.addCurve(to: CGPoint(x: 348, y: 587), control1: CGPoint(x: 260, y: 760), control2: CGPoint(x: 255, y: 676))
-            path.addCurve(to: CGPoint(x: 500, y: 453), control1: CGPoint(x: 413, y: 523), control2: CGPoint(x: 425, y: 453))
+            path.addCurve(
+                to: CGPoint(x: 652, y: 587), control1: CGPoint(x: 575, y: 453), control2: CGPoint(x: 587, y: 523))
+            path.addCurve(
+                to: CGPoint(x: 659, y: 760), control1: CGPoint(x: 745, y: 676), control2: CGPoint(x: 740, y: 760))
+            path.addCurve(
+                to: CGPoint(x: 500, y: 725), control1: CGPoint(x: 594, y: 760), control2: CGPoint(x: 561, y: 725))
+            path.addCurve(
+                to: CGPoint(x: 341, y: 760), control1: CGPoint(x: 439, y: 725), control2: CGPoint(x: 406, y: 760))
+            path.addCurve(
+                to: CGPoint(x: 348, y: 587), control1: CGPoint(x: 260, y: 760), control2: CGPoint(x: 255, y: 676))
+            path.addCurve(
+                to: CGPoint(x: 500, y: 453), control1: CGPoint(x: 413, y: 523), control2: CGPoint(x: 425, y: 453))
         case .carBody:
             path.move(to: CGPoint(x: 175, y: 628))
             path.addQuadCurve(to: CGPoint(x: 178, y: 492), control: CGPoint(x: 142, y: 593))
             path.addLine(to: CGPoint(x: 283, y: 465))
-            path.addCurve(to: CGPoint(x: 471, y: 321), control1: CGPoint(x: 342, y: 370), control2: CGPoint(x: 391, y: 321))
-            path.addCurve(to: CGPoint(x: 661, y: 447), control1: CGPoint(x: 561, y: 313), control2: CGPoint(x: 624, y: 399))
+            path.addCurve(
+                to: CGPoint(x: 471, y: 321), control1: CGPoint(x: 342, y: 370), control2: CGPoint(x: 391, y: 321))
+            path.addCurve(
+                to: CGPoint(x: 661, y: 447), control1: CGPoint(x: 561, y: 313), control2: CGPoint(x: 624, y: 399))
             path.addLine(to: CGPoint(x: 790, y: 480))
             path.addQuadCurve(to: CGPoint(x: 846, y: 562), control: CGPoint(x: 844, y: 494))
             path.addQuadCurve(to: CGPoint(x: 809, y: 631), control: CGPoint(x: 857, y: 626))
@@ -182,7 +192,8 @@ private enum PanelEverydayShape: Shape {
             path.addLine(to: CGPoint(x: 609, y: 500))
         }
         path.closeSubpath()
-        return path.applying(CGAffineTransform(scaleX: rect.width / 1000, y: rect.height / 1000)
-            .concatenating(CGAffineTransform(translationX: rect.minX, y: rect.minY)))
+        return path.applying(
+            CGAffineTransform(scaleX: rect.width / 1000, y: rect.height / 1000)
+                .concatenating(CGAffineTransform(translationX: rect.minX, y: rect.minY)))
     }
 }

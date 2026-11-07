@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Panel
 
 @MainActor final class NotificationBannerPresentationTests: XCTestCase {
@@ -13,7 +14,7 @@ import XCTest
             (86399, DateComponents(hour: 23)), (86400, DateComponents(day: 1)),
             (604800, DateComponents(weekOfMonth: 1)),
             (31 * 86400, DateComponents(month: 1)),
-            (365 * 86400, DateComponents(year: 1))
+            (365 * 86400, DateComponents(year: 1)),
         ] {
             XCTAssertEqual(NotificationAge.components(from: start, to: start + elapsed, calendar: calendar), expected)
         }
@@ -38,7 +39,8 @@ import XCTest
     func testNewestStackAndHiddenItemsKeepReadingTimeAndHistory() {
         var now = Date(timeIntervalSince1970: 1_800_000_000)
         let center = Panel.NotificationCenter(now: { now })
-        let old = center.post(sourceModule: "alarms", title: "Older critical", body: "", deepLink: "module/alarms", priority: .critical)
+        let old = center.post(
+            sourceModule: "alarms", title: "Older critical", body: "", deepLink: "module/alarms", priority: .critical)
         now += 1
         let middle = center.post(sourceModule: "walk", title: "Middle", body: "", deepLink: "module/walk")
         now += 1

@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LivePhotosProviderTests: XCTestCase {
@@ -23,7 +24,10 @@ import XCTest
         defer { try? FileManager.default.removeItem(at: directory) }
         await provider.refresh()
         let photo = try XCTUnwrap(provider.frames.first)
-        do { _ = try await provider.image(photo); XCTFail("Locked image loaded") } catch {}
+        do {
+            _ = try await provider.image(photo)
+            XCTFail("Locked image loaded")
+        } catch {}
         await provider.remove(photo)
         await provider.clearFilter(photo)
         let lockedRequests = await transport.paths
@@ -44,7 +48,10 @@ import XCTest
         XCTAssertEqual(provider.frames.count, 0)
         provider.lock()
         XCTAssertFalse(provider.unlocked)
-        do { _ = try await provider.image(photo); XCTFail("Locked cache loaded") } catch {}
+        do {
+            _ = try await provider.image(photo)
+            XCTFail("Locked cache loaded")
+        } catch {}
     }
 
     func testBoothOpensWithoutPINWhileWakePhotosStayLocked() async throws {
@@ -52,16 +59,24 @@ import XCTest
         defer { try? FileManager.default.removeItem(at: directory) }
         await provider.refresh()
         let booth = try XCTUnwrap(provider.frames.first)
-        let wake = LivePhoto(id: "wake:archived", collection: "wake-photos", path: "archived.jpg", capturedAt: 0, groupID: nil, filter: nil)
+        let wake = LivePhoto(
+            id: "wake:archived", collection: "wake-photos", path: "archived.jpg", capturedAt: 0, groupID: nil,
+            filter: nil)
         provider.openBooth()
         XCTAssertFalse(provider.unlocked)
         _ = try await provider.image(booth)
-        do { _ = try await provider.image(wake); XCTFail("Wake photo loaded through Booth") } catch {}
+        do {
+            _ = try await provider.image(wake)
+            XCTFail("Wake photo loaded through Booth")
+        } catch {}
         await provider.clearFilter(booth)
         let paths = await transport.paths
         XCTAssertTrue(paths.contains("boothPhotos.clearFilter"))
         provider.closeBooth()
-        do { _ = try await provider.image(booth); XCTFail("Closed Booth image loaded") } catch {}
+        do {
+            _ = try await provider.image(booth)
+            XCTFail("Closed Booth image loaded")
+        } catch {}
         XCTAssertFalse(provider.unlocked)
     }
 
@@ -85,7 +100,9 @@ import XCTest
         await provider.refresh()
         let accepted = await provider.unlock(pin: "135790")
         XCTAssertTrue(accepted)
-        let wake = LivePhoto(id: "wake:archived", collection: "wake-photos", path: "archived.jpg", capturedAt: 0, groupID: nil, filter: nil)
+        let wake = LivePhoto(
+            id: "wake:archived", collection: "wake-photos", path: "archived.jpg", capturedAt: 0, groupID: nil,
+            filter: nil)
         await provider.remove(wake)
         await provider.clearFilter(wake)
         let before = await transport.paths
@@ -113,8 +130,13 @@ import XCTest
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/photos")
         let transport = PhotosProviderTransport(root: root)
-        let client = PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!), transport: transport)
-        return (LivePhotosProvider(api: PhotosAPI(client: client), cache: PhotoCache(directory: directory)), transport, directory)
+        let client = PanelAPIClient(
+            configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
+            transport: transport)
+        return (
+            LivePhotosProvider(api: PhotosAPI(client: client), cache: PhotoCache(directory: directory)), transport,
+            directory
+        )
     }
 }
 
@@ -136,15 +158,28 @@ private actor PhotosProviderTransport: PanelTransport {
         switch path {
         case "boothPhotos.list":
             let bytes = try Data(contentsOf: root.appendingPathComponent(removed ? "empty-booth.json" : "booth.json"))
-            data = cleared ? Data(String(decoding: bytes, as: UTF8.self).replacingOccurrences(of: "\"mono\"", with: "null").utf8) : bytes
+            data =
+                cleared
+                ? Data(String(decoding: bytes, as: UTF8.self).replacingOccurrences(of: "\"mono\"", with: "null").utf8)
+                : bytes
         case "wakePhotos.list": data = try Data(contentsOf: root.appendingPathComponent("wakes.json"))
         case "sessions.list": data = try Data(contentsOf: root.appendingPathComponent("sessions.json"))
         case "settings.get": data = try Data(contentsOf: root.appendingPathComponent("settings.json"))
-        case "boothPhotos.remove": removed = true; data = Data(#"{"result":{"data":{"removed":1}}}"#.utf8)
-        case "boothPhotos.clearFilter": cleared = true; data = Data(#"{"result":{"data":{"cleared":1}}}"#.utf8)
-        default: data = try Data(contentsOf: root.appendingPathComponent("image.png")); image = true
+        case "boothPhotos.remove":
+            removed = true
+            data = Data(#"{"result":{"data":{"removed":1}}}"#.utf8)
+        case "boothPhotos.clearFilter":
+            cleared = true
+            data = Data(#"{"result":{"data":{"cleared":1}}}"#.utf8)
+        default:
+            data = try Data(contentsOf: root.appendingPathComponent("image.png"))
+            image = true
         }
-        return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
-            headerFields: ["Content-Type": image ? "image/png" : "application/json"])!)
+        return (
+            data,
+            HTTPURLResponse(
+                url: url, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": image ? "image/png" : "application/json"])!
+        )
     }
 }

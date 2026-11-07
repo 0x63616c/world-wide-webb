@@ -35,11 +35,13 @@ struct ClimateController: View {
                             rangeSelection(low: false)
                         }.padding(.horizontal, compact ? 12 : 32).padding(.top, 16)
                     }
-                    ClimateTemperatureSurface(value: target, midpoint: climate.ambient, range: bounds,
+                    ClimateTemperatureSurface(
+                        value: target, midpoint: climate.ambient, range: bounds,
                         mode: climate.mode, accent: levelColor,
                         title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
-                        commit: setTemperature)
-                        .id("\(climate.mode.rawValue)-\(editingLow)")
+                        commit: setTemperature
+                    )
+                    .id("\(climate.mode.rawValue)-\(editingLow)")
                 }
             }
         }.background(Color(white: 0.055))
@@ -66,7 +68,9 @@ struct ClimateController: View {
                         Divider()
                         Text("Fan").font(.headline)
                         ForEach(climate.fanModes, id: \.self) { mode in
-                            choice(mode.capitalized, selected: climate.selectedFanMode == mode, id: "climate-fan-\(mode)") {
+                            choice(
+                                mode.capitalized, selected: climate.selectedFanMode == mode, id: "climate-fan-\(mode)"
+                            ) {
                                 store.send(.fanMode(mode))
                             }
                         }
@@ -90,19 +94,25 @@ struct ClimateController: View {
     }
 
     private func rangeSelection(low: Bool) -> some View {
-        Button { editingLow = low } label: {
+        Button {
+            editingLow = low
+        } label: {
             HStack(spacing: 12) {
                 Image(systemName: low ? "sun.max.fill" : "snowflake").foregroundStyle(low ? .orange : .cyan)
                 Text(low ? "Heat to" : "Cool to").foregroundStyle(.secondary)
                 Text("\(low ? climate.low : climate.high)°").monospacedDigit()
-            }.font(compact ? .body.weight(.medium) : .title2.weight(.medium)).padding(.horizontal, compact ? 12 : 24).frame(height: 64)
+            }.font(compact ? .body.weight(.medium) : .title2.weight(.medium)).padding(.horizontal, compact ? 12 : 24)
+                .frame(height: 64)
                 .background(editingLow == low ? .white.opacity(0.12) : .clear, in: .capsule)
         }.buttonStyle(.plain).accessibilityAddTraits(editingLow == low ? .isSelected : [])
             .accessibilityIdentifier(low ? "climate-range-low" : "climate-range-high")
     }
     private func setTemperature(_ value: Int) {
-        if climate.mode == .heatCool { store.send(editingLow ? .low(value) : .high(value)) }
-        else { store.send(.target(value)) }
+        if climate.mode == .heatCool {
+            store.send(editingLow ? .low(value) : .high(value))
+        } else {
+            store.send(.target(value))
+        }
     }
 }
 
@@ -119,11 +129,13 @@ private struct ClimateTemperatureSurface: View {
     // Put the room temperature at the center while preserving the full setpoint range.
     private var center: Double { Double(min(76, max(68, midpoint))) }
     private func fraction(for value: Double) -> Double {
-        value <= center ? 0.5 * (value - 67) / (center - 67)
+        value <= center
+            ? 0.5 * (value - 67) / (center - 67)
             : 0.5 + 0.5 * (value - center) / (77 - center)
     }
     private func temperature(at fraction: Double) -> Double {
-        fraction <= 0.5 ? 67 + fraction * 2 * (center - 67)
+        fraction <= 0.5
+            ? 67 + fraction * 2 * (center - 67)
             : center + (fraction - 0.5) * 2 * (77 - center)
     }
     private func bounded(_ value: Int) -> Int { min(range.upperBound, max(range.lowerBound, value)) }
@@ -131,8 +143,10 @@ private struct ClimateTemperatureSurface: View {
     private var displayed: Int { bounded(Int(temperature(at: position).rounded())) }
     private var levelFill: AnyShapeStyle {
         if mode == .heatCool {
-            AnyShapeStyle(LinearGradient(colors: [.orange.opacity(0.42), .cyan.opacity(0.42)],
-                startPoint: .bottom, endPoint: .top))
+            AnyShapeStyle(
+                LinearGradient(
+                    colors: [.orange.opacity(0.42), .cyan.opacity(0.42)],
+                    startPoint: .bottom, endPoint: .top))
         } else {
             AnyShapeStyle(accent.gradient.opacity(0.38))
         }
@@ -160,26 +174,32 @@ private struct ClimateTemperatureSurface: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("climate-value")
             }.contentShape(.rect)
-                .gesture(DragGesture(minimumDistance: 6)
-                    .onChanged { gesture in
-                        let start = fraction(for: Double(value))
-                        let proposed = start - gesture.translation.height / max(1, height)
-                        dragFraction = min(fraction(for: Double(range.upperBound)),
-                            max(fraction(for: Double(range.lowerBound)), proposed))
-                    }
-                    .onEnded { _ in
-                        let target = displayed
-                        withAnimation(.smooth(duration: 0.22)) {
-                            if target != value { commit(target) }
-                            dragFraction = nil
+                .gesture(
+                    DragGesture(minimumDistance: 6)
+                        .onChanged { gesture in
+                            let start = fraction(for: Double(value))
+                            let proposed = start - gesture.translation.height / max(1, height)
+                            dragFraction = min(
+                                fraction(for: Double(range.upperBound)),
+                                max(fraction(for: Double(range.lowerBound)), proposed))
                         }
-                    })
+                        .onEnded { _ in
+                            let target = displayed
+                            withAnimation(.smooth(duration: 0.22)) {
+                                if target != value { commit(target) }
+                                dragFraction = nil
+                            }
+                        }
+                )
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(title).accessibilityValue("\(mode.label) mode, \(displayed) degrees Fahrenheit")
                 .accessibilityAdjustableAction { direction in
                     withAnimation(.smooth(duration: 0.22)) {
-                        if direction == .increment { commit(bounded(value + 1)) }
-                        else if direction == .decrement { commit(bounded(value - 1)) }
+                        if direction == .increment {
+                            commit(bounded(value + 1))
+                        } else if direction == .decrement {
+                            commit(bounded(value - 1))
+                        }
                     }
                 }
                 .accessibilityIdentifier("climate-temperature-surface")

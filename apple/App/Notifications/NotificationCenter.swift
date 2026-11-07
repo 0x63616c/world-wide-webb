@@ -16,16 +16,32 @@ struct NotificationItem: Identifiable, Equatable, Codable, Sendable {
     var isPersistentUpdate: Bool { !remote && sourceModule == "updates" && deepLink == "module/updates/testflight" }
 
     init(_ row: PanelNotification) {
-        id = row.id; sourceModule = row.sourceModule; title = row.title; body = row.body
-        deepLink = row.deepLink; priority = row.priority; dedupeKey = row.dedupeKey
-        createdAt = row.createdAt; readAt = row.readAt; remote = true
+        id = row.id
+        sourceModule = row.sourceModule
+        title = row.title
+        body = row.body
+        deepLink = row.deepLink
+        priority = row.priority
+        dedupeKey = row.dedupeKey
+        createdAt = row.createdAt
+        readAt = row.readAt
+        remote = true
     }
 
-    init(id: String, sourceModule: String, title: String, body: String, deepLink: String,
-         priority: NotificationPriority, dedupeKey: String?, createdAt: Date) {
-        self.id = id; self.sourceModule = sourceModule; self.title = title; self.body = body
-        self.deepLink = deepLink; self.priority = priority; self.dedupeKey = dedupeKey
-        self.createdAt = createdAt; readAt = nil; remote = false
+    init(
+        id: String, sourceModule: String, title: String, body: String, deepLink: String,
+        priority: NotificationPriority, dedupeKey: String?, createdAt: Date
+    ) {
+        self.id = id
+        self.sourceModule = sourceModule
+        self.title = title
+        self.body = body
+        self.deepLink = deepLink
+        self.priority = priority
+        self.dedupeKey = dedupeKey
+        self.createdAt = createdAt
+        readAt = nil
+        remote = false
     }
 }
 
@@ -60,9 +76,13 @@ struct NotificationGroup: Identifiable, Equatable {
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let cache: (any NotificationHistoryCaching)?
 
-    init(api: (any NotificationsServing)? = nil, cache: (any NotificationHistoryCaching)? = nil,
-         now: @escaping () -> Date = Date.init) {
-        self.api = api; self.cache = cache; self.now = now
+    init(
+        api: (any NotificationsServing)? = nil, cache: (any NotificationHistoryCaching)? = nil,
+        now: @escaping () -> Date = Date.init
+    ) {
+        self.api = api
+        self.cache = cache
+        self.now = now
         do {
             if let saved = try cache?.load(), saved.version == 1 {
                 items = Dictionary(saved.items.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
@@ -76,7 +96,8 @@ struct NotificationGroup: Identifiable, Equatable {
     private func persist() {
         guard let cache else { return }
         do {
-            try cache.save(NotificationHistorySnapshot(items: history, revisions: revisions, cursor: cursor, lastSync: lastSync))
+            try cache.save(
+                NotificationHistorySnapshot(items: history, revisions: revisions, cursor: cursor, lastSync: lastSync))
             cacheError = nil
         } catch { cacheError = "Notifications couldn’t be saved on this device. Try freeing storage space." }
     }
@@ -87,13 +108,16 @@ struct NotificationGroup: Identifiable, Equatable {
     var bannerGroups: [NotificationGroup] { group(banners.compactMap { items[$0] }.sorted(by: Self.ordered)) }
 
     @discardableResult
-    func post(sourceModule: String, title: String, body: String, deepLink: String,
-              priority: NotificationPriority = .normal, dedupeKey: String? = nil) -> String {
+    func post(
+        sourceModule: String, title: String, body: String, deepLink: String,
+        priority: NotificationPriority = .normal, dedupeKey: String? = nil
+    ) -> String {
         let existing = match(source: sourceModule, key: dedupeKey)
         // Local notifications never impersonate server IDs or mutate server records.
         let id = existing.flatMap { $0.remote ? nil : $0.id } ?? UUID().uuidString
         if let existing { remove(existing.id) }
-        items[id] = NotificationItem(id: id, sourceModule: sourceModule, title: title, body: body,
+        items[id] = NotificationItem(
+            id: id, sourceModule: sourceModule, title: title, body: body,
             deepLink: deepLink, priority: priority, dedupeKey: dedupeKey, createdAt: now())
         present(id)
         persist()
@@ -138,16 +162,14 @@ struct NotificationGroup: Identifiable, Equatable {
         guard api != nil else { return }
         while !Task.isCancelled {
             await refresh()
-            do { try await Task.sleep(for: .seconds(connection == .unavailable ? 30 : 5)) }
-            catch { return }
+            do { try await Task.sleep(for: .seconds(connection == .unavailable ? 30 : 5)) } catch { return }
         }
     }
 
     func markRead(_ id: String) async {
         guard let item = items[id] else { return }
         do {
-            if item.remote, let api { merge(try await api.markRead(id: id)) }
-            else { items[id]?.readAt = now() }
+            if item.remote, let api { merge(try await api.markRead(id: id)) } else { items[id]?.readAt = now() }
             persist()
             lastError = nil
         } catch { lastError = "Couldn’t mark the notification as read. Try again." }
@@ -181,8 +203,7 @@ struct NotificationGroup: Identifiable, Equatable {
         hideBanner(id)
         dismissFeedback += 1
         do {
-            if item.remote, let api { merge(try await api.dismiss(id: id)) }
-            else { remove(id) }
+            if item.remote, let api { merge(try await api.dismiss(id: id)) } else { remove(id) }
             persist()
             lastError = nil
         } catch {
@@ -219,8 +240,9 @@ struct NotificationGroup: Identifiable, Equatable {
 
     /// Advance only banners actually on screen. Queued/covered banners get their full reading time.
     func advanceBanners(by elapsed: TimeInterval, visibleSources: Set<String>, paused: Bool = false) {
-        let ids = Set(bannerGroups.filter { visibleSources.contains($0.id) && !pausedSources.contains($0.id) }
-            .compactMap { $0.items.first?.id })
+        let ids = Set(
+            bannerGroups.filter { visibleSources.contains($0.id) && !pausedSources.contains($0.id) }
+                .compactMap { $0.items.first?.id })
         advanceBanners(by: elapsed, visibleIDs: ids, paused: paused)
     }
 
@@ -229,8 +251,7 @@ struct NotificationGroup: Identifiable, Equatable {
         guard !historyPresented, !paused, elapsed > 0, elapsed.isFinite else { return }
         for id in visibleIDs where banners.contains(id) && items[id]?.isPersistentUpdate != true {
             guard let seconds = remaining[id] else { continue }
-            if seconds <= elapsed { hideBanner(id) }
-            else { remaining[id] = seconds - elapsed }
+            if seconds <= elapsed { hideBanner(id) } else { remaining[id] = seconds - elapsed }
         }
     }
 
@@ -244,26 +265,33 @@ struct NotificationGroup: Identifiable, Equatable {
         let revision = Int64(row.revision) ?? 0
         guard revision > (revisions[row.id] ?? -1) else { return }
         revisions[row.id] = revision
-        if row.dismissedAt != nil { remove(row.id); return }
+        if row.dismissedAt != nil {
+            remove(row.id)
+            return
+        }
         let previous = items[row.id] ?? match(source: row.sourceModule, key: row.dedupeKey)
         let wasPresented = previous.map { banners.contains($0.id) } ?? false
-        let duplicateLocal = previous.map {
-            !$0.remote && $0.title == row.title && $0.body == row.body && $0.deepLink == row.deepLink
-                && $0.priority == row.priority
-        } ?? false
+        let duplicateLocal =
+            previous.map {
+                !$0.remote && $0.title == row.title && $0.body == row.body && $0.deepLink == row.deepLink
+                    && $0.priority == row.priority
+            } ?? false
         let oldRemaining = previous.flatMap { remaining[$0.id] }
         if let previous, previous.id != row.id { remove(previous.id) }
         items[row.id] = NotificationItem(row)
-        if row.readAt != nil { hideBanner(row.id) }
-        else if duplicateLocal {
+        if row.readAt != nil {
+            hideBanner(row.id)
+        } else if duplicateLocal {
             if wasPresented {
                 banners.insert(row.id)
                 remaining[row.id] = oldRemaining
             }
-        } else if previous == nil || previous.map({
-            row.createdAt > $0.createdAt || row.title != $0.title || row.body != $0.body
-                || row.deepLink != $0.deepLink || row.priority != $0.priority || $0.readAt != nil
-        }) == true {
+        } else if previous == nil
+            || previous.map({
+                row.createdAt > $0.createdAt || row.title != $0.title || row.body != $0.body
+                    || row.deepLink != $0.deepLink || row.priority != $0.priority || $0.readAt != nil
+            }) == true
+        {
             present(row.id)
         }
     }
@@ -285,7 +313,10 @@ struct NotificationGroup: Identifiable, Equatable {
         persist()
     }
 
-    private func remove(_ id: String) { items.removeValue(forKey: id); hideBanner(id) }
+    private func remove(_ id: String) {
+        items.removeValue(forKey: id)
+        hideBanner(id)
+    }
 
     private func match(source: String, key: String?) -> NotificationItem? {
         guard let key else { return nil }

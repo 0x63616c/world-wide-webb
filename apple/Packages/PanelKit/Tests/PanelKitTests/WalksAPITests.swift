@@ -1,9 +1,11 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Testing
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 /// Synthetic recordings of the WWW-27 contract; envelopes match plain tRPC v11 HTTP.
 private func walkFixture(_ name: String) throws -> Data {
@@ -15,7 +17,10 @@ private actor WalksTransport: PanelTransport {
     private(set) var requests: [URLRequest] = []
     let data: Data
     let status: Int
-    init(_ data: Data, status: Int = 200) { self.data = data; self.status = status }
+    init(_ data: Data, status: Int = 200) {
+        self.data = data
+        self.status = status
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
@@ -23,8 +28,10 @@ private actor WalksTransport: PanelTransport {
 }
 
 private func walksAPI(_ transport: WalksTransport) -> WalksAPI {
-    WalksAPI(client: PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
-                                   transport: transport))
+    WalksAPI(
+        client: PanelAPIClient(
+            configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+            transport: transport))
 }
 
 @Test func walksDecodeRecordingsFromBackendPR804() async throws {
@@ -77,12 +84,11 @@ private func walksAPI(_ transport: WalksTransport) -> WalksAPI {
     _ = try await walksAPI(transport).history(limit: 500, before: Date(timeIntervalSince1970: 0))
     let request = try #require(await transport.requests.first)
     let components = try #require(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
-    let input = try #require(components.queryItems?.first?.value)
-    let object = try #require(JSONSerialization.jsonObject(with: Data(input.utf8)) as? [String: Any])
+    let object = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
     #expect(request.httpMethod == "GET")
     #expect(request.url?.path == "/api/v1/walks/history")
-    #expect(object["limit"] as? Int == 500)
-    #expect(object["before"] as? String == "1970-01-01T00:00:00.000Z")
+    #expect(object["limit"] == "500")
+    #expect(object["before"] == "1970-01-01T00:00:00.000Z")
 }
 
 @Test func walksMutationsUseExactInputsAndStateEnvelopes() async throws {
@@ -97,13 +103,17 @@ private func walksAPI(_ transport: WalksTransport) -> WalksAPI {
         default: _ = try await api.update(id: "walk_synthetic_previous", endedAt: Date(timeIntervalSince1970: 0))
         }
         let request = try #require(await transport.requests.first)
-        let body = try #require(request.httpBody)
-        let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: String])
-        #expect(request.httpMethod == "POST")
-        #expect(request.url?.path == "/trpc/walks.\(procedure)")
+        let object = try #require(
+            JSONSerialization.jsonObject(with: request.httpBody ?? Data("{}".utf8)) as? [String: String])
+        #expect(request.httpMethod == (procedure == "delete" ? "DELETE" : procedure == "update" ? "PATCH" : "POST"))
+        #expect(
+            request.url?.path
+                == (procedure == "delete" || procedure == "update"
+                    ? "/api/v1/walks/walk_synthetic_previous" : "/api/v1/walks/" + procedure))
         switch procedure {
         case "start": #expect(object == ["id": id.uuidString.lowercased(), "source": "iphone"])
-        case "update": #expect(object == ["id": "walk_synthetic_previous", "endedAt": "1970-01-01T00:00:00.000Z"])
+        case "update": #expect(object == ["endedAt": "1970-01-01T00:00:00.000Z"])
+        case "delete": #expect(request.httpBody == nil)
         default: #expect(object == ["id": "walk_synthetic_previous"])
         }
     }
@@ -114,7 +124,8 @@ private func walksAPI(_ transport: WalksTransport) -> WalksAPI {
     let api = walksAPI(transport)
     _ = try await api.start(startedAt: Date(timeIntervalSince1970: 0))
     _ = try await api.stop(id: "walk_example", endedAt: Date(timeIntervalSince1970: 1))
-    _ = try await api.update(id: "walk_example", startedAt: Date(timeIntervalSince1970: 0), endedAt: Date(timeIntervalSince1970: 1))
+    _ = try await api.update(
+        id: "walk_example", startedAt: Date(timeIntervalSince1970: 0), endedAt: Date(timeIntervalSince1970: 1))
     let historyTransport = WalksTransport(try walkFixture("history-empty"))
     _ = try await walksAPI(historyTransport).history()
     let requests = await transport.requests
@@ -127,7 +138,7 @@ private func walksAPI(_ transport: WalksTransport) -> WalksAPI {
     #expect(update["endedAt"] == "1970-01-01T00:00:01.000Z")
     let historyRequest = try #require(await historyTransport.requests.first)
     let query = URLComponents(url: historyRequest.url!, resolvingAgainstBaseURL: false)?.queryItems?.first?.value
-    #expect(query == "{}")
+    #expect(query == nil)
 }
 
 @Test func walksRejectInvalidInputsBeforeNetworking() async throws {
@@ -139,7 +150,8 @@ private func walksAPI(_ transport: WalksTransport) -> WalksAPI {
     await #expect(throws: PanelAPIError.self) { try await api.stop(id: "") }
     await #expect(throws: PanelAPIError.self) { try await api.delete(id: String(repeating: "a", count: 129)) }
     await #expect(throws: PanelAPIError.self) {
-        try await api.update(id: "walk_example", startedAt: Date(timeIntervalSince1970: 1), endedAt: Date(timeIntervalSince1970: 0))
+        try await api.update(
+            id: "walk_example", startedAt: Date(timeIntervalSince1970: 1), endedAt: Date(timeIntervalSince1970: 0))
     }
     #expect(await transport.requests.isEmpty)
 }

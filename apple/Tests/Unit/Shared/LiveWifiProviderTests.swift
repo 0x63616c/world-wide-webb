@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveWifiProviderTests: XCTestCase {
@@ -27,10 +28,12 @@ import XCTest
     }
 
     func testMalformedPayloadsFailClosed() {
-        for payload in ["garbage", "WIFI:T:WPA;S:Guest;;", "WIFI:T:WPA;S:;P:fake;;",
-                        "WIFI:T:WEP;S:Guest;P:fake;;", "WIFI:T:WPA;S:Guest;S:Other;P:fake;;",
-                        #"WIFI:T:WPA;S:Guest\q;P:fake;;"#, "WIFI:T:nopass;S:Guest;P:fake;;",
-                        "WIFI:T:WPA;S:Guest;P:fake;", #"WIFI:T:WPA;S:Guest;P:fake\;;"#] {
+        for payload in [
+            "garbage", "WIFI:T:WPA;S:Guest;;", "WIFI:T:WPA;S:;P:fake;;",
+            "WIFI:T:WEP;S:Guest;P:fake;;", "WIFI:T:WPA;S:Guest;S:Other;P:fake;;",
+            #"WIFI:T:WPA;S:Guest\q;P:fake;;"#, "WIFI:T:nopass;S:Guest;P:fake;;",
+            "WIFI:T:WPA;S:Guest;P:fake;", #"WIFI:T:WPA;S:Guest;P:fake\;;"#,
+        ] {
             XCTAssertThrowsError(try LiveWifiProvider.parse(payload))
         }
     }
@@ -106,9 +109,12 @@ import XCTest
     }
 
     private func makeProvider(_ transport: WifiProviderTransport) -> LiveWifiProvider {
-        LiveWifiProvider(api: WifiAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!
-        ), transport: transport)))
+        LiveWifiProvider(
+            api: WifiAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(
+                        baseURL: URL(string: "https://panel.example.invalid")!
+                    ), transport: transport)))
     }
 
     private func fixture(_ name: String) throws -> String {
@@ -116,7 +122,10 @@ import XCTest
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let url = root.appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/wifi/\(name).json")
         struct Envelope: Decodable {
-            struct Result: Decodable { struct Payload: Decodable { let qr: String }; let data: Payload }
+            struct Result: Decodable {
+                struct Payload: Decodable { let qr: String }
+                let data: Payload
+            }
             let result: Result
         }
         return try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url)).result.data.qr
@@ -127,7 +136,10 @@ private actor WifiProviderTransport: PanelTransport {
     let replies: [String?]
     private(set) var count = 0
     let delay: Duration
-    init(replies: [String?], delay: Duration = .zero) { self.replies = replies; self.delay = delay }
+    init(replies: [String?], delay: Duration = .zero) {
+        self.replies = replies
+        self.delay = delay
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let index = count
         count += 1

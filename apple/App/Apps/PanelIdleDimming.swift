@@ -15,7 +15,7 @@ import SwiftUI
     }
 
     func activity(now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
-        guard !dimmed else { return } // Only the wake target consumes the first touch.
+        guard !dimmed else { return }  // Only the wake target consumes the first touch.
         lastActivity = now
         returnedToClock = false
     }
@@ -49,8 +49,8 @@ struct PanelIdleDimming: ViewModifier {
 
     private var visualOpacity: Double {
         #if os(iOS) && !targetEnvironment(simulator) && !targetEnvironment(macCatalyst)
-        // iPad hardware brightness must not be multiplied by a second dark overlay.
-        if !ProcessInfo.processInfo.isiOSAppOnMac { return 0 }
+            // iPad hardware brightness must not be multiplied by a second dark overlay.
+            if !ProcessInfo.processInfo.isiOSAppOnMac { return 0 }
         #endif
         return 1 - display.brightness(dimmed: idle.dimmed)
     }
@@ -60,7 +60,10 @@ struct PanelIdleDimming: ViewModifier {
             .overlay { Color.black.opacity(visualOpacity).ignoresSafeArea().allowsHitTesting(false) }
             .overlay {
                 if idle.dimmed {
-                    Button { idle.wake(); onWake() } label: {
+                    Button {
+                        idle.wake()
+                        onWake()
+                    } label: {
                         Color.clear.ignoresSafeArea().contentShape(.rect)
                     }
                     .buttonStyle(.plain).accessibilityLabel("Wake panel")
@@ -68,22 +71,26 @@ struct PanelIdleDimming: ViewModifier {
                 }
             }
             #if os(iOS) && !targetEnvironment(macCatalyst)
-            .background {
-                PanelScreenBrightness(level: display.brightness(dimmed: idle.dimmed), active: phase == .active)
+                .background {
+                    PanelScreenBrightness(level: display.brightness(dimmed: idle.dimmed), active: phase == .active)
                     .allowsHitTesting(false)
-                PanelInputObserver(activity: { idle.activity() })
-            }
+                    PanelInputObserver(activity: { idle.activity() })
+                }
             #else
-            .simultaneousGesture(TapGesture().onEnded { idle.activity() })
-            .onContinuousHover { hover in if case .active = hover { idle.wake() } }
+                .simultaneousGesture(TapGesture().onEnded { idle.activity() })
+                .onContinuousHover { hover in if case .active = hover { idle.wake() } }
             #endif
             .task(id: "\(phase)-\(timeout)-\(display.dimAfterSeconds)-\(display.idleDimming)-\(inhibited)") {
                 guard phase == .active, !inhibited else { return }
                 idle.wake()
                 while !Task.isCancelled {
                     do { try await Task.sleep(for: .seconds(1)) } catch { return }
-                    if idle.tick(now: ProcessInfo.processInfo.systemUptime, dimAfter: display.dimAfterSeconds,
-                                 returnAfter: timeout, dimEnabled: display.idleDimming) { onIdle() }
+                    if idle.tick(
+                        now: ProcessInfo.processInfo.systemUptime, dimAfter: display.dimAfterSeconds,
+                        returnAfter: timeout, dimEnabled: display.idleDimming)
+                    {
+                        onIdle()
+                    }
                 }
             }
             .onChange(of: inhibited) { _, _ in idle.wake() }

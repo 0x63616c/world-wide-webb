@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import PanelKit
 
 final class PhotosAPITests: XCTestCase {
@@ -12,12 +13,12 @@ final class PhotosAPITests: XCTestCase {
         try await api.remove(groupID: "bpg_fixture")
         try await api.clearFilter(groupID: "bpg_fixture")
         let requests = await transport.requests
-        XCTAssertEqual(requests.map { $0.url!.lastPathComponent },
-                       ["boothPhotos.list", "wakePhotos.list", "sessions.list", "boothPhotos.remove", "boothPhotos.clearFilter"])
+        XCTAssertEqual(
+            requests.map { $0.url!.lastPathComponent },
+            ["booth", "bpg_fixture", "filter"])
         for request in requests.suffix(2) {
-            XCTAssertEqual(request.httpMethod, "POST")
-            let body = try XCTUnwrap(request.httpBody)
-            XCTAssertEqual(try JSONDecoder().decode([String: String].self, from: body), ["groupId": "bpg_fixture"])
+            XCTAssertEqual(request.httpMethod, "DELETE")
+            XCTAssertNil(request.httpBody)
         }
     }
 
@@ -31,8 +32,10 @@ final class PhotosAPITests: XCTestCase {
         XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "CF-Access-Client-Id"), "fixture-id")
         XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "CF-Access-Client-Secret"), "fixture-secret")
         for path in ["../secret", "/absolute", "https://other.invalid/x", "%2e%2e/x", "x?query", "x#fragment"] {
-            do { _ = try await api.image(collection: "booth-photos", path: path); XCTFail("Accepted invalid path") }
-            catch {}
+            do {
+                _ = try await api.image(collection: "booth-photos", path: path)
+                XCTFail("Accepted invalid path")
+            } catch {}
         }
         let count = await transport.requests.count
         XCTAssertEqual(count, 1)
@@ -43,10 +46,12 @@ final class PhotosAPITests: XCTestCase {
         let api = PhotosAPI(client: client(transport))
         let accepted = try await api.unlock(pin: "135790")
         let rejected = try await api.unlock(pin: "999999")
-        XCTAssertTrue(accepted); XCTAssertFalse(rejected)
+        XCTAssertTrue(accepted)
+        XCTAssertFalse(rejected)
         for request in await transport.requests {
-            XCTAssertEqual(request.url?.path, "/trpc/settings.get")
-            XCTAssertNil(request.httpBody); XCTAssertNil(request.url?.query)
+            XCTAssertEqual(request.url?.path, "/api/v1/settings/pin/verify")
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertNil(request.url?.query)
         }
     }
 
@@ -70,8 +75,10 @@ final class PhotosAPITests: XCTestCase {
     }
 
     private func client(_ transport: PhotosTestTransport) -> PanelAPIClient {
-        PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!,
-            accessClientID: "fixture-id", accessClientSecret: "fixture-secret"), transport: transport)
+        PanelAPIClient(
+            configuration: PanelConfiguration(
+                baseURL: URL(string: "https://fixtures.example.invalid")!,
+                accessClientID: "fixture-id", accessClientSecret: "fixture-secret"), transport: transport)
     }
 }
 
@@ -81,15 +88,16 @@ private actor PhotosTestTransport: PanelTransport {
         requests.append(request)
         let url = request.url!
         let name: String
-        switch url.lastPathComponent {
-        case "wake-photo": return reply(Data(), url: url, status: 201)
-        case "boothPhotos.list": name = "booth"
-        case "wakePhotos.list": name = "wakes"
-        case "sessions.list": name = "sessions"
-        case "settings.get": name = "settings"
-        case "boothPhotos.remove": return reply(Data(#"{"removed":1}"#.utf8), url: url)
-        case "boothPhotos.clearFilter": return reply(Data(#"{"cleared":1}"#.utf8), url: url)
-        default:
+        if url.path == "/api/v1/settings/pin/verify" {
+            let input = try JSONDecoder().decode([String: String].self, from: request.httpBody!)
+            return reply(try JSONSerialization.data(withJSONObject: ["verified": input["pin"] == "135790"]), url: url)
+        }
+        if request.httpMethod == "DELETE" {
+            return reply(Data((url.path.hasSuffix("/filter") ? "{\"cleared\":1}" : "{\"removed\":1}").utf8), url: url)
+        }
+        if url.path == "/api/v1/booth" {
+            name = "booth"
+        } else {
             let file = Bundle.module.url(forResource: "image", withExtension: "png", subdirectory: "Fixtures/photos")!
             return reply(try Data(contentsOf: file), url: url, image: true)
         }
@@ -97,7 +105,11 @@ private actor PhotosTestTransport: PanelTransport {
         return reply(try Data(contentsOf: file), url: url)
     }
     private func reply(_ data: Data, url: URL, image: Bool = false, status: Int = 200) -> (Data, HTTPURLResponse) {
-        (data, HTTPURLResponse(url: url, statusCode: status, httpVersion: nil,
-                              headerFields: ["Content-Type": image ? "image/png" : "application/json"])!)
+        (
+            data,
+            HTTPURLResponse(
+                url: url, statusCode: status, httpVersion: nil,
+                headerFields: ["Content-Type": image ? "image/png" : "application/json"])!
+        )
     }
 }

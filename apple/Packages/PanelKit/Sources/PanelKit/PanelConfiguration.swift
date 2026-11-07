@@ -7,8 +7,10 @@ public struct PanelConfiguration: Sendable, CustomStringConvertible, CustomDebug
     public let apiToken: String?
     public let requestTimeout: TimeInterval
 
-    public init(baseURL: URL, accessClientID: String? = nil, accessClientSecret: String? = nil,
-                apiToken: String? = nil, requestTimeout: TimeInterval = 30) {
+    public init(
+        baseURL: URL, accessClientID: String? = nil, accessClientSecret: String? = nil,
+        apiToken: String? = nil, requestTimeout: TimeInterval = 30
+    ) {
         self.baseURL = baseURL
         self.accessClientID = accessClientID
         self.accessClientSecret = accessClientSecret
@@ -20,8 +22,9 @@ public struct PanelConfiguration: Sendable, CustomStringConvertible, CustomDebug
         _ env: [String: String] = ProcessInfo.processInfo.environment
     ) -> PanelConfiguration? {
         guard let raw = env["WWW_PANEL_API_URL"], !raw.isEmpty,
-              raw == raw.trimmingCharacters(in: .whitespacesAndNewlines),
-              let url = URL(string: raw), isValidBaseURL(url) else { return nil }
+            raw == raw.trimmingCharacters(in: .whitespacesAndNewlines),
+            let url = URL(string: raw), isValidBaseURL(url)
+        else { return nil }
         return PanelConfiguration(
             baseURL: url,
             accessClientID: nonempty(env["WWW_CF_ACCESS_CLIENT_ID"]),
@@ -36,29 +39,29 @@ public struct PanelConfiguration: Sendable, CustomStringConvertible, CustomDebug
     ) -> PanelConfiguration? {
         guard let configuration = fromEnvironment(env) else { return nil }
         #if canImport(Security)
-        return configuration.fillingCredentials { try? PanelKeychain.load($0) }
+            return configuration.fillingCredentials { try? PanelKeychain.load($0) }
         #else
-        return configuration
+            return configuration
         #endif
     }
 
     #if canImport(Security)
-    // Injectable lookup keeps resolution tests independent of the user's real Keychain.
-    func fillingCredentials(_ load: (PanelKeychain.Key) -> String?) -> PanelConfiguration {
-        PanelConfiguration(
-            baseURL: baseURL,
-            accessClientID: accessClientID ?? Self.nonempty(load(.accessClientID)),
-            accessClientSecret: accessClientSecret ?? Self.nonempty(load(.accessClientSecret)),
-            apiToken: apiToken ?? Self.nonempty(load(.apiToken)),
-            requestTimeout: requestTimeout
-        )
-    }
+        // Injectable lookup keeps resolution tests independent of the user's real Keychain.
+        func fillingCredentials(_ load: (PanelKeychain.Key) -> String?) -> PanelConfiguration {
+            PanelConfiguration(
+                baseURL: baseURL,
+                accessClientID: accessClientID ?? Self.nonempty(load(.accessClientID)),
+                accessClientSecret: accessClientSecret ?? Self.nonempty(load(.accessClientSecret)),
+                apiToken: apiToken ?? Self.nonempty(load(.apiToken)),
+                requestTimeout: requestTimeout
+            )
+        }
     #endif
 
     static func isValidBaseURL(_ url: URL) -> Bool {
         guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let host = parts.host, !host.isEmpty, !host.contains(where: { $0.isWhitespace }),
-              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil
+            let host = parts.host, !host.isEmpty, !host.contains(where: { $0.isWhitespace }),
+            parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil
         else { return false }
         let scheme = parts.scheme?.lowercased()
         let loopback = ["localhost", "127.0.0.1", "[::1]", "::1"].contains(host.lowercased())

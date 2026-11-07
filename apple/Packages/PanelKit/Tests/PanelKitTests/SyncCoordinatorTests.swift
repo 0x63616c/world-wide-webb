@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import PanelKit
 
 @MainActor @Test func syncPollsImmediatelyThenOnMonotonicCadenceWithoutOverlap() async throws {
@@ -16,10 +17,10 @@ import Testing
     sync.setSceneActive(true, refresh: refresh)
     defer { sync.setSceneActive(false, refresh: refresh) }
     try await eventually { calls == 1 && clock.pendingSleeps == 1 }
-    sync.setSceneActive(true, refresh: refresh) // No duplicate poll.
+    sync.setSceneActive(true, refresh: refresh)  // No duplicate poll.
     clock.advance(.seconds(1))
     try await eventually { sync.lastKnown == 1 && clock.pendingSleeps == 1 }
-    clock.jumpWallTime(.seconds(3600)) // Device clock adjustment cannot change the deadline.
+    clock.jumpWallTime(.seconds(3600))  // Device clock adjustment cannot change the deadline.
     clock.advance(.seconds(2))
     await drain()
     #expect(calls == 1)
@@ -39,8 +40,7 @@ import Testing
     var offline = true
     let refresh: @MainActor () async -> Void = {
         calls += 1
-        if offline { sync.recordFailure() }
-        else { sync.accept("recovered", sentAt: clock.date) }
+        if offline { sync.recordFailure() } else { sync.accept("recovered", sentAt: clock.date) }
     }
     sync.setSceneActive(true, refresh: refresh)
     defer { sync.setSceneActive(false, refresh: refresh) }
@@ -69,7 +69,10 @@ import Testing
     let clock = ManualSyncClock()
     let sync = SyncCoordinator<Int>(clock: clock.clock)
     var calls = 0
-    let refresh: @MainActor () async -> Void = { calls += 1; sync.recordFailure() }
+    let refresh: @MainActor () async -> Void = {
+        calls += 1
+        sync.recordFailure()
+    }
     sync.setSceneActive(true, refresh: refresh)
     defer { sync.setSceneActive(false, refresh: refresh) }
     try await eventually { calls == 1 && clock.pendingSleeps == 1 }
@@ -108,8 +111,14 @@ import Testing
         do { try await clock.clock.sleep(.seconds(10)) } catch { return }
         slow.accept(slowCalls, sentAt: clock.date)
     }
-    fast.setSceneActive(true) { fastCalls += 1; fast.accept(fastCalls, sentAt: clock.date) }
-    defer { slow.setSceneActive(false) {}; fast.setSceneActive(false) {} }
+    fast.setSceneActive(true) {
+        fastCalls += 1
+        fast.accept(fastCalls, sentAt: clock.date)
+    }
+    defer {
+        slow.setSceneActive(false) {}
+        fast.setSceneActive(false) {}
+    }
     try await eventually { slowCalls == 1 && fastCalls == 1 && clock.pendingSleeps == 2 }
     clock.advance(.seconds(4))
     try await eventually { fastCalls == 2 && clock.pendingSleeps == 2 }
@@ -134,7 +143,10 @@ import Testing
 
 @MainActor private func drain() async { for _ in 0..<30 { await Task.yield() } }
 @MainActor private func eventually(_ condition: () -> Bool) async throws {
-    for _ in 0..<10_000 { if condition() { return }; await Task.yield() }
+    for _ in 0..<10_000 {
+        if condition() { return }
+        await Task.yield()
+    }
     struct Timeout: Error {}
     throw Timeout()
 }
@@ -146,15 +158,18 @@ import Testing
     private var sleepers: [UUID: (Duration, CheckedContinuation<Void, any Error>)] = [:]
     var pendingSleeps: Int { sleepers.count }
     var clock: SyncClock {
-        SyncClock(now: { self.date }, elapsed: { self.elapsed }, sleep: { delay in
-            let id = UUID()
-            try await withTaskCancellationHandler {
-                try Task.checkCancellation()
-                try await withCheckedThrowingContinuation { self.sleepers[id] = (self.elapsed + delay, $0) }
-            } onCancel: {
-                Task { @MainActor in self.sleepers.removeValue(forKey: id)?.1.resume(throwing: CancellationError()) }
-            }
-        })
+        SyncClock(
+            now: { self.date }, elapsed: { self.elapsed },
+            sleep: { delay in
+                let id = UUID()
+                try await withTaskCancellationHandler {
+                    try Task.checkCancellation()
+                    try await withCheckedThrowingContinuation { self.sleepers[id] = (self.elapsed + delay, $0) }
+                } onCancel: {
+                    Task { @MainActor in self.sleepers.removeValue(forKey: id)?.1.resume(throwing: CancellationError())
+                    }
+                }
+            })
     }
     func advance(_ duration: Duration) {
         elapsed += duration

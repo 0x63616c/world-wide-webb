@@ -23,7 +23,8 @@ struct PhotoBoothGallery: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 16) {
-                PhotoBoothNavigationButton(symbol: "chevron.left", title: "Back to camera", identifier: "booth-gallery-back", action: back)
+                PhotoBoothNavigationButton(
+                    symbol: "chevron.left", title: "Back to camera", identifier: "booth-gallery-back", action: back)
                 Text("Booth photos").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 0)
             }.padding(.horizontal, 20).padding(.vertical, 12)
@@ -39,11 +40,14 @@ struct PhotoBoothGallery: View {
                         ForEach(days, id: \.date) { day in
                             Section {
                                 ForEach(day.photos) { photo in
-                                    Button { open(photo.id) } label: {
+                                    Button {
+                                        open(photo.id)
+                                    } label: {
                                         Color(uiColor: .secondarySystemBackground)
                                             .aspectRatio(1, contentMode: .fit)
                                             .overlay {
-                                                AuthenticatedPhoto(provider: provider, photo: photo,
+                                                AuthenticatedPhoto(
+                                                    provider: provider, photo: photo,
                                                     mode: .fill, thumbnailSize: 230)
                                             }.clipped().contentShape(.rect)
                                     }
@@ -69,9 +73,12 @@ struct PhotoBoothGallery: View {
     private func dateHeader(_ date: Date) -> some View {
         var calendar = calendar
         calendar.timeZone = timeZone
-        let title = calendar.isDateInToday(date) ? String(localized: "Today")
-            : calendar.isDateInYesterday(date) ? String(localized: "Yesterday")
-            : date.formatted(date: .abbreviated, time: .omitted)
+        let title =
+            calendar.isDateInToday(date)
+            ? String(localized: "Today")
+            : calendar.isDateInYesterday(date)
+                ? String(localized: "Yesterday")
+                : date.formatted(date: .abbreviated, time: .omitted)
         return Text(title)
             .font(.title3.bold())
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -115,7 +122,9 @@ struct PhotoBoothViewer: View {
 
                 HStack(spacing: 6) {
                     ForEach(nearby) { photo in
-                        Button { selection = photo.id } label: {
+                        Button {
+                            selection = photo.id
+                        } label: {
                             AuthenticatedPhoto(provider: provider, photo: photo, mode: .fill, thumbnailSize: 56)
                                 .frame(width: 44, height: 44)
                                 .clipShape(.rect(cornerRadius: 5))
@@ -175,6 +184,6 @@ struct PhotoBoothNavigationButton: View {
     }
 }
 
-private extension LivePhoto {
-    var date: Date { Date(timeIntervalSince1970: capturedAt / 1000) }
+extension LivePhoto {
+    fileprivate var date: Date { Date(timeIntervalSince1970: capturedAt / 1000) }
 }

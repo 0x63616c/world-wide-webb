@@ -97,7 +97,9 @@ struct PhotoBoothCameraPage: View {
                 .font(.headline).padding(.horizontal, 12).frame(minHeight: 48)
         }
         .buttonStyle(.glass).buttonBorderShape(.capsule).disabled(busy)
-        .accessibilityLabel("Self-timer, \(camera.timerSeconds == 0 ? "off" : "\(camera.timerSeconds) \(camera.timerSeconds == 1 ? "second" : "seconds")")")
+        .accessibilityLabel(
+            "Self-timer, \(camera.timerSeconds == 0 ? "off" : "\(camera.timerSeconds) \(camera.timerSeconds == 1 ? "second" : "seconds")")"
+        )
         .accessibilityIdentifier("booth-timer")
     }
 
@@ -160,7 +162,9 @@ struct PhotoBoothCameraPage: View {
         .buttonStyle(.plain).contentShape(.circle)
         .disabled(camera.status != .ready || camera.saving || camera.hasUnsavedPhoto)
         .opacity(camera.status == .ready ? 1 : 0.35)
-        .accessibilityLabel(camera.capturing ? "Cancel capture" : camera.mode == .strip ? "Take photo strip" : "Take photo")
+        .accessibilityLabel(
+            camera.capturing ? "Cancel capture" : camera.mode == .strip ? "Take photo strip" : "Take photo"
+        )
         .accessibilityIdentifier("booth-shutter")
     }
 
@@ -214,10 +218,12 @@ private struct BoothModeSwitcher: View {
         }
         .padding(4)
         .glassEffect(.regular.interactive(), in: .capsule)
-        .simultaneousGesture(DragGesture(minimumDistance: 18).onEnded { drag in
-            guard isEnabled, abs(drag.translation.width) > abs(drag.translation.height) else { return }
-            select(drag.translation.width < 0 ? .strip : .photo)
-        })
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 18).onEnded { drag in
+                guard isEnabled, abs(drag.translation.width) > abs(drag.translation.height) else { return }
+                select(drag.translation.width < 0 ? .strip : .photo)
+            }
+        )
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Capture mode")
         .accessibilityIdentifier("booth-mode")

@@ -23,7 +23,9 @@ struct LampsController: View {
                         }
                         brightnessScope
                     }
-                    Button { showingEffects = true } label: {
+                    Button {
+                        showingEffects = true
+                    } label: {
                         Label("All lamps · Color & Effects", systemImage: "paintpalette.fill")
                             .font(.system(size: compact ? 18 : 24, weight: .medium))
                             .frame(maxWidth: .infinity).frame(height: 64)
@@ -38,7 +40,9 @@ struct LampsController: View {
                         HStack {
                             Text("Color & Effects").font(.title2.bold())
                             Spacer()
-                            CircleButton(symbol: "xmark", label: "Close Color & Effects", size: 48) { showingEffects = false }
+                            CircleButton(symbol: "xmark", label: "Close Color & Effects", size: 48) {
+                                showingEffects = false
+                            }
                         }
                         Text("All lamps").foregroundStyle(.secondary)
                         LampEffectsView(store: store)
@@ -68,29 +72,41 @@ struct LampsController: View {
                 Text(key.name).font(.system(size: 24, weight: .semibold))
                     .lineLimit(1).minimumScaleFactor(0.92)
                 Spacer(minLength: 0)
-                Toggle("Power", isOn: Binding(get: { store.lamps.isOn(key) }, set: { requested in
-                    if store.lamps.isOn(key) != requested { store.send(.toggle(key)) }
-                }))
-                    .labelsHidden().toggleStyle(.switch).tint(.orange)
-                    .accessibilityLabel("\(key.name) power")
-                    .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
+                Toggle(
+                    "Power",
+                    isOn: Binding(
+                        get: { store.lamps.isOn(key) },
+                        set: { requested in
+                            if store.lamps.isOn(key) != requested { store.send(.toggle(key)) }
+                        })
+                )
+                .labelsHidden().toggleStyle(.switch).tint(.orange)
+                .accessibilityLabel("\(key.name) power")
+                .accessibilityIdentifier("controller-toggle-\(key.rawValue)")
             }.frame(minHeight: 64)
             HStack(spacing: 8) {
                 Image(systemName: key.symbol).symbolRenderingMode(.hierarchical)
                     .font(.system(size: 28)).foregroundStyle(on ? .orange : .secondary)
-                Text(on ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps" : "Off · \(LampState.members(key).count) lamps")
-                    .font(.system(size: 20)).foregroundStyle(.primary)
+                Text(
+                    on
+                        ? "On · \(store.lamps.onCount(key)) of \(LampState.members(key).count) lamps"
+                        : "Off · \(LampState.members(key).count) lamps"
+                )
+                .font(.system(size: 20)).foregroundStyle(.primary)
             }
             DisclosureGroup("Show lamps") {
                 ForEach(Array(LampState.members(key)), id: \.self) { index in
                     HStack {
-                        Text(LampState.names[index]); Spacer()
+                        Text(LampState.names[index])
+                        Spacer()
                         Text(store.lamps.on[index] ? "On" : "Off").foregroundStyle(.secondary)
                     }.padding(.vertical, 4)
                 }
             }.font(.system(size: compact ? 17 : 20)).frame(minHeight: 48)
         }.padding(32).foregroundStyle(on ? .black : .white)
-            .glassEffect(on ? .regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular, in: .rect(cornerRadius: 40))
+            .glassEffect(
+                on ? .regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular, in: .rect(cornerRadius: 40)
+            )
             .containerShape(.rect(cornerRadius: 40))
             .environment(\.colorScheme, on ? .light : .dark)
     }
@@ -114,10 +130,12 @@ struct LampBrightness: View {
 
             .opacity(enabled ? 1 : 0.4)
             .contentShape(RoundedRectangle(cornerRadius: 66, style: .continuous))
-            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                guard enabled else { return }
-                store.send(.brightness(Int((100 * (1 - value.location.y / proxy.size.height)).rounded())))
-            })
+            .gesture(
+                DragGesture(minimumDistance: 0).onChanged { value in
+                    guard enabled else { return }
+                    store.send(.brightness(Int((100 * (1 - value.location.y / proxy.size.height)).rounded())))
+                }
+            )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("All lamps brightness")
             .accessibilityValue("\(store.lamps.brightness)%")
@@ -145,69 +163,101 @@ struct LampEffectsView: View {
     @State private var previewKelvin: Int?
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Picker("Lamp scene", selection: Binding(get: { store.lamps.scene == "White" ? "White" : "Mood" }, set: { store.send(.scene($0)) })) {
+            Picker(
+                "Lamp scene",
+                selection: Binding(
+                    get: { store.lamps.scene == "White" ? "White" : "Mood" }, set: { store.send(.scene($0)) })
+            ) {
                 Text("White").tag("White")
                 Text("Colour").tag("Mood")
             }.pickerStyle(.segmented)
             if store.lamps.scene == "White" {
-            VStack(spacing: 10) {
-                HStack { SectionLabel(text: "White temperature"); Spacer(); Text("\(previewKelvin ?? store.lamps.kelvin) K").font(.system(size: 22)) }
-                FilledLevelControl(value: store.lamps.kelvin, label: "White temperature", symbol: "thermometer.medium",
-                    range: 2000...6500, step: 100, unit: "kelvin",
-                    track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color,
-                    preview: { previewKelvin = $0 }) { store.send(.kelvin($0)) }
+                VStack(spacing: 10) {
+                    HStack {
+                        SectionLabel(text: "White temperature")
+                        Spacer()
+                        Text("\(previewKelvin ?? store.lamps.kelvin) K").font(.system(size: 22))
+                    }
+                    FilledLevelControl(
+                        value: store.lamps.kelvin, label: "White temperature", symbol: "thermometer.medium",
+                        range: 2000...6500, step: 100, unit: "kelvin",
+                        track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color,
+                        preview: { previewKelvin = $0 }
+                    ) { store.send(.kelvin($0)) }
                     .frame(height: 70).accessibilityIdentifier("lamp-temperature")
-                HStack { Text("2000 K"); Spacer(); Text("6500 K") }.font(.system(size: 15)).opacity(0.6)
-            }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
+                    HStack {
+                        Text("2000 K")
+                        Spacer()
+                        Text("6500 K")
+                    }.font(.system(size: 15)).opacity(0.6)
+                }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
             } else {
-            HStack {
-                SectionLabel(text: "Colours"); Spacer()
-                Button(editingColors ? "Done" : "Edit") { editingColors.toggle() }.buttonStyle(.glass)
-            }
-            HStack(spacing: 28) {
-                ForEach(0..<3) { slot in
-                    Button {
-                        if editingColors { draftHex = store.lamps.colors[slot]; editingSlot = slot }
-                        else { store.send(.color(slot, nil)) }
-                    } label: {
-                        VStack(spacing: 12) {
-                            Circle().fill(Color(hex: store.lamps.colors[slot])).frame(width: 72, height: 72)
-                                .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: store.lamps.activeColor == slot ? 4 : 1))
-                                .overlay { if editingColors { Image(systemName: "pencil").font(.system(size: 24)) } }
-
-                        }.frame(maxWidth: .infinity)
-                    }.buttonStyle(.plain).accessibilityLabel("\(editingColors ? "Edit" : "Use") Custom \(slot + 1)")
+                HStack {
+                    SectionLabel(text: "Colours")
+                    Spacer()
+                    Button(editingColors ? "Done" : "Edit") { editingColors.toggle() }.buttonStyle(.glass)
                 }
-            }
+                HStack(spacing: 28) {
+                    ForEach(0..<3) { slot in
+                        Button {
+                            if editingColors {
+                                draftHex = store.lamps.colors[slot]
+                                editingSlot = slot
+                            } else {
+                                store.send(.color(slot, nil))
+                            }
+                        } label: {
+                            VStack(spacing: 12) {
+                                Circle().fill(Color(hex: store.lamps.colors[slot])).frame(width: 72, height: 72)
+                                    .overlay(
+                                        Circle().strokeBorder(
+                                            .white.opacity(0.9), lineWidth: store.lamps.activeColor == slot ? 4 : 1)
+                                    )
+                                    .overlay {
+                                        if editingColors { Image(systemName: "pencil").font(.system(size: 24)) }
+                                    }
+
+                            }.frame(maxWidth: .infinity)
+                        }.buttonStyle(.plain).accessibilityLabel("\(editingColors ? "Edit" : "Use") Custom \(slot + 1)")
+                    }
+                }
             }
             DisclosureGroup(store.lamps.party == .off ? "Party" : "Party · \(store.lamps.party.rawValue)") {
-            HStack(spacing: 12) {
-                ForEach(PartySpeed.allCases, id: \.self) { speed in
-                    Choice(title: speed.rawValue, selected: store.lamps.party == speed) { store.send(.party(speed)) }
-                }
-            }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
+                HStack(spacing: 12) {
+                    ForEach(PartySpeed.allCases, id: \.self) { speed in
+                        Choice(title: speed.rawValue, selected: store.lamps.party == speed) {
+                            store.send(.party(speed))
+                        }
+                    }
+                }.disabled(!store.lamps.anyOn).opacity(store.lamps.anyOn ? 1 : 0.4)
             }
         }.frame(maxWidth: .infinity)
-        .sheet(isPresented: Binding(get: { editingSlot != nil }, set: { if !$0 { editingSlot = nil } })) {
-            VStack(alignment: .leading, spacing: 24) {
-                Text("Edit Custom \((editingSlot ?? 0) + 1)").font(.system(size: 28, weight: .semibold))
-                RoundedRectangle(cornerRadius: 24).fill(Color(hex: draftHex)).frame(height: 120)
-                TextField("Hex color", text: $draftHex).textFieldStyle(.roundedBorder).font(.system(size: 24)).accessibilityLabel("Hex color")
-                Text("Use a six-digit hex color, such as #0066ff.").foregroundStyle(.secondary)
-                HStack {
-                    Button("Cancel") { editingSlot = nil }.keyboardShortcut(.cancelAction)
-                    Spacer()
-                    Button("Save & use") {
-                        if let slot = editingSlot { store.send(.color(slot, draftHex)) }; editingSlot = nil
-                    }.disabled(draftHex.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) == nil).keyboardShortcut(.defaultAction)
-                }.buttonStyle(.glass)
-            }.padding(24).frame(width: sizeClass == .compact ? nil : 440)
-        }
+            .sheet(isPresented: Binding(get: { editingSlot != nil }, set: { if !$0 { editingSlot = nil } })) {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Edit Custom \((editingSlot ?? 0) + 1)").font(.system(size: 28, weight: .semibold))
+                    RoundedRectangle(cornerRadius: 24).fill(Color(hex: draftHex)).frame(height: 120)
+                    TextField("Hex color", text: $draftHex).textFieldStyle(.roundedBorder).font(.system(size: 24))
+                        .accessibilityLabel("Hex color")
+                    Text("Use a six-digit hex color, such as #0066ff.").foregroundStyle(.secondary)
+                    HStack {
+                        Button("Cancel") { editingSlot = nil }.keyboardShortcut(.cancelAction)
+                        Spacer()
+                        Button("Save & use") {
+                            if let slot = editingSlot { store.send(.color(slot, draftHex)) }
+                            editingSlot = nil
+                        }.disabled(draftHex.range(of: "^#[0-9A-Fa-f]{6}$", options: .regularExpression) == nil)
+                            .keyboardShortcut(.defaultAction)
+                    }.buttonStyle(.glass)
+                }.padding(24).frame(width: sizeClass == .compact ? nil : 440)
+            }
     }
     private func scene(_ name: String, colors: [Color]) -> some View {
-        Button { store.send(.scene(name)) } label: {
+        Button {
+            store.send(.scene(name))
+        } label: {
             HStack(spacing: 12) {
-                Circle().fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 32, height: 32)
+                Circle().fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)).frame(
+                    width: 32, height: 32)
                 Text(name).font(.system(size: 21, weight: .semibold))
                 Spacer()
                 if store.lamps.scene == name && store.lamps.party == .off { Image(systemName: "checkmark") }

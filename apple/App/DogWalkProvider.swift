@@ -2,7 +2,8 @@ import Foundation
 import Observation
 
 enum WalkDevice: String, Codable {
-    case iPhone, iPad, mac = "Mac"
+    case iPhone, iPad
+    case mac = "Mac"
 }
 
 struct DogWalk: Identifiable, Equatable {
@@ -39,7 +40,8 @@ struct WalkSummary {
 enum WalkEditValidation {
     static func failureMessage(startedAt: Date, endedAt: Date, now: Date) -> String? {
         guard startedAt.timeIntervalSince1970.isFinite, endedAt.timeIntervalSince1970.isFinite,
-              startedAt >= Date(timeIntervalSince1970: 0) else { return "Choose a valid start date." }
+            startedAt >= Date(timeIntervalSince1970: 0)
+        else { return "Choose a valid start date." }
         guard endedAt > startedAt else { return "End must be after start." }
         guard endedAt <= now else { return "A past walk cannot end in the future." }
         guard endedAt.timeIntervalSince(startedAt) <= 24 * 60 * 60 else {
@@ -67,9 +69,11 @@ extension WalkProvider {
         let recent = days(30, ending: now)
         let activeDays = recent.reversed().drop(while: { $0.date == calendar.startOfDay(for: now) && $0.minutes == 0 })
         let streak = activeDays.prefix(while: { $0.minutes > 0 }).count
-        return WalkSummary(weeklyMinutes: Int(weeklySeconds / 60),
-                           averageMinutes: history.isEmpty ? 0 : Int(history.reduce(0) { $0 + $1.duration(at: now) } / Double(history.count) / 60),
-                           streak: streak)
+        return WalkSummary(
+            weeklyMinutes: Int(weeklySeconds / 60),
+            averageMinutes: history.isEmpty
+                ? 0 : Int(history.reduce(0) { $0 + $1.duration(at: now) } / Double(history.count) / 60),
+            streak: streak)
     }
     func lastWalkLabel(at now: Date) -> String {
         guard let last = history.first, let end = last.endedAt else { return "No walks yet" }
@@ -91,11 +95,15 @@ extension WalkProvider {
     private var sequence = 0
     init(now: Date, fixtures: Bool = true) {
         let calendar = MockWalkProvider.walkCalendar
-        history = fixtures ? (0..<21).filter { $0 != 8 && $0 != 15 }.map { day in
-            let end = calendar.date(byAdding: .day, value: -day, to: now.addingTimeInterval(-3 * 3600))!
-            let minutes = day == 0 ? 32 : [28, 42, 35, 24, 48, 31, 38][day % 7]
-            return DogWalk(id: "walk_fixture_\(day)", startedAt: end.addingTimeInterval(-Double(minutes) * 60), endedAt: end, startedBy: .iPhone)
-        } : []
+        history =
+            fixtures
+            ? (0..<21).filter { $0 != 8 && $0 != 15 }.map { day in
+                let end = calendar.date(byAdding: .day, value: -day, to: now.addingTimeInterval(-3 * 3600))!
+                let minutes = day == 0 ? 32 : [28, 42, 35, 24, 48, 31, 38][day % 7]
+                return DogWalk(
+                    id: "walk_fixture_\(day)", startedAt: end.addingTimeInterval(-Double(minutes) * 60), endedAt: end,
+                    startedBy: .iPhone)
+            } : []
     }
     func start(at date: Date, device: WalkDevice) {
         guard activeWalk == nil else { return }
@@ -104,7 +112,10 @@ extension WalkProvider {
     }
     func stop(at date: Date) {
         guard let walk = activeWalk else { return }
-        history.insert(DogWalk(id: walk.id, startedAt: walk.startedAt, endedAt: max(date, walk.startedAt), startedBy: walk.startedBy), at: 0)
+        history.insert(
+            DogWalk(
+                id: walk.id, startedAt: walk.startedAt, endedAt: max(date, walk.startedAt), startedBy: walk.startedBy),
+            at: 0)
         activeWalk = nil
     }
 }
@@ -128,5 +139,7 @@ extension WalkProvider {
 }
 func walkElapsed(_ seconds: TimeInterval) -> String {
     let seconds = Int(max(0, seconds))
-    return seconds >= 3600 ? String(format: "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60) : String(format: "%d:%02d", seconds / 60, seconds % 60)
+    return seconds >= 3600
+        ? String(format: "%d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+        : String(format: "%d:%02d", seconds / 60, seconds % 60)
 }

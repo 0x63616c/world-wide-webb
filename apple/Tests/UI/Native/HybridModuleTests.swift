@@ -27,7 +27,8 @@ final class HybridModuleTests: XCTestCase {
                 if qr.waitForExistence(timeout: 5) { qr.tap() }
             }
             app.returnHomeFromModule()
-            let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+            let returned = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"),
                 object: app.buttons["module-detail"])
             XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 10), .completed)
             capture("\(module)-return")

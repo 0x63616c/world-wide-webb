@@ -15,8 +15,9 @@ public struct ReleasesAPI: Sendable {
     public func latest(app: String = "panel") async throws -> PanelRelease {
         let release = try await client.get("releases/latest", input: ["app": app], as: PanelRelease.self)
         guard release.app == app, release.build > 0, release.build <= 2_147_483_647,
-              ISO8601DateFormatter().date(from: release.updatedAt) != nil
-                || Self.fractionalDate(release.updatedAt) != nil else {
+            ISO8601DateFormatter().date(from: release.updatedAt) != nil
+                || Self.fractionalDate(release.updatedAt) != nil
+        else {
             throw PanelAPIError.decoding("Invalid release response.")
         }
         return release

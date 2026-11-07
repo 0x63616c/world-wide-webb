@@ -12,7 +12,8 @@ struct CountdownTicks: View {
     var body: some View {
         Canvas { context, size in
             guard size.width > 6, size.height > 6 else { return }
-            let perimeter = AlarmPerimeter(size: CGSize(width: size.width - 6, height: size.height - 6), cornerRadius: cornerRadius)
+            let perimeter = AlarmPerimeter(
+                size: CGSize(width: size.width - 6, height: size.height - 6), cornerRadius: cornerRadius)
             let tickCount = 120
             let distances = perimeter.tickDistances(count: tickCount, cornerFanTicks: cornerFanTicks)
             let turningRadius = cornerFanTicks.map { CGFloat($0) * perimeter.length / CGFloat(tickCount) * 4 / .pi }
@@ -20,17 +21,23 @@ struct CountdownTicks: View {
                 let progress = Double(tick) / Double(tickCount)
                 let distance = distances[tick]
                 let sample = perimeter.sample(at: distance)
-                let normal = turningRadius.map { perimeter.tickNormal(at: distance, turningRadius: $0) } ?? sample.normal
+                let normal =
+                    turningRadius.map { perimeter.tickNormal(at: distance, turningRadius: $0) } ?? sample.normal
                 let outer = CGPoint(x: sample.point.x + 3, y: sample.point.y + 3)
                 let length: CGFloat = tickLength ?? (tick.isMultiple(of: 5) ? 28 : 16)
-                let inner = CGPoint(x: outer.x - normal.dx * length,
-                                    y: outer.y - normal.dy * length)
-                var path = Path(); path.move(to: inner); path.addLine(to: outer)
+                let inner = CGPoint(
+                    x: outer.x - normal.dx * length,
+                    y: outer.y - normal.dy * length)
+                var path = Path()
+                path.move(to: inner)
+                path.addLine(to: outer)
                 let active = ringing || progress < min(1, max(0, fraction))
                 // A fractional final mark fades continuously, independent of duration/tick divisibility.
                 let coverage = ringing ? 1 : min(1, max(0, fraction * Double(tickCount) - Double(tick)))
                 let opacity = smoothProgress ? 0.19 + 0.81 * coverage : (active ? 1 : 0.19)
-                context.stroke(path, with: .color(Color.orange.opacity(opacity)), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                context.stroke(
+                    path, with: .color(Color.orange.opacity(opacity)),
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
             }
         }.accessibilityHidden(true)
     }
@@ -48,7 +55,9 @@ struct AlarmPerimeter {
     static let edgeInset: CGFloat = 32
     let size: CGSize
     var cornerRadius: CGFloat? = nil
-    var radius: CGFloat { min(cornerRadius ?? (Self.faceCornerRadius - Self.edgeInset), min(size.width, size.height) / 2) }
+    var radius: CGFloat {
+        min(cornerRadius ?? (Self.faceCornerRadius - Self.edgeInset), min(size.width, size.height) / 2)
+    }
     var length: CGFloat { 2 * (size.width + size.height - 4 * radius) + 2 * .pi * radius }
 
     struct Sample {
@@ -71,8 +80,10 @@ struct AlarmPerimeter {
         let verticalCount = max(1, min(sidePairs - 1, 2 * Int((CGFloat(count) * down / length / 2).rounded(.down)) + 1))
         let horizontalCount = sidePairs - verticalCount
         let spacing = length / CGFloat(count)
-        let segments = [(horizontalCount, across), (verticalCount, down),
-            (horizontalCount, across), (verticalCount, down)]
+        let segments = [
+            (horizontalCount, across), (verticalCount, down),
+            (horizontalCount, across), (verticalCount, down),
+        ]
         var start = -across / 2
         var distances: [CGFloat] = []
         for (marks, distance) in segments {
@@ -80,10 +91,14 @@ struct AlarmPerimeter {
             let margin = CGFloat(marginMarks) * spacing
             for index in 0..<marks {
                 let offset: CGFloat
-                if index < marginMarks { offset = (CGFloat(index) + 0.5) * spacing }
-                else if index >= marks - marginMarks { offset = distance - (CGFloat(marks - index) - 0.5) * spacing }
-                else {
-                    offset = margin + (CGFloat(index - marginMarks) + 0.5) / CGFloat(marks - 2 * marginMarks) * (distance - 2 * margin)
+                if index < marginMarks {
+                    offset = (CGFloat(index) + 0.5) * spacing
+                } else if index >= marks - marginMarks {
+                    offset = distance - (CGFloat(marks - index) - 0.5) * spacing
+                } else {
+                    offset =
+                        margin + (CGFloat(index - marginMarks) + 0.5) / CGFloat(marks - 2 * marginMarks)
+                        * (distance - 2 * margin)
                 }
                 distances.append(start + offset)
             }
@@ -97,14 +112,18 @@ struct AlarmPerimeter {
     /// corner. A broad window tilts marks while their anchors are still on a
     /// straight edge; changing the contour radius does not collapse that fan.
     func tickNormal(at distance: CGFloat, turningRadius: CGFloat) -> CGVector {
-        let horizontal = size.width - 2 * radius, vertical = size.height - 2 * radius
+        let horizontal = size.width - 2 * radius
+        let vertical = size.height - 2 * radius
         let arc = .pi * radius / 2
         let halfTurn = max(0.001, min(.pi * turningRadius / 4, (min(horizontal, vertical) + arc) / 2))
         let firstCorner = horizontal / 2 + arc / 2
-        let corners = [firstCorner, firstCorner + arc + vertical,
+        let corners = [
+            firstCorner, firstCorner + arc + vertical,
             firstCorner + 2 * arc + vertical + horizontal,
-            firstCorner + 3 * arc + 2 * vertical + horizontal]
-        let position = (distance.truncatingRemainder(dividingBy: length) + length).truncatingRemainder(dividingBy: length)
+            firstCorner + 3 * arc + 2 * vertical + horizontal,
+        ]
+        let position = (distance.truncatingRemainder(dividingBy: length) + length).truncatingRemainder(
+            dividingBy: length)
         for (index, center) in corners.enumerated() where position <= center + halfTurn {
             let progress = min(1, max(0, (position - (center - halfTurn)) / (2 * halfTurn)))
             let eased = 0.35 * progress + 0.65 * progress * progress * (3 - 2 * progress)
@@ -115,10 +134,14 @@ struct AlarmPerimeter {
     }
 
     func sample(at distance: CGFloat) -> Sample {
-        let r = radius, w = size.width, h = size.height
-        let horizontal = w - 2 * r, vertical = h - 2 * r
+        let r = radius
+        let w = size.width
+        let h = size.height
+        let horizontal = w - 2 * r
+        let vertical = h - 2 * r
         let arc = .pi * r / 2
-        var remaining = (distance.truncatingRemainder(dividingBy: length) + length).truncatingRemainder(dividingBy: length)
+        var remaining = (distance.truncatingRemainder(dividingBy: length) + length).truncatingRemainder(
+            dividingBy: length)
         let lengths = [horizontal / 2, arc, vertical, arc, horizontal, arc, vertical, arc, horizontal / 2]
         for (index, segment) in lengths.enumerated() {
             if remaining <= segment {
@@ -130,12 +153,16 @@ struct AlarmPerimeter {
                 case 8: return Sample(point: CGPoint(x: r + remaining, y: 0), normal: CGVector(dx: 0, dy: -1))
                 default:
                     let corner = (index - 1) / 2
-                    let centres = [CGPoint(x: w - r, y: r), CGPoint(x: w - r, y: h - r),
-                                   CGPoint(x: r, y: h - r), CGPoint(x: r, y: r)]
+                    let centres = [
+                        CGPoint(x: w - r, y: r), CGPoint(x: w - r, y: h - r),
+                        CGPoint(x: r, y: h - r), CGPoint(x: r, y: r),
+                    ]
                     let angle = CGFloat(corner - 1) * .pi / 2 + remaining / r
                     let normal = CGVector(dx: cos(angle), dy: sin(angle))
-                    return Sample(point: CGPoint(x: centres[corner].x + normal.dx * r,
-                                                 y: centres[corner].y + normal.dy * r), normal: normal)
+                    return Sample(
+                        point: CGPoint(
+                            x: centres[corner].x + normal.dx * r,
+                            y: centres[corner].y + normal.dy * r), normal: normal)
                 }
             }
             remaining -= segment

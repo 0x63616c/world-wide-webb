@@ -1,7 +1,7 @@
 import Foundation
+import OSLog
 import Observation
 import PanelKit
-import OSLog
 
 @MainActor protocol FanProvider: AnyObject, Observable {
     var fanOn: Bool? { get }
@@ -71,7 +71,8 @@ import OSLog
 
     private func enqueue(mode: String, usesToggle: Bool) {
         guard fanOn != nil else {
-            PanelCommandLog.shared.record(control: "fan.command", error: "dropped: module not live"); return
+            PanelCommandLog.shared.record(control: "fan.command", error: "dropped: module not live")
+            return
         }
         revision += 1
         errorMessage = nil
@@ -91,7 +92,8 @@ import OSLog
 
     func toggle() async {
         guard let fanOn else {
-            PanelCommandLog.shared.record(control: "fan.toggle", error: "dropped: module not live"); return
+            PanelCommandLog.shared.record(control: "fan.toggle", error: "dropped: module not live")
+            return
         }
         setOn(!fanOn)
         await mutation?.value
@@ -103,8 +105,11 @@ import OSLog
             let command = queue.removeFirst()
             do {
                 let snapshot: FanSnapshot
-                if command.usesToggle { snapshot = try await api.toggle(on: command.mode == "on") }
-                else { snapshot = try await api.setMode(command.mode) }
+                if command.usesToggle {
+                    snapshot = try await api.toggle(on: command.mode == "on")
+                } else {
+                    snapshot = try await api.setMode(command.mode)
+                }
                 try Task.checkCancellation()
                 acknowledged = snapshot
                 if revision == command.revision { accept(snapshot) }
@@ -114,7 +119,8 @@ import OSLog
                 if !(error is CancellationError) {
                     // Keep the restored controls live so the user can retry. Never
                     // expose server errors, which can include runtime credentials.
-                    Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Fan backend command failed")
+                    Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error(
+                        "Fan backend command failed")
                     errorMessage = "Couldn’t change the fan. Try again."
                     errorRevision += 1
                 }

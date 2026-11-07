@@ -48,10 +48,10 @@ struct PanelProfileSelector: ViewModifier {
                         startPoint: .leading,
                         endPoint: .trailing
                     )
-                        .ignoresSafeArea()
-                        .onTapGesture { showProfiles(false) }
-                        .accessibilityHidden(true)
-                        .transition(.opacity)
+                    .ignoresSafeArea()
+                    .onTapGesture { showProfiles(false) }
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
                 }
             }
             .overlay(alignment: .topTrailing) {
@@ -95,8 +95,11 @@ struct PanelProfileSelector: ViewModifier {
 
     private var launcherPhoto: Data {
         #if DEBUG
-        if let path = ProcessInfo.processInfo.environment["PANEL_PROFILE_PREVIEW"],
-           let data = try? Data(contentsOf: URL(fileURLWithPath: path)) { return data }
+            if let path = ProcessInfo.processInfo.environment["PANEL_PROFILE_PREVIEW"],
+                let data = try? Data(contentsOf: URL(fileURLWithPath: path))
+            {
+                return data
+            }
         #endif
         return legacyPhoto
     }
@@ -232,8 +235,9 @@ private struct ProfileCreationSheet: View {
                 }
             }
         } else {
-            ContentUnavailableView("PIN verification unavailable", systemImage: "lock",
-                                   description: Text("Connect to the panel server to add a user."))
+            ContentUnavailableView(
+                "PIN verification unavailable", systemImage: "lock",
+                description: Text("Connect to the panel server to add a user."))
         }
     }
 }
@@ -339,17 +343,21 @@ private struct ProfileAvatar: View {
     static func compressedPhoto(_ data: Data) -> Data? {
         guard let image = decodeThumbnail(data) else { return nil }
         let output = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.86] as CFDictionary)
+        guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(
+            destination, image, [kCGImageDestinationLossyCompressionQuality: 0.86] as CFDictionary)
         return CGImageDestinationFinalize(destination) ? output as Data : nil
     }
 
     private static func decodeThumbnail(_ data: Data) -> CGImage? {
         guard !data.isEmpty, let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 256
-        ] as CFDictionary)
+        return CGImageSourceCreateThumbnailAtIndex(
+            source, 0,
+            [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 256,
+            ] as CFDictionary)
     }
 }

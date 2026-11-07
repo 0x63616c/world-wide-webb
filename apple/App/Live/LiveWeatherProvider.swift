@@ -29,9 +29,10 @@ struct LiveWeatherSnapshot {
     var symbol: String { WeatherPresentation.symbol(icon: now.ic) }
     var hours: [HourForecast] {
         hourly.prefix(12).enumerated().map { index, hour in
-            HourForecast(id: index, time: hour.t, temperature: Int(hour.temp.rounded()),
-                         feels: Int(hour.feels.rounded()),
-                         symbol: WeatherPresentation.symbol(icon: hour.ic, isDay: hour.isDay))
+            HourForecast(
+                id: index, time: hour.t, temperature: Int(hour.temp.rounded()),
+                feels: Int(hour.feels.rounded()),
+                symbol: WeatherPresentation.symbol(icon: hour.ic, isDay: hour.isDay))
         }
     }
     /// WMO conditions are retained separately from the server's current description.

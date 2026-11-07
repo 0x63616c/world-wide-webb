@@ -17,13 +17,16 @@ struct LampGlow: View {
         } else {
             glow.phaseAnimator([0.25, 0.37]) { content, value in
                 content.opacity(intensity * value)
-            } animation: { _ in .easeInOut(duration: 3) }
+            } animation: { _ in
+                .easeInOut(duration: 3)
+            }
         }
     }
     private var glow: some View {
         GeometryReader { proxy in
-            RadialGradient(colors: [.orange, .yellow.opacity(0.25), .clear], center: .center,
-                           startRadius: 0, endRadius: min(proxy.size.width, proxy.size.height) / 2)
+            RadialGradient(
+                colors: [.orange, .yellow.opacity(0.25), .clear], center: .center,
+                startRadius: 0, endRadius: min(proxy.size.width, proxy.size.height) / 2)
         }
     }
 }
@@ -67,11 +70,21 @@ struct WeatherSky: View {
             let t = fixedPhase ?? timeline.date.timeIntervalSinceReferenceDate
             GeometryReader { proxy in
                 ZStack {
-                    MeshGradient(width: 3, height: 3, points: [
-                        [0,0], [0.5,0], [1,0], [0,0.5], [Float(0.5 + sin(t / 12) * 0.035),0.5], [1,0.5], [0,1], [0.5,1], [1,1]
-                    ], colors: raining
-                        ? [.gray, .gray, .blue.mix(with: .black, by: 0.6), .gray, .blue.mix(with: .gray, by: 0.6), .gray, .blue.mix(with: .black, by: 0.5), .gray, .gray]
-                        : [.blue.mix(with: .black, by: 0.45), .blue, .cyan, .blue, .blue.mix(with: .cyan, by: 0.3), .cyan, .blue.mix(with: .black, by: 0.25), .blue, .cyan.mix(with: .white, by: 0.2)])
+                    MeshGradient(
+                        width: 3, height: 3,
+                        points: [
+                            [0, 0], [0.5, 0], [1, 0], [0, 0.5], [Float(0.5 + sin(t / 12) * 0.035), 0.5], [1, 0.5],
+                            [0, 1], [0.5, 1], [1, 1],
+                        ],
+                        colors: raining
+                            ? [
+                                .gray, .gray, .blue.mix(with: .black, by: 0.6), .gray, .blue.mix(with: .gray, by: 0.6),
+                                .gray, .blue.mix(with: .black, by: 0.5), .gray, .gray,
+                            ]
+                            : [
+                                .blue.mix(with: .black, by: 0.45), .blue, .cyan, .blue, .blue.mix(with: .cyan, by: 0.3),
+                                .cyan, .blue.mix(with: .black, by: 0.25), .blue, .cyan.mix(with: .white, by: 0.2),
+                            ])
                     if cloudy {
                         Image("CloudPhoto").resizable().scaledToFill()
                             .frame(width: proxy.size.width, height: proxy.size.height).clipped()
@@ -87,7 +100,9 @@ struct WeatherSky: View {
                             for i in 0..<32 {
                                 let x = Double((i * 43) % 100) / 100 * size.width
                                 let y = (Double(i) / 32 + t * 0.18).truncatingRemainder(dividingBy: 1) * size.height
-                                var path = Path(); path.move(to: CGPoint(x: x, y: y)); path.addLine(to: CGPoint(x: x - 5, y: y + 18))
+                                var path = Path()
+                                path.move(to: CGPoint(x: x, y: y))
+                                path.addLine(to: CGPoint(x: x - 5, y: y + 18))
                                 context.stroke(path, with: .color(.white.opacity(0.35)), lineWidth: 1.2)
                             }
                         }
@@ -107,7 +122,8 @@ struct WeatherTile: View {
                 WeatherSky(condition: weather.condition)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(weather.city).font(.system(size: 32, weight: .medium))
-                    Text("\(weather.temperature)°").font(.system(size: proxy.size.height * 0.27, weight: .light)).monospacedDigit()
+                    Text("\(weather.temperature)°").font(.system(size: proxy.size.height * 0.27, weight: .light))
+                        .monospacedDigit()
                     Spacer()
                     Image(systemName: "cloud.sun.fill").symbolRenderingMode(.multicolor).font(.system(size: 44))
                     Text(weather.condition).font(.system(size: 28, weight: .medium))
@@ -161,7 +177,8 @@ struct WeatherDesignCard: View {
         }.foregroundStyle(.white).clipShape(.rect(cornerRadius: 40))
     }
     private var temperature: some View {
-        Text("\(weather.temperature)°").font(.system(size: style == 3 ? 132 : 88, weight: .light, design: .rounded)).monospacedDigit()
+        Text("\(weather.temperature)°").font(.system(size: style == 3 ? 132 : 88, weight: .light, design: .rounded))
+            .monospacedDigit()
     }
     private var range: some View {
         Text("H:\(weather.high)°  L:\(weather.low)°").font(.system(size: 17, weight: .medium)).opacity(0.8)
@@ -174,7 +191,8 @@ struct WeatherDesignCard: View {
             ForEach(weather.hours.prefix(4)) { hour in
                 VStack(spacing: 9) {
                     Text(hour.time).font(.system(size: 13, weight: .medium)).opacity(0.8)
-                    Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 18)).frame(height: 22)
+                    Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 18)).frame(
+                        height: 22)
                     Text("\(hour.temperature)°").font(.system(size: 18, weight: .medium))
                 }.frame(maxWidth: .infinity)
             }
@@ -185,14 +203,23 @@ struct WeatherDesignCard: View {
         case 1:
             VStack(alignment: .leading, spacing: 0) {
                 Text(weather.city).font(.system(size: 24, weight: .semibold))
-                HStack { temperature; Spacer(); symbol }
-                Text(weather.condition).font(.system(size: 19, weight: .medium)); range.padding(.top, 5)
+                HStack {
+                    temperature
+                    Spacer()
+                    symbol
+                }
+                Text(weather.condition).font(.system(size: 19, weight: .medium))
+                range.padding(.top, 5)
                 Spacer()
                 forecast.padding(16).glassEffect(.regular, in: .rect(cornerRadius: 24))
             }
         case 2:
             VStack(alignment: .leading, spacing: 0) {
-                HStack { Text(weather.city).font(.system(size: 22, weight: .semibold)); Spacer(); symbol }
+                HStack {
+                    Text(weather.city).font(.system(size: 22, weight: .semibold))
+                    Spacer()
+                    symbol
+                }
                 temperature
                 Spacer()
                 Text(weather.condition).font(.system(size: 22, weight: .semibold))
@@ -205,7 +232,11 @@ struct WeatherDesignCard: View {
                 Text(weather.city.uppercased()).font(.system(size: 15, weight: .bold)).tracking(2)
                 Spacer()
                 temperature
-                HStack { Text(weather.condition).font(.system(size: 20, weight: .medium)); Spacer(); symbol }
+                HStack {
+                    Text(weather.condition).font(.system(size: 20, weight: .medium))
+                    Spacer()
+                    symbol
+                }
                 range.padding(.top, 10)
                 Spacer()
                 Text("Feels like \(weather.feels)° · \(weather.wind) mph wind").font(.system(size: 15)).opacity(0.75)
@@ -216,7 +247,11 @@ struct WeatherDesignCard: View {
                 Spacer()
                 ZStack {
                     Circle().stroke(.white.opacity(0.18), lineWidth: 1).frame(width: 228, height: 228)
-                    VStack(spacing: 0) { symbol; temperature; range }
+                    VStack(spacing: 0) {
+                        symbol
+                        temperature
+                        range
+                    }
                 }
                 Spacer()
                 Text(weather.condition).font(.system(size: 22, weight: .medium))
@@ -255,18 +290,31 @@ private struct WeatherDesignSky: View {
         }
     }
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 20, paused: scenePhase != .active || fixedPhase != nil)) { timeline in
+        TimelineView(.animation(minimumInterval: 1 / 20, paused: scenePhase != .active || fixedPhase != nil)) {
+            timeline in
             let t = fixedPhase ?? timeline.date.timeIntervalSinceReferenceDate
             GeometryReader { proxy in
                 let s = proxy.size
                 ZStack {
-                    MeshGradient(width: 3, height: 3, points: [
-                        [0,0],[0.5,0],[1,0], [0,0.5],[Float(0.5 + sin(t / 9) * 0.15),Float(0.5 + cos(t / 12) * 0.12)],[1,0.5], [0,1],[0.5,1],[1,1]
-                    ], colors: [palette[0],palette[0],palette[1],palette[0],palette[1],palette[1],palette[2],palette[2],palette[2]])
+                    MeshGradient(
+                        width: 3, height: 3,
+                        points: [
+                            [0, 0], [0.5, 0], [1, 0], [0, 0.5],
+                            [Float(0.5 + sin(t / 9) * 0.15), Float(0.5 + cos(t / 12) * 0.12)], [1, 0.5], [0, 1],
+                            [0.5, 1], [1, 1],
+                        ],
+                        colors: [
+                            palette[0], palette[0], palette[1], palette[0], palette[1], palette[1], palette[2],
+                            palette[2], palette[2],
+                        ])
                     if !cloudy {
-                        Circle().fill(RadialGradient(colors: [.white.opacity(0.5), .yellow.opacity(0.12), .clear], center: .center, startRadius: 0, endRadius: 145))
-                            .frame(width: 290, height: 290)
-                            .position(x: s.width * (style == 4 ? 0.5 : 0.82) + sin(t / 14) * 12, y: s.height * 0.25)
+                        Circle().fill(
+                            RadialGradient(
+                                colors: [.white.opacity(0.5), .yellow.opacity(0.12), .clear], center: .center,
+                                startRadius: 0, endRadius: 145)
+                        )
+                        .frame(width: 290, height: 290)
+                        .position(x: s.width * (style == 4 ? 0.5 : 0.82) + sin(t / 14) * 12, y: s.height * 0.25)
                         if style == 0 {
                             Circle().fill(night ? .white.opacity(0.85) : Color(hex: "#fff0b8"))
                                 .frame(width: night ? 29 : 45, height: night ? 29 : 45)
@@ -280,8 +328,13 @@ private struct WeatherDesignSky: View {
                                 let y = size.height * (0.42 + Double(i) * 0.1)
                                 var path = Path()
                                 path.move(to: CGPoint(x: -40, y: y))
-                                path.addCurve(to: CGPoint(x: size.width + 40, y: y + 40), control1: CGPoint(x: size.width * 0.3 + shift, y: y - 60), control2: CGPoint(x: size.width * 0.7 + shift, y: y + 70))
-                                path.addLine(to: CGPoint(x: size.width + 40, y: size.height)); path.addLine(to: CGPoint(x: -40, y: size.height)); path.closeSubpath()
+                                path.addCurve(
+                                    to: CGPoint(x: size.width + 40, y: y + 40),
+                                    control1: CGPoint(x: size.width * 0.3 + shift, y: y - 60),
+                                    control2: CGPoint(x: size.width * 0.7 + shift, y: y + 70))
+                                path.addLine(to: CGPoint(x: size.width + 40, y: size.height))
+                                path.addLine(to: CGPoint(x: -40, y: size.height))
+                                path.closeSubpath()
                                 context.fill(path, with: .color(.white.opacity(cloudy ? 0.1 : 0.045)))
                             }
                         }
@@ -291,12 +344,15 @@ private struct WeatherDesignSky: View {
                             for i in 0..<28 {
                                 let x = Double((i * 47) % 100) / 100 * size.width
                                 let y = (Double(i) / 28 + t * 0.16).truncatingRemainder(dividingBy: 1) * size.height
-                                var p = Path(); p.move(to: CGPoint(x: x, y: y)); p.addLine(to: CGPoint(x: x - 4, y: y + 16))
+                                var p = Path()
+                                p.move(to: CGPoint(x: x, y: y))
+                                p.addLine(to: CGPoint(x: x - 4, y: y + 16))
                                 context.stroke(p, with: .color(.white.opacity(0.3)), lineWidth: 1)
                             }
                         }
                     }
-                    LinearGradient(colors: [.clear, .black.opacity(style == 3 ? 0.35 : 0.18)], startPoint: .top, endPoint: .bottom)
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(style == 3 ? 0.35 : 0.18)], startPoint: .top, endPoint: .bottom)
                 }
             }
         }.accessibilityHidden(true)

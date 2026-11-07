@@ -1,6 +1,6 @@
+import PanelKit
 import SwiftUI
 import UIKit
-import PanelKit
 
 /// Attached once to this scene's window, never to a tile or face.
 struct PanelDiagnosticsAccess: UIViewRepresentable {
@@ -35,7 +35,10 @@ struct PanelDiagnosticsAccess: UIViewRepresentable {
             installedWindow = window
             window?.addGestureRecognizer(recognizer)
         }
-        func detach() { installedWindow?.removeGestureRecognizer(recognizer); installedWindow = nil }
+        func detach() {
+            installedWindow?.removeGestureRecognizer(recognizer)
+            installedWindow = nil
+        }
         // Present from this window's visible controller so the gesture also works
         // over a module's full-screen cover. Never look up another scene's window.
         func presentDiagnostics(store: LiveHomeDataSource) {
@@ -47,14 +50,17 @@ struct PanelDiagnosticsAccess: UIViewRepresentable {
             let controller = UIHostingController(rootView: AnyView(EmptyView()))
             controller.restorationIdentifier = "panel-diagnostics"
             controller.modalPresentationStyle = .fullScreen
-            controller.rootView = AnyView(PanelDiagnosticsView(store: store) { [weak controller] in
-                controller?.dismiss(animated: true)
-            })
+            controller.rootView = AnyView(
+                PanelDiagnosticsView(store: store) { [weak controller] in
+                    controller?.dismiss(animated: true)
+                })
             presenter.present(controller, animated: true)
         }
         @objc private func pressed() { if recognizer.state == .began { open() } }
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool { true }
     }
 }
 
@@ -74,7 +80,7 @@ struct PanelDiagnosticsView: View {
     @State private var result: String?
     private var source: String {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") { return "fixture" }
+            if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") { return "fixture" }
         #endif
         return "live"
     }
@@ -84,7 +90,8 @@ struct PanelDiagnosticsView: View {
         return value.isEmpty || value.hasPrefix("$(") ? "dev" : value
     }
     private var snapshot: PanelDiagnosticsSnapshot {
-        PanelDiagnosticsSnapshot(source: source, backendURL: store.diagnosticsBackendURL,
+        PanelDiagnosticsSnapshot(
+            source: source, backendURL: store.diagnosticsBackendURL,
             build: build, gitSHA: gitSHA, backend: backend, latencyMs: latencyMs, homeAssistant: homeAssistant)
     }
     /// Read through the live providers on each render, including while Diagnostics is open.
@@ -135,13 +142,19 @@ struct PanelDiagnosticsView: View {
                     ForEach(commands) { entry in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.control).font(.headline)
-                            Text(entry.payload.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value)" }.joined(separator: ", "))
-                            Text("\(entry.status.map(String.init) ?? "No HTTP status") · \(entry.error ?? (entry.status == nil ? "local / dispatched" : "OK")) · \(entry.latencyMs) ms")
+                            Text(
+                                entry.payload.sorted(by: { $0.key < $1.key }).map { "\($0.key)=\($0.value)" }.joined(
+                                    separator: ", "))
+                            Text(
+                                "\(entry.status.map(String.init) ?? "No HTTP status") · \(entry.error ?? (entry.status == nil ? "local / dispatched" : "OK")) · \(entry.latencyMs) ms"
+                            )
                         }.font(.caption).textSelection(.enabled)
                     }
                 }
                 Section {
-                    Button { Task { await send() } } label: {
+                    Button {
+                        Task { await send() }
+                    } label: {
                         HStack {
                             if sending { ProgressView() }
                             Text(sending ? "Sending…" : "Send logs")
@@ -151,42 +164,57 @@ struct PanelDiagnosticsView: View {
                 }
             }
             .navigationTitle("Diagnostics")
-            .toolbar { ToolbarItem(placement: .confirmationAction) {
-                Button("Done", action: close).accessibilityIdentifier("diagnostics-done")
-            } }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done", action: close).accessibilityIdentifier("diagnostics-done")
+                }
+            }
         }
         .preferredColorScheme(.dark)
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
         .accessibilityIdentifier("panel-diagnostics")
         .task { await check() }
-        .onReceive(Foundation.NotificationCenter.default.publisher(for: PanelCommandLog.changedNotification).receive(on: RunLoop.main)) { _ in
+        .onReceive(
+            Foundation.NotificationCenter.default.publisher(for: PanelCommandLog.changedNotification).receive(
+                on: RunLoop.main)
+        ) { _ in
             commands = PanelCommandLog.shared.snapshot()
         }
     }
-    private struct Ping: Decodable, Sendable { let status: String; let timestamp: Double }
+    private struct Ping: Decodable, Sendable {
+        let status: String
+        let timestamp: Double
+    }
     private struct Health: Decodable, Sendable { let homeAssistant: String }
     private struct Receipt: Decodable, Sendable { let accepted: Bool }
     @MainActor private func check() async {
         commands = PanelCommandLog.shared.snapshot()
-        backend = "checking"; homeAssistant = "unknown"; latencyMs = nil
+        backend = "checking"
+        homeAssistant = "unknown"
+        latencyMs = nil
         let started = Date()
         do {
             _ = try await store.diagnosticsClient.get("health", as: Ping.self)
             latencyMs = Int(Date().timeIntervalSince(started) * 1000)
             backend = "reachable"
-        } catch { backend = "unreachable"; return }
+        } catch {
+            backend = "unreachable"
+            return
+        }
         do {
             let health = try await store.diagnosticsClient.get("diagnostics/status", as: Health.self)
             homeAssistant = health.homeAssistant
         } catch { homeAssistant = "unknown" }
     }
     @MainActor private func send() async {
-        sending = true; result = nil
+        sending = true
+        result = nil
         defer { sending = false }
         commands = PanelCommandLog.shared.snapshot()
         do {
-            let receipt = try await store.diagnosticsClient.post("diagnostics",
+            let receipt = try await store.diagnosticsClient.post(
+                "diagnostics",
                 input: PanelDiagnosticsSubmission(snapshot: snapshot, commands: commands), as: Receipt.self)
             result = receipt.accepted ? "Logs sent." : "Could not send logs. Try again."
         } catch { result = "Could not send logs. Check the connection and try again." }

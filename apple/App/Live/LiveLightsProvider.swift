@@ -1,7 +1,7 @@
 import Foundation
+import OSLog
 import Observation
 import PanelKit
-import OSLog
 
 @MainActor protocol LightsProvider: AnyObject, Observable {
     var lamps: LampState { get }
@@ -69,8 +69,7 @@ import OSLog
             while !Task.isCancelled {
                 guard self != nil else { return }
                 await self?.refresh()
-                do { try await Task.sleep(for: interval) }
-                catch { return }
+                do { try await Task.sleep(for: interval) } catch { return }
             }
         }
     }
@@ -152,7 +151,9 @@ import OSLog
     private func fail(_ error: any Error, lifecycle: Int) {
         guard self.lifecycle == lifecycle else { return }
         Logger(subsystem: "co.worldwidewebb.panel", category: "commands").error("Lights provider request failed")
-        for _ in queue.dropFirst() { PanelCommandLog.shared.record(control: "lights.queued", error: "dropped: action unavailable") }
+        for _ in queue.dropFirst() {
+            PanelCommandLog.shared.record(control: "lights.queued", error: "dropped: action unavailable")
+        }
         queue.removeAll()
         mutationTask = nil
         render()
@@ -198,8 +199,12 @@ import OSLog
             case .bedroomLamps: for i in 0..<3 { lamps.on[i] = on }
             case .otherLamps: for i in 3..<8 { lamps.on[i] = on }
             case .all:
-                lamps.on = Array(repeating: on, count: 8); lamps.ceiling = on; lamps.cabinet = on
-            case .lights: lamps.ceiling = on; lamps.cabinet = on
+                lamps.on = Array(repeating: on, count: 8)
+                lamps.ceiling = on
+                lamps.cabinet = on
+            case .lights:
+                lamps.ceiling = on
+                lamps.cabinet = on
             case .ceiling: lamps.ceiling = on
             case .cabinet: lamps.cabinet = on
             case .fan: fanOn = on
@@ -278,12 +283,13 @@ import OSLog
             case .scene(let scene): return try await api.setScene(scene)
             case .color(let slot, let hex): return try await api.setColor(slot: slot, hex: hex)
             case .party(let speed):
-                let wireSpeed: LampModeSpeed? = switch speed {
-                case .off: nil
-                case .slow: .slow
-                case .medium: .medium
-                case .fast: .fast
-                }
+                let wireSpeed: LampModeSpeed? =
+                    switch speed {
+                    case .off: nil
+                    case .slow: .slow
+                    case .medium: .medium
+                    case .fast: .fast
+                    }
                 return try await api.setMode(speed == .off ? .none : .party, speed: wireSpeed)
             }
         }

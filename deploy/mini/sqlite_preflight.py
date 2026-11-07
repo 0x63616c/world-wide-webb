@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Resolve and validate the production SQLite mount without printing Compose secrets."""
+
 import json
-from pathlib import Path
 import sqlite3
 import sys
+from pathlib import Path
 
 
 def main():

@@ -14,8 +14,11 @@ struct HybridClockFace: View {
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let next = store.upcomingAlarm(at: store.now)
                 Button(action: open) {
-                    Label(next.map { "\($0.alarm.label) · \($0.alarm.time)" } ?? "No upcoming alarms", systemImage: "alarm")
-                        .font(.title2)
+                    Label(
+                        next.map { "\($0.alarm.label) · \($0.alarm.time)" } ?? "No upcoming alarms",
+                        systemImage: "alarm"
+                    )
+                    .font(.title2)
                 }.buttonStyle(.glass).padding(.bottom, 24)
             }
         }

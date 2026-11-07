@@ -14,18 +14,17 @@ struct SonosRoomsPage: View {
     }
 
     private var tv: SoundRoom? {
-        store.rooms.first { $0.id == "media_player.living_room" } ??
-            store.rooms.first { $0.name == "Living Room" }
+        store.rooms.first { $0.id == "media_player.living_room" } ?? store.rooms.first { $0.name == "Living Room" }
     }
     private var speakers: [SoundRoom] { store.rooms.filter { $0.id != tv?.id } }
     private var desk: SoundRoom? {
-        speakers.first { $0.id == "media_player.desk" } ??
-            speakers.first { $0.name == "Desk" }
+        speakers.first { $0.id == "media_player.desk" } ?? speakers.first { $0.name == "Desk" }
     }
 
     private var groupedPlayback: String? {
         guard let desk, desk.sourceKind == .lineIn, speakers.count > 1,
-              speakers.allSatisfy({ $0.coordinator == desk.id }) else { return nil }
+            speakers.allSatisfy({ $0.coordinator == desk.id })
+        else { return nil }
         switch desk.transportState {
         case "PLAYING": return "Playing together · \(speakers.count) rooms"
         case "PAUSED_PLAYBACK": return "Grouped · paused"
@@ -42,7 +41,10 @@ struct SonosRoomsPage: View {
     }
 
     private func previewMaster(_ target: Int?) {
-        guard let target else { masterDrag = nil; return }
+        guard let target else {
+            masterDrag = nil
+            return
+        }
         let balance = masterDrag?.balance ?? currentBalance
         masterDrag = MasterDrag(balance: balance, levels: balance.adjusted(to: target))
     }
@@ -58,9 +60,11 @@ struct SonosRoomsPage: View {
                 header
                 GlassEffectContainer(spacing: 12) {
                     VStack(spacing: 16) {
-                        volumeRow(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill",
-                                  id: "master", preview: previewMaster, commit: commitMaster)
-                            .disabled(speakers.isEmpty)
+                        volumeRow(
+                            value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill",
+                            id: "master", preview: previewMaster, commit: commitMaster
+                        )
+                        .disabled(speakers.isEmpty)
                         Divider()
                         ForEach(speakers) { room in
                             roomRow(room, title: room.name, symbol: "speaker.wave.2.fill")
@@ -91,8 +95,9 @@ struct SonosRoomsPage: View {
                     .accessibilityIdentifier("sonos-playback-status")
             } else {
                 Button {
-                    if let playDeskLineIn { playDeskLineIn() }
-                    else if let desk {
+                    if let playDeskLineIn {
+                        playDeskLineIn()
+                    } else if let desk {
                         for room in speakers where room.id != desk.id { store.send(.join(room.id, desk.id)) }
                     }
                 } label: {
@@ -112,22 +117,29 @@ struct SonosRoomsPage: View {
     }
 
     private func roomRow(_ room: SoundRoom, title: String, symbol: String) -> some View {
-        volumeRow(value: shownVolume(for: room), title: title, symbol: symbol, id: room.id, preview: {
-            roomPreviews[room.id] = $0
-        }, commit: {
-            store.send(.rawVolume(room.id, $0))
-        })
+        volumeRow(
+            value: shownVolume(for: room), title: title, symbol: symbol, id: room.id,
+            preview: {
+                roomPreviews[room.id] = $0
+            },
+            commit: {
+                store.send(.rawVolume(room.id, $0))
+            })
     }
 
-    private func volumeRow(value: Int, title: String, symbol: String, id: String,
-                           preview: @escaping (Int?) -> Void, commit: @escaping (Int) -> Void) -> some View {
+    private func volumeRow(
+        value: Int, title: String, symbol: String, id: String,
+        preview: @escaping (Int?) -> Void, commit: @escaping (Int) -> Void
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-            FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol,
-                               showsPercentage: true, preview: preview, commit: commit)
-                .frame(height: 58)
-                .accessibilityIdentifier("sonos-volume-\(id)")
+            FilledLevelControl(
+                value: value, label: "\(title) volume", symbol: symbol,
+                showsPercentage: true, preview: preview, commit: commit
+            )
+            .frame(height: 58)
+            .accessibilityIdentifier("sonos-volume-\(id)")
         }
     }
 }
@@ -152,7 +164,8 @@ struct SonosVolumeBalance {
         // Reserve 100% for saturated rooms before scaling the quieter ones.
         // When every remaining room started silent, split the remaining volume evenly.
         for (id, weight) in levels.sorted(by: { $0.value > $1.value }) {
-            let volume = remainingWeight > 0
+            let volume =
+                remainingWeight > 0
                 ? Double(weight * remainingVolume) / Double(remainingWeight)
                 : Double(remainingVolume) / Double(remainingRooms)
             adjusted[id] = min(100, Int(volume.rounded()))

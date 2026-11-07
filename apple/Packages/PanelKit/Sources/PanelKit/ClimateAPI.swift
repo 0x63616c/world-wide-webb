@@ -1,11 +1,14 @@
 import Foundation
 
 public enum ClimateAPIMode: String, Codable, Sendable, CaseIterable {
-    case off, cool, heat, heatCool = "heat_cool"
+    case off, cool, heat
+    case heatCool = "heat_cool"
 }
 
 public enum ClimateAction: String, Decodable, Sendable {
-    case cooling = "Cooling", heating = "Heating", idle = "Idle"
+    case cooling = "Cooling"
+    case heating = "Heating"
+    case idle = "Idle"
 }
 
 /// Discriminated exactly like features/ac/api.ts. Off retains nullable setpoints.
@@ -30,13 +33,15 @@ public struct ClimateAPIState: Decodable, Sendable {
         switch mode {
         case .off:
             // These keys are required by the output schema, even when null.
-            setpoints = .off(target: try values.decode(Double?.self, forKey: .target),
-                             low: try values.decode(Double?.self, forKey: .targetLow),
-                             high: try values.decode(Double?.self, forKey: .targetHigh))
+            setpoints = .off(
+                target: try values.decode(Double?.self, forKey: .target),
+                low: try values.decode(Double?.self, forKey: .targetLow),
+                high: try values.decode(Double?.self, forKey: .targetHigh))
         case .cool, .heat: setpoints = .single(try values.decode(Int.self, forKey: .target))
         case .heatCool:
-            setpoints = .range(low: try values.decode(Int.self, forKey: .targetLow),
-                               high: try values.decode(Int.self, forKey: .targetHigh))
+            setpoints = .range(
+                low: try values.decode(Int.self, forKey: .targetLow),
+                high: try values.decode(Int.self, forKey: .targetHigh))
         }
     }
 }
@@ -58,7 +63,10 @@ public struct ClimateAPI: Sendable {
     }
     /// Validation remains authoritative on the server, including band and gap errors.
     public func setRange(low: Int, high: Int) async throws -> ClimateAPIState {
-        struct Input: Encodable, Sendable { let low: Int; let high: Int }
+        struct Input: Encodable, Sendable {
+            let low: Int
+            let high: Int
+        }
         return try await client.patch("climate", input: Input(low: low, high: high), as: ClimateAPIState.self)
     }
 }

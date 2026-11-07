@@ -1,8 +1,9 @@
+import CoreImage
 import PanelKit
 import SwiftUI
 import UIKit
-import CoreImage
 import XCTest
+
 @testable import Panel
 
 @MainActor final class HybridModuleTests: XCTestCase {
@@ -10,11 +11,14 @@ import XCTest
         let lease = WifiBrightnessLease()
         var level: CGFloat = 0.37
         var writes: [CGFloat] = []
-        let write: (CGFloat) -> Void = { level = $0; writes.append($0) }
+        let write: (CGFloat) -> Void = {
+            level = $0
+            writes.append($0)
+        }
         lease.acquire(read: { level }, write: write)
         XCTAssertEqual(level, 1)
         lease.acquire(read: { level }, write: write)
-        lease.restore() // tap, timeout, background, loss of data and dismantle share this seam
+        lease.restore()  // tap, timeout, background, loss of data and dismantle share this seam
         lease.restore()
         XCTAssertEqual(level, 0.37)
         XCTAssertEqual(writes, [1, 0.37])
@@ -34,17 +38,24 @@ import XCTest
         window.frame = CGRect(origin: .zero, size: canvas)
         window.windowLevel = .alert + 1
         let originalBrightness = scene.screen.brightness
-        defer { window.isHidden = true; window.rootViewController = nil }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WifiVerification")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         for detail in [false, true] {
-            let view: AnyView = detail
-                ? AnyView(WifiQRFullScreen(payload: try XCTUnwrap(store.wifiProvider.qrPayload),
-                                          ssid: try XCTUnwrap(store.wifi.ssid), close: {}))
+            let view: AnyView =
+                detail
+                ? AnyView(
+                    WifiQRFullScreen(
+                        payload: try XCTUnwrap(store.wifiProvider.qrPayload),
+                        ssid: try XCTUnwrap(store.wifi.ssid), close: {}))
                 : AnyView(HybridNativeModule(module: .wifi, store: store, detail: false, open: {}))
-            let host = UIHostingController(rootView: view.frame(width: canvas.width, height: canvas.height)
-                .environment(\.horizontalSizeClass, .regular).ignoresSafeArea())
+            let host = UIHostingController(
+                rootView: view.frame(width: canvas.width, height: canvas.height)
+                    .environment(\.horizontalSizeClass, .regular).ignoresSafeArea())
             host.safeAreaRegions = []
             window.rootViewController = host
             window.makeKeyAndVisible()
@@ -52,7 +63,8 @@ import XCTest
             host.view.layoutIfNeeded()
             try await Task.sleep(for: .milliseconds(700))
             let format = UIGraphicsImageRendererFormat()
-            format.scale = 1; format.opaque = true
+            format.scale = 1
+            format.opaque = true
             var rendered = false
             let image = UIGraphicsImageRenderer(size: canvas, format: format).image { _ in
                 rendered = host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
@@ -63,13 +75,14 @@ import XCTest
             let name = detail ? "wifi-fullscreen-qr" : "wifi-tile"
             try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("\(name).png"))
             let attachment = XCTAttachment(image: image)
-            attachment.name = name; attachment.lifetime = .keepAlways
+            attachment.name = name
+            attachment.lifetime = .keepAlways
             add(attachment)
             if detail {
                 try assertDecodes(XCTUnwrap(store.wifiProvider.qrPayload), image: XCTUnwrap(image.cgImage))
                 #if !targetEnvironment(simulator)
-                XCTAssertEqual(scene.screen.brightness, 1, accuracy: 0.01)
-                #endif // Simulator UIScreen always reports 0.5; the injected lease verifies writes.
+                    XCTAssertEqual(scene.screen.brightness, 1, accuracy: 0.01)
+                #endif  // Simulator UIScreen always reports 0.5; the injected lease verifies writes.
             }
         }
         window.rootViewController = nil
@@ -119,16 +132,23 @@ import XCTest
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(origin: .zero, size: canvas)
         window.windowLevel = .alert + 1
-        defer { window.isHidden = true; window.rootViewController = nil }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("SonosVerification")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         let views: [(String, AnyView)] = [
             ("tile", AnyView(HybridNativeModule(module: .sonos, store: store, detail: false, open: {}))),
             ("now-playing", AnyView(HybridNativeModule(module: .sonos, store: store, detail: true, open: {}))),
-            ("rooms", AnyView(SonosRoomsModule(store: store, select: { _ in }, close: {})
-                .foregroundStyle(.white).tint(.white).background(Color.black).environment(\.colorScheme, .dark))),
-            ("now-playing-legacy", AnyView(HybridNativeModule(module: .sonos, store: store, detail: true, open: {})))
+            (
+                "rooms",
+                AnyView(
+                    SonosRoomsModule(store: store, select: { _ in }, close: {})
+                        .foregroundStyle(.white).tint(.white).background(Color.black).environment(\.colorScheme, .dark))
+            ),
+            ("now-playing-legacy", AnyView(HybridNativeModule(module: .sonos, store: store, detail: true, open: {}))),
         ]
         for (name, view) in views {
             if name == "now-playing-legacy" {
@@ -138,13 +158,15 @@ import XCTest
             window.rootViewController = UIHostingController(rootView: view)
             window.makeKeyAndVisible()
             try await Task.sleep(for: .seconds(1))
-            let format = UIGraphicsImageRendererFormat(); format.scale = 1
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
             let image = UIGraphicsImageRenderer(size: canvas, format: format).image { _ in
                 window.drawHierarchy(in: CGRect(origin: .zero, size: canvas), afterScreenUpdates: true)
             }
             try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("\(name).png"))
             let attachment = XCTAttachment(image: image)
-            attachment.name = "sonos-\(name)"; attachment.lifetime = .keepAlways
+            attachment.name = "sonos-\(name)"
+            attachment.lifetime = .keepAlways
             add(attachment)
         }
     }
@@ -153,8 +175,10 @@ import XCTest
         let code = try XCTUnwrap(image ?? GuestWifiCode.render(payload: payload))
         let source = CIImage(cgImage: code)
         let readable = image == nil ? source.transformed(by: CGAffineTransform(scaleX: 10, y: 10)) : source
-        let detector = try XCTUnwrap(CIDetector(ofType: CIDetectorTypeQRCode, context: CIContext(),
-            options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]))
+        let detector = try XCTUnwrap(
+            CIDetector(
+                ofType: CIDetectorTypeQRCode, context: CIContext(),
+                options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]))
         let decoded = (detector.features(in: readable).first as? CIQRCodeFeature)?.messageString
         // Avoid including join credentials in XCTest diagnostics.
         XCTAssertTrue(decoded == payload, "QR must encode the exact server payload.")
@@ -163,8 +187,9 @@ import XCTest
     private func fixtureStore() throws -> (LiveHomeDataSource, HybridFixtureTransport) {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let transport = HybridFixtureTransport(root: root)
-        let store = LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
-            baseURL: URL(string: "https://fixture.example.invalid")!), transport: transport)
+        let store = LiveHomeDataSource(
+            configuration: PanelKit.PanelConfiguration(
+                baseURL: URL(string: "https://fixture.example.invalid")!), transport: transport)
         return (store, transport)
     }
 }

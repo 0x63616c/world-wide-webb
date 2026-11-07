@@ -6,9 +6,12 @@ enum ClockLauncherMotion: String {
     case swipePop, depth, dissolve
     static var current: Self {
         #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-launcherTransition"), args.indices.contains(index + 1),
-           let value = Self(rawValue: args[index + 1] == "reveal" ? "swipePop" : args[index + 1]) { return value }
+            let args = ProcessInfo.processInfo.arguments
+            if let index = args.firstIndex(of: "-launcherTransition"), args.indices.contains(index + 1),
+                let value = Self(rawValue: args[index + 1] == "reveal" ? "swipePop" : args[index + 1])
+            {
+                return value
+            }
         #endif
         return .swipePop
     }
@@ -61,7 +64,9 @@ struct LauncherSurfaceMotion: ViewModifier {
     func body(content: Content) -> some View {
         content
             .scaleEffect(incoming ? motion.launcherScale(progress) : motion.clockScale(progress))
-            .offset(x: incoming ? motion.launcherOffset(progress, width: width) : motion.clockOffset(progress, width: width))
+            .offset(
+                x: incoming ? motion.launcherOffset(progress, width: width) : motion.clockOffset(progress, width: width)
+            )
             .opacity(motion == .swipePop ? 1 : Double(incoming ? progress : 1 - progress))
     }
 }

@@ -1,9 +1,10 @@
 import CoreText
 import SwiftUI
+
 #if os(macOS)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 /// Oversized stacked numerals and a continuous blue colour field, like a typographic poster.
@@ -15,15 +16,16 @@ struct TideClockDial: View {
 
     private var glass: Glass {
         #if DEBUG
-        if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-tideGlassPreview"),
-           ProcessInfo.processInfo.arguments.indices.contains(index + 1) {
-            switch ProcessInfo.processInfo.arguments[index + 1] {
-            case "clear": return .clear
-            case "tinted": return .clear.tint(.white.opacity(0.15))
-            case "regular": return .regular
-            default: break
+            if let index = ProcessInfo.processInfo.arguments.firstIndex(of: "-tideGlassPreview"),
+                ProcessInfo.processInfo.arguments.indices.contains(index + 1)
+            {
+                switch ProcessInfo.processInfo.arguments[index + 1] {
+                case "clear": return .clear
+                case "tinted": return .clear.tint(.white.opacity(0.15))
+                case "regular": return .regular
+                default: break
+                }
             }
-        }
         #endif
         return .clear
     }
@@ -33,11 +35,19 @@ struct TideClockDial: View {
             let size = proxy.size
             let band = min(size.height * 0.40, size.width * 0.47)
             ZStack {
-                LinearGradient(colors: [Color(red: 0.025, green: 0.10, blue: 0.27),
-                    Color(red: 0.035, green: 0.25, blue: 0.68)], startPoint: .top, endPoint: .bottom)
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.025, green: 0.10, blue: 0.27),
+                        Color(red: 0.035, green: 0.25, blue: 0.68),
+                    ], startPoint: .top, endPoint: .bottom)
                 Ellipse()
-                    .fill(LinearGradient(colors: [Color(red: 0.04, green: 0.27, blue: 0.65),
-                        Color(red: 0.04, green: 0.40, blue: 0.70)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.04, green: 0.27, blue: 0.65),
+                                Color(red: 0.04, green: 0.40, blue: 0.70),
+                            ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
                     .frame(width: size.width * 1.7, height: size.height * 0.92)
                     .rotationEffect(.degrees(-22))
                     .position(x: size.width * 0.64, y: size.height * 0.99)
@@ -115,20 +125,23 @@ private struct TideClockGlyph: Identifiable {
 
     @MainActor private static let font: CTFont = {
         #if os(macOS)
-        let base = NSFont.monospacedDigitSystemFont(ofSize: 100, weight: .bold)
-        let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 100) }
+            let base = NSFont.monospacedDigitSystemFont(ofSize: 100, weight: .bold)
+            let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 100) }
         #else
-        let base = UIFont.monospacedDigitSystemFont(ofSize: 100, weight: .bold)
-        let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 100) }
+            let base = UIFont.monospacedDigitSystemFont(ofSize: 100, weight: .bold)
+            let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 100) }
         #endif
         return CTFontCreateWithName((rounded ?? base).fontName as CFString, 100, nil)
     }()
 
     @MainActor static func layout(_ text: String, in box: CGRect) -> [Self] {
-        let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [
-            NSAttributedString.Key(kCTFontAttributeName as String): font,
-            .kern: -4.5,
-        ]))
+        let line = CTLineCreateWithAttributedString(
+            NSAttributedString(
+                string: text,
+                attributes: [
+                    NSAttributedString.Key(kCTFontAttributeName as String): font,
+                    .kern: -4.5,
+                ]))
         var paths: [CGPath] = []
         var bounds = CGRect.null
         for run in CTLineGetGlyphRuns(line) as! [CTRun] {
@@ -147,7 +160,8 @@ private struct TideClockGlyph: Identifiable {
         }
         guard bounds.width > 0, bounds.height > 0 else { return [] }
         let scale = min(box.width / bounds.width, box.height / bounds.height)
-        let transform = CGAffineTransform(a: scale, b: 0, c: 0, d: -scale,
+        let transform = CGAffineTransform(
+            a: scale, b: 0, c: 0, d: -scale,
             tx: box.midX - bounds.midX * scale, ty: box.midY + bounds.midY * scale)
         return paths.enumerated().map { slot, outline in
             let path = Path(outline).applying(transform)

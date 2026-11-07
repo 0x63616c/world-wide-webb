@@ -1,6 +1,6 @@
-import SwiftUI
 import AVKit
 import PanelKit
+import SwiftUI
 
 struct ModulePage: View {
     let tile: HomeTile
@@ -12,13 +12,23 @@ struct ModulePage: View {
         ZStack {
             if tile == .photos {
                 PhotoRotation(provider: store.photos, now: store.now, fullScreen: true).ignoresSafeArea()
-                VStack { HStack { CircleButton(symbol: "xmark", label: "Close Photos", action: close); Spacer() }; Spacer() }.padding(compact ? 24 : 38).padding(.top, compact ? 34 : 0)
+                VStack {
+                    HStack {
+                        CircleButton(symbol: "xmark", label: "Close Photos", action: close)
+                        Spacer()
+                    }
+                    Spacer()
+                }.padding(compact ? 24 : 38).padding(.top, compact ? 34 : 0)
             } else {
                 if tile == .weather { WeatherSky(condition: store.weather.condition).ignoresSafeArea() }
                 VStack(spacing: 0) {
                     ZStack {
-                        Text(tile == .calendar ? "Calendar" : tile.title).font(.system(size: compact ? 20 : 25, weight: .semibold))
-                        HStack { CircleButton(symbol: "xmark", label: "Close", action: close); Spacer() }
+                        Text(tile == .calendar ? "Calendar" : tile.title).font(
+                            .system(size: compact ? 20 : 25, weight: .semibold))
+                        HStack {
+                            CircleButton(symbol: "xmark", label: "Close", action: close)
+                            Spacer()
+                        }
                     }.frame(height: 62).padding(.horizontal, compact ? 24 : 38).padding(.top, compact ? 56 : 30)
                     Group {
                         switch tile {
@@ -46,23 +56,34 @@ struct WeatherPage: View {
                 VStack(spacing: 28) {
                     VStack(spacing: 10) {
                         Text(weather.city).font(.system(size: compact ? 30 : 40, weight: .medium))
-                        Text("\(weather.temperature)°").font(.system(size: compact ? 100 : 140, weight: .thin, design: .rounded)).monospacedDigit()
+                        Text("\(weather.temperature)°").font(
+                            .system(size: compact ? 100 : 140, weight: .thin, design: .rounded)
+                        ).monospacedDigit()
                         Text(weather.condition).font(.title2.weight(.medium))
                         Text("H:\(weather.high)°  L:\(weather.low)°").font(.title3)
                     }.frame(maxWidth: .infinity)
                         .frame(minHeight: compact ? 300 : max(320, geometry.size.height * 0.45))
                     VStack(alignment: .leading, spacing: 24) {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: compact ? 6 : 12), spacing: 24) {
+                        LazyVGrid(
+                            columns: Array(repeating: GridItem(.flexible()), count: compact ? 6 : 12), spacing: 24
+                        ) {
                             ForEach(weather.hours) { hour in
                                 VStack(spacing: 20) {
                                     Text(hour.time).font(.system(size: 18, weight: .medium))
-                                    Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 28)).frame(height: 34)
-                                    Text("\(hour.temperature)°").font(.system(size: 24, weight: .medium)).monospacedDigit()
+                                    Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(
+                                        .system(size: 28)
+                                    ).frame(height: 34)
+                                    Text("\(hour.temperature)°").font(.system(size: 24, weight: .medium))
+                                        .monospacedDigit()
                                 }.frame(maxWidth: .infinity)
                             }
                         }
                         Divider().overlay(.white.opacity(0.15))
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: compact ? 2 : 4), alignment: .leading, spacing: 24) {
+                        LazyVGrid(
+                            columns: Array(
+                                repeating: GridItem(.flexible(), alignment: .leading), count: compact ? 2 : 4),
+                            alignment: .leading, spacing: 24
+                        ) {
                             weatherMetric("Feels like", value: "\(weather.feels)°", symbol: "thermometer.medium")
                             weatherMetric("Humidity", value: "\(weather.humidity)%", symbol: "humidity.fill")
                             weatherMetric("Wind", value: "\(weather.wind) mph", symbol: "wind")
@@ -92,7 +113,8 @@ struct AgendaPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(provider.dateText(at: now, format: "EEEE, MMMM d")).font(.system(size: compact ? 16 : 24)).foregroundStyle(.secondary)
+                    Text(provider.dateText(at: now, format: "EEEE, MMMM d")).font(.system(size: compact ? 16 : 24))
+                        .foregroundStyle(.secondary)
                     Spacer()
                     if provider is LiveCalendarProvider {
                         Button("Calendars", systemImage: "calendar") { showingCalendars = true }
@@ -108,16 +130,22 @@ struct AgendaPage: View {
                         ForEach(provider.events) { event in
                             HStack(alignment: .center, spacing: compact ? 20 : 40) {
                                 VStack(alignment: .trailing, spacing: 4) {
-                                    Text(event.time).font(.system(size: compact ? 22 : 30, weight: .medium)).monospacedDigit()
-                                    Text(event.period).font(.system(size: compact ? 13 : 16)).foregroundStyle(.secondary)
+                                    Text(event.time).font(.system(size: compact ? 22 : 30, weight: .medium))
+                                        .monospacedDigit()
+                                    Text(event.period).font(.system(size: compact ? 13 : 16)).foregroundStyle(
+                                        .secondary)
                                 }.frame(width: compact ? 60 : 100, alignment: .trailing)
-                                Capsule().fill(event.id == provider.next(at: now)?.id ? .orange : .white.opacity(0.35)).frame(width: 4, height: compact ? 70 : 80)
+                                Capsule().fill(event.id == provider.next(at: now)?.id ? .orange : .white.opacity(0.35))
+                                    .frame(width: 4, height: compact ? 70 : 80)
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text(event.title).font(.system(size: compact ? 21 : 28, weight: .semibold))
-                                    Label(event.location, systemImage: "mappin").font(.system(size: compact ? 16 : 20)).foregroundStyle(.secondary)
+                                    Label(event.location, systemImage: "mappin").font(.system(size: compact ? 16 : 20))
+                                        .foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
-                                if !compact { Text(event.durationText).font(.system(size: 18)).foregroundStyle(.secondary) }
+                                if !compact {
+                                    Text(event.durationText).font(.system(size: 18)).foregroundStyle(.secondary)
+                                }
                             }.padding(compact ? 20 : 28).glassEffect(.regular, in: .rect(cornerRadius: 32))
                         }
                     }
@@ -149,13 +177,20 @@ private struct CalendarPickerSheet: View {
                     .accessibilityIdentifier("calendar-show-all")
                 ForEach(sources, id: \.self) { source in
                     Section(provider.calendars.first { $0.sourceID == source }?.sourceTitle ?? "Calendars") {
-                        ForEach(provider.calendars.filter { $0.sourceID == source }.sorted {
-                            $0.title == $1.title ? $0.id < $1.id : $0.title.localizedStandardCompare($1.title) == .orderedAscending
-                        }) { calendar in
-                            Toggle(isOn: Binding(
-                                get: { provider.selectedCalendarIDs.contains(calendar.id) },
-                                set: { shown in Task { await provider.setCalendarShown(shown, identifier: calendar.id) } }
-                            )) {
+                        ForEach(
+                            provider.calendars.filter { $0.sourceID == source }.sorted {
+                                $0.title == $1.title
+                                    ? $0.id < $1.id : $0.title.localizedStandardCompare($1.title) == .orderedAscending
+                            }
+                        ) { calendar in
+                            Toggle(
+                                isOn: Binding(
+                                    get: { provider.selectedCalendarIDs.contains(calendar.id) },
+                                    set: { shown in
+                                        Task { await provider.setCalendarShown(shown, identifier: calendar.id) }
+                                    }
+                                )
+                            ) {
                                 HStack {
                                     Circle().fill(Color(red: calendar.red, green: calendar.green, blue: calendar.blue))
                                         .frame(width: 12, height: 12).accessibilityHidden(true)

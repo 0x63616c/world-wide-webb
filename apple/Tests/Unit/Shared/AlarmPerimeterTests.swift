@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Panel
 
 final class AlarmPerimeterTests: XCTestCase {
@@ -6,8 +7,10 @@ final class AlarmPerimeterTests: XCTestCase {
 
     func testConcentricCornersAndClockwiseCardinalPoints() {
         XCTAssertEqual(path.radius + AlarmPerimeter.edgeInset, AlarmPerimeter.faceCornerRadius)
-        let expected = [CGPoint(x: 660, y: 0), CGPoint(x: 1320, y: 488),
-                        CGPoint(x: 660, y: 976), CGPoint(x: 0, y: 488), CGPoint(x: 660, y: 0)]
+        let expected = [
+            CGPoint(x: 660, y: 0), CGPoint(x: 1320, y: 488),
+            CGPoint(x: 660, y: 976), CGPoint(x: 0, y: 488), CGPoint(x: 660, y: 0),
+        ]
         for (index, point) in expected.enumerated() {
             let sample = path.sample(at: path.length * Double(index) / 4)
             XCTAssertEqual(sample.point.x, point.x, accuracy: 0.00001)
@@ -22,7 +25,8 @@ final class AlarmPerimeterTests: XCTestCase {
         for distance in stride(from: CGFloat.zero, to: path.length, by: step) {
             let a = path.sample(at: distance)
             let b = path.sample(at: distance + step)
-            let dx = b.point.x - a.point.x, dy = b.point.y - a.point.y
+            let dx = b.point.x - a.point.x
+            let dy = b.point.y - a.point.y
             XCTAssertEqual(hypot(dx, dy), step, accuracy: 0.00001)
             XCTAssertEqual(hypot(a.normal.dx, a.normal.dy), 1, accuracy: 0.00001)
             XCTAssertEqual(dx * a.normal.dx + dy * a.normal.dy, 0, accuracy: 0.002)
@@ -84,7 +88,8 @@ final class AlarmPerimeterTests: XCTestCase {
                 XCTAssertGreaterThan(tilt(index), tilt(index - 1))
             }
             for offset in 0..<fan {
-                XCTAssertEqual(center - distances[after - 1 - offset], (CGFloat(offset) + 0.5) * spacing, accuracy: 0.00001)
+                XCTAssertEqual(
+                    center - distances[after - 1 - offset], (CGFloat(offset) + 0.5) * spacing, accuracy: 0.00001)
                 XCTAssertEqual(distances[after + offset] - center, (CGFloat(offset) + 0.5) * spacing, accuracy: 0.00001)
                 XCTAssertEqual(tilt(after - 1 - offset) + tilt(after + offset), .pi / 2, accuracy: 0.00001)
             }

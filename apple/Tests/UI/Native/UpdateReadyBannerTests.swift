@@ -6,7 +6,10 @@ final class UpdateReadyBannerTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for _ in [0] {
-            app.launchArguments = ["-hybridFixtures", "-notificationHold", "-updateCheckFakeBuild", "999999", "-updateCheckIntervalSeconds", "2"]
+            app.launchArguments = [
+                "-hybridFixtures", "-notificationHold", "-updateCheckFakeBuild", "999999",
+                "-updateCheckIntervalSeconds", "2",
+            ]
             app.launchModuleFromHome("lights")
             let banner = app.buttons.matching(identifier: "notification-banner-updates").firstMatch
             XCTAssertTrue(banner.waitForExistence(timeout: 30))

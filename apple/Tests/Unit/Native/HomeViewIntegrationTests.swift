@@ -1,7 +1,8 @@
-import XCTest
-import UIKit
-import SwiftUI
 import PanelKit
+import SwiftUI
+import UIKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class HomeViewIntegrationTests: XCTestCase {
@@ -19,7 +20,8 @@ import PanelKit
             .appendingPathComponent("Fixtures")
         let configuration = PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!)
         for unavailable in [false, true] {
-            let store = LiveHomeDataSource(configuration: configuration,
+            let store = LiveHomeDataSource(
+                configuration: configuration,
                 transport: HybridFixtureTransport(root: root, unavailable: unavailable),
                 calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root, unavailable: unavailable)),
                 now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
@@ -28,15 +30,18 @@ import PanelKit
                 if !unavailable { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }
             }
             let runtime = NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())
-            await runtime.reconcile(snapshot: store.alarmsProvider.snapshot,
+            await runtime.reconcile(
+                snapshot: store.alarmsProvider.snapshot,
                 available: store.hasLiveData(for: .alarms), configured: true,
                 syncWidget: { _ in })
             let session = PanelSession(configuration: PanelConfiguration(), nativeAlarms: runtime)
             for tile in HomeTile.allCases {
-                let view = PanelHomeDestination(module: tile.panelModule, store: store,
-                    session: session, close: {})
-                    .environment(\.horizontalSizeClass, .regular)
-                    .frame(width: 1366, height: 1024)
+                let view = PanelHomeDestination(
+                    module: tile.panelModule, store: store,
+                    session: session, close: {}
+                )
+                .environment(\.horizontalSizeClass, .regular)
+                .frame(width: 1366, height: 1024)
                 XCTAssertNotNil(ImageRenderer(content: view).uiImage, "\(tile.rawValue), unavailable=\(unavailable)")
             }
             store.stop()
@@ -52,16 +57,19 @@ import PanelKit
         await transport.setFixture("climate/off.json", for: "climate.get")
         let calendar = HybridCalendarFixtureStore(root: root, unavailable: false)
         await calendar.setFilename("empty.json")
-        let store = LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
-            baseURL: URL(string: "http://localhost:18733")!), transport: transport,
+        let store = LiveHomeDataSource(
+            configuration: PanelKit.PanelConfiguration(
+                baseURL: URL(string: "http://localhost:18733")!), transport: transport,
             calendarAPI: CalendarAPI(store: calendar),
             now: { HybridCalendarFixtureStore.now })
         for module in HomeTile.panelProviders { await store.refresh(module) }
         defer { store.stop() }
         XCTAssertEqual(store.climate.mode, .off)
         XCTAssertEqual(store.fanProvider.fanOn, true)
-        let host = PanelHomePresentation(store: store,
-            session: PanelSession(configuration: PanelConfiguration(),
+        let host = PanelHomePresentation(
+            store: store,
+            session: PanelSession(
+                configuration: PanelConfiguration(),
                 nativeAlarms: NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())),
             navigation: PanelNavigation())
         for tile in [HomeTile.fan, .sound, .clock, .dogwalk, .photos] {
@@ -71,8 +79,11 @@ import PanelKit
         let fanSpan = HomeGrid.span(2, 1)
         func fanImage() throws -> Data {
             let tile = try XCTUnwrap(host.gridTile(.fan, span: fanSpan, open: {}))
-            return try XCTUnwrap(ImageRenderer(content: tile.frame(width: fanSpan.width, height: fanSpan.height)
-                .environment(\.motionPhase, 0)).uiImage?.pngData())
+            return try XCTUnwrap(
+                ImageRenderer(
+                    content: tile.frame(width: fanSpan.width, height: fanSpan.height)
+                        .environment(\.motionPhase, 0)
+                ).uiImage?.pngData())
         }
         let onImage = try fanImage()
         await transport.setFixture("fan/off.json", for: "controls.list")
@@ -93,8 +104,11 @@ import PanelKit
         probe.unavailable = true
         probe.gridTiles = []
         probe.unavailableTiles = []
-        XCTAssertNotNil(ImageRenderer(content: GridHomeFace(store: store, size: size, open: { _ in })
-            .environment(\.homeIntegration, probe)).uiImage)
+        XCTAssertNotNil(
+            ImageRenderer(
+                content: GridHomeFace(store: store, size: size, open: { _ in })
+                    .environment(\.homeIntegration, probe)
+            ).uiImage)
         XCTAssertTrue(probe.unavailableTiles.contains(.fan))
         XCTAssertFalse(probe.gridTiles.contains(.fan), "Unavailable wins over custom live content")
         // The legacy integration uses the default nil grid hook, reproducing the
@@ -103,7 +117,9 @@ import PanelKit
         try await captureGrid(store: store, host: host, size: size, prefix: "after")
     }
 
-    private func captureGrid(store: LiveHomeDataSource, host: any HomeIntegration, size: CGSize, prefix: String) async throws {
+    private func captureGrid(store: LiveHomeDataSource, host: any HomeIntegration, size: CGSize, prefix: String)
+        async throws
+    {
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("GridSnapshots")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -111,7 +127,10 @@ import PanelKit
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(origin: .zero, size: size)
         window.windowLevel = .alert + 1
-        defer { window.isHidden = true; window.rootViewController = nil }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
         for page in [0, 1] {
             let content = ZStack {
                 Color.black
@@ -134,7 +153,8 @@ import PanelKit
             let image = UIGraphicsImageRenderer(size: size).image { _ in
                 XCTAssertTrue(controller.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
             }
-            try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("panel-\(prefix)-page\(page + 1).png"))
+            try XCTUnwrap(image.pngData()).write(
+                to: output.appendingPathComponent("panel-\(prefix)-page\(page + 1).png"))
         }
     }
 

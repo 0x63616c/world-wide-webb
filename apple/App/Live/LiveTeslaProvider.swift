@@ -21,20 +21,25 @@ import PanelKit
     static let maxRangeKey = "teslaMaxRangeMiles"
 
     init(api: TeslaAPI, defaults: UserDefaults = .standard) {
-        self.api = api; self.defaults = defaults
+        self.api = api
+        self.defaults = defaults
         maxRange = defaults.integer(forKey: Self.maxRangeKey)
     }
     static func estimateMaxRange(rangeMiles: Double, batteryPercent: Double) -> Int? {
         guard batteryPercent >= 10, rangeMiles > 0 else { return nil }
         return Int((rangeMiles * 100 / batteryPercent / 5).rounded()) * 5
     }
-    var availability: TeslaAvailability { hasLiveData && snapshot?.stale != true && snapshot?.vehicleOnline != false ? .online : .offline }
+    var availability: TeslaAvailability {
+        hasLiveData && snapshot?.stale != true && snapshot?.vehicleOnline != false ? .online : .offline
+    }
     var data: TeslaData {
         guard hasLiveData, let snapshot else {
-            return TeslaData(name: "Unavailable", nick: "Tesla", place: "", charging: false,
+            return TeslaData(
+                name: "Unavailable", nick: "Tesla", place: "", charging: false,
                 chargingState: "", preconditioning: false, rate: 0, pct: 0, range: 0, maxRange: 0, odo: "", climate: 0)
         }
-        return TeslaData(name: "Model Y", nick: "Evee", place: "",
+        return TeslaData(
+            name: "Model Y", nick: "Evee", place: "",
             charging: snapshot.chargingState == .charging, chargingState: snapshot.chargingState.rawValue,
             preconditioning: snapshot.climateOn, rate: snapshot.chargePowerKW,
             pct: Int(snapshot.batteryPercent.rounded()), range: Int(snapshot.rangeMiles.rounded()),
@@ -75,7 +80,10 @@ import PanelKit
         requestedAction = action
         errorMessage = nil
     }
-    func cancelCommand() { requestedAction = nil; errorMessage = nil }
+    func cancelCommand() {
+        requestedAction = nil
+        errorMessage = nil
+    }
 
     func submit(pin: String) {
         _ = startSubmission(pin: pin)
@@ -141,14 +149,20 @@ import PanelKit
     private func accept(_ state: TeslaState) {
         switch state {
         case .ready(let value):
-            snapshot = value; hasLiveData = true; moduleStatus = .live
+            snapshot = value
+            hasLiveData = true
+            moduleStatus = .live
             if !canControl { requestedAction = nil }
-            if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent), estimate != maxRange {
+            if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent),
+                estimate != maxRange
+            {
                 maxRange = estimate
                 defaults.set(estimate, forKey: Self.maxRangeKey)
             }
         case .unconfigured:
-            snapshot = nil; hasLiveData = false; requestedAction = nil
+            snapshot = nil
+            hasLiveData = false
+            requestedAction = nil
             moduleStatus = .unconfigured("Tesla isn't set up on the server")
         case .unavailable:
             retainSnapshot(reason: "Tesla is unavailable on the server")

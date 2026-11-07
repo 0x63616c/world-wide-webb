@@ -1,10 +1,11 @@
 import CoreText
-import SwiftUI
 import PanelKit
+import SwiftUI
+
 #if os(macOS)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 enum PanelClockFace: String, CaseIterable {
@@ -21,9 +22,13 @@ struct PresenceClockFace: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: face == .tide ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
-            let night = !previewDay && (previewNight || SolarClock.appearanceIsNight(at: now, sunrise: store.weather.sunrise,
-                sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
-                weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil))
+            let night =
+                !previewDay
+                && (previewNight
+                    || SolarClock.appearanceIsNight(
+                        at: now, sunrise: store.weather.sunrise,
+                        sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
+                        weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil))
             ZStack {
                 switch face {
                 case .green:
@@ -37,17 +42,17 @@ struct PresenceClockFace: View {
     }
     private var previewNight: Bool {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-previewNightClock")
+            ProcessInfo.processInfo.arguments.contains("-previewNightClock")
         #else
-        false
+            false
         #endif
     }
 
     private var previewDay: Bool {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-previewDayClock")
+            ProcessInfo.processInfo.arguments.contains("-previewDayClock")
         #else
-        false
+            false
         #endif
     }
 
@@ -89,11 +94,11 @@ struct GreenClockDial: View {
     }()
     fileprivate static func roundedFont(size: CGFloat) -> CTFont {
         #if os(macOS)
-        let base = NSFont.systemFont(ofSize: size, weight: .medium)
-        let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) }
+            let base = NSFont.systemFont(ofSize: size, weight: .medium)
+            let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) }
         #else
-        let base = UIFont.systemFont(ofSize: size, weight: .medium)
-        let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) }
+            let base = UIFont.systemFont(ofSize: size, weight: .medium)
+            let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) }
         #endif
         return CTFontCreateWithName((rounded ?? base).fontName as CFString, size, nil)
     }
@@ -112,8 +117,11 @@ struct GreenClockDial: View {
             ZStack(alignment: .topLeading) {
                 // Glyph tops/bottoms, measured from the reference as fractions of the face height.
                 numeral("12", layout, alignment: .center, glyphTop: face.minY + face.height * 0.07)
-                numeral("9", layout, alignment: .leading, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2)
-                numeral("3", layout, alignment: .trailing, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2)
+                numeral(
+                    "9", layout, alignment: .leading, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2)
+                numeral(
+                    "3", layout, alignment: .trailing, glyphTop: face.minY + face.height * 0.47 - layout.digitHeight / 2
+                )
                 numeral("6", layout, alignment: .center, glyphTop: face.minY + face.height * 0.975 - layout.digitHeight)
                 if !numeralsOnly {
                     Text(fixtureTime(date, format: "h:mm"))
@@ -139,7 +147,10 @@ struct GreenClockDial: View {
         return Text(text)
             .font(.system(size: layout.fontSize, weight: Self.weight, design: .rounded))
             .foregroundStyle(ink).fixedSize()
-            .frame(width: layout.face.width - layout.inset * 2, height: metrics.ascent + metrics.descent, alignment: alignment)
+            .frame(
+                width: layout.face.width - layout.inset * 2, height: metrics.ascent + metrics.descent,
+                alignment: alignment
+            )
             .offset(x: layout.face.minX + layout.inset, y: baseline - metrics.ascent)
     }
 

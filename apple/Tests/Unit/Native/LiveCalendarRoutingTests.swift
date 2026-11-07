@@ -3,6 +3,7 @@ import PanelKit
 import SwiftUI
 import UIKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveCalendarRoutingTests: XCTestCase {
@@ -11,9 +12,11 @@ import XCTest
         let suite = "LiveCalendarSelectionTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let store = LiveHomeDataSource(configuration: nil,
-            calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root),
-                                     selection: CalendarSelection(suiteName: suite)),
+        let store = LiveHomeDataSource(
+            configuration: nil,
+            calendarAPI: CalendarAPI(
+                store: HybridCalendarFixtureStore(root: root),
+                selection: CalendarSelection(suiteName: suite)),
             now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
         await store.refresh(.calendar)
         XCTAssertEqual(store.calendar.next(at: store.now)?.title, "Design workshop")
@@ -32,7 +35,8 @@ import XCTest
 
     func testCalendarSurfacesRenderAtPanelSize() async throws {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
-        let store = LiveHomeDataSource(configuration: nil,
+        let store = LiveHomeDataSource(
+            configuration: nil,
             calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root)),
             now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
         await store.refresh(.calendar)
@@ -42,7 +46,10 @@ import XCTest
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(origin: .zero, size: canvas)
         window.windowLevel = .alert + 1
-        defer { window.isHidden = true; window.rootViewController = nil }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("CalendarVerification")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -58,7 +65,8 @@ import XCTest
             host.view.layoutIfNeeded()
             try await Task.sleep(for: .milliseconds(700))
             let format = UIGraphicsImageRendererFormat()
-            format.scale = 1; format.opaque = true
+            format.scale = 1
+            format.opaque = true
             var rendered = false
             let image = UIGraphicsImageRenderer(size: canvas, format: format).image { _ in
                 rendered = host.view.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
@@ -69,7 +77,8 @@ import XCTest
             let name = detail ? "calendar-page" : "calendar-home-tile"
             try XCTUnwrap(image.pngData()).write(to: output.appendingPathComponent("\(name).png"))
             let attachment = XCTAttachment(image: image)
-            attachment.name = name; attachment.lifetime = .keepAlways
+            attachment.name = name
+            attachment.lifetime = .keepAlways
             add(attachment)
         }
     }

@@ -11,7 +11,10 @@ public struct FanAPI: Sendable {
     public init(client: PanelAPIClient) { self.client = client }
 
     public func setMode(_ mode: String) async throws -> FanSnapshot {
-        struct Input: Encodable, Sendable { let action = "fan"; let mode: String }
+        struct Input: Encodable, Sendable {
+            let action = "fan"
+            let mode: String
+        }
         return try await client.post("controls", input: Input(mode: mode), as: FanSnapshot.self)
     }
 
@@ -21,7 +24,11 @@ public struct FanAPI: Sendable {
 
     /// false selects the A/C's automatic fan mode, rather than turning the A/C off.
     public func toggle(on: Bool) async throws -> FanSnapshot {
-        struct Input: Encodable, Sendable { let action = "toggle"; let key = "fan"; let on: Bool }
+        struct Input: Encodable, Sendable {
+            let action = "toggle"
+            let key = "fan"
+            let on: Bool
+        }
         return try await client.post("controls", input: Input(on: on), as: FanSnapshot.self)
     }
 }

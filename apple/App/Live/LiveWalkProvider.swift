@@ -36,11 +36,15 @@ import PanelKit
     @ObservationIgnored private var historyRequestID: UUID?
     @ObservationIgnored private var mutationTask: Task<Void, Never>?
 
-    init(api: WalksAPI, device: WalkDevice, now: @escaping () -> Date = Date.init,
-         makeID: @escaping () -> UUID = UUID.init, pollInterval: Duration = .seconds(4),
-         clock: SyncClock? = nil) {
+    init(
+        api: WalksAPI, device: WalkDevice, now: @escaping () -> Date = Date.init,
+        makeID: @escaping () -> UUID = UUID.init, pollInterval: Duration = .seconds(4),
+        clock: SyncClock? = nil
+    ) {
         let clock = clock ?? .continuous(now: now)
-        self.api = api; self.device = device; self.now = clock.now
+        self.api = api
+        self.device = device
+        self.now = clock.now
         self.makeID = makeID
         sync = SyncCoordinator(interval: pollInterval, maximumBackoff: max(pollInterval, .seconds(60)), clock: clock)
     }
@@ -75,7 +79,7 @@ import PanelKit
             guard !Task.isCancelled, revision == version, refreshID == token else { return }
             sync.recordFailure()
             availability = .unavailable(Self.failureMessage(error))
-            return // Preserve the last known walk and history while offline.
+            return  // Preserve the last known walk and history while offline.
         }
         if historyDirty { await refreshHistory(version: version) }
     }
@@ -84,23 +88,28 @@ import PanelKit
     func start(at date: Date) {
         guard activeWalk == nil, !isMutating else { return }
         let id = retryStartID ?? makeID()
-        retryStartID = id // A lost response must not create a second walk when retried.
-        activeWalk = DogWalk(id: id.uuidString.lowercased(), startedAt: serverNow(at: date), endedAt: nil, startedBy: device)
+        retryStartID = id  // A lost response must not create a second walk when retried.
+        activeWalk = DogWalk(
+            id: id.uuidString.lowercased(), startedAt: serverNow(at: date), endedAt: nil, startedBy: device)
         begin(.start(id))
     }
 
     func stop(at date: Date) {
         guard let walk = activeWalk, !isMutating else { return }
         activeWalk = nil
-        history.insert(DogWalk(id: walk.id, startedAt: walk.startedAt,
-            endedAt: max(walk.startedAt, serverNow(at: date)), startedBy: walk.startedBy), at: 0)
+        history.insert(
+            DogWalk(
+                id: walk.id, startedAt: walk.startedAt,
+                endedAt: max(walk.startedAt, serverNow(at: date)), startedBy: walk.startedBy), at: 0)
         begin(.stop(walk.id))
     }
 
     func update(id: String, startedAt: Date, endedAt: Date) async -> Bool {
         guard canEditHistory(id: id) else { return false }
-        if let message = WalkEditValidation.failureMessage(startedAt: startedAt, endedAt: endedAt,
-                                                         now: serverNow(at: now())) {
+        if let message = WalkEditValidation.failureMessage(
+            startedAt: startedAt, endedAt: endedAt,
+            now: serverNow(at: now()))
+        {
             historyMutationFailureMessage = message
             return false
         }
@@ -158,7 +167,12 @@ import PanelKit
         hasAttemptedMutation = true
         let version = revision
         let sentAt = now()
-        let source: WalkSource = switch device { case .iPhone: .iphone; case .iPad: .ipad; case .mac: .unknown }
+        let source: WalkSource =
+            switch device {
+            case .iPhone: .iphone
+            case .iPad: .ipad
+            case .mac: .unknown
+            }
         mutationTask = Task { [weak self, api] in
             do {
                 let state: WalksState
@@ -217,7 +231,12 @@ import PanelKit
     private static func map(_ walk: WalkRecord) -> DogWalk {
         // WalkDevice cannot express web/unknown. Preserve the exact source in WalkRecord;
         // .mac is the prototype's non-iOS display fallback (documented in the integration PR).
-        let device: WalkDevice = switch walk.source { case .iphone: .iPhone; case .ipad: .iPad; case .web, .unknown: .mac }
+        let device: WalkDevice =
+            switch walk.source {
+            case .iphone: .iPhone
+            case .ipad: .iPad
+            case .web, .unknown: .mac
+            }
         return DogWalk(id: walk.id, startedAt: walk.startedAt, endedAt: walk.endedAt, startedBy: device)
     }
 
@@ -226,6 +245,12 @@ import PanelKit
         return "Walks are unavailable. Showing the last known state."
     }
 
-    private enum HistoryOperation { case update(String, Date, Date), delete(String) }
-    private enum Operation { case start(UUID), stop(String) }
+    private enum HistoryOperation {
+        case update(String, Date, Date)
+        case delete(String)
+    }
+    private enum Operation {
+        case start(UUID)
+        case stop(String)
+    }
 }

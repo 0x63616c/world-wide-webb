@@ -1,12 +1,13 @@
 import SwiftUI
-#if os(iOS) && !targetEnvironment(macCatalyst)
-import ActivityKit
 
-struct WalkActivityAttributes: ActivityAttributes {
-    struct ContentState: Codable, Hashable { var startedAt: Date }
-    var dogName: String
-    var walkID: String = "walk_preview"
-}
+#if os(iOS) && !targetEnvironment(macCatalyst)
+    import ActivityKit
+
+    struct WalkActivityAttributes: ActivityAttributes {
+        struct ContentState: Codable, Hashable { var startedAt: Date }
+        var dogName: String
+        var walkID: String = "walk_preview"
+    }
 #endif
 
 /// Shared by the widget extension and the explicitly labelled simulator preview.
@@ -23,8 +24,7 @@ struct WalkActivityContent: View {
             }
             Spacer(minLength: 8)
             Group {
-                if let previewElapsed { Text(previewElapsed) }
-                else { Text(startedAt, style: .timer) }
+                if let previewElapsed { Text(previewElapsed) } else { Text(startedAt, style: .timer) }
             }.font(.system(size: 30, weight: .medium, design: .rounded)).monospacedDigit()
                 .multilineTextAlignment(.trailing).foregroundStyle(.green)
         }.padding(14)

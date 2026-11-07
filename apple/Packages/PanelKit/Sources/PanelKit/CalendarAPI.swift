@@ -1,5 +1,5 @@
-import EventKit
 import CoreGraphics
+import EventKit
 import Foundation
 
 public enum CalendarAccess: Equatable, Sendable {
@@ -18,8 +18,12 @@ public struct CalendarEvent: Codable, Sendable, Equatable {
     public let isAllDay: Bool
 
     public init(id: String, title: String?, location: String?, start: Date, end: Date, isAllDay: Bool) {
-        self.id = id; self.title = title; self.location = location
-        self.start = start; self.end = end; self.isAllDay = isAllDay
+        self.id = id
+        self.title = title
+        self.location = location
+        self.start = start
+        self.end = end
+        self.isAllDay = isAllDay
     }
 }
 
@@ -31,9 +35,9 @@ public protocol CalendarEventStore: Sendable {
     func events(in interval: DateInterval) async throws -> [CalendarEvent]
 }
 
-public extension CalendarEventStore {
-    func calendars() async throws -> [CalendarInfo] { [] }
-    func events(in interval: DateInterval, calendarIDs: Set<String>) async throws -> [CalendarEvent] {
+extension CalendarEventStore {
+    public func calendars() async throws -> [CalendarInfo] { [] }
+    public func events(in interval: DateInterval, calendarIDs: Set<String>) async throws -> [CalendarEvent] {
         try await events(in: interval)
     }
 }
@@ -46,8 +50,11 @@ public struct CalendarAPI: Sendable {
     private let store: any CalendarEventStore
     private let selection: CalendarSelection
 
-    public init(store: any CalendarEventStore = EventKitCalendarStore(), selection: CalendarSelection = CalendarSelection()) {
-        self.store = store; self.selection = selection
+    public init(
+        store: any CalendarEventStore = EventKitCalendarStore(), selection: CalendarSelection = CalendarSelection()
+    ) {
+        self.store = store
+        self.selection = selection
     }
 
     public func calendars() async throws -> [CalendarInfo] {
@@ -115,9 +122,11 @@ public actor EventKitCalendarStore: CalendarEventStore {
     public func calendars() throws -> [CalendarInfo] {
         guard authorization() == .fullAccess else { throw CalendarAPIError.accessDenied }
         return store().calendars(for: .event).map { calendar in
-            let rgb = calendar.cgColor.converted(to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil)
+            let rgb = calendar.cgColor.converted(
+                to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil)
             let components = rgb?.components ?? [0.5, 0.5, 0.5, 1]
-            return CalendarInfo(id: calendar.calendarIdentifier, title: calendar.title,
+            return CalendarInfo(
+                id: calendar.calendarIdentifier, title: calendar.title,
                 sourceID: calendar.source.sourceIdentifier, sourceTitle: calendar.source.title,
                 red: Double(components[0]), green: Double(components[1]), blue: Double(components[2]))
         }
@@ -139,9 +148,10 @@ public actor EventKitCalendarStore: CalendarEventStore {
             guard event.status != .canceled, let start = event.startDate, let end = event.endDate else { return nil }
             // Recurring occurrences share a calendarItemIdentifier. Include the
             // occurrence start; titles/locations never participate in identity.
-            return CalendarEvent(id: "\(event.calendarItemIdentifier)@\(start.timeIntervalSinceReferenceDate)",
-                                 title: event.title, location: event.location, start: start, end: end,
-                                 isAllDay: event.isAllDay)
+            return CalendarEvent(
+                id: "\(event.calendarItemIdentifier)@\(start.timeIntervalSinceReferenceDate)",
+                title: event.title, location: event.location, start: start, end: end,
+                isAllDay: event.isAllDay)
         }
     }
 }

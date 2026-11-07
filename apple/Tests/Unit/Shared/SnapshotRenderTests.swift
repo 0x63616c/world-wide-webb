@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import XCTest
+
 @testable import Panel
 
 /// Run on the already-booted iPad host, with no UI automation or application tour.
@@ -16,28 +17,66 @@ import XCTest
             ("home", AnyView(SnapshotFace(store: store, controls: false))),
             ("mac-home", AnyView(SnapshotFace(store: store, controls: false).environment(\.desktopLayout, true))),
             ("tesla", AnyView(ControllerHost(tile: .tesla, store: store, close: {}).background(.black))),
-            ("tesla-tile", AnyView(TeslaTile(provider: store.tesla).frame(width: 328, height: 296).faceGlass().frame(maxWidth: .infinity, maxHeight: .infinity).background(Wallpaper()))),
-            ("anim-lamps", AnyView(LampGlow(on: true, brightness: 65).frame(width: 240, height: 240).background(.black))),
-            ("anim-weather", AnyView(WeatherTile(weather: store.weather).frame(width: 680, height: 616).frame(maxWidth: .infinity, maxHeight: .infinity).background(.black))),
+            (
+                "tesla-tile",
+                AnyView(
+                    TeslaTile(provider: store.tesla).frame(width: 328, height: 296).faceGlass().frame(
+                        maxWidth: .infinity, maxHeight: .infinity
+                    ).background(Wallpaper()))
+            ),
+            (
+                "anim-lamps",
+                AnyView(LampGlow(on: true, brightness: 65).frame(width: 240, height: 240).background(.black))
+            ),
+            (
+                "anim-weather",
+                AnyView(
+                    WeatherTile(weather: store.weather).frame(width: 680, height: 616).frame(
+                        maxWidth: .infinity, maxHeight: .infinity
+                    ).background(.black))
+            ),
             ("controls-face", AnyView(SnapshotFace(store: store, controls: true))),
-            ("lamps", AnyView(ZStack {
-                LampsBackdrop()
-                ControllerHost(tile: .bedroom, store: store, close: {})
-            })),
-            ("wifi", AnyView(ControllerHost(tile: .wifi, store: store, close: {}).background(HomeTile.wifi.fill(store)))),
+            (
+                "lamps",
+                AnyView(
+                    ZStack {
+                        LampsBackdrop()
+                        ControllerHost(tile: .bedroom, store: store, close: {})
+                    })
+            ),
+            (
+                "wifi",
+                AnyView(ControllerHost(tile: .wifi, store: store, close: {}).background(HomeTile.wifi.fill(store)))
+            ),
             ("clock", AnyView(SnapshotClock(store: store))),
             ("alarm", AnyView(AlarmRingView(store: store, close: {}, edit: {}))),
-            ("alarm-ringing", AnyView(AlarmRingView(store: MockHomeDataSource(latency: .zero, fixedNow: store.now, ringing: true), close: {}, edit: {}))),
-            ("nowplaying", AnyView(ZStack {
-                NowPlayingView(store: store, close: {}, isFace: true)
-                VStack { Spacer(); FacePicker(selection: .constant(HomeFacePage.music)).padding(.bottom, 10) }
-            }))
+            (
+                "alarm-ringing",
+                AnyView(
+                    AlarmRingView(
+                        store: MockHomeDataSource(latency: .zero, fixedNow: store.now, ringing: true), close: {},
+                        edit: {}))
+            ),
+            (
+                "nowplaying",
+                AnyView(
+                    ZStack {
+                        NowPlayingView(store: store, close: {}, isFace: true)
+                        VStack {
+                            Spacer()
+                            FacePicker(selection: .constant(HomeFacePage.music)).padding(.bottom, 10)
+                        }
+                    })
+            ),
         ]
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(origin: .zero, size: canvas)
         window.windowLevel = .alert + 1
-        defer { window.isHidden = true; window.rootViewController = nil }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+        }
 
         for (name, view) in scenes {
             let content = view.frame(width: canvas.width, height: canvas.height)
@@ -92,11 +131,13 @@ private struct SnapshotFace: View {
     var body: some View {
         ZStack {
             Wallpaper()
-            HomeGlassFace(store: store, size: CGSize(width: 1376, height: 1032),
-                          controls: controls, zoom: zoom, open: { _ in })
+            HomeGlassFace(
+                store: store, size: CGSize(width: 1376, height: 1032),
+                controls: controls, zoom: zoom, open: { _ in })
             VStack {
                 Spacer()
-                FacePicker(selection: .constant(controls ? HomeFacePage.controls : HomeFacePage.home)).padding(.bottom, 10)
+                FacePicker(selection: .constant(controls ? HomeFacePage.controls : HomeFacePage.home)).padding(
+                    .bottom, 10)
             }
         }
     }
@@ -107,7 +148,10 @@ private struct SnapshotClock: View {
     var body: some View {
         ZStack {
             PresenceClockFace(store: store)
-            VStack { Spacer(); FacePicker(selection: .constant(HomeFacePage.clock)).padding(.bottom, 10) }
+            VStack {
+                Spacer()
+                FacePicker(selection: .constant(HomeFacePage.clock)).padding(.bottom, 10)
+            }
         }
     }
 }

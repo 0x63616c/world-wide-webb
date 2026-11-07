@@ -41,24 +41,42 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+      - name: Check processed upload receipt
+        id: receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: python3 tools/ci_apple_receipt.py
       - name: Select supported Xcode
+        if: steps.receipt.outputs.uploaded != 'true'
         run: echo "DEVELOPER_DIR=$(python3 .github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
-      - run: brew install xcodegen sops age
+      - run: brew install sops
+      - run: brew install xcodegen
+        if: steps.receipt.outputs.uploaded != 'true' 
       - name: Load signing and deployment credentials once
+        if: steps.receipt.outputs.uploaded != 'true'
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
         run: sops exec-env secrets/vault.yaml 'python3 tools/ci_signing_env.py'
+      - name: Load only publication credentials for an existing upload
+        if: steps.receipt.outputs.uploaded == 'true'
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
       - uses: ruby/setup-ruby@v1
+        if: steps.receipt.outputs.uploaded != 'true'
         with:
           ruby-version: '3.4'
           bundler-cache: true
           working-directory: apple
       - name: Build and upload tested native revision
+        if: steps.receipt.outputs.uploaded != 'true'
         working-directory: apple
         env:
           PANEL_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: bundle exec fastlane release_native
       - name: Record processed upload
+        if: steps.receipt.outputs.uploaded != 'true'
         env:
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
@@ -67,6 +85,7 @@ jobs:
           json.dump({'sha':os.environ['SOURCE_SHA'],'build':int(os.environ['PANEL_UPLOADED_BUILD'])},open('testflight-receipt.json','w'))
           PY
       - uses: actions/upload-artifact@v4
+        if: steps.receipt.outputs.uploaded != 'true'
         with:
           name: panel-testflight-${{ github.event.workflow_run.head_sha }}
           path: testflight-receipt.json

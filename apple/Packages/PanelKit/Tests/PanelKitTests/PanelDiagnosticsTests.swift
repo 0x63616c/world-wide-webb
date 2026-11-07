@@ -1,9 +1,11 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Testing
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 @Test func commandRingCapsAt50AndPreservesCompletionOrder() {
     let log = PanelCommandLog()
@@ -13,12 +15,19 @@ import Testing
 
 @Test func commandLogAndUploadedPayloadCannotContainHeadersSecretsOrPersonalText() throws {
     let log = PanelCommandLog()
-    let input = Data(#"{"CF-Access-Client-Id":"synthetic-id","CF-Access-Client-Secret":"synthetic-secret","Authorization":"Bearer private-token","id":"person@example.com","label":"Morning alarm","mode":"synthetic-secret","on":true}"#.utf8)
+    let input = Data(
+        #"{"CF-Access-Client-Id":"synthetic-id","CF-Access-Client-Secret":"synthetic-secret","Authorization":"Bearer private-token","id":"person@example.com","label":"Morning alarm","mode":"synthetic-secret","on":true}"#
+            .utf8)
     log.record(control: "alarms.save", input: input, status: 503, error: "synthetic-secret", latencyMs: 12)
-    let snapshot = PanelDiagnosticsSnapshot(source: "live", backendURL: "https://panel.example", build: "1", gitSHA: "dev", backend: "reachable", latencyMs: 12, homeAssistant: "unavailable")
+    let snapshot = PanelDiagnosticsSnapshot(
+        source: "live", backendURL: "https://panel.example", build: "1", gitSHA: "dev", backend: "reachable",
+        latencyMs: 12, homeAssistant: "unavailable")
     let data = try JSONEncoder().encode(PanelDiagnosticsSubmission(snapshot: snapshot, commands: log.snapshot()))
     let json = String(decoding: data, as: UTF8.self)
-    for privateValue in ["CF-Access", "Authorization", "synthetic-id", "synthetic-secret", "private-token", "person@example.com", "Morning alarm"] {
+    for privateValue in [
+        "CF-Access", "Authorization", "synthetic-id", "synthetic-secret", "private-token", "person@example.com",
+        "Morning alarm",
+    ] {
         #expect(!json.contains(privateValue))
     }
     #expect(log.snapshot().first?.payload["id"] == "<redacted>")
@@ -31,8 +40,10 @@ private actor DiagnosticsTransport: PanelTransport {
     init(status: Int) { self.status = status }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
-        return (Data(#"{"ok":true}"#.utf8),
-         HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+        return (
+            Data(#"{"ok":true}"#.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 private struct DiagnosticsResult: Decodable, Sendable { let ok: Bool }
@@ -44,11 +55,17 @@ private struct DiagnosticsResult: Decodable, Sendable { let ok: Bool }
     _ = try await success.post("controls", input: ["on": true], as: DiagnosticsResult.self)
     #expect(log.snapshot().last?.status == 200)
     let failed = PanelAPIClient(configuration: config, transport: DiagnosticsTransport(status: 503), commandLog: log)
-    do { _ = try await failed.post("controls", input: ["on": false], as: DiagnosticsResult.self); Issue.record("Expected HTTP failure") } catch {}
+    do {
+        _ = try await failed.post("controls", input: ["on": false], as: DiagnosticsResult.self)
+        Issue.record("Expected HTTP failure")
+    } catch {}
     #expect(log.snapshot().last?.status == 503)
     #expect(log.snapshot().last?.error == "request failed")
     let missing = PanelAPIClient(configuration: nil, commandLog: log)
-    do { _ = try await missing.post("controls", input: ["on": true], as: DiagnosticsResult.self); Issue.record("Expected missing configuration") } catch {}
+    do {
+        _ = try await missing.post("controls", input: ["on": true], as: DiagnosticsResult.self)
+        Issue.record("Expected missing configuration")
+    } catch {}
     #expect(log.snapshot().count == 3)
     #expect(log.snapshot().last?.error == "request failed")
 }
@@ -57,11 +74,16 @@ private struct DiagnosticsResult: Decodable, Sendable { let ok: Bool }
     let log = PanelCommandLog()
     log.record(control: "controls.toggle", input: Data(#"{"on":true,"id":"synthetic-secret"}"#.utf8), status: 200)
     let transport = DiagnosticsTransport(status: 200)
-    let config = PanelConfiguration(baseURL: URL(string: "https://panel.example")!,
+    let config = PanelConfiguration(
+        baseURL: URL(string: "https://panel.example")!,
         accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret")
     let client = PanelAPIClient(configuration: config, transport: transport, commandLog: log)
-    let snapshot = PanelDiagnosticsSnapshot(source: "fixture", backendURL: "https://panel.example", build: "1", gitSHA: "dev", backend: "reachable", latencyMs: 1, homeAssistant: "connected")
-    _ = try await client.post("diagnostics", input: PanelDiagnosticsSubmission(snapshot: snapshot, commands: log.snapshot()), as: DiagnosticsResult.self)
+    let snapshot = PanelDiagnosticsSnapshot(
+        source: "fixture", backendURL: "https://panel.example", build: "1", gitSHA: "dev", backend: "reachable",
+        latencyMs: 1, homeAssistant: "connected")
+    _ = try await client.post(
+        "diagnostics", input: PanelDiagnosticsSubmission(snapshot: snapshot, commands: log.snapshot()),
+        as: DiagnosticsResult.self)
     let request = try #require(await transport.requests.first)
     #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "synthetic-secret")
     let body = String(decoding: try #require(request.httpBody), as: UTF8.self)

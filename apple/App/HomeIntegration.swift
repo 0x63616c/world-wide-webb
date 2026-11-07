@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 /// Optional host presentation; nil preserves the design app's own content.
 /// A stable reference keeps behavior out of closure-valued environment keys.

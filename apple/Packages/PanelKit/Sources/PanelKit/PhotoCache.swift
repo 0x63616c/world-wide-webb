@@ -1,5 +1,5 @@
-import Foundation
 import CryptoKit
+import Foundation
 
 /// Bounded immutable-image cache; filenames contain no source path or credentials.
 /// The caller scopes the directory to the configured server, and purges on removal.
@@ -28,33 +28,44 @@ public actor PhotoCache {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try data.write(to: directory.appendingPathComponent(name), options: [.atomic, .completeFileProtection])
-            var values = URLResourceValues(); values.isExcludedFromBackup = true
-            var folder = directory; try folder.setResourceValues(values)
-            let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            var folder = directory
+            try folder.setResourceValues(values)
+            let files = try FileManager.default.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
             let sorted = files.sorted {
-                ((try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) >
-                ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast)
+                ((try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+                    ?? .distantPast)
+                    > ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+                        ?? .distantPast)
             }
             for file in sorted.dropFirst(limit) { try? FileManager.default.removeItem(at: file) }
-        } catch { /* Cache failure must not prevent a live image from displaying. */ }
+        } catch {
+            // Cache failure must not prevent a live image from displaying.
+        }
     }
     public func clear() {
-        memory.removeAll(); order.removeAll()
+        memory.removeAll()
+        order.removeAll()
         try? FileManager.default.removeItem(at: directory)
     }
     private func remember(_ data: Data, name: String) {
         memory[name] = data
-        order.removeAll { $0 == name }; order.append(name)
+        order.removeAll { $0 == name }
+        order.append(name)
         while order.count > limit { memory.removeValue(forKey: order.removeFirst()) }
     }
 }
 
 /// Access headers must never follow redirects to a different host.
 public final class PhotoSessionDelegate: NSObject, URLSessionTaskDelegate, Sendable {
-    public func urlSession(_ session: URLSession, task: URLSessionTask,
-                           willPerformHTTPRedirection response: HTTPURLResponse,
-                           newRequest request: URLRequest,
-                           completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
+    public func urlSession(
+        _ session: URLSession, task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
         completionHandler(nil)
     }
 }

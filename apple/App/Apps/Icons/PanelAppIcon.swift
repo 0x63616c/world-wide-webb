@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 /// One artwork entry point for Home and notification banners/history.
 struct PanelAppIcon: View {
@@ -32,4 +32,3 @@ private struct FallbackPanelAppIcon: View {
             .clipShape(.rect(cornerRadius: side * 0.25, style: .continuous))
     }
 }
-

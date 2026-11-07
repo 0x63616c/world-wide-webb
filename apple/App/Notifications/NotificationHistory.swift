@@ -1,6 +1,7 @@
 import SwiftUI
+
 #if os(iOS)
-import UIKit
+    import UIKit
 #endif
 
 enum NotificationHistoryGesture {
@@ -16,57 +17,62 @@ struct NotificationHistoryEdge: View {
 
     var body: some View {
         #if os(iOS)
-        NotificationEdgePan { center.historyPresented = true }
-            .frame(height: 24)
+            NotificationEdgePan { center.historyPresented = true }
+                .frame(height: 24)
         #else
-        Color.clear
-            .frame(height: 24)
-            .contentShape(.rect)
-            .gesture(DragGesture(minimumDistance: 12).onEnded { value in
-                if NotificationHistoryGesture.opens(x: value.translation.width, y: value.translation.height) {
-                    center.historyPresented = true
-                }
-            })
-            .accessibilityElement()
-            .accessibilityLabel("Notification Center")
-            .accessibilityHint("Pull down or activate to show notification history")
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { center.historyPresented = true }
-            .accessibilityIdentifier("notification-history-edge")
+            Color.clear
+                .frame(height: 24)
+                .contentShape(.rect)
+                .gesture(
+                    DragGesture(minimumDistance: 12).onEnded { value in
+                        if NotificationHistoryGesture.opens(x: value.translation.width, y: value.translation.height) {
+                            center.historyPresented = true
+                        }
+                    }
+                )
+                .accessibilityElement()
+                .accessibilityLabel("Notification Center")
+                .accessibilityHint("Pull down or activate to show notification history")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { center.historyPresented = true }
+                .accessibilityIdentifier("notification-history-edge")
         #endif
     }
 }
 
 #if os(iOS)
-/// A real edge hit region above UIKit-backed paging. Its pan never receives
-/// touches inside the history List, so native row swipe actions remain intact.
-private struct NotificationEdgePan: UIViewRepresentable {
-    let open: () -> Void
-    func makeUIView(context: Context) -> EdgeView { EdgeView(open: open) }
-    func updateUIView(_ view: EdgeView, context: Context) { view.open = open }
+    /// A real edge hit region above UIKit-backed paging. Its pan never receives
+    /// touches inside the history List, so native row swipe actions remain intact.
+    private struct NotificationEdgePan: UIViewRepresentable {
+        let open: () -> Void
+        func makeUIView(context: Context) -> EdgeView { EdgeView(open: open) }
+        func updateUIView(_ view: EdgeView, context: Context) { view.open = open }
 
-    final class EdgeView: UIView {
-        var open: () -> Void
-        init(open: @escaping () -> Void) {
-            self.open = open
-            super.init(frame: .zero)
-            backgroundColor = .clear
-            addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(panEnded)))
-            isAccessibilityElement = true
-            accessibilityLabel = "Notification Center"
-            accessibilityHint = "Pull down or activate to show notification history"
-            accessibilityTraits = .button
-            accessibilityIdentifier = "notification-history-edge"
-        }
-        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-        override func accessibilityActivate() -> Bool { open(); return true }
-        @objc private func panEnded(_ gesture: UIPanGestureRecognizer) {
-            guard gesture.state == .ended else { return }
-            let translation = gesture.translation(in: self)
-            if NotificationHistoryGesture.opens(x: translation.x, y: translation.y) { open() }
+        final class EdgeView: UIView {
+            var open: () -> Void
+            init(open: @escaping () -> Void) {
+                self.open = open
+                super.init(frame: .zero)
+                backgroundColor = .clear
+                addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(panEnded)))
+                isAccessibilityElement = true
+                accessibilityLabel = "Notification Center"
+                accessibilityHint = "Pull down or activate to show notification history"
+                accessibilityTraits = .button
+                accessibilityIdentifier = "notification-history-edge"
+            }
+            required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+            override func accessibilityActivate() -> Bool {
+                open()
+                return true
+            }
+            @objc private func panEnded(_ gesture: UIPanGestureRecognizer) {
+                guard gesture.state == .ended else { return }
+                let translation = gesture.translation(in: self)
+                if NotificationHistoryGesture.opens(x: translation.x, y: translation.y) { open() }
+            }
         }
     }
-}
 #endif
 
 /// A floating inbox keeps the current app in view. Glass is reserved for
@@ -99,8 +105,10 @@ struct NotificationHistory: View {
                 .background(.background, in: .rect(cornerRadius: 28))
                 .clipShape(.rect(cornerRadius: 28))
             }
-            .frame(maxWidth: typeSize.isAccessibilitySize ? 760 : 600,
-                   maxHeight: typeSize.isAccessibilitySize ? .infinity : 700)
+            .frame(
+                maxWidth: typeSize.isAccessibilitySize ? 760 : 600,
+                maxHeight: typeSize.isAccessibilitySize ? .infinity : 700
+            )
             .padding(20)
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isModal)
@@ -125,10 +133,10 @@ struct NotificationHistory: View {
             }
         }
         #if os(iOS)
-        .listStyle(.insetGrouped)
-        .listSectionSpacing(20)
+            .listStyle(.insetGrouped)
+            .listSectionSpacing(20)
         #else
-        .listStyle(.inset)
+            .listStyle(.inset)
         #endif
         .scrollContentBackground(.hidden)
         .scrollBounceBehavior(.basedOnSize)
@@ -137,7 +145,9 @@ struct NotificationHistory: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button { center.historyPresented = false } label: {
+            Button {
+                center.historyPresented = false
+            } label: {
                 Image(systemName: "chevron.up")
                     .font(.body.weight(.semibold))
                     .frame(width: 44, height: 44)
@@ -192,9 +202,11 @@ struct NotificationHistory: View {
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("notification-history-group-\(group.id)")
             }
-            NotificationIconButton(label: "Clear all \(identity.name) notifications", symbol: "xmark") { clear(group.id) }
-                .disabled(clearing || !group.items.contains(where: { !$0.isPersistentUpdate }))
-                .accessibilityIdentifier("notification-history-clear-\(group.id)")
+            NotificationIconButton(label: "Clear all \(identity.name) notifications", symbol: "xmark") {
+                clear(group.id)
+            }
+            .disabled(clearing || !group.items.contains(where: { !$0.isPersistentUpdate }))
+            .accessibilityIdentifier("notification-history-clear-\(group.id)")
         }
         .textCase(nil)
         .padding(.bottom, 4)
@@ -216,7 +228,9 @@ struct NotificationHistory: View {
     }
 
     private var closeHandle: some View {
-        Button { center.historyPresented = false } label: {
+        Button {
+            center.historyPresented = false
+        } label: {
             Capsule().fill(.secondary).frame(width: 36, height: 5)
                 .frame(maxWidth: .infinity, minHeight: 44).contentShape(.rect)
         }
@@ -283,7 +297,7 @@ struct NotificationHistoryAccess: ViewModifier {
     func body(content: Content) -> some View {
         content
             #if os(iOS)
-            .defersSystemGestures(on: [.top, .bottom])
+                .defersSystemGestures(on: [.top, .bottom])
             #endif
     }
 }

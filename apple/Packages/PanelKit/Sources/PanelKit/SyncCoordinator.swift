@@ -8,16 +8,21 @@ import Observation
     public let elapsed: () -> Duration
     public let sleep: (Duration) async throws -> Void
 
-    public init(now: @escaping () -> Date, elapsed: @escaping () -> Duration,
-                sleep: @escaping (Duration) async throws -> Void) {
-        self.now = now; self.elapsed = elapsed; self.sleep = sleep
+    public init(
+        now: @escaping () -> Date, elapsed: @escaping () -> Duration,
+        sleep: @escaping (Duration) async throws -> Void
+    ) {
+        self.now = now
+        self.elapsed = elapsed
+        self.sleep = sleep
     }
 
     public static func continuous(now: @escaping () -> Date = Date.init) -> Self {
         let clock = ContinuousClock()
         let origin = clock.now
-        return Self(now: now, elapsed: { origin.duration(to: clock.now) },
-                    sleep: { try await clock.sleep(for: $0) })
+        return Self(
+            now: now, elapsed: { origin.duration(to: clock.now) },
+            sleep: { try await clock.sleep(for: $0) })
     }
 }
 
@@ -37,10 +42,14 @@ import Observation
     @ObservationIgnored private var pollingTask: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
 
-    public init(interval: Duration = .seconds(4), maximumBackoff: Duration = .seconds(60),
-                clock: SyncClock = .continuous()) {
+    public init(
+        interval: Duration = .seconds(4), maximumBackoff: Duration = .seconds(60),
+        clock: SyncClock = .continuous()
+    ) {
         precondition(interval > .zero && maximumBackoff >= interval)
-        self.interval = interval; self.maximumBackoff = maximumBackoff; self.clock = clock
+        self.interval = interval
+        self.maximumBackoff = maximumBackoff
+        self.clock = clock
     }
 
     deinit { pollingTask?.cancel() }

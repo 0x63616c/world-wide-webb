@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 /// Field names and value types mirror the retired features/tesla/service.ts contract.
 struct TeslaData: Equatable {
@@ -89,11 +89,13 @@ struct TeslaTile: View {
                 Text("\(data.pct)%").font(.system(size: 44, weight: .medium, design: .rounded)).monospacedDigit()
                 Text("\(data.range) mi").font(.title3).foregroundStyle(.secondary)
                 if provider.availability != .online {
-                    Label("Last reported", systemImage: "clock.arrow.circlepath").font(.callout).foregroundStyle(.secondary)
+                    Label("Last reported", systemImage: "clock.arrow.circlepath").font(.callout).foregroundStyle(
+                        .secondary)
                 } else if data.isInGear {
                     Label(data.driveLabel ?? "In gear", systemImage: "steeringwheel").font(.callout)
                 } else if data.charging {
-                    Label("\(data.rate.formatted()) kW", systemImage: "bolt.fill").font(.callout).foregroundStyle(.green)
+                    Label("\(data.rate.formatted()) kW", systemImage: "bolt.fill").font(.callout).foregroundStyle(
+                        .green)
                 }
             }
             Image("EveeModelY").resizable().scaledToFit().accessibilityHidden(true)
@@ -116,9 +118,13 @@ struct TeslaChargeComplication: View {
                     Text("%").font(.system(size: 12, weight: .medium, design: .rounded))
                 }
             }.gaugeStyle(.accessoryCircularCapacity).tint(accented ? .white : .green)
-                .scaleEffect(sizeClass == .compact ? 1.0 : 1.2).frame(width: sizeClass == .compact ? 64 : 80, height: sizeClass == .compact ? 64 : 80)
-            Text(provider.availability == .online ? (provider.data.charging ? "Evee · Charging" : "Evee") : provider.availability.rawValue.capitalized)
-                .font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
+                .scaleEffect(sizeClass == .compact ? 1.0 : 1.2).frame(
+                    width: sizeClass == .compact ? 64 : 80, height: sizeClass == .compact ? 64 : 80)
+            Text(
+                provider.availability == .online
+                    ? (provider.data.charging ? "Evee · Charging" : "Evee") : provider.availability.rawValue.capitalized
+            )
+            .font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
         }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading).accessibilityElement(children: .ignore)
             .accessibilityLabel("Car charge \(provider.data.pct) percent, \(provider.availability.rawValue)")
     }

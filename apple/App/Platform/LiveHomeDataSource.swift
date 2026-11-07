@@ -1,9 +1,9 @@
-import UIKit
+import CryptoKit
 import Foundation
+import OSLog
 import Observation
 import PanelKit
-import CryptoKit
-import OSLog
+import UIKit
 
 /// Composition belongs to Panel, leaving the prototype app and its previews alone.
 /// Computed projections preserve Observation through the live provider objects.
@@ -49,15 +49,20 @@ import OSLog
     var walks: any WalkProvider { walkProvider }
     @ObservationIgnored private var walkRunID: UUID?
 
-    init(configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
-         calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init,
-         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil,
-         boothCapture: (@MainActor () async throws -> Data)? = nil, boothPreview: UIImage? = nil) {
+    init(
+        configuration: PanelKit.PanelConfiguration?, transport: (any PanelTransport)? = nil,
+        calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil,
+        now: @escaping () -> Date = Date.init,
+        calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil,
+        boothCapture: (@MainActor () async throws -> Data)? = nil, boothPreview: UIImage? = nil
+    ) {
         diagnosticsClient = PanelAPIClient(configuration: configuration)
         // An origin is sufficient to identify deployment; omit path/query/user info.
         if let url = configuration?.baseURL, let host = url.host {
             diagnosticsBackendURL = "\(url.scheme ?? "https")://\(host)" + (url.port.map { ":\($0)" } ?? "")
-        } else { diagnosticsBackendURL = "unconfigured" }
+        } else {
+            diagnosticsBackendURL = "unconfigured"
+        }
         clock = now
         calendarProvider = LiveCalendarProvider(api: calendarAPI, now: now, calendar: calendar)
         // Guest credentials and Access sessions must remain memory-only.
@@ -65,12 +70,14 @@ import OSLog
         session.urlCache = nil
         session.httpCookieStorage = nil
         session.urlCredentialStorage = nil
-        let photoAPI = transport.map {
-            PhotosAPI(client: PanelAPIClient(configuration: configuration, transport: $0))
-        } ?? PhotosAPI(configuration: configuration)
+        let photoAPI =
+            transport.map {
+                PhotosAPI(client: PanelAPIClient(configuration: configuration, transport: $0))
+            } ?? PhotosAPI(configuration: configuration)
         photoBoothAPI = photoAPI
         sonosArtwork = SonosArtworkAPI(configuration: configuration, transport: transport)
-        let transport = transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
+        let transport =
+            transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
         walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
@@ -81,14 +88,16 @@ import OSLog
             .appendingPathComponent("PanelPhotos").appendingPathComponent(namespace)
         let photosProvider = LivePhotosProvider(api: photoAPI, cache: PhotoCache(directory: cacheRoot))
         self.photosProvider = photosProvider
-        photoBoothCamera = PhotoBoothCameraModel(api: photoAPI, photos: photosProvider, capturePhoto: boothCapture, testPreview: boothPreview)
+        photoBoothCamera = PhotoBoothCameraModel(
+            api: photoAPI, photos: photosProvider, capturePhoto: boothCapture, testPreview: boothPreview)
         alarmsProvider = LiveAlarmsProvider(api: AlarmsAPI(client: client))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))
         fanProvider = LiveFanProvider(api: FanAPI(client: client))
         wifiProvider = LiveWifiProvider(api: WifiAPI(client: client))
         weatherProvider = LiveWeatherProvider(api: WeatherAPI(client: client))
-        sonosProvider = LiveSonosProvider(api: SonosAPI(configuration: configuration, transport: transport), lockDefaults: sonosLockDefaults)
+        sonosProvider = LiveSonosProvider(
+            api: SonosAPI(configuration: configuration, transport: transport), lockDefaults: sonosLockDefaults)
     }
 
     func status(for module: HomeModule) -> HomeModuleStatus {
@@ -161,14 +170,15 @@ import OSLog
 
     var weather: WeatherState {
         guard hasLiveData(for: .weather), let snapshot = weatherProvider.snapshot else { return .unavailable }
-        return WeatherState(sunrise: SolarClock.timestamp(snapshot.now.sunriseIso),
-                            sunset: SolarClock.timestamp(snapshot.now.sunsetIso),
-                            nextSunrise: SolarClock.timestamp(snapshot.now.tomorrowSunriseIso),
-                            city: snapshot.city, temperature: snapshot.temperature, condition: snapshot.condition,
-                            symbol: snapshot.symbol,
-                            high: snapshot.high, low: snapshot.low, feels: snapshot.feels, humidity: snapshot.humidity,
-                            wind: snapshot.wind, solarLabel: snapshot.solarLabel, solarValue: snapshot.solarValue,
-                            hours: snapshot.hours)
+        return WeatherState(
+            sunrise: SolarClock.timestamp(snapshot.now.sunriseIso),
+            sunset: SolarClock.timestamp(snapshot.now.sunsetIso),
+            nextSunrise: SolarClock.timestamp(snapshot.now.tomorrowSunriseIso),
+            city: snapshot.city, temperature: snapshot.temperature, condition: snapshot.condition,
+            symbol: snapshot.symbol,
+            high: snapshot.high, low: snapshot.low, feels: snapshot.feels, humidity: snapshot.humidity,
+            wind: snapshot.wind, solarLabel: snapshot.solarLabel, solarValue: snapshot.solarValue,
+            hours: snapshot.hours)
     }
 
     var rooms: [SoundRoom] {
@@ -185,7 +195,7 @@ import OSLog
                 switch key {
                 case "bedroomLamps": result.insert("bedroom")
                 case "otherLamps": result.insert("livingRoom")
-                case "fan": break // Fan is owned by its independent provider.
+                case "fan": break  // Fan is owned by its independent provider.
                 default: result.insert(key)
                 }
             }
@@ -200,7 +210,8 @@ import OSLog
         errorMessage = nil
         commandName = String(String(describing: command).prefix(while: { $0 != "(" }))
         switch command {
-        case .brightness(let value), .kelvin(let value), .target(let value), .low(let value), .high(let value), .shiftRange(let value):
+        case .brightness(let value), .kelvin(let value), .target(let value), .low(let value), .high(let value),
+            .shiftRange(let value):
             commandPayload = try? JSONEncoder().encode(["value": value])
         case .rawVolume(_, let value), .volume(_, let value):
             commandPayload = try? JSONEncoder().encode(["volume": value])
@@ -224,7 +235,8 @@ import OSLog
         case .fanMode(let mode):
             guard requireLive(.fan) else { return }
             guard fanProvider.fanModes.contains(mode) else {
-                rejectCommand("This fan mode is unavailable."); return
+                rejectCommand("This fan mode is unavailable.")
+                return
             }
             fanProvider.setMode(mode)
         case .toggle, .brightness, .kelvin, .scene, .color, .party:
@@ -236,14 +248,18 @@ import OSLog
         case .joinAll(let target):
             guard requireLive(.sonos) else { return }
             guard let id = roomID(target), sonosProvider.send(.joinAll(id)) else {
-                rejectCommand("The selected speaker is unavailable."); return
+                rejectCommand("The selected speaker is unavailable.")
+                return
             }
         case .join(let member, let target):
             guard requireLive(.sonos) else { return }
-            guard let member = roomID(member), let target = roomID(target), sonosProvider.send(.join(member, target)) else {
-                rejectCommand("The selected speakers are unavailable."); return
+            guard let member = roomID(member), let target = roomID(target), sonosProvider.send(.join(member, target))
+            else {
+                rejectCommand("The selected speakers are unavailable.")
+                return
             }
-        case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock, .calibrate, .clearCalibration, .leave:
+        case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock, .calibrate,
+            .clearCalibration, .leave:
             guard requireLive(.sonos) else { return }
             if !sonosProvider.send(command) { rejectCommand("This speaker action is unavailable.") }
         }
@@ -317,15 +333,18 @@ import OSLog
                 }
             }
             while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(3600)) }
-                catch { return }
+                do { try await Task.sleep(for: .seconds(3600)) } catch { return }
             }
             return
         }
         while !Task.isCancelled {
             await refresh(module)
-            do { try await Task.sleep(for: module == .weather ? .seconds(600) : module == .photos ? .seconds(60) : module == .alarms ? .seconds(1) : .seconds(10)) }
-            catch { return }
+            do {
+                try await Task.sleep(
+                    for: module == .weather
+                        ? .seconds(600)
+                        : module == .photos ? .seconds(60) : module == .alarms ? .seconds(1) : .seconds(10))
+            } catch { return }
         }
     }
 

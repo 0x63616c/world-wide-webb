@@ -29,8 +29,10 @@ import XCTest
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "YES",
-                               "-panel.dimAfterSeconds", "10"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-panel.idleDimming", "YES",
+            "-panel.dimAfterSeconds", "10",
+        ]
         app.launch()
         defer { app.terminate() }
         XCTAssertTrue(app.buttons["Wake panel"].waitForExistence(timeout: 30))
@@ -47,11 +49,12 @@ import XCTest
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
         XCTAssertFalse(app.buttons["app-clock"].exists)
-        let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            profile.exists && profile.frame.maxY < app.frame.height / 2
-        }, object: nil)
+        let settled = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                profile.exists && profile.frame.maxY < app.frame.height / 2
+            }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
-        Thread.sleep(forTimeInterval: 1) // Allow the visual transition to settle for the capture.
+        Thread.sleep(forTimeInterval: 1)  // Allow the visual transition to settle for the capture.
         capture("home-header", app)
         XCTAssertFalse(app.buttons["launcher-clock"].exists)
         app.swipeDown()
@@ -143,7 +146,9 @@ import XCTest
             let screen = app.descendants(matching: .any)["app-screen-\(id)"].firstMatch
             XCTAssertTrue(screen.waitForExistence(timeout: 10))
             XCTAssertFalse(app.buttons["app-settings"].exists, "The launcher must stay hidden behind an open app")
-            let reason = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "server", "unavailable")).firstMatch
+            let reason = app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "server", "unavailable")
+            ).firstMatch
             XCTAssertTrue(reason.waitForExistence(timeout: 15), id)
             XCTAssertFalse(reason.label.isEmpty)
             XCTAssertFalse(app.buttons["app-classic"].exists)
@@ -160,9 +165,14 @@ import XCTest
             app.buttons["app-\(id)"].tap()
             switch id {
             case "lights": XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
-            case "climate": XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(timeout: 20))
+            case "climate":
+                XCTAssertTrue(
+                    app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(
+                        timeout: 20))
             case "weather": XCTAssertTrue(app.staticTexts["Feels like"].waitForExistence(timeout: 20))
-            default: XCTAssertTrue(app.descendants(matching: .any)["tesla-odometer"].firstMatch.waitForExistence(timeout: 20))
+            default:
+                XCTAssertTrue(
+                    app.descendants(matching: .any)["tesla-odometer"].firstMatch.waitForExistence(timeout: 20))
             }
             XCTAssertFalse(app.buttons["app-classic"].exists)
             capture("native-\(id)", app)

@@ -1,16 +1,19 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import Testing
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 private actor WeatherTransport: PanelTransport {
     let data: Data
     let status: Int
     private(set) var requests: [URLRequest] = []
     init(_ name: String, status: Int = 200) throws {
-        let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/weather"))
+        let url = try #require(
+            Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/weather"))
         data = try Data(contentsOf: url)
         self.status = status
     }
@@ -19,8 +22,10 @@ private actor WeatherTransport: PanelTransport {
         return (data, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
     }
     var api: WeatherAPI {
-        WeatherAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://weather.example.invalid")!), transport: self))
+        WeatherAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(
+                    baseURL: URL(string: "https://weather.example.invalid")!), transport: self))
     }
 }
 

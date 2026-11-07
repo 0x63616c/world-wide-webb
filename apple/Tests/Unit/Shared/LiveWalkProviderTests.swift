@@ -1,6 +1,7 @@
 import Foundation
-import XCTest
 import PanelKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveWalkProviderTests: XCTestCase {
@@ -8,7 +9,9 @@ import PanelKit
     private let walkID = "11111111-1111-4111-8111-111111111111"
 
     func testRefreshLoadsServerStateAndHistoryWithoutStartingNetworkInInit() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")], "walks.history": [.fixture("history")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active")], "walks.history": [.fixture("history")],
+        ])
         let provider = makeProvider(transport)
         let initialCount = await transport.count("walks.state")
         XCTAssertEqual(initialCount, 0)
@@ -38,19 +41,21 @@ import PanelKit
     }
 
     func testOptimisticStartUsesUUIDAndServerTimeThenAdoptsAnotherDevicesWalk() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-idle")], "walks.start": [.fixture("start", held: true)]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-idle")], "walks.start": [.fixture("start", held: true)],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         provider.start(at: serverDate.addingTimeInterval(50))
         XCTAssertEqual(provider.activeWalk?.id, "22222222-2222-4222-8222-222222222222")
         XCTAssertTrue(provider.isMutating)
-        provider.start(at: serverDate) // Duplicate tap never submits another mutation.
+        provider.start(at: serverDate)  // Duplicate tap never submits another mutation.
         try await waitFor(transport, "walks.start")
         let request = try await transport.request("walks.start")
         XCTAssertEqual(try body(request), ["id": "22222222-2222-4222-8222-222222222222", "source": "iphone"])
         await transport.release("walks.start")
         try await waitUntil { !provider.isMutating }
-        XCTAssertEqual(provider.activeWalk?.id, walkID) // Server single-active winner replaces optimism.
+        XCTAssertEqual(provider.activeWalk?.id, walkID)  // Server single-active winner replaces optimism.
         XCTAssertEqual(provider.activeWalk?.startedAt, serverDate)
         XCTAssertEqual(provider.activeWalk?.startedBy, .iPad)
         let count = await transport.count("walks.start")
@@ -58,8 +63,10 @@ import PanelKit
     }
 
     func testStartFailureRollsBackAndExplicitRetryReusesUUID() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-idle")],
-            "walks.start": [.offline, .fixture("start")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-idle")],
+            "walks.start": [.offline, .fixture("start")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         provider.start(at: serverDate)
@@ -76,9 +83,11 @@ import PanelKit
     }
 
     func testStopIsOptimisticAndReloadsHistoryWithAuthoritativeEnd() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")],
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active")],
             "walks.stop": [.fixture("stop", held: true)],
-            "walks.history": [.fixture("history-empty"), .fixture("history")]])
+            "walks.history": [.fixture("history-empty"), .fixture("history")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         provider.stop(at: serverDate.addingTimeInterval(10))
@@ -98,15 +107,17 @@ import PanelKit
         let provider = makeProvider(transport)
         await provider.refresh()
         provider.stop(at: serverDate.addingTimeInterval(-20))
-        XCTAssertEqual(provider.history.first?.endedAt, serverDate) // Optimistic end is clamped.
+        XCTAssertEqual(provider.history.first?.endedAt, serverDate)  // Optimistic end is clamped.
         try await waitUntil { !provider.isMutating }
         XCTAssertEqual(provider.activeWalk?.id, walkID)
         XCTAssertTrue(provider.history.isEmpty)
     }
 
     func testOfflinePollKeepsLastKnownTimerAndHistoryThenRecovers() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active"), .offline, .fixture("stop")],
-            "walks.history": [.fixture("history")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active"), .offline, .fixture("stop")],
+            "walks.history": [.fixture("history")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         let previousHistory = provider.history
@@ -120,23 +131,28 @@ import PanelKit
     }
 
     func testHistoryFailureDoesNotRollbackSuccessfulStopAndRetriesNextPoll() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active"), .fixture("stop")],
-            "walks.stop": [.fixture("stop")], "walks.history": [.fixture("history-empty"), .offline, .fixture("history")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active"), .fixture("stop")],
+            "walks.stop": [.fixture("stop")],
+            "walks.history": [.fixture("history-empty"), .offline, .fixture("history")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         provider.stop(at: serverDate)
         try await waitUntil { if case .unavailable = provider.historyAvailability { true } else { false } }
         XCTAssertNil(provider.activeWalk)
         XCTAssertEqual(provider.availability, .live)
-        XCTAssertTrue(provider.history.isEmpty) // Do not keep an invented optimistic end after a history error.
+        XCTAssertTrue(provider.history.isEmpty)  // Do not keep an invented optimistic end after a history error.
         await provider.refresh()
         XCTAssertEqual(provider.historyAvailability, .live)
         XCTAssertEqual(provider.history.count, 2)
     }
 
     func testOlderPollCannotOverwriteSuccessfulStart() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-idle"), .fixture("state-idle", held: true)],
-            "walks.start": [.fixture("start")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-idle"), .fixture("state-idle", held: true)],
+            "walks.start": [.fixture("start")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         let poll = Task { await provider.refresh() }
@@ -149,8 +165,11 @@ import PanelKit
     }
 
     func testOlderHistoryCannotOverwriteCompletedMutation() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")],
-            "walks.stop": [.fixture("stop")], "walks.history": [.fixture("history-empty", held: true), .fixture("history")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active")],
+            "walks.stop": [.fixture("stop")],
+            "walks.history": [.fixture("history-empty", held: true), .fixture("history")],
+        ])
         let provider = makeProvider(transport)
         let refresh = Task { await provider.refresh() }
         try await waitFor(transport, "walks.history")
@@ -165,9 +184,11 @@ import PanelKit
     func testUpdateSendsServerDatesAndReloadsHistoryAndAllSummaries() async throws {
         let start = serverDate.addingTimeInterval(-86_400)
         let end = start.addingTimeInterval(600)
-        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("delete")],
             "walks.update": [.fixture("update", held: true)],
-            "walks.history": [.fixture("history"), try historyReply(start: start, end: end)]])
+            "walks.history": [.fixture("history"), try historyReply(start: start, end: end)],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         let before = provider.history
@@ -197,10 +218,15 @@ import PanelKit
     }
 
     func testDeleteReloadsHistoryAndClearsStatisticsWithoutChangingActiveWalk() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")],
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active")],
             "walks.delete": [.fixture("state-active", held: true)],
-            "walks.history": [try historyReply(id: "walk_synthetic_previous", start: serverDate.addingTimeInterval(-86_400),
-                                               end: serverDate.addingTimeInterval(-85_800)), .fixture("history-empty")]])
+            "walks.history": [
+                try historyReply(
+                    id: "walk_synthetic_previous", start: serverDate.addingTimeInterval(-86_400),
+                    end: serverDate.addingTimeInterval(-85_800)), .fixture("history-empty"),
+            ],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         let active = provider.activeWalk
@@ -225,13 +251,16 @@ import PanelKit
     }
 
     func testHistoryCommandsRejectActiveAndUnknownWalksWithoutRequests() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active")],
-            "walks.history": [.fixture("history")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active")],
+            "walks.history": [.fixture("history")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         for id in [walkID, "missing"] {
             let deleted = await provider.delete(id: id)
-            let updated = await provider.update(id: id, startedAt: serverDate.addingTimeInterval(-600), endedAt: serverDate)
+            let updated = await provider.update(
+                id: id, startedAt: serverDate.addingTimeInterval(-600), endedAt: serverDate)
             XCTAssertFalse(deleted)
             XCTAssertFalse(updated)
         }
@@ -243,15 +272,17 @@ import PanelKit
     }
 
     func testUpdateRejectsInvalidDatesWithoutRequests() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
-            "walks.history": [.fixture("history")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("delete")],
+            "walks.history": [.fixture("history")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         let invalid: [(Date, Date)] = [
             (serverDate, serverDate), (serverDate, serverDate.addingTimeInterval(-1)),
             (serverDate, serverDate.addingTimeInterval(3600)),
             (serverDate.addingTimeInterval(-90_000), serverDate),
-            (Date(timeIntervalSince1970: -1), serverDate)
+            (Date(timeIntervalSince1970: -1), serverDate),
         ]
         for (start, end) in invalid {
             let saved = await provider.update(id: walkID, startedAt: start, endedAt: end)
@@ -264,13 +295,16 @@ import PanelKit
     }
 
     func testFailedHistoryWritesPreserveConfirmedDataAndAllowRetry() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("delete")],
             "walks.update": [.offline], "walks.delete": [.offline, .fixture("delete")],
-            "walks.history": [.fixture("history"), .fixture("history-empty")]])
+            "walks.history": [.fixture("history"), .fixture("history-empty")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         let before = provider.history
-        let updated = await provider.update(id: walkID, startedAt: serverDate, endedAt: serverDate.addingTimeInterval(600))
+        let updated = await provider.update(
+            id: walkID, startedAt: serverDate, endedAt: serverDate.addingTimeInterval(600))
         XCTAssertFalse(updated)
         XCTAssertEqual(provider.history, before)
         XCTAssertNotNil(provider.historyFailureMessage)
@@ -285,13 +319,15 @@ import PanelKit
     }
 
     func testSuccessfulHistoryWriteWithFailedReloadRetriesOnNextPoll() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("delete")],
             "walks.delete": [.fixture("delete")],
-            "walks.history": [.fixture("history"), .offline, .fixture("history-empty")]])
+            "walks.history": [.fixture("history"), .offline, .fixture("history-empty")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
         let deleted = await provider.delete(id: walkID)
-        XCTAssertTrue(deleted) // The write succeeded; do not submit it again to retry a read.
+        XCTAssertTrue(deleted)  // The write succeeded; do not submit it again to retry a read.
         XCTAssertFalse(provider.isMutating)
         XCTAssertNotNil(provider.historyFailureMessage)
         XCTAssertEqual(provider.history.count, 2)
@@ -301,12 +337,14 @@ import PanelKit
     }
 
     func testOlderHistoryReadCannotRestoreDeletedWalks() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("delete")],
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("delete")],
             "walks.delete": [.fixture("delete")],
-            "walks.history": [.fixture("history"), .fixture("history", held: true), .fixture("history-empty")]])
+            "walks.history": [.fixture("history"), .fixture("history", held: true), .fixture("history-empty")],
+        ])
         let provider = makeProvider(transport)
         await provider.refresh()
-        provider.setSceneActive(true) // Foreground marks history dirty even with unchanged state.
+        provider.setSceneActive(true)  // Foreground marks history dirty even with unchanged state.
         defer { provider.setSceneActive(false) }
         try await waitFor(transport, "walks.history", count: 2)
         let deleted = await provider.delete(id: walkID)
@@ -317,25 +355,37 @@ import PanelKit
     }
 
     func testEditValidationAcceptsBoundsAndRejectsNonFiniteDates() {
-        XCTAssertNil(WalkEditValidation.failureMessage(startedAt: serverDate.addingTimeInterval(-86_400),
-                                                       endedAt: serverDate, now: serverDate))
-        XCTAssertNil(WalkEditValidation.failureMessage(startedAt: Date(timeIntervalSince1970: 0),
-                                                       endedAt: Date(timeIntervalSince1970: 60), now: serverDate))
-        XCTAssertNotNil(WalkEditValidation.failureMessage(startedAt: Date(timeIntervalSince1970: .nan),
-                                                          endedAt: serverDate, now: serverDate))
-        XCTAssertNotNil(WalkEditValidation.failureMessage(startedAt: serverDate,
-                                                          endedAt: Date(timeIntervalSince1970: .infinity), now: serverDate))
+        XCTAssertNil(
+            WalkEditValidation.failureMessage(
+                startedAt: serverDate.addingTimeInterval(-86_400),
+                endedAt: serverDate, now: serverDate))
+        XCTAssertNil(
+            WalkEditValidation.failureMessage(
+                startedAt: Date(timeIntervalSince1970: 0),
+                endedAt: Date(timeIntervalSince1970: 60), now: serverDate))
+        XCTAssertNotNil(
+            WalkEditValidation.failureMessage(
+                startedAt: Date(timeIntervalSince1970: .nan),
+                endedAt: serverDate, now: serverDate))
+        XCTAssertNotNil(
+            WalkEditValidation.failureMessage(
+                startedAt: serverDate,
+                endedAt: Date(timeIntervalSince1970: .infinity), now: serverDate))
     }
 
     private func historyReply(id: String? = nil, start: Date, end: Date) throws -> WalkProviderTransport.Reply {
         let formatter = ISO8601DateFormatter()
-        let walk = ["id": id ?? walkID, "startedAt": formatter.string(from: start), "endedAt": formatter.string(from: end),
-                    "source": "ipad", "createdAt": formatter.string(from: start), "updatedAt": formatter.string(from: end)]
+        let walk = [
+            "id": id ?? walkID, "startedAt": formatter.string(from: start), "endedAt": formatter.string(from: end),
+            "source": "ipad", "createdAt": formatter.string(from: start), "updatedAt": formatter.string(from: end),
+        ]
         return .data(try JSONSerialization.data(withJSONObject: ["result": ["data": ["walks": [walk]]]]))
     }
 
     func testScenePollingStopsAndForegroundRefreshesImmediately() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-idle"), .fixture("state-active"), .fixture("stop")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-idle"), .fixture("state-active"), .fixture("stop")]
+        ])
         let provider = makeProvider(transport, interval: .milliseconds(20))
         defer { provider.setSceneActive(false) }
         provider.setSceneActive(true)
@@ -352,7 +402,9 @@ import PanelKit
     }
 
     func testForegroundDoesNotWaitForCancelledBackgroundRead() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-idle", held: true), .fixture("state-active")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-idle", held: true), .fixture("state-active")]
+        ])
         let provider = makeProvider(transport)
         defer { provider.setSceneActive(false) }
         provider.setSceneActive(true)
@@ -366,11 +418,13 @@ import PanelKit
 
     func testActivityObservesRemoteStartCorrectsSkewAvoidsDuplicatesAndEnds() async throws {
         let localDate = serverDate.addingTimeInterval(-120)
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-active"), .fixture("state-active"), .fixture("stop")]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-active"), .fixture("state-active"), .fixture("stop")]
+        ])
         let provider = makeProvider(transport, now: { localDate })
         let driver = RecordingWalkActivityDriver()
         let sync = WalkActivitySync(provider: provider, driver: driver)
-        XCTAssertTrue(driver.states.isEmpty) // Unknown startup must not end a restored activity.
+        XCTAssertTrue(driver.states.isEmpty)  // Unknown startup must not end a restored activity.
         await provider.refresh()
         try await waitUntil { driver.states.count == 1 }
         XCTAssertEqual(driver.states, [.walking(id: walkID, startedAt: localDate)])
@@ -383,7 +437,9 @@ import PanelKit
     }
 
     func testActivityEndsAfterOptimisticStartRollsBack() async throws {
-        let transport = WalkProviderTransport(["walks.state": [.fixture("state-idle")], "walks.start": [.fixture("unavailable", held: true)]])
+        let transport = WalkProviderTransport([
+            "walks.state": [.fixture("state-idle")], "walks.start": [.fixture("unavailable", held: true)],
+        ])
         let provider = makeProvider(transport)
         let driver = RecordingWalkActivityDriver()
         let sync = WalkActivitySync(provider: provider, driver: driver)
@@ -416,13 +472,19 @@ import PanelKit
         for starterIsPhone in [true, false] {
             let clock = WalkSyncTestClock(date: serverDate)
             let server = SharedWalkServer(clock: clock)
-            let api = WalksAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-                baseURL: URL(string: "https://panel.example.invalid")!), transport: server))
+            let api = WalksAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(
+                        baseURL: URL(string: "https://panel.example.invalid")!), transport: server))
             // Deliberately different device clocks; server timestamps never change.
             let phone = LiveWalkProvider(api: api, device: .iPhone, clock: clock.clock(offset: -120))
             let panel = LiveWalkProvider(api: api, device: .iPad, clock: clock.clock(offset: 90))
-            phone.setSceneActive(true); panel.setSceneActive(true)
-            defer { phone.setSceneActive(false); panel.setSceneActive(false) }
+            phone.setSceneActive(true)
+            panel.setSceneActive(true)
+            defer {
+                phone.setSceneActive(false)
+                panel.setSceneActive(false)
+            }
             try await fakeEventually { phone.hasLoadedState && panel.hasLoadedState && clock.pendingSleeps == 2 }
             let starter = starterIsPhone ? phone : panel
             let observer = starterIsPhone ? panel : phone
@@ -442,11 +504,11 @@ import PanelKit
             XCTAssertEqual(phone.activeWalk?.duration(at: phone.serverNow(at: clock.date.addingTimeInterval(-120))), 4)
             XCTAssertEqual(panel.activeWalk?.duration(at: panel.serverNow(at: clock.date.addingTimeInterval(90))), 4)
             let historyReads = await server.historyReads
-            XCTAssertEqual(historyReads, 4) // Initial reads, local mutation, remote state change.
+            XCTAssertEqual(historyReads, 4)  // Initial reads, local mutation, remote state change.
             clock.advance(.seconds(4))
             try await fakeEventually { clock.pendingSleeps == 2 }
             let unchangedHistoryReads = await server.historyReads
-            XCTAssertEqual(unchangedHistoryReads, historyReads) // updatedAt suppresses unchanged history reads.
+            XCTAssertEqual(unchangedHistoryReads, historyReads)  // updatedAt suppresses unchanged history reads.
 
             observer.stop(at: clock.date.addingTimeInterval(starterIsPhone ? 90 : -120))
             try await fakeEventually { !observer.isMutating && observer.history.count == 1 }
@@ -459,8 +521,10 @@ import PanelKit
     func testFakeClockOfflineLastKnownBackoffAndForegroundRecovery() async throws {
         let clock = WalkSyncTestClock(date: serverDate)
         let server = SharedWalkServer(clock: clock)
-        let api = WalksAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!), transport: server))
+        let api = WalksAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(
+                    baseURL: URL(string: "https://panel.example.invalid")!), transport: server))
         let provider = LiveWalkProvider(api: api, device: .iPhone, clock: clock.clock())
         provider.setSceneActive(true)
         defer { provider.setSceneActive(false) }
@@ -471,7 +535,9 @@ import PanelKit
         let confirmedAt = provider.lastSyncedAt
         await server.setOffline(true)
         clock.advance(.seconds(4))
-        try await fakeEventually { if case .unavailable = provider.availability { clock.pendingSleeps == 1 } else { false } }
+        try await fakeEventually {
+            if case .unavailable = provider.availability { clock.pendingSleeps == 1 } else { false }
+        }
         let failedReads = await server.stateReads
         clock.advance(.seconds(4))
         for _ in 0..<50 { await Task.yield() }
@@ -485,21 +551,31 @@ import PanelKit
         let backgroundReads = await server.stateReads
         XCTAssertEqual(backgroundReads, failedReads)
         await server.setOffline(false)
-        _ = try await api.stop(id: XCTUnwrap(confirmed?.id)) // Other device stopped it while this scene slept.
+        _ = try await api.stop(id: XCTUnwrap(confirmed?.id))  // Other device stopped it while this scene slept.
         provider.setSceneActive(true)
-        try await fakeEventually { provider.availability == .live && provider.activeWalk == nil && provider.history.count == 1 }
+        try await fakeEventually {
+            provider.availability == .live && provider.activeWalk == nil && provider.history.count == 1
+        }
     }
 
     private func fakeEventually(_ condition: () -> Bool) async throws {
-        for _ in 0..<10_000 { if condition() { return }; await Task.yield() }
+        for _ in 0..<10_000 {
+            if condition() { return }
+            await Task.yield()
+        }
         throw WalkTestFailure.timeout
     }
 
-    private func makeProvider(_ transport: WalkProviderTransport, now: (() -> Date)? = nil,
-                              interval: Duration = .seconds(5)) -> LiveWalkProvider {
+    private func makeProvider(
+        _ transport: WalkProviderTransport, now: (() -> Date)? = nil,
+        interval: Duration = .seconds(5)
+    ) -> LiveWalkProvider {
         let date = serverDate
-        return LiveWalkProvider(api: WalksAPI(client: PanelAPIClient(
-            configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)),
+        return LiveWalkProvider(
+            api: WalksAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                    transport: transport)),
             device: .iPhone, now: now ?? { date },
             makeID: { UUID(uuidString: "22222222-2222-4222-8222-222222222222")! }, pollInterval: interval)
     }
@@ -532,7 +608,10 @@ private enum WalkTestFailure: Error { case timeout, activityDisabled }
     var failNext = false
     func reconcile(_ state: WalkActivityState) async throws {
         states.append(state)
-        if failNext { failNext = false; throw WalkTestFailure.activityDisabled }
+        if failNext {
+            failNext = false
+            throw WalkTestFailure.activityDisabled
+        }
     }
 }
 
@@ -568,14 +647,20 @@ private actor WalkProviderTransport: PanelTransport {
             try await withTaskCancellationHandler {
                 try Task.checkCancellation()
                 try await withCheckedThrowingContinuation { gates[path] = $0 }
-            } onCancel: { Task { await self.cancel(path) } }
+            } onCancel: {
+                Task { await self.cancel(path) }
+            }
         }
         // Read the same synthetic recordings as the SwiftPM contract tests, without changing project.yml resources.
         let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/walks")
         let data = try Data(contentsOf: fixtures.appendingPathComponent(name + ".json"))
-        return (data, HTTPURLResponse(url: request.url!, statusCode: name == "unavailable" ? 503 : 200,
-                                    httpVersion: nil, headerFields: nil)!)
+        return (
+            data,
+            HTTPURLResponse(
+                url: request.url!, statusCode: name == "unavailable" ? 503 : 200,
+                httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 
@@ -602,19 +687,28 @@ private actor SharedWalkServer: PanelTransport {
         let now = formatter.string(from: date)
         let input = try request.httpBody.map { try JSONSerialization.jsonObject(with: $0) as! [String: String] } ?? [:]
         if path == "walks.start", active == nil {
-            active = ["id": input["id"]!, "source": input["source"]!, "startedAt": now, "createdAt": now, "updatedAt": now]
+            active = [
+                "id": input["id"]!, "source": input["source"]!, "startedAt": now, "createdAt": now, "updatedAt": now,
+            ]
             updatedAt = now
         }
         if path == "walks.stop", var walk = active, walk["id"] == input["id"] {
-            walk["endedAt"] = now; walk["updatedAt"] = now
-            history.insert(walk, at: 0); active = nil; updatedAt = now
+            walk["endedAt"] = now
+            walk["updatedAt"] = now
+            history.insert(walk, at: 0)
+            active = nil
+            updatedAt = now
         }
         var wireActive = active?.mapValues { $0 as Any }
-        wireActive?["endedAt"] = NSNull() // Required nullable field in the WWW-27 contract.
-        let payload: [String: Any] = path == "walks.history" ? ["walks": history] :
-            ["active": wireActive.map { $0 as Any } ?? NSNull(), "updatedAt": updatedAt, "serverTime": now]
-        return (try JSONSerialization.data(withJSONObject: ["result": ["data": payload]]),
-                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        wireActive?["endedAt"] = NSNull()  // Required nullable field in the WWW-27 contract.
+        let payload: [String: Any] =
+            path == "walks.history"
+            ? ["walks": history]
+            : ["active": wireActive.map { $0 as Any } ?? NSNull(), "updatedAt": updatedAt, "serverTime": now]
+        return (
+            try JSONSerialization.data(withJSONObject: ["result": ["data": payload]]),
+            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 
@@ -625,15 +719,18 @@ private actor SharedWalkServer: PanelTransport {
     var pendingSleeps: Int { sleepers.count }
     init(date: Date) { self.date = date }
     func clock(offset: TimeInterval = 0) -> SyncClock {
-        SyncClock(now: { self.date.addingTimeInterval(offset) }, elapsed: { self.elapsed }, sleep: { delay in
-            let id = UUID()
-            try await withTaskCancellationHandler {
-                try Task.checkCancellation()
-                try await withCheckedThrowingContinuation { self.sleepers[id] = (self.elapsed + delay, $0) }
-            } onCancel: {
-                Task { @MainActor in self.sleepers.removeValue(forKey: id)?.1.resume(throwing: CancellationError()) }
-            }
-        })
+        SyncClock(
+            now: { self.date.addingTimeInterval(offset) }, elapsed: { self.elapsed },
+            sleep: { delay in
+                let id = UUID()
+                try await withTaskCancellationHandler {
+                    try Task.checkCancellation()
+                    try await withCheckedThrowingContinuation { self.sleepers[id] = (self.elapsed + delay, $0) }
+                } onCancel: {
+                    Task { @MainActor in self.sleepers.removeValue(forKey: id)?.1.resume(throwing: CancellationError())
+                    }
+                }
+            })
     }
     func advance(_ duration: Duration) {
         elapsed += duration

@@ -1,22 +1,27 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import XCTest
+
 @testable import PanelKit
+
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 final class WifiAPITests: XCTestCase {
     func testGuestQrFixturesAndQueryContract() async throws {
         for name in ["wpa", "open", "unconfigured", "escaped"] {
-            let url = try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/wifi"))
+            let url = try XCTUnwrap(
+                Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/wifi"))
             let data = try Data(contentsOf: url)
             let transport = WifiFixtureTransport(data: data)
-            let api = WifiAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-                baseURL: URL(string: "https://panel.example.invalid")!
-            ), transport: transport))
+            let api = WifiAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(
+                        baseURL: URL(string: "https://panel.example.invalid")!
+                    ), transport: transport))
             let result = try await api.guestQr()
-            let expected = try JSONDecoder().decode(WifiEnvelope.self, from: data)
-            XCTAssertEqual(result.qr, expected.result.data.qr)
+            let expected = try JSONDecoder().decode(GuestWifiQR.self, from: data)
+            XCTAssertEqual(result.qr, expected.qr)
             let captured = await transport.captured()
             let request = try XCTUnwrap(captured)
             XCTAssertEqual(request.httpMethod, "GET")
@@ -25,11 +30,6 @@ final class WifiAPITests: XCTestCase {
             XCTAssertNil(request.httpBody)
         }
     }
-}
-
-private struct WifiEnvelope: Decodable {
-    struct Result: Decodable { let data: GuestWifiQR }
-    let result: Result
 }
 
 private actor WifiFixtureTransport: PanelTransport {

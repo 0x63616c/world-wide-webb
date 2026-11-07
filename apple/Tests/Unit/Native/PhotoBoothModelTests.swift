@@ -1,36 +1,47 @@
-import XCTest
-import UIKit
 import PanelKit
+import UIKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class PhotoBoothModelTests: XCTestCase {
     func testFourShotsComposeInOrderAndFailedSaveRetriesWithoutRecapturing() async throws {
         let trace = BoothSequenceTrace()
         let frames = [UIColor.red, .green, .blue, .yellow].map { color in
-            let format = UIGraphicsImageRendererFormat(); format.scale = 1
-            return UIGraphicsImageRenderer(size: CGSize(width: 80, height: 60), format: format).jpegData(withCompressionQuality: 1) {
-                color.setFill(); $0.fill(CGRect(x: 0, y: 0, width: 80, height: 60))
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            return UIGraphicsImageRenderer(size: CGSize(width: 80, height: 60), format: format).jpegData(
+                withCompressionQuality: 1
+            ) {
+                color.setFill()
+                $0.fill(CGRect(x: 0, y: 0, width: 80, height: 60))
             }
         }
         var captures = 0
-        let (model, transport, _) = try makeModel(status: 503, capture: {
-            defer { captures += 1 }
-            await trace.record("shot")
-            return frames[captures]
-        }, sleep: { _ in await trace.record("wait") })
-        model.mode = .strip; model.timerSeconds = 0
+        let (model, transport, _) = try makeModel(
+            status: 503,
+            capture: {
+                defer { captures += 1 }
+                await trace.record("shot")
+                return frames[captures]
+            }, sleep: { _ in await trace.record("wait") })
+        model.mode = .strip
+        model.timerSeconds = 0
         await model.activate(true)
         model.shutter()
         try await finish(model)
         XCTAssertEqual(captures, 4)
         let events = await trace.events
-        XCTAssertEqual(events, ["shot", "wait", "wait", "wait", "shot", "wait", "wait", "wait", "shot", "wait", "wait", "wait", "shot"])
+        XCTAssertEqual(
+            events,
+            ["shot", "wait", "wait", "wait", "shot", "wait", "wait", "wait", "shot", "wait", "wait", "wait", "shot"])
         XCTAssertTrue(model.hasUnsavedPhoto)
         let firstRequest = await transport.firstUpload()
         let first = try XCTUnwrap(firstRequest)
         let bytes = try XCTUnwrap(first.httpBody)
         let image = try XCTUnwrap(UIImage(data: bytes)?.cgImage)
-        XCTAssertEqual(image.width, 640); XCTAssertEqual(image.height, 1888)
+        XCTAssertEqual(image.width, 640)
+        XCTAssertEqual(image.height, 1888)
         XCTAssertLessThan(bytes.count, 4 * 1024 * 1024)
         let expected: [[UInt8]] = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0]]
         for (index, rgb) in expected.enumerated() {
@@ -50,8 +61,12 @@ import PanelKit
     func testSelectedTimerRunsBeforeTheFirstPhoto() async throws {
         let trace = BoothSequenceTrace()
         let (_, _, bytes) = try makeModel(status: 201)
-        let (model, transport, _) = try makeModel(status: 201,
-            capture: { await trace.record("shot"); return bytes }, sleep: { _ in await trace.record("wait") })
+        let (model, transport, _) = try makeModel(
+            status: 201,
+            capture: {
+                await trace.record("shot")
+                return bytes
+            }, sleep: { _ in await trace.record("wait") })
         model.timerSeconds = 5
         await model.activate(true)
         model.shutter()
@@ -65,9 +80,14 @@ import PanelKit
     func testLeavingDuringAPartialStripCancelsWithoutUploading() async throws {
         let (_, _, bytes) = try makeModel(status: 201)
         var captures = 0
-        let (model, transport, _) = try makeModel(status: 201,
-            capture: { captures += 1; return bytes }, sleep: { _ in try await Task.sleep(for: .seconds(60)) })
-        model.mode = .strip; model.timerSeconds = 0
+        let (model, transport, _) = try makeModel(
+            status: 201,
+            capture: {
+                captures += 1
+                return bytes
+            }, sleep: { _ in try await Task.sleep(for: .seconds(60)) })
+        model.mode = .strip
+        model.timerSeconds = 0
         await model.activate(true)
         model.shutter()
         for _ in 0..<500 {
@@ -86,13 +106,17 @@ import PanelKit
     func testCaptureErrorDoesNotUploadAnIncompleteStrip() async throws {
         let (_, _, bytes) = try makeModel(status: 201)
         var captures = 0
-        let (model, transport, _) = try makeModel(status: 201, capture: {
-            captures += 1
-            if captures == 3 { throw URLError(.cannotDecodeContentData) }
-            return bytes
-        }, sleep: { _ in })
-        model.mode = .strip; model.timerSeconds = 0
-        await model.activate(true); model.shutter()
+        let (model, transport, _) = try makeModel(
+            status: 201,
+            capture: {
+                captures += 1
+                if captures == 3 { throw URLError(.cannotDecodeContentData) }
+                return bytes
+            }, sleep: { _ in })
+        model.mode = .strip
+        model.timerSeconds = 0
+        await model.activate(true)
+        model.shutter()
         try await finish(model)
         XCTAssertNotNil(model.error)
         let count = await transport.uploadCount()
@@ -113,8 +137,10 @@ import PanelKit
         let pixel = try XCTUnwrap(image.cropping(to: CGRect(x: x, y: y, width: 1, height: 1)))
         var bytes = [UInt8](repeating: 0, count: 4)
         try bytes.withUnsafeMutableBytes { buffer in
-            let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            let context = try XCTUnwrap(
+                CGContext(
+                    data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
             context.draw(pixel, in: CGRect(x: 0, y: 0, width: 1, height: 1))
         }
         return bytes
@@ -134,7 +160,8 @@ import PanelKit
         let uploads = await transport.uploads
         XCTAssertEqual(uploads.count, 2)
         XCTAssertEqual(uploads.map(\.httpBody), [bytes, bytes])
-        XCTAssertEqual(uploads.map { $0.value(forHTTPHeaderField: "x-captured-at") }, ["1800000000000", "1800000000000"])
+        XCTAssertEqual(
+            uploads.map { $0.value(forHTTPHeaderField: "x-captured-at") }, ["1800000000000", "1800000000000"])
     }
     func testCancellingThePageWaiterDoesNotCancelTheModelOwnedSave() async throws {
         let (model, transport, bytes) = try makeModel(status: 201)
@@ -150,12 +177,18 @@ import PanelKit
         let count = await transport.uploadCount()
         XCTAssertEqual(count, 1)
     }
-    private func makeModel(status: Int, capture: (@MainActor () async throws -> Data)? = nil,
-                           sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) throws -> (PhotoBoothCameraModel, BoothModelTransport, Data) {
+    private func makeModel(
+        status: Int, capture: (@MainActor () async throws -> Data)? = nil,
+        sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    ) throws -> (PhotoBoothCameraModel, BoothModelTransport, Data) {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let transport = BoothModelTransport(root: root, status: status)
-        let api = PhotosAPI(client: PanelAPIClient(configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!), transport: transport))
-        let cache = PhotoCache(directory: FileManager.default.temporaryDirectory.appendingPathComponent("BoothModelTests"))
+        let api = PhotosAPI(
+            client: PanelAPIClient(
+                configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
+                transport: transport))
+        let cache = PhotoCache(
+            directory: FileManager.default.temporaryDirectory.appendingPathComponent("BoothModelTests"))
         let photos = LivePhotosProvider(api: api, cache: cache)
         let image = try XCTUnwrap(UIImage(contentsOfFile: root.appendingPathComponent("photos/image.png").path))
         let data = try XCTUnwrap(image.jpegData(compressionQuality: 0.8))
@@ -170,7 +203,10 @@ private actor BoothModelTransport: PanelTransport {
     private var release: CheckedContinuation<Void, Never>?
     private var arrivals: [CheckedContinuation<Void, Never>] = []
     private(set) var uploads: [URLRequest] = []
-    init(root: URL, status: Int) { self.root = root; self.status = status }
+    init(root: URL, status: Int) {
+        self.root = root
+        self.status = status
+    }
     func setStatus(_ value: Int) { status = value }
     func uploadCount() -> Int { uploads.count }
     func firstUpload() -> URLRequest? { uploads.first }
@@ -179,15 +215,22 @@ private actor BoothModelTransport: PanelTransport {
         if !uploads.isEmpty { return }
         await withCheckedContinuation { arrivals.append($0) }
     }
-    func releaseUpload() { held = false; release?.resume(); release = nil }
+    func releaseUpload() {
+        held = false
+        release?.resume()
+        release = nil
+    }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let url = request.url!
         if url.path == "/media/booth-photo" {
             uploads.append(request)
-            arrivals.forEach { $0.resume() }; arrivals.removeAll()
+            for arrival in arrivals { arrival.resume() }
+            arrivals.removeAll()
             if held { await withCheckedContinuation { release = $0 } }
-            return (Data(#"{"id":"bp_synthetic","path":"synthetic.jpg"}"#.utf8),
-                HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!)
+            return (
+                Data(#"{"id":"bp_synthetic","path":"synthetic.jpg"}"#.utf8),
+                HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
+            )
         }
         let file: String
         switch url.lastPathComponent {
@@ -196,8 +239,10 @@ private actor BoothModelTransport: PanelTransport {
         case "sessions.list": file = "photos/sessions.json"
         default: throw URLError(.unsupportedURL)
         }
-        return (try Data(contentsOf: root.appendingPathComponent(file)),
-            HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        return (
+            try Data(contentsOf: root.appendingPathComponent(file)),
+            HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 

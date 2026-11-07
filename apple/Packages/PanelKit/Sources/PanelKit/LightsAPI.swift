@@ -51,9 +51,12 @@ public struct ControlsState: Decodable, Sendable, Equatable {
     public let all: ControlGroupState
 
     public var pendingKeys: Set<String> {
-        Set([(ControlKey.lamps, lamps.pending), (.lights, lights.pending), (.fan, fan.pending),
-             (.bedroomLamps, bedroomLamps.pending), (.otherLamps, otherLamps.pending),
-             (.ceiling, ceiling.pending), (.cabinet, cabinet.pending), (.all, all.pending)]
+        Set(
+            [
+                (ControlKey.lamps, lamps.pending), (.lights, lights.pending), (.fan, fan.pending),
+                (.bedroomLamps, bedroomLamps.pending), (.otherLamps, otherLamps.pending),
+                (.ceiling, ceiling.pending), (.cabinet, cabinet.pending), (.all, all.pending),
+            ]
             .compactMap { $0.1 ? $0.0.rawValue : nil })
     }
 
@@ -83,23 +86,38 @@ public struct LightsAPI: Sendable {
     }
 
     public func toggle(_ key: ControlKey, on: Bool) async throws -> ControlsState {
-        struct Input: Encodable, Sendable { let action = "toggle"; let key: ControlKey; let on: Bool }
+        struct Input: Encodable, Sendable {
+            let action = "toggle"
+            let key: ControlKey
+            let on: Bool
+        }
         return try await client.post("controls", input: Input(key: key, on: on), as: ControlsState.self)
     }
 
     public func setScene(_ scene: LampScene) async throws -> ControlsState {
-        struct Input: Encodable, Sendable { let action = "scene"; let scene: LampScene }
+        struct Input: Encodable, Sendable {
+            let action = "scene"
+            let scene: LampScene
+        }
         return try await client.post("controls", input: Input(scene: scene), as: ControlsState.self)
     }
 
     public func setColor(slot: LampColorSlot, hex: String? = nil) async throws -> ControlsState {
-        if let hex, !Self.isValidColor(hex) { throw invalidInput("Color must be a six-digit hex value prefixed with #.") }
-        struct Input: Encodable, Sendable { let action = "color"; let slot: LampColorSlot; let hex: String? }
+        if let hex, !Self.isValidColor(hex) {
+            throw invalidInput("Color must be a six-digit hex value prefixed with #.")
+        }
+        struct Input: Encodable, Sendable {
+            let action = "color"
+            let slot: LampColorSlot
+            let hex: String?
+        }
         return try await client.post("controls", input: Input(slot: slot, hex: hex), as: ControlsState.self)
     }
 
     public func setWhiteKelvin(_ kelvin: Int) async throws -> ControlsState {
-        guard Self.whiteKelvinRange.contains(kelvin) else { throw invalidInput("White temperature must be 2000–6500 kelvin.") }
+        guard Self.whiteKelvinRange.contains(kelvin) else {
+            throw invalidInput("White temperature must be 2000–6500 kelvin.")
+        }
         return try await client.post("controls", input: KelvinInput(kelvin: kelvin), as: ControlsState.self)
     }
 
@@ -109,7 +127,11 @@ public struct LightsAPI: Sendable {
     }
 
     public func setMode(_ mode: LampMode, speed: LampModeSpeed? = nil) async throws -> ControlsState {
-        struct Input: Encodable, Sendable { let action = "mode"; let mode: LampMode; let speed: LampModeSpeed? }
+        struct Input: Encodable, Sendable {
+            let action = "mode"
+            let mode: LampMode
+            let speed: LampModeSpeed?
+        }
         return try await client.post("controls", input: Input(mode: mode, speed: speed), as: ControlsState.self)
     }
 
@@ -122,5 +144,11 @@ public struct LightsAPI: Sendable {
     }
 }
 
-private struct KelvinInput: Encodable, Sendable { let action = "whiteKelvin"; let kelvin: Int }
-private struct BrightnessInput: Encodable, Sendable { let action = "brightness"; let pct: Int }
+private struct KelvinInput: Encodable, Sendable {
+    let action = "whiteKelvin"
+    let kelvin: Int
+}
+private struct BrightnessInput: Encodable, Sendable {
+    let action = "brightness"
+    let pct: Int
+}

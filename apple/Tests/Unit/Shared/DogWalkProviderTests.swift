@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Panel
 
 @MainActor final class DogWalkProviderTests: XCTestCase {
@@ -41,7 +42,7 @@ import XCTest
         XCTAssertEqual(panel.activeWalk?.startedBy, .iPhone)
         XCTAssertEqual(panel.activeWalk?.duration(at: now), 724)
         XCTAssertEqual(phone.activeWalk?.duration(at: now.addingTimeInterval(36)), 760)
-        panel.start(at: now) // A second device cannot reset a running walk.
+        panel.start(at: now)  // A second device cannot reset a running walk.
         XCTAssertEqual(panel.activeWalk?.startedAt, now.addingTimeInterval(-724))
         panel.stop(at: now)
         XCTAssertNil(phone.activeWalk)

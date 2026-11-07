@@ -28,15 +28,16 @@ import PanelKit
     var newAlarm: Alarm {
         var alarm = Alarm()
         alarm.timeZone = TimeZone.current.identifier
-        alarm.snoozeMinutes = "" // Blank uses the backend default, just like the web.
+        alarm.snoozeMinutes = ""  // Blank uses the backend default, just like the web.
         return alarm
     }
 
     private func project(_ value: AlarmDefinition) -> Alarm {
-        var alarm = Alarm(id: identity(value.id), label: value.label, time: value.time,
-                          timeZone: value.timeZone, repeatDays: Set(value.repeatDays),
-                          snoozeMinutes: value.snoozeMinutes.map(String.init) ?? "",
-                          lightTarget: value.lightTarget ?? "", enabled: value.enabled)
+        var alarm = Alarm(
+            id: identity(value.id), label: value.label, time: value.time,
+            timeZone: value.timeZone, repeatDays: Set(value.repeatDays),
+            snoozeMinutes: value.snoozeMinutes.map(String.init) ?? "",
+            lightTarget: value.lightTarget ?? "", enabled: value.enabled)
         if let at = value.at, let date = AlarmDate.parse(at) {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -99,24 +100,29 @@ import PanelKit
 
     func save(_ alarm: Alarm) async throws {
         if let error = alarm.validationError { throw Failure(message: error) }
-        guard alarm.lightTarget.count <= 1000 else { throw Failure(message: "Use at most 1000 characters for light targets.") }
-        var input = AlarmInput(label: alarm.label.trimmingCharacters(in: .whitespacesAndNewlines),
-                               time: alarm.time, timeZone: alarm.timeZone, repeatDays: alarm.repeatDays.sorted(),
-                               snoozeMinutes: Int(alarm.snoozeMinutes), lightTarget: alarm.lightTarget.isEmpty ? nil : alarm.lightTarget)
+        guard alarm.lightTarget.count <= 1000 else {
+            throw Failure(message: "Use at most 1000 characters for light targets.")
+        }
+        var input = AlarmInput(
+            label: alarm.label.trimmingCharacters(in: .whitespacesAndNewlines),
+            time: alarm.time, timeZone: alarm.timeZone, repeatDays: alarm.repeatDays.sorted(),
+            snoozeMinutes: Int(alarm.snoozeMinutes), lightTarget: alarm.lightTarget.isEmpty ? nil : alarm.lightTarget)
         if !alarm.date.isEmpty, let exact = alarm.exactDate {
             input.at = ISO8601DateFormatter().string(from: exact)
             input.repeatDays = []
             // Preserve sub-minute exact dates from Shortcuts when the displayed
             // date/time/zone were not edited.
             if let original = snapshot?.alarms.first(where: { identity($0.id) == alarm.id }),
-               project(original).date == alarm.date, project(original).time == alarm.time,
-               original.timeZone == alarm.timeZone { input.at = original.at }
+                project(original).date == alarm.date, project(original).time == alarm.time,
+                original.timeZone == alarm.timeZone
+            {
+                input.at = original.at
+            }
         }
         let payload = input
         let id = try alarm.id == 0 ? nil : definitionID(alarm.id)
         try await write {
-            if let id { try await self.api.update(id: id, alarm: payload) }
-            else { try await self.api.create(payload) }
+            if let id { try await self.api.update(id: id, alarm: payload) } else { try await self.api.create(payload) }
         }
     }
 
@@ -130,11 +136,14 @@ import PanelKit
     }
     func act(_ id: Int, version: Int, snooze: Bool, now: Date = Date()) async throws {
         guard let ring = snapshot?.active.first(where: { identity($0.id) == id }), ring.version == version,
-              (snooze ? ring.isRinging(at: now) : (AlarmDate.parse(ring.expiresAt).map { $0 > now } ?? false))
+            snooze ? ring.isRinging(at: now) : (AlarmDate.parse(ring.expiresAt).map { $0 > now } ?? false)
         else { throw Failure(message: "This alarm has changed. Refresh and try again.") }
         try await write {
-            if snooze { try await self.api.snooze(id: ring.id, version: version) }
-            else { try await self.api.stop(id: ring.id, version: version) }
+            if snooze {
+                try await self.api.snooze(id: ring.id, version: version)
+            } else {
+                try await self.api.stop(id: ring.id, version: version)
+            }
         }
     }
 
@@ -172,7 +181,9 @@ import PanelKit
 
     private func write(_ operation: () async throws -> Void) async throws {
         guard !pending else { throw Failure(message: "Wait for the current alarm change.") }
-        pending = true; revision += 1; errorMessage = nil
+        pending = true
+        revision += 1
+        errorMessage = nil
         defer { pending = false }
         do {
             try await operation()
@@ -186,8 +197,7 @@ import PanelKit
         }
         // Acknowledgement is authoritative even if the following read fails.
         // Do not tell an editor to retry an already-created non-idempotent alarm.
-        do { accept(try await api.list()) }
-        catch { availability = .unavailable("Alarm saved. Waiting to reconnect…") }
+        do { accept(try await api.list()) } catch { availability = .unavailable("Alarm saved. Waiting to reconnect…") }
     }
 
     private func accept(_ value: AlarmsSnapshot) {
@@ -197,6 +207,13 @@ import PanelKit
         availability = .live
     }
 
-    func stop() { revision += 1; mutation?.cancel(); mutation = nil }
-    struct Failure: LocalizedError { let message: String; var errorDescription: String? { message } }
+    func stop() {
+        revision += 1
+        mutation?.cancel()
+        mutation = nil
+    }
+    struct Failure: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
 }

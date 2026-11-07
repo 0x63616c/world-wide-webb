@@ -4,8 +4,10 @@ extension HomeViewLaunchTests {
     @MainActor private func launchAccess() -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridControlWrites",
-            "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-hybridControlWrites",
+            "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1",
+        ]
         app.launch()
         app.openAppGrid()
         return app
@@ -52,7 +54,9 @@ extension HomeViewLaunchTests {
         let app = launchAccess()
         XCTAssertTrue(app.buttons["Dog Walker"].exists)
         XCTAssertFalse(app.buttons["app-cameras"].exists)
-        for id in ["lights", "climate", "music", "weather", "calendar", "walks", "car", "wifi", "timer", "booth", "settings"] {
+        for id in [
+            "lights", "climate", "music", "weather", "calendar", "walks", "car", "wifi", "timer", "booth", "settings",
+        ] {
             app.buttons["app-\(id)"].tap()
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
             app.buttons["app-back"].tap()

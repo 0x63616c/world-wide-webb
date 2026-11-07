@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 /// One touch-first PIN surface for private pages, command confirmation and settings.
 /// No text field or software keyboard; entered digits are never displayed.
@@ -36,8 +36,9 @@ struct PanelPINEntry: View {
                 .accessibilityLabel("PIN").accessibilityValue("\(digits.count) of 6 digits")
                 .accessibilityIdentifier("pin-progress")
             ZStack {
-                if checking || busy { ProgressView().controlSize(.small) }
-                else if let message = message ?? notice {
+                if checking || busy {
+                    ProgressView().controlSize(.small)
+                } else if let message = message ?? notice {
                     Text(message).font(.callout).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 }
@@ -68,14 +69,18 @@ struct PanelPINEntry: View {
             .onDisappear { reset() }
             .onChange(of: phase) { _, value in if value != .active { reset() } }
             .onAppear {
-                AccessibilityNotification.Announcement([title, prompt ?? "Enter PIN", notice].compactMap { $0 }.joined(separator: ". ")).post()
+                AccessibilityNotification.Announcement(
+                    [title, prompt ?? "Enter PIN", notice].compactMap { $0 }.joined(separator: ". ")
+                ).post()
             }
             .onChange(of: message) { _, value in
                 if let value { AccessibilityNotification.Announcement(value).post() }
             }
     }
     private func digitKey(_ number: Int) -> some View {
-        Button { append(number) } label: {
+        Button {
+            append(number)
+        } label: {
             Text(String(number)).font(.system(size: 32, weight: .regular, design: .rounded))
                 .frame(width: 80, height: 80).contentShape(.circle)
         }.buttonStyle(.glass).buttonBorderShape(.circle)
@@ -91,12 +96,17 @@ struct PanelPINEntry: View {
         submission = Task { @MainActor in
             let result = await submit(entered)
             guard !Task.isCancelled else { return }
-            digits = ""; checking = false; message = result
+            digits = ""
+            checking = false
+            message = result
         }
     }
     private func reset() {
-        submission?.cancel(); submission = nil
-        digits = ""; checking = false; message = nil
+        submission?.cancel()
+        submission = nil
+        digits = ""
+        checking = false
+        message = nil
     }
 }
 
@@ -113,24 +123,34 @@ struct PanelPINChangePage: View {
     var body: some View {
         Group {
             if stage == .done {
-                ContentUnavailableView("PIN changed", systemImage: "checkmark.circle",
-                    description: Text("Your panel PIN is up to date."))
-                    .accessibilityIdentifier("pin-change-complete")
-                    .onAppear { AccessibilityNotification.Announcement("PIN changed").post() }
+                ContentUnavailableView(
+                    "PIN changed", systemImage: "checkmark.circle",
+                    description: Text("Your panel PIN is up to date.")
+                )
+                .accessibilityIdentifier("pin-change-complete")
+                .onAppear { AccessibilityNotification.Announcement("PIN changed").post() }
             } else {
                 VStack(spacing: 0) {
                     PanelPINEntry(title: "Change PIN", prompt: prompt, notice: stageError, submit: accept)
                         .id(stage)
                     if stage == .confirm {
-                        Button("Choose a different PIN") { replacement = ""; stage = .new }
-                            .buttonStyle(.glass).controlSize(.large).padding(.bottom, 24)
-                            .disabled(saving)
+                        Button("Choose a different PIN") {
+                            replacement = ""
+                            stage = .new
+                        }
+                        .buttonStyle(.glass).controlSize(.large).padding(.bottom, 24)
+                        .disabled(saving)
                     }
                 }
             }
         }.navigationTitle("Panel PIN").frame(maxWidth: .infinity, maxHeight: .infinity)
             .onDisappear { clear() }
-            .onChange(of: phase) { _, value in if value != .active { clear(); stage = .current } }
+            .onChange(of: phase) { _, value in
+                if value != .active {
+                    clear()
+                    stage = .current
+                }
+            }
     }
     private var prompt: String {
         switch stage {
@@ -147,24 +167,31 @@ struct PanelPINChangePage: View {
             case .current:
                 guard try await api.verify(pin) else { return "Incorrect PIN. Try again." }
                 try Task.checkCancellation()
-                current = pin; stage = .new
-            case .new: replacement = pin; stage = .confirm
+                current = pin
+                stage = .new
+            case .new:
+                replacement = pin
+                stage = .confirm
             case .confirm:
                 guard pin == replacement else { return "PINs don’t match. Try again." }
                 saving = true
                 defer { saving = false }
                 try await api.change(current: current, replacement: replacement)
                 try Task.checkCancellation()
-                clear(); stage = .done
+                clear()
+                stage = .done
             case .done: break
             }
             return nil
-        } catch is CancellationError { return nil }
-        catch PanelPINAPI.Failure.incorrectCurrentPIN {
-            clear(); stage = .current
+        } catch is CancellationError { return nil } catch PanelPINAPI.Failure.incorrectCurrentPIN {
+            clear()
+            stage = .current
             stageError = "The current PIN changed. Try again."
             return nil
         } catch { return "Couldn’t connect. Try again." }
     }
-    private func clear() { current = ""; replacement = "" }
+    private func clear() {
+        current = ""
+        replacement = ""
+    }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import Panel
 
 @MainActor final class UpdateCheckerTests: XCTestCase {
@@ -15,18 +16,21 @@ import XCTest
     func testLaunchPollingAndForegroundTriggerImmediateChecks() async {
         var fetches = 0
         var sleeps: [TimeInterval] = []
-        let checker = UpdateChecker(currentBuild: "1", notifications: silentNotifications(), fetchBuild: {
-            fetches += 1
-            return 10
-        }, sleep: { seconds in
-            sleeps.append(seconds)
-            if sleeps.count >= 2 { throw CancellationError() }
-        })
-        await checker.run() // Launch, then the injected interval elapses once.
+        let checker = UpdateChecker(
+            currentBuild: "1", notifications: silentNotifications(),
+            fetchBuild: {
+                fetches += 1
+                return 10
+            },
+            sleep: { seconds in
+                sleeps.append(seconds)
+                if sleeps.count >= 2 { throw CancellationError() }
+            })
+        await checker.run()  // Launch, then the injected interval elapses once.
         XCTAssertEqual(fetches, 2)
         XCTAssertEqual(sleeps, [900, 900])
         XCTAssertEqual(checker.availableBuild, 10)
-        await checker.run() // A new foreground task checks before waiting again.
+        await checker.run()  // A new foreground task checks before waiting again.
         XCTAssertEqual(fetches, 3)
         XCTAssertEqual(sleeps, [900, 900, 900])
     }
@@ -34,10 +38,16 @@ import XCTest
     func testDebugIntervalAndFailureRecovery() async {
         var fail = false
         var intervals: [TimeInterval] = []
-        let checker = UpdateChecker(currentBuild: "1", interval: 2, notifications: silentNotifications(), fetchBuild: {
-            if fail { throw NSError(domain: "missing-or-offline", code: 404) }
-            return 10
-        }, sleep: { seconds in intervals.append(seconds); throw CancellationError() })
+        let checker = UpdateChecker(
+            currentBuild: "1", interval: 2, notifications: silentNotifications(),
+            fetchBuild: {
+                if fail { throw NSError(domain: "missing-or-offline", code: 404) }
+                return 10
+            },
+            sleep: { seconds in
+                intervals.append(seconds)
+                throw CancellationError()
+            })
         await checker.run()
         XCTAssertEqual(intervals, [2])
         XCTAssertEqual(checker.availableBuild, 10)
@@ -63,10 +73,12 @@ import XCTest
     }
 
     func testCancelledFetchCannotPublishLateResult() async {
-        let checker = UpdateChecker(currentBuild: "1", notifications: silentNotifications(), fetchBuild: {
-            withUnsafeCurrentTask { $0?.cancel() }
-            return 10
-        })
+        let checker = UpdateChecker(
+            currentBuild: "1", notifications: silentNotifications(),
+            fetchBuild: {
+                withUnsafeCurrentTask { $0?.cancel() }
+                return 10
+            })
         let task = Task { await checker.check() }
         await task.value
         XCTAssertNil(checker.availableBuild)
@@ -115,11 +127,14 @@ import XCTest
 
     func testCachedUpdateRestoredOfflineAndRemovedAfterInstalling() async {
         let center = Panel.NotificationCenter()
-        center.post(sourceModule: "updates", title: "Update ready", body: "Build 10 is available in TestFlight.",
-                    deepLink: PanelNotifications.updateDeepLink, priority: .high, dedupeKey: "update-10")
-        let checker = UpdateChecker(currentBuild: "5", notifications: center, fetchBuild: {
-            throw NSError(domain: "offline", code: 1)
-        })
+        center.post(
+            sourceModule: "updates", title: "Update ready", body: "Build 10 is available in TestFlight.",
+            deepLink: PanelNotifications.updateDeepLink, priority: .high, dedupeKey: "update-10")
+        let checker = UpdateChecker(
+            currentBuild: "5", notifications: center,
+            fetchBuild: {
+                throw NSError(domain: "offline", code: 1)
+            })
         await checker.check()
         XCTAssertEqual(center.bannerGroups.first?.items.first?.dedupeKey, "update-10")
         _ = UpdateChecker(currentBuild: "10", notifications: center, fetchBuild: { 10 })

@@ -1,6 +1,7 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveLightsProviderTests: XCTestCase {
@@ -55,7 +56,7 @@ import XCTest
         await transport.release(1)
         try await waitUntil { provider.pending.isEmpty }
         XCTAssertEqual(provider.availability, .live)
-        XCTAssertTrue(provider.lamps.ceiling) // Comes from returned state, not the optimistic toggle.
+        XCTAssertTrue(provider.lamps.ceiling)  // Comes from returned state, not the optimistic toggle.
         XCTAssertFalse(provider.lamps.cabinet)
         XCTAssertEqual(provider.fanOn, true)
     }
@@ -94,7 +95,9 @@ import XCTest
     func testUnhandledAndInvalidCommandsReturnFalse() async {
         let transport = LiveStubTransport([])
         let provider = makeProvider(transport)
-        for command: HomeCommand in [.target(72), .mode(.cool), .scene("Unknown"), .color(3, nil), .color(0, "invalid")] {
+        for command: HomeCommand in [
+            .target(72), .mode(.cool), .scene("Unknown"), .color(3, nil), .color(0, "invalid"),
+        ] {
             XCTAssertFalse(provider.send(command))
         }
         XCTAssertTrue(provider.pending.isEmpty)
@@ -103,16 +106,21 @@ import XCTest
     }
 
     func testEachAccessoryUsesExactControlKeyAndExcludesFanFromAll() async throws {
-        let pairs: [(Accessory, String)] = [(.all, "all"), (.fan, "fan"), (.lamps, "lamps"),
+        let pairs: [(Accessory, String)] = [
+            (.all, "all"), (.fan, "fan"), (.lamps, "lamps"),
             (.bedroom, "bedroomLamps"), (.livingRoom, "otherLamps"), (.lights, "lights"),
-            (.ceiling, "ceiling"), (.cabinet, "cabinet")]
+            (.ceiling, "ceiling"), (.cabinet, "cabinet"),
+        ]
         for (accessory, key) in pairs {
             let transport = LiveStubTransport([.state(.allOff), .state(.allOn)], held: [1])
             let provider = makeProvider(transport)
             await provider.refresh()
             XCTAssertTrue(provider.send(.toggle(accessory)))
             if accessory == .all { XCTAssertEqual(provider.fanOn, false) }
-            if accessory == .fan { XCTAssertFalse(provider.lamps.anyOn); XCTAssertEqual(provider.fanOn, true) }
+            if accessory == .fan {
+                XCTAssertFalse(provider.lamps.anyOn)
+                XCTAssertEqual(provider.fanOn, true)
+            }
             try await waitForRequest(transport, count: 2)
             let request = try await capturedRequest(transport, at: 1)
             try assertBody(request, equals: "{\"key\":\"\(key)\",\"on\":true}")
@@ -123,12 +131,13 @@ import XCTest
     }
 
     func testAllToggleUsesServerANDWhenGroupsHidePartialMembership() async throws {
-        let json = LiveFixture.allOn.json.replacingOccurrences(of: "\"all\": {\"on\": true", with: "\"all\": {\"on\": false")
+        let json = LiveFixture.allOn.json.replacingOccurrences(
+            of: "\"all\": {\"on\": true", with: "\"all\": {\"on\": false")
         let transport = LiveStubTransport([.json(json, 200), .state(.allOn)])
         let provider = makeProvider(transport)
         defer { provider.stop() }
         await provider.refresh()
-        XCTAssertTrue(provider.lamps.isOn(.all)) // Projected groups overstate individual membership.
+        XCTAssertTrue(provider.lamps.isOn(.all))  // Projected groups overstate individual membership.
         provider.send(.toggle(.all))
         try await waitForRequest(transport, count: 2)
         let request = try await capturedRequest(transport, at: 1)
@@ -146,7 +155,7 @@ import XCTest
             (.scene("Mood"), "setLampScene", ##"{"scene":"mood"}"##),
             (.color(2, "#aabbcc"), "setLampColor", ##"{"slot":"custom","hex":"#aabbcc"}"##),
             (.color(1, nil), "setLampColor", ##"{"slot":"blue"}"##),
-            (.party(.fast), "setLampMode", ##"{"mode":"party","speed":"fast"}"##)
+            (.party(.fast), "setLampMode", ##"{"mode":"party","speed":"fast"}"##),
         ]
         for (index, entry) in cases.enumerated() {
             XCTAssertTrue(provider.send(entry.0))
@@ -173,11 +182,11 @@ import XCTest
         XCTAssertFalse(provider.lamps.on[0])
         try await waitForRequest(transport, count: 2)
         let count = await transport.requestCount
-        XCTAssertEqual(count, 2) // Second mutation waits for the first response.
+        XCTAssertEqual(count, 2)  // Second mutation waits for the first response.
         await transport.release(1)
         try await waitForRequest(transport, count: 3)
         XCTAssertEqual(provider.lamps.brightness, 65)
-        XCTAssertFalse(provider.lamps.on[0]) // Reapplied on the first response.
+        XCTAssertFalse(provider.lamps.on[0])  // Reapplied on the first response.
         XCTAssertEqual(provider.pending, ["bedroomLamps"])
         await transport.release(2)
         try await waitUntil { provider.pending.isEmpty }
@@ -229,10 +238,12 @@ import XCTest
     }
 
     private func makeProvider(_ transport: LiveStubTransport) -> LiveLightsProvider {
-        LiveLightsProvider(api: LightsAPI(client: PanelAPIClient(
-            configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
-            transport: transport
-        )))
+        LiveLightsProvider(
+            api: LightsAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(baseURL: URL(string: "https://panel.example.invalid")!),
+                    transport: transport
+                )))
     }
 
     private func capturedRequest(_ transport: LiveStubTransport, at index: Int) async throws -> URLRequest {
@@ -242,8 +253,9 @@ import XCTest
 
     private func assertBody(_ request: URLRequest, equals json: String) throws {
         let body = try XCTUnwrap(request.httpBody)
-        XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? NSDictionary,
-                       try JSONSerialization.jsonObject(with: Data(json.utf8)) as? NSDictionary)
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: body) as? NSDictionary,
+            try JSONSerialization.jsonObject(with: Data(json.utf8)) as? NSDictionary)
     }
 
     private func waitForRequest(_ transport: LiveStubTransport, count: Int) async throws {
@@ -280,7 +292,10 @@ private actor LiveStubTransport: PanelTransport {
     private var gates: [Int: CheckedContinuation<Void, any Error>] = [:]
     var requestCount: Int { requests.count }
 
-    init(_ replies: [Reply], held: Set<Int> = []) { self.replies = replies; self.held = held }
+    init(_ replies: [Reply], held: Set<Int> = []) {
+        self.replies = replies
+        self.held = held
+    }
 
     func request(at index: Int) -> URLRequest? { requests.indices.contains(index) ? requests[index] : nil }
     func release(_ index: Int) { gates.removeValue(forKey: index)?.resume() }
@@ -301,13 +316,21 @@ private actor LiveStubTransport: PanelTransport {
         let json: String
         let status: Int
         switch replies[index] {
-        case .state(let fixture): json = fixture.json; status = 200
-        case .json(let body, let code): json = body; status = code
+        case .state(let fixture):
+            json = fixture.json
+            status = 200
+        case .json(let body, let code):
+            json = body
+            status = code
         case .unavailable:
-            json = ##"{"error":{"message":"Service unavailable","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"##
+            json =
+                ##"{"error":{"message":"Service unavailable","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"##
             status = 503
         }
-        return (Data(json.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+        return (
+            Data(json.utf8),
+            HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+        )
     }
 }
 
@@ -329,21 +352,21 @@ private enum LiveFixture: CaseIterable, Sendable {
     var json: String {
         let sceneJSON = scene.map { "\"\($0)\"" } ?? "null"
         return """
-        {"result":{"data":{
-          "lamps": {"on": \(bedroom), "count": \((bedroom ? 3 : 0) + (other ? 5 : 0)),
-            "brightness": 65, "sub": "\(bedroom ? "On" : "Off")", "pending": false,
-            "activeScene": \(sceneJSON), "whiteKelvin": 2700,
-            "savedColors": [{"slot":"custom","label":"Custom","hex":"#8b5cf6"},
-              {"slot":"blue","label":"Blue","hex":"#0066ff"},
-              {"slot":"red","label":"Red","hex":"#ff0000"}]},
-          "lights": {"on": \(bedroom), "pending": false},
-          "fan": {"on": \(bedroom), "sub": "\(bedroom ? "On" : "Off")", "pending": \(self == .pending)},
-          "bedroomLamps": {"on": \(bedroom), "pending": false},
-          "otherLamps": {"on": \(other), "pending": false},
-          "ceiling": {"on": \(bedroom), "pending": false},
-          "cabinet": {"on": \(other), "pending": false},
-          "all": {"on": \(bedroom && other), "pending": false}
-        }}}
-        """
+            {"result":{"data":{
+              "lamps": {"on": \(bedroom), "count": \((bedroom ? 3 : 0) + (other ? 5 : 0)),
+                "brightness": 65, "sub": "\(bedroom ? "On" : "Off")", "pending": false,
+                "activeScene": \(sceneJSON), "whiteKelvin": 2700,
+                "savedColors": [{"slot":"custom","label":"Custom","hex":"#8b5cf6"},
+                  {"slot":"blue","label":"Blue","hex":"#0066ff"},
+                  {"slot":"red","label":"Red","hex":"#ff0000"}]},
+              "lights": {"on": \(bedroom), "pending": false},
+              "fan": {"on": \(bedroom), "sub": "\(bedroom ? "On" : "Off")", "pending": \(self == .pending)},
+              "bedroomLamps": {"on": \(bedroom), "pending": false},
+              "otherLamps": {"on": \(other), "pending": false},
+              "ceiling": {"on": \(bedroom), "pending": false},
+              "cabinet": {"on": \(other), "pending": false},
+              "all": {"on": \(bedroom && other), "pending": false}
+            }}}
+            """
     }
 }

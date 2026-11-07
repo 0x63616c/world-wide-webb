@@ -1,5 +1,6 @@
-import XCTest
 import PanelKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class PanelTimerSoundTests: XCTestCase {
@@ -33,7 +34,9 @@ import PanelKit
         XCTAssertFalse(timer.keepsScreenAwake)
         let restored = PanelTimerStore(defaults: defaults, sound: sound, backgroundAlertsEnabled: false)
         XCTAssertEqual(restored.countdown.phase, .finished)
-        XCTAssertFalse(restored.keepsScreenAwake, "A finished timer restored after launch must not disable idle return and dimming")
+        XCTAssertFalse(
+            restored.keepsScreenAwake, "A finished timer restored after launch must not disable idle return and dimming"
+        )
         let stops = sound.stops
         timer.reset()
         XCTAssertFalse(timer.keepsScreenAwake)

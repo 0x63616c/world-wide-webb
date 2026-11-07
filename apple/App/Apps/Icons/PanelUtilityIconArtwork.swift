@@ -88,9 +88,10 @@ private struct IconSignalArc: Shape {
     let radius: CGFloat
     func path(in rect: CGRect) -> Path {
         Path { path in
-            path.addArc(center: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.71),
-                        radius: rect.width * radius,
-                        startAngle: .degrees(225), endAngle: .degrees(315), clockwise: false)
+            path.addArc(
+                center: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.71),
+                radius: rect.width * radius,
+                startAngle: .degrees(225), endAngle: .degrees(315), clockwise: false)
         }
     }
 }
@@ -118,19 +119,21 @@ private struct IconGearShape: Shape {
         let radius = min(rect.width, rect.height) / 2
         func point(_ degrees: Double, _ scale: CGFloat) -> CGPoint {
             let radians = degrees * .pi / 180
-            return CGPoint(x: rect.midX + cos(radians) * radius * scale,
-                           y: rect.midY + sin(radians) * radius * scale)
+            return CGPoint(
+                x: rect.midX + cos(radians) * radius * scale,
+                y: rect.midY + sin(radians) * radius * scale)
         }
         var path = Path()
         for tooth in 0..<8 {
             let angle = Double(tooth) * 45
-            let points = [point(angle - 22.5, 0.79), point(angle - 13, 0.79),
-                          point(angle - 10, 0.97), point(angle - 6, 1),
-                          point(angle + 6, 1), point(angle + 10, 0.97),
-                          point(angle + 13, 0.79), point(angle + 22.5, 0.79)]
+            let points = [
+                point(angle - 22.5, 0.79), point(angle - 13, 0.79),
+                point(angle - 10, 0.97), point(angle - 6, 1),
+                point(angle + 6, 1), point(angle + 10, 0.97),
+                point(angle + 13, 0.79), point(angle + 22.5, 0.79),
+            ]
             for (index, point) in points.enumerated() {
-                if tooth == 0 && index == 0 { path.move(to: point) }
-                else { path.addLine(to: point) }
+                if tooth == 0 && index == 0 { path.move(to: point) } else { path.addLine(to: point) }
             }
         }
         path.closeSubpath()

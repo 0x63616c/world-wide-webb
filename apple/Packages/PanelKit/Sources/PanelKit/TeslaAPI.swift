@@ -5,7 +5,9 @@ public enum TeslaAction: String, Codable, Sendable, CaseIterable {
 }
 
 public enum TeslaChargingState: String, Decodable, Sendable {
-    case charging, stopped, complete, disconnected, noPower = "no_power", starting
+    case charging, stopped, complete, disconnected
+    case noPower = "no_power"
+    case starting
 }
 
 public enum TeslaDriveState: String, Decodable, Sendable {
@@ -46,7 +48,8 @@ public struct TeslaSnapshot: Decodable, Sendable, Equatable {
 }
 
 public enum TeslaState: Decodable, Sendable, Equatable {
-    case ready(TeslaSnapshot), unconfigured, unavailable
+    case ready(TeslaSnapshot)
+    case unconfigured, unavailable
 
     private enum CodingKeys: String, CodingKey { case status, data, stale, lastUpdatedAt }
     public init(from decoder: any Decoder) throws {
@@ -57,16 +60,19 @@ public enum TeslaState: Decodable, Sendable, Equatable {
             snapshot.stale = try values.decodeIfPresent(Bool.self, forKey: .stale)
             snapshot.lastUpdatedAt = try values.decodeIfPresent(String.self, forKey: .lastUpdatedAt)
             guard snapshot.isValid else {
-                throw DecodingError.dataCorruptedError(forKey: .data, in: values, debugDescription: "Invalid Tesla state.")
+                throw DecodingError.dataCorruptedError(
+                    forKey: .data, in: values, debugDescription: "Invalid Tesla state.")
             }
             self = .ready(snapshot)
         case "unconfigured", "unavailable":
             guard try values.decodeNil(forKey: .data) else {
-                throw DecodingError.dataCorruptedError(forKey: .data, in: values, debugDescription: "Unexpected Tesla data.")
+                throw DecodingError.dataCorruptedError(
+                    forKey: .data, in: values, debugDescription: "Unexpected Tesla data.")
             }
             self = try values.decode(String.self, forKey: .status) == "unconfigured" ? .unconfigured : .unavailable
         default:
-            throw DecodingError.dataCorruptedError(forKey: .status, in: values, debugDescription: "Unknown Tesla status.")
+            throw DecodingError.dataCorruptedError(
+                forKey: .status, in: values, debugDescription: "Unknown Tesla status.")
         }
     }
 }
@@ -79,13 +85,17 @@ public struct TeslaAPI: Sendable {
     }
     /// PIN travels in a POST body only, never a query string or persistent setting.
     public func command(_ action: TeslaAction, pin: String) async throws {
-        struct Input: Encodable, Sendable { let action: TeslaAction; let pin: String }
+        struct Input: Encodable, Sendable {
+            let action: TeslaAction
+            let pin: String
+        }
         struct Acknowledgement: Decodable, Sendable { let accepted: Bool }
         guard pin.utf8.count == 6, pin.utf8.allSatisfy({ (48...57).contains($0) }) else {
             throw PanelAPIError.decoding("Enter the six-digit panel PIN.")
         }
-        let result = try await client.post("tesla/commands", input: Input(action: action, pin: pin),
-                                               as: Acknowledgement.self)
+        let result = try await client.post(
+            "tesla/commands", input: Input(action: action, pin: pin),
+            as: Acknowledgement.self)
         guard result.accepted else { throw PanelAPIError.decoding("Tesla command was not accepted.") }
     }
 }

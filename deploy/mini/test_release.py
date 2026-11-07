@@ -1,11 +1,11 @@
 import json
 import os
-from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 IMAGE = "ghcr.io/0x63616c/www-control-center-mini@sha256:" + "1" * 64
@@ -27,11 +27,15 @@ class ReleaseTests(unittest.TestCase):
             shutil.copyfile(ROOT / name, self.root / name)
         (self.root / "runtime.env").touch()
         (self.root / "compose.yaml").touch()
-        self.env = dict(os.environ, WWW_ROOT=str(self.root), MINI_TEST_LOG=str(self.root / "calls"),
-                        PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
-                        TEST_REVISION=REVISION)
+        self.env = dict(
+            os.environ,
+            WWW_ROOT=str(self.root),
+            MINI_TEST_LOG=str(self.root / "calls"),
+            PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
+            TEST_REVISION=REVISION,
+        )
         docker = self.root / "bin/docker"
-        docker.write_text('''#!/usr/bin/env python3
+        docker.write_text("""#!/usr/bin/env python3
 import json,os,sys
 from pathlib import Path
 args=sys.argv[1:]
@@ -41,12 +45,16 @@ if args[0]=='run':
 elif 'config' in args and '--format' in args:
  print(json.dumps({'services':{'www':{'volumes':[{'type':'bind','source':os.environ['WWW_ROOT']+'/sqlite','target':'/app/data'}]}}}))
 elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
-''')
+""")
         docker.chmod(0o755)
 
     def run_release(self, generation=1, **extra):
-        return subprocess.run(["bash", str(ROOT / "release.sh"), IMAGE, REVISION, str(generation)],
-                              env=dict(self.env, **extra), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return subprocess.run(
+            ["bash", str(ROOT / "release.sh"), IMAGE, REVISION, str(generation)],
+            env=dict(self.env, **extra),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
     def calls(self):
         return [json.loads(line) for line in (self.root / "calls").read_text().splitlines()]
@@ -79,8 +87,12 @@ elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
     def test_recovery_preserves_highest_ci_generation(self):
         self.assertEqual(self.run_release(42).returncode, 0)
         shutil.copyfile(self.root / "current.env", self.root / "previous.env")
-        result = subprocess.run(["bash", str(ROOT / "recover.sh"), "previous", REVISION, "--database-compatible"],
-                                env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(
+            ["bash", str(ROOT / "recover.sh"), "previous", REVISION, "--database-compatible"],
+            env=self.env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
         self.assertEqual(result.returncode, 0)
         self.assertEqual((self.root / "generation").read_text().strip(), "42")
         self.assertEqual(len(list((self.root / "backups").glob("before-recovery-*.sqlite"))), 1)

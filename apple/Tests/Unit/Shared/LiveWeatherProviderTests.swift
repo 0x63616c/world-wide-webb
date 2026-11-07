@@ -1,6 +1,7 @@
 import Foundation
-import XCTest
 import PanelKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveWeatherProviderTests: XCTestCase {
@@ -20,7 +21,7 @@ import PanelKit
         XCTAssertEqual(snapshot.low, 51)
         XCTAssertEqual(snapshot.humidity, 70)
         XCTAssertEqual(snapshot.wind, 10)
-        XCTAssertEqual(snapshot.hours.count, 12) // Backend may return up to 24.
+        XCTAssertEqual(snapshot.hours.count, 12)  // Backend may return up to 24.
         XCTAssertEqual(snapshot.hours[0].symbol, "cloud.sun.fill")
         XCTAssertEqual(snapshot.hours[1].symbol, "moon.fill")
         XCTAssertEqual(snapshot.hours[0].temperature, 62)
@@ -77,15 +78,20 @@ import PanelKit
         XCTAssertEqual(WeatherPresentation.symbol(icon: "cloud"), "cloud.fill")
         XCTAssertEqual(WeatherPresentation.symbol(icon: "cloud-sun", isDay: false), "cloud.moon.fill")
         XCTAssertEqual(WeatherPresentation.symbol(icon: "future"), "questionmark")
-        for code in [0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99] {
+        for code in [
+            0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99,
+        ] {
             XCTAssertNotEqual(WeatherPresentation.condition(code: code), "Unknown")
         }
         XCTAssertEqual(WeatherPresentation.condition(code: -1), "Unknown")
     }
 
     private func makeProvider(_ transport: WeatherProviderTransport) -> LiveWeatherProvider {
-        LiveWeatherProvider(api: WeatherAPI(client: PanelAPIClient(configuration: PanelConfiguration(
-            baseURL: URL(string: "https://weather.example.invalid")!), transport: transport)))
+        LiveWeatherProvider(
+            api: WeatherAPI(
+                client: PanelAPIClient(
+                    configuration: PanelConfiguration(
+                        baseURL: URL(string: "https://weather.example.invalid")!), transport: transport)))
     }
 }
 
@@ -99,13 +105,20 @@ private actor WeatherProviderTransport: PanelTransport {
         let data: Data
         if mode == .failure { throw URLError(.notConnectedToInternet) }
         if request.url!.path.hasSuffix("weather.now") {
-            data = Data(#"{"result":{"data":{"temp":62.5,"cond":"Partly Cloudy","ic":"cloud-sun","hi":68,"lo":51,"feels":60,"hum":70,"wind":9.5,"uvIndex":3,"precipProbability":20,"sunsetIso":"","sunriseIso":"","tomorrowSunriseIso":"","solarLabel":"Sunset","solarValue":"6:10 PM","city":"Example City"}}}"#.utf8)
+            data = Data(
+                #"{"result":{"data":{"temp":62.5,"cond":"Partly Cloudy","ic":"cloud-sun","hi":68,"lo":51,"feels":60,"hum":70,"wind":9.5,"uvIndex":3,"precipProbability":20,"sunsetIso":"","sunriseIso":"","tomorrowSunriseIso":"","solarLabel":"Sunset","solarValue":"6:10 PM","city":"Example City"}}}"#
+                    .utf8)
         } else {
-            let hours: [[String: Any]] = mode == .empty ? [] : (0..<24).map { index in
-                ["t": index == 0 ? "Now" : "1", "temp": 62, "feels": 60,
-                 "ic": index == 0 ? "cloud-sun" : "moon", "isDay": index == 0,
-                 "isoTime": "2026-10-29T12:00:00.000Z", "weatherCode": 61]
-            }
+            let hours: [[String: Any]] =
+                mode == .empty
+                ? []
+                : (0..<24).map { index in
+                    [
+                        "t": index == 0 ? "Now" : "1", "temp": 62, "feels": 60,
+                        "ic": index == 0 ? "cloud-sun" : "moon", "isDay": index == 0,
+                        "isoTime": "2026-10-29T12:00:00.000Z", "weatherCode": 61,
+                    ]
+                }
             data = try JSONSerialization.data(withJSONObject: ["result": ["data": hours]])
         }
         return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)

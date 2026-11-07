@@ -1,5 +1,6 @@
-import XCTest
 import UIKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class ModuleProviderTests: XCTestCase {

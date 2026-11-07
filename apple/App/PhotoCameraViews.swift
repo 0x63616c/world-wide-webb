@@ -22,10 +22,13 @@ struct PhotoRotation: View {
                         Text(fixtureTime(now, format: "EEEE, MMMM d")).font(.system(size: 22, weight: .medium))
                     }.padding(48)
                     Text("Fixture photos · \(provider.photos[index].credit)")
-                        .font(.system(size: 12)).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing).padding(32)
+                        .font(.system(size: 12)).frame(
+                            maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing
+                        ).padding(32)
                 } else {
                     HStack {
-                        Label("Photos", systemImage: "photo.on.rectangle.angled").font(.system(size: 22, weight: .semibold))
+                        Label("Photos", systemImage: "photo.on.rectangle.angled").font(
+                            .system(size: 22, weight: .semibold))
                         Spacer()
                         Text("\(provider.photos.count) photos").font(.system(size: 15))
                     }.padding(28)
@@ -40,4 +43,3 @@ struct PhotoRotation: View {
         }
     }
 }
-

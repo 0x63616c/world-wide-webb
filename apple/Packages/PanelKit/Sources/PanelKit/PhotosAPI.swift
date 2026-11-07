@@ -29,7 +29,8 @@ public struct PhotosAPI: Sendable {
         session.urlCache = nil
         session.httpCookieStorage = nil
         session.urlCredentialStorage = nil
-        client = PanelAPIClient(configuration: configuration,
+        client = PanelAPIClient(
+            configuration: configuration,
             transport: URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil))
     }
     public func booth() async throws -> BoothPhotoListing {

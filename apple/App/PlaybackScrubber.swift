@@ -13,16 +13,22 @@ struct PlaybackScrubber: View {
                     ZStack(alignment: .leading) {
                         Capsule().fill(.white.opacity(0.22))
                         Capsule().fill(.white.opacity(0.9))
-                            .frame(width: proxy.size.width * (room.durationSeconds > 0 ? position / room.durationSeconds : 0))
+                            .frame(
+                                width: proxy.size.width
+                                    * (room.durationSeconds > 0 ? position / room.durationSeconds : 0))
                     }.frame(height: dragPosition == nil ? 5 : 12)
                         .frame(height: 44).contentShape(Rectangle())
-                        .gesture(DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                dragPosition = min(room.durationSeconds, max(0, value.location.x / proxy.size.width * room.durationSeconds))
-                            }.onEnded { _ in
-                                if let dragPosition { store.send(.seek(room.id, dragPosition)) }
-                                dragPosition = nil
-                            })
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    dragPosition = min(
+                                        room.durationSeconds,
+                                        max(0, value.location.x / proxy.size.width * room.durationSeconds))
+                                }.onEnded { _ in
+                                    if let dragPosition { store.send(.seek(room.id, dragPosition)) }
+                                    dragPosition = nil
+                                }
+                        )
                         .animation(.smooth(duration: 0.2), value: dragPosition != nil)
                 }.frame(height: 44)
                 HStack {

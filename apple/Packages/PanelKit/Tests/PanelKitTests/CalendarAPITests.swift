@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import PanelKit
 
 private actor CalendarStoreStub: CalendarEventStore {
@@ -11,7 +12,10 @@ private actor CalendarStoreStub: CalendarEventStore {
     private(set) var reads: [DateInterval] = []
 
     init(access: CalendarAccess, grants: Bool = true, revokeAfterRead: Bool = false, values: [CalendarEvent] = []) {
-        self.access = access; self.grants = grants; self.revokeAfterRead = revokeAfterRead; self.values = values
+        self.access = access
+        self.grants = grants
+        self.revokeAfterRead = revokeAfterRead
+        self.values = values
     }
     func authorization() -> CalendarAccess { access }
     func requestFullAccess() -> Bool {
@@ -26,11 +30,13 @@ private actor CalendarStoreStub: CalendarEventStore {
     }
 }
 
-private let calendarInterval = DateInterval(start: Date(timeIntervalSince1970: 1793343600), duration: 604800)
+private let calendarInterval = DateInterval(start: Date(timeIntervalSince1970: 1_793_343_600), duration: 604800)
 
 @Test func calendarFixturesPreserveDatesAndOccurrenceIdentity() async throws {
-    let url = try #require(Bundle.module.url(forResource: "events", withExtension: "json", subdirectory: "Fixtures/calendar"))
-    let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+    let url = try #require(
+        Bundle.module.url(forResource: "events", withExtension: "json", subdirectory: "Fixtures/calendar"))
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
     let values = try decoder.decode([CalendarEvent].self, from: Data(contentsOf: url))
     #expect(values.count == 7)
     #expect(Set(values.map(\.id)).count == 7)
@@ -77,13 +83,14 @@ func calendarCannotReadWithoutFullAccess(_ access: CalendarAccess) async {
     let store = CalendarStoreStub(access: .notDetermined)
     let task = Task {
         withUnsafeCurrentTask { $0?.cancel() }
-        await #expect(throws: CancellationError.self) { try await CalendarAPI(store: store).events(in: calendarInterval) }
+        await #expect(throws: CancellationError.self) {
+            try await CalendarAPI(store: store).events(in: calendarInterval)
+        }
     }
     await task.value
     #expect(await store.requests == 0)
     #expect(await store.reads.isEmpty)
 }
-
 
 private actor SelectedCalendarStore: CalendarEventStore {
     private(set) var predicates: [Set<String>] = []

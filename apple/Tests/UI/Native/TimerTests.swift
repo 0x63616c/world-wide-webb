@@ -5,9 +5,11 @@ extension HomeViewLaunchTests {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         // Timer assertions should not race the launcher's spatial entrance animation.
-        app.launchArguments = ["-hybridFixtures", "-hybridStill",
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill",
             "-panel.idleDimming", "NO", "-updateCheckFakeBuild", "1", "-timerDisableNotifications",
-            "-launcherTransition", "dissolve"]
+            "-launcherTransition", "dissolve",
+        ]
         app.launch()
         app.alignPanelOrientation()
         app.openAppGrid()
@@ -63,7 +65,8 @@ extension HomeViewLaunchTests {
         let banner = app.buttons["notification-banner-timer"]
         XCTAssertTrue(banner.waitForExistence(timeout: 12))
         banner.tap()
-        let finished = expectation(for: NSPredicate(format: "label == %@", "Time’s up"), evaluatedWith: app.staticTexts["timer-status"])
+        let finished = expectation(
+            for: NSPredicate(format: "label == %@", "Time’s up"), evaluatedWith: app.staticTexts["timer-status"])
         wait(for: [finished], timeout: 12)
         XCTAssertEqual(app.staticTexts["timer-remaining"].value as? String, "0 seconds")
         XCTAssertTrue(app.buttons["timer-stop"].isHittable)

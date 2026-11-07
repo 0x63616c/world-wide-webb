@@ -4,8 +4,10 @@ extension HomeViewLaunchTests {
     @MainActor func testBoothNativeScreensAndStickyGallery() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridBoothCamera", "-hybridBoothLibrary",
-                               "-panel.idleDimming", "NO"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-hybridBoothCamera", "-hybridBoothLibrary",
+            "-panel.idleDimming", "NO",
+        ]
         app.launch()
         defer { app.terminate() }
         func screenshot(_ name: String) {

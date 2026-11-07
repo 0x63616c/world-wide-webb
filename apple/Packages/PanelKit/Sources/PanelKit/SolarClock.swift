@@ -5,13 +5,16 @@ public enum SolarClock {
     /// Unknown/stale schedules return nil so callers can retain a safe presentation.
     public static func isNight(at date: Date, sunrise: Date?, sunset: Date?, nextSunrise: Date?) -> Bool? {
         guard let sunrise, let sunset, let nextSunrise,
-              sunrise < sunset, sunset < nextSunrise,
-              date >= sunrise.addingTimeInterval(-24 * 60 * 60), date <= nextSunrise else { return nil }
+            sunrise < sunset, sunset < nextSunrise,
+            date >= sunrise.addingTimeInterval(-24 * 60 * 60), date <= nextSunrise
+        else { return nil }
         return date < sunrise || (date >= sunset && date < nextSunrise)
     }
     /// While solar data loads, use the local hour instead of assuming night.
-    public static func appearanceIsNight(at date: Date, sunrise: Date?, sunset: Date?, nextSunrise: Date?,
-                                         weatherSymbol: String?, calendar: Calendar = .current) -> Bool {
+    public static func appearanceIsNight(
+        at date: Date, sunrise: Date?, sunset: Date?, nextSunrise: Date?,
+        weatherSymbol: String?, calendar: Calendar = .current
+    ) -> Bool {
         if let night = isNight(at: date, sunrise: sunrise, sunset: sunset, nextSunrise: nextSunrise) {
             return night
         }

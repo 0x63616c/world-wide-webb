@@ -18,13 +18,20 @@ import PanelKit
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshAgain = false
 
-    init(api: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
-         calendar: @escaping () -> Calendar = { .autoupdatingCurrent }) {
-        self.api = api; clock = now; self.calendar = calendar
+    init(
+        api: CalendarAPI = CalendarAPI(), now: @escaping () -> Date = Date.init,
+        calendar: @escaping () -> Calendar = { .autoupdatingCurrent }
+    ) {
+        self.api = api
+        clock = now
+        self.calendar = calendar
     }
 
     func refresh() async {
-        guard !refreshing else { refreshAgain = true; return }
+        guard !refreshing else {
+            refreshAgain = true
+            return
+        }
         refreshing = true
         let generation = generation
         defer {
@@ -39,7 +46,8 @@ import PanelKit
             }
         }
         do {
-            let now = clock(), calendar = calendar()
+            let now = clock()
+            let calendar = calendar()
             let start = calendar.startOfDay(for: now)
             guard let end = calendar.date(byAdding: .day, value: 7, to: start) else {
                 throw CalendarAPIError.unavailable
@@ -72,10 +80,14 @@ import PanelKit
         savingSelection = true
         generation += 1
         if shown { selectedCalendarIDs.insert(identifier) } else { selectedCalendarIDs.remove(identifier) }
-        records = []; events = []
+        records = []
+        events = []
         let generation = self.generation
         await api.setCalendarShown(shown, identifier: identifier)
-        guard generation == self.generation else { savingSelection = false; return }
+        guard generation == self.generation else {
+            savingSelection = false
+            return
+        }
         await refresh()
         savingSelection = false
     }
@@ -87,7 +99,10 @@ import PanelKit
         selectedCalendarIDs = Set(calendars.map(\.id))
         let generation = self.generation
         await api.showAllCalendars()
-        guard generation == self.generation else { savingSelection = false; return }
+        guard generation == self.generation else {
+            savingSelection = false
+            return
+        }
         await refresh()
         savingSelection = false
     }
@@ -110,35 +125,42 @@ import PanelKit
     func stop() {
         refreshAgain = false
         generation += 1
-        clear() // Never display cached private events on foreground re-entry.
+        clear()  // Never display cached private events on foreground re-entry.
     }
 
     private func clear() {
-        records = []; events = []; calendars = []; selectedCalendarIDs = []
+        records = []
+        events = []
+        calendars = []
+        selectedCalendarIDs = []
         availability = .unavailable("Calendar is unavailable.")
     }
 
     private func project(_ event: CalendarEvent, now: Date, calendar: Calendar) -> AgendaEvent {
-        let day = calendar.isDate(event.start, inSameDayAs: now) ? "" : Self.format(event.start, "MMM d", calendar: calendar)
+        let day =
+            calendar.isDate(event.start, inSameDayAs: now) ? "" : Self.format(event.start, "MMM d", calendar: calendar)
         let duration = Int(min(event.end.timeIntervalSince(event.start) / 60, Double(Int.max / 2)))
-        return AgendaEvent(id: event.id, title: event.title?.nilIfBlank ?? "Untitled event",
-                           location: event.location?.nilIfBlank ?? "No location",
-                           hour: calendar.component(.hour, from: event.start),
-                           minute: calendar.component(.minute, from: event.start), duration: duration,
-                           timeLabel: event.isAllDay ? "All day" : Self.format(event.start, "h:mm", calendar: calendar),
-                           periodLabel: [event.isAllDay ? "" : Self.format(event.start, "a", calendar: calendar), day]
-                            .filter { !$0.isEmpty }.joined(separator: " · "),
-                           durationLabel: event.isAllDay ? "All day" : nil)
+        return AgendaEvent(
+            id: event.id, title: event.title?.nilIfBlank ?? "Untitled event",
+            location: event.location?.nilIfBlank ?? "No location",
+            hour: calendar.component(.hour, from: event.start),
+            minute: calendar.component(.minute, from: event.start), duration: duration,
+            timeLabel: event.isAllDay ? "All day" : Self.format(event.start, "h:mm", calendar: calendar),
+            periodLabel: [event.isAllDay ? "" : Self.format(event.start, "a", calendar: calendar), day]
+                .filter { !$0.isEmpty }.joined(separator: " · "),
+            durationLabel: event.isAllDay ? "All day" : nil)
     }
 
     private static func format(_ date: Date, _ format: String, calendar: Calendar) -> String {
         let formatter = DateFormatter()
-        formatter.calendar = calendar; formatter.timeZone = calendar.timeZone
-        formatter.locale = .current; formatter.dateFormat = format
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = .current
+        formatter.dateFormat = format
         return formatter.string(from: date)
     }
 }
 
-private extension String {
-    var nilIfBlank: String? { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self }
+extension String {
+    fileprivate var nilIfBlank: String? { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self }
 }

@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 struct TeslaEnergy: View {
     let data: TeslaData
@@ -39,8 +39,11 @@ struct TeslaEnergy: View {
                     }
                 }.foregroundStyle(.green)
             } else if data.chargingState != "disconnected" {
-                Label(data.chargeLabel, systemImage: data.chargingState == "no_power" ? "exclamationmark.triangle.fill" : "ev.plug.dc.ccs1")
-                    .font(.callout).foregroundStyle(.secondary)
+                Label(
+                    data.chargeLabel,
+                    systemImage: data.chargingState == "no_power" ? "exclamationmark.triangle.fill" : "ev.plug.dc.ccs1"
+                )
+                .font(.callout).foregroundStyle(.secondary)
             }
         }
         .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: data.pct)
@@ -54,11 +57,16 @@ struct TeslaUpdateNotice: View {
     private var installing: Bool { update.status == "installing" }
     var body: some View {
         HStack(spacing: 14) {
-            if installing && !reported { ProgressView().controlSize(.small) }
-            else { Image(systemName: "arrow.down.circle.fill").font(.title2).foregroundStyle(.blue) }
+            if installing && !reported {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: "arrow.down.circle.fill").font(.title2).foregroundStyle(.blue)
+            }
             VStack(alignment: .leading, spacing: 5) {
                 Text(installing ? "Installing update" : "Update available").font(.headline)
-                if let version = update.latestVersion { Text(version).font(.subheadline).foregroundStyle(Color.secondary) }
+                if let version = update.latestVersion {
+                    Text(version).font(.subheadline).foregroundStyle(Color.secondary)
+                }
             }
             Spacer(minLength: 0)
         }

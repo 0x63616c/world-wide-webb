@@ -26,8 +26,10 @@ enum PhotoBoothStrip {
                 let drawn = CGSize(width: image.size.width * scale, height: image.size.height * scale)
                 context.cgContext.saveGState()
                 context.cgContext.clip(to: cell)
-                image.draw(in: CGRect(x: cell.midX - drawn.width / 2, y: cell.midY - drawn.height / 2,
-                                      width: drawn.width, height: drawn.height))
+                image.draw(
+                    in: CGRect(
+                        x: cell.midX - drawn.width / 2, y: cell.midY - drawn.height / 2,
+                        width: drawn.width, height: drawn.height))
                 context.cgContext.restoreGState()
             }
         }

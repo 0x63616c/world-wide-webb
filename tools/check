@@ -6,6 +6,12 @@ case "${1:-all}" in
     cargo fmt --all -- --check
     python3 -m compileall -q tools deploy/mini
     ;;
+  lint)
+    ruff check tools deploy/mini .github/scripts
+    ruff format --check tools deploy/mini .github/scripts
+    actionlint
+    shellcheck --severity=warning tools/check tools/*.sh deploy/mini/*.sh
+    ;;
   rust)
     cargo fmt --all -- --check
     cargo clippy --workspace --all-targets -- -D warnings
@@ -31,6 +37,7 @@ case "${1:-all}" in
     python3 tools/test_state_backend.py
     ;;
   all)
+    bash tools/check lint
     bash tools/check rust
     bash tools/check ops
     bash tools/check apple

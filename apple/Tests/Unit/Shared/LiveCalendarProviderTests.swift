@@ -1,10 +1,11 @@
 import Foundation
 import PanelKit
 import XCTest
+
 @testable import Panel
 
 @MainActor final class LiveCalendarProviderTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1793381400)
+    private let now = Date(timeIntervalSince1970: 1_793_381_400)
     private var calendar: Calendar {
         var value = Calendar(identifier: .gregorian)
         value.timeZone = TimeZone(identifier: "America/Los_Angeles")!
@@ -13,11 +14,13 @@ import XCTest
     private func fixture() throws -> [CalendarEvent] {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/calendar/events.json")
-        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode([CalendarEvent].self, from: Data(contentsOf: url))
     }
     private func provider(_ store: CalendarProviderStore) -> LiveCalendarProvider {
-        let now = now, calendar = calendar
+        let now = now
+        let calendar = calendar
         return LiveCalendarProvider(api: CalendarAPI(store: store), now: { now }, calendar: { calendar })
     }
 
@@ -50,7 +53,7 @@ import XCTest
         let reads = await store.reads
         let interval = try XCTUnwrap(reads.first)
         XCTAssertEqual(interval.start, calendar.startOfDay(for: now))
-        XCTAssertEqual(interval.duration, 169 * 3600) // Fall-back week, not 7 * 24 hours.
+        XCTAssertEqual(interval.duration, 169 * 3600)  // Fall-back week, not 7 * 24 hours.
         XCTAssertEqual(provider.events.first { $0.title == "Clock change check" }?.duration, 120)
         XCTAssertEqual(provider.events.first { $0.title == "Clock change check" }?.time, "1:30")
     }
@@ -58,7 +61,7 @@ import XCTest
     func testNextUsesAbsoluteEndIncludingOngoingOvernightAndTomorrow() async throws {
         let provider = provider(CalendarProviderStore(values: try fixture()))
         await provider.refresh()
-        XCTAssertEqual(provider.next(at: Date(timeIntervalSince1970: 1793345400))?.title, "Overnight maintenance")
+        XCTAssertEqual(provider.next(at: Date(timeIntervalSince1970: 1_793_345_400))?.title, "Overnight maintenance")
         XCTAssertEqual(provider.next(at: now.addingTimeInterval(3600))?.title, "Design workshop")
         XCTAssertEqual(provider.next(at: now.addingTimeInterval(7200))?.id, "fixture_series@1793472000")
         XCTAssertNil(provider.next(at: now.addingTimeInterval(7 * 86400)))
@@ -67,8 +70,9 @@ import XCTest
     func testFiltersInvalidOutsideWindowAndDuplicatesThenSorts() async throws {
         let values = try fixture()
         let invalid = CalendarEvent(id: "bad", title: nil, location: nil, start: now, end: now, isAllDay: false)
-        let future = CalendarEvent(id: "outside", title: nil, location: nil, start: now.addingTimeInterval(8 * 86400),
-                                   end: now.addingTimeInterval(9 * 86400), isAllDay: false)
+        let future = CalendarEvent(
+            id: "outside", title: nil, location: nil, start: now.addingTimeInterval(8 * 86400),
+            end: now.addingTimeInterval(9 * 86400), isAllDay: false)
         let provider = provider(CalendarProviderStore(values: Array(values.reversed()) + [values[0], invalid, future]))
         await provider.refresh()
         XCTAssertEqual(provider.events.map(\.id), values.map(\.id))
@@ -138,7 +142,8 @@ import XCTest
         XCTAssertEqual(mock.events[0].time, "9:00")
         XCTAssertEqual(mock.events[0].durationText, "45 min")
         let provider = provider(CalendarProviderStore(values: []))
-        XCTAssertEqual(provider.dateText(at: Date(timeIntervalSince1970: 1793341800), format: "yyyy-MM-dd"), "2026-10-29")
+        XCTAssertEqual(
+            provider.dateText(at: Date(timeIntervalSince1970: 1_793_341_800), format: "yyyy-MM-dd"), "2026-10-29")
     }
 }
 
@@ -149,7 +154,10 @@ private actor CalendarProviderStore: CalendarEventStore {
     var suspended: Bool
     var continuation: CheckedContinuation<Void, Never>?
     private(set) var reads: [DateInterval] = []
-    init(values: [CalendarEvent], suspended: Bool = false) { self.values = values; self.suspended = suspended }
+    init(values: [CalendarEvent], suspended: Bool = false) {
+        self.values = values
+        self.suspended = suspended
+    }
     func setAccess(_ access: CalendarAccess) { self.access = access }
     func setFailure(_ failure: Bool) { self.failure = failure }
     func authorization() -> CalendarAccess { access }
@@ -160,5 +168,9 @@ private actor CalendarProviderStore: CalendarEventStore {
         if failure { throw CalendarAPIError.unavailable }
         return values
     }
-    func resume() { suspended = false; continuation?.resume(); continuation = nil }
+    func resume() {
+        suspended = false
+        continuation?.resume()
+        continuation = nil
+    }
 }

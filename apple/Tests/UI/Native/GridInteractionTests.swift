@@ -10,7 +10,9 @@ import XCTest
         let app = XCUIApplication()
         // Controls assertions must not depend on a slow CI gesture racing the
         // idle wake overlay. PanelReturnTests separately exercises idle/wake.
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hideFixtureTrace", "-notificationHold", "-panel.idleDimming", "NO"]
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-hideFixtureTrace", "-notificationHold", "-panel.idleDimming", "NO",
+        ]
         if writes { app.launchArguments.append("-hybridControlWrites") }
         app.launch()
         app.openHomeModule("lights")
@@ -18,9 +20,11 @@ import XCTest
     }
     private func expectWrite(_ procedure: String, in app: XCUIApplication) {
         let trace = app.staticTexts["fixture-control-write"]
-        let received = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            trace.label.hasSuffix(":" + procedure) && (Int(trace.label.split(separator: ":").first ?? "0") ?? 0) > self.lastWriteCount
-        }, object: trace)
+        let received = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                trace.label.hasSuffix(":" + procedure)
+                    && (Int(trace.label.split(separator: ":").first ?? "0") ?? 0) > self.lastWriteCount
+            }, object: trace)
         XCTAssertEqual(XCTWaiter.wait(for: [received], timeout: 10), .completed, procedure)
         lastWriteCount = Int(trace.label.split(separator: ":").first ?? "0") ?? lastWriteCount
     }
@@ -35,7 +39,10 @@ import XCTest
             XCTAssertTrue(app.descendants(matching: .any)["app-screen-lights"].firstMatch.exists)
         }
         let lamps = app.buttons["controller-toggle-bedroom"]
-        if lamps.value as? String == "Off" { lamps.tap(); expectWrite("controls.toggle", in: app) }
+        if lamps.value as? String == "Off" {
+            lamps.tap()
+            expectWrite("controls.toggle", in: app)
+        }
         let bar = app.descendants(matching: .any)["lamp-brightness"].firstMatch
         XCTAssertTrue(bar.isHittable)
         bar.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5))
@@ -44,7 +51,8 @@ import XCTest
         let temperature = app.descendants(matching: .any)["lamp-temperature"].firstMatch
         XCTAssertTrue(temperature.isHittable)
         temperature.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5))
-            .press(forDuration: 0.1, thenDragTo: temperature.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+            .press(
+                forDuration: 0.1, thenDragTo: temperature.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
         expectWrite("controls.setWhiteKelvin", in: app)
     }
     func testClimateSetpointAndIndependentFanReachBackend() {

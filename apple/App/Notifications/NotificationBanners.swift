@@ -1,5 +1,5 @@
-import SwiftUI
 import PanelKit
+import SwiftUI
 
 struct NotificationSource: Equatable {
     let name: String
@@ -53,9 +53,10 @@ struct NotificationBanners: View {
     private var isActivePresenter: Bool { center.isActivePresenter(presenterID) }
     private var pauseTimers: Bool {
         #if DEBUG
-        voiceOver || expanded || !interaction.touching.isEmpty || ProcessInfo.processInfo.arguments.contains("-notificationHold")
+            voiceOver || expanded || !interaction.touching.isEmpty
+                || ProcessInfo.processInfo.arguments.contains("-notificationHold")
         #else
-        voiceOver || expanded || !interaction.touching.isEmpty
+            voiceOver || expanded || !interaction.touching.isEmpty
         #endif
     }
 
@@ -69,14 +70,22 @@ struct NotificationBanners: View {
                 if center.historyPresented {
                     NotificationHistory(source: source)
                         .transition(.move(edge: .top))
-                } else { NotificationHistoryEdge() }
+                } else {
+                    NotificationHistoryEdge()
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         .allowsHitTesting(isActivePresenter)
         .accessibilityHidden(!isActivePresenter)
-        .onAppear { expanded = initiallyExpanded; center.registerPresenter(presenterID) }
-        .onDisappear { center.unregisterPresenter(presenterID); interaction.touching.removeAll() }
+        .onAppear {
+            expanded = initiallyExpanded
+            center.registerPresenter(presenterID)
+        }
+        .onDisappear {
+            center.unregisterPresenter(presenterID)
+            interaction.touching.removeAll()
+        }
         .animation(motion, value: center.historyPresented)
     }
 
@@ -98,7 +107,9 @@ struct NotificationBanners: View {
                         }
                         .scrollBounceBehavior(.basedOnSize)
                         .scrollClipDisabled()
-                        .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, height in
+                        .onScrollGeometryChange(for: CGFloat.self) {
+                            $0.contentSize.height
+                        } action: { _, height in
                             if height > 0 { expandedContentHeight = height }
                         }
                         .frame(maxHeight: min(580, expandedContentHeight))
@@ -121,9 +132,12 @@ struct NotificationBanners: View {
                                     .frame(minWidth: 64, minHeight: 44)
                                 }
                                 .accessibilityLabel(expanded ? "Collapse notifications" : "Expand notifications")
-                                .accessibilityIdentifier(expanded ? "notification-stack-collapse" : "notification-stack-expand")
+                                .accessibilityIdentifier(
+                                    expanded ? "notification-stack-collapse" : "notification-stack-expand")
                             }
-                            Button { center.historyPresented = true } label: {
+                            Button {
+                                center.historyPresented = true
+                            } label: {
                                 Image(systemName: "tray.full")
                                     .frame(width: 44, height: 44)
                             }
@@ -150,7 +164,9 @@ struct NotificationBanners: View {
         .onChange(of: items.count) { _, count in if count < 2 { expanded = false } }
         .animation(motion, value: items)
         .sensoryFeedback(.impact(weight: .light), trigger: center.arrivalFeedback) { _, _ in isActivePresenter }
-        .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: center.dismissFeedback) { _, _ in isActivePresenter }
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.5), trigger: center.dismissFeedback) { _, _ in
+            isActivePresenter
+        }
         .sensoryFeedback(.selection, trigger: center.openFeedback) { _, _ in isActivePresenter }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
@@ -162,21 +178,26 @@ struct NotificationBanners: View {
                 let elapsed = previous.duration(to: instant).components
                 previous = instant
                 guard isActivePresenter else { continue }
-                center.advanceBanners(by: Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18,
+                center.advanceBanners(
+                    by: Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18,
                     visibleIDs: Set(items.prefix(expanded ? items.count : 1).map(\.id)), paused: pauseTimers)
             }
         }
     }
 
     private func banner(_ item: NotificationItem) -> some View {
-        NotificationBanner(item: item, source: source(item.sourceModule),
-            captureDrag: captureDrag, open: {
+        NotificationBanner(
+            item: item, source: source(item.sourceModule),
+            captureDrag: captureDrag,
+            open: {
                 Task { await center.open(item.id) }
-            }, dismiss: { center.hideBanner(item.id) }, touch: { active in
+            }, dismiss: { center.hideBanner(item.id) },
+            touch: { active in
                 if active { interaction.touching.insert(item.id) } else { interaction.touching.remove(item.id) }
-            })
-            .id(item.id)
-            .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        )
+        .id(item.id)
+        .transition(.move(edge: .trailing).combined(with: .opacity))
     }
 }
 
@@ -212,10 +233,12 @@ private struct NotificationBanner: View {
                 .padding(.leading, 16).padding(.trailing, item.isPersistentUpdate ? 16 : 0).padding(.vertical, 16)
                 .contentShape(.rect)
             }
-            .buttonStyle(NotificationTouchStyle(touch: { pressed in
-                interaction.pressed = pressed
-                touch(pressed || interaction.dragging || leaving)
-            }))
+            .buttonStyle(
+                NotificationTouchStyle(touch: { pressed in
+                    interaction.pressed = pressed
+                    touch(pressed || interaction.dragging || leaving)
+                })
+            )
             .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
             .accessibilityHint("Opens \(source.name)")
             .accessibilityActions {
@@ -231,25 +254,31 @@ private struct NotificationBanner: View {
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 26))
         .glassEffectTransition(.materialize)
         .offset(x: translation + captureDrag)
-        .highPriorityGesture(DragGesture(minimumDistance: 10)
-            .updating($dragging) { _, active, _ in active = true }
-            .onChanged { value in
-                guard !leaving else { return }
-                translation = NotificationBannerGesture.offset(value.translation.width)
-            }
-            .onEnded { value in
-                guard !leaving else { return }
-                if NotificationBannerGesture.dismisses(x: value.translation.width, y: value.translation.height,
-                    predictedX: value.predictedEndTranslation.width) {
-                    leaving = true
-                    touch(true)
-                    withAnimation(.easeOut(duration: 0.22)) {
-                        translation = 680
-                    } completion: { dismiss() }
-                } else {
-                    withAnimation(.spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
+        .highPriorityGesture(
+            DragGesture(minimumDistance: 10)
+                .updating($dragging) { _, active, _ in active = true }
+                .onChanged { value in
+                    guard !leaving else { return }
+                    translation = NotificationBannerGesture.offset(value.translation.width)
                 }
-            }, including: item.isPersistentUpdate ? .none : .all)
+                .onEnded { value in
+                    guard !leaving else { return }
+                    if NotificationBannerGesture.dismisses(
+                        x: value.translation.width, y: value.translation.height,
+                        predictedX: value.predictedEndTranslation.width)
+                    {
+                        leaving = true
+                        touch(true)
+                        withAnimation(.easeOut(duration: 0.22)) {
+                            translation = 680
+                        } completion: {
+                            dismiss()
+                        }
+                    } else {
+                        withAnimation(.spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
+                    }
+                }, including: item.isPersistentUpdate ? .none : .all
+        )
         .onChange(of: dragging) { _, active in
             interaction.dragging = active
             touch(interaction.pressed || active || leaving)
@@ -267,7 +296,6 @@ private struct NotificationTouchStyle: ButtonStyle {
         configuration.label.onChange(of: configuration.isPressed) { _, pressed in touch(pressed) }
     }
 }
-
 
 /// Touch bookkeeping is read by the clock, without redrawing a pressed Button.
 @MainActor private final class NotificationBannerInteraction {

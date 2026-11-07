@@ -1,6 +1,7 @@
-import XCTest
-import UIKit
 import PanelKit
+import UIKit
+import XCTest
+
 @testable import Panel
 
 @MainActor final class PanelDiagnosticsTests: XCTestCase {
@@ -8,8 +9,9 @@ import PanelKit
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL)
             .appendingPathComponent("Fixtures")
         let transport = HybridFixtureTransport(root: root)
-        let store = LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
-            baseURL: URL(string: "https://panel.example")!), transport: transport)
+        let store = LiveHomeDataSource(
+            configuration: PanelKit.PanelConfiguration(
+                baseURL: URL(string: "https://panel.example")!), transport: transport)
         await store.refresh(.tesla)
         let live = try XCTUnwrap(PanelDiagnosticsView.moduleStatuses(in: store).first { $0.module == "tesla" })
         XCTAssertEqual(live.status, "live")
@@ -22,9 +24,10 @@ import PanelKit
     }
 
     func testModulesIncludeEveryProviderAndRefreshWithoutExposingTransportSecrets() async throws {
-        let store = LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
-            baseURL: URL(string: "https://panel.example")!,
-            accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
+        let store = LiveHomeDataSource(
+            configuration: PanelKit.PanelConfiguration(
+                baseURL: URL(string: "https://panel.example")!,
+                accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
             transport: SecretDiagnosticsTransport())
         let initial = PanelDiagnosticsView.moduleStatuses(in: store)
         XCTAssertEqual(initial.map(\.module), HomeModule.allCases.map(\.rawValue))

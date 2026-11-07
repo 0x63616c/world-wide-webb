@@ -14,12 +14,19 @@ enum Palette {
 extension Color {
     init(hex: String) {
         let value = UInt64(hex.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16) ?? 0
-        self.init(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
+        self.init(
+            red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255,
+            blue: Double(value & 255) / 255)
     }
 }
 extension ClimateMode {
     var color: Color {
-        switch self { case .cool: Palette.cool; case .heat: Palette.heat; case .heatCool: Palette.range; case .off: Palette.graphite }
+        switch self {
+        case .cool: Palette.cool
+        case .heat: Palette.heat
+        case .heatCool: Palette.range
+        case .off: Palette.graphite
+        }
     }
 }
 // Luca Bravo / Unsplash. Full attribution and licence in docs/v2/sources.md.
@@ -34,12 +41,16 @@ struct Wallpaper: View {
     var body: some View {
         GeometryReader { proxy in
             Group {
-                if let asset { Image(asset).resizable().scaledToFill() } else { choice.fill.id(choice).transition(.opacity) }
+                if let asset {
+                    Image(asset).resizable().scaledToFill()
+                } else {
+                    choice.fill.id(choice).transition(.opacity)
+                }
             }
-                .animation(.easeInOut(duration: 0.3), value: choice)
-                .saturation(saturation).blur(radius: blurRadius)
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: alignment).clipped()
-                .overlay(.black.opacity(dimming))
+            .animation(.easeInOut(duration: 0.3), value: choice)
+            .saturation(saturation).blur(radius: blurRadius)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: alignment).clipped()
+            .overlay(.black.opacity(dimming))
         }.ignoresSafeArea()
     }
 }
@@ -99,12 +110,16 @@ struct AnalogClock: View {
             ZStack {
                 ForEach(Array(stride(from: 0, to: 60, by: minimal ? 5 : 1)), id: \.self) { tick in
                     Capsule().fill(.white.opacity(tick.isMultiple(of: 5) ? 0.95 : 0.28))
-                        .frame(width: tick.isMultiple(of: 5) ? 4 : 1.5, height: tick.isMultiple(of: 5) ? side * 0.065 : side * 0.025)
+                        .frame(
+                            width: tick.isMultiple(of: 5) ? 4 : 1.5,
+                            height: tick.isMultiple(of: 5) ? side * 0.065 : side * 0.025
+                        )
                         .offset(y: -side * 0.44).rotationEffect(.degrees(Double(tick) * 6))
                 }
                 hand(length: side * 0.26, width: 7, angle: hour * 30)
                 hand(length: side * 0.37, width: 5, angle: minute * 6)
-                Capsule().fill(.orange).frame(width: 2, height: side * 0.39).offset(y: -side * 0.195 + 5).rotationEffect(.degrees(seconds * 6))
+                Capsule().fill(.orange).frame(width: 2, height: side * 0.39).offset(y: -side * 0.195 + 5)
+                    .rotationEffect(.degrees(seconds * 6))
                 Circle().fill(.white).frame(width: 10, height: 10)
                 if !minimal {
                     Circle().trim(from: 0, to: seconds / 60).stroke(.white.opacity(0.22), lineWidth: 1)
@@ -114,10 +129,13 @@ struct AnalogClock: View {
         }.accessibilityLabel("Analog clock")
     }
     private func hand(length: CGFloat, width: CGFloat, angle: Double) -> some View {
-        Capsule().fill(.white).frame(width: width, height: length).offset(y: -length / 2 + 5).rotationEffect(.degrees(angle))
+        Capsule().fill(.white).frame(width: width, height: length).offset(y: -length / 2 + 5).rotationEffect(
+            .degrees(angle))
     }
 }
-func fixtureTime(_ date: Date, format: String = "h:mm", timeZone: TimeZone = TimeZone(identifier: "America/Los_Angeles")!) -> String {
+func fixtureTime(
+    _ date: Date, format: String = "h:mm", timeZone: TimeZone = TimeZone(identifier: "America/Los_Angeles")!
+) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US")
     formatter.timeZone = timeZone
@@ -128,13 +146,18 @@ func fixtureTime(_ date: Date, format: String = "h:mm", timeZone: TimeZone = Tim
 // One system material, applied after layout; no surface fills or painted rims.
 extension View {
     func homeGlass(on: Bool = false, radius: CGFloat = 38) -> some View {
-        self.glassEffect((on ? Glass.regular.tint(.orange.opacity(0.25)) : .regular).interactive(), in: .rect(cornerRadius: radius))
-            .containerShape(.rect(cornerRadius: radius))
+        self.glassEffect(
+            (on ? Glass.regular.tint(.orange.opacity(0.25)) : .regular).interactive(), in: .rect(cornerRadius: radius)
+        )
+        .containerShape(.rect(cornerRadius: radius))
     }
     func faceGlass(on: Bool = false, radius: CGFloat = 56) -> some View {
-        self.glassEffect((on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular).interactive(), in: .rect(cornerRadius: radius))
-            .environment(\.colorScheme, on ? .light : .dark)
-            .containerShape(.rect(cornerRadius: radius))
+        self.glassEffect(
+            (on ? Glass.regular.tint(.orange.mix(with: .white, by: 0.90)) : .regular).interactive(),
+            in: .rect(cornerRadius: radius)
+        )
+        .environment(\.colorScheme, on ? .light : .dark)
+        .containerShape(.rect(cornerRadius: radius))
     }
 }
 

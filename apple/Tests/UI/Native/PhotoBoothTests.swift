@@ -42,8 +42,9 @@ extension HomeViewLaunchTests {
         app.buttons["booth-gallery-back"].tap()
         XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
-        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10)
-            || app.state == .runningBackgroundSuspended)
+        XCTAssertTrue(
+            app.wait(for: .runningBackground, timeout: 10)
+                || app.state == .runningBackgroundSuspended)
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         app.alignPanelOrientation()

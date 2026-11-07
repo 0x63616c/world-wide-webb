@@ -5,33 +5,39 @@ import Observation
 // are never rendered as readings: the router requires a live module first.
 extension LampState {
     static var unavailable: Self {
-        Self(on: Array(repeating: false, count: 8), ceiling: false, cabinet: false,
-             brightness: 0, kelvin: 0, scene: "Unavailable", colors: ["", "", ""],
-             activeColor: nil, party: .off, lampColors: Array(repeating: "#000000", count: 8))
+        Self(
+            on: Array(repeating: false, count: 8), ceiling: false, cabinet: false,
+            brightness: 0, kelvin: 0, scene: "Unavailable", colors: ["", "", ""],
+            activeColor: nil, party: .off, lampColors: Array(repeating: "#000000", count: 8))
     }
 }
 
 extension ClimateState {
     static var unavailable: Self {
-        Self(mode: .off, target: 0, low: 0, high: 0, ambient: 0, fanOn: false,
-             reportedFanLabel: "Unavailable", reportedAction: "Unavailable")
+        Self(
+            mode: .off, target: 0, low: 0, high: 0, ambient: 0, fanOn: false,
+            reportedFanLabel: "Unavailable", reportedAction: "Unavailable")
     }
 }
 
 extension WeatherState {
     static var unavailable: Self {
-        Self(city: "Unavailable", temperature: 0, condition: "Unavailable", symbol: "questionmark", high: 0,
-             low: 0, feels: 0, humidity: 0, wind: 0, solarLabel: "Unavailable",
-             solarValue: "—", hours: [])
+        Self(
+            city: "Unavailable", temperature: 0, condition: "Unavailable", symbol: "questionmark", high: 0,
+            low: 0, feels: 0, humidity: 0, wind: 0, solarLabel: "Unavailable",
+            solarValue: "—", hours: [])
     }
 }
 
 /// Modules without live data show native unavailable states. Satisfy the
 /// shared protocol with empty, inert providers, never MockHomeDataSource.
-@MainActor @Observable final class UnavailableHomeProviders:
-    TeslaProvider, CalendarProvider, PhotosProvider, WalkProvider {
-    let data = TeslaData(name: "Unavailable", nick: "Unavailable", place: "", charging: false,
-                         chargingState: "", rate: 0, pct: 0, range: 0, odo: "", climate: 0)
+@MainActor @Observable
+final class UnavailableHomeProviders:
+    TeslaProvider, CalendarProvider, PhotosProvider, WalkProvider
+{
+    let data = TeslaData(
+        name: "Unavailable", nick: "Unavailable", place: "", charging: false,
+        chargingState: "", rate: 0, pct: 0, range: 0, odo: "", climate: 0)
     let availability: TeslaAvailability = .offline
     let events: [AgendaEvent] = []
     let photos: [PhotoItem] = []

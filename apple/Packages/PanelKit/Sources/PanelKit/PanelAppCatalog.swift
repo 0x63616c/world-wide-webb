@@ -19,7 +19,11 @@ public struct PanelAppDefinition: Identifiable, Sendable, Equatable {
     public let accent: String
     public let route: PanelAppRoute
     public init(id: String, name: String, symbol: String, accent: String, route: PanelAppRoute) {
-        self.id = id; self.name = name; self.symbol = symbol; self.accent = accent; self.route = route
+        self.id = id
+        self.name = name
+        self.symbol = symbol
+        self.accent = accent
+        self.route = route
     }
 }
 
@@ -27,7 +31,10 @@ public struct PanelAppDefinition: Identifiable, Sendable, Equatable {
 /// contains no provider instances, mutable view state, networking or credentials.
 public struct PanelAppCatalog: Sendable {
     public let apps: [PanelAppDefinition]
-    public enum ValidationError: Error, Equatable { case duplicateID(String), emptyMetadata }
+    public enum ValidationError: Error, Equatable {
+        case duplicateID(String)
+        case emptyMetadata
+    }
     public init(apps: [PanelAppDefinition]) throws {
         var ids = Set<String>()
         for app in apps {
@@ -41,24 +48,31 @@ public struct PanelAppCatalog: Sendable {
         // Authored, validated identifiers; these are not database record IDs.
         let definitions: [PanelAppDefinition] = [
             .init(id: "calendar", name: "Calendar", symbol: "calendar", accent: "#e54b4b", route: .feature(.calendar)),
-            .init(id: "weather", name: "Weather", symbol: "cloud.sun.fill", accent: "#3389e9", route: .feature(.weather)),
+            .init(
+                id: "weather", name: "Weather", symbol: "cloud.sun.fill", accent: "#3389e9", route: .feature(.weather)),
             .init(id: "lights", name: "Lights", symbol: "lightbulb.fill", accent: "#f6a623", route: .feature(.lights)),
-            .init(id: "climate", name: "Climate", symbol: "thermometer.medium", accent: "#10a9e8", route: .feature(.climate)),
+            .init(
+                id: "climate", name: "Climate", symbol: "thermometer.medium", accent: "#10a9e8",
+                route: .feature(.climate)),
             .init(id: "walks", name: "Dog Walker", symbol: "pawprint.fill", accent: "#31b870", route: .feature(.walks)),
             .init(id: "car", name: "Tesla", symbol: "car.side.fill", accent: "#387eab", route: .feature(.car)),
             .init(id: "wifi", name: "Wi-Fi", symbol: "wifi", accent: "#37aebd", route: .feature(.wifi)),
             .init(id: "music", name: "Sonos", symbol: "hifispeaker.2.fill", accent: "#252527", route: .feature(.music)),
             .init(id: "timer", name: "Timer", symbol: "timer", accent: "#ed951c", route: .timer),
             .init(id: "booth", name: "Photo Booth", symbol: "camera.fill", accent: "#cc476b", route: .photoBooth),
-            .init(id: "settings", name: "Settings", symbol: "gearshape.fill", accent: "#707986", route: .settings)
+            .init(id: "settings", name: "Settings", symbol: "gearshape.fill", accent: "#707986", route: .settings),
         ]
-        do { return try PanelAppCatalog(apps: definitions) }
-        catch { preconditionFailure("Invalid built-in app catalog: \(error)") }
+        do { return try PanelAppCatalog(apps: definitions) } catch {
+            preconditionFailure("Invalid built-in app catalog: \(error)")
+        }
     }()
 }
 
 public struct PanelShellState: Sendable, Equatable {
-    public enum Screen: Sendable, Equatable { case clock, launcher, app(String) }
+    public enum Screen: Sendable, Equatable {
+        case clock, launcher
+        case app(String)
+    }
     public private(set) var screen: Screen = .clock
     public init() {}
     public mutating func showLauncher() { screen = .launcher }

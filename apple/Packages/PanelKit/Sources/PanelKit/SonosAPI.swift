@@ -1,10 +1,12 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 public enum SonosSource: String, Decodable, Sendable {
-    case lineIn = "line-in", tv, spotify, airplay, other, idle
+    case lineIn = "line-in"
+    case tv, spotify, airplay, other, idle
 }
 
 public enum SonosAvailability: String, Decodable, Sendable {
@@ -42,12 +44,15 @@ public struct SonosRoom: Decodable, Sendable, Equatable, Identifiable {
 
     public var playbackPosition: SonosPlaybackPosition? {
         guard availability == .available, sourceKind != .tv, sourceKind != .lineIn,
-              transportState == "PLAYING" || transportState == "PAUSED_PLAYBACK",
-              let position, position.isFinite, position >= 0,
-              let duration, duration.isFinite, duration > 0, let positionAt else { return nil }
+            transportState == "PLAYING" || transportState == "PAUSED_PLAYBACK",
+            let position, position.isFinite, position >= 0,
+            let duration, duration.isFinite, duration > 0, let positionAt
+        else { return nil }
         let fractional = ISO8601DateFormatter()
         fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = fractional.date(from: positionAt) ?? ISO8601DateFormatter().date(from: positionAt) else { return nil }
+        guard let date = fractional.date(from: positionAt) ?? ISO8601DateFormatter().date(from: positionAt) else {
+            return nil
+        }
         return SonosPlaybackPosition(position: min(position, duration), duration: duration, updatedAt: date)
     }
 
@@ -92,7 +97,8 @@ public struct SonosAPI: Sendable {
     public func groupLineIn(sourceID: String, excluding excluded: Set<String>) async throws {
         let state = try await soundSystem()
         guard !excluded.contains(sourceID),
-              let source = state.rooms.first(where: { $0.uuid == sourceID && $0.availability == .available }) else {
+            let source = state.rooms.first(where: { $0.uuid == sourceID && $0.availability == .available })
+        else {
             throw Self.invalid("Line-in speaker unavailable.")
         }
         // Switching a coordinator's input would also switch any protected follower.
@@ -126,6 +132,7 @@ public struct SonosAPI: Sendable {
         try await write(Command(action: "join", coordinator: coordinatorEntityId, members: memberEntityIds))
     }
     public func leave(memberIp: String, memberUuid: String) async throws {
+        guard !memberUuid.isEmpty else { throw Self.invalid("A member is required.") }
         try await write(Command(action: "leave", room: memberIp))
     }
     public func seek(room: String, positionSeconds: Double) async throws {
@@ -148,6 +155,18 @@ public struct SonosAPI: Sendable {
         _ = try await client.delete("sound/calibration", as: Acknowledgement.self)
     }
     private func write(_ command: Command) async throws {
+        func valid(_ id: String) -> Bool {
+            id.range(of: "^media_player\\.[a-z0-9_]+$", options: .regularExpression) != nil
+        }
+        if let room = command.room, !valid(room) { throw Self.invalid("Invalid room.") }
+        if let coordinator = command.coordinator, !valid(coordinator) { throw Self.invalid("Invalid coordinator.") }
+        if let members = command.members {
+            guard members.allSatisfy(valid), Set(members).count == members.count,
+                !members.contains(command.coordinator ?? command.room ?? "")
+            else { throw Self.invalid("Invalid group members.") }
+            if command.action == "join" && members.isEmpty { throw Self.invalid("Members are required.") }
+        }
+
         _ = try await client.post("sound", input: command, as: Acknowledgement.self)
     }
     private struct Command: Encodable, Sendable {
@@ -165,7 +184,8 @@ public struct SonosAPI: Sendable {
         init(from decoder: any Decoder) throws {
             let value = try decoder.singleValueContainer()
             guard value.decodeNil() else {
-                throw DecodingError.dataCorruptedError(in: value, debugDescription: "Expected an empty acknowledgement.")
+                throw DecodingError.dataCorruptedError(
+                    in: value, debugDescription: "Expected an empty acknowledgement.")
             }
         }
     }

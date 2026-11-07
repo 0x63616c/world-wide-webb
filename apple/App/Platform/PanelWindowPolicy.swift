@@ -11,7 +11,8 @@ enum PanelWindowPolicy {
 
     @MainActor static func apply(to scene: UIWindowScene, isDesktop: Bool) {
         guard let size = minimumSize(isDesktop: isDesktop),
-              let restrictions = scene.sizeRestrictions else { return }
+            let restrictions = scene.sizeRestrictions
+        else { return }
         restrictions.minimumSize = size
     }
 }
@@ -31,9 +32,9 @@ struct PanelWindowAttachment: UIViewRepresentable {
         func applyPolicy() {
             guard let scene = window?.windowScene else { return }
             #if targetEnvironment(macCatalyst)
-            PanelWindowPolicy.apply(to: scene, isDesktop: true)
+                PanelWindowPolicy.apply(to: scene, isDesktop: true)
             #else
-            PanelWindowPolicy.apply(to: scene, isDesktop: ProcessInfo.processInfo.isiOSAppOnMac)
+                PanelWindowPolicy.apply(to: scene, isDesktop: ProcessInfo.processInfo.isiOSAppOnMac)
             #endif
         }
     }
