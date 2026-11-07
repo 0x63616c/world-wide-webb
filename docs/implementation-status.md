@@ -62,16 +62,23 @@ a missing native activation command in PATH and a completion race across Comin's
 own restart. Candidate `df524c5` and the corrected daemon PATH address those issues;
 focused tests and independent review passed. The fourth wizard exited 101 after
 its completion wait without a manual retry; that guest is stopped and preserved.
-A fifth fresh rehearsal starts from fixture baseline `68064fb` with helper
-`df524c5`. Full wizard reconciliation and completed-wizard replay still need
-successful runtime evidence. Current-candidate hosted CI and artifact validation
-remain pending; earlier `f7f2a72` CI and fresh artifact smoke passed.
-Publication/release remains pending.
+The fifth fresh rehearsal passed the complete wizard, reboot, real Comin
+reconciliation and completed-wizard replay with helper `df524c5`, installing fixture
+revision `ab62552141ab526a77be4b01d5c7baa4be499f8d`. The harness exited 0 and its
+saved evidence records all three success flags. No `command not found` message
+appeared in the observed Comin log. This uses synthetic providers and a pinned
+SSH adapter for the Tailscale route; it does not prove real tailnet access policy.
+
+Public release head `8675434c60f68818bf6aca6cea68ed194c287c84` contains only
+README/testing-document changes after the exercised code. The private nine-check
+result at `56090782` therefore still covers its pinned implementation. A separate
+native scheduled-update test for harmless fixture commit `e0d2914` is waiting for
+Comin's timer. Final CI/artifact run `42330184366` and tap publication remain
+pending; no release or physical deployment is claimed.
 
 Local and hosted checks cover Rust behavior, terminal restoration, configuration
-schema/example consistency and native no-Nix artifacts. These checks cannot
-substitute for the outstanding live disposable journey. No production vault
-credentials or production service data are used in that rehearsal.
+schema/example consistency and native no-Nix artifacts. No production vault
+credentials or production service data were used in the disposable rehearsal.
 
 The pinned-image Hindsight synthetic restore previously passed dump/restore,
 vector, Unicode, sequence and restart checks in an isolated hosted container;
@@ -80,9 +87,8 @@ production data nor readiness of the complete application stack.
 
 ## Before production migration
 
-- Finish the current disposable enrollment, reboot, Comin handover and saved-state
-  replay, then finish release validation. Repeat private configuration checks if
-  the reviewed source or helper pin changes.
+- Finish the separate native scheduled-update test and release validation.
+  Repeat private configuration checks if the reviewed source or helper pin changes.
 - Provision and verify the real host SSH/SOPS configuration and actual Tailscale
   access. Current private manifests deliberately remain unready.
 - Validate consistent backups and service-specific restore rehearsals before

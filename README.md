@@ -62,8 +62,9 @@ handover to Comin. See [how updates work](docs/updates.md).
 
 No real Mac has received this configuration. Host readiness remains false until
 its enrollment PR is approved; application services and runners remain disabled.
-Private Nix validation and the new updater's disposable-VM rehearsal are still
-release gates. Public CLI checks do not substitute for private host checks.
+Private Nix checks and the full disposable enrollment/reboot/Comin replay passed.
+The separate scheduled-update test and final artifact/release validation remain
+pending. See [VM evidence](docs/vm-validation.md) for exact revisions and limits.
 Private Actions workflows are manual-only until self-hosted runners are ready;
 routine validation runs in the disposable Mac VM without paid private CI minutes.
 

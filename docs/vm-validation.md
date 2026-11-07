@@ -111,10 +111,26 @@ both host systems and the dormant container path. Evidence is retained at
 `homelab-cli/target/private-validation-5609078.log`. This covers the updated helper
 pin and activation PATH; it is not proof of a successful full enrollment journey.
 
-A fifth fresh rehearsal starts from fixture baseline `68064fb` with helper
-`df524c5`. Full enrollment/reboot/reconciliation and completed-wizard replay remain
-pending. Earlier helper `f7f2a72` passed hosted CI and fresh no-Nix artifact smoke;
-current helper CI run `42328940225` is queued. Release remains pending.
+The fifth fresh rehearsal started from fixture baseline `68064fb` with helper
+`df524c5c20a07ff76c9c55973f9a973bfc70c355`. The harness exited 0 after creating and
+merging real encrypted configuration, installing revision
+`ab62552141ab526a77be4b01d5c7baa4be499f8d`, rebooting, verifying real Comin
+reconciliation and replaying the completed wizard. Saved evidence at
+`homelab-cli/target/vm-enrollment-full-5-operator/evidence.json` records
+`wizardCompleted`, `rebootVerified` and `completedReplayVerified` as true.
+The observed Comin log contained zero `command not found` messages.
+
+The credential providers and Tailscale transport were synthetic; bootstrap,
+GitHub PR operations, reboot and Comin verification were real. This establishes
+the disposable base-host journey, not production tailnet policy, FileVault unlock,
+application migration or runner isolation. Neither physical host was activated.
+
+Public head `8675434c60f68818bf6aca6cea68ed194c287c84` adds documentation only after
+the exercised helper code. The private checks at `56090782` remain applicable to
+the unchanged implementation pin. A separate harmless Git change at fixture
+`e0d2914` is awaiting Comin's native polling timer; scheduled-update evidence is
+not yet claimed. Final CI/artifact run `42330184366` and tap/release publication
+remain pending.
 
 ## Authorized boundary
 

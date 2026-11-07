@@ -8,7 +8,8 @@ receive no GitHub account token and do not query Actions to authorize deployment
 **Merging is deployment authorization.** Use repository reviews and checks before
 merging. The host applies the resulting commit automatically after enrollment.
 The checked-in host recipes enable Comin; this branch has not been deployed to
-the real Macs, and the new integration still needs the disposable-VM rehearsal.
+the real Macs. Disposable enrollment and Comin handover passed; the separate
+native scheduled-update test is still pending. See [VM evidence](vm-validation.md).
 
 ## During setup
 
