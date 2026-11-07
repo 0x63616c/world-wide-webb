@@ -26,7 +26,7 @@ import XCTest
         }
         print("MOTION_CAPTURE_READY home-controls")
         Thread.sleep(forTimeInterval: 1)
-        let faces = ["Green", "Midnight", "Paper", "Ember", "Glass", "Moonlight", "Woodland"]
+        let faces = ["Green", "Tide"]
         let initial = try XCTUnwrap(faces.firstIndex(of: clock.value as? String ?? ""))
         snapshot("clock-\(faces[initial].lowercased())")
         func waitForFace(_ face: String) {
@@ -39,18 +39,18 @@ import XCTest
             thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.69, dy: 0.5)),
             withVelocity: .slow, thenHoldForDuration: 0.3)
         waitForFace(faces[initial])
-        for step in 1..<faces.count {
+        for step in 1...faces.count {
             right.press(forDuration: 0.1, thenDragTo: left, withVelocity: .slow, thenHoldForDuration: 0.2)
             let face = faces[(initial + step) % faces.count]
             waitForFace(face)
             snapshot("clock-\(face.lowercased())")
         }
         left.press(forDuration: 0.1, thenDragTo: right, withVelocity: .slow, thenHoldForDuration: 0.2)
-        waitForFace(faces[(initial + faces.count - 2) % faces.count])
+        waitForFace(faces[(initial + faces.count - 1) % faces.count])
         clock.tap()
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home-profile"].exists)
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ", CALUM")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ",\nCALUM")).firstMatch.exists)
         snapshot("home")
         app.buttons["app-climate"].tap()
         let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
@@ -64,9 +64,9 @@ import XCTest
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE home-controls")
     }
-    func testGlassClockFace() {
+    func testClockCollection() {
         let app = XCUIApplication()
-        for face in ["glass", "moonlight", "woodland"] {
+        for face in ["green", "tide"] {
             app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
                 "-updateCheckFakeBuild", "1", "-panel.clockFace", face]
             app.launch()
@@ -74,12 +74,29 @@ import XCTest
             let clock = app.buttons["launcher-clock"]
             XCTAssertTrue(clock.waitForExistence(timeout: 15))
             XCTAssertEqual(clock.value as? String, face.capitalized)
+            Thread.sleep(forTimeInterval: 2) // Let the launch transition settle before visual capture.
             let shot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
-            shot.name = "glass-clock-\(face)"
+            shot.name = "clock-\(face)"
             shot.lifetime = .keepAlways
             add(shot)
             app.terminate()
         }
+    }
+
+    func testRetiredClockSelectionFallsBackToGreen() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
+            "-updateCheckFakeBuild", "1", "-panel.clockFace", "woodland"]
+        app.launch()
+        defer { app.terminate() }
+        app.alignPanelOrientation()
+        let clock = app.buttons["launcher-clock"]
+        XCTAssertTrue(clock.waitForExistence(timeout: 15))
+        XCTAssertEqual(clock.value as? String, "Green")
+        // The launch argument is a read-only defaults override; persisted selections
+        // are exercised by the full swipe-cycle test above.
+        clock.tap()
+        XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 5))
     }
 
     func testLauncherGlassOptions() {
@@ -117,13 +134,13 @@ import XCTest
         snapshot("layered-icons-home")
         print("MOTION_CAPTURE_READY layered-icons")
         Thread.sleep(forTimeInterval: 2) // Video lead-in, not a correctness wait.
-        for id in ["weather", "lights", "music", "photos"] {
+        for id in ["weather", "lights", "music", "booth"] {
             let button = app.buttons["app-\(id)"]
             XCTAssertTrue(button.isHittable, id)
             // Hold the real button long enough to see its depth feedback, then release.
             button.press(forDuration: 0.7)
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
-            if id == "photos" {
+            if id == "booth" {
                 XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
             }
             snapshot("layered-icons-\(id)")
@@ -133,7 +150,7 @@ import XCTest
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE layered-icons")
         // The recording stays short; every remaining redesigned app is also opened.
-        for id in ["calendar", "climate", "walks", "car", "wifi", "timer", "booth", "classic", "settings"] {
+        for id in ["calendar", "climate", "walks", "car", "wifi", "timer", "classic", "settings"] {
             let button = app.buttons["app-\(id)"]
             XCTAssertTrue(button.isHittable, id)
             button.tap()
@@ -158,7 +175,7 @@ import XCTest
         app.openAppGrid()
         print("MOTION_CAPTURE_READY back-buttons")
         Thread.sleep(forTimeInterval: 1) // Recording lead-in, not a correctness wait.
-        for id in ["weather", "photos", "settings"] {
+        for id in ["weather", "booth", "settings"] {
             app.buttons["app-\(id)"].tap()
             let back = app.buttons["app-back"]
             XCTAssertTrue(back.waitForExistence(timeout: 10), id)

@@ -135,7 +135,7 @@ import XCTest
             switch id {
             case "lights": XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
             case "climate": XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(timeout: 20))
-            case "weather": XCTAssertTrue(app.staticTexts["HOURLY FORECAST"].waitForExistence(timeout: 20))
+            case "weather": XCTAssertTrue(app.staticTexts["Feels like"].waitForExistence(timeout: 20))
             default: XCTAssertTrue(app.staticTexts["Odometer"].waitForExistence(timeout: 20))
             }
             XCTAssertFalse(app.buttons["classic-home"].exists)

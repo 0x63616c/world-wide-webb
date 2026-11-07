@@ -11,7 +11,7 @@ enum PanelIconArtwork: String, CaseIterable {
         case .lights: [Color(hex: "#FFD500"), Color(hex: "#FF6500")]
         case .climate: [Color(hex: "#56D9FA"), Color(hex: "#007FCF")]
         case .walks: [Color(hex: "#60DD9C"), Color(hex: "#0CAA69")]
-        case .music: [Color(hex: "#FF5275"), Color(hex: "#D60040")]
+        case .music: [Color(hex: "#252527"), .black]
         case .photos: [Color(hex: "#BE85FC"), Color(hex: "#7A12F8")]
         case .car: [Color(hex: "#6CBFFC"), Color(hex: "#2367D2")]
         case .wifi: [Color(hex: "#59E0DD"), Color(hex: "#009BAE")]
@@ -41,7 +41,7 @@ struct PanelIconArtworkView: View {
             case .lights: LightsIconArtwork(side: side, parallax: parallax)
             case .climate: ClimateIconArtwork(side: side, parallax: parallax)
             case .walks: WalksIconArtwork(side: side, parallax: parallax)
-            case .music: MusicIconArtwork(side: side, parallax: parallax)
+            case .music: SonosIconArtwork(side: side, parallax: parallax)
             case .photos: PhotosIconArtwork(side: side, parallax: parallax)
             case .car: CarIconArtwork(side: side, parallax: parallax)
             case .wifi: WifiIconArtwork(side: side, parallax: parallax)
@@ -109,22 +109,33 @@ private struct LightsIconArtwork: View {
     }
 }
 
-private struct MusicIconArtwork: View {
+private struct SonosIconArtwork: View {
     let side: CGFloat
     let parallax: CGSize
+
     var body: some View {
         ZStack {
-            ZStack {
-                Circle().fill(Color(hex: "#F77497"))
-                    .frame(width: side * 0.370, height: side * 0.370)
-                Circle().fill(Color(hex: "#D7305C"))
-                    .frame(width: side * 0.061, height: side * 0.061)
-            }
-            .position(x: side * 0.329, y: side * 0.412)
-            .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            PanelIconShape.musicNotes.fill(.white)
+            speaker(scale: 0.85, cabinet: Color(hex: "#A6A6AC"), driver: Color(hex: "#39393E"))
+                .position(x: side * 0.644, y: side * 0.428)
+                .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
+            speaker(scale: 1, cabinet: .white, driver: Color(hex: "#232326"))
+                .position(x: side * 0.409, y: side * 0.548)
                 .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
         }.frame(width: side, height: side)
+    }
+
+    private func speaker(scale: CGFloat, cabinet: Color, driver: Color) -> some View {
+        let unit = side * scale
+        return RoundedRectangle(cornerRadius: unit * 0.085, style: .continuous)
+            .fill(cabinet)
+            .frame(width: unit * 0.35, height: unit * 0.55)
+            .overlay {
+                VStack(spacing: unit * 0.055) {
+                    Circle().fill(driver).frame(width: unit * 0.095)
+                    Circle().fill(driver).frame(width: unit * 0.22)
+                        .overlay { Circle().fill(cabinet.opacity(0.58)).frame(width: unit * 0.085) }
+                }
+            }
     }
 }
 

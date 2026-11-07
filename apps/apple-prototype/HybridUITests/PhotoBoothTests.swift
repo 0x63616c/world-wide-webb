@@ -15,7 +15,7 @@ extension HomeViewLaunchTests {
             XCTAssertEqual(frame.minY, first.minY, accuracy: 2)
             if index > 0 { XCTAssertGreaterThan(frame.minX, app.buttons["app-\(ids[index - 1])"].frame.minX) }
         }
-        XCTAssertLessThan(app.buttons["app-photos"].frame.minX, app.buttons["app-car"].frame.minX)
+        XCTAssertFalse(app.buttons["app-photos"].exists)
         XCTAssertLessThan(app.buttons["app-car"].frame.minX, app.buttons["app-wifi"].frame.minX)
         XCTAssertGreaterThan(app.buttons["app-settings"].frame.minY, app.buttons["app-wifi"].frame.minY)
         XCTAssertGreaterThan(app.buttons["app-settings"].frame.minX, app.buttons["app-classic"].frame.minX)
@@ -39,9 +39,9 @@ extension HomeViewLaunchTests {
         XCTAssertEqual(photos.count, 2, "Every booth burst frame must appear; wake photos must stay out")
         photos.firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["booth-photo-detail"].firstMatch.waitForExistence(timeout: 5))
-        app.buttons["app-back"].tap()
+        app.buttons["booth-viewer-back"].tap()
         XCTAssertTrue(photos.firstMatch.waitForExistence(timeout: 5))
-        app.buttons["app-back"].tap()
+        app.buttons["booth-gallery-back"].tap()
         XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10)

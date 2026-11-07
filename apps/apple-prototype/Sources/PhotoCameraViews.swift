@@ -5,7 +5,6 @@ struct PhotoRotation: View {
     let now: Date
     var fullScreen: Bool
     @Environment(\.motionPhase) private var phase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var index = 1
     var body: some View {
         GeometryReader { proxy in
@@ -32,8 +31,8 @@ struct PhotoRotation: View {
                     }.padding(28)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
-        }.task(id: reduceMotion) {
-            guard !reduceMotion, phase == nil else { return }
+        }.task(id: phase) {
+            guard phase == nil else { return }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(12)) } catch { return }
                 withAnimation(.easeInOut(duration: 1.2)) { index = (index + 1) % provider.photos.count }
@@ -46,10 +45,9 @@ struct CameraPreview: View {
     let feed: CameraFeed
     let now: Date
     @Environment(\.motionPhase) private var phase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: reduceMotion || phase != nil)) { context in
-            let t = phase ?? (reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate)
+        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: phase != nil)) { context in
+            let t = phase ?? context.date.timeIntervalSinceReferenceDate
             GeometryReader { proxy in
                 ZStack {
                     Image(feed.asset).resizable().scaledToFill()

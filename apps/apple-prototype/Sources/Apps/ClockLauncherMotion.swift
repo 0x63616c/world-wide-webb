@@ -57,12 +57,11 @@ struct LauncherSurfaceMotion: ViewModifier {
     let progress: CGFloat
     let width: CGFloat
     let incoming: Bool
-    var reduceMotion = false
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(reduceMotion ? 1 : incoming ? motion.launcherScale(progress) : motion.clockScale(progress))
-            .offset(x: reduceMotion ? 0 : incoming ? motion.launcherOffset(progress, width: width) : motion.clockOffset(progress, width: width))
-            .opacity(motion == .swipePop && !reduceMotion ? 1 : Double(incoming ? progress : 1 - progress))
+            .scaleEffect(incoming ? motion.launcherScale(progress) : motion.clockScale(progress))
+            .offset(x: incoming ? motion.launcherOffset(progress, width: width) : motion.clockOffset(progress, width: width))
+            .opacity(motion == .swipePop ? 1 : Double(incoming ? progress : 1 - progress))
     }
 }

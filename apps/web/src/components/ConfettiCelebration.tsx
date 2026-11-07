@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 import { Z_LAYER } from "../lib/z-layers";
 
 export const CONFETTI_DURATION_MS = 3000;
@@ -47,16 +46,10 @@ function ConfettiCelebrationView() {
 }
 
 export function ConfettiCelebration({ onFinished }: { onFinished: () => void }) {
-  const prefersReducedMotion = usePrefersReducedMotion();
   useEffect(() => {
-    if (prefersReducedMotion) {
-      onFinished();
-      return;
-    }
     const timer = window.setTimeout(onFinished, CONFETTI_DURATION_MS);
     return () => window.clearTimeout(timer);
-  }, [onFinished, prefersReducedMotion]);
+  }, [onFinished]);
 
-  if (prefersReducedMotion) return null;
   return createPortal(<ConfettiCelebrationView />, document.body);
 }

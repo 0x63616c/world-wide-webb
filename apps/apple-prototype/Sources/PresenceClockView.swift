@@ -8,16 +8,7 @@ import UIKit
 #endif
 
 enum PanelClockFace: String, CaseIterable {
-    case green, midnight, paper, ember, glass, moonlight, woodland
-
-    var glassWallpaper: String? {
-        switch self {
-        case .glass: "GlassBotanical"
-        case .moonlight: "GlassMoonlight"
-        case .woodland: "ForestPhoto"
-        default: nil
-        }
-    }
+    case green, tide
 }
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
@@ -26,31 +17,20 @@ enum PanelClockFace: String, CaseIterable {
 struct PresenceClockFace: View {
     let store: any HomeDataSource
     var face: PanelClockFace = .green
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion || face.glassWallpaper != nil ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+        TimelineView(.animation(minimumInterval: face == .tide ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
-            let night = previewNight || SolarClock.appearanceIsNight(at: now, sunrise: store.weather.sunrise,
+            let night = !previewDay && (previewNight || SolarClock.appearanceIsNight(at: now, sunrise: store.weather.sunrise,
                 sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
-                weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil)
+                weatherSymbol: store.status(for: .weather) == .live ? store.weather.symbol : nil))
             ZStack {
                 switch face {
                 case .green:
                     night ? Color.black : GreenClockDial.green
                     GreenClockDial(date: now, night: night)
-                case .midnight:
-                    Color(red: 0.04, green: 0.07, blue: 0.16)
-                    PanelDuoDial(date: now)
-                case .paper:
-                    PanelSolarDial(date: now, night: night)
-                case .ember:
-                    Color(red: 0.15, green: 0.05, blue: 0.035)
-                    PanelRingDial(date: now)
-                case .glass, .moonlight, .woodland:
-                    if let wallpaper = face.glassWallpaper {
-                        PanelGlassClockFace(date: now, wallpaper: wallpaper, dimming: face == .woodland ? 0.48 : 0)
-                    }
+                case .tide:
+                    TideClockDial(date: now, night: night)
                 }
             }.accessibilityIdentifier("clock-face")
         }.ignoresSafeArea()
@@ -58,6 +38,14 @@ struct PresenceClockFace: View {
     private var previewNight: Bool {
         #if DEBUG
         ProcessInfo.processInfo.arguments.contains("-previewNightClock")
+        #else
+        false
+        #endif
+    }
+
+    private var previewDay: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-previewDayClock")
         #else
         false
         #endif
@@ -189,181 +177,6 @@ struct GreenClockDial: View {
             // Treat each hand as one piece so it can cast a shadow on the one below.
             content.compositingGroup()
                 .shadow(color: .black.opacity(0.40), radius: 5, y: 5)
-        }
-    }
-}
-
-private struct PanelDuoDial: View {
-    let date: Date
-
-    var body: some View {
-        GeometryReader { proxy in
-            let size = min(proxy.size.width * 0.29, proxy.size.height * 0.43)
-            HStack(spacing: size * 0.035) {
-                Text(fixtureTime(date, format: "h"))
-                    .foregroundStyle(Color(red: 0.76, green: 0.85, blue: 1))
-                Text(fixtureTime(date, format: "mm"))
-                    .foregroundStyle(Color(red: 0.40, green: 0.63, blue: 1))
-            }
-            .font(.system(size: size, weight: .medium, design: .rounded))
-            .monospacedDigit()
-            .lineLimit(1).minimumScaleFactor(0.55)
-            .padding(.horizontal, 24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }.accessibilityElement(children: .ignore)
-            .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
-    }
-}
-
-private struct PanelSolarDial: View {
-    let date: Date
-    let night: Bool
-
-    var body: some View {
-        GeometryReader { proxy in
-            let side = min(proxy.size.width, proxy.size.height) * 0.80
-            let components = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
-            let hours = Double(components.hour ?? 0)
-            let minutes = Double(components.minute ?? 0)
-            let seconds = Double(components.second ?? 0)
-            let ink = night ? Color(red: 0.85, green: 0.77, blue: 0.65) : Color(red: 0.22, green: 0.15, blue: 0.10)
-            ZStack {
-                Circle().fill(night ? Color(white: 0.11) : Color(red: 0.94, green: 0.88, blue: 0.76))
-                    .overlay {
-                        LinearGradient(colors: [.white.opacity(0.20), .clear, .black.opacity(0.18)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing)
-                            .rotationEffect(.degrees(hours * 15)).clipShape(.circle)
-                    }
-                ForEach(0..<60) { index in
-                    Capsule().fill(ink.opacity(index.isMultiple(of: 5) ? 0.9 : 0.25))
-                        .frame(width: index.isMultiple(of: 5) ? 4 : 2, height: index.isMultiple(of: 5) ? 23 : 8)
-                        .offset(y: -side * 0.45)
-                        .rotationEffect(.degrees(Double(index) * 6))
-                }
-                hand(length: side * 0.25, width: 12, color: ink, angle: (hours + minutes / 60) * 30)
-                hand(length: side * 0.38, width: 8, color: ink, angle: (minutes + seconds / 60) * 6)
-                hand(length: side * 0.40, width: 3, color: .orange, angle: seconds * 6)
-                Circle().fill(.orange).frame(width: 14, height: 14)
-            }.frame(width: side, height: side)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .background(night ? Color.black : Color(red: 0.78, green: 0.71, blue: 0.61))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
-    }
-
-    private func hand(length: CGFloat, width: CGFloat, color: Color, angle: Double) -> some View {
-        Capsule().fill(color).frame(width: width, height: length)
-            .offset(y: -length / 2).rotationEffect(.degrees(angle))
-    }
-}
-
-/// A timer-style clock. The tick ring marks the minutes and the arc tracks the hour.
-private struct PanelRingDial: View {
-    let date: Date
-    private let ink = Color(red: 1, green: 0.64, blue: 0.36)
-
-    var body: some View {
-        GeometryReader { proxy in
-            let side = min(proxy.size.width, proxy.size.height) * 0.87
-            let minute = Double(Calendar.current.component(.minute, from: date))
-            let second = Double(Calendar.current.component(.second, from: date))
-            ZStack {
-                ForEach(0..<60) { index in
-                    Capsule().fill(ink.opacity(index.isMultiple(of: 5) ? 0.75 : 0.3))
-                        .frame(width: index.isMultiple(of: 5) ? 4 : 2, height: index.isMultiple(of: 5) ? 19 : 8)
-                        .offset(y: -side / 2 + 10)
-                        .rotationEffect(.degrees(Double(index) * 6))
-                }
-                Circle().trim(from: 0, to: (minute + second / 60) / 60)
-                    .stroke(ink, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: side - 52, height: side - 52)
-                Text(fixtureTime(date, format: "h:mm"))
-                    .font(.system(size: side * 0.25, weight: .medium, design: .rounded))
-                    .monospacedDigit().foregroundStyle(ink)
-            }.frame(width: side, height: side)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }.accessibilityElement(children: .ignore)
-            .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
-    }
-}
-
-/// The dial uses real glyph outlines so the system can lens around each numeral.
-private struct PanelGlassClockFace: View {
-    let date: Date
-    let wallpaper: String
-    let dimming: Double
-
-    var body: some View {
-        GeometryReader { proxy in
-            let time = fixtureTime(date, format: "h:mm")
-            let box = CGRect(x: proxy.size.width * 0.075, y: proxy.size.height * 0.21,
-                width: proxy.size.width * 0.85, height: proxy.size.height * 0.58)
-            ZStack {
-                Image(wallpaper).resizable().scaledToFill()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .clipped()
-                Color.black.opacity(dimming)
-                GlassEffectContainer(spacing: 0) {
-                    ZStack(alignment: .topLeading) {
-                        ForEach(Array(ClockGlassGlyph.layout(time, in: box).enumerated()), id: \.offset) { _, glyph in
-                            Color.clear
-                                .frame(width: glyph.frame.width, height: glyph.frame.height)
-                                .glassEffect(.clear, in: glyph.shape)
-                                .position(x: glyph.frame.midX, y: glyph.frame.midY)
-                        }
-                    }.frame(width: proxy.size.width, height: proxy.size.height)
-                }
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(fixtureTime(date, format: "h:mm a"))
-    }
-
-}
-
-private struct ClockGlassGlyph {
-    let frame: CGRect
-    let shape: Outline
-
-    struct Outline: Shape {
-        let path: Path
-        func path(in rect: CGRect) -> Path {
-            path.offsetBy(dx: rect.minX, dy: rect.minY)
-        }
-    }
-
-    @MainActor static func layout(_ text: String, in box: CGRect) -> [Self] {
-        let font = GreenClockDial.roundedFont(size: 100)
-        let line = CTLineCreateWithAttributedString(NSAttributedString(
-            string: text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]
-        ))
-        var paths: [CGPath] = []
-        var bounds = CGRect.null
-        for run in CTLineGetGlyphRuns(line) as! [CTRun] {
-            let count = CTRunGetGlyphCount(run)
-            var glyphs = Array(repeating: CGGlyph(), count: count)
-            var positions = Array(repeating: CGPoint.zero, count: count)
-            CTRunGetGlyphs(run, CFRange(location: 0, length: 0), &glyphs)
-            CTRunGetPositions(run, CFRange(location: 0, length: 0), &positions)
-            for (glyph, position) in zip(glyphs, positions) {
-                var translation = CGAffineTransform(translationX: position.x, y: position.y)
-                guard let path = CTFontCreatePathForGlyph(font, glyph, nil)?.copy(using: &translation) else { continue }
-                let outline = path.normalized()
-                bounds = bounds.union(outline.boundingBoxOfPath)
-                paths.append(outline)
-            }
-        }
-        guard bounds.width > 0, bounds.height > 0 else { return [] }
-        let scale = min(box.width / bounds.width, box.height / bounds.height)
-        let transform = CGAffineTransform(a: scale, b: 0, c: 0, d: -scale,
-            tx: box.midX - bounds.midX * scale, ty: box.midY + bounds.midY * scale)
-        return paths.map { outline in
-            let path = Path(outline).applying(transform)
-            let frame = path.boundingRect
-            return Self(frame: frame, shape: Outline(path: path.offsetBy(dx: -frame.minX, dy: -frame.minY)))
         }
     }
 }
