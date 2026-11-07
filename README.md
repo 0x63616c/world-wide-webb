@@ -2,7 +2,7 @@
 
 A free, native iPhone Duo folding tracker: personal statistics, guided Shortcuts setup, iCloud sync, widgets, and optional competition.
 
-**Status:** shipping goal active; account setup and implementation are now authorized. The Swift tracking domain and private infrastructure-state bootstrap are implemented; the app, backend and release pipeline remain in progress. The owner selected **Folding** as the final product name. App Store name registration is pending. The owner has purchased **getfolding.app**. The private repository is [0x63616c/folding](https://github.com/0x63616c/folding).
+**Status:** shipping goal active; account setup and implementation are now authorized. The Swift tracking domain, durable journal and private infrastructure-state bootstrap are implemented; the app, backend and release pipeline remain in progress. The owner selected **Folding** as the final product name. App Store name registration is pending. The owner has purchased **getfolding.app**. The private repository is [0x63616c/folding](https://github.com/0x63616c/folding).
 
 ## Start here
 
@@ -28,3 +28,7 @@ Track implementation in [GitHub Issues](https://github.com/0x63616c/folding/issu
 **Agreed** means explicitly requested or accepted by the owner. **Proposed** means a recommendation discussed but not yet explicitly adopted. **Unverified** means platform behavior or tooling needs evidence before becoming a product promise.
 
 These documents consolidate the planning conversation through November 7, 2026. Account/project setup and login are authorized now that the name is chosen. Full implementation/shipping is now authorized. Additional purchases still require a specified budget.
+
+## Local development
+
+Run `scripts/bootstrap` to prepare the contract validator and repository-local Git hooks, then `scripts/check` for implemented personal-core/contract checks. `scripts/format` formats owned Swift and OpenTofu files without staging them. These are initial checks; backend, simulator and release CI gates are still being added.

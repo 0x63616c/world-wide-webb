@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+for tool in swift tofu python3 git; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Missing required tool: $tool" >&2
+    exit 1
+  fi
+done
+python3 -m venv .venv/contracts
+.venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
+git config --local core.hooksPath .githooks
+echo 'Contract environment and repository-local hooks ready. No credentials or cloud resources accessed.'
