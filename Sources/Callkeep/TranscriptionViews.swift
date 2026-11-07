@@ -213,9 +213,6 @@ struct TranscriptView: View {
                             .accessibilityLabel("Transcript version")
                     } else { Text(selected.modelName) }
                     Spacer()
-                    TimelineView(.animation(minimumInterval: 0.2, paused: !model.playback.isPlaying)) { _ in
-                        Text(Recording.timeString(model.playback.currentPosition)).monospacedDigit()
-                    }
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12)
             } else if controller.status(for: recording.id) == nil {
                 ContentUnavailableView("No transcript yet", systemImage: "text.bubble", description: Text("Choose a model to transcribe this recording locally."))
