@@ -194,3 +194,48 @@ fresh SQLite; 231 literal SQL statements prepare successfully against that schem
 checks do not replace the deferred final workerd/D1 concurrency, real Access/Apple, image-stress, UI,
 notification or device tests. No deployment, credentials, secret reads or CI runs were performed.
 Access protocol reference: [Cloudflare JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/).
+
+## Avatar and notification implementation batch (November 7)
+
+Migrations 0011–0012 add private avatar reservations/purge jobs/moderation alerts, preferences,
+installation token uniqueness and leased award delivery. Avatar PUT authenticates/asserts before bounded
+image decoding; reservation precedes create-only R2 writes. Superseded/rejected/removed objects are
+replaced by zero-byte metadata-free tombstones so an in-flight retry cannot recreate deleted content.
+Those opaque random-key markers remain indefinitely (additional object/write cost, no user content).
+Only approved current derivatives can be served publicly to eligible signed-in participants; private
+originals are never served. Access-protected admin previews use sanitized derivatives. Leave returns
+pending until its R2 purge finishes, and account deletion also waits for purge completion. `/me` exposes
+pending leave receipts. Custom avatars retain the previous approved image while a replacement waits.
+
+`AVATAR_UPLOADS_ENABLED=false` is the default. `ADMIN_EMAIL_ENABLED=false` independently gates the
+optional `ADMIN_EMAIL` send-email binding and `ADMIN_ALERT_FROM`/`ADMIN_ALERT_TO` vars. The protected
+avatar queue works without email. Inbound support forwarding is not evidence of outbound sender
+verification. No email was sent during this implementation. Enabling requires verified sender capability.
+
+Preferences use weekly/monthly `off|all|podium`, an IANA home timezone, and a supported app locale.
+Push registration encrypts tokens and uses a dedicated stable `APNS_TOKEN_HMAC_KEY` to make a token
+unique across accounts for its topic/environment. Re-registering records a timestamp; invalid-token
+responses cannot disable a newer registration. Rotation of this indexing key requires a coordinated
+binding migration or complete token re-registration, not an unannounced secret replacement.
+
+APNs uses ES256 from `APNS_PRIVATE_KEY_PKCS8` (base64url PKCS8 DER), `APNS_KEY_ID`, `APNS_TEAM_ID`,
+`APNS_TOPIC`, and `APNS_ENVIRONMENT=sandbox|production`. Production rejects sandbox configuration.
+`APNS_ENABLED=false` prevents delivery and suppresses advertising `notifications.results` even if it
+appears in the acceptance allowlist. An encrypted D1 provider-token cache reuses the winning token
+across isolates for 50 minutes. Award jobs schedule the next local 09:00 strictly after publication and
+recheck consent, current generation/join era, restrictions, active installation and session before send.
+Localized payloads contain only the result announcement and `folding:{kind,period_id}` navigation data.
+Stable APNs UUID/collapse keys survive retries; transient/network errors back off with an eight-attempt
+budget. APNs acceptance is recorded as sent, not proof of display; ambiguous network outcomes may
+still duplicate delivery. A push already accepted by APNs cannot be recalled by a later privacy change.
+
+Focused checkpoint: actual Wasm compilation passes; twelve migrations apply on fresh SQLite and 282
+literal SQL statements prepare. Native compilation is checked separately at the batch boundary. Full
+R2/workerd race tests, image memory limits, live APNs transport/authorization/delivery, email delivery,
+localization review and device behavior remain final acceptance work. Queue transport, explicit result
+corrections and remaining admin operational controls are the next implementation batch. No credentials,
+external sends, deployments, CI runs or independent review were performed here.
+
+Protocol sources: [Apple token authentication](https://developer.apple.com/documentation/usernotifications/establishing-a-token-based-connection-to-apns),
+[APNs requests](https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns),
+[APNs response timestamps](https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html).

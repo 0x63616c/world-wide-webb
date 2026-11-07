@@ -114,6 +114,10 @@ pub(crate) async fn delete(
         db,
         &session.participant_id,
     )?);
+    writes.extend(crate::avatar_runtime::purge_owned(
+        db,
+        &session.participant_id,
+    )?);
     for table in [
         "live_scores",
         "score_jobs",
@@ -301,7 +305,7 @@ pub(crate) async fn process(env: &Env, db: &D1Database) -> std::result::Result<(
         let completed = now();
         let mut writes = vec![statement(
             db,
-            "INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM deletion_operations d JOIN participants p ON p.participant_id=d.participant_id WHERE d.participant_id=?2 AND d.operation_id=?3 AND d.state='pending' AND d.lease_until_ms=?4 AND p.account_state='deleting') THEN 1 ELSE 0 END)",
+            "INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM deletion_operations d JOIN participants p ON p.participant_id=d.participant_id WHERE d.participant_id=?2 AND d.operation_id=?3 AND d.state='pending' AND d.lease_until_ms=?4 AND p.account_state='deleting' AND NOT EXISTS(SELECT 1 FROM avatar_purge_jobs a WHERE a.participant_id=p.participant_id)) THEN 1 ELSE 0 END)",
             &[
                 text(&guard),
                 text(&job.participant_id),
@@ -318,6 +322,8 @@ pub(crate) async fn process(env: &Env, db: &D1Database) -> std::result::Result<(
             "score_jobs",
             "competition_operations",
             "nickname_requests",
+            "avatar_objects",
+            "notification_preferences",
             "profiles",
             "blocks",
             "attestation_keys",

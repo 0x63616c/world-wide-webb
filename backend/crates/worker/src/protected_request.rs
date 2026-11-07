@@ -83,7 +83,7 @@ pub(crate) async fn verify(
     let nonce = URL_SAFE_NO_PAD.encode(nonce);
     let hash = client_data_hash(&Binding {
         deployment: &config.deployment,
-        method: "POST",
+        method: &request.method().to_string(),
         path: &request.path(),
         challenge_id: &id,
         nonce_base64url: &nonce,

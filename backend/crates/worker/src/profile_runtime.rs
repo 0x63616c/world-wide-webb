@@ -227,3 +227,52 @@ pub(crate) async fn mutate(
     db.batch(writes).await.map_err(|_| Failure::conflict())?;
     response(&value)
 }
+
+pub(crate) async fn blocks(
+    request: &Request,
+    db: &D1Database,
+    config: &Configuration,
+    request_id: &Id,
+) -> Result<Response, Failure> {
+    let session = community_session(request, db, config).await?;
+    let url = request.url().map_err(|_| Failure::malformed())?;
+    let mut query = std::collections::BTreeMap::new();
+    for (k, v) in url.query_pairs() {
+        if !["limit", "cursor"].contains(&k.as_ref())
+            || query.insert(k.into_owned(), v.into_owned()).is_some()
+        {
+            return Err(Failure::malformed());
+        }
+    }
+    let limit = query
+        .get("limit")
+        .map(|v| v.parse::<usize>())
+        .transpose()
+        .map_err(|_| Failure::malformed())?
+        .unwrap_or(50);
+    if !(1..=100).contains(&limit) {
+        return Err(Failure::malformed());
+    }
+    #[derive(Deserialize, Serialize)]
+    struct Block {
+        participant_id: String,
+    }
+    let rows=statement(db,"SELECT subject_participant_id AS participant_id FROM blocks WHERE participant_id=?1 ORDER BY subject_participant_id",&[text(&session.participant_id)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Block>().map_err(|_|Failure::unavailable())?;
+    let entries: Vec<_> = rows
+        .iter()
+        .map(serde_json::to_value)
+        .collect::<Result<_, _>>()
+        .map_err(|_| Failure::unavailable())?;
+    let mut page = crate::results_runtime::page(
+        &entries,
+        "participant_id",
+        "blocks",
+        limit,
+        query.get("cursor"),
+        &session,
+        config,
+    )?;
+    page["request_id"] = serde_json::to_value(request_id).map_err(|_| Failure::unavailable())?;
+    crate::results_runtime::fence(db, config, &session).await?;
+    response(&page)
+}

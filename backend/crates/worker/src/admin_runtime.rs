@@ -18,6 +18,7 @@ struct Page {
     next: String,
 }
 struct Row {
+    image: String,
     participant: String,
     label: String,
     details: String,
@@ -59,17 +60,17 @@ struct Audit {
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct Command {
-    operation_id: Id,
-    csrf_token: String,
-    participant_id: Id,
-    expected_revision: i64,
-    action: String,
-    reason: String,
+pub(crate) struct Command {
+    pub(crate) operation_id: Id,
+    pub(crate) csrf_token: String,
+    pub(crate) participant_id: Id,
+    pub(crate) expected_revision: i64,
+    pub(crate) action: String,
+    pub(crate) reason: String,
     #[serde(default)]
-    until_ms: String,
+    pub(crate) until_ms: String,
     #[serde(default)]
-    event_id: String,
+    pub(crate) event_id: String,
 }
 #[derive(Deserialize, Serialize)]
 struct State {
@@ -93,7 +94,7 @@ fn html(page: Page) -> std::result::Result<Response, Failure> {
         ("Referrer-Policy", "no-referrer"),
         (
             "Content-Security-Policy",
-            "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+            "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
         ),
     ] {
         response
@@ -132,6 +133,12 @@ pub(crate) async fn dispatch(
         return Err(Failure::malformed());
     }
     let path = request.path();
+    if let Some(id) = path
+        .strip_prefix("/admin/avatars/")
+        .and_then(|v| v.strip_suffix("/image"))
+    {
+        return crate::avatar_admin::image(env, &db, id).await;
+    }
     let mut page = Page {
         title: "People".into(),
         rows: vec![],
@@ -157,7 +164,7 @@ pub(crate) async fn dispatch(
         .find(|(key, _)| key == "kind")
         .map(|(_, value)| value.as_ref())
         .unwrap_or("names");
-    if !["names", "reports", "quarantine"].contains(&queue_kind) {
+    if !["names", "reports", "quarantine", "avatars"].contains(&queue_kind) {
         return Err(Failure::malformed());
     }
     if !after.is_empty() {
@@ -167,6 +174,7 @@ pub(crate) async fn dispatch(
         let rows=statement(&db,"SELECT p.participant_id,coalesce(f.nickname,'Deleted') AS nickname,p.membership,p.restriction,r.revision FROM participants p JOIN participant_revisions r ON r.participant_id=p.participant_id LEFT JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id>?1 ORDER BY p.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Person>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
+                image: String::new(),
                 participant: row.participant_id.clone(),
                 label: row.nickname.clone(),
                 details: format!("{} · {}", row.membership, row.restriction),
@@ -179,6 +187,31 @@ pub(crate) async fn dispatch(
         }
         if rows.len() > 50 {
             page.next = format!("/admin/participants?after={}", rows[49].participant_id);
+        }
+    } else if path == "/admin/queue" && queue_kind == "avatars" {
+        page.title = "Avatars".into();
+        #[derive(Deserialize)]
+        struct PendingAvatar {
+            avatar_id: String,
+            participant_id: String,
+            revision: i64,
+        }
+        let rows=statement(&db,"SELECT avatar_id,participant_id,revision FROM avatar_objects WHERE state='pending' AND avatar_id>?1 ORDER BY avatar_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<PendingAvatar>().map_err(|_|Failure::unavailable())?;
+        for row in rows.iter().take(50) {
+            page.rows.push(Row {
+                image: format!("/admin/avatars/{}/image", row.avatar_id),
+                participant: row.participant_id.clone(),
+                label: row.avatar_id.clone(),
+                details: "Pending avatar".into(),
+                path: format!("/admin/avatars/{}/decision", row.avatar_id),
+                revision: row.revision,
+                event_id: String::new(),
+                operation: uuid()?,
+                actions: vec!["approve".into(), "reject".into(), "remove".into()],
+            });
+        }
+        if rows.len() > 50 {
+            page.next = format!("/admin/queue?kind=avatars&after={}", rows[49].avatar_id);
         }
     } else if path == "/admin/queue" && queue_kind == "reports" {
         page.title = "Reports".into();
@@ -195,6 +228,7 @@ pub(crate) async fn dispatch(
         let rows=statement(&db,"SELECT report_id,participant_id,subject_participant_id,reason,comment,state,revision FROM reports WHERE report_id>?1 ORDER BY report_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<ReportRow>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
+                image: String::new(),
                 participant: row.subject_participant_id.clone(),
                 label: row.reason.clone(),
                 details: format!(
@@ -227,6 +261,7 @@ pub(crate) async fn dispatch(
         let rows=statement(&db,"SELECT o.participant_id,o.event_id,o.reason_code,o.event_json,r.revision FROM observations o JOIN participant_revisions r ON r.participant_id=o.participant_id WHERE o.disposition='quarantined' AND o.event_id>?1 ORDER BY o.event_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Quarantine>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
+                image: String::new(),
                 participant: row.participant_id.clone(),
                 label: row.event_id.clone(),
                 details: format!(
@@ -253,6 +288,7 @@ pub(crate) async fn dispatch(
         let rows=statement(&db,"SELECT n.participant_id,n.requested_nickname,r.revision FROM nickname_requests n JOIN participant_revisions r ON r.participant_id=n.participant_id WHERE n.participant_id>?1 ORDER BY n.participant_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Pending>().map_err(|_|Failure::unavailable())?;
         for row in rows.iter().take(50) {
             page.rows.push(Row {
+                image: String::new(),
                 participant: row.participant_id.clone(),
                 label: row.requested_nickname.clone(),
                 details: "Pending name".into(),
@@ -271,6 +307,7 @@ pub(crate) async fn dispatch(
         let rows=statement(&db,"SELECT participant_id,actor,action,reason,created_at_ms FROM moderation_actions ORDER BY created_at_ms DESC LIMIT 50",&[])?.all().await.map_err(|_|Failure::unavailable())?.results::<Audit>().map_err(|_|Failure::unavailable())?;
         for row in rows {
             page.rows.push(Row {
+                image: String::new(),
                 participant: row.participant_id,
                 label: row.action,
                 details: format!("{}\n{}\n{}", row.actor, row.created_at_ms, row.reason),
@@ -286,6 +323,7 @@ pub(crate) async fn dispatch(
         page.title = "Participant".into();
         let person=statement(&db,"SELECT p.participant_id,coalesce(f.nickname,'Deleted') AS nickname,p.membership,p.restriction,r.revision FROM participants p JOIN participant_revisions r ON r.participant_id=p.participant_id LEFT JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(id.as_str())])?.first::<Person>(None).await.map_err(|_|Failure::unavailable())?.ok_or(Failure{status:404,code:"not_found",retryable:false})?;
         page.rows.push(Row {
+            image: String::new(),
             participant: person.participant_id.clone(),
             label: person.nickname,
             details: format!("{} · {}", person.membership, person.restriction),
@@ -298,6 +336,7 @@ pub(crate) async fn dispatch(
         let events=statement(&db,"SELECT event_id,event_json,disposition,reason_code,received_at_ms FROM observations WHERE participant_id=?1 ORDER BY received_at_ms DESC LIMIT 50",&[text(id.as_str())])?.all().await.map_err(|_|Failure::unavailable())?.results::<Evidence>().map_err(|_|Failure::unavailable())?;
         for event in events {
             page.rows.push(Row {
+                image: String::new(),
                 participant: person.participant_id.clone(),
                 label: event.event_id.clone(),
                 details: format!(
@@ -351,6 +390,12 @@ async fn mutate(
         return Err(Failure::malformed());
     }
     let path = request.path();
+    let avatar_id = path
+        .strip_prefix("/admin/avatars/")
+        .and_then(|v| v.strip_suffix("/decision"));
+    if let Some(id) = avatar_id {
+        Id::parse(id).map_err(|_| Failure::malformed())?;
+    }
     let report_id = path
         .strip_prefix("/admin/reports/")
         .and_then(|v| v.strip_suffix("/decision"));
@@ -358,7 +403,8 @@ async fn mutate(
         Id::parse(id).map_err(|_| Failure::malformed())?;
     }
     let names = path == format!("/admin/names/{}/decision", input.participant_id.as_str());
-    if !(report_id.is_some() && ["close", "reopen"].contains(&input.action.as_str())
+    if !(avatar_id.is_some() && ["approve", "reject", "remove"].contains(&input.action.as_str())
+        || report_id.is_some() && ["close", "reopen"].contains(&input.action.as_str())
         || names && ["approve", "reject", "remove"].contains(&input.action.as_str())
         || path == "/admin/moderation"
             && [
@@ -392,6 +438,9 @@ async fn mutate(
             return Err(Failure::conflict());
         }
         return redirect();
+    }
+    if let Some(id) = avatar_id {
+        return crate::avatar_admin::decision(db, admin, &input, id, &hash).await;
     }
     if let Some(id) = report_id {
         return report_decision(db, admin, &input, id, &hash).await;

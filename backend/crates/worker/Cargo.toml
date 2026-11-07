@@ -18,6 +18,7 @@ sha2.workspace = true
 worker = { version = "=0.8.7", features = ["d1", "queue"] }
 askama = { version = "=0.16.1", default-features = false, features = ["derive", "std"] }
 p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "alloc", "pkcs8"] }
+chrono-tz = "=0.10.4"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 rasn = { version = "=0.30.0", default-features = false, features = ["bytes"] }
 rasn-cms = { version = "=0.30.0", default-features = false }

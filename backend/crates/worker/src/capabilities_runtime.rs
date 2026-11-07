@@ -20,6 +20,9 @@ const IMPLEMENTED: &[&str] = &[
     "leaderboard.live",
     "results.finalized",
     "results.share",
+    "avatars.upload",
+    "avatars.moderation",
+    "notifications.results",
     "profiles.edit",
     "moderation.reports",
     "moderation.blocks",
@@ -36,12 +39,24 @@ pub(crate) fn get(env: &Env, request_id: &Id) -> std::result::Result<Response, F
         .var("VERIFIED_CAPABILITIES")
         .map(|v| v.to_string())
         .unwrap_or_else(|_| "[]".into());
-    let enabled: Vec<String> =
+    let mut enabled: Vec<String> =
         serde_json::from_str(&configured).map_err(|_| Failure::unavailable())?;
     if enabled.len() > IMPLEMENTED.len()
         || enabled.iter().any(|c| !IMPLEMENTED.contains(&c.as_str()))
     {
         return Err(Failure::unavailable());
+    }
+    if !env
+        .var("AVATAR_UPLOADS_ENABLED")
+        .is_ok_and(|v| v.to_string() == "true")
+    {
+        enabled.retain(|name| name != "avatars.upload");
+    }
+    if !env
+        .var("APNS_ENABLED")
+        .is_ok_and(|v| v.to_string() == "true")
+    {
+        enabled.retain(|name| name != "notifications.results");
     }
     let capabilities: BTreeSet<_> = enabled.into_iter().collect();
     response(

@@ -32,6 +32,13 @@ impl AttestationConfiguration {
             .var("APP_ATTEST_ENVIRONMENT")
             .map_err(|_| Failure::unavailable())?
             .to_string();
+        if env
+            .var("DEPLOYMENT")
+            .is_ok_and(|v| v.to_string() == "production")
+            && environment != "production"
+        {
+            return Err(Failure::unavailable());
+        }
         let versions: Vec<String> = serde_json::from_str(
             &env.var("APP_ATTEST_BUNDLE_VERSIONS")
                 .map_err(|_| Failure::unavailable())?

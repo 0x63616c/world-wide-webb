@@ -27,8 +27,20 @@ pub async fn cleanup(db: &D1Database, timestamp: i64) -> Result<()> {
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _context: ScheduleContext) {
     let result = match env.d1("DB") {
         Ok(db) => {
+            if crate::avatar_runtime::cleanup_objects(&env, &db)
+                .await
+                .is_err()
+            {
+                console_error!("avatar_cleanup_failed");
+            }
+            if crate::avatar_alerts::dispatch(&env, &db).await.is_err() {
+                console_error!("avatar_alert_delivery_failed");
+            }
             if crate::finalization_runtime::dispatch(&db).await.is_err() {
                 console_error!("period_finalization_failed");
+            }
+            if crate::apns_runtime::dispatch(&env, &db).await.is_err() {
+                console_error!("award_delivery_failed");
             }
             if crate::deletion_runtime::process(&env, &db).await.is_err() {
                 console_error!("account_deletion_job_failed");

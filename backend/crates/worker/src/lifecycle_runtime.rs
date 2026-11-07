@@ -139,6 +139,10 @@ pub(crate) async fn leave(
         return Ok(response(&value)?.with_status(202));
     }
     writes.extend(erase_results(db, &session.participant_id)?);
+    writes.extend(crate::avatar_runtime::purge_owned(
+        db,
+        &session.participant_id,
+    )?);
     writes.push(statement(
         db,
         "UPDATE epochs SET closed_at_ms=?1 WHERE participant_id=?2 AND closed_at_ms IS NULL",
@@ -157,7 +161,7 @@ pub(crate) async fn leave(
             &[text(&session.participant_id)],
         )?);
     }
-    let value = serde_json::json!({"operation_id":input.operation_id,"state":"completed","error_code":null,"request_id":request_id});
+    let value = serde_json::json!({"operation_id":input.operation_id,"state":"pending","error_code":null,"request_id":request_id});
     writes.push(statement(
         db,
         "INSERT INTO competition_operations VALUES (?1,?2,'/v1/enrollment/leave',?3,?4)",

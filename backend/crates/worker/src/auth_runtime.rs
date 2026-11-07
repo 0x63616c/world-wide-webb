@@ -155,6 +155,48 @@ pub async fn dispatch(
     body: &[u8],
     request_id: &Id,
 ) -> std::result::Result<Option<Response>, Failure> {
+    if request.path().starts_with("/v1/avatars/") {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return match request.method() {
+            Method::Put => Ok(Some(
+                crate::avatar_runtime::upload(request, env, &db, &config, body, request_id).await?,
+            )),
+            Method::Get => Ok(Some(
+                crate::avatar_runtime::read(request, env, &db, &config, request_id).await?,
+            )),
+            Method::Delete => Ok(Some(
+                crate::avatar_runtime::remove(request, &db, &config, request_id).await?,
+            )),
+            _ => Err(Failure::malformed()),
+        };
+    }
+    if (request.path() == "/v1/preferences" && request.method() == Method::Put)
+        || (request.path().starts_with("/v1/push-installations/")
+            && [Method::Put, Method::Delete].contains(&request.method()))
+    {
+        let content = request
+            .headers()
+            .get("Content-Type")
+            .map_err(|_| Failure::malformed())?
+            .unwrap_or_default();
+        if content.split(';').next().map(str::trim) != Some("application/json") {
+            return Err(Failure::malformed());
+        }
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::notification_runtime::mutate(request, env, &db, &config, body, request_id)
+                .await?,
+        ));
+    }
+    if request.method() == Method::Get && request.path() == "/v1/blocks" {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::profile_runtime::blocks(request, &db, &config, request_id).await?,
+        ));
+    }
     if request.method() == Method::Get && request.path() == "/v1/capabilities" {
         return Ok(Some(crate::capabilities_runtime::get(env, request_id)?));
     }

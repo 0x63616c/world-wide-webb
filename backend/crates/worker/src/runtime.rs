@@ -41,12 +41,18 @@ async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Resp
         return error(404, "not_found", id, false);
     }
     let mut body = Vec::new();
-    if request.method() != Method::Get && request.method() != Method::Head {
+    let avatar_delete = request.method() == Method::Delete && path.starts_with("/v1/avatars/");
+    let max_body = if request.method() == Method::Put && path.starts_with("/v1/avatars/") {
+        crate::avatar::MAX_INPUT_BYTES
+    } else {
+        MAX_JSON_BYTES
+    };
+    if request.method() != Method::Get && request.method() != Method::Head && !avatar_delete {
         if let Some(length) = request.headers().get("Content-Length")? {
             let Ok(length) = length.parse::<usize>() else {
                 return error(400, "malformed_request", id, false);
             };
-            if length > MAX_JSON_BYTES {
+            if length > max_body {
                 return error(413, "body_too_large", id, false);
             }
         }
@@ -59,7 +65,7 @@ async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Resp
                 return error(400, "malformed_request", id, false);
             };
             length = length.saturating_add(chunk.len());
-            if length > MAX_JSON_BYTES {
+            if length > max_body {
                 return error(413, "body_too_large", id, false);
             }
             body.extend(chunk);

@@ -4,6 +4,9 @@ pub mod access_identity;
 mod admin_auth;
 #[cfg(target_arch = "wasm32")]
 mod admin_runtime;
+pub mod apns;
+#[cfg(target_arch = "wasm32")]
+mod apns_runtime;
 pub mod apple_client;
 pub mod apple_identity;
 #[cfg(target_arch = "wasm32")]
@@ -20,6 +23,12 @@ mod auth_runtime;
 mod auth_signin;
 pub mod auth_wire;
 pub mod avatar;
+#[cfg(target_arch = "wasm32")]
+mod avatar_admin;
+#[cfg(target_arch = "wasm32")]
+mod avatar_alerts;
+#[cfg(target_arch = "wasm32")]
+mod avatar_runtime;
 #[cfg(target_arch = "wasm32")]
 mod capabilities_runtime;
 pub mod certificate;
@@ -42,6 +51,8 @@ mod lifecycle_runtime;
 mod moderation_scores;
 pub mod mutation;
 pub mod name_policy;
+#[cfg(target_arch = "wasm32")]
+mod notification_runtime;
 pub mod periods;
 pub mod presentation;
 #[cfg(target_arch = "wasm32")]

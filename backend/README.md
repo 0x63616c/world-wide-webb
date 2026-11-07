@@ -112,3 +112,20 @@ previews, operational switches, appeals/annual ban review and full pagination/re
 the deployment owner populates **only after final acceptance**; the safe default is `[]`. `/v1/capabilities`
 returns no user or authentication data. The supported names and reserved later names are in the HTTP
 catalog. Compiling a handler does not itself authorize advertising it as release-ready.
+
+### Avatar and push implementation
+
+Apply migrations through **0012**. Avatar upload/status/removal, private R2 sanitization, Access-protected
+moderation and leased tombstone cleanup are implemented. `AVATAR_UPLOADS_ENABLED` defaults false
+until final acceptance. `AVATARS` is private R2; never attach a public bucket domain. Optional outbound
+`ADMIN_EMAIL` requires `ADMIN_EMAIL_ENABLED=true`, verified `ADMIN_ALERT_FROM` and `ADMIN_ALERT_TO`;
+leave it disabled until sender delivery is verified. The admin avatar queue needs no email binding.
+
+Preferences and encrypted APNs registration feed leased award delivery. Configure `APNS_TOPIC`,
+`APNS_ENVIRONMENT`, `APNS_KEY_ID`, `APNS_TEAM_ID`; secrets `APNS_PRIVATE_KEY_PKCS8` (base64url DER)
+and independent stable `APNS_TOKEN_HMAC_KEY` (base64url 32 bytes). `APNS_ENABLED` defaults false.
+Production requires production APNs environment. Shared encrypted provider tokens rotate after 50
+minutes. Logical awards remain unique across retries/corrections; stable APNs IDs reduce duplicates but
+cannot promise exactly-once display. Both feature gates filter the advertised capability allowlist.
+These implementations still require final real-runtime/service acceptance. Queue wiring, historical
+corrections and remaining admin operational controls are not complete yet.

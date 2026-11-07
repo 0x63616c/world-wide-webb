@@ -80,7 +80,7 @@ async fn authorize(
     }
     Ok(session)
 }
-async fn fence(
+pub(crate) async fn fence(
     db: &D1Database,
     config: &Configuration,
     session: &CommunitySession,
@@ -103,7 +103,7 @@ async fn fence(
     .map_err(|_| Failure::unauthorized())?;
     Ok(())
 }
-fn page(
+pub(crate) fn page(
     entries: &[serde_json::Value],
     key: &str,
     scope: &str,
