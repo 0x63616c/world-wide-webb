@@ -1,25 +1,30 @@
 {
   "$schema": "https://raw.githubusercontent.com/0x63616c/homelab-cli/main/schema/homelab-v2.schema.json",
   "schema": 2,
-  "onePassword": { "backupVault": "homelab" },
-  "tailscale": {
-    "tag": "tag:homelab",
-    "oauth": { "vault": "homelab", "item": "Homelab Tailscale OAuth" }
+  "onePassword": {
+    "backupVault": "homelab"
   },
   "hosts": {
-    "homelab-macbook": {
-      "adminUser": "admin",
-      "adminUID": 501,
-      "authorizedKeys": [],
-      "activationReady": false,
-      "services": []
-    },
     "homelab-mac-mini": {
       "adminUser": "calum",
       "adminUID": 501,
       "authorizedKeys": [],
-      "activationReady": false,
       "services": []
+    },
+    "homelab-macbook": {
+      "adminUser": "admin",
+      "adminUID": 501,
+      "authorizedKeys": [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHZ7LV/EOeunWFi71s4dNzLnwsusY9RlMj37TaPecurE"
+      ],
+      "services": []
+    }
+  },
+  "tailscale": {
+    "tag": "tag:homelab",
+    "oauth": {
+      "vault": "homelab",
+      "item": "Homelab Tailscale OAuth"
     }
   }
 }
