@@ -146,7 +146,7 @@
               };
               sops.gnupg.sshKeyPaths = [];
               sops.defaultSopsFile = ./secrets/vm-test.sops.yaml;
-              sops.secrets.vm-rehearsal-marker.mode = "0400";
+              sops.secrets.tailscale-auth-key.mode = "0400";
               system.activationScripts.preActivation.text = lib.mkBefore
                 (builtins.readFile ./assert-guest.sh);
               launchd.daemons.vm-e2e = {

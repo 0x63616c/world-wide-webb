@@ -20,8 +20,8 @@ fn sysctl(name: &str) -> Option<String> {
 fn healthy() -> bool {
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
-        let decrypted = fs::read_to_string("/run/secrets/vm-rehearsal-marker")
-            .is_ok_and(|value| value.trim() == "synthetic-vm-only");
+        let decrypted = fs::read_to_string("/run/secrets/tailscale-auth-key")
+            .is_ok_and(|value| value.trim() == "tskey-auth-synthetic-vm-only");
         let booted = sysctl("kern.boottime").is_some_and(|boot| {
             fs::read_to_string("/var/tmp/homelab-vm-e2e-boot")
                 .is_ok_and(|marker| marker.trim() == boot)

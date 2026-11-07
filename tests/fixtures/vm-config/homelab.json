@@ -4,10 +4,8 @@
     "vm-test": {
       "adminUser": "admin",
       "adminUID": 501,
-      "authorizedKeys": [
-        "REPLACE_WITH_DISPOSABLE_VM_SSH_PUBLIC_KEY"
-      ],
-      "activationReady": true,
+      "authorizedKeys": [],
+      "activationReady": false,
       "services": []
     }
   },

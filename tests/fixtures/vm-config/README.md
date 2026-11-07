@@ -1,7 +1,8 @@
 # Disposable macOS fixture
 
-This template is incomplete until a disposable repository, public key and SOPS
-ciphertext are supplied. It exercises real bootstrap, Nix activation, decryption,
+This template starts unready, without administrator keys or SOPS ciphertext.
+The full enrollment rehearsal must add those through its real enrollment PR.
+It exercises real bootstrap, Nix activation, decryption,
 reboot, enrollment receipts and Comin reconciliation. Tailscale status and its
 operator-side route are synthetic: no real vault, tailnet or production services
 are involved. Never activate it on physical hardware.
@@ -17,15 +18,18 @@ The operator publishes this repository; the harness never creates or pushes it.
    is mandatory to replace. `helperRevision` pins the published public helper
    candidate independently; update it only to the exact reviewed candidate SHA.
 2. Generate a disposable Ed25519 administrator key outside the checkout using
-   `ssh-keygen -t ed25519 -N '' -f STATE/id_ed25519`. Put only its public key in
-   `homelab.json`. Keep all private fixture state owner-only and outside Git.
-3. Generate a disposable age identity outside the checkout. Encrypt only
-   `vm-rehearsal-marker: synthetic-vm-only` as `secrets/vm-test.sops.yaml` using
-   SOPS, an isolated configuration and the explicit disposable age recipient.
-4. Publish these files as enrollment commit A. Use the real target reservation,
+   `ssh-keygen -t ed25519 -N '' -f STATE/id_ed25519`. Install it only in the guest
+   for initial access. Keep private fixture state owner-only and outside Git.
+3. Publish the unready baseline. The full wizard rehearsal supplies a synthetic
+   issuer whose only key is `tskey-auth-synthetic-vm-only`. Real age/SOPS encrypts
+   the production field `tailscale-auth-key` as `secrets/vm-test.sops.yaml`.
+   The wizard's PR adds the administrator key and marks the host ready.
+4. Merge that PR as enrollment commit A. Use the real target reservation,
    target-generated deploy identity and bootstrap operations. Register only that
    target public key as a read-only deploy key on this disposable repository.
-   Bootstrap must create the genuine activation hold and receipts. **Do not seed
+   For completion-only tests, prepare the same ready manifest and encrypted
+   payload before invoking real bootstrap. Bootstrap must create the genuine
+   activation hold and receipts. **Do not seed
    or fabricate `/var/db/homelab-setup` or `/var/lib/homelab/hold`.**
 5. After A activates while held, publish a harmless commit B to the same main.
    Keep its administrator, helper, synthetic status, and service assignments
