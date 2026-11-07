@@ -290,6 +290,7 @@ enum ExportChoice { case json, csv }
     }
   }
 
+  var publicTrackingPhone: TrackingPhoneSelection?
   var localDeviceID: UUID?
   var lastEventAt: Date?
   var needsSetup: Bool { setup?.step != .complete }
@@ -301,7 +302,7 @@ enum ExportChoice { case json, csv }
 
   func selectThisPhone(using actions: FoldingActions) async {
     guard let use = actions.useThisPhone, let selection = trackingPhoneSelection,
-      selection != .thisPhone
+      selection != .thisPhone || publicTrackingPhone == .anotherPhone
     else { return }
     await command(String(localized: "phone.switching", defaultValue: "Switching phone")) {
       try await use()

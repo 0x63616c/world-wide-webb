@@ -90,7 +90,8 @@ public actor TrackingStore {
         .first?["value"]
       if let previous, previous != installationID.canonical {
         try connection.retireInstallation(previous)
-        try connection.execute("DELETE FROM settings WHERE key='competition_epoch'")
+        try connection.execute(
+          "DELETE FROM settings WHERE key IN ('competition_epoch','competition_transfer')")
         try connection.execute(
           "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
         try connection.execute("UPDATE setup_attempt SET status='cancelled' WHERE status='waiting'")
@@ -117,7 +118,8 @@ public actor TrackingStore {
         try connection.retireInstallation(
           installationID.uuidString.lowercased(), reason: .trackingInterruption)
       }
-      try connection.execute("DELETE FROM settings WHERE key='competition_epoch'")
+      try connection.execute(
+        "DELETE FROM settings WHERE key IN ('competition_epoch','competition_transfer')")
       try connection.execute(
         "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
       try connection.execute("UPDATE setup_attempt SET status='cancelled' WHERE status='waiting'")
@@ -393,51 +395,125 @@ public actor TrackingStore {
   {
     try validateTime(nowMS)
     return try journalTransaction {
-      let markers = try transferMarkersInTransaction()
-      let knownSource = try !database.rows(
-        "SELECT device_id FROM known_source_sequences WHERE device_id=?",
-        [.text(activeDeviceID.canonical)]
-      ).isEmpty
-      guard
-        activeDeviceID == deviceID || knownSource
-          || markers.contains(where: {
-            $0.activeDeviceID == activeDeviceID || $0.sourceWatermarks[activeDeviceID] != nil
-          })
-      else { throw StoreError.invalidInput }
-      var watermarks: [UUID: Int64] = [:]
-      // Remember earlier captured knowledge even if that source has since been selected active.
-      for prior in markers {
-        for (source, sequence) in prior.sourceWatermarks {
-          watermarks[source] = max(watermarks[source, default: 0], sequence)
-        }
-      }
-      for row in try database.rows("SELECT device_id,sequence FROM known_source_sequences") {
-        guard let source = row["device_id"].flatMap(UUID.init(uuidString:)),
-          let sequence = row["sequence"].flatMap(Int64.init)
-        else { throw StoreError.invalidInput }
+      try selectTrackingDeviceInTransaction(activeDeviceID, transferID: UUID(), nowMS: nowMS)
+    }
+  }
+
+  private func selectTrackingDeviceInTransaction(
+    _ activeDeviceID: UUID, transferID: UUID, nowMS: Int64
+  ) throws -> PrivateTransferMarker {
+    let markers = try transferMarkersInTransaction()
+    let knownSource = try !database.rows(
+      "SELECT device_id FROM known_source_sequences WHERE device_id=?",
+      [.text(activeDeviceID.canonical)]
+    ).isEmpty
+    guard
+      activeDeviceID == deviceID || knownSource
+        || markers.contains(where: {
+          $0.activeDeviceID == activeDeviceID || $0.sourceWatermarks[activeDeviceID] != nil
+        })
+    else { throw StoreError.invalidInput }
+    var watermarks: [UUID: Int64] = [:]
+    // Remember earlier captured knowledge even if that source has since been selected active.
+    for prior in markers {
+      for (source, sequence) in prior.sourceWatermarks {
         watermarks[source] = max(watermarks[source, default: 0], sequence)
       }
-      watermarks.removeValue(forKey: activeDeviceID)
-      let highest =
-        try database.rows("SELECT MAX(revision) AS revision FROM transfer_markers").first?[
-          "revision"
-        ].flatMap(Int64.init) ?? 0
-      guard highest < TrackingReducer.maximumInteger else { throw StoreError.exhaustedSequence }
-      let marker = PrivateTransferMarker(
-        transferID: UUID(), revision: highest + 1, activeDeviceID: activeDeviceID,
-        sourceWatermarks: watermarks, createdAtMS: nowMS)
-      try importTransferInTransaction(marker)
+    }
+    for row in try database.rows("SELECT device_id,sequence FROM known_source_sequences") {
+      guard let source = row["device_id"].flatMap(UUID.init(uuidString:)),
+        let sequence = row["sequence"].flatMap(Int64.init)
+      else { throw StoreError.invalidInput }
+      watermarks[source] = max(watermarks[source, default: 0], sequence)
+    }
+    watermarks.removeValue(forKey: activeDeviceID)
+    let highest =
+      try database.rows("SELECT MAX(revision) AS revision FROM transfer_markers").first?[
+        "revision"
+      ].flatMap(Int64.init) ?? 0
+    guard highest < TrackingReducer.maximumInteger else { throw StoreError.exhaustedSequence }
+    let marker = PrivateTransferMarker(
+      transferID: transferID, revision: highest + 1, activeDeviceID: activeDeviceID,
+      sourceWatermarks: watermarks, createdAtMS: nowMS)
+    try importTransferInTransaction(marker)
+    let current = try generation()
+    for (source, sequence) in watermarks {
+      let boundary = TrackingInterruption(
+        interruptionID: UUID(), deviceID: source, generation: current,
+        afterSequence: sequence, reason: .transferAway, observedAtMS: nowMS)
+      try importInterruptionInTransaction(boundary)
+      try enqueue("mirror_interruption", entity: boundary.interruptionID, generation: current)
+    }
+    // Transfer work is generation-independent and survives all event reset cleanup.
+    try enqueue("mirror_transfer", entity: marker.transferID, generation: .initial)
+    return marker
+  }
+
+  /// A durable intent scoped to this private partition, account, installation and reset generation.
+  public func beginCompetitionTransfer(
+    participantID: UUID, fromEpochID: UUID, replaceChangedEpoch: Bool = false
+  ) throws -> PendingCompetitionTransfer {
+    try journalTransaction {
       let current = try generation()
-      for (source, sequence) in watermarks {
-        let boundary = TrackingInterruption(
-          interruptionID: UUID(), deviceID: source, generation: current,
-          afterSequence: sequence, reason: .transferAway, observedAtMS: nowMS)
-        try importInterruptionInTransaction(boundary)
-        try enqueue("mirror_interruption", entity: boundary.interruptionID, generation: current)
+      if let row = try database.rows("SELECT value FROM settings WHERE key='competition_transfer'")
+        .first
+      {
+        let pending: PendingCompetitionTransfer = try decode(row["value"]!)
+        if pending.participantID == participantID && pending.deviceID == deviceID
+          && pending.generation == current
+          && (!replaceChangedEpoch || pending.fromEpochID == fromEpochID)
+        {
+          return pending
+        }
       }
-      // Transfer work is generation-independent and survives all event reset cleanup.
-      try enqueue("mirror_transfer", entity: marker.transferID, generation: .initial)
-      return marker
+      let pending = PendingCompetitionTransfer(
+        operationID: UUID(), resetOperationID: UUID(), participantID: participantID,
+        deviceID: deviceID, fromEpochID: fromEpochID, generation: current)
+      try database.execute(
+        "INSERT INTO settings(key,value) VALUES ('competition_transfer',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        [.text(try encode(pending))])
+      return pending
+    }
+  }
+
+  public func pendingCompetitionTransfer() throws -> PendingCompetitionTransfer? {
+    try journalTransaction(write: false) {
+      guard
+        let row = try database.rows("SELECT value FROM settings WHERE key='competition_transfer'")
+          .first
+      else { return nil }
+      return try decode(row["value"]!)
+    }
+  }
+
+  /// The server response is authoritative; local selection and epoch become visible together.
+  public func completeCompetitionTransfer(
+    _ pending: PendingCompetitionTransfer, epochID: UUID, nowMS: Int64
+  ) throws {
+    try validateTime(nowMS)
+    try journalTransaction {
+      guard pending.deviceID == deviceID, pending.generation == (try generation()) else {
+        throw StoreError.staleGeneration
+      }
+      guard
+        let row = try database.rows("SELECT value FROM settings WHERE key='competition_transfer'")
+          .first
+      else {
+        if try competitionEpoch() == epochID,
+          try transferMarkersInTransaction().contains(where: {
+            $0.transferID == pending.operationID && $0.activeDeviceID == deviceID
+          })
+        {
+          return
+        }
+        throw StoreError.invalidInput
+      }
+      let saved: PendingCompetitionTransfer = try decode(row["value"]!)
+      guard saved == pending else { throw StoreError.invalidInput }
+      _ = try selectTrackingDeviceInTransaction(
+        deviceID, transferID: pending.operationID, nowMS: nowMS)
+      try setCompetitionEpochInTransaction(epochID)
+      try database.execute("DELETE FROM settings WHERE key='competition_transfer'")
     }
   }
 
@@ -963,19 +1039,34 @@ public actor TrackingStore {
 
   /// Called only with the confirmed enrollment response; this is local state, not server authorization.
   public func setCompetitionEpoch(_ epoch: UUID?) throws {
+    try journalTransaction { try setCompetitionEpochInTransaction(epoch) }
+  }
+
+  private func setCompetitionEpochInTransaction(_ epoch: UUID?) throws {
+    if try competitionEpoch() != epoch {
+      try database.execute("DELETE FROM settings WHERE key='competition_upload'")
+    }
+    try database.execute("DELETE FROM settings WHERE key='competition_epoch'")
+    if let epoch {
+      try database.execute(
+        "INSERT INTO settings(key,value) VALUES ('competition_epoch',?)", [.text(epoch.canonical)]
+      )
+    } else {
+      try database.execute(
+        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
+    }
+    if epoch == nil {
+      try database.execute("DELETE FROM settings WHERE key='competition_transfer'")
+    }
+  }
+
+  /// An authoritative /me response revoked this installation; retain a pending explicit handover.
+  public func suspendCompetitionUpload() throws {
     try journalTransaction {
-      if try competitionEpoch() != epoch {
-        try database.execute("DELETE FROM settings WHERE key='competition_upload'")
-      }
-      try database.execute("DELETE FROM settings WHERE key='competition_epoch'")
-      if let epoch {
-        try database.execute(
-          "INSERT INTO settings(key,value) VALUES ('competition_epoch',?)", [.text(epoch.canonical)]
-        )
-      } else {
-        try database.execute(
-          "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
-      }
+      try database.execute(
+        "DELETE FROM settings WHERE key IN ('competition_epoch','competition_upload')")
+      try database.execute(
+        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
     }
   }
 

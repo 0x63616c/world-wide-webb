@@ -13518,6 +13518,72 @@
           }
         }
       }
+    },
+    "phone.publicTransferEffect": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moves leaderboard tracking here. Later uploads from your other iPhone won’t count."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überträgt die Ranglisten-Erfassung auf dieses iPhone. Spätere Uploads vom anderen iPhone zählen nicht."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfère le suivi du classement ici. Les prochains envois de votre autre iPhone ne compteront pas."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traslada aquí el seguimiento de la clasificación. Los próximos envíos de tu otro iPhone no contarán."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traslada aquí el seguimiento de la clasificación. Los próximos envíos de tu otro iPhone no contarán."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ランキングの記録をこのiPhoneに移します。別のiPhoneからの今後の送信は集計されません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "순위표 기록을 이 iPhone으로 옮깁니다. 다른 iPhone에서 이후에 업로드한 기록은 집계되지 않습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfere o registro do ranking para cá. Os próximos envios do outro iPhone não serão contabilizados."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将排行榜记录转移到此 iPhone。另一部 iPhone 之后上传的记录将不计入排行榜。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將排行榜記錄移至此 iPhone。另一部 iPhone 之後上傳的記錄將不計入排行榜。"
+          }
+        }
+      },
+      "comment": "Confirmation explaining that public tracking moves to this phone and future uploads from the previous phone are excluded."
     }
   },
   "version": "1.0"

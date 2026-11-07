@@ -88,7 +88,7 @@ import struct FoldingData.SetupProgress
         UIApplication.shared.open(url)
       },
       useThisPhone: {
-        try await self.runtime.useThisPhone()
+        try await self.selectTrackingPhone()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
       },
@@ -128,6 +128,7 @@ import struct FoldingData.SetupProgress
           throw CompetitionTransportError.invalidResponse
         }
         try await store.setCompetitionEpoch(epoch)
+        self.presentation.publicTrackingPhone = .thisPhone
         self.presentation.competitionProfile = await self.profilePresentation(result.profile)
         self.joinedParticipantID = result.profile.participant_id
         self.competitionRestored = true
@@ -268,6 +269,7 @@ import struct FoldingData.SetupProgress
         try await runtime.store().setCompetitionEpoch(nil)
         try pushRegistration?.forgetAfterServerRemoval()
         joinedParticipantID = nil
+        presentation.publicTrackingPhone = nil
         pushDelegate?.discardPendingRoute()
         if operation.kind == .delete { try await api.transport.clearSession() }
         try await api.transport.finishRemoval()
@@ -298,6 +300,74 @@ import struct FoldingData.SetupProgress
     return api
   }
 
+  private func selectTrackingPhone() async throws {
+    guard joinedParticipantID != nil else {
+      try await runtime.useThisPhone()
+      return
+    }
+    let identity = competitionIdentityRevision
+    let api = try await competitionClient()
+    let store = try await runtime.store()
+    let me = try await api.me()
+    guard identity == competitionIdentityRevision, me.profile.membership == "joined",
+      me.profile.restriction == "none",
+      let participant = UUID(uuidString: me.profile.participant_id),
+      let enrollment = me.enrollment, let fromEpoch = UUID(uuidString: enrollment.epoch_id)
+    else { throw CompetitionTransportError.unavailable }
+    let pending = try await store.beginCompetitionTransfer(
+      participantID: participant, fromEpochID: fromEpoch,
+      replaceChangedEpoch: enrollment.device_id != store.deviceID.uuidString.lowercased())
+    // The reset is independent and uses its own durable operation; transfer never invents reset metadata.
+    if pending.generation > enrollment.generation {
+      try await api.synchronizeTransferReset(pending)
+    } else if pending.generation < enrollment.generation {
+      // Await the immutable iCloud reset marker instead of constructing a replacement locally.
+      throw CompetitionTransportError.unavailable
+    }
+    let confirmed: CompetitionWireEnrollment
+    if enrollment.device_id == store.deviceID.uuidString.lowercased() {
+      confirmed = try await api.me().enrollment ?? enrollment
+    } else {
+      confirmed = try await api.transfer(pending)
+    }
+    guard identity == competitionIdentityRevision,
+      confirmed.device_id == store.deviceID.uuidString.lowercased(),
+      confirmed.generation == pending.generation,
+      let epoch = UUID(uuidString: confirmed.epoch_id)
+    else { throw CompetitionTransportError.invalidResponse }
+    try await store.completeCompetitionTransfer(
+      pending, epochID: epoch, nowMS: TrackingRuntime.nowMS)
+    presentation.publicTrackingPhone = .thisPhone
+    await runtime.trackingPhoneChanged()
+  }
+
+  private func showPublicTrackingPhone(_ me: CompetitionMe) async throws {
+    let store = try await runtime.store()
+    let enrollment = me.profile.membership == "joined" ? me.enrollment : nil
+    presentation.publicTrackingPhone = enrollment.map {
+      $0.device_id == store.deviceID.uuidString.lowercased() ? .thisPhone : .anotherPhone
+    }
+    if me.profile.restriction == "none", let enrollment,
+      enrollment.device_id == store.deviceID.uuidString.lowercased(),
+      let epoch = UUID(uuidString: enrollment.epoch_id)
+    {
+      if let pending = try await store.pendingCompetitionTransfer(),
+        pending.participantID.uuidString.lowercased() == me.profile.participant_id,
+        pending.generation == enrollment.generation,
+        pending.generation == (try await store.currentGeneration())
+      {
+        // This resumes an explicit prior handover whose response/local commit was interrupted.
+        try await store.completeCompetitionTransfer(
+          pending, epochID: epoch, nowMS: TrackingRuntime.nowMS)
+        await runtime.trackingPhoneChanged()
+      } else {
+        try await store.setCompetitionEpoch(epoch)
+      }
+    } else {
+      try await store.suspendCompetitionUpload()
+    }
+  }
+
   private func profilePresentation(_ profile: CompetitionWireProfile) async -> CompetitionProfile {
     let avatar: Data?
     if let id = profile.avatar_id, let api = competitionAPI {
@@ -323,6 +393,7 @@ import struct FoldingData.SetupProgress
         return
       }
       let me = try await client.me()
+      try await showPublicTrackingPhone(me)
       presentation.competitionProfile = await profilePresentation(me.profile)
       competitionRestored = true
       joinedParticipantID =
@@ -339,6 +410,7 @@ import struct FoldingData.SetupProgress
       }
     } catch CompetitionTransportError.unauthorized {
       joinedParticipantID = nil
+      presentation.publicTrackingPhone = nil
       competitionRestored = true
       await configurePush()
       presentation.competition = .notJoined
@@ -359,6 +431,7 @@ import struct FoldingData.SetupProgress
       presentation.competition = .banned
     } else if profile.membership == "joined" {
       let me = try await api.me()
+      try await showPublicTrackingPhone(me)
       if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
       if let enrollment = me.enrollment,
         enrollment.device_id == store.deviceID.uuidString.lowercased(),
@@ -507,6 +580,7 @@ import struct FoldingData.SetupProgress
       // The account-change fence still proceeds; session revocation remains the server cleanup boundary.
     }
     joinedParticipantID = nil
+    presentation.publicTrackingPhone = nil
     competitionRestored = false
     if let competitionAPI { try? await competitionAPI.transport.clearSession() }
     competitionAPI = nil

@@ -1298,7 +1298,9 @@ private struct TrackingPhoneScreen: View {
             selection.title,
             systemImage: selection == .thisPhone
               ? "iphone.gen3" : "iphone.gen3.radiowaves.left.and.right")
-          if selection != .thisPhone, actions.useThisPhone != nil {
+          if selection != .thisPhone || model.publicTrackingPhone == .anotherPhone,
+            actions.useThisPhone != nil
+          {
             Button(String(localized: "phone.useThis", defaultValue: "Use this iPhone")) {
               confirming = true
             }
@@ -1306,6 +1308,11 @@ private struct TrackingPhoneScreen: View {
           }
         } else {
           ProgressView()
+        }
+      }
+      if let selection = model.publicTrackingPhone {
+        Section(String(localized: "tab.leaderboard", defaultValue: "Leaderboard")) {
+          Label(selection.title, systemImage: "trophy")
         }
       }
     }
@@ -1325,6 +1332,14 @@ private struct TrackingPhoneConfirmation: View {
   var body: some View {
     Form {
       Section {
+        if model.publicTrackingPhone == .anotherPhone {
+          Text(
+            String(
+              localized: "phone.publicTransferEffect",
+              defaultValue:
+                "Moves leaderboard tracking here. Later uploads from your other iPhone won’t count."
+            ))
+        }
         Text(
           String(
             localized: "phone.transferEffect",
@@ -1336,7 +1351,9 @@ private struct TrackingPhoneConfirmation: View {
         }
         .disabled(
           model.operation != nil || actions.useThisPhone == nil
-            || model.trackingPhoneSelection == .thisPhone)
+            || (model.trackingPhoneSelection == .thisPhone
+              && model.publicTrackingPhone != .anotherPhone)
+        )
       }
     }
     .navigationTitle(String(localized: "phone.confirmTitle", defaultValue: "Use this iPhone?"))
@@ -1347,8 +1364,15 @@ private struct TrackingPhoneConfirmation: View {
           .disabled(model.operation != nil)
       }
     }
+    .onChange(of: model.operation) { _, operation in
+      if operation == nil && model.trackingPhoneSelection == .thisPhone
+        && model.publicTrackingPhone != .anotherPhone
+      {
+        dismiss()
+      }
+    }
     .onChange(of: model.trackingPhoneSelection) { _, selection in
-      if selection == .thisPhone { dismiss() }
+      if selection == .thisPhone && model.publicTrackingPhone != .anotherPhone { dismiss() }
     }
   }
 }
