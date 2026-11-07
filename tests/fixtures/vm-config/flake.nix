@@ -106,7 +106,17 @@
               environment.etc."homelab/github_known_hosts".source = ./github_known_hosts;
               services.comin = {
                 enable = true;
-                package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin;
+                # Use nix-darwin's boot profile for publication and bounded
+                # retention, without touching unrelated Nix profiles.
+                package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin.overrideAttrs (old: {
+                  patches = (old.patches or []) ++ [ ./comin-darwin-profile.patch ];
+                  doCheck = true;
+                  checkPhase = ''
+                    runHook preCheck
+                    go test ./internal/profile ./internal/executor -count=1
+                    runHook postCheck
+                  '';
+                });
                 hostname = "vm-test";
                 # The gate requires this bootstrap-owned directory to remain 0700.
                 grpc = {
@@ -119,7 +129,7 @@
                   name = "origin";
                   url = "git@github.com:${fixture.repository}.git";
                   branches.main.name = "main";
-                  poller.period = 600;
+                  poller.period = 300;
                   auth = {
                     username = "git";
                     ssh_deploy_key_path = "/var/lib/homelab-git/key.txt";

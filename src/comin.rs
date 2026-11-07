@@ -262,6 +262,16 @@ fn request_fetch(
     true
 }
 
+fn activation_matches(system: &Path, boot_profile: &Path, static_etc: &Path) -> bool {
+    let Ok(expected_etc) = system.join("etc").canonicalize() else {
+        return false;
+    };
+    boot_profile.canonicalize().is_ok_and(|path| path == system)
+        && static_etc
+            .canonicalize()
+            .is_ok_and(|path| path == expected_etc)
+}
+
 fn probe(
     repository: &str,
     host: &str,
@@ -301,7 +311,16 @@ fn probe(
     if request_fetch(&executable, socket, &output, identity, attempted, deadline) {
         return None;
     }
-    if current.canonicalize().ok()? != system || trusted_socket(socket, 0) != Some(identity) {
+    // Darwin's boot daemon follows the standard profile. Comin can report a
+    // successful switch even when that daemon has restored the old /etc tree.
+    if current.canonicalize().ok()? != system
+        || trusted_socket(socket, 0) != Some(identity)
+        || !activation_matches(
+            &system,
+            Path::new("/nix/var/nix/profiles/system"),
+            Path::new("/etc/static"),
+        )
+    {
         return None;
     }
     reconciled(
@@ -339,6 +358,33 @@ pub(crate) fn wait_for_reconciliation(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn completed_switch_requires_matching_boot_profile_and_live_etc() {
+        use std::os::unix::fs::symlink;
+        let directory = tempfile::tempdir().unwrap();
+        let old = directory.path().join("old");
+        let new = directory.path().join("new");
+        fs::create_dir_all(old.join("etc")).unwrap();
+        fs::create_dir_all(new.join("etc")).unwrap();
+        let new = new.canonicalize().unwrap();
+        let profile = directory.path().join("system");
+        let static_etc = directory.path().join("static");
+        symlink(&old, &profile).unwrap();
+        symlink(old.join("etc"), &static_etc).unwrap();
+        assert!(!activation_matches(&new, &profile, &static_etc));
+
+        fs::remove_file(&profile).unwrap();
+        symlink(&new, &profile).unwrap();
+        assert!(!activation_matches(&new, &profile, &static_etc));
+
+        fs::remove_file(&static_etc).unwrap();
+        symlink(new.join("etc"), &static_etc).unwrap();
+        assert!(activation_matches(&new, &profile, &static_etc));
+
+        fs::remove_file(&profile).unwrap();
+        assert!(!activation_matches(&new, &profile, &static_etc));
+    }
 
     #[test]
     fn fetch_is_requested_once_after_rpc_readiness_even_when_request_fails() {

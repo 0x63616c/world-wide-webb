@@ -39,6 +39,12 @@ arbitrary setup scripts. The [synthetic VM flake](../tests/fixtures/vm-config/fl
 shows the integration contract; its test credentials and health checks must not
 be used for production.
 
+On macOS, the updater must advance `/nix/var/nix/profiles/system` before native
+activation. Completion requires that boot profile and the live `/etc/static`
+tree to match `/run/current-system`; an updater status of "done" alone is not
+sufficient. The fixture includes the required patch for its pinned Comin version.
+Polling frequency belongs in your Nix configuration, not the CLI.
+
 ## Offline validation and editor support
 
 Run `homelab config validate path/to/homelab.json` before publishing configuration.
