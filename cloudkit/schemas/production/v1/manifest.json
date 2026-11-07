@@ -1,0 +1,18 @@
+{
+  "cktool_version": "1.0.23001",
+  "commit_sha": "7dd3e481e94ecc6b082775539d891539ae8a3a39",
+  "container": "iCloud.app.getfolding.Folding",
+  "created_at": "2026-11-07T21:17:04.832902+00:00",
+  "environment": "development",
+  "files": {
+    "bootstrap-receipt.json": "91c90d8f30a8e9c148b9df1a6ce53d2cfa0f82e1ca4851d460c3d40db94d0c78",
+    "schema.ckdb": "ae365dd379959789d439ec8734b88179cc1947ae20a6458561cca103eae01f84"
+  },
+  "model_source_hashes": {
+    "apps/ios/Packages/FoldingKit/Sources/FoldingData/PrivateCloudMirror.swift": "6895c9c6622d30e1e73feea444fd8076daefe36d66719db1f52a5b125510b9db",
+    "apps/ios/Packages/FoldingKit/Sources/FoldingData/PrivateCloudSchemaDescription.swift": "64343b44d7b2baf79db87cc2305b03228f941deab7d6fea3910adc29256ed83f"
+  },
+  "schema_version": 1,
+  "target": "production",
+  "team_id": "X9E4HG27NK"
+}

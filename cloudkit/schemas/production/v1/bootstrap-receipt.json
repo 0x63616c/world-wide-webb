@@ -1,0 +1,124 @@
+{
+  "commit": "7dd3e481e94ecc6b082775539d891539ae8a3a39",
+  "container": "iCloud.app.getfolding.Folding",
+  "environment": "development",
+  "formatVersion": 1,
+  "initializedAt": "2026-11-07T21:16:48Z",
+  "model": {
+    "entities": [
+      {
+        "attributes": [
+          {
+            "name": "generationID",
+            "optional": true,
+            "type": 700
+          },
+          {
+            "name": "generationRevision",
+            "optional": true,
+            "type": 300
+          },
+          {
+            "name": "logicalID",
+            "optional": true,
+            "type": 700
+          },
+          {
+            "name": "payload",
+            "optional": true,
+            "type": 1000
+          }
+        ],
+        "localIndexes": {
+          "generationIndex": [
+            "generationRevision",
+            "generationID"
+          ],
+          "logicalIDIndex": [
+            "logicalID"
+          ]
+        },
+        "name": "ReplicatedEvent",
+        "versionHash": "13bbf8bb9d7b3b326aae80739ac03c4d6c2fd1ec97f96b64656115aa27069449"
+      },
+      {
+        "attributes": [
+          {
+            "name": "logicalID",
+            "optional": true,
+            "type": 700
+          },
+          {
+            "name": "payload",
+            "optional": true,
+            "type": 1000
+          }
+        ],
+        "localIndexes": {
+          "logicalIDIndex": [
+            "logicalID"
+          ]
+        },
+        "name": "ResetMarker",
+        "versionHash": "5c85c0e75feff61301eafd773468ead5678499fdf068c2ba84dbcd8e2baea0d7"
+      },
+      {
+        "attributes": [
+          {
+            "name": "generationID",
+            "optional": true,
+            "type": 700
+          },
+          {
+            "name": "generationRevision",
+            "optional": true,
+            "type": 300
+          },
+          {
+            "name": "logicalID",
+            "optional": true,
+            "type": 700
+          },
+          {
+            "name": "payload",
+            "optional": true,
+            "type": 1000
+          }
+        ],
+        "localIndexes": {
+          "generationIndex": [
+            "generationRevision",
+            "generationID"
+          ],
+          "logicalIDIndex": [
+            "logicalID"
+          ]
+        },
+        "name": "TrackingInterruption",
+        "versionHash": "dcd7c0759cd3c33b7e049beb51f0a6dd357546e13b22581b437036c52ee1e28e"
+      },
+      {
+        "attributes": [
+          {
+            "name": "logicalID",
+            "optional": true,
+            "type": 700
+          },
+          {
+            "name": "payload",
+            "optional": true,
+            "type": 1000
+          }
+        ],
+        "localIndexes": {
+          "logicalIDIndex": [
+            "logicalID"
+          ]
+        },
+        "name": "TransferMarker",
+        "versionHash": "3feda2cb878bf5348b6e751d98233adfb26767e699e0618ca64a2b1152e5148a"
+      }
+    ],
+    "formatVersion": 1
+  }
+}
