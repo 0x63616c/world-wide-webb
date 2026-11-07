@@ -48,10 +48,13 @@ enum FoldingAccent: String, Codable, CaseIterable, Identifiable {
 }
 
 enum SummaryMetric: String, Codable, CaseIterable, Identifiable {
-  case timeUnfolded, trend, opens, closes, cycles, lifetimeFolds, equivalentTravel
+  case timeUnfolded, trend, opens, closes, cycles, lifetimeFolds, equivalentTravel,
+    competitionComparison
   var id: Self { self }
   var title: String {
     switch self {
+    case .competitionComparison:
+      String(localized: "profile.competition", defaultValue: "Competition")
     case .timeUnfolded: String(localized: "metric.timeUnfolded", defaultValue: "Time unfolded")
     case .trend: String(localized: "metric.trend", defaultValue: "Last 7 days")
     case .opens: String(localized: "metric.opens", defaultValue: "Opens")
@@ -312,6 +315,7 @@ enum ExportChoice { case json, csv }
     }
   }
 
+  var competitionJoined = false
   var publicTrackingPhone: TrackingPhoneSelection?
   var localDeviceID: UUID?
   var lastEventAt: Date?

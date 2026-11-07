@@ -13,7 +13,10 @@ import struct FoldingData.SetupProgress
   private weak var pushDelegate: FoldingPushAppDelegate?
   private var competitionIdentityRevision = UUID()
   private var joinedParticipantID: String? {
-    didSet { if oldValue != joinedParticipantID { competitionIdentityRevision = UUID() } }
+    didSet {
+      if oldValue != joinedParticipantID { competitionIdentityRevision = UUID() }
+      presentation.competitionJoined = joinedParticipantID != nil
+    }
   }
   private var competitionRestored = false
   private let preferencesStore: UserDefaults

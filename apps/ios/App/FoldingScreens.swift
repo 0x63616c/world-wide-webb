@@ -238,6 +238,37 @@ private struct TodayScreen: View {
     -> some View
   {
     switch metric {
+    case .competitionComparison:
+      if model.competitionJoined {
+        Button {
+          model.selectedTab = .leaderboard
+        } label: {
+          VStack(alignment: .leading, spacing: 8) {
+            HStack {
+              Text(metric.title).font(.subheadline).foregroundStyle(.secondary)
+              Spacer()
+              if let board = model.competition.previous {
+                Text(board.periodTitle).font(.caption).foregroundStyle(.secondary)
+              }
+            }
+            if let entry = model.competition.previous?.currentUser {
+              HStack {
+                Label(entry.rank.formatted(), systemImage: "trophy")
+                  .font(.title2.weight(.semibold)).monospacedDigit()
+                  .accessibilityLabel(String(localized: "results.place", defaultValue: "Place"))
+                  .accessibilityValue(entry.rank.formatted())
+                Spacer()
+                MetricRow(
+                  title: String(localized: "metric.folds", defaultValue: "Folds"),
+                  value: entry.folds.formatted())
+              }
+            } else {
+              Image(systemName: "chevron.right").frame(minHeight: 44)
+            }
+          }.contentShape(Rectangle())
+        }.buttonStyle(.plain)
+      }
+
     case .timeUnfolded:
       MetricRow(title: metric.title, value: foldingDuration(today.completeDurationMS))
       if let snapshot = model.analytics {
@@ -677,16 +708,24 @@ private struct SummaryEditor: View {
       }
       .onAppear {
         ordered =
-          model.preferences.metrics
-          + SummaryMetric.allCases.filter { !model.preferences.metrics.contains($0) }
+          (model.preferences.metrics
+          + SummaryMetric.allCases.filter { !model.preferences.metrics.contains($0) })
+          .filter { $0 != .competitionComparison || model.competitionJoined }
       }
     }
   }
-  private func save(_ next: FoldingPreferences) {
+  private func save(_ proposed: FoldingPreferences) {
+    var next = proposed
+    if !model.competitionJoined && model.preferences.metrics.contains(.competitionComparison)
+      && !next.metrics.contains(.competitionComparison)
+    {
+      next.metrics.append(.competitionComparison)
+    }
+    let saved = next
     Task {
       await model.command(String(localized: "settings.saving", defaultValue: "Saving")) {
-        try await actions.savePreferences(next)
-        model.preferences = next
+        try await actions.savePreferences(saved)
+        model.preferences = saved
       }
     }
   }
