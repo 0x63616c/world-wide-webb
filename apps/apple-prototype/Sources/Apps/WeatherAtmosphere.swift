@@ -7,7 +7,8 @@ struct WeatherAtmosphere: View {
     @Environment(\.motionPhase) private var fixedPhase
     private var description: String { (weather.condition + " " + weather.symbol).lowercased() }
     private var night: Bool { description.contains("moon") || description.contains("night") }
-    private var rain: Bool { ["rain", "drizzle", "storm"].contains { description.contains($0) } }
+    private var rain: Bool { ["rain", "drizzle", "storm", "thunder"].contains { description.contains($0) } }
+    private var storm: Bool { ["storm", "thunder"].contains { description.contains($0) } }
     private var snow: Bool { ["snow", "sleet", "blizzard"].contains { description.contains($0) } }
     private var fog: Bool { ["fog", "mist", "haze"].contains { description.contains($0) } }
     private var clouds: Bool { description.contains("cloud") || description.contains("overcast") || rain || snow || fog }
@@ -15,8 +16,8 @@ struct WeatherAtmosphere: View {
     private var colors: [Color] {
         if night { return [Color(hex: "#08152d"), Color(hex: "#243958"), Color(hex: "#0b1b35")] }
         if rain || snow { return [Color(hex: "#354a62"), Color(hex: "#758b9c"), Color(hex: "#344c66")] }
-        if overcast { return [Color(hex: "#4d667d"), Color(hex: "#8198a8"), Color(hex: "#3b5872")] }
         if fog { return [Color(hex: "#617888"), Color(hex: "#9aabb5"), Color(hex: "#526c82")] }
+        if overcast { return [Color(hex: "#4d667d"), Color(hex: "#8198a8"), Color(hex: "#3b5872")] }
         return [Color(hex: "#1268af"), Color(hex: "#459bce"), Color(hex: "#246c9e")]
     }
     // Stable sampling avoids a visible grid while keeping animation continuous between frames.
@@ -54,22 +55,36 @@ struct WeatherAtmosphere: View {
                 ZStack {
                     LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
                     if !rain && !snow && !fog && !overcast {
-                        RadialGradient(colors: [.white.opacity(night ? 0.12 : 0.6), .white.opacity(0.08), .clear], center: UnitPoint(x: 0.82 + sin(time / 30) * 0.025, y: 0.14), startRadius: 8, endRadius: size.width * 0.42)
+                        RadialGradient(colors: [night ? .white.opacity(0.16) : Color(hex: "#fff3cd").opacity(0.65),
+                                                night ? .white.opacity(0.04) : Color(hex: "#ffdf9c").opacity(0.12), .clear],
+                                       center: UnitPoint(x: 0.82 + sin(time / 30) * 0.025, y: 0.14),
+                                       startRadius: 8, endRadius: size.width * 0.48)
                         Circle().fill(night ? Color.white.opacity(0.85) : Color(hex: "#fff4cf"))
                             .frame(width: night ? 42 : 68, height: night ? 42 : 68)
                             .position(x: size.width * 0.82, y: size.height * 0.14)
                     }
                     Canvas { context, canvas in
-                        if night && !clouds {
-                            for index in 0..<85 {
+                        if night && !overcast && !rain && !snow && !fog {
+                            // A denser, uneven field: tiny distant stars and occasional brighter points.
+                            for index in 0..<240 {
                                 let x = sample(index, 1) * canvas.width
-                                let y = sample(index, 2) * canvas.height * 0.78
-                                let size = 0.7 + sample(index, 3) * 1.6
+                                let y = sample(index, 2) * canvas.height * 0.84
+                                let bright = sample(index, 3) > 0.89
+                                let diameter = bright ? 1.7 + sample(index, 7) * 1.5 : 0.6 + sample(index, 7) * 1.1
                                 let phase = sample(index, 4) * .pi * 2
-                                let speed = 0.35 + sample(index, 5) * 0.8
+                                let speed = 0.25 + sample(index, 5) * 0.7
                                 let shimmer = (sin(time * speed + phase) + 1) / 2
-                                let alpha = (0.2 + sample(index, 6) * 0.42) * (0.55 + shimmer * 0.45)
-                                context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: size, height: size)), with: .color(.white.opacity(alpha)))
+                                let alpha = (bright ? 0.55 : 0.18 + sample(index, 6) * 0.28) * (0.55 + shimmer * 0.45)
+                                let tint: Color = sample(index, 8) > 0.8 ? Color(hex: "#ffdfb5") : Color(hex: "#d7e8ff")
+                                context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: diameter, height: diameter)), with: .color(tint.opacity(alpha)))
+                                if bright && index % 3 == 0 {
+                                    var glint = Path()
+                                    glint.move(to: CGPoint(x: x - diameter * 1.5, y: y + diameter / 2))
+                                    glint.addLine(to: CGPoint(x: x + diameter * 2.5, y: y + diameter / 2))
+                                    glint.move(to: CGPoint(x: x + diameter / 2, y: y - diameter * 1.5))
+                                    glint.addLine(to: CGPoint(x: x + diameter / 2, y: y + diameter * 2.5))
+                                    context.stroke(glint, with: .color(tint.opacity(alpha * 0.35)), lineWidth: 0.55)
+                                }
                             }
                         }
                         if night && !clouds {
@@ -98,15 +113,29 @@ struct WeatherAtmosphere: View {
                             }
                         }
                         if clouds {
-                            context.drawLayer { layer in
-                                layer.addFilter(.blur(radius: fog ? 65 : 34))
-                                for index in 0..<8 {
-                                    let drift = sin(time / 35 + Double(index)) * canvas.width * 0.07
-                                    let x = Double(index % 4) * canvas.width / 3 - canvas.width * 0.22 + drift
-                                    let y = canvas.height * (0.1 + Double(index / 4) * 0.19)
-                                    let rect = CGRect(x: x, y: y, width: canvas.width * 0.52, height: canvas.height * 0.16)
-                                    layer.fill(Path(ellipseIn: rect), with: .color(.white.opacity(night ? 0.08 : 0.19)))
+                            // Soft cloud banks overlap at varied sizes and drift at different speeds.
+                            for layerIndex in 0..<2 {
+                                context.drawLayer { layer in
+                                    layer.addFilter(.blur(radius: fog ? 70 : (layerIndex == 0 ? 38 : 24)))
+                                    for index in 0..<9 {
+                                        let seed = index + layerIndex * 17
+                                        let drift = sin(time / (28 + sample(seed, 31) * 35) + Double(index)) * canvas.width * 0.08
+                                        let x = sample(seed, 32) * canvas.width * 1.5 - canvas.width * 0.4 + drift
+                                        let y = canvas.height * (0.04 + sample(seed, 33) * (fog ? 0.7 : 0.42))
+                                        let width = canvas.width * (0.25 + sample(seed, 34) * 0.4)
+                                        let height = canvas.height * (0.07 + sample(seed, 35) * 0.11)
+                                        let opacity = night ? 0.05 : (fog ? 0.12 : 0.13)
+                                        layer.fill(Path(ellipseIn: CGRect(x: x, y: y, width: width, height: height)), with: .color(.white.opacity(opacity)))
+                                    }
                                 }
+                            }
+                        }
+                        if storm {
+                            // A distant, brief flash only for conditions reported as thunder or storm.
+                            let pulse = (time + 7).truncatingRemainder(dividingBy: 23)
+                            if pulse < 0.35 {
+                                let intensity = sin(.pi * pulse / 0.35) * 0.11
+                                context.fill(Path(CGRect(origin: .zero, size: canvas)), with: .color(.white.opacity(intensity)))
                             }
                         }
                         if (rain || snow) && canvas.width > 0 {
