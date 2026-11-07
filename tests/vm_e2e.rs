@@ -27,22 +27,22 @@ const CONFIG_ENV: &str = "HOMELAB_VM_FIXTURE";
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Fixture {
-    repository: String,
-    revision: String,
-    manifest_path: PathBuf,
-    configuration_host: String,
-    guest_ip: Ipv4Addr,
-    guest_hostname: String,
-    physical_hostname: String,
-    nonce: String,
-    ssh_private_key: PathBuf,
-    known_hosts: PathBuf,
-    age_key: PathBuf,
-    helper_path: PathBuf,
+pub(crate) struct Fixture {
+    pub(crate) repository: String,
+    pub(crate) revision: String,
+    pub(crate) manifest_path: PathBuf,
+    pub(crate) configuration_host: String,
+    pub(crate) guest_ip: Ipv4Addr,
+    pub(crate) guest_hostname: String,
+    pub(crate) physical_hostname: String,
+    pub(crate) nonce: String,
+    pub(crate) ssh_private_key: PathBuf,
+    pub(crate) known_hosts: PathBuf,
+    pub(crate) age_key: PathBuf,
+    pub(crate) helper_path: PathBuf,
 }
 
-fn private_bytes(path: &Path, limit: u64) -> Vec<u8> {
+pub(crate) fn private_bytes(path: &Path, limit: u64) -> Vec<u8> {
     assert!(path.is_absolute(), "fixture paths must be absolute");
     let file = File::from(
         open(
@@ -65,9 +65,13 @@ fn private_bytes(path: &Path, limit: u64) -> Vec<u8> {
     assert!(bytes.len() <= limit as usize);
     bytes
 }
-fn load(path: &Path) -> Fixture {
+pub(crate) fn load(path: &Path) -> Fixture {
     let fixture: Fixture = serde_json::from_slice(&private_bytes(path, 16 * 1024))
         .expect("invalid fixture configuration");
+    validate_fixture(&fixture);
+    fixture
+}
+pub(crate) fn validate_fixture(fixture: &Fixture) {
     assert!(
         config::valid_repository(&fixture.repository) && config::valid_revision(&fixture.revision)
     );
@@ -84,9 +88,9 @@ fn load(path: &Path) -> Fixture {
         fixture.nonce.len() == 64 && fixture.nonce.bytes().all(|byte| byte.is_ascii_hexdigit()),
         "a fresh 256-bit fixture nonce is required"
     );
-    fixture
 }
-fn manifest(fixture: &Fixture) -> config::Manifest {
+
+pub(crate) fn manifest(fixture: &Fixture) -> config::Manifest {
     let manifest: config::Manifest =
         serde_json::from_slice(&private_bytes(&fixture.manifest_path, 64 * 1024))
             .expect("invalid fixture manifest");
@@ -96,17 +100,56 @@ fn manifest(fixture: &Fixture) -> config::Manifest {
         1,
         "fixture must describe only one guest"
     );
-    let host = manifest
-        .hosts
-        .get(&fixture.configuration_host)
-        .expect("fixture host missing");
     assert!(
-        host.activation_ready && manifest.tailscale.is_none(),
-        "VM fixture must be ready and must not enroll Tailscale"
+        fixture.configuration_host == "vm-test" && valid_fixture_manifest(&manifest),
+        "VM fixture requires only vm-test/admin501, no services and synthetic tag:vm-test"
     );
     manifest
 }
-fn write_private(path: &Path, bytes: &[u8]) {
+fn valid_fixture_manifest(manifest: &config::Manifest) -> bool {
+    manifest.hosts.len() == 1
+        && manifest.hosts.get("vm-test").is_some_and(|host| {
+            host.admin_user == "admin" && host.admin_uid == 501 && host.services.is_empty()
+        })
+        && manifest.tailscale.as_ref().is_some_and(|tailscale| {
+            tailscale.tag == "tag:vm-test"
+                && tailscale.oauth.as_ref().is_none_or(|reference| {
+                    reference.vault == "aaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        && reference.item == "dddddddddddddddddddddddddd"
+                })
+        })
+}
+
+pub(crate) fn manifest_guard_regressions() {
+    let mut manifest: config::Manifest = serde_json::from_value(serde_json::json!({
+        "schema":1,"hosts":{"vm-test":{"adminUser":"admin","adminUID":501,
+        "authorizedKeys":[],"activationReady":false,"services":[]}},"tailscale":{"tag":"tag:vm-test"}
+    })).unwrap();
+    assert!(valid_fixture_manifest(&manifest));
+    manifest.hosts.get_mut("vm-test").unwrap().activation_ready = true;
+    assert!(valid_fixture_manifest(&manifest));
+    manifest.tailscale.as_mut().unwrap().oauth = Some(config::OAuthReference {
+        vault: "aaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+        item: "dddddddddddddddddddddddddd".into(),
+    });
+    assert!(valid_fixture_manifest(&manifest));
+    manifest
+        .tailscale
+        .as_mut()
+        .unwrap()
+        .oauth
+        .as_mut()
+        .unwrap()
+        .item = "production".into();
+    assert!(!valid_fixture_manifest(&manifest));
+    manifest.tailscale.as_mut().unwrap().oauth = None;
+    manifest.tailscale.as_mut().unwrap().tag = "tag:production".into();
+    assert!(!valid_fixture_manifest(&manifest));
+    manifest.tailscale = None;
+    assert!(!valid_fixture_manifest(&manifest));
+}
+
+pub(crate) fn write_private(path: &Path, bytes: &[u8]) {
     use std::os::unix::fs::OpenOptionsExt;
     let mut file = fs::OpenOptions::new()
         .write(true)
@@ -117,7 +160,7 @@ fn write_private(path: &Path, bytes: &[u8]) {
     file.write_all(bytes).unwrap();
     file.sync_all().unwrap();
 }
-fn directory(path: &Path) {
+pub(crate) fn directory(path: &Path) {
     fs::create_dir_all(path).unwrap();
     fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
 }
@@ -330,7 +373,20 @@ fn transport(fixture: &Fixture, scp: bool) -> ! {
     transport_with_arguments(fixture, scp, std::env::args_os().skip(1).collect())
 }
 
-fn transport_with_arguments(fixture: &Fixture, scp: bool, arguments: Vec<std::ffi::OsString>) -> ! {
+pub(crate) fn transport_with_arguments(
+    fixture: &Fixture,
+    scp: bool,
+    arguments: Vec<std::ffi::OsString>,
+) -> ! {
+    transport_with_jump(fixture, scp, arguments, None)
+}
+
+pub(crate) fn transport_with_jump(
+    fixture: &Fixture,
+    scp: bool,
+    arguments: Vec<std::ffi::OsString>,
+    jump_config: Option<(&Path, &str)>,
+) -> ! {
     let manifest = manifest(fixture);
     let user = &manifest.hosts[&fixture.configuration_host].admin_user;
     assert!(
@@ -338,8 +394,16 @@ fn transport_with_arguments(fixture: &Fixture, scp: bool, arguments: Vec<std::ff
         "transport may address only the pinned guest using expected options"
     );
     let mut command = Command::new(if scp { "/usr/bin/scp" } else { "/usr/bin/ssh" });
+    command.arg("-F").arg(
+        jump_config
+            .map(|(path, _)| path)
+            .unwrap_or(Path::new("/dev/null")),
+    );
+    if let Some((_, host)) = jump_config {
+        command.arg("-J").arg(format!("admin@{host}"));
+    }
     command
-        .args(["-F", "/dev/null", "-i"])
+        .arg("-i")
         .arg(&fixture.ssh_private_key)
         .arg("-o")
         .arg(format!(
@@ -362,19 +426,18 @@ fn transport_with_arguments(fixture: &Fixture, scp: bool, arguments: Vec<std::ff
             "-o",
             "ClearAllForwardings=yes",
             "-o",
-            "ProxyCommand=none",
-            "-o",
-            "ProxyJump=none",
-            "-o",
             "Port=22",
-        ])
-        .args(arguments);
+        ]);
+    if jump_config.is_none() {
+        command.args(["-o", "ProxyCommand=none", "-o", "ProxyJump=none"]);
+    }
+    command.args(arguments);
     let _ = command.exec();
     panic!("cannot execute native SSH transport");
 }
 // A synthetic route adapter exercises completion sequencing, not Tailscale's
 // network or ACLs. It can only reach the same already pinned disposable guest.
-fn synthetic_tailnet(fixture: &Fixture) -> ! {
+pub(crate) fn synthetic_tailnet(fixture: &Fixture) -> ! {
     let user = manifest(fixture).hosts[&fixture.configuration_host]
         .admin_user
         .clone();
@@ -407,7 +470,7 @@ fn synthetic_tailnet(fixture: &Fixture) -> ! {
     transport_with_arguments(fixture, false, forwarded)
 }
 
-fn bounded(mut command: Command) -> Option<String> {
+pub(crate) fn bounded(mut command: Command) -> Option<String> {
     let mut output = tempfile::tempfile().unwrap();
     command
         .stdin(Stdio::null())
@@ -433,7 +496,7 @@ fn bounded(mut command: Command) -> Option<String> {
         thread::sleep(Duration::from_millis(50));
     }
 }
-fn ssh(fixture: &Fixture, adapter: &Path, remote: &str) -> Command {
+pub(crate) fn ssh(fixture: &Fixture, adapter: &Path, remote: &str) -> Command {
     let manifest = manifest(fixture);
     let mut command = Command::new(adapter);
     command
@@ -461,7 +524,7 @@ struct GuestMarker {
     nonce: String,
     hostname: String,
 }
-fn guard_guest(fixture: &Fixture, adapter: &Path) {
+pub(crate) fn guard_guest(fixture: &Fixture, adapter: &Path) {
     let model = bounded(ssh(fixture, adapter, "/usr/sbin/sysctl -n hw.model"))
         .expect("guest hardware proof unavailable");
     assert!(
@@ -493,7 +556,7 @@ fn guard_guest(fixture: &Fixture, adapter: &Path) {
         "guest marker hostname mismatch"
     );
 }
-fn verify_activation(fixture: &Fixture, adapter: &Path) {
+pub(crate) fn verify_activation(fixture: &Fixture, adapter: &Path) {
     guard_guest(fixture, adapter);
     let current = bounded(ssh(
         fixture,
@@ -668,6 +731,7 @@ fn completion_child(fixture: &Fixture, config_path: &Path) {
 }
 
 fn main() {
+    manifest_guard_regressions();
     transport_regressions();
     let arguments: Vec<_> = std::env::args_os().collect();
     let name = Path::new(&arguments[0])

@@ -34,3 +34,8 @@ all = "warn"
 name = "vm_e2e"
 path = "tests/vm_e2e.rs"
 harness = false
+
+[[test]]
+name = "vm_enrollment"
+path = "tests/vm_enrollment.rs"
+harness = false

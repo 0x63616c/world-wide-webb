@@ -18,6 +18,12 @@ Run locally with `cargo test --locked`, `cargo fmt --check` and
 
 ## Opt-in VM rehearsal
 
+For a fresh guest, [the full enrollment harness](../tests/fixtures/vm-enrollment.md)
+drives the real wizard, a private fixture PR and merge, installation, reboot and
+Comin verification. It runs on the operator client through a pinned SSH jump host;
+vault and Tailscale adapters are synthetic. Its runtime rehearsal remains a
+release gate. Normal tests run its local guards without contacting any machine.
+
 The Rust runner in `tests/vm_e2e.rs` exercises real completion on an already
 activated synthetic guest: verify, reboot, reconnect, release the hold, and
 confirm Comin reconciliation. A second completion must not reboot again. Normal

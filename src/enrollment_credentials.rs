@@ -46,7 +46,9 @@ pub fn state_directory() -> Option<PathBuf> {
         .map(|home| PathBuf::from(home).join(".local/state/homelab/provisioning"))
 }
 
-trait EnrollmentKey {
+/// Scoped issuance result shared by provider contracts and the opt-in VM harness.
+#[doc(hidden)]
+pub trait EnrollmentKey {
     fn id(&self) -> &str;
     fn expires_at(&self) -> i64;
     fn secret(&self) -> &str;
@@ -215,7 +217,9 @@ pub fn proposal(
     }
 }
 
-fn complete<K: EnrollmentKey>(
+/// Run the same durable issuance/encryption transaction with an explicit provider.
+#[doc(hidden)]
+pub fn complete<K: EnrollmentKey>(
     mut session: Session,
     store: &impl secret_store::Store,
     vault: &str,

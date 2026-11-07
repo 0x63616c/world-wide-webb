@@ -10,6 +10,10 @@
     }
   },
   "tailscale": {
-    "tag": "tag:vm-test"
+    "tag": "tag:vm-test",
+    "oauth": {
+      "vault": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "item": "dddddddddddddddddddddddddd"
+    }
   }
 }
