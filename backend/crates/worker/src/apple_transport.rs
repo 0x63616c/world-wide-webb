@@ -160,3 +160,43 @@ pub async fn exchange_native_authorization(
         revocation_refresh_token: token.refresh_token,
     })
 }
+
+/// Apple documents 200 with no response body for both first and repeated revocation.
+pub async fn revoke_refresh_token(
+    client_id: &str,
+    client_secret: &str,
+    token: &str,
+) -> std::result::Result<(), AppleTransportError> {
+    if token.is_empty() || token.len() > 16384 {
+        return Err(AppleTransportError::InvalidResponse);
+    }
+    let mut form = Url::parse("https://appleid.apple.com/auth/revoke")
+        .map_err(|_| AppleTransportError::Unavailable)?;
+    form.query_pairs_mut()
+        .append_pair("client_id", client_id)
+        .append_pair("client_secret", client_secret)
+        .append_pair("token", token)
+        .append_pair("token_type_hint", "refresh_token");
+    let headers = Headers::new();
+    headers
+        .set("Content-Type", "application/x-www-form-urlencoded")
+        .map_err(|_| AppleTransportError::Unavailable)?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post)
+        .with_headers(headers)
+        .with_redirect(RequestRedirect::Manual)
+        .with_body(Some(JsValue::from_str(
+            form.query().ok_or(AppleTransportError::Unavailable)?,
+        )));
+    let request = Request::new_with_init("https://appleid.apple.com/auth/revoke", &init)
+        .map_err(|_| AppleTransportError::Unavailable)?;
+    let signal = AbortSignal::from(web_sys::AbortSignal::timeout_with_u32(10000));
+    let response = Fetch::Request(request)
+        .send_with_signal(&signal)
+        .await
+        .map_err(|_| AppleTransportError::Unavailable)?;
+    if response.status_code() != 200 {
+        return Err(AppleTransportError::Unavailable);
+    }
+    Ok(())
+}

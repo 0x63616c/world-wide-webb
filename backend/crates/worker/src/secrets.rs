@@ -121,6 +121,14 @@ pub fn keyed_digest(key: &[u8; 32], purpose: &str, value: &str) -> [u8; 32] {
     mac.update(value.as_bytes());
     mac.finalize().into_bytes().into()
 }
+pub fn verify_keyed_digest(key: &[u8; 32], purpose: &str, value: &str, signature: &[u8]) -> bool {
+    let mut mac =
+        <Hmac<Sha256> as hmac::KeyInit>::new_from_slice(key).expect("HMAC accepts 32-byte keys");
+    mac.update(purpose.as_bytes());
+    mac.update(&[0]);
+    mac.update(value.as_bytes());
+    mac.verify_slice(signature).is_ok()
+}
 #[cfg(test)]
 mod tests {
     use super::*;

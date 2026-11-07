@@ -30,7 +30,7 @@ When all required configuration and migrations are present, the actual Worker im
 
 Opaque access tokens last 15 minutes; refresh families have 30-day inactivity and 90-day absolute limits. D1 contains token hashes, AES-256-GCM encrypted Apple authorization credentials and short-lived encrypted response-loss receipts. Token reuse revokes the family and push binding. Recovery checks a live unrevoked session and never returns a refresh token already rotated again. Operation IDs are participant/route scoped, including across families; non-secret tombstones outlive encrypted receipts. Sign-in preserves banned-account privacy access while preventing stale receipt replay from exposing a previously unrestricted profile.
 
-Apply **all migrations in order**. Schedule the single exported dispatcher every five minutes, matching the operations contract: it purges expired receipt ciphertext, tokens, sessions, challenges and short-lived network rate windows. Exact authorization expiry is checked independently of cleanup timing. A consumed challenge can support only its committed 60-second sign-in receipt; it never establishes another session. Account deletion must atomically set `participants.account_state` and revoke sessions before cleanup. New sign-in refuses deleting/deleted accounts; reauthentication and deletion recovery are separate pending handlers.
+Apply **all migrations in order**. Schedule the single exported dispatcher every five minutes, matching the operations contract: it purges expired receipt ciphertext, tokens, sessions, challenges and short-lived network rate windows. Exact authorization expiry is checked independently of cleanup timing. A consumed challenge can support only its committed 60-second sign-in receipt; it never establishes another session. Account deletion must atomically set `participants.account_state` and revoke sessions before cleanup. New sign-in refuses deleting/deleted accounts; reauthentication and deletion recovery are separate same-subject handlers.
 
 ### Required Worker bindings
 
@@ -78,7 +78,17 @@ that differ from the safe approved profile enter a pending queue without being p
 scores replay the accepted source stream; pending score jobs require the period-scoring consumer.
 
 These new routes have passed compilation, **not final runtime acceptance**. Before deployment, complete
-multilingual nickname detection/approval, privacy lifecycle (leave/reset/delete/recovery), preferences,
-period scoring/finalization and job consumption, rate enforcement for business operations, and the final
-workerd/D1 and device validation gates. Current `/me` preferences are the immutable opt-out defaults until
-the preference mutation is implemented. No leaderboard endpoint is exposed prematurely.
+multilingual nickname detection/approval, preferences, frozen period finalization and queue job
+publication/consumption, rate enforcement for business operations, scalable replay/read models, and the
+final workerd/D1 and device validation gates. Current `/me` preferences are the immutable opt-out defaults until
+the preference mutation is implemented. Live week/month/all boards are implemented; finalized historical boards remain unavailable.
+
+
+Migrations 0007–0008 add blocks, one-use reauthentication proofs, deletion receipts/capabilities and
+leased revocation work. Reset, leave, account deletion and recovery now have runtime handlers. `/me`
+and owner receipts remain available to restricted active accounts; competition boards require joined,
+unrestricted membership. Deletion immediately hides the account and revokes its sessions, then the
+shared dispatcher revokes Apple credentials and purges rows. Completion mapping retention is 30 days;
+active restriction records are retained independently. Finalized results, avatar objects and future tables
+must join this deletion fence/purge list as those modules are added. These flows still require final
+concurrency and external-service acceptance before shipping.

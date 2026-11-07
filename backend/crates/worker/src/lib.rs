@@ -21,12 +21,21 @@ mod community_reads;
 #[cfg(target_arch = "wasm32")]
 mod competition_runtime;
 #[cfg(target_arch = "wasm32")]
+mod deletion_runtime;
+#[cfg(target_arch = "wasm32")]
 mod enrollment_runtime;
 pub mod ingestion;
+#[cfg(target_arch = "wasm32")]
+mod leaderboard_runtime;
+#[cfg(target_arch = "wasm32")]
+mod lifecycle_runtime;
 pub mod mutation;
+pub mod periods;
 pub mod presentation;
 #[cfg(target_arch = "wasm32")]
 mod protected_request;
+#[cfg(target_arch = "wasm32")]
+mod reauth_runtime;
 pub mod receipt;
 pub mod secrets;
 pub mod session;

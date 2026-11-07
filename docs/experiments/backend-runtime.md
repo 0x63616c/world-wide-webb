@@ -105,3 +105,43 @@ period score consumers/finalization, mutation-rate enforcement, privacy lifecycl
 Apple/device enrollment. Existing test harness migrations/configuration were extended, but that harness
 has not been rerun for this combined batch. The shared dispatcher is aligned to the frozen five-minute
 schedule; exact cryptographic/receipt expiration never waits for scheduled cleanup.
+
+## Privacy lifecycle and live board implementation checkpoint
+
+The subsequent implementation batch connects signed reset and unrestricted-session leave. A greater
+valid reset generation wins without changing the epoch's original issuance time; stale reset markers
+return the current winner. Leave closes membership and removes mutable public observations/scores
+atomically, while restricted users can still invoke it without App Attest. Future finalized-result tables
+must participate in the same privacy visibility/purge fence when introduced.
+
+Live all/week/month boards use reducer-derived scores, UTC calendar windows, competition ranking and
+percentiles. Source replay precedes period grouping. Accepted timestamps up to five minutes ahead also
+materialize the next calendar window when near a boundary. Blocks filter presentation after rank and
+population calculation. Cursors are HMAC signed, expire after 15 minutes and bind viewer, deployment,
+period, limit, snapshot and last ordering key. Changed snapshots return `snapshot_changed`. Historical
+period queries remain unavailable until published frozen versions exist. Large-history replay and board
+pagination currently load full matching sets; scalable SQL/read-model work remains an acceptance gate.
+
+Native Apple reauthentication verifies the same subject as the current authenticated session, exchanges
+the native code, and returns an encrypted, one-use, five-minute proof bound to that session. An exact
+retry can recover its unspent proof while valid. Deletion consumes that proof in the same D1 batch as
+session/key revocation, membership removal and polling capability issuance. The narrow polling token
+expires after 15 minutes. Recovery requires a fresh nonce-bound Apple exchange for the original subject
+and operation; it returns only deletion status and never recreates the account. Fresh Apple grants created
+for recovery have a separate encrypted revocation job.
+
+The dispatcher leases pending deletions, calls Apple's fixed HTTPS revocation endpoint, and purges
+owned profile/session/key/observation data only through a guarded completion batch. Repeated revocation
+uses Apple's documented idempotent HTTP 200 behavior. Completed operations retain a minimal keyed
+subject/operation mapping for 30 days; unrestricted deleted identities then purge, while restricted
+identities retain their enforcement record. Apple outages leave deletion pending and publicly hidden.
+The current dispatcher polls D1 jobs directly; Cloudflare Queue publication/consumption and shared job
+backoff/metrics are still required integration work.
+
+Verification at this implementation-first checkpoint: native all-targets compilation, Wasm compilation,
+and all eight migrations applying to a fresh in-memory SQLite database. No final workerd/concurrency,
+crypto, device or live-account acceptance is claimed for this combined batch. Next required coverage
+includes lost deletion responses, capability expiry/recovery, revoked proof/session races, deletion-job
+lease recovery, Apple outage retries, period boundaries, cursor tampering and privacy-versus-ingestion
+races. Profile/avatar moderation, preferences, reports/block mutations, finalized results and APNs remain
+outstanding. Revocation contract source: [Apple token revocation](https://developer.apple.com/documentation/signinwithapplerestapi/revoke-tokens).

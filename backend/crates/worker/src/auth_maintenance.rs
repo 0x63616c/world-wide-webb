@@ -4,6 +4,12 @@ pub async fn cleanup(db: &D1Database, timestamp: i64) -> Result<()> {
     let time = wasm_bindgen::JsValue::from_f64(timestamp as f64);
     let older = wasm_bindgen::JsValue::from_f64((timestamp - 120000) as f64);
     db.batch(vec![
+        db.prepare("DELETE FROM deletion_recovery_receipts WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM reauthentications WHERE expires_at_ms<=?1 OR used=1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM deletion_polling_tokens WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM deletion_operations WHERE recover_until_ms<=?1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM deletion_recovery_claims WHERE participant_id IN (SELECT participant_id FROM participants WHERE account_state='deleted') AND NOT EXISTS(SELECT 1 FROM deletion_operations d WHERE d.participant_id=deletion_recovery_claims.participant_id)").bind(&[])?,
+        db.prepare("DELETE FROM participants WHERE account_state='deleted' AND restriction='none' AND NOT EXISTS(SELECT 1 FROM deletion_operations d WHERE d.participant_id=participants.participant_id)").bind(&[])? ,
         db.prepare("DELETE FROM refresh_receipts WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
         db.prepare("DELETE FROM sign_in_receipts WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
         db.prepare("DELETE FROM access_tokens WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
@@ -16,7 +22,18 @@ pub async fn cleanup(db: &D1Database, timestamp: i64) -> Result<()> {
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _context: ScheduleContext) {
     let result = match env.d1("DB") {
-        Ok(db) => cleanup(&db, js_sys::Date::now() as i64).await,
+        Ok(db) => {
+            if crate::deletion_runtime::process(&env, &db).await.is_err() {
+                console_error!("account_deletion_job_failed");
+            }
+            if crate::deletion_runtime::revoke_recovery_grants(&env, &db)
+                .await
+                .is_err()
+            {
+                console_error!("recovery_grant_revocation_failed");
+            }
+            cleanup(&db, js_sys::Date::now() as i64).await
+        }
         Err(error) => Err(error),
     };
     if result.is_err() {

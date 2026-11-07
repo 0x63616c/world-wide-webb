@@ -41,7 +41,7 @@ struct Receipt {
     key_version: String,
     expires_at_ms: i64,
 }
-fn subject_keys(env: &Env) -> std::result::Result<KeyRing, Failure> {
+pub(crate) fn subject_keys(env: &Env) -> std::result::Result<KeyRing, Failure> {
     KeyRing::from_secret_json(
         &env.var("AUTH_SUBJECT_HMAC_KEY_VERSION")
             .map_err(|_| Failure::unavailable())?

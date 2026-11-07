@@ -206,6 +206,21 @@ pub(crate) async fn events(
         ],
     )?);
     writes.push(statement(db,"INSERT INTO live_scores VALUES (?1,?2,?3,'all',?4,?5) ON CONFLICT(participant_id,period_id) DO UPDATE SET generation_revision=excluded.generation_revision,generation_id=excluded.generation_id,folds=excluded.folds,revision=excluded.revision",&[text(&session.participant_id),number(generation.revision as i64),text(generation.reset_id.as_str()),number(plan.all_time_folds as i64),number(session.revision+1)])?);
+    let mut windows = std::collections::BTreeMap::new();
+    // Accepted timestamps may be up to five minutes ahead, including a calendar boundary.
+    for timestamp in [time as u64, time as u64 + 300000] {
+        for period in crate::periods::current(timestamp).ok_or_else(Failure::unavailable)? {
+            windows.insert(period.id.clone(), period);
+        }
+    }
+    for period in windows.values() {
+        let folds = plan
+            .counted_timestamps
+            .iter()
+            .filter(|&&timestamp| timestamp >= period.start_ms && timestamp < period.end_ms)
+            .count();
+        writes.push(statement(db,"INSERT INTO live_scores VALUES (?1,?2,?3,?4,?5,?6) ON CONFLICT(participant_id,period_id) DO UPDATE SET generation_revision=excluded.generation_revision,generation_id=excluded.generation_id,folds=excluded.folds,revision=excluded.revision",&[text(&session.participant_id),number(generation.revision as i64),text(generation.reset_id.as_str()),text(&period.id),number(folds as i64),number(session.revision+1)])?);
+    }
     writes.push(statement(db,"INSERT INTO score_jobs VALUES (?1,?2,'pending') ON CONFLICT(participant_id) DO UPDATE SET revision=excluded.revision,state='pending'",&[text(&session.participant_id),number(session.revision+1)])?);
     writes.push(statement(
         db,

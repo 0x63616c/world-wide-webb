@@ -115,7 +115,7 @@ pub(crate) struct Configuration {
     pub(crate) network_key: [u8; 32],
 }
 impl Configuration {
-    fn load(env: &Env) -> std::result::Result<Self, Failure> {
+    pub(crate) fn load(env: &Env) -> std::result::Result<Self, Failure> {
         let deployment = env
             .var("DEPLOYMENT")
             .map_err(|_| Failure::unavailable())?
@@ -155,6 +155,20 @@ pub async fn dispatch(
     body: &[u8],
     request_id: &Id,
 ) -> std::result::Result<Option<Response>, Failure> {
+    if request.method() == Method::Get && request.path().starts_with("/v1/operations/") {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::deletion_runtime::poll(request, &db, &config, request_id).await?,
+        ));
+    }
+    if request.method() == Method::Get && request.path() == "/v1/leaderboards" {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::leaderboard_runtime::board(request, &db, &config, request_id).await?,
+        ));
+    }
     if request.method() == Method::Get
         && (request.path() == "/v1/me" || request.path().starts_with("/v1/event-batches/"))
     {
@@ -175,6 +189,9 @@ pub async fn dispatch(
             "/v1/event-batches",
             "/v1/enrollment/join",
             "/v1/enrollment/transfer",
+            "/v1/enrollment/leave",
+            "/v1/resets",
+            "/v1/account/delete",
         ]
         .contains(&request.path().as_str())
     {
@@ -204,7 +221,13 @@ pub async fn dispatch(
         "/v1/auth/challenges" => challenge(request, &db, &config, body, request_id).await?,
         "/v1/auth/refresh" => refresh(&db, &config, body, request_id).await?,
         "/v1/auth/apple" => {
-            crate::auth_signin::sign_in(env, &db, &config, body, request_id).await?
+            let input: crate::auth_wire::AppleExchangeRequest = decode(body)?;
+            if input.purpose == crate::auth_wire::AuthPurpose::SignIn {
+                crate::auth_signin::sign_in(env, &db, &config, body, request_id).await?
+            } else {
+                crate::reauth_runtime::exchange(request, env, &db, &config, body, request_id)
+                    .await?
+            }
         }
         "/v1/attestation/challenges" => {
             crate::attestation_runtime::challenge(request, env, &db, &config, body, request_id)
@@ -223,6 +246,15 @@ pub async fn dispatch(
         "/v1/enrollment/transfer" => {
             crate::enrollment_runtime::mutate(request, env, &db, &config, body, request_id, true)
                 .await?
+        }
+        "/v1/resets" => {
+            crate::lifecycle_runtime::reset(request, env, &db, &config, body, request_id).await?
+        }
+        "/v1/enrollment/leave" => {
+            crate::lifecycle_runtime::leave(request, &db, &config, body, request_id).await?
+        }
+        "/v1/account/delete" => {
+            crate::deletion_runtime::delete(request, &db, &config, body, request_id).await?
         }
         "/v1/auth/logout" => logout(request, &db, &config, body, request_id).await?,
         _ => return Ok(None),

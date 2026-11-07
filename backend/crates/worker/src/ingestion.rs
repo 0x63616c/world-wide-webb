@@ -24,6 +24,7 @@ pub struct IngestionPlan {
     pub receipt: EventReceipt,
     pub new_observations: Vec<NewObservation>,
     pub all_time_folds: u64,
+    pub counted_timestamps: Vec<u64>,
 }
 /// A stable hash of typed business fields, independent of JSON whitespace/object-key order.
 /// Tokens, assertions and request IDs are deliberately excluded.
@@ -119,7 +120,13 @@ pub fn plan_batch(
             reason_code: reason.map(str::to_owned),
         });
     }
-    let all_time_folds = reducer::reduce(&accepted, &[], enrollment.generation)?.folds();
+    let summary = reducer::reduce(&accepted, &[], enrollment.generation)?;
+    let all_time_folds = summary.folds();
+    let times: BTreeMap<_, _> = accepted
+        .iter()
+        .map(|event| (&event.event_id, event.observed_at_ms))
+        .collect();
+    let counted_timestamps = summary.counted_events.iter().map(|id| times[id]).collect();
     let mut reported: BTreeSet<Id> = previous
         .iter()
         .map(|old| old.event.event_id.clone())
@@ -158,6 +165,7 @@ pub fn plan_batch(
         },
         new_observations,
         all_time_folds,
+        counted_timestamps,
     })
 }
 #[cfg(test)]
