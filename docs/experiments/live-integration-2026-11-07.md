@@ -1,5 +1,9 @@
 # Live integration checkpoint — 2026-11-07
 
+## Latest provider readback
+
+At source commit `ccdaf43344a814d0111727426681c957e3cc541d`, the checksum wrapper returned **17 applied, zero pending** application migrations in both staging and production (`build/migrations/staging-current-status` and `build/migrations/production-current-status`). The staging Worker was redeployed as version `3141a409-74ea-4f24-a8dd-97839796bcd2`; production preview Worker version is `a6677587-f5aa-43f8-838c-11b20ba048c4`. Both public health routes returned `ok` and that exact source commit. Both capability routes returned an empty array, as intended while feature acceptance is open. Apple processed and Fastlane distributed production TestFlight 0.1.3 build 4 to `Folding Internal`; the selected icon and two App Shortcuts are present in its signed archive. This proves packaging/distribution, not hardware behavior.
+
 Deployment identity: `5675b3e92263e46b4431acbb24fce7018e3c74da`. Generated runtime files and logs are under ignored `build/runtime/`; no credentials or raw CloudKit records are committed.
 
 | Area | Verified | Still open |

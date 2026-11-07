@@ -1,8 +1,8 @@
 # Deferred shipping work
 
-The owner cleared the broader shipping goal. These tasks are retained for a later shipping goal, separately from the current coding backlog. They are not cancelled or accepted.
+The active goal covers live iCloud and Cloudflare integration. This list also preserves broader shipping tasks for later. CI, storefront/visual review, submission, and post-submission device checks remain deferred.
 
-- [ ] Finalize replacement logo and coherent app/site/light/dark/tinted assets. Butterfly concept exists under `design/brand/concepts/`; it is not installed.
+- [x] Install the owner-selected white twin-panel logo on black in the app and website; all three icon appearance assets are reproducibly generated from the selected source (`ccdaf43`). Final Home Screen appearance review remains deferred.
 - [x] Create/save the approved CloudKit management token, expiring November 7, 2027. Saved in Folding's 1Password vault on November 7, 2026.
 - [x] Promote both initialized, exported and validated Core Data CloudKit schemas to Production and verify exact readback (`cloudkit/README.md`). Development snapshots and Production readbacks are sealed under `cloudkit/`.
 - [x] Verify synthetic private fold and reset convergence through live CloudKit export/import on the iCloud-signed Duo simulator, in both containers with Development and Production CloudKit entitlements (`docs/experiments/live-integration-2026-11-07.md`).
@@ -15,7 +15,7 @@ The owner cleared the broader shipping goal. These tasks are retained for a late
 - [ ] Complete visual/accessibility/localization review and all ten-locale storefront screenshots/listing.
 - [x] Finish tip reviewer asset processing/readiness. Apple readback shows all three exact consumables `READY_TO_SUBMIT`, each with a completed review screenshot of the same native Tip jar capture (`docs/experiments/testflight-preview-2026-11-07.md`).
 - [ ] Exercise all three tip purchases in TestFlight's sandbox with the owner; `READY_TO_SUBMIT` and screenshot processing do not prove a purchase works.
-- [x] Sign, upload and distribute a production-app TestFlight preview to the owner's internal group; Apple processed version 0.1.1 (build 2) and API readback confirmed exact build/group/tester membership (`docs/experiments/testflight-preview-2026-11-07.md`).
+- [x] Sign, upload and distribute a production-app TestFlight preview to the owner's internal group; Apple processed version 0.1.3 (build 4) and Fastlane confirmed internal distribution (`build/releases/v0.1.3/release.json`, ignored local evidence). This remains a preview, not App Store submission.
 - [ ] Complete Apple privacy/age-rating/review details and final release rehearsal. The preview is not an App Store submission.
 - [ ] Verify public pages. Production site is live; final acceptance remains open. Support forwarding is complete based on the owner's test; no additional inbox test is requested.
 - [ ] Submit app and tips; verify submission and automatic publication after approval.

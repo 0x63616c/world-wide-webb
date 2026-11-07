@@ -1,8 +1,8 @@
 # Folding work tracker
 
-## Current scope: finish coding
+## Current scope: live integration
 
-The owner replaced the shipping goal with the 11 known coding fixes plus validation of the pending asset-sealing fix. Implementation is primary-agent only; subagents may review independently. Complete substantial coding batches before the final test/review pass. Earlier parallel-implementation guidance is superseded. See [deferred shipping work](deferred-shipping-work.md) before resuming external setup or deployment.
+The coding checklist below is complete. The active goal is live iCloud and Cloudflare setup and integration evidence for staging and production. Implementation is primary-agent only; subagents may review independently. The remaining shipping tasks and owner deferrals are in [deferred shipping work](deferred-shipping-work.md).
 
 - [x] App Attest enrollment recovery
 - [x] Immediate account-change privacy fencing
@@ -20,7 +20,7 @@ The owner replaced the shipping goal with the 11 known coding fixes plus validat
 
 
 Local evidence: [coding completion](experiments/coding-completion.md). Broader shipping acceptance remains open.
-The chronological shipping checkpoints below remain evidence, not authorization to resume the cleared shipping goal.
+The chronological shipping checkpoints below remain evidence. Live integration has resumed under the active goal; CI, storefront/visual review, submission, and post-submission device checks remain deferred.
 
 [Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Current execution is primary-agent implementation; subagents are limited to independent review. Physical-device evidence is deferred to F13 after submission by owner instruction.
 
