@@ -1,5 +1,7 @@
 {
-  "schema": 1,
+  "$schema": "https://raw.githubusercontent.com/0x63616c/homelab-cli/main/schema/homelab-v2.schema.json",
+  "schema": 2,
+  "onePassword": { "backupVault": "homelab" },
   "tailscale": {
     "tag": "tag:homelab",
     "oauth": { "vault": "homelab", "item": "Homelab Tailscale OAuth" }

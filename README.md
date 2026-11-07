@@ -10,8 +10,12 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 `homelab`, and attach **`0x63616c/homelab`** when asked.
 
 1. On the target Mac, create its administrator and enable Remote Login.
-2. In the CLI, select the Mac and follow **Connect → Prepare → Review & set up**.
-3. Review encrypted configuration in Git before approving activation.
+2. In the CLI, select the Mac, attach this repository and review setup.
+3. The wizard backs up keys, prepares encrypted secrets and opens an enrollment PR.
+4. Review and merge that PR; the wizard installs, reboots and verifies the Mac.
+
+Use [CLI 0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0)
+or later for this enrollment flow.
 
 The CLI ships its bootstrap helper. Your personal laptop needs neither Nix nor a local
 bootstrap build. Nix is installed and runs on the target only after approval.
@@ -40,7 +44,8 @@ flowchart TB
 | `homelab.json` | Host facts shared by the CLI and Nix; no duplicate host lists |
 | 1Password | Operator credentials and recovery keys; never installed on nodes |
 | SOPS + age | Encrypted Git secrets; each node gets only its own key |
-| launchd | Boot-time services and scheduled operations; no new management daemon |
+| Comin | Pull and apply reviewed changes from `main` after enrollment |
+| launchd | Start services at boot, including Comin |
 
 ## Hosts
 
@@ -51,13 +56,21 @@ flowchart TB
 
 ## What a merge does
 
-Today, `activationReady` is false and updates/runners/services are disabled.
-Merging changes Git only. Bootstrap, service migration and erasing a machine
-require separate explicit approval.
+After a Mac completes enrollment, Comin checks `main` every five minutes and applies
+changes automatically. The interval is declared as `poller.period = 300` in
+[`modules/updates.nix`](modules/updates.nix). Review and
+test before merging; the node uses a read-only deploy key and needs no Actions token.
+The wizard holds its approved commit through setup and reboot, then verifies the
+handover to Comin. See [how updates work](docs/updates.md).
 
-Later, the enabled updater will require successful checks for the exact commit,
-back up, apply and check health. Private-repository CI is currently constrained
-by billing; public CLI checks do not substitute for private host checks.
+No real Mac has received this configuration. Host readiness remains false until
+its enrollment PR is approved; application services and runners remain disabled.
+Private Nix checks and the full disposable enrollment/reboot/Comin replay passed.
+A later scheduled Git update and another reboot also passed. Release 0.3.0 passed
+public CI and a fresh-Mac smoke test without Nix. See [VM evidence](docs/vm-validation.md) for
+exact revisions and limits.
+Private Actions workflows are manual-only until self-hosted runners are ready;
+routine validation runs in the disposable Mac VM without paid private CI minutes.
 
 ## Find the details
 

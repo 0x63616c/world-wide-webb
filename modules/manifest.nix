@@ -1,4 +1,4 @@
-{ config, reviewedHost, ... }:
+{ config, inputs, reviewedHost, ... }:
 let
   services = reviewedHost.services;
   containers = builtins.filter (name: name != "home-assistant") services;
@@ -7,6 +7,11 @@ let
     services = import ../lib/assigned-services.nix config.homelab;
   };
 in {
+  environment.etc."homelab/revision.json".text = builtins.toJSON {
+    repository = "0x63616c/homelab";
+    host = config.networking.hostName;
+    revision = inputs.self.rev or null;
+  };
   homelab = {
     inherit (reviewedHost) adminUser adminUID authorizedKeys activationReady;
     containers.enable = containers != [];

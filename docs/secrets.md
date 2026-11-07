@@ -1,143 +1,112 @@
-# Secret ownership and provisioning
+# Secrets and recovery
 
-Real host ciphertext is not yet present: the host and recovery age public
-recipients have not been supplied. Do not invent recipients, commit placeholders
-as encrypted secrets, or reuse the live mini's private identity for the MacBook.
-`secrets/README.md` describes the age key lifecycle; this document defines the
-runtime contract. Nothing here authorizes reading or exporting live values.
+The enrollment wizard handles base-host secrets. **1Password stays on the
+personal laptop; Git stores ciphertext; each Mac receives only its own identity
+and runtime credentials.** No production host ciphertext is committed yet.
 
-## Host file catalog
+## What setup does
 
-Each `secrets/<hostname>.sops.yaml` is a SOPS YAML document with the following
-keys. SOPS slash paths below refer to nested YAML keys, not filesystem paths.
-Only include service keys for services assigned to that host.
-Base-only bootstrap needs `tailscale-auth-key` and `github-read-token`.
-Add `containers-env` only when enabling the general container runtime; an
-HA-only host does not need it. Backup credentials are needed only when backups
-are enabled.
+Run [homelab](https://github.com/0x63616c/homelab-cli#readme) on the personal
+laptop. Unlock 1Password and approve GitHub access when prompted; no manual token
+pasting, key-file copying or backup checkbox is required.
 
-| Encrypted key | Decrypted filename under `/run/secrets` | Reader / purpose |
+1. Create or restore a distinct host age identity and a separate recovery
+   identity. Save both backups in the configured 1Password vault, read them back
+   and verify their identities before proceeding. Existing keys are preserved.
+2. Read the dedicated Tailscale provisioning credential on the client and issue
+   a single-use, expiring enrollment key for the configured tag. The provisioning
+   credential never goes to the node. Tailnet SSH access policy is a separate
+   prerequisite; issuing a key does not grant SSH access.
+3. Generate a Git SSH key on the target and register its public half as a
+   **read-only deploy key for this repository**, using the client's GitHub login.
+   The private key remains on that Mac. No GitHub account token, Actions permission
+   or GitHub token in SOPS is needed by the node.
+4. Encrypt `tailscale-auth-key` for the host and recovery recipients. Verify
+   decryption independently with each identity. Open the enrollment PR containing
+   ciphertext, exact host recipient rules and public setup configuration.
+5. After the PR is merged, install that approved revision. Transfer the host age
+   identity over trusted SSH; never transfer the recovery identity. Bootstrap
+   verifies the ciphertext with the host key alone, then installs protected files.
+6. Check services, Git read access and Tailscale SSH, restart and verify again
+   before releasing the Git-update hold. Authentication or FileVault unlock may
+   still require the user. The wizard does not approve migration of existing data.
+
+These are implementation responsibilities, not separate commands to remember.
+See the [setup guide](https://github.com/0x63616c/homelab-cli/blob/main/docs/setup.md)
+for prerequisites and recovery prompts.
+
+## Where secrets live
+
+- **1Password:** verified host/recovery age backups and the Tailscale provisioning
+  credential. The adapter runs only on the client. Nodes and runner guests have
+  no vault access or password-manager installation.
+- **Git:** `secrets/<hostname>.sops.yaml` and public recipients in `.sops.yaml`.
+  Each host has its own exact-path rule with its host and recovery recipients.
+- **Target:** age key at `/var/lib/sops-nix/key.txt`; Git deploy key at
+  `/var/lib/homelab-git/key.txt`, both root-owned mode 0600. SOPS decrypts selected
+  runtime secrets under `/run/secrets` with owner-only access. Secrets do not
+  belong in the Nix store, build artifacts, command arguments or logs.
+- **Client state:** `~/.local/state/homelab/provisioning` retains protected local
+  identities, backup receipts, encrypted preparations and enrollment progress for
+  resumption. Expired preparations are archived with their issuance/revocation
+  evidence. Do not commit this directory or delete it to bypass an error.
+
+Temporary remote staging is cleaned after its outcome is established. A lost
+SSH connection does not prove that installation stopped. Resume the same attempt;
+uncertain mutations remain blocked until reconciled. Before bootstrap starts,
+expired preparation can be renewed through a replacement PR. After activation,
+completion uses the installed revision without requiring a fresh enrollment key.
+Legacy local token files are preserved for recovery, not used for new enrollment.
+
+## Service secret catalog — migration not yet enabled
+
+The base-host SOPS file needs only `tailscale-auth-key` (root, mode 0400).
+The remaining declarations in [modules/secrets.nix](../modules/secrets.nix) are
+conditional on enabled services/backups. The enrollment wizard does not collect
+or migrate these service credentials. Current Git reconciliation supports base
+hosts only; service activation needs a separately tested migration workflow.
+
+| Encrypted key | File under `/run/secrets` | Purpose |
 | --- | --- | --- |
-| `tailscale-auth-key` | `tailscale-auth-key` | root; host enrollment with `tag:homelab` |
-| `github-read-token` | `github-read-token` | root; private repo fetch and Actions status |
-| `backups/nas-credentials` | `nas-backup-credentials` | `_containers`; NAS JSON credentials and certificate pin, never mounted into a container |
-| `containers-env` | `containers-env` | `_containers`; Compose settings, image pins and runtime paths |
-| `services/control-center/POSTGRES_PASSWORD` | `www-POSTGRES_PASSWORD` | `_containers`; existing PostgreSQL password |
-| `services/control-center/HA_TOKEN` | `www-HA_TOKEN` | `_containers`; existing HA integration token |
-| `services/control-center/ALARM_API_TOKEN` | `www-ALARM_API_TOKEN` | `_containers`; existing alarm integration |
-| `services/control-center/HOME_LAT` | `www-HOME_LAT` | `_containers`; private home coordinates |
-| `services/control-center/HOME_LON` | `www-HOME_LON` | `_containers`; private home coordinates |
-| `services/control-center/WIFI_GUEST_SSID` | `www-WIFI_GUEST_SSID` | `_containers`; guest Wi-Fi display |
-| `services/control-center/WIFI_GUEST_PASSWORD` | `www-WIFI_GUEST_PASSWORD` | `_containers`; guest Wi-Fi display |
-| `services/hindsight/environment` | `hindsight-env` | `_containers`; preserved runtime environment file |
-| `services/cloudflared/token` | `tunnel-token` | `_containers`; existing tunnel identity |
-| `services/bambuddy/environment` | `bambuddy-environment` | `_containers`; sidecar enrollment environment, if needed |
+| `containers-env` | `containers-env` | Shared Compose environment when the container runtime is enabled |
+| `backups/nas-credentials` | `nas-backup-credentials` | NAS credentials and certificate pin; not mounted into containers |
+| `services/control-center/POSTGRES_PASSWORD` | `www-POSTGRES_PASSWORD` | Existing database password |
+| `services/control-center/HA_TOKEN` | `www-HA_TOKEN` | Home Assistant integration |
+| `services/control-center/ALARM_API_TOKEN` | `www-ALARM_API_TOKEN` | Alarm integration |
+| `services/control-center/HOME_LAT` | `www-HOME_LAT` | Home latitude |
+| `services/control-center/HOME_LON` | `www-HOME_LON` | Home longitude |
+| `services/control-center/WIFI_GUEST_SSID` | `www-WIFI_GUEST_SSID` | Guest network display |
+| `services/control-center/WIFI_GUEST_PASSWORD` | `www-WIFI_GUEST_PASSWORD` | Guest network password |
+| `services/hindsight/environment` | `hindsight-env` | Existing Hindsight environment |
+| `services/cloudflared/token` | `tunnel-token` | Existing tunnel identity |
+| `services/bambuddy/environment` | `bambuddy-environment` | Sidecar enrollment settings, if needed |
 
-The seven Control Center filenames were verified read-only on the mini on
-2026-11-03. Values were not read. Preserve the PostgreSQL password associated
-with the restored database; changing its file does not change a database role's
-password. Preserve the Bambuddy Tailscale state volume; do not re-enroll a second
-copy while the original node is active. A migrated, authenticated sidecar may
-have an empty environment file rather than another enrollment key.
+These service files are owned by `_containers`, mode 0400. The dormant
+[scripts/reconcile-service.py](../scripts/reconcile-service.py) projects only the
+selected service's files into `/var/lib/_containers/runtime-secrets/<service>`
+(mode 0700 directories, 0600 files), within Colima's service-user home mount.
+Root-only host credentials are excluded. Changed files trigger container recreation;
+a failed restart retains a retry marker. Synthetic tests cover this mechanism;
+actual Colima delivery, service migration and rotation still need target validation.
 
-The GitHub read token should have access only to the private homelab repository,
-with Contents and Actions read permission. It is not a runner registration or
-application release credential. Runner broker credentials still need separate declarations when that module is implemented;
-they must not be added to the shared Compose environment or handed to job VMs.
+The Control Center names were observed on the mini on 2026-11-03 without reading
+values. Preserve its existing database password when restoring that database.
+Preserve Bambuddy's authenticated Tailscale state volume; do not enroll a duplicate
+sidecar while the original is active.
 
-## Delivery into the service VM
+## Later rotation and recovery
 
-The SOPS module declares the catalog with owner-only read permissions.
-`scripts/reconcile-service.py`, run as `_containers`, projects only the selected
-service's files to `/var/lib/_containers/runtime-secrets/<service>`. Directories
-are mode 0700 and files mode 0600, inside Colima's service-user home mount.
-Source SOPS symlinks are resolved on macOS; the VM receives regular files.
-Root-only host credentials are never included in this projection.
+- **Age identity:** add the new recipient, rewrap affected SOPS files, securely
+  provision and verify the new private key, then remove the old recipient and
+  rewrap again. Update and verify its recovery backup. This is a separate planned
+  rotation; the enrollment wizard deliberately does not overwrite unexpected keys.
+- **Service credential:** rotate at the issuer and update encrypted configuration,
+  then verify service health. Database password changes also require changing the
+  database role; replacing a secret file alone is insufficient.
+- **Git deploy key:** create/register a replacement for this repository, install it
+  securely and prove read access before revoking the old key. Rotation is not an
+  enrollment retry.
 
-Files are replaced atomically only when contents change. A per-service lock
-covers projection and Compose. A dirty marker is written before replacement;
-Compose uses `--force-recreate` while the marker exists and clears it only after
-successful startup. A failed or interrupted restart therefore retries the
-rotation on the next reconciliation. Unchanged contents keep the same inode.
-Control Center receives only its seven files at `/run/secrets`, cloudflared
-only its token, and Hindsight only its environment file. Bambuddy receives its
-own environment file and a staged copy of the public Serve configuration.
-
-Six synthetic tests cover file permissions, unchanged inode preservation,
-rotation/recreation, failed-restart retry, SOPS symlink resolution, rejection of
-unsafe paths/permissions, and exclusion of unrelated host secrets. Actual
-Colima mount behavior and live credential rotation still require target testing.
-
-The per-service lock and shared host operation wrapper are implemented.
-Backup and update jobs join the shared transaction protocol; runtime validation
-remains pending. No secret value may enter command arguments,
-logs, a generated Nix derivation, a Docker image, or a build artifact. Avoid
-printing expanded `docker compose config` against real credentials; CI uses
-synthetic fixtures only.
-
-## Provision and rotate
-
-For base-host setup, use **Prepare credentials** in the
-[operator wizard](https://github.com/0x63616c/homelab-cli#readme). It guides token issuance in the provider's
-browser UI, accepts hidden input, and encrypts locally with age and SOPS.
-Successful preparation proves decryption with each intended identity separately;
-it does not prove that a token has the right issuer permissions or is unexpired.
-Only ciphertext and public configuration information belong in the resulting
-host readiness PR. Preparation never changes a host or sets activation readiness.
-The separate reviewed-artifact setup path transfers only the host identity and
-repository read token; it never transfers the recovery identity.
-
-Local preparation lives under `~/.local/state/homelab/provisioning`, with
-owner-only directories and mode-0600 files. The host and recovery age identities
-are retained for resumability. The GitHub read token is also retained in a
-private plaintext file because the first bootstrap needs repository access
-before SOPS is available; the wizard discloses this before collecting tokens.
-The Tailscale token has no separate persistent plaintext file. The `review`
-subdirectory contains only ciphertext and public recipient information; do not
-commit its parent directory. Back up the private identities off-host before
-proceeding. An interruption preserves existing material and may require
-inspection rather than silently generating replacement keys.
-
-The following describes the underlying lifecycle and later rotations:
-
-1. Generate a distinct age identity for each host and an operator recovery
-   identity. Store recovery copies in 1Password on your personal Mac, never on
-   homelab nodes or runner guests, and record only public
-   recipients in exact host-path rules in `.sops.yaml`.
-2. Populate a host document through SOPS on a trusted operator machine. Use
-   multiline YAML strings for environment files. Review encrypted diffs and
-   secret key names, never paste decrypted contents into a PR or chat.
-3. Confirm decryption with the intended host identity without printing values.
-   After deployment approval, transfer only the host identity and a scoped GitHub
-   read token over authenticated SSH into private temporary files. Bootstrap
-   accepts those file paths, requires owner-only permissions, and never accesses
-   a password manager. Remove the transferred files and operator export copies
-   after confirming the attempt has finished; retain the protected host key and
-   off-host recovery copies. A disconnected session has an unknown outcome:
-   inspect the setup journal and running processes before cleanup or retry.
-4. To rotate an age recipient, add it, run `sops updatekeys`, provision and test
-   the new key, then remove the old recipient and update keys again.
-5. To rotate a service credential, rotate it at its issuer, update the encrypted
-   value, and verify delivery plus service health. Database password changes
-   need coordinated database-role updates. Re-encryption alone does not revoke
-   an exposed API token.
-
-Do not enable services until real encrypted files, host-wide coordination and
-on-target rotation/recovery tests are complete. Builds with no real host files cannot
-prove that production ciphertext decrypts or that these credentials work.
-
-Bootstrap invokes the built Rust `homelab-host verify-host-secrets` operation with
-private input snapshots and an isolated HOME, configuration directory and
-environment. Decrypted output goes directly to `/dev/null`. This prevents an
-operator age recovery key from masking a wrong host identity. The locked-Nix CI check generates fresh
-synthetic host/recovery/wrong keys to test both success and rejection; it writes
-no real identities or ciphertext to the repository.
-Input limits are 64 KiB for an age identity and 16 MiB for encrypted host secrets.
-
-After verification, the privileged `install-host-key` operation validates the
-same private working key and publishes it atomically at `/var/lib/sops-nix/key.txt`.
-The directory is root-owned mode 0700 and the complete key is mode 0600 before
-publication. An existing key or dangling symlink always stops installation,
-including when another installer wins a race. A failure to confirm durability
-after publication requires inspection; it never removes or overwrites that key.
-These operations are bootstrap internals, not steps to run individually.
+Re-encryption does not revoke exposed credentials or erase old Git history.
+1Password recovery access must survive losing the Macs; age-key backups do not
+replace database or service-data backups.

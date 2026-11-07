@@ -1,115 +1,117 @@
-# Disposable MacBook VM validation
+# Disposable VM validation
 
-## Authorized boundary
+## Current candidate and results
 
-Use only `homelab-macbook` as a virtualization host. Do not erase it or activate
-its physical homelab configuration. Do not change the Mac mini or install tools
-or change settings on the operator laptop. Repository work and SSH control are
-performed from the operator workspace.
+The current runtime helper is
+`1c06e59f39373045e8be20a9957167dbc58a1644`. Public head `f9063f6` changes documentation
+only. Private candidate `2bd88e2` pins that helper and the identical reviewed Darwin
+Comin profile patch; its polling interval is 300 seconds.
 
-Host additions belong under `/Users/admin/homelab-vm-tests`: pinned Tart app,
-isolated `TART_HOME`, test inputs, VM disks and logs. Use one VM at a time, with
-no shared home directory, clipboard, USB or production credentials. Default NAT
-is not a firewall boundary; test commands must never address production services.
+VM6 began from fixture baseline `f997040` in the private
+[synthetic fixture repository](https://github.com/0x63616c/homelab-vm-enrollment).
+The real enrollment PR installed `f87a7552923874a2ee04fb5fae9f869b03b093f6`.
 
-## Repeated test cycle
-
-1. Clone a pinned clean macOS image; record OS/build, VM hardware identity and a
-   per-run guest marker before allowing setup or reboot commands.
-2. Run private Nix evaluation/build checks inside a validation guest using an
-   exact archived source tree. Do not activate either real host configuration.
-3. Exercise the same wizard core through a pseudo-terminal against a separate
-   guest with synthetic secrets and a pinned public fixture configuration.
-4. Verify prerequisite failures, install/build, activation, key permissions,
-   guest reboot, SSH recovery and expected launchd state.
-5. Repeat from a clean clone with connection loss, wrong key and interrupted
-   operation cases. Preserve bounded redacted logs and a machine-readable result.
-
-All destructive actions must be bound to the VM identity and per-run marker.
-No physical reboot, erasure or production service migration is part of this test.
-
-## Test levels and limits
-
-| Level | What it establishes |
+| Check | Current evidence |
 | --- | --- |
-| Existing public macOS CI | Native binary, synthetic adapters, terminal and bootstrap policy |
-| Private Nix checks in guest | Actual private flake evaluates/builds at the recorded revision |
-| Clean VM setup + reboot | Base host lifecycle and recovery, with synthetic secrets |
-| Later real-hardware rehearsal | Colima, runner VMs, printer/LAN and hardware power behavior |
+| Complete guided enrollment | Harness exited 0; actual GitHub PR, Nix installation and activation |
+| Enrollment reboot and Comin handover | Passed with real Comin reconciliation |
+| Completed-wizard replay | Passed without another issuance or reboot |
+| Native scheduled Git update | Reached `586e0ade043e75601ae3b82be76ef21533b6b7ee` through Comin's polling timer |
+| Scheduled-update live state | Standard boot profile, `/run/current-system` and live `/etc` all matched; marker present; `vm_e2e --verify` exited 0 |
+| Reboot after scheduled update | New boot UUID; all three revision pointers and marker persisted; activation verifier exited 0; Comin running |
+| Final private Nix checks | All nine checks passed at `2bd88e2`; exit 0 |
+| Final release artifact | CI `42333916620` passed, including fresh-Mac smoke without Nix; published 0.3.0 download checksum verified |
 
-An M2 macOS guest cannot substantiate nested Colima/Tart execution. No VM result
-will be reported as proof that those production workloads work.
+The operator retained full-wizard evidence at
+`homelab-cli/target/vm-enrollment-full-6-operator/evidence.json`. It records
+`wizardCompleted`, `rebootVerified` and `completedReplayVerified` as true, with
+`provider: synthetic` and `tailscaleRoute: pinned guest SSH adapter`. Initial reboot
+proof is separate from the later scheduled-update reboot evidence in
+`homelab-cli/target/vm-enrollment-full-6-operator/git-update-evidence.json`.
+
+The nine checks passed at private
+`2bd88e2d77f4c88774917127072ff2758ed65159` using
+`nix flake check --no-update-lock-file --max-jobs 1 --cores 1`; the log is retained
+at `homelab-cli/target/private-validation-2bd88e2.log`. Those checks cover both
+hosts, service assignments, SOPS identity, management client, Tart, Compose,
+Softnet and the dormant MacBook container path, including the current profile
+patch and helper pin. Neither physical host configuration was activated.
+
+The release archive SHA-256 is
+`1cbcbdcd55150b04318fa336b705531c1957d877ce66f3794570ad4417b29402`.
+Its CI source tree matches both release commit `f9063f6` and merged CLI main
+`4b9c7bc`. The Homebrew formula uses that verified archive.
+
+## Scope and safety boundary
+
+Bootstrap, GitHub PR operations, guest reboot and Comin are real. Credential
+providers and Tailscale transport are synthetic. No production vault credentials
+or service data are used. These results do not establish real tailnet policy,
+FileVault unlock, application migration, LAN/printer access, physical power
+behavior or nested Colima/Tart isolation.
+
+Use only `homelab-macbook` as the physical virtualization host. Guest operations
+require `VirtualMac*` identity, the exact guest hostname/nonce, and pinned SSH host
+keys. Do not activate either physical host's configuration, reboot/wipe a physical
+Mac, or change the production mini. Test tooling and VM state belong under
+`/Users/admin/homelab-vm-tests`; use one guest at a time, without shared home,
+clipboard, USB or production credentials. NAT is not a firewall boundary.
+
+A temporary `caffeinate -is -w <Tart PID>` assertion keeps the VM host awake on AC
+for the test process lifetime. An idle-only assertion was insufficient. Screen
+locking remains enabled; this does not authorize permanent power or sudo changes.
+Guest-only test sudo rules must pass `visudo`, `sudo -n true` and `sudo -n -v`.
+Never apply the fixture's NOPASSWD/validation policy to a physical host.
+
+## Repeatable validation
+
+1. Clone the pinned clean image and record OS/build, hardware identity and nonce.
+2. Run private flake checks against the exact archived source without activating
+   either real host configuration.
+3. Run the production wizard core through the guarded PTY harness, using synthetic
+   providers and a real private fixture PR.
+4. Verify enrollment reboot, exact activation, protected keys, launchd services,
+   Comin handover and completed-wizard replay.
+5. Publish a harmless fixture change, wait for native polling, verify boot/live
+   state, then reboot and verify that same deployment persists.
+
+Preserve failed attempts and their journals for inspection. Do not fabricate
+receipts or bypass uncertain-operation guards. Full-harness completion and the
+independent activation verifier do not imply that every standalone recovery entry
+point was separately exercised. Release evidence must name the path actually run.
 
 ## Image provenance
 
 Tart 2.41.1 archive SHA-256:
 `e680a734febccfce7d4e910c1f7f13fc3b00f19a181c945e2d746de3214c32c2`.
 
-Base image (guest agent and development tools):
-`ghcr.io/cirruslabs/macos-golden-gate-base@sha256:14f4fc32a778763ccae1a4d543ea0f177720c570dd7f859eda10b9e0020c7d05`.
-
 Clean prerequisite image:
 `ghcr.io/cirruslabs/macos-golden-gate-vanilla@sha256:b35695ce30453bcc1db961a476740be72a44c2a2e464b73ece1ff0fcac12a873`.
 
-The pinned upstream template specifies macOS 27.2; verify guest `sw_vers` after
-boot rather than inferring runtime OS from a registry tag. Base images contain
-Homebrew/CLT and cannot prove an untouched Mac's prerequisite path.
+Development base image:
+`ghcr.io/cirruslabs/macos-golden-gate-base@sha256:14f4fc32a778763ccae1a4d543ea0f177720c570dd7f859eda10b9e0020c7d05`.
 
-## Evidence so far
+Record actual `sw_vers` rather than inferring it from a registry tag. Earlier guests
+reported macOS 27.2 (26B123), `VirtualMac2,1`, four vCPUs, 12 GiB RAM and a 120 GB
+virtual disk. Development images contain CLT/Homebrew and do not prove a fresh
+Mac's prerequisite path; the wizard requires CLT to be installed first.
 
-November 4, 2026: the physical MacBook runs macOS 27.2 (26B118), with `admin`
-UID 501 and initially about 422 GiB free. The test guests report macOS 27.2
-(26B123), `VirtualMac2,1`, four vCPUs, 12 GiB RAM and a 120 GB virtual disk.
-Tart and the Determinate 3.24.1 installer passed their pinned checksum checks.
+## Relevant earlier findings
 
-A temporary four-hour `caffeinate -is` assertion prevents physical system sleep
-on AC. Screen locking remains enabled and does not stop SSH or the VMs. No
-permanent physical power, sudo or deployment configuration was changed.
+Earlier rehearsals caught CLT and sudo-validation prerequisites, installer-default
+file adoption, root Git ownership, SSH StrictModes placement, GitHub argument
+handling, Comin startup/restart timing and native activation PATH requirements.
+The November 4 base lifecycle also passed an extra reboot without interactive
+login. Those historical results are not substitutes for the current candidate.
 
-| Check | Evidence |
-| --- | --- |
-| Private Nix evaluation and full build | All nine checks passed at `442ae6adb6b6afabf34f6e0287d2d89f8425b605` |
-| Installer-default adoption fix | All nine private checks passed again at `960a364711b6430a6842318211be1c7bb2826ec9` |
-| Final private configuration | All nine checks passed at `95a0d91caedb3694724b57a5096ec8b1da286754`, including the SSH and activation fixes |
-| Missing CLT | Real helper rejected absent tools before credential reads or journal creation |
-| Nix installation through wizard | Succeeded in clean vanilla guests after CLT preparation |
-| Custom Nix configuration | Modified content was rejected and preserved; untouched installer default activated |
-| Recovery guard | Refused automatic replay after an uncertain activation |
-| Complete guided activation and reboot | Passed on the fourth clean attempt, including SSH recovery, SOPS and boot-time launchd execution |
-| Startup without interactive login | Passed an additional reboot with guest automatic login disabled; console owner was root and the new boot sentinel matched |
-| Completed setup replay | Explicit resume was rejected before reading deliberately absent credential files |
+VM5 passed initial enrollment and replay but failed its scheduled-update check:
+Comin reported success while Darwin's standard boot profile and live `/etc`
+remained old. Evidence is preserved at
+`homelab-cli/target/vm-enrollment-full-5-operator/scheduled-update-mismatch.json`.
+That finding motivated the current standard-profile patch and readiness guard.
+The patch preserves active/default/history generations and uses Nix's locked
+native deletion; no parallel unbounded profile history is created. VM6's scheduled
+live-state check now passes, with post-update reboot proof still pending.
 
-Full private checks use `nix flake check --no-update-lock-file --max-jobs 2
---cores 2`, including both host systems, the container-enabled variant, Compose,
-SOPS identity and runner tools. Neither real host configuration was activated.
-Logs and machine-readable results are retained under the MacBook's test directory.
-After review, failed disposable copies were removed. The clean prepared baseline,
-successful guest and private-validation cache remain stopped for repeat tests.
-
-## Findings and fixes
-
-- Fresh macOS requires CLT for Git. The helper now fails early with a specific
-  error. Apple Software Update installed CLT 27.2 unattended in the test guest;
-  that prerequisite installation is not yet a shipped CLI feature.
-- Cirrus permits `sudo -n true` but its default policy can still prompt for
-  `sudo -v`. The harness checks both. Only disposable guests receive the validated
-  test-only `verifypw=never` setting.
-- nix-darwin initially rejected Determinate's untouched `nix.custom.conf`.
-  An exact content hash permits adoption with a backup; customized files remain
-  blocked. Both cases were tested inside a guest.
-- Root activation cannot re-evaluate an administrator-owned Git checkout under
-  Git's ownership rules. The helper now switches the exact prebuilt system using
-  nix-darwin's native profile/activation sequence, without weakening Git checks.
-- SSH key symlinks into the group-writable Nix store conflict with OpenSSH's
-  strict ownership checks. A reviewed Rust helper installs an atomic regular
-  root-owned key file instead. StrictModes remains enabled.
-
-The current clean rehearsal uses synthetic fixture
-`bc018941356081b20ec48331a1a2394eb891ce23` and helper source
-`6fd57fe68d72bd95d710a3bc76798e1c39a0ef4c`. The full wizard and guest reboot
-passed without intervention. Independent post-reboot checks confirmed a regular
-root-owned SSH key file (0644), its root-owned directory (0755), StrictModes enabled,
-the exact activated revision, matching current-boot sentinel and the preserved
-installer-default backup. Final private checks and the logged-out boot test also
-passed. This verifies the base lifecycle; production migration and nested runner
-or container virtualization were not performed.
+Detailed historical chronology remains in this document's Git history. No physical
+host deployment, production migration or release is claimed here.
