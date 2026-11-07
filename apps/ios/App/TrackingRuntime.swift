@@ -64,6 +64,14 @@ actor TrackingRuntime {
     return result
   }
 
+  func useThisPhone() async throws {
+    let store = try store()
+    // Public enrollment must transfer online first; never silently replace its active device.
+    guard try await store.currentCompetitionEpoch() == nil else { throw StoreError.invalidInput }
+    _ = try await store.selectTrackingDevice(store.deviceID, nowMS: Self.nowMS)
+    changed()
+  }
+
   func reset() async throws {
     try await cancelExports()
     _ = try await store().reset(nowMS: Self.nowMS)

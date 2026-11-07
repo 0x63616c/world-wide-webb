@@ -201,6 +201,7 @@ enum ExportChoice { case json, csv }
   var setup: (SetupAction) async throws -> SetupProgress
   var savePreferences: (FoldingPreferences) async throws -> Void
   var loadHistory: ((HistoryPeriod, Int) async throws -> HistoryPresentation)?
+  var useThisPhone: (() async throws -> Void)?
   var loadLeaderboard: ((CompetitionPeriod) async throws -> LeaderboardPresentation)?
   var openShortcuts: (() -> Void)?
   var reset: (() async throws -> Void)?
@@ -231,6 +232,7 @@ enum ExportChoice { case json, csv }
   var personalFailure: String?
   var error: String?
   var operation: String?
+  var localDeviceID: UUID?
   var lastEventAt: Date?
   var needsSetup: Bool { setup?.step != .complete }
   private var nextSheet: PresentedSheet?

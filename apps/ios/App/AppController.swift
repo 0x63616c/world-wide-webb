@@ -45,6 +45,11 @@ import struct FoldingData.SetupProgress
         await self.presentation.requestHistory(using: self.actions)
       },
       loadHistory: { period, offset in try await self.history(period, offset: offset) },
+      useThisPhone: {
+        try await self.runtime.useThisPhone()
+        try await self.refresh()
+        await self.presentation.requestHistory(using: self.actions)
+      },
       reset: {
         self.presentation.dismissExports()
         try await self.runtime.reset()
@@ -108,6 +113,7 @@ import struct FoldingData.SetupProgress
       try await runtime.cancelExports()
       guard request == token, !Task.isCancelled else { return }
     }
+    presentation.localDeviceID = store.deviceID
     presentation.lastEventAt = lastEvent.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     presentation.analytics = analytics
     presentation.setup = setup

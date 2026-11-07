@@ -52,6 +52,44 @@ import XCTest
     XCTAssertEqual(controller.presentation.setup?.step, .openingReady)
   }
 
+  func testPrivatePhoneSelectionExcludesUnknownOldPhoneEvents() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let suite = "folding.transfer.test.\(UUID())"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+      defaults.removePersistentDomain(forName: suite)
+    }
+    let local = UUID()
+    let other = UUID()
+    let journal = try TrackingStore(directory: directory, installationID: local)
+    let runtime = TrackingRuntime(journal: journal)
+    let controller = AppController(runtime: runtime, preferencesStore: defaults)
+    try await runtime.record(.open)
+    let now = TrackingRuntime.nowMS
+    try await journal.importEvent(
+      TrackingEvent(
+        schemaVersion: 1, eventID: UUID(), deviceID: other, sequence: 1, generation: .initial,
+        observedAtMS: now, timezoneID: "UTC", transition: .open, isTest: false,
+        competitionEpochID: nil))
+    try await controller.refresh()
+    XCTAssertTrue(controller.presentation.analytics!.needsDeviceSelection)
+    XCTAssertEqual(controller.presentation.analytics?.lifetime.folds, 2)
+    try await controller.actions.useThisPhone!()
+    XCTAssertEqual(controller.presentation.localDeviceID, local)
+    XCTAssertEqual(controller.presentation.analytics?.selectedDeviceID, local)
+    try await journal.importEvent(
+      TrackingEvent(
+        schemaVersion: 1, eventID: UUID(), deviceID: other, sequence: 2, generation: .initial,
+        observedAtMS: now + 1, timezoneID: "UTC", transition: .close, isTest: false,
+        competitionEpochID: nil))
+    await controller.refreshVisible()
+    XCTAssertEqual(controller.presentation.analytics?.lifetime.folds, 2)
+    XCTAssertFalse(controller.presentation.analytics!.needsDeviceSelection)
+    let retained = try await journal.retainedEvents()
+    XCTAssertEqual(retained.count, 3)
+  }
+
   func testDevelopmentCompositionOpensRealSandboxAndKeychain() async throws {
     let first = TrackingRuntime()
     let firstJournal = try await first.store()
