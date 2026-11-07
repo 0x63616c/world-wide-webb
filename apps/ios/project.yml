@@ -21,6 +21,8 @@ settings:
     INFOPLIST_KEY_CFBundleDisplayName: Folding
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ''
+    'CODE_SIGN_IDENTITY[sdk=iphonesimulator*]': '-'
+    'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': YES
 targets:
   Folding:
     type: application
@@ -31,6 +33,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': Config/Simulator.entitlements
     dependencies:
       - package: FoldingKit
         product: FoldingDomain

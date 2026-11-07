@@ -126,3 +126,9 @@ The original fourteen work orders now have 33 linked deliverable issues (#15–#
 - Independent integration review found export cleanup failures could hide healthy tracking; isolated maintenance errors from data refresh and added a filesystem-failure regression.
 - Evidence: storage commit `605ccbf`, UI commit `ec0d69c`; 74 package tests (27 domain, 47 data), including eight export tests; seventeen combined app-hosted tests pass through Fastlane. ZIP output was independently extracted and compared. No physical file-protection or native share visual acceptance is claimed.
 - #31 remains open for public reset/pending-state integration, live account/CloudKit behavior and complete visual acceptance. #30 retains private transfer persistence. Apple account setup is awaiting the user's App Store Connect sign-in; the existing 1Password shell's metadata lookup timed out awaiting authorization, with no credentials read or printed.
+
+## Real simulator startup correction
+
+- Independent native UI QA discovered the unsigned simulator build could not access Keychain (OSStatus -34018), despite injected-journal tests passing. Removed Fastlane's blanket signing disable and added SDK-scoped ad-hoc simulator signing with a synthetic `FOLDINGDEV` application/keychain namespace. This is simulator-only and is not an Apple team, certificate or production entitlement claim. Production composition remains compile-gated.
+- Xcode embeds the simulator entitlements in `__TEXT,__entitlements`; the ordinary signature-entitlements output is empty, so it is insufficient evidence on this build. The real default-runtime Keychain/sandbox reopen regression now passes; eighteen combined app-hosted tests passed. Native visual QA is resuming against the corrected build without deleting the existing development data.
+- Removed duplicate “Tracking unavailable” copy from the empty error screen.

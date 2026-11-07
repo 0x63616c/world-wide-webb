@@ -23,7 +23,6 @@ def run_app_verification
     derived_data_path: File.join(repository_root, "build/ios"),
     output_directory: File.join(repository_root, "build/test-results"),
     result_bundle: true,
-    xcargs: "CODE_SIGNING_ALLOWED=NO",
     parallel_testing: false,
     concurrent_workers: 1,
     skip_slack: true,

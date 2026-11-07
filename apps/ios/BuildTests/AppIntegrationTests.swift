@@ -52,6 +52,16 @@ import XCTest
     XCTAssertEqual(controller.presentation.setup?.step, .openingReady)
   }
 
+  func testDevelopmentCompositionOpensRealSandboxAndKeychain() async throws {
+    let first = TrackingRuntime()
+    let firstJournal = try await first.store()
+    let generation = try await firstJournal.currentGeneration()
+    let reopened = TrackingRuntime()
+    let secondJournal = try await reopened.store()
+    let reopenedGeneration = try await secondJournal.currentGeneration()
+    XCTAssertEqual(generation, reopenedGeneration)
+  }
+
   func testExportCleanupFailureDoesNotHideHealthyTracking() async throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let suite = "folding.cleanup.test.\(UUID())"

@@ -168,10 +168,10 @@ private struct TodayScreen: View {
             model.present(.editSummary)
           }
           .font(.subheadline)
-        } else if let error = model.personalFailure {
+        } else if model.personalFailure != nil {
           ContentUnavailableView(
             String(localized: "tracking.unavailable", defaultValue: "Tracking unavailable"),
-            systemImage: "exclamationmark.icloud", description: Text(error))
+            systemImage: "exclamationmark.icloud")
         } else {
           ProgressView().frame(maxWidth: .infinity).padding(.vertical, 48)
         }
