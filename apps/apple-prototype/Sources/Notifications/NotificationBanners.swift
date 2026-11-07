@@ -206,7 +206,7 @@ private struct NotificationBanner: View {
                             Text(source.name).font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.secondary).lineLimit(1)
                             Spacer(minLength: 4)
-                            Text(item.createdAt, style: .relative)
+                            NotificationTimestamp(date: item.createdAt)
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
                         NotificationMessage(item: item, compact: true)

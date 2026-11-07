@@ -1320,6 +1320,8 @@ catalog artwork. Neutral source labels, a strong title and a short secondary bod
 share the same `NotificationMessage` hierarchy as history. Critical items use an
 exclamation symbol as well as red; unread items have a small dot. Large text can
 wrap without the compact two-line limit.
+Timestamps sit on the right and show only the largest completed age unit (Now,
+minutes, hours, days, weeks, months or years), refreshed once a minute.
 
 Pending banners form one newest-first stack. The stack-count button expands or
 collapses older cards; tapping a notification always opens its module and marks
