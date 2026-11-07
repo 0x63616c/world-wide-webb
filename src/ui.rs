@@ -55,7 +55,6 @@ struct View {
     title: String,
     body: Vec<(String, Role)>,
     offset: usize,
-    footer: Vec<Action>,
     celebration: Option<std::time::Duration>,
 }
 
@@ -66,7 +65,7 @@ pub(crate) fn redraw() -> io::Result<()> {
             &view.title,
             &view.body,
             view.offset,
-            &view.footer,
+            &[Action::Quit],
             view.celebration,
         )?;
     }
@@ -520,7 +519,6 @@ fn render_decorated(
             title: title.into(),
             body: body.to_vec(),
             offset,
-            footer: footer.to_vec(),
             celebration,
         })
     });

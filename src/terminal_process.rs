@@ -169,7 +169,7 @@ pub(crate) fn execute_background(
     let context = context();
     crate::ui::loading::run(
         || match &context {
-            Some(context) => draw(context, "", ProcessScreen::Running),
+            Some(context) => draw(context, "", ProcessScreen::Waiting),
             None => crate::ui::redraw(),
         },
         || crate::process::supervise_blocking(command, timeout, mode),
@@ -243,6 +243,7 @@ fn password_prompt(text: &str) -> bool {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ProcessScreen {
     Running,
+    Waiting,
     Authentication,
     Failed,
 }
@@ -321,6 +322,8 @@ fn draw(context: &Context, text: &str, state: ProcessScreen) -> io::Result<()> {
         vec![Action::Primary("Continue".into())]
     } else if authentication {
         vec![Action::Submit, Action::Interrupt]
+    } else if state == ProcessScreen::Waiting {
+        vec![Action::Quit]
     } else {
         vec![Action::Interrupt]
     };
