@@ -26,7 +26,14 @@ pub struct Runtime {
 }
 impl Runtime {
     pub fn start(s: AppState) -> Result<Self, reqwest::Error> {
-        let (stop, mut stopping) = watch::channel(false);
+        let stop = s.shutdown.clone();
+        let mut stopping = stop.subscribe();
+        if !s.config.workers_enabled {
+            return Ok(Self {
+                stop,
+                tasks: vec![],
+            });
+        }
         let mut tasks = vec![];
         if s.config.weather.is_some() {
             let s = s.clone();

@@ -1,0 +1,87 @@
+name: WorldWideWebb
+packages:
+  PanelKit:
+    path: Packages/PanelKit
+options:
+  bundleIdPrefix: co.worldwidewebb
+  deploymentTarget:
+    iOS: '26.0'
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    GENERATE_INFOPLIST_FILE: YES
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: '1'
+    CODE_SIGNING_ALLOWED: NO
+targets:
+  Panel:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes: [Platform/Config, Platform/Info.plist, Platform/README.md, Platform/Verification, App.swift, Media, Assets.xcassets]
+      - path: Resources
+      - path: Packages/PanelKit/Tests/PanelKitTests/Fixtures
+        type: folder
+        buildPhase: resources
+    configFiles:
+      Debug: App/Platform/Config/Panel.xcconfig
+      Release: App/Platform/Config/Panel.xcconfig
+    dependencies:
+      - package: PanelKit
+      - target: NextAlarmWidget
+        embed: true
+        platformFilter: iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine
+        PRODUCT_MODULE_NAME: Panel
+        TARGETED_DEVICE_FAMILY: '1,2'
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: App/Platform/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SUPPORTS_MACCATALYST: YES
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
+  NextAlarmWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extensions/NextAlarmWidget
+        excludes: [Info.plist]
+      - path: App/Platform/Alarms/NextAlarmAttributes.swift
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: NextAlarmWidget
+        PRODUCT_BUNDLE_IDENTIFIER: co.worldwidewebb.theworkflowengine.NextAlarmWidget
+        TARGETED_DEVICE_FAMILY: '1,2'
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Extensions/NextAlarmWidget/Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+  PanelTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests/Unit]
+    dependencies:
+      - target: Panel
+      - package: PanelKit
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: PanelTests
+  PanelUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests/UI]
+    dependencies:
+      - target: Panel
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: PanelUITests
+schemes:
+  Panel:
+    build:
+      targets:
+        Panel: all
+    test:
+      targets: [PanelTests, PanelUITests]

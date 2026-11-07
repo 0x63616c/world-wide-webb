@@ -21,10 +21,10 @@ hooks:
     # nonexistent file aborts every later hook in the chain, so the essential
     # setup steps run before the optional per-machine copy.
     - type: command
-      command: "bun install"
+      command: "bash tools/setup"
 
     - type: command
-      command: "bunx lefthook install --force"
+      command: "lefthook install --force"
 
     # Per-machine Claude Code permission grants (gitignored). Not present on
     # every machine — kept last so its absence doesn't block bun install /

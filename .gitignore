@@ -73,7 +73,7 @@ infra/talos/clusterconfig/
 .pg-snapshots/
 
 # Native panel machine credentials (never bundled as a resource).
-apps/apple-prototype/Hybrid/Config/Secrets.xcconfig
+apple/App/Platform/Config/Secrets.xcconfig
 
 # Rust build outputs and local migration data
 /target/
@@ -82,3 +82,7 @@ __pycache__/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+
+**/Secrets.xcconfig
+**/.build/
+**/*.xcodeproj/

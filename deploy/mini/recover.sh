@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Explicit application recovery only; never reverses database migrations.
 set -euo pipefail
-export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
 root="${WWW_ROOT:-$HOME/www-control-center}"
 target="${1:?previous or recovery-from required}"
 revision="${2:?expected target commit SHA required}"
@@ -27,27 +27,16 @@ compose() {
 }
 compose config --quiet
 compose pull www
-docker run --rm --network none --entrypoint bun -e EXPECTED_REVISION="$revision" \
-  "${line#WWW_IMAGE=}" -e 'process.exit(process.env.BUILD_HASH === process.env.EXPECTED_REVISION ? 0 : 1)'
-dbid=$(compose ps -q postgres)
-test -n "$dbid"
-docker exec "$dbid" pg_isready -U postgres -d control_center >/dev/null
+observed=$(docker run --rm --read-only --network none --entrypoint www-server "${line#WWW_IMAGE=}" version)
+[[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
+data_dir=$(compose config --format json | python3 "$root/sqlite_preflight.py")
 cp "$root/current.env" "$root/recovery-from.env"
 compose stop www
 # Capture a consistent recovery point with application writers stopped.
-docker exec "$dbid" pg_dump -U postgres -d control_center -Fc \
-  > "$root/backups/before-recovery-$stamp.dump.partial"
-mv "$root/backups/before-recovery-$stamp.dump.partial" \
-  "$root/backups/before-recovery-$stamp.dump"
+python3 "$root/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
+  "$root/backups/before-recovery-$stamp.sqlite"
 compose up -d --no-deps --wait --wait-timeout 180 www
-compose exec -T -e EXPECTED_REVISION="$revision" www bun -e '
-const health = await (await fetch("http://127.0.0.1:4201/healthz")).json();
-if (health.database !== "ok" || health.stopping) throw new Error("Unhealthy database/lifecycle");
-if (health.cycles.enabled !== (process.env.WORKER_CYCLES === "on")) throw new Error("Wrong cycle ownership");
-const build = await (await fetch("http://127.0.0.1:4201/trpc/health.buildHash")).json();
-const hash = build.result?.data?.json?.hash ?? build.result?.data?.hash;
-if (hash !== process.env.EXPECTED_REVISION) throw new Error("Wrong recovered revision");
-'
+compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 # Keep the highest accepted CI generation so delayed old jobs stay rejected.

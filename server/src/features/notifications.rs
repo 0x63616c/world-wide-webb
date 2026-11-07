@@ -195,8 +195,8 @@ pub async fn stream(
         .or(q.since);
     cursor(since.as_deref())?;
     let stream = async_stream::try_stream! {
-        let started=tokio::time::Instant::now();let mut first=true;
-        while started.elapsed()<std::time::Duration::from_secs(55) {
+        let started=tokio::time::Instant::now();let mut first=true;let mut stopping=s.shutdown.subscribe();
+        while !*stopping.borrow() && started.elapsed()<std::time::Duration::from_secs(55) {
             let p=page(&s,List{since:since.clone(),unread:None,limit:Some(200)}).await.map_err(|_|std::io::Error::other("notification stream unavailable"))?;
             since=Some(p.cursor.clone());let more=p.has_more;
             if first||!p.items.is_empty() {
@@ -204,7 +204,7 @@ pub async fn stream(
                 yield event;
             }
             first=false;
-            if !more {tokio::time::sleep(std::time::Duration::from_secs(1)).await;}
+            if !more {tokio::select!{_=stopping.changed()=>break,_=tokio::time::sleep(std::time::Duration::from_secs(1))=>{}}}
         }
     };
     Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(std::time::Duration::from_secs(10))))

@@ -16,3 +16,13 @@ def sqlite_snapshot(source, destination):
             if target.execute('PRAGMA foreign_key_check').fetchone() is not None:
                 raise RuntimeError('SQLite backup foreign key check failed')
 
+
+
+if __name__ == '__main__':
+    from pathlib import Path
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('source', type=Path)
+    parser.add_argument('destination', type=Path)
+    args = parser.parse_args()
+    sqlite_snapshot(args.source, args.destination)

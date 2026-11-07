@@ -1,0 +1,30 @@
+{
+  "groups": [
+    {
+      "groupId": "bpg_fixture",
+      "mode": "burst",
+      "capturedAt": 1800000000000,
+      "filter": "mono",
+      "frames": [
+        {
+          "id": "bp_fixture",
+          "path": "2027-01-15/bp_fixture.jpg",
+          "capturedAt": 1800000000000,
+          "frameIdx": 0,
+          "mimeType": "image/jpeg",
+          "filter": "mono"
+        },
+        {
+          "id": "bp_fixture_second",
+          "path": "2027-01-15/bp_fixture_second.jpg",
+          "capturedAt": 1800000000000,
+          "frameIdx": 1,
+          "mimeType": "image/jpeg",
+          "filter": "mono"
+        }
+      ]
+    }
+  ],
+  "totalCount": 2,
+  "totalBytes": 256
+}

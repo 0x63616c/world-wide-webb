@@ -96,3 +96,62 @@ pub async fn verify_pin(s: &AppState, pin: &str) -> Result<()> {
         })
     }
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PIN {
+    pin: String,
+}
+pub async fn verify(State(s): State<AppState>, Json(input): Json<PIN>) -> Result<Json<Value>> {
+    match verify_pin(&s, &input.pin).await {
+        Ok(()) => Ok(Json(json!({"verified":true}))),
+        Err(e) if e.status == axum::http::StatusCode::FORBIDDEN => {
+            Ok(Json(json!({"verified":false})))
+        }
+        Err(e) => Err(e),
+    }
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PINChange {
+    current: String,
+    replacement: String,
+}
+pub async fn change_pin(
+    State(s): State<AppState>,
+    Json(input): Json<PINChange>,
+) -> Result<Json<Value>> {
+    use subtle::ConstantTimeEq;
+    let valid = |p: &str| p.len() == 6 && p.bytes().all(|b| b.is_ascii_digit());
+    if !valid(&input.current) || !valid(&input.replacement) {
+        return Err(ApiError::bad("Enter a six-digit PIN"));
+    }
+    let mut tx = s.db.begin().await?;
+    let raw: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE id='singleton'")
+        .fetch_optional(&mut *tx)
+        .await?;
+    let mut value = raw
+        .and_then(|v| serde_json::from_str::<Value>(&v).ok())
+        .ok_or(ApiError {
+            status: axum::http::StatusCode::FORBIDDEN,
+            message: "PIN not accepted",
+        })?;
+    let matched = value
+        .get("pinCode")
+        .and_then(Value::as_str)
+        .is_some_and(|p| valid(p) && bool::from(p.as_bytes().ct_eq(input.current.as_bytes())));
+    if !matched {
+        return Err(ApiError {
+            status: axum::http::StatusCode::FORBIDDEN,
+            message: "PIN not accepted",
+        });
+    }
+    value["pinCode"] = json!(input.replacement);
+    sqlx::query("UPDATE settings SET value=?,updated_at_utc=? WHERE id='singleton'")
+        .bind(value.to_string())
+        .bind(now())
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(Json(json!({"changed":true})))
+}

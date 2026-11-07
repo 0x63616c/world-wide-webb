@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs on macOS. Only manages the www-control-center Compose project.
 set -euo pipefail
-export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
 root="${WWW_ROOT:-$HOME/www-control-center}"
 image="${1:?image digest required}"
 revision="${2:?commit SHA required}"
@@ -35,22 +35,18 @@ compose() {
 }
 compose config --quiet
 compose pull www
+observed=$(docker run --rm --read-only --network none --entrypoint www-server "$image" version)
+[[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
 # A deployment must never create a fresh production DB because of a wrong path.
-dbid=$(compose ps -q postgres)
-test -n "$dbid" || { echo 'Restore and start the database before deploying.' >&2; exit 1; }
-docker exec "$dbid" pg_isready -U postgres -d control_center >/dev/null
+data_dir=$(compose config --format json | python3 "$root/sqlite_preflight.py")
 if [[ -f "$root/current.env" ]]; then cp "$root/current.env" "$root/previous.env"; fi
 # Ensure only one cycle owner runs; never bring the entire project down.
 compose stop www
+mkdir -p "$root/backups"
+python3 "$root/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
+  "$root/backups/before-release-$generation-$revision-$(date -u +%Y%m%dT%H%M%SZ)-$$.sqlite"
 compose up -d --no-deps --wait --wait-timeout 180 www
-compose exec -T -e EXPECTED_REVISION="$revision" www bun -e '
-const health = await (await fetch("http://127.0.0.1:4201/healthz")).json();
-if (health.database !== "ok" || health.stopping) throw new Error("Unhealthy database/lifecycle");
-if (health.cycles.enabled !== (process.env.WORKER_CYCLES === "on")) throw new Error("Wrong cycle ownership");
-const build = await (await fetch("http://127.0.0.1:4201/trpc/health.buildHash")).json();
-const hash = build.result?.data?.json?.hash ?? build.result?.data?.hash;
-if (hash !== process.env.EXPECTED_REVISION) throw new Error("Wrong deployed revision");
-'
+compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 printf '%s\n' "$generation" > "$root/generation.tmp"

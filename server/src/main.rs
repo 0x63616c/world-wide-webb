@@ -3,6 +3,10 @@ use www_server::{AppState, http, storage};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if env::args().nth(1).as_deref() == Some("version") {
+        println!("{}", option_env!("BUILD_HASH").unwrap_or("local"));
+        return Ok(());
+    }
     if env::args().nth(1).as_deref() == Some("healthcheck") {
         healthcheck().await?;
         return Ok(());
@@ -13,16 +17,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
-    if env::args().nth(1).as_deref() == Some("healthcheck") {
-        reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
-            .build()?
-            .get("http://127.0.0.1:4201/healthz")
-            .send()
-            .await?
-            .error_for_status()?;
-        return Ok(());
-    }
     let data = PathBuf::from(env::var("WWW_DATA_DIR").unwrap_or_else(|_| "data".into()));
     tokio::fs::create_dir_all(&data).await?;
     let media = env::var("MEDIA_STORAGE_DIR")
@@ -45,8 +39,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(&listen).await?;
     tracing::info!(address = %listen, "server ready");
     let runtime = www_server::runtime::Runtime::start(state.clone())?;
+    let stopping = state.shutdown.clone();
     axum::serve(listener, http::router(state))
-        .with_graceful_shutdown(shutdown())
+        .with_graceful_shutdown(async move {
+            shutdown().await;
+            let _ = stopping.send(true);
+        })
         .await?;
     runtime.stop().await;
     db.close().await;
@@ -82,6 +80,11 @@ async fn healthcheck() -> Result<(), Box<dyn std::error::Error>> {
         }
         let body: serde_json::Value =
             serde_json::from_slice(&response[split + 4..]).map_err(std::io::Error::other)?;
+        if let Ok(mode) = env::var("WORKER_CYCLES") {
+            if body["cycles"]["enabled"].as_bool() != Some(mode == "on") {
+                return Err(std::io::Error::other("unexpected worker ownership"));
+            }
+        }
         if body["database"] != "ok" {
             return Err(std::io::Error::other("database is not ready"));
         }

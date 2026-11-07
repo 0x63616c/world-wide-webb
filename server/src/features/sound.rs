@@ -366,3 +366,28 @@ pub async fn clear(State(s): State<AppState>) -> Result<Json<Value>> {
         .await?;
     Ok(Json(Value::Null))
 }
+
+pub async fn artwork(
+    State(s): State<AppState>,
+    axum::extract::Path(room): axum::extract::Path<String>,
+) -> Result<impl axum::response::IntoResponse> {
+    let (mime, bytes) = s
+        .config
+        .ha
+        .as_ref()
+        .ok_or_else(unavailable)?
+        .artwork(&room)
+        .await
+        .map_err(|_| unavailable())?;
+    Ok((
+        [
+            (axum::http::header::CONTENT_TYPE, mime),
+            (axum::http::header::X_CONTENT_TYPE_OPTIONS, "nosniff".into()),
+            (
+                axum::http::header::CACHE_CONTROL,
+                "private, no-store".into(),
+            ),
+        ],
+        bytes,
+    ))
+}

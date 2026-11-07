@@ -14,7 +14,9 @@ pub struct AppState {
     pub db: sqlx::SqlitePool,
     pub media: PathBuf,
     pub config: Arc<config::Config>,
+    pub shutdown: tokio::sync::watch::Sender<bool>,
     pub workers: runtime::Health,
+    pub diagnostics: Arc<std::sync::Mutex<std::collections::VecDeque<serde_json::Value>>>,
     pub light_gate: Arc<tokio::sync::Mutex<()>>,
     pub alarm_light_gate: Arc<tokio::sync::Mutex<()>>,
     // Provisioned per installation outside the application bundle. Never logged.
@@ -30,7 +32,9 @@ impl AppState {
             media,
             token: token.into(),
             config: Arc::new(config::Config::default()),
+            shutdown: tokio::sync::watch::channel(false).0,
             workers: Default::default(),
+            diagnostics: Default::default(),
             alarm_light_gate: Default::default(),
             light_gate: Default::default(),
         })

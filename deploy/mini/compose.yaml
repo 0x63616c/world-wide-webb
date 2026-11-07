@@ -1,53 +1,30 @@
 name: www-control-center
-
 services:
-  postgres:
-    image: ${POSTGRES_IMAGE:?Set a pinned PostgreSQL 18 image}
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_DB: control_center
-      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
-    volumes:
-      - ${WWW_DATA_DIR:?Set the persistent data directory}/postgres:/var/lib/postgresql
-      - ${WWW_SECRETS_DIR:?Set the secrets directory}/POSTGRES_PASSWORD:/run/secrets/POSTGRES_PASSWORD:ro
-    healthcheck:
-      test: [CMD-SHELL, "pg_isready -U postgres -d control_center"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    mem_limit: 512m
-    logging:
-      driver: json-file
-      options: {max-size: 10m, max-file: '3'}
-
   www:
-    image: ${WWW_IMAGE:?Set an immutable www image digest}
+    image: ${WWW_IMAGE:?Set an immutable Rust image digest}
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    user: "${WWW_UID:-501}:${WWW_GID:-20}"
     environment:
-      NODE_ENV: production
-      APP_ENV: production
       TZ: America/Los_Angeles
-      PORT: '4201'
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: control_center
-      POSTGRES_USER: postgres
+      WWW_LISTEN: 0.0.0.0:4201
+      WWW_DATABASE_PATH: /app/data/control-center.sqlite
+      MEDIA_STORAGE_DIR: /app/media
+      WWW_SECRETS_DIR: /run/secrets
+      WWW_API_TOKEN_FILE: /run/secrets/WWW_API_TOKEN
       HA_URL: ${HA_URL:?Set the Home Assistant origin}
       WORKER_CYCLES: ${WORKER_CYCLES:?Explicitly choose on or off}
       BEDROOM_SWITCH_INPUT_ENABLED: ${BEDROOM_SWITCH_INPUT_ENABLED:-false}
       BEDROOM_SWITCH_INPUT_VERIFIED: ${BEDROOM_SWITCH_INPUT_VERIFIED:-false}
       BEDROOM_SWITCH_INPUT_ENTITY_ID: ${BEDROOM_SWITCH_INPUT_ENTITY_ID:-}
-      MEDIA_STORAGE_DIR: /app/media
     volumes:
-      - ${WWW_SECRETS_DIR}:/run/secrets:ro
+      - ${WWW_SECRETS_DIR:?Set the secrets directory}:/run/secrets:ro
+      # Mount the directory, not just .sqlite: SQLite WAL/SHM must persist together.
+      - ${WWW_DATA_DIR:?Set the data directory}/sqlite:/app/data
       - ${WWW_DATA_DIR}/media:/app/media
     ports:
       - 127.0.0.1:${WWW_PORT:-4201}:4201
     healthcheck:
-      test: [CMD, bun, -e, "const r = await fetch('http://127.0.0.1:4201/healthz'); process.exit(r.ok ? 0 : 1)"]
+      test: [CMD, www-server, healthcheck]
       interval: 5s
       timeout: 5s
       retries: 24

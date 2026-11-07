@@ -1,70 +1,22 @@
 # syntax=docker/dockerfile:1
-
-# ── Stage 1: bundle the server into a single file ────────────────────────────
-# The full workspace install lives ONLY in this stage; it is discarded. We emit
-# one self-contained JS bundle (server + tRPC + drizzle + pg), so the runtime
-# image ships no node_modules and no build toolchain (drizzle-kit, typescript).
-FROM oven/bun:1.4-alpine AS build
-
+FROM rust:1.99.1-slim-bookworm AS build
 WORKDIR /app
-
-# Copy every workspace manifest so bun resolves the full graph for the bundler.
-COPY package.json bun.lock ./
-COPY apps/api/package.json apps/api/
-COPY apps/web/package.json apps/web/
-COPY apps/panel/package.json apps/panel/
-COPY apps/worker/package.json apps/worker/
-COPY packages/api/package.json packages/api/
-COPY packages/core/package.json packages/core/
-COPY packages/logger/package.json packages/logger/
-COPY packages/platform/package.json packages/platform/
-COPY packages/theme/package.json packages/theme/
-COPY packages/worker-runtime/package.json packages/worker-runtime/
-# The retained Cloudflare workspace participates in the frozen install.
-COPY infra/cloudflare/package.json infra/cloudflare/
-
-# --ignore-scripts skips the lefthook prepare hook (needs git, absent here).
-RUN bun install --frozen-lockfile --ignore-scripts
-
-COPY apps/api apps/api
-COPY apps/web apps/web
-COPY tsconfig.json tsconfig.json
-COPY packages packages
-# C7 authoring surface: api mounts feature routers + schema from the folder tree.
-COPY app-kit app-kit
-COPY features features
-
-# Bundle to a single file. server.ts runs migrations on boot via drizzle-orm's
-# runtime migrator, so drizzle-kit never ships.
-# `cd apps/api` first: bun build resolves the `@features/*` alias via the nearest
-# tsconfig's `paths`, and the ROOT tsconfig is deliberately paths-free (so the
-# apps:gen codegen's `@/*` resolution isn't shadowed). apps/api/tsconfig.json
-# carries `@features`, so build from there. Mirrors `apps:gen`'s `cd apps/web`.
-ARG BUILD_HASH=dev
-ARG BUILD_TIME
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY server ./server
+ARG BUILD_HASH=local
 ENV BUILD_HASH=$BUILD_HASH
-ENV BUILD_TIME=$BUILD_TIME
-RUN bun run --cwd apps/web build
-RUN cd apps/api && bun build src/www.ts --target=bun --outfile ../../dist/server.js
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/target \
+    cargo build --locked --release -p www-server && \
+    cp target/release/www-server /usr/local/bin/www-server
 
-# The Control Center static bundle ships beside the server.
-FROM oven/bun:1.4-alpine AS runtime
-
-# Git SHA of the build; CI passes --build-arg BUILD_HASH=${github.sha} (mirrors
-# the web image). Absent (local docker build) it stays "dev", the env.ts
-# default, so routers/health.ts reports what is actually running in prod.
-ARG BUILD_HASH=dev
-ENV BUILD_HASH=$BUILD_HASH
-
-WORKDIR /app
-
-COPY --from=build /app/dist/server.js server.js
-# Migrations resolve relative to the bundle's own location (import.meta.url),
-# i.e. /app/migrations at runtime, keep this path in sync with WORKDIR.
-COPY --from=build /app/apps/api/src/db/migrations migrations
-
-COPY --from=build /app/apps/web/dist apps/web/dist
-
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/data /app/media && chown -R 10001:10001 /app
+COPY --from=build /usr/local/bin/www-server /usr/local/bin/www-server
+USER 10001:10001
+ENV WWW_LISTEN=0.0.0.0:4201 WWW_DATA_DIR=/app/data MEDIA_STORAGE_DIR=/app/media
 EXPOSE 4201
-
-CMD ["bun", "server.js"]
+ENTRYPOINT ["www-server"]

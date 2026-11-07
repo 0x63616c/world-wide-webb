@@ -1,8 +1,8 @@
 use crate::{
     AppState,
     features::{
-        alarms, booth, climate, lights, notifications, releases, settings, sound, tesla, walks,
-        weather,
+        alarms, booth, climate, diagnostics, lights, notifications, releases, settings, sound,
+        tesla, walks, weather,
     },
 };
 use axum::{
@@ -65,6 +65,17 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
+        .route("/api/v1/health", get(health))
+        .route(
+            "/api/v1/diagnostics",
+            get(diagnostics::list).post(diagnostics::submit),
+        )
+        .route("/api/v1/diagnostics/status", get(diagnostics::status))
+        .route("/api/v1/settings/pin/verify", post(settings::verify))
+        .route(
+            "/api/v1/settings/pin",
+            axum::routing::patch(settings::change_pin),
+        )
         .route("/api/v1/alarms", get(alarms::get).post(alarms::create))
         .route("/api/v1/alarms/action", post(alarms::action))
         .route(
@@ -122,6 +133,7 @@ pub fn router(state: AppState) -> Router {
         )
         .layer(DefaultBodyLimit::max(32768));
     let media = Router::new()
+        .route("/media/sonos/{room}/artwork", get(sound::artwork))
         .route("/media/booth-photo", post(booth::upload))
         .route("/media/booth-photos/{*path}", get(booth::download))
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024));
@@ -158,7 +170,7 @@ async fn authenticate(State(state): State<AppState>, request: Request, next: Nex
 async fn health(State(state): State<AppState>) -> Result<Json<Value>> {
     sqlx::query("SELECT 1").execute(&state.db).await?;
     Ok(Json(
-        json!({"database":"ok", "workers":state.workers.read().expect("worker lock").clone(), "backend":"rust", "build": option_env!("BUILD_HASH").unwrap_or("local")}),
+        json!({"status":"ok","timestamp":chrono::Utc::now().timestamp_millis(),"database":"ok","cycles":{"enabled":state.config.workers_enabled}, "workers":state.workers.read().expect("worker lock").clone(), "backend":"rust", "build": option_env!("BUILD_HASH").unwrap_or("local")}),
     ))
 }
 

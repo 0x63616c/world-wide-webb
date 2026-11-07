@@ -1,7 +1,0 @@
-{
-  "error": {
-    "message": "No release recorded",
-    "code": -32004,
-    "data": { "code": "NOT_FOUND", "httpStatus": 404 }
-  }
-}

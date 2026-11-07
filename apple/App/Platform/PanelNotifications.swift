@@ -1,0 +1,126 @@
+import CryptoKit
+import Foundation
+import SwiftUI
+import UIKit
+import PanelKit
+
+/// Composition and module identity stay in Hybrid; the inbox has no routing dependency.
+@MainActor enum PanelNotifications {
+    static let timerDeepLink = "app/timer"
+    static let updateDeepLink = "module/updates/testflight"
+    static let testFlightURL = URL(string: "itms-beta://")!
+
+    static func make() -> NotificationCenter {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-hybridFixtures") {
+            let arguments = ProcessInfo.processInfo.arguments
+            let fixtureURL = URL.applicationSupportDirectory.appendingPathComponent("NotificationHistory-UIFixture/history.json")
+            if arguments.contains("-notificationResetCache") { try? FileManager.default.removeItem(at: fixtureURL) }
+            let center = NotificationCenter(cache: arguments.contains("-notificationPersistentCache")
+                ? FileNotificationHistoryCache(url: fixtureURL) : nil)
+            if ProcessInfo.processInfo.arguments.contains("-notificationSamples") {
+                center.post(sourceModule: "lights", title: "Scene ready", body: "Reading lights are ready.",
+                    deepLink: "module/lights", priority: .high, dedupeKey: "scene")
+                if ProcessInfo.processInfo.arguments.contains("-notificationStack") {
+                    center.post(sourceModule: "lights", title: "Lights updated", body: "The evening scene is ready.",
+                        deepLink: "module/lights", priority: .high)
+                    center.post(sourceModule: "lights", title: "Reading scene", body: "Your reading scene is ready to open.",
+                        deepLink: "module/lights", priority: .high)
+                    center.post(sourceModule: "climate", title: "Temperature reached", body: "Climate is ready to review.",
+                        deepLink: "module/climate", priority: .critical)
+                }
+            }
+            return center
+        }
+        #endif
+        let config = PanelConfiguration()
+        let scope = SHA256.hash(data: Data(config.serverURL.absoluteString.utf8))
+            .map { String(format: "%02x", $0) }.joined()
+        let cacheURL = URL.applicationSupportDirectory.appendingPathComponent("NotificationHistory", isDirectory: true)
+            .appendingPathComponent("\(scope).json")
+        return NotificationCenter(api: NotificationsAPI(client: PanelAPIClient(configuration: config.api)),
+            cache: FileNotificationHistoryCache(url: cacheURL))
+    }
+
+    static func open(_ item: NotificationItem, store: LiveHomeDataSource,
+                     navigation: PanelNavigation) -> Bool {
+        if item.deepLink == updateDeepLink {
+            UIApplication.shared.open(testFlightURL)
+            return true
+        }
+        if item.deepLink == "module/all" {
+            navigation.returnHome()
+            return true
+        }
+        guard let module = module(for: item.deepLink) else { return false }
+        if module == .alarms {
+            navigation.openNativeAlarms()
+        } else {
+            navigation.showingHome = false
+            navigation.selection = module
+            navigation.detail = true
+        }
+        return true
+    }
+
+    static func module(for deepLink: String) -> PanelModule? {
+        let segments = deepLink.split(separator: "/", omittingEmptySubsequences: false)
+        guard segments.count >= 2, segments.first == "module",
+              segments.dropFirst().allSatisfy({ !$0.isEmpty && $0.allSatisfy {
+                  $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-")
+              } }) else { return nil }
+        let id = String(segments[1])
+        // Backend feature IDs and panel module IDs intentionally differ.
+        switch id {
+        case "ctrl": return .lights
+        case "ac": return .climate
+        case "sound": return .sonos
+        case "booth": return .photos
+        case "walks": return .walk
+        case "events" where segments.count > 2 && segments[2] == "alarms": return .alarms
+        default: return PanelModule(rawValue: id)
+        }
+    }
+
+    static func source(_ id: String) -> NotificationSource {
+        if id == "updates" { return NotificationSource(name: "Updates", symbol: "arrow.down.circle.fill") }
+        let module = module(for: "module/\(id)")
+        let appID: String
+        switch module {
+        case .sonos: appID = "music"
+        case .walk: appID = "walks"
+        case .tesla: appID = "car"
+        default: appID = module?.rawValue ?? id
+        }
+        if let app = PanelAppCatalog.standard.app(id: appID) {
+            return NotificationSource(name: app.name, symbol: app.symbol, app: app)
+        }
+        let symbol: String
+        switch module {
+        case .lights: symbol = "lightbulb.fill"
+        case .climate: symbol = "thermometer.medium"
+        case .fan: symbol = "fan.fill"
+        case .wifi: symbol = "wifi"
+        case .sonos: symbol = "speaker.wave.2.fill"
+        case .weather: symbol = "cloud.sun.fill"
+        case .photos: symbol = "photo.fill"
+        case .walk: symbol = "figure.walk"
+        case .reminders: symbol = "checklist"
+        case .alarms: symbol = "alarm.fill"
+        case .calendar: symbol = "calendar"
+        case .media: symbol = "play.rectangle.fill"
+        case .tesla: symbol = "car.fill"
+        case .cameras: symbol = "video.fill"
+        default: symbol = "app.fill"
+        }
+        return NotificationSource(name: module?.title ?? id.capitalized, symbol: symbol)
+    }
+}
+
+/// Also used inside Home's full-screen destinations; isolated previews/tests need no service.
+struct PanelNotificationOverlay: View {
+    @Environment(NotificationCenter.self) private var center: NotificationCenter?
+    var body: some View {
+        if center != nil { NotificationBanners(source: PanelNotifications.source) }
+    }
+}

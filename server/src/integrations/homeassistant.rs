@@ -129,3 +129,49 @@ impl HomeAssistant {
             .map_err(|_| Error)?
     }
 }
+
+impl HomeAssistant {
+    pub async fn artwork(&self, id: &str) -> Result<(String, Vec<u8>), Error> {
+        let suffix = id.strip_prefix("media_player.").ok_or(Error)?;
+        if suffix.is_empty()
+            || suffix.len() > 242
+            || !suffix
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        {
+            return Err(Error);
+        }
+        let mut response = self
+            .client
+            .get(self.url(&format!("api/media_player_proxy/{id}"))?)
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .map_err(|_| Error)?
+            .error_for_status()
+            .map_err(|_| Error)?;
+        let mime = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.split(';').next())
+            .map(|v| v.trim().to_lowercase())
+            .filter(|v| ["image/jpeg", "image/png", "image/webp"].contains(&v.as_str()))
+            .ok_or(Error)?;
+        let limit = 10 * 1024 * 1024;
+        if response.content_length().is_some_and(|n| n > limit) {
+            return Err(Error);
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.map_err(|_| Error)? {
+            if bytes.len() + chunk.len() > limit as usize {
+                return Err(Error);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        if bytes.is_empty() {
+            return Err(Error);
+        }
+        Ok((mime, bytes))
+    }
+}

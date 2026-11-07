@@ -1051,3 +1051,112 @@ async fn slow_alarm_lights_do_not_hold_the_sqlite_writer_or_delay_other_rings() 
     assert_eq!(brightness, 180.0);
     task.abort();
 }
+
+#[tokio::test]
+async fn pin_verification_and_replacement_never_expose_digits_in_settings() {
+    let (_dir, app, db) = fixture().await;
+    sqlx::query("INSERT INTO settings VALUES('singleton',?,?)")
+        .bind(json!({"pinCode":"123456","accent":"blue"}).to_string())
+        .bind("2026-11-07T00:00:00Z")
+        .execute(&db)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/settings/pin/verify",
+            json!({"pin":"123456"})
+        )
+        .await
+        .1["verified"],
+        true
+    );
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/settings/pin/verify",
+            json!({"pin":"654321"})
+        )
+        .await
+        .1["verified"],
+        false
+    );
+    assert_eq!(
+        call(
+            &app,
+            "PATCH",
+            "/api/v1/settings/pin",
+            json!({"current":"654321","replacement":"111111"})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        call(
+            &app,
+            "PATCH",
+            "/api/v1/settings/pin",
+            json!({"current":"123456","replacement":"654321"})
+        )
+        .await
+        .1["changed"],
+        true
+    );
+    let (_, value) = call(&app, "GET", "/api/v1/settings", Value::Null).await;
+    assert!(value.get("pinCode").is_none());
+    assert_eq!(value["accent"], "blue");
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/settings/pin/verify",
+            json!({"pin":"123456"})
+        )
+        .await
+        .1["verified"],
+        false
+    );
+}
+#[tokio::test]
+async fn diagnostics_accept_only_redacted_bounded_support_evidence() {
+    let (_dir, app, _) = fixture().await;
+    let submission = json!({"snapshot":{"source":"live","backendURL":"https://api.example.invalid","build":"123","gitSHA":"abcdef0","backend":"reachable","latencyMs":12,"homeAssistant":"connected"},"commands":[{"control":"controls","payload":{"on":"1","key":"<redacted>"},"status":200,"error":null,"latencyMs":12}]});
+    assert_eq!(
+        call(&app, "POST", "/api/v1/diagnostics", submission.clone())
+            .await
+            .1["accepted"],
+        true
+    );
+    let mut bad = submission.clone();
+    bad["commands"][0]["payload"]["key"] = json!("private-text");
+    assert_eq!(
+        call(&app, "POST", "/api/v1/diagnostics", bad).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    let mut bad = submission.clone();
+    bad["snapshot"]["backendURL"] = json!("https://api.example.invalid/?token=private");
+    assert_eq!(
+        call(&app, "POST", "/api/v1/diagnostics", bad).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    for _ in 0..22 {
+        assert_eq!(
+            call(&app, "POST", "/api/v1/diagnostics", submission.clone())
+                .await
+                .0,
+            StatusCode::OK
+        );
+    }
+    assert_eq!(
+        call(&app, "GET", "/api/v1/diagnostics", Value::Null)
+            .await
+            .1
+            .as_array()
+            .unwrap()
+            .len(),
+        20
+    );
+}

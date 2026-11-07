@@ -4,6 +4,7 @@ use std::{env, fs, path::PathBuf};
 // Deliberately not Debug/Serialize: configuration contains credentials and home coordinates.
 #[derive(Clone)]
 pub struct Config {
+    pub workers_enabled: bool,
     pub ha: Option<HomeAssistant>,
     pub climate_entity: Option<String>,
     pub bedroom_input: Option<String>,
@@ -30,6 +31,11 @@ fn value(key: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
 }
 impl Config {
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
+        let workers_enabled = match value("WORKER_CYCLES")?.as_deref().unwrap_or("on") {
+            "on" => true,
+            "off" => false,
+            _ => return Err("WORKER_CYCLES must be on or off".into()),
+        };
         let ha = match (value("HA_URL")?, value("HA_TOKEN")?) {
             (Some(url), Some(token)) => Some(HomeAssistant::new(&url, token)?),
             (None, None) => None,
@@ -101,6 +107,7 @@ impl Config {
             return Err("Invalid alarm defaults".into());
         }
         Ok(Self {
+            workers_enabled,
             ha,
             weather,
             wifi_qr,
@@ -133,6 +140,7 @@ pub fn wifi_payload(ssid: &str, password: &str) -> String {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            workers_enabled: true,
             ha: None,
             climate_entity: None,
             bedroom_input: None,
