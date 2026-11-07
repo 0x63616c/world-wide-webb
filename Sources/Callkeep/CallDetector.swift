@@ -20,7 +20,7 @@ enum CallActivityScanner {
         guard AudioObjectGetPropertyData(object, &address, 0, nil, &size, &value) == noErr else { return nil }
         return value?.takeRetainedValue() as String?
     }
-    static func scan(running: Set<String>) throws -> [CallingApp] {
+    static func processObjects() throws -> [AudioObjectID] {
         var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyProcessObjectList, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
         var size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size) == noErr else { throw CocoaError(.featureUnsupported) }
@@ -30,6 +30,10 @@ enum CallActivityScanner {
             AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, bytes.baseAddress!)
         }
         guard status == noErr else { throw CocoaError(.featureUnsupported) }
+        return Array(objects.prefix(Int(size) / MemoryLayout<AudioObjectID>.size))
+    }
+    static func scan(running: Set<String>) throws -> [CallingApp] {
+        let objects = try processObjects()
         var apps: [String: CallingApp] = [:]
         for object in objects {
             guard integer(object, kAudioProcessPropertyIsRunningInput) == 1 else { continue }
@@ -50,7 +54,64 @@ enum CallActivityScanner {
                 if let app = CallingApp.matching(bundleID: id, executablePath: path, running: running) { apps[app.id] = app }
             }
         }
+        // Prefer direct app attribution when the shared helper is ambiguous.
+        if apps["com.apple.FaceTime"] != nil || apps["com.apple.mobilephone"] != nil {
+            apps["com.apple.avconferenced"] = nil
+        }
         return Array(apps.values)
+    }
+}
+
+/// Observe audio-process changes; polling remains a fallback if a listener cannot be installed.
+private final class CallActivityEvents: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "co.calum.callkeep.call-activity-events", qos: .utility)
+    private let changed: @Sendable () -> Void
+    private var listListener: AudioObjectPropertyListenerBlock?
+    private var listeners: [AudioObjectID: AudioObjectPropertyListenerBlock] = [:]
+    init(changed: @escaping @Sendable () -> Void) { self.changed = changed }
+    func start() {
+        queue.async { [self] in
+            var address = Self.address(kAudioHardwarePropertyProcessObjectList)
+            let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+                guard let self else { return }
+                self.refreshProcesses()
+                self.changed()
+            }
+            if AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &address, queue, listener) == noErr {
+                listListener = listener
+            }
+            refreshProcesses()
+        }
+    }
+    func stop() {
+        queue.async { [self] in
+            var listAddress = Self.address(kAudioHardwarePropertyProcessObjectList)
+            if let listListener { AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &listAddress, queue, listListener) }
+            listListener = nil
+            for (object, listener) in listeners {
+                var address = Self.address(kAudioProcessPropertyIsRunningInput)
+                AudioObjectRemovePropertyListenerBlock(object, &address, queue, listener)
+            }
+            listeners.removeAll()
+        }
+    }
+    private func refreshProcesses() {
+        guard let current = try? CallActivityScanner.processObjects() else { return }
+        let objects = Set(current)
+        for object in listeners.keys.filter({ !objects.contains($0) }) {
+            guard let listener = listeners.removeValue(forKey: object) else { continue }
+            var address = Self.address(kAudioProcessPropertyIsRunningInput)
+            AudioObjectRemovePropertyListenerBlock(object, &address, queue, listener)
+        }
+        for object in objects where listeners[object] == nil {
+            var address = Self.address(kAudioProcessPropertyIsRunningInput)
+            guard AudioObjectHasProperty(object, &address) else { continue }
+            let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in self?.changed() }
+            if AudioObjectAddPropertyListenerBlock(object, &address, queue, listener) == noErr { listeners[object] = listener }
+        }
+    }
+    private static func address(_ selector: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
     }
 }
 
@@ -66,7 +127,7 @@ final class CallDetector {
     var enabled = UserDefaults.standard.object(forKey: "callReminders") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(enabled, forKey: "callReminders")
-            if !enabled { task?.cancel(); task = nil; hide(); filter = CallActivityFilter() }
+            if !enabled { stop() }
             else { start() }
         }
     }
@@ -75,30 +136,74 @@ final class CallDetector {
     var record: (() -> Void)?
     var shortcutLabel: (() -> String)?
     private var task: Task<Void, Never>?
+    private var scanTask: Task<Void, Never>?
+    private var deadlineTask: Task<Void, Never>?
+    private var events: CallActivityEvents?
+    private var generation = 0
+    private var scanRequested = false
     private var filter = CallActivityFilter()
     private var panel: NSPanel?
     private var shownID: String?
     func start() {
         guard enabled, task == nil else { return }
+        generation += 1
         task = Task { [weak self] in
             while !Task.isCancelled {
-                do {
-                    let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-                    let apps = try await Task.detached(priority: .utility) { try CallActivityScanner.scan(running: running) }.value
-                    guard let self, !Task.isCancelled, self.enabled else { return }
-                    self.error = nil
-                    let now = ProcessInfo.processInfo.systemUptime
-                    let recording = self.isRecording?() ?? false
-                    let candidate = self.filter.update(apps, now: now, recording: recording, delay: self.reminderDelay)
-                    if recording || self.shownID.map({ !self.filter.isActive($0, now: now) }) == true { self.hide() }
-                    if let candidate, self.panel == nil { self.show(candidate) }
-                } catch {
-                    guard let self else { return }
-                    self.error = "Call activity is unavailable on this Mac."
-                    self.hide()
-                }
+                guard let self else { return }
+                self.requestScan()
                 do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
             }
+        }
+        let observer = CallActivityEvents { [weak self] in
+            Task { @MainActor [weak self] in self?.requestScan() }
+        }
+        events = observer; observer.start()
+    }
+    private func stop() {
+        generation += 1
+        task?.cancel(); task = nil
+        scanTask?.cancel(); scanTask = nil; scanRequested = false
+        deadlineTask?.cancel(); deadlineTask = nil
+        events?.stop(); events = nil
+        hide(); filter = CallActivityFilter()
+    }
+    private func requestScan() {
+        guard enabled, task != nil else { return }
+        if scanTask != nil { scanRequested = true; return }
+        let currentGeneration = generation
+        scanTask = Task { [weak self] in
+            guard let self else { return }
+            repeat {
+                self.scanRequested = false
+                await self.scanOnce(generation: currentGeneration)
+            } while !Task.isCancelled && self.generation == currentGeneration && self.scanRequested
+            if self.generation == currentGeneration { self.scanTask = nil }
+        }
+    }
+    private func scanOnce(generation expected: Int) async {
+        do {
+            let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+            let apps = try await Task.detached(priority: .utility) { try CallActivityScanner.scan(running: running) }.value
+            guard !Task.isCancelled, enabled, generation == expected else { return }
+            error = nil
+            let now = ProcessInfo.processInfo.systemUptime
+            let recording = isRecording?() ?? false
+            let candidate = filter.update(apps, now: now, recording: recording, delay: reminderDelay)
+            if recording || shownID.map({ !filter.isActive($0, now: now) }) == true { hide() }
+            if let candidate, panel == nil { show(candidate) }
+            deadlineTask?.cancel(); deadlineTask = nil
+            if !recording, panel == nil, let remaining = filter.nextReminderDelay(for: apps, now: now, delay: reminderDelay) {
+                deadlineTask = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(max(0.01, remaining))) } catch { return }
+                    self?.requestScan()
+                }
+            }
+        } catch {
+            guard !Task.isCancelled, generation == expected else { return }
+            if self.error == nil { AppLog.shared.record(.callDetectionFailed, error: error) }
+            self.error = "Call activity is unavailable on this Mac."
+            deadlineTask?.cancel(); deadlineTask = nil
+            hide()
         }
     }
     #if DEBUG
@@ -124,6 +229,7 @@ final class CallDetector {
         }, dismiss: { [weak self] in self?.hide() }))
         panel.setFrame(OverlayPosition.current.frame(for: NSSize(width: panelWidth, height: 86), on: screen), display: true)
         self.panel = panel; shownID = app.id
+        AppLog.shared.record(.callReminderShown)
         OverlayMotion.show(panel)
     }
 }

@@ -12,6 +12,7 @@ final class AppLog {
         case titleUnsupportedLanguage = "title.unsupported_language", titleFailed = "title.failed"
         case updateAvailable = "update.available", updateNotFound = "update.not_found", updateFailed = "update.check_failed"
         case speakerStarted = "speaker_analysis.started", speakerCompleted = "speaker_analysis.completed", speakerFailed = "speaker_analysis.failed"
+        case callReminderShown = "call_reminder.shown", callDetectionFailed = "call_reminder.activity_unavailable"
     }
     static let shared: AppLog = {
         #if DEBUG
