@@ -2,8 +2,8 @@
 
 Panel starts on the selected clock face. Tap the clock to reveal the vertically scrolling app
 launcher on one full-screen native Liquid Glass surface over the same living clock.
-The clock stays fixed as the glass slides up from the bottom. Close Home with the
-top-right close button (or choose Clock); the glass slides back down. Horizontal
+The clock stays fixed as the glass slides up from the bottom. Swipe down from the
+top of Home to slide the glass back down and return to the clock. Horizontal
 swipes on the clock cycle Green, Midnight, Paper, Ember, Glass, Moonlight and
 Woodland. The last three share untinted Clear Liquid Glass numerals over
 different artwork, so the wallpaper is the main variable when comparing their edges.
@@ -14,6 +14,10 @@ the slide with a fade.
 Only Classic opens the web board. See [app registration](../Sources/Apps/README.md)
 for the typed catalog and extension recipe. Older dashboard descriptions below
 refer to the retained preview components, not the current landing screen.
+
+Tap the avatar in the top-right corner of Home to open Profiles. Add User saves a
+name and photo on this device. Choosing a profile updates the avatar and the
+selection in the menu.
 
 ## Native display brightness
 

@@ -66,7 +66,7 @@ struct AppLauncher: View {
                         close()
                     })
                 if isPresented {
-                    PanelProfilePhoto()
+                    PanelProfileSelector()
                         .padding(headerInset)
                         .zIndex(1)
                 }

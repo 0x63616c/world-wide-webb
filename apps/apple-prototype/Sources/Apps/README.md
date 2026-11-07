@@ -1,8 +1,8 @@
 # Native app shell
 
-Tap the clock to slide Home up over it. Tap Close or choose Clock to slide Home
-back down. Swipe left or right on the clock to cycle Green, Midnight, Paper and
-Ember. The panel remembers the selected face.
+Tap the clock to slide Home up over it. Swipe down from the top of Home to return
+to the clock. Swipe left or right on the clock to cycle Green, Midnight, Paper
+and Ember. The panel remembers the selected face.
 
 Swipe Pop is the spring transition for app opens and clock-face swipes. The dial
 follows your finger and shrinks as the adjacent face enters. Release to settle
@@ -190,7 +190,11 @@ use a full-screen system Safari controller.
 
 Simulator builds also accept Escape to open the app grid (enable Device Hub's
 Capture Keyboard and focus the simulated display). This adds no on-screen chrome.
-The launcher greets Calum by time of day. Climate mode choices are Heat, Cool and Off; an existing Heat·Cool state remains visible until changed. The top-right photo picker stores a circular avatar on the device. The car destination retains its stable `car` route ID.
+The launcher greets Calum by time of day. The top-right avatar opens Profiles.
+Add User saves a name and photo on the device, and choosing a profile updates
+the avatar. Climate mode choices are Heat, Cool and Off, and an existing
+Heat·Cool state remains visible until changed. The car destination retains its
+stable `car` route ID.
 
 ## PIN/navigation review — 3 November 2026
 

@@ -53,7 +53,6 @@ public struct PanelAppCatalog: Sendable {
             .init(id: "car", name: "Tesla", symbol: "car.side.fill", accent: "#387eab", route: .feature(.car)),
             .init(id: "wifi", name: "Wi-Fi", symbol: "wifi", accent: "#37aebd", route: .feature(.wifi)),
             .init(id: "music", name: "Music", symbol: "music.note", accent: "#f34368", route: .feature(.music)),
-            .init(id: "clock", name: "Clock", symbol: "clock.fill", accent: "#3f945d", route: .clock),
             .init(id: "timer", name: "Timer", symbol: "timer", accent: "#ed951c", route: .timer),
             .init(id: "booth", name: "Photo Booth", symbol: "camera.fill", accent: "#cc476b", route: .photoBooth),
             .init(id: "classic", name: "Classic", symbol: "safari", accent: "#4b67c9", route: .classic),

@@ -141,7 +141,7 @@ import XCTest
             app.buttons["app-back"].tap()
             XCTAssertTrue(app.buttons["app-\(id)"].waitForExistence(timeout: 10))
         }
-        app.buttons["app-clock"].tap()
+        app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 10))
         app.buttons["launcher-clock"].tap()
         XCTAssertTrue(app.buttons["app-calendar"].waitForExistence(timeout: 10))
@@ -168,7 +168,7 @@ import XCTest
             screenshot.lifetime = .keepAlways
             add(screenshot)
             back.tap()
-            XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10), id)
+            XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 10), id)
         }
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE back-buttons")
@@ -243,14 +243,14 @@ import XCTest
         print("MOTION_CAPTURE_READY \(style)")
         Thread.sleep(forTimeInterval: 2) // Capture lead-in; never used for correctness assertions.
         app.buttons["launcher-clock"].tap()
-        XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 10))
         let screenshot = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
         screenshot.name = "clock-glass-home"
         screenshot.lifetime = .keepAlways
         add(screenshot)
         Thread.sleep(forTimeInterval: 2)
         app.swipeDown()
-        XCTAssertTrue(app.buttons["app-clock"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["app-settings"].waitForNonExistence(timeout: 5))
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE \(style)")
     }

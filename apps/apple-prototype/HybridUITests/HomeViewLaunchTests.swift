@@ -48,6 +48,7 @@ import XCTest
         app.buttons["launcher-clock"].tap()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
+        XCTAssertFalse(app.buttons["app-clock"].exists)
         let profile = app.buttons["home-profile"]
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             profile.exists && profile.frame.maxY < app.frame.height / 2
@@ -59,9 +60,24 @@ import XCTest
         app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.buttons["app-settings"].exists)
+    }
+    func testProfileMenuOpensAddUserAndCancels() {
+        let app = launch()
+        defer { app.terminate() }
         app.openAppGrid()
-        app.buttons["app-clock"].tap()
-        XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5))
+
+        let profile = app.buttons["home-profile"]
+        profile.tap()
+        XCTAssertTrue(app.staticTexts["Profiles"].waitForExistence(timeout: 5))
+        let add = app.buttons["profile-add"]
+        add.tap()
+
+        let name = app.textFields["profile-name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["profile-photo"].exists)
+        XCTAssertFalse(app.buttons["profile-save"].isEnabled)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
     }
     func testSwipingDoesNotNavigateBetweenClockAndHome() {
         let app = launch()
