@@ -13,7 +13,7 @@ module FoldingRelease
   ROOT = File.expand_path("../..", __dir__)
   CONFIG = JSON.parse(File.read(File.join(ROOT, "fastlane/release-config.json")))
   STATES = %w[planned validated assets_ready archived uploaded processed ready_to_submit submitted approved live].freeze
-  NULL_FIELDS = %w[archive_sha256 ipa_sha256 dsym_sha256 screenshot_manifest_sha256 metadata_manifest_sha256 deployed_worker_version asc_build_id asc_processing_state submission_id submission_state].freeze
+  NULL_FIELDS = %w[archive_sha256 ipa_sha256 dsym_sha256 screenshot_manifest_sha256 metadata_manifest_sha256 tip_review_manifest_sha256 tip_review_map_sha256 deployed_worker_version asc_build_id asc_processing_state submission_id submission_state].freeze
 
   def self.run(*arguments)
     output, _error, status = Open3.capture3(*arguments, chdir: ROOT)

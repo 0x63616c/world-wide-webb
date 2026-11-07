@@ -38,6 +38,8 @@ module FoldingRelease
       require_state!(record, "validated")
       Assets.metadata(record) unless File.exist?(File.join(record.directory, "assets/metadata-manifest.json"))
       Assets.capture(context, record) unless File.exist?(File.join(record.directory, "assets/screenshot-manifest.json"))
+      raise "Tip review manifest changed" unless FoldingRelease.sha(File.join(directory, "tip-review-manifest.json")) == record.data.fetch("tip_review_manifest_sha256")
+      raise "Tip review map changed" unless FoldingRelease.sha(File.join(directory, "tip-review-screenshots.json")) == record.data.fetch("tip_review_map_sha256")
       Assets.validate!(record)
       directory = File.join(record.directory, "assets")
       bundle = File.join(record.directory, "assets.zip")
@@ -51,6 +53,8 @@ module FoldingRelease
       record.remote.upload_artifact(bundle)
       record.advance("assets_ready", {"assets_sha256" => FoldingRelease.sha(bundle),
         "screenshot_manifest_sha256" => FoldingRelease.sha(File.join(directory, "screenshot-manifest.json")),
+        "tip_review_manifest_sha256" => FoldingRelease.sha(File.join(directory, "tip-review-manifest.json")),
+        "tip_review_map_sha256" => FoldingRelease.sha(File.join(directory, "tip-review-screenshots.json")),
         "metadata_manifest_sha256" => FoldingRelease.sha(File.join(directory, "metadata-manifest.json")),
         "artifacts" => record.data.fetch("artifacts").merge("assets" => File.basename(bundle))})
     end
@@ -62,6 +66,8 @@ module FoldingRelease
       %w[screenshot metadata].each do |kind|
         raise "Asset manifest changed" unless FoldingRelease.sha(File.join(directory, "#{kind}-manifest.json")) == record.data.fetch("#{kind}_manifest_sha256")
       end
+      raise "Tip review manifest changed" unless FoldingRelease.sha(File.join(directory, "tip-review-manifest.json")) == record.data.fetch("tip_review_manifest_sha256")
+      raise "Tip review map changed" unless FoldingRelease.sha(File.join(directory, "tip-review-screenshots.json")) == record.data.fetch("tip_review_map_sha256")
       Assets.validate!(record)
       directory
     end

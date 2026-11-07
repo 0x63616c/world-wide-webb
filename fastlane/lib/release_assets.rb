@@ -39,10 +39,13 @@ module FoldingRelease
       FoldingRelease.atomic_json(File.join(record.directory, "assets/metadata-manifest.json"), manifest)
     end
 
-    def self.capture(context, record)
+    def self.capture(context, record, review_only: false)
       record.verify_identity!
       FoldingRelease.clean_commit!
       output = File.join(record.directory, "assets")
+      if review_only && File.exist?(File.join(output, "tip-review-manifest.json"))
+        return validate_tip_review!(record)
+      end
       raise "Screenshot manifest already exists; reuse verified assets" if File.exist?(File.join(output, "screenshot-manifest.json"))
       FileUtils.mkdir_p(output)
       name = "Folding Capture #{SecureRandom.hex(6)}"
@@ -54,38 +57,55 @@ module FoldingRelease
         FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", PLAN.fetch("appearance"))
         FoldingRelease.run("xcrun", "simctl", "status_bar", device, "override", "--time", "9:41", "--batteryState", "charged", "--batteryLevel", "100")
         PLAN.fetch("devices").each do |display|
+          next if review_only && !PLAN.fetch("review_scenarios").any? { |scene| scene["device_id"] == display["id"] }
           PLAN.fetch("devices").each do |screen|
             FoldingRelease.run("xcrun", "simctl", "io", device, "screenConfig", "--display=#{screen.fetch('screen')}", "power", screen == display ? "on" : "off")
           end
           LOCALES.each do |locale|
+            review_scenes = PLAN.fetch("review_scenarios").select { |scene| scene["device_id"] == display["id"] && scene["storefront_locale"] == locale["storefront_locale"] }
+            next if review_only && review_scenes.empty?
+            if File.exist?(File.join(output, "tip-review-manifest.json"))
+              validate_tip_review!(record)
+              review_scenes = []
+            end
+            storefront_scenes = review_only ? [] : PLAN.fetch("scenarios")
+            next if storefront_scenes.empty? && review_scenes.empty?
             raw_dir = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"))
             context.capture_screenshots(
               project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
               configuration: PLAN.fetch("configuration"), devices: [name],
               languages: [locale.fetch("snapshot_locale")],
               launch_arguments: ["--folding-screenshot-locale #{locale.fetch('app_locale')} --folding-screenshot-appearance #{PLAN.fetch('appearance')}"],
-              only_testing: PLAN.fetch("scenarios").map { |scenario| "#{PLAN.fetch('test_target')}/FoldingScreenshotTests/#{scenario.fetch('test')}" },
+              only_testing: (storefront_scenes + review_scenes).map { |scenario| "#{PLAN.fetch('test_target')}/FoldingScreenshotTests/#{scenario.fetch('test')}" },
               output_directory: raw_dir, derived_data_path: File.join(ROOT, "build/screenshot-release"),
               clear_previous_screenshots: true, reinstall_app: true,
               concurrent_simulators: false, number_of_retries: 0, skip_open_summary: true,
               override_status_bar: false, xcodebuild_formatter: ""
             )
-            PLAN.fetch("scenarios").each do |scenario|
+            storefront_scenes.each do |scenario|
               matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
               raise "Missing/duplicate current capture" unless matches.length == 1
               raw = matches.first
               raise "Wrong Duo display captured" unless png_size(raw) == [display.fetch("pixel_width"), display.fetch("pixel_height")]
               entries << compose(record, raw, display, locale, scenario)
             end
+            review_scenes.each do |scenario|
+              matches = Dir.glob(File.join(raw_dir, "**/*#{scenario.fetch('id')}.png"))
+              raise "Missing/duplicate current tip review capture" unless matches.length == 1
+              package_tip_review(record, matches.first, display, locale, scenario)
+            end
           end
         end
-        PLAN.fetch("additional_upload_slots").each do |slot|
+        (review_only ? [] : PLAN.fetch("additional_upload_slots")).each do |slot|
           LOCALES.each do |locale|
             source = entries.find { |entry| entry["device_id"] == slot.fetch("source_device_id") && entry["scenario_id"] == slot.fetch("scenario_id") && entry["storefront_locale"] == locale.fetch("storefront_locale") }
             scenario = PLAN.fetch("scenarios").find { |item| item["id"] == slot.fetch("scenario_id") }
             display = slot.merge("model" => "Duo capture in App Store medium canvas")
             entries << compose(record, File.join(output, source.fetch("raw_path")), display, locale, scenario)
           end
+        end
+        if review_only
+          return validate_tip_review!(record)
         end
         manifest = {"schema_version" => 1, "commit_sha" => record.data.fetch("commit_sha"),
           "configuration_hash" => record.data.fetch("configuration_hash"), "entries" => entries}
@@ -96,6 +116,51 @@ module FoldingRelease
         system("xcrun", "simctl", "shutdown", device, out: File::NULL, err: File::NULL)
         system("xcrun", "simctl", "delete", device, out: File::NULL, err: File::NULL)
       end
+    end
+
+    def self.package_tip_review(record, raw, display, locale, scenario)
+      output = File.join(record.directory, "assets")
+      raise "Wrong tip review display dimensions" unless png_size(raw) == display.values_at("pixel_width", "pixel_height")
+      relative = "review/tipjar-#{locale.fetch('storefront_locale')}-#{display.fetch('id')}.png"
+      destination = File.join(output, relative)
+      FileUtils.mkdir_p(File.dirname(destination))
+      raise "Tip review image already exists; reconcile the unfinished capture" if File.exist?(destination)
+      FileUtils.cp(raw, destination) # Exact native screenshot bytes, without captions or fake purchase dialogs.
+      map = CONFIG.fetch("tip_product_ids").to_h { |product| [product, relative] }
+      FoldingRelease.atomic_json(File.join(output, "tip-review-screenshots.json"), map)
+      manifest = {"schema_version" => 1, "purpose" => "in_app_purchase_review",
+        "commit_sha" => record.data.fetch("commit_sha"), "configuration_hash" => record.data.fetch("configuration_hash"),
+        "fixture_version" => PLAN.fetch("fixture_version"), "fixed_clock" => PLAN.fetch("fixed_clock"),
+        "device_id" => display.fetch("id"), "device_model" => display.fetch("model"),
+        "runtime" => PLAN.fetch("runtime"), "runtime_build" => PLAN.fetch("runtime_build"),
+        "app_locale" => locale.fetch("app_locale"), "storefront_locale" => locale.fetch("storefront_locale"),
+        "appearance" => PLAN.fetch("appearance"), "scenario_id" => scenario.fetch("id"),
+        "pixel_width" => display.fetch("pixel_width"), "pixel_height" => display.fetch("pixel_height"),
+        "raw_path" => relative, "raw_sha256" => FoldingRelease.sha(raw),
+        "map_sha256" => FoldingRelease.sha(File.join(output, "tip-review-screenshots.json")),
+        "product_source_sha256" => FoldingRelease.sha(File.join(ROOT, "fastlane/tip-products.json")),
+        "product_ids" => CONFIG.fetch("tip_product_ids"), "visual_review" => "pending"}
+      FoldingRelease.atomic_json(File.join(output, "tip-review-manifest.json"), manifest)
+    end
+
+    def self.validate_tip_review!(record)
+      output = File.join(record.directory, "assets")
+      manifest = FoldingRelease.read_json(File.join(output, "tip-review-manifest.json"))
+      raise "Tip review capture identity mismatch" unless manifest["schema_version"] == 1 && manifest["purpose"] == "in_app_purchase_review" && manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"] && manifest["fixture_version"] == PLAN["fixture_version"] && manifest["fixed_clock"] == PLAN["fixed_clock"]
+      scene = PLAN.fetch("review_scenarios").find { |candidate| candidate["id"] == manifest["scenario_id"] }
+      raise "Unexpected tip review scenario/locale" unless scene && scene["device_id"] == manifest["device_id"] && scene["storefront_locale"] == manifest["storefront_locale"] && scene["app_locale"] == manifest["app_locale"]
+      display = PLAN.fetch("devices").find { |candidate| candidate["id"] == scene["device_id"] }
+      raise "Tip review runtime or appearance changed" unless manifest["runtime"] == PLAN["runtime"] && manifest["runtime_build"] == PLAN["runtime_build"] && manifest["appearance"] == PLAN["appearance"]
+      file = File.expand_path(manifest.fetch("raw_path"), output)
+      raise "Invalid tip review image path" unless file.start_with?(File.join(output, "review") + "/")
+      raise "Tip review image bytes/dimensions changed" unless FoldingRelease.sha(file) == manifest["raw_sha256"] && png_size(file) == display.values_at("pixel_width", "pixel_height") && manifest.values_at("pixel_width", "pixel_height") == display.values_at("pixel_width", "pixel_height")
+      map_path = File.join(output, "tip-review-screenshots.json")
+      raise "Tip review map changed" unless FoldingRelease.sha(map_path) == manifest["map_sha256"]
+      map = FoldingRelease.read_json(map_path)
+      expected = CONFIG.fetch("tip_product_ids")
+      raise "Tip review product mapping incomplete" unless map.keys.sort == expected.sort && manifest.fetch("product_ids").sort == expected.sort && map.values.all? { |path| path == manifest.fetch("raw_path") }
+      raise "Tip product source changed since capture" unless manifest["product_source_sha256"] == FoldingRelease.sha(File.join(ROOT, "fastlane/tip-products.json"))
+      map_path
     end
 
     def self.compose(record, raw, display, locale, scenario)
@@ -120,6 +185,7 @@ module FoldingRelease
     end
 
     def self.validate!(record)
+      validate_tip_review!(record)
       output = File.join(record.directory, "assets")
       manifest = FoldingRelease.read_json(File.join(output, "screenshot-manifest.json"))
       raise "Screenshot identity mismatch" unless manifest["commit_sha"] == record.data["commit_sha"] && manifest["configuration_hash"] == record.data["configuration_hash"]

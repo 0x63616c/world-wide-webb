@@ -164,4 +164,34 @@ platform :ios do
     UI.message(JSON.pretty_generate(FoldingTipProducts.configure_app_availability))
   end
 
+
+  desc "Capture only the native Tip jar review image and product map without Apple credentials"
+  lane :tip_review_screenshots do
+    apple_destination
+    generate_project
+    record = FoldingRelease::LocalCaptureRecord.new(environment: "production")
+    FoldingRelease::Assets.capture(self, record, review_only: true)
+  end
+
+  desc "Associate verified captured Tip jar PNGs with the three Apple products; never submit"
+  lane :setup_tip_review_assets do |options|
+    if options[:tag]
+      record = FoldingRelease::Record.new(options[:tag])
+      record.verify_identity!
+      UI.user_error!("Production review assets required") unless record.data.fetch("environment") == "production"
+      FoldingRelease::Operations.restore_assets(record)
+    else
+      record = FoldingRelease::LocalCaptureRecord.new(environment: "production")
+    end
+    map = FoldingRelease::Assets.validate_tip_review!(record)
+    result = FoldingTipProducts.setup(screenshot_manifest: map)
+    FoldingRelease::Assets.validate_tip_review!(record)
+    capture = FoldingRelease.read_json(File.join(record.directory, "assets/tip-review-manifest.json"))
+    UI.user_error!("Apple tip review asset identity differs from capture") unless result.fetch("products").all? { |product| product.fetch("review_screenshot")["sha256"] == capture.fetch("raw_sha256") }
+    if options[:tag]
+      record.save("tip_review_assets" => result.fetch("products").map { |product| product.slice("product_id", "id", "state", "review_screenshot") })
+    end
+    UI.message(JSON.pretty_generate(result))
+  end
+
 end

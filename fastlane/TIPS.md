@@ -75,3 +75,29 @@ Tip setup emits bounded progress at each product/stage and locale (at most ten l
 Transport errors report timeout/connection category and the current stage without a Fastlane stack dump. A stopped report stores only the request method, resource name(s), HTTP status when available and error class. An ambiguous write is never called failed remotely or automatically retried: re-run setup to read Apple's actual state first.
 
 Live evidence received from the primary agent: the initial setup hit a localization POST read timeout. An idempotent reconciliation run subsequently reached the app-availability prerequisite, establishing why incremental evidence and a separate availability bootstrap are necessary. The implementation agent did not execute those authenticated runs.
+
+## Reproducible review-image packaging
+
+The isolated screenshot target now renders the same native `TipJarContent` used by the shipping view. Its reviewer-only `tipjar` scene reads the committed product metadata, shows the three configured en-US/USD rows and disables purchase execution. It does not show or simulate an Apple purchase dialog.
+
+For a single-image unprivileged capture from a clean committed checkout:
+
+```sh
+bundle exec fastlane ios tip_review_screenshots
+```
+
+Outputs are under `build/store-assets/<commit>/production/assets/`:
+
+- `review/tipjar-en-US-duo-outer.png`: untouched native PNG, no marketing caption.
+- `tip-review-manifest.json`: commit/configuration, fixed clock, fixture/runtime/device/locale, dimensions, PNG/map/product-source hashes and explicit pending visual-review status.
+- `tip-review-screenshots.json`: each of the three exact consumable IDs mapped to that PNG using a relative path.
+
+The explicit authenticated association lane validates these files, then passes the map to `setup_tips`:
+
+```sh
+bundle exec fastlane ios setup_tip_review_assets
+```
+
+For sealed release artifacts, use `setup_tip_review_assets tag:v1.0.0`; this downloads/verifies the existing asset archive, uses its map and records resulting Apple review-asset IDs/states/hashes in the release manifest. Both paths validate the capture again after association and require the helper's source PNG SHA-256 (paired with Apple checksum readback) to match the expected PNG. They never submit products.
+
+Normal `screenshots`/`release_assets` capture includes this one reviewer image alongside the existing full storefront matrix. Reviewer files live outside `assets/screenshots`, so deliver's storefront upload does not accidentally include the Tip jar review image. The existing locale/display/scenario completeness check is unchanged. Final visual review and real Apple asset-processing acceptance are still required; capture, association and `UPLOAD_COMPLETE` are not substitutes for either.

@@ -11,19 +11,67 @@
   "runtime_build": "24B91016s",
   "appearance": "light",
   "devices": [
-    {"id": "duo-outer", "model": "iPhone Duo", "screen": "primary", "pixel_width": 1398, "pixel_height": 2034, "upload_display_type": "APP_IPHONE_DUO"},
-    {"id": "duo-inner", "model": "iPhone Duo", "screen": "primary-1", "pixel_width": 2007, "pixel_height": 2853, "upload_display_type": "APP_IPHONE_DUO"}
+    {
+      "id": "duo-outer",
+      "model": "iPhone Duo",
+      "screen": "primary",
+      "pixel_width": 1398,
+      "pixel_height": 2034,
+      "upload_display_type": "APP_IPHONE_DUO"
+    },
+    {
+      "id": "duo-inner",
+      "model": "iPhone Duo",
+      "screen": "primary-1",
+      "pixel_width": 2007,
+      "pixel_height": 2853,
+      "upload_display_type": "APP_IPHONE_DUO"
+    }
   ],
   "scenarios": [
-    {"id": "today", "test": "testToday", "caption_key": "today"},
-    {"id": "history", "test": "testHistory", "caption_key": "history"},
-    {"id": "leaderboard", "test": "testLeaderboard", "caption_key": "leaderboard"},
-    {"id": "settings", "test": "testSettings", "caption_key": "settings"}
+    {
+      "id": "today",
+      "test": "testToday",
+      "caption_key": "today"
+    },
+    {
+      "id": "history",
+      "test": "testHistory",
+      "caption_key": "history"
+    },
+    {
+      "id": "leaderboard",
+      "test": "testLeaderboard",
+      "caption_key": "leaderboard"
+    },
+    {
+      "id": "settings",
+      "test": "testSettings",
+      "caption_key": "settings"
+    }
   ],
   "additional_upload_slots": [
-    {"id": "iphone-medium", "pixel_width": 1206, "pixel_height": 2622, "upload_display_type": "APP_IPHONE_61", "source_device_id": "duo-outer", "scenario_id": "today", "preserve_source_aspect_ratio": true}
+    {
+      "id": "iphone-medium",
+      "pixel_width": 1206,
+      "pixel_height": 2622,
+      "upload_display_type": "APP_IPHONE_61",
+      "source_device_id": "duo-outer",
+      "scenario_id": "today",
+      "preserve_source_aspect_ratio": true
+    }
   ],
   "apple_size_specification": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications",
   "size_source_checked_at": "2026-11-07",
-  "live_asc_upload_validation": "pending"
+  "live_asc_upload_validation": "pending",
+  "review_scenarios": [
+    {
+      "id": "tipjar",
+      "test": "testTipJar",
+      "device_id": "duo-outer",
+      "app_locale": "en",
+      "storefront_locale": "en-US",
+      "purpose": "in_app_purchase_review"
+    }
+  ]
 }
