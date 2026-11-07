@@ -428,7 +428,8 @@ fn github(f: &Fixture) -> ! {
         .args(args)
         .env_clear()
         .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
-        .env("HOME", &f.state_directory)
+        // Changing HOME makes gh lose access to the operator's macOS keychain.
+        .env("XDG_STATE_HOME", f.state_directory.join(".local/state"))
         .env("GH_CONFIG_DIR", &f.github_config_directory)
         .env("GH_PROMPT_DISABLED", "1")
         .exec();
