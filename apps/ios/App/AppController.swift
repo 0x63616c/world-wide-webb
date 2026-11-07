@@ -44,6 +44,7 @@ import struct FoldingData.SetupProgress
         let data = try JSONEncoder().encode(preferences)
         self.preferencesStore.set(data, forKey: self.preferencesKey)
         self.presentation.preferences = preferences
+        await self.runtime.configureDailyLimit()
         await self.runtime.publishWidgets()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
@@ -51,6 +52,7 @@ import struct FoldingData.SetupProgress
       loadHistory: { period, offset in try await self.history(period, offset: offset) },
       saveNotifications: { requested in
         let saved = try await self.notifications.save(requested)
+        await self.runtime.configureDailyLimit()
         self.presentation.notificationAuthorization = await self.notifications.authorization()
         return saved
       },
@@ -114,6 +116,22 @@ import struct FoldingData.SetupProgress
       await refreshVisible()
     }
   }
+
+  func cloudAccountChanged() async {
+    presentation.dismissExports()
+    presentation.analytics = nil
+    presentation.history = nil
+    presentation.setup = nil
+    do {
+      try await runtime.accountChanged()
+      await refreshVisible()
+    } catch {
+      presentation.personalFailure = String(
+        localized: "tracking.unavailable", defaultValue: "Tracking unavailable")
+    }
+  }
+
+  func synchronizePrivateHistory() async { await runtime.synchronizePrivateHistory() }
 
   func refreshVisible() async {
     presentation.notificationPreferences = notifications.preferences

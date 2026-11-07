@@ -7,6 +7,8 @@ import WidgetKit
 /// Release remains compile-gated; this directory is never silently promoted to an iCloud account.
 actor TrackingRuntime {
   static let shared = TrackingRuntime()
+  private var cloudConnection: CloudTrackingConnection?
+  private var accountRevision = UUID()
   private var journal: TrackingStore?
   private var exportService: TrackingExportService?
   private var exportTickets: [UUID: PreparedTrackingExport] = [:]
@@ -14,8 +16,32 @@ actor TrackingRuntime {
 
   private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
 
-  func store() throws -> TrackingStore {
+  func store() async throws -> TrackingStore {
     if let journal { return journal }
+    if let identifier = Bundle.main.object(forInfoDictionaryKey: "FoldingCloudContainerIdentifier")
+      as? String,
+      !identifier.isEmpty
+    {
+      let token = accountRevision
+      if cloudConnection == nil {
+        guard
+          let group = Bundle.main.object(forInfoDictionaryKey: "FoldingAppGroupIdentifier")
+            as? String,
+          let shared = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: group)
+        else { throw CloudTrackingError.missingConfiguration }
+        let root = shared.appendingPathComponent("FoldingPrivate", isDirectory: true)
+        let installation = try InstallationIdentity.loadOrCreate(
+          service: "\(Bundle.main.bundleIdentifier ?? "app.getfolding.Folding").installation",
+          accessGroup: nil, directory: root.appendingPathComponent("identity"))
+        cloudConnection = CloudTrackingConnection(
+          containerIdentifier: identifier, root: root, installationID: installation)
+      }
+      let opened = try await cloudConnection!.connect()
+      guard token == accountRevision else { throw PartitionError.superseded }
+      journal = opened
+      return opened
+    }
     let support = try FileManager.default.url(
       for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     let root = support.appendingPathComponent("FoldingDevelopment", isDirectory: true)
@@ -35,6 +61,32 @@ actor TrackingRuntime {
     return opened
   }
 
+  func accountChanged() async throws {
+    accountRevision = UUID()
+    journal = nil
+    clearWidgets()
+    try await cloudConnection?.invalidate()
+    await DailyLimitDelivery.shared.cancelAll()
+    try await cancelExports()
+    exportService = nil
+    changed()
+    _ = try await store()
+    await synchronizePrivateHistory()
+  }
+
+  func synchronizePrivateHistory() async {
+    do {
+      _ = try await store()
+      try await cloudConnection?.synchronize()
+      await configureDailyLimit()
+      if let journal { await DailyLimitDelivery.shared.deliver(from: journal) }
+      await publishWidgets()
+      changed()
+    } catch {
+      // A cloud outage never changes a committed local observation into a failure.
+    }
+  }
+
   func updates() -> AsyncStream<Void> {
     let id = UUID()
     let pair = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -48,14 +100,21 @@ actor TrackingRuntime {
   private func changed() { for continuation in observers.values { continuation.yield(()) } }
 
   func record(_ transition: Transition) async throws {
-    let store = try store()
+    let store = try await store()
     let generation = try await store.currentGeneration()
     let epoch = try await store.currentCompetitionEpoch()
     let now = Self.nowMS
     let observation = Observation(
       generation: generation, transition: transition, observedAtMS: now,
       timezoneID: TimeZone.current.identifier, competitionEpochID: epoch)
-    _ = try await store.record(observation, nowMS: now)
+    await configureDailyLimit()
+    let receipt = try await store.record(observation, nowMS: now)
+    if !receipt.wasRetry {
+      let preferences = localPreferences()
+      _ = try? await store.evaluateDailyLimit(
+        afterEventID: receipt.event.eventID, homeTimezone: preferences.homeTimezone, nowMS: now)
+    }
+    await DailyLimitDelivery.shared.deliver(from: store)
     await publishWidgets()
     changed()
   }
@@ -68,7 +127,7 @@ actor TrackingRuntime {
   }
 
   func useThisPhone() async throws {
-    let store = try store()
+    let store = try await store()
     // Public enrollment must transfer online first; never silently replace its active device.
     guard try await store.currentCompetitionEpoch() == nil else { throw StoreError.invalidInput }
     _ = try await store.selectTrackingDevice(store.deviceID, nowMS: Self.nowMS)
@@ -78,10 +137,32 @@ actor TrackingRuntime {
 
   func reset() async throws {
     try await cancelExports()
-    _ = try await store().reset(nowMS: Self.nowMS)
+    let current = try await store()
+    let pending = try await current.dailyLimitNotificationIdentifier()
+    _ = try await current.reset(nowMS: Self.nowMS)
+    await DailyLimitDelivery.shared.cancel(pending)
     clearWidgets()
     await publishWidgets()
     changed()
+  }
+
+  private func localPreferences() -> FoldingPreferences {
+    UserDefaults.standard.data(forKey: "folding.preferences.v1")
+      .flatMap { try? JSONDecoder().decode(FoldingPreferences.self, from: $0) }
+      ?? FoldingPreferences()
+  }
+
+  func configureDailyLimit() async {
+    do {
+      let enabled =
+        UserDefaults.standard.data(forKey: "folding.notifications.v1")
+        .flatMap { try? JSONDecoder().decode(NotificationPreferences.self, from: $0) }?.dailyLimit
+        ?? false
+      let current = try await store()
+      let cancelled = try await current.setDailyLimitPreferences(
+        DailyLimitPreferences(enabled: enabled, threshold: localPreferences().dailyLimit))
+      await DailyLimitDelivery.shared.cancel(cancelled)
+    } catch {}
   }
 
   private func widgetStore() throws -> WidgetSnapshotStore {
@@ -104,7 +185,7 @@ actor TrackingRuntime {
         UserDefaults.standard.data(forKey: "folding.preferences.v1")
         .flatMap { try? JSONDecoder().decode(FoldingPreferences.self, from: $0) }
         ?? FoldingPreferences()
-      let store = try store()
+      let store = try await store()
       let now = Self.nowMS
       let range = try PersonalDateRange.trailingDays(
         7, throughMS: now, homeTimezone: preferences.homeTimezone)
@@ -133,9 +214,9 @@ actor TrackingRuntime {
     }
   }
 
-  private func exports() throws -> TrackingExportService {
+  private func exports() async throws -> TrackingExportService {
     if let exportService { return exportService }
-    let service = TrackingExportService(store: try store())
+    let service = TrackingExportService(store: try await store())
     exportService = service
     return service
   }

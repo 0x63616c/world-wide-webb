@@ -1,3 +1,5 @@
+import CloudKit
+import CoreData
 import StoreKit
 import SwiftUI
 
@@ -16,6 +18,16 @@ import SwiftUI
     WindowGroup {
       FoldingRootView(model: controller.presentation, actions: controller.actions)
         .task { TipStore.shared.start() }
+        .task { await controller.synchronizePrivateHistory() }
+        .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
+          Task { await controller.cloudAccountChanged() }
+        }
+        .onReceive(
+          NotificationCenter.default.publisher(
+            for: NSPersistentCloudKitContainer.eventChangedNotification)
+        ) { _ in
+          Task { await controller.synchronizePrivateHistory() }
+        }
         .task { await controller.watch() }
         .task(id: [
           controller.presentation.analytics?.range.endMS, controller.presentation.analytics?.asOfMS,
@@ -34,7 +46,12 @@ import SwiftUI
           if !loading, scenePhase == .active, controller.claimReviewRequest() { requestReview() }
         }
         .onChange(of: scenePhase) { _, phase in
-          if phase == .active { Task { await controller.refreshVisible() } }
+          if phase == .active {
+            Task {
+              await controller.synchronizePrivateHistory()
+              await controller.refreshVisible()
+            }
+          }
         }
     }
   }
