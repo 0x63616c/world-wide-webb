@@ -67,3 +67,16 @@ source rows, media filenames, enrollment records, credentials or decrypted infra
 The primary agent owns implementation and credential operations; only the final reviewer is delegated.
 User priority: faithful working iPad, preserved database/Photo Booth, Rust and removal of the old stack.
 iPhone/Duo and Mac remain in scope and are checked last. Do not wait on hosted CI during local coding.
+
+
+## Authentication decision reopened — 2026-11-07
+
+Calum rejected manual per-device connection-record entry and requested alternative setup flows.
+PR #943 is open with auto-merge DISABLED pending agreement on the replacement. The original Bun/PostgreSQL
+app was restarted and verified healthy. The final frozen snapshot/import/NAS backup and infrastructure
+restore proof succeeded, but PostgreSQL writes have resumed: the staged SQLite candidate is now a rehearsal,
+and its production acceptance marker was moved out of the app directory. A fresh stopped-writer snapshot
+and reconciliation are mandatory before any later Rust deployment. Do not restore the old acceptance marker.
+Cloudflare adoption/API provisioning completed; old app access and its existing device token remain working.
+Private recovery/enrollment material is retained in the world-wide-webb 1Password vault.
+Screenshot archives and the mandatory PR-screenshot rule are to be removed after the core cutover, per Calum.

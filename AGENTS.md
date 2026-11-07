@@ -9,6 +9,8 @@ Calum approved the native Swift + Rust/SQLite + OpenTofu reset in `docs/plans/na
 The primary agent implements everything. Subagents are allowed only for one independent final review.
 Keep implementation, verification, review fixes and commits local until the complete candidate is reviewed.
 Then publish the drafted GitHub issues/project and one PR, satisfy required checks, merge and verify delivery.
+Manual per-device credential entry has been rejected. Keep PR #943 unmerged until the replacement connection
+flow is agreed and implemented. Before any later cutover, read the resumed-writer warning in the progress tracker.
 Documentation follows working code. Prioritize iPad fidelity, database/Photo Booth preservation and Rust;
 exercise iPhone/Duo and Mac last. They remain in scope. Legacy wake images are not a blocker.
 
@@ -61,8 +63,9 @@ Interactive requests normally include PR, green required checks, merge and deplo
 migration's local-until-reviewed agreement takes precedence until its final publication gate. Pipeline executors
 commit only; their wrapper publishes. Never bypass required checks or merge a red PR.
 
-PRs need Conventional Commit titles and a real screenshot under `docs/screenshots/<feature>/`, embedded using
-a raw GitHub URL pinned to its commit. Record visible interaction changes in a video. Avoid private media.
+PRs need Conventional Commit titles and accurate validation. Visual evidence is optional; keep screenshots
+and recordings outside Git. Calum explicitly removed the mandatory screenshot requirement. Existing screenshot
+archives are scheduled for removal after the core cutover. Avoid private media in shared evidence.
 Main merge deliberately deploys the tested immutable revision. Verify backend revision/health/worker ownership,
 retained integrations, Apple processing, migrated data/media, fresh NAS backup restore and comparable after metrics.
 Keep tracking issues open until their acceptance evidence exists. Report unverified work honestly.
