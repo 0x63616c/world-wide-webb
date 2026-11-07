@@ -96,3 +96,14 @@ Foundation and personal persistence are in progress. Reducer, journal and local 
 ## Owner CI deferral
 
 The owner deferred GitHub CI while arranging runners in another project. Automatic workflow triggers are disabled; no CI retries until requested. Continue local core/backend/simulator/Fastlane validation. Restore CI and verify runner isolation before release acceptance; the earlier billing rejection remains historical evidence, not an active request for owner action.
+
+## Granular delivery tracking
+
+The original fourteen work orders now have 33 linked deliverable issues (#15–#47), with scope-specific completion evidence and status labels. [Deliverables](https://github.com/0x63616c/folding/issues?q=is%3Aissue+label%3Atype%3Adeliverable) distinguish verified local components from live integration and release requirements. Parent issues show their sub-issue progress. A private GitHub Project is requested; creation awaits the owner's Projects-scope authorization. Do not treat an issue-count percentage as an effort-weighted shipping estimate.
+
+## Guided setup state and analytics integration
+
+- Added a durable setup flow with transactional test-lease creation, committed opening/closing receipt correlation, expiry/cancel/restart behavior and preserved prior completion records.
+- Independent review found stale cached success after receipt quarantine and the reset/device restart step. Both are corrected with regression coverage; focused recheck found no blocker.
+- Added an atomic journal read feeding the new calendar analytics off MainActor. Setup-test events remain excluded. Full UI/intent composition, persisted transfer selection and live account wiring are still pending.
+- Package validation passes 57 Swift tests (18 domain,39 data); five new data tests cover setup completion/reopen, cancellation/expiry/reset, atomic rollback, invalidated receipt and journal analytics.
