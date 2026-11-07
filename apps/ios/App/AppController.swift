@@ -10,6 +10,8 @@ import struct FoldingData.SetupProgress
   private let runtime: TrackingRuntime
   private let notifications: NotificationSettingsStore
   private let preferencesStore: UserDefaults
+  private var competitionAPI: CompetitionAPI?
+  private let appleSignIn = CompetitionSignIn()
   private var request = UUID()
   private var didLoad = false
   private let preferencesKey = "folding.preferences.v1"
@@ -65,6 +67,7 @@ import struct FoldingData.SetupProgress
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
       },
+      loadLeaderboard: { period in try await self.loadCompetition(period) },
       openShortcuts: {
         guard let url = URL(string: "shortcuts://") else { return }
         UIApplication.shared.open(url) { opened in
@@ -91,7 +94,111 @@ import struct FoldingData.SetupProgress
           self.presentation.error = String(
             localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
         }
-      })
+      },
+      joinCompetition: { nickname in
+        let api = try await self.competitionClient()
+        let store = try await self.runtime.store()
+        let result = try await api.join(nickname: nickname, generation: store.currentGeneration())
+        guard let epoch = UUID(uuidString: result.enrollment.epoch_id) else {
+          throw CompetitionTransportError.invalidResponse
+        }
+        try await store.setCompetitionEpoch(epoch)
+        self.presentation.competitionProfile = self.profilePresentation(result.profile)
+        await self.presentation.requestLeaderboard(using: self.actions)
+      },
+      saveNickname: { value in
+        let profile = try await self.competitionClient().nickname(value)
+        return self.profilePresentation(profile)
+      },
+      setParticipantBlocked: { id, blocked in
+        try await self.competitionClient().setBlocked(id, blocked: blocked)
+      },
+      leaveCompetition: {
+        _ = try await self.competitionClient().leave()
+        try await self.runtime.store().setCompetitionEpoch(nil)
+        self.presentation.invalidateCompetitionPresentation()
+        self.presentation.competition = .notJoined
+      },
+      signInCompetition: { try await self.signInToCompetition() })
+  }
+
+  private func competitionClient() async throws -> CompetitionAPI {
+    if let competitionAPI { return competitionAPI }
+    guard let originText = Bundle.main.object(forInfoDictionaryKey: "FoldingAPIOrigin") as? String,
+      let origin = URL(string: originText),
+      let environment = Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String
+    else { throw CompetitionTransportError.unavailable }
+    let store = try await runtime.store()
+    let transport = try CompetitionTransport(
+      origin: origin, deployment: environment,
+      deviceID: store.deviceID, bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
+    let api = CompetitionAPI(transport: transport, deviceID: store.deviceID)
+    competitionAPI = api
+    return api
+  }
+
+  private func profilePresentation(_ profile: CompetitionWireProfile) -> CompetitionProfile {
+    CompetitionProfile(
+      id: profile.participant_id, nickname: profile.nickname,
+      approvedAvatarURL: nil, nicknamePending: profile.nickname_status == "pending",
+      avatarState: AvatarReviewState(rawValue: profile.avatar_status) ?? .none)
+  }
+
+  func restoreCompetition() async {
+    guard let origin = Bundle.main.object(forInfoDictionaryKey: "FoldingAPIOrigin") as? String,
+      !origin.isEmpty
+    else { return }
+    do {
+      let me = try await competitionClient().me()
+      presentation.competitionProfile = profilePresentation(me.profile)
+      if me.profile.restriction != "none" {
+        presentation.competition = .banned
+      } else if me.profile.membership == "joined" {
+        await presentation.requestLeaderboard(using: actions)
+      } else {
+        presentation.competition = .notJoined
+      }
+    } catch CompetitionTransportError.unauthorized {
+      presentation.competition = .notJoined
+    } catch {
+      presentation.competition = .failed(presentation.competition.previous)
+    }
+  }
+
+  private func signInToCompetition() async throws {
+    let api = try await competitionClient()
+    let store = try await runtime.store()
+    let profile = try await appleSignIn.signIn(transport: api.transport, deviceID: store.deviceID)
+    presentation.competitionProfile = profilePresentation(profile)
+    if profile.restriction == "banned" || profile.restriction == "suspended" {
+      presentation.competition = .banned
+    } else if profile.membership == "joined" {
+      let me = try await api.me()
+      if let enrollment = me.enrollment,
+        enrollment.device_id == store.deviceID.uuidString.lowercased(),
+        let epoch = UUID(uuidString: enrollment.epoch_id)
+      {
+        try await store.setCompetitionEpoch(epoch)
+      }
+      await presentation.requestLeaderboard(using: actions)
+    } else {
+      presentation.competition = .notJoined
+      presentation.beginJoin(suggestedNickname: profile.nickname)
+    }
+  }
+
+  private func loadCompetition(_ period: CompetitionPeriod) async throws -> LeaderboardPresentation
+  {
+    let board = try await competitionClient().leaderboard(kind: period.rawValue)
+    func entry(_ row: CompetitionWireRank) -> LeaderboardEntry {
+      LeaderboardEntry(
+        id: row.participant_id, rank: row.rank, displayName: row.nickname,
+        folds: row.folds, approvedAvatarURL: nil,
+        isCurrentUser: row.participant_id == board.you?.participant_id)
+    }
+    return LeaderboardPresentation(
+      periodTitle: period.title, entries: board.page.items.map(entry),
+      currentUser: board.you.map(entry), pendingFolds: 0, updatedAt: Date())
   }
 
   func claimReviewRequest() -> Bool {
@@ -118,6 +225,10 @@ import struct FoldingData.SetupProgress
   }
 
   func cloudAccountChanged() async {
+    presentation.invalidateCompetitionPresentation()
+    if let competitionAPI { try? await competitionAPI.transport.clearSession() }
+    competitionAPI = nil
+    presentation.competition = .notJoined
     presentation.dismissExports()
     presentation.analytics = nil
     presentation.history = nil

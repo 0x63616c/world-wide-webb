@@ -18,6 +18,7 @@ import SwiftUI
     WindowGroup {
       FoldingRootView(model: controller.presentation, actions: controller.actions)
         .task { TipStore.shared.start() }
+        .task { await controller.restoreCompetition() }
         .task { await controller.synchronizePrivateHistory() }
         .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
           Task { await controller.cloudAccountChanged() }
