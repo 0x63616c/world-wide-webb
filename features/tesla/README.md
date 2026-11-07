@@ -87,7 +87,7 @@ No PIN is logged, returned, or placed in a query string. Invalid input is reject
 before checking the PIN or calling HA. HA failures return a generic 503.
 
 {accepted:true} means HA accepted the service call, not that the vehicle changed.
-The native Tesla app exposes only lock and unlock; its other vehicle data is read-only. Clients re-read state and do not automatically retry commands. Vehicle state may
+The native Tesla app is read-only; its lock indicator reports telemetry and has no action. Clients re-read state and do not automatically retry commands. Vehicle state may
 lag until the integration next updates. The rollout check must confirm the
 specific HA entities and command signing setup; no real vehicle commands were
 issued during development.
@@ -108,21 +108,25 @@ and recovery after failures. Fixtures do not verify the live HA inventory.
 
 ## Evee dashboard
 
-The Swift dashboard identifies the owner's original Model Y as **Evee**. The cartoon car
-illustration matches the supplied Space Gray paint, upgraded dark wheels and white
-interior; it is artwork, not live camera imagery. Battery and estimated range
-share one display. Cabin temperature is read-only. The lock button retains the
-fresh-PIN flow and does not optimistically change the reported lock state.
-The filled battery bar has a slow moving highlight and soft green glow during fresh active charging only; Reduce Motion keeps a steady glow. The fill length never animates to imply a different charge level. `-hybridMotion` enables motion for simulator fixture review; normal fixture tests remain still.
-Acknowledgement displays “Lock requested” / “Unlock requested” until telemetry
-confirms it. Odometer stays visible beside cabin temperature; there is no Details disclosure. Normal/up-to-date software adds no main-screen banner; available and
-installing updates do. Installation stays in the Tesla app.
+The Swift dashboard identifies the owner's original Model Y as **Evee**. A flat,
+right-facing side-profile illustration matches the supplied Space Gray paint,
+upgraded dark wheels and white interior. It is artwork, not live camera imagery.
+The summary follows the simple centered layout: title and lock indicator, mileage
+without a visible label, car, battery/range and cabin temperature. All native
+vehicle UI is read-only; there is no lock button, PIN flow or Details disclosure.
+The full odometer and lock descriptions remain available to VoiceOver.
+
+The filled battery bar has a slow moving highlight and soft green glow during
+fresh active charging only; Reduce Motion keeps a steady glow. The fill length
+always represents the reported charge. `-hybridMotion` enables motion for simulator
+fixture review; normal fixture tests remain still. Normal/up-to-date software adds
+no banner; available and installing updates do. Installation stays in the Tesla app.
 
 Additional optional roles are discovered independently:
 
 | Role | Matching HA entity | Native use |
 | --- | --- | --- |
-| vehicleOnline | binary_sensor, status/online, connectivity class | False shows last-reported readings and disables controls |
+| vehicleOnline | binary_sensor, status/online, connectivity class | False marks readings as last reported |
 | cableConnected | binary_sensor, charge_cable/charger_connected | Available to clients; omitted from the minimal dashboard |
 | chargeLimit | number, charge_limit, % | Reported target while actively charging |
 | chargeCompleteAt | sensor, time_to_full_charge, timestamp class | Reported completion time while actively charging |
@@ -130,8 +134,7 @@ Additional optional roles are discovered independently:
 
 Unknown, unavailable, malformed or missing optional readings stay absent and do
 not make the base snapshot unavailable. Missing shift state never means parked;
-charge rate in mph is **not vehicle speed**. A reported non-P gear or software
-installation disables native lock commands both in the view and at PIN submission.
+charge rate in mph is **not vehicle speed**. Reported non-P gear and software installation have distinct read-only presentations.
 Older servers/fixtures without these optional fields remain readable.
 
 A read-only inventory on 2026-11-06 verified Evee's cable, charge limit, completion
@@ -144,8 +147,8 @@ distinguish sleep from loss of connection; the UI says “Last reported”, not 
 
 Future controls supported upstream include climate, charge start/stop, charge
 limit/current, boot/froot, windows, sentry, wake, flash and horn. This redesign
-preserves the panel's lock-only control policy; it does not add those actions or
-software-install commands. The existing HA integration remains the source rather
+keeps all native vehicle actions unavailable, including lock/unlock and software
+installation. Existing backend command endpoints are unchanged. The existing HA integration remains the source rather
 than adding a second Fleet OAuth/streaming service.
 
 References: [HA Tesla Fleet](https://www.home-assistant.io/integrations/tesla_fleet/),

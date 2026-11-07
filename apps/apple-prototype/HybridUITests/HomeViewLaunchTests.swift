@@ -87,19 +87,18 @@ import XCTest
         app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
     }
-    func testTeslaShowsTelemetryAndOnlyLockControl() {
+    func testTeslaShowsReadOnlyTelemetry() {
         let app = launch()
         defer { app.terminate() }
         app.openHomeModule("tesla")
         XCTAssertTrue(app.staticTexts["Evee"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["tesla-energy"].firstMatch.exists)
-        XCTAssertTrue(app.buttons["tesla-door-lock"].exists)
+        XCTAssertTrue(app.images["tesla-lock-status"].exists)
+        XCTAssertFalse(app.buttons["tesla-door-lock"].exists)
         XCTAssertFalse(app.switches["Charge"].exists)
         XCTAssertFalse(app.switches["Precondition"].exists)
         capture("tesla-telemetry", app)
-        app.buttons["tesla-door-lock"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        app.buttons["Cancel"].tap()
+        XCTAssertFalse(app.buttons["pin-digit-0"].exists)
     }
     func testRollbackLaunchesWebWithoutHome() {
         let app = XCUIApplication()

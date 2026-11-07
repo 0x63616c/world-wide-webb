@@ -1,4 +1,4 @@
 {
-  "images": [{ "filename": "evee-cartoon.png", "idiom": "universal", "scale": "2x" }],
+  "images": [{ "filename": "evee-side.png", "idiom": "universal", "scale": "2x" }],
   "info": { "author": "xcode", "version": 1 }
 }

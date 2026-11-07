@@ -10,14 +10,6 @@ import PanelKit
     private(set) var requestedAction: TeslaAction?
     private(set) var busy = false
     private(set) var errorMessage: String?
-    private(set) var acknowledgedAction: TeslaAction?
-    var commandNotice: String? {
-        switch acknowledgedAction {
-        case .lock: "Lock requested"
-        case .unlock: "Unlock requested"
-        default: nil
-        }
-    }
     @ObservationIgnored private let api: TeslaAPI
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var mutation: Task<Void, Never>?
@@ -81,7 +73,6 @@ import PanelKit
         guard action == .lock || action == .unlock else { return }
         guard canControl, !busy, requestedAction == nil else { return }
         requestedAction = action
-        acknowledgedAction = nil
         errorMessage = nil
     }
     func cancelCommand() { requestedAction = nil; errorMessage = nil }
@@ -122,7 +113,6 @@ import PanelKit
             try Task.checkCancellation()
             guard version == generation else { return }
             requestedAction = nil
-            acknowledgedAction = action
             errorMessage = nil
             // Acknowledgement never invents vehicle state. Read HA again; later
             // polls handle eventual consistency without retrying the command.
@@ -142,7 +132,6 @@ import PanelKit
     }
 
     private func retainSnapshot(reason: String) {
-        acknowledgedAction = nil
         snapshot?.stale = true
         hasLiveData = snapshot != nil
         moduleStatus = hasLiveData ? .live : .unavailable(reason)
@@ -153,16 +142,12 @@ import PanelKit
         switch state {
         case .ready(let value):
             snapshot = value; hasLiveData = true; moduleStatus = .live
-            if !canControl { requestedAction = nil; acknowledgedAction = nil }
-            if (acknowledgedAction == .lock && value.locked) || (acknowledgedAction == .unlock && !value.locked) {
-                acknowledgedAction = nil
-            }
+            if !canControl { requestedAction = nil }
             if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent), estimate != maxRange {
                 maxRange = estimate
                 defaults.set(estimate, forKey: Self.maxRangeKey)
             }
         case .unconfigured:
-            acknowledgedAction = nil
             snapshot = nil; hasLiveData = false; requestedAction = nil
             moduleStatus = .unconfigured("Tesla isn't set up on the server")
         case .unavailable:
@@ -176,7 +161,6 @@ import PanelKit
         busy = false
         hasLiveData = false
         moduleStatus = .loading
-        acknowledgedAction = nil
         cancelCommand()
     }
 }

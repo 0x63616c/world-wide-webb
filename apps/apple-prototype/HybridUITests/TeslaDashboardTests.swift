@@ -6,7 +6,7 @@ import XCTest
         XCUIDevice.shared.orientation = .landscapeLeft
     }
 
-    func testVehicleStatesAndPINEntry() {
+    func testReadOnlyVehicleStates() {
         for scenario in ["parked", "charging", "unlocked", "update", "installing", "driving", "offline", "no-power"] {
             let app = XCUIApplication()
             app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridTeslaScenario", scenario,
@@ -17,19 +17,16 @@ import XCTest
             app.alignPanelOrientation()
             app.openHomeModule("tesla")
             XCTAssertTrue(app.staticTexts["Evee"].waitForExistence(timeout: 10), scenario)
-            let lock = app.buttons["tesla-door-lock"]
+            let lock = app.images["tesla-lock-status"]
             XCTAssertTrue(lock.exists, scenario)
-            XCTAssertEqual(lock.isEnabled, !["driving", "installing", "offline"].contains(scenario), scenario)
+            XCTAssertEqual(lock.value as? String, scenario == "unlocked" ? "Unlocked" : "Locked", scenario)
+            XCTAssertFalse(app.buttons["tesla-lock-status"].exists, scenario)
+            XCTAssertFalse(app.buttons["tesla-door-lock"].exists, scenario)
+            XCTAssertFalse(app.switches["tesla-door-lock"].exists, scenario)
+            XCTAssertFalse(app.buttons["pin-digit-0"].exists, scenario)
             XCTAssertEqual(app.descendants(matching: .any)["tesla-update"].firstMatch.exists, ["update", "installing"].contains(scenario), scenario)
             XCTAssertTrue(app.descendants(matching: .any)["tesla-odometer"].firstMatch.exists, scenario)
             capture("evee-\(scenario)", app)
-            if scenario == "parked" {
-                lock.tap()
-                XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-                capture("evee-pin", app)
-                app.buttons["Cancel"].tap()
-                XCTAssertTrue(app.staticTexts["Evee"].waitForExistence(timeout: 10))
-            }
             app.terminate()
         }
     }

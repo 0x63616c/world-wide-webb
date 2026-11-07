@@ -13,14 +13,14 @@ Native Liquid Glass supplies tile refraction, highlights and button chrome, with
 Lamps has an All lamps brightness fader, room power controls, expandable members and Color & Effects. The next-alarm face has 120 uniformly weighted ticks around an arc-length sampled rounded rectangle. The design corner radius is 112 points, with an 80-point inset ring radius. It is **not a measured iPad 13-inch hardware radius**: Apple does not publish that measurement in the available resources. The separate 18-point research token describes older documented iPad models and is not misrepresented as current hardware.
 
 Tesla presents Evee, the owner's original Space Gray Model Y with white interior.
-The landscape dashboard pairs a vehicle illustration with a compact battery/range
-display; narrow layouts stack the same content. A native glass lock button keeps
-fresh-PIN confirmation; cabin and charging data remain read-only. Software alerts
-appear only for available/installing updates. Mileage stays on the main screen beside cabin temperature. Optional HA telemetry supplies cable, charge limit,
-completion time, connectivity and gear without inventing missing readings. There
-is no active shift-state entity on Evee yet, so live driving presentation requires
-that entity; previews cover it. Last-reported, in-gear and installing states disable
-commands. See `features/tesla/README.md` for the inventory and state contract.
+A flat side-profile car sits in a simple centered summary. Mileage appears directly
+under Evee without a visible label; a small lock glyph reports locked/unlocked.
+The native screen is read-only, with no command buttons or PIN flow. Battery/range,
+active charging details and cabin temperature stay compact. Software notices appear
+only for available/installing updates. Optional HA telemetry supplies cable, charge
+limit, completion time, connectivity and gear without inventing missing readings.
+Evee has no active shift-state entity yet; driving presentation is fixture-tested
+and waits for real gear data. See `features/tesla/README.md` for the inventory.
 
 Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla moves a soft highlight through the filled battery bar only while actively charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
 
