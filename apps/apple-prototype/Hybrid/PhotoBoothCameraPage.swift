@@ -36,12 +36,11 @@ struct PhotoBoothCameraPage: View {
             }
 
             VStack {
-                GlassEffectContainer {
-                    HStack {
-                        PhotoBoothNavigationButton(symbol: "xmark", title: "Close Photo Booth", action: close)
-                        Spacer()
-                        timer
-                    }
+                HStack {
+                    timer
+                    Spacer()
+                    PanelAppBackButton(back: close)
+                        .accessibilityLabel("Close Photo Booth")
                 }
                 Spacer()
                 feedback
