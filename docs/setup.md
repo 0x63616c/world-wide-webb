@@ -1,6 +1,6 @@
 # Set up a Mac
 
-Use [CLI 0.3.1](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.1)
+Use [CLI 0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
 for this guide. It includes Git-first host selection and automatic prerequisite
 installation; version 0.3.0 does not.
 
