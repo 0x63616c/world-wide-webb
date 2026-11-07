@@ -32,6 +32,13 @@
 	<dict/>
 	<key>UIRequiresFullScreen</key>
 	<false/>
+	<key>UIRequiresFullScreen~ipad</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>UIStatusBarHidden</key>
 	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
