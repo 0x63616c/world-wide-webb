@@ -234,7 +234,7 @@ fn regressions() {
         (0, 0, 1, 2, false),
     ] {
         let script = format!(
-            "fixture_test() {{ case \"$3\" in /var/db/homelab-setup) return {journal};; *) return {store};; esac; }}\nfixture_pgrep() {{ case \"$2\" in homelab-host) return {helper};; *) return {installer};; esac; }}\n{check}"
+            "fixture_test() {{ case \"$3\" in /Users/admin/.local/state/homelab/bootstrap/progress.json) return {journal};; *) return {store};; esac; }}\nfixture_pgrep() {{ case \"$2\" in homelab-host) return {helper};; *) return {installer};; esac; }}\n{check}"
         );
         assert_eq!(
             Command::new("/bin/sh")
@@ -908,7 +908,7 @@ fn drive(f: &Fixture, resume: bool) {
     let fresh = vm::bounded(vm::ssh(
         &f.target,
         &f.state_directory.join("vm-ssh"),
-        "/usr/bin/sudo -n /bin/test ! -e /var/db/homelab-setup",
+        "/usr/bin/sudo -n /bin/test ! -e /Users/admin/.local/state/homelab/bootstrap/progress.json",
     ));
     assert!(
         fresh.is_some(),
@@ -1135,7 +1135,7 @@ fn resume_run(path: &Path) {
 }
 
 const PRE_BOOTSTRAP_CHECK: &str = r#"
-/usr/bin/sudo -n /bin/test ! -e /var/db/homelab-setup || exit 2
+/usr/bin/sudo -n /bin/test ! -e /Users/admin/.local/state/homelab/bootstrap/progress.json || exit 2
 /usr/bin/sudo -n /bin/test ! -e /nix/store || exit 2
 /usr/bin/pgrep -x homelab-host >/dev/null
 [ "$?" -eq 1 ] || exit 2

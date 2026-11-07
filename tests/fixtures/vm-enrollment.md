@@ -111,9 +111,9 @@ its preserved snapshot explicitly:
 vm_enrollment --resume /absolute/private/operator-state/enrollment.json
 ```
 
-This narrow path requires the original guest nonce and pinned host keys, no guest setup journal,
-Nix store or active bootstrap/installer process, and the original saved proposal approved at exactly
-the saved merged revision still on main. It replaces only harness adapter executables using new
+This narrow path requires the original guest nonce and pinned host keys, no guest bootstrap journal at
+`/Users/admin/.local/state/homelab/bootstrap/progress.json`, Nix store or active bootstrap/installer
+process, and the original saved proposal approved at exactly the saved merged revision still on main. It replaces only harness adapter executables using new
 inodes, preserving old hard links, credentials, receipts and the create-new issuance marker.
 The wizard then follows its production resume path without another PR merge. It refuses later
 bootstrap phases; it is not a general retry command. No raw Outcome or terminal transcript is
