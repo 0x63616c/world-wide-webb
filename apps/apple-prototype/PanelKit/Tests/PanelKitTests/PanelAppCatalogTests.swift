@@ -31,11 +31,6 @@ import Testing
             try PanelAppCatalog(apps: [.init(id: "empty", name: "", symbol: "gear", accent: "#ffffff", route: .settings)])
         }
     }
-    @Test func classicRequiresHostCapability() {
-        let catalog = PanelAppCatalog.standard
-        #expect(!catalog.visibleApps(classicSupported: false).contains { $0.route == .classic })
-        #expect(catalog.visibleApps(classicSupported: true).filter { $0.route == .classic }.count == 1)
-    }
     @Test func navigationReturnsToLauncherAndRejectsUnknownApps() {
         var state = PanelShellState()
         #expect(state.screen == .clock)

@@ -145,35 +145,6 @@ struct BoothIconArtwork: View {
     }
 }
 
-struct ClassicIconArtwork: View {
-    let side: CGFloat
-    let parallax: CGSize
-    var body: some View {
-        ZStack {
-            ZStack {
-                Circle().fill(Color(hex: "#CCD6FF"))
-                Circle().fill(Color(hex: "#7689ED")).padding(side * 0.055)
-                ForEach(0..<8) { index in
-                    Capsule().fill(Color(hex: "#DDE4FF"))
-                        .frame(width: side * 0.014, height: side * 0.028)
-                        .offset(y: -side * 0.23)
-                        .rotationEffect(.degrees(Double(index) * 45))
-                }
-            }
-            .frame(width: side * 0.64, height: side * 0.64)
-            .modifier(IconLayer(parallax: parallax, side: side, depth: 0.012))
-            ZStack {
-                PanelEverydayShape.compassNorth.fill(.white)
-                PanelEverydayShape.compassSouth.fill(Color(hex: "#A8B8FF"))
-                Circle().fill(Color(hex: "#5367CD"))
-                    .frame(width: side * 0.055, height: side * 0.055)
-            }
-            .rotationEffect(.degrees(35))
-            .modifier(IconLayer(parallax: parallax, side: side, depth: 0.028))
-        }.frame(width: side, height: side)
-    }
-}
-
 private enum PanelEverydayShape: Shape {
     case pawPad, carBody, carWindow, compassNorth, compassSouth
     func path(in rect: CGRect) -> Path {

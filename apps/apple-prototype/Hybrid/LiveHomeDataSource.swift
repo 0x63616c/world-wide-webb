@@ -137,7 +137,6 @@ import OSLog
         case .cameras: camerasProvider.availability == .live && !camerasProvider.feeds.isEmpty
         case .alarms: alarmsProvider.availability == .live && alarmsProvider.snapshot != nil
         case .reminders: remindersProvider.availability == .live
-        case .all: false
         case .tesla: teslaProvider.hasLiveData
         case .photos: photosProvider.availability == .live && !photosProvider.frames.isEmpty
         case .lights: lightsProvider.availability == .live
@@ -298,7 +297,6 @@ import OSLog
         case .cameras: await camerasProvider.refresh()
         case .alarms: await alarmsProvider.refresh()
         case .reminders: await remindersProvider.refresh()
-        case .all: break
         case .tesla: await teslaProvider.refresh()
         case .photos: await photosProvider.refresh()
         case .lights: await lightsProvider.refresh()
@@ -312,11 +310,11 @@ import OSLog
         }
     }
 
-    /// One task per opted-in provider; a slow/unavailable service cannot hold up
+    /// One task per provider; a slow/unavailable service cannot hold up
     /// other modules. The caller's structured task owns foreground/background life.
     func run(modules: Set<PanelModule>) async {
         await withTaskGroup(of: Void.self) { group in
-            for module in modules where module != .all {
+            for module in modules {
                 group.addTask { await self.poll(module) }
             }
             await group.waitForAll()

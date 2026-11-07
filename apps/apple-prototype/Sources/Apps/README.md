@@ -12,7 +12,7 @@ together as the app enters from the right. Back reverses the motion and restores
 the launcher's scroll position.
 
 App pages use a plain close button at the top right to return to the launcher, including
-Settings, protected pages, unavailable states and Classic. App scroll views only
+Settings, protected pages, and unavailable states. App scroll views only
 bounce when their content overflows. A single-finger content scroll never closes
 an app. Back buttons are the app navigation; accessibility escape remains available.
 Settings uses a native split view for Display and Security preferences.
@@ -26,7 +26,7 @@ stable IDs live in `PanelAppCatalog`, shared by the native and design hosts.
 
 ## App artwork
 
-All 14 apps use custom vector artwork in `Icons/`, extending the approved
+All launcher apps use custom vector artwork in `Icons/`, extending the approved
 Weather, Lights, Music and Photos designs across the complete home screen.
 Backgrounds run from light at the top to darker at the bottom; foreground shapes
 retain flat faces and separate depth layers. Artwork occupies approximately
@@ -136,13 +136,11 @@ suite records the left swipe and reverse right swipe for each candidate.
 
 The launcher, scrolling, navigation state, Back control and accessibility
 are shared. Adding an app does not require changing their layout or gesture code.
-`PanelAppCatalogTests` checks unique identity, feature coverage, capability filtering
+`PanelAppCatalogTests` checks unique identity, feature coverage, launcher routing
 and shell transitions. The live host supplies its existing providers; the Mac
 prototype uses its existing preview providers through the same shell.
 
-Classic is an explicit host capability and the only route that opens the web
-board. It is absent in hosts without that capability. Unavailable native features
-remain native unavailable screens rather than silently opening Classic.
+Unavailable native features remain on their native unavailable screens.
 
 ## Design review — 2 November 2026
 
@@ -220,7 +218,6 @@ when they’re playing together or when the group is paused. Cameras is no
 longer registered in the native app catalog. Notification banners sit 20 points
 from the trailing edge and below the top controls. The v2 glass inbox and banners
 follow the host appearance;
-Classic reconnects against a black native background.
 
 Lights and Calendar omit redundant page titles. The clock places its date at
 the top left and digital time at the bottom right. White temperature previews

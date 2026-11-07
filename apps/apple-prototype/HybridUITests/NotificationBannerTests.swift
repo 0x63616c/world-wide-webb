@@ -5,8 +5,7 @@ final class NotificationBannerTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1",
-            "-moduleFlag.lights", "native", "-notificationSamples", "-notificationHold"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationHold"]
         app.launch()
         let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
@@ -63,7 +62,7 @@ final class NotificationBannerTests: XCTestCase {
 
     @MainActor func testSingleDeepLink() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-notificationSamples", "-notificationHold"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationHold"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
         let banner = app.buttons["notification-banner-lights"]
@@ -92,7 +91,7 @@ final class NotificationBannerTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native", "-moduleFlag.climate", "native",
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1",
             "-notificationSamples", "-notificationHold"]
         app.launch()
         XCTAssertTrue(app.buttons["notification-banner-lights"].waitForExistence(timeout: 30))
@@ -118,9 +117,9 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 10))
     }
 
-    @MainActor func testAutoTimeoutOnWebFallback() {
+    @MainActor func testAutoTimeoutOnNativeHome() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples", "-hybrid.webOnly", "YES"]
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples"]
         app.launch()
         let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))

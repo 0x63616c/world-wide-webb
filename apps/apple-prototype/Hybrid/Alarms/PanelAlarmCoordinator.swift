@@ -38,7 +38,7 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Se
   }
 }
 
-/// Serialized across the WebView bridge and App Intents. The server owns the
+/// Shared by the native panel and App Intents. The server owns the
 /// schedule; this module only mirrors its next instant into ActivityKit.
 public actor PanelAlarmCoordinator {
   public static let shared = PanelAlarmCoordinator()

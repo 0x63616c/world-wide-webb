@@ -2,41 +2,30 @@ import Observation
 import SwiftUI
 
 @MainActor @Observable final class PanelNavigation {
-    var selection: PanelModule = .all
+    var selection: PanelModule = .lights
     var detail = false
     var showingHome = true
     var homeStartsInLauncher = false
     var ringHidden = false
-    var pendingNativeAlarmLink = false
 
     func returnHome() {
         homeStartsInLauncher = true
-        pendingNativeAlarmLink = false
         detail = false
         showingHome = true
     }
 
-    func openClassic() {
-        homeStartsInLauncher = true
-        pendingNativeAlarmLink = false
-        selection = .all
-        detail = false
-        showingHome = false
-    }
-
     func openNativeAlarms() {
         showingHome = false
-        pendingNativeAlarmLink = false
         ringHidden = true
         selection = .alarms
         detail = true
     }
 }
 
-/// Shared above Home, Classic and every full-screen controller presentation.
+/// Shared above Home and every full-screen controller presentation.
 struct PanelStatusOverlays: View {
     let store: LiveHomeDataSource
-    let session: KioskSession
+    let session: PanelSession
     let navigation: PanelNavigation
 
     var body: some View {

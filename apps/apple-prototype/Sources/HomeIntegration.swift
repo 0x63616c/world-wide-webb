@@ -5,11 +5,8 @@ import PanelKit
 /// A stable reference keeps behavior out of closure-valued environment keys.
 @MainActor protocol HomeIntegration: AnyObject {
     var caption: String { get }
-    var supportsClassic: Bool { get }
     var panelPIN: PanelPINAPI? { get }
     func photoBooth(close: @escaping () -> Void) -> AnyView?
-    func openClassicApp()
-    var classicTile: AnyView? { get }
     func prepareToOpen(_ tile: HomeTile) -> Bool
     func available(_ tile: HomeTile) -> Bool
     func tile(_ tile: HomeTile, open: @escaping () -> Void) -> AnyView?
@@ -24,9 +21,6 @@ import PanelKit
 extension HomeIntegration {
     func photoBooth(close: @escaping () -> Void) -> AnyView? { nil }
     var panelPIN: PanelPINAPI? { nil }
-    var supportsClassic: Bool { false }
-    func openClassicApp() {}
-    var classicTile: AnyView? { nil }
     func artwork(_ room: SoundRoom) -> AnyView? { nil }
     func gridTile(_ tile: HomeTile, span: CGSize, open: @escaping () -> Void) -> AnyView? { nil }
 }

@@ -6,11 +6,6 @@ import XCTest
 @testable import Panel
 
 @MainActor final class LiveCalendarRoutingTests: XCTestCase {
-    func testCalendarIsWebByDefaultInShippedBuilds() {
-        XCTAssertFalse(ModuleFlags.shippedNative.contains(.calendar))
-        XCTAssertEqual(ModuleFlags(nativeByDefault: ModuleFlags.shippedNative)[.calendar], .web)
-    }
-
     func testSelectionUpdatesSharedHomeAgendaAndKeepsEmptyModuleReachable() async throws {
         let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
         let suite = "LiveCalendarSelectionTests.\(UUID().uuidString)"
@@ -79,38 +74,4 @@ import XCTest
         }
     }
 
-    func testCalendarOptInAllowsEmptyCurrentFeedAndRecovers() async throws {
-        let root = try XCTUnwrap(Bundle(for: LiveHomeDataSource.self).resourceURL).appendingPathComponent("Fixtures")
-        let fixture = HybridCalendarFixtureStore(root: root)
-        var now = HybridCalendarFixtureStore.now
-        let store = LiveHomeDataSource(configuration: nil, calendarAPI: CalendarAPI(store: fixture),
-                                       now: { now }, calendar: { HybridCalendarFixtureStore.calendar })
-        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.calendar": "native"]))
-        func route() -> HybridRouter.Route { router.route(for: .calendar, hasLiveData: store.hasLiveData(for: .calendar)) }
-        await store.run(modules: [])
-        let reads = await fixture.reads
-        XCTAssertEqual(reads, 0)
-        XCTAssertEqual(route(), .webBoard)
-        await store.refresh(.calendar)
-        XCTAssertEqual(route(), .native(.calendar))
-        XCTAssertEqual(store.calendar.next(at: store.now)?.title, "Design workshop")
-        XCTAssertEqual(store.calendar.events.count, 7)
-        now = now.addingTimeInterval(1)
-        XCTAssertEqual(store.now, now, "The Home clock must advance between Calendar polls.")
-        XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .calendar, hasLiveData: true), .webBoard)
-        await fixture.setUnavailable(true)
-        await store.refresh(.calendar)
-        XCTAssertEqual(route(), .webBoard)
-        XCTAssertTrue(store.calendar.events.isEmpty)
-        await fixture.setUnavailable(false)
-        await fixture.setFilename("empty.json")
-        await store.refresh(.calendar)
-        XCTAssertEqual(route(), .native(.calendar))
-        await fixture.setFilename("events.json")
-        await store.refresh(.calendar)
-        XCTAssertEqual(route(), .native(.calendar))
-        store.stop()
-        XCTAssertEqual(route(), .webBoard)
-        XCTAssertTrue(store.calendar.events.isEmpty)
-    }
 }
