@@ -29,7 +29,7 @@ struct SonosRoomsModule: View {
     let close: () -> Void
 
     var body: some View {
-        SonosRoomsPage(store: store, playEverywhere: {
+        SonosRoomsPage(store: store, playDeskLineIn: {
             store.sonosProvider.groupLineIn(sourceID: "media_player.desk", excluding: ["media_player.living_room"])
         }, busy: !store.sonosProvider.pending.isEmpty)
             .accessibilityIdentifier("sonos-rooms")

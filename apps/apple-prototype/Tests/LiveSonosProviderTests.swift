@@ -30,6 +30,7 @@ import XCTest
         XCTAssertEqual(provider.availability, .live)
         XCTAssertEqual(provider.rooms.map(\.id), [alpha, beta, gamma, offline])
         XCTAssertEqual(provider.rooms[0].displayVolume, 50)
+        XCTAssertEqual(provider.rooms[0].transportState, "PLAYING")
         XCTAssertEqual(provider.rooms[1].displayVolume, 150)
         XCTAssertEqual(provider.rooms[1].coordinator, alpha)
         XCTAssertEqual(provider.rooms[0].baseline, 120)
@@ -51,6 +52,16 @@ import XCTest
         XCTAssertFalse(provider.send(.volume(offline, 50)))
         XCTAssertFalse(provider.send(.volume("Test Room", 50)))
         XCTAssertFalse(provider.send(.target(72)))
+    }
+
+    func testFollowersUseTheCoordinatorsExactTransportState() async {
+        let transport = SonosProviderStub([.state(alphaTransport: "PAUSED_PLAYBACK"), .state(alphaTransport: "STOPPED")])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        XCTAssertEqual(provider.rooms.first { $0.id == beta }?.transportState, "PAUSED_PLAYBACK")
+        await provider.refresh()
+        XCTAssertEqual(provider.rooms.first { $0.id == beta }?.transportState, "STOPPED")
+        XCTAssertEqual(provider.rooms.first { $0.id == offline }?.transportState, "UNKNOWN")
     }
 
     func testVolumeIsOptimisticUsesBaselineAndQueriesAfterVoidAcknowledgement() async throws {
@@ -359,7 +370,7 @@ import XCTest
 
 private actor SonosProviderStub: PanelTransport {
     enum Reply: Sendable {
-        case state(alphaVolume: Int = 60, alphaBaseline: Int? = 120, playback: Bool = false)
+        case state(alphaVolume: Int = 60, alphaBaseline: Int? = 120, playback: Bool = false, alphaTransport: String = "PLAYING")
         case void, calibration, unavailable, empty
 
         var json: String {
@@ -369,7 +380,7 @@ private actor SonosProviderStub: PanelTransport {
             case .unavailable:
                 return #"{"error":{"message":"Synthetic failure","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"#
             case .empty: return envelope("[]")
-            case .state(let volume, let baseline, let playback):
+            case .state(let volume, let baseline, let playback, let alphaTransport):
                 // Synthetic contract from features/sound/api.ts; legacy IP/UUID fields are HA IDs.
                 let specifications: [(String, String, Int, Int?, Bool, Bool)] = [
                     ("alpha", "alpha", volume, baseline, false, true),
@@ -383,7 +394,7 @@ private actor SonosProviderStub: PanelTransport {
                      "coordinatorUuid":"media_player.test_\(coordinator)",
                      "memberUuids":\(coordinator == "alpha" ? #"["media_player.test_alpha","media_player.test_beta"]"# : "[\"media_player.test_\(id)\"]"),
                      "isCoordinator":\(id == coordinator),"volume":\(raw),"baseline":\(baseline.map(String.init) ?? "null"),
-                     "muted":\(muted),"transportState":"\(available ? "PLAYING" : "UNAVAILABLE")",
+                     "muted":\(muted),"transportState":"\(available ? (id == "alpha" ? alphaTransport : "PLAYING") : "UNAVAILABLE")",
                      "sourceLabel":"Spotify","sourceKind":"spotify","trackTitle":"Synthetic Track",
                      "trackArtist":"Fixture Artist","albumArtUri":"https://example.invalid/art/test.png",
                      "availability":"\(available ? "available" : "unavailable")",

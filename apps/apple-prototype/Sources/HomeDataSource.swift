@@ -239,6 +239,7 @@ struct SoundRoom: Identifiable {
     var muted = false
     var coordinator: String
     var playing: Bool
+    var reportedTransportState: String? = nil
     var trackIndex = 0
     var positionSeconds: Double = 107
     var durationSeconds: Double = 232
@@ -262,7 +263,7 @@ struct SoundRoom: Identifiable {
         if let metadata { return metadata.coordinatorName ?? "Unavailable" }
         return coordinator
     }
-    var transportState: String { playing ? "PLAYING" : "PAUSED_PLAYBACK" }
+    var transportState: String { reportedTransportState ?? (playing ? "PLAYING" : "PAUSED_PLAYBACK") }
     var displayVolume: Int { baseline.map { $0 > 0 ? Int((Double(rawVolume) / Double($0) * 100).rounded()) : rawVolume } ?? rawVolume }
 }
 enum HomeCommand {
@@ -372,7 +373,7 @@ extension HomeDataSource {
     private let fixtureDate = ISO8601DateFormatter().date(from: "2026-10-29T22:41:00Z")!
     private let fixedNow: Date?
     var now: Date { fixedNow ?? fixtureDate.addingTimeInterval(Date().timeIntervalSince(launched)) }
-    init(latency: Duration = .milliseconds(150), wifiFixture: String = "secured", mode: ClimateMode = .cool, fixedNow: Date? = nil, ringing: Bool = false) {
+    init(latency: Duration = .milliseconds(150), wifiFixture: String = "secured", mode: ClimateMode = .cool, fixedNow: Date? = nil, ringing: Bool = false, groupedSonosPlaying: Bool? = nil) {
         self.latency = latency
         self.fixedNow = fixedNow
         #if os(iOS)
@@ -391,6 +392,19 @@ extension HomeDataSource {
         if wifiFixture == "unconfigured" { wifi = .unconfigured }
         climate.mode = mode
         for i in rooms.indices { rooms[i].positionUpdatedAt = now }
+        if let groupedSonosPlaying {
+            for i in rooms.indices where rooms[i].name != "Living Room" {
+                rooms[i].coordinator = "Desk"
+                rooms[i].sourceKind = .lineIn
+                rooms[i].sourceLabel = "Line-in"
+                rooms[i].playing = groupedSonosPlaying
+            }
+            if let tv = rooms.firstIndex(where: { $0.name == "Living Room" }) {
+                rooms[tv].coordinator = rooms[tv].id
+                rooms[tv].sourceKind = .tv
+                rooms[tv].sourceLabel = "TV"
+            }
+        }
     }
     private func markPending(_ key: String) {
         let generation = (generations[key] ?? 0) + 1

@@ -21,10 +21,11 @@ import XCTest
         let tv = app.descendants(matching: .any)["sonos-volume-Living Room"].firstMatch
         XCTAssertTrue(master.waitForExistence(timeout: 10))
         XCTAssertTrue(tv.isHittable)
-        XCTAssertTrue(app.staticTexts["Home"].exists)
+        XCTAssertTrue(app.staticTexts["Sonos"].exists)
         XCTAssertTrue(app.staticTexts["TV"].exists)
         XCTAssertEqual(app.staticTexts.matching(identifier: "Desk").count, 1)
         XCTAssertFalse(app.staticTexts["Home speakers"].exists)
+        XCTAssertTrue(app.buttons["Play Desk line-in"].exists)
         snapshot("sonos-mixer", app: app)
 
         func percentage(_ slider: XCUIElement) -> String {
@@ -65,6 +66,23 @@ import XCTest
         XCTAssertNotEqual(percentage(tv), initialTV)
         XCTAssertEqual(percentage(desk), linked)
         XCTAssertEqual(percentage(master), linked)
+    }
+
+    func testGroupedLineInShowsPlayingAndPausedStates() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = XCUIApplication()
+        for (state, label) in [("playing", "Playing together · 4 rooms"), ("paused", "Grouped · paused")] {
+            app.launchArguments = ["-snapshot", "-face", "home", "-groupedSonos", state]
+            app.launch()
+            let sonos = app.buttons["app-music"]
+            XCTAssertTrue(sonos.waitForExistence(timeout: 15))
+            sonos.tap()
+            XCTAssertTrue(app.staticTexts[label].waitForExistence(timeout: 10))
+            XCTAssertFalse(app.buttons["Play Desk line-in"].exists)
+            snapshot("sonos-\(state)", app: app)
+            app.terminate()
+        }
     }
 
     private func snapshot(_ name: String, app: XCUIApplication) {

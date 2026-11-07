@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SonosRoomsPage: View {
     let store: any HomeDataSource
-    var playEverywhere: (() -> Void)? = nil
+    var playDeskLineIn: (() -> Void)? = nil
     var busy = false
 
     @State private var dragPreview: VolumePreview?
@@ -17,6 +17,20 @@ struct SonosRoomsPage: View {
             store.rooms.first { $0.name == "Living Room" }
     }
     private var speakers: [SoundRoom] { store.rooms.filter { $0.id != tv?.id } }
+    private var desk: SoundRoom? {
+        speakers.first { $0.id == "media_player.desk" } ??
+            speakers.first { $0.name == "Desk" }
+    }
+
+    private var groupedPlayback: String? {
+        guard let desk, desk.sourceKind == .lineIn, speakers.count > 1,
+              speakers.allSatisfy({ $0.coordinator == desk.id }) else { return nil }
+        switch desk.transportState {
+        case "PLAYING": return "Playing together · \(speakers.count) rooms"
+        case "PAUSED_PLAYBACK": return "Grouped · paused"
+        default: return nil
+        }
+    }
 
     private var masterVolume: Int {
         let volumes = speakers.map { shownVolume(for: $0) }
@@ -52,21 +66,29 @@ struct SonosRoomsPage: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            Text("Home").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
+            Text("Sonos").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
             Spacer()
-            Button {
-                if let playEverywhere { playEverywhere() }
-                else if let desk = speakers.first(where: { $0.name == "Desk" }) {
-                    for room in speakers where room.id != desk.id { store.send(.join(room.id, desk.id)) }
+            if let groupedPlayback {
+                Label(groupedPlayback, systemImage: desk?.playing == true ? "speaker.wave.2" : "pause.fill")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("sonos-playback-status")
+            } else {
+                Button {
+                    if let playDeskLineIn { playDeskLineIn() }
+                    else if let desk {
+                        for room in speakers where room.id != desk.id { store.send(.join(room.id, desk.id)) }
+                    }
+                } label: {
+                    Label("Play Desk line-in", systemImage: "hifispeaker.2")
+                        .font(.subheadline.weight(.semibold)).padding(10)
                 }
-            } label: {
-                Label("Play everywhere", systemImage: "hifispeaker.2")
-                    .font(.subheadline.weight(.semibold)).padding(10)
+                .buttonStyle(.glass)
+                .accessibilityHint("Plays Desk’s line-in on the Home speakers")
+                .disabled(busy || desk == nil)
             }
-            .buttonStyle(.glass)
-            .accessibilityHint("Plays Desk’s line-in on the Home speakers")
-            .disabled(busy)
         }
+        .frame(minHeight: 54)
     }
 
     private var master: some View {

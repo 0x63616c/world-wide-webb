@@ -235,11 +235,13 @@ import PanelKit
         confirmedRooms = state.rooms.filter { seen.insert($0.uuid).inserted }.map { room in
             let leader = roomDetails[room.coordinatorUuid]
             let sample = leader?.availability == .available ? leader?.playbackPosition : nil
+            let transportState = leader?.availability == .available ? leader?.transportState : nil
             return SoundRoom(metadata: .init(id: room.uuid, title: leader?.trackTitle, artist: leader?.trackArtist,
                                              coordinatorName: leader?.name),
                       name: room.name, rawVolume: Int(room.volume.rounded()),
                       baseline: room.baseline.map { Int($0.rounded()) }, muted: room.muted,
-                      coordinator: room.coordinatorUuid, playing: leader?.transportState == "PLAYING",
+                      coordinator: room.coordinatorUuid, playing: transportState == "PLAYING",
+                      reportedTransportState: transportState ?? "UNKNOWN",
                       positionSeconds: sample?.position ?? 0, durationSeconds: sample?.duration ?? 0,
                       positionUpdatedAt: sample?.updatedAt ?? .distantPast,
                       sourceKind: SoundSource(rawValue: leader?.sourceKind.rawValue ?? "idle") ?? .other,
