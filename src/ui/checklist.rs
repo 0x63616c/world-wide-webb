@@ -151,8 +151,10 @@ impl Checklist {
             body.push((self.message.clone(), Role::Body));
             return body;
         }
-        for (label, state) in self.stages() {
-            body.push(state.row(label));
+        for (step, (label, state)) in STEPS.into_iter().zip(self.stages()) {
+            if height >= 18 || step == self.current {
+                body.push(state.row(label));
+            }
         }
         if height >= 18 {
             body.push((String::new(), Role::Body));

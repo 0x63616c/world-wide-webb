@@ -155,10 +155,10 @@ impl Changes {
             serde_json::from_str(self.files.get("homelab.json").ok_or(Error::Invalid)?)
                 .map_err(|_| Error::Invalid)?;
         if manifest != self.manifest
-            || !manifest
+            || manifest
                 .hosts
                 .get(&self.host)
-                .is_some_and(|host| !host.authorized_keys.is_empty())
+                .is_none_or(|host| host.authorized_keys.is_empty())
         {
             return Err(Error::Invalid);
         }

@@ -263,7 +263,12 @@ fn rejected_password(line: &str) -> bool {
     line == "sorry, try again." || line == "permission denied, please try again."
 }
 
-fn process_body(context: &Context, text: &str, state: ProcessScreen) -> Vec<(String, Role)> {
+fn process_body(
+    context: &Context,
+    text: &str,
+    state: ProcessScreen,
+    height: u16,
+) -> Vec<(String, Role)> {
     let mut body = vec![
         (context.host.clone(), Role::Context),
         (String::new(), Role::Body),
@@ -296,7 +301,16 @@ fn process_body(context: &Context, text: &str, state: ProcessScreen) -> Vec<(Str
         })
         .collect();
     if !context.steps.is_empty() {
-        body.extend(context.steps.clone());
+        if height < 18 {
+            let active = context
+                .steps
+                .iter()
+                .find(|(text, _)| text.starts_with('›') || text.starts_with('!'))
+                .or_else(|| context.steps.last());
+            body.extend(active.cloned());
+        } else {
+            body.extend(context.steps.clone());
+        }
         body.push((String::new(), Role::Body));
     }
     if state == ProcessScreen::Failed {
@@ -317,7 +331,7 @@ fn process_body(context: &Context, text: &str, state: ProcessScreen) -> Vec<(Str
 fn draw(context: &Context, text: &str, state: ProcessScreen) -> io::Result<()> {
     let finished = state == ProcessScreen::Failed;
     let authentication = state == ProcessScreen::Authentication;
-    let body = process_body(context, text, state);
+    let body = process_body(context, text, state, crossterm::terminal::size()?.1);
     let actions = if finished {
         vec![Action::Primary("Continue".into())]
     } else if authentication {
@@ -773,4 +787,61 @@ pub fn dispatch_bridge() -> Option<std::process::ExitCode> {
     }
     eprintln!("Native authentication transport could not start.");
     Some(std::process::ExitCode::FAILURE)
+}
+
+#[cfg(test)]
+mod compact_progress_tests {
+    use super::*;
+
+    #[test]
+    fn minimum_window_keeps_the_active_step_and_message_visible() {
+        let context = Context {
+            title: "Setting up your Mac".into(),
+            host: "fixture-mac".into(),
+            message: "Building configuration…".into(),
+            steps: (0..7)
+                .map(|index| {
+                    (
+                        if index == 4 {
+                            "› Mac configuration".into()
+                        } else {
+                            format!("○ Step {index}")
+                        },
+                        Role::Progress,
+                    )
+                })
+                .collect(),
+        };
+        let body = process_body(&context, "", ProcessScreen::Waiting, 12);
+        assert_eq!(
+            body.iter()
+                .filter(|(_, role)| *role == Role::Progress)
+                .count(),
+            1
+        );
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
+        terminal
+            .draw(|frame| {
+                ui::render_frame(
+                    frame,
+                    &context.title,
+                    &body,
+                    0,
+                    &[Action::Quit],
+                    false,
+                    None,
+                );
+            })
+            .unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(text.contains("Mac configuration"));
+        assert!(text.contains("Building configuration…"));
+    }
 }
