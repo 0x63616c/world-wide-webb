@@ -115,3 +115,7 @@ production services or tailnet policy are correct.
 - [Example manifest](examples/homelab.json) — host facts and credential references, not a complete flake.
 - [Testing](docs/testing.md) — automated checks and disposable macOS rehearsals.
 - [Contributing](CONTRIBUTING.md) — build, test and propose changes.
+
+## License
+
+[MIT](LICENSE).
