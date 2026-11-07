@@ -15,6 +15,7 @@ struct Terminal {
     slave: File,
     original_modes: LocalModes,
     child: Child,
+    transcript: Vec<u8>,
 }
 
 impl Terminal {
@@ -68,6 +69,7 @@ impl Terminal {
             slave,
             original_modes,
             child,
+            transcript: Vec::new(),
         }
     }
 
@@ -77,7 +79,10 @@ impl Terminal {
         loop {
             let mut buffer = [0; 4096];
             match self.master.read(&mut buffer) {
-                Ok(count) => output.extend_from_slice(&buffer[..count]),
+                Ok(count) => {
+                    output.extend_from_slice(&buffer[..count]);
+                    self.transcript.extend_from_slice(&buffer[..count]);
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
                 result => panic!("terminal read failed: {result:?}"),
             }
@@ -362,4 +367,27 @@ fn a_local_only_profile_cannot_become_a_git_host_or_ssh_target() {
     terminal.until("Choose a Git host or an unambiguous saved connection");
     terminal.wait_and_verify_restoration(false);
     assert_eq!(std::fs::read(&fixture.inventory).unwrap(), before);
+}
+
+#[test]
+fn internal_menu_wizard_and_result_transitions_keep_one_alternate_screen() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    fixture.cache();
+    fixture.manifest("main.json", "build-mac", "original-admin");
+    let mut terminal = Terminal::start(&fixture.inventory);
+    terminal.until("> build-mac");
+    // A changed Git login stops the wizard before any SSH command. This exercises
+    // the actual menu → wizard → outcome → menu path without a live host.
+    fixture.manifest("main.json", "build-mac", "changed-admin");
+    terminal.master.write_all(b"\r").unwrap();
+    terminal.until("administrator differs from this saved connection");
+    terminal.master.write_all(b"\r").unwrap();
+    terminal.until("> build-mac");
+    let screen = String::from_utf8_lossy(&terminal.transcript);
+    assert_eq!(screen.matches("\x1b[?1049h").count(), 1);
+    assert_eq!(screen.matches("\x1b[?1049l").count(), 0);
+    terminal.quit_and_verify_restoration();
+    let screen = String::from_utf8_lossy(&terminal.transcript);
+    assert_eq!(screen.matches("\x1b[?1049l").count(), 1);
 }

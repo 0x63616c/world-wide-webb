@@ -22,23 +22,50 @@ impl Terminal {
             raw: false,
             alternate: false,
         };
-        terminal::enable_raw_mode()?;
-        terminal.raw = true;
-        // Mark before writing: an I/O failure can occur after a partial escape sequence.
-        terminal.alternate = true;
-        execute!(io::stdout(), EnterAlternateScreen, Hide)?;
+        terminal.resume()?;
         Ok(terminal)
+    }
+
+    pub(crate) fn resume(&mut self) -> io::Result<()> {
+        if !self.raw {
+            terminal::enable_raw_mode()?;
+            self.raw = true;
+        }
+        if !self.alternate {
+            // Mark before writing so partial failures still restore the terminal.
+            self.alternate = true;
+            execute!(io::stdout(), EnterAlternateScreen, Hide)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn suspend(&mut self) -> io::Result<()> {
+        let screen = if self.alternate {
+            let result = execute!(io::stdout(), Show, LeaveAlternateScreen);
+            if result.is_ok() {
+                self.alternate = false;
+            }
+            result
+        } else {
+            Ok(())
+        };
+        // Restore input even if writing the screen transition failed.
+        let input = if self.raw {
+            let result = terminal::disable_raw_mode();
+            if result.is_ok() {
+                self.raw = false;
+            }
+            result
+        } else {
+            Ok(())
+        };
+        screen.and(input)
     }
 }
 
 impl Drop for Terminal {
     fn drop(&mut self) {
-        if self.alternate {
-            let _ = execute!(io::stdout(), Show, LeaveAlternateScreen);
-        }
-        if self.raw {
-            let _ = terminal::disable_raw_mode();
-        }
+        let _ = self.suspend();
     }
 }
 
@@ -405,7 +432,7 @@ pub fn launch(path: &Path) -> Result<(), MenuError> {
 
 /// Git provides the host list; local connections only remember trusted routes.
 pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuError> {
-    let mut terminal_guard = Some(Terminal::enter()?);
+    let mut terminal_guard = Terminal::enter()?;
     let binding = path.with_file_name("repository.json");
     let repository =
         match crate::config::attached_repository(&binding).map_err(|_| MenuError::Configuration)? {
@@ -510,9 +537,9 @@ pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuE
             }
             continue;
         };
-        drop(terminal_guard.take());
-        let outcome = crate::setup_wizard::launch(&profile, path)?;
+        let outcome = crate::setup_wizard::launch_in_terminal(&profile, path, &mut terminal_guard)?;
         if direct.take().is_some() {
+            terminal_guard.suspend()?;
             println!("{}", outcome.lines.join("\n"));
             return if outcome.completed {
                 Ok(())
@@ -520,7 +547,7 @@ pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuE
                 Err(MenuError::Incomplete)
             };
         }
-        terminal_guard = Some(Terminal::enter()?);
+        terminal_guard.resume()?;
         crate::setup_wizard::review(&outcome.lines, "Back to hosts")?;
     }
 }

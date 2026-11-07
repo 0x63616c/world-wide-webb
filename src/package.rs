@@ -14,9 +14,13 @@ pub struct Package {
 #[derive(Clone, Copy, Debug, Error)]
 pub enum Error {
     #[error(
-        "The matching homelab-host helper is missing. Reinstall homelab from the official release or Homebrew tap."
+        "The bundled homelab-host helper could not be read or is not a safe executable. Reinstall homelab from the official release or Homebrew tap."
     )]
     Helper,
+    #[error(
+        "The bundled homelab-host helper could not run or does not match this CLI version. Reinstall homelab from the official release or Homebrew tap."
+    )]
+    Version,
     #[error("The private bootstrap review bundle could not be prepared.")]
     Prepare,
 }
@@ -27,6 +31,13 @@ impl Error {
 }
 pub fn prepare(workspace: &Workspace) -> Result<Package, Error> {
     let executable = std::env::current_exe().map_err(|_| Error::Helper)?;
+    prepare_at(workspace, &executable)
+}
+
+fn prepare_at(workspace: &Workspace, executable: &Path) -> Result<Package, Error> {
+    // macOS preserves Homebrew's launch symlink in current_exe. Resolve the CLI
+    // first so its helper comes from the same installed release, not PATH.
+    let executable = fs::canonicalize(executable).map_err(|_| Error::Helper)?;
     let helper = executable
         .parent()
         .ok_or(Error::Helper)?
@@ -40,12 +51,12 @@ fn verify_version(helper: &Path) -> Result<(), Error> {
     let mut command = std::process::Command::new(helper);
     command.arg("--version").stdin(std::process::Stdio::null());
     let output = crate::process::capture(&mut command, std::time::Duration::from_secs(10))
-        .map_err(|_| Error::Helper)?;
+        .map_err(|_| Error::Version)?;
     if !output.status.success()
         || String::from_utf8_lossy(&output.stdout).trim()
             != concat!("homelab-host ", env!("CARGO_PKG_VERSION"))
     {
-        return Err(Error::Helper);
+        return Err(Error::Version);
     }
     Ok(())
 }
@@ -115,12 +126,56 @@ fn assemble(workspace: &Workspace, helper: &Path) -> Result<Package, Error> {
 mod tests {
     use super::*;
     #[test]
+    fn homebrew_launch_link_uses_its_own_release_helper() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile::tempdir().unwrap();
+        let bin = root.path().join("bin");
+        let release = root.path().join("Cellar/homelab/version/bin");
+        fs::create_dir_all(&bin).unwrap();
+        fs::create_dir_all(&release).unwrap();
+        fs::write(release.join("homelab"), "fixture CLI").unwrap();
+        let helper = release.join("homelab-host");
+        fs::write(
+            &helper,
+            concat!(
+                "#!/bin/sh\nprintf 'homelab-host ",
+                env!("CARGO_PKG_VERSION"),
+                "\\n'\n"
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&helper, fs::Permissions::from_mode(0o555)).unwrap();
+        symlink("../Cellar/homelab/version/bin/homelab", bin.join("homelab")).unwrap();
+        symlink(
+            "../Cellar/homelab/version/bin/homelab-host",
+            bin.join("homelab-host"),
+        )
+        .unwrap();
+        let workspace = Workspace {
+            repository: "example/config".into(),
+            revision: "a".repeat(40),
+            manifest: serde_json::from_slice(include_bytes!("../examples/homelab.json")).unwrap(),
+        };
+        let package = prepare_at(&workspace, &bin.join("homelab")).unwrap();
+        verify_version(&package.directory.join("homelab-host")).unwrap();
+
+        // A sibling symlink inside the release could cross into another version.
+        fs::rename(&helper, release.join("other-helper")).unwrap();
+        symlink("other-helper", &helper).unwrap();
+        assert!(matches!(
+            prepare_at(&workspace, &bin.join("homelab")),
+            Err(Error::Helper)
+        ));
+    }
+
+    #[test]
     fn another_release_cannot_be_used_as_the_installed_helper() {
         let dir = tempfile::tempdir().unwrap();
         let helper = dir.path().join("helper");
         fs::write(&helper, "#!/bin/sh\nprintf 'homelab-host 0.0.0\\n'\n").unwrap();
         fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
-        assert!(matches!(verify_version(&helper), Err(Error::Helper)));
+        assert!(matches!(verify_version(&helper), Err(Error::Version)));
         fs::write(
             &helper,
             concat!(

@@ -16,11 +16,11 @@ use crate::{config, first_access, inspect, package};
 
 fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> io::Result<usize> {
     let (width, height) = terminal::size()?;
-    let mut output = io::stdout();
+    let mut output = Vec::new();
     queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
     if width < 40 || height < 12 {
         write!(output, "Enlarge terminal to 40 columns / 12 rows.")?;
-        output.flush()?;
+        flush_frame(&output)?;
         return Ok(0);
     }
     let width = ui::content_width(width);
@@ -61,8 +61,15 @@ fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> 
             if index == 0 { Role::Action } else { Role::Help },
         )?;
     }
-    output.flush()?;
+    flush_frame(&output)?;
     Ok(last)
+}
+
+fn flush_frame(frame: &[u8]) -> io::Result<()> {
+    // Emit the clear and complete replacement together, not as separate writes.
+    let mut output = io::stdout().lock();
+    output.write_all(frame)?;
+    output.flush()
 }
 
 pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<usize> {
@@ -558,8 +565,8 @@ fn connect(
     profile: &mut HostProfile,
     inventory_path: &Path,
     tools: &first_access::Tools,
+    terminal: &mut Terminal,
 ) -> io::Result<AccessOutcome> {
-    let mut terminal = Some(Terminal::enter()?);
     let mut changes = AccessChanges::default();
     let mut existing_access_worked = false;
     let mut screen = Vec::new();
@@ -677,7 +684,7 @@ fn connect(
                     Err(error) => Err(error),
                     Ok(true) => {
                         changes.key_attempted = true;
-                        drop(terminal.take());
+                        terminal.suspend()?;
                         println!(
                             "Installing your approved public key. Enter the target account password at SSH's prompt."
                         );
@@ -690,7 +697,7 @@ fn connect(
                             let mut acknowledgement = String::new();
                             io::stdin().read_line(&mut acknowledgement)?;
                         }
-                        terminal = Some(Terminal::enter()?);
+                        terminal.resume()?;
                         result
                     }
                 }
@@ -839,27 +846,40 @@ fn configured_host<'a>(
     workspace.manifest.hosts.contains_key(host).then_some(host)
 }
 
-/// The parent menu suspends raw mode before entering this independently owned wizard.
 pub struct WizardTools {
     pub first_access: first_access::Tools,
     pub remote_setup: remote_setup::Tools,
 }
 
+fn native_tools() -> WizardTools {
+    WizardTools {
+        first_access: first_access::Tools {
+            ssh: "/usr/bin/ssh".into(),
+            ssh_keygen: "/usr/bin/ssh-keygen".into(),
+            ssh_add: "/usr/bin/ssh-add".into(),
+        },
+        remote_setup: remote_setup::Tools {
+            ssh: "/usr/bin/ssh".into(),
+            scp: "/usr/bin/scp".into(),
+        },
+    }
+}
+
 pub fn launch(original: &HostProfile, inventory_path: &Path) -> io::Result<Outcome> {
-    launch_with_tools(
+    launch_with_tools(original, inventory_path, &native_tools())
+}
+
+pub(crate) fn launch_in_terminal(
+    original: &HostProfile,
+    inventory_path: &Path,
+    terminal: &mut Terminal,
+) -> io::Result<Outcome> {
+    run_with_dependencies(
         original,
         inventory_path,
-        &WizardTools {
-            first_access: first_access::Tools {
-                ssh: "/usr/bin/ssh".into(),
-                ssh_keygen: "/usr/bin/ssh-keygen".into(),
-                ssh_add: "/usr/bin/ssh-add".into(),
-            },
-            remote_setup: remote_setup::Tools {
-                ssh: "/usr/bin/ssh".into(),
-                scp: "/usr/bin/scp".into(),
-            },
-        },
+        &native_tools(),
+        &EnrollmentDependencies::default(),
+        terminal,
     )
 }
 
@@ -914,8 +934,18 @@ pub fn launch_with_dependencies(
     tools: &WizardTools,
     dependencies: &EnrollmentDependencies,
 ) -> io::Result<Outcome> {
+    let mut terminal = Terminal::enter()?;
+    run_with_dependencies(original, inventory_path, tools, dependencies, &mut terminal)
+}
+
+fn run_with_dependencies(
+    original: &HostProfile,
+    inventory_path: &Path,
+    tools: &WizardTools,
+    dependencies: &EnrollmentDependencies,
+    terminal: &mut Terminal,
+) -> io::Result<Outcome> {
     let mut profile = original.clone();
-    let terminal = Terminal::enter()?;
     let saved = match saved_installation_workspace(&profile) {
         Ok(workspace) => workspace,
         Err(error) => return Ok(enrollment_failure(error)),
@@ -940,12 +970,10 @@ pub fn launch_with_dependencies(
             "The repository's administrator differs from this saved connection. Reopen homelab and review the Git-defined login before connecting.",
         ));
     }
-    drop(terminal);
-    let changes = match connect(&mut profile, inventory_path, &tools.first_access)? {
+    let changes = match connect(&mut profile, inventory_path, &tools.first_access, terminal)? {
         AccessOutcome::Finished(outcome) => return Ok(outcome),
         AccessOutcome::Continue(changes) => changes,
     };
-    let terminal = Terminal::enter()?;
     let state = crate::enrollment_credentials::state_directory();
     if let Some(root) = &state {
         if root.exists() && !root.join("repository.json").exists() {
@@ -1094,7 +1122,7 @@ fn enroll(
     host_name: &str,
     inventory_path: &Path,
     dependencies: (&WizardTools, &EnrollmentDependencies),
-    terminal: Terminal,
+    terminal: &mut Terminal,
 ) -> io::Result<Outcome> {
     let (tools, dependencies) = dependencies;
     if let Err(error) =
@@ -1184,12 +1212,12 @@ fn enroll(
             "Setup cancelled before credential preparation.",
         ));
     }
-    let terminal = if prerequisites == remote_setup::Prerequisites::DeveloperToolsMissing {
+    if prerequisites == remote_setup::Prerequisites::DeveloperToolsMissing {
         let package = match package::prepare(workspace) {
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
         };
-        drop(terminal);
+        terminal.suspend()?;
         println!(
             "Installing required Command Line Tools on {host_name}. Enter that Mac's administrator password if asked."
         );
@@ -1200,10 +1228,8 @@ fn enroll(
         ) {
             return Ok(remote_setup_failure(error));
         }
-        Terminal::enter()?
-    } else {
-        terminal
-    };
+        terminal.resume()?;
+    }
     let progress = |message: &str| {
         let _ = draw(
             &[format!("Setting up {host_name}"), message.into()],
@@ -1251,7 +1277,7 @@ fn enroll(
                 Ok(workspace) => workspace,
                 Err(error) => return Ok(enrollment_failure(error)),
             };
-            drop(terminal);
+            terminal.suspend()?;
             return Ok(finish_enrollment(
                 profile,
                 host_name,
@@ -1463,7 +1489,7 @@ fn enroll(
         ) {
             return Ok(enrollment_failure(error));
         }
-        drop(terminal);
+        terminal.suspend()?;
         println!("Installing on {host_name}. SSH may ask for the Mac's administrator password.");
         return match remote_setup::apply(prepared, &tools.remote_setup) {
             Ok(_) => Ok(finish_enrollment(
@@ -1706,10 +1732,21 @@ mod tests {
         let Some(path) = std::env::var_os("HOMELAB_ATTACH_TEST_PATH") else {
             return;
         };
-        let terminal = Terminal::enter().unwrap();
+        let mut terminal = Terminal::enter().unwrap();
         let workspace = attached_workspace(Path::new(&path)).unwrap().unwrap();
         assert_eq!(workspace.repository, "example/config");
         assert!(workspace.manifest.hosts.contains_key("test-host"));
+        terminal.suspend().unwrap();
+        terminal.suspend().unwrap();
+        println!("NATIVE_PROMPT_READY");
+        let mut answer = String::new();
+        io::stdin().read_line(&mut answer).unwrap();
+        assert_eq!(answer.trim(), "continue");
+        terminal.resume().unwrap();
+        terminal.resume().unwrap();
+        let modes = rustix::termios::tcgetattr(io::stdin()).unwrap().local_modes;
+        assert!(!modes.contains(rustix::termios::LocalModes::ICANON));
+        draw(&["Back in setup".into()], 0, "Please wait").unwrap();
         drop(terminal);
         println!("ATTACH_COMPLETE");
     }
@@ -1801,7 +1838,14 @@ mod tests {
         wait_for("Attach your configuration", &mut master);
         assert!(!path.exists());
         master.write_all(b"example/config\r").unwrap();
+        wait_for("NATIVE_PROMPT_READY", &mut master);
+        let native_modes = tcgetattr(&slave).unwrap().local_modes;
+        assert!(native_modes.contains(rustix::termios::LocalModes::ICANON));
+        assert!(native_modes.contains(rustix::termios::LocalModes::ECHO));
+        master.write_all(b"continue\n").unwrap();
         wait_for("ATTACH_COMPLETE", &mut master);
+        assert_eq!(output.matches("\x1b[?1049h").count(), 2);
+        assert_eq!(output.matches("\x1b[?1049l").count(), 2);
         assert!(child.wait().unwrap().success());
         assert_eq!(tcgetattr(&slave).unwrap().local_modes, original);
         let saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
