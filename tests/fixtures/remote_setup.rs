@@ -114,7 +114,7 @@ fn main() {
         if args.last().unwrap().contains("install-developer-tools") {
             event("install-tools");
             assert!(args.last().unwrap().contains("shasum -a 256 homelab-host"));
-            assert!(args.last().unwrap().contains("exec /usr/bin/sudo -- ./homelab-host"));
+            assert!(args.last().unwrap().contains("exec /usr/bin/sudo -n -- ./homelab-host"));
             if let Ok(status) = fs::read_to_string(root.join("interrupted-status")) {
                 std::process::exit(status.parse().unwrap());
             }

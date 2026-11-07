@@ -494,7 +494,7 @@ fn expired_authorization_stops_before_key_installation_without_prompting_again()
             .iter()
             .filter(|event| *event == "authenticate")
             .count(),
-        1
+        0
     );
     assert!(events.contains(&"verify-secrets".into()));
     fixture.no_host_mutation();

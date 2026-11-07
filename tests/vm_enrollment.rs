@@ -769,7 +769,11 @@ impl Terminal {
                 self.text.clear();
                 return;
             }
-            if self.text.contains("R Retry checks") || screen.contains("R Retry checks") {
+            if self.text.contains("R Retry checks")
+                || screen.contains("R Retry checks")
+                || screen.contains("Setup needs attention")
+                || screen.contains("Step failed")
+            {
                 let reason = SAFE_FAILURES
                     .iter()
                     .copied()
@@ -904,7 +908,7 @@ fn wizard(f: &Fixture) {
 fn merge_enrollment(f: &Fixture) -> String {
     let path = f
         .state_directory
-        .join(".local/state/homelab/provisioning/hosts/vm-test/proposal.json");
+        .join(".homelab/profiles/default/provisioning/hosts/vm-test/proposal.json");
     let proposal = configuration_pr::Changes::load(&path, &f.target.repository, "vm-test").unwrap();
     assert_eq!(
         proposal.base, f.target.revision,
@@ -1046,6 +1050,8 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut terminal = Terminal::start(f);
+    terminal.wait("✓ Mac checked", Duration::from_secs(90));
+    terminal.enter();
     terminal.wait("Begin setup", Duration::from_secs(90));
     terminal.enter();
     let merged = if let Some(revision) = resumed_revision {
@@ -1059,7 +1065,8 @@ fn drive(f: &Fixture, resume: bool) {
     terminal.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(90 * 60));
     assert!(terminal.child.wait().unwrap().success());
     let approved = provisioning::approved_installation(
-        &f.state_directory.join(".local/state/homelab/provisioning"),
+        &f.state_directory
+            .join(".homelab/profiles/default/provisioning"),
         "vm-test",
     )
     .unwrap()
@@ -1110,6 +1117,8 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut replay = Terminal::start(f);
+    replay.wait("✓ Mac checked", Duration::from_secs(90));
+    replay.enter();
     replay.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(600));
     assert!(replay.child.wait().unwrap().success());
     assert_eq!(
@@ -1144,7 +1153,7 @@ fn drive(f: &Fixture, resume: bool) {
         .unwrap();
     let ciphertext = fs::read(
         f.state_directory
-            .join(".local/state/homelab/provisioning/hosts/vm-test/review/vm-test.sops.yaml"),
+            .join(".homelab/profiles/default/provisioning/hosts/vm-test/review/vm-test.sops.yaml"),
     )
     .unwrap();
     assert_eq!(
@@ -1190,7 +1199,9 @@ fn validate_resume(f: &Fixture) -> String {
         !f.state_directory.join("evidence.json").exists(),
         "completed fixtures use the completion replay, not pre-bootstrap resume"
     );
-    let root = f.state_directory.join(".local/state/homelab/provisioning");
+    let root = f
+        .state_directory
+        .join(".homelab/profiles/default/provisioning");
     assert!(
         provisioning::approved_installation(&root, "vm-test")
             .unwrap()
@@ -1273,6 +1284,18 @@ const PRE_BOOTSTRAP_CHECK: &str = r#"
 [ "$?" -eq 1 ]
 "#;
 
+// Before enrollment, Nix may already exist from the unchanged-config build.
+// No bootstrap journal or installed enrollment identities may exist.
+const PRE_PREPARATION_CHECK: &str = r#"
+/usr/bin/sudo -n /bin/test ! -e /Users/admin/.local/state/homelab/bootstrap || exit 2
+/usr/bin/sudo -n /bin/test ! -e /var/lib/sops-nix/key.txt || exit 2
+/usr/bin/sudo -n /bin/test ! -e /var/lib/homelab-git/key.txt || exit 2
+/usr/bin/pgrep -x homelab-host >/dev/null
+[ "$?" -eq 1 ] || exit 2
+/usr/bin/pgrep -x nix-installer >/dev/null
+[ "$?" -eq 1 ]
+"#;
+
 fn require_idle_operator(f: &Fixture) {
     // Match only executable paths in this attempt, not a potentially enormous
     // process listing or shell arguments mentioning the fixture path.
@@ -1320,7 +1343,8 @@ fn complete_preserved(f: &Fixture) {
         "/usr/bin/pgrep -x homelab-host >/dev/null; [ \"$?\" -eq 1 ] || exit 2; /usr/bin/pgrep -x nix-installer >/dev/null; [ \"$?\" -eq 1 ]"
     )).is_some(), "guest bootstrap/helper may still be active");
     let saved = provisioning::approved_installation(
-        &f.state_directory.join(".local/state/homelab/provisioning"),
+        &f.state_directory
+            .join(".homelab/profiles/default/provisioning"),
         "vm-test",
     )
     .unwrap()
@@ -1439,7 +1463,11 @@ fn resume_prepare(f: &Fixture, merged: bool) {
         vm::bounded(vm::ssh(
             &f.target,
             &f.state_directory.join("vm-ssh"),
-            PRE_BOOTSTRAP_CHECK
+            if merged {
+                PRE_BOOTSTRAP_CHECK
+            } else {
+                PRE_PREPARATION_CHECK
+            }
         ))
         .is_some(),
         "guest bootstrap state is not safely resumable"
@@ -1449,7 +1477,8 @@ fn resume_prepare(f: &Fixture, merged: bool) {
     } else {
         assert!(
             provisioning::approved_installation(
-                &f.state_directory.join(".local/state/homelab/provisioning"),
+                &f.state_directory
+                    .join(".homelab/profiles/default/provisioning"),
                 "vm-test"
             )
             .unwrap()

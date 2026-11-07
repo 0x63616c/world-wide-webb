@@ -81,6 +81,7 @@ impl Connection<'_> {
             return Ok((command, None));
         }
         let mut command = Command::new(self.ssh);
+        crate::setup_auth::pin(&mut command, self.profile);
         let identity = crate::ssh_identity::configure(&mut command, self.profile.identity.as_ref())
             .map_err(|_| Error::Selection)?;
         command
@@ -120,14 +121,27 @@ impl Connection<'_> {
 
     fn root(&self, remote: &str) -> Result<std::process::ExitStatus, Error> {
         let (mut command, _identity) = self.command(true)?;
+        let prepared = if self.tailscale.is_none() {
+            crate::setup_auth::Exchange::prepare(
+                self.profile,
+                &format!("/usr/bin/sudo -n {remote} > /dev/null"),
+            )
+            .map_err(|_| Error::Verification)?
+        } else {
+            None
+        };
+        let (remote, exchange) = match prepared {
+            Some((remote, exchange)) => (remote, Some(exchange)),
+            None => (format!("/usr/bin/sudo {remote} > /dev/null"), None),
+        };
         command
             // Hide helper JSON on the target; keep the PTY for sudo prompts.
-            .arg(format!("/usr/bin/sudo {remote} > /dev/null"))
+            .arg(remote)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
-        let status =
-            crate::terminal_process::status(&mut command).map_err(|_| Error::Verification)?;
+        let status = crate::terminal_process::authenticated_status(&mut command, exchange)
+            .map_err(|_| Error::Verification)?;
         Ok(status)
     }
 }

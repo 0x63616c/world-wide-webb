@@ -163,7 +163,17 @@ pub fn status(command: &mut Command) -> io::Result<ExitStatus> {
     if context().is_none() {
         return command.status();
     }
-    embedded(command, None, None, Duration::from_secs(90 * 60))
+    embedded(command, None, None, Duration::from_secs(90 * 60), None)
+}
+
+pub(crate) fn authenticated_status(
+    command: &mut Command,
+    exchange: Option<crate::setup_auth::Exchange>,
+) -> io::Result<ExitStatus> {
+    if context().is_none() {
+        return command.status();
+    }
+    embedded(command, None, None, Duration::from_secs(90 * 60), exchange)
 }
 
 #[doc(hidden)]
@@ -171,7 +181,13 @@ pub fn status_with_input(command: &mut Command, input: &Path) -> io::Result<Exit
     if context().is_none() {
         return command.stdin(File::open(input)?).status();
     }
-    embedded(command, Some(input), None, Duration::from_secs(15 * 60))
+    embedded(
+        command,
+        Some(input),
+        None,
+        Duration::from_secs(15 * 60),
+        None,
+    )
 }
 
 #[doc(hidden)]
@@ -188,6 +204,7 @@ pub fn capture(
         Some(Path::new("/dev/null")),
         Some(output.path()),
         timeout,
+        None,
     )?;
     let mut stdout = Vec::new();
     output
@@ -240,24 +257,35 @@ fn embedded(
     input: Option<&Path>,
     output: Option<&Path>,
     timeout: Duration,
+    mut auth_exchange: Option<crate::setup_auth::Exchange>,
 ) -> io::Result<ExitStatus> {
     let context = context().ok_or_else(|| io::Error::other("No terminal session"))?;
     let mut dimensions = size()?;
     let pair = native_pty_system()
         .openpty(dimensions)
         .map_err(io::Error::other)?;
-    let mut builder = CommandBuilder::new(std::env::current_exe()?);
-    builder.arg("terminal-exec");
-    if let Some(input) = input {
-        builder.arg("--input");
-        builder.arg(input);
-    }
-    if let Some(output) = output {
-        builder.arg("--output");
-        builder.arg(output);
-    }
-    builder.arg("--");
-    builder.arg(command.get_program());
+    #[cfg(not(test))]
+    let mut builder = {
+        let mut builder = CommandBuilder::new(std::env::current_exe()?);
+        builder.arg("terminal-exec");
+        if let Some(input) = input {
+            builder.arg("--input");
+            builder.arg(input);
+        }
+        if let Some(output) = output {
+            builder.arg("--output");
+            builder.arg(output);
+        }
+        builder.arg("--");
+        builder.arg(command.get_program());
+        builder
+    };
+    // libtest owns main; the bridge has its own integration tests.
+    #[cfg(test)]
+    let mut builder = {
+        assert!(input.is_none() && output.is_none());
+        CommandBuilder::new(command.get_program())
+    };
     builder.args(command.get_args());
     for (key, value) in command.get_envs() {
         match value {
@@ -295,6 +323,9 @@ fn embedded(
         let mut exited_at = None;
         let mut drained = false;
         loop {
+            if let Some(exchange) = &mut auth_exchange {
+                exchange.observe(&[], &mut writer)?;
+            }
             let mut buffer = [0; 4096];
             // A noisy child must not starve keyboard handling or redraws.
             for _ in 0..16 {
@@ -303,7 +334,12 @@ fn embedded(
                         drained = true;
                         break;
                     }
-                    Ok(count) => parser.process(&buffer[..count]),
+                    Ok(count) => {
+                        if let Some(exchange) = &mut auth_exchange {
+                            exchange.observe(&buffer[..count], &mut writer)?;
+                        }
+                        parser.process(&buffer[..count]);
+                    }
                     Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
                     Err(error) if error.raw_os_error() == Some(5) => {
                         drained = true;
@@ -345,6 +381,9 @@ fn embedded(
                 return Err(io::Error::other("Protocol output exceeded limit"));
             }
             let text = parser.screen().contents();
+            let text = auth_exchange
+                .as_ref()
+                .map_or(text.clone(), |exchange| exchange.display(&text));
             let authentication = password_prompt(&text);
             let displayed = if authentication {
                 format!("{text}{}", "*".repeat(masked_length.min(48)))
@@ -366,6 +405,12 @@ fn embedded(
                             ));
                         }
                         if let Some(mut bytes) = key_bytes(key) {
+                            if let Some(exchange) = &mut auth_exchange
+                                && !exchange.key(key)
+                            {
+                                bytes.fill(0);
+                                continue;
+                            }
                             if authentication {
                                 masked_length = match key.code {
                                     KeyCode::Enter => 0,

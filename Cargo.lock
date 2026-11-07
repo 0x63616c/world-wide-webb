@@ -646,6 +646,7 @@ dependencies = [
  "unicode-width 0.2.0",
  "ureq",
  "vt100",
+ "zeroize",
 ]
 
 [[package]]

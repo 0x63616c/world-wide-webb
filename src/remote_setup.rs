@@ -476,6 +476,7 @@ fn ssh(
     interactive: bool,
 ) -> Result<(Command, Option<tempfile::NamedTempFile>), Error> {
     let mut command = Command::new(&tools.ssh);
+    crate::setup_auth::pin(&mut command, profile);
     let identity = crate::ssh_identity::configure(&mut command, profile.identity.as_ref())
         .map_err(|_| Error::new(Failure::Inputs))?;
     command
@@ -714,12 +715,19 @@ pub fn install_developer_tools(
     let (stage, digest) = stage_helper(profile, helper, tools)?;
     let (mut command, _identity) = ssh(profile, tools, true)?;
     let source = include_str!("remote/install-tools.sh").replace('\'', "'\\''");
+    let remote = format!("/bin/sh -c '{source}' -- '{stage}' '{digest}'");
+    let (remote, exchange) = match crate::setup_auth::Exchange::prepare(profile, &remote)
+        .map_err(|_| Error::staged(Failure::UnknownOutcome, &stage))?
+    {
+        Some((remote, exchange)) => (remote, Some(exchange)),
+        None => (remote, None),
+    };
     command
-        .arg(format!("/bin/sh -c '{source}' -- '{stage}' '{digest}'"))
+        .arg(remote)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    let status = crate::terminal_process::status(&mut command)
+    let status = crate::terminal_process::authenticated_status(&mut command, exchange)
         .map_err(|_| Error::staged(Failure::UnknownOutcome, &stage))?;
     if status.code().is_none_or(|code| code >= 128) {
         return Err(Error::staged(Failure::UnknownOutcome, &stage));
@@ -843,13 +851,19 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
     );
     let (mut bootstrap, _bootstrap_identity) = ssh(&request.profile, tools, true)
         .map_err(|_| failed_before_start(&request.profile, tools, stage, Failure::Bootstrap))?;
+    let (remote, exchange) = match crate::setup_auth::Exchange::prepare(&request.profile, &remote)
+        .map_err(|_| Error::staged(Failure::UnknownOutcome, stage))?
+    {
+        Some((remote, exchange)) => (remote, Some(exchange)),
+        None => (remote, None),
+    };
     bootstrap
         .arg(remote)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
     // An interrupted connection is not evidence that privileged work stopped.
-    let status = crate::terminal_process::status(&mut bootstrap)
+    let status = crate::terminal_process::authenticated_status(&mut bootstrap, exchange)
         .map_err(|_| Error::staged(Failure::UnknownOutcome, stage))?;
     // Remote shells can report interruption as 128 + signal, rather than SSH's
     // transport-failure status 255. Neither confirms that privileged work stopped.

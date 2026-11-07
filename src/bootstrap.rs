@@ -178,7 +178,7 @@ impl Error {
                 "Check this host's private age identity and target-local Git deploy key. Resume through the setup wizard; do not supply a GitHub account token."
             }
             Self::Elevation => {
-                "Use an interactive target terminal to authenticate the existing administrator; do not store or pipe a password."
+                "Administrator authorization expired. Resume setup in the wizard to authenticate again."
             }
             _ => {
                 "Review the selected target, prerequisites and exact configuration revision before retrying with explicit resume if a journal exists."
@@ -288,8 +288,8 @@ fn existing_key(tools: &Tools, home: &Path) -> Result<bool, Error> {
 
 fn authenticate(tools: &Tools, home: &Path) -> Result<(), Error> {
     let status = command(&tools.sudo, home)
-        .arg("-v")
-        .stdin(Stdio::inherit())
+        .args(["-n", "-v"])
+        .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()

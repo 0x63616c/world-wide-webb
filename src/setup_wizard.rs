@@ -1039,6 +1039,8 @@ fn run_with_dependencies(
         AccessOutcome::Finished(outcome) => return Ok(outcome),
         AccessOutcome::Continue(changes) => changes,
     };
+    let _authentication =
+        crate::setup_auth::Scope::begin_verified(&profile, &tools.remote_setup.ssh)?;
     let state = crate::enrollment_credentials::state_directory();
     if let Some(root) = &state {
         if root.exists() && !root.join("repository.json").exists() {

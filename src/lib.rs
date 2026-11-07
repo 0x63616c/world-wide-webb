@@ -56,5 +56,6 @@ pub mod terminal_process;
 
 mod bootstrap_diagnostics;
 
+mod setup_auth;
 pub mod setup_repair;
 mod sudo_session;
