@@ -51,13 +51,17 @@ flowchart TB
 
 ## What a merge does
 
-Today, `activationReady` is false and updates/runners/services are disabled.
-Merging changes Git only. Bootstrap, service migration and erasing a machine
-require separate explicit approval.
+After a Mac completes enrollment, Comin applies `main` automatically. Review and
+test before merging; the node uses a read-only deploy key and needs no Actions token.
+The wizard holds its approved commit through setup and reboot, then verifies the
+handover to Comin. See [how updates work](docs/updates.md).
 
-Later, the enabled updater will require successful checks for the exact commit,
-back up, apply and check health. Private-repository CI is currently constrained
-by billing; public CLI checks do not substitute for private host checks.
+No real Mac has received this configuration. Host readiness remains false until
+its enrollment PR is approved; application services and runners remain disabled.
+Private Nix validation and the new updater's disposable-VM rehearsal are still
+release gates. Public CLI checks do not substitute for private host checks.
+Private Actions workflows are manual-only until self-hosted runners are ready;
+routine validation runs in the disposable Mac VM without paid private CI minutes.
 
 ## Find the details
 

@@ -1,8 +1,6 @@
 name: Nix checks
 on:
-  pull_request:
-  push:
-    branches: [main]
+  # Private validation runs in the disposable Mac until self-hosted CI is ready.
   workflow_dispatch:
 concurrency:
   group: checks-${{ github.ref }}

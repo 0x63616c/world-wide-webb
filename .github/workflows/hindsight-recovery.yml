@@ -1,23 +1,7 @@
 name: Hindsight recovery
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/hindsight-recovery.yml
-      - host/Cargo.toml
-      - host/Cargo.lock
-      - host/src/**
-      - host/tests/hindsight_restore.rs
-      - services/hindsight/compose.yaml
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/hindsight-recovery.yml
-      - host/Cargo.toml
-      - host/Cargo.lock
-      - host/src/**
-      - host/tests/hindsight_restore.rs
-      - services/hindsight/compose.yaml
+  # Opt in explicitly while private checks run locally to avoid hosted CI costs.
   workflow_dispatch:
 
 permissions:

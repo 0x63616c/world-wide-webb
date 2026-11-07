@@ -1,5 +1,30 @@
 # Disposable MacBook VM validation
 
+## Current enrollment rewrite
+
+The earlier clean rehearsal below covers helper `6fd57fe`, not the current
+enrollment rewrite. It is not evidence for automated backup, deploy-key enrollment,
+wizard-owned reboot or the Comin handover.
+
+Verified on 2026-11-06 inside `homelab-validation` (`VirtualMac2,1`):
+
+- Both private host system derivations evaluate with the pinned Comin input.
+- Comin 0.14.0 builds and runs. The launchd configuration uses Determinate's
+  installed Nix profile; upstream's default `nix.package` reference failed evaluation.
+- The current host helper exits without starting Comin when enrollment state and
+  the root completion receipt are absent.
+- Generated launchd settings retain `RunAtLoad`, a 60-second restart interval,
+  failure restart policy and the enrollment gate command.
+
+These early checks alone did **not** establish full builds or reboot/reconciliation.
+The private helper now pins review candidate `f780a9449ecec6615c586451c3a907ba12aa5ab7`
+from [CLI PR #2](https://github.com/0x63616c/homelab-cli/pull/2). Its private
+`nix flake check --no-update-lock-file` subsequently passed inside the guest,
+including both host systems, dormant container paths, client and SOPS identity checks.
+Neither host configuration was activated. The current VM
+harness is being adapted from the old token/manual-reboot journey; provider tests
+use synthetic credentials and cannot establish real Tailscale routing or policy.
+
 ## Authorized boundary
 
 Use only `homelab-macbook` as a virtualization host. Do not erase it or activate

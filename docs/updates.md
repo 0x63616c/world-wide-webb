@@ -1,56 +1,50 @@
-# Main-based host updates
+# Git manages each Mac
 
-`homelab.updates.enable` now defines a root launchd daemon that checks every
-600 seconds and at boot. Both checked-in hosts keep it **false**. No timer has
-been installed on either machine. Activation readiness, secrets and migration
-requirements also remain unmet.
+Comin watches this private repository's `main` branch every ten minutes, builds
+the matching `darwinConfigurations.<host>`, and activates it. Each Mac uses its
+own read-only SSH deploy key. GitHub's reviewed SSH host key is pinned; nodes
+receive no GitHub account token and do not query Actions to authorize deployment.
 
-The updater fetches the private repo using its root-only read token, selects an
-exact `main` commit, and requires the latest push CI attempt for that exact SHA
-to have completed successfully. It builds locked inputs and keeps the candidate
-GC-rooted. A different SHA, PR run or incomplete/failed attempt cannot authorize
-activation. A build or merge does not deploy while updates remain disabled.
+**Merging is deployment authorization.** Use repository reviews and checks before
+merging. The host applies the resulting commit automatically after enrollment.
+The checked-in host recipes enable Comin; this branch has not been deployed to
+the real Macs, and the new integration still needs the disposable-VM rehearsal.
 
-Before activation it compares host/service ownership in the two built manifests;
-changes require the migration workflow. Stateful deployments require backups
-enabled in both generations. Under the shared operation lock it writes a
-persistent transaction marker, runs a verified backup as `_containers`, activates
-the candidate as root, then reconciles and checks health as `_containers`.
-Success records the deployed SHA and removes the transaction marker.
+## During setup
 
-## Recovery behavior
+1. The CLI creates a protected hold before first activation.
+2. Launchd loads Comin through a small Rust startup check. It cannot start while
+   that hold exists or before a verified enrollment completion receipt exists.
+3. The wizard verifies the approved configuration, Tailscale, services and reboot.
+4. It records completion, releases the hold, and waits for Comin to fetch and
+   activate `main`. Only a matching successful reconciliation produces Ready.
 
-- Backup failure prevents activation and sets both updater and operation holds.
-- Failure during host activation attempts the previous host generation and
-  retains the holds for inspection.
-- Once application reconciliation starts, failure does **not** activate the old
-  generation. The new app may have migrated its database. The updater records
-  `service-failed-needs-recovery`, keeps the candidate generation and stops
-  future operations. Restore/compatible application rollback requires review.
-- An interrupted backup, activation or reconciliation is detected on startup.
-  A transaction marker without a live process also blocks scheduled service
-  and backup jobs, including after reboot. Only the transaction's inherited
-  lock may run its own children while that marker exists.
+If the connection drops, resume the saved host. The approved revision is saved
+locally before installation; changes on `main` do not replace an in-progress
+claimed installation. Once enrollment is released, a failed reconciliation check
+means updates are running but unconfirmed—it does not pause Comin again.
 
-Inspect `/var/lib/homelab/status.json`, the local backup set and its restart
-markers, and both holds before recovery. `/var/lib/homelab-operations/transaction`
-is evidence of an unfinished operation, not an expendable stale lock. Never
-remove it or a hold just to force another deployment. The lock inode itself is
-never deleted. Application restore and target-machine recovery rehearsal are
-still unfinished, so automatic updates are not yet deployment-ready.
+## Restarts and recovery
 
-## Self-update supervision
+Launchd starts the updater at boot, retries failures, and checks every minute for
+a stopped process. That also covers Comin's successful exit when its configuration
+changes. Comin owns Git polling, builds and deployments; the Rust wrapper only
+protects first enrollment. It is not a general pause switch for a running updater.
 
-The launchd plist uses stable `/run/current-system` and `/etc/homelab/updater`
-entry points. Script/store-path updates do not change that plist. The updater
-rejects candidate plist changes and drift in the installed plist: changes to
-its own supervisor need a separately supervised manual activation. This avoids
-unloading the process in the middle of its own switch. Root activation and
-service children carry the operation lock descriptor and have bounded process
-supervision; timeouts terminate the synchronous command group.
+Comin logs to `/var/log/comin.log`. Its status API is restricted to root through
+`/run/comin-grpc.sock`; metrics bind to localhost. The wizard reads bounded status
+JSON without printing raw commit messages or errors.
 
-Unit tests cover CI eligibility, credential handling, rollback versus application
-recovery, transaction order, supervision changes, lock handoff and interrupted
-operation exclusion. Hosted CI compiles the enabled timer variant without
-activating it. These checks do not establish real reboot, launchd, database
-restore or network recovery behavior; those remain rollout gates.
+Application backup and restore remain separate workflows. Comin does not provide
+the former custom updater's backup-before-activation or application rollback
+transaction. Current host manifests enable no application services; migration and
+restore rehearsals must establish their operational workflow before cutover.
+
+## Pinned upstream
+
+The configuration selects Comin `0.14.0` at
+[`004a55c`](https://github.com/nlewo/comin/tree/004a55ced41d72340373ebc6774e29a417512638).
+The startup check avoids relying on its suspend/resume behavior across restart.
+The former Python updater is removed. Comin cannot be enabled alongside stateful
+container or Home Assistant workloads until their backup/deployment workflow is
+reviewed; the Nix assertion prevents silently losing those protections.

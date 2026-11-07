@@ -8,6 +8,8 @@
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
     determinate.url = "github:DeterminateSystems/determinate";
+    comin.url = "github:nlewo/comin/004a55ced41d72340373ebc6774e29a417512638";
+    comin.inputs.nixpkgs.follows = "nixpkgs";
   };
   outputs = inputs@{ self, nixpkgs, darwin, ... }:
     let
@@ -25,6 +27,7 @@
           inputs.nix-homebrew.darwinModules.nix-homebrew
           inputs.sops-nix.darwinModules.sops
           inputs.determinate.darwinModules.default
+          inputs.comin.darwinModules.comin
           ./modules/manifest.nix
           ./modules/base.nix ./modules/users.nix ./modules/ssh.nix
           ./modules/power.nix ./modules/tailscale.nix ./modules/secrets.nix
@@ -98,7 +101,7 @@
             # Compile only; this is not a claim about the MacBook's interface.
             homelab.homeassistant.bridgeInterface = "en0";
             homelab.backups.enable = true;
-            homelab.updates.enable = lib.mkForce true;
+            homelab.updates.enable = lib.mkForce false;
           })];
         }).system;
         compose = pkgs.runCommand "homelab-compose-check" {

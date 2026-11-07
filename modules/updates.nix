@@ -1,27 +1,62 @@
-{ config, lib, pkgs, ... }: {
-  options.homelab.updates.enable = lib.mkEnableOption "verified-main automatic updates";
+{ config, inputs, lib, pkgs, ... }:
+let
+  hostTools = import ../packages/client.nix { inherit pkgs; };
+  cominConfiguration = import (inputs.comin + "/nix/comin-config.nix") {
+    inherit config lib pkgs;
+  };
+in {
+  options.homelab.updates.enable = lib.mkEnableOption "Git reconciliation from main";
+
   config = lib.mkIf config.homelab.updates.enable {
-    environment.systemPackages = [ pkgs.python3 ];
-    environment.etc."homelab/updater".source = ../scripts;
-    # Keep the plist stable when Nix store paths change. The updater rejects
-    # candidate plist changes; those need a separate supervised manual switch.
-    launchd.daemons.homelab-update.serviceConfig = {
-      Label = "org.homelab.update";
-      UserName = "root";
-      ProgramArguments = [
-        "/run/current-system/sw/bin/python3"
-        "/etc/homelab/updater/update.py"
-        "--host" config.networking.hostName
-      ];
-      EnvironmentVariables = {
-        HOME = "/var/root";
-        PATH = "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    assertions = [{
+      assertion = !(config.homelab.containers.enable || config.homelab.homeassistant.enable);
+      message = "Comin enrollment currently supports base hosts only. Stateful services need a reviewed backup and deployment workflow before enabling automatic updates.";
+    }];
+    environment.etc."homelab/github_known_hosts".source = ../lib/github_known_hosts;
+
+    services.comin = {
+      enable = true;
+      package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin;
+      debug = false;
+      hostname = config.networking.hostName;
+      grpc = {
+        unix_socket_group = "wheel";
+        unix_socket_mode = "0600";
       };
-      RunAtLoad = true;
-      StartInterval = 600;
-      ThrottleInterval = 60;
-      ProcessType = "Background";
-      LowPriorityIO = true;
+      exporter.listen_address = "127.0.0.1";
+      remotes = [{
+        name = "origin";
+        url = "git@github.com:0x63616c/homelab.git";
+        branches.main.name = "main";
+        poller.period = 600;
+        auth = {
+          username = "git";
+          ssh_deploy_key_path = "/var/lib/homelab-git/key.txt";
+          ssh_known_hosts_path = "/etc/homelab/github_known_hosts";
+        };
+      }];
+    };
+
+    # Every start, including Comin's own restart, passes through the enrollment
+    # gate. Upstream launchd start calls cannot bypass the setup hold.
+    launchd.daemons.comin = {
+      command = lib.mkForce (lib.escapeShellArgs [
+        "${hostTools}/bin/homelab-host"
+        "run-updater"
+        "--executable" "${config.services.comin.package}/bin/comin"
+        "--config" "${cominConfiguration.cominConfigYaml}"
+      ]);
+      serviceConfig = {
+        # Determinate owns Nix, so nix-darwin deliberately disables nix.package.
+        EnvironmentVariables = lib.mkForce {
+          PATH = "/nix/var/nix/profiles/default/bin:" + lib.makeBinPath [ pkgs.git pkgs.openssh ];
+        };
+        KeepAlive = lib.mkForce { SuccessfulExit = false; };
+        # Comin exits successfully when its configuration changes. The interval
+        # restarts that case without spinning while enrollment is held.
+        StartInterval = 60;
+        ThrottleInterval = 30;
+      };
     };
   };
 }

@@ -40,7 +40,6 @@ in {
       sops.secrets = lib.mkMerge [
         {
           tailscale-auth-key = { mode = "0400"; };
-          github-read-token = { mode = "0400"; };
         }
         (lib.mkIf config.homelab.containers.enable {
           containers-env = { owner = "_containers"; group = "_containers"; mode = "0400"; };

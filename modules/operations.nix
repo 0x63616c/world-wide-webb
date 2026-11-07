@@ -1,6 +1,6 @@
 { config, lib, pkgs, ... }:
 let
-  enabled = config.homelab.containers.enable || config.homelab.homeassistant.enable || config.homelab.updates.enable;
+  enabled = config.homelab.containers.enable || config.homelab.homeassistant.enable;
   wrapper = pkgs.writeShellScriptBin "homelab-operation" ''
     exec ${pkgs.python3}/bin/python3 ${../scripts}/operation-lock.py "$@"
   '';

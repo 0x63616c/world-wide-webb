@@ -16,7 +16,6 @@ in pkgs.rustPlatform.buildRustPackage {
   '';
   preCheck = ''
     shellcheck src/probe.sh
-    shellcheck src/git-askpass.sh
     shellcheck src/remote/*.sh
     shellcheck src/first-access/*.sh
   '';
