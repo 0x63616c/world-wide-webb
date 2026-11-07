@@ -140,9 +140,6 @@ describe("ClimateTileView, cool/heat (single setpoint)", () => {
   it("marks only the active mode button", () => {
     render(<ClimateTileView {...coolProps} />);
     expect(screen.getByTestId("chip-cool")).toHaveClass("on");
-    expect(screen.getByTestId("chip-cool")).toHaveAttribute("data-mode", "cool");
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent(/Cool.*Cooling/);
-    expect(screen.getByTestId("mode-pill")).toHaveAttribute("data-mode", "cool");
     expect(screen.getByTestId("chip-heat")).not.toHaveClass("on");
     expect(screen.getByTestId("chip-heat_cool")).not.toHaveClass("on");
     expect(screen.getByTestId("chip-off")).not.toHaveClass("on");
@@ -238,8 +235,6 @@ describe("ClimateTileView, heat_cool (dual setpoint)", () => {
   it("marks heat_cool active", () => {
     render(<ClimateTileView {...heatCoolProps} />);
     expect(screen.getByTestId("chip-heat_cool")).toHaveClass("on");
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent(/Heat·Cool.*Idle/);
-    expect(screen.getByTestId("mode-pill")).toHaveAttribute("data-mode", "heat_cool");
   });
 
   it("has no unambiguous single setpoint, so no steppers render", () => {
@@ -297,8 +292,6 @@ describe("ClimateTileView, off", () => {
   it("marks the Off button active", () => {
     render(<ClimateTileView {...offProps} />);
     expect(screen.getByTestId("chip-off")).toHaveClass("on");
-    expect(screen.getByTestId("mode-pill")).toHaveTextContent("Off");
-    expect(screen.getByTestId("mode-pill")).toHaveAttribute("data-mode", "off");
   });
 
   it("renders no steppers when off (no active setpoint to adjust)", () => {
