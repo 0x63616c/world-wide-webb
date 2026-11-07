@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCALES = {'en', 'de', 'fr', 'es', 'es-419', 'ja', 'ko', 'pt-BR', 'zh-Hans', 'zh-Hant'}
 # Explicit typed interpolation mapping: reject any new interpolation until its format is reviewed.
 INTERPOLATIONS = {
+    'results.percentile': (r'\(percentile)%', '%lld%%'),
     'leaderboard.pending': (r'\(value.pendingFolds)', '%lld'),
     'leaderboard.periodTimezone': (r'\(periodTitle)', '%@'),
     'session.runningDuration': (r'\(foldingDuration(durationMS))', '%@'),

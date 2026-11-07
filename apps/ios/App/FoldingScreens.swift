@@ -44,7 +44,19 @@ struct FoldingRootView: View {
         NavigationStack {
           LeaderboardScreen(model: model, actions: actions)
             .navigationTitle(String(localized: "tab.leaderboard", defaultValue: "Leaderboard"))
-            .toolbar { settingsButton }
+            .toolbar {
+              settingsButton
+              if model.competitionProfile != nil {
+                ToolbarItem(placement: .topBarLeading) {
+                  Button {
+                    model.present(.competition(.profile))
+                  } label: {
+                    Image(systemName: "person.crop.circle")
+                  }
+                  .accessibilityLabel(String(localized: "profile.title", defaultValue: "Profile"))
+                }
+              }
+            }
         }
       }
     }
@@ -90,6 +102,8 @@ struct FoldingRootView: View {
   @ViewBuilder private func sheetContent(_ sheet: PresentedSheet) -> some View {
     switch sheet {
     case .settings: SettingsScreen(model: model, actions: actions)
+    case .competition(let screen):
+      CompetitionSheetScreen(screen: screen, model: model, actions: actions)
     case .trackingPhone:
       NavigationStack {
         TrackingPhoneScreen(model: model, actions: actions)
@@ -116,8 +130,14 @@ struct FoldingRootView: View {
           defaultValue: "\(periodTitle) · UTC"))
     case .tiedRank(let rank):
       NavigationStack {
-        List(model.competition.previous?.entries.filter { $0.rank == rank } ?? []) { entry in
-          LeaderboardRow(entry: entry)
+        List(
+          model.competition.previous?.entries.filter {
+            $0.rank == rank && !model.hiddenParticipantIDs.contains($0.id)
+          } ?? []
+        ) { entry in
+          LeaderboardRow(entry: entry).contextMenu {
+            ParticipantMenu(entry: entry, model: model, actions: actions)
+          }
         }
         .navigationTitle(String(localized: "leaderboard.tiedRank", defaultValue: "Tied places"))
         .toolbar {
@@ -500,6 +520,16 @@ private struct SettingsScreen: View {
         Section {
           NavigationLink(String(localized: "notifications.title", defaultValue: "Notifications")) {
             NotificationSettingsScreen(model: model, actions: actions)
+          }
+        }
+        if model.competitionProfile != nil {
+          Section(String(localized: "profile.competition", defaultValue: "Competition")) {
+            NavigationLink(String(localized: "profile.title", defaultValue: "Profile")) {
+              CompetitionProfileScreen(model: model, actions: actions, joining: false)
+            }
+            NavigationLink(String(localized: "results.title", defaultValue: "Your Results")) {
+              CompetitionResultsScreen(model: model, actions: actions)
+            }
           }
         }
         Section(String(localized: "settings.data", defaultValue: "Data")) {
@@ -933,54 +963,67 @@ private struct LeaderboardScreen: View {
   let actions: FoldingActions
   var body: some View {
     Group {
-      switch model.competition {
-      case .unavailable:
-        ContentUnavailableView(
-          String(localized: "leaderboard.unavailable", defaultValue: "Leaderboard unavailable"),
-          systemImage: "trophy")
-      case .notJoined:
-        VStack(spacing: 24) {
-          Image(systemName: "trophy").font(.largeTitle).foregroundStyle(.secondary)
-          Text(String(localized: "leaderboard.joinTitle", defaultValue: "Find your place")).font(
-            .title.bold())
-          Text(
-            String(
-              localized: "leaderboard.joinDetail",
-              defaultValue: "Compare folds. Keep tracking personal.")
-          ).foregroundStyle(.secondary)
-          if let request = actions.appleRequest, let completion = actions.appleCompletion {
-            SignInWithAppleButton(.signIn, onRequest: request, onCompletion: completion)
-              .frame(maxWidth: 320).frame(height: 50)
-              .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-          }
-        }.multilineTextAlignment(.center).padding(24)
-      case .banned:
-        ContentUnavailableView {
-          Label(
-            String(localized: "leaderboard.restricted", defaultValue: "Competition restricted"),
-            systemImage: "exclamationmark.shield")
-        } actions: {
-          Link(
-            String(localized: "leaderboard.appeal", defaultValue: "Contact support"),
-            destination: URL(string: "mailto:support@getfolding.app")!)
-        }
-      case .loading(let previous), .failed(let previous):
-        if let previous {
-          rankedList(previous)
-        } else if case .loading = model.competition {
-          ProgressView()
-        } else {
+      if model.competitionRemoval != nil {
+        CompetitionRemovalScreen(model: model, actions: actions)
+      } else {
+        switch model.competition {
+        case .unavailable:
+          ContentUnavailableView(
+            String(localized: "leaderboard.unavailable", defaultValue: "Leaderboard unavailable"),
+            systemImage: "trophy")
+        case .notJoined:
+          VStack(spacing: 24) {
+            Image(systemName: "trophy").font(.largeTitle).foregroundStyle(.secondary)
+            Text(String(localized: "leaderboard.joinTitle", defaultValue: "Find your place")).font(
+              .title.bold())
+            Text(
+              String(
+                localized: "leaderboard.joinDetail",
+                defaultValue: "Compare folds. Keep tracking personal.")
+            ).foregroundStyle(.secondary)
+            if let signIn = actions.signInCompetition {
+              NativeAppleSignInButton(dark: colorScheme == .dark) {
+                Task {
+                  await model.command(
+                    String(localized: "profile.signingIn", defaultValue: "Signing in")
+                  ) { try await signIn() }
+                }
+              }.id(colorScheme).frame(height: 50).disabled(model.operation != nil)
+            } else if let request = actions.appleRequest, let completion = actions.appleCompletion {
+              SignInWithAppleButton(.signIn, onRequest: request, onCompletion: completion)
+                .frame(maxWidth: 320).frame(height: 50)
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+            }
+          }.multilineTextAlignment(.center).padding(24)
+        case .banned:
           ContentUnavailableView {
             Label(
-              String(localized: "leaderboard.unavailable", defaultValue: "Leaderboard unavailable"),
-              systemImage: "wifi.exclamationmark")
+              String(localized: "leaderboard.restricted", defaultValue: "Competition restricted"),
+              systemImage: "exclamationmark.shield")
           } actions: {
-            Button(String(localized: "action.retry", defaultValue: "Retry")) {
-              Task { await model.requestLeaderboard(using: actions) }
+            Link(
+              String(localized: "leaderboard.appeal", defaultValue: "Contact support"),
+              destination: URL(string: "mailto:support@getfolding.app")!)
+          }
+        case .loading(let previous), .failed(let previous):
+          if let previous {
+            rankedList(previous)
+          } else if case .loading = model.competition {
+            ProgressView()
+          } else {
+            ContentUnavailableView {
+              Label(
+                String(
+                  localized: "leaderboard.unavailable", defaultValue: "Leaderboard unavailable"),
+                systemImage: "wifi.exclamationmark")
+            } actions: {
+              Button(String(localized: "action.retry", defaultValue: "Retry")) {
+                Task { await model.requestLeaderboard(using: actions) }
+              }
             }
           }
+        case .loaded(let value): rankedList(value)
         }
-      case .loaded(let value): rankedList(value)
       }
     }
     .task(id: model.competitionPeriod) {
@@ -1012,7 +1055,9 @@ private struct LeaderboardScreen: View {
               String(localized: "leaderboard.periodDetails", defaultValue: "Period details"))
         }
         let podium = Dictionary(
-          grouping: value.entries.filter { (1...3).contains($0.rank) }, by: \.rank)
+          grouping: value.entries.filter {
+            (1...3).contains($0.rank) && !model.hiddenParticipantIDs.contains($0.id)
+          }, by: \.rank)
         if !podium.isEmpty {
           HStack(alignment: .top, spacing: 16) {
             ForEach(podium.keys.sorted(), id: \.self) { rank in
@@ -1042,13 +1087,37 @@ private struct LeaderboardScreen: View {
           Text(String(localized: "leaderboard.empty", defaultValue: "No folds yet"))
             .foregroundStyle(.secondary)
         }
-        ForEach(value.entries) { entry in LeaderboardRow(entry: entry) }
+        ForEach(value.entries.filter { !model.hiddenParticipantIDs.contains($0.id) }) { entry in
+          LeaderboardRow(entry: entry).contextMenu {
+            ParticipantMenu(entry: entry, model: model, actions: actions)
+          }
+        }
       }
     }
     .safeAreaInset(edge: .bottom) {
       if let current = value.currentUser {
         VStack(spacing: 4) {
-          LeaderboardRow(entry: current)
+          HStack {
+            LeaderboardRow(entry: current)
+            Button {
+              model.present(.competition(.liveShare))
+            } label: {
+              Image(systemName: "square.and.arrow.up")
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel(String(localized: "results.share", defaultValue: "Share result"))
+          }
+          if value.population >= 20, let percentile = current.percentile ?? value.percentile {
+            Text(
+              String(
+                localized: "results.percentile",
+                defaultValue: "More folds than \(percentile)% of participants")
+            )
+            .font(.caption).foregroundStyle(.secondary)
+          } else {
+            Text(String(localized: "results.building", defaultValue: "Building a comparison"))
+              .font(.caption).foregroundStyle(.secondary)
+          }
           if value.pendingFolds > 0 {
             Text(
               String(
@@ -1095,23 +1164,16 @@ private struct CrownedAvatar: View {
     }
   }
   var body: some View {
-    AsyncImage(url: entry.approvedAvatarURL) { phase in
-      if let image = phase.image {
-        image.resizable().scaledToFill()
-      } else {
-        Image(systemName: "person.crop.circle.fill").resizable().scaledToFit().foregroundStyle(
-          .secondary)
+    ApprovedAvatarImage(data: entry.approvedAvatarData, url: entry.approvedAvatarURL)
+      .frame(width: size, height: size)
+      .clipShape(Circle())
+      .overlay(alignment: .topTrailing) {
+        if let medal {
+          Image(systemName: "crown.fill").font(.caption).foregroundStyle(medal.1)
+            .padding(2).background(.background, in: Circle()).offset(x: 4, y: -7)
+        }
       }
-    }
-    .frame(width: size, height: size)
-    .clipShape(Circle())
-    .overlay(alignment: .topTrailing) {
-      if let medal {
-        Image(systemName: "crown.fill").font(.caption).foregroundStyle(medal.1)
-          .padding(2).background(.background, in: Circle()).offset(x: 4, y: -7)
-      }
-    }
-    .accessibilityLabel(medal?.0 ?? String(localized: "profile.avatar", defaultValue: "Avatar"))
+      .accessibilityLabel(medal?.0 ?? String(localized: "profile.avatar", defaultValue: "Avatar"))
   }
 }
 

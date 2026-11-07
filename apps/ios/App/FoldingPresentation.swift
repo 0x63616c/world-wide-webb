@@ -104,7 +104,7 @@ struct HistoryPresentation: Sendable {
   let canGoNext: Bool
 }
 
-enum CompetitionPeriod: String, CaseIterable, Identifiable {
+enum CompetitionPeriod: String, CaseIterable, Identifiable, Sendable {
   case week, month, all
   var id: Self { self }
   var title: String {
@@ -123,6 +123,8 @@ struct LeaderboardEntry: Identifiable, Sendable {
   let folds: Int
   let approvedAvatarURL: URL?
   let isCurrentUser: Bool
+  var approvedAvatarData: Data? = nil
+  var percentile: Int? = nil
 }
 
 struct LeaderboardPresentation: Sendable {
@@ -131,6 +133,8 @@ struct LeaderboardPresentation: Sendable {
   let currentUser: LeaderboardEntry?
   let pendingFolds: Int
   let updatedAt: Date
+  var population: Int = 0
+  var percentile: Int? = nil
 }
 
 enum CompetitionPresentation {
@@ -152,9 +156,11 @@ enum PresentedSheet: Identifiable, Equatable {
   case settings, setup, editSummary, travelInfo, leaderboardInfo, trackingPhone
   case tiedRank(Int)
   case export(UUID)
+  case competition(CompetitionSheet)
   var id: String {
     switch self {
     case .settings: "settings"
+    case .competition(let screen): "competition-\(screen.rawValue)"
     case .trackingPhone: "tracking-phone"
     case .setup: "setup"
     case .editSummary: "summary"
@@ -223,6 +229,17 @@ enum ExportChoice { case json, csv }
   var export: ((ExportChoice) async throws -> UUID)?
   var exportURL: ((UUID) async throws -> URL)?
   var exportFinished: ((UUID) async -> Void)?
+  var joinCompetition: ((String) async throws -> Void)?
+  var saveNickname: ((String) async throws -> CompetitionProfile)?
+  var uploadAvatar: ((Data) async throws -> AvatarReviewState)?
+  var removeAvatar: (() async throws -> Void)?
+  var loadResults: ((CompetitionPeriod, String?) async throws -> CompetitionResultsPage)?
+  var loadResultShare: ((String) async throws -> CompetitionShare)?
+  var reportParticipant: ((String, ParticipantReportReason) async throws -> Void)?
+  var setParticipantBlocked: ((String, Bool) async throws -> Void)?
+  var leaveCompetition: (() async throws -> Void)?
+  var deleteCompetitionAccount: (() async throws -> Void)?
+  var signInCompetition: (() async throws -> Void)?
   var appleRequest: ((ASAuthorizationAppleIDRequest) -> Void)?
   var appleCompletion: ((Result<ASAuthorization, Error>) -> Void)?
   /// Verified per-OS/localized instructions, supplied by composition rather than invented by views.
@@ -240,6 +257,18 @@ enum ExportChoice { case json, csv }
   var historyOffset = 0
   var historyLoading = false
   var historyFailed = false
+  var competitionRemoval: CompetitionRemovalState?
+  var competitionProfile: CompetitionProfile?
+  var joinNickname = ""
+  var hiddenParticipantIDs: Set<String> = []
+  var hiddenParticipantNames: [String: String] = [:]
+  var results: [CompetitionResult] = []
+  var resultsPeriod: CompetitionPeriod = .week
+  var resultsCursor: String?
+  var resultsVersion: String?
+  var resultsLoading = false
+  var resultsFailed = false
+  var resultsRequestID = UUID()
   var competition: CompetitionPresentation = .unavailable
   var competitionPeriod: CompetitionPeriod = .week
   var sheet: PresentedSheet?
@@ -275,6 +304,13 @@ enum ExportChoice { case json, csv }
     await command(String(localized: "phone.switching", defaultValue: "Switching phone")) {
       try await use()
     }
+  }
+
+  func dismissCompetitionSheets() {
+    if case .competition = nextSheet { nextSheet = nil }
+    if case .competition = sheet { sheet = nil }
+    // Profile/results can also be pushed inside Settings; discard that private navigation stack.
+    if sheet == .settings { sheet = nil }
   }
 
   private var nextSheet: PresentedSheet?
