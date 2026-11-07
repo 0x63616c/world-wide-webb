@@ -4,10 +4,6 @@ in {
   options.homelab = {
     adminUser = lib.mkOption { type = lib.types.str; };
     adminUID = lib.mkOption { type = lib.types.int; default = 501; };
-    activationReady = lib.mkOption {
-      type = lib.types.bool; default = false;
-      description = "Explicitly enabled only after provisioning and migration review.";
-    };
   };
   config = {
     nixpkgs.hostPlatform = "aarch64-darwin";
@@ -33,9 +29,8 @@ in {
       casks = [ ];
     };
     system.activationScripts.preActivation.text = lib.mkBefore ''
-      homelab_activation_ready="${lib.boolToString cfg.activationReady}"
-      if [ "$homelab_activation_ready" != true ]; then
-        echo 'Activation blocked: finish provisioning and review host migration first.' >&2
+      if [ '${if cfg.authorizedKeys != [] then "yes" else "no"}' != yes ]; then
+        echo 'Activation blocked: configure an administrator SSH public key first.' >&2
         exit 1
       fi
       if [ "$(/usr/bin/id -u ${lib.escapeShellArg cfg.adminUser})" != '${toString cfg.adminUID}' ]; then

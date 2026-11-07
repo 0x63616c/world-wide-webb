@@ -6,7 +6,7 @@
     let
       cfg = host.config.homelab;
     in {
-      inherit (cfg) activationReady adminUser adminUID authorizedKeys;
+      inherit (cfg) adminUser adminUID authorizedKeys;
       services = import ./assigned-services.nix cfg;
     }
   ) hosts;

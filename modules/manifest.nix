@@ -3,7 +3,7 @@ let
   services = reviewedHost.services;
   containers = builtins.filter (name: name != "home-assistant") services;
   actual = {
-    inherit (config.homelab) adminUser adminUID authorizedKeys activationReady;
+    inherit (config.homelab) adminUser adminUID authorizedKeys;
     services = import ../lib/assigned-services.nix config.homelab;
   };
 in {
@@ -13,7 +13,7 @@ in {
     revision = inputs.self.rev or null;
   };
   homelab = {
-    inherit (reviewedHost) adminUser adminUID authorizedKeys activationReady;
+    inherit (reviewedHost) adminUser adminUID authorizedKeys;
     containers.enable = containers != [];
     containers.services = containers;
     homeassistant.enable = builtins.elem "home-assistant" services;

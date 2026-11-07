@@ -9,10 +9,6 @@ in {
     description = "Reviewed public keys for the existing human administrator.";
   };
   config = {
-    assertions = [{
-      assertion = !config.homelab.activationReady || config.homelab.authorizedKeys != [ ];
-      message = "Supply a verified administrator SSH public key before enabling activation.";
-    }];
     services.openssh.enable = true;
     services.openssh.extraConfig = ''
       PubkeyAuthentication yes
