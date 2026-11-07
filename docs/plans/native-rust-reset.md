@@ -334,7 +334,7 @@ Statuses: Todo, In progress, Review, Done. No issue per file or trivial subtask.
    target layout/toolchain, initial Swift/OpenAPI round trip, auth decision, OpenTofu state backend proof.
    Done when recovery is demonstrated and critical uncertainties have executable answers.
 2. **Complete replacement:** Rust feature behavior + SQLite importer + shared Swift iOS/macOS adaptation,
-   tooling and tests. Parallelize independent Swift/server/infra work with explicit file ownership.
+   tooling and tests. Primary agent performs all implementation; subagents are reserved ONLY for final review.
    Done when retained feature scenarios pass against the candidate and migration rehearsal reconciles data.
 3. **Delivery and cutover:** new CI/rules transition, OpenTofu/hostname, signed clients, final frozen backup,
    import, one outage window and production acceptance. Done when clients work and all data/media checks pass.
@@ -361,8 +361,9 @@ follow-up if facts only become observable after deployment. Final cleanup may no
 - Maintain an issue checklist and factual progress/evidence; report blockers early, not unchanged status.
 - Coordinate all credential access through the primary agent's single persistent session. Delegates must
   not call op. Never inspect/print secret values, encrypted-state plaintext or user data in tool output.
-- Delegate only authorized parallel packages, with non-overlapping ownership; independent reviewer must
-  inspect final diff, data checks and cutover runbook. Fix findings and re-review affected areas.
+- No implementation or research subagents. Primary agent does all work. Use an independent agent ONLY
+  for final review of the diff, data checks and cutover runbook. Fix findings and re-review affected areas.
+- Working software and validation come first; documentation cleanup comes last.
 - Test meaningful behavior: actual SQLite, mocked external HA at its seam, deterministic clock/DST,
   duplicate requests, reconnect, restarts, uploads, offline states and platform capabilities.
 - Before cutover, prove backup restore and final reconciliation. Do not trade these checks for speed.

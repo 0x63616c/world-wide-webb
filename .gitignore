@@ -74,3 +74,11 @@ infra/talos/clusterconfig/
 
 # Native panel machine credentials (never bundled as a resource).
 apps/apple-prototype/Hybrid/Config/Secrets.xcconfig
+
+# Rust build outputs and local migration data
+/target/
+/server/data/
+__pycache__/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

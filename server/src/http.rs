@@ -1,0 +1,144 @@
+use crate::{
+    AppState,
+    features::{booth, notifications, releases, settings, walks, weather},
+};
+use axum::{
+    Json, Router,
+    extract::{DefaultBodyLimit, Request, State},
+    http::{StatusCode, header},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+};
+use serde_json::{Value, json};
+use subtle::ConstantTimeEq;
+
+#[derive(Debug, thiserror::Error)]
+#[error("{message}")]
+pub struct ApiError {
+    pub status: StatusCode,
+    pub message: &'static str,
+}
+impl ApiError {
+    pub fn bad(message: &'static str) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            message,
+        }
+    }
+    pub fn not_found() -> Self {
+        Self {
+            status: StatusCode::NOT_FOUND,
+            message: "Not found",
+        }
+    }
+}
+impl From<sqlx::Error> for ApiError {
+    fn from(error: sqlx::Error) -> Self {
+        // Do not log bind values, SQL or row contents.
+        tracing::error!(kind = "database", "database operation failed");
+        if error
+            .as_database_error()
+            .is_some_and(|e| e.is_unique_violation())
+        {
+            Self {
+                status: StatusCode::CONFLICT,
+                message: "Conflicting state",
+            }
+        } else {
+            Self {
+                status: StatusCode::SERVICE_UNAVAILABLE,
+                message: "Storage unavailable",
+            }
+        }
+    }
+}
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        (self.status, Json(json!({"error": self.message}))).into_response()
+    }
+}
+pub type Result<T> = std::result::Result<T, ApiError>;
+
+pub fn router(state: AppState) -> Router {
+    let api = Router::new()
+        .route(
+            "/api/v1/releases/latest",
+            get(releases::latest).post(releases::publish),
+        )
+        .route("/api/v1/weather/now", get(weather::current))
+        .route("/api/v1/weather/hourly", get(weather::hourly))
+        .route("/api/v1/weather/daily", get(weather::daily))
+        .route("/api/v1/walks/state", get(walks::state))
+        .route("/api/v1/walks/history", get(walks::history))
+        .route("/api/v1/walks/start", post(walks::start))
+        .route("/api/v1/walks/stop", post(walks::stop))
+        .route(
+            "/api/v1/walks/{id}",
+            axum::routing::patch(walks::update).delete(walks::delete),
+        )
+        .route(
+            "/api/v1/settings",
+            get(settings::get).patch(settings::update),
+        )
+        .route(
+            "/api/v1/notifications",
+            get(notifications::list).post(notifications::create),
+        )
+        .route("/api/v1/notifications/read", post(notifications::read))
+        .route(
+            "/api/v1/notifications/dismiss",
+            post(notifications::dismiss),
+        )
+        .route(
+            "/api/v1/notifications/dismiss-all",
+            post(notifications::dismiss_all),
+        )
+        .route("/api/v1/notifications/stream", get(notifications::stream))
+        .route("/api/v1/booth", get(booth::list))
+        .route("/api/v1/booth/{id}", axum::routing::delete(booth::remove))
+        .route(
+            "/api/v1/booth/{id}/filter",
+            axum::routing::delete(booth::clear_filter),
+        )
+        .layer(DefaultBodyLimit::max(32768));
+    let media = Router::new()
+        .route("/media/booth-photo", post(booth::upload))
+        .route("/media/booth-photos/{*path}", get(booth::download))
+        .layer(DefaultBodyLimit::max(20 * 1024 * 1024));
+    Router::new()
+        .merge(
+            api.merge(media)
+                .route_layer(middleware::from_fn_with_state(state.clone(), authenticate)),
+        )
+        .route("/up", get(|| async { StatusCode::NO_CONTENT }))
+        .route("/healthz", get(health))
+        .with_state(state)
+}
+async fn authenticate(State(state): State<AppState>, request: Request, next: Next) -> Response {
+    let supplied = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .unwrap_or("");
+    if !bool::from(supplied.as_bytes().ct_eq(state.token.as_bytes())) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            [(header::WWW_AUTHENTICATE, "Bearer")],
+            Json(json!({"error":"Unauthorized"})),
+        )
+            .into_response();
+    }
+    let mut response = next.run(request).await;
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
+    response
+}
+async fn health(State(state): State<AppState>) -> Result<Json<Value>> {
+    sqlx::query("SELECT 1").execute(&state.db).await?;
+    Ok(Json(
+        json!({"database":"ok", "backend":"rust", "build": option_env!("BUILD_HASH").unwrap_or("local")}),
+    ))
+}

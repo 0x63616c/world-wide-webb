@@ -10,6 +10,7 @@ from decimal import Decimal
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -83,7 +84,9 @@ def convert(value, kind):
     if kind in ('timestamp with time zone', 'timestamp without time zone'):
         if kind == 'timestamp without time zone':
             raise ValueError('Naive timestamp needs explicit timezone mapping')
-        t = dt.datetime.fromisoformat(value.replace('Z', '+00:00'))
+        normalized = value.replace('Z', '+00:00')
+        normalized = re.sub(r'(\.\d{1,6})(?=[+-]\d{2}:\d{2}$)', lambda match: match[0].ljust(7, '0'), normalized)
+        t = dt.datetime.fromisoformat(normalized)
         if t.tzinfo is None:
             raise ValueError('Missing timezone')
         return t.astimezone(dt.timezone.utc).isoformat(timespec='microseconds').replace('+00:00', 'Z')

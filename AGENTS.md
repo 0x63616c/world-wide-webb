@@ -15,8 +15,11 @@
   the finished candidate passes local tests/builds and independent review. Draft tracking locally first.
 - Final publication: create the GitHub project/issues from local drafts, push one implementation PR,
   fix required hosted checks, merge only green, then execute the verified cutover. No early draft PRs.
-- Minimize PR count and token/time overhead. Work in four large packages; parallel agents need explicit
-  file ownership. Do not turn every commit into a PR or wait for hosted CI during local implementation.
+- Minimize PR count and token/time overhead. The PRIMARY AGENT does ALL implementation.
+  DO NOT spawn or resume implementation/research subagents. Subagents are allowed ONLY for final review.
+  Do not turn every commit into a PR or wait for hosted CI during local implementation.
+- Make the software work first. Documentation/overview/runbook cleanup comes LAST, after implementation
+  and validation; only essential safety instructions and concise handoff state are updated during work.
 - Data/photos are non-negotiable: preserve the original dump/media, reconcile imported records and file
   hashes, test restore, freeze old writers for final snapshot. Downtime is acceptable; data loss is not.
 - Retired features' historical records/media remain recoverable. Do not delete production data, original

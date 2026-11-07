@@ -88,6 +88,10 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(m.convert({'n': Decimal('0.123456789012345678901')}, 'jsonb'),
                          '{"n":0.123456789012345678901}')
 
+    def test_postgres_short_fraction(self):
+        self.assertEqual(m.convert('2026-07-20T16:23:17.96+00:00', 'timestamp with time zone'),
+                         '2026-07-20T16:23:17.960000Z')
+
     def test_overflow_and_unknown_types_rejected(self):
         with self.assertRaises(ValueError):
             m.convert(2**63, 'bigint')
