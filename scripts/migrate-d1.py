@@ -51,9 +51,9 @@ def write_json(path, value):
     os.replace(temporary, path)
 
 
-def sources(require_committed):
+def sources(require_committed, migrations=MIGRATIONS):
     rows = []
-    files = sorted(MIGRATIONS.glob("*.sql"))
+    files = sorted(migrations.glob("*.sql"))
     if not files:
         raise RuntimeError("No migrations")
     for ordinal, file in enumerate(files, 1):
@@ -96,15 +96,21 @@ THEN '{row['sha256']}' ELSE '' END,{row['source_bytes']},'{commit}');
 """ + row["sql"] + "\n;\n"
 
 
-def prepare(configuration, target, output, require_committed):
+def prepare(configuration, target, output, require_committed, database_kind="application"):
+    if database_kind not in ("application", "watchdog"):
+        raise RuntimeError("Invalid database kind")
+    watchdog = database_kind == "watchdog"
+    migrations = ROOT / ("backend/watchdog/migrations" if watchdog else "backend/migrations")
+    expected_binding = "MONITOR_DB" if watchdog else "DB"
+    expected_name = f"folding-watchdog-{target}" if watchdog else f"folding-{target}"
     config = json.loads(pathlib.Path(configuration).read_text())
     if config.get("vars", {}).get("DEPLOYMENT") != target:
         raise RuntimeError("Generated config environment does not match --environment")
     databases = config.get("d1_databases", [])
-    if len(databases) != 1 or databases[0].get("binding") != "DB":
-        raise RuntimeError("Expected exactly one generated DB binding")
+    if len(databases) != 1 or databases[0].get("binding") != expected_binding:
+        raise RuntimeError("Expected exactly one generated database binding for this kind")
     database = databases[0]
-    if database.get("database_name") != f"folding-{target}":
+    if database.get("database_name") != expected_name:
         raise RuntimeError("Unexpected database name; inspect the OpenTofu outputs")
     if not re.fullmatch(r"[0-9a-fA-F-]{36}", database.get("database_id", "")):
         raise RuntimeError("Expected provisioned database UUID")
@@ -120,10 +126,10 @@ def prepare(configuration, target, output, require_committed):
     package = json.loads((ROOT / "backend/node_modules/wrangler/package.json").read_text())
     if package.get("version") != VERSION:
         raise RuntimeError("Install pinned Wrangler before migration operations")
-    rows = sources(require_committed)
+    rows = sources(require_committed, migrations)
     if require_committed:
-        tracked = set(git("ls-tree", "-r", "--name-only", "HEAD", "backend/migrations").splitlines())
-        present = {str((MIGRATIONS / row["name"]).relative_to(ROOT)) for row in rows}
+        tracked = set(git("ls-tree", "-r", "--name-only", "HEAD", str(migrations.relative_to(ROOT))).splitlines())
+        present = {str((migrations / row["name"]).relative_to(ROOT)) for row in rows}
         if tracked != present:
             raise RuntimeError("Migration files were added/deleted outside the committed history")
     output = pathlib.Path(output).resolve()
@@ -132,13 +138,13 @@ def prepare(configuration, target, output, require_committed):
     folder.mkdir()
     for index, row in enumerate(rows):
         (folder / row["name"]).write_text(instrument(row, rows[:index], commit))
-    minimal = {"name": f"folding-{target}-migrations", "account_id": config["account_id"],
+    minimal = {"name": f"{expected_name}-migrations", "account_id": config["account_id"],
                "compatibility_date": config["compatibility_date"], "d1_databases": [{
                    "binding": "DB", "database_name": database["database_name"],
                    "database_id": database["database_id"], "migrations_dir": str(folder),
                    "migrations_table": TABLE}]}
     write_json(output / "wrangler.json", minimal)
-    manifest = {"schema_version": 1, "environment": target, "account_id": config["account_id"],
+    manifest = {"schema_version": 1, "environment": target, "database_kind": database_kind, "account_id": config["account_id"],
                 "database_name": database["database_name"], "database_id": database["database_id"],
                 "commit_sha": commit, "wrangler_version": VERSION,
                 "wrangler_cli_sha256": sha((ROOT / "backend/node_modules/wrangler/wrangler-dist/cli.js").read_bytes()),
@@ -201,6 +207,7 @@ def main():
     parser.add_argument("command", choices=["prepare", "status", "apply"])
     parser.add_argument("--configuration", type=pathlib.Path, required=True)
     parser.add_argument("--environment", choices=["staging", "production"], required=True)
+    parser.add_argument("--database-kind", choices=["application", "watchdog"], default="application")
     parser.add_argument("--output", type=pathlib.Path)
     parser.add_argument("--local", action="store_true", help="Use isolated Wrangler local database only")
     parser.add_argument("--persist-to", type=pathlib.Path)
@@ -208,7 +215,7 @@ def main():
     if args.local != bool(args.persist_to):
         parser.error("--local and --persist-to must be supplied together")
     destination = args.output or ROOT / "build/migrations" / args.environment / str(uuid.uuid4())
-    directory, manifest = prepare(args.configuration, args.environment, destination, args.command == "apply")
+    directory, manifest = prepare(args.configuration, args.environment, destination, args.command == "apply", args.database_kind)
     if args.command == "prepare":
         print(f"Prepared {len(manifest['migrations'])} migrations: {directory}")
         return

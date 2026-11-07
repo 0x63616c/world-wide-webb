@@ -77,3 +77,21 @@ variable "website_routes_enabled" {
   type    = bool
   default = true
 }
+
+# Scheduled alerting stays disabled until primary verifies outbound delivery.
+variable "monitoring_enabled" {
+  type    = bool
+  default = false
+}
+variable "monitoring_outbound_delivery_verified" {
+  type    = bool
+  default = false
+}
+module "monitoring" {
+  source                     = "../../modules/monitoring"
+  account_id                 = var.account_id
+  environment                = "production"
+  enabled                    = var.monitoring_enabled
+  outbound_delivery_verified = var.monitoring_outbound_delivery_verified
+}
+output "monitoring_bindings" { value = module.monitoring.bindings }
