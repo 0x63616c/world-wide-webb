@@ -263,7 +263,8 @@
                 "walks/state": "walks.state", "walks/history": "walks.history", "booth": "boothPhotos.list",
                 "notifications": "notifications.list", "releases/latest": "releases.latest",
             ]
-            let resource = String(path.dropFirst("/api/v1/".count))
+            guard let route = path.range(of: "/api/v1/") else { throw URLError(.unsupportedURL) }
+            let resource = String(path[route.upperBound...])
             if method == "GET", let key = reads[resource] { return key }
             if resource == "settings/pin/verify" { return "settings.verify" }
             if resource == "settings/pin" { return "settings.change" }

@@ -50,7 +50,7 @@ import XCTest
         XCTAssertEqual(provider.pending, ["bedroomLamps"])
         try await waitForRequest(transport, count: 2)
         let request = try await capturedRequest(transport, at: 1)
-        XCTAssertEqual(request.url?.path, "/trpc/controls.toggle")
+        XCTAssertEqual(request.url?.path, "/api/v1/controls")
         XCTAssertEqual(request.httpMethod, "POST")
         try assertBody(request, equals: ##"{"key":"bedroomLamps","on":true}"##)
         await transport.release(1)
@@ -163,8 +163,12 @@ import XCTest
             try await waitForRequest(transport, count: index + 2)
             try await waitUntil { provider.pending.isEmpty }
             let request = try await capturedRequest(transport, at: index + 1)
-            XCTAssertEqual(request.url?.path, "/trpc/controls.\(entry.1)")
-            try assertBody(request, equals: entry.2)
+            XCTAssertEqual(request.url?.path, "/api/v1/controls")
+            let actions = [
+                "setLampBrightness": "brightness", "setWhiteKelvin": "whiteKelvin", "setLampScene": "scene",
+                "setLampColor": "color", "setLampMode": "mode",
+            ]
+            try assertBody(request, equals: entry.2, action: actions[entry.1]!)
         }
         XCTAssertEqual(provider.lamps.party, .fast)
         await provider.refresh()
@@ -251,11 +255,11 @@ import XCTest
         return try XCTUnwrap(request)
     }
 
-    private func assertBody(_ request: URLRequest, equals json: String) throws {
+    private func assertBody(_ request: URLRequest, equals json: String, action: String = "toggle") throws {
         let body = try XCTUnwrap(request.httpBody)
-        XCTAssertEqual(
-            try JSONSerialization.jsonObject(with: body) as? NSDictionary,
-            try JSONSerialization.jsonObject(with: Data(json.utf8)) as? NSDictionary)
+        var expected = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        expected["action"] = action
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? NSDictionary, expected as NSDictionary)
     }
 
     private func waitForRequest(_ transport: LiveStubTransport, count: Int) async throws {
@@ -324,7 +328,7 @@ private actor LiveStubTransport: PanelTransport {
             status = code
         case .unavailable:
             json =
-                ##"{"error":{"message":"Service unavailable","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"##
+                ##"{"error":"Service unavailable"}"##
             status = 503
         }
         return (
@@ -352,7 +356,7 @@ private enum LiveFixture: CaseIterable, Sendable {
     var json: String {
         let sceneJSON = scene.map { "\"\($0)\"" } ?? "null"
         return """
-            {"result":{"data":{
+            {
               "lamps": {"on": \(bedroom), "count": \((bedroom ? 3 : 0) + (other ? 5 : 0)),
                 "brightness": 65, "sub": "\(bedroom ? "On" : "Off")", "pending": false,
                 "activeScene": \(sceneJSON), "whiteKelvin": 2700,
@@ -366,7 +370,7 @@ private enum LiveFixture: CaseIterable, Sendable {
               "ceiling": {"on": \(bedroom), "pending": false},
               "cabinet": {"on": \(other), "pending": false},
               "all": {"on": \(bedroom && other), "pending": false}
-            }}}
+            }
             """
     }
 }

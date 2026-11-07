@@ -69,7 +69,6 @@ server/
     runtime/               task supervision, shutdown, scheduling
   migrations/              ordered SQL migrations
   tests/                   HTTP, persistence, integration and migration tests
-contracts/openapi.json     generated server contract; Swift generation consumes it
 infra/cloudflare/          OpenTofu HCL and lockfile
 deploy/mini/               Compose, release/recovery, host startup, backup
 tools/                     checks, migration and measurement commands
@@ -90,10 +89,12 @@ Generated files have one generator and a drift check. No generated source is man
 
 Use Axum/Tokio for HTTP and supervised async work, Serde for wire types, SQLx for explicit SQLite SQL,
 Reqwest for HTTP integrations, tracing for structured/redacted logs, and typed errors (thiserror).
-Use Utoipa with Axum to emit OpenAPI; Apple Swift OpenAPI Generator + URLSession consumes it.
+Retain the existing typed PanelKit REST client and URLSession transport. Calum delegated this choice;
+for this cutover direct maintenance preserves the working shared client and avoids a second transport migration.
+Real isolated Swift-to-Rust read/mutation/media tests verify the cross-language contract.
 Pin compatible versions and toolchain during implementation; do not copy speculative version numbers.
 Prove authentication, one read, one mutation and streaming/reconnect with the Swift client early.
-Keep an explicit streaming adapter if generated transport cannot express required SSE behavior cleanly.
+Keep the existing explicit SSE synchronization adapter.
 
 - One process owns HTTP, SQLite and background tasks. No Redis, workflow engine or message broker.
 - Concrete feature modules own behavior and queries. Request handlers validate, call them and map errors.
@@ -183,10 +184,11 @@ Do not delete Pulumi state first. Disable its writer, record resource IDs/config
 state recovery export through supported tooling. Establish one owner, validate OpenTofu, then retire old state.
 Never print/export plaintext state or credentials into chat, logs or Git.
 
-Use encrypted remote state and a backend with verified locking. Select backend during the first work package:
-prefer an existing suitable store; otherwise a small managed state service or S3 backend with locking.
-Do not assume Cloudflare R2 supports every S3 locking feature. Verify locking/concurrency and recovery in a
-small test before production adoption. Credentials stay in the existing secret system; no homemade store.
+Use OpenTofu enforced encrypted local state on the mini, operated remotely over SSH. Its native OS file
+lock serializes writers on the state-owning host. This uses the existing host and NAS without adding a cloud
+state service. An isolated proof must demonstrate encryption, competing-writer rejection, wrong-key failure
+and backup restore before adoption; production imports and recovery-key provisioning remain separate gates.
+Credentials stay in the existing secret system.
 Backend bootstrap/recovery instructions must avoid depending on the app or the state it is meant to recover.
 
 Pin provider/tool versions, commit provider lockfile, plan in CI and apply serially from tested main.
@@ -331,7 +333,7 @@ and four large implementation issues. Fields: status, work package, dependency, 
 Statuses: Todo, In progress, Review, Done. No issue per file or trivial subtask.
 
 1. **Foundation and preservation:** verified backup/restore, full baseline, schema/media inventory,
-   target layout/toolchain, initial Swift/OpenAPI round trip, auth decision, OpenTofu state backend proof.
+   target layout/toolchain, initial typed Swift/Rust round trip, auth decision, OpenTofu state backend proof.
    Done when recovery is demonstrated and critical uncertainties have executable answers.
 2. **Complete replacement:** Rust feature behavior + SQLite importer + shared Swift iOS/macOS adaptation,
    tooling and tests. Primary agent performs all implementation; subagents are reserved ONLY for final review.

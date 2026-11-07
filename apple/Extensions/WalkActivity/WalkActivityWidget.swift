@@ -1,6 +1,6 @@
 import ActivityKit
-import WidgetKit
 import SwiftUI
+import WidgetKit
 
 @main struct WalkWidgetBundle: WidgetBundle {
     var body: some Widget { WalkLiveActivity() }
@@ -13,7 +13,8 @@ struct WalkLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label("Walking \(context.attributes.dogName)", systemImage: "pawprint.fill").font(.headline).foregroundStyle(.green)
+                    Label("Walking \(context.attributes.dogName)", systemImage: "pawprint.fill").font(.headline)
+                        .foregroundStyle(.green)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(context.state.startedAt, style: .timer).font(.title2.monospacedDigit()).foregroundStyle(.green)

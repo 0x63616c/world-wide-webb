@@ -27,11 +27,14 @@ private actor TeslaProviderTransport: PanelTransport {
             holdNext = false
             await withCheckedContinuation { continuation = $0 }
         }
-        let url = Bundle(for: LiveTeslaProviderTests.self).resourceURL!
-            .appendingPathComponent("Fixtures/tesla/\(files.removeFirst()).json")
+        let name = files.removeFirst()
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("../../Packages/PanelKit/Tests/PanelKitTests/Fixtures/tesla/\(name).json")
         return (
             try Data(contentsOf: url),
-            HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            HTTPURLResponse(
+                url: request.url!, statusCode: name == "forbidden" ? 403 : (name == "unavailable" ? 503 : 200),
+                httpVersion: nil, headerFields: nil)!
         )
     }
 }

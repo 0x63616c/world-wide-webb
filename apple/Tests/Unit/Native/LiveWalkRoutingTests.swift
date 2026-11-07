@@ -27,7 +27,7 @@ import XCTest
         let store = source(transport)
         await store.refresh(.walk)
         let requests = await transport.requests
-        XCTAssertEqual(requests.map { $0.url!.path }, ["/panel/trpc/walks.state", "/panel/trpc/walks.history"])
+        XCTAssertEqual(requests.map { $0.url!.path }, ["/panel/api/v1/walks/state", "/panel/api/v1/walks/history"])
         for request in requests {
             XCTAssertEqual(request.url?.host, "fixtures.example.invalid")
             XCTAssertEqual(request.value(forHTTPHeaderField: "CF-Access-Client-Id"), "synthetic-access-id")
@@ -72,7 +72,7 @@ import XCTest
         let end = walk.startedAt
         let saved = await presentation.update(id: walk.id, startedAt: start, endedAt: end)
         XCTAssertTrue(saved)
-        let writes = await transport.requests.filter { $0.url?.lastPathComponent == "walks.update" }
+        let writes = await transport.requests.filter { $0.httpMethod == "PATCH" }
         let body = try XCTUnwrap(
             JSONSerialization.jsonObject(with: XCTUnwrap(writes.first?.httpBody)) as? [String: String])
         XCTAssertEqual(body["startedAt"], "2026-10-01T11:50:00.000Z")
@@ -99,7 +99,7 @@ import XCTest
         }
         try await waitFor { store.hasLiveData(for: .walk) && clock.waiting }
         requests = await transport.requests
-        XCTAssertEqual(requests.map { $0.url!.lastPathComponent }, ["walks.state", "walks.history"])
+        XCTAssertEqual(requests.map { $0.url!.lastPathComponent }, ["state", "history"])
         XCTAssertEqual(clock.delay, .seconds(4))
         await transport.setFixture("walks/state-active.json", for: "walks.state")
         clock.advance()

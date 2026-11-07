@@ -57,13 +57,14 @@ import XCTest
         let requests = await transport.requests
         XCTAssertEqual(requests.count, 6)
         let expected = [
-            ("setMode", ##""heat_cool""##), ("setTarget", "71"),
+            ("setMode", ##"{"mode":"heat_cool"}"##), ("setTarget", ##"{"target":71}"##),
             ("setRange", ##"{"low":69,"high":73}"##),
             ("setRange", ##"{"low":68,"high":75}"##),
             ("setRange", ##"{"low":71,"high":77}"##),
         ]
-        for (request, (path, body)) in zip(requests.dropFirst(), expected) {
-            XCTAssertEqual(request.url?.path, "/trpc/climate.\(path)")
+        for (request, (_, body)) in zip(requests.dropFirst(), expected) {
+            XCTAssertEqual(request.url?.path, "/api/v1/climate")
+            XCTAssertEqual(request.httpMethod, "PATCH")
             let actual =
                 try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody), options: [.fragmentsAllowed])
                 as! NSObject
@@ -177,11 +178,11 @@ private enum ClimateReply: Equatable, Sendable {
     var json: String {
         if self == .unavailable {
             return
-                ##"{"error":{"message":"Climate unavailable","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"##
+                ##"{"error":"Climate unavailable"}"##
         }
         if self == .invalid {
             return
-                ##"{"error":{"message":"low must be at least 2°F below high","code":-32600,"data":{"code":"BAD_REQUEST","httpStatus":400}}}"##
+                ##"{"error":"low must be at least 2°F below high"}"##
         }
         let setpoints: String =
             switch self {
@@ -191,7 +192,7 @@ private enum ClimateReply: Equatable, Sendable {
             case .heat: ##""target":75"##
             case .range: ##""targetLow":68,"targetHigh":74"##
             }
-        return "{\"result\":{\"data\":{\"mode\":\"\(mode)\",\"ambient\":72.5,\"action\":\"Idle\",\(setpoints)}}}"
+        return "{\"mode\":\"\(mode)\",\"ambient\":72.5,\"action\":\"Idle\",\(setpoints)}"
     }
 }
 

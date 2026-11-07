@@ -108,7 +108,7 @@ import XCTest
             try await Task.sleep(for: .milliseconds(2))
         }
         let requests = await transport.requests
-        let seek = try XCTUnwrap(requests.first { $0.url?.lastPathComponent == "sound.sonosSeek" })
+        let seek = try XCTUnwrap(requests.first { $0.httpMethod == "POST" && $0.url?.path == "/api/v1/sound" })
         let input = try JSONSerialization.jsonObject(with: XCTUnwrap(seek.httpBody)) as! [String: Any]
         XCTAssertEqual(input["room"] as? String, "media_player.test_alpha")
         XCTAssertEqual(input["positionSeconds"] as? Double, 32)

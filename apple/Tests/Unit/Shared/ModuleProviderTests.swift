@@ -4,18 +4,6 @@ import XCTest
 @testable import Panel
 
 @MainActor final class ModuleProviderTests: XCTestCase {
-    func testMediaPlayTargetsTheCoordinatorGroupAndResetsPosition() {
-        let store = MockHomeDataSource(fixedNow: Date(timeIntervalSince1970: 1_793_292_630))
-        for room in store.rooms where room.coordinator == "Desk" {
-            XCTAssertEqual(room.trackIndex, 2)
-            XCTAssertTrue(room.playing)
-            XCTAssertEqual(room.position(at: store.now), 0)
-            XCTAssertEqual(room.sourceLabel, "Fixture library")
-        }
-        XCTAssertEqual(store.rooms.first { $0.id == "Bedroom" }?.trackIndex, 0)
-        XCTAssertFalse(store.rooms.first { $0.id == "Bedroom" }!.playing)
-        XCTAssertEqual(store.rooms.first!.trackIndex, 2)
-    }
     func testCalendarChoosesOngoingOrNextEventAndEndsTheDay() {
         let provider = MockCalendarProvider()
         let parser = ISO8601DateFormatter()

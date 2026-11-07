@@ -1,210 +1,68 @@
-# Agent Instructions
+# Agent instructions
 
-## Start here
+Read `CODEBASE_OVERVIEW.md` for the map. Production-cutover status and evidence are in
+`docs/plans/native-rust-progress.md`; execute `docs/runbooks/native-rust-cutover.md` when cutting over.
 
-- Read `CODEBASE_OVERVIEW.md` first — it's the map; this file is the rules.
-- PR titles use Conventional Commits.
+## Current migration agreement
 
-## Active approved migration: native Swift + Rust
+Calum approved the native Swift + Rust/SQLite + OpenTofu reset in `docs/plans/native-rust-reset.md`.
+The primary agent implements everything. Subagents are allowed only for one independent final review.
+Keep implementation, verification, review fixes and commits local until the complete candidate is reviewed.
+Then publish the drafted GitHub issues/project and one PR, satisfy required checks, merge and verify delivery.
+Documentation follows working code. Prioritize iPad fidelity, database/Photo Booth preservation and Rust;
+exercise iPhone/Duo and Mac last. They remain in scope. Legacy wake images are not a blocker.
 
-- Read `docs/plans/native-rust-reset.md` and `docs/plans/native-rust-progress.md` before migration work.
-- Calum approved the plan on 2026-11-07. Target: shared clock-first Swift iPad/iPhone/Duo/macOS,
-  Rust/SQLite backend, OpenTofu, no web/Expo. The plan supersedes conflicting legacy layout/UI rules below.
-- **LOCAL UNTIL COMPLETE:** implement all code, layout, cleanup and CI changes locally; commit coherent
-  slices, but do not push, open a PR, create remote tracking items, deploy or apply infrastructure until
-  the finished candidate passes local tests/builds and independent review. Draft tracking locally first.
-- Final publication: create the GitHub project/issues from local drafts, push one implementation PR,
-  fix required hosted checks, merge only green, then execute the verified cutover. No early draft PRs.
-- Minimize PR count and token/time overhead. The PRIMARY AGENT does ALL implementation.
-  DO NOT spawn or resume implementation/research subagents. Subagents are allowed ONLY for final review.
-  Do not turn every commit into a PR or wait for hosted CI during local implementation.
-- Make the software work first. Documentation/overview/runbook cleanup comes LAST, after implementation
-  and validation; only essential safety instructions and concise handoff state are updated during work.
-- Data/photos are non-negotiable: preserve the original dump/media, reconcile imported records and file
-  hashes, test restore, freeze old writers for final snapshot. Downtime is acceptable; data loss is not.
-- Retired features' historical records/media remain recoverable. Do not delete production data, original
-  volumes, backups, Git history or unrelated HA/Hindsight/Bambuddy resources during cleanup.
-- Keep the existing design and share components. Preserve app identity and local state; use small platform
-  adapters, not separate feature implementations or model-name-based layout forks.
-- One primary agent owns credential access in one persistent session; delegates never call op.
-  Never expose secrets or user data in code, logs, agent messages or Git.
-- Review requires real local build/test results, migration reconciliation, screenshots/video for all native
-  platforms, and a cutover runbook. Scaffolding or partial feature coverage is not completion.
-- Update the progress document with implemented scope, evidence and remaining work at every handoff.
-  Do not mark work done just because its code compiles. Preserve required-check and deployment gates.
+## Structure and invariants
 
-## Agent skills
+- `apple/App` is the production SwiftUI application. Share components and feature providers across sizes;
+  preserve the clock-first root, slide-up interaction, bundle IDs and existing iPad design.
+- `apple/Packages/PanelKit` owns typed REST clients, wire models and shared client state. Keep this client
+  for the cutover; verify it against a real isolated Rust server with `tools/check integration`.
+- `server` is one Rust process: Axum HTTP, SQLite persistence and supervised interval work. Feature modules
+  own their behavior and SQL; shared integration adapters own external transport. No feature registry,
+  queue, generic repository framework or separate worker deployment is needed.
+- Preserve existing IDs and data verbatim. Mint new IDs through the server's shared ID primitive.
+  Ordered SQL migrations live in `server/migrations`. Never replace an existing database with an empty one.
+- SQLite uses WAL: persist its directory, use the backup API or a stopped writer, and check integrity,
+  foreign keys, row counts and values. Preserve all Photo Booth media and raw legacy archive data.
+- Only one production process owns scheduled work. Device commands have explicit ownership and idempotency;
+  avoid automatic mutation retries. Trace structured, sanitized metadata, never credentials or payloads.
+- Provision device credentials privately into Keychain. No credentials in plist, build artifacts, defaults,
+  Git, screenshots or logs. Installation API credentials cannot publish releases.
+- OpenTofu owns retained Cloudflare DNS/Access/tunnel resources. Its enforced encrypted local backend is
+  on the mini, outside app storage, operated over SSH with native file locking and NAS recovery copies.
+  Import existing resources before enabling automatic applies; protect unrelated services and the tunnel.
 
-- Repo skills live in `.agents/skills/` (Codex discovers them automatically;
-  sources, pinned commits and licenses are in `.agents/skills/SOURCES.md`).
-- For any SwiftUI / Apple-platform UI work (e.g. `apps/apple-prototype/`), use
-  them: `swiftui-liquid-glass` (iOS/iPadOS) and `liquid-glass` (macOS) for the
-  real Liquid Glass APIs, never hand-rolled blur or fake glass;
-  `swiftui-expert-skill` for modern SwiftUI; `swiftui-patterns` for macOS
-  scenes and windows; `animation-patterns` for springs, phase/keyframe
-  animators, transitions, symbol effects, `TimelineView` and `MeshGradient`; `apple-hig` for HIG rules and exact
-  measurements.
-- Vendored skills are copied verbatim; update by re-copying from upstream and
-  bumping the pinned commit in `SOURCES.md`, not by editing in place.
+## Working and checking
 
-## Invariants
+Use `wtp add -b codex/<task> origin/main` before edits; drive worktrees with absolute paths. Never edit the
+main checkout, remove a worktree, or delete a branch. `.wtp.yml` runs `tools/setup` and standalone Lefthook.
+Commit coherent working slices using Conventional Commits. Keep vendored skills unchanged; record upstream
+updates in `.agents/skills/SOURCES.md`.
 
-- **Design for 10x-100x this repo's size** — never reject a shared primitive
-  on "few call sites today". Get data layout (paths, schema, IDs, on-disk
-  formats) right up front; code interfaces refactor cheaply later.
-- Shared primitives live in `packages/platform`, enforced by a Biome rule
-  banning the raw escape hatch (see sound bus, below).
-- Fixed wall panel, `1366x1024`, not responsive. Enforced by the OS on the
-  native/Expo kiosk shell and the physical panel hardware. The web build
-  matches it too, via `apps/web/src/components/PanelFrame.tsx`: it caps the
-  app to `1366x1024` and, on a desktop browser with room to spare, frames it
-  like a device instead of letting the board stretch to fill the window.
-  `PanelFrame` is a no-op passthrough on native, so this never touches the
-  panel/native behavior above.
-  - **The Board is the non-responsive surface; the app is not the Board.** A
-    PHONE gets a different screen, not a scaled board:
-    `apps/web/src/components/MobileBoard.tsx`, a scroll column of the two
-    tiles worth reaching for a phone to use (quick Controls + Climate · A/C),
-    chosen by the route (`routes/index.tsx`), not by a branch inside Board.
-    Ask `useIsMobile()` (`apps/web/src/lib/mobile.ts`), the one place that
-    decides what a phone is (narrow viewport per `lib/useIsNarrow.ts`, OR a
-    phone UA; iPad never counts, it IS the panel). `PanelFrame` is a
-    passthrough there for the same reason it is on native.
-- Features are self-contained Apps under `features/<id>/` (manifest + facets:
-  `web.tsx`, `detail.ts`, `api.ts`, `http.ts`, `worker.ts`, `schema.ts`); the
-  folder existing is the App's registration (ADR-0001). Tile placement is declared
-  as registry coords in the App's `manifest.ts`, glob-collected and emitted to
-  checked-in `features/_generated/*.gen.ts` by `bun run apps:gen` (ADR-0002).
-  The Board and Tile Detail Host consume `web.gen.ts`; never hand-edit
-  `_generated/`. App manifests also own Panel access policy: `sensitive`
-  reuses the shared PIN Session and `private` requires a fresh PIN per
-  opening. Detail facets must not redeclare access.
-  `bun run apps:check` re-runs codegen and fails on drift.
-  `scripts/apps-gen/validate.ts` is the consistency check (dup id/router-key/
-  table/worker-cycle, ≠1 `home` tile, overlapping tile rects, all throw).
-  Shared DB substrate lives in `packages/core` (`@www/core`).
-- Dependency boundaries between `packages/*`, `features/*`, and `apps/*` are
-  enforced by a Biome `noRestrictedImports` rule, not a separate
-  dependency-graph tool.
-- Use shared UI primitives from `apps/web/src/components/ui/`.
-- Full-screen pages over modals for new tiles' detail views.
-- Panel audio goes through the sound bus: `playCue()` from
-  `apps/web/src/lib/sound/`. Add a named cue; never construct `AudioContext`
-  or `Audio` elsewhere (Biome-enforced). Loudness is device volume, never
-  in-app gain.
-- No fake or placeholder data.
-- IDs default to `prefix_<id>` — mint them with `genId()` from
-  `packages/platform` (never hand-roll `prefix_${crypto.randomUUID()}`); a
-  lefthook guard blocks hand-rolled ids outside `packages/platform/src/index.ts`.
-- Backend code uses structured logging (`@www/logger`, never `console.*`).
-- **Never read secret values** (e.g. contents of `secrets/vault.yaml`).
-  Checking key names/presence is fine; do not print or inspect the decrypted
-  values.
+For SwiftUI changes use `swiftui-expert-skill`, `apple-hig`, `animation-patterns` and the platform's
+`swiftui-liquid-glass`/`liquid-glass` skills; use `swiftui-patterns` for desktop scenes. Use system glass APIs.
 
-## Debugging
+`tools/check` exposes `lint`, `rust`, `ops`, `apple`, `integration` and `infra`. Run relevant checks, then
+`tools/test_apple.sh` for the production iPad build/unit tests. Use existing UI tests for interaction evidence.
+Pinned linters cover Rust, Python, Swift, shell and workflow files. Pre-commit guards formatting/syntax,
+private information, encrypted secrets and worktree rules; pre-push runs Rust and operations tests.
 
-Backend debugging starts with the mini's rotated container logs and `/healthz`.
-See `docs/observability.md`. Browser/panel issues are debugged in the browser
-or by reproducing locally. Grafana/Loki/Prometheus are retired; their final
-archive is retained on the NAS. Do not add health alerts without user direction.
+## Credentials
 
-## Infra
+Use one primary-agent persistent PTY for every `op` call and credential-dependent command. Disable shell
+history/tracing first; read required credentials once and keep them in session memory. Reauthenticate only
+when needed. Delegated reviewers must not call `op`. Never print or inspect secret values, including decrypted
+vault content; pass required fields directly to the authorized operation. Private snapshots/state stay outside Git.
 
-- Production runs on the Mac mini (`homelab`) in OrbStack: one ARM64 app
-  container from the root Dockerfile plus PostgreSQL 18. Compose and release,
-  recovery and backup scripts live in `deploy/mini/`.
-- Home Assistant runs in its bridged Colima VM at `192.168.0.130`; host startup
-  and networking configuration live in `deploy/mini/`. Hindsight and Bambuddy
-  remain independent services with persistent data and verified backups.
-- Push to `main` runs hosted CI. A successful run triggers `deploy-mini.yml`,
-  which builds the exact tested revision, publishes an immutable digest, and
-  invokes the mini's serialized release script over Tailscale SSH. There are
-  no local GitHub runners. Never bypass required checks.
-- Cloudflare DNS, Access and tunnel ingress remain managed by the separate
-  `infra/cloudflare` Pulumi project, stack `prod`.
-- Talos is shut down. Its disks and recovery archives are retained; do not
-  reset them or restart old writers against stale databases. See
-  `docs/runbooks/mac-mini-migration.md` for the migration evidence and gaps.
-- Nightly backups use `deploy/mini/backup.py` and a 04:15 LaunchAgent. Files
-  are copied to the NAS and read back for SHA-256 verification. Backups contain
-  secrets and must stay outside Git. There are no new notifications.
-- App-level scheduled work remains a plain interval cycle declared in
-  `features/<id>/worker.ts`; there is no job queue or workflow engine.
-  Device-local native-shell maintenance uses local calendar semantics and a
-  pure tested scheduling seam.
-- The iOS panel shell (`apps/panel`, Expo) needs Xcode 26.4+; CI selects
-  `XCODE_VERSION` in `.github/workflows/ios-build.yml`. `apps/panel/ios` is
-  generated and gitignored; change `apps/panel/app.config.ts` instead.
+## Publishing and completion
 
-## Workflow
+Interactive requests normally include PR, green required checks, merge and deployment verification; the
+migration's local-until-reviewed agreement takes precedence until its final publication gate. Pipeline executors
+commit only; their wrapper publishes. Never bypass required checks or merge a red PR.
 
-- **Never edit in the main checkout — always `wtp add` a worktree first.**
-  `wtp add <branch>` for an existing branch, `wtp add -b <new-branch>
-  origin/main` for a new one — base new work on `origin/main`, since the local
-  main checkout is usually well behind. `.wtp.yml` puts every worktree under
-  `~/.worktrees/world-wide-webb/` (never nested in `.claude/worktrees/` or any
-  repo subfolder — that's what caused lefthook/env setup to be flaky) and its
-  `post_create` hooks run `bun install` + `lefthook install` automatically,
-  then retarget the new branch's upstream from inherited `origin/main` to its
-  eventual same-named `origin/<new-branch>` ref. This keeps `git status`,
-  `git pull`, and a normal push scoped to the feature branch even before its
-  first push. A fresh worktree is immediately usable. See #182.
-  - A `PreToolUse` guard (`.claude/hooks/guard-worktree-only.sh`, shared by
-    Claude Code and Codex) enforces this. It judges Edit/Write/`apply_patch`
-    by the **target file's** path, not by your cwd, so writing into a
-    worktree from a main-checkout session is allowed and writing into the
-    main checkout never is. If you hit it you're pointed at the wrong
-    directory, not wrongly permissioned. Table test:
-    `bash .claude/hooks/guard-worktree-only.test.sh`.
-  - **Agents (Claude Code): do not try to relocate the session.** `wtp cd`
-    only moves a shell subprocess, and `EnterWorktree` is unusable here — it
-    accepts only worktrees it created under `.claude/worktrees/`, so `{path:
-    ...}` to a wtp worktree is rejected by the harness, and `{name: ...}`
-    would create a nested checkout that skips wtp's hooks. Both forms are
-    guard-denied. Stay where you are and drive the worktree by absolute path
-    instead: `git -C <worktree> ...`, and absolute `<worktree>/...` paths for
-    Edit/Write.
-  - **Never `git worktree remove` or `git branch -D`.** Other sessions own
-    worktrees and branches you cannot see, and an idle-looking worktree is
-    usually someone's live work — hand-cleanup has already destroyed a peer
-    session's branch. Guard-denied from every directory, main or worktree.
-    Stale worktrees are reaped by an hourly prune job.
-- **Box pipeline executors implement, verify and commit only.** Commit on
-  the task's branch and stop; do not push or open, edit, merge or close PRs.
-  One wrapper (`codex-loop` on the box, later `pipeline`) owns publishing
-  and merging: it pushes, opens the PR against `main` using the PR template,
-  and follows the run's intent (default: merge when required checks are
-  green; honour draft/no-merge).
-- **Commit often, without asking.** Commit each coherent change (passing
-  test, working slice, doc update); never batch. For pipeline runs, pushing
-  is the publisher's job.
-- Humans and interactive agents Calum asked directly may still push and
-  open PRs. Use a Conventional Commit title and describe the change and validation.
-- **Nobody merges a red PR or skips required checks.** `main` has a
-  `pipeline-required-checks` ruleset with no bypass: Conventional Commit title, changes, typecheck, test-unit, build-and-test.
-  Never use `gh pr merge --admin`, the "Merge without waiting for
-  requirements to be met" button, or the raw merge API to skip checks.
-  The separate code-owner ruleset requires one Code Owner (@0x63616c)
-  approval, which Calum bypasses; a normal `gh pr merge --squash` works
-  once required checks pass. This does not permit pipeline executors to merge.
-- **Merging to `main` deploys to prod** (push-to-main triggers CI + deploy),
-  so merging the PR is the deliberate act. Merge once CI is green; don't
-  merge a red PR.
-- For Calum's direct interactive change requests, completion includes pushing,
-  opening the PR, fixing required checks, normally merging the current green
-  head, and verifying deployment (including Apple processing for TestFlight).
-  Do not ask again for these routine steps unless he requests local-only,
-  draft, or no-merge work. This does not change the pipeline executor boundary
-  or permit bypassing checks. Show videos for visible interaction changes.
-- Verify before publishing (`bun run typecheck`, relevant tests). On failure,
-  fix forward and commit on the branch; the publisher pushes the fix and
-  waits for required checks to pass before merging.
-- **Every PR description includes a screenshot.** Calum reviews what a change
-  looks like, not a prose description of it. UI changes: screenshot the real
-  thing running (tile face and, if it has one, its detail page) with the
-  browser tooling, at the panel's `1366x1024`. Non-UI changes: screenshot the
-  evidence instead (the passing test run, the Grafana panel, the API
-  response). Commit the PNGs under `docs/screenshots/<feature>/` and embed
-  them with a raw GitHub URL pinned to the commit SHA, so the images survive
-  branch deletion. There is no other image host for PR descriptions.
-- Keep docs current when behavior changes.
+PRs need Conventional Commit titles and a real screenshot under `docs/screenshots/<feature>/`, embedded using
+a raw GitHub URL pinned to its commit. Record visible interaction changes in a video. Avoid private media.
+Main merge deliberately deploys the tested immutable revision. Verify backend revision/health/worker ownership,
+retained integrations, Apple processing, migrated data/media, fresh NAS backup restore and comparable after metrics.
+Keep tracking issues open until their acceptance evidence exists. Report unverified work honestly.

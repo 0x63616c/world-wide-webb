@@ -92,7 +92,7 @@ jobs:
             ${{ runner.temp }}/apple-derived
           key: apple-${{ runner.os }}-${{ hashFiles('apple/project.yml', 'apple/**/Package.resolved') }}-${{ github.sha }}
           restore-keys: apple-${{ runner.os }}-${{ hashFiles('apple/project.yml', 'apple/**/Package.resolved') }}-
-      - run: xcrun swift-format lint --strict --recursive apple/App apple/Packages/PanelKit/Sources apple/Tests
+      - run: xcrun swift-format lint --strict --recursive apple/App apple/Extensions apple/Packages/PanelKit/Sources apple/Tests
       - run: bash tools/check apple
       - name: Build and exercise iPad target
         env:

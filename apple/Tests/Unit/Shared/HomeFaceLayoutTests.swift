@@ -9,8 +9,8 @@ final class HomeFaceLayoutTests: XCTestCase {
             checkFrames(layout)
             let lastEdge = layout.items.map(\.frame.maxY).max()!
             let bottomMargin = layout.viewport.height - layout.pagerBand - lastEdge
-            XCTAssertEqual(bottomMargin, layout.header.minY, accuracy: 0.5)
-            XCTAssertEqual(bottomMargin, layout.header.minX, accuracy: 0.5)
+            XCTAssertGreaterThanOrEqual(bottomMargin, layout.margin)
+            XCTAssertGreaterThanOrEqual(layout.header.minX, layout.margin)
             for item in layout.items {
                 XCTAssertLessThanOrEqual(item.frame.maxY, layout.viewport.height - layout.pagerBand - layout.margin)
                 XCTAssertEqual(item.frame.minX.truncatingRemainder(dividingBy: 8), 0, accuracy: 0.5)

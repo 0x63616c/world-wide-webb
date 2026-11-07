@@ -82,7 +82,7 @@ import XCTest
         XCTAssertEqual(provider.rooms[0].rawVolume, 24)
         let request = await transport.request(2)
         XCTAssertEqual(request?.httpMethod, "GET")
-        XCTAssertEqual(request?.url?.path, "/trpc/sound.soundSystem")
+        XCTAssertEqual(request?.url?.path, "/api/v1/sound")
     }
 
     func testGroupAndGlobalLockUseEachRoomsBaselineAndSkipOfflineRooms() async throws {
@@ -400,11 +400,37 @@ import XCTest
     private func assertRequest(_ transport: SonosProviderStub, at index: Int, path: String, json: String) async throws {
         let captured = await transport.request(index)
         let request = try XCTUnwrap(captured)
-        XCTAssertEqual(request.url?.path, "/trpc/sound." + path)
-        XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(
-            try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? NSDictionary,
-            try JSONSerialization.jsonObject(with: Data(json.utf8)) as? NSDictionary)
+        var expected = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let actions = [
+            "sonosSetVolume": "volume", "sonosSetMute": "mute", "sonosTransport": "transport",
+            "sonosGroupJoin": "join", "sonosGroupJoinAll": "join", "sonosGroupLeave": "leave",
+            "sonosSeek": "seek", "sonosSetLineIn": "source", "sonosGrabTvToBeam": "source",
+            "sonosGroupJoinAllToTv": "tv",
+        ]
+        let calibration = path == "sonosCalibrate" || path == "sonosClearCalibration"
+        if !calibration {
+            expected["action"] = actions[path]!
+            for key in ["deviceIp", "coordinatorIp", "memberIp", "beamIp"] {
+                if let room = expected.removeValue(forKey: key) { expected["room"] = room }
+            }
+            for key in ["sourceUuid", "beamUuid", "memberUuid"] { expected.removeValue(forKey: key) }
+            if let coordinator = expected.removeValue(forKey: "coordinatorEntityId")
+                ?? expected.removeValue(forKey: "coordinatorUuid")
+            {
+                expected["coordinator"] = coordinator
+            }
+            if let members = expected.removeValue(forKey: "memberEntityIds") { expected["members"] = members }
+            if path == "sonosGroupJoin", let member = expected.removeValue(forKey: "room") {
+                expected["members"] = [member]
+            }
+            if path == "sonosSetLineIn" { expected["source"] = "Line-in" }
+            if path == "sonosGrabTvToBeam" { expected["source"] = "TV" }
+            if let tv = expected.removeValue(forKey: "tvEntityId") { expected["room"] = tv }
+        }
+        XCTAssertEqual(request.url?.path, calibration ? "/api/v1/sound/calibration" : "/api/v1/sound")
+        XCTAssertEqual(request.httpMethod, path == "sonosClearCalibration" ? "DELETE" : "POST")
+        let actual = try request.httpBody.map { try JSONSerialization.jsonObject(with: $0) as? NSDictionary } ?? [:]
+        XCTAssertEqual(actual, expected as NSDictionary)
     }
 
     private func settled(_ provider: LiveSonosProvider) async throws {
@@ -436,11 +462,11 @@ private actor SonosProviderStub: PanelTransport {
 
         var json: String {
             switch self {
-            case .void: return #"{"result":{}}"#
-            case .calibration: return #"{"result":{"data":{"media_player.test_alpha":160}}}"#
+            case .void: return "null"
+            case .calibration: return #"{"media_player.test_alpha":160}"#
             case .unavailable:
                 return
-                    #"{"error":{"message":"Synthetic failure","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"#
+                    #"{"error":"Synthetic failure"}"#
             case .empty: return envelope("[]")
             case .state(let volume, let baseline, let playback, let alphaTransport):
                 // Synthetic contract from features/sound/api.ts; legacy IP/UUID fields are HA IDs.
@@ -471,8 +497,8 @@ private actor SonosProviderStub: PanelTransport {
 
         private func envelope(_ rooms: String) -> String {
             """
-            {"result":{"data":{"rooms":\(rooms),"diagnostics":{"controlPlane":"home-assistant",
-            "queriedAt":"2026-01-01T00:00:00.000Z","message":"Synthetic rooms"}}}}
+            {"rooms":\(rooms),"diagnostics":{"controlPlane":"home-assistant",
+            "queriedAt":"2026-01-01T00:00:00.000Z","message":"Synthetic rooms"}}
             """
         }
     }

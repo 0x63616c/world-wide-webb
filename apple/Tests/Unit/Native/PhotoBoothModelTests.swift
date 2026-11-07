@@ -234,9 +234,7 @@ private actor BoothModelTransport: PanelTransport {
         }
         let file: String
         switch url.lastPathComponent {
-        case "boothPhotos.list": file = "photos/booth.json"
-        case "wakePhotos.list": file = "photos/wakes.json"
-        case "sessions.list": file = "photos/sessions.json"
+        case "booth": file = "photos/booth.json"
         default: throw URLError(.unsupportedURL)
         }
         return (

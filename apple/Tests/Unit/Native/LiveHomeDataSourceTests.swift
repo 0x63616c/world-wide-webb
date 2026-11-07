@@ -289,9 +289,9 @@ import XCTest
         store.send(.volume("media_player.test_alpha", 40))
         try await waitFor { store.pending.isEmpty }
         requests = await transport.requests
-        let volume = try XCTUnwrap(requests.first { $0.url?.lastPathComponent == "sound.sonosSetVolume" })
+        let volume = try XCTUnwrap(requests.first { $0.url?.lastPathComponent == "sound" && $0.httpMethod == "POST" })
         object = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(volume.httpBody)) as? [String: Any])
-        XCTAssertEqual(object["deviceIp"] as? String, "media_player.test_alpha")
+        XCTAssertEqual(object["room"] as? String, "media_player.test_alpha")
         XCTAssertEqual(object["volume"] as? Int, 48)  // 40% of the fixture's 120 baseline.
         XCTAssertEqual(store.sonosProvider.availability, .live)
 
@@ -336,19 +336,35 @@ import XCTest
             for module in [PanelModule.lights, .climate, .fan] { await store.refresh(module) }
             store.send(command)
             try await waitFor { store.pending.isEmpty }
-            let writes = await transport.requests.filter { $0.httpMethod == "POST" }
+            let writes = await transport.requests.filter { $0.httpMethod == "POST" || $0.httpMethod == "PATCH" }
             XCTAssertEqual(writes.count, 1, procedure)
             let request = try XCTUnwrap(writes.first, procedure)
-            XCTAssertEqual(request.url?.lastPathComponent, procedure)
+            XCTAssertEqual(request.url?.lastPathComponent, procedure.hasPrefix("climate.") ? "climate" : "controls")
+            XCTAssertEqual(request.httpMethod, procedure.hasPrefix("climate.") ? "PATCH" : "POST")
             let actual = try JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody), options: .fragmentsAllowed)
             let actualJSON = try JSONSerialization.data(
                 withJSONObject: actual, options: [.fragmentsAllowed, .sortedKeys])
             let expectedJSON = try JSONSerialization.data(
-                withJSONObject: input, options: [.fragmentsAllowed, .sortedKeys])
+                withJSONObject: restInput(input, procedure: procedure), options: [.fragmentsAllowed, .sortedKeys])
             XCTAssertEqual(actualJSON, expectedJSON, procedure)
             XCTAssertNil(store.errorMessage)
             store.stop()
         }
+    }
+
+    private func restInput(_ input: Any, procedure: String) -> [String: Any] {
+        if procedure == "climate.setMode" { return ["mode": input] }
+        if procedure == "climate.setTarget" { return ["target": input] }
+        var result = input as! [String: Any]
+        if procedure.hasPrefix("controls.") {
+            let actions = [
+                "controls.toggle": "toggle", "controls.setLampBrightness": "brightness",
+                "controls.setWhiteKelvin": "whiteKelvin", "controls.setLampScene": "scene",
+                "controls.setLampColor": "color", "controls.setLampMode": "mode", "controls.setFanMode": "fan",
+            ]
+            result["action"] = actions[procedure]!
+        }
+        return result
     }
 
     func testDroppedModuleCommandLogsSafePayloadWithoutHTTPStatus() throws {
@@ -392,7 +408,7 @@ import XCTest
             XCTAssertNotNil(store.errorMessage)
             XCTAssertEqual(store.errorRevision, revision + 1)
         }
-        let writes = await transport.requests.filter { $0.httpMethod == "POST" }
+        let writes = await transport.requests.filter { $0.httpMethod == "POST" || $0.httpMethod == "PATCH" }
         XCTAssertTrue(writes.isEmpty)
     }
 
@@ -405,7 +421,7 @@ import XCTest
         store.send(.fanMode("off"))
         XCTAssertEqual(store.errorMessage, "This fan mode is unavailable.")
         XCTAssertEqual(store.errorRevision, revision + 1)
-        let writes = await transport.requests.filter { $0.httpMethod == "POST" }
+        let writes = await transport.requests.filter { $0.httpMethod == "POST" || $0.httpMethod == "PATCH" }
         XCTAssertTrue(writes.isEmpty)
     }
 
@@ -418,7 +434,7 @@ import XCTest
         await task.value
         store.stop()
         let requests = await transport.requests
-        XCTAssertEqual(requests.map { $0.url!.lastPathComponent }, ["wifi.guestQr"])
+        XCTAssertEqual(requests.map { $0.url!.lastPathComponent }, ["guest"])
     }
 
     private func waitFor(_ predicate: () -> Bool) async throws {

@@ -1,3 +1,6 @@
+> Historical reference from before the native/Rust reset. Current operations and source locations are
+> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+
 # World Wide Webb Apple panel: architecture for isolated apps and customizable faces
 
 Status: proposal (Oct 29, 2026). Ticket WWW-8. It covers the native SwiftUI panel (iPadOS 26+ / macOS 26+).

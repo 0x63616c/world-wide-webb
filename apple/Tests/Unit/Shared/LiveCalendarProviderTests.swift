@@ -13,7 +13,7 @@ import XCTest
     }
     private func fixture() throws -> [CalendarEvent] {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/calendar/events.json")
+            .appendingPathComponent("../../Packages/PanelKit/Tests/PanelKitTests/Fixtures/calendar/events.json")
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode([CalendarEvent].self, from: Data(contentsOf: url))

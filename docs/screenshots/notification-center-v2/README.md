@@ -1,3 +1,6 @@
+> Historical reference from before the native/Rust reset. Current operations and source locations are
+> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+
 # Notification Center v2
 
 Captured from the native Panel app in the iOS 27.2 iPad Pro simulator, at the

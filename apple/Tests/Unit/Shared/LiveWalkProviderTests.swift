@@ -200,7 +200,8 @@ import XCTest
         XCTAssertFalse(duplicate)
         let request = try await transport.request("walks.update")
         let input = try body(request)
-        XCTAssertEqual(input["id"], walkID)
+        XCTAssertEqual(request.url?.lastPathComponent, walkID)
+        XCTAssertNil(input["id"])
         XCTAssertEqual(input["startedAt"], "2026-09-30T12:00:00.000Z")
         XCTAssertEqual(input["endedAt"], "2026-09-30T12:10:00.000Z")
         await transport.release("walks.update")
@@ -237,7 +238,9 @@ import XCTest
         let duplicate = await provider.delete(id: "walk_synthetic_previous")
         XCTAssertFalse(duplicate)
         let request = try await transport.request("walks.delete")
-        XCTAssertEqual(try body(request), ["id": "walk_synthetic_previous"])
+        XCTAssertNil(request.httpBody)
+        XCTAssertEqual(request.httpMethod, "DELETE")
+        XCTAssertEqual(request.url?.lastPathComponent, "walk_synthetic_previous")
         await transport.release("walks.delete")
         let deleted = await deletion.value
         XCTAssertTrue(deleted)
@@ -379,7 +382,7 @@ import XCTest
             "id": id ?? walkID, "startedAt": formatter.string(from: start), "endedAt": formatter.string(from: end),
             "source": "ipad", "createdAt": formatter.string(from: start), "updatedAt": formatter.string(from: end),
         ]
-        return .data(try JSONSerialization.data(withJSONObject: ["result": ["data": ["walks": [walk]]]]))
+        return .data(try JSONSerialization.data(withJSONObject: ["walks": [walk]]))
     }
 
     func testScenePollingStopsAndForegroundRefreshesImmediately() async throws {
@@ -634,7 +637,10 @@ private actor WalkProviderTransport: PanelTransport {
     private func cancel(_ path: String) { gates.removeValue(forKey: path)?.resume(throwing: CancellationError()) }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let path = request.url!.lastPathComponent
+        let path =
+            request.httpMethod == "PATCH"
+            ? "walks.update"
+            : request.httpMethod == "DELETE" ? "walks.delete" : "walks." + request.url!.lastPathComponent
         let index = count(path)
         requests[path, default: []].append(request)
         let options = replies[path] ?? [.fixture("history-empty")]
@@ -653,7 +659,7 @@ private actor WalkProviderTransport: PanelTransport {
         }
         // Read the same synthetic recordings as the SwiftPM contract tests, without changing project.yml resources.
         let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/walks")
+            .appendingPathComponent("../../Packages/PanelKit/Tests/PanelKitTests/Fixtures/walks")
         let data = try Data(contentsOf: fixtures.appendingPathComponent(name + ".json"))
         return (
             data,
@@ -677,7 +683,10 @@ private actor SharedWalkServer: PanelTransport {
     func setOffline(_ value: Bool) { offline = value }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let path = request.url!.lastPathComponent
+        let path =
+            request.httpMethod == "PATCH"
+            ? "walks.update"
+            : request.httpMethod == "DELETE" ? "walks.delete" : "walks." + request.url!.lastPathComponent
         if path == "walks.state" { stateReads += 1 }
         if path == "walks.history" { historyReads += 1 }
         if offline { throw URLError(.notConnectedToInternet) }
@@ -706,7 +715,7 @@ private actor SharedWalkServer: PanelTransport {
             ? ["walks": history]
             : ["active": wireActive.map { $0 as Any } ?? NSNull(), "updatedAt": updatedAt, "serverTime": now]
         return (
-            try JSONSerialization.data(withJSONObject: ["result": ["data": payload]]),
+            try JSONSerialization.data(withJSONObject: payload),
             HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
         )
     }

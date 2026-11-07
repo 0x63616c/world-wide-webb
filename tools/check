@@ -44,5 +44,5 @@ case "${1:-all}" in
     bash tools/check integration
     bash tools/check infra
     ;;
-  *) echo 'Usage: tools/check [rust|ops|apple|integration|--staged|all]' >&2; exit 64 ;;
+  *) echo 'Usage: tools/check [lint|rust|ops|apple|integration|infra|--staged|all]' >&2; exit 64 ;;
 esac

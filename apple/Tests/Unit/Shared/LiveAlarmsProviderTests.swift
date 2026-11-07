@@ -11,8 +11,9 @@ private actor AlarmProviderTransport: PanelTransport {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         requests.append(request)
         guard !fixtures.isEmpty else { throw URLError(.notConnectedToInternet) }
-        let url = Bundle(for: LiveAlarmsProviderTests.self).resourceURL!
-            .appendingPathComponent("Fixtures/alarms/\(fixtures.removeFirst()).json")
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent(
+                "../../Packages/PanelKit/Tests/PanelKitTests/Fixtures/alarms/\(fixtures.removeFirst()).json")
         return (
             try Data(contentsOf: url),
             HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
@@ -76,11 +77,11 @@ private actor AlarmProviderTransport: PanelTransport {
         try await live.act(again.alarm.id, version: 2, snooze: false, now: later)
         XCTAssertFalse(try XCTUnwrap(live.upcoming(at: later)).ringing)
         let writes = await transport.requests.filter { $0.httpMethod == "POST" }
-        XCTAssertEqual(writes.map { $0.url!.lastPathComponent }, ["alarms.snooze", "alarms.stop"])
+        XCTAssertEqual(writes.map { $0.url!.lastPathComponent }, ["action", "action"])
         let body = try XCTUnwrap(writes[1].httpBody)
         XCTAssertEqual(
             try JSONSerialization.jsonObject(with: body) as? NSDictionary,
-            ["id": "alr_example", "version": 2] as NSDictionary)
+            ["id": "alr_example", "action": "stop", "version": 2] as NSDictionary)
     }
 
     func testConflictRefreshesStateWithoutRetryingOrOptimisticSuccess() async throws {
@@ -117,15 +118,15 @@ private actor AlarmProviderTransport: PanelTransport {
         try await live.setEnabled(id, enabled: false)
         try await live.delete(id)
         XCTAssertTrue(live.alarms.isEmpty)
-        let writes = await transport.requests.filter { $0.httpMethod == "POST" }
-        XCTAssertEqual(
-            writes.map { $0.url!.lastPathComponent },
-            ["alarms.create", "alarms.update", "alarms.setEnabled", "alarms.delete"])
+        let writes = await transport.requests.filter { $0.httpMethod != "GET" }
+        XCTAssertEqual(writes.map { $0.httpMethod }, ["POST", "PATCH", "PATCH", "DELETE"])
+        XCTAssertEqual(writes[0].url!.path, "/api/v1/alarms")
         let input = try JSONDecoder().decode(AlarmInput.self, from: XCTUnwrap(writes[0].httpBody))
         XCTAssertNil(input.snoozeMinutes)
         XCTAssertNil(input.lightTarget)
         let update = try JSONSerialization.jsonObject(with: XCTUnwrap(writes[1].httpBody)) as? NSDictionary
-        XCTAssertEqual(update?["id"] as? String, "alm_example")
+        XCTAssertEqual(writes[1].url?.lastPathComponent, "alm_example")
+        XCTAssertNil(update?["id"])
     }
 
     func testCachedRingExpiresAndSuccessfulWriteIsNotRetriedAfterReadFailure() async throws {

@@ -128,7 +128,7 @@ import XCTest
     private func makeProvider() -> (LivePhotosProvider, PhotosProviderTransport, URL) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/photos")
+            .appendingPathComponent("../../Packages/PanelKit/Tests/PanelKitTests/Fixtures/photos")
         let transport = PhotosProviderTransport(root: root)
         let client = PanelAPIClient(
             configuration: PanelConfiguration(baseURL: URL(string: "https://fixtures.example.invalid")!),
@@ -150,7 +150,16 @@ private actor PhotosProviderTransport: PanelTransport {
     func setUnavailable(_ value: Bool) { unavailable = value }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let url = request.url!
-        let path = url.lastPathComponent
+        let path: String
+        if url.path == "/api/v1/booth" {
+            path = "boothPhotos.list"
+        } else if url.path == "/api/v1/settings/pin/verify" {
+            path = "verify"
+        } else if url.path.hasPrefix("/api/v1/booth/") {
+            path = url.lastPathComponent == "filter" ? "boothPhotos.clearFilter" : "boothPhotos.remove"
+        } else {
+            path = url.lastPathComponent
+        }
         paths.append(path)
         guard !unavailable else { throw URLError(.notConnectedToInternet) }
         let data: Data
@@ -162,15 +171,15 @@ private actor PhotosProviderTransport: PanelTransport {
                 cleared
                 ? Data(String(decoding: bytes, as: UTF8.self).replacingOccurrences(of: "\"mono\"", with: "null").utf8)
                 : bytes
-        case "wakePhotos.list": data = try Data(contentsOf: root.appendingPathComponent("wakes.json"))
-        case "sessions.list": data = try Data(contentsOf: root.appendingPathComponent("sessions.json"))
-        case "settings.get": data = try Data(contentsOf: root.appendingPathComponent("settings.json"))
+        case "verify":
+            let input = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: String]
+            data = try JSONSerialization.data(withJSONObject: ["verified": input["pin"] == "135790"])
         case "boothPhotos.remove":
             removed = true
-            data = Data(#"{"result":{"data":{"removed":1}}}"#.utf8)
+            data = Data(#"{"removed":1}"#.utf8)
         case "boothPhotos.clearFilter":
             cleared = true
-            data = Data(#"{"result":{"data":{"cleared":1}}}"#.utf8)
+            data = Data(#"{"cleared":1}"#.utf8)
         default:
             data = try Data(contentsOf: root.appendingPathComponent("image.png"))
             image = true

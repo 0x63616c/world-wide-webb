@@ -104,9 +104,9 @@ private actor WeatherProviderTransport: PanelTransport {
         count += 1
         let data: Data
         if mode == .failure { throw URLError(.notConnectedToInternet) }
-        if request.url!.path.hasSuffix("weather.now") {
+        if request.url!.path.hasSuffix("weather/now") {
             data = Data(
-                #"{"result":{"data":{"temp":62.5,"cond":"Partly Cloudy","ic":"cloud-sun","hi":68,"lo":51,"feels":60,"hum":70,"wind":9.5,"uvIndex":3,"precipProbability":20,"sunsetIso":"","sunriseIso":"","tomorrowSunriseIso":"","solarLabel":"Sunset","solarValue":"6:10 PM","city":"Example City"}}}"#
+                #"{"temp":62.5,"cond":"Partly Cloudy","ic":"cloud-sun","hi":68,"lo":51,"feels":60,"hum":70,"wind":9.5,"uvIndex":3,"precipProbability":20,"sunsetIso":"","sunriseIso":"","tomorrowSunriseIso":"","solarLabel":"Sunset","solarValue":"6:10 PM","city":"Example City"}"#
                     .utf8)
         } else {
             let hours: [[String: Any]] =
@@ -119,7 +119,7 @@ private actor WeatherProviderTransport: PanelTransport {
                         "isoTime": "2026-10-29T12:00:00.000Z", "weatherCode": 61,
                     ]
                 }
-            data = try JSONSerialization.data(withJSONObject: ["result": ["data": hours]])
+            data = try JSONSerialization.data(withJSONObject: hours)
         }
         return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
     }

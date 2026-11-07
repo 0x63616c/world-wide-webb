@@ -1,55 +1,64 @@
-# Native + Rust reset — local execution tracker
+# Native + Rust reset — execution tracker
 
 Approved 2026-11-07. Source plan: [native-rust-reset.md](native-rust-reset.md).
-Everything stays local until the full candidate is implemented, tested and independently reviewed.
-No remote project/issues, PR, push, deploy or OpenTofu apply has been performed.
+All code remains local until implementation, verification and one independent final review are complete.
+No push, PR, GitHub project/issues, production deployment or real OpenTofu apply has occurred.
 
-## Packages
+## Implemented locally
 
-1. **Foundation and preservation — in progress.** Precautionary backup verified on NAS;
-   isolated restore/import rehearsal and initial workload baseline completed. Final frozen-writer import and after measurements remain.
-2. **Complete replacement — in progress.** Primary agent owns all implementation; agents are reserved for final review.
-3. **Delivery and cutover — not started.** Local CI redesign follows complete layout; hosted checks and
-   production cutover occur only at final publication.
-4. **Cleanup and evidence — in progress.** Web/Expo/TypeScript backend and Pulumi code removed locally; Swift moved to apple/. Rust container/release/recovery and standalone hooks are implemented. Docs and final evidence remain.
+- Removed web/Expo/TypeScript workspaces and Pulumi code; Git history retained. Production Swift moved to
+  `apple/`, Rust to `server/`, OpenTofu to `infra/cloudflare`, with native-only container and delivery tooling.
+- Retained typed Swift client now calls versioned Rust REST routes, with no bundled device credentials.
+  Private enrollment verifies connection and stores the complete record in Keychain. Redirects are rejected.
+- Rust implements retained feature APIs and scheduled behavior, SQLite persistence, HA adapters, alarms,
+  physical switch continuity, desired/reported light ownership, Sonos, Tesla, weather and Photo Booth.
+- Consistent SQLite snapshots, guarded immutable releases/recovery, raw archive/import/reconciliation,
+  NAS backup adaptation, encrypted/locked infrastructure state and tested-main delivery are implemented.
+- Pinned Rust/Python/Swift/shell/workflow linting and standalone hooks replace JavaScript tool dependencies.
+  CI selects relevant native/image/infra jobs and aggregates required results fail-closed.
 
-## Ownership
+## Verification recorded
 
-- Primary: all implementation, integration, verification and local commits.
-- Implementation agents stopped at user request; only independent final review may use an agent.
+- Rust: strict Clippy/format checks and 22 tests pass (3 unit, 19 HTTP/integration).
+- Python: 49 tests pass (30 operations, 19 migration/CI/provisioning), including synthetic credential handling.
+- Swift package: all 101 tests pass.
+- Actual isolated Swift-to-Rust read/mutation/auth and Photo Booth upload/list/download bytes pass.
+- OpenTofu: fmt/validate and both mocked route tests pass. Isolated backend proof passes encryption,
+  competing-writer lock rejection, wrong-key rejection and encrypted backup restore.
+- Rust/Python/shell/workflow lint checks pass. Swift formatting is applied; final full check follows fixes.
+- Production iPad target compiles. Native unit tests are being converted from obsolete wire assertions and
+  fixture locations; final suite is not yet green. Full interaction/device checks remain outstanding.
+- Local Docker is unavailable. The required hosted image job must prove actual container runtime/persistence
+  before release. Production state import and real device enrollment are not certified by isolated tests.
 
 ## Preservation evidence
 
-Backup 20261107T202453Z: 14 payloads, 475,622,543 bytes, NAS read-back verified.
-Manifest SHA-256: 4134ae935bc22a5cf3090fd0067ec1d8787ed775a3a1aecc90e3844fc42528a1.
-Isolated PostgreSQL restore and SQLite import completed with row/value reconciliation and integrity checks. Original production data is untouched.
-All 135 Photo Booth references resolve to restored files. On 2026-11-07 Calum clarified that Photo Booth is the photo preservation requirement; missing legacy wake photos are not a migration blocker. Existing backup copies remain intact.
-Live sample: DB 371,889,855 bytes; media 171,712 KiB / 1,705 files; 135 booth records,
-1,621 wake-photo records, 11 walks. See plan for measurement caveats.
+Precautionary backup `20261107T202453Z`: 14 payloads, 475,622,543 bytes, NAS read-back verified.
+Manifest SHA-256: `4134ae935bc22a5cf3090fd0067ec1d8787ed775a3a1aecc90e3844fc42528a1`.
+Isolated PostgreSQL restore and SQLite import completed with schema/type/row/value reconciliation,
+foreign-key and integrity checks. Original production data is untouched.
+All 135 Photo Booth references resolve to restored files. Calum accepts missing historical wake images;
+51 already absent in the source are not a blocker. Full backup copies and raw archived records are retained.
 
-## Execution order
+Baseline: PostgreSQL logical size 371,889,855 bytes; directory 809,336 KiB. Media 171,712 KiB / 1,705 files.
+Bun RSS 69.78–71.81 MiB, mean CPU 3.87%; app PostgreSQL RSS 130.8–140.1 MiB, mean CPU 1.85%;
+tunnel RSS 25.75–33.64 MiB, mean CPU 0.405%. Rehearsal SQLite 370,569,216 bytes. These are different
+storage measures, not a claimed saving. Comparable post-deployment samples and fresh restore remain required.
 
-Finish backend, transport/auth, deployment tooling, repository cleanup and CI first.
-Full iPad/iPhone/Duo/Mac layout and interaction testing is the last local verification step,
-followed by independent final review, fixes and publication. Compile checks continue during implementation.
+Private evidence lives outside Git under the primary operator's migration archive. Never publish raw
+source rows, media filenames, enrollment records, credentials or decrypted infrastructure state.
 
-## Final gate (all required)
+## Finish in this order
 
-- [ ] Every retained feature parity scenario implemented and passing
-- [ ] SQLite import, content reconciliation and backup restore demonstrated
-- [ ] Native iPad/iPhone/Duo/macOS production targets built and exercised
-- [ ] Platform auth/enrollment/background behavior verified
-- [ ] OpenTofu and operations validated without changing live infrastructure
-- [ ] Old stack removed, docs/linters/hooks/CI match new layout
-- [ ] Independent final review findings resolved
-- [ ] Publish local tracking and candidate, required CI green, coordinated cutover
-- [ ] Verify deployed app, Apple processing, after measurements and new backup restore
+1. Resolve actual native test failures, finish iPad interactions/evidence, then iPhone/Duo and Mac checks.
+2. Complete one independent final review, fix findings and commit the complete local candidate.
+3. Publish the drafted project/issues and one PR; satisfy required CI at the current head without bypass.
+4. Execute [the cutover runbook](../runbooks/native-rust-cutover.md): final frozen-writer backup/export/import,
+   data/media reconciliation, private provisioning, OpenTofu ownership import, coordinated tested deployment.
+5. Verify actual iPad connectivity/background alarms and retained features, revoke old bundled credentials,
+   retire the app hostname, verify Apple processing, compare after metrics and restore a fresh NAS backup.
+6. Record evidence and close tracking issues only when their acceptance criteria are met.
 
-## User priority clarification — 2026-11-07
-
-Complete the working faithful iPad app against Rust, verified database and Photo Booth migration,
-and removal of the old stack first. iPhone/Duo and Mac remain important and in scope, but their
-remaining adaptation and full interaction testing come last, after the core migration and cleanup.
-Do not delay core implementation for phone or Mac polish. Final review and publication follow.
-
-Latest local evidence: production iPad target builds after relocation; Swift REST round trip against an isolated Rust process passes. Rust 21 tests plus strict Clippy pass; backup/release operations 30 tests and migration tooling 11 tests pass. The older Swift wire fixtures/assertions are partly migrated and the full Swift suite is not yet green. No push or live cutover.
+The primary agent owns implementation and credential operations; only the final reviewer is delegated.
+User priority: faithful working iPad, preserved database/Photo Booth, Rust and removal of the old stack.
+iPhone/Duo and Mac remain in scope and are checked last. Do not wait on hosted CI during local coding.

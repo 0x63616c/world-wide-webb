@@ -31,7 +31,7 @@ private actor FanProviderTransport: PanelTransport {
 
 @MainActor final class LiveFanProviderTests: XCTestCase {
     private func response(_ on: Bool, _ label: String, pending: Bool = false) -> String {
-        "{\"result\":{\"data\":{\"fan\":{\"on\":\(on),\"sub\":\"\(label)\",\"pending\":\(pending)}}}}"
+        "{\"fan\":{\"on\":\(on),\"sub\":\"\(label)\",\"pending\":\(pending)}}"
     }
     private func provider(_ transport: FanProviderTransport) -> LiveFanProvider {
         LiveFanProvider(
@@ -82,7 +82,8 @@ private actor FanProviderTransport: PanelTransport {
         for (index, on) in [(1, true), (2, false)] {
             let body = try XCTUnwrap(requests[index].httpBody)
             XCTAssertEqual(
-                try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["key": "fan", "on": on] as NSDictionary)
+                try JSONSerialization.jsonObject(with: body) as? NSDictionary,
+                ["action": "toggle", "key": "fan", "on": on] as NSDictionary)
         }
         await live.toggle()
         XCTAssertEqual(live.fanOn, false)
@@ -118,7 +119,8 @@ private actor FanProviderTransport: PanelTransport {
         for (index, on) in [(1, false), (2, true)] {
             let body = try XCTUnwrap(requests[index].httpBody)
             XCTAssertEqual(
-                try JSONSerialization.jsonObject(with: body) as? NSDictionary, ["key": "fan", "on": on] as NSDictionary)
+                try JSONSerialization.jsonObject(with: body) as? NSDictionary,
+                ["action": "toggle", "key": "fan", "on": on] as NSDictionary)
         }
     }
 

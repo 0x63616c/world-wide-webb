@@ -120,15 +120,9 @@ import XCTest
     private func fixture(_ name: String) throws -> String {
         // Xcode does not bundle SwiftPM test resources into the app test target.
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let url = root.appendingPathComponent("PanelKit/Tests/PanelKitTests/Fixtures/wifi/\(name).json")
-        struct Envelope: Decodable {
-            struct Result: Decodable {
-                struct Payload: Decodable { let qr: String }
-                let data: Payload
-            }
-            let result: Result
-        }
-        return try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url)).result.data.qr
+        let url = root.appendingPathComponent("../../Packages/PanelKit/Tests/PanelKitTests/Fixtures/wifi/\(name).json")
+        struct Response: Decodable { let qr: String }
+        return try JSONDecoder().decode(Response.self, from: Data(contentsOf: url)).qr
     }
 }
 
@@ -145,7 +139,7 @@ private actor WifiProviderTransport: PanelTransport {
         count += 1
         try await Task.sleep(for: delay)
         guard replies.indices.contains(index), let qr = replies[index] else { throw URLError(.notConnectedToInternet) }
-        let data = try JSONSerialization.data(withJSONObject: ["result": ["data": ["qr": qr]]])
+        let data = try JSONSerialization.data(withJSONObject: ["qr": qr])
         return (data, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
     }
 }

@@ -1,3 +1,6 @@
+> Historical reference from before the native/Rust reset. Current operations and source locations are
+> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+
 # WWW-55 — Controls and Walk tile review
 
 The accepted source starts at `db92211f`. The historical Controls, idle Walk
