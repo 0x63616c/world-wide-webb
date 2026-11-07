@@ -22,6 +22,7 @@ if environment not in ('staging', 'production'):
 allowed = {
     'APPLE_SIGN_IN_TEAM_ID', 'APPLE_SIGN_IN_KEY_ID', 'APP_ATTEST_ENVIRONMENT',
     'APP_ATTEST_BUNDLE_VERSIONS', 'ACCESS_TEAM_DOMAIN', 'WORKER_VERSION',
+    'ADMIN_EMAIL_ALLOWLIST', 'APNS_KEY_ID',
 }
 if set(configuration) != allowed:
     raise SystemExit('Configuration must contain exactly: ' + ', '.join(sorted(allowed)))
@@ -36,12 +37,23 @@ if configuration['APP_ATTEST_ENVIRONMENT'] not in ('development', 'production'):
     raise SystemExit('Invalid App Attest environment')
 if environment == 'production' and configuration['APP_ATTEST_ENVIRONMENT'] != 'production':
     raise SystemExit('Production requires production App Attest')
+administrators = json.loads(configuration['ADMIN_EMAIL_ALLOWLIST'])
+if (not isinstance(administrators, list) or not 1 <= len(administrators) <= 32
+        or not all(isinstance(v, str) and re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', v)
+                   for v in administrators)):
+    raise SystemExit('Explicit administrator email allowlist required')
+for field in ('APPLE_SIGN_IN_TEAM_ID', 'APPLE_SIGN_IN_KEY_ID', 'APNS_KEY_ID'):
+    if not re.fullmatch(r'[A-Z0-9]{10}', configuration[field]):
+        raise SystemExit('Invalid Apple identifier: ' + field)
 if not re.fullmatch(r'https://[a-zA-Z0-9-]+\.cloudflareaccess\.com', configuration['ACCESS_TEAM_DOMAIN']):
     raise SystemExit('Invalid Access team domain')
 bundle = 'app.getfolding.Folding' + ('.Staging' if environment == 'staging' else '')
 variables = dict(configuration, DEPLOYMENT=environment,
     AUTH_ENCRYPTION_KEY_VERSION='v1', AUTH_SUBJECT_HMAC_KEY_VERSION='v1',
     APPLE_SIGN_IN_CLIENT_ID=bundle,
+    APNS_TOPIC=bundle, APNS_ENVIRONMENT='production',
+    APNS_TEAM_ID=configuration['APPLE_SIGN_IN_TEAM_ID'],
+    APNS_ENABLED='false', AVATAR_UPLOADS_ENABLED='false', ADMIN_EMAIL_ENABLED='false',
     APP_ATTEST_APP_ID=configuration['APPLE_SIGN_IN_TEAM_ID'] + '.' + bundle,
     VERIFIED_CAPABILITIES='[]', API_ORIGIN=bindings['api_origin'],
     ADMIN_ORIGIN=bindings['admin_origin'], ACCESS_AUDIENCE=bindings['access_audience'])
