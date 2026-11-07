@@ -8,7 +8,7 @@ import UIKit
 #endif
 
 enum PanelClockFace: String, CaseIterable {
-    case green, petal, solstice, tide
+    case green, tide
 }
 
 /// The clock face, after Apple HomeView's green numeral clock (Apple Newsroom,
@@ -30,10 +30,6 @@ struct PresenceClockFace: View {
                 case .green:
                     night ? Color.black : GreenClockDial.green
                     GreenClockDial(date: now, night: night)
-                case .petal:
-                    PetalClockDial(date: now, night: night)
-                case .solstice:
-                    SolsticeClockDial(date: now, night: night)
                 case .tide:
                     TideClockDial(date: now, night: night)
                 }

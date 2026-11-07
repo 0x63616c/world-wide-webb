@@ -4,11 +4,13 @@ Panel starts on the selected clock face. Tap the clock to reveal the vertically 
 launcher on one full-screen native Liquid Glass surface over the same living clock.
 The clock stays fixed as the glass slides up from the bottom. Close Home with the
 top-right close button (or choose Clock); the glass slides back down. Horizontal
-swipes on the clock cycle Green, Petal, Solstice and Tide. Green retains the
-oversized 12–3–6–9 dial. Petal has twelve lavender hour petals, Solstice a coral
-sun dial, and Tide oversized blue typography. All four use the existing solar
-night appearance and device-local face selection. Retired selections fall back
-to Green. The launcher continues to use native Liquid Glass over each face.
+swipes on the clock alternate between Green and Tide. Green retains the oversized
+12–3–6–9 dial. Tide has stacked SF Rounded Liquid Glass numerals over a blue
+colour field, with a date and no AM/PM label. Its glass follows the actual glyph
+outlines; Reduce Transparency or Increase Contrast uses solid, legible numerals.
+Both faces use the existing solar night appearance and device-local selection.
+Retired selections fall back to Green. The launcher continues to use native
+Liquid Glass over either face.
 The glass follows the screen corners with an 8-point inset, and a 0.3-second reveal. The hands cast a subtle shadow on the dial.
 The launcher has no photographic wallpaper or Background picker. Each app opens
 full screen as the clock and launcher move away together. Back restores both. Reduce Motion replaces

@@ -26,7 +26,7 @@ import XCTest
         }
         print("MOTION_CAPTURE_READY home-controls")
         Thread.sleep(forTimeInterval: 1)
-        let faces = ["Green", "Petal", "Solstice", "Tide"]
+        let faces = ["Green", "Tide"]
         let initial = try XCTUnwrap(faces.firstIndex(of: clock.value as? String ?? ""))
         snapshot("clock-\(faces[initial].lowercased())")
         func waitForFace(_ face: String) {
@@ -66,7 +66,7 @@ import XCTest
     }
     func testClockCollection() {
         let app = XCUIApplication()
-        for face in ["green", "petal", "solstice", "tide"] {
+        for face in ["green", "tide"] {
             app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO",
                 "-updateCheckFakeBuild", "1", "-panel.clockFace", face]
             app.launch()
