@@ -24,7 +24,7 @@ pub fn setup_binding(repository: &str, host: &str, revision: &str) -> Option<Str
     )
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Host {
     /// Existing administrator account; setup never guesses or renames this user.
@@ -37,12 +37,35 @@ pub struct Host {
     /// Public SSH keys only, never private keys.
     #[schemars(length(max = 32))]
     pub authorized_keys: Vec<String>,
-    /// Explicit reviewed approval for activation of this host configuration.
-    pub activation_ready: bool,
     /// Names of services the target configuration must enable.
     #[schemars(length(max = 32))]
     pub services: Vec<String>,
 }
+// Historical setup journals contain this retired milestone. Accept it only when
+// reading; it must never authorize activation or reappear in desired configuration.
+impl<'de> Deserialize<'de> for Host {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields, rename_all = "camelCase")]
+        struct Input {
+            admin_user: String,
+            #[serde(rename = "adminUID")]
+            admin_uid: u32,
+            authorized_keys: Vec<String>,
+            services: Vec<String>,
+            #[serde(default, rename = "activationReady")]
+            _legacy_activation_ready: bool,
+        }
+        let input = Input::deserialize(deserializer)?;
+        Ok(Self {
+            admin_user: input.admin_user,
+            admin_uid: input.admin_uid,
+            authorized_keys: input.authorized_keys,
+            services: input.services,
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OAuthReference {
@@ -157,6 +180,36 @@ pub fn valid_repository(s: &str) -> bool {
                     .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
         })
 }
+
+/// Normalize pasted GitHub addresses at the input boundary; stored references stay owner/repo.
+pub fn parse_repository(input: &str) -> Result<String, Error> {
+    let input = input.trim();
+    if valid_repository(input) {
+        return Ok(input.to_owned());
+    }
+    let path = [
+        "https://github.com/",
+        "http://github.com/",
+        "github.com/",
+        "git@github.com:",
+        "ssh://git@github.com/",
+    ]
+    .iter()
+    .find_map(|prefix| input.strip_prefix(prefix))
+    .ok_or(Error::InvalidRepository)?;
+    let path = path
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(path)
+        .trim_end_matches('/');
+    let path = path.strip_suffix(".git").unwrap_or(path);
+    if valid_repository(path) {
+        Ok(path.to_owned())
+    } else {
+        Err(Error::InvalidRepository)
+    }
+}
+
 pub fn valid_revision(s: &str) -> bool {
     s.len() == 40
         && s.bytes()
@@ -539,5 +592,33 @@ mod tests {
         let link = d.path().join("link");
         symlink(&p, &link).unwrap();
         assert!(matches!(load(&link), Err(Error::State)));
+    }
+}
+
+#[cfg(test)]
+mod repository_input_tests {
+    use super::*;
+    #[test]
+    fn accepts_repository_names_and_github_browser_or_clone_urls() {
+        for input in [
+            "example/config",
+            " https://github.com/example/config/ ",
+            "https://github.com/example/config.git",
+            "https://github.com/example/config?tab=readme-ov-file",
+            "git@github.com:example/config.git",
+            "ssh://git@github.com/example/config.git",
+        ] {
+            assert_eq!(parse_repository(input).unwrap(), "example/config");
+        }
+        for input in [
+            "https://github.com.evil.test/example/config",
+            "https://github.com@evil.test/example/config",
+            "example/config/tree/main",
+            "https://gitlab.com/example/config",
+            "../config",
+            "example/config\nmalicious",
+        ] {
+            assert!(parse_repository(input).is_err());
+        }
     }
 }

@@ -107,7 +107,7 @@ impl Connection<'_> {
         let (mut command, _identity) = self.command(false)?;
         command.arg(remote).stdin(Stdio::null());
         let output = if self.tailscale.is_some() {
-            process::capture_with_terminal_stderr(&mut command, Duration::from_secs(180))
+            crate::terminal_process::capture(&mut command, Duration::from_secs(180))
         } else {
             process::capture(&mut command, Duration::from_secs(45))
         }
@@ -120,14 +120,14 @@ impl Connection<'_> {
 
     fn root(&self, remote: &str) -> Result<std::process::ExitStatus, Error> {
         let (mut command, _identity) = self.command(true)?;
-        let status = command
+        command
             // Hide helper JSON on the target; keep the PTY for sudo prompts.
             .arg(format!("/usr/bin/sudo {remote} > /dev/null"))
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .status()
-            .map_err(|_| Error::Verification)?;
+            .stderr(Stdio::inherit());
+        let status =
+            crate::terminal_process::status(&mut command).map_err(|_| Error::Verification)?;
         Ok(status)
     }
 }

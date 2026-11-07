@@ -1,6 +1,6 @@
 //! Explicit first-use trust and public-key installation through the system SSH client.
 use std::fs::{self, File};
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Write};
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -381,24 +381,19 @@ fn validate_public_key(text: &str, tools: &Tools, timeout: Duration) -> Result<P
     })
 }
 
-/// Call with the terminal in normal mode. SSH reads passwords from its controlling
-/// terminal; stdin carries only the public key. The caller approves the fingerprint.
+/// SSH authenticates through its controlling terminal; stdin carries only the
+/// approved public key, including when authentication is embedded in the TUI.
 pub fn install_public_key(host: &HostProfile, tools: &Tools, key: &PublicKey) -> Result<(), Error> {
     let (mut command, _identity) = ssh(host, tools, Trust::Strict, false)?;
     let script = include_str!("first-access/install-key.sh");
     let quoted = script.replace('\'', "'\\''");
     command.arg(format!("/bin/sh -c '{quoted}'"));
-    let mut input = tempfile::tempfile().map_err(|_| Error::Installation)?;
+    let mut input = tempfile::NamedTempFile::new().map_err(|_| Error::Installation)?;
     input
         .write_all(key.line.as_bytes())
         .map_err(|_| Error::Installation)?;
-    input.rewind().map_err(|_| Error::Installation)?;
-    // Native SSH owns the prompt; never read or store the operator's password.
-    let status = command
-        .stdin(Stdio::from(input))
-        .stdout(Stdio::null())
-        .stderr(Stdio::inherit())
-        .status()
+    command.stdout(Stdio::null()).stderr(Stdio::inherit());
+    let status = crate::terminal_process::status_with_input(&mut command, input.path())
         .map_err(|_| Error::UnknownOutcome)?;
     match status.code() {
         Some(0) => check_key_access(host, tools, Trust::Strict).map_err(|_| Error::Verification),

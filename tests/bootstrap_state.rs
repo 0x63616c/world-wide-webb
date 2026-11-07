@@ -319,3 +319,61 @@ fn unsafe_permissions_and_symlinks_are_rejected_without_repair() {
         fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
     }
 }
+
+#[test]
+fn repair_requires_existing_journal_and_exact_original_effective_pair() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("state");
+    let old = "a".repeat(40);
+    let new = "b".repeat(40);
+    let open = || Journal::open_repair(&path, "example/config", "example", &old, &new);
+    assert!(matches!(open(), Err(StateError::Missing)));
+    assert!(!path.join("progress.json").exists());
+    let mut journal = Journal::open(&path, "example/config", "example", &old, false).unwrap();
+    journal.record(Phase::InstallingNix, None).unwrap();
+    drop(journal);
+    let before = fs::read(path.join("progress.json")).unwrap();
+    drop(open().unwrap());
+    assert_eq!(fs::read(path.join("progress.json")).unwrap(), before);
+    let mut journal = open().unwrap();
+    journal.record_repair(&old, &new).unwrap();
+    drop(journal);
+    let after = fs::read(path.join("progress.json")).unwrap();
+    let mut journal = open().unwrap();
+    journal.record_repair(&old, &new).unwrap();
+    drop(journal);
+    assert_eq!(fs::read(path.join("progress.json")).unwrap(), after);
+    assert!(
+        Journal::open_repair(&path, "example/config", "example", &old, &"c".repeat(40)).is_err()
+    );
+    assert!(
+        Journal::open_repair(&path, "example/config", "example", &new, &"c".repeat(40)).is_err()
+    );
+}
+
+#[test]
+fn repaired_activation_reports_effective_revision_for_original_reservation() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join(".local/state/homelab/bootstrap");
+    let old = "a".repeat(40);
+    let new = "b".repeat(40);
+    let mut journal = Journal::open(&path, "example/config", "example", &old, false).unwrap();
+    journal.record_repair(&old, &new).unwrap();
+    journal
+        .record(
+            Phase::Activated,
+            Some(std::path::Path::new("/nix/store/repaired-system")),
+        )
+        .unwrap();
+    drop(journal);
+    assert_eq!(
+        homelab_client::bootstrap_state::activation_revision(
+            temporary.path(),
+            "example/config",
+            "example",
+            &old
+        )
+        .unwrap(),
+        Some(new)
+    );
+}

@@ -9,15 +9,22 @@ exact commit through your local GitHub CLI authentication.
 | `$schema` | Optional editor hint; the CLI never fetches it |
 | `schema` | Use `2` for new configuration; historical `1` remains readable |
 | `onePassword.backupVault` | Explicit vault for host/recovery age-key backups; required in version 2 |
-| `hosts` | Map of configuration names to administrator, SSH keys, readiness and services |
+| `hosts` | Map of configuration names to administrator, SSH keys and services |
 | `tailscale.tag` | Tag assigned to single-use enrollment keys |
 | `tailscale.oauth` | 1Password vault/item references required for enrollment, never secret values |
 
 Your Nix configuration must import the same host facts, not maintain a second
 list. Export them from `lib.setupPlan.hosts` in the flake. The bootstrap compares
 the fetched manifest and evaluated Nix host facts with what you reviewed.
-Administrator UID, authorized keys, readiness and service assignments must agree.
-Keep `activationReady: false` until secrets and host access are reviewed.
+Administrator UID, authorized keys and service assignments must agree.
+Setup validates those prerequisites and encrypted secrets before installation;
+there is no setup-progress flag in desired configuration. Historical manifests with
+`activationReady` remain readable for saved-attempt compatibility, but new
+configuration must omit it.
+
+The Git host name is also the required macOS local hostname. The CLI derives
+`adminUser@<host-name>.local`; there is no address override in Git or local settings.
+Initial setup requires local-network reachability before Tailscale enrollment.
 
 The configuration repository also supplies `flake.lock` and
 `bootstrap/installer.json` (reviewed Determinate installer URL and SHA-256).
@@ -91,19 +98,48 @@ There is no dynamic plugin loader or provider-selection workflow.
 
 ## Local state
 
-Git's manifest defines the host list, administrator accounts and desired state.
-The CLI keeps only the attached repository, connection addresses/SSH identities,
-and setup recovery records locally. There is no separately maintained host list.
+Git's manifest defines hosts, administrator accounts, authorized keys and services.
+The Nix configuration and encrypted secrets in the same repository define what each
+Mac should run. Setup progress is recorded separately.
 
-For compatibility, the connection cache remains at
-`~/.config/homelab/inventory.json`, beside `repository.json`. Existing aliases,
-SSH-agent identities and preparation files survive upgrades. An exact legacy
-host-name match is bound automatically; ambiguous matches are never guessed.
-Saved approved setups use their pinned Git revision rather than substituting
-`main`; a removed host remains available for recovery and is labeled accordingly.
-The **e Edit address** action changes only the connection route, not Git host facts
-or the selected SSH identity.
+| Local path | Purpose |
+| --- | --- |
+| `~/.homelab/profiles/default/repository.json` | Selected `owner/repository` and format version |
+| `~/.homelab/profiles/default/inventory.json` | Selected SSH public key/agent and legacy host-to-journal bindings; saved addresses do not control routing |
+| `~/.homelab/profiles/default/inventory.json.lock` | Coordinates safe updates; not configuration |
+| `~/.homelab/profiles/default/provisioning/` | Private age identities, verified backup receipts, encrypted preparation files and resumable setup journals |
+| `~/.homelab/cache/release.json` | Public release-check cache |
+
+SSH host trust stays in the normal SSH known-hosts files. Private SSH keys stay
+in your SSH agent; the connection cache stores only its selected public key and
+agent socket reference. The provisioning directory does contain private age
+identities, so preserve it when recovering interrupted setup.
+
+`homelab`, `hl`, `homelab-dev` and `hl-dev` share this operator state. Do not run
+two setup sessions for the same host concurrently. Existing aliases and SSH-agent
+identities survive upgrades; ambiguous historical bindings stop for inspection.
+Saved approved setups retain their pinned Git revision rather than substituting
+`main`. A removed host remains available for recovery and is labeled accordingly.
+A verified report from the Mac establishes setup completion; manifest fields and
+saved progress alone do not prove that the device is currently set up.
 
 Repository binding refuses to switch repositories silently. If moving to a
 second repository, migrate that state deliberately rather than reusing keys
 by matching host name alone.
+
+On startup, legacy config, provisioning and cache files move automatically into
+`~/.homelab/`. Migration preserves file contents and permissions and refuses to
+overwrite conflicting state. Close older CLI sessions before upgrading. Use the
+updated CLI after migration; older releases still use the previous locations.
+
+Named profiles (`hl --profile demo`) use
+`~/.homelab/profiles/demo/` and
+`~/.homelab/profiles/demo/provisioning/` instead. They do not copy
+or read the default profile's repository binding, key choice or setup journals.
+`default` selects `~/.homelab/profiles/default/`. Names are limited to 32 lowercase letters,
+digits, hyphens and underscores, beginning with a letter.
+
+GitHub/1Password/Tailscale sign-ins, SSH known-hosts and the public release cache
+remain shared. Profiles isolate local progress, not remote resources: enrolling
+from a profile still changes the selected Git repository and target Mac. A new
+profile can restore the same repository's recovery keys from its configured vault.

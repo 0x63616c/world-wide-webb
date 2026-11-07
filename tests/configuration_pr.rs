@@ -327,6 +327,36 @@ fn oversized_or_unrelated_saved_changes_cannot_be_published() {
 }
 
 #[test]
+fn legacy_saved_proposal_keeps_its_original_bytes_and_branch_when_resumed() {
+    use std::os::unix::fs::PermissionsExt;
+    let api = GitHub::new();
+    let mut encoded = serde_json::to_value(changes(&api).unwrap()).unwrap();
+    let mut manifest = encoded["manifest"].clone();
+    manifest["hosts"]["test-mac"]["activationReady"] = json!(true);
+    manifest["hosts"]["other-mac"]["activationReady"] = json!(false);
+    encoded["manifest"] = manifest.clone();
+    let original_bytes = serde_json::to_string_pretty(&manifest).unwrap() + "\n";
+    encoded["files"]["homelab.json"] = json!(original_bytes);
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = directory.path().join("proposal.json");
+    std::fs::write(&path, serde_json::to_vec(&encoded).unwrap()).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let saved = configuration_pr::Changes::load(&path, "example/config", "test-mac").unwrap();
+    let branch = saved.branch();
+    configuration_pr::publish(&api, &saved).unwrap();
+    assert_eq!(saved.branch(), branch);
+    assert_eq!(
+        serde_json::to_value(&saved).unwrap()["files"]["homelab.json"],
+        original_bytes
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        serde_json::to_vec(&encoded).unwrap()
+    );
+}
+
+#[test]
 fn publishes_only_three_allowed_files_and_preserves_other_hosts_and_rules() {
     let api = GitHub::new();
     let change = changes(&api).unwrap();
@@ -334,7 +364,12 @@ fn publishes_only_three_allowed_files_and_preserves_other_hosts_and_rules() {
         change.manifest.hosts["other-mac"],
         api.manifest.hosts["other-mac"]
     );
-    assert!(change.manifest.hosts["test-mac"].activation_ready);
+    assert!(
+        !serde_json::to_value(&change.manifest).unwrap()["hosts"]["test-mac"]
+            .as_object()
+            .unwrap()
+            .contains_key("activationReady")
+    );
     assert_eq!(
         change.manifest.hosts["test-mac"].authorized_keys,
         ["ssh-ed25519 AAAA"]

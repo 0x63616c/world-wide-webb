@@ -42,6 +42,7 @@ pub struct Request {
     pub age_key: PathBuf,
     pub deploy_key: PathBuf,
     pub resume: bool,
+    pub repair_from: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -68,7 +69,7 @@ impl PreparedSetup {
             format!("Target: {} ({}@{})", self.request.profile.name, self.request.profile.user, self.request.profile.address),
             format!("Configuration: {}", self.request.configuration_host),
             format!("Reviewed commit: {}", self.request.revision),
-            format!("macOS {}, {}; UID {}; {:.1} GiB free", self.inspection.mac_os, self.inspection.architecture, self.inspection.uid, self.inspection.free_gib),
+            format!("macOS {}, {}; UID {}; {}", self.inspection.mac_os, self.inspection.architecture, self.inspection.uid, self.inspection.storage_label()),
             format!("Enabled services: {}", if self.services.is_empty() { "none".into() } else { self.services.join(", ") }),
             "Transfer the verified helper and this host's age identity. The Git private key stays on the target.".into(),
             "Install Nix if absent, verify the reviewed configuration, install its host key, and activate it.".into(),
@@ -166,7 +167,7 @@ impl Error {
                 "Reconnect using the existing verified route and inspect target setup state before retrying. Do not assume bootstrap or a privileged process stopped."
             }
             Failure::Bootstrap => {
-                "Inspect the target's private setup journal before retrying; uncertain mutation phases cannot automatically resume."
+                "Reopen this saved setup to verify completed steps and resume safely. Target diagnostics: ~/.local/state/homelab/bootstrap/diagnostics.jsonl."
             }
             Failure::Reconnect => {
                 "Configuration activation completed, but SSH reconnect failed. Inspect access locally; do not delete saved fingerprints or rerun bootstrap blindly."
@@ -339,7 +340,9 @@ pub fn prepare(request: Request, tools: &Tools) -> Result<PreparedSetup, Error> 
     {
         return Err(Error::new(Failure::Inputs));
     }
-    if inventory::validate_profile(&request.profile).is_err()
+    if request.repair_from.as_ref().is_some_and(|from| {
+        !request.resume || !crate::config::valid_revision(from) || from == &request.revision
+    }) || inventory::validate_profile(&request.profile).is_err()
         || request.revision.len() != 40
         || !request
             .revision
@@ -419,8 +422,7 @@ pub fn prepare(request: Request, tools: &Tools) -> Result<PreparedSetup, Error> 
         .hosts
         .get(&request.configuration_host)
         .ok_or_else(|| Error::new(Failure::Artifact))?;
-    if !host.activation_ready
-        || host.authorized_keys.is_empty()
+    if host.authorized_keys.is_empty()
         || host.authorized_keys.iter().any(|key| key.trim().is_empty())
         || host.admin_user != admin
         || host.admin_uid == 0
@@ -694,7 +696,7 @@ fn stage_helper(
     Ok((stage, digest))
 }
 
-/// Called after setup approval, with the terminal released for administrator authentication.
+/// Called after setup approval; native authentication uses the active terminal adapter.
 pub fn install_developer_tools(
     profile: &HostProfile,
     helper: &Path,
@@ -711,8 +713,7 @@ pub fn install_developer_tools(
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    let status = command
-        .status()
+    let status = crate::terminal_process::status(&mut command)
         .map_err(|_| Error::staged(Failure::UnknownOutcome, &stage))?;
     if status.code().is_none_or(|code| code >= 128) {
         return Err(Error::staged(Failure::UnknownOutcome, &stage));
@@ -815,14 +816,19 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
     // These values have restricted alphabets or are the validated mktemp path.
     // Secret values are transferred as files and never enter a shell command.
     let remote = format!(
-        "HOMELAB_BOOTSTRAP_APPROVED='{}' '{stage}/homelab-host' bootstrap '{}' '{}' '{stage}/host.age' '{}' --repository '{}' --attempt '{}' --manifest '{stage}/setup-plan.json'{}",
+        "HOMELAB_BOOTSTRAP_APPROVED='{}' '{stage}/homelab-host' bootstrap '{}' '{}' '{stage}/host.age' '{}' --repository '{}' --attempt '{}' --manifest '{stage}/setup-plan.json'{}{}",
         request.configuration_host,
         request.configuration_host,
         request.revision,
         request.deploy_key.display(),
         request.repository,
         request.attempt,
-        if request.resume { " --resume" } else { "" }
+        if request.resume { " --resume" } else { "" },
+        request
+            .repair_from
+            .as_ref()
+            .map(|from| format!(" --repair-from {from}"))
+            .unwrap_or_default()
     );
     let (mut bootstrap, _bootstrap_identity) = ssh(&request.profile, tools, true)
         .map_err(|_| failed_before_start(&request.profile, tools, stage, Failure::Bootstrap))?;
@@ -831,14 +837,8 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    // The terminal belongs to SSH while sudo authenticates on the target. An
-    // interrupted connection is not evidence that its privileged work stopped.
-    eprintln!("Private remote setup files: {stage}");
-    eprintln!(
-        "If this session is interrupted, inspect target setup state before retrying or removing those files."
-    );
-    let status = bootstrap
-        .status()
+    // An interrupted connection is not evidence that privileged work stopped.
+    let status = crate::terminal_process::status(&mut bootstrap)
         .map_err(|_| Error::staged(Failure::UnknownOutcome, stage))?;
     // Remote shells can report interruption as 128 + signal, rather than SSH's
     // transport-failure status 255. Neither confirms that privileged work stopped.

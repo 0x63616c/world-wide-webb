@@ -111,6 +111,12 @@ fn main() {
                     repo.join("bootstrap/installer.json"),
                 )
                 .unwrap();
+            } else if args.iter().any(|arg| arg == "diff") {
+                event(root, "repair-protected-files");
+                if flag("repair-changed-inputs") { fail(); }
+            } else if args.iter().any(|arg| arg == "merge-base") {
+                event(root, "repair-ancestry");
+                if flag("repair-not-descendant") { fail(); }
             } else if args.iter().any(|arg| arg == "rev-parse") {
                 println!(
                     "{}",
@@ -134,6 +140,7 @@ fn main() {
                 println!("nix fixture");
             } else if args[0] == "eval" {
                 event(root, "evaluate");
+                if flag("evaluation-fails") { fail(); }
                 if flag("build-supervision-fails") {
                     fs::remove_file(root.join("nix")).unwrap();
                 }
@@ -167,7 +174,13 @@ fn main() {
                 return;
             }
             assert_eq!(args[0], "-n");
-            if args.iter().any(|arg| arg == "bootstrap-key-status") {
+if args.iter().any(|arg| arg == "bootstrap-nix-status") {
+    event(root, "nix-status");
+    assert_eq!(after("--version"), "1.2.3");
+    std::process::exit(if flag("nix-confirmed") { 0 } else { 1 });
+}
+if args.iter().any(|arg| arg == "bootstrap-key-status") {
+
                 std::process::exit(if flag("existing-key") { 0 } else { 3 });
             }
             if args.iter().any(|arg| arg == "bootstrap-activation-status") {
@@ -202,6 +215,8 @@ fn main() {
                 );
                 event(root, "install-nix");
                 symlink(&executable, root.join("installed-nix")).unwrap();
+                if !flag("nix-unconfirmed") { fs::write(root.join("nix-confirmed"), "").unwrap(); }
+                if flag("installer-exit-fails") { fail(); }
             } else if args.iter().any(|arg| arg == "bootstrap-activate")
                 || args.get(2).is_some_and(|arg| arg == "switch")
             {

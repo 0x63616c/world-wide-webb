@@ -1,15 +1,14 @@
 //! Interactive first setup; credentials stay in files and sudo owns its terminal.
+use crate::ui::actions::Action;
 #[path = "ui/checklist.rs"]
 mod checklist;
 use checklist::{Checklist, Step};
 
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 
-use crossterm::cursor::MoveTo;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
-use crossterm::queue;
-use crossterm::terminal::{self, Clear, ClearType};
+use crossterm::terminal;
 
 use crate::inventory::{self, AgentIdentity, HostProfile};
 use crate::remote_setup::{self, Request};
@@ -17,7 +16,12 @@ use crate::tui::{Terminal, footer, wrap};
 use crate::ui::{self, Role};
 use crate::{config, first_access, inspect, package};
 
-fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> io::Result<usize> {
+fn render(
+    title: &str,
+    body: &[(String, Role)],
+    offset: usize,
+    footer: &[Action],
+) -> io::Result<usize> {
     render_with_link(title, body, offset, footer, None)
 }
 
@@ -25,73 +29,19 @@ fn render_with_link(
     title: &str,
     body: &[(String, Role)],
     offset: usize,
-    footer: &str,
+    footer: &[Action],
     link: Option<&str>,
 ) -> io::Result<usize> {
-    let (width, height) = terminal::size()?;
-    let mut output = Vec::new();
-    queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
-    if width < 40 || height < 12 {
-        write!(output, "Enlarge terminal to 40 columns / 12 rows.")?;
-        flush_frame(&output)?;
-        return Ok(0);
+    if let Some(url) = link {
+        let mut linked_body = body.to_vec();
+        linked_body.push((url.to_owned(), Role::Action));
+        ui::render(title, &linked_body, offset, footer)
+    } else {
+        ui::render(title, body, offset, footer)
     }
-    let width = ui::content_width(width);
-    let footer = ui::help_lines(footer, width);
-    let wrapped: Vec<_> = body
-        .iter()
-        .flat_map(|(text, role)| {
-            wrap(std::slice::from_ref(text), width)
-                .into_iter()
-                .map(|line| (line, *role))
-        })
-        .collect();
-    let room = usize::from(height).saturating_sub(footer.len() + 5);
-    let last = wrapped.len().saturating_sub(room);
-    queue!(output, MoveTo(2, 1))?;
-    ui::paint(
-        &mut output,
-        &title.chars().take(width).collect::<String>(),
-        Role::Heading,
-    )?;
-    let visible = wrapped.iter().skip(offset.min(last)).take(room);
-    let mut row = 3;
-    for (line, role) in visible {
-        queue!(output, MoveTo(2, row))?;
-        if line == "Open enrollment PR"
-            && let Some(url) = link
-        {
-            write!(output, "\x1b]8;;{url}\x1b\\")?;
-            ui::paint(&mut output, line, Role::Action)?;
-            write!(output, "\x1b]8;;\x1b\\")?;
-        } else if matches!(role, Role::Body) {
-            ui::paint_fact(&mut output, line)?;
-        } else {
-            ui::paint(&mut output, line, *role)?;
-        }
-        row += 1;
-    }
-    // Keep the next action next to the content, even in a tall terminal.
-    for (index, line) in footer.iter().enumerate() {
-        queue!(output, MoveTo(2, row + 1 + index as u16))?;
-        ui::paint(
-            &mut output,
-            line,
-            if index == 0 { Role::Action } else { Role::Help },
-        )?;
-    }
-    flush_frame(&output)?;
-    Ok(last)
 }
 
-fn flush_frame(frame: &[u8]) -> io::Result<()> {
-    // Emit the clear and complete replacement together, not as separate writes.
-    let mut output = io::stdout().lock();
-    output.write_all(frame)?;
-    output.flush()
-}
-
-pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<usize> {
+pub(crate) fn draw(lines: &[String], offset: usize, footer: &[Action]) -> io::Result<usize> {
     let Some((title, body)) = lines.split_first() else {
         return Ok(0);
     };
@@ -100,8 +50,24 @@ pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<
         .cloned()
         .enumerate()
         .map(|(index, line)| {
-            let role = if line.starts_with("> ") {
+            let role = if line.starts_with("Repo: ") {
+                Role::Repository
+            } else if line.starts_with("> ") {
                 Role::Selected
+            } else if line.starts_with("    ") {
+                if index > 0 && body[index - 1].starts_with("> ") {
+                    Role::SelectedDetail
+                } else {
+                    Role::ListDetail
+                }
+            } else if line.starts_with("  ") {
+                Role::ListOption
+            } else if line.starts_with("✓ ") {
+                Role::Success
+            } else if line.starts_with("Configuration: ") || line.starts_with("SSH: ") {
+                Role::Field
+            } else if crate::host_status::Status::is_label(&line) {
+                Role::Hint
             } else if line.starts_with("! ") {
                 Role::Warning
             } else if line.ends_with(':') && line.len() <= 32 {
@@ -118,6 +84,9 @@ pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<
 }
 
 pub(crate) fn key() -> io::Result<KeyCode> {
+    if crate::quit::requested() {
+        return Ok(KeyCode::Esc);
+    }
     loop {
         let event = event::read()?;
         if matches!(event, Event::Resize(..)) {
@@ -127,8 +96,9 @@ pub(crate) fn key() -> io::Result<KeyCode> {
             if key.kind == event::KeyEventKind::Release {
                 continue;
             }
-            if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-                return Ok(KeyCode::Esc);
+            let code = crate::quit::handle(key);
+            if code == KeyCode::Null || crate::quit::requested() {
+                return Ok(code);
             }
             if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('u') {
                 return Ok(KeyCode::Char('\u{15}'));
@@ -222,7 +192,7 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
         ),
         Error::ConnectionRefused => (
             "Remote Login unavailable",
-            "Enable Remote Login for this account on the target Mac, then check its address.",
+            "Enable Remote Login for the Git administrator on the target Mac.",
             vec![Check],
         ),
         Error::ConnectionTimeout => (
@@ -232,7 +202,7 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
         ),
         Error::NameResolution => (
             "Address not found",
-            "Check the address saved in this connection profile.",
+            "Set the Mac’s local hostname to its Git host name, then connect from the same local network.",
             vec![Check],
         ),
         Error::AgentRefused => (
@@ -252,7 +222,7 @@ fn failure_screen(error: &first_access::Error) -> (&'static str, &'static str, V
         ),
         _ => (
             "Connection not verified",
-            "Check Remote Login and the address. The cause is unknown.",
+            "Check Remote Login, the Mac’s local hostname and your network.",
             vec![Check, InstallKey],
         ),
     }
@@ -286,18 +256,19 @@ pub(crate) fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<us
                 if index == selected {
                     Role::Selected
                 } else {
-                    Role::Body
+                    Role::ListOption
                 },
             )
         }));
-        let navigation = if actions.len() > 1 {
-            "↑/↓ select · Esc back"
+        let navigation: &[Action] = if actions.len() > 1 {
+            &[Action::Navigation, Action::Help, Action::Back]
         } else {
-            "Esc back"
+            &[Action::Help, Action::Back]
         };
-        render(&lines[0], &content, 0, &footer("Select", navigation))?;
+        ui::render_selected(&lines[0], &content, &footer("Select", navigation))?;
         match key()? {
-            KeyCode::Esc => return Ok(None),
+            code if Action::Help.matches(code) => ui::help()?,
+            code if Action::Back.matches(code) => return Ok(None),
             KeyCode::Enter if usable_size()? => return Ok(Some(selected)),
             KeyCode::Up => {
                 selected = selected.saturating_sub(1);
@@ -324,30 +295,40 @@ pub(crate) fn choose(lines: &[String], actions: &[&str]) -> io::Result<Option<us
 }
 
 pub(crate) fn review(lines: &[String], primary: &str) -> io::Result<bool> {
+    review_screen(primary, |offset, actions| draw(lines, offset, actions))
+}
+
+pub(crate) fn review_content(
+    title: &str,
+    body: &[(String, Role)],
+    primary: &str,
+) -> io::Result<bool> {
+    review_screen(primary, |offset, actions| {
+        render(title, body, offset, actions)
+    })
+}
+
+fn review_screen(
+    primary: &str,
+    mut draw: impl FnMut(usize, &[Action]) -> io::Result<usize>,
+) -> io::Result<bool> {
     let mut offset = 0;
     loop {
-        let last = draw(lines, offset, &footer(primary, "Esc back"))?;
-        if last > 0 {
-            let action = if offset < last {
-                "Read more before approval"
-            } else {
-                primary
-            };
-            draw(
-                lines,
-                offset,
-                &footer(
-                    action,
-                    &format!("↑/↓ read {}/{} · Esc back", offset + 1, last + 1),
-                ),
-            )?;
-        }
+        // Approval uses the viewport actually shown; changing footer height
+        // between measurement and drawing can otherwise hide the final lines.
+        let last = draw(
+            offset,
+            &footer(primary, &[Action::Navigation, Action::Help, Action::Back]),
+        )?;
         match key()? {
-            KeyCode::Esc => return Ok(false),
+            code if Action::Help.matches(code) => ui::help()?,
+            code if Action::Back.matches(code) => return Ok(false),
             KeyCode::Down | KeyCode::PageDown => offset = (offset + 1).min(last),
             KeyCode::Up | KeyCode::PageUp => offset = offset.saturating_sub(1),
-            KeyCode::Enter if offset >= last && usable_size()? => return Ok(true),
-            KeyCode::Enter => offset = (offset + 3).min(last),
+            KeyCode::Enter if !primary.is_empty() && offset >= last && usable_size()? => {
+                return Ok(true);
+            }
+            KeyCode::Enter if !primary.is_empty() => offset = (offset + 3).min(last),
             _ => {}
         }
     }
@@ -362,7 +343,7 @@ fn public_key_lines(value: &str, error: Option<&str>, width: usize) -> Vec<Strin
         .into_iter()
         .rev()
         .collect();
-    let mut lines = vec!["Choose your public key".into()];
+    let mut lines = vec!["Which public-key file should we use?".into()];
     if let Some(message) = error {
         lines.push(format!("! {message}"));
     }
@@ -386,9 +367,27 @@ fn public_key(tools: &first_access::Tools) -> io::Result<Option<first_access::Pu
             error.as_deref(),
             usize::from(width).saturating_sub(4).min(76),
         );
-        draw(&lines, 0, &footer("Review key", "Ctrl-U clear · Esc back"))?;
+        let body = lines[1..]
+            .iter()
+            .map(|line| {
+                let role = if line.starts_with("> ") {
+                    Role::Input
+                } else if line.starts_with("! ") {
+                    Role::Warning
+                } else {
+                    Role::Body
+                };
+                (line.clone(), role)
+            })
+            .collect::<Vec<_>>();
+        render(
+            &lines[0],
+            &body,
+            0,
+            &footer("Review key", &[Action::Clear, Action::Back]),
+        )?;
         match key()? {
-            KeyCode::Esc => return Ok(None),
+            code if Action::Back.matches(code) => return Ok(None),
             KeyCode::Enter if !value.is_empty() && usable_size()? => {
                 match first_access::prepare_public_key(&PathBuf::from(&value), tools) {
                     Ok(key) => return Ok(Some(key)),
@@ -429,11 +428,7 @@ fn agent_key_lines(
     let start = selected
         .saturating_sub(count - 1)
         .min(keys.len().saturating_sub(count));
-    let mut lines = vec![
-        "Choose an SSH key".into(),
-        format!("Key {} of {}", selected + 1, keys.len()),
-        String::new(),
-    ];
+    let mut lines = vec!["Which SSH key do you want to use?".into()];
     for (index, (label, fingerprint)) in keys.iter().enumerate().skip(start).take(count) {
         let label = if label.is_empty() {
             "Unnamed SSH key"
@@ -445,7 +440,7 @@ fn agent_key_lines(
             "{} {name}",
             if index == selected { ">" } else { " " }
         ));
-        lines.push((*fingerprint).into());
+        lines.push(format!("    {fingerprint}"));
     }
     lines
 }
@@ -470,10 +465,10 @@ fn select_agent_key(mut keys: Vec<first_access::AgentKey>) -> io::Result<Option<
         draw(
             &lines,
             0,
-            &footer("Review this key", "↑/↓ select · Esc back"),
+            &footer("Review this key", &[Action::Navigation, Action::Back]),
         )?;
         match key()? {
-            KeyCode::Esc => return Ok(None),
+            code if Action::Back.matches(code) => return Ok(None),
             KeyCode::Up => selected = selected.saturating_sub(1),
             KeyCode::Down => selected = (selected + 1).min(keys.len() - 1),
             KeyCode::Enter if usable_size()? => {
@@ -496,7 +491,7 @@ fn choose_key_source(
     loop {
         let Some(source) = choose(
             &[
-                "Choose a key source".into(),
+                "Where is your SSH key?".into(),
                 "Private keys stay on your Mac.".into(),
             ],
             if agent_only {
@@ -536,15 +531,29 @@ fn choose_key_source(
             continue;
         };
         loop {
-            draw(
-                &[
-                    "Reading agent public keys".into(),
-                    "Your SSH agent may ask you to unlock or approve.".into(),
-                ],
-                0,
-                "Please wait",
+            let result = ui::loading::run(
+                || {
+                    render(
+                        "Where is your SSH key?",
+                        &[
+                            ("Reading SSH keys".into(), Role::Working),
+                            (String::new(), Role::Body),
+                            (
+                                "Your SSH agent may ask you to approve.".into(),
+                                Role::Context,
+                            ),
+                        ],
+                        0,
+                        &[Action::Quit],
+                    )
+                    .map(|_| ())
+                },
+                || first_access::list_agent_keys(&socket, tools),
             )?;
-            match first_access::list_agent_keys(&socket, tools) {
+            if crate::quit::requested() {
+                return Ok(None);
+            }
+            match result {
                 Ok(keys) => match select_agent_key(keys)? {
                     Some(key) => return Ok(Some(key)),
                     None => break,
@@ -552,6 +561,7 @@ fn choose_key_source(
                 Err(error) => {
                     let next = choose(
                         &[
+                            "Where is your SSH key?".into(),
                             "SSH agent unavailable".into(),
                             error.to_string(),
                             error.next_action().into(),
@@ -582,11 +592,47 @@ fn installation_required(
     }
 }
 
+#[derive(Clone, Copy)]
+enum ConnectionStage {
+    Connecting,
+    Inspecting,
+}
+
+fn connection_progress(profile: &HostProfile, stage: ConnectionStage) -> io::Result<()> {
+    use crate::ui::components::ProgressState;
+    let (connection, inspection) = match stage {
+        ConnectionStage::Connecting => (
+            ProgressState::Running.row("Connecting over SSH"),
+            ProgressState::Pending.row("Check Mac"),
+        ),
+        ConnectionStage::Inspecting => (
+            ProgressState::Complete.row("Connected over SSH"),
+            ProgressState::Running.row("Checking Mac"),
+        ),
+    };
+    render(
+        &format!("Connecting to {}", profile.name),
+        &[
+            (
+                format!("{}@{}", profile.user, profile.address),
+                Role::Context,
+            ),
+            (String::new(), Role::Body),
+            connection,
+            (String::new(), Role::Body),
+            inspection,
+        ],
+        0,
+        &[Action::Quit],
+    )?;
+    Ok(())
+}
+
 fn connect(
     profile: &mut HostProfile,
     inventory_path: &Path,
     tools: &first_access::Tools,
-    terminal: &mut Terminal,
+    _terminal: &mut Terminal,
 ) -> io::Result<AccessOutcome> {
     let mut changes = AccessChanges::default();
     let mut existing_access_worked = false;
@@ -625,16 +671,10 @@ fn connect(
                 } else {
                     first_access::Trust::Strict
                 };
-                draw(
-                    &[
-                        "Checking SSH access".into(),
-                        "Trying your SSH identity. No password prompt.".into(),
-                        "Your SSH agent may ask you to approve.".into(),
-                    ],
-                    0,
-                    "Please wait",
-                )?;
-                first_access::check_key_access(profile, tools, trust)
+                ui::loading::run(
+                    || connection_progress(profile, ConnectionStage::Connecting),
+                    || first_access::check_key_access(profile, tools, trust),
+                )?
             }
             AccessAction::InstallKey => {
                 let Some(selected_key) = choose_key_source(tools, false)? else {
@@ -642,9 +682,9 @@ fn connect(
                 };
                 let is_agent = selected_key.identity.is_some();
                 let route = if is_agent {
-                    "Route: direct SSH, port 22. Ignore custom SSH configuration."
+                    "Connect directly using this key."
                 } else {
-                    "Route: existing SSH configuration. Clear the saved agent-key selection."
+                    "Use your SSH configuration instead of the saved agent key."
                 };
                 if !review(
                     &[
@@ -661,12 +701,7 @@ fn connect(
                             "Install this public key, then verify configured SSH access."
                         }.into(),
                         String::new(),
-                        "Installation".into(),
-                        "• Keep all existing public keys".into(),
-                        "• .ssh permissions: 0700".into(),
-                        "• authorized_keys permissions: 0600".into(),
-                        "Password: entered in SSH, never stored.".into(),
-                        "Interrupted install may leave the key.".into(),
+                        "Existing keys are kept. Your password is never stored.".into(),
                     ],
                     "Use this key",
                 )? {
@@ -680,19 +715,16 @@ fn connect(
                     })),
                 }
                 let required = if is_agent {
-                    draw(
-                        &[
-                            "Checking this SSH identity".into(),
-                            "Your SSH agent may ask you to approve.".into(),
-                        ],
-                        0,
-                        "Please wait",
-                    )?;
-                    installation_required(first_access::check_key_access(
-                        profile,
-                        tools,
-                        first_access::Trust::Strict,
-                    ))
+                    installation_required(ui::loading::run(
+                        || connection_progress(profile, ConnectionStage::Connecting),
+                        || {
+                            first_access::check_key_access(
+                                profile,
+                                tools,
+                                first_access::Trust::Strict,
+                            )
+                        },
+                    )?)
                 } else {
                     // A configured default key cannot prove this chosen file's identity.
                     Ok(true)
@@ -705,21 +737,11 @@ fn connect(
                     Err(error) => Err(error),
                     Ok(true) => {
                         changes.key_attempted = true;
-                        terminal.suspend()?;
-                        println!(
-                            "Installing your approved public key. Enter the target account password at SSH's prompt."
-                        );
-                        let result =
-                            first_access::install_public_key(profile, tools, &selected_key.key);
-                        if result.is_err() {
-                            println!(
-                                "Read SSH's message above. Press Enter to return to the setup menu."
-                            );
-                            let mut acknowledgement = String::new();
-                            io::stdin().read_line(&mut acknowledgement)?;
-                        }
-                        terminal.resume()?;
-                        result
+                        crate::terminal_process::within(
+                            "Connecting to your Mac",
+                            &profile.name,
+                            || first_access::install_public_key(profile, tools, &selected_key.key),
+                        )
                     }
                 }
             }
@@ -727,23 +749,21 @@ fn connect(
         if let Err(error) = result {
             let (title, message, next) = failure_screen(&error);
             screen = vec![
-                title.into(),
+                "How do you want to connect?".into(),
                 format!("{}@{}", profile.user, profile.address),
+                title.into(),
                 message.into(),
             ];
             actions = next;
             continue;
         }
-        draw(
-            &[
-                "Reading host details".into(),
-                "SSH connected. Checking macOS, account and storage.".into(),
-                "Your SSH agent may ask you to approve.".into(),
-            ],
-            0,
-            "Please wait",
-        )?;
-        let inspection = match inspect::inspect(profile, &tools.ssh) {
+        if crate::quit::requested() {
+            return Ok(AccessOutcome::Finished(cancelled(changes)));
+        }
+        let inspection = match ui::loading::run(
+            || connection_progress(profile, ConnectionStage::Inspecting),
+            || inspect::inspect(profile, &tools.ssh),
+        )? {
             Ok(inspection) => inspection,
             Err(error) => {
                 screen = vec![
@@ -756,14 +776,28 @@ fn connect(
             }
         };
         if inspection.is_ready() {
+            if !review(
+                &[
+                    format!("Connecting to {}", profile.name),
+                    format!("{}@{}", profile.user, profile.address),
+                    String::new(),
+                    "✓ Connected over SSH".into(),
+                    "✓ Mac checked".into(),
+                ],
+                "Continue",
+            )? {
+                return Ok(AccessOutcome::Finished(cancelled(changes)));
+            }
             return Ok(AccessOutcome::Continue(changes));
         }
         let mut lines = vec![
             "SSH access verified".into(),
             format!("macOS {} | {}", inspection.mac_os, inspection.architecture),
             format!(
-                "{} (UID {}) | {:.1} GiB free",
-                inspection.user, inspection.uid, inspection.free_gib
+                "{} (UID {}) | {}",
+                inspection.user,
+                inspection.uid,
+                inspection.storage_label()
             ),
             "Host setup has not started.".into(),
         ];
@@ -786,15 +820,20 @@ pub(crate) fn usable_size() -> io::Result<bool> {
     Ok(width >= 40 && height >= 12)
 }
 
-pub(crate) fn attached_workspace(path: &Path) -> io::Result<Option<config::Workspace>> {
-    draw(
+pub(crate) fn repository_progress(repository: &str) -> io::Result<()> {
+    render(
+        "Opening homelab",
         &[
-            "Loading configuration".into(),
-            "Reading the attached repository through GitHub CLI.".into(),
+            (format!("Repo: {repository}"), Role::Repository),
+            ("› Reading configuration".into(), Role::Working),
         ],
         0,
-        "Please wait",
+        &[Action::Quit],
     )?;
+    Ok(())
+}
+
+pub(crate) fn attached_workspace(path: &Path) -> io::Result<Option<config::Workspace>> {
     match config::load(path) {
         Ok(Some(workspace)) => return Ok(Some(workspace)),
         Ok(None) => {}
@@ -812,32 +851,37 @@ pub(crate) fn attached_workspace(path: &Path) -> io::Result<Option<config::Works
     }
     let mut repository = String::new();
     loop {
-        draw(
-            &[
-                "Attach your configuration".into(),
-                "GitHub repository: owner/name".into(),
-                "The CLI reads homelab.json at a pinned commit.".into(),
-                format!("> {repository}"),
-            ],
+        render(
+            "Which repo do you want to use?",
+            &[if repository.is_empty() {
+                ("owner/repo".into(), Role::Placeholder)
+            } else {
+                (repository.clone(), Role::Input)
+            }],
             0,
-            &footer("Open repository", "Ctrl-U clear · Esc back"),
+            &footer("Continue", &[Action::Clear, Action::Back]),
         )?;
         match key()? {
-            KeyCode::Esc => return Ok(None),
+            code if Action::Back.matches(code) => return Ok(None),
             KeyCode::Backspace => {
                 repository.pop();
             }
             KeyCode::Char('\u{15}') => repository.clear(),
-            KeyCode::Char(character) if character.is_ascii_graphic() && repository.len() < 200 => {
+            KeyCode::Char(character) if character.is_ascii_graphic() && repository.len() < 512 => {
                 repository.push(character)
             }
             KeyCode::Enter if usable_size()? => {
-                draw(
-                    &["Reading repository".into(), repository.clone()],
-                    0,
-                    "Please wait",
+                let result = ui::loading::run(
+                    || repository_progress(&repository),
+                    || {
+                        config::parse_repository(&repository)
+                            .and_then(|name| config::attach(&name, path))
+                    },
                 )?;
-                match config::attach(&repository, path) {
+                if crate::quit::requested() {
+                    return Ok(None);
+                }
+                match result {
                     Ok(workspace) => return Ok(Some(workspace)),
                     Err(error) => {
                         review(
@@ -1007,12 +1051,12 @@ fn run_with_dependencies(
                 .filter(|host| crate::config::valid_host(host))
                 .collect::<Vec<_>>();
             if !review(&[
-                "Bind existing preparation".into(),
+                "Use these saved keys?".into(),
                 format!("Repository: {}",workspace.repository),
                 format!("Private state: {}",root.display()),
                 format!("Existing hosts: {}",legacy_hosts.join(", ")),
                 "Existing identities will be bound to this repository. Continue only if they belong to it.".into(),
-            ],"Bind existing preparation")? {return Ok(cancelled(changes));}
+            ],"Use these saved keys?")? {return Ok(cancelled(changes));}
         }
         if let Err(error) = crate::provisioning::bind_repository(root, &workspace.repository) {
             return Ok(Outcome {
@@ -1097,11 +1141,12 @@ fn check_enrollment_tools(
 }
 
 fn queued_cancellation() -> io::Result<bool> {
-    while event::poll(std::time::Duration::ZERO)? {
+    if crate::quit::requested() {
+        return Ok(true);
+    }
+    while event::poll(std::time::Duration::from_millis(1))? {
         if let Event::Key(key) = event::read()?
-            && (key.code == KeyCode::Esc
-                || (key.code == KeyCode::Char('c')
-                    && key.modifiers.contains(KeyModifiers::CONTROL)))
+            && crate::quit::handle(key) == KeyCode::Esc
         {
             return Ok(true);
         }
@@ -1143,7 +1188,7 @@ fn enroll(
     host_name: &str,
     inventory_path: &Path,
     dependencies: (&WizardTools, &EnrollmentDependencies),
-    terminal: &mut Terminal,
+    _terminal: &mut Terminal,
 ) -> io::Result<Outcome> {
     let (tools, dependencies) = dependencies;
     if let Err(error) =
@@ -1225,23 +1270,22 @@ fn enroll(
     if saved_approval.is_none()
         && !review(
             &[
-                format!("Set up {host_name}"),
+                format!("Set up {host_name}?"),
                 format!(
-                    "{}@{} · {:.0} GiB free",
-                    profile.user, profile.address, inspection.free_gib
+                    "{}@{} · {}",
+                    profile.user,
+                    profile.address,
+                    inspection.storage_label()
                 ),
-                format!("Configuration: {}", workspace.repository),
+                format!("Repo: {}", workspace.repository),
                 String::new(),
-                "Automatic setup:".into(),
-                "Install missing Apple developer tools.".into(),
-                "Back up keys; encrypt secrets.".into(),
-                "Commit setup to main; install it.".into(),
-                "Reboot; verify access and Git updates.".into(),
+                "Prepare · Back up keys and prepare this Mac.".into(),
                 String::new(),
-                "May need attention:".into(),
-                "Mac password or 1Password approval.".into(),
-                "PR review if Git policy requires it.".into(),
-                "FileVault unlock after reboot.".into(),
+                "Install · Save configuration in Git and install it.".into(),
+                String::new(),
+                "Verify · Restart and check remote access and Git updates.".into(),
+                String::new(),
+                "FileVault may require a local unlock after restart.".into(),
             ],
             "Begin setup",
         )?
@@ -1252,7 +1296,7 @@ fn enroll(
     }
     let mut checklist = Checklist::new(host_name);
     checklist.begin(Step::Tools, "Checking required developer tools");
-    checklist.draw("D Details")?;
+    checklist.draw(&[Action::Help])?;
     if checklist.stop_requested()? {
         return Ok(enrollment_failure(
             "Setup cancelled before prerequisite installation.",
@@ -1263,19 +1307,15 @@ fn enroll(
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
         };
-        terminal.suspend()?;
-        println!("{}", checklist.native_status());
-        println!(
-            "Installing required Command Line Tools on {host_name}. Enter that Mac's administrator password if asked."
-        );
-        if let Err(error) = remote_setup::install_developer_tools(
-            profile,
-            &package.directory.join("homelab-host"),
-            &tools.remote_setup,
-        ) {
+        if let Err(error) = crate::terminal_process::within("Preparing your Mac", host_name, || {
+            remote_setup::install_developer_tools(
+                profile,
+                &package.directory.join("homelab-host"),
+                &tools.remote_setup,
+            )
+        }) {
             return Ok(remote_setup_failure(error));
         }
-        terminal.resume()?;
     }
     checklist.done(Step::Tools);
     let cancelled = || {
@@ -1326,15 +1366,14 @@ fn enroll(
         }
         if let Some(revision) = &identity.activated_revision {
             checklist.begin(Step::Verify, "Checking the existing activated setup");
-            checklist.draw("Native authentication may appear")?;
+            checklist.draw(&[Action::Help])?;
             let installed = match config::fetch_revision(&workspace.repository, revision) {
                 Ok(workspace) => workspace,
                 Err(error) => return Ok(enrollment_failure(error)),
             };
-            terminal.suspend()?;
-            println!("{}", checklist.native_status());
-            let outcome = finish_enrollment(profile, host_name, &installed, tools, dependencies);
-            terminal.resume()?;
+            let outcome = crate::terminal_process::within("Verifying your Mac", host_name, || {
+                finish_enrollment(profile, host_name, &installed, tools, dependencies)
+            });
             if outcome.completed {
                 checklist.done(Step::Verify);
             }
@@ -1343,7 +1382,7 @@ fn enroll(
             } else {
                 "Verification needs attention; saved progress is retained."
             });
-            checklist.draw("Setup result follows")?;
+            checklist.draw(&[Action::Quit])?;
             return Ok(outcome);
         }
         let has_approval = match crate::provisioning::approved_installation(root, host_name) {
@@ -1483,7 +1522,12 @@ fn enroll(
                         }
                         next_poll = std::time::Instant::now() + std::time::Duration::from_secs(5);
                     }
-                    checklist.draw("O Open PR · D Details · ↑/↓ Read · Esc Save and exit")?;
+                    checklist.draw(&[
+                        Action::OpenPr,
+                        Action::Help,
+                        Action::Navigation,
+                        Action::SaveAndExit,
+                    ])?;
                     if checklist.cancelled {
                         return Ok(save_and_release(
                             &pull.html_url,
@@ -1538,9 +1582,14 @@ fn enroll(
             }
             Err(error) => return Ok(enrollment_failure(error)),
         }
+        let (approved, repair_from) =
+            match crate::setup_repair::resolve(&api, root, approved, host_name) {
+                Ok(repaired) => repaired,
+                Err(error) => return Ok(enrollment_failure(error)),
+            };
         checklist.done(Step::Configuration);
         checklist.begin(Step::Install, "Preparing the exact approved installation");
-        checklist.draw("D Details · Esc Stop before installation")?;
+        checklist.draw(&[Action::Help, Action::StopBeforeInstallation])?;
         let package = match package::prepare(&approved) {
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
@@ -1559,6 +1608,7 @@ fn enroll(
                 age_key: credentials.host_key_path,
                 deploy_key: identity.path,
                 resume: true,
+                repair_from,
             },
             &tools.remote_setup,
         ) {
@@ -1575,16 +1625,19 @@ fn enroll(
                 identity.bootstrap_started,
             ));
         }
-        terminal.suspend()?;
-        println!("{}", checklist.native_status());
-        println!("Installing on {host_name}. SSH may ask for the Mac's administrator password.");
-        match remote_setup::apply(prepared, &tools.remote_setup) {
+        match crate::terminal_process::within("Installing your Mac", host_name, || {
+            remote_setup::apply(prepared, &tools.remote_setup)
+        }) {
             Ok(_) => {
                 checklist.done(Step::Install);
+                if !checklist.checkpoint("Installation complete.")? {
+                    return Ok(cancelled());
+                }
                 checklist.begin(Step::Verify, "Checking reboot, services and Git updates");
-                println!("Verifying reboot and Git updates. Native authentication may appear.");
-                let outcome = finish_enrollment(profile, host_name, &approved, tools, dependencies);
-                terminal.resume()?;
+                let outcome =
+                    crate::terminal_process::within("Verifying your Mac", host_name, || {
+                        finish_enrollment(profile, host_name, &approved, tools, dependencies)
+                    });
                 if outcome.completed {
                     checklist.done(Step::Verify);
                 }
@@ -1593,7 +1646,7 @@ fn enroll(
                 } else {
                     "Verification needs attention; saved progress is retained."
                 });
-                checklist.draw("Setup result follows")?;
+                checklist.draw(&[Action::Quit])?;
                 Ok(outcome)
             }
             Err(error) => Ok(remote_setup_failure(error)),
@@ -1630,7 +1683,7 @@ fn finish_enrollment(
             revision: &workspace.revision,
             tag: &tailscale.tag,
         },
-        |message| println!("{message}"),
+        crate::terminal_process::progress,
     ) {
         Ok(report) => Outcome {
             completed: true,
@@ -1651,6 +1704,7 @@ fn finish_enrollment(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[test]
     fn unclaimed_renewals_refresh_main_but_claimed_installations_keep_their_revision() {
@@ -1742,7 +1796,9 @@ mod tests {
             return;
         }
         let temporary = tempfile::tempdir().unwrap();
-        let root = temporary.path().join(".local/state/homelab/provisioning");
+        let root = temporary
+            .path()
+            .join(".homelab/profiles/default/provisioning");
         crate::provisioning::save_approved_installation(
             &root,
             "example/config",
@@ -1797,7 +1853,6 @@ mod tests {
                                 admin_user: "operator".into(),
                                 admin_uid: 501,
                                 authorized_keys: vec![],
-                                activation_ready: false,
                                 services: vec![],
                             },
                         )
@@ -1846,7 +1901,7 @@ mod tests {
         terminal.resume().unwrap();
         let modes = rustix::termios::tcgetattr(io::stdin()).unwrap().local_modes;
         assert!(!modes.contains(rustix::termios::LocalModes::ICANON));
-        draw(&["Back in setup".into()], 0, "Please wait").unwrap();
+        draw(&["Back in setup".into()], 0, &[Action::Quit]).unwrap();
         drop(terminal);
         println!("ATTACH_COMPLETE");
     }
@@ -1916,16 +1971,20 @@ mod tests {
         fcntl_setfl(&master, OFlags::NONBLOCK).unwrap();
         let mut master = File::from(master);
         let mut output = String::new();
+        let mut parser = vt100::Parser::new(12, 40, 0);
         let mut wait_for = |needle: &str, master: &mut File| {
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 let mut bytes = [0; 4096];
                 match master.read(&mut bytes) {
-                    Ok(count) => output.push_str(&String::from_utf8_lossy(&bytes[..count])),
+                    Ok(count) => {
+                        output.push_str(&String::from_utf8_lossy(&bytes[..count]));
+                        parser.process(&bytes[..count]);
+                    }
                     Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
                     Err(error) => panic!("terminal failed: {error}"),
                 }
-                if output.contains(needle) {
+                if output.contains(needle) || parser.screen().contents().contains(needle) {
                     break;
                 }
                 assert!(
@@ -1935,7 +1994,7 @@ mod tests {
                 std::thread::sleep(Duration::from_millis(10));
             }
         };
-        wait_for("Attach your configuration", &mut master);
+        wait_for("Which repo do you want to use?", &mut master);
         assert!(!path.exists());
         master.write_all(b"example/config\r").unwrap();
         wait_for("NATIVE_PROMPT_READY", &mut master);
@@ -1947,7 +2006,11 @@ mod tests {
         assert_eq!(output.matches("\x1b[?1049h").count(), 2);
         assert_eq!(output.matches("\x1b[?1049l").count(), 2);
         assert!(child.wait().unwrap().success());
-        assert_eq!(tcgetattr(&slave).unwrap().local_modes, original);
+        // PENDIN reflects kernel input reprocessing, not a changed terminal mode.
+        assert_eq!(
+            tcgetattr(&slave).unwrap().local_modes & !rustix::termios::LocalModes::PENDIN,
+            original & !rustix::termios::LocalModes::PENDIN
+        );
         let saved: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         assert_eq!(saved["repository"], "example/config");
         assert_eq!(
@@ -2034,10 +2097,21 @@ mod tests {
                 assert!(visible.iter().all(|line| line.chars().count() <= width));
             }
         }
-        let help = footer("Review this key", "↑/↓ select · Esc back");
-        assert_eq!(help.lines().count(), 1);
-        assert_eq!(crate::ui::help_lines(&help, 36).len(), 2);
-        assert!(!help.contains("SHA256"));
+        let help = footer("Review this key", &[Action::Navigation, Action::Back]);
+        assert!(help.iter().all(|action| !action.label().contains('\n')));
+        assert_eq!(
+            crate::ui::help_lines(
+                &help
+                    .iter()
+                    .map(Action::label)
+                    .collect::<Vec<_>>()
+                    .join(" · "),
+                36
+            )
+            .len(),
+            2
+        );
+        assert!(help.iter().all(|action| !action.label().contains("SHA256")));
     }
 
     #[test]
@@ -2060,11 +2134,12 @@ mod tests {
                 .any(|line| line.starts_with("> ") && line.ends_with("valid.pub"))
         );
         assert!(visible.iter().all(|line| line.chars().count() <= 36));
-        let footer = wrap(
-            &footer("Review key", "Ctrl-U clear · Esc back")
-                .lines()
-                .map(str::to_owned)
-                .collect::<Vec<_>>(),
+        let footer = ui::help_lines(
+            &footer("Review key", &[Action::Clear, Action::Back])
+                .iter()
+                .map(Action::label)
+                .collect::<Vec<_>>()
+                .join(" · "),
             36,
         );
         assert_eq!(footer.len(), 2);

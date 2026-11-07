@@ -682,6 +682,7 @@ struct Terminal {
     child: Child,
     original: rustix::termios::LocalModes,
     text: String,
+    screen: vt100::Parser,
     last_phase: Option<&'static str>,
 }
 impl Terminal {
@@ -734,6 +735,7 @@ impl Terminal {
             child,
             original,
             text: String::new(),
+            screen: vt100::Parser::new(60, 120, 0),
             last_phase: None,
         }
     }
@@ -742,28 +744,36 @@ impl Terminal {
         loop {
             let mut buffer = [0; 8192];
             match self.master.read(&mut buffer) {
-                Ok(size) => self
-                    .text
-                    .push_str(&String::from_utf8_lossy(&buffer[..size])),
+                Ok(size) => {
+                    self.text
+                        .push_str(&String::from_utf8_lossy(&buffer[..size]));
+                    self.screen.process(&buffer[..size]);
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(_) => panic!(
                     "wizard terminal unavailable while waiting for {expected}; preserve fixture state"
                 ),
             }
-            self.last_phase = observed_phase(&self.text).or(self.last_phase);
+            let screen = self.screen.screen().contents();
+            self.last_phase = observed_phase(&screen)
+                .or_else(|| observed_phase(&self.text))
+                .or(self.last_phase);
             assert!(
-                !self.text.contains(AUTH_KEY) && !self.text.contains("AGE-SECRET-KEY-"),
+                !self.text.contains(AUTH_KEY)
+                    && !self.text.contains("AGE-SECRET-KEY-")
+                    && !screen.contains(AUTH_KEY)
+                    && !screen.contains("AGE-SECRET-KEY-"),
                 "synthetic credential appeared while waiting for {expected}"
             );
-            if self.text.contains(expected) {
+            if self.text.contains(expected) || screen.contains(expected) {
                 self.text.clear();
                 return;
             }
-            if self.text.contains("R Retry checks") {
+            if self.text.contains("R Retry checks") || screen.contains("R Retry checks") {
                 let reason = SAFE_FAILURES
                     .iter()
                     .copied()
-                    .find(|message| self.text.contains(message))
+                    .find(|message| self.text.contains(message) || screen.contains(message))
                     .unwrap_or("Checklist step failed; preserve fixture state for inspection.");
                 panic!("wizard needs attention before {expected}: {reason}");
             }
@@ -1501,8 +1511,7 @@ fn prepare_run(path: &Path) {
     f.jump_known_hosts = state.join("jump-known-hosts");
     let manifest = vm::manifest(&f.target);
     assert!(
-        !manifest.hosts["vm-test"].activation_ready
-            && manifest.hosts["vm-test"].authorized_keys.is_empty(),
+        manifest.hosts["vm-test"].authorized_keys.is_empty(),
         "full enrollment starts with an unready, unauthorised host"
     );
     let known = fs::read_to_string(&f.target.known_hosts).unwrap();
@@ -1599,6 +1608,14 @@ fn prepare_run(path: &Path) {
 }
 
 fn main() {
+    if let Some(status) = homelab_client::terminal_process::dispatch_bridge() {
+        use std::process::Termination;
+        std::process::exit(if status.report() == std::process::ExitCode::SUCCESS {
+            0
+        } else {
+            1
+        });
+    }
     regressions();
     let executable = std::env::args_os().next().unwrap();
     let name = Path::new(&executable)

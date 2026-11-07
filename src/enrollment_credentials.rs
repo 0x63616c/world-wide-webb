@@ -57,8 +57,7 @@ pub fn check_client_tools() -> Result<(), Error> {
 }
 
 pub fn state_directory() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .map(|home| PathBuf::from(home).join(".local/state/homelab/provisioning"))
+    crate::operator_profile::provisioning_directory()
 }
 
 /// Called before reserving the target. Historical approved installations can

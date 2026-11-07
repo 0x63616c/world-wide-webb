@@ -43,14 +43,13 @@
               adminUser = lib.mkOption { type = lib.types.str; };
               adminUID = lib.mkOption { type = lib.types.ints.positive; };
               authorizedKeys = lib.mkOption { type = lib.types.listOf lib.types.str; };
-              activationReady = lib.mkOption { type = lib.types.bool; };
               services = lib.mkOption { type = lib.types.listOf lib.types.str; };
             };
             config = {
               homelab = reviewed;
               assertions = [{
                 assertion = reviewed.adminUser == "admin" && reviewed.adminUID == 501
-                  && reviewed.activationReady && reviewed.services == []
+                  && reviewed.services == []
                   && builtins.length reviewed.authorizedKeys == 1
                   && fixture.repository != "REPLACE_WITH_OWNER/REPLACE_WITH_SYNTHETIC_REPOSITORY"
                   && builtins.match "[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+" fixture.repository != null
@@ -186,7 +185,7 @@
       darwinConfigurations.vm-test = host;
       # Read the evaluated settings, not a second copy of approval metadata.
       lib.setupPlan.hosts.vm-test = {
-        inherit (host.config.homelab) adminUser adminUID authorizedKeys activationReady services;
+        inherit (host.config.homelab) adminUser adminUID authorizedKeys services;
       };
       checks.aarch64-darwin.vm-test = host.system;
       checks.aarch64-darwin.completion-contract = host.pkgs.runCommand "vm-completion-contract" {

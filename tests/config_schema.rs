@@ -58,6 +58,26 @@ fn historical_config_is_readable_but_v2_requires_independent_backup_vault() {
 }
 
 #[test]
+fn retired_activation_milestone_is_readable_but_never_written_or_required() {
+    let current = example();
+    let expected = config::parse(&serde_json::to_vec(&current).unwrap()).unwrap();
+    for old_value in [false, true] {
+        let mut historical = current.clone();
+        historical["hosts"]["build-mac"]["activationReady"] = json!(old_value);
+        let parsed = config::parse(&serde_json::to_vec(&historical).unwrap()).unwrap();
+        assert_eq!(parsed, expected);
+        assert!(
+            serde_json::to_value(parsed).unwrap()["hosts"]["build-mac"]
+                .get("activationReady")
+                .is_none()
+        );
+    }
+    let mut invalid = current;
+    invalid["hosts"]["build-mac"]["activationReady"] = json!("secret-not-a-bool");
+    assert!(config::parse(&serde_json::to_vec(&invalid).unwrap()).is_err());
+}
+
+#[test]
 fn diagnostics_never_echo_invalid_values_or_unknown_field_names() {
     for bytes in [
         br#"{"ATTACKER_SECRET_FIELD":"SENSITIVE_VALUE"}"#.as_slice(),

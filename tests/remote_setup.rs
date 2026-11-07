@@ -41,7 +41,7 @@ impl Fixture {
         .unwrap();
         fs::write(root.join("artifact/setup-plan.json"), serde_json::to_vec(&json!({
             "schema":2,"repository":"example/config","revision":"a".repeat(40),"hosts":{"build-mac":{
-                "activationReady":true,"adminUser":"admin","adminUID":501,"authorizedKeys":["ssh-ed25519 synthetic"],"services":["home-assistant"]
+                "adminUser":"admin","adminUID":501,"authorizedKeys":["ssh-ed25519 synthetic"],"services":["home-assistant"]
             }}
         })).unwrap()).unwrap();
         for (name, contents) in [
@@ -77,6 +77,7 @@ impl Fixture {
             age_key: root.join("source-age"),
             deploy_key: PathBuf::from("/Users/admin/.local/state/homelab/git/key.txt"),
             resume: false,
+            repair_from: None,
         }
     }
     fn checksums(&self) {
@@ -334,7 +335,7 @@ fn unready_plan_and_artifact_tampering_block_before_ssh() {
             let path = fixture.path("artifact/setup-plan.json");
             let mut plan: serde_json::Value =
                 serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-            plan["hosts"]["build-mac"]["activationReady"] = json!(false);
+            plan["hosts"]["build-mac"]["authorizedKeys"] = json!([]);
             fs::write(path, serde_json::to_vec(&plan).unwrap()).unwrap();
             fixture.checksums();
         } else if case == "hash" {

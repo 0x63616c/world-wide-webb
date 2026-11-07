@@ -72,7 +72,7 @@ fn invalid_profiles_are_rejected_before_executing_ssh() {
 
 #[test]
 fn arm_host_uses_fixed_probe_and_serializes_existing_contract() {
-    let fixture = Fixture::new("27.2\narm64\noperator\n501\n104857600\n");
+    let fixture = Fixture::new("27.2\narm64\noperator\n501\n104857600\n500000000\n");
     let inventory = fixture.directory.path().join("private/inventory.json");
     homelab_client::inventory::add(&inventory, host()).unwrap();
     let profiles = homelab_client::inventory::load(&inventory).unwrap();
@@ -83,18 +83,20 @@ fn arm_host_uses_fixed_probe_and_serializes_existing_contract() {
     let report = inspect(selected, &fixture.executable).unwrap();
     assert!(report.is_ready());
     assert_eq!(report.free_gib, 100.0);
+    assert_eq!(report.total_gb, 512.0);
+    assert_eq!(report.storage_label(), "405 / 512 GB used");
     let json = serde_json::to_value(&report).unwrap();
     assert_eq!(json["schema"], 1);
     assert_eq!(json["state"], "ready");
     assert_eq!(json["macOS"], "27.2");
     assert_eq!(json["freeGiB"], 100.0);
     assert_eq!(json["nextAction"], report.next_action);
-    assert_eq!(json.as_object().unwrap().len(), 10);
+    assert_eq!(json.as_object().unwrap().len(), 12);
 }
 
 #[test]
 fn intel_host_is_explicitly_blocked() {
-    let fixture = Fixture::new("27.2\nx86_64\noperator\n501\n104857600\n");
+    let fixture = Fixture::new("27.2\nx86_64\noperator\n501\n104857600\n500000000\n");
     let report = inspect(&host(), &fixture.executable).unwrap();
     assert!(!report.is_ready());
     assert_eq!(report.state, InspectionState::Blocked);
@@ -142,7 +144,7 @@ fn inherits_operator_environment() {
         inspect(&host(), Path::new(&executable)).unwrap();
         return;
     }
-    let fixture = Fixture::new("27.2\narm64\noperator\n501\n104857600\n");
+    let fixture = Fixture::new("27.2\narm64\noperator\n501\n104857600\n500000000\n");
     fs::write(fixture.directory.path().join("check-environment"), "").unwrap();
     // Set environment only on a subprocess, keeping parallel Rust tests race-free.
     let output = Command::new(std::env::current_exe().unwrap())
@@ -162,7 +164,7 @@ fn inherits_operator_environment() {
 
 #[test]
 fn remembered_agent_identity_is_used_and_public_snapshot_is_removed() {
-    let fixture = Fixture::new("27.2\narm64\noperator\n501\n104857600\n");
+    let fixture = Fixture::new("27.2\narm64\noperator\n501\n104857600\n500000000\n");
     let mut profile = host();
     let key = "ssh-ed25519 AAAA";
     fs::write(fixture.directory.path().join("expected-key"), key).unwrap();

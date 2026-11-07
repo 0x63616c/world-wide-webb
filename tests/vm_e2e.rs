@@ -139,7 +139,12 @@ pub(crate) fn manifest_guard_regressions() {
     assert!(!valid_fixture_manifest(&manifest));
     manifest.schema = 1;
     manifest.one_password = None;
-    manifest.hosts.get_mut("vm-test").unwrap().activation_ready = true;
+    manifest
+        .hosts
+        .get_mut("vm-test")
+        .unwrap()
+        .authorized_keys
+        .push("ssh-ed25519 synthetic".into());
     assert!(valid_fixture_manifest(&manifest));
     manifest.tailscale.as_mut().unwrap().oauth = Some(config::OAuthReference {
         vault: "aaaaaaaaaaaaaaaaaaaaaaaaaa".into(),

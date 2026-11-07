@@ -147,7 +147,7 @@ fn main() {
             std::process::exit(255);
         }
         println!(
-            "27.2\narm64\nadmin\n{}\n104857600",
+            "27.2\narm64\nadmin\n{}\n104857600\n500000000",
             if root.join("changed-uid").exists() {
                 "502"
             } else {

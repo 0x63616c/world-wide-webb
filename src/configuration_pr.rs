@@ -158,7 +158,7 @@ impl Changes {
             || !manifest
                 .hosts
                 .get(&self.host)
-                .is_some_and(|host| host.activation_ready)
+                .is_some_and(|host| !host.authorized_keys.is_empty())
         {
             return Err(Error::Invalid);
         }
@@ -404,7 +404,6 @@ fn prepare_inner(
     {
         configuration.authorized_keys.push(key);
     }
-    configuration.activation_ready = true;
     manifest.validate().map_err(|_| Error::Invalid)?;
     let path = format!("secrets/{host}.sops.yaml");
     match api.raw(&format!("{prefix}/{path}{suffix}")) {
@@ -513,7 +512,19 @@ fn validate_delta(api: &impl Api, changes: &Changes) -> Result<(), Error> {
         },
         changes.previous_ciphertext.as_deref(),
     )?;
-    if expected.files != changes.files || expected.manifest != changes.manifest {
+    // Old saved proposals retain their original manifest bytes and branch identity.
+    // Only the retired milestone/formatting may differ from a newly prepared file;
+    // every desired field and both encrypted-input files must still match.
+    let saved_manifest: Manifest =
+        serde_json::from_str(changes.files.get("homelab.json").ok_or(Error::Invalid)?)
+            .map_err(|_| Error::Invalid)?;
+    if expected.manifest != changes.manifest
+        || expected.manifest != saved_manifest
+        || expected.files.len() != changes.files.len()
+        || expected.files.iter().any(|(path, contents)| {
+            path != "homelab.json" && changes.files.get(path) != Some(contents)
+        })
+    {
         return Err(Error::Conflict);
     }
     Ok(())

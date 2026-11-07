@@ -70,6 +70,12 @@ struct Progress {
     repository: String,
     host: String,
     revision: String,
+    #[serde(
+        default,
+        rename = "repairedFrom",
+        skip_serializing_if = "Option::is_none"
+    )]
+    repaired_from: Option<String>,
     phase: Phase,
     #[serde(rename = "builtSystem")]
     built_system: Option<PathBuf>,
@@ -95,6 +101,7 @@ enum OpenMode {
     Resume,
     StartOrResume,
     Reconcile,
+    Repair,
 }
 
 /// Absence is meaningful only when every existing ancestor is traversable and
@@ -128,14 +135,14 @@ pub fn has_started(home: &Path) -> Result<bool, StateError> {
 
 /// A candidate only: privileged activation receipts still decide whether setup
 /// can finish. This avoids requiring an expired enrollment key after activation.
-pub fn activation_candidate(
+pub fn activation_revision(
     home: &Path,
     repository: &str,
     host: &str,
     revision: &str,
-) -> Result<bool, StateError> {
+) -> Result<Option<String>, StateError> {
     if !has_started(home)? {
-        return Ok(false);
+        return Ok(None);
     }
     let mut bytes = Vec::new();
     private_file(
@@ -152,14 +159,24 @@ pub fn activation_candidate(
     if progress.schema != 1
         || progress.repository != repository
         || progress.host != host
-        || progress.revision != revision
+        || (progress.revision != revision && progress.repaired_from.as_deref() != Some(revision))
     {
         return Err(StateError::Mismatch);
     }
     Ok(
-        matches!(progress.phase, Phase::Activating | Phase::Activated)
-            && progress.built_system.is_some(),
+        (matches!(progress.phase, Phase::Activating | Phase::Activated)
+            && progress.built_system.is_some())
+        .then_some(progress.revision),
     )
+}
+
+pub fn activation_candidate(
+    home: &Path,
+    repository: &str,
+    host: &str,
+    revision: &str,
+) -> Result<bool, StateError> {
+    activation_revision(home, repository, host, revision).map(|revision| revision.is_some())
 }
 
 fn private_file(path: &Path, create: bool) -> Result<File, StateError> {
@@ -238,6 +255,60 @@ impl Journal {
             revision,
             OpenMode::Reconcile,
         )
+    }
+
+    /// A repair keeps the original reservation, but records the effective commit
+    /// in the same atomic journal write as its provenance. No two-file migration.
+    pub fn open_repair(
+        directory: &Path,
+        repository: &str,
+        host: &str,
+        from: &str,
+        to: &str,
+    ) -> Result<Self, StateError> {
+        match Self::open_mode(directory, repository, host, from, OpenMode::Repair) {
+            Ok(journal) => {
+                journal.ensure_repairable()?;
+                Ok(journal)
+            }
+            Err(StateError::Mismatch) => {
+                let journal = Self::open_mode(directory, repository, host, to, OpenMode::Repair)?;
+                if journal.progress.repaired_from.as_deref() != Some(from) {
+                    return Err(StateError::Mismatch);
+                }
+                Ok(journal)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn ensure_repairable(&self) -> Result<(), StateError> {
+        if self.progress.repaired_from.is_some()
+            || self.progress.built_system.is_some()
+            || !matches!(
+                self.phase(),
+                Phase::Preparing | Phase::InstallingNix | Phase::Building
+            )
+        {
+            return Err(StateError::NeedsInspection);
+        }
+        Ok(())
+    }
+
+    pub fn record_repair(&mut self, from: &str, to: &str) -> Result<(), StateError> {
+        if self.progress.revision == to && self.progress.repaired_from.as_deref() == Some(from) {
+            return Ok(());
+        }
+        self.ensure_repairable()?;
+        if self.progress.revision != from || !crate::config::valid_revision(to) {
+            return Err(StateError::Mismatch);
+        }
+        let mut progress = self.progress.clone();
+        progress.revision = to.into();
+        progress.repaired_from = Some(from.into());
+        self.write(&progress)?;
+        self.progress = progress;
+        Ok(())
     }
 
     fn open_mode(
@@ -322,7 +393,7 @@ impl Journal {
             if mode == OpenMode::Fresh {
                 return Err(StateError::AlreadyStarted);
             }
-            if mode != OpenMode::Reconcile
+            if !matches!(mode, OpenMode::Reconcile | OpenMode::Repair)
                 && matches!(
                     progress.phase,
                     Phase::InstallingNix
@@ -335,7 +406,7 @@ impl Journal {
             }
             progress
         } else {
-            if mode == OpenMode::Resume {
+            if matches!(mode, OpenMode::Resume | OpenMode::Repair) {
                 return Err(StateError::Missing);
             }
             Progress {
@@ -343,6 +414,7 @@ impl Journal {
                 repository: repository.into(),
                 host: host.into(),
                 revision: revision.into(),
+                repaired_from: None,
                 phase: Phase::Preparing,
                 built_system: None,
             }
