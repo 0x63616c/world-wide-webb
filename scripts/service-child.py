@@ -18,7 +18,7 @@ def run_service(operation, lock_fd, timeout, system=Path('/run/current-system'))
     if operation not in COMMANDS:
         raise ValueError('Unapproved service operation')
     user = pwd.getpwnam('_containers')
-    if (user.pw_uid, user.pw_gid, user.pw_dir) != (350, 350, '/var/lib/_containers'):
+    if (user.pw_uid, user.pw_gid, user.pw_dir) != (450, 450, '/var/lib/_containers'):
         raise RuntimeError('Service account differs from the reviewed identity')
     resolved = system.resolve(strict=True)
     if resolved.parent != Path('/nix/store'):
@@ -29,8 +29,8 @@ def run_service(operation, lock_fd, timeout, system=Path('/run/current-system'))
         'PATH': '/usr/bin:/bin:/usr/sbin:/sbin',
         'HOMELAB_OPERATION_FD': str(lock_fd),
     }
-    process = subprocess.Popen([str(command)], env=env, cwd='/', user=350, group=350,
-                               extra_groups=[350], umask=0o077, pass_fds=(lock_fd,),
+    process = subprocess.Popen([str(command)], env=env, cwd='/', user=450, group=450,
+                               extra_groups=[450], umask=0o077, pass_fds=(lock_fd,),
                                start_new_session=True)
     try:
         result = process.wait(timeout=timeout)

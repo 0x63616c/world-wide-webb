@@ -35,6 +35,17 @@ No production configuration was activated, in the guest or on a physical Mac.
 
 ## Still required
 
+The actual-module enrollment reached activation at fixture revision
+`249feb7ee6901a66be6d48f2e3d87ed84832d087`, then correctly refused a numeric
+account collision. The installed Nix environment owns GID 350 (`nixbld`) and
+UID 351 (`_nixbld1`). The candidate moves homelab service accounts to 450/451,
+which were verified vacant in this guest, while retaining collision checks.
+This correction has not yet passed activation or reboot testing.
+
+Guest evidence is preserved in `/Users/admin/activation-diagnostic.log` and
+the bootstrap journal at phase `Activating`. This diagnostic activation was
+only attempted in the disposable VM; no physical node was activated.
+
 - Current CLI and actual modules through enrollment, activation and reboot.
 - Controlled failed-build recovery, including the user's already-repaired revision.
 - Git reconciliation and completed replay.

@@ -13,7 +13,7 @@ spec.loader.exec_module(child)
 
 class ServiceChildTests(unittest.TestCase):
     def setUp(self):
-        self.account = Mock(pw_uid=350, pw_gid=350, pw_dir='/var/lib/_containers')
+        self.account = Mock(pw_uid=450, pw_gid=450, pw_dir='/var/lib/_containers')
         for target, value in ((child.os, 'geteuid'), (child.pwd, 'getpwnam')):
             patcher = patch.object(target, value, return_value=0 if value == 'geteuid' else self.account)
             patcher.start()
@@ -31,7 +31,7 @@ class ServiceChildTests(unittest.TestCase):
             child.run_service('reconcile', 7, 900)
         args, options = self.spawn.call_args
         self.assertEqual(args[0], ['/nix/store/reviewed-system/sw/bin/homelab-reconcile-all'])
-        self.assertEqual((options['user'], options['group'], options['extra_groups']), (350, 350, [350]))
+        self.assertEqual((options['user'], options['group'], options['extra_groups']), (450, 450, [450]))
         self.assertEqual(options['pass_fds'], (7,))
         self.assertEqual(options['env']['HOMELAB_OPERATION_FD'], '7')
         self.assertNotIn('GITHUB_TOKEN', options['env'])

@@ -38,7 +38,7 @@ def initialize(root=ROOT):
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
             raise RuntimeError('Unsafe operation lock file')
         # Preserve the inode: activation must not break a lock held by another job.
-        os.fchown(fd, 0, 350)
+        os.fchown(fd, 0, 450)
         os.fchmod(fd, 0o660)
         os.fsync(fd)
     finally:

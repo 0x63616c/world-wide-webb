@@ -21,7 +21,7 @@ let
           export PATH=${lib.makeBinPath [ pkgs.docker pkgs.docker-compose pkgs.coreutils ]}
           export HOME=/var/lib/_containers
           export DOCKER_HOST=unix://${home}/ha/docker.sock
-          [ "$(id -u)" = 350 ] || { echo 'Run as _containers.' >&2; exit 1; }
+          [ "$(id -u)" = ${toString config.users.users._containers.uid} ] || { echo 'Run as _containers.' >&2; exit 1; }
           for attempt in $(seq 1 120); do
             if docker info >/dev/null 2>&1; then break; fi
             sleep 5
