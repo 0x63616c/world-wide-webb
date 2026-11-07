@@ -4,14 +4,15 @@ extension SQLiteConnection {
   func migrate() throws {
     try transaction {
       let version = try rows("PRAGMA user_version").first?["user_version"]
-      guard version == "0" || version == "1" || version == "2" || version == "3" else {
+      guard version == "0" || version == "1" || version == "2" || version == "3" || version == "4"
+      else {
         throw StoreError.incompatibleSchema
       }
       if version == "0" { for statement in Self.schema { try execute(statement) } }
       if version == "0" || version == "1" {
         try execute("ALTER TABLE work_outbox ADD COLUMN lease_token TEXT")
       }
-      if version != "3" {
+      if version != "3" && version != "4" {
         try execute(
           "CREATE TABLE sync_checkpoints (store_id TEXT PRIMARY KEY, token TEXT NOT NULL)")
         try execute(
@@ -22,6 +23,35 @@ extension SQLiteConnection {
         )
         try execute("CREATE TABLE rejected_reset_ids (reset_id TEXT PRIMARY KEY)")
         try execute("PRAGMA user_version=3")
+      }
+      if version != "4" {
+        try execute(
+          "ALTER TABLE deferred_imports ADD COLUMN generation_revision INTEGER NOT NULL DEFAULT 0")
+        try execute(
+          "ALTER TABLE deferred_imports ADD COLUMN generation_id TEXT NOT NULL DEFAULT ''")
+        var cursor = ""
+        while true {
+          let batch = try rows(
+            "SELECT payload_hash,payload_json FROM deferred_imports WHERE payload_hash>? ORDER BY payload_hash LIMIT 500",
+            [.text(cursor)])
+          if batch.isEmpty { break }
+          for row in batch {
+            let record = try JSONDecoder().decode(
+              MirrorRecord.self, from: Data(row["payload_json"]!.utf8))
+            try execute(
+              "UPDATE deferred_imports SET generation_revision=?,generation_id=? WHERE payload_hash=?",
+              [
+                .integer(record.generation.revision),
+                .text(record.generation.resetID.uuidString.lowercased()),
+                .text(row["payload_hash"]!),
+              ])
+          }
+          cursor = batch.last!["payload_hash"]!
+        }
+        try execute(
+          "CREATE INDEX deferred_generation ON deferred_imports(generation_revision,generation_id)")
+        try execute("CREATE INDEX deferred_reset ON deferred_imports(generation_id)")
+        try execute("PRAGMA user_version=4")
       }
     }
   }

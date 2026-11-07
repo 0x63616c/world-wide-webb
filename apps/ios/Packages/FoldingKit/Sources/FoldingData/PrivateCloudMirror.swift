@@ -144,6 +144,28 @@ public actor PrivateCloudMirror {
     }
   }
 
+  /// Capture the history boundary before pinning the read snapshot. Later writes are replayed
+  /// through history even if they also appear in the snapshot; duplication is safe, skipping is not.
+  func recoverySnapshot() async throws -> MirrorRecoverySnapshot {
+    guard !closed else { throw MirrorError.closed }
+    let token = container.persistentStoreCoordinator.currentPersistentHistoryToken(fromStores: nil)
+    let checkpoint = try token.map {
+      try NSKeyedArchiver.archivedData(withRootObject: $0, requiringSecureCoding: true)
+    }
+    let context = container.newBackgroundContext()
+    try await context.perform { try context.setQueryGenerationFrom(.current) }
+    return MirrorRecoverySnapshot(context: context, checkpoint: checkpoint)
+  }
+
+  // Integration-test seam: exercise real history deletion without exposing it to app callers.
+  func pruneHistory(before date: Date) async throws {
+    guard !closed else { throw MirrorError.closed }
+    let context = container.newBackgroundContext()
+    try await context.perform {
+      _ = try context.execute(NSPersistentHistoryChangeRequest.deleteHistory(before: date))
+    }
+  }
+
   /// Call only after the coordinator has stopped its synchronization pass.
   public func close() throws {
     guard !closed else { return }

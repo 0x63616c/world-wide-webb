@@ -434,13 +434,15 @@ public actor TrackingStore {
   }
 
   /// Import and checkpoint commit together. Future-generation records wait durably for their reset marker.
-  public func importMirrorBatch(_ records: [MirrorRecord], storeID: String, checkpoint: Data) throws
+  @discardableResult
+  public func importMirrorBatch(_ records: [MirrorRecord], storeID: String, checkpoint: Data?)
+    throws -> Int
   {
     guard !storeID.isEmpty, storeID.utf8.count <= 200, records.count <= 10_000 else {
       throw StoreError.invalidInput
     }
     for record in records { try validateMirrorRecord(record) }
-    try journalTransaction {
+    return try journalTransaction {
       let resetGroups = Dictionary(
         grouping: records.filter { if case .reset = $0 { true } else { false } }, by: \.logicalID)
       var validResets: [(ResetGeneration, Int64)] = []
@@ -470,8 +472,11 @@ public actor TrackingStore {
       for (marker, time) in validResets.sorted(by: { $0.0 < $1.0 }) {
         try adoptReset(marker, nowMS: time)
       }
-      let queued: [MirrorRecord] = try database.rows("SELECT payload_json FROM deferred_imports")
-        .map { try decode($0["payload_json"]!) }
+      let active = try generation()
+      let queued: [MirrorRecord] = try database.rows(
+        "SELECT payload_json FROM deferred_imports WHERE (generation_revision,generation_id)<=(?,?) OR generation_id IN (SELECT reset_id FROM rejected_reset_ids) LIMIT 500",
+        [.integer(active.revision), .text(active.resetID.canonical)]
+      ).map { try decode($0["payload_json"]!) }
       for record in queued + records {
         if case .reset = record { continue }
         let current = try generation()
@@ -488,8 +493,11 @@ public actor TrackingStore {
             continue
           }
           try database.execute(
-            "INSERT OR IGNORE INTO deferred_imports(payload_hash,payload_json) VALUES (?,?)",
-            [.text(digest(payload)), .text(payload)])
+            "INSERT OR IGNORE INTO deferred_imports(payload_hash,payload_json,generation_revision,generation_id) VALUES (?,?,?,?)",
+            [
+              .text(digest(payload)), .text(payload), .integer(record.generation.revision),
+              .text(record.generation.resetID.canonical),
+            ])
           continue
         }
         let payload = try encode(record)
@@ -527,9 +535,25 @@ public actor TrackingStore {
           try quarantine(record)
         }
       }
-      try database.execute(
-        "INSERT INTO sync_checkpoints(store_id,token) VALUES (?,?) ON CONFLICT(store_id) DO UPDATE SET token=excluded.token",
-        [.text(storeID), .text(checkpoint.base64EncodedString())])
+      if let checkpoint {
+        try database.execute(
+          "INSERT INTO sync_checkpoints(store_id,token) VALUES (?,?) ON CONFLICT(store_id) DO UPDATE SET token=excluded.token",
+          [.text(storeID), .text(checkpoint.base64EncodedString())])
+      }
+      return queued.count
+    }
+  }
+
+  /// Only the completed full-mirror scan may replace an expired cursor, including an empty mirror.
+  func finishMirrorRecovery(storeID: String, checkpoint: Data?) throws {
+    try journalTransaction {
+      if let checkpoint {
+        try database.execute(
+          "INSERT INTO sync_checkpoints(store_id,token) VALUES (?,?) ON CONFLICT(store_id) DO UPDATE SET token=excluded.token",
+          [.text(storeID), .text(checkpoint.base64EncodedString())])
+      } else {
+        try database.execute("DELETE FROM sync_checkpoints WHERE store_id=?", [.text(storeID)])
+      }
     }
   }
 

@@ -105,3 +105,13 @@ Write protected temporary files within the app sandbox, share through the native
 Private import batches checkpoint only after their journal transaction commits. Future-generation event/interruption records are deferred durably until a reset marker authorizes that generation. Conflicting event/interruption content is quarantined; local versions and derived uncertainty barriers remain eligible for private replication so devices can converge on exclusion.
 
 A conflicting reset ID cannot safely undo a tombstone already applied on another device. Preserve that tombstone, reject further versions of the conflicting ID, quarantine the payloads, and continue unrelated valid history. Never rewrite the reset marker by last-write-wins. Minimal rejected-ID tombstones survive history cleanup. Surface the conflict as impaired private sync until resolved; do not call the account converged merely because a batch checkpoint advanced.
+
+## Expired private-history recovery
+
+For first attachment without a journal checkpoint, or on Core Data's specific `NSPersistentHistoryTokenExpiredError`, capture the current history boundary before pinning a query-generation snapshot. Scan retained mirror rows in batches of at most 500, reset markers first, with at most ten pages per synchronization pass. Preserve the old journal checkpoint throughout the scan; only replace it after all pages have committed. A failed page or final checkpoint write discards the in-memory scan cursor and restarts idempotently. App termination has the same recovery path. Concurrent writes replay from the pre-snapshot boundary, permitting duplication without omissions. Pending local exports wait until the scan finishes.
+
+Do not treat arbitrary read errors or corrupt archives as history expiry. Snapshot recovery does not certify live cloud convergence or solve conflicting reset variants. The app composition still needs account-change fencing before attaching a cloud-enabled mirror.
+
+API references: [expired history error](https://developer.apple.com/documentation/coredata/nspersistenthistorytokenexpirederror), [history boundary](https://developer.apple.com/documentation/coredata/nspersistentstorecoordinator/currentpersistenthistorytoken(fromstores:)), [pinned query generation](https://developer.apple.com/documentation/coredata/nsmanagedobjectcontext/setquerygenerationfrom(_:)).
+
+Schema v4 indexes deferred records by generation and reset ID. Each import processes at most 500 eligible/rejected deferred records, without decoding unrelated future generations. Synchronization drains at most ten additional chunks even when history has no new transactions. Migration of v3 queued payloads is transactional and reads in 500-row chunks.

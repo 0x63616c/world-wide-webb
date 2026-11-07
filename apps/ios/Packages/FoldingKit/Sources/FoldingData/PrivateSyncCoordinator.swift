@@ -1,3 +1,4 @@
+import CoreData
 import Foundation
 
 public struct PrivateSyncReport: Sendable {
@@ -12,6 +13,7 @@ public actor PrivateSyncCoordinator {
   private let mirror: PrivateCloudMirror
   private var running = false
   private var stopped = false
+  private var recovery: MirrorRecoverySnapshot?
 
   public init(journal: TrackingStore, mirror: PrivateCloudMirror) {
     self.journal = journal
@@ -27,18 +29,41 @@ public actor PrivateSyncCoordinator {
     let storeID = mirror.storeID
     try await journal.prepareMirror(storeID: storeID)
     var imported = 0
+    if recovery == nil, try await journal.mirrorCheckpoint(storeID: storeID) == nil {
+      recovery = try await mirror.recoverySnapshot()
+    }
+    if recovery != nil { imported += try await recoverHistory(storeID: storeID) }
     // Adopt remote resets before writing local pending events into the mirror.
-    for _ in 0..<10 {
+    for _ in 0..<10 where recovery == nil {
       if stopped || Task.isCancelled { throw CancellationError() }
       let checkpoint = try await journal.mirrorCheckpoint(storeID: storeID)
-      let batch = try await mirror.history(after: checkpoint)
+      let batch: MirrorHistoryBatch
+      do {
+        batch = try await mirror.history(after: checkpoint)
+      } catch {
+        let failure = error as NSError
+        guard failure.domain == NSCocoaErrorDomain,
+          failure.code == NSPersistentHistoryTokenExpiredError
+        else { throw error }
+        recovery = try await mirror.recoverySnapshot()
+        imported += try await recoverHistory(storeID: storeID)
+        break
+      }
       guard let next = batch.checkpoint else { break }
       try await journal.importMirrorBatch(batch.records, storeID: storeID, checkpoint: next)
       imported += batch.records.count
       if batch.transactionCount < 100 { break }
     }
+    // Drain eligible deferred records even without new history; never decode unrelated future rows.
+    for _ in 0..<10 {
+      if stopped || Task.isCancelled { throw CancellationError() }
+      let drained = try await journal.importMirrorBatch([], storeID: storeID, checkpoint: nil)
+      imported += drained
+      if drained < 500 { break }
+    }
     var saved = 0
-    let leases = try await journal.leaseMirrorWork(nowMS: nowMS)
+    // Never export local work before the complete reset-tombstone scan has been imported.
+    let leases = recovery == nil ? try await journal.leaseMirrorWork(nowMS: nowMS) : []
     for lease in leases {
       if stopped || Task.isCancelled { throw CancellationError() }
       do {
@@ -56,6 +81,29 @@ public actor PrivateSyncCoordinator {
       quarantinedRecords: try await journal.quarantinedRecordCount())
   }
 
+  private func recoverHistory(storeID: String) async throws -> Int {
+    guard let snapshot = recovery else { return 0 }
+    var imported = 0
+    do {
+      for _ in 0..<10 {
+        if stopped || Task.isCancelled { throw CancellationError() }
+        guard let records = try await snapshot.next() else {
+          try await journal.finishMirrorRecovery(storeID: storeID, checkpoint: snapshot.checkpoint)
+          recovery = nil
+          return imported
+        }
+        // Preserve the old checkpoint until every snapshot page has committed.
+        try await journal.importMirrorBatch(records, storeID: storeID, checkpoint: nil)
+        imported += records.count
+      }
+      return imported
+    } catch {
+      // A page may have been fetched but not committed. Restart, never skip it on retry.
+      recovery = nil
+      throw error
+    }
+  }
+
   /// Stop future work immediately; wait for any in-flight save before removing the account's mirror.
   public func stop() async throws {
     stopped = true
@@ -63,6 +111,7 @@ public actor PrivateSyncCoordinator {
       try? await Task.sleep(for: .milliseconds(10))
       await Task.yield()
     }
+    recovery = nil
     try await mirror.close()
   }
 }

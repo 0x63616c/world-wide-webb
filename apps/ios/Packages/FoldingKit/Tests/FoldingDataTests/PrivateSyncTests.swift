@@ -1,3 +1,4 @@
+import CoreData
 import FoldingDomain
 import Foundation
 import Testing
@@ -242,4 +243,160 @@ private func event(
   #expect(try db.rows("SELECT count(*) AS n FROM deferred_imports").first?["n"] == "0")
   #expect(try await store.quarantinedRecordCount() == 2)
   #expect(try await store.leaseMirrorWork(nowMS: 3).isEmpty)
+}
+
+@Test func recoverySnapshotPinsPagesAndReplaysConcurrentWrites() async throws {
+  let root = try directory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let mirror = try await PrivateCloudMirror(directory: root, containerIdentifier: nil)
+  var expected: Set<UUID> = []
+  for _ in 0..<7 {
+    let record = event()
+    expected.insert(record.eventID)
+    try await mirror.save(.event(record))
+  }
+  let snapshot = try await mirror.recoverySnapshot()
+  var seen: Set<UUID> = []
+  let first = try #require(await snapshot.next(limit: 2))
+  seen.formUnion(first.map(\.logicalID))
+  let concurrent = event()
+  try await mirror.save(.event(concurrent))
+  while let page = try await snapshot.next(limit: 2) {
+    #expect(page.count <= 2)
+    seen.formUnion(page.map(\.logicalID))
+  }
+  #expect(seen == expected)
+  let tail = try await mirror.history(after: snapshot.checkpoint)
+  #expect(tail.records == [.event(concurrent)])
+}
+
+@Test func expiredHistoryRecoversRetainedRowsBeforeAdvancingCheckpoint() async throws {
+  let root = try directory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let mirror = try await PrivateCloudMirror(
+    directory: root.appendingPathComponent("mirror"), containerIdentifier: nil)
+  let journal = try TrackingStore(
+    directory: root.appendingPathComponent("journal"), installationID: UUID())
+  let original = event()
+  try await mirror.save(.event(original))
+  let old = try #require(await mirror.history(after: nil).checkpoint)
+  try await journal.importMirrorBatch([], storeID: mirror.storeID, checkpoint: old)
+  try await mirror.save(.event(event()))
+  try await mirror.pruneHistory(before: Date().addingTimeInterval(60))
+  // Real Core Data history pruning expires a previously captured token; rows survive.
+  do {
+    _ = try await mirror.history(after: old)
+    Issue.record("History token unexpectedly survived pruning")
+  } catch {
+    #expect((error as NSError).code == NSPersistentHistoryTokenExpiredError)
+  }
+  let coordinator = PrivateSyncCoordinator(journal: journal, mirror: mirror)
+  _ = try await coordinator.synchronize(nowMS: 1000)
+  #expect(try await journal.retainedEvents().count == 2)
+  let subsequent = event()
+  try await mirror.save(.event(subsequent))
+  _ = try await coordinator.synchronize(nowMS: 2000)
+  #expect(try await journal.retainedEvents().count == 3)
+}
+
+@Test func recoveryRetriesFetchedButUncommittedPagesAndCheckpointFailure() async throws {
+  let root = try directory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let mirror = try await PrivateCloudMirror(
+    directory: root.appendingPathComponent("mirror"), containerIdentifier: nil)
+  let journalURL = root.appendingPathComponent("journal")
+  let journal = try TrackingStore(directory: journalURL, installationID: UUID())
+  try await mirror.save(.event(event()))
+  let old = try #require(await mirror.history(after: nil).checkpoint)
+  try await journal.importMirrorBatch([], storeID: mirror.storeID, checkpoint: old)
+  try await mirror.save(.event(event()))
+  try await mirror.pruneHistory(before: Date().addingTimeInterval(60))
+  // Ensure the recovery baseline has a token after pruning.
+  try await mirror.save(.event(event()))
+  let db = try SQLiteConnection(url: journalURL.appendingPathComponent("journal.sqlite"))
+  try db.execute(
+    "CREATE TRIGGER reject_event BEFORE INSERT ON events BEGIN SELECT RAISE(ABORT, 'failure'); END")
+  let coordinator = PrivateSyncCoordinator(journal: journal, mirror: mirror)
+  do {
+    _ = try await coordinator.synchronize(nowMS: 1)
+    Issue.record("Failed recovery page acknowledged")
+  } catch { #expect(error as? StoreError == .database(19)) }
+  #expect(try await journal.retainedEvents().isEmpty)
+  #expect(try await journal.mirrorCheckpoint(storeID: mirror.storeID) == old)
+  try db.execute("DROP TRIGGER reject_event")
+  try db.execute(
+    "CREATE TRIGGER reject_checkpoint BEFORE INSERT ON sync_checkpoints BEGIN SELECT RAISE(ABORT, 'failure'); END"
+  )
+  do {
+    _ = try await coordinator.synchronize(nowMS: 2)
+    Issue.record("Failed recovery checkpoint acknowledged")
+  } catch { #expect(error as? StoreError == .database(19)) }
+  #expect(try await journal.retainedEvents().count == 3)
+  #expect(try await journal.mirrorCheckpoint(storeID: mirror.storeID) == old)
+  try db.execute("DROP TRIGGER reject_checkpoint")
+  _ = try await coordinator.synchronize(nowMS: 3)
+  #expect(try await journal.retainedEvents().count == 3)
+  #expect(try await journal.mirrorCheckpoint(storeID: mirror.storeID) != old)
+}
+
+@Test func freshJournalImportsMirrorRowsWhoseHistoryWasPruned() async throws {
+  let root = try directory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let mirror = try await PrivateCloudMirror(directory: root, containerIdentifier: nil)
+  let original = event()
+  try await mirror.save(.event(original))
+  try await mirror.pruneHistory(before: Date().addingTimeInterval(60))
+  let journal = try TrackingStore(
+    directory: root.appendingPathComponent("journal"), installationID: UUID())
+  let coordinator = PrivateSyncCoordinator(journal: journal, mirror: mirror)
+  _ = try await coordinator.synchronize(nowMS: 1)
+  #expect(try await journal.retainedEvents() == [original])
+}
+
+@Test func deferredQueueDrainsEligibleRowsInBoundedBatchesWithoutNewHistory() async throws {
+  let root = try directory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let journal = try TrackingStore(directory: root, installationID: UUID())
+  let generation = ResetGeneration(revision: 1, resetID: UUID())
+  let future = ResetGeneration(revision: 2, resetID: UUID())
+  let waiting = (0..<1100).map { _ in MirrorRecord.event(event(generation: generation)) }
+  try await journal.importMirrorBatch(
+    waiting + [.event(event(generation: future))], storeID: "m", checkpoint: nil)
+  let count = try await journal.importMirrorBatch(
+    [.reset(generation, createdAtMS: 1)], storeID: "m", checkpoint: nil)
+  #expect(count == 500)
+  #expect(try await journal.retainedEvents().count == 500)
+  let mirror = try await PrivateCloudMirror(
+    directory: root.appendingPathComponent("mirror"), containerIdentifier: nil)
+  let coordinator = PrivateSyncCoordinator(journal: journal, mirror: mirror)
+  _ = try await coordinator.synchronize(nowMS: 2)
+  #expect(try await journal.retainedEvents().count == 1100)
+  let db = try SQLiteConnection(url: root.appendingPathComponent("journal.sqlite"))
+  #expect(try db.rows("SELECT count(*) AS n FROM deferred_imports").first?["n"] == "1")
+}
+
+@Test func versionThreeDeferredQueueMigratesWithoutLosingWaitingRecords() async throws {
+  let root = try directory()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let identity = UUID()
+  let journal = try TrackingStore(directory: root, installationID: identity)
+  let generation = ResetGeneration(revision: 1, resetID: UUID())
+  let waiting = event(generation: generation)
+  try await journal.importMirrorBatch([.event(waiting)], storeID: "m", checkpoint: nil)
+  let db = try SQLiteConnection(url: root.appendingPathComponent("journal.sqlite"))
+  // Restore the exact previous deferred-table shape, retaining its encoded payload.
+  try db.transaction {
+    try db.execute(
+      "CREATE TABLE old_deferred (payload_hash TEXT PRIMARY KEY,payload_json TEXT NOT NULL)")
+    try db.execute(
+      "INSERT INTO old_deferred SELECT payload_hash,payload_json FROM deferred_imports")
+    try db.execute("DROP TABLE deferred_imports")
+    try db.execute("ALTER TABLE old_deferred RENAME TO deferred_imports")
+    try db.execute("PRAGMA user_version=3")
+  }
+  let reopened = try TrackingStore(directory: root, installationID: identity)
+  #expect(try db.rows("PRAGMA user_version").first?["user_version"] == "4")
+  try await reopened.importMirrorBatch(
+    [.reset(generation, createdAtMS: 1)], storeID: "m", checkpoint: nil)
+  #expect(try await reopened.retainedEvents() == [waiting])
 }
