@@ -670,11 +670,51 @@ public actor TrackingStore {
       .flatMap(UUID.init(uuidString:))
   }
 
+  public func privateHistoryHealth() throws -> PrivateHistoryHealth {
+    try journalTransaction(write: false) {
+      let count =
+        Int(try database.rows("SELECT COUNT(*) AS n FROM rejected_reset_ids").first?["n"] ?? "0")
+        ?? 0
+      let rejected =
+        Int64(
+          try database.rows(
+            "SELECT value FROM settings WHERE key='highest_rejected_reset_revision'"
+          ).first?["value"] ?? "0") ?? 0
+      let highest = try highestResetRevision()
+      let current = try generation()
+      return PrivateHistoryHealth(
+        conflictingResetCount: count,
+        highestKnownResetRevision: highest,
+        requiresAttention: count > 0 && current.revision <= rejected,
+        canResetHistory: highest < TrackingReducer.maximumInteger)
+    }
+  }
+
+  private func highestResetRevision() throws -> Int64 {
+    let remembered =
+      Int64(
+        try database.rows("SELECT value FROM settings WHERE key='highest_reset_revision'").first?[
+          "value"] ?? "0") ?? 0
+    return max(remembered, try generation().revision)
+  }
+
+  private func rememberResetRevision(_ revision: Int64, rejected: Bool = false) throws {
+    let key = rejected ? "highest_rejected_reset_revision" : "highest_reset_revision"
+    try database.execute(
+      "INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=CAST(MAX(CAST(value AS INTEGER),CAST(excluded.value AS INTEGER)) AS TEXT)",
+      [.text(key), .text(String(revision))])
+  }
+
   public func reset(id: UUID = UUID(), nowMS: Int64) throws
     -> ResetGeneration
   {
     try validateTime(nowMS)
     return try journalTransaction {
+      guard
+        try database.rows(
+          "SELECT reset_id FROM rejected_reset_ids WHERE reset_id=?", [.text(id.canonical)]
+        ).isEmpty
+      else { throw StoreError.identityConflict }
       if let row = try database.rows(
         "SELECT revision FROM reset_markers WHERE reset_id=?", [.text(id.canonical)]
       ).first,
@@ -682,11 +722,11 @@ public actor TrackingStore {
       {
         return ResetGeneration(revision: revision, resetID: id)
       }
-      let previous = try generation()
+      let previousRevision = try highestResetRevision()
       guard
-        previous.revision < TrackingReducer.maximumInteger && id != ResetGeneration.initial.resetID
+        previousRevision < TrackingReducer.maximumInteger && id != ResetGeneration.initial.resetID
       else { throw StoreError.invalidInput }
-      let marker = ResetGeneration(revision: previous.revision + 1, resetID: id)
+      let marker = ResetGeneration(revision: previousRevision + 1, resetID: id)
       try adoptReset(marker, nowMS: nowMS)
       try enqueue("mirror_reset", entity: id, generation: marker)
       return marker
@@ -697,7 +737,8 @@ public actor TrackingStore {
     try validateTime(createdAtMS)
     _ = try TrackingReducer.reduce(events: [], generation: marker)
     guard marker.revision > 0 else { throw StoreError.invalidInput }
-    try journalTransaction { try adoptReset(marker, nowMS: createdAtMS) }
+    _ = try importMirrorBatch(
+      [.reset(marker, createdAtMS: createdAtMS)], storeID: "direct-reset", checkpoint: nil)
   }
 
   public func importInterruption(_ marker: TrackingInterruption) throws {
@@ -853,6 +894,9 @@ public actor TrackingStore {
         grouping: records.filter { if case .reset = $0 { true } else { false } }, by: \.logicalID)
       var validResets: [(ResetGeneration, Int64)] = []
       for (id, incoming) in resetGroups {
+        for record in incoming {
+          if case .reset(let marker, _) = record { try rememberResetRevision(marker.revision) }
+        }
         var versions = incoming
         if let row = try database.rows(
           "SELECT revision,created_at_ms FROM reset_markers WHERE reset_id=?", [.text(id.canonical)]
@@ -868,7 +912,12 @@ public actor TrackingStore {
         if previouslyRejected || versions.contains(where: { $0 != versions[0] }) {
           try database.execute(
             "INSERT OR IGNORE INTO rejected_reset_ids VALUES (?)", [.text(id.canonical)])
-          for record in versions { try quarantine(record) }
+          for record in versions {
+            if case .reset(let marker, _) = record {
+              try rememberResetRevision(marker.revision, rejected: true)
+            }
+            try quarantine(record)
+          }
           continue
         }
         if case .reset(let marker, let time) = versions[0] { validResets.append((marker, time)) }
@@ -1048,6 +1097,7 @@ public actor TrackingStore {
   }
 
   private func adoptReset(_ marker: ResetGeneration, nowMS: Int64) throws {
+    try rememberResetRevision(marker.revision)
     if let row = try database.rows(
       "SELECT revision,created_at_ms FROM reset_markers WHERE reset_id=?",
       [.text(marker.resetID.canonical)]

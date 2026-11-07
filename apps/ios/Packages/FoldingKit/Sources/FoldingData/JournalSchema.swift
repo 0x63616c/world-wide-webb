@@ -75,6 +75,37 @@ extension SQLiteConnection {
         )
         try execute("PRAGMA user_version=5")
       }
+      // Seed durable high-water marks for journals created before recovery diagnostics existed.
+      if try rows("SELECT value FROM settings WHERE key='highest_reset_revision'").isEmpty {
+        var highest =
+          Int64(
+            try rows("SELECT MAX(revision) AS revision FROM reset_markers").first?["revision"]
+              ?? "0") ?? 0
+        var rejected: Int64 = 0
+        var entity = ""
+        var hash = ""
+        while true {
+          let batch = try rows(
+            "SELECT entity_id,payload_hash,payload_json FROM quarantines WHERE (entity_id,payload_hash)>(?,?) ORDER BY entity_id,payload_hash LIMIT 500",
+            [.text(entity), .text(hash)])
+          if batch.isEmpty { break }
+          for row in batch {
+            let record = try JSONDecoder().decode(
+              MirrorRecord.self, from: Data(row["payload_json"]!.utf8))
+            if case .reset(let marker, _) = record {
+              highest = max(highest, marker.revision)
+              rejected = max(rejected, marker.revision)
+            }
+          }
+          entity = batch.last!["entity_id"]!
+          hash = batch.last!["payload_hash"]!
+        }
+        try execute(
+          "INSERT INTO settings VALUES ('highest_reset_revision',?)", [.text(String(highest))])
+        try execute(
+          "INSERT OR REPLACE INTO settings VALUES ('highest_rejected_reset_revision',?)",
+          [.text(String(rejected))])
+      }
     }
   }
 

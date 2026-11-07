@@ -1,5 +1,6 @@
 import CloudKit
 import CoreData
+import FoldingDomain
 import Foundation
 
 public struct MirrorHistoryBatch: Sendable {
@@ -18,6 +19,7 @@ public enum MirrorError: Error {
 public actor PrivateCloudMirror {
   private let container: NSPersistentCloudKitContainer
   private var closed = false
+  private var cleaning = false
   public nonisolated let storeID: String
 
   /// A nil container identifier creates an on-disk local mirror for integration tests, without cloud access.
@@ -28,6 +30,8 @@ public actor PrivateCloudMirror {
       name: "FoldingPrivateMirror", managedObjectModel: model)
     let description = NSPersistentStoreDescription(
       url: directory.appendingPathComponent("mirror.sqlite"))
+    description.shouldMigrateStoreAutomatically = true
+    description.shouldInferMappingModelAutomatically = true
     description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
     description.setOption(
       true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
@@ -79,6 +83,7 @@ public actor PrivateCloudMirror {
         forEntityName: record.entityName, into: context)
       object.setValue(record.logicalID.uuidString.lowercased(), forKey: "logicalID")
       object.setValue(payload, forKey: "payload")
+      Self.indexGeneration(of: record, on: object)
       try context.save()
     }
   }
@@ -112,7 +117,15 @@ public actor PrivateCloudMirror {
       var records: [MirrorRecord] = []
       var visited = Set<NSManagedObjectID>()
       for transaction in ordered {
+        // Cleanup changes only derived indexes/deletions; their transaction token still advances.
+        if transaction.author == "folding-cleanup" { continue }
         for change in transaction.changes ?? [] where change.changeType != .delete {
+          if change.changeType == .update, let properties = change.updatedProperties,
+            !properties.isEmpty,
+            properties.allSatisfy({ $0.name == "generationRevision" || $0.name == "generationID" })
+          {
+            continue
+          }
           guard visited.insert(change.changedObjectID).inserted else { continue }
           // A later cleanup may have deleted an old-generation record. Reset tombstones remain durable.
           let object: NSManagedObject
@@ -157,6 +170,96 @@ public actor PrivateCloudMirror {
     return MirrorRecoverySnapshot(context: context, checkpoint: checkpoint)
   }
 
+  /// Each committed backfill/delete is its own durable progress. No offset can skip rows after
+  /// deletion, and a restart discovers the remaining null indexes/obsolete rows directly.
+  public func cleanup(before generation: ResetGeneration, limit: Int = 500) async throws
+    -> MirrorCleanupReport
+  {
+    guard !closed else { throw MirrorError.closed }
+    guard (1...1000).contains(limit), !cleaning else { throw StoreError.invalidInput }
+    cleaning = true
+    defer { cleaning = false }
+    _ = try TrackingReducer.reduce(events: [], generation: generation)
+    guard generation.revision > 0 else {
+      return MirrorCleanupReport(indexedRecords: 0, deletedRecords: 0)
+    }
+    let context = container.newBackgroundContext()
+    context.transactionAuthor = "folding-cleanup"
+    return try await context.perform {
+      // A journal commit alone cannot authorize deleting the mirror's last copy of history.
+      // The corresponding immutable reset tombstone must already have reached this mirror.
+      let resetRequest = NSFetchRequest<NSManagedObject>(entityName: "ResetMarker")
+      resetRequest.predicate = NSPredicate(
+        format: "logicalID == %@", generation.resetID.uuidString.lowercased())
+      resetRequest.fetchLimit = 1
+      guard let reset = try context.fetch(resetRequest).first,
+        let resetData = reset.value(forKey: "payload") as? Data,
+        case .reset(let saved, _) = try JSONDecoder().decode(MirrorRecord.self, from: resetData),
+        saved == generation
+      else { return MirrorCleanupReport(indexedRecords: 0, deletedRecords: 0) }
+      var indexed = 0
+      var deleted = 0
+      for entity in ["ReplicatedEvent", "TrackingInterruption"] {
+        let budget = limit - indexed - deleted
+        if budget == 0 { break }
+        let legacy = NSFetchRequest<NSManagedObject>(entityName: entity)
+        legacy.predicate = NSPredicate(format: "generationRevision == nil OR generationID == nil")
+        legacy.fetchLimit = budget
+        for object in try context.fetch(legacy) {
+          guard let payload = object.value(forKey: "payload") as? Data,
+            let id = object.value(forKey: "logicalID") as? String
+          else { throw MirrorError.invalidRecord }
+          let record = try JSONDecoder().decode(MirrorRecord.self, from: payload)
+          guard record.entityName == entity, record.logicalID.uuidString.lowercased() == id,
+            record.generation != nil
+          else { throw MirrorError.invalidRecord }
+          Self.indexGeneration(of: record, on: object)
+          indexed += 1
+        }
+        let remaining = limit - indexed - deleted
+        if remaining == 0 { continue }
+        let obsolete = NSFetchRequest<NSManagedObject>(entityName: entity)
+        obsolete.predicate = NSPredicate(
+          format: "generationRevision < %@ OR (generationRevision == %@ AND generationID < %@)",
+          NSNumber(value: generation.revision), NSNumber(value: generation.revision),
+          generation.resetID.uuidString.lowercased())
+        obsolete.fetchLimit = remaining
+        for object in try context.fetch(obsolete) {
+          // Confirm payload semantics too; a damaged derived index must never delete newer data.
+          guard let payload = object.value(forKey: "payload") as? Data else {
+            throw MirrorError.invalidRecord
+          }
+          let record = try JSONDecoder().decode(MirrorRecord.self, from: payload)
+          guard record.entityName == entity, let recordedGeneration = record.generation,
+            recordedGeneration < generation,
+            object.value(forKey: "logicalID") as? String
+              == record.logicalID.uuidString.lowercased(),
+            (object.value(forKey: "generationRevision") as? NSNumber)?.int64Value
+              == recordedGeneration.revision,
+            object.value(forKey: "generationID") as? String
+              == recordedGeneration.resetID.uuidString.lowercased()
+          else { throw MirrorError.invalidRecord }
+          context.delete(object)
+          deleted += 1
+        }
+      }
+      if context.hasChanges { try context.save() }
+      return MirrorCleanupReport(indexedRecords: indexed, deletedRecords: deleted)
+    }
+  }
+
+  private nonisolated static func indexGeneration(
+    of record: MirrorRecord, on object: NSManagedObject
+  ) {
+    switch record {
+    case .event, .interruption:
+      guard let generation = record.generation else { return }
+      object.setValue(generation.revision, forKey: "generationRevision")
+      object.setValue(generation.resetID.uuidString.lowercased(), forKey: "generationID")
+    case .reset, .transfer, .transferRejection: break
+    }
+  }
+
   // Integration-test seam: exercise real history deletion without exposing it to app callers.
   func pruneHistory(before date: Date) async throws {
     guard !closed else { throw MirrorError.closed }
@@ -192,6 +295,25 @@ public actor PrivateCloudMirror {
         payload.attributeType = .binaryDataAttributeType
         payload.isOptional = true
         entity.properties = [id, payload]
+        if name == "ReplicatedEvent" || name == "TrackingInterruption" {
+          let revision = NSAttributeDescription()
+          revision.name = "generationRevision"
+          revision.attributeType = .integer64AttributeType
+          revision.isOptional = true
+          let generationID = NSAttributeDescription()
+          generationID.name = "generationID"
+          generationID.attributeType = .stringAttributeType
+          generationID.isOptional = true
+          entity.properties += [revision, generationID]
+          entity.indexes = [
+            NSFetchIndexDescription(
+              name: "generationIndex",
+              elements: [
+                NSFetchIndexElementDescription(property: revision, collationType: .binary),
+                NSFetchIndexElementDescription(property: generationID, collationType: .binary),
+              ])
+          ]
+        }
         return entity
       }
     return model

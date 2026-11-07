@@ -76,6 +76,10 @@ public actor PrivateSyncCoordinator {
         throw error
       }
     }
+    if recovery == nil {
+      if stopped || Task.isCancelled { throw CancellationError() }
+      _ = try await mirror.cleanup(before: journal.currentGeneration())
+    }
     return PrivateSyncReport(
       localMirrorSaves: saved, importedRecords: imported,
       quarantinedRecords: try await journal.quarantinedRecordCount())

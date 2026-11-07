@@ -42,3 +42,9 @@ extension MirrorRecord {
     }
   }
 }
+
+/// Work completed by one bounded cleanup transaction; it is not a cloud deletion acknowledgment.
+public struct MirrorCleanupReport: Sendable, Equatable {
+  public let indexedRecords: Int
+  public let deletedRecords: Int
+}
