@@ -76,8 +76,7 @@ struct PanelProfileSelector: ViewModifier {
             }
             .sheet(isPresented: $addingUser) {
                 AddPanelProfile(cancel: { addingUser = false }, save: add)
-                    .foregroundStyle(.primary)
-                    .preferredColorScheme(.light)
+                    .preferredColorScheme(.dark)
                     .padding(28)
                     .frame(idealWidth: 380)
                     .presentationSizing(.fitted)
@@ -245,6 +244,8 @@ private struct AddPanelProfile: View {
                         save(PanelProfile(name: trimmedName, photo: photo))
                     }
                     .buttonStyle(.glassProminent)
+                    .tint(.blue)
+
                     .disabled(trimmedName.isEmpty || photo == nil)
                     .accessibilityIdentifier("profile-save")
                 }
