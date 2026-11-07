@@ -1,6 +1,7 @@
 # Calum’s apps: project memory
 
 - Start with [README.md](README.md). App code and core tests live in `apps/<app>`; shared SwiftUI components and `rframe` live in `packages/RDesign`.
+- Project-local agent skills live in `.agents/skills`; see [.agents/README.md](.agents/README.md) for their source and update process.
 - Follow [CONTRIBUTING.md](CONTRIBUTING.md). Use Conventional Commit PR titles and describe the change and validation.
 - Git identity: **Calum <6991398+0x63616c@users.noreply.github.com>**. Never use `calum@users.noreply.github.com`. Make small logical commits. When publication is authorized, merge yourself once checks are green; no PR review is required. Explicit session instructions such as “do not push” take precedence.
 - Black, white and graphite only; no green or teal. Keep copy minimal. Tendr dose entry uses mg only; preserve historical records and do not re-enable syringe units. No drug brand names or medical claims in listing copy or screenshots.
