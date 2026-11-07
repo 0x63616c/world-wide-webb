@@ -52,3 +52,22 @@ module "support_email" {
   zone_id     = var.zone_id
   destination = var.support_destination
 }
+
+variable "account_id" { type = string }
+variable "admin_emails" {
+  type      = set(string)
+  sensitive = true
+}
+variable "application_routes_enabled" {
+  type    = bool
+  default = false
+}
+module "application" {
+  source         = "../../modules/application"
+  account_id     = var.account_id
+  zone_id        = var.zone_id
+  environment    = "production"
+  admin_emails   = var.admin_emails
+  routes_enabled = var.application_routes_enabled
+}
+output "application_bindings" { value = module.application.bindings }
