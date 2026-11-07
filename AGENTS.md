@@ -5,6 +5,31 @@
 - Read `CODEBASE_OVERVIEW.md` first — it's the map; this file is the rules.
 - PR titles use Conventional Commits.
 
+## Active approved migration: native Swift + Rust
+
+- Read `docs/plans/native-rust-reset.md` and `docs/plans/native-rust-progress.md` before migration work.
+- Calum approved the plan on 2026-11-07. Target: shared clock-first Swift iPad/iPhone/Duo/macOS,
+  Rust/SQLite backend, OpenTofu, no web/Expo. The plan supersedes conflicting legacy layout/UI rules below.
+- **LOCAL UNTIL COMPLETE:** implement all code, layout, cleanup and CI changes locally; commit coherent
+  slices, but do not push, open a PR, create remote tracking items, deploy or apply infrastructure until
+  the finished candidate passes local tests/builds and independent review. Draft tracking locally first.
+- Final publication: create the GitHub project/issues from local drafts, push one implementation PR,
+  fix required hosted checks, merge only green, then execute the verified cutover. No early draft PRs.
+- Minimize PR count and token/time overhead. Work in four large packages; parallel agents need explicit
+  file ownership. Do not turn every commit into a PR or wait for hosted CI during local implementation.
+- Data/photos are non-negotiable: preserve the original dump/media, reconcile imported records and file
+  hashes, test restore, freeze old writers for final snapshot. Downtime is acceptable; data loss is not.
+- Retired features' historical records/media remain recoverable. Do not delete production data, original
+  volumes, backups, Git history or unrelated HA/Hindsight/Bambuddy resources during cleanup.
+- Keep the existing design and share components. Preserve app identity and local state; use small platform
+  adapters, not separate feature implementations or model-name-based layout forks.
+- One primary agent owns credential access in one persistent session; delegates never call op.
+  Never expose secrets or user data in code, logs, agent messages or Git.
+- Review requires real local build/test results, migration reconciliation, screenshots/video for all native
+  platforms, and a cutover runbook. Scaffolding or partial feature coverage is not completion.
+- Update the progress document with implemented scope, evidence and remaining work at every handoff.
+  Do not mark work done just because its code compiles. Preserve required-check and deployment gates.
+
 ## Agent skills
 
 - Repo skills live in `.agents/skills/` (Codex discovers them automatically;

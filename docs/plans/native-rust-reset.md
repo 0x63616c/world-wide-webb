@@ -1,9 +1,10 @@
 # Native Swift, Rust, SQLite and OpenTofu reset
 
-Status: independently reviewed; awaiting Calum's approval. Written 2026-11-07.
+Status: independently reviewed and approved by Calum on 2026-11-07.
 Source baseline: `7841e2732c73b99f99344142eedccf15e75aa53e` plus read-only production measurements.
-This document authorizes no cutover by itself. The planning task includes backup and measurement;
-implementation and GitHub project/issues follow review and approval.
+Implementation is approved. All work remains local through completed implementation and independent
+review. GitHub project/issues are drafted locally and published with the final candidate; production
+cutover follows the plan's required checks, verified backup and data reconciliation gates.
 
 ## 1. Agreed outcome and priorities
 
