@@ -3,7 +3,8 @@
 The private [homelab repository](https://github.com/0x63616c/homelab) owns host and
 service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
 owns guided enrollment; private health and restore operations live in `host/`.
-No physical host has received this configuration, and 0.3.0 is not yet released.
+No physical host has received this configuration. Public CLI
+[0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0) is released.
 
 ## What is implemented
 
@@ -48,8 +49,8 @@ revisions, evidence locations and limits.
   deployment, the secret/launchd verifier passed and Comin was running.
 - The full nine-check private Nix run at `2bd88e2` passed, including both hosts,
   the current profile patch and helper pin.
-- Final current-artifact CI, replacement of the old draft tap artifact and release
-  publication remain pending.
+- Public CI run `42333916620` passed, including the fresh-Mac smoke test without
+  Nix. The published artifact's SHA-256 matches the Homebrew formula.
 
 The VM uses synthetic credential providers and a pinned SSH adapter for Tailscale
 transport. It proves neither real tailnet policy nor FileVault unlock, production
@@ -59,8 +60,8 @@ restore remains untested. See [restore rehearsal](restore-rehearsal.md).
 
 ## Before production migration
 
-Finish artifact checks and release validation. Then
-provision and verify actual SSH/SOPS and Tailscale access on the intended host.
+Provision and verify actual SSH/SOPS and Tailscale access on the intended host
+only after deployment is authorized.
 Rehearse consistent backups, application restores and stateful deployment failure
 handling before service cutover. Home Assistant networking and runner isolation
 need their own target evidence.

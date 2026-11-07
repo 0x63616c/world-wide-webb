@@ -14,7 +14,8 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 3. The wizard backs up keys, prepares encrypted secrets and opens an enrollment PR.
 4. Review and merge that PR; the wizard installs, reboots and verifies the Mac.
 
-This is the upcoming enrollment flow; wait for the CLI release before starting.
+Use [CLI 0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0)
+or later for this enrollment flow.
 
 The CLI ships its bootstrap helper. Your personal laptop needs neither Nix nor a local
 bootstrap build. Nix is installed and runs on the target only after approval.
@@ -65,8 +66,8 @@ handover to Comin. See [how updates work](docs/updates.md).
 No real Mac has received this configuration. Host readiness remains false until
 its enrollment PR is approved; application services and runners remain disabled.
 Private Nix checks and the full disposable enrollment/reboot/Comin replay passed.
-A later scheduled Git update and another reboot also passed. Final artifact and
-release validation remain pending. See [VM evidence](docs/vm-validation.md) for
+A later scheduled Git update and another reboot also passed. Release 0.3.0 passed
+public CI and a fresh-Mac smoke test without Nix. See [VM evidence](docs/vm-validation.md) for
 exact revisions and limits.
 Private Actions workflows are manual-only until self-hosted runners are ready;
 routine validation runs in the disposable Mac VM without paid private CI minutes.

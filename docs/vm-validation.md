@@ -20,7 +20,7 @@ The real enrollment PR installed `f87a7552923874a2ee04fb5fae9f869b03b093f6`.
 | Scheduled-update live state | Standard boot profile, `/run/current-system` and live `/etc` all matched; marker present; `vm_e2e --verify` exited 0 |
 | Reboot after scheduled update | New boot UUID; all three revision pointers and marker persisted; activation verifier exited 0; Comin running |
 | Final private Nix checks | All nine checks passed at `2bd88e2`; exit 0 |
-| Final release artifact and tap | Pending; old draft tap artifact must be replaced |
+| Final release artifact | CI `42333916620` passed, including fresh-Mac smoke without Nix; published 0.3.0 download checksum verified |
 
 The operator retained full-wizard evidence at
 `homelab-cli/target/vm-enrollment-full-6-operator/evidence.json`. It records
@@ -36,6 +36,11 @@ at `homelab-cli/target/private-validation-2bd88e2.log`. Those checks cover both
 hosts, service assignments, SOPS identity, management client, Tart, Compose,
 Softnet and the dormant MacBook container path, including the current profile
 patch and helper pin. Neither physical host configuration was activated.
+
+The release archive SHA-256 is
+`1cbcbdcd55150b04318fa336b705531c1957d877ce66f3794570ad4417b29402`.
+Its CI source tree matches both release commit `f9063f6` and merged CLI main
+`4b9c7bc`. The Homebrew formula uses that verified archive.
 
 ## Scope and safety boundary
 
