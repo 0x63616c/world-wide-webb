@@ -16,3 +16,7 @@ Review the full specification and identify anything to change. Shortcuts trackin
 No implementation has started. The review specification distinguishes chosen defaults from prior explicit approvals; the owner can revise any default before asking to build.
 
 The [delivery plan](delivery-plan.md) lists each milestone, acceptance check, and when owner input is needed. The [architecture plan](architecture.md) applies the requested Matt Pocock design principles.
+
+## Current owner updates
+
+Full implementation and shipping are authorized. Apple account requirements are reported complete. Real-device tests are deferred until after App Store submission; see the explicit scheduling exception in the delivery plan. Public support address is `support@getfolding.app`; Cloudflare forwarding to the owner's supplied iCloud destination is authorized and pending setup/verification. Store the private destination and credentials in the Folding 1Password vault, not public site assets. The owner authorizes a dedicated vault for project credentials, certificates, keys, and recovery material.

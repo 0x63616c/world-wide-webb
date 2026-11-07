@@ -25,6 +25,9 @@ vendor/bundle/
 .bundle/
 target/
 .wrangler/
+__pycache__/
+*.pyc
+.venv/
 
 # Infrastructure credentials and state
 .terraform/

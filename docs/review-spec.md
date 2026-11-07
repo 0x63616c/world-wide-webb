@@ -1,5 +1,14 @@
 # Folding: complete v1 specification for review
 
+
+## Owner-approved execution update — November 7, 2026
+
+The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
+
+Physical-device testing is explicitly deferred until **after App Store submission**. Any earlier wording requiring a real-device pass before feature work/submission is superseded by this scheduling exception. Keep these checks marked **deferred**, never passed; continue simulator, domain, backend, security, UI, and release checks before submission. Do not bypass App Attest or fabricate device evidence to satisfy this schedule. Missing device-only evidence is recorded in the release manifest as an owner-approved deferral, not a successful check. Automatic release after approval remains enabled; approval may occur before device testing is complete.
+
+Immediately after verified submission, run the deferred Duo tests with the owner and fix/resubmit if needed. The full shipping goal remains incomplete until required deferred tests and resulting fixes are resolved. Known functional/security failures are still fixed promptly; this exception defers hardware evidence, not already-known defects.
+
 Version 1 · November 7, 2026 · Product name: Folding
 
 This is the single document to review. It combines requirements already agreed with sensible defaults chosen at the owner's request. These defaults are recommendations for approval, not a claim that each was explicitly approved previously. This document takes precedence over earlier planning notes; no application implementation has started.
@@ -280,4 +289,4 @@ Only choices that cannot sensibly be invented remain:
 - Support contact details and real business/privacy information for the listing.
 - Access to the owner's Duo for guided real-device testing during implementation.
 
-Everything else above has a recommended default. Review this document by pointing to anything you disagree with; there is no need to answer another technical questionnaire. No code or services should be built until the owner has reviewed the specification and asks to proceed.
+Everything else above has a recommended default. Review this document by pointing to anything you disagree with; there is no need to answer another technical questionnaire. The owner has now authorized implementation and shipping under an active goal.

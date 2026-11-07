@@ -1,5 +1,14 @@
 # Folding: delivery plan through App Store submission
 
+
+## Owner-approved execution update — November 7, 2026
+
+The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
+
+Physical-device testing is explicitly deferred until **after App Store submission**. Any earlier wording requiring a real-device pass before feature work/submission is superseded by this scheduling exception. Keep these checks marked **deferred**, never passed; continue simulator, domain, backend, security, UI, and release checks before submission. Do not bypass App Attest or fabricate device evidence to satisfy this schedule. Missing device-only evidence is recorded in the release manifest as an owner-approved deferral, not a successful check. Automatic release after approval remains enabled; approval may occur before device testing is complete.
+
+Immediately after verified submission, run the deferred Duo tests with the owner and fix/resubmit if needed. The full shipping goal remains incomplete until required deferred tests and resulting fixes are resolved. Known functional/security failures are still fixed promptly; this exception defers hardware evidence, not already-known defects.
+
 Updated November 7, 2026. This is the execution companion to the [product specification](review-spec.md). The specification owns product behavior; this plan owns sequence, deliverables, and acceptance checks. No app or infrastructure implementation is complete yet.
 
 ## Confirmed project details
@@ -24,7 +33,7 @@ Use three validation checkpoints:
 
 Cheap automated checks may run in the background during a batch. Expensive simulator suites, full screenshot matrices, and owner-operated device checks run at checkpoint/batch completion or when a specific new risk justifies them. Fix a discovered foundational/security/data-integrity failure before building dependent work; batching is not permission to ignore known failures. Keep CI and required merge/release checks enforced. Do not repeatedly rerun unchanged passing checks without a reason.
 
-A milestone is complete only when its acceptance checks have evidence. Until batch validation, mark implementation as awaiting validation and keep acceptance boxes unchecked. Link the PR, CI run, recording, or device result when closing them. Do not report simulator fixtures as proof of physical-device behavior. GitHub Issues will track task status and evidence; the delivery plan tracks milestone progress. Issue creation remains pending and is not implied by this planning update.
+A milestone is complete only when its acceptance checks have evidence. Until batch validation, mark implementation as awaiting validation and keep acceptance boxes unchecked. Link the PR, CI run, recording, or device result when closing them. Do not report simulator fixtures as proof of physical-device behavior. GitHub Issues will track task status and evidence; the delivery plan tracks milestone progress. GitHub Issues are the live execution tracker; issue links are maintained in `docs/work-tracker.md`.
 
 Use `codex/` branches and coherent PRs aligned to substantial changes, with commits at useful recovery points. Do not create a PR or request approval for every tiny edit. Keep `main` buildable. Add CI and Fastlane at the start. Use the [technical specifications and work orders](technical/README.md) to constrain implementation, and deterministic fixtures for routine development. Give progress updates without stopping execution for routine confirmation.
 
@@ -210,7 +219,7 @@ Suggested Fastlane lanes: `verify`, `screenshots`, `beta`, `release_preflight`, 
 
 **Before submission:** legal seller/contact facts, working public support destination, any required agreements/tax/banking actions for tips, and approval of final public brand/listing assets. The agent prepares the concrete assets first. MFA/account-holder actions will be requested only when an actual login/setup step requires them.
 
-Everything else has defaults in the spec or this plan. Account/project setup and repo planning are authorized; application implementation begins on the owner's instruction. Choosing this plan does not authorize an unspecified additional purchase.
+Everything else has defaults in the spec or this plan. The owner has now authorized full implementation and shipping under an active goal. Choosing this plan does not authorize an unspecified additional purchase.
 
 ## Sources and implementation checks
 

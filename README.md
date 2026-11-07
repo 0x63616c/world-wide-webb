@@ -2,7 +2,7 @@
 
 A free, native iPhone Duo folding tracker: personal statistics, guided Shortcuts setup, iCloud sync, widgets, and optional competition.
 
-**Status:** requirements and feasibility planning. No application or infrastructure has been built. The owner selected **Folding** as the final product name. App Store name registration is pending. The owner has purchased **getfolding.app**. The private repository is [0x63616c/folding](https://github.com/0x63616c/folding).
+**Status:** shipping goal active; account setup and implementation are now authorized. The Swift tracking domain and private infrastructure-state bootstrap are implemented; the app, backend and release pipeline remain in progress. The owner selected **Folding** as the final product name. App Store name registration is pending. The owner has purchased **getfolding.app**. The private repository is [0x63616c/folding](https://github.com/0x63616c/folding).
 
 ## Start here
 
@@ -11,6 +11,8 @@ Read the [complete v1 specification for review](docs/review-spec.md). It is the 
 Start implementation planning with the [delivery plan through App Store submission](docs/delivery-plan.md), [architecture](docs/architecture.md), and [domain glossary](GLOSSARY.md).
 
 For implementation, read the [technical specifications and agent work orders](docs/technical/README.md), including [shared schemas and fixtures](contracts/README.md).
+
+Track implementation in [GitHub Issues](https://github.com/0x63616c/folding/issues) and the [work tracker](docs/work-tracker.md).
 
 ## Planning documents
 
@@ -25,4 +27,4 @@ For implementation, read the [technical specifications and agent work orders](do
 
 **Agreed** means explicitly requested or accepted by the owner. **Proposed** means a recommendation discussed but not yet explicitly adopted. **Unverified** means platform behavior or tooling needs evidence before becoming a product promise.
 
-These documents consolidate the planning conversation through November 7, 2026. Account/project setup and login are authorized now that the name is chosen. Domain purchases and implementation still require the owner’s instruction.
+These documents consolidate the planning conversation through November 7, 2026. Account/project setup and login are authorized now that the name is chosen. Full implementation/shipping is now authorized. Additional purchases still require a specified budget.

@@ -1,6 +1,6 @@
 # Folding architecture and repository design
 
-Status: initial implementation plan; no application modules exist yet. Product behavior remains in [review-spec.md](review-spec.md); build sequence is in [delivery-plan.md](delivery-plan.md). The [technical specifications](technical/README.md) now supply implementation contracts and agent work orders.
+Status: initial implementation is underway; FoldingDomain now implements the reducer and reset ordering. Other modules below remain planned. Product behavior remains in [review-spec.md](review-spec.md); build sequence is in [delivery-plan.md](delivery-plan.md). The [technical specifications](technical/README.md) now supply implementation contracts and agent work orders.
 
 ## Design approach
 

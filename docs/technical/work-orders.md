@@ -1,5 +1,14 @@
 # Agent work orders and handoff rules
 
+
+## Owner-approved execution update — November 7, 2026
+
+The owner has authorized implementation through submission/publication and reports Apple account agreements/tax/banking requirements complete. Verify actual App Store Connect state when used; do not request these again unless a concrete account prompt contradicts that report.
+
+Physical-device testing is explicitly deferred until **after App Store submission**. Any earlier wording requiring a real-device pass before feature work/submission is superseded by this scheduling exception. Keep these checks marked **deferred**, never passed; continue simulator, domain, backend, security, UI, and release checks before submission. Do not bypass App Attest or fabricate device evidence to satisfy this schedule. Missing device-only evidence is recorded in the release manifest as an owner-approved deferral, not a successful check. Automatic release after approval remains enabled; approval may occur before device testing is complete.
+
+Immediately after verified submission, run the deferred Duo tests with the owner and fix/resubmit if needed. The full shipping goal remains incomplete until required deferred tests and resulting fixes are resolved. Known functional/security failures are still fixed promptly; this exception defers hardware evidence, not already-known defects.
+
 These are implementation instructions, not completed work. One execution agent owns all implementation. No execution subagents; independent agents may review completed work only. Each order starts with the [technical index](README.md). Shared contracts, target/crate manifests, migrations, and integration decisions have the same execution owner.
 
 ## Execution order and batching
@@ -166,3 +175,15 @@ No task may solve a failure by weakening verification, changing counting semanti
 **Evidence:** Waiting for Review or In Review, not merely successful upload/Ready for Review. Retry follows persisted state and checks Apple before another external write. A rejection is handled against its actual feedback; any code change gets a new build identity.
 
 **Reject:** polling timeout treated as permission to resubmit; release on every merge; asking for repeat permissions at every already-authorized pipeline step; claiming Apple approved before observing it.
+
+## F13 — Deferred post-submission physical-device validation
+
+**Owns:** `docs/experiments/`, device evidence, corrective changes/resubmission if necessary.
+
+**Depends on:** verified App Store submission (F12) and owner access to the Duo.
+
+**Deliver:** run every previously deferred physical check: actual Shortcut creation/handoff, partial/open/close counting, lock/background/terminated/restart, protected storage and sync, real App Attest and upload, sign-in, StoreKit, push, installed widgets, and battery/resource behavior. Update the original work-order evidence links and remove deferrals only after actual passes.
+
+**Evidence:** device/OS/build, exact steps, observed outcomes, and fix build IDs. If a defect affects the submitted build, correct it and update/resubmit according to Apple's current review state. Never claim Apple review itself proves these tests passed.
+
+**Completion:** full shipping goal stays active until these checks and corrective work are resolved, even if Apple has already approved/published.
