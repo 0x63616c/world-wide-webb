@@ -55,6 +55,7 @@ import struct FoldingData.SetupProgress
         await self.presentation.requestHistory(using: self.actions)
       },
       loadHistory: { period, offset in try await self.history(period, offset: offset) },
+      tipJar: { AnyView(TipJarView(store: .shared)) },
       saveNotifications: { requested in
         let saved = try await self.notifications.save(requested)
         await self.runtime.configureDailyLimit()
@@ -257,7 +258,7 @@ import struct FoldingData.SetupProgress
       let environment = Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String
     else { throw CompetitionTransportError.unavailable }
     let store = try await runtime.store()
-    let transport = try CompetitionTransport(
+    let transport = try await CompetitionTransportPool.shared.client(
       origin: origin, deployment: environment,
       deviceID: store.deviceID, bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
     let api = CompetitionAPI(transport: transport, deviceID: store.deviceID)
@@ -360,7 +361,8 @@ import struct FoldingData.SetupProgress
     }
     return LeaderboardPresentation(
       periodTitle: period.title, entries: board.page.items.map(entry),
-      currentUser: board.you.map(entry), pendingFolds: 0, updatedAt: Date(),
+      currentUser: board.you.map(entry),
+      pendingFolds: try await runtime.store().pendingCompetitionEventCount(), updatedAt: Date(),
       population: board.population, percentile: board.you?.percentile)
   }
 
@@ -404,6 +406,8 @@ import struct FoldingData.SetupProgress
         localized: "tracking.unavailable", defaultValue: "Tracking unavailable")
     }
   }
+
+  func maintainCompetitionUploads() async { await runtime.maintainCompetitionUploads() }
 
   func synchronizePrivateHistory() async { await runtime.synchronizePrivateHistory() }
 

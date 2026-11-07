@@ -7,6 +7,7 @@ import WidgetKit
 /// Release remains compile-gated; this directory is never silently promoted to an iCloud account.
 actor TrackingRuntime {
   static let shared = TrackingRuntime()
+  private let competitionUploader = CompetitionUploader()
   private var cloudConnection: CloudTrackingConnection?
   private var accountRevision = UUID()
   private var journal: TrackingStore?
@@ -78,6 +79,7 @@ actor TrackingRuntime {
     do {
       _ = try await store()
       try await cloudConnection?.synchronize()
+      await uploadCompetition()
       await configureDailyLimit()
       if let journal { await DailyLimitDelivery.shared.deliver(from: journal) }
       await publishWidgets()
@@ -115,6 +117,7 @@ actor TrackingRuntime {
         afterEventID: receipt.event.eventID, homeTimezone: preferences.homeTimezone, nowMS: now)
     }
     await DailyLimitDelivery.shared.deliver(from: store)
+    await uploadCompetition()
     await publishWidgets()
     changed()
   }
@@ -141,9 +144,33 @@ actor TrackingRuntime {
     let pending = try await current.dailyLimitNotificationIdentifier()
     _ = try await current.reset(nowMS: Self.nowMS)
     await DailyLimitDelivery.shared.cancel(pending)
+    await uploadCompetition()
     clearWidgets()
     await publishWidgets()
     changed()
+  }
+
+  func maintainCompetitionUploads() async {
+    while !Task.isCancelled {
+      await uploadCompetition()
+      do { try await Task.sleep(for: .seconds(15)) } catch { return }
+    }
+  }
+
+  func uploadCompetition() async {
+    do {
+      let current = try await store()
+      guard try await current.currentCompetitionEpoch() != nil,
+        let text = Bundle.main.object(forInfoDictionaryKey: "FoldingAPIOrigin") as? String,
+        let origin = URL(string: text),
+        let deployment = Bundle.main.object(forInfoDictionaryKey: "FoldingEnvironment") as? String
+      else { return }
+      let transport = try await CompetitionTransportPool.shared.client(
+        origin: origin, deployment: deployment,
+        deviceID: current.deviceID,
+        bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
+      await competitionUploader.upload(from: current, transport: transport)
+    } catch {}
   }
 
   private func localPreferences() -> FoldingPreferences {

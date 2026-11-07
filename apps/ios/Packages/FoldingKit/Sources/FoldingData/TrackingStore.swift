@@ -964,6 +964,9 @@ public actor TrackingStore {
   /// Called only with the confirmed enrollment response; this is local state, not server authorization.
   public func setCompetitionEpoch(_ epoch: UUID?) throws {
     try journalTransaction {
+      if try competitionEpoch() != epoch {
+        try database.execute("DELETE FROM settings WHERE key='competition_upload'")
+      }
       try database.execute("DELETE FROM settings WHERE key='competition_epoch'")
       if let epoch {
         try database.execute(
@@ -1081,6 +1084,162 @@ public actor TrackingStore {
         .text(marker.generation.resetID.canonical), .integer(marker.afterSequence),
         .text(try encode(marker)),
       ])
+  }
+
+  public func leaseCompetitionUpload(nowMS: Int64) throws -> CompetitionUpload? {
+    try validateTime(nowMS)
+    return try journalTransaction {
+      guard let epoch = try competitionEpoch() else { return nil }
+      let current = try generation()
+      if let value = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
+        .first?["value"]
+      {
+        var pending: CompetitionUpload = try decode(value)
+        if pending.epochID == epoch && pending.generation == current {
+          guard pending.leaseUntilMS <= nowMS, pending.nextAttemptMS <= nowMS else { return nil }
+          pending.leaseToken = UUID()
+          pending.leaseUntilMS = nowMS + 60_000
+          try saveCompetitionUpload(pending)
+          return pending
+        }
+        try database.execute("DELETE FROM settings WHERE key='competition_upload'")
+      }
+      let resets = try database.rows(
+        "SELECT work_id FROM work_outbox WHERE kind='competition_reset' AND generation_id=? AND state='pending' LIMIT 1",
+        [.text(current.resetID.canonical)])
+      if resets.isEmpty,
+        let value = try database.rows(
+          "SELECT value FROM settings WHERE key='competition_upload_not_before'"
+        ).first?["value"],
+        let notBefore = Int64(value), notBefore > nowMS
+      {
+        return nil
+      }
+      let operation = UUID()
+      let body: Data
+      let workIDs: [UUID]
+      let eventIDs: [UUID]
+      let isReset = !resets.isEmpty
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+      if let reset = resets.first {
+        struct Request: Encodable {
+          let schemaVersion = 1
+          let operationID: String
+          let epochID: String
+          let generation: ResetGeneration
+          enum CodingKeys: String, CodingKey {
+            case schemaVersion = "schema_version"
+            case operationID = "operation_id"
+            case epochID = "epoch_id"
+            case generation
+          }
+        }
+        body = try encoder.encode(
+          Request(operationID: operation.canonical, epochID: epoch.canonical, generation: current))
+        workIDs = [UUID(uuidString: reset["work_id"]!)!]
+        eventIDs = []
+      } else {
+        let rows = try database.rows(
+          "SELECT w.work_id,e.payload_json FROM work_outbox w JOIN events e ON e.event_id=w.entity_id WHERE w.kind='competition_event' AND w.generation_id=? AND w.state='pending' ORDER BY e.sequence LIMIT 256",
+          [.text(current.resetID.canonical)])
+        var events: [TrackingEvent] = []
+        var ids: [UUID] = []
+        for row in rows {
+          let event: TrackingEvent = try decode(row["payload_json"]!)
+          let workID = UUID(uuidString: row["work_id"]!)!
+          guard event.competitionEpochID == epoch, !event.isTest, event.deviceID == deviceID else {
+            try database.execute(
+              "UPDATE work_outbox SET state='superseded' WHERE work_id=?", [.text(workID.canonical)]
+            )
+            continue
+          }
+          events.append(event)
+          ids.append(workID)
+        }
+        guard !events.isEmpty else { return nil }
+        struct Request: Encodable {
+          let schemaVersion = 1
+          let operationID: String
+          let epochID: String
+          let events: [TrackingEvent]
+          enum CodingKeys: String, CodingKey {
+            case schemaVersion = "schema_version"
+            case operationID = "operation_id"
+            case epochID = "epoch_id"
+            case events
+          }
+        }
+        body = try encoder.encode(
+          Request(operationID: operation.canonical, epochID: epoch.canonical, events: events))
+        workIDs = ids
+        eventIDs = events.map(\.eventID)
+      }
+      guard body.count <= 256 * 1024 else { throw StoreError.invalidInput }
+      let upload = CompetitionUpload(
+        operationID: operation, epochID: epoch, generation: current,
+        isReset: isReset, body: body, eventIDs: eventIDs, workIDs: workIDs,
+        leaseToken: UUID(), leaseUntilMS: nowMS + 60_000, nextAttemptMS: nowMS)
+      try saveCompetitionUpload(upload)
+      try database.execute(
+        "INSERT INTO settings(key,value) VALUES('competition_upload_not_before',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        [.text(String(nowMS + 15_000))])
+      return upload
+    }
+  }
+
+  public func acknowledgeCompetitionUpload(_ upload: CompetitionUpload, dispositions: [String])
+    throws
+  {
+    try journalTransaction {
+      guard try validCompetitionUpload(upload) else { return }
+      guard upload.isReset ? dispositions.isEmpty : dispositions.count == upload.workIDs.count,
+        dispositions.allSatisfy({
+          ["accepted", "duplicate", "quarantined", "rejected"].contains($0)
+        })
+      else { throw StoreError.invalidInput }
+      for (index, workID) in upload.workIDs.enumerated() {
+        try database.execute(
+          "UPDATE work_outbox SET state=? WHERE work_id=?",
+          [.text(upload.isReset ? "acknowledged" : dispositions[index]), .text(workID.canonical)])
+      }
+      try database.execute("DELETE FROM settings WHERE key='competition_upload'")
+    }
+  }
+
+  public func retryCompetitionUpload(_ upload: CompetitionUpload, atMS: Int64) throws {
+    try validateTime(atMS)
+    try journalTransaction {
+      guard try validCompetitionUpload(upload) else { return }
+      var pending = upload
+      pending.nextAttemptMS = atMS
+      pending.leaseUntilMS = 0
+      try saveCompetitionUpload(pending)
+    }
+  }
+
+  public func pendingCompetitionEventCount() throws -> Int {
+    try journalTransaction(write: false) {
+      Int(
+        try database.rows(
+          "SELECT COUNT(*) AS count FROM work_outbox WHERE kind='competition_event' AND state='pending'"
+        ).first?["count"] ?? "0") ?? 0
+    }
+  }
+
+  private func saveCompetitionUpload(_ upload: CompetitionUpload) throws {
+    try database.execute(
+      "INSERT INTO settings(key,value) VALUES('competition_upload',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      [.text(try encode(upload))])
+  }
+
+  private func validCompetitionUpload(_ upload: CompetitionUpload) throws -> Bool {
+    guard try generation() == upload.generation, try competitionEpoch() == upload.epochID,
+      let value = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
+        .first?["value"]
+    else { return false }
+    let current: CompetitionUpload = try decode(value)
+    return current.operationID == upload.operationID && current.leaseToken == upload.leaseToken
   }
 
   public func leaseMirrorWork(nowMS: Int64, limit: Int = 50) throws -> [MirrorLease] {
@@ -1428,6 +1587,7 @@ public actor TrackingStore {
       [.text(marker.resetID.canonical), .integer(marker.revision), .integer(nowMS)])
     guard marker > old else { return }
     exportPurgePending = true
+    try database.execute("DELETE FROM settings WHERE key='competition_upload'")
     try cancelDailyLimitWorkInTransaction()
     try database.execute("DELETE FROM events")
     try database.execute("DELETE FROM interruptions")

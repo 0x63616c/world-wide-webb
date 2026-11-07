@@ -327,3 +327,18 @@ actor CompetitionTransport {
     return data
   }
 }
+
+actor CompetitionTransportPool {
+  static let shared = CompetitionTransportPool()
+  private var clients: [String: CompetitionTransport] = [:]
+  func client(origin: URL, deployment: String, deviceID: UUID, bundleID: String) throws
+    -> CompetitionTransport
+  {
+    let key = "\(bundleID)|\(deployment)|\(origin.absoluteString)|\(deviceID)"
+    if let client = clients[key] { return client }
+    let client = try CompetitionTransport(
+      origin: origin, deployment: deployment, deviceID: deviceID, bundleID: bundleID)
+    clients[key] = client
+    return client
+  }
+}

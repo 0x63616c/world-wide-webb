@@ -27,6 +27,7 @@ import SwiftUI
       FoldingRootView(model: controller.presentation, actions: controller.actions)
         .task { TipStore.shared.start() }
         .task { await controller.restoreCompetition() }
+        .task { await controller.maintainCompetitionUploads() }
         .task(id: controller.presentation.competitionRemoval) { await controller.watchRemoval() }
         .task { await controller.synchronizePrivateHistory() }
         .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
