@@ -113,8 +113,9 @@ illustration matches the supplied Space Gray paint, upgraded dark wheels and whi
 interior; it is artwork, not live camera imagery. Battery and estimated range
 share one display. Cabin temperature is read-only. The lock button retains the
 fresh-PIN flow and does not optimistically change the reported lock state.
+The filled battery bar has a slow moving highlight and soft green glow during fresh active charging only; Reduce Motion keeps a steady glow. The fill length never animates to imply a different charge level. `-hybridMotion` enables motion for simulator fixture review; normal fixture tests remain still.
 Acknowledgement displays “Lock requested” / “Unlock requested” until telemetry
-confirms it. Only odometer and installed software version are under Details. Normal/up-to-date software adds no main-screen banner; available and
+confirms it. Odometer stays visible beside cabin temperature; there is no Details disclosure. Normal/up-to-date software adds no main-screen banner; available and
 installing updates do. Installation stays in the Tesla app.
 
 Additional optional roles are discovered independently:

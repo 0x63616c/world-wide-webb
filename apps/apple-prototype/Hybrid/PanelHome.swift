@@ -53,7 +53,8 @@ struct PanelHome: View {
     // become idle and the shared simulator does not render them continuously.
     private static var fixtureMotionPhase: Double? {
         #if DEBUG
-        ProcessInfo.processInfo.arguments.contains("-hybridFixtures") ? 0 : nil
+        ProcessInfo.processInfo.arguments.contains("-hybridFixtures")
+            && !ProcessInfo.processInfo.arguments.contains("-hybridMotion") ? 0 : nil
         #else
         nil
         #endif

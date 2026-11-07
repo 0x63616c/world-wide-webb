@@ -16,13 +16,13 @@ Tesla presents Evee, the owner's original Space Gray Model Y with white interior
 The landscape dashboard pairs a vehicle illustration with a compact battery/range
 display; narrow layouts stack the same content. A native glass lock button keeps
 fresh-PIN confirmation; cabin and charging data remain read-only. Software alerts
-appear only for available/installing updates. Only mileage and installed software version live under Details. Optional HA telemetry supplies cable, charge limit,
+appear only for available/installing updates. Mileage stays on the main screen beside cabin temperature. Optional HA telemetry supplies cable, charge limit,
 completion time, connectivity and gear without inventing missing readings. There
 is no active shift-state entity on Evee yet, so live driving presentation requires
 that entity; previews cover it. Last-reported, in-gear and installing states disable
 commands. See `features/tesla/README.md` for the inventory and state contract.
 
-Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses its charging symbol only while actively charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
+Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla moves a soft highlight through the filled battery bar only while actively charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
 
 The research specification, reference images, independent reviews, comparison sheets, live log and motion proof remain outside this repository at `/workspace/wwwebb-ui/prototype/v2/`. Reference images are never bundled or committed. Images under `docs/screenshots/v2/` document the previous iteration, not this pass. `mac-home.png` is explicitly an **iOS-hosted Mac layout render**; the build mini runs macOS 15.6 and cannot launch a macOS 26 app.
 

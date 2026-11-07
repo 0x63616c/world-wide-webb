@@ -5,7 +5,6 @@ struct TeslaEnergy: View {
     let data: TeslaData
     let reported: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.motionPhase) private var motionPhase
     @ScaledMetric(relativeTo: .largeTitle) private var chargeSize = 64.0
     private var active: Bool { data.charging && !data.isInGear && !reported }
     private var tint: Color { reported ? .secondary : active ? .green : data.pct <= 20 ? .orange : .primary }
@@ -23,13 +22,10 @@ struct TeslaEnergy: View {
                 }.accessibilityElement(children: .ignore)
                     .accessibilityLabel("Estimated range, \(data.range) miles")
             }
-            Gauge(value: Double(data.pct), in: 0...100) { EmptyView() }
-                .gaugeStyle(.linearCapacity).tint(tint).labelsHidden()
-                .accessibilityHidden(true)
+            TeslaChargeBar(percent: data.pct, active: active, tint: tint)
             if active {
                 HStack(spacing: 10) {
                     Image(systemName: "bolt.fill")
-                        .symbolEffect(.pulse, isActive: !reduceMotion && motionPhase == nil)
                     Text("\(data.rate.formatted()) kW").monospacedDigit()
                         .accessibilityLabel("Charging at \(data.rate.formatted()) kilowatts")
                     Spacer(minLength: 8)
@@ -47,8 +43,6 @@ struct TeslaEnergy: View {
                     .font(.callout).foregroundStyle(.secondary)
             }
         }
-        .padding(28)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 28))
         .animation(reduceMotion ? nil : .smooth(duration: 0.3), value: data.pct)
         .accessibilityIdentifier("tesla-energy")
     }
@@ -71,22 +65,5 @@ struct TeslaUpdateNotice: View {
         .padding(20).background(.blue.opacity(0.10), in: .rect(cornerRadius: 24))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("tesla-update")
-    }
-}
-
-struct TeslaVehicleDetails: View {
-    let data: TeslaData
-    var body: some View {
-        DisclosureGroup {
-            VStack(spacing: 16) {
-                LabeledContent("Odometer", value: "\(data.odo) mi")
-                LabeledContent("Software", value: data.softwareUpdate?.installedVersion ?? "Not reported")
-            }.font(.callout).padding(.top, 16)
-        } label: {
-            Label("Details", systemImage: "info.circle").font(.body)
-                .frame(minHeight: 44)
-        }
-        .tint(.secondary)
-        .accessibilityIdentifier("tesla-details")
     }
 }

@@ -21,6 +21,7 @@ import XCTest
             XCTAssertTrue(lock.exists, scenario)
             XCTAssertEqual(lock.isEnabled, !["driving", "installing", "offline"].contains(scenario), scenario)
             XCTAssertEqual(app.descendants(matching: .any)["tesla-update"].firstMatch.exists, ["update", "installing"].contains(scenario), scenario)
+            XCTAssertTrue(app.descendants(matching: .any)["tesla-odometer"].firstMatch.exists, scenario)
             capture("evee-\(scenario)", app)
             if scenario == "parked" {
                 lock.tap()
@@ -28,11 +29,6 @@ import XCTest
                 capture("evee-pin", app)
                 app.buttons["Cancel"].tap()
                 XCTAssertTrue(app.staticTexts["Evee"].waitForExistence(timeout: 10))
-            }
-            if scenario == "offline" {
-                app.buttons.matching(identifier: "tesla-details").firstMatch.tap()
-                XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Odometer")).firstMatch.waitForExistence(timeout: 5))
-                capture("evee-offline-details", app)
             }
             app.terminate()
         }

@@ -25,3 +25,8 @@ interior and black roof. Clean dark outlines, simplified broad shapes, soft roun
 forms, restrained cel shading and gentle highlights; premium 2D/2.5D illustrated
 sticker aesthetic. No photographic reflections, microtexture, eyes, face, text or
 UI. Doors closed, headlights off, no cable. Genuine transparent alpha background.”
+
+Final simplification: regenerated the same original Model Y as a flat cartoon with
+broad solid shapes, two or three tonal steps, simplified wheels and seats, and no
+floor, contact shadow, halo or reflection. Preserved gray paint, dark wheels, white
+seats, black roof and the three-quarter front angle. Transparent alpha retained.

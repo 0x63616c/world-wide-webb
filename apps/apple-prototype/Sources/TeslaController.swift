@@ -19,17 +19,17 @@ struct TeslaController: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: wide ? 28 : 20) {
                     header
-                    let layout = wide ? AnyLayout(HStackLayout(alignment: .center, spacing: 48))
+                    let layout = wide ? AnyLayout(HStackLayout(alignment: .center, spacing: 56))
                         : AnyLayout(VStackLayout(spacing: 24))
                     layout {
                         vehicle
-                            .frame(maxWidth: .infinity)
+                            .frame(maxWidth: wide ? 520 : 420)
                         dashboard
                             .frame(width: wide ? 380 : nil)
                     }
                 }
                 .padding(wide ? 48 : 24)
-                .frame(maxWidth: 1280)
+                .frame(maxWidth: 1080)
                 .frame(minHeight: geometry.size.height, alignment: .center)
                 .frame(maxWidth: .infinity)
             }
@@ -45,7 +45,8 @@ struct TeslaController: View {
                 Text(data.nick).font(.system(size: nameSize, weight: .bold, design: .rounded))
             }
             Spacer(minLength: 16)
-            if reported || data.isInGear || data.isInstalling || !data.locked {
+            lockControl
+            if reported || data.isInGear || !data.locked {
                 TeslaStatus(data: data, reported: reported)
             }
         }
@@ -56,26 +57,6 @@ struct TeslaController: View {
             Image("EveeModelY")
                 .resizable().scaledToFit()
                 .accessibilityLabel("Evee, a Space Gray Model Y with white interior")
-            if let lockAction {
-                Button(action: lockAction) {
-                    HStack(spacing: 12) {
-                        if busy { ProgressView().controlSize(.small) }
-                        else {
-                            Image(systemName: data.locked ? "lock.fill" : "lock.open.fill")
-                                .contentTransition(.symbolEffect(.replace))
-                        }
-                        Text(data.locked ? "Unlock" : "Lock")
-                    }
-                    .font(.title3.weight(.semibold))
-                    .frame(minWidth: 132, minHeight: 44).padding(.horizontal, 16)
-                }
-                .buttonStyle(.glass).controlSize(.large)
-                .disabled(busy || reported || data.isInGear || data.isInstalling)
-                .accessibilityLabel(data.locked ? "Unlock Evee" : "Lock Evee")
-                .accessibilityValue(data.locked ? "Locked" : "Unlocked")
-                .accessibilityHint("Requires the panel PIN")
-                .accessibilityIdentifier("tesla-door-lock")
-            }
             if let commandNotice {
                 Text(commandNotice).font(.callout).foregroundStyle(.secondary)
                     .accessibilityIdentifier("tesla-command-notice")
@@ -83,22 +64,49 @@ struct TeslaController: View {
         }
     }
 
+    @ViewBuilder private var lockControl: some View {
+        if let lockAction {
+            Button(action: lockAction) {
+                HStack(spacing: 12) {
+                    if busy { ProgressView().controlSize(.small) }
+                    else {
+                        Image(systemName: data.locked ? "lock.fill" : "lock.open.fill")
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    Text(data.locked ? "Unlock" : "Lock")
+                }
+                .font(.title3.weight(.semibold))
+                .frame(minWidth: 132, minHeight: 44).padding(.horizontal, 16)
+            }
+            .buttonStyle(.glass).controlSize(.large)
+            .disabled(busy || reported || data.isInGear || data.isInstalling)
+            .accessibilityLabel(data.locked ? "Unlock Evee" : "Lock Evee")
+            .accessibilityValue(data.locked ? "Locked" : "Unlocked")
+            .accessibilityHint("Requires the panel PIN")
+            .accessibilityIdentifier("tesla-door-lock")
+        }
+    }
+
     private var dashboard: some View {
         VStack(alignment: .leading, spacing: 24) {
             TeslaEnergy(data: data, reported: reported)
-            HStack(spacing: 14) {
-                Image(systemName: data.preconditioning ? "fan.fill" : "thermometer.medium")
-                    .font(.title2).foregroundStyle(data.preconditioning && !reported ? Color.cyan : .secondary)
-                Text("\(data.climate)°F").font(.title2.weight(.medium)).monospacedDigit()
+            HStack(alignment: .top, spacing: 28) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("\(data.odo) mi").font(.title3.weight(.medium)).monospacedDigit()
+                    Text("Odometer").font(.caption).foregroundStyle(.secondary)
+                }.accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("tesla-odometer")
+                Spacer(minLength: 0)
+                VStack(alignment: .trailing, spacing: 5) {
+                    Text("\(data.climate)°F").font(.title3.weight(.medium)).monospacedDigit()
+                    Text("Cabin").font(.caption).foregroundStyle(.secondary)
+                }.accessibilityElement(children: .combine)
+                    .accessibilityValue(data.preconditioning ? "Climate on" : "Climate off")
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Cabin temperature")
-            .accessibilityValue("\(data.climate) degrees Fahrenheit, climate \(data.preconditioning ? "on" : "off")")
             if let update = data.softwareUpdate, update.status == "available" || update.status == "installing" {
                 TeslaUpdateNotice(update: update, reported: reported)
                     .transition(.opacity)
             }
-            TeslaVehicleDetails(data: data)
         }
     }
 }
