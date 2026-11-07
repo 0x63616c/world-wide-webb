@@ -25,6 +25,16 @@ Neither host configuration was activated. The current VM
 harness is being adapted from the old token/manual-reboot journey; provider tests
 use synthetic credentials and cannot establish real Tailscale routing or policy.
 
+The dedicated private fixture repository is
+[`homelab-enrollment-fixture`](https://github.com/0x63616c/homelab-enrollment-fixture).
+It contains synthetic encrypted data only. Its real bootstrap attempt at `7fc9a48`
+stopped during build before activation: the fixture Rust adapter lacked a compiler
+environment. After fixing that, fixture revision `0ddaa7e` passed `nix flake check`,
+including checks of actual revision metadata and canonical health executable names.
+The failed guest is preserved. A fresh `homelab-enrollment-1` clone of the stopped
+prepared image is used for the corrected setup; the validation guest is stopped.
+This is still preparation evidence, not a passed reboot/reconciliation rehearsal.
+
 ## Authorized boundary
 
 Use only `homelab-macbook` as a virtualization host. Do not erase it or activate
