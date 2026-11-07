@@ -50,7 +50,7 @@ import XCTest
         clock.tap()
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home-profile"].exists)
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ", CALUM")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ",\nCALUM")).firstMatch.exists)
         snapshot("home")
         app.buttons["app-climate"].tap()
         let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
@@ -93,9 +93,10 @@ import XCTest
         let clock = app.buttons["launcher-clock"]
         XCTAssertTrue(clock.waitForExistence(timeout: 15))
         XCTAssertEqual(clock.value as? String, "Green")
-        app.swipeLeft()
-        let petal = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Petal"), object: clock)
-        XCTAssertEqual(XCTWaiter.wait(for: [petal], timeout: 5), .completed)
+        // The launch argument is a read-only defaults override; persisted selections
+        // are exercised by the full swipe-cycle test above.
+        clock.tap()
+        XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 5))
     }
 
     func testLauncherGlassOptions() {
