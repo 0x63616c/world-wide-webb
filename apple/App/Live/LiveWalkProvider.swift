@@ -171,7 +171,7 @@ import PanelKit
             switch device {
             case .iPhone: .iphone
             case .iPad: .ipad
-            case .mac: .unknown
+            case .mac: .mac
             }
         mutationTask = Task { [weak self, api] in
             do {
@@ -235,7 +235,7 @@ import PanelKit
             switch walk.source {
             case .iphone: .iPhone
             case .ipad: .iPad
-            case .web, .unknown: .mac
+            case .mac, .web, .unknown: .mac
             }
         return DogWalk(id: walk.id, startedAt: walk.startedAt, endedAt: walk.endedAt, startedBy: device)
     }

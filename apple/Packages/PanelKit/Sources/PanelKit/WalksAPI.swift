@@ -1,7 +1,7 @@
 import Foundation
 
 public enum WalkSource: String, Codable, Sendable, CaseIterable {
-    case iphone, ipad, web, unknown
+    case iphone, ipad, mac, web, unknown
 }
 
 /// The WWW-27 wire record. Dates are decoded here because PanelAPIClient uses plain JSON.

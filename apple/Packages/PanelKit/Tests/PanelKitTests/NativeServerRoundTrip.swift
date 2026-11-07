@@ -20,6 +20,11 @@ struct NativeServerRoundTrip {
         #expect(stopped.active == nil)
         let history = try await walks.history(limit: 10)
         #expect(history.walks.contains { $0.id == active.id })
+        for source in [WalkSource.iphone, .mac] {
+            let platformWalk = try #require(try await walks.start(source: source).active)
+            #expect(platformWalk.source == source)
+            _ = try await walks.stop(id: platformWalk.id)
+        }
         #expect(try await !PanelPINAPI(client: client).verify("000000"))
         let photo = try Data(contentsOf: URL(fileURLWithPath: try #require(env["WWW_NATIVE_TEST_PHOTO"])))
         let photos = PhotosAPI(client: client)
