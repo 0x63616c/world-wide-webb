@@ -69,3 +69,24 @@ copying its secret material into another item.
 ## Match repository bootstrap
 
 Created `https://github.com/0x63616c/folding-signing` and verified `isPrivate: true` using GitHub on November 7, 2026. This is the dedicated encrypted Fastlane match store; currently empty. Certificate/profile generation, encryption password recovery in 1Password and archive signing remain pending. Repository creation alone does not prove signing readiness.
+
+## App Attest portal completion
+
+Enabled App Attest for `app.getfolding.Folding` and `app.getfolding.Folding.Staging` through the already-authenticated Developer portal. Saved staging UI readback shows App Attest checked. Subsequent Fastlane/Spaceship inventory independently returns `APP_ATTEST` for both app bundle IDs. The portal explicitly identifies `X9E4HG27NK` as the Team ID. This verifies capability configuration only; device attestation remains deferred to the owner-approved physical checks. App Group and iCloud container associations, profiles/certificates and signed archive remain outstanding.
+
+## Registered shared-storage identifiers
+
+Created distinct identifiers through the Apple Developer portal:
+
+| Environment | App Group | Apple resource ID | iCloud container | Apple resource ID |
+| --- | --- | --- | --- | --- |
+| Production | `group.app.getfolding.Folding` | `ND28K7SM46` | `iCloud.app.getfolding.Folding` | `3A2263A6Z8` |
+| Staging | `group.app.getfolding.Folding.Staging` | `7D9MAABJ26` | `iCloud.app.getfolding.Folding.Staging` | `3M7HAWNTYF` |
+
+Both app identifiers were assigned only their environment's group/container and saved. Both widget identifiers were also assigned their matching App Groups and saved; staging widget readback shows one enabled group. Final signed-profile inspection must confirm the corresponding entitlements. Registering a container does not deploy its CloudKit production schema or prove live sync.
+
+## Distribution signing setup
+
+`fastlane ios setup_signing` completed successfully on November 7. Match generated/imported distribution certificate `BT34CHX6H5`, created all four App Store profiles and pushed encrypted assets to private `0x63616c/folding-signing` at `85dcb487173509652d7ee9c9521df4a1e4b76716`. The temporary keychain was deleted. The setup helper parsed every resulting profile and checked exact bundle/team/App Group, plus each app's iCloud container, production App Attest permission and production APNs environment. This is profile validation, not a signed archive or physical-device pass.
+
+Encryption-password recovery: Folding vault item `nwphu5b7fycuyloxgh6nw33bla`. The encrypted repository bundle is also stored in the vault as **Folding encrypted signing repository recovery**. Nonsecret profile inventory is generated at `build/signing/profile-inventory.json`.
