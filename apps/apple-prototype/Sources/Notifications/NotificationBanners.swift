@@ -43,6 +43,7 @@ struct NotificationBanners: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var presenterID = UUID()
     @State private var expanded = false
+    @State private var expandedContentHeight: CGFloat = 580
     @State private var interaction = NotificationBannerInteraction()
     let source: (String) -> NotificationSource
     var initiallyExpanded = false
@@ -99,7 +100,10 @@ struct NotificationBanners: View {
                         }
                         .scrollBounceBehavior(.basedOnSize)
                         .scrollClipDisabled()
-                        .frame(maxHeight: 580)
+                        .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, height in
+                            if height > 0 { expandedContentHeight = height }
+                        }
+                        .frame(maxHeight: min(580, expandedContentHeight))
                         .transition(.opacity)
                     }
                     if !center.history.isEmpty {

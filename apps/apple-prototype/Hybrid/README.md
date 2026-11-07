@@ -1305,9 +1305,9 @@ Clear preserves local posts arriving during the server request; failed remote
 actions retain history and show an error. The pull-down history screen below consumes this same store. Its empty state
 is simply “All caught up”; the offline indicator is “Offline”.
 
-The shared status overlay shows banners on Home, Classic and presented native
-controllers; the Wi-Fi QR presentation also hosts it. These surfaces share the
-same environment service. A presentation stack gives only the top visible surface
+The root status overlay shows banners above Home, Classic and inline native
+controllers, including their navigation controls. These surfaces share the
+same environment service; inline Home destinations do not register a second overlay. A presentation stack gives only the top visible surface
 ownership of auto-dismiss timing and haptics. Root-injected navigation callbacks
 resolve source taps through `PanelNavigation`, including dismissal of Home's
 current full-screen destination. Unknown routes keep their banner and unread state.
