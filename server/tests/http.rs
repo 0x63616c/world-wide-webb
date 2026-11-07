@@ -441,3 +441,109 @@ async fn climate_keeps_live_temperature_and_adopts_external_changes() {
     );
     task.abort();
 }
+
+#[tokio::test]
+async fn lights_enforce_lamps_but_adopt_wall_switches_and_honor_fresh_commands() {
+    use axum::{
+        Json,
+        extract::Path,
+        routing::{get, post},
+    };
+    use std::sync::{Arc, RwLock};
+    use www_server::{
+        config::Config, features::lights, integrations::homeassistant::HomeAssistant,
+    };
+    let (dir, _, db) = fixture().await;
+    let live = Arc::new(RwLock::new(json!([
+        {"entity_id":"light.living_room_globe","state":"on","attributes":{"brightness":128,"color_mode":"xy","xy_color":[0.2,0.3]}},
+        {"entity_id":"switch.overhead_lights","state":"on","attributes":{}}
+    ])));
+    let calls = Arc::new(RwLock::new(Vec::<(String, Value)>::new()));
+    let read = live.clone();
+    let called = calls.clone();
+    let ha_app = Router::new()
+        .route(
+            "/api/states",
+            get(move || {
+                let x = read.clone();
+                async move { Json(x.read().unwrap().clone()) }
+            }),
+        )
+        .route(
+            "/api/services/{domain}/{service}",
+            post(
+                move |Path((domain, service)): Path<(String, String)>, Json(body): Json<Value>| {
+                    let c = called.clone();
+                    async move {
+                        c.write()
+                            .unwrap()
+                            .push((format!("{domain}/{service}"), body));
+                        Json(json!([]))
+                    }
+                },
+            ),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
+    let mut s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    s.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    lights::reconcile(&s).await.unwrap();
+    assert!(calls.read().unwrap().is_empty());
+    live.write().unwrap()[0]["state"] = json!("off");
+    live.write().unwrap()[1]["state"] = json!("off");
+    lights::reconcile(&s).await.unwrap();
+    assert_eq!(calls.read().unwrap().len(), 1);
+    assert_eq!(calls.read().unwrap()[0].0, "light/turn_on");
+    let app = http::router(s.clone());
+    let (_, body) = call(&app, "GET", "/api/v1/controls", Value::Null).await;
+    assert_eq!(body["lamps"]["on"], true);
+    assert_eq!(body["ceiling"]["on"], false);
+    assert_eq!(body["all"]["on"], false);
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/controls",
+            json!({"action":"toggle","key":"ceiling","on":true})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    lights::reconcile(&s).await.unwrap();
+    assert!(
+        calls
+            .read()
+            .unwrap()
+            .iter()
+            .any(|c| c.0 == "switch/turn_on")
+    );
+    // A failed group update rolls back its mode/desired changes; absent devices cannot report fake success.
+    let before: String =
+        sqlx::query_scalar("SELECT desired_state FROM device_state WHERE id='living-globe'")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/controls",
+            json!({"action":"scene","scene":"red"})
+        )
+        .await
+        .0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    let after: String =
+        sqlx::query_scalar("SELECT desired_state FROM device_state WHERE id='living-globe'")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert_eq!(before, after);
+    task.abort();
+}

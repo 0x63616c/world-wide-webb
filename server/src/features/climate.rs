@@ -341,3 +341,41 @@ pub async fn reconcile(s: &AppState, last_fan: &mut Option<String>) -> Result<()
         .bind(&reported_json).bind(&stamp).bind(&reported_json).bind(&stamp).bind(&stamp).bind(&old.desired_at_utc).bind(&adopted).bind(&old.desired_at_utc).bind(&adopted).bind(&stamp).bind(ID).execute(&s.db).await?;
     Ok(())
 }
+
+pub async fn set_fan(s: &AppState, mode: String) -> Result<()> {
+    let _ = command(
+        State(s.clone()),
+        Json(Command {
+            mode: None,
+            target: None,
+            low: None,
+            high: None,
+            fan_mode: Some(mode),
+        }),
+    )
+    .await?;
+    Ok(())
+}
+pub async fn fan(s: &AppState) -> Result<Value> {
+    let Some(r) = row(s).await? else {
+        return Ok(json!({"mode":null,"on":false,"sub":"","pending":false,"modes":["auto","on"]}));
+    };
+    let v = effective(&r)?;
+    let reported = decode(r.reported_state.as_deref())?;
+    let on = v.fan_mode.as_deref() == Some("on");
+    let sub = if on {
+        "On"
+    } else if v.mode == "off" || v.fan_mode.as_deref() == Some("off") {
+        "Off"
+    } else if v.fan_mode.as_deref() == Some("auto") {
+        "Auto"
+    } else {
+        ""
+    };
+    let pending = reported
+        .as_ref()
+        .is_some_and(|p| v.fan_mode.is_some() && p.fan_mode != v.fan_mode && !p.conditioning());
+    Ok(
+        json!({"mode":v.fan_mode,"on":on,"sub":sub,"pending":pending,"modes":v.fan_modes.unwrap_or_else(||vec!["auto".into(),"on".into()])}),
+    )
+}

@@ -1,5 +1,6 @@
 pub mod booth;
 pub mod climate;
+pub mod lights;
 pub mod notifications;
 pub mod releases;
 pub mod settings;

@@ -8,23 +8,22 @@ No remote project/issues, PR, push, deploy or OpenTofu apply has been performed.
 
 1. **Foundation and preservation — in progress.** Precautionary backup verified on NAS;
    isolated restore/import rehearsal and full workload baseline still required. Plan and instructions committed.
-2. **Complete replacement — in progress.** Parallel Swift, Rust and infrastructure owners below.
+2. **Complete replacement — in progress.** Primary agent owns all implementation; agents are reserved for final review.
 3. **Delivery and cutover — not started.** Local CI redesign follows complete layout; hosted checks and
    production cutover occur only at final publication.
 4. **Cleanup and evidence — not started.** No old implementation removed until replacement coverage proven.
 
 ## Ownership
 
-- Primary: instructions, local tracking, data import/reconciliation, CI and integration/final review.
-- rust_server: server/, Cargo.toml, Cargo.lock, rust-toolchain.toml.
-- apple_native: apps/apple-prototype/ and eventual apple/.
-- infra_ops: infra/cloudflare/, deploy/mini/, tools/backup*, tools/cutover*.
+- Primary: all implementation, integration, verification and local commits.
+- Implementation agents stopped at user request; only independent final review may use an agent.
 
 ## Preservation evidence
 
 Backup 20261107T202453Z: 14 payloads, 475,622,543 bytes, NAS read-back verified.
 Manifest SHA-256: 4134ae935bc22a5cf3090fd0067ec1d8787ed775a3a1aecc90e3844fc42528a1.
-This is transfer verification, not a restore rehearsal. Original production data is untouched.
+Isolated PostgreSQL restore and SQLite import completed with row/value reconciliation and integrity checks. Original production data is untouched.
+All 135 Photo Booth references resolve to restored files. On 2026-11-07 Calum clarified that Photo Booth is the photo preservation requirement; missing legacy wake photos are not a migration blocker. Existing backup copies remain intact.
 Live sample: DB 371,889,855 bytes; media 171,712 KiB / 1,705 files; 135 booth records,
 1,621 wake-photo records, 11 walks. See plan for measurement caveats.
 

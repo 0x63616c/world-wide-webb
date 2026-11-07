@@ -1,6 +1,6 @@
 use crate::{
     AppState,
-    features::{climate, weather},
+    features::{climate, lights, weather},
     now,
 };
 use serde::Serialize;
@@ -55,6 +55,32 @@ impl Runtime {
                         }
                     }
                 }
+            }));
+        }
+        if s.config.ha.is_some() {
+            let s = s.clone();
+            let mut stopping = stop.subscribe();
+            s.workers
+                .write()
+                .expect("worker lock")
+                .insert("light-enforcer".into(), WorkerHealth::default());
+            tasks.push(tokio::spawn(async move {
+                let mut party=lights::PartyClock::default();
+                let mut interval=tokio::time::interval(Duration::from_secs(1));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                loop {tokio::select! {
+                    _=stopping.changed()=>break,
+                    _=interval.tick()=>{
+                        let start=Instant::now();
+                        let mut result=lights::party(&s,&mut party).await;
+                        if result.is_ok(){result=lights::reconcile(&s).await;}
+                        let mut workers=s.workers.write().expect("worker lock");
+                        let health=workers.get_mut("light-enforcer").expect("registered worker");
+                        health.total_runs+=1;health.last_run_at=Some(now());health.last_duration_ms=start.elapsed().as_millis();
+                        health.consecutive_failures=if result.is_err(){health.consecutive_failures+1}else{0};
+                        if result.is_err(){tracing::warn!(worker="light-enforcer","cycle failed");}
+                    }
+                }}
             }));
         }
         if s.config.ha.is_some() {
