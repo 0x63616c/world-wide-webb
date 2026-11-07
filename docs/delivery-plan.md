@@ -16,7 +16,7 @@ Updated November 7, 2026. This is the execution companion to the [product specif
 
 Implement small, reviewable increments that finish a user behavior across the necessary modules. A milestone is complete only when its acceptance checks have evidence. Keep unfinished checks unchecked and link the PR, CI run, recording, or device result when completing them. Do not report simulator fixtures as proof of physical-device behavior.
 
-Use `codex/` branches and focused PRs. Keep `main` buildable. Add CI and Fastlane at the start, expanding them as features arrive. Use deterministic fixtures for daily development; physical-device tests are focused integration checkpoints, not a requirement for every edit.
+Use `codex/` branches and focused PRs. Keep `main` buildable. Add CI and Fastlane at the start, expanding them as features arrive. Use the [technical specifications and agent work orders](technical/README.md) to constrain implementation. Use deterministic fixtures for daily development; physical-device tests are focused integration checkpoints, not a requirement for every edit.
 
 This plan does not set a calendar promise before the first device and build-tool checks. Apple's processing/review time and owner-operated device tests are external dependencies. The ordered milestones below are the schedule; after M1, estimate remaining work from demonstrated progress.
 
@@ -35,7 +35,7 @@ This plan does not set a calendar promise before the first device and build-tool
 - [ ] Configure minimal GitHub workflow permissions, protected production environment, required checks where the account plan supports them, and release-tag restrictions. Untrusted PR jobs receive no production secrets.
 - [ ] Choose a signing storage approach supported by Fastlane; default to encrypted match storage separate from application source, with readonly access in routine CI.
 - [ ] Confirm DNS control for `getfolding.app`, preserving any existing records. Plan root website, `api.getfolding.app`, `admin.getfolding.app`, and isolated staging endpoints.
-- [ ] Select Terraform or OpenTofu based on Cloudflare provider coverage; pin the choice. Put remote state in encrypted, access-controlled storage with locking and recovery instructions.
+- [ ] Use OpenTofu; verify Cloudflare provider coverage and state locking, then pin the toolchain. Put remote state in encrypted, access-controlled storage with locking and recovery instructions.
 
 **Done when:** identifiers/account references are documented without secrets, the repo has a recoverable baseline, and a clean machine can follow the bootstrap instructions. Domain purchase does not mean DNS or inbox delivery has been configured.
 
@@ -51,7 +51,7 @@ This plan does not set a calendar promise before the first device and build-tool
 - [ ] Create open/close App Intents and a durable shared-store write. Verify the app, intent, and widget can safely access the App Group store without lost writes. Allocate source sequences atomically across writers and preserve them on retries; include an out-of-order fixture proving late events cannot silently revise finalized results.
 - [ ] On the owner's Duo, install both Shortcut automations and record results for full and partial open/close, repeated events, app visible/backgrounded, device locked, offline, app terminated, and device restart. Record exact OS, trigger names, run settings, timestamps, and observed limitations.
 - [ ] Verify supported handoff to Shortcuts, setup-state restoration, and test-event exclusion. Do not claim the app can silently install automations or inspect whether they remain enabled.
-- [ ] Exercise Core Data/private CloudKit synchronization and a reset marker across installations/devices; confirm the data model works with CloudKit's constraints before building all history screens.
+- [ ] Exercise the transactional SQLite3 journal, Core Data/private CloudKit replication, and a reset marker across installations/devices; confirm the data model works with CloudKit's constraints before building all history screens.
 - [ ] Build a small Rust Worker integration path that authenticates a real test installation, validates App Attest, and accepts an idempotent event batch into staging. Test repeated delivery and reset generation rejection.
 - [ ] Prove when verified uploads can run from actual app/intent execution contexts. Leave the app unopened during a realistic test period, inspect delivery, then test queue draining on activation. Record how the 24-hour competition cutoff behaves.
 - [ ] Verify actual outbound APNs connectivity and credentials from the chosen Worker runtime; verify required crypto implementations compile to the selected runtime. If direct APNs delivery is incompatible, document and test the smallest Rust-compatible delivery arrangement before locking infrastructure.

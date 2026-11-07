@@ -25,3 +25,8 @@ Use these terms consistently in code, contracts, tests, and documentation. The [
 - **Correction:** explicit audited amendment of finalized results; never an incidental effect of a late upload.
 - **Community ban:** server-enforced loss of competition participation, not a lockout from private tracking or deletion.
 - **Tip:** an optional consumable purchase with no feature unlock or competitive effect.
+
+- **Private namespace:** isolated history belonging to one iCloud account/local partition; independent of reset generation.
+- **Interruption:** durable marker that invalidates session continuity while preserving last transition for fold deduplication.
+- **Competition epoch:** server-issued participation/device authorization, distinct from private data generation.
+- **Transfer watermark:** highest known source sequence retained in the main private summary for an inactive device at transfer.

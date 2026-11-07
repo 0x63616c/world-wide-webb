@@ -31,7 +31,7 @@ Fully-flat counts and continuous measured travel are deferred from v1 unless rel
 
 Time unfolded is elapsed time between a valid open and close, including overnight. The current open session shows a running duration. At midnight, split duration into the appropriate days.
 
-An unmatched close adds a close count only if it is not a repeated state, and adds no invented session duration. A distinct repeated open marks the earlier session incomplete and starts a candidate session without adding another fold. A subsequent valid close can finalize that candidate duration, but the uncertain sequence does not award a completed open–close cycle. Unbounded uncertain time does not enter finalized totals. Persist tracking state across ordinary app launches; only a detected device restart or tracking interruption invalidates a spanning session. If a missing close cannot be detected, the current timer may continue until reconciliation; do not claim the app can always discover missed events.
+An unmatched close adds a close count only if it is not a repeated state, and adds no invented session duration. A distinct repeated open marks the earlier session incomplete and starts a candidate session without adding another fold. A subsequent valid close can finalize that candidate duration, but the uncertain sequence does not award a completed open–close cycle. Unbounded uncertain time does not enter finalized totals. Persist tracking state across ordinary app launches; only a detected device restart or tracking interruption invalidates a spanning session. Preserve the last observed transition for fold deduplication across interruptions; invalidate duration/cycle continuity, not the physical fold count. If a missing close cannot be detected, the current timer may continue until reconciliation; do not claim the app can always discover missed events.
 
 Use precise timestamps internally. Format durations in friendly units. No manual addition of competition-eligible folds.
 
@@ -96,7 +96,7 @@ The independent UI reviewer must perform a copy-reduction pass: delete redundant
 
 Personal data is local-first with private iCloud sync. No app account is needed for private tracking. Keep all personal history until the user resets/deletes it. Offline operation is normal.
 
-V1 follows **one active tracking phone at a time**. History survives phone replacement and is grouped by device, but the main totals continue across devices. Switching the active phone requires an explicit transfer; the old phone's later events do not count toward competition. Offline personal events remain visible with their source device. Resolve the active-device handover server-side for competition and reconcile it through iCloud for private use.
+V1 follows **one active tracking phone at a time**. History survives phone replacement and is grouped by device, but the main totals continue across devices. Switching the active phone requires an explicit transfer; the old phone's later events do not count toward competition. Offline personal events remain visible with their source device. Before the first explicit private-device selection, merged initial history is retained and multiple sources prompt a tracking-phone selection; this is a bootstrap exception, not automatic device election. A private transfer captures each inactive source's highest locally known sequence: later unknown observations from it remain in device details/export but are excluded from the main summary. A deterministic transfer marker resolves concurrent private choices. Public transfer accepts old-device submissions only if received before server-confirmed transfer; later old-epoch uploads are ineligible. Resolve the active-device handover server-side for competition and reconcile the private selection through iCloud.
 
 Use a **home timezone**, initially the device timezone, for personal daily charts, thresholds, and calendar boundaries. It remains stable while travelling. A user can change it in Settings; history is then regrouped consistently using the new zone. Store UTC timestamps and original timezone context so export preserves the facts. Use timezone-aware calendar arithmetic for daylight-saving changes.
 
@@ -104,7 +104,7 @@ Global competitions use UTC, independently of personal charts. Show a countdown 
 
 ### Export
 
-Offer CSV and JSON through the share sheet. Export raw events, daily summaries, session completeness, device references, timezone context, and the equivalent-travel formula/version. JSON is versioned for future portability. Do not export security tokens or internal abuse evidence. Import is outside v1.
+Offer CSV (a ZIP containing event, session, and daily-summary CSV files) and versioned JSON through the share sheet. Export raw events, daily summaries, session completeness, device references, timezone context, and the equivalent-travel formula/version. JSON is versioned for future portability. Do not export security tokens or internal abuse evidence. Import is outside v1.
 
 ## 6. Competition
 
@@ -170,7 +170,7 @@ Show “Cloud reset pending” until remote operations finish. Keep local tracki
 
 **Delete competition account** is available in-app and removes the profile, tokens, and competition data. Explain separately whether the user also wants private history reset. Preserve only narrowly scoped moderation records necessary to enforce an active restriction, with a stated retention policy; no raw personal history in that record.
 
-Default moderation evidence retention is 90 days after a case closes. Retain a minimal account-linked active-ban record while the ban is in force; review permanent bans annually. This policy must be reflected in the privacy notice and reviewed before public launch.
+Keep a minimal keyed subject/operation mapping for deletion-status recovery for 30 days after cleanup, then remove it unless an independent active-ban record is required. Default moderation evidence retention is 90 days after a case closes. Retain a minimal account-linked active-ban record while the ban is in force; review permanent bans annually. This policy must be reflected in the privacy notice and reviewed before public launch.
 
 ## 9. Abuse prevention and admin
 
@@ -194,11 +194,11 @@ Use simple Rust-rendered HTML tables and forms with a small stylesheet; no SPA o
 
 Use SwiftUI, Swift Charts, WidgetKit, App Intents, AuthenticationServices, StoreKit, UserNotifications, and DeviceCheck/App Attest. Use a shared App Group store for app/intent/widget access.
 
-Recommended persistence: Core Data with private CloudKit synchronization, explicit immutable event IDs and reset generations. Treat sync as eventual; do not make foreground UI depend on a network round trip. Validate the multi-process store and CloudKit constraints in an early implementation spike.
+Selected persistence: a transactional system SQLite3 App Group journal with immutable event IDs/reset generations, plus a private Core Data/CloudKit replication mirror. [ADR 0002](adr/0002-atomic-tracking-storage.md) specifies the cross-process atomicity and asynchronous reconciliation. Treat sync as eventual; do not make foreground UI depend on a network round trip. Validate the multi-process store and CloudKit constraints in an early implementation spike.
 
 The backend is Rust, compiled to WebAssembly for Cloudflare Workers using workers-rs. Keep business logic in a platform-independent Rust crate and platform bindings in a thin Worker crate. Verify cryptographic, APNs, storage, and job integrations against this runtime early. Use D1 for competition and moderation records, scheduled work and Queues for reliable period processing/notifications, and APNs for remote results notifications. Use transactional/idempotent operations, unique submission constraints, a finalization cutoff, and versioned results so retries cannot produce duplicate awards.
 
-Use Terraform/OpenTofu for supported Cloudflare infrastructure resources and versioned Worker configuration/migrations. Separate staging and production. Choose one infrastructure tool at implementation time based on provider support; this is an engineering detail, not another product decision. Store secrets and sensitive state outside Git. Start with a $25/month operating target, usage alerts, bounded queries, and ingestion limits; actual pricing/capacity must be checked before provisioning and this target is not purchase authorization.
+Use OpenTofu for supported Cloudflare infrastructure resources and versioned Worker configuration/migrations. Separate staging and production. Verify provider coverage and remote state locking in the infrastructure spike; the tool choice is now OpenTofu. Store secrets and sensitive state outside Git. Start with a $25/month operating target, usage alerts, bounded queries, and ingestion limits; actual pricing/capacity must be checked before provisioning and this target is not purchase authorization.
 
 Keep third-party dependencies small: evaluate Swift Snapshot Testing for visual tests and Swift Dependencies for deterministic fixtures. Adopt only if they simplify the project. Use native animation rather than adding an animation framework by default.
 

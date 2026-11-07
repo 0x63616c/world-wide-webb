@@ -1,6 +1,6 @@
 # Folding architecture and repository design
 
-Status: initial implementation plan; no application modules exist yet. Product behavior remains in [review-spec.md](review-spec.md); build sequence is in [delivery-plan.md](delivery-plan.md).
+Status: initial implementation plan; no application modules exist yet. Product behavior remains in [review-spec.md](review-spec.md); build sequence is in [delivery-plan.md](delivery-plan.md). The [technical specifications](technical/README.md) now supply implementation contracts and agent work orders.
 
 ## Design approach
 
@@ -67,13 +67,13 @@ Commit an ordinary shared Xcode project initially; avoid adding a project genera
 
 Own event interpretation, fold/cycle/session semantics, deterministic event ordering, calendar-based summaries, reset-marker ordering, and equivalent-travel calculation. It accepts explicit inputs and returns values; it does not import SwiftUI, Core Data, CloudKit, WidgetKit, or authentication frameworks.
 
-The key behavior is reduction of observed events into counts and session state. Capture ordering in a versioned contract before implementing the reducer. Within a device/generation, allocate the durable source sequence atomically across app/intent writers and preserve it unchanged on retry. Use it for causal order; timestamps assign calendar time and must not reorder retries. Preserve original timestamps, detect clock reversals, and mark unusable intervals uncertain. Out-of-order delivery must reconstruct the same event reduction once the same events are present. Finalized competition snapshots remain governed by their cutoff and accepted-event set; a late earlier event cannot silently rewrite a finalized period. Any historical revision uses the explicit correction path. Legacy/invalid envelopes without required ordering metadata must follow an explicit version policy rather than guessing. This is a proposed implementation default to validate in M1.
+The key behavior is reduction of observed events into counts and session state. Capture ordering in a versioned contract before implementing the reducer. Within a device/generation, allocate the durable source sequence atomically across app/intent writers and preserve it unchanged on retry. Use it for causal order; timestamps assign calendar time and must not reorder retries. Preserve original timestamps, detect clock reversals, and mark unusable intervals uncertain. The initial reset generation and private transfer watermarks follow the [storage contract](technical/storage-and-tracking.md); do not invent account bootstrap or transfer-time rules. Out-of-order delivery must reconstruct the same event reduction once the same events are present. Finalized competition snapshots remain governed by their cutoff and accepted-event set; a late earlier event cannot silently rewrite a finalized period. Any historical revision uses the explicit correction path. Legacy/invalid envelopes without required ordering metadata must follow an explicit version policy rather than guessing. This is a proposed implementation default to validate in M1.
 
 ### FoldingData
 
 Own the complexity of recording an event durably: transaction, identity/generation validation, deduplication, reducer application, derived read models, and pending upload creation. A caller asks to record an observation and gets a committed receipt or a defined failure; it must not coordinate six storage calls itself.
 
-Keep Core Data managed objects, multi-process serialization, CloudKit reconciliation, migration, persistence-history processing, and queue checkpoints private. Expose compact immutable summaries/session pages to the app and widgets. Export and reset operate through this same interface so all callers use the same rules. Reconcile CloudKit writes through the reducer; imported data must not bypass deduplication/reset handling.
+Use the system SQLite3 journal and private Core Data/CloudKit mirror selected in [ADR 0002](adr/0002-atomic-tracking-storage.md). Keep SQL transactions, managed objects, CloudKit reconciliation, migrations, persistent-history processing, and queue checkpoints private. Expose compact immutable summaries/session pages to the app and widgets. Export and reset operate through this same interface so all callers use the same rules. Reconcile CloudKit writes through the reducer; imported data must not bypass deduplication/reset handling.
 
 Separate private iCloud synchronization from public competition upload inside the implementation. Local success, iCloud convergence, backend acceptance, reset acknowledgment, and device transfer are distinct states. App-visible pending status must not collapse them into one misleading “synced” flag.
 

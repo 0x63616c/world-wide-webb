@@ -10,6 +10,8 @@ Read the [complete v1 specification for review](docs/review-spec.md). It is the 
 
 Start implementation planning with the [delivery plan through App Store submission](docs/delivery-plan.md), [architecture](docs/architecture.md), and [domain glossary](GLOSSARY.md).
 
+For implementation, read the [technical specifications and agent work orders](docs/technical/README.md), including [shared schemas and fixtures](contracts/README.md).
+
 ## Planning documents
 
 - [Product requirements](docs/product-requirements.md): agreed scope, user experience, and launch languages.
