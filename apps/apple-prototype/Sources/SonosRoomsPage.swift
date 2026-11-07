@@ -100,7 +100,7 @@ struct SonosRoomsPage: View {
                 .font(.system(size: 13, weight: .semibold))
                 .frame(width: 28, height: 28)
                 .glassEffect(.regular.interactive(), in: .circle)
-                .frame(width: 44, height: 44)
+                .frame(width: 44, height: 44, alignment: .trailing)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
