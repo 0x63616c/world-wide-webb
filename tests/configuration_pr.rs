@@ -506,3 +506,300 @@ fn merge_verification_rejects_altered_host_settings_or_wrong_base() {
         Err(Error::Conflict)
     );
 }
+
+struct DirectGitHub {
+    base: GitHub,
+    current: Manifest,
+    rules: String,
+    protected: bool,
+    active_rules: Value,
+    classic: Option<Value>,
+    candidate_files: RefCell<std::collections::BTreeMap<String, String>>,
+    published: Cell<bool>,
+    patch_count: Cell<usize>,
+    lose_response: Cell<bool>,
+    reject_patch: Cell<bool>,
+    advance_during_write: Cell<bool>,
+    main: RefCell<String>,
+}
+
+impl DirectGitHub {
+    fn new() -> Self {
+        let base = GitHub::new();
+        Self {
+            current: base.manifest.clone(),
+            rules: base.rules.clone(),
+            base,
+            protected: false,
+            active_rules: json!([]),
+            classic: None,
+            candidate_files: RefCell::new(Default::default()),
+            published: Cell::new(false),
+            patch_count: Cell::new(0),
+            lose_response: Cell::new(false),
+            reject_patch: Cell::new(false),
+            advance_during_write: Cell::new(false),
+            main: RefCell::new("e".repeat(40)),
+        }
+    }
+}
+
+impl Api for DirectGitHub {
+    fn json(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, Error> {
+        if path.ends_with("/branches/main") {
+            return Ok(json!({"protected":self.protected,"commit":{"sha":*self.main.borrow()}}));
+        }
+        if path.contains("/rules/branches/main?") {
+            assert!(
+                self.protected,
+                "unprotected free-plan repos need no rules API"
+            );
+            return Ok(self.active_rules.clone());
+        }
+        if path.ends_with("/branches/main/protection") {
+            return self.classic.clone().ok_or(Error::Missing);
+        }
+        if path.contains("/compare/") {
+            return Ok(json!({"status":if self.published.get() {"ahead"} else {"behind"}}));
+        }
+        if method == "POST" && path.ends_with("/git/trees") {
+            let body = body.as_ref().unwrap();
+            *self.candidate_files.borrow_mut() = body["tree"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|entry| {
+                    (
+                        entry["path"].as_str().unwrap().to_owned(),
+                        entry["content"].as_str().unwrap().to_owned(),
+                    )
+                })
+                .collect();
+        }
+        if method == "PATCH" && path.ends_with("/git/refs/heads/main") {
+            assert_eq!(body.unwrap(), json!({"sha":"c".repeat(40),"force":false}));
+            self.patch_count.set(self.patch_count.get() + 1);
+            if self.advance_during_write.get() {
+                *self.main.borrow_mut() = "f".repeat(40);
+                return Err(Error::Access);
+            }
+            if self.reject_patch.get() {
+                return Err(Error::Access);
+            }
+            self.published.set(true);
+            *self.main.borrow_mut() = "c".repeat(40);
+            return if self.lose_response.replace(false) {
+                Err(Error::Access)
+            } else {
+                Ok(json!({"object":{"sha":"c".repeat(40)}}))
+            };
+        }
+        self.base.json(method, path, body)
+    }
+
+    fn raw(&self, path: &str) -> Result<Vec<u8>, Error> {
+        if path.ends_with(&format!("?ref={}", "c".repeat(40))) {
+            let file = path
+                .split("/contents/")
+                .nth(1)
+                .unwrap()
+                .split('?')
+                .next()
+                .unwrap();
+            return self
+                .candidate_files
+                .borrow()
+                .get(file)
+                .map(|text| text.as_bytes().to_vec())
+                .ok_or(Error::Missing);
+        }
+        if path.ends_with(&format!("?ref={}", "e".repeat(40))) {
+            if path.contains("/homelab.json?") {
+                return Ok(serde_json::to_vec(&self.current).unwrap());
+            }
+            if path.contains("/.sops.yaml?") {
+                return Ok(self.rules.as_bytes().to_vec());
+            }
+        }
+        self.base.raw(path)
+    }
+}
+
+fn receipt_directory() -> tempfile::TempDir {
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    directory
+}
+
+#[test]
+fn direct_publication_rebases_unrelated_changes_and_reconciles_lost_response() {
+    let mut api = DirectGitHub::new();
+    let proposal = changes(&api.base).unwrap();
+    api.current.hosts.get_mut("other-mac").unwrap().admin_uid = 503;
+    api.rules
+        .push_str("  - path_regex: '^new-other/'\n    age: 'age1other'\n");
+    api.lose_response.set(true);
+    let directory = receipt_directory();
+    let receipt = directory.path().join("publication.json");
+    for _ in 0..2 {
+        let configuration_pr::Publication::Published {
+            workspace,
+            html_url,
+        } = configuration_pr::publish_configuration(&api, &proposal, &receipt).unwrap()
+        else {
+            panic!("unexpected PR");
+        };
+        assert_eq!(workspace.revision, "c".repeat(40));
+        assert_eq!(workspace.manifest.hosts["other-mac"].admin_uid, 503);
+        assert!(html_url.ends_with(&"c".repeat(40)));
+    }
+    assert_eq!(api.patch_count.get(), 1);
+    assert!(api.candidate_files.borrow()[".sops.yaml"].contains("new-other"));
+    assert!(
+        configuration_pr::resolve_publication_for_renewal(&api, &proposal, &receipt)
+            .unwrap()
+            .is_some()
+    );
+}
+
+#[test]
+fn direct_publication_respects_rules_and_existing_prs_without_main_write() {
+    for classic in [false, true] {
+        let mut api = DirectGitHub::new();
+        api.protected = true;
+        if classic {
+            api.classic = Some(json!({"required_pull_request_reviews":{}}));
+        } else {
+            api.active_rules = json!([{"type":"pull_request"}]);
+        }
+        let proposal = changes(&api.base).unwrap();
+        let directory = receipt_directory();
+        assert!(matches!(
+            configuration_pr::publish_configuration(
+                &api,
+                &proposal,
+                &directory.path().join("publication.json")
+            )
+            .unwrap(),
+            configuration_pr::Publication::PullRequest(_)
+        ));
+        assert_eq!(api.patch_count.get(), 0);
+    }
+    let api = DirectGitHub::new();
+    *api.base.pull.borrow_mut() = Some(pr());
+    let proposal = changes(&api.base).unwrap();
+    let directory = receipt_directory();
+    assert!(matches!(
+        configuration_pr::publish_configuration(
+            &api,
+            &proposal,
+            &directory.path().join("publication.json")
+        )
+        .unwrap(),
+        configuration_pr::Publication::PullRequest(_)
+    ));
+    assert!(api.base.writes.borrow().is_empty());
+}
+
+#[test]
+fn conflicting_host_or_unhandled_rule_never_writes_main() {
+    let mut api = DirectGitHub::new();
+    let proposal = changes(&api.base).unwrap();
+    let directory = receipt_directory();
+    api.current.hosts.get_mut("test-mac").unwrap().admin_user = "changed".into();
+    assert!(matches!(
+        configuration_pr::publish_configuration(
+            &api,
+            &proposal,
+            &directory.path().join("publication.json")
+        ),
+        Err(Error::Conflict)
+    ));
+    assert!(api.base.writes.borrow().is_empty());
+    api.current = api.base.manifest.clone();
+    api.protected = true;
+    api.active_rules = json!([{"type":"required_signatures"}]);
+    assert!(matches!(
+        configuration_pr::publish_configuration(
+            &api,
+            &proposal,
+            &directory.path().join("publication.json")
+        ),
+        Err(Error::Rules)
+    ));
+    assert!(api.base.writes.borrow().is_empty());
+}
+
+#[test]
+fn uncertain_write_does_not_create_pr_or_retire_and_concurrent_main_is_not_overwritten() {
+    let api = DirectGitHub::new();
+    let proposal = changes(&api.base).unwrap();
+    let directory = receipt_directory();
+    let receipt = directory.path().join("publication.json");
+    api.reject_patch.set(true);
+    assert!(matches!(
+        configuration_pr::publish_configuration(&api, &proposal, &receipt),
+        Err(Error::Unconfirmed)
+    ));
+    assert!(matches!(
+        configuration_pr::resolve_publication_for_renewal(&api, &proposal, &receipt),
+        Err(Error::Unconfirmed)
+    ));
+    assert!(api.base.pull.borrow().is_none());
+    api.reject_patch.set(false);
+    api.advance_during_write.set(true);
+    assert!(matches!(
+        configuration_pr::publish_configuration(&api, &proposal, &receipt),
+        Err(Error::Unconfirmed)
+    ));
+    let writes = api.patch_count.get();
+    assert!(matches!(
+        configuration_pr::publish_configuration(&api, &proposal, &receipt),
+        Err(Error::Conflict)
+    ));
+    assert_eq!(api.patch_count.get(), writes);
+}
+
+#[test]
+fn changed_host_rule_and_unsafe_receipt_are_refused_without_writes() {
+    use std::os::unix::fs::symlink;
+    let mut api = DirectGitHub::new();
+    let proposal = changes(&api.base).unwrap();
+    let directory = receipt_directory();
+    let receipt = directory.path().join("publication.json");
+    api.rules
+        .push_str("  - path_regex: '^secrets/test-mac\\.sops\\.yaml$'\n    age: 'age1other'\n");
+    assert!(matches!(
+        configuration_pr::publish_configuration(&api, &proposal, &receipt),
+        Err(Error::Conflict)
+    ));
+    assert!(api.base.writes.borrow().is_empty());
+    api.rules = api.base.rules.clone();
+    let sentinel = directory.path().join("sentinel");
+    std::fs::write(&sentinel, "preserve").unwrap();
+    symlink(&sentinel, &receipt).unwrap();
+    assert!(matches!(
+        configuration_pr::publish_configuration(&api, &proposal, &receipt),
+        Err(Error::State)
+    ));
+    assert_eq!(std::fs::read_to_string(sentinel).unwrap(), "preserve");
+    assert!(api.base.writes.borrow().is_empty());
+}
+
+#[test]
+fn known_protected_branch_without_explainable_rules_fails_closed() {
+    let mut api = DirectGitHub::new();
+    api.protected = true;
+    let proposal = changes(&api.base).unwrap();
+    let directory = receipt_directory();
+    assert!(matches!(
+        configuration_pr::publish_configuration(
+            &api,
+            &proposal,
+            &directory.path().join("publication.json")
+        ),
+        Err(Error::Rules)
+    ));
+    assert!(api.base.writes.borrow().is_empty());
+}

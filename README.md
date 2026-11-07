@@ -13,9 +13,9 @@ ongoing changes.
   the 1Password SSH agent.
 - **Prepare:** create encryption identities, back them up to 1Password and verify
   those backups. Create a scoped Tailscale enrollment key and encrypt it.
-- **Propose:** give the Mac its own read-only Git deploy key and open a PR with
-  its encrypted configuration.
-- **Set up:** wait for your merge, install the approved configuration, reboot and
+- **Publish:** give the Mac its own read-only Git deploy key and commit its
+  encrypted enrollment configuration to `main`. Use a PR when review is required.
+- **Set up:** install the approved configuration, reboot and
   verify services, Git access and Tailscale SSH.
 - **Resume:** keep the approved attempt and recovery state if setup stops.
 
@@ -52,16 +52,20 @@ brew install 0x63616c/tap/homelab
 homelab
 ```
 
-Setup follows four steps:
+Setup starts with three choices, then runs as a live checklist:
 
 1. **Open your repository.** Enter `owner/repository` once. Git supplies the host
    list, administrator accounts and desired configuration.
-2. **Choose your Mac.** Enter its initial address once, then approve setup. Saved
+2. **Choose your Mac.** Enter its initial address once. Saved
    addresses and SSH identities are reused; missing developer tools install automatically.
-3. **Merge the PR.** The wizard prepares credentials and opens an enrollment PR.
-   Review and merge it in GitHub; setup continues automatically.
-4. **Wait for verification.** The wizard installs, reboots and reconnects before
-   handing over to Git-managed updates.
+3. **Begin setup.** Approve preparation, publication to Git, installation and
+   reboot once. The checklist advances automatically and asks for attention only
+   when needed, such as native authentication or a required PR review.
+
+If repository rules require a PR, its link appears in the checklist; **O** opens
+it in your browser. Setup continues automatically after merge. Existing saved
+PRs keep their review path. Success means reboot and access checks passed and
+Git-managed updates are enabled.
 
 Use **↑ / ↓** to choose, **Enter** to continue and **Esc** to go back. To reopen a
 saved attempt, select the same host again. Press **e** to edit a saved connection's
@@ -77,7 +81,7 @@ for prerequisites and recovery; do not delete saved keys or journals to bypass a
 ## Security and scope
 
 - Recovery identities stay off the target. Backups are verified before setup proceeds.
-- Secrets are encrypted before being proposed to Git. Each Mac gets read-only
+- Secrets are encrypted before being committed to Git. Each Mac gets read-only
   repository access and a single-use Tailscale enrollment key.
 - Setup binds to the reviewed configuration and trusted host identity. An uncertain
   installation or activation stops for inspection rather than being repeated blindly.

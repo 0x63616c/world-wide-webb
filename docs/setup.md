@@ -27,18 +27,21 @@ The wizard checks SSH, offers first-use host trust
 and public-key installation when needed, and reads macOS/account/storage facts.
 Changed saved host keys are blocked. SSH-agent keys stay in your agent.
 
-**Approve setup.** One approval covers installing missing Command Line Tools and
-preparing this host. The wizard creates or
+**Begin setup.** One approval covers prerequisites, credentials, publishing the
+encrypted enrollment configuration to Git, installation and reboot. A live
+checklist shows completed, active and pending steps. The wizard creates or
 restores age identities, saves and verifies their backups in 1Password, and
 encrypts the host's enrollment key. It generates a Git key on the target and
 registers its public half as a read-only deploy key using your client GitHub login.
 No 1Password credential or GitHub account token is installed on the target.
 
-**Merge & verify.** The wizard opens an enrollment PR. The CLI uses the helper
-installed alongside it and the exact configuration commit you approve.
-After you merge the PR, setup installs that exact configuration on the
-target. Nix is installed on the target, not your client. Evaluated Nix facts must
-match the reviewed manifest.
+**Publish & verify.** The wizard commits enrollment to `main` and installs that
+exact commit using the helper supplied with the CLI. It preserves unrelated Git
+changes and stops on conflicting host changes rather than overwriting them.
+When repository rules require a PR, the checklist shows its link; **O** opens it
+in your browser, and setup continues automatically after merge. An existing
+saved PR still requires its review. Nix is installed on the target, not your
+client. Evaluated Nix facts must match the approved manifest.
 
 The wizard checks services and Git access, verifies Tailscale SSH, restarts the
 Mac, and checks it again before releasing the update hold. Expect administrator
@@ -47,6 +50,11 @@ are not stored. A FileVault-protected Mac may need a local unlock after restart.
 Tailscale check-mode policy may also request browser approval.
 
 ## If something stops
+
+**Esc** requests a stop at a safe checkpoint. A running mutation is allowed to
+finish so its result can be recorded; cancellation does not undo published
+configuration or credentials. **D** shows curated step details. Reopen the same
+host to resume from verified state rather than creating another attempt.
 
 Previously saved aliases, addresses, SSH identities and recovery files are kept.
 A saved approved setup retains its exact Git commit even if `main` changes or

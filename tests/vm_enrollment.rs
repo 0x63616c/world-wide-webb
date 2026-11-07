@@ -1,4 +1,4 @@
-//! Opt-in full wizard rehearsal with real fixture GitHub PRs and a disposable VM.
+//! Opt-in wizard rehearsal with real fixture Git publication and a disposable VM.
 //! No network or VM operation runs without --run and a private fixture file.
 #[allow(dead_code)]
 #[path = "vm_e2e.rs"]
@@ -28,6 +28,8 @@ const VAULT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaa";
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Fixture {
+    #[serde(default)]
+    review_required: bool,
     target: vm::Fixture,
     operator_hostname: String,
     state_directory: PathBuf,
@@ -196,7 +198,10 @@ fn github_arguments_allowed(repository: &str, args: &[std::ffi::OsString]) -> bo
             relative,
             "keys" | "git/trees" | "git/commits" | "git/refs" | "pulls"
         ),
-        "PATCH" => relative.strip_prefix("pulls/").is_some_and(pull_number),
+        "PATCH" => {
+            relative == "git/refs/heads/main"
+                || relative.strip_prefix("pulls/").is_some_and(pull_number)
+        }
         "PUT" => relative
             .strip_prefix("pulls/")
             .and_then(|path| path.strip_suffix("/merge"))
@@ -1016,16 +1021,30 @@ fn drive(f: &Fixture, resume: bool) {
     terminal.wait("Begin setup", Duration::from_secs(90));
     terminal.enter();
     let merged = if let Some(revision) = resumed_revision {
-        revision
-    } else {
+        Some(revision)
+    } else if f.review_required {
         terminal.wait(
-            "Review and merge the enrollment PR",
+            "Repository policy needs a PR merge",
             Duration::from_secs(300),
         );
-        merge_enrollment(f)
+        Some(merge_enrollment(f))
+    } else {
+        None
     };
     terminal.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(90 * 60));
     assert!(terminal.child.wait().unwrap().success());
+    let approved = provisioning::approved_installation(
+        &f.state_directory.join(".local/state/homelab/provisioning"),
+        "vm-test",
+    )
+    .unwrap()
+    .expect("completed setup must retain its exact approved revision");
+    let merged = merged.unwrap_or_else(|| approved.revision.clone());
+    assert_eq!(merged, approved.revision);
+    vm::write_private(
+        &f.state_directory.join("merged-revision"),
+        merged.as_bytes(),
+    );
     assert_eq!(
         tcgetattr(&terminal.slave).unwrap().local_modes,
         terminal.original
@@ -1066,8 +1085,6 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut replay = Terminal::start(f);
-    replay.wait("Begin setup", Duration::from_secs(90));
-    replay.enter();
     replay.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(600));
     assert!(replay.child.wait().unwrap().success());
     assert_eq!(

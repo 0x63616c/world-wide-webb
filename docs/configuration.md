@@ -21,8 +21,9 @@ Keep `activationReady: false` until secrets and host access are reviewed.
 
 The configuration repository also supplies `flake.lock` and
 `bootstrap/installer.json` (reviewed Determinate installer URL and SHA-256).
-Enrollment creates `secrets/<host>.sops.yaml` in its PR; you do not prepare that
-file manually.
+Enrollment creates `secrets/<host>.sops.yaml` and commits its encrypted contents
+with the host configuration. A PR is used when review is required; you do not
+prepare the file manually.
 
 The built system must supply:
 

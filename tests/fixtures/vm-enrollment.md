@@ -39,9 +39,10 @@ Existing client agent authentication is used only to reach the approved virtuali
 - Use real client `gh` authentication already authorised for this fixture. The harness
   references its existing `GH_CONFIG_DIR`; it never copies that directory or its credentials to
   the VM host or guest. Every adapter API request is confined to the fixture repository. It
-  registers the guest-generated read-only deploy key, opens an actual enrollment PR, and merges
-  that PR using its exact head SHA. It never uses an admin merge override. Repository checks
-  must permit this explicitly authorised synthetic merge; no other writer should move main.
+  registers the guest-generated read-only deploy key and publishes enrollment to `main`.
+  Set `reviewRequired: true` only for a fixture repository whose rules require PR review;
+  the harness then merges the actual PR using its exact head SHA, without an admin override.
+  No other writer should move fixture main during this rehearsal.
 - Supply standalone age-keygen, SOPS and the matching reviewed homelab-host helper. They are
   copied into the private operator state beside the harness executable. The fixture's Nix helper
   pin must match the reviewed implementation.
@@ -83,8 +84,9 @@ session.
 
 ## Evidence and failure behavior
 
-The PTY approves only the defined setup review, waits for the wizard's real PR, checks its
-repository/head/base and three-file scope, then merges that head. The wizard itself installs and
+The PTY approves only Begin setup. Publication follows the production direct-to-main path;
+the optional required-review fixture checks its PR repository/head/base and three-file scope
+before merging that head. The wizard itself installs and
 reboots. The harness verifies changed boot UUID, terminal restoration, current revision and
 boot-daemon evidence, and exact equality between the locally encrypted ciphertext and the file
 in the merged Git commit. Completion's production verifier requires real Comin reconciliation

@@ -43,7 +43,7 @@
   <text class="heading" x="56" y="351">Your private GitHub repo</text>
   <text class="body" x="56" y="387">Nix configuration</text>
   <text class="body" x="56" y="414">Encrypted secrets</text>
-  <text class="muted" x="56" y="457">Review a PR. Merge to deploy.</text>
+  <text class="muted" x="56" y="457">Git defines the desired state.</text>
 
   <path class="arrow" d="M374 174H518"/>
   <text class="label" x="446" y="159" text-anchor="middle">Enroll once over SSH</text>
