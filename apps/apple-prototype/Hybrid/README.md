@@ -2,8 +2,8 @@
 
 Panel starts on the selected clock face. Tap the clock to reveal the vertically scrolling app
 launcher on one full-screen native Liquid Glass surface over the same living clock.
-The clock stays fixed as the glass slides up from the bottom. Close Home with the
-top-right close button (or choose Clock); the glass slides back down. Horizontal
+The clock stays fixed as the glass slides up from the bottom. Swipe down from the
+top of Home to slide the glass back down and return to the clock. Horizontal
 swipes on the clock alternate between Green and Tide. Green retains the oversized
 12–3–6–9 dial. Tide has stacked SF Rounded clear, untinted Liquid Glass numerals over a blue
 colour field, with a date and no AM/PM label. Its glass follows the actual glyph
