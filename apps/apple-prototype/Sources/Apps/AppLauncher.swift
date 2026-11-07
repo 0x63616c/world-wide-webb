@@ -65,20 +65,6 @@ struct AppLauncher: View {
 /// The inset and concentric corners leave a slim, uninterrupted rim of the dial.
 struct LauncherGlassSurface: View {
     static let edgeInset: CGFloat = 8
-    static var blurRadius: CGFloat {
-        #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if let index = args.firstIndex(of: "-previewLauncherBlur"), args.indices.contains(index + 1),
-           let value = Double(args[index + 1]) {
-            return CGFloat(max(0, min(value, 3)))
-        }
-        #endif
-        return 3
-    }
-    static var footprint: some View {
-        RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
-            .padding(edgeInset)
-    }
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
         Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)

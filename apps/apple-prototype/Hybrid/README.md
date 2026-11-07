@@ -1,6 +1,9 @@
 # Control Center native panel
 
-`Panel` is the live iPad SwiftUI app. It shows the native clock, launcher, Home grid, and native full-screen app destinations. The browser dashboard remains available at `https://app.worldwidewebb.co` for ordinary browsers, but the iPad app does not embed or navigate to that site. The hostname remains the default API origin for the native data clients.
+`Panel` is the live iPad SwiftUI app. It starts on the selected Green or Tide clock face. Tap the clock to reveal the vertically scrolling app launcher on a full-screen native Liquid Glass surface. Swipe down to return to the clock; selecting an app opens its native full-screen destination. The launcher uses native glass over the clock, whose timeline pauses while the launcher is open. Debug clock captures use `-tideGlassPreview clear|tinted|regular` and `-previewDayClock`.
+
+The browser dashboard remains available at `https://app.worldwidewebb.co` for ordinary browsers. The iPad app does not embed or navigate to that site; the hostname remains its default API origin. See [app registration](../Sources/Apps/README.md) for the typed catalog and extension recipe.
+
 
 ## Navigation and data
 
