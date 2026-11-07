@@ -21,6 +21,8 @@ settings:
     INFOPLIST_KEY_CFBundleDisplayName: Folding
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ''
+    FOLDING_APP_GROUP_IDENTIFIER: ''
+    INFOPLIST_KEY_FoldingAppGroupIdentifier: '$(FOLDING_APP_GROUP_IDENTIFIER)'
     'CODE_SIGN_IDENTITY[sdk=iphonesimulator*]': '-'
     'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': YES
 targets:
@@ -35,8 +37,30 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding
         'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': Config/Simulator.entitlements
     dependencies:
+      - target: FoldingWidgets
+        embed: true
       - package: FoldingKit
         product: FoldingDomain
+      - package: FoldingKit
+        product: FoldingData
+  FoldingWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: App/Localizable.xcstrings
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.widgets
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Folding
+    info:
+      path: Config/Widgets-Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    dependencies:
       - package: FoldingKit
         product: FoldingData
   FoldingBuildTests:

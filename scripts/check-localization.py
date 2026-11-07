@@ -26,7 +26,10 @@ FORMAT = re.compile(r'%(?:(\d+)\$)?(lld|llu|ld|lu|d|u|f|g|@)')
 
 def source_strings(directory: Path) -> dict[str, str]:
     result: dict[str, str] = {}
-    for path in sorted(directory.rglob('*.swift')):
+    paths = list(directory.rglob('*.swift'))
+    if directory == ROOT / 'apps/ios/App':
+        paths += list((ROOT / 'apps/ios/Widgets').rglob('*.swift'))
+    for path in sorted(paths):
         for match in SOURCE_PATTERN.finditer(path.read_text()):
             key, value = match.groups()
             if key in INTERPOLATIONS:

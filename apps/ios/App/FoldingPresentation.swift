@@ -214,6 +214,8 @@ enum ExportChoice { case json, csv }
   var setup: (SetupAction) async throws -> SetupProgress
   var savePreferences: (FoldingPreferences) async throws -> Void
   var loadHistory: ((HistoryPeriod, Int) async throws -> HistoryPresentation)?
+  var saveNotifications: ((NotificationPreferences) async throws -> NotificationPreferences)?
+  var openNotificationSettings: (() -> Void)?
   var useThisPhone: (() async throws -> Void)?
   var loadLeaderboard: ((CompetitionPeriod) async throws -> LeaderboardPresentation)?
   var openShortcuts: (() -> Void)?
@@ -245,6 +247,8 @@ enum ExportChoice { case json, csv }
   var personalFailure: String?
   var error: String?
   var operation: String?
+  var notificationPreferences = NotificationPreferences()
+  var notificationAuthorization: NotificationAuthorization = .unknown
   var privateHistoryHealth: PrivateHistoryHealth?
   var canResetHistory: Bool { privateHistoryHealth?.canResetHistory ?? true }
 
