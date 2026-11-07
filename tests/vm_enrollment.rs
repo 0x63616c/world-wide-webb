@@ -1041,10 +1041,7 @@ fn drive(f: &Fixture, resume: bool) {
     let merged = if let Some(revision) = resumed_revision {
         Some(revision)
     } else if f.review_required {
-        terminal.wait(
-            "Review and merge the setup PR",
-            Duration::from_secs(300),
-        );
+        terminal.wait("Review and merge the setup PR", Duration::from_secs(300));
         Some(merge_enrollment(f))
     } else {
         None
