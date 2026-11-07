@@ -140,3 +140,16 @@ The original fourteen work orders now have 33 linked deliverable issues (#15–#
 - Storage evidence: `2cb5a32`; 27 domain plus 58 data tests pass, including eleven transfer tests with populated two-journal/Core Data convergence, account isolation, migrations and conflict/replacement/reset recovery.
 - App composition adds explicit use-this-phone command and selected local identity; the combined app suite passes nineteen tests, including private selection retaining prior known observations while excluding a later old-phone close. Public enrollment is not silently transferred by this private-only command. Settings presentation is pending.
 - #30 remains open for bounded obsolete mirror-record cleanup and corrupted-reset recovery UX. Live iCloud/hardware and cached performance are not proven by local tests.
+
+## Apple account bootstrap
+
+- Apple login is complete. The existing 1Password API key works through Fastlane; four production/staging app/widget bundle identifiers are registered.
+- Both App Store records are created and verified: production `6832059501` (Folding: Duo Fold Tracker), staging `6832060416` (Folding Staging). Plain Folding was unavailable. Both are Prepare for Submission, with no submitted build.
+- Fastlane now provides repeatable scoped inventory and idempotent bundle registration; public identifiers live in `fastlane/app-identifiers.json`. See [bootstrap evidence](experiments/apple-account-bootstrap.md).
+- #28 remains open for capabilities, groups/containers, signing/recovery, production entitlements and archive verification. CI remains owner-deferred.
+
+## Private-history recovery and cleanup
+
+- `53ba831` adds bounded obsolete mirror cleanup, migration/backfill coverage and authoritative reset health; 27 domain and 65 data tests passed at that checkpoint. These are local Core Data/journal tests, not live iCloud evidence.
+- `943fbb0` adds explicit tracking-phone selection UI. `63bfe7e` adds recovery UI and shared export/reset actions, with authoritative reset eligibility and 137 keys across ten locales. Fifteen presentation tests passed; recovery visual acceptance remains pending.
+- Controller health integration and compact incremental analytics are in progress. #30 remains open until integrated recovery acceptance; broader live account and performance requirements remain separately tracked.

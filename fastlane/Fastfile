@@ -1,4 +1,5 @@
 require "shellwords"
+require_relative "lib/apple_account"
 
 def repository_root
   File.expand_path("..", __dir__)
@@ -32,6 +33,26 @@ end
 
 default_platform(:ios)
 platform :ios do
+  desc "Read Folding Apple app and bundle registration state without changing it"
+  lane :apple_inventory do
+    begin
+      result = FoldingAppleAccount.inventory
+      UI.message(JSON.pretty_generate(result))
+    rescue StandardError => error
+      UI.user_error!("Apple inventory failed (#{error.class}); credentials and raw responses are suppressed")
+    end
+  end
+
+  desc "Idempotently register isolated production/staging app and widget bundle IDs"
+  lane :register_bundles do
+    begin
+      result = FoldingAppleAccount.register_bundles
+      UI.message(JSON.pretty_generate(result))
+    rescue StandardError => error
+      UI.user_error!("Apple registration failed (#{error.class}); inspect inventory before retrying")
+    end
+  end
+
   desc "Run contract/core checks and the app-hosted Duo simulator persistence test"
   lane :verify do
     sh(File.join(repository_root, "scripts/check"))
