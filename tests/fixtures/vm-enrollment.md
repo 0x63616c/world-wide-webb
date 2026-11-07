@@ -118,3 +118,20 @@ inodes, preserving old hard links, credentials, receipts and the create-new issu
 The wizard then follows its production resume path without another PR merge. It refuses later
 bootstrap phases; it is not a general retry command. No raw Outcome or terminal transcript is
 printed: failure diagnostics use reviewed static messages only.
+
+## Recover completion after a verified reboot
+
+For a preserved guest that has already activated and rebooted, use the freshly reviewed
+harness outside the operator state directory:
+
+```
+vm_enrollment --complete /absolute/private/operator-state/enrollment.json
+```
+
+This requires the saved approved-installation revision, merged commit, current-system metadata,
+original guest identity and an authenticated public report proving the current boot is the
+verified post-install reboot. It rejects active helper/installer or operator processes. It invokes
+only the production completion path twice, requires the boot UUID to stay unchanged, and checks
+activation evidence. No credential preparation, PR merge, bootstrap or fabricated receipt occurs.
+`completion-recovery-evidence.json` explicitly records a recovered completion, not a successful
+uninterrupted full wizard. A full wizard/replay rehearsal remains a separate evidence gate.

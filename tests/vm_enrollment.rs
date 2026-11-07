@@ -221,6 +221,73 @@ fn github_arguments_allowed(repository: &str, args: &[std::ffi::OsString]) -> bo
 
 fn regressions() {
     vm::manifest_guard_regressions();
+    let report = homelab_client::bootstrap_privileged::VerifiedSetup {
+        request_id: "a".repeat(64),
+        schema: 1,
+        main_revision: "b".repeat(40),
+        system: "/nix/store/synthetic-system".into(),
+        binding: "c".repeat(64),
+        rebooted: true,
+        completed: false,
+        completed_at: None,
+        reconciled_revision: None,
+        boot_session: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE".into(),
+        tailscale: homelab_client::tailscale::VerifiedNode {
+            dns_name: "vm-test.synthetic.ts.net".into(),
+            addresses: vec!["100.64.0.1".parse().unwrap()],
+        },
+    };
+    assert!(completion_matches(
+        &report,
+        &report.binding,
+        &report.system,
+        &report.boot_session
+    ));
+    for changed in [
+        homelab_client::bootstrap_privileged::VerifiedSetup {
+            rebooted: false,
+            ..report.clone()
+        },
+        homelab_client::bootstrap_privileged::VerifiedSetup {
+            binding: "d".repeat(64),
+            ..report.clone()
+        },
+        homelab_client::bootstrap_privileged::VerifiedSetup {
+            system: "/nix/store/another-system".into(),
+            ..report.clone()
+        },
+        homelab_client::bootstrap_privileged::VerifiedSetup {
+            boot_session: "11111111-2222-3333-4444-555555555555".into(),
+            ..report.clone()
+        },
+    ] {
+        assert!(!completion_matches(
+            &changed,
+            &report.binding,
+            &report.system,
+            &report.boot_session
+        ));
+    }
+
+    assert_eq!(observed_phase("unknown sensitive output"), None);
+    assert_eq!(
+        observed_phase(&format!(
+            "{}\nsecret-sentinel\n{}",
+            COMPLETION_PHASES[1], COMPLETION_PHASES[2]
+        )),
+        Some(COMPLETION_PHASES[2])
+    );
+    for error in [
+        homelab_client::remote_completion::Error::Selection,
+        homelab_client::remote_completion::Error::Verification,
+        homelab_client::remote_completion::Error::Tailnet,
+        homelab_client::remote_completion::Error::Reboot,
+        homelab_client::remote_completion::Error::RebootRequest,
+        homelab_client::remote_completion::Error::TailscaleClient,
+    ] {
+        assert_eq!(safe_failure(&[error.to_string()]), error.to_string());
+    }
+
     let check = PRE_BOOTSTRAP_CHECK
         .replace("/usr/bin/sudo -n /bin/test", "fixture_test")
         .replace("/usr/bin/pgrep", "fixture_pgrep");
@@ -610,6 +677,7 @@ struct Terminal {
     child: Child,
     original: rustix::termios::LocalModes,
     text: String,
+    last_phase: Option<&'static str>,
 }
 impl Terminal {
     fn start(f: &Fixture) -> Self {
@@ -661,6 +729,7 @@ impl Terminal {
             child,
             original,
             text: String::new(),
+            last_phase: None,
         }
     }
     fn wait(&mut self, expected: &'static str, duration: Duration) {
@@ -676,6 +745,7 @@ impl Terminal {
                     "wizard terminal unavailable while waiting for {expected}; preserve fixture state"
                 ),
             }
+            self.last_phase = observed_phase(&self.text).or(self.last_phase);
             assert!(
                 !self.text.contains(AUTH_KEY) && !self.text.contains("AGE-SECRET-KEY-"),
                 "synthetic credential appeared while waiting for {expected}"
@@ -694,11 +764,13 @@ impl Terminal {
                     .copied()
                     .find(|message| self.text.contains(&format!("{FAILURE_PREFIX}{message}")))
                     .unwrap_or("Unclassified wizard outcome; saved state preserved.");
-                panic!("wizard stopped before {expected}: {reason}");
+                let phase = self.last_phase.unwrap_or("No completion phase observed");
+                panic!("wizard stopped before {expected}; last phase: {phase}; {reason}");
             }
             assert!(
                 Instant::now() < deadline,
-                "wizard timed out waiting for {expected}; preserve fixture state"
+                "wizard timed out waiting for {expected}; last phase: {}; preserve fixture state",
+                self.last_phase.unwrap_or("No completion phase observed")
             );
             std::thread::sleep(Duration::from_millis(50));
         }
@@ -719,6 +791,12 @@ impl Drop for Terminal {
 // Only these reviewed static messages may leave the captured wizard. Never print
 // Outcome lines wholesale: future errors could contain paths or provider data.
 const SAFE_FAILURES: &[&str] = &[
+    "The saved installation selection is invalid. Preserve this setup attempt.",
+    "Setup verification could not be confirmed. Resume this attempt; do not reinstall.",
+    "Tailscale SSH could not reach this Mac. Check this client's Tailscale connection, SSH access policy and any browser approval request, then resume setup.",
+    "The Mac has not returned from reboot yet. Leave it powered on; FileVault may require a local unlock, then resume setup.",
+    "Restart was not confirmed. Check administrator authentication and resume this setup attempt.",
+    "Install the standalone Tailscale client with its CLI on this Mac, connect to your tailnet, then resume setup.",
     "GitHub access failed. Check your local GitHub sign-in and repository permissions.",
     "Existing configuration conflicts with this enrollment. Nothing was overwritten.",
     "A repository file was not found at the reviewed revision.",
@@ -731,6 +809,19 @@ const SAFE_FAILURES: &[&str] = &[
     "The private credential files could not be safely prepared.",
     "The target could not be inspected through verified SSH.",
 ];
+const COMPLETION_PHASES: &[&str] = &[
+    "Checking services, Tailscale and Git access",
+    "Restarting the Mac and waiting for it to return",
+    "Verifying the Mac after reboot",
+    "Finishing setup and enabling Git updates",
+];
+fn observed_phase(text: &str) -> Option<&'static str> {
+    COMPLETION_PHASES
+        .iter()
+        .filter_map(|phase| text.rfind(phase).map(|position| (position, *phase)))
+        .max_by_key(|(position, _)| *position)
+        .map(|(_, phase)| phase)
+}
 const FAILURE_PREFIX: &str = "VM_ENROLLMENT_FAILURE: ";
 fn safe_failure(lines: &[String]) -> &'static str {
     SAFE_FAILURES
@@ -1107,7 +1198,7 @@ fn validate_resume(f: &Fixture) -> String {
     revision
 }
 
-fn resume_run(path: &Path) {
+fn preserved_run(path: &Path, action: &str) {
     let f = load(path);
     assert_eq!(
         path,
@@ -1115,7 +1206,7 @@ fn resume_run(path: &Path) {
         "use the preserved fixture snapshot"
     );
     let status = Command::new(std::env::current_exe().unwrap())
-        .arg("--resume-prepare")
+        .arg(action)
         .env_clear()
         .env(ENV, path)
         .env("HOME", &f.state_directory)
@@ -1143,8 +1234,7 @@ const PRE_BOOTSTRAP_CHECK: &str = r#"
 [ "$?" -eq 1 ]
 "#;
 
-fn resume_prepare(f: &Fixture) {
-    use std::os::unix::fs::FileTypeExt;
+fn require_idle_operator(f: &Fixture) {
     // Match only executable paths in this attempt, not a potentially enormous
     // process listing or shell arguments mentioning the fixture path.
     let mut pattern = String::from("^");
@@ -1163,6 +1253,148 @@ fn resume_prepare(f: &Fixture) {
         Some(1),
         "an operator process for this attempt may still be active"
     );
+}
+
+fn completion_matches(
+    report: &homelab_client::bootstrap_privileged::VerifiedSetup,
+    binding: &str,
+    system: &Path,
+    boot: &str,
+) -> bool {
+    report.schema == 1
+        && report.rebooted
+        && report.binding == binding
+        && report.system == system
+        && report.boot_session.eq_ignore_ascii_case(boot.trim())
+}
+
+fn complete_preserved(f: &Fixture) {
+    use homelab_client::remote_completion;
+    assert_eq!(
+        vm::bounded(Command::new("/bin/hostname")).unwrap().trim(),
+        f.operator_hostname
+    );
+    require_idle_operator(f);
+    let ssh = f.state_directory.join("vm-ssh");
+    vm::guard_guest(&f.target, &ssh);
+    assert!(vm::bounded(vm::ssh(&f.target, &ssh,
+        "/usr/bin/pgrep -x homelab-host >/dev/null; [ \"$?\" -eq 1 ] || exit 2; /usr/bin/pgrep -x nix-installer >/dev/null; [ \"$?\" -eq 1 ]"
+    )).is_some(), "guest bootstrap/helper may still be active");
+    let saved = provisioning::approved_installation(
+        &f.state_directory.join(".local/state/homelab/provisioning"),
+        "vm-test",
+    )
+    .unwrap()
+    .expect("saved approved installation required");
+    let merged = String::from_utf8(vm::private_bytes(
+        &f.state_directory.join("merged-revision"),
+        40,
+    ))
+    .unwrap();
+    assert!(config::valid_revision(&merged));
+    assert_eq!(saved.repository, f.target.repository);
+    assert_eq!(saved.host, "vm-test");
+    assert_eq!(saved.revision, merged);
+    let profiles = inventory::load(&f.state_directory.join("inventory.json")).unwrap();
+    assert_eq!(profiles.len(), 1);
+    let profile = &profiles[0];
+    assert_eq!(profile.user, "admin");
+    assert_eq!(profile.address, f.target.guest_ip.to_string());
+    assert_eq!(profile.configuration_host.as_deref(), Some("vm-test"));
+    let public = vm::private_bytes(&f.state_directory.join("selected.pub"), 16384);
+    assert_eq!(
+        profile.identity.as_ref().unwrap().public_key,
+        String::from_utf8(public).unwrap().trim()
+    );
+    let read = |command: &str| {
+        vm::bounded(vm::ssh(&f.target, &ssh, command))
+            .expect("read-only completion preflight failed")
+    };
+    let system: PathBuf = serde_json::from_str(&read(
+        "/run/current-system/sw/bin/homelab-host current-system",
+    ))
+    .unwrap();
+    let metadata: Value = serde_json::from_str(&read(
+        "/bin/cat /run/current-system/etc/homelab/revision.json",
+    ))
+    .unwrap();
+    assert_eq!(
+        metadata,
+        json!({"repository":f.target.repository,"host":"vm-test","revision":merged})
+    );
+    let binding = config::setup_binding(&f.target.repository, "vm-test", &merged).unwrap();
+    let report: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(
+        &format!("/bin/cat /var/db/homelab-setup/{binding}.json"),
+    ))
+    .unwrap();
+    // Authenticate the existing public report through the real read-only helper.
+    assert!(
+        report.request_id.len() == 64 && report.request_id.bytes().all(|c| c.is_ascii_hexdigit())
+    );
+    let verified: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(&format!("/run/current-system/sw/bin/homelab-host read-setup-report --binding '{binding}' --request-id '{}'", report.request_id))).unwrap();
+    let boot = read("/usr/sbin/sysctl -n kern.bootsessionuuid");
+    assert!(
+        completion_matches(&verified, &binding, &system, &boot),
+        "recovery requires proof this installation already rebooted"
+    );
+    let main = api(
+        f,
+        "GET",
+        &format!("repos/{}/commits/main", f.target.repository),
+        None,
+    );
+    assert_eq!(main["sha"], merged);
+    assert_eq!(
+        vm::private_bytes(&f.state_directory.join("issued"), 128),
+        b"one synthetic issuance"
+    );
+    assert!(!f.state_directory.join("revoked").exists());
+    for _ in 0..2 {
+        let result = remote_completion::finish_with_tools(
+            profile,
+            &ssh,
+            &f.state_directory.join("vm-tailnet"),
+            remote_completion::Installation {
+                repository: &f.target.repository,
+                host: "vm-test",
+                revision: &merged,
+                tag: "tag:vm-test",
+            },
+            |phase| {
+                if let Some(known) = observed_phase(phase) {
+                    println!("{known}");
+                }
+            },
+        );
+        let report = result.unwrap_or_else(|error| {
+            panic!(
+                "completion recovery failed: {}",
+                safe_failure(&[error.to_string()])
+            )
+        });
+        assert!(
+            report.completed
+                && report.rebooted
+                && report.reconciled_revision.as_deref() == Some(merged.as_str())
+        );
+        assert_eq!(
+            read("/usr/sbin/sysctl -n kern.bootsessionuuid"),
+            boot,
+            "completion recovery must not reboot again"
+        );
+    }
+    let mut activated = f.target.clone();
+    activated.revision = merged.clone();
+    vm::verify_activation(&activated, &ssh);
+    vm::write_private(&f.state_directory.join("completion-recovery-evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"recoveredCompletion":true,"completionReplayVerified":true,"bootUnchanged":true,"uninterruptedWizardVerified":false,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter"})).unwrap());
+    println!(
+        "Preserved post-reboot completion and replay passed; uninterrupted wizard still unverified."
+    );
+}
+
+fn resume_prepare(f: &Fixture) {
+    use std::os::unix::fs::FileTypeExt;
+    require_idle_operator(f);
     vm::guard_guest(&f.target, &f.state_directory.join("vm-ssh"));
     assert!(
         vm::bounded(vm::ssh(
@@ -1352,11 +1584,23 @@ fn main() {
                 .nth(2)
                 .expect("private fixture path required"),
         )),
-        Some("--resume") => resume_run(Path::new(
-            &std::env::args_os()
-                .nth(2)
-                .expect("preserved fixture path required"),
-        )),
+        Some("--resume") => preserved_run(
+            Path::new(
+                &std::env::args_os()
+                    .nth(2)
+                    .expect("preserved fixture path required"),
+            ),
+            "--resume-prepare",
+        ),
+        Some("--complete") => preserved_run(
+            Path::new(
+                &std::env::args_os()
+                    .nth(2)
+                    .expect("preserved fixture path required"),
+            ),
+            "--complete-drive",
+        ),
+        Some("--complete-drive") => complete_preserved(&fixture()),
         Some("--resume-prepare") => resume_prepare(&fixture()),
         Some("--resume-drive") => drive(&fixture(), true),
         Some("--drive") => drive(&fixture(), false),
