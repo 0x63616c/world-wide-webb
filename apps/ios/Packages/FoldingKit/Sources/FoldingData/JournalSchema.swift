@@ -4,13 +4,24 @@ extension SQLiteConnection {
   func migrate() throws {
     try transaction {
       let version = try rows("PRAGMA user_version").first?["user_version"]
-      guard version == "0" || version == "1" || version == "2" else {
+      guard version == "0" || version == "1" || version == "2" || version == "3" else {
         throw StoreError.incompatibleSchema
       }
       if version == "0" { for statement in Self.schema { try execute(statement) } }
-      if version != "2" {
+      if version == "0" || version == "1" {
         try execute("ALTER TABLE work_outbox ADD COLUMN lease_token TEXT")
-        try execute("PRAGMA user_version=2")
+      }
+      if version != "3" {
+        try execute(
+          "CREATE TABLE sync_checkpoints (store_id TEXT PRIMARY KEY, token TEXT NOT NULL)")
+        try execute(
+          "CREATE TABLE quarantines (entity_id TEXT NOT NULL, payload_hash TEXT NOT NULL, payload_json TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(entity_id,payload_hash))"
+        )
+        try execute(
+          "CREATE TABLE deferred_imports (payload_hash TEXT PRIMARY KEY, payload_json TEXT NOT NULL)"
+        )
+        try execute("CREATE TABLE rejected_reset_ids (reset_id TEXT PRIMARY KEY)")
+        try execute("PRAGMA user_version=3")
       }
     }
   }

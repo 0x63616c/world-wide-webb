@@ -99,3 +99,9 @@ JSON v1 top-level fields: `schema_version:1`, `exported_at_ms`, `generation`, `h
 CSV export is a ZIP containing `events.csv`, `sessions.csv`, `daily-summaries.csv`, and `README.txt` with formula/version/timezone. Event columns: event_id, device_id, sequence, generation_revision, generation_id, observed_at_ms, timezone_id, transition, is_test, included_in_summary, public_upload_state. Session columns: device_id, start_ms, end_ms, complete_duration_ms, completeness. Summary columns: date, timezone_id, folds, opens, closes, cycles, complete_duration_ms, equivalent_degrees, equivalent_metres. Use UTF-8, RFC4180 quoting, dot decimal separator, and blank nullable values. Escape spreadsheet formula-leading strings in CSV and document that transformation; JSON preserves raw values.
 
 Write protected temporary files within the app sandbox, share through the native sheet, and delete on completion/cancellation. On next launch remove abandoned files older than 24 hours; also purge on private reset/account change. Do not sync exports or upload them to a server.
+
+## Implemented conflict handling detail
+
+Private import batches checkpoint only after their journal transaction commits. Future-generation event/interruption records are deferred durably until a reset marker authorizes that generation. Conflicting event/interruption content is quarantined; local versions and derived uncertainty barriers remain eligible for private replication so devices can converge on exclusion.
+
+A conflicting reset ID cannot safely undo a tombstone already applied on another device. Preserve that tombstone, reject further versions of the conflicting ID, quarantine the payloads, and continue unrelated valid history. Never rewrite the reset marker by last-write-wins. Minimal rejected-ID tombstones survive history cleanup. Surface the conflict as impaired private sync until resolved; do not call the account converged merely because a batch checkpoint advanced.
