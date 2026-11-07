@@ -17,7 +17,7 @@ Verified on 2026-11-06 inside `homelab-validation` (`VirtualMac2,1`):
   failure restart policy and the enrollment gate command.
 
 These early checks alone did **not** establish full builds or reboot/reconciliation.
-The private helper now pins review candidate `f780a9449ecec6615c586451c3a907ba12aa5ab7`
+The earlier private helper pinned review candidate `f780a9449ecec6615c586451c3a907ba12aa5ab7`
 from [CLI PR #2](https://github.com/0x63616c/homelab-cli/pull/2). Its private
 `nix flake check --no-update-lock-file` subsequently passed inside the guest,
 including both host systems, dormant container paths, client and SOPS identity checks.
@@ -42,7 +42,17 @@ private [`homelab-vm-enrollment`](https://github.com/0x63616c/homelab-vm-enrollm
 repository. Its unready baseline has no host ciphertext or administrator keys;
 the real wizard must create and merge its enrollment PR. Guest identity, pinned
 SSH through the approved VM host, and noninteractive sudo have been checked.
-This is preparation evidence, not a passed full enrollment rehearsal.
+The full wizard ran against baseline `19bfc54` with helper `a7b3ce8`. It prepared
+synthetic verified backups and encrypted credentials, then stopped before creating
+a deploy key or PR. A read-only reproduction confirmed that deploy-key discovery
+combined `gh api --slurp` with `--jq`, which GitHub CLI rejects. The guest and
+operator state are preserved; this is not a passed enrollment rehearsal. Fixing
+that command and the fixture adapter's mutation argument handling precedes the
+next clean attempt.
+
+The private worktree now pins schema-aware helper `a7b3ce8` and schema 2 with an
+explicit backup vault. Its final private Nix validation is still pending; the
+earlier full check does not cover this candidate.
 
 ## Authorized boundary
 
