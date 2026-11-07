@@ -54,11 +54,17 @@ variable "application_routes_enabled" {
   default = false
 }
 module "application" {
-  source         = "../../modules/application"
-  account_id     = var.account_id
-  zone_id        = var.zone_id
-  environment    = "staging"
-  admin_emails   = var.admin_emails
-  routes_enabled = var.application_routes_enabled
+  source                 = "../../modules/application"
+  account_id             = var.account_id
+  zone_id                = var.zone_id
+  environment            = "staging"
+  admin_emails           = var.admin_emails
+  routes_enabled         = var.application_routes_enabled
+  website_routes_enabled = var.website_routes_enabled
 }
 output "application_bindings" { value = module.application.bindings }
+
+variable "website_routes_enabled" {
+  type    = bool
+  default = true
+}

@@ -12,7 +12,7 @@ The dependency-free builder writes production assets to `apps/web/dist/` and sta
 
 Wrangler publishes asset versions using `wrangler.jsonc`. Default configuration targets `folding-web-staging`; `--env production` targets `folding-web-production`. Both disable `workers.dev` and preview URLs. There is no runtime Worker script, backend JavaScript, or shared API/admin binding.
 
-The primary agent owns authenticated deployment. OpenTofu owns durable hostname/DNS routing, including `getfolding.app`, a staging hostname, and the `www` → apex redirect. Do not add overlapping route ownership to Wrangler or provision resources through a dashboard. No DNS, routes, Workers, or Access policies were deployed by this batch.
+The primary agent owns authenticated deployment. OpenTofu owns durable hostname/DNS routing, including `getfolding.app`, a staging hostname, and the `www` → apex redirect. Do not add overlapping route ownership to Wrangler or provision resources through a dashboard. Static asset versions deployed November 7: staging `dc3a1129-f7ab-459a-8f21-bc573fdf3291`, production `d12c0df4-0f09-4303-ab6f-0bd4c9167c4f`. Public routing is independently managed by the environment roots; an uploaded version alone is not a live website.
 
 Configuration follows Cloudflare's [static asset binding](https://developers.cloudflare.com/workers/static-assets/binding/) and [static site/404 routing](https://developers.cloudflare.com/workers/static-assets/routing/static-site-generation/) contracts. An unmatched URL serves the actual 404 page; there is no SPA fallback. Staging sends `noindex` headers/meta and disallows crawling. Production includes canonical URLs and a sitemap.
 
