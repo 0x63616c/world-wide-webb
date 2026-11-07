@@ -8,13 +8,14 @@ The owner cleared the broader shipping goal. These tasks are retained for a late
 - [x] Verify synthetic private fold and reset convergence through live CloudKit export/import on the iCloud-signed Duo simulator, in both containers with Development and Production CloudKit entitlements (`docs/experiments/live-integration-2026-11-07.md`).
 - [x] Complete staging/production migrations 0001–0017, Worker deployment, six runtime secrets per environment and API/admin routing. Both live health endpoints returned HTTP 200 with commit `4594f762365962dc0fe0ba662bdeb5559ea4ac2b` on November 7, 2026. This confirms deployment health, not feature acceptance. See `docs/experiments/live-integration-2026-11-07.md`.
 - [x] Provision isolated staging/production watchdog D1, checksum migrations and disabled Workers; verify no Cron/public endpoint and byte-verified encrypted state backups (`docs/experiments/live-integration-2026-11-07.md`).
+- [x] Configure `getfolding.app` as an outbound Cloudflare Email Sending domain through OpenTofu; verify provider acceptance of an alert test message. Owner separately confirmed that `support@getfolding.app` forwarding works. Neither confirms alert delivery to the owner's inbox.
 - [ ] Activate watchdog and operational alerts; verify outbound email receipt and staging outage/recovery first.
 - [ ] Validate live sign-in/App Attest, iCloud/reset/account/phone transfer, Shortcuts uploads, rankings/corrections, avatars/moderation/cleanup, APNs/preferences and StoreKit purchases. Do not substitute local tests for provider/device evidence.
 - [ ] Measure realistic large-history/population resource use and address resulting issues.
 - [ ] Complete visual/accessibility/localization review and all ten-locale storefront screenshots/listing.
 - [ ] Finish tip reviewer asset processing/readiness. Three products are configured; screenshot capture succeeded in `/tmp/folding-release-assets/build/store-assets/03084e4d55c3e80effedfc28cd6858be93a7ef1f/production/assets`. Upload timed out: read Apple state before retrying.
 - [ ] Complete signed archive validation, Apple privacy/age-rating/review details, processed TestFlight build and release rehearsal. Existing profiles/recovery do not prove archive acceptance.
-- [ ] Verify public pages. Production site is live; final acceptance remains open. The owner reports personally testing that `support@getfolding.app` forwards successfully; no additional inbox test is requested.
+- [ ] Verify public pages. Production site is live; final acceptance remains open. Support forwarding is complete based on the owner's test; no additional inbox test is requested.
 - [ ] Submit app and tips; verify submission and automatic publication after approval.
 - [ ] Run owner-deferred physical Duo checks **after submission**, fix/resubmit as needed (#47/F13).
 - [ ] Restore CI on owner-provided runners when available (#46); do not retry hosted-CI billing.

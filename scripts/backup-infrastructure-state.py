@@ -4,17 +4,21 @@ import argparse
 import datetime
 import hashlib
 import json
+import pathlib
 import uuid
 
 import boto3
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('environment', choices=['staging', 'production'])
+parser.add_argument('environment', choices=['bootstrap', 'staging', 'production'])
 args = parser.parse_args()
 client = boto3.client('s3', region_name='auto',
     endpoint_url='https://eb3ea2e5ef93e58704d39980583fee38.r2.cloudflarestorage.com')
 bucket = 'folding-infrastructure-state'
-body = client.get_object(Bucket=bucket, Key=f'folding/{args.environment}.tfstate')['Body'].read()
+if args.environment == 'bootstrap':
+    body = (pathlib.Path(__file__).resolve().parents[1] / 'infra/bootstrap/terraform.tfstate').read_bytes()
+else:
+    body = client.get_object(Bucket=bucket, Key=f'folding/{args.environment}.tfstate')['Body'].read()
 state = json.loads(body)
 if 'encrypted_data' not in state or 'resources' in state:
     raise SystemExit('Refusing to back up unencrypted state')
