@@ -51,9 +51,14 @@ reboot and Comin verification. The Tailscale route adapter is synthetic, so even
 a passing fixture run will not prove production tailnet policy or routing.
 The third disposable full-wizard VM run activated and rebooted, then stopped
 during completion before Comin started. Its preserved state is under investigation.
-Final reconciliation, completed-attempt replay and the final private Nix check
-must be recorded before claiming the current candidate is validated.
-Publication/release remains pending.
+The full private `nix flake check --no-update-lock-file --max-jobs 1 --cores 1`
+passed all nine checks at `c08bc7d751e2e983131c48c0ef87d68e7ae81652`, pinning public
+0.3.0 candidate `f7f2a72`. This includes both host systems, dormant container paths,
+client, service-assignment, SOPS, Compose and runner-package checks. The disposable
+validation guest is stopped and preserved; no physical configuration was activated.
+A fourth fresh wizard rehearsal uses fixture baseline `a84b7e4` and helper
+`f7f2a72`. Final reconciliation and completed-wizard replay still need successful
+runtime evidence. Publication/release remains pending.
 
 Local and hosted checks cover Rust behavior, terminal restoration, configuration
 schema/example consistency and native no-Nix artifacts. These checks cannot
@@ -68,7 +73,8 @@ production data nor readiness of the complete application stack.
 ## Before production migration
 
 - Finish the current disposable enrollment, reboot, Comin handover and saved-state
-  replay, then validate the final private configuration and release candidate.
+  replay, then finish release validation. Repeat private configuration checks if
+  the reviewed source or helper pin changes.
 - Provision and verify the real host SSH/SOPS configuration and actual Tailscale
   access. Current private manifests deliberately remain unready.
 - Validate consistent backups and service-specific restore rehearsals before

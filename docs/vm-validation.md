@@ -82,8 +82,19 @@ root-owned `0700` `/var/lib/homelab` directory without weakening the guard. Its
 tests and independent review passed; runtime validation is still pending.
 
 The private helper now pins 0.3.0 candidate `f7f2a72`; schema 2 uses an explicit backup vault.
-Final private Nix validation is still pending; the earlier full check does not
-cover this candidate.
+At private commit `c08bc7d751e2e983131c48c0ef87d68e7ae81652`,
+`nix flake check --no-update-lock-file --max-jobs 1 --cores 1` completed with exit 0
+inside the disposable third guest. All nine checks passed: `mac-mini`, `macbook`,
+`service-assignments`, `sops-host-identity`, `management-client`, `runner-tart`,
+`compose`, `runner-softnet` and `macbook-containers`. The operator retained the log
+at `homelab-cli/target/private-validation-c08bc7d.log`; the guest is stopped and
+preserved. This validates the pinned configuration builds and checks, not its
+activation on either physical host.
+
+A fresh fourth wizard rehearsal is starting from fixture baseline `a84b7e4` with
+helper `f7f2a72`. Full enrollment, reboot, Comin reconciliation and completed-wizard
+replay remain pending, as does release approval. No successful full journey is
+claimed by the Nix check result.
 
 ## Authorized boundary
 
