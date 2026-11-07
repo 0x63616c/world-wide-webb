@@ -673,3 +673,136 @@ async fn sound_uses_fresh_topology_and_persists_calibration_without_touching_zer
     assert_eq!(count, 0);
     task.abort();
 }
+
+#[tokio::test]
+async fn tesla_converts_real_telemetry_keeps_snapshot_and_checks_pin_before_commands() {
+    use axum::{
+        Json,
+        extract::Path,
+        routing::{get, post},
+    };
+    use std::sync::{Arc, RwLock};
+    use www_server::{config::Config, integrations::homeassistant::HomeAssistant};
+    let (dir, _, db) = fixture().await;
+    let live = Arc::new(RwLock::new(json!([
+        {"entity_id":"sensor.evee_battery_level","state":"72","attributes":{"unit_of_measurement":"%"}},
+        {"entity_id":"sensor.evee_battery_range","state":"321.8688","attributes":{"unit_of_measurement":"km"}},
+        {"entity_id":"sensor.evee_charging","state":"NoPower","attributes":{}},
+        {"entity_id":"sensor.evee_charger_power","state":"7000","attributes":{"unit_of_measurement":"W"}},
+        {"entity_id":"sensor.evee_odometer","state":"16093.44","attributes":{"unit_of_measurement":"km"}},
+        {"entity_id":"sensor.evee_inside_temperature","state":"20","attributes":{"unit_of_measurement":"°C"}},
+        {"entity_id":"lock.evee_lock","state":"locked","attributes":{}},
+        {"entity_id":"climate.evee_climate","state":"off","attributes":{}},
+        {"entity_id":"switch.evee_charge","state":"off","attributes":{}},
+        {"entity_id":"sensor.evee_shift_state","state":"D","attributes":{}},
+        {"entity_id":"update.evee_software_update","state":"on","attributes":{"installed_version":"old","latest_version":"new"}}
+    ])));
+    let calls = Arc::new(RwLock::new(Vec::<(String, Value)>::new()));
+    let read = live.clone();
+    let called = calls.clone();
+    let ha_app = Router::new()
+        .route(
+            "/api/states",
+            get(move || {
+                let r = read.clone();
+                async move { Json(r.read().unwrap().clone()) }
+            }),
+        )
+        .route(
+            "/api/services/{domain}/{service}",
+            post(
+                move |Path((d, s)): Path<(String, String)>, Json(v): Json<Value>| {
+                    let c = called.clone();
+                    async move {
+                        c.write().unwrap().push((format!("{d}/{s}"), v));
+                        Json(json!([]))
+                    }
+                },
+            ),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
+    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    state.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    let app = http::router(state);
+    let (status, body) = call(&app, "GET", "/api/v1/tesla", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], "ready");
+    assert_eq!(body["stale"], false);
+    assert!((body["data"]["rangeMiles"].as_f64().unwrap() - 200.0).abs() < 0.001);
+    assert!((body["data"]["odometerMiles"].as_f64().unwrap() - 10000.0).abs() < 0.001);
+    assert_eq!(body["data"]["chargePowerKW"], 7.0);
+    assert_eq!(body["data"]["cabinFahrenheit"], 68.0);
+    assert_eq!(body["data"]["driveState"], "driving");
+    assert_eq!(body["data"]["chargingState"], "no_power");
+    assert_eq!(body["data"]["softwareUpdate"]["status"], "available");
+    // Neither a missing PIN configuration nor a wrong PIN can actuate the car.
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/tesla/commands",
+            json!({"action":"unlock","pin":"123456"})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("INSERT INTO settings(id,value,updated_at_utc) VALUES('singleton',?,?)")
+        .bind(json!({"pinCode":"654321"}).to_string())
+        .bind("2026-11-07T00:00:00Z")
+        .execute(&db)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/tesla/commands",
+            json!({"action":"unlock","pin":"123456"})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    assert!(calls.read().unwrap().is_empty());
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/tesla/commands",
+            json!({"action":"unlock","pin":"654321"})
+        )
+        .await
+        .1["accepted"],
+        true
+    );
+    assert_eq!(
+        calls.read().unwrap()[0],
+        ("lock/unlock".into(), json!({"entity_id":"lock.evee_lock"}))
+    );
+    live.write().unwrap()[0]["state"] = json!("unavailable");
+    let (_, cached) = call(&app, "GET", "/api/v1/tesla", Value::Null).await;
+    assert_eq!(cached["status"], "ready");
+    assert_eq!(cached["stale"], true);
+    assert_eq!(cached["data"], body["data"]);
+    // Missing discovery prevents commands even though a cached display is available.
+    *live.write().unwrap() = json!([]);
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/tesla/commands",
+            json!({"action":"unlock","pin":"654321"})
+        )
+        .await
+        .0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(calls.read().unwrap().len(), 1);
+    task.abort();
+}

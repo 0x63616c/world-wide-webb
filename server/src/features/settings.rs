@@ -69,3 +69,30 @@ pub async fn update(State(s): State<AppState>, Json(v): Json<Patch>) -> Result<J
     tx.commit().await?;
     Ok(Json(public(value)))
 }
+
+// A missing or corrupt settings row never accepts a default PIN.
+pub async fn verify_pin(s: &AppState, pin: &str) -> Result<()> {
+    use subtle::ConstantTimeEq;
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT value FROM settings WHERE id='singleton'")
+            .fetch_optional(&s.db)
+            .await?;
+    let expected = stored
+        .and_then(|v| serde_json::from_str::<Value>(&v).ok())
+        .and_then(|v| v.get("pinCode").and_then(Value::as_str).map(str::to_owned));
+    if pin.len() == 6
+        && pin.bytes().all(|b| b.is_ascii_digit())
+        && expected.as_ref().is_some_and(|v| {
+            v.len() == 6
+                && v.bytes().all(|b| b.is_ascii_digit())
+                && bool::from(pin.as_bytes().ct_eq(v.as_bytes()))
+        })
+    {
+        Ok(())
+    } else {
+        Err(ApiError {
+            status: axum::http::StatusCode::FORBIDDEN,
+            message: "PIN not accepted",
+        })
+    }
+}

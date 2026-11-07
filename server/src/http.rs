@@ -1,6 +1,8 @@
 use crate::{
     AppState,
-    features::{booth, climate, lights, notifications, releases, settings, sound, walks, weather},
+    features::{
+        booth, climate, lights, notifications, releases, settings, sound, tesla, walks, weather,
+    },
 };
 use axum::{
     Json, Router,
@@ -62,6 +64,8 @@ pub type Result<T> = std::result::Result<T, ApiError>;
 
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
+        .route("/api/v1/tesla", get(tesla::get))
+        .route("/api/v1/tesla/commands", post(tesla::command))
         .route("/api/v1/sound", get(sound::get).post(sound::command))
         .route(
             "/api/v1/sound/calibration",

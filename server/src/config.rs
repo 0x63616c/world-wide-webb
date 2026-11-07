@@ -6,6 +6,7 @@ use std::{env, fs, path::PathBuf};
 pub struct Config {
     pub ha: Option<HomeAssistant>,
     pub climate_entity: Option<String>,
+    pub tesla_entities: Option<std::collections::BTreeMap<String, String>>,
     pub weather: Option<(f64, f64)>,
     pub wifi_qr: Option<String>,
 }
@@ -47,6 +48,16 @@ impl Config {
             (None, None) => None,
             _ => return Err("Weather configuration incomplete".into()),
         };
+        let tesla_entities = value("TESLA_ENTITIES")?
+            .map(|raw| {
+                let ids =
+                    serde_json::from_str(&raw).map_err(|_| "Invalid Tesla entity configuration")?;
+                if !crate::features::tesla::validate_ids(&ids) {
+                    return Err("Invalid Tesla entity configuration");
+                }
+                Ok(ids)
+            })
+            .transpose()?;
         let wifi_qr = value("WIFI_GUEST_SSID")?
             .filter(|s| !s.is_empty())
             .map(|ssid| {
@@ -59,6 +70,7 @@ impl Config {
             weather,
             wifi_qr,
             climate_entity: value("CLIMATE_ENTITY_ID")?,
+            tesla_entities,
         })
     }
 }
