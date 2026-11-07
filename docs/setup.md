@@ -1,7 +1,8 @@
 # Set up a Mac
 
-This guide describes the upcoming enrollment release. Do not start physical-Mac
-setup until its VM validation and release are complete.
+Use [CLI 0.3.1](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.1)
+for this guide. It includes Git-first host selection and automatic prerequisite
+installation; version 0.3.0 does not.
 
 ## One-time work on the target
 
@@ -9,9 +10,10 @@ Create the administrator shown in `homelab.json` during Setup Assistant. Enable
 **System Settings → General → Sharing → Remote Login** for that administrator.
 Keep the Mac powered and reachable. Your personal laptop does not need Remote Login.
 
-The current bootstrap also needs Apple Command Line Tools on the target for Git.
-If missing, run `xcode-select --install` there and finish Apple's installer.
-The next CLI update checks this before reading setup credentials or changing state.
+**Begin setup** also authorizes installation of Apple Command Line Tools
+when missing. The wizard installs the required tools before preparing enrollment
+credentials; it does not install general macOS updates or replace a working Xcode
+selection. There is no separate installer confirmation in the wizard.
 
 ## Use the wizard
 
@@ -23,6 +25,15 @@ homelab
 ```
 
 For this repository enter `0x63616c/homelab` when asked to attach configuration.
+The CLI lists the hosts from this repository’s `homelab.json` and uses each host’s
+Git-defined administrator. Select the host and confirm its address, which defaults
+to `<host>.local`; there is no separate profile-name or administrator form.
+Existing connection aliases, addresses and SSH identities are reused. A changed
+Git administrator requires a connection review before SSH, and ambiguous saved
+connections require resolution rather than an automatic choice. Select **Edit
+address** to correct a saved route; its alias, SSH identity and setup state remain
+intact.
+
 On your laptop, GitHub CLI must be signed in with access to this private repository.
 Install the `op` CLI and unlock 1Password with desktop integration enabled. Connect
 the standalone Tailscale app and CLI; the App Store variant does not supply the
@@ -32,11 +43,21 @@ as the configured administrator to `tag:homelab`. Setup does not change that pol
 | Stage | What happens |
 | --- | --- |
 | Connect | SSH trust, agent public-key selection if needed, read-only host checks |
-| Approve setup | Review the Mac; automatically back up age keys to 1Password, verify backups, encrypt the scoped enrollment key and register the Mac's read-only Git key |
+| Begin setup | Review the Mac once; install missing Command Line Tools, back up and verify age keys in 1Password, encrypt the scoped enrollment key and register the Mac's read-only Git key |
 | Merge the PR | Review generated configuration in GitHub; the wizard waits for merge, installs that commit, reboots and verifies services and remote access |
 
-The wizard supplies the installer and remembers repository, host binding and
-private credential paths. Do not install Nix on your personal laptop.
+The wizard checks required client executables before starting a new enrollment.
+It supplies the installer and remembers repository, host binding and private
+credential paths. Approved setup resumes from its saved exact Git revision,
+including when current `main` changes the administrator or removes that host.
+Preserve local setup state; do not recreate the connection to resume. The local
+cache records connections, not a second list of desired hosts. Do not install Nix
+on your personal laptop.
+
+Apple administrator authentication, 1Password unlock/SSH-agent approval and
+Tailscale policy approval may still appear. These are the underlying systems
+authorizing access; the wizard does not save passwords or bypass them. GitHub PR
+review remains required before installing the configuration.
 
 ## Review before activation
 
@@ -60,7 +81,7 @@ restart. See [updates](updates.md) for what future merges authorize.
 
 1. Add its entry to `homelab.json`, initially disabled, and its `hosts/<name>.nix`.
 2. Add the Darwin configuration in `flake.nix` and review account/UID assumptions.
-3. Add its connection in the CLI and follow the same three stages.
+3. Reload the repository in the CLI, select the new host and confirm its address.
 4. Merge the enrollment PR and let the wizard complete its reboot and health checks.
 
 For key backup and rotation see [secrets](secrets.md). Never wipe the existing

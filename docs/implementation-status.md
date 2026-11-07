@@ -4,7 +4,9 @@ The private [homelab repository](https://github.com/0x63616c/homelab) owns host 
 service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
 owns guided enrollment; private health and restore operations live in `host/`.
 No physical host has received this configuration. Public CLI
-[0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0) is released.
+[0.3.1](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.1) provides
+Git-first host selection, automatic Command Line Tools installation and earlier
+client prerequisite checks.
 
 ## What is implemented
 
@@ -32,6 +34,21 @@ services. Comin cannot be enabled alongside the stateful container/Home Assistan
 runtimes until their backup and deployment workflow is reviewed. Runner lifecycle
 and registration remain disabled. Existing Python backup/snapshot/reconciliation
 operations remain where used; the custom Python updater was removed.
+
+## Git-first flow
+
+`homelab.json` is the host and administrator source of truth. New connections need
+only an address, defaulting to `<host>.local`. Existing local aliases, addresses,
+SSH identities and journal names are preserved as connection data. Changed Git
+logins require review; ambiguous aliases are not selected automatically. Saved
+addresses can be edited without recreating connection or enrollment state.
+
+Approved setup remains pinned to its saved Git workspace even if `main` changes
+or removes the host. This preserves interrupted enrollment without making the
+local cache another desired-host inventory. Missing Apple developer tools are
+installed within approved setup using only the matching Apple CLT catalog item;
+working Xcode selections are preserved and uncertain installs are not replayed.
+These changes do not authorize physical deployment.
 
 ## Current evidence
 
