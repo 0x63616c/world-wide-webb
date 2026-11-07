@@ -1,8 +1,17 @@
 import SwiftUI
 import PanelKit
 
+// Install the delegate before notification responses can arrive on cold launch.
+final class PanelAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        PanelTimerAlerts.shared.activate()
+        return true
+    }
+}
+
 @main
 struct PanelApp: App {
+    @UIApplicationDelegateAdaptor(PanelAppDelegate.self) private var appDelegate
     private var fixtureMotionPhase: Double? {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
@@ -36,6 +45,7 @@ struct PanelRoot: View {
     @State private var notifications: NotificationCenter
     @State private var store: LiveHomeDataSource
     @State private var navigation = PanelNavigation()
+    @State private var timer = PanelTimerStore()
     private let webOnly: Bool
     private let router: HybridRouter
     private let requested: Set<PanelModule>
@@ -135,7 +145,7 @@ struct PanelRoot: View {
                 .allowsHitTesting(!nativeVisible && !homeVisible)
                 .accessibilityHidden(nativeVisible || homeVisible)
             if homeVisible {
-                PanelHome(store: store, session: session, router: router, navigation: navigation)
+                PanelHome(store: store, session: session, router: router, navigation: navigation, timer: timer)
             }
             VStack(spacing: 0) {
                 if !homeVisible && nativeVisible {
@@ -184,6 +194,18 @@ struct PanelRoot: View {
         }
         .sheet(item: $session.share) { destination in
             PanelShareSheet(url: destination.url)
+        }
+        .onChange(of: PanelTimerAlerts.shared.openedTimerID, initial: true) { _, id in
+            guard timer.matchesNotification(id) else { return }
+            PanelTimerAlerts.shared.clearOpenedTimer()
+            if !webOnly { Self.openTimer(timer: timer, navigation: navigation) }
+        }
+        .task(id: scenePhase) {
+            await timer.run(while: scenePhase) {
+                notifications.post(sourceModule: "timer", title: "Time’s up",
+                    body: "Your timer has finished.", deepLink: PanelNotifications.timerDeepLink,
+                    priority: .high, dedupeKey: "timer-finished")
+            }
         }
         .onOpenURL { url in
             guard url.absoluteString == "controlcenter://alarms" else { return }
@@ -248,8 +270,13 @@ struct PanelRoot: View {
         }
         .environment(notifications)
         .onAppear {
-            notifications.setOpenHandler { [store, session, navigation, router] item in
-                PanelNotifications.open(item, store: store, session: session, navigation: navigation, router: router)
+            notifications.setOpenHandler { [store, session, navigation, router, timer, webOnly] item in
+                if item.deepLink == PanelNotifications.timerDeepLink {
+                    guard !webOnly else { return false }
+                    Self.openTimer(timer: timer, navigation: navigation)
+                    return true
+                }
+                return PanelNotifications.open(item, store: store, session: session, navigation: navigation, router: router)
             }
         }
         .task(id: scenePhase) {
@@ -257,6 +284,11 @@ struct PanelRoot: View {
             await notifications.run()
         }
         .onDisappear { session.stop(); store.stop() }
+    }
+
+    private static func openTimer(timer: PanelTimerStore, navigation: PanelNavigation) {
+        if !navigation.showingHome { navigation.returnHome() }
+        timer.openRequested = true
     }
 
     private var statusOverlays: some View {

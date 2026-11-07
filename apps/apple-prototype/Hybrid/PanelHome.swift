@@ -25,15 +25,17 @@ extension HomeTile {
 struct PanelHome: View {
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @State private var presentation: PanelHomePresentation
+    let timer: PanelTimerStore
 
     init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
-         navigation: PanelNavigation) {
+         navigation: PanelNavigation, timer: PanelTimerStore) {
+        self.timer = timer
         _presentation = State(initialValue: PanelHomePresentation(store: store, session: session,
             router: router, navigation: navigation))
     }
 
     var body: some View {
-        HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock, onWake: presentation.captureWake)
+        HomeView(store: presentation.store, initialFace: presentation.navigation.homeStartsInLauncher ? HomeFacePage.home : HomeFacePage.clock, managedTimer: timer, onWake: presentation.captureWake)
             .environment(\.homeIntegration, presentation)
             .environment(\.motionPhase, Self.fixtureMotionPhase ?? inheritedMotionPhase)
             .accessibilityElement(children: .contain)
