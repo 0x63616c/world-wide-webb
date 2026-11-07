@@ -106,6 +106,29 @@ actor CompetitionAPI {
       "POST", path: "/v1/enrollment/leave",
       body: CompetitionTransport.encode(["operation_id": operationID]))
   }
+  func blocks(cursor: String?) async throws -> HiddenParticipantsPage {
+    struct Item: Decodable, Sendable {
+      let participantID: String
+      enum CodingKeys: String, CodingKey { case participantID = "participant_id" }
+    }
+    var query = URLComponents()
+    query.queryItems = [URLQueryItem(name: "limit", value: "50")]
+    if let cursor { query.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+    let page: CompetitionWirePage<Item>
+    do {
+      page = try await transport.send(
+        "GET", path: "/v1/blocks?" + (query.percentEncodedQuery ?? ""))
+    } catch CompetitionTransportError.server(409) where cursor != nil {
+      throw LeaderboardPageError.snapshotChanged
+    }
+    guard page.items.allSatisfy({ UUID(uuidString: $0.participantID) != nil }) else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    return HiddenParticipantsPage(
+      participantIDs: page.items.map(\.participantID), nextCursor: page.next_cursor,
+      snapshotVersion: page.snapshot_version)
+  }
+
   func setBlocked(_ id: String, blocked: Bool) async throws {
     guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }
     struct Response: Decodable, Sendable { let blocked: Bool }

@@ -69,6 +69,12 @@ struct CompetitionShare: Sendable {
     self.approvedAvatarData = approvedAvatarData
   }
 }
+struct HiddenParticipantsPage: Sendable {
+  let participantIDs: [String]
+  let nextCursor: String?
+  let snapshotVersion: String
+}
+
 enum CompetitionSheet: String { case join, profile, results, liveShare }
 enum CompetitionRemovalState { case leaving, deleting, leaveFailed, deleteFailed }
 
@@ -81,6 +87,11 @@ extension FoldingPresentation {
   /// Invalidate all private result/profile presentation on reset, leave or account change.
   func invalidateCompetitionPresentation() {
     invalidateLeaderboardRequests()
+    hiddenRequestID = UUID()
+    hiddenLoading = false
+    hiddenCursor = nil
+    hiddenVersion = nil
+    hiddenFailed = false
     resultsRequestID = UUID()
     requestedResultID = nil
     results = []
@@ -92,6 +103,40 @@ extension FoldingPresentation {
     hiddenParticipantIDs = []
     hiddenParticipantNames = [:]
     dismissCompetitionSheets()
+  }
+
+  func requestHiddenParticipants(using actions: FoldingActions, nextPage: Bool = false) async {
+    guard let load = actions.loadHiddenParticipants else { return }
+    if nextPage && (hiddenLoading || hiddenCursor == nil) { return }
+    let request = UUID()
+    hiddenRequestID = request
+    hiddenLoading = true
+    hiddenFailed = false
+    do {
+      let page = try await load(nextPage ? hiddenCursor : nil)
+      guard request == hiddenRequestID, !Task.isCancelled else { return }
+      if nextPage && hiddenVersion != page.snapshotVersion {
+        hiddenLoading = false
+        await requestHiddenParticipants(using: actions)
+        return
+      }
+      if nextPage {
+        hiddenParticipantIDs.formUnion(page.participantIDs)
+      } else {
+        hiddenParticipantIDs = Set(page.participantIDs)
+      }
+      hiddenVersion = page.snapshotVersion
+      hiddenCursor = page.nextCursor
+      hiddenLoading = false
+    } catch {
+      guard request == hiddenRequestID else { return }
+      hiddenLoading = false
+      if nextPage, case LeaderboardPageError.snapshotChanged = error {
+        await requestHiddenParticipants(using: actions)
+      } else {
+        hiddenFailed = !(error is CancellationError)
+      }
+    }
   }
 
   func requestResults(using actions: FoldingActions, nextPage: Bool = false) async {

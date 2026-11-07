@@ -9,6 +9,7 @@ actor CloudTrackingConnection {
   private let defaults: UserDefaults
   private let localKey: String
   private var revision = UUID()
+  private(set) var availability: PrivateSyncAvailability = .checking
 
   init(containerIdentifier: String, root: URL, installationID: UUID) {
     container = CKContainer(identifier: containerIdentifier)
@@ -20,6 +21,7 @@ actor CloudTrackingConnection {
 
   func invalidate() async throws {
     revision = UUID()
+    availability = .checking
     try await session.invalidate()
     // A sign-out/account signal starts a fresh local namespace, never the previous cloud partition.
     defaults.removeObject(forKey: localKey)
@@ -31,11 +33,13 @@ actor CloudTrackingConnection {
     let identity: PrivateAccountIdentity
     switch status {
     case .available:
+      availability = .available
       let user = try await container.userRecordID()
       guard revision == token else { throw PartitionError.superseded }
       identity = .iCloud(
         containerIdentifier: container.containerIdentifier!, userRecordName: user.recordName)
     case .noAccount, .restricted:
+      availability = .localOnly
       let id: UUID
       if let value = defaults.string(forKey: localKey), let saved = UUID(uuidString: value) {
         id = saved
@@ -45,8 +49,10 @@ actor CloudTrackingConnection {
       }
       identity = .local(id)
     case .couldNotDetermine, .temporarilyUnavailable:
+      availability = .unavailable
       throw CloudTrackingError.accountUnavailable
     @unknown default:
+      availability = .unavailable
       throw CloudTrackingError.accountUnavailable
     }
     guard revision == token else { throw PartitionError.superseded }

@@ -87,6 +87,7 @@ import struct FoldingData.SetupProgress
         guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
         UIApplication.shared.open(url)
       },
+      loadSync: { refresh in try await self.runtime.syncStatus(refresh: refresh) },
       useThisPhone: {
         try await self.selectTrackingPhone()
         try await self.refresh()
@@ -173,7 +174,11 @@ import struct FoldingData.SetupProgress
       reportParticipant: { id, reason in
         try await self.competitionClient().report(participantID: id, reason: reason.rawValue)
       },
+      loadHiddenParticipants: { cursor in try await self.competitionClient().blocks(cursor: cursor)
+      },
       setParticipantBlocked: { id, blocked in
+        self.presentation.hiddenRequestID = UUID()
+        self.presentation.hiddenLoading = false
         try await self.competitionClient().setBlocked(id, blocked: blocked)
       },
       leaveCompetition: { try await self.beginRemoval(.leave) },
@@ -600,6 +605,7 @@ import struct FoldingData.SetupProgress
     competitionAPI = nil
     presentation.competition = .notJoined
     presentation.dismissExports()
+    presentation.syncStatus = nil
     presentation.analytics = nil
     presentation.history = nil
     presentation.setup = nil

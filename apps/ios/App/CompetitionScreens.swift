@@ -132,28 +132,9 @@ struct CompetitionProfileScreen: View {
             CompetitionResultsScreen(model: model, actions: actions)
           }
         }
-        if !model.hiddenParticipantIDs.isEmpty {
-          Section(String(localized: "report.hidden", defaultValue: "Hidden participants")) {
-            ForEach(model.hiddenParticipantIDs.sorted(), id: \.self) { id in
-              HStack {
-                Text(
-                  model.hiddenParticipantNames[id]
-                    ?? String(localized: "report.participant", defaultValue: "Participant"))
-                Spacer()
-                Button(String(localized: "report.unhide", defaultValue: "Show")) {
-                  Task {
-                    await model.command(
-                      String(localized: "settings.saving", defaultValue: "Saving")
-                    ) {
-                      guard let unblock = actions.setParticipantBlocked else { return }
-                      try await unblock(id, false)
-                      model.hiddenParticipantIDs.remove(id)
-                      model.hiddenParticipantNames[id] = nil
-                    }
-                  }
-                }.disabled(actions.setParticipantBlocked == nil)
-              }
-            }
+        Section {
+          NavigationLink(String(localized: "report.hidden", defaultValue: "Hidden participants")) {
+            HiddenParticipantsScreen(model: model, actions: actions)
           }
         }
         Section {
@@ -663,5 +644,51 @@ struct ApprovedAvatarImage: View {
           .secondary)
       }
     }
+  }
+}
+
+private struct HiddenParticipantsScreen: View {
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  var body: some View {
+    List {
+      ForEach(model.hiddenParticipantIDs.sorted(), id: \.self) { id in
+        HStack {
+          Text(
+            model.hiddenParticipantNames[id]
+              ?? String(localized: "report.participant", defaultValue: "Participant"))
+          Spacer()
+          Button(String(localized: "report.unhide", defaultValue: "Show")) {
+            Task {
+              await model.command(String(localized: "settings.saving", defaultValue: "Saving")) {
+                guard let unblock = actions.setParticipantBlocked else { return }
+                try await unblock(id, false)
+                model.hiddenParticipantIDs.remove(id)
+                model.hiddenParticipantNames[id] = nil
+                await model.requestHiddenParticipants(using: actions)
+              }
+            }
+          }.disabled(actions.setParticipantBlocked == nil || model.operation != nil)
+        }
+      }
+      if model.hiddenLoading {
+        ProgressView()
+      } else if model.hiddenFailed {
+        Button(String(localized: "action.retry", defaultValue: "Retry")) {
+          Task {
+            await model.requestHiddenParticipants(
+              using: actions, nextPage: model.hiddenCursor != nil)
+          }
+        }
+      } else if model.hiddenCursor != nil {
+        Button(String(localized: "action.more", defaultValue: "More")) {
+          Task { await model.requestHiddenParticipants(using: actions, nextPage: true) }
+        }
+      }
+    }
+    .navigationTitle(String(localized: "report.hidden", defaultValue: "Hidden participants"))
+    .navigationBarTitleDisplayMode(.inline)
+    .task { await model.requestHiddenParticipants(using: actions) }
+    .refreshable { await model.requestHiddenParticipants(using: actions) }
   }
 }

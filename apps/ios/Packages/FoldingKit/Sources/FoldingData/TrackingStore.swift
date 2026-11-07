@@ -1309,6 +1309,14 @@ public actor TrackingStore {
     }
   }
 
+  public func hasPendingCompetitionReset() throws -> Bool {
+    try journalTransaction(write: false) {
+      try !database.rows(
+        "SELECT work_id FROM work_outbox WHERE kind='competition_reset' AND state='pending' LIMIT 1"
+      ).isEmpty
+    }
+  }
+
   public func pendingCompetitionEventCount() throws -> Int {
     try journalTransaction(write: false) {
       Int(

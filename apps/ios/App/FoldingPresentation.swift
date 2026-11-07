@@ -216,6 +216,14 @@ extension SessionCompleteness {
     }
   }
 }
+enum PrivateSyncAvailability: Sendable { case available, localOnly, unavailable, checking }
+struct TrackingSyncPresentation: Sendable {
+  let iCloud: PrivateSyncAvailability
+  let publicTracking: Bool
+  let pendingFolds: Int
+  let resetPending: Bool
+}
+
 enum ExportChoice { case json, csv }
 
 /// All operations are supplied by the app composition. A nil optional command is unavailable,
@@ -228,6 +236,7 @@ enum ExportChoice { case json, csv }
   var tipJar: (() -> AnyView)?
   var saveNotifications: ((NotificationPreferences) async throws -> NotificationPreferences)?
   var openNotificationSettings: (() -> Void)?
+  var loadSync: ((Bool) async throws -> TrackingSyncPresentation)?
   var useThisPhone: (() async throws -> Void)?
   var loadLeaderboard: ((CompetitionPeriod) async throws -> LeaderboardPresentation)?
   var loadLeaderboardPage: ((CompetitionPeriod, String?) async throws -> LeaderboardPresentation)?
@@ -243,6 +252,7 @@ enum ExportChoice { case json, csv }
   var loadResults: ((CompetitionPeriod, String?) async throws -> CompetitionResultsPage)?
   var loadResultShare: ((String) async throws -> CompetitionShare)?
   var reportParticipant: ((String, ParticipantReportReason) async throws -> Void)?
+  var loadHiddenParticipants: ((String?) async throws -> HiddenParticipantsPage)?
   var setParticipantBlocked: ((String, Bool) async throws -> Void)?
   var leaveCompetition: (() async throws -> Void)?
   var deleteCompetitionAccount: (() async throws -> Void)?
@@ -267,6 +277,11 @@ enum ExportChoice { case json, csv }
   var competitionRemoval: CompetitionRemovalState?
   var competitionProfile: CompetitionProfile?
   var joinNickname = ""
+  var hiddenRequestID = UUID()
+  var hiddenLoading = false
+  var hiddenFailed = false
+  var hiddenCursor: String?
+  var hiddenVersion: String?
   var hiddenParticipantIDs: Set<String> = []
   var hiddenParticipantNames: [String: String] = [:]
   var requestedResultID: String?
@@ -286,6 +301,7 @@ enum ExportChoice { case json, csv }
   var operation: String?
   var notificationPreferences = NotificationPreferences()
   var notificationAuthorization: NotificationAuthorization = .unknown
+  var syncStatus: TrackingSyncPresentation?
   var privateHistoryHealth: PrivateHistoryHealth?
   var canResetHistory: Bool { privateHistoryHealth?.canResetHistory ?? true }
 

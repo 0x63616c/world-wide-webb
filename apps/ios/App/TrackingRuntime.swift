@@ -15,6 +15,7 @@ actor TrackingRuntime {
   private var exportTickets: [UUID: PreparedTrackingExport] = [:]
   init(journal: TrackingStore? = nil) { self.journal = journal }
 
+  private var privateSyncFailed = false
   private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
 
   func store() async throws -> TrackingStore {
@@ -76,17 +77,32 @@ actor TrackingRuntime {
   }
 
   func synchronizePrivateHistory() async {
+    let revision = accountRevision
     do {
       _ = try await store()
       try await cloudConnection?.synchronize()
+      guard revision == accountRevision else { return }
+      privateSyncFailed = false
       await uploadCompetition()
       await configureDailyLimit()
       if let journal { await DailyLimitDelivery.shared.deliver(from: journal) }
       await publishWidgets()
       changed()
     } catch {
+      if revision == accountRevision { privateSyncFailed = true }
       // A cloud outage never changes a committed local observation into a failure.
     }
+  }
+
+  func syncStatus(refresh: Bool) async throws -> TrackingSyncPresentation {
+    if refresh { await synchronizePrivateHistory() }
+    let store = try await store()
+    let availability = await cloudConnection?.availability ?? .localOnly
+    return TrackingSyncPresentation(
+      iCloud: privateSyncFailed ? .unavailable : availability,
+      publicTracking: try await store.currentCompetitionEpoch() != nil,
+      pendingFolds: try await store.pendingCompetitionEventCount(),
+      resetPending: try await store.hasPendingCompetitionReset())
   }
 
   func updates() -> AsyncStream<Void> {

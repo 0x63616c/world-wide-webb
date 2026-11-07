@@ -511,6 +511,9 @@ private struct SettingsScreen: View {
               String(localized: "phone.title", defaultValue: "Tracking phone"),
               value: model.trackingPhoneSelection?.title ?? "—")
           }
+          NavigationLink(String(localized: "sync.title", defaultValue: "Sync")) {
+            TrackingSyncScreen(model: model, actions: actions)
+          }
           Stepper(value: preference(\.dailyLimit), in: 1...100_000, step: 10) {
             LabeledContent(
               String(localized: "settings.dailyLimit", defaultValue: "Daily limit"),
@@ -1484,5 +1487,80 @@ private struct FoldingFeedback: ViewModifier {
       } message: {
         Text(model.error ?? "")
       }
+  }
+}
+
+private struct TrackingSyncScreen: View {
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  @State private var loading = false
+  @State private var failed = false
+  @State private var requestID = UUID()
+
+  var body: some View {
+    Form {
+      if let status = model.syncStatus {
+        Section(String(localized: "sync.iCloud", defaultValue: "iCloud")) {
+          Text(cloudTitle(status.iCloud))
+        }
+        Section(String(localized: "profile.competition", defaultValue: "Competition")) {
+          if status.publicTracking {
+            LabeledContent(
+              String(localized: "sync.pendingFolds", defaultValue: "Pending folds"),
+              value: status.pendingFolds.formatted())
+            if status.resetPending {
+              LabeledContent(
+                String(localized: "data.reset", defaultValue: "Reset history"),
+                value: String(localized: "sync.pending", defaultValue: "Pending"))
+            }
+          } else {
+            Text(String(localized: "notifications.off", defaultValue: "Off"))
+          }
+        }
+      }
+      Section {
+        if loading {
+          ProgressView()
+        } else {
+          if failed {
+            Text(String(localized: "tracking.unavailable", defaultValue: "Tracking unavailable"))
+              .foregroundStyle(.secondary)
+          }
+          Button(String(localized: "sync.check", defaultValue: "Check now")) {
+            Task { await load(refresh: true) }
+          }.disabled(actions.loadSync == nil)
+        }
+      }
+    }
+    .navigationTitle(String(localized: "sync.title", defaultValue: "Sync"))
+    .navigationBarTitleDisplayMode(.inline)
+    .task { await load(refresh: false) }
+    .onDisappear { requestID = UUID() }
+  }
+
+  private func cloudTitle(_ state: PrivateSyncAvailability) -> String {
+    switch state {
+    case .available: String(localized: "sync.available", defaultValue: "Available")
+    case .localOnly: String(localized: "sync.localOnly", defaultValue: "On this iPhone")
+    case .unavailable: String(localized: "sync.unavailable", defaultValue: "Unavailable")
+    case .checking: "—"
+    }
+  }
+
+  private func load(refresh: Bool) async {
+    guard let load = actions.loadSync else { return }
+    let request = UUID()
+    requestID = request
+    loading = true
+    failed = false
+    do {
+      let status = try await load(refresh)
+      guard requestID == request, !Task.isCancelled else { return }
+      model.syncStatus = status
+    } catch {
+      guard requestID == request else { return }
+      failed = true
+    }
+    loading = false
   }
 }
