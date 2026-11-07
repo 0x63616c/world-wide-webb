@@ -141,31 +141,57 @@ fn github_arguments_allowed(repository: &str, args: &[std::ffi::OsString]) -> bo
     {
         return false;
     }
-    let endpoint_index = if args.get(3).is_some_and(|s| s == "--method") {
-        5
-    } else {
-        3
-    };
-    let Some(endpoint) = args.get(endpoint_index).and_then(|s| s.to_str()) else {
+    // Parse only the forms emitted by the client. A single explicit method may
+    // precede or follow the endpoint; aliases and overrides are never accepted.
+    let mut endpoint = None;
+    let mut method = None;
+    let mut body = false;
+    let mut index = 3;
+    while index < args.len() {
+        let Some(arg) = args[index].to_str() else {
+            return false;
+        };
+        match arg {
+            "--method" => {
+                if method.is_some() {
+                    return false;
+                }
+                index += 1;
+                method = args.get(index).and_then(|value| value.to_str());
+                if method.is_none() {
+                    return false;
+                }
+            }
+            "--input" | "--field" | "--raw-field" | "--jq" | "--header" => {
+                body |= matches!(arg, "--input" | "--field" | "--raw-field");
+                index += 1;
+                let Some(value) = args.get(index).and_then(|value| value.to_str()) else {
+                    return false;
+                };
+                if value.starts_with('-') && !(arg == "--input" && value == "-") {
+                    return false;
+                }
+                if arg == "--header" && value != "Accept: application/vnd.github.raw+json" {
+                    return false;
+                }
+            }
+            "--paginate" | "--slurp" => {}
+            value if !value.starts_with('-') && endpoint.is_none() => endpoint = Some(value),
+            _ => return false,
+        }
+        index += 1;
+    }
+    let Some(endpoint) = endpoint else {
         return false;
     };
-    let method = if endpoint_index == 5 {
-        args.get(4).and_then(|s| s.to_str()).unwrap_or("")
-    } else {
-        "GET"
-    };
+    let method = method.unwrap_or("GET");
     let relative = endpoint
         .strip_prefix(&format!("repos/{repository}/"))
         .unwrap_or("");
     let pull_number =
         |value: &str| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit());
     let mutation_allowed = match method {
-        "GET" => !args.iter().any(|arg| {
-            matches!(
-                arg.to_str(),
-                Some("--input" | "--field" | "-f" | "-F" | "--raw-field")
-            )
-        }),
+        "GET" => !body,
         "POST" => matches!(
             relative,
             "keys" | "git/trees" | "git/commits" | "git/refs" | "pulls"
@@ -177,24 +203,6 @@ fn github_arguments_allowed(repository: &str, args: &[std::ffi::OsString]) -> bo
             .is_some_and(pull_number),
         _ => false,
     };
-    if args.iter().skip(endpoint_index + 1).any(|arg| {
-        arg.to_str().is_some_and(|arg| {
-            arg == "--method" || arg.starts_with("--method=") || arg.starts_with("-X")
-        })
-    }) {
-        return false;
-    }
-    if method == "GET"
-        && args.iter().any(|arg| {
-            arg.to_str().is_some_and(|arg| {
-                ["--input=", "--field=", "--raw-field=", "-f", "-F"]
-                    .iter()
-                    .any(|prefix| arg.starts_with(prefix))
-            })
-        })
-    {
-        return false;
-    }
     let prefix = format!("repos/{repository}");
     mutation_allowed
         && (endpoint == prefix || endpoint.starts_with(&format!("{prefix}/")))
@@ -225,6 +233,53 @@ fn regressions() {
             "repos/owner/homelab-vm-test/pulls/1/merge"
         ])
     ));
+    assert!(github_arguments_allowed(
+        "owner/homelab-vm-test",
+        &args(&[
+            "api",
+            "--hostname",
+            "github.com",
+            "repos/owner/homelab-vm-test/keys",
+            "--method",
+            "POST",
+            "--raw-field",
+            "title=fixture",
+            "--raw-field",
+            "key=ssh-ed25519 synthetic",
+            "--field",
+            "read_only=true"
+        ])
+    ));
+    assert!(github_arguments_allowed(
+        "owner/homelab-vm-test",
+        &args(&[
+            "api",
+            "--hostname",
+            "github.com",
+            "repos/owner/homelab-vm-test/keys?per_page=100",
+            "--paginate",
+            "--slurp"
+        ])
+    ));
+    for suffix in [
+        vec!["--method", "DELETE"],
+        vec!["--method", "POST"],
+        vec!["-XDELETE"],
+        vec!["--method=DELETE"],
+        vec!["--hostname", "example.org"],
+        vec!["repos/owner/production/keys"],
+    ] {
+        let mut command = args(&[
+            "api",
+            "--hostname",
+            "github.com",
+            "repos/owner/homelab-vm-test/keys",
+            "--method",
+            "POST",
+        ]);
+        command.extend(args(&suffix));
+        assert!(!github_arguments_allowed("owner/homelab-vm-test", &command));
+    }
     for extra in [
         "--method=DELETE",
         "--method",
@@ -536,7 +591,7 @@ impl Terminal {
             text: String::new(),
         }
     }
-    fn wait(&mut self, expected: &str, duration: Duration) {
+    fn wait(&mut self, expected: &'static str, duration: Duration) {
         let deadline = Instant::now() + duration;
         loop {
             let mut buffer = [0; 8192];
@@ -545,11 +600,13 @@ impl Terminal {
                     .text
                     .push_str(&String::from_utf8_lossy(&buffer[..size])),
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(_) => panic!("wizard terminal unavailable; preserve fixture state"),
+                Err(_) => panic!(
+                    "wizard terminal unavailable while waiting for {expected}; preserve fixture state"
+                ),
             }
             assert!(
                 !self.text.contains(AUTH_KEY) && !self.text.contains("AGE-SECRET-KEY-"),
-                "synthetic credential appeared in terminal output"
+                "synthetic credential appeared while waiting for {expected}"
             );
             if self.text.contains(expected) {
                 self.text.clear();
@@ -557,15 +614,15 @@ impl Terminal {
             }
             assert!(
                 self.text.len() <= 256 * 1024,
-                "unexpected terminal output volume"
+                "unexpected terminal output volume while waiting for {expected}"
             );
             assert!(
                 self.child.try_wait().unwrap().is_none(),
-                "wizard stopped before expected step; preserve fixture state"
+                "wizard stopped before {expected}; preserve fixture state"
             );
             assert!(
                 Instant::now() < deadline,
-                "wizard step timed out; preserve fixture state"
+                "wizard timed out waiting for {expected}; preserve fixture state"
             );
             std::thread::sleep(Duration::from_millis(50));
         }

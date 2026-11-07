@@ -301,12 +301,7 @@ impl Registry for GitHub {
             return Err(Error::InvalidRequest);
         }
         let mut command = self.command(&format!("repos/{repository}/keys?per_page=100"));
-        command.args([
-            "--paginate",
-            "--slurp",
-            "--jq",
-            "map(map({id, title, key, read_only}))",
-        ]);
+        command.args(["--paginate", "--slurp"]);
         let output = crate::process::capture(&mut command, Duration::from_secs(60))
             .map_err(|_| Error::Access)?;
         if !output.status.success() {
@@ -349,6 +344,28 @@ impl Registry for GitHub {
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    #[test]
+    fn github_list_accepts_unprojected_paginated_responses() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("gh");
+        std::fs::write(&executable, r#"#!/bin/sh
+[ "$#" = 6 ] || exit 1
+[ "$1" = api ] && [ "$2" = --hostname ] && [ "$3" = github.com ] || exit 1
+[ "$4" = 'repos/example/config/keys?per_page=100' ] || exit 1
+[ "$5" = --paginate ] && [ "$6" = --slurp ] || exit 1
+printf '%s' '[[{"id":7,"title":"first","key":"ssh-ed25519 first","read_only":true,"url":"ignored","verified":true}],[{"id":8,"title":"second","key":"ssh-ed25519 second","read_only":false,"created_at":"ignored"}]]'
+"#).unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let entries = GitHub::new(&executable).list("example/config").unwrap();
+        assert_eq!(
+            entries.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            vec![7, 8]
+        );
+        assert!(entries[0].read_only);
+        assert!(!entries[1].read_only);
+    }
 
     #[test]
     fn dropping_receipt_guard_unlocks_even_when_a_duplicate_descriptor_survives() {
