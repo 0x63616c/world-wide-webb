@@ -24,6 +24,28 @@ struct WeatherAtmosphere: View {
         let value = sin(Double(index) * 127.1 + seed * 311.7) * 43758.5453
         return value - floor(value)
     }
+    /// Three crystalline silhouettes rotate independently among softer distant flakes.
+    private func snowflake(at center: CGPoint, radius: CGFloat, angle: Double, style: Int) -> Path {
+        var path = Path()
+        let arms = 6
+        for arm in 0..<arms {
+            let direction = angle + Double(arm) * 2 * .pi / Double(arms)
+            let dx = cos(direction), dy = sin(direction)
+            let length = style == 2 && arm % 2 == 1 ? radius * 0.65 : radius
+            let tip = CGPoint(x: center.x + length * dx, y: center.y + length * dy)
+            path.move(to: center)
+            path.addLine(to: tip)
+            if style == 1 {
+                let joint = CGPoint(x: center.x + radius * 0.62 * dx, y: center.y + radius * 0.62 * dy)
+                for side in [-1.0, 1.0] {
+                    let branch = direction + .pi + side * .pi / 4
+                    path.move(to: joint)
+                    path.addLine(to: CGPoint(x: joint.x + radius * 0.28 * cos(branch), y: joint.y + radius * 0.28 * sin(branch)))
+                }
+            }
+        }
+        return path
+    }
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 24, paused: scenePhase != .active || fixedPhase != nil)) { tick in
             let time = fixedPhase ?? tick.date.timeIntervalSinceReferenceDate
@@ -70,8 +92,18 @@ struct WeatherAtmosphere: View {
                                 let progress = (offset + time * speed).truncatingRemainder(dividingBy: 1)
                                 let y = progress * (canvas.height + 40) - 20
                                 if snow {
-                                    let size = 2 + sample(index, 14) * 3
-                                    context.fill(Path(ellipseIn: CGRect(x: x + sin(time * 0.7 + offset * 10) * 12, y: y, width: size, height: size)), with: .color(.white.opacity(0.45)))
+                                    let driftSpeed = 0.4 + sample(index, 16) * 0.5
+                                    let snowX = x + sin(time * driftSpeed + offset * 10) * (8 + sample(index, 17) * 16)
+                                    let brightness = 0.3 + sample(index, 15) * 0.35
+                                    if index % 3 == 0 {
+                                        let radius = 4 + sample(index, 14) * 4
+                                        let angle = sample(index, 18) * .pi * 2 + time * (sample(index, 19) - 0.5) * 0.35
+                                        let flake = snowflake(at: CGPoint(x: snowX, y: y), radius: radius, angle: angle, style: (index / 3) % 3)
+                                        context.stroke(flake, with: .color(.white.opacity(brightness)), style: StrokeStyle(lineWidth: 0.9, lineCap: .round))
+                                    } else {
+                                        let size = 2 + sample(index, 14) * 3
+                                        context.fill(Path(ellipseIn: CGRect(x: snowX, y: y, width: size, height: size)), with: .color(.white.opacity(brightness)))
+                                    }
                                 } else {
                                     let length = 10 + sample(index, 14) * 23
                                     let alpha = 0.08 + sample(index, 15) * 0.19
