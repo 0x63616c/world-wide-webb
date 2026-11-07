@@ -17,6 +17,7 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
     private(set) var sessions: [PhotoSession] = []
     private(set) var availability: LiveAvailability = .loading
     private(set) var unlocked = false
+    private(set) var boothOpen = false
     private(set) var error: String?
     private(set) var pending = false
     @ObservationIgnored private let api: PhotosAPI
@@ -46,6 +47,13 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
     }
 
     func lock() { generation += 1; unlocked = false; error = nil }
+
+    func openBooth() { boothOpen = true }
+    func closeBooth() { generation += 1; boothOpen = false }
+
+    private func canAccess(_ photo: LivePhoto) -> Bool {
+        unlocked || (boothOpen && photo.collection == "booth-photos")
+    }
 
     func refresh() async {
         guard !refreshing else { refreshAgain = true; return }
@@ -87,17 +95,17 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
     }
 
     func image(_ photo: LivePhoto) async throws -> Data {
-        guard unlocked, frames.contains(photo) else { throw AccessError.locked }
+        guard canAccess(photo), frames.contains(photo) else { throw AccessError.locked }
         let revision = generation
         let key = photo.collection + "/" + photo.path
         if let data = await cache.data(for: key) {
-            guard unlocked, revision == generation, frames.contains(photo) else { throw AccessError.locked }
+            guard canAccess(photo), revision == generation, frames.contains(photo) else { throw AccessError.locked }
             return data
         }
         let data = try await api.image(collection: photo.collection, path: photo.path)
-        guard unlocked, revision == generation, frames.contains(photo) else { throw AccessError.locked }
+        guard canAccess(photo), revision == generation, frames.contains(photo) else { throw AccessError.locked }
         await cache.insert(data, for: key)
-        guard unlocked, revision == generation, frames.contains(photo) else { throw AccessError.locked }
+        guard canAccess(photo), revision == generation, frames.contains(photo) else { throw AccessError.locked }
         return data
     }
 
@@ -105,7 +113,7 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
     func clearFilter(_ photo: LivePhoto) async { await mutate(photo, clear: true) }
 
     private func mutate(_ photo: LivePhoto, clear: Bool) async {
-        guard unlocked, !pending, let group = photo.groupID,
+        guard canAccess(photo), photo.collection == "booth-photos", !pending, let group = photo.groupID,
               frames.contains(where: { $0.id == photo.id && $0.groupID == group }) else { return }
         pending = true; error = nil
         defer { pending = false }

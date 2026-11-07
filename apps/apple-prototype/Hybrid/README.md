@@ -2,9 +2,10 @@
 
 Panel starts on the selected clock face. Tap the clock to reveal the vertically scrolling app
 launcher on one full-screen native Liquid Glass surface over the same living clock.
-The clock stays fixed as the glass slides up from the bottom. Close Home with the
-top-right close button (or choose Clock); the glass slides back down. Horizontal
-swipes on the clock alternate between Green and Tide. Green retains the oversized
+The clock stays fixed as the glass slides up from the bottom. Its blur mask moves
+with the glass, so the clock blurs only behind the visible launcher. Swipe down
+from the top of Home to slide the glass back down and return to the clock.
+Horizontal swipes on the clock alternate between Green and Tide. Green retains the oversized
 12–3–6–9 dial. Tide has stacked SF Rounded clear, untinted Liquid Glass numerals over a blue
 colour field, with a date and no AM/PM label. Its glass follows the actual glyph
 outlines; Reduce Transparency or Increase Contrast uses solid, legible numerals.
@@ -16,7 +17,9 @@ and `-previewDayClock` to compare the material at consistent daytime brightness.
 The glass follows the screen corners with an 8-point inset, and a 0.3-second reveal. The hands cast a subtle shadow on the dial.
 The launcher has no photographic wallpaper or Background picker. Each app opens
 full screen as the clock and launcher move away together. Back restores both.
-Only Classic opens the web board. See [app registration](../Sources/Apps/README.md)
+Classic mounts the web board on demand, so its Cloudflare Access browser cannot
+appear on native startup. Explicit web-only rollback and web module fallbacks
+also mount the board. See [app registration](../Sources/Apps/README.md)
 for the typed catalog and extension recipe. Older dashboard descriptions below
 refer to the retained preview components, not the current landing screen.
 
@@ -32,7 +35,7 @@ On iPad, the shell sets the containing screen's hardware brightness, without a
 second dark overlay. Waking explicitly restores the configured wake level, not
 the previous system value. Leaving the active app restores the prior system
 brightness. The Mac app and simulator preview dim through a visual overlay.
-The retained Classic web board may control brightness only while it is visible;
+The Classic web board may control brightness only while it is visible;
 its background idle timer cannot override the native shell.
 
 # Panel hybrid kiosk (WWW-18)
@@ -90,7 +93,8 @@ Only LakeWallpaper and CloudPhoto image sets are linked into Hybrid's asset
 catalogue; prototype photo fixtures and local video stay out of Panel.
 
 The small bottom-trailing **Classic** entry (`safari`) opens the full legacy web
-board. The existing WKWebView remains mounted behind Home and native controllers.
+board. WKWebView mounts when Classic or a web fallback opens and detaches on return
+to native Home, avoiding a Cloudflare Access sign-in on ordinary startup.
 Classic and module fallbacks hide the module strip and always show a top-leading
 glass **Home** button, including during loading and reconnection. No rollout flag
 is needed. iOS Settings > Panel > **Web board only** (`hybrid.webOnly`) restores
@@ -559,8 +563,8 @@ results, not authenticated Live Activity rendering on the wall.
 `photos` defaults to `web`. Opt in with `-moduleFlag.photos native`; remove the
 argument or use `-moduleFlag.photos web` to return to the complete web board.
 Native routing requires successful `boothPhotos.list`, `wakePhotos.list` and
-`sessions.list` reads with at least one photo. Empty/unavailable listings keep
-WebKit mounted. Only opted-in Photos polls (60 seconds).
+`sessions.list` reads with at least one photo. Empty/unavailable listings route
+to WebKit when Photos opens. Only opted-in Photos polls (60 seconds).
 
 The native frame cycles captures every 12 seconds. Previous/Next remain available. Details show the capture,
 remove/clear-filter controls for booth groups, and read-only Activity sessions.
@@ -571,10 +575,11 @@ existing non-destructive `boothPhotos.clearFilter`, never a collection-wide wipe
 Because this combined surface includes private booth captures, **every opening**
 (including the frame) requires the synced six-digit panel PIN from `settings.get`.
 No PIN default is embedded in native code. Like the web (ADR-0004), this is a
-client-side gate. It deliberately applies booth's stricter private policy to
-wake photos too; it does not import or extend WebKit's shared Activity PIN
-session. Closing, switching face/details, backgrounding, or losing live data
-relocks it. The prototype and its mock provider are unchanged.
+client-side gate for the combined Photos view. The separate Photo Booth camera
+and Booth-only gallery open without a PIN; wake photos remain protected here.
+This gate does not import or extend WebKit's shared Activity PIN session.
+Closing, switching face/details, backgrounding, or losing live data relocks it.
+The prototype and its mock provider are unchanged.
 
 Images use `PanelAPIClient` media requests with paired CF Access headers, a
 redirect-rejecting ephemeral transport, and a bounded memory/disk cache (24

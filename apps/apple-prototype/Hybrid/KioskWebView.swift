@@ -40,7 +40,7 @@ struct KioskWebView: UIViewRepresentable {
         uiView.navigationDelegate = nil
         uiView.uiDelegate = nil
         uiView.configuration.userContentController.removeScriptMessageHandler(forName: "panel")
-        if coordinator.session.webView === uiView { coordinator.session.webView = nil }
+        coordinator.session.detach(uiView)
     }
 
     @MainActor

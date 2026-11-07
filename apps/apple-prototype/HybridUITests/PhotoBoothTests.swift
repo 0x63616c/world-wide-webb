@@ -20,7 +20,7 @@ extension HomeViewLaunchTests {
         XCTAssertGreaterThan(app.buttons["app-settings"].frame.minY, app.buttons["app-wifi"].frame.minY)
         XCTAssertGreaterThan(app.buttons["app-settings"].frame.minX, app.buttons["app-classic"].frame.minX)
     }
-    @MainActor func testBoothGalleryShowsBoothPhotosAndLocksAfterBackgroundOrReopening() {
+    @MainActor func testBoothGalleryShowsBoothPhotosWithoutPINAfterBackgroundOrReopening() {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-panel.idleDimming", "NO", "-hybridBoothBurst"]
@@ -28,10 +28,8 @@ extension HomeViewLaunchTests {
         defer { app.terminate() }
         app.openAppGrid()
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["booth-gallery"].exists)
-        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
         XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["pin-digit-0"].exists)
         if app.staticTexts["Camera unavailable"].exists { XCTAssertFalse(app.buttons["booth-shutter"].isEnabled) }
         app.buttons["booth-gallery"].tap()
         let photos = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "booth-photo-"))
@@ -49,10 +47,10 @@ extension HomeViewLaunchTests {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         app.alignPanelOrientation()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
         app.buttons["app-back"].tap()
         XCTAssertTrue(app.buttons["app-booth"].waitForExistence(timeout: 10))
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
     }
 }

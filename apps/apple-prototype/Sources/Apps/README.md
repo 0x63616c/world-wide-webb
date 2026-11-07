@@ -60,11 +60,13 @@ headings. Tap a photo or strip to open it, swipe or use the filmstrip to browse,
 and go back to the same place in the grid. Four completed frames save as one
 white-bordered JPEG and open a saved-strip screen. Older burst frames remain
 available as individual gallery items. The Photos launcher entry has been
-removed. A fresh synced PIN protects each opening, and backgrounding locks it.
+removed. Booth opens without a PIN; its gallery contains only Booth captures.
+Leaving or backgrounding the app closes Booth gallery access. Wake photos remain
+behind the Photos PIN gate.
 
 Capture runs on a serial actor. Leaving the camera stops it and cancels partial
 strips. The app owns each completed upload. An unsuccessful save can be retried
-or discarded from the unlocked camera. Without a camera the simulator shows
+or discarded from the camera. Without a camera the simulator shows
 the unavailable state. The DEBUG-only `-hybridBoothCamera` fixture supplies
 numbered frames for testing composition and saving. `-hybridBoothLibrary`
 adds dated gallery fixtures. For visual review, four sample JPEGs can be staged
@@ -189,8 +191,7 @@ use a full-screen system Safari controller.
 
 Simulator builds also accept Escape to open the app grid (enable Device Hub's
 Capture Keyboard and focus the simulated display). This adds no on-screen chrome.
-The launcher greets Calum by time of day. The top-right avatar opens a grid of
-profiles. Add User requires the panel PIN before opening Photos and saves the
+The top-right avatar opens a grid of profiles. Add User requires the panel PIN before opening Photos and saves the
 name and photo on this device. Choosing a profile updates the avatar. Climate
 mode choices are Heat, Cool and Off, and an existing Heat·Cool state remains
 visible until changed. The car destination retains its stable `car` route ID.

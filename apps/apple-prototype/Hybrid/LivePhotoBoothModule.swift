@@ -1,17 +1,15 @@
 import SwiftUI
 import PanelKit
 
-/// A fresh PIN protects each opening, including access to the in-app gallery.
+/// The camera and its booth-only gallery open directly from the launcher.
 struct LivePhotoBoothModule: View {
     let camera: PhotoBoothCameraModel
     let photos: LivePhotosProvider
     let close: () -> Void
-    @State private var authorized = false
     @State private var gallery = false
     @State private var selection: LivePhoto.ID?
     @State private var showSavedStrip = false
     @State private var confirmDiscard = false
-    @State private var authorizationNotice: String?
     @Environment(\.scenePhase) private var scenePhase
 
     private var boothPhotos: [LivePhoto] {
@@ -20,15 +18,7 @@ struct LivePhotoBoothModule: View {
 
     var body: some View {
         Group {
-            if !authorized {
-                PanelPINEntry(title: "Photo Booth", notice: authorizationNotice) { pin in
-                    let accepted = await photos.unlock(pin: pin)
-                    authorized = accepted
-                    if accepted { authorizationNotice = nil }
-                    return accepted ? nil : photos.error ?? "PIN not accepted. Try again."
-                }
-                .safeAreaInset(edge: .top, spacing: 0) { PanelAppNavigationBar(back: close) }
-            } else if gallery {
+            if gallery {
                 ZStack {
                     PhotoBoothGallery(provider: photos, photos: boothPhotos, back: back) { selection = $0 }
                         .opacity(selection == nil ? 1 : 0)
@@ -49,38 +39,33 @@ struct LivePhotoBoothModule: View {
         .background(.black)
         .foregroundStyle(.white)
         .accessibilityElement(children: .contain).accessibilityIdentifier("photo-booth-page")
-        .task(id: authorized && !gallery && !showSavedStrip && scenePhase == .active) {
-            await camera.activate(authorized && !gallery && !showSavedStrip && scenePhase == .active)
+        .task(id: !gallery && !showSavedStrip && scenePhase == .active) {
+            await camera.activate(!gallery && !showSavedStrip && scenePhase == .active)
         }
-        .task(id: authorized) { if authorized { await photos.refresh() } }
+        .onAppear { photos.openBooth() }
+        .task { await photos.refresh() }
         .onDisappear {
-            lock()
+            leaveBooth()
             Task { [camera] in await camera.activate(false) }
         }
         .onChange(of: camera.saved) { _, saved in
-            if saved && authorized && camera.mode == .strip { showSavedStrip = true }
+            if saved && camera.mode == .strip { showSavedStrip = true }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background || (phase == .inactive && !camera.requestingPermission) { lock() }
-        }
-        .onChange(of: photos.unlocked) { _, unlocked in
-            if !unlocked && authorized {
-                lock()
-                authorizationNotice = "Photos couldn’t be loaded. Unlock to try again."
-            }
+            if phase == .active { photos.openBooth(); Task { await photos.refresh() } }
+            else if phase == .background || !camera.requestingPermission { leaveBooth() }
         }
         .confirmationDialog("Discard the unsaved photo?", isPresented: $confirmDiscard) {
             Button("Discard", role: .destructive) { camera.discard(); close() }
         }
     }
 
-    private func lock() {
-        authorized = false
+    private func leaveBooth() {
         gallery = false
         selection = nil
         showSavedStrip = false
         camera.dismissSavedPreview()
-        photos.lock()
+        photos.closeBooth()
     }
 
     private func back() {

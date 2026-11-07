@@ -8,8 +8,6 @@ extension HomeViewLaunchTests {
         defer { app.terminate() }
         app.openAppGrid()
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
         XCTAssertTrue(app.buttons["booth-timer"].waitForExistence(timeout: 10))
         print("MOTION_CAPTURE_READY booth-strip")
         Thread.sleep(forTimeInterval: 1) // Recording lead-in, not a correctness wait.

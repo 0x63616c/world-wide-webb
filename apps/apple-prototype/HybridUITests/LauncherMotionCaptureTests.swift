@@ -50,7 +50,7 @@ import XCTest
         clock.tap()
         XCTAssertTrue(app.buttons["app-climate"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["home-profile"].exists)
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ",\nCALUM")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label ENDSWITH %@", ",\nCALUM")).firstMatch.exists)
         snapshot("home")
         app.buttons["app-climate"].tap()
         let more = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch
@@ -96,7 +96,7 @@ import XCTest
         // The launch argument is a read-only defaults override; persisted selections
         // are exercised by the full swipe-cycle test above.
         clock.tap()
-        XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["app-clock"].exists)
     }
 
     func testLauncherGlassOptions() {
@@ -141,7 +141,7 @@ import XCTest
             button.press(forDuration: 0.7)
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
             if id == "booth" {
-                XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+                XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
             }
             snapshot("layered-icons-\(id)")
             app.buttons["app-back"].tap()
@@ -228,8 +228,6 @@ import XCTest
         defer { app.terminate() }
         app.openAppGrid()
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
         XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
         print("MOTION_CAPTURE_READY photo-booth")
         Thread.sleep(forTimeInterval: 2)
@@ -241,8 +239,8 @@ import XCTest
         photo.tap()
         XCTAssertTrue(app.descendants(matching: .any)["booth-photo-detail"].firstMatch.waitForExistence(timeout: 10))
         Thread.sleep(forTimeInterval: 2)
-        app.buttons["app-back"].tap()
-        app.buttons["app-back"].tap()
+        app.buttons["booth-viewer-back"].tap()
+        app.buttons["booth-gallery-back"].tap()
         app.buttons["app-back"].tap()
         XCTAssertTrue(app.buttons["app-booth"].waitForExistence(timeout: 10))
         print("BOOTH_SCREENSHOT home")

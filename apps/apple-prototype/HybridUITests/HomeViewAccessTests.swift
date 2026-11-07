@@ -17,7 +17,7 @@ extension HomeViewLaunchTests {
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
     }
-    @MainActor func testPINChangeConfirmationAndPrivatePageUnlock() {
+    @MainActor func testPINChangeAndBoothOpensDirectly() {
         let app = launchAccess()
         app.buttons["app-settings"].tap()
         app.staticTexts["Security"].firstMatch.tap()
@@ -40,18 +40,13 @@ extension HomeViewLaunchTests {
         app.buttons["app-back"].tap()
         waitForLauncherToSettle(app)
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        XCTAssertEqual(app.secureTextFields.count, 0)
-        XCTAssertFalse(app.staticTexts["Enter PIN"].exists)
-        enter("135790", app: app)
-        XCTAssertTrue(app.staticTexts["PIN not accepted. Try again."].waitForExistence(timeout: 10))
-        enter("246802", app: app)
         XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["Lock"].exists)
+        XCTAssertFalse(app.buttons["pin-digit-0"].exists)
         app.buttons["app-back"].tap()
         waitForLauncherToSettle(app)
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["pin-digit-0"].exists)
     }
     @MainActor func testEveryAppHasBackAndClockReturnsToFace() {
         let app = launchAccess()
