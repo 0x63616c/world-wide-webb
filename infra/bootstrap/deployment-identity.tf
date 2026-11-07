@@ -23,6 +23,7 @@ resource "cloudflare_account_token" "deployment" {
         { id = "366f57075ffc42689627bcf8242a1b6d" }, # Queues Write
         { id = "bf7481a1826f439697cb59a20b22293e" }, # Workers R2 Storage Write
         { id = "e086da7e2179491d91ee5f35b3ca210a" }, # Workers Scripts Write
+        { id = "5df633d6b41c42bcaf5b4a62b9d14b64" }, # Email Sending Write (onboard alerts sender)
       ]
       resources = jsonencode({ "com.cloudflare.api.account.${var.account_id}" = "*" })
     },

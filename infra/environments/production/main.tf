@@ -53,6 +53,15 @@ module "support_email" {
   destination = var.support_destination
 }
 
+# Outbound operational mail uses a separate Cloudflare Email Sending setup.
+# This resource owns the sender domain; it does not send messages or enable Cron.
+resource "cloudflare_email_sending_subdomain" "alerts" {
+  zone_id         = var.zone_id
+  name            = "getfolding.app"
+  preview_enabled = false
+  lifecycle { prevent_destroy = true }
+}
+
 variable "account_id" { type = string }
 variable "admin_emails" {
   type      = set(string)
