@@ -52,7 +52,7 @@ a passing fixture run will not prove production tailnet policy or routing.
 The third disposable full-wizard VM run activated and rebooted, then stopped
 during completion before Comin started. Its preserved state is under investigation.
 The full private `nix flake check --no-update-lock-file --max-jobs 1 --cores 1`
-passed all nine checks at current private candidate
+passed all nine checks at private candidate
 `56090782e1c8cbf7dd1dd2923221a9bf7e5dda5b`, pinning public 0.3.0 candidate
 `df524c5c20a07ff76c9c55973f9a973bfc70c355`. This includes both host systems, dormant container paths,
 client, service-assignment, SOPS, Compose and runner-package checks. The disposable
@@ -69,12 +69,13 @@ saved evidence records all three success flags. No `command not found` message
 appeared in the observed Comin log. This uses synthetic providers and a pinned
 SSH adapter for the Tailscale route; it does not prove real tailnet access policy.
 
-Public release head `8675434c60f68818bf6aca6cea68ed194c287c84` contains only
-README/testing-document changes after the exercised code. The private nine-check
-result at `56090782` therefore still covers its pinned implementation. A separate
-native scheduled-update test for harmless fixture commit `e0d2914` is waiting for
-Comin's timer. Final CI/artifact run `42330184366` and tap publication remain
-pending; no release or physical deployment is claimed.
+The scheduled update to `e0d2914` then failed the live-state check: Comin advanced
+its reported system while Darwin's boot profile and `/etc/static` remained old.
+The pinned Comin patch now uses the standard profile, including bounded native
+retention, and helper `1c06e59` refuses completion unless the boot and live-state
+pointers agree. Unit tests and independent review passed; the new candidate still
+needs fresh runtime and Nix validation. Polling is explicit in Nix at 300 seconds.
+No release or physical deployment is claimed.
 
 Local and hosted checks cover Rust behavior, terminal restoration, configuration
 schema/example consistency and native no-Nix artifacts. No production vault

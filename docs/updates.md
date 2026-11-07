@@ -50,6 +50,12 @@ restore rehearsals must establish their operational workflow before cutover.
 
 The configuration selects Comin `0.14.0` at
 [`004a55c`](https://github.com/nlewo/comin/tree/004a55ced41d72340373ebc6774e29a417512638).
+The [Darwin profile patch](../packages/comin-darwin-profile.patch) makes updates
+advance the standard macOS system profile before activation. Without it, the boot
+daemon can restore old settings even after Comin reports a successful deployment.
+Retention uses the same profile, preserves active/history generations and delegates
+deletion to Nix's locked profile operation. Unrelated profiles are excluded.
+Completion checks the boot profile and live `/etc/static` against the current system.
 The startup check avoids relying on its suspend/resume behavior across restart.
 The former Python updater is removed. Comin cannot be enabled alongside stateful
 container or Home Assistant workloads until their backup/deployment workflow is

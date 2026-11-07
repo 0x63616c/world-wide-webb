@@ -1,0 +1,281 @@
+--- a/internal/profile/profile.go
++++ b/internal/profile/profile.go
+@@ -5,20 +5,115 @@
+ 	"os"
+ 	"os/exec"
+ 	"path"
++	"path/filepath"
++	"runtime"
+ 	"slices"
++	"strconv"
++	"strings"
+ 
+ 	"github.com/nlewo/comin/internal/utils"
+ 	"github.com/sirupsen/logrus"
+ )
+ 
+ const (
+-	systemProfiles  = "/nix/var/nix/profiles/system-profiles"
+-	profileName     = "comin"
+-	cominProfileDir = systemProfiles + "/" + profileName
++	systemProfiles = "/nix/var/nix/profiles/system-profiles"
++	profileName    = "comin"
+ )
+ 
+-func RemoveProfiles(bootEntryOutPaths []string) {
+-	removeProfiles(systemProfiles, profileName, bootEntryOutPaths)
++func RemoveProfiles(bootEntryProfilePaths []string) {
++	if runtime.GOOS == "darwin" {
++		if err := removeDarwinProfiles("/nix/var/nix/profiles", "/run/current-system", bootEntryProfilePaths); err != nil {
++			logrus.Errorf("profile: retaining Darwin profiles because current state could not be verified: %s", err)
++		}
++		return
++	}
++	removeProfiles(systemProfiles, profileName, bootEntryProfilePaths)
++}
++
++// Darwin's activation daemon and boot read the standard system profile.
++// Its shared parent also contains unrelated profiles, which must never be pruned.
++func isDarwinGeneration(name string) bool {
++	digits := strings.TrimSuffix(strings.TrimPrefix(name, "system-"), "-link")
++	if name != "system-"+digits+"-link" || digits == "" {
++		return false
++	}
++	for _, digit := range digits {
++		if digit < '0' || digit > '9' {
++			return false
++		}
++	}
++	number, err := strconv.ParseUint(digits, 10, 32)
++	return err == nil && number > 0 && strconv.FormatUint(number, 10) == digits
++}
++
++func removeDarwinProfiles(directory, currentSystem string, retained []string) error {
++	active, err := filepath.EvalSymlinks(currentSystem)
++	if err != nil {
++		return err
++	}
++	if info, err := os.Stat(active); err != nil || !info.IsDir() {
++		return fmt.Errorf("current system is not a directory")
++	}
++	target, err := os.Readlink(filepath.Join(directory, "system"))
++	if err != nil {
++		return err
++	}
++	originalTarget := target
++	if !filepath.IsAbs(target) {
++		target = filepath.Join(directory, target)
++	}
++	target = filepath.Clean(target)
++	if filepath.Dir(target) != directory || !isDarwinGeneration(filepath.Base(target)) {
++		return fmt.Errorf("unexpected default profile target")
++	}
++	resolved, err := filepath.EvalSymlinks(target)
++	if err != nil {
++		return err
++	}
++	if info, err := os.Stat(resolved); err != nil || !info.IsDir() {
++		return fmt.Errorf("default system is not a directory")
++	}
++	entries, err := os.ReadDir(directory)
++	if err != nil {
++		return err
++	}
++	var obsolete []string
++	for _, entry := range entries {
++		if !isDarwinGeneration(entry.Name()) || entry.Type()&os.ModeSymlink == 0 {
++			continue
++		}
++		candidate := filepath.Join(directory, entry.Name())
++		if candidate == target || slices.Contains(retained, candidate) {
++			continue
++		}
++		destination, err := filepath.EvalSymlinks(candidate)
++		if err != nil || destination == active {
++			continue
++		}
++		// Preserve malformed entries rather than treating them as generations.
++		info, err := os.Stat(destination)
++		if err != nil || !info.IsDir() {
++			continue
++		}
++		obsolete = append(obsolete, strings.TrimSuffix(strings.TrimPrefix(entry.Name(), "system-"), "-link"))
++	}
++	latestActive, err := filepath.EvalSymlinks(currentSystem)
++	if err != nil || latestActive != active {
++		return fmt.Errorf("current system changed during retention check")
++	}
++	latestTarget, err := os.Readlink(filepath.Join(directory, "system"))
++	if err != nil || latestTarget != originalTarget {
++		return fmt.Errorf("default profile changed during retention check")
++	}
++	if len(obsolete) == 0 {
++		return nil
++	}
++	// Nix holds its profile lock and rechecks the current generation before
++	// deletion, including when another native switch follows our snapshot.
++	args := append([]string{"--profile", filepath.Join(directory, "system"), "--delete-generations"}, obsolete...)
++	cmd := exec.Command("nix-env", args...)
++	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
++	return cmd.Run()
+ }
+ 
+ // removeProfiles removes profiles that are no longer tracked by
+@@ -83,6 +178,14 @@
+ // See https://github.com/nixos/nixpkgs/blob/df98ab81f908bed57c443a58ec5230f7f7de9bd3/pkgs/os-specific/linux/nixos-rebuild/nixos-rebuild.sh#L711
+ // and https://github.com/nixos/nixpkgs/blob/df98ab81f908bed57c443a58ec5230f7f7de9bd3/nixos/modules/system/boot/loader/systemd-boot/systemd-boot-builder.py#L247
+ func SetSystemProfile(operation string, outPath string, dryRun bool) (profilePath string, err error) {
++	if runtime.GOOS == "darwin" {
++		return setSystemProfile(operation, outPath, dryRun, "/nix/var/nix/profiles", "system")
++	}
++	return setSystemProfile(operation, outPath, dryRun, systemProfiles, profileName)
++}
++
++func setSystemProfile(operation string, outPath string, dryRun bool, systemProfiles, profileName string) (profilePath string, err error) {
++	cominProfileDir := path.Join(systemProfiles, profileName)
+ 	if operation == "switch" || operation == "boot" {
+ 		err := os.MkdirAll(systemProfiles, 0755)
+ 		if err != nil && !os.IsExist(err) {
+--- /dev/null
++++ b/internal/profile/darwin_profile_test.go
+@@ -0,0 +1,140 @@
++package profile
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func symlinkForTest(t *testing.T, target, link string) {
++	t.Helper()
++	if err := os.Symlink(target, link); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestDarwinProfileRetentionPreservesActiveDefaultHistoryAndOtherProfiles(t *testing.T) {
++	tools := t.TempDir()
++	calls := filepath.Join(tools, "calls")
++	t.Setenv("PATH", tools)
++	t.Setenv("COMIN_TEST_CALLS", calls)
++	script := "#!/bin/sh\nprintf '%s\n' \"$@\" > \"$COMIN_TEST_CALLS\"\n[ \"$1\" = --profile ] && [ \"$3\" = --delete-generations ] || exit 2\nprofile=$2\nshift 3\nfor generation do /bin/rm \"$profile-$generation-link\" || exit 3; done\n"
++	if err := os.WriteFile(filepath.Join(tools, "nix-env"), []byte(script), 0700); err != nil {
++		t.Fatal(err)
++	}
++	directory := t.TempDir()
++	store := t.TempDir()
++	for _, name := range []string{"active", "default", "history", "obsolete"} {
++		if err := os.Mkdir(filepath.Join(store, name), 0700); err != nil {
++			t.Fatal(err)
++		}
++	}
++	for name, target := range map[string]string{
++		"system-1-link": "active", "system-2-link": "default", "system-3-link": "history", "system-4-link": "obsolete",
++		"default": "obsolete", "channels": "obsolete", "other-1-link": "obsolete", "system-bad-link": "obsolete", "system-１-link": "obsolete", "system-04-link": "obsolete",
++	} {
++		symlinkForTest(t, filepath.Join(store, target), filepath.Join(directory, name))
++	}
++	symlinkForTest(t, "system-2-link", filepath.Join(directory, "system"))
++	current := filepath.Join(store, "current-system")
++	symlinkForTest(t, "active", current)
++	// No booted-system file exists: Darwin's current system is checked directly.
++	if err := os.WriteFile(filepath.Join(directory, "system-5-link"), []byte("unexpected file"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Mkdir(filepath.Join(directory, "per-user"), 0700); err != nil {
++		t.Fatal(err)
++	}
++	symlinkForTest(t, filepath.Join(store, "missing"), filepath.Join(directory, "system-6-link"))
++	if err := removeDarwinProfiles(directory, current, []string{filepath.Join(directory, "system-3-link")}); err != nil {
++		t.Fatal(err)
++	}
++	arguments, err := os.ReadFile(calls)
++	if err != nil || string(arguments) != "--profile\n"+filepath.Join(directory, "system")+"\n--delete-generations\n4\n" {
++		t.Fatalf("wrong native deletion request %q: %v", arguments, err)
++	}
++	if _, err := os.Lstat(filepath.Join(directory, "system-4-link")); !os.IsNotExist(err) {
++		t.Fatal("obsolete generation retained")
++	}
++	for _, name := range []string{"system", "system-1-link", "system-2-link", "system-3-link", "system-5-link", "system-6-link", "default", "channels", "other-1-link", "system-bad-link", "system-１-link", "system-04-link", "per-user"} {
++		if _, err := os.Lstat(filepath.Join(directory, name)); err != nil {
++			t.Fatalf("removed protected entry %s: %v", name, err)
++		}
++	}
++}
++
++func TestDarwinProfileRetentionFailsClosedWithoutVerifiedCurrentOrDefault(t *testing.T) {
++	for _, missing := range []string{"current", "default"} {
++		t.Run(missing, func(t *testing.T) {
++			directory := t.TempDir()
++			store := t.TempDir()
++			symlinkForTest(t, store, filepath.Join(directory, "system-1-link"))
++			current := filepath.Join(directory, "current")
++			if missing != "current" {
++				symlinkForTest(t, store, current)
++			}
++			if missing != "default" {
++				symlinkForTest(t, "system-1-link", filepath.Join(directory, "system"))
++			}
++			if err := removeDarwinProfiles(directory, current, nil); err == nil {
++				t.Fatal("unverified state accepted")
++			}
++			if _, err := os.Lstat(filepath.Join(directory, "system-1-link")); err != nil {
++				t.Fatal("removed generation on unverifiable state")
++			}
++		})
++	}
++}
++
++func TestDarwinStandardProfileUsesNixGenerationAndPropagatesFailure(t *testing.T) {
++	for _, fail := range []bool{false, true} {
++		t.Run(map[bool]string{false: "success", true: "failure"}[fail], func(t *testing.T) {
++			tools := t.TempDir()
++			profiles := t.TempDir()
++			output := t.TempDir()
++			t.Setenv("PATH", tools)
++			script := "#!/bin/sh\n[ \"$1\" = --profile ] && [ \"$3\" = --set ] || exit 2\n/bin/ln -s \"$4\" \"$2-1-link\"\n/bin/ln -s system-1-link \"$2\"\n"
++			if fail {
++				script = "#!/bin/sh\nexit 1\n"
++			}
++			if err := os.WriteFile(filepath.Join(tools, "nix-env"), []byte(script), 0700); err != nil {
++				t.Fatal(err)
++			}
++			generation, err := setSystemProfile("switch", output, false, profiles, "system")
++			if (err != nil) != fail {
++				t.Fatalf("unexpected failure state: %v", err)
++			}
++			if !fail {
++				if generation != filepath.Join(profiles, "system-1-link") {
++					t.Fatalf("unexpected generation %q", generation)
++				}
++				actual, err := filepath.EvalSymlinks(filepath.Join(profiles, "system"))
++				expected, resolveErr := filepath.EvalSymlinks(output)
++				if err != nil || resolveErr != nil || actual != expected {
++					t.Fatalf("wrong boot profile %q: %v", actual, err)
++				}
++			}
++		})
++	}
++}
++
++func TestDarwinRetentionDoesNotUnlinkWhenNativeDeletionFails(t *testing.T) {
++	directory, store, tools := t.TempDir(), t.TempDir(), t.TempDir()
++	t.Setenv("PATH", tools)
++	if err := os.WriteFile(filepath.Join(tools, "nix-env"), []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
++		t.Fatal(err)
++	}
++	current := filepath.Join(store, "active")
++	if err := os.Mkdir(current, 0700); err != nil {
++		t.Fatal(err)
++	}
++	symlinkForTest(t, current, filepath.Join(directory, "system-1-link"))
++	symlinkForTest(t, store, filepath.Join(directory, "system-2-link"))
++	symlinkForTest(t, "system-1-link", filepath.Join(directory, "system"))
++	if err := removeDarwinProfiles(directory, current, nil); err == nil {
++		t.Fatal("native deletion failure ignored")
++	}
++	if _, err := os.Lstat(filepath.Join(directory, "system-2-link")); err != nil {
++		t.Fatal("unlinked despite native refusal")
++	}
++}

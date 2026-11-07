@@ -320,7 +320,7 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 [[package]]
 name = "homelab-client"
 version = "0.3.0"
-source = "git+https://github.com/0x63616c/homelab-cli.git?rev=df524c5c20a07ff76c9c55973f9a973bfc70c355#df524c5c20a07ff76c9c55973f9a973bfc70c355"
+source = "git+https://github.com/0x63616c/homelab-cli.git?rev=1c06e59f39373045e8be20a9957167dbc58a1644#1c06e59f39373045e8be20a9957167dbc58a1644"
 dependencies = [
  "clap",
  "crossterm",

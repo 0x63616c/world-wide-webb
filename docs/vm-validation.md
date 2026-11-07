@@ -102,7 +102,7 @@ and Comin's normal restart resets its fetch state before completion can verify i
 Candidate `df524c5` requests a native fetch once per validated socket instance,
 only after repository state initializes; strict reconciliation checks are unchanged.
 The daemon PATH now includes trusted macOS system directories. Focused tests and
-independent review passed. The private helper pins this candidate.
+independent review passed for that candidate.
 
 The full `nix flake check --no-update-lock-file --max-jobs 1 --cores 1` completed
 with exit 0 at exact private commit `56090782e1c8cbf7dd1dd2923221a9bf7e5dda5b`
@@ -125,12 +125,21 @@ GitHub PR operations, reboot and Comin verification were real. This establishes
 the disposable base-host journey, not production tailnet policy, FileVault unlock,
 application migration or runner isolation. Neither physical host was activated.
 
-Public head `8675434c60f68818bf6aca6cea68ed194c287c84` adds documentation only after
-the exercised helper code. The private checks at `56090782` remain applicable to
-the unchanged implementation pin. A separate harmless Git change at fixture
-`e0d2914` is awaiting Comin's native polling timer; scheduled-update evidence is
-not yet claimed. Final CI/artifact run `42330184366` and tap/release publication
-remain pending.
+The nine private checks also passed at documentation revision `f332c32` with the
+same helper. The subsequent scheduled update to fixture `e0d2914` exposed a
+separate pinned-upstream defect: Comin reported success and advanced
+`/run/current-system`, but the standard boot profile and live `/etc/static`
+remained at `ab62552`. The new marker was absent from `/etc`. Evidence is retained
+in `vm-enrollment-full-5-operator/scheduled-update-mismatch.json`. This is a failed
+scheduled-update test, not a successful deployment.
+
+Candidate `1c06e59` now verifies those activation pointers before accepting
+completion. The pinned Comin patch uses Darwin's standard system profile for both
+publication and bounded retention, with native locked generation deletion.
+Focused Rust and upstream Go tests and independent review passed. The private
+helper pins this candidate; polling is explicitly 300 seconds in Nix. Fresh
+enrollment, scheduled-update/reboot proof, updated Nix checks and release validation
+remain required before publication.
 
 ## Authorized boundary
 

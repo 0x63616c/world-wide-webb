@@ -16,7 +16,17 @@ in {
 
     services.comin = {
       enable = true;
-      package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin;
+      # Pinned Comin otherwise advances only its private profile, leaving
+      # nix-darwin's boot/RunAtLoad activation on the old configuration.
+      package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin.overrideAttrs (old: {
+        patches = (old.patches or []) ++ [ ../packages/comin-darwin-profile.patch ];
+        doCheck = true;
+        checkPhase = ''
+          runHook preCheck
+          go test ./internal/profile ./internal/executor -count=1
+          runHook postCheck
+        '';
+      });
       debug = false;
       hostname = config.networking.hostName;
       grpc = {
