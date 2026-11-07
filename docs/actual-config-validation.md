@@ -1,5 +1,19 @@
 # Actual configuration validation
 
+## Current continuation evidence
+
+The actual-module fixture at `6f78c497a363d90ec2d3482c992f79c928ec7c38`
+built and activated with public helper `c949c7201cc1f39bfa51f0e7534ede5a57d65919`.
+The preserved VM then passed production completion, reboot, post-reboot service
+checks, Git reconciliation and completion replay without a second reboot.
+Evidence: operator fixture `actual-config-operator-3/completion-recovery-evidence.json`.
+The provider and Tailscale transport were synthetic. The test driver was
+interrupted at the installation acknowledgement, so uninterrupted wizard setup
+and real password-required authentication are not claimed.
+
+The successor descriptor preserves the original enrollment and first repair;
+it changes no manifest, installer, flake lock, recipients or host ciphertext.
+
 ## Reproduced failure — 7 November 2026
 
 Disposable VM: `homelab-actual-config-1`, cloned from `homelab-ready-clean` on
