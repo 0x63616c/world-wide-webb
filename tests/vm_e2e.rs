@@ -223,6 +223,23 @@ fn transport_args_allowed(
                     index += 2;
                     continue;
                 }
+                if [
+                    "HostKeyAlgorithms=ssh-ed25519",
+                    "GlobalKnownHostsFile=/dev/null",
+                    "UpdateHostKeys=no",
+                ]
+                .contains(&option)
+                {
+                    index += 2;
+                    continue;
+                }
+                if let Some(path) = option.strip_prefix("UserKnownHostsFile=") {
+                    if !Path::new(path).is_absolute() || path.contains(['\n', '\r']) {
+                        return false;
+                    }
+                    index += 2;
+                    continue;
+                }
                 if ![
                     "BatchMode",
                     "StrictHostKeyChecking",

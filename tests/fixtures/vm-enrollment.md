@@ -84,6 +84,13 @@ session.
 
 ## Evidence and failure behavior
 
+For an existing activated fixture interrupted at the installation acknowledgement,
+run `vm_enrollment --finish-activated /absolute/private/operator-state/enrollment.json`.
+This checks the saved approval against the VM's actual activated journal and
+system metadata, then exercises production completion, reboot, Git reconciliation
+and completion replay. It never invokes bootstrap or rebuild. Its evidence
+explicitly does not claim an uninterrupted wizard run.
+
 The PTY approves only Begin setup. Publication follows the production direct-to-main path;
 the optional required-review fixture checks its PR repository/head/base and three-file scope
 before merging that head. The wizard itself installs and

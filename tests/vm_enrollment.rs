@@ -40,6 +40,8 @@ struct Fixture {
     jump_host: String,
     jump_known_hosts: PathBuf,
     jump_agent_socket: PathBuf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    password_file: Option<PathBuf>,
 }
 
 fn fixture() -> Fixture {
@@ -684,9 +686,18 @@ struct Terminal {
     text: String,
     screen: vt100::Parser,
     last_phase: Option<&'static str>,
+    password: Option<zeroize::Zeroizing<Vec<u8>>>,
+    password_visible: bool,
+    password_entries: usize,
+    installation_acknowledged: bool,
 }
 impl Terminal {
     fn start(f: &Fixture) -> Self {
+        let password = f.password_file.as_ref().map(|path| {
+            let bytes = zeroize::Zeroizing::new(vm::private_bytes(path, 128));
+            assert!(bytes.len() >= 16 && bytes.iter().all(u8::is_ascii_alphanumeric));
+            bytes
+        });
         let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY).unwrap();
         grantpt(&master).unwrap();
         unlockpt(&master).unwrap();
@@ -737,6 +748,10 @@ impl Terminal {
             text: String::new(),
             screen: vt100::Parser::new(60, 120, 0),
             last_phase: None,
+            password,
+            password_visible: false,
+            password_entries: 0,
+            installation_acknowledged: false,
         }
     }
     fn wait(&mut self, expected: &'static str, duration: Duration) {
@@ -755,6 +770,31 @@ impl Terminal {
                 ),
             }
             let screen = self.screen.screen().contents();
+            if !self.installation_acknowledged
+                && screen.contains("Installation complete.")
+                && screen.contains("Continue")
+            {
+                self.enter();
+                self.installation_acknowledged = true;
+            }
+            if let Some(password) = &self.password {
+                let text = std::str::from_utf8(password).unwrap();
+                assert!(
+                    !self.text.contains(text) && !screen.contains(text),
+                    "fixture password was rendered"
+                );
+                let visible = screen.contains("Password:") && screen.contains("Submit");
+                if visible && !self.password_visible {
+                    assert_eq!(
+                        self.password_entries, 0,
+                        "wizard requested a second password entry"
+                    );
+                    self.master.write_all(password).unwrap();
+                    self.master.write_all(b"\r").unwrap();
+                    self.password_entries += 1;
+                }
+                self.password_visible = visible;
+            }
             self.last_phase = observed_phase(&screen)
                 .or_else(|| observed_phase(&self.text))
                 .or(self.last_phase);
@@ -1063,6 +1103,12 @@ fn drive(f: &Fixture, resume: bool) {
         None
     };
     terminal.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(90 * 60));
+    if f.password_file.is_some() {
+        assert_eq!(
+            terminal.password_entries, 1,
+            "native sudo authentication was not exercised"
+        );
+    }
     assert!(terminal.child.wait().unwrap().success());
     let approved = provisioning::approved_installation(
         &f.state_directory
@@ -1163,7 +1209,7 @@ fn drive(f: &Fixture, resume: bool) {
     let mut activated = f.target.clone();
     activated.revision = merged.clone();
     vm::verify_activation(&activated, &f.state_directory.join("vm-ssh"));
-    vm::write_private(&f.state_directory.join("evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"wizardCompleted":true,"rebootVerified":true,"completedReplayVerified":true,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter","comin":"real completion verification"})).unwrap());
+    vm::write_private(&f.state_directory.join("evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"wizardCompleted":true,"rebootVerified":true,"completedReplayVerified":true,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter","comin":"real completion verification","passwordEntries":terminal.password_entries,"passwordRequired":f.password_file.is_some()})).unwrap());
     println!(
         "Full VM wizard completed. Evidence preserved; provider and Tailscale transport were synthetic."
     );
@@ -1330,7 +1376,7 @@ fn completion_matches(
         && report.boot_session.eq_ignore_ascii_case(boot.trim())
 }
 
-fn complete_preserved(f: &Fixture) {
+fn complete_preserved(f: &Fixture, already_rebooted: bool) {
     use homelab_client::remote_completion;
     assert_eq!(
         vm::bounded(Command::new("/bin/hostname")).unwrap().trim(),
@@ -1349,11 +1395,15 @@ fn complete_preserved(f: &Fixture) {
     )
     .unwrap()
     .expect("saved approved installation required");
-    let merged = String::from_utf8(vm::private_bytes(
-        &f.state_directory.join("merged-revision"),
-        40,
-    ))
-    .unwrap();
+    let merged = if already_rebooted {
+        String::from_utf8(vm::private_bytes(
+            &f.state_directory.join("merged-revision"),
+            40,
+        ))
+        .unwrap()
+    } else {
+        saved.revision.clone()
+    };
     assert!(config::valid_revision(&merged));
     assert_eq!(saved.repository, f.target.repository);
     assert_eq!(saved.host, "vm-test");
@@ -1386,20 +1436,32 @@ fn complete_preserved(f: &Fixture) {
         json!({"repository":f.target.repository,"host":"vm-test","revision":merged})
     );
     let binding = config::setup_binding(&f.target.repository, "vm-test", &merged).unwrap();
-    let report: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(
-        &format!("/bin/cat /var/db/homelab-setup/{binding}.json"),
-    ))
-    .unwrap();
-    // Authenticate the existing public report through the real read-only helper.
-    assert!(
-        report.request_id.len() == 64 && report.request_id.bytes().all(|c| c.is_ascii_hexdigit())
-    );
-    let verified: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(&format!("/run/current-system/sw/bin/homelab-host read-setup-report --binding '{binding}' --request-id '{}'", report.request_id))).unwrap();
     let boot = read("/usr/sbin/sysctl -n kern.bootsessionuuid");
-    assert!(
-        completion_matches(&verified, &binding, &system, &boot),
-        "recovery requires proof this installation already rebooted"
-    );
+    if already_rebooted {
+        let report: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(
+            &read(&format!("/bin/cat /var/db/homelab-setup/{binding}.json")),
+        )
+        .unwrap();
+        // Authenticate the existing public report through the real read-only helper.
+        assert!(
+            report.request_id.len() == 64
+                && report.request_id.bytes().all(|c| c.is_ascii_hexdigit())
+        );
+        let verified: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(&format!("/run/current-system/sw/bin/homelab-host read-setup-report --binding '{binding}' --request-id '{}'", report.request_id))).unwrap();
+        assert!(
+            completion_matches(&verified, &binding, &system, &boot),
+            "recovery requires proof this installation already rebooted"
+        );
+    } else {
+        let journal: Value = serde_json::from_str(&read(
+            "/bin/cat /Users/admin/.local/state/homelab/bootstrap/progress.json",
+        ))
+        .unwrap();
+        assert_eq!(journal["phase"], "Activated");
+        assert_eq!(journal["revision"], merged);
+        assert_eq!(journal["repository"], f.target.repository);
+        assert_eq!(journal["builtSystem"].as_str(), system.to_str());
+    }
     let main = api(
         f,
         "GET",
@@ -1412,7 +1474,8 @@ fn complete_preserved(f: &Fixture) {
         b"one synthetic issuance"
     );
     assert!(!f.state_directory.join("revoked").exists());
-    for _ in 0..2 {
+    let mut previous_boot = boot.clone();
+    for attempt in 0..2 {
         let result = remote_completion::finish_with_tools(
             profile,
             &ssh,
@@ -1440,18 +1503,26 @@ fn complete_preserved(f: &Fixture) {
                 && report.rebooted
                 && report.reconciled_revision.as_deref() == Some(merged.as_str())
         );
-        assert_eq!(
-            read("/usr/sbin/sysctl -n kern.bootsessionuuid"),
-            boot,
-            "completion recovery must not reboot again"
-        );
+        let current_boot = read("/usr/sbin/sysctl -n kern.bootsessionuuid");
+        if !already_rebooted && attempt == 0 {
+            assert_ne!(
+                current_boot, boot,
+                "completion must reboot the activated VM"
+            );
+        } else {
+            assert_eq!(
+                current_boot, previous_boot,
+                "completion replay must not reboot again"
+            );
+        }
+        previous_boot = current_boot;
     }
     let mut activated = f.target.clone();
     activated.revision = merged.clone();
     vm::verify_activation(&activated, &ssh);
-    vm::write_private(&f.state_directory.join("completion-recovery-evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"recoveredCompletion":true,"completionReplayVerified":true,"bootUnchanged":true,"uninterruptedWizardVerified":false,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter"})).unwrap());
+    vm::write_private(&f.state_directory.join("completion-recovery-evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"recoveredCompletion":true,"completionReplayVerified":true,"rebootVerified":true,"bootUnchanged":already_rebooted,"uninterruptedWizardVerified":false,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter"})).unwrap());
     println!(
-        "Preserved post-reboot completion and replay passed; uninterrupted wizard still unverified."
+        "Preserved VM completion, reboot verification and replay passed; uninterrupted wizard still unverified."
     );
 }
 
@@ -1681,7 +1752,16 @@ fn main() {
             ),
             "--complete-drive",
         ),
-        Some("--complete-drive") => complete_preserved(&fixture()),
+        Some("--complete-drive") => complete_preserved(&fixture(), true),
+        Some("--finish-activated-drive") => complete_preserved(&fixture(), false),
+        Some("--finish-activated") => preserved_run(
+            Path::new(
+                &std::env::args_os()
+                    .nth(2)
+                    .expect("preserved fixture path required"),
+            ),
+            "--finish-activated-drive",
+        ),
         Some("--resume-prepare") => resume_prepare(&fixture(), true),
         Some("--retry-preparation-drive") => resume_prepare(&fixture(), false),
         Some("--retry-preparation") => preserved_run(
