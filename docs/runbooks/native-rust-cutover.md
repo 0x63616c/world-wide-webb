@@ -35,7 +35,7 @@ image before release; a local host without Docker cannot certify that step.
    and `secrets/CF_API_TOKEN`, all owner-only. Import retained resources into enforced encrypted state at
    `cloudflare.tfstate`; review the full plan privately. Keep encrypted state recovery copies and the recovery
    key in the approved secret system. Verify NAS read-back and restore before enabling automatic applies.
-5. Verify the versioned Tailscale Serve rule for private HTTPS443 to loopback4201, with Funnel disabled and
+5. Verify the versioned Tailscale Serve rule for private HTTPS443 to loopback4202, with Funnel disabled and
    unrelated Serve routes unchanged. The app uses `https://homelab.tail8c014d.ts.net` automatically. Test from
    another Tailnet device without application credentials. At cutover, retire public api/app DNS, Access and
    tunnel ingress through the tested OpenTofu configuration. Revoke unused app-only service tokens; retain

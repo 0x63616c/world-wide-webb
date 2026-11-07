@@ -20,8 +20,9 @@ services:
       # Mount the directory, not just .sqlite: SQLite WAL/SHM must persist together.
       - ${WWW_DATA_DIR:?Set the data directory}/sqlite:/app/data
       - ${WWW_DATA_DIR}/media:/app/media
+    # Never reuse legacy Cloudflare origin4201 for the credential-free native API.
     ports:
-      - 127.0.0.1:${WWW_PORT:-4201}:4201
+      - 127.0.0.1:4202:4201
     healthcheck:
       test: [CMD, www-server, healthcheck]
       interval: 5s

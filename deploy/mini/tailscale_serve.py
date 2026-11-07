@@ -7,7 +7,7 @@ import shutil
 import subprocess
 
 HOST = "homelab.tail8c014d.ts.net"
-ORIGIN = "http://127.0.0.1:4201"
+ORIGIN = "http://127.0.0.1:4202"
 PORT = "443"
 
 

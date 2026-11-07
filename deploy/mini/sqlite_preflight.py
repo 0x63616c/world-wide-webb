@@ -16,6 +16,7 @@ def main():
         or len(ports) != 1
         or ports[0].get("host_ip") != "127.0.0.1"
         or ports[0].get("target") != 4201
+        or str(ports[0].get("published")) != "4202"
     ):
         raise RuntimeError("The native API must be published on loopback only; Tailscale Serve owns external access")
     mounts = service["volumes"]

@@ -16,7 +16,7 @@ def main():
     credential = Path(os.environ.get("WWW_RELEASE_TOKEN_FILE", str(root / "secrets/ALARM_API_TOKEN")))
     token = credential.read_text().strip()
     request = urllib.request.Request(
-        "http://127.0.0.1:4201/api/v1/releases/latest",
+        "http://127.0.0.1:4202/api/v1/releases/latest",
         data=json.dumps({"app": "panel", "build": build}).encode(),
         headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
     )

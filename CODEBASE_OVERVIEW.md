@@ -34,7 +34,7 @@ Rust owns database writes and one set of interval workers; Home Assistant remain
 SQLite and Photo Booth media persist outside the image. No running PostgreSQL dependency remains for this app
 after cutover; unrelated Hindsight/Bambuddy/HA services and their backups are independent.
 
-The mini hosts OrbStack and the app on loopback port 4201, published privately by Tailscale Serve on HTTPS443. The shared Cloudflare tunnel serves only independent
+The mini hosts OrbStack and the app on loopback port 4202, published privately by Tailscale Serve on HTTPS443. The shared Cloudflare tunnel serves only independent
 HA/Hindsight/Bambuddy/DSM routes after cutover; public app/API DNS, Access and ingress are retired.
 OpenTofu state is encrypted and locked on the mini outside app storage; tested-main automation runs there over SSH.
 Migration and actual deployment status must be read from `docs/plans/native-rust-progress.md`: code presence is not

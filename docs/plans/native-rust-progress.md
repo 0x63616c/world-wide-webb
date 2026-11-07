@@ -99,3 +99,8 @@ Cloudflare retirements are not yet applied. Final source review of this user-dir
 The fresh frozen-writer migration remains mandatory because original PostgreSQL writes resumed. Keep the
 old import marker invalidated and its candidate outside production. PR #943 is a draft with auto-merge off;
 finish the Tailscale review and update the complete candidate before resuming publication/cutover.
+
+Final review caught the risk of independent Cloudflare retirement and Rust delivery. Rust now publishes only
+on host loopback4202; the legacy tunnel origin4201 is never reused. Tailscale Serve and the local release
+publisher use4202, and release preflight rejects a4201 binding before stopping the old app. This keeps the
+new API private even if the separate Cloudflare retirement is delayed or fails.
