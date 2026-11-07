@@ -14,6 +14,11 @@ production notifications were created or cleared.
 - `accessibility.png`: largest accessibility text size with Reduce Motion.
 - `interaction.mp4`: 19-second recording of opening, expanding, clearing and closing.
 
+The final captures include right-aligned timestamps with a single completed age
+unit and no seconds. All four history UI scenarios passed again after this change,
+including largest text, dark appearance and saved-history deep links; all 33
+notification/presentation/update unit tests passed, including age-unit boundaries.
+
 Validation includes workspace `bun run typecheck`, native notification state and
 presentation unit tests, and simulator UI coverage for banner gestures, deep links,
 timeouts, stack expansion, saved history, source/row/all clearing, app-overlay order,
