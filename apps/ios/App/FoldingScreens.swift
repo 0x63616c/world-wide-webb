@@ -102,6 +102,15 @@ struct FoldingRootView: View {
   @ViewBuilder private func sheetContent(_ sheet: PresentedSheet) -> some View {
     switch sheet {
     case .settings: SettingsScreen(model: model, actions: actions)
+    case .syncStatus:
+      NavigationStack {
+        TrackingSyncScreen(model: model, actions: actions)
+          .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+              Button(String(localized: "action.done", defaultValue: "Done")) { model.sheet = nil }
+            }
+          }
+      }
     case .competition(let screen):
       CompetitionSheetScreen(screen: screen, model: model, actions: actions)
     case .trackingPhone:
@@ -179,11 +188,17 @@ private struct TodayScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 8)
           }
-        } else if let status = model.status {
-          Label(status, systemImage: "arrow.triangle.2.circlepath").font(.subheadline)
-            .foregroundStyle(.secondary)
-        }
-        if model.analytics?.needsDeviceSelection == true {
+        } else if model.privateHistoryHealth?.requiresAttention == true {
+          Button {
+            model.present(.settings)
+          } label: {
+            Label(
+              String(localized: "recovery.title", defaultValue: "History needs attention"),
+              systemImage: "exclamationmark.triangle"
+            )
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+          }
+        } else if model.analytics?.needsDeviceSelection == true {
           Button {
             model.present(.trackingPhone)
           } label: {
@@ -191,9 +206,32 @@ private struct TodayScreen: View {
               String(localized: "phone.choose", defaultValue: "Choose tracking phone"),
               systemImage: "iphone.gen3"
             )
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
           }
+        } else if let value = model.syncStatus,
+          value.publicTracking && (value.resetPending || value.pendingFolds > 0)
+        {
+          Button {
+            model.present(.syncStatus)
+          } label: {
+            Label {
+              if value.resetPending {
+                Text(String(localized: "sync.resetPending", defaultValue: "Reset pending"))
+              } else {
+                Text(
+                  String(
+                    localized: "leaderboard.pending", defaultValue: "\(value.pendingFolds) pending")
+                )
+              }
+            } icon: {
+              Image(systemName: "arrow.triangle.2.circlepath")
+            }
+            .font(.subheadline).foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+          }
+        } else if let status = model.status {
+          Label(status, systemImage: "arrow.triangle.2.circlepath").font(.subheadline)
+            .foregroundStyle(.secondary)
         }
         if let today {
           VStack(alignment: .leading, spacing: 4) {

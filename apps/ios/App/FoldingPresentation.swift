@@ -161,13 +161,14 @@ enum CompetitionPresentation {
 }
 
 enum PresentedSheet: Identifiable, Equatable {
-  case settings, setup, editSummary, travelInfo, leaderboardInfo, trackingPhone
+  case settings, setup, editSummary, travelInfo, leaderboardInfo, trackingPhone, syncStatus
   case tiedRank(Int)
   case export(UUID)
   case competition(CompetitionSheet)
   var id: String {
     switch self {
     case .settings: "settings"
+    case .syncStatus: "sync-status"
     case .competition(let screen): "competition-\(screen.rawValue)"
     case .trackingPhone: "tracking-phone"
     case .setup: "setup"

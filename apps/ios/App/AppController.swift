@@ -659,6 +659,7 @@ import struct FoldingData.SetupProgress
     let setup = try await store.setupProgress(nowMS: now)
     let lastEvent = try await store.lastObservedAtMS()
     let health = try await store.privateHistoryHealth()
+    let sync = try await runtime.syncStatus(refresh: false)
     guard request == token, !Task.isCancelled else { return }
     if let previous = presentation.analytics, previous.generation != analytics.generation {
       presentation.dismissExports()
@@ -666,6 +667,7 @@ import struct FoldingData.SetupProgress
       guard request == token, !Task.isCancelled else { return }
     }
     presentation.privateHistoryHealth = health
+    presentation.syncStatus = sync
     presentation.localDeviceID = store.deviceID
     presentation.lastEventAt = lastEvent.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     presentation.analytics = analytics
