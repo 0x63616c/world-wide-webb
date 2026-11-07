@@ -11,7 +11,6 @@ final class UpdateChecker {
     @ObservationIgnored private let interval: TimeInterval
     @ObservationIgnored private let sleep: (TimeInterval) async throws -> Void
     @ObservationIgnored private let notifications: NotificationCenter
-    @ObservationIgnored private var lastPostedBuild: Int = 0
 
     init(currentBuild: String, interval: TimeInterval = 900,
          notifications: NotificationCenter = NotificationCenter(),
@@ -22,6 +21,13 @@ final class UpdateChecker {
         self.notifications = notifications
         self.fetchBuild = fetchBuild
         self.sleep = sleep
+        // Restore a confirmed notice while offline, but never show one for an installed build.
+        let cachedBuild = notifications.history.filter(\.isPersistentUpdate).compactMap { item in
+            item.dedupeKey.flatMap { key in
+                key.hasPrefix("update-") ? Int(key.dropFirst("update-".count)) : nil
+            }
+        }.max().flatMap { Self.newerBuild(server: $0, current: currentBuild) }
+        notifications.reconcileUpdate(build: cachedBuild)
     }
 
     static func newerBuild(server: Int, current: String) -> Int? {
@@ -35,19 +41,19 @@ final class UpdateChecker {
             let server = try await fetchBuild()
             try Task.checkCancellation()
             availableBuild = Self.newerBuild(server: server, current: currentBuild)
-            if let availableBuild, availableBuild > lastPostedBuild,
+            notifications.reconcileUpdate(build: availableBuild)
+            if let availableBuild,
                !notifications.history.contains(where: { $0.dedupeKey == "update-\(availableBuild)" }) {
                 notifications.post(sourceModule: "updates", title: "Update ready",
                     body: "Build \(availableBuild) is available in TestFlight.",
                     deepLink: PanelNotifications.updateDeepLink, priority: .high,
                     dedupeKey: "update-\(availableBuild)")
-                lastPostedBuild = availableBuild
             }
         } catch is CancellationError {
             // A cancelled foreground task must not publish a late result.
         } catch {
             guard !Task.isCancelled else { return }
-            availableBuild = nil
+            // Keep the last confirmed update visible while offline.
         }
     }
 

@@ -43,7 +43,7 @@ import XCTest
         XCTAssertEqual(checker.availableBuild, 10)
         fail = true
         await checker.check()
-        XCTAssertNil(checker.availableBuild)
+        XCTAssertEqual(checker.availableBuild, 10)
         fail = false
         await checker.check()
         XCTAssertEqual(checker.availableBuild, 10)
@@ -90,7 +90,41 @@ import XCTest
         XCTAssertEqual(center.arrivalFeedback, feedback)
         let newer = UpdateChecker(currentBuild: "1", notifications: center, fetchBuild: { 11 })
         await newer.check()
-        XCTAssertEqual(center.history.count, 2)
+        XCTAssertEqual(center.history.count, 1)
+        XCTAssertEqual(center.history.first?.dedupeKey, "update-11")
+    }
+
+    func testUpdateRemainsVisibleUntilReleaseIsCurrent() async {
+        var build = 10
+        let center = Panel.NotificationCenter()
+        let checker = UpdateChecker(currentBuild: "5", notifications: center, fetchBuild: { build })
+        await checker.check()
+        let id = center.history[0].id
+        center.advanceBanners(by: 1000, visibleIDs: [id])
+        center.hideBanner(id)
+        await center.dismiss(id)
+        await center.clear()
+        await center.open(id)
+        XCTAssertEqual(center.bannerGroups.first?.items.first?.id, id)
+        XCTAssertEqual(center.history.count, 1)
+        build = 5
+        await checker.check()
+        XCTAssertTrue(center.history.isEmpty)
+        XCTAssertTrue(center.bannerGroups.isEmpty)
+    }
+
+    func testCachedUpdateRestoredOfflineAndRemovedAfterInstalling() async {
+        let center = Panel.NotificationCenter()
+        center.post(sourceModule: "updates", title: "Update ready", body: "Build 10 is available in TestFlight.",
+                    deepLink: PanelNotifications.updateDeepLink, priority: .high, dedupeKey: "update-10")
+        let checker = UpdateChecker(currentBuild: "5", notifications: center, fetchBuild: {
+            throw NSError(domain: "offline", code: 1)
+        })
+        await checker.check()
+        XCTAssertEqual(center.bannerGroups.first?.items.first?.dedupeKey, "update-10")
+        _ = UpdateChecker(currentBuild: "10", notifications: center, fetchBuild: { 10 })
+        XCTAssertTrue(center.history.isEmpty)
+        XCTAssertTrue(center.bannerGroups.isEmpty)
     }
 
     private func silentNotifications() -> Panel.NotificationCenter { Panel.NotificationCenter() }

@@ -1040,19 +1040,20 @@ web board.
 Hybrid checks `releases.latest({app: "panel"})` on launch, whenever the scene
 becomes active, and every 15 minutes while active. The shared PanelKit transport
 uses the configured server and complete Cloudflare Access header pair. It compares
-the positive integer build with `CFBundleVersion`; equal/older builds, missing
-releases, malformed responses and network errors clear update availability without
-removing previously delivered notification history. Cancelling a
-foreground task prevents a late response from publishing.
+the positive integer build with `CFBundleVersion`. A successful check for an
+equal or older release removes the update notice; network and response errors
+retain the last confirmed state. Cancelling a foreground task prevents a late
+response from publishing.
 
-Update-ready posts locally through the shared `NotificationCenter`, with a high
-priority banner and persistent inbox history. Its `module/updates/testflight`
-action opens `itms-beta://` directly. The installed build comparison stays local;
-a server release alone cannot decide whether this device needs updating. There
-is no separate update banner or `UNUserNotificationCenter` update notice. Polls
-and foreground reactivation do not replay the same build; cached history prevents
-replay after restart while that entry remains in history. Clearing history allows
-a later app launch to surface an available update again.
+Update-ready posts locally through the shared `NotificationCenter`. Its high
+priority banner stays visible and cannot be dismissed or cleared while the
+installed build is behind. Opening it launches `itms-beta://` and leaves the
+banner in place. The cached confirmed notice returns after a restart without replaying arrival
+feedback, even offline, and a successful check replaces it when a newer build
+is available.
+The installed build comparison stays local; a server release alone cannot decide
+whether this device needs updating. There is no separate `UNUserNotificationCenter`
+update notice.
 
 Alarm ringing, snooze, stop and missed events (including ring timeout) arrive from
 the backend inbox. The full-screen ringing UI, AlarmKit delivery, ActivityKit next
