@@ -306,6 +306,7 @@ struct CompetitionProfileScreen: View {
 struct CompetitionResultsScreen: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
+  @State private var focusedResult: CompetitionResult?
   var body: some View {
     List {
       Picker(
@@ -348,6 +349,25 @@ struct CompetitionResultsScreen: View {
     }
     .navigationTitle(String(localized: "results.title", defaultValue: "Your Results"))
     .task(id: model.resultsPeriod) { await model.requestResults(using: actions) }
+    .navigationDestination(item: $focusedResult) {
+      CompetitionResultScreen(result: $0, actions: actions)
+    }
+    .task(id: model.requestedResultID) {
+      guard let id = model.requestedResultID, let load = actions.loadResultShare else { return }
+      do {
+        let share = try await load(id)
+        guard !Task.isCancelled, model.requestedResultID == id, share.result.id == id else {
+          return
+        }
+        focusedResult = share.result
+        model.requestedResultID = nil
+      } catch {
+        guard !Task.isCancelled, model.requestedResultID == id else { return }
+        model.requestedResultID = nil
+        model.error = String(
+          localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+      }
+    }
     .refreshable { await model.requestResults(using: actions) }
   }
 }

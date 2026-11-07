@@ -10,6 +10,7 @@ import SwiftUI
 #endif
 
 @main @MainActor struct FoldingApp: App {
+  @UIApplicationDelegateAdaptor(FoldingPushAppDelegate.self) private var pushDelegate
   @State private var controller = AppController()
   @Environment(\.requestReview) private var requestReview
   @Environment(\.scenePhase) private var scenePhase
@@ -25,6 +26,7 @@ import SwiftUI
   var body: some Scene {
     WindowGroup {
       FoldingRootView(model: controller.presentation, actions: controller.actions)
+        .task { controller.attachPushDelegate(pushDelegate) }
         .task { TipStore.shared.start() }
         .task { await controller.restoreCompetition() }
         .task { await controller.maintainCompetitionUploads() }

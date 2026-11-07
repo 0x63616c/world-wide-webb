@@ -13,6 +13,7 @@ struct CompetitionWireEnrollment: Decodable, Sendable {
   let issued_at_ms: Int64
 }
 struct CompetitionMe: Decodable, Sendable {
+  let preferences: CompetitionResultPreferences?
   let profile: CompetitionWireProfile
   let enrollment: CompetitionWireEnrollment?
 }

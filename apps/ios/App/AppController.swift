@@ -9,6 +9,13 @@ import struct FoldingData.SetupProgress
   let presentation = FoldingPresentation()
   private let runtime: TrackingRuntime
   private let notifications: NotificationSettingsStore
+  private var pushRegistration: PushRegistration?
+  private weak var pushDelegate: FoldingPushAppDelegate?
+  private var competitionIdentityRevision = UUID()
+  private var joinedParticipantID: String? {
+    didSet { if oldValue != joinedParticipantID { competitionIdentityRevision = UUID() } }
+  }
+  private var competitionRestored = false
   private let preferencesStore: UserDefaults
   private var competitionAPI: CompetitionAPI?
   private let appleSignIn = CompetitionSignIn()
@@ -46,6 +53,11 @@ import struct FoldingData.SetupProgress
         guard preferences.schemaVersion == 1, TimeZone(identifier: preferences.homeTimezone) != nil,
           preferences.dailyLimit > 0, Set(preferences.metrics).count == preferences.metrics.count
         else { throw AnalyticsError.invalidRange }
+        if preferences.homeTimezone != self.presentation.preferences.homeTimezone {
+          try await self.saveRemoteNotificationPreferences(
+            self.notifications.preferences,
+            homeTimezone: preferences.homeTimezone)
+        }
         let data = try JSONEncoder().encode(preferences)
         self.preferencesStore.set(data, forKey: self.preferencesKey)
         self.presentation.preferences = preferences
@@ -57,7 +69,16 @@ import struct FoldingData.SetupProgress
       loadHistory: { period, offset in try await self.history(period, offset: offset) },
       tipJar: { AnyView(TipJarView(store: .shared)) },
       saveNotifications: { requested in
-        let saved = try await self.notifications.save(requested)
+        let previous = self.notifications.preferences
+        let saved = try await self.notifications.save(requested) { resolved in
+          if previous.weeklyResult != resolved.weeklyResult
+            || previous.monthlyResult != resolved.monthlyResult
+          {
+            try await self.saveRemoteNotificationPreferences(resolved)
+          }
+        }
+        self.presentation.notificationPreferences = saved
+        await self.configurePush()
         await self.runtime.configureDailyLimit()
         self.presentation.notificationAuthorization = await self.notifications.authorization()
         return saved
@@ -108,6 +129,9 @@ import struct FoldingData.SetupProgress
         }
         try await store.setCompetitionEpoch(epoch)
         self.presentation.competitionProfile = await self.profilePresentation(result.profile)
+        self.joinedParticipantID = result.profile.participant_id
+        self.competitionRestored = true
+        await self.configurePush()
         await self.presentation.requestLeaderboard(using: self.actions)
       },
       saveNickname: { value in
@@ -169,6 +193,11 @@ import struct FoldingData.SetupProgress
     } else {
       proof = nil
     }
+    // Remove the binding while the existing session can still authorize it.
+    do { try await pushRegistration?.deactivate() } catch {
+      // Leave/delete also purges the server binding; an unavailable push endpoint must not block privacy removal.
+    }
+    pushDelegate?.discardPendingRoute()
     try await api.transport.saveRemoval(operation)
     presentation.competitionRemoval = kind == .delete ? .deleting : .leaving
     do {
@@ -237,6 +266,9 @@ import struct FoldingData.SetupProgress
       }
       if status.state == "completed" {
         try await runtime.store().setCompetitionEpoch(nil)
+        try pushRegistration?.forgetAfterServerRemoval()
+        joinedParticipantID = nil
+        pushDelegate?.discardPendingRoute()
         if operation.kind == .delete { try await api.transport.clearSession() }
         try await api.transport.finishRemoval()
         presentation.invalidateCompetitionPresentation()
@@ -292,6 +324,12 @@ import struct FoldingData.SetupProgress
       }
       let me = try await client.me()
       presentation.competitionProfile = await profilePresentation(me.profile)
+      competitionRestored = true
+      joinedParticipantID =
+        me.profile.membership == "joined" && me.profile.restriction == "none"
+        ? me.profile.participant_id : nil
+      if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
+      await configurePush()
       if me.profile.restriction != "none" {
         presentation.competition = .banned
       } else if me.profile.membership == "joined" {
@@ -300,6 +338,9 @@ import struct FoldingData.SetupProgress
         presentation.competition = .notJoined
       }
     } catch CompetitionTransportError.unauthorized {
+      joinedParticipantID = nil
+      competitionRestored = true
+      await configurePush()
       presentation.competition = .notJoined
     } catch {
       presentation.competition = .failed(presentation.competition.previous)
@@ -311,10 +352,14 @@ import struct FoldingData.SetupProgress
     let store = try await runtime.store()
     let profile = try await appleSignIn.signIn(transport: api.transport, deviceID: store.deviceID)
     presentation.competitionProfile = await profilePresentation(profile)
+    competitionRestored = true
+    joinedParticipantID =
+      profile.membership == "joined" && profile.restriction == "none" ? profile.participant_id : nil
     if profile.restriction == "banned" || profile.restriction == "suspended" {
       presentation.competition = .banned
     } else if profile.membership == "joined" {
       let me = try await api.me()
+      if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
       if let enrollment = me.enrollment,
         enrollment.device_id == store.deviceID.uuidString.lowercased(),
         let epoch = UUID(uuidString: enrollment.epoch_id)
@@ -326,6 +371,7 @@ import struct FoldingData.SetupProgress
       presentation.competition = .notJoined
       presentation.beginJoin(suggestedNickname: profile.nickname)
     }
+    await configurePush()
   }
 
   private func resultPresentation(_ result: CompetitionWireResult) throws -> CompetitionResult {
@@ -366,6 +412,70 @@ import struct FoldingData.SetupProgress
       population: board.population, percentile: board.you?.percentile)
   }
 
+  func attachPushDelegate(_ delegate: FoldingPushAppDelegate) {
+    pushDelegate = delegate
+    delegate.registration = pushRegistration
+    delegate.localDailyLimitEnabled =
+      presentation.notificationPreferences.dailyLimit
+      && presentation.notificationAuthorization == .allowed
+    delegate.openResults = { [weak self] id, period in
+      guard let self, self.joinedParticipantID != nil, self.presentation.competitionRemoval == nil
+      else { return false }
+      self.presentation.resultsPeriod = period
+      self.presentation.requestedResultID = id
+      self.presentation.selectedTab = .leaderboard
+      self.presentation.present(.competition(.results))
+      return true
+    }
+  }
+
+  private func ensurePushRegistration() throws -> PushRegistration {
+    if let pushRegistration { return pushRegistration }
+    let service = try PushRegistration(configuration: PushSigningConfiguration())
+    pushRegistration = service
+    pushDelegate?.registration = service
+    return service
+  }
+
+  private func configurePush() async {
+    let preferences = notifications.preferences
+    let authorization = await notifications.authorization()
+    presentation.notificationPreferences = preferences
+    presentation.notificationAuthorization = authorization
+    pushDelegate?.localDailyLimitEnabled = preferences.dailyLimit && authorization == .allowed
+    guard competitionRestored else { return }
+    do {
+      let service = try ensurePushRegistration()
+      try await service.configure(
+        transport: joinedParticipantID == nil ? nil : competitionAPI?.transport,
+        participantID: joinedParticipantID, preferences: preferences, authorization: authorization)
+    } catch {
+      // APNs registration is retried on foreground; no delivery success is inferred here.
+    }
+    pushDelegate?.deliverPendingRoute()
+  }
+
+  private func saveRemoteNotificationPreferences(
+    _ value: NotificationPreferences,
+    homeTimezone: String? = nil
+  ) async throws {
+    guard let participantID = joinedParticipantID else {
+      guard value.weeklyResult == .off && value.monthlyResult == .off else {
+        throw CompetitionTransportError.unavailable
+      }
+      return
+    }
+    let identity = competitionIdentityRevision
+    let service = try ensurePushRegistration()
+    let api = try await competitionClient()
+    guard identity == competitionIdentityRevision else { throw CancellationError() }
+    try await service.saveResultPreferences(
+      value, transport: api.transport, participantID: participantID,
+      homeTimezone: homeTimezone ?? presentation.preferences.homeTimezone,
+      locale: Locale.preferredLanguages.first ?? "en")
+    guard identity == competitionIdentityRevision else { throw CancellationError() }
+  }
+
   func claimReviewRequest() -> Bool {
     guard presentation.selectedTab == .history, presentation.history != nil,
       !presentation.historyLoading, !presentation.historyFailed,
@@ -390,7 +500,14 @@ import struct FoldingData.SetupProgress
   }
 
   func cloudAccountChanged() async {
+    competitionIdentityRevision = UUID()
     presentation.invalidateCompetitionPresentation()
+    pushDelegate?.discardPendingRoute()
+    do { try await pushRegistration?.deactivate() } catch {
+      // The account-change fence still proceeds; session revocation remains the server cleanup boundary.
+    }
+    joinedParticipantID = nil
+    competitionRestored = false
     if let competitionAPI { try? await competitionAPI.transport.clearSession() }
     competitionAPI = nil
     presentation.competition = .notJoined
@@ -414,6 +531,7 @@ import struct FoldingData.SetupProgress
   func refreshVisible() async {
     presentation.notificationPreferences = notifications.preferences
     presentation.notificationAuthorization = await notifications.authorization()
+    await configurePush()
     do {
       try await runtime.cleanupExports()
     } catch is CancellationError {

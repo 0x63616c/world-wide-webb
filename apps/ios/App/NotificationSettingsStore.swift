@@ -23,7 +23,20 @@ import UserNotifications
     }
   }
 
-  func save(_ requested: NotificationPreferences) async throws -> NotificationPreferences {
+  func applyResultPreferences(_ remote: CompetitionResultPreferences) throws {
+    guard let weekly = ResultNotificationChoice(rawValue: remote.weekly),
+      let monthly = ResultNotificationChoice(rawValue: remote.monthly)
+    else { throw CompetitionTransportError.invalidResponse }
+    var next = preferences
+    next.weeklyResult = weekly
+    next.monthlyResult = monthly
+    defaults.set(try JSONEncoder().encode(next), forKey: key)
+  }
+
+  func save(
+    _ requested: NotificationPreferences,
+    beforePersist: ((NotificationPreferences) async throws -> Void)? = nil
+  ) async throws -> NotificationPreferences {
     let previous = preferences
     var result = requested
     let enabling =
@@ -40,6 +53,7 @@ import UserNotifications
         if previous.monthlyResult == .off { result.monthlyResult = .off }
       }
     }
+    try await beforePersist?(result)
     defaults.set(try JSONEncoder().encode(result), forKey: key)
     if !result.dailyLimit {
       let pending = await center.pendingNotificationRequests()

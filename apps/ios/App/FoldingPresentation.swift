@@ -263,6 +263,7 @@ enum ExportChoice { case json, csv }
   var joinNickname = ""
   var hiddenParticipantIDs: Set<String> = []
   var hiddenParticipantNames: [String: String] = [:]
+  var requestedResultID: String?
   var results: [CompetitionResult] = []
   var resultsPeriod: CompetitionPeriod = .week
   var resultsCursor: String?
