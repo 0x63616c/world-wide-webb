@@ -160,7 +160,7 @@ impl Error {
     pub fn next_action(&self) -> String {
         let action = match self.failure {
             Failure::NotReady => {
-                "Merge the host's enrollment PR, then retry with its approved configuration."
+                "Confirm the host's enrollment configuration is published, then resume its approved setup."
             }
             Failure::UnknownOutcome => {
                 "Reconnect using the existing verified route and inspect target setup state before retrying. Do not assume bootstrap or a privileged process stopped."

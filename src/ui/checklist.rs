@@ -471,7 +471,6 @@ mod tests {
                 master.write_all(b"r").unwrap();
             }
             wait("CHECKLIST_TEST_COMPLETE", &mut master);
-            drop(wait);
             assert!(child.wait().unwrap().success());
         }
     }

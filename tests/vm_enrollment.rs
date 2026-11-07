@@ -759,10 +759,23 @@ impl Terminal {
                 self.text.clear();
                 return;
             }
-            assert!(
-                self.text.len() <= 256 * 1024,
-                "unexpected terminal output volume while waiting for {expected}"
-            );
+            if self.text.contains("R Retry checks") {
+                let reason = SAFE_FAILURES
+                    .iter()
+                    .copied()
+                    .find(|message| self.text.contains(message))
+                    .unwrap_or("Checklist step failed; preserve fixture state for inspection.");
+                panic!("wizard needs attention before {expected}: {reason}");
+            }
+            // Live progress redraws indefinitely; retain a bounded tail instead
+            // of treating a slow, healthy installation as excessive output.
+            if self.text.len() > 128 * 1024 {
+                let mut start = self.text.len() - 64 * 1024;
+                while !self.text.is_char_boundary(start) {
+                    start += 1;
+                }
+                self.text.drain(..start);
+            }
             if self.child.try_wait().unwrap().is_some() {
                 let reason = SAFE_FAILURES
                     .iter()
@@ -813,6 +826,11 @@ const SAFE_FAILURES: &[&str] = &[
     "The reviewed configuration is not ready for this host's first setup.",
     "The private credential files could not be safely prepared.",
     "The target could not be inspected through verified SSH.",
+    "The target's Git identity could not be confirmed.",
+    "A private remote staging directory could not be confirmed.",
+    "The setup files could not be transferred.",
+    "The staged artifact failed verification; bootstrap was not started.",
+    "Remote staging cleanup could not be confirmed.",
 ];
 const COMPLETION_PHASES: &[&str] = &[
     "Checking services, Tailscale and Git access",
@@ -1406,7 +1424,7 @@ fn complete_preserved(f: &Fixture) {
     );
 }
 
-fn resume_prepare(f: &Fixture) {
+fn resume_prepare(f: &Fixture, merged: bool) {
     use std::os::unix::fs::FileTypeExt;
     require_idle_operator(f);
     vm::guard_guest(&f.target, &f.state_directory.join("vm-ssh"));
@@ -1419,21 +1437,27 @@ fn resume_prepare(f: &Fixture) {
         .is_some(),
         "guest bootstrap state is not safely resumable"
     );
-    validate_resume(f);
+    let expected = if merged {
+        validate_resume(f)
+    } else {
+        assert!(
+            provisioning::approved_installation(
+                &f.state_directory.join(".local/state/homelab/provisioning"),
+                "vm-test"
+            )
+            .unwrap()
+            .is_none(),
+            "approved setups use the existing resume/completion route"
+        );
+        f.target.revision.clone()
+    };
     let main = api(
         f,
         "GET",
         &format!("repos/{}/commits/main", f.target.repository),
         None,
     );
-    assert_eq!(
-        main["sha"].as_str().unwrap(),
-        String::from_utf8(vm::private_bytes(
-            &f.state_directory.join("merged-revision"),
-            40
-        ))
-        .unwrap()
-    );
+    assert_eq!(main["sha"].as_str().unwrap(), expected);
     for name in ["vm-ssh", "vm-scp", "vm-tailnet", "gh", "vm-enrollment"] {
         install_adapter(
             &std::env::current_exe().unwrap(),
@@ -1449,7 +1473,7 @@ fn resume_prepare(f: &Fixture) {
         fs::remove_file(socket).unwrap();
     }
     let status = Command::new(f.state_directory.join("vm-enrollment"))
-        .arg("--resume-drive")
+        .arg(if merged { "--resume-drive" } else { "--drive" })
         .status()
         .unwrap();
     assert!(
@@ -1615,7 +1639,16 @@ fn main() {
             "--complete-drive",
         ),
         Some("--complete-drive") => complete_preserved(&fixture()),
-        Some("--resume-prepare") => resume_prepare(&fixture()),
+        Some("--resume-prepare") => resume_prepare(&fixture(), true),
+        Some("--retry-preparation-drive") => resume_prepare(&fixture(), false),
+        Some("--retry-preparation") => preserved_run(
+            Path::new(
+                &std::env::args_os()
+                    .nth(2)
+                    .expect("preserved fixture path required"),
+            ),
+            "--retry-preparation-drive",
+        ),
         Some("--resume-drive") => drive(&fixture(), true),
         Some("--drive") => drive(&fixture(), false),
         Some("--wizard-child") => wizard(&fixture()),
