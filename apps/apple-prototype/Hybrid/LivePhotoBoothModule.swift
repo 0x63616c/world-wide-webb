@@ -115,6 +115,5 @@ struct LivePhotoBoothModule: View {
                 }.buttonStyle(.glassProminent).tint(.white)
             }.controlSize(.large).padding(.bottom, 24)
         }
-        .accessibilityIdentifier("booth-saved-strip")
     }
 }

@@ -62,6 +62,8 @@ extension HomeViewLaunchTests {
         app.buttons["booth-shutter"].tap()
         XCTAssertTrue(app.staticTexts["Strip saved"].waitForExistence(timeout: 25))
         screenshot("10-saved-strip")
+        app.buttons["booth-gallery"].tap()
+        XCTAssertTrue(app.buttons["booth-photo-booth:bp_simulator"].waitForExistence(timeout: 10))
     }
     @MainActor func testBoothShowsUnavailableCameraAndEmptyGallery() {
         let app = XCUIApplication()
