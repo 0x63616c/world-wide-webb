@@ -1216,7 +1216,7 @@ async fn late_alarm_claim_preserves_native_scheduled_occurrence() {
         json!({"label":"Native occurrence", "timeZone":"UTC", "at":due.to_rfc3339()}),
     )
     .unwrap();
-    alarms::create_at(&state, def, None, start).await.unwrap();
+    let _ = alarms::create_at(&state, def, None, start).await.unwrap();
     assert_eq!(
         alarms::claim_due(&state, due + chrono::Duration::milliseconds(375))
             .await
