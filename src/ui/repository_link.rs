@@ -62,6 +62,37 @@ pub(super) fn attach(link: &Link, colour: bool) -> io::Result<()> {
     output.flush()
 }
 
+pub(super) fn commit(frame: &mut ratatui::Frame<'_>, reference: &str) -> Option<Link> {
+    let (repository, sha) = reference.split_once('#')?;
+    if !crate::config::valid_repository(repository)
+        || sha.len() != 8
+        || !sha.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    let label = format!("#{sha}");
+    let area = frame.area();
+    let buffer = frame.buffer_mut();
+    for y in area.top()..area.bottom() {
+        let text: String = (area.left()..area.right())
+            .map(|x| buffer[(x, y)].symbol())
+            .collect();
+        if let Some(index) = text.find(&label) {
+            return Some(Link {
+                area: Rect::new(
+                    area.x + text[..index].width() as u16,
+                    y,
+                    label.len() as u16,
+                    1,
+                ),
+                label,
+                url: format!("https://github.com/{repository}/commit/{sha}"),
+            });
+        }
+    }
+    None
+}
+
 fn write_label(output: &mut impl Write, link: &Link) -> io::Result<()> {
     write!(
         output,

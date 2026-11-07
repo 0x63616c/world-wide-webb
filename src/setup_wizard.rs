@@ -832,6 +832,86 @@ pub(crate) fn repository_progress(repository: &str) -> io::Result<()> {
     Ok(())
 }
 
+pub(crate) fn configuration_loaded(repository: &str) -> io::Result<()> {
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(1);
+    while std::time::Instant::now() < until && !crate::quit::requested() {
+        render(
+            "Opening homelab",
+            &[
+                (format!("Repo: {repository}"), Role::Repository),
+                ("✓ Configuration loaded".into(), Role::Success),
+            ],
+            0,
+            &[Action::Quit],
+        )?;
+        if event::poll(std::time::Duration::from_millis(40))?
+            && let Event::Key(key) = event::read()?
+        {
+            crate::quit::handle(key);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn completed_lines(host: &str, revision: &str, dns_name: &str) -> Vec<String> {
+    vec![
+        format!("{host} is set up!"),
+        "✓ Configuration installed".into(),
+        "✓ Reboot and remote access verified".into(),
+        "✓ Automatic Git updates enabled".into(),
+        String::new(),
+        format!("Configuration: #{}", revision.get(..8).unwrap_or(revision)),
+        format!("Tailscale: {dns_name}"),
+    ]
+}
+
+pub(crate) fn success(lines: &[String], repository: &str) -> io::Result<()> {
+    let started = std::time::Instant::now();
+    let mut offset = 0usize;
+    loop {
+        let mut body = vec![
+            (format!("Repo: {repository}"), Role::Repository),
+            (
+                format!(" {} ", lines.first().map_or("All set!", String::as_str)),
+                Role::SuccessTitle,
+            ),
+            (String::new(), Role::Body),
+        ];
+        body.extend(lines.iter().skip(1).map(|line| {
+            (
+                line.clone(),
+                if line.starts_with('✓') {
+                    Role::Success
+                } else {
+                    Role::Field
+                },
+            )
+        }));
+        if let Some(sha) = lines
+            .iter()
+            .find_map(|line| line.strip_prefix("Configuration: #"))
+        {
+            body.push((format!("{repository}#{sha}"), Role::Commit));
+        }
+        if terminal::size()?.1 < 18 {
+            body.retain(|(text, _)| !text.is_empty());
+        }
+        let last = ui::render_success(&body, started.elapsed(), offset)?;
+        offset = offset.min(last);
+        if event::poll(std::time::Duration::from_millis(40))?
+            && let Event::Key(event) = event::read()?
+        {
+            match crate::quit::handle(event) {
+                KeyCode::Enter if usable_size()? => return Ok(()),
+                KeyCode::Up => offset = offset.saturating_sub(1),
+                KeyCode::Down => offset = (offset + 1).min(last),
+                _ if crate::quit::requested() => return Ok(()),
+                _ => {}
+            }
+        }
+    }
+}
+
 pub(crate) fn attached_workspace(path: &Path) -> io::Result<Option<config::Workspace>> {
     match config::load(path) {
         Ok(Some(workspace)) => return Ok(Some(workspace)),
@@ -1304,7 +1384,7 @@ fn enroll(
         ));
     }
     if prerequisites == remote_setup::Prerequisites::DeveloperToolsMissing {
-        let package = match package::prepare(workspace) {
+        let package = match checklist.background(|| package::prepare(workspace))? {
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
         };
@@ -1330,9 +1410,11 @@ fn enroll(
             Err(error) => return Ok(enrollment_failure(error)),
         };
     {
-        let current_workspace = match saved_installation_workspace(profile) {
+        let current_workspace = match checklist.background(|| {
+            saved_installation_workspace(profile).map_err(|error| error.to_string())
+        })? {
             Ok(Some(workspace)) => workspace,
-            Ok(None) => match config::fetch(&workspace.repository) {
+            Ok(None) => match checklist.background(|| config::fetch(&workspace.repository))? {
                 Ok(workspace) => workspace,
                 Err(error) => return Ok(enrollment_failure(error)),
             },
@@ -1346,7 +1428,7 @@ fn enroll(
         }
         let directory = root.join("hosts").join(host_name);
 
-        let package = match package::prepare(workspace) {
+        let package = match checklist.background(|| package::prepare(workspace))? {
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
         };
@@ -1377,15 +1459,30 @@ fn enroll(
             }
             checklist.begin(Step::Verify, "Checking the existing activated setup");
             checklist.draw(&[Action::Help])?;
-            let installed = match config::fetch_revision(&workspace.repository, revision) {
+            let installed = match checklist
+                .background(|| config::fetch_revision(&workspace.repository, revision))?
+            {
                 Ok(workspace) => workspace,
                 Err(error) => return Ok(enrollment_failure(error)),
             };
-            let outcome = crate::terminal_process::within("Verifying your Mac", host_name, || {
-                finish_enrollment(profile, host_name, &installed, tools, dependencies)
-            });
+            let outcome = crate::terminal_process::within_checklist(
+                "Setting up your Mac",
+                host_name,
+                checklist.rows(),
+                || {
+                    finish_enrollment(
+                        profile,
+                        host_name,
+                        &installed,
+                        tools,
+                        dependencies,
+                        &mut checklist,
+                    )
+                },
+            );
             if outcome.completed {
                 checklist.done(Step::Verify);
+                checklist.done(Step::Updates);
             }
             checklist.message(if outcome.completed {
                 "Setup complete."
@@ -1592,11 +1689,12 @@ fn enroll(
             }
             Err(error) => return Ok(enrollment_failure(error)),
         }
-        let (approved, repair_from) =
-            match crate::setup_repair::resolve(&api, root, approved, host_name) {
-                Ok(repaired) => repaired,
-                Err(error) => return Ok(enrollment_failure(error)),
-            };
+        let (approved, repair_from) = match checklist
+            .background(|| crate::setup_repair::resolve(&api, root, approved, host_name))?
+        {
+            Ok(repaired) => repaired,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
         let repair_previous = match crate::provisioning::approved_installation(root, host_name) {
             Ok(Some(saved)) => saved
                 .repair
@@ -1607,29 +1705,31 @@ fn enroll(
         checklist.done(Step::Configuration);
         checklist.begin(Step::Install, "Preparing the exact approved installation");
         checklist.draw(&[Action::Help, Action::StopBeforeInstallation])?;
-        let package = match package::prepare(&approved) {
+        let package = match checklist.background(|| package::prepare(&approved))? {
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
         };
         if checklist.stop_requested()? {
             return Ok(cancelled());
         }
-        let prepared = match remote_setup::prepare(
-            Request {
-                attempt: attempt.id.clone(),
-                repository: approved.repository.clone(),
-                profile: profile.clone(),
-                configuration_host: host_name.into(),
-                revision: approved.revision.clone(),
-                artifact_directory: package.directory.clone(),
-                age_key: credentials.host_key_path,
-                deploy_key: identity.path,
-                resume: true,
-                repair_from,
-                repair_previous,
-            },
-            &tools.remote_setup,
-        ) {
+        let prepared = match checklist.background(|| {
+            remote_setup::prepare(
+                Request {
+                    attempt: attempt.id.clone(),
+                    repository: approved.repository.clone(),
+                    profile: profile.clone(),
+                    configuration_host: host_name.into(),
+                    revision: approved.revision.clone(),
+                    artifact_directory: package.directory.clone(),
+                    age_key: credentials.host_key_path,
+                    deploy_key: identity.path,
+                    resume: true,
+                    repair_from,
+                    repair_previous,
+                },
+                &tools.remote_setup,
+            )
+        })? {
             Ok(prepared) => prepared,
             Err(error) => return Ok(remote_setup_failure(error)),
         };
@@ -1643,21 +1743,33 @@ fn enroll(
                 identity.bootstrap_started,
             ));
         }
-        match crate::terminal_process::within("Setting up your Mac", host_name, || {
-            remote_setup::apply(prepared, &tools.remote_setup)
-        }) {
+        match crate::terminal_process::within_checklist(
+            "Setting up your Mac",
+            host_name,
+            checklist.rows(),
+            || remote_setup::apply(prepared, &tools.remote_setup),
+        ) {
             Ok(_) => {
                 checklist.done(Step::Install);
-                if !checklist.checkpoint("Installation complete.")? {
-                    return Ok(cancelled());
-                }
-                checklist.begin(Step::Verify, "Checking reboot, services and Git updates");
-                let outcome =
-                    crate::terminal_process::within("Verifying your Mac", host_name, || {
-                        finish_enrollment(profile, host_name, &approved, tools, dependencies)
-                    });
+                checklist.begin(Step::Verify, "Checking reboot and remote access");
+                let outcome = crate::terminal_process::within_checklist(
+                    "Setting up your Mac",
+                    host_name,
+                    checklist.rows(),
+                    || {
+                        finish_enrollment(
+                            profile,
+                            host_name,
+                            &approved,
+                            tools,
+                            dependencies,
+                            &mut checklist,
+                        )
+                    },
+                );
                 if outcome.completed {
                     checklist.done(Step::Verify);
+                    checklist.done(Step::Updates);
                 }
                 checklist.message(if outcome.completed {
                     "Setup complete."
@@ -1678,6 +1790,7 @@ fn finish_enrollment(
     workspace: &config::Workspace,
     tools: &WizardTools,
     dependencies: &EnrollmentDependencies,
+    checklist: &mut Checklist,
 ) -> Outcome {
     let Some(tailscale) = workspace.manifest.tailscale.as_ref() else {
         return enrollment_failure("The approved configuration is missing its Tailscale tag.");
@@ -1701,19 +1814,27 @@ fn finish_enrollment(
             revision: &workspace.revision,
             tag: &tailscale.tag,
         },
-        crate::terminal_process::progress,
+        |phase| {
+            if phase == crate::remote_completion::Progress::EnablingUpdates {
+                checklist.done(Step::Verify);
+                checklist.begin(Step::Updates, phase.message());
+                crate::terminal_process::progress_steps(checklist.rows());
+                crate::terminal_process::phase("Setting up your Mac", phase.message());
+            } else {
+                crate::terminal_process::phase("Setting up your Mac", phase.message());
+            }
+        },
     ) {
         Ok(report) => Outcome {
             completed: true,
-            lines: vec![
-                format!("{host} is set up."),
-                "Reboot, services, Tailscale access and Git access verified.".into(),
-                format!(
-                    "Configuration: https://github.com/{}/commit/{}",
-                    workspace.repository, workspace.revision
-                ),
-                format!("Tailscale: {}", report.tailscale.dns_name),
-            ],
+            lines: completed_lines(
+                host,
+                report
+                    .reconciled_revision
+                    .as_deref()
+                    .unwrap_or(&workspace.revision),
+                &report.tailscale.dns_name,
+            ),
         },
         Err(error) => enrollment_failure(error),
     }

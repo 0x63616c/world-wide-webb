@@ -134,7 +134,7 @@ fn scenario(mode: &str, fixture: &Path) {
         if mode.starts_with("failure")
             && !acknowledged
             && screen.contains("Fixture command failed")
-            && screen.contains("Continue")
+            && screen.contains("Press Enter to continue")
         {
             acknowledged = true;
             writer

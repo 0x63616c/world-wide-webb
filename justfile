@@ -2,12 +2,14 @@
 default:
     @just --list
 
-# Build the local CLI and matching helper, and link hl-dev / homelab-dev.
+# Install development launchers; source changes rebuild automatically on launch.
 dev:
-    HOMELAB_DEV_REVISION="$(git rev-parse --short=8 HEAD)$(git diff --quiet HEAD -- || printf '%s' '-dirty')" cargo build --locked --features local-dev --bins --target-dir target/dev
+    sh scripts/dev --version
     mkdir -p "$HOME/.local/bin"
-    ln -sfn "$PWD/target/dev/debug/homelab" "$HOME/.local/bin/homelab-dev"
-    ln -sfn "$PWD/target/dev/debug/homelab" "$HOME/.local/bin/hl-dev"
+    rm -f "$HOME/.local/bin/homelab-dev"
+    printf '#!/bin/sh\nexec sh "%s/scripts/dev" "$@"\n' "$PWD" > "$HOME/.local/bin/homelab-dev"
+    chmod +x "$HOME/.local/bin/homelab-dev"
+    ln -sfn homelab-dev "$HOME/.local/bin/hl-dev"
 
 # Build and explore synthetic screens without credentials or a target Mac.
 preview: dev

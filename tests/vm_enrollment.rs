@@ -772,7 +772,7 @@ impl Terminal {
             let screen = self.screen.screen().contents();
             if !self.installation_acknowledged
                 && screen.contains("Installation complete.")
-                && screen.contains("Continue")
+                && screen.contains("Press Enter to continue")
             {
                 self.enter();
                 self.installation_acknowledged = true;
@@ -890,7 +890,7 @@ const COMPLETION_PHASES: &[&str] = &[
     "Checking services, Tailscale and Git access",
     "Restarting the Mac and waiting for it to return",
     "Verifying the Mac after reboot",
-    "Finishing setup and enabling Git updates",
+    "Building and applying Git main",
 ];
 fn observed_phase(text: &str) -> Option<&'static str> {
     COMPLETION_PHASES
@@ -937,7 +937,7 @@ fn wizard(f: &Fixture) {
         println!("{FAILURE_PREFIX}{}", safe_failure(&result.lines));
     }
     assert!(
-        result.completed && result.lines.iter().any(|line| line == "vm-test is set up."),
+        result.completed && result.lines.iter().any(|line| line == "vm-test is set up!"),
         "enrollment did not complete; preserve fixture state"
     );
     drop(_selected_socket);
@@ -1487,7 +1487,7 @@ fn complete_preserved(f: &Fixture, already_rebooted: bool) {
                 tag: "tag:vm-test",
             },
             |phase| {
-                if let Some(known) = observed_phase(phase) {
+                if let Some(known) = observed_phase(phase.message()) {
                     println!("{known}");
                 }
             },

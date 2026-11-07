@@ -12,7 +12,7 @@ pub(super) fn body_lines(
     let mut lines = Vec::new();
     let mut list_indices = Vec::new();
     for (text, role) in body {
-        if *role == Role::Repository {
+        if matches!(*role, Role::Repository | Role::Commit) {
             continue;
         }
         let item = matches!(role, Role::Selected | Role::ListOption);

@@ -119,7 +119,6 @@ impl Terminal {
         let screen = self.until("Configuration loaded");
         assert!(screen.contains("Opening homelab"));
         assert!(!self.parser.screen().contents().contains("> build-mac"));
-        self.master.write_all(b"\r").unwrap();
     }
 
     fn quit_and_verify_restoration(&mut self) {
@@ -470,6 +469,49 @@ fn loading_animates_before_the_host_list_arrives() {
             >= 2
     );
     terminal.quit_and_verify_restoration();
+}
+
+#[test]
+fn configuration_loaded_advances_after_one_second_without_enter() {
+    let fixture = Fixture::new();
+    fixture.attach();
+    let mut terminal = Terminal::start(&fixture.inventory);
+    terminal.until("Configuration loaded");
+    let loaded = Instant::now();
+    terminal.until("> build-mac");
+    assert!(loaded.elapsed() >= Duration::from_millis(800));
+    terminal.quit_and_verify_restoration();
+}
+
+#[test]
+fn success_preview_celebrates_and_enter_finishes_without_back() {
+    let fixture = Fixture::new();
+    let mut terminal =
+        Terminal::with_arguments(&fixture.inventory, &["preview", "--screen", "complete"]);
+    let screen = terminal.until("studio-mac is set up!");
+    assert!(screen.contains("Enter Done"));
+    assert!(screen.contains("Configuration: #a1b2c3d4"));
+    assert!(!screen.contains("Esc Back"));
+    assert!(!screen.contains("/commit/"));
+    assert!(!screen.contains("✓ studio-mac is set up!"));
+    terminal.until("\x1b]8;;https://github.com/example/homelab/commit/a1b2c3d4");
+    tcsetwinsize(
+        &terminal.slave,
+        Winsize {
+            ws_row: 12,
+            ws_col: 40,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        },
+    )
+    .unwrap();
+    let compact = terminal.until("Configuration: #a1b2c3d4");
+    assert!(compact.contains("Tailscale:") || compact.contains("Navigation"));
+    terminal.master.write_all(b"\x1b").unwrap();
+    thread::sleep(Duration::from_millis(100));
+    assert!(terminal.child.try_wait().unwrap().is_none());
+    terminal.master.write_all(b"\r").unwrap();
+    terminal.wait_and_verify_restoration(true);
 }
 
 #[test]

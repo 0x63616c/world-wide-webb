@@ -3,6 +3,7 @@ pub(crate) mod actions;
 pub(crate) mod components;
 pub(crate) mod loading;
 use actions::Action;
+mod celebration;
 mod repository_link;
 
 use std::cell::RefCell;
@@ -36,6 +37,8 @@ pub(crate) enum Role {
     Working,
     Warning,
     Success,
+    SuccessTitle,
+    Commit,
     Pending,
 }
 
@@ -99,6 +102,7 @@ fn style(role: Role, colour: bool) -> Style {
         | Role::Action
         | Role::Working
         | Role::Success
+        | Role::SuccessTitle
         | Role::Warning => base.add_modifier(Modifier::BOLD),
         Role::Selected => base.add_modifier(Modifier::BOLD | Modifier::REVERSED),
         _ => base,
@@ -115,6 +119,8 @@ fn style(role: Role, colour: bool) -> Style {
         Role::Context | Role::Repository | Role::Pending => emphasis.fg(Color::Gray),
         Role::Warning => emphasis.fg(Color::LightYellow),
         Role::Success => emphasis.fg(Color::LightGreen),
+        Role::SuccessTitle => emphasis.fg(Color::Black).bg(Color::LightGreen),
+        Role::Commit => emphasis,
         Role::Body | Role::Section | Role::Field | Role::Input | Role::Shortcut => emphasis,
         Role::Placeholder => emphasis.fg(Color::DarkGray),
         Role::Hint => emphasis.fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
@@ -272,6 +278,15 @@ pub(crate) fn render_frame(
     update: Option<&str>,
 ) -> usize {
     let confirmation = [Action::ConfirmQuit];
+    let continuation = footer
+        .iter()
+        .any(|action| matches!(action, Action::Primary(label) if label == "Continue"));
+    let mut presented_body = body.to_vec();
+    if continuation {
+        presented_body.push((String::new(), Role::Body));
+        presented_body.push(("Press Enter to continue".into(), Role::Hint));
+    }
+    let body = presented_body.as_slice();
     let footer = if crate::quit::armed() {
         &confirmation[..]
     } else {
@@ -302,7 +317,10 @@ pub(crate) fn render_frame(
     let actions: Vec<_> = footer
         .iter()
         .filter(|action| {
-            **action != Action::Navigation || choices > 1 || line_count > usize::from(content_room)
+            !matches!(action, Action::Primary(label) if label == "Continue")
+                && (**action != Action::Navigation
+                    || choices > 1
+                    || line_count > usize::from(content_room))
         })
         .cloned()
         .collect();
@@ -437,6 +455,34 @@ pub(crate) fn render(
     offset: usize,
     footer: &[Action],
 ) -> io::Result<usize> {
+    render_decorated(title, body, offset, footer, None)
+}
+
+pub(crate) fn render_success(
+    body: &[(String, Role)],
+    elapsed: std::time::Duration,
+    offset: usize,
+) -> io::Result<usize> {
+    render_decorated(
+        "",
+        body,
+        offset,
+        &[
+            Action::Primary("Done".into()),
+            Action::Navigation,
+            Action::Quit,
+        ],
+        Some(elapsed),
+    )
+}
+
+fn render_decorated(
+    title: &str,
+    body: &[(String, Role)],
+    offset: usize,
+    footer: &[Action],
+    celebration: Option<std::time::Duration>,
+) -> io::Result<usize> {
     RENDERER.with(|renderer| {
         let mut renderer = renderer.borrow_mut();
         if renderer.is_none() {
@@ -445,11 +491,15 @@ pub(crate) fn render(
             *renderer = Some(terminal);
         }
         let mut link = None;
+        let mut commit_links = Vec::new();
         let mut last = 0;
         renderer
             .as_mut()
             .expect("renderer initialized")
             .draw(|frame| {
+                if let Some(elapsed) = celebration {
+                    celebration::render(frame, elapsed, std::env::var_os("NO_COLOR").is_none());
+                }
                 let brand_width = match crate::operator_profile::name() {
                     Some(name) => format!("[~] homelab ({name})").width(),
                     None => "[~] homelab".width(),
@@ -469,8 +519,16 @@ pub(crate) fn render(
                     std::env::var_os("NO_COLOR").is_none(),
                     crate::update_check::available().as_deref(),
                 );
+                commit_links = body
+                    .iter()
+                    .filter(|(_, role)| *role == Role::Commit)
+                    .filter_map(|(reference, _)| repository_link::commit(frame, reference))
+                    .collect();
             })?;
         if let Some(link) = link {
+            repository_link::attach(&link, std::env::var_os("NO_COLOR").is_none())?;
+        }
+        for link in commit_links {
             repository_link::attach(&link, std::env::var_os("NO_COLOR").is_none())?;
         }
         Ok(last)

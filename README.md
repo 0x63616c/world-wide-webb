@@ -101,10 +101,10 @@ release endpoint in the background, at most once every six hours, and shows newe
 versions without installing them. It sends no setup data or credentials. Set
 `HOMELAB_NO_UPDATE_CHECK=1` to disable this check; previews never perform it.
 
-With Rust and Just installed (`brew install just`), run `just dev` from this checkout. It incrementally
-builds both the CLI and its matching helper, then links `homelab-dev` and `hl-dev`
+With Rust and Just installed (`brew install just`), run `just dev` once from this checkout. It
+installs `homelab-dev` and `hl-dev` launchers that build the CLI and matching helper
 in `~/.local/bin` (that directory must be on your PATH). Run either name to try
-the local version; rerun `just dev` after editing code. No GitHub release is needed.
+the local version. Reopening either command rebuilds changed source automatically. No GitHub release is needed.
 Run plain `just` to list the available commands and their descriptions.
 
 Try the interface without accounts or a target Mac:

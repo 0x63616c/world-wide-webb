@@ -51,7 +51,11 @@ CLI can reuse the accepted password in memory for the same pinned SSH identity.
 It clears that password when the attempt ends or authentication fails; it never
 writes it to disk, Git, logs or 1Password. Reopening the CLI requires authentication
 again. A Tailscale-native fallback may also need a separate prompt.
-Completed stages wait for **Enter**. A FileVault-protected Mac may need a local unlock after restart.
+The checklist advances through prepare, install, verify, and enable Git updates.
+Enabling updates lets Comin build and apply current `main`; verification itself
+does not install changes. Screens that need acknowledgement show **Press Enter to continue**.
+A FileVault-protected Mac may need an unlock after restart. Unattended cold boot
+requires choosing a boot policy that does not depend on a password unlock.
 Tailscale check-mode policy may also request browser approval.
 
 ## If something stops

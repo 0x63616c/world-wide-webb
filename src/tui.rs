@@ -165,7 +165,7 @@ fn merge_rows(
                 name,
                 connection,
                 resume: true,
-                status: crate::host_status::Status::Resume,
+                status: crate::host_status::Status::Pending,
                 missing_from_main,
             },
         );
@@ -211,7 +211,6 @@ fn load_rows(
                 match crate::provisioning::has_saved_preparation(&root, repository, &row.name) {
                     Ok(true) => {
                         row.resume = true;
-                        row.status = crate::host_status::Status::Resume;
                     }
                     Ok(false) => (),
                     Err(_) => row.status = crate::host_status::Status::Unknown,
@@ -244,7 +243,10 @@ fn selected_row(rows: &[Row], selection: &str) -> Result<usize, MenuError> {
 fn status_candidates(rows: &mut [Row]) -> Vec<(String, HostProfile, bool)> {
     rows.iter_mut()
         .filter_map(|row| {
-            let connection = row.connection.as_ref().ok()?;
+            let Ok(connection) = row.connection.as_ref() else {
+                row.status = crate::host_status::Status::Unknown;
+                return None;
+            };
             if connection.requires_review() {
                 row.status = crate::host_status::Status::Unknown;
                 return None;
@@ -460,7 +462,11 @@ pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuE
         if crate::quit::requested() {
             return Ok(());
         }
+        if selection.is_none() && notice.is_none() {
+            crate::setup_wizard::configuration_loaded(&repository)?;
+        }
         if selection.is_none()
+            && notice.is_some()
             && !crate::setup_wizard::review(
                 &[
                     "Opening homelab".into(),
@@ -564,6 +570,16 @@ pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuE
         let Some(row) = row else {
             continue;
         };
+        if direct.is_none()
+            && row.status == crate::host_status::Status::Complete
+            && !crate::setup_wizard::review_content(
+                &format!("About {}", row.name),
+                &host_details(&repository, &row),
+                "Verify setup",
+            )?
+        {
+            continue;
+        }
         canonical_selection = Some(row.name.clone());
         let Some(profile) = prepare_connection(path, &row)? else {
             if direct.is_some() {
@@ -585,7 +601,11 @@ pub fn launch_selected(path: &Path, selection: Option<&str>) -> Result<(), MenuE
             };
         }
         terminal_guard.resume()?;
-        crate::setup_wizard::review(&outcome.lines, "")?;
+        if outcome.completed {
+            crate::setup_wizard::success(&outcome.lines, &repository)?;
+        } else {
+            crate::setup_wizard::review(&outcome.lines, "")?;
+        }
     }
 }
 
@@ -692,13 +712,15 @@ mod tests {
     #[test]
     fn unavailable_approved_revision_cannot_fall_back_to_new_enrollment() {
         let current = workspace("build-mac", "new-admin");
-        let rows = merge_rows(
+        let mut rows = merge_rows(
             "example/config",
             Some(&current),
             &[cached()],
             vec![("build-mac".into(), Err("Unavailable".into()))],
         );
         assert!(rows[0].connection.is_err());
+        assert!(status_candidates(&mut rows).is_empty());
+        assert_eq!(rows[0].status, crate::host_status::Status::Unknown);
         let mut other = workspace("build-mac", "original-admin");
         other.repository = "other/config".into();
         let rows = merge_rows(

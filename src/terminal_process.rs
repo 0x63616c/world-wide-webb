@@ -21,6 +21,7 @@ struct Context {
     title: String,
     host: String,
     message: String,
+    steps: Vec<(String, Role)>,
 }
 thread_local! { static CONTEXT: RefCell<Option<Context>> = const { RefCell::new(None) }; }
 thread_local! { static DIAGNOSTIC: RefCell<Option<Diagnostic>> = const { RefCell::new(None) }; }
@@ -152,6 +153,7 @@ pub fn within<T>(title: &str, host: &str, operation: impl FnOnce() -> T) -> T {
             title: title.into(),
             host: host.into(),
             message: "Working…".into(),
+            steps: Vec::new(),
         }))
     });
     let _restore = Restore(previous);
@@ -160,6 +162,38 @@ pub fn within<T>(title: &str, host: &str, operation: impl FnOnce() -> T) -> T {
 
 fn context() -> Option<Context> {
     CONTEXT.with(|context| context.borrow().clone())
+}
+
+pub(crate) fn within_checklist<T>(
+    title: &str,
+    host: &str,
+    steps: Vec<(String, Role)>,
+    operation: impl FnOnce() -> T,
+) -> T {
+    within(title, host, || {
+        progress_steps(steps);
+        operation()
+    })
+}
+
+pub(crate) fn progress_steps(steps: Vec<(String, Role)>) {
+    CONTEXT.with(|context| {
+        if let Some(context) = context.borrow_mut().as_mut() {
+            context.steps = steps;
+        }
+    });
+}
+
+pub(crate) fn pause(duration: Duration) -> io::Result<()> {
+    if let Some(context) = context() {
+        crate::ui::loading::run(
+            || draw(&context, "", ProcessScreen::Running),
+            || std::thread::sleep(duration),
+        )
+    } else {
+        std::thread::sleep(duration);
+        Ok(())
+    }
 }
 
 pub(crate) fn progress(message: &str) {
@@ -171,6 +205,15 @@ pub(crate) fn progress(message: &str) {
     if let Some(context) = context() {
         let _ = draw(&context, "", ProcessScreen::Running);
     }
+}
+
+pub(crate) fn phase(title: &str, message: &str) {
+    CONTEXT.with(|context| {
+        if let Some(context) = context.borrow_mut().as_mut() {
+            context.title = title.into();
+        }
+    });
+    progress(message);
 }
 
 fn password_prompt(text: &str) -> bool {
@@ -234,6 +277,10 @@ fn process_body(context: &Context, text: &str, state: ProcessScreen) -> Vec<(Str
             !line.trim().is_empty() && !password_prompt(line) && !rejected_password(line)
         })
         .collect();
+    if !context.steps.is_empty() {
+        body.extend(context.steps.clone());
+        body.push((String::new(), Role::Body));
+    }
     if state == ProcessScreen::Failed {
         body.push(("Step failed".into(), Role::Warning));
         body.push((String::new(), Role::Body));

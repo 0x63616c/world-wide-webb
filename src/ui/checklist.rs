@@ -17,14 +17,16 @@ pub(super) enum Step {
     Configuration,
     Install,
     Verify,
+    Updates,
 }
-const STEPS: [Step; 6] = [
+const STEPS: [Step; 7] = [
     Step::Tools,
     Step::Identity,
     Step::Credentials,
     Step::Configuration,
     Step::Install,
     Step::Verify,
+    Step::Updates,
 ];
 impl Step {
     fn index(self) -> usize {
@@ -37,7 +39,8 @@ impl Step {
             Self::Credentials => "Back up and encrypt keys",
             Self::Configuration => "Save configuration in Git",
             Self::Install => "Install approved configuration",
-            Self::Verify => "Verify reboot and Git updates",
+            Self::Verify => "Verify reboot and remote access",
+            Self::Updates => "Enable Git updates",
         }
     }
     fn explanation(self) -> &'static str {
@@ -58,15 +61,16 @@ impl Step {
                 "Install the exact approved revision. SSH and sudo handle embedded password prompts; an uncertain activation is never blindly repeated."
             }
             Self::Verify => {
-                "Verify services, remote access, reboot and Git reconciliation before releasing the update hold. FileVault may need local unlock."
+                "Verify services, remote access and reboot. FileVault may need local unlock."
             }
+            Self::Updates => "Release the setup hold and let Comin build and apply Git main.",
         }
     }
 }
 use crate::ui::components::ProgressState as State;
 pub(super) struct Checklist {
     host: String,
-    states: [State; 6],
+    states: [State; 7],
     current: Step,
     started: Instant,
     message: String,
@@ -84,7 +88,7 @@ impl Checklist {
     fn new_at(host: &str, now: Instant) -> Self {
         Self {
             host: host.into(),
-            states: [State::Pending; 6],
+            states: [State::Pending; 7],
             current: Step::Tools,
             started: now,
             message: String::new(),
@@ -111,12 +115,18 @@ impl Checklist {
     pub(super) fn done(&mut self, step: Step) {
         self.states[step.index()] = State::Complete;
     }
+    pub(super) fn rows(&self) -> Vec<(String, Role)> {
+        self.stages()
+            .into_iter()
+            .map(|(label, state)| state.row(label))
+            .collect()
+    }
     fn fail(&mut self, step: Step, message: String) {
         self.states[step.index()] = State::Failed;
         self.message = message;
     }
 
-    fn stages(&self) -> [(&'static str, State); 3] {
+    fn stages(&self) -> [(&'static str, State); 4] {
         [
             (
                 ("Prepare", "Preparing", "Prepared", "Preparation failed"),
@@ -128,7 +138,16 @@ impl Checklist {
             ),
             (
                 ("Verify", "Verifying", "Verified", "Verification failed"),
-                &self.states[5..],
+                &self.states[5..6],
+            ),
+            (
+                (
+                    "Enable Git updates",
+                    "Enabling Git updates",
+                    "Git updates enabled",
+                    "Git updates failed",
+                ),
+                &self.states[6..],
             ),
         ]
         .map(|(label, states)| {
@@ -149,26 +168,6 @@ impl Checklist {
             };
             (label, state)
         })
-    }
-
-    pub(super) fn checkpoint(&mut self, message: &str) -> io::Result<bool> {
-        self.message(message);
-        loop {
-            self.draw(&[
-                Action::Primary("Continue".into()),
-                Action::Navigation,
-                Action::Back,
-                Action::Help,
-            ])?;
-            match super::key()? {
-                KeyCode::Enter if super::usable_size()? && self.offset >= self.last_offset => {
-                    return Ok(true);
-                }
-                KeyCode::Enter => self.offset = (self.offset + 3).min(self.last_offset),
-                code if Action::Back.matches(code) => return Ok(false),
-                key => self.key(key),
-            }
-        }
     }
 
     pub(super) fn message(&mut self, message: &str) {
@@ -266,6 +265,16 @@ impl Checklist {
         }
         Ok(self.cancelled)
     }
+    /// Run preparation once without blocking presentation or offering mutation retries.
+    pub(super) fn background<T: Send>(
+        &mut self,
+        operation: impl FnOnce() -> T + Send,
+    ) -> io::Result<T> {
+        let result = crate::ui::loading::run(|| self.draw(&[Action::Quit]), operation)?;
+        self.cancelled |= crate::quit::requested();
+        Ok(result)
+    }
+
     /// Keep input and the clock responsive while existing noninteractive operations run.
     /// Cancellation waits for the operation to finish; it never kills a mutation.
     pub(super) fn run<T: Send, E: std::fmt::Display + Send>(
@@ -493,6 +502,22 @@ mod tests {
         let mut checklist = Checklist::new("fixture-mac");
         let mut attempts = 0;
         let started = Instant::now();
+        if mode == "background" {
+            checklist.begin(Step::Install, "Preparing the approved installation");
+            let result = checklist
+                .background(|| {
+                    attempts += 1;
+                    std::thread::sleep(Duration::from_millis(1600));
+                    Err::<(), _>("Synthetic preparation failure")
+                })
+                .unwrap();
+            assert!(result.is_err());
+            assert_eq!(attempts, 1);
+            assert!(started.elapsed() >= Duration::from_millis(1600));
+            drop(_terminal);
+            println!("CHECKLIST_TEST_COMPLETE");
+            return;
+        }
         let result = checklist
             .run(Step::Credentials, |progress| {
                 attempts += 1;
@@ -528,7 +553,7 @@ mod tests {
         use std::fs::File;
         use std::io::{Read, Write};
         use std::process::{Command, Stdio};
-        for mode in ["cancel", "retry"] {
+        for mode in ["cancel", "retry", "background"] {
             let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY).unwrap();
             fcntl_setfd(&master, FdFlags::CLOEXEC).unwrap();
             grantpt(&master).unwrap();
@@ -587,6 +612,16 @@ mod tests {
                     std::thread::sleep(Duration::from_millis(10));
                 }
             };
+            if mode == "background" {
+                wait("Preparing the approved installation", &mut master);
+                master.write_all(b"\x03").unwrap();
+                wait("Press Ctrl-C again to quit", &mut master);
+                master.write_all(b"x").unwrap();
+                wait("fixture-mac · 1s", &mut master);
+                wait("CHECKLIST_TEST_COMPLETE", &mut master);
+                assert!(child.wait().unwrap().success());
+                continue;
+            }
             wait("Verifying saved backups", &mut master);
             wait("fixture-mac · 1s", &mut master);
             if mode == "cancel" {

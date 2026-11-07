@@ -371,6 +371,16 @@ fn fit_fixture(fixture: &mut Fixture, height: u16) {
 /// Preview uses the production renderer, but cannot start setup or read operator state.
 pub fn launch(screen: Screen) -> io::Result<()> {
     let _terminal = tui::Terminal::enter()?;
+    if screen == Screen::Complete {
+        return setup_wizard::success(
+            &setup_wizard::completed_lines(
+                "studio-mac",
+                "a1b2c3d4e5f6789012345678901234567890123456",
+                "studio-mac.example.ts.net",
+            ),
+            "example/homelab",
+        );
+    }
     let mut selected = SCREENS.iter().position(|item| *item == screen).unwrap_or(0);
     let mut offset = 0;
     let mut choice = 0;

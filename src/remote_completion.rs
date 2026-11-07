@@ -11,6 +11,33 @@ use crate::process;
 
 const HELPER: &str = "/run/current-system/sw/bin/homelab-host";
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Progress {
+    JoiningTailscale,
+    CheckingAccess,
+    Rebooting,
+    VerifyingReboot,
+    EnablingUpdates,
+}
+
+impl Progress {
+    pub fn message(self) -> &'static str {
+        match self {
+            Self::JoiningTailscale => "Joining Tailscale…",
+            Self::CheckingAccess => "Checking services, Tailscale and Git access",
+            Self::Rebooting => "Restarting the Mac and waiting for it to return",
+            Self::VerifyingReboot => "Verifying the Mac after reboot",
+            Self::EnablingUpdates => "Building and applying Git main",
+        }
+    }
+}
+
+impl std::fmt::Display for Progress {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.message())
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("The saved installation selection is invalid. Preserve this setup attempt.")]
@@ -214,7 +241,10 @@ fn diagnostic_script(probe: &str, start: &str, end: &str) -> String {
     format!("/bin/sh -c '{}'", body.replace('\'', "'\\''"))
 }
 
-fn wait_for_enrollment(connection: &Connection<'_>, progress: &impl Fn(&str)) -> Result<(), Error> {
+fn wait_for_enrollment(
+    connection: &Connection<'_>,
+    progress: &mut impl FnMut(Progress),
+) -> Result<(), Error> {
     #[derive(serde::Deserialize)]
     struct Status {
         #[serde(rename = "BackendState")]
@@ -237,8 +267,8 @@ fn wait_for_enrollment(connection: &Connection<'_>, progress: &impl Fn(&str)) ->
         {
             return Err(Error::Verification);
         }
-        progress("Joining Tailscale…");
-        std::thread::sleep(Duration::from_secs(5));
+        progress(Progress::JoiningTailscale);
+        crate::terminal_process::pause(Duration::from_secs(5)).map_err(|_| Error::Verification)?;
     }
 }
 
@@ -299,7 +329,7 @@ pub fn finish(
     profile: &HostProfile,
     ssh: &Path,
     selection: Installation<'_>,
-    progress: impl Fn(&str),
+    progress: impl FnMut(Progress),
 ) -> Result<VerifiedSetup, Error> {
     let tailscale = discover_tailscale()?;
     finish_with_tools(profile, ssh, &tailscale, selection, progress)
@@ -338,7 +368,7 @@ pub fn finish_with_tools(
     ssh: &Path,
     tailscale: &Path,
     selection: Installation<'_>,
-    progress: impl Fn(&str),
+    mut progress: impl FnMut(Progress),
 ) -> Result<VerifiedSetup, Error> {
     let binding =
         crate::config::setup_binding(selection.repository, selection.host, selection.revision)
@@ -373,8 +403,8 @@ pub fn finish_with_tools(
         return Err(Error::Verification);
     }
     if completed.is_none() {
-        wait_for_enrollment(&connection, &progress)?;
-        progress("Checking services, Tailscale and Git access");
+        wait_for_enrollment(&connection, &mut progress)?;
+        progress(Progress::CheckingAccess);
         let request = nonce()?;
         if !connection
             .root(&check_command(
@@ -494,7 +524,7 @@ pub fn finish_with_tools(
         }
         let tailnet = tailnet.ok_or(Error::Tailnet)?;
         if !report.rebooted {
-            progress("Restarting the Mac and waiting for it to return");
+            progress(Progress::Rebooting);
             let request = nonce()?;
             // Shutdown can close SSH before its acknowledgement arrives. Only a
             // changed boot session permits the next step; never replay shutdown.
@@ -520,10 +550,11 @@ pub fn finish_with_tools(
                 {
                     break;
                 }
-                std::thread::sleep(Duration::from_secs(2));
+                crate::terminal_process::pause(Duration::from_secs(2))
+                    .map_err(|_| Error::Reboot)?;
             }
         }
-        progress("Verifying the Mac after reboot");
+        progress(Progress::VerifyingReboot);
         let request = nonce()?;
         if !connection
             .root(&check_command(
@@ -541,7 +572,7 @@ pub fn finish_with_tools(
             return Err(Error::Verification);
         }
     }
-    progress("Finishing setup and enabling Git updates");
+    progress(Progress::EnablingUpdates);
     let request = nonce()?;
     if !connection
         .root(&check_command(

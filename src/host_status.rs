@@ -90,7 +90,13 @@ fn check(repository: &str, host: &str, profile: &HostProfile, resume: bool) -> S
     };
     let binding = match saved {
         Some(saved) if saved.repository == repository => {
-            crate::config::setup_binding(repository, host, &saved.revision)
+            let revision = saved
+                .repair
+                .as_ref()
+                .map_or(saved.revision.as_str(), |repair| {
+                    repair.repaired_revision.as_str()
+                });
+            crate::config::setup_binding(repository, host, revision)
         }
         Some(_) => return Status::Unknown,
         None => None,
@@ -111,7 +117,11 @@ fn probe(profile: &HostProfile, ssh: &Path, binding: Option<&str>, resume: bool)
     }
     let helper = "/run/current-system/sw/bin/homelab-host";
     let operation = match binding {
-        Some(value) => format!("{helper} read-setup-completion --binding '{value}'"),
+        // The durable receipt releases the updater before reconciliation. The
+        // published result includes the final Git proof, including on older nodes.
+        Some(value) => format!(
+            "if test -r /var/db/homelab-setup/{value}.json; then /bin/cat /var/db/homelab-setup/{value}.json; else {helper} read-setup-completion --binding '{value}'; fi"
+        ),
         None => "printf '\"unknown\"'".into(),
     };
     let remote = format!("if test -x {helper}; then {operation}; else printf '\"absent\"'; fi");
@@ -183,6 +193,20 @@ fn classify(bytes: &[u8], binding: Option<&str>, resume: bool) -> Option<Status>
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    #[ignore = "requires an explicitly selected live host and operator inventory"]
+    fn live_completed_host_reports_complete() {
+        let repository = std::env::var("HOMELAB_TEST_REPOSITORY").expect("explicit repository");
+        let name = std::env::var("HOMELAB_TEST_HOST").expect("explicit host");
+        let path = std::env::var_os("HOMELAB_TEST_INVENTORY").expect("explicit inventory");
+        let profile = crate::inventory::load(Path::new(&path))
+            .expect("saved inventory")
+            .into_iter()
+            .find(|profile| profile.name == name)
+            .expect("selected saved host");
+        assert_eq!(check(&repository, &name, &profile, true), Status::Complete);
+    }
 
     #[test]
     fn absence_and_unavailable_evidence_do_not_overwrite_saved_progress() {
