@@ -2,7 +2,7 @@
 
 After transcription, Callkeep can suggest a title using the on-device Apple Intelligence model and recent non-default recording titles as style examples. The suggestion is stored with the recording, including when that recording is moved to iCloud Drive. Accept, edit, or dismiss it in the recording detail; existing custom titles are not replaced. Disable suggestions under Settings → Title suggestions. This feature requires macOS 26 or later and an available Apple Intelligence on-device model. Confirmed speaker names can optionally be used to request a new suggestion.
 
-Apple's on-device model may decline to process a conversation; in that case, name the recording manually. Settings → Diagnostics → View Logs shows diagnostic event names, timestamps, and sanitized error codes. The logs do not contain audio, transcript text, recording titles, speaker names, or file paths.
+Title suggestions use Apple's on-device mode intended for transforming existing text, which can handle more everyday conversations. The model can still decline some content; in that case, name the recording manually. Settings → Diagnostics → View Logs shows diagnostic event names, timestamps, and sanitized error codes. The logs do not contain audio, transcript text, recording titles, speaker names, or file paths.
 
 ## Speaker recognition
 
