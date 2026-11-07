@@ -437,7 +437,8 @@ pub fn install_nix(installer: &Path, expected_sha256: &str, owner_uid: u32) -> R
     drop(destination);
     let mut command = Command::new(&snapshot);
     command
-        .args(["install", "--no-confirm"])
+        // Enrollment does not need diagnostic reporting or its remote lookups.
+        .args(["install", "--no-confirm", "--diagnostic-endpoint", ""])
         .env_clear()
         .env("PATH", SYSTEM_PATH)
         .env("HOME", "/var/root")

@@ -21,7 +21,7 @@ fn main() {
         assert_eq!(fs::metadata(descriptor).unwrap().rdev(), null.rdev());
     }
     if executable.file_name().unwrap() == "nix-installer" {
-        assert_eq!(arguments, ["install", "--no-confirm"]);
+        assert_eq!(arguments, ["install", "--no-confirm", "--diagnostic-endpoint", ""]);
         assert_eq!(fs::metadata(&executable).unwrap().mode() & 0o7777, 0o700);
         assert_eq!(
             fs::metadata(executable.parent().unwrap()).unwrap().mode() & 0o7777,
