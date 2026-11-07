@@ -1,9 +1,12 @@
 # Git manages each Mac
 
-Comin watches this private repository's `main` branch every ten minutes, builds
+Comin watches this private repository's `main` branch every five minutes, builds
 the matching `darwinConfigurations.<host>`, and activates it. Each Mac uses its
 own read-only SSH deploy key. GitHub's reviewed SSH host key is pinned; nodes
 receive no GitHub account token and do not query Actions to authorize deployment.
+
+The interval is explicit in [`modules/updates.nix`](../modules/updates.nix):
+`poller.period = 300` (seconds). Change it through Git, like other host settings.
 
 **Merging is deployment authorization.** Use repository reviews and checks before
 merging. The host applies the resulting commit automatically after enrollment.

@@ -31,7 +31,7 @@ in {
         name = "origin";
         url = "git@github.com:0x63616c/homelab.git";
         branches.main.name = "main";
-        poller.period = 600;
+        poller.period = 300;
         auth = {
           username = "git";
           ssh_deploy_key_path = "/var/lib/homelab-git/key.txt";
