@@ -173,3 +173,17 @@ GitHub deliverables and Project statuses were reconciled for live iCloud, privat
 `3420c30` defines isolated D1/R2/queues/admin Access and opt-in routing for staging/production. Provider validation and additive production plan inspection passed. Production avatar R2 was provisioned with public access disabled; the partial apply is recorded and encrypted remote state backed up with byte-for-byte recovery verification. D1/queues/Access require broader deployment-token scopes (current bootstrap token returns 401/403). Routes remain disabled; no backend deployment is claimed. See issue #32 for backup identity and remaining acceptance.
 
 Infrastructure follow-up: `d672a16` manages the deployment credential with OpenTofu; securely saved in the Folding vault. Staging and production D1/private R2/queues/admin Access now provisioned successfully with no destructive changes, and both encrypted states backed up. The token-scope blocker is resolved. Worker deployment, routing, runtime secrets and final acceptance remain open in #32. Private `0x63616c/folding-signing` repository exists; signing assets remain pending.
+
+## Latest shipping checkpoint — November 7
+
+This supersedes pending-state descriptions in earlier chronological checkpoints above.
+
+- Apple groups, containers and required capabilities are configured. Fastlane generated the distribution certificate and four profiles; profile entitlements and encrypted signing recovery were checked. Signed archives and CloudKit schema deployment remain pending (#28–29).
+- Separate app-scoped Apple sign-in/APNs keys and independent runtime cryptographic keys are saved and recovery-verified in Folding 1Password. See [Apple setup](experiments/apple-account-bootstrap.md) and [runtime recovery](experiments/runtime-credential-bootstrap.md). Secret installation and live integrations remain pending.
+- Both website Workers are uploaded; staging is publicly routed and returned HTTP 200. Production routing remains disabled. Scoped canonical-redirect permissions and Access issuer discovery are now applied through OpenTofu (#32, #41).
+- Runtime bindings include explicit admin access, APNs configuration and the Rust jobs queue consumer. D1 migration checksum tooling is implemented; remote migration/rollback acceptance remains pending (#32).
+- Backend batches `943c358`, `08edcc7`, `2e4bea8` implement avatars/moderation/APNs, queue dispatch/operational controls, and previewed historical corrections. Compilation and SQL preparation passed; runtime/service/concurrency acceptance remains deferred. Remaining case/job management is in progress (#35–37).
+- Native pending-avatar recovery and moderation status are committed in `e4e41d9`; app/widget compilation passed. Tip jar review scene is committed in `f1f7711`; screenshot build-for-testing passed. Actual captures and final UI review remain pending (#35, #40, #42).
+- App Store territory availability is configured and read back. Small and medium tip products have verified ten-locale metadata, US prices and availability. Large-tip reconciliation is in progress. Apple still reports incomplete metadata until reviewer assets and remaining requirements are satisfied; no purchase/submission acceptance is claimed (#40).
+
+GitHub #28, #32 and #40 checklists reflect these partial completions. CI and physical-device deferrals remain unchanged. No build has been submitted to Apple.
