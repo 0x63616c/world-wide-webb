@@ -10,8 +10,11 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 `homelab`, and attach **`0x63616c/homelab`** when asked.
 
 1. On the target Mac, create its administrator and enable Remote Login.
-2. In the CLI, select the Mac and follow **Connect → Prepare → Review & set up**.
-3. Review encrypted configuration in Git before approving activation.
+2. In the CLI, select the Mac, attach this repository and review setup.
+3. The wizard backs up keys, prepares encrypted secrets and opens an enrollment PR.
+4. Review and merge that PR; the wizard installs, reboots and verifies the Mac.
+
+This is the upcoming enrollment flow; wait for the CLI release before starting.
 
 The CLI ships its bootstrap helper. Your personal laptop needs neither Nix nor a local
 bootstrap build. Nix is installed and runs on the target only after approval.
@@ -40,7 +43,8 @@ flowchart TB
 | `homelab.json` | Host facts shared by the CLI and Nix; no duplicate host lists |
 | 1Password | Operator credentials and recovery keys; never installed on nodes |
 | SOPS + age | Encrypted Git secrets; each node gets only its own key |
-| launchd | Boot-time services and scheduled operations; no new management daemon |
+| Comin | Pull and apply reviewed changes from `main` after enrollment |
+| launchd | Start services at boot, including Comin |
 
 ## Hosts
 

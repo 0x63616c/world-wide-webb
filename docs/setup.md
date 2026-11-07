@@ -1,5 +1,8 @@
 # Set up a Mac
 
+This guide describes the upcoming enrollment release. Do not start physical-Mac
+setup until its VM validation and release are complete.
+
 ## One-time work on the target
 
 Create the administrator shown in `homelab.json` during Setup Assistant. Enable
@@ -20,37 +23,45 @@ homelab
 ```
 
 For this repository enter `0x63616c/homelab` when asked to attach configuration.
-GitHub CLI must be signed in with access to this private repository. Local
-1Password integration is optional; the wizard can also accept hidden manual input.
+On your laptop, GitHub CLI must be signed in with access to this private repository.
+Install the `op` CLI and unlock 1Password with desktop integration enabled. Connect
+the standalone Tailscale app and CLI; the App Store variant does not supply the
+SSH wrapper used for verification. The tailnet must permit your identity to SSH
+as the configured administrator to `tag:homelab`. Setup does not change that policy.
 
 | Stage | What happens |
 | --- | --- |
 | Connect | SSH trust, agent public-key selection if needed, read-only host checks |
-| Prepare | Reuse/create age identities, confirm backup, create scoped enrollment key, encrypt secrets |
-| Review & set up | Review exact commit and changes, then explicitly approve transfer and target Nix setup |
+| Approve setup | Review the Mac; automatically back up age keys to 1Password, verify backups, encrypt the scoped enrollment key and register the Mac's read-only Git key |
+| Merge the PR | Review generated configuration in GitHub; the wizard waits for merge, installs that commit, reboots and verifies services and remote access |
 
 The wizard supplies the installer and remembers repository, host binding and
 private credential paths. Do not install Nix on your personal laptop.
 
 ## Review before activation
 
-Preparation produces a review directory with ciphertext and public recipients.
-Commit only those reviewed files. Keep adjacent private keys, OAuth credentials
-and plaintext tokens outside Git. Add the host's administrator SSH public key,
-verify UID and service assignments in `homelab.json`, and enable activation only
-in a reviewed change. Nix imports these same values and checks they agree.
+The wizard opens a PR with ciphertext, public recipients, the administrator's
+SSH public key and host readiness. Review the account, UID and service assignments
+before merging. You do not copy keys or manually commit generated files.
+Nix imports these same host facts and checks they agree with the reviewed setup.
 
 The reusable Tailscale OAuth item stays in the operator's 1Password vault.
 Only the generated single-use enrollment key is encrypted for the target.
 An uncertain issuance result must be inspected before retrying; the wizard does
-not blindly create another key. Expired or consumed keys need deliberate rotation.
+not blindly create another key. Safe expired preparations can be renewed by the
+wizard; uncertain installation state is preserved for inspection.
+
+After reboot, the wizard verifies services, Git access and Tailscale connectivity
+before releasing the update hold. Comin then applies `main`. Administrator
+authentication may be needed again; FileVault can require a local unlock after
+restart. See [updates](updates.md) for what future merges authorize.
 
 ## Add another host
 
 1. Add its entry to `homelab.json`, initially disabled, and its `hosts/<name>.nix`.
 2. Add the Darwin configuration in `flake.nix` and review account/UID assumptions.
 3. Add its connection in the CLI and follow the same three stages.
-4. After approved bootstrap, verify Tailscale, reboot/startup and service health.
+4. Merge the enrollment PR and let the wizard complete its reboot and health checks.
 
 For key backup and rotation see [secrets](secrets.md). Never wipe the existing
 mini until replacement services and recovery have been verified and erasure is
@@ -60,8 +71,9 @@ explicitly approved.
 
 The public CLI runs synthetic adapter and terminal journeys on disposable macOS
 CI, without your vault or hosts. Full install/reboot rehearsals need a disposable
-Mac VM. The guarded rehearsal passed guided setup, SSH recovery and reboot in a
-synthetic guest on the MacBook, including startup without an interactive login.
+Mac VM. An earlier bootstrap rehearsal passed in a synthetic guest on the MacBook,
+including startup without an interactive login. The new full enrollment and
+Comin handover still need their own completed rehearsal.
 See [VM validation](vm-validation.md) for exact revisions and untested production
 workloads; this does not authorize deployment to a physical Mac.
 See the public [testing guide](https://github.com/0x63616c/homelab-cli/blob/main/docs/testing.md).
