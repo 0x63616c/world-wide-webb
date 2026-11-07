@@ -71,8 +71,6 @@ private struct NotificationEdgePan: UIViewRepresentable {
 
 struct NotificationHistory: View {
     @Environment(NotificationCenter.self) private var center
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
     let source: (String) -> NotificationSource
     @State private var expanded: Set<String> = []
     @State private var clearing = false
@@ -143,7 +141,7 @@ struct NotificationHistory: View {
     private func groupHeader(_ group: NotificationGroup) -> some View {
         HStack {
             Button {
-                withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+                withAnimation(.snappy(duration: 0.25)) {
                     if !expanded.insert(group.id).inserted { expanded.remove(group.id) }
                 }
             } label: {

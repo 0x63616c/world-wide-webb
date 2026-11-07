@@ -3,7 +3,6 @@ import SwiftUI
 /// Atmospheric artwork follows the provider's current conditions and day/night symbol.
 struct WeatherAtmosphere: View {
     let weather: WeatherState
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var fixedPhase
     private var description: String { (weather.condition + " " + weather.symbol).lowercased() }
@@ -26,8 +25,8 @@ struct WeatherAtmosphere: View {
         return value - floor(value)
     }
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: reduceMotion || scenePhase != .active || fixedPhase != nil)) { tick in
-            let time = fixedPhase ?? (reduceMotion ? 0 : tick.date.timeIntervalSinceReferenceDate)
+        TimelineView(.animation(minimumInterval: 1.0 / 24, paused: scenePhase != .active || fixedPhase != nil)) { tick in
+            let time = fixedPhase ?? tick.date.timeIntervalSinceReferenceDate
             GeometryReader { geometry in
                 let size = geometry.size
                 ZStack {

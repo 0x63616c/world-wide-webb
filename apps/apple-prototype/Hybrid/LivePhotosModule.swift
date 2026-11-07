@@ -9,7 +9,6 @@ struct LivePhotosModule: View {
     let provider: LivePhotosProvider
     let detail: Bool
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedID: String?
     @State private var removal: LivePhoto?
     @State private var showSessions = false
@@ -81,8 +80,8 @@ struct LivePhotosModule: View {
                 }
             }
         }
-        .task(id: provider.unlocked && !detail && !reduceMotion) {
-            guard provider.unlocked, !detail, !reduceMotion else { return }
+        .task(id: provider.unlocked && !detail) {
+            guard provider.unlocked, !detail else { return }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(12)) } catch { return }
                 advance(1)

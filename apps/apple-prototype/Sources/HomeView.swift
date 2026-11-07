@@ -97,7 +97,6 @@ struct HomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.motionPhase) private var inheritedMotionPhase
     @Namespace private var zoom
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let catalog = PanelAppCatalog.standard
     init(store: any HomeDataSource, initialTile: HomeTile? = nil, demo: Bool = false,
          initialFace: Int = 0, onWake: @escaping () -> Void = {}) {
@@ -121,13 +120,6 @@ struct HomeView: View {
 
     private func settleFace(by step: Int, width: CGFloat, offset: CGFloat = 0, commit: Bool = true) {
         guard faceSettle == nil else { return }
-        if reduceMotion {
-            if commit {
-                withAnimation(.easeInOut(duration: 0.15)) { clockFace = adjacentFace(by: step) }
-            }
-            return
-        }
-
         let next = adjacentFace(by: step)
         faceSettle = FaceSettle(step: step, offset: offset)
         withAnimation(ClockLauncherMotion.swipePop.animation, completionCriteria: .removed) {
@@ -141,7 +133,7 @@ struct HomeView: View {
     private func faceDragGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 14)
             .updating($faceDrag) { gesture, offset, _ in
-                guard faceSettle == nil, !reduceMotion,
+                guard faceSettle == nil,
                       abs(gesture.translation.width) > abs(gesture.translation.height) else { return }
                 offset = min(width, max(-width, gesture.translation.width))
             }
@@ -165,7 +157,7 @@ struct HomeView: View {
 
         clockDial(clockFace)
             .id(clockFace)
-            .transition(reduceMotion ? .opacity : .identity)
+            .transition(.identity)
             .scaleEffect(1 - progress * 0.12)
             .offset(x: offset)
 
@@ -185,10 +177,10 @@ struct HomeView: View {
     }
 
     private func home() {
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3, bounce: 0)) { shell.showLauncher() }
+        withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showLauncher() }
     }
     private func clock() {
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(duration: 0.3, bounce: 0)) { shell.showClock() }
+        withAnimation(.spring(duration: 0.3, bounce: 0)) { shell.showClock() }
     }
     var body: some View {
         GeometryReader { proxy in
@@ -219,18 +211,17 @@ struct HomeView: View {
                             LauncherGlassSurface()
                         }
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .offset(y: !reduceMotion && showingClock ? proxy.size.height : 0)
-                        .opacity(reduceMotion && showingClock ? 0 : 1)
+                        .offset(y: showingClock ? proxy.size.height : 0)
                         .allowsHitTesting(!showingClock && selected == nil)
                         .accessibilityHidden(showingClock || selected != nil)
                 }
                 .modifier(LauncherSurfaceMotion(motion: launcherMotion,
                     progress: selected == nil ? 0 : 1, width: proxy.size.width,
-                    incoming: false, reduceMotion: reduceMotion))
+                    incoming: false))
                 if let selected {
                     appScreen(selected)
                         .clipShape(.rect(cornerRadius: PanelSurface.cornerRadius))
-                        .transition(reduceMotion ? .opacity : launcherMotion.incomingTransition(width: proxy.size.width))
+                        .transition(launcherMotion.incomingTransition(width: proxy.size.width))
                         .zIndex(2)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
@@ -277,7 +268,7 @@ struct HomeView: View {
             shell.showLauncher()
             integration?.openClassicApp()
         } else {
-            withAnimation(reduceMotion ? nil : launcherMotion.animation) {
+            withAnimation(launcherMotion.animation) {
                 _ = shell.open(app.id, catalog: catalog)
             }
         }
@@ -320,7 +311,6 @@ struct HomeView: View {
             .accessibilityAction(.escape) { home() }
             .accessibilityAction(named: "Open apps") { home() }
             .environment(\.motionPhase, inheritedMotionPhase)
-            .transaction { if reduceMotion { $0.animation = nil; $0.disablesAnimations = true } }
             .onKeyPress(.escape) { home(); return .handled }
     }
     @ViewBuilder private func prototypeScreen(_ feature: PanelAppFeature) -> some View {
@@ -375,11 +365,10 @@ struct FacePicker: View {
     @Environment(\.homeIntegration) private var integration
     @Binding var selection: Int
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         HStack(spacing: sizeClass == .compact ? 4 : 10) {
             ForEach(0..<4) { page in
-                Button { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) { selection = page } } label: {
+                Button { withAnimation(.easeInOut(duration: 0.25)) { selection = page } } label: {
                     Circle().fill(.white.opacity(selection == page ? 0.95 : 0.3))
                         .frame(width: 8, height: 8).frame(width: 44, height: 44)
                         .contentShape(.rect)
@@ -456,7 +445,6 @@ struct TileFace: View {
     let tile: HomeTile
     let store: any HomeDataSource
     let open: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var motionPhase
     var body: some View {
         if let key = tile.accessory {
@@ -465,7 +453,7 @@ struct TileFace: View {
             switch tile {
             case .climate: climate
             case .clock:
-                TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1.0 / 30, paused: motionPhase != nil)) { _ in
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: motionPhase != nil)) { _ in
                     AnalogClock(date: store.now, minimal: true)
                         .aspectRatio(1, contentMode: .fit).padding(20)
                 }
@@ -517,7 +505,7 @@ struct TileFace: View {
             .accessibilityIdentifier(delta < 0 ? "tile-climate-down" : "tile-climate-up")
     }
     private func step(_ delta: Int) {
-        withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
+        withAnimation(.smooth(duration: 0.25)) {
             store.send(store.climate.mode == .heatCool ? .shiftRange(delta) : .target(store.climate.target + delta))
         }
     }

@@ -26,10 +26,9 @@ enum PanelClockFace: String, CaseIterable {
 struct PresenceClockFace: View {
     let store: any HomeDataSource
     var face: PanelClockFace = .green
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.motionPhase) private var phase
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion || face.glassWallpaper != nil ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
+        TimelineView(.animation(minimumInterval: face.glassWallpaper != nil ? 1 : 1.0 / 30, paused: phase != nil)) { _ in
             let now = store.now
             let night = previewNight || SolarClock.appearanceIsNight(at: now, sunrise: store.weather.sunrise,
                 sunset: store.weather.sunset, nextSunrise: store.weather.nextSunrise,
