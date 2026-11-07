@@ -15,7 +15,6 @@
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { RangeSlider, Skeleton, Slider, Tile, TileHeader, TileStatus } from "@/components/ui";
-import "./climate-mode.css";
 
 // ─── types & constants ──────────────────────────────────────────────────────
 
@@ -43,13 +42,6 @@ const HvacModeEntries: [HvacMode, string][] = [
   [HvacMode.HeatCool, "Heat·Cool"],
   [HvacMode.Off, "Off"],
 ];
-
-const modeLabel: Record<HvacMode, string> = {
-  [HvacMode.Cool]: "Cool",
-  [HvacMode.Heat]: "Heat",
-  [HvacMode.HeatCool]: "Heat·Cool",
-  [HvacMode.Off]: "Off",
-};
 
 type PopulatedBase = {
   status: typeof TileStatus.Populated;
@@ -114,7 +106,7 @@ const pct = (v: number, min: number, max: number) => ((v - min) / (max - min)) *
 function ClimateSkeleton() {
   return (
     <Tile padding={22}>
-      {/* Title stays visible while loading; the mode and action pill shimmers. */}
+      {/* Title stays visible while loading; the action pill (data-driven) shimmers. */}
       <TileHeader
         icon="thermo"
         title="Climate · A/C"
@@ -242,11 +234,8 @@ export function ClimateTileView(props: ClimateTileViewProps) {
         icon="thermo"
         title="Climate · A/C"
         right={
-          <span className="pill climate-mode-pill" data-mode={mode} data-testid="mode-pill">
-            <strong>{modeLabel[mode]}</strong>
-            {action && action !== modeLabel[mode] && (
-              <span className="climate-mode-action">· {action}</span>
-            )}
+          <span className="pill on" style={{ padding: "4px 10px" }} data-testid="mode-pill">
+            {action}
           </span>
         }
       />
@@ -398,8 +387,7 @@ export function ClimateTileView(props: ClimateTileViewProps) {
           <button
             key={k}
             type="button"
-            className={`chip climate-mode-chip${mode === k ? " on" : ""}`}
-            data-mode={k}
+            className={`chip${mode === k ? " on" : ""}`}
             onClick={() => onSetMode(k)}
             aria-pressed={mode === k}
             data-testid={`chip-${k}`}
