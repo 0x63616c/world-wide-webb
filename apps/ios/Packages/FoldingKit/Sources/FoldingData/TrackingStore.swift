@@ -399,6 +399,17 @@ public actor TrackingStore {
       asOfMS: asOfMS, range: range)
   }
 
+  public func history(
+    homeTimezone: String, asOfMS: Int64, period: PersonalHistoryPeriod, offset: Int
+  ) throws -> PersonalHistorySnapshot {
+    let input = try journalTransaction(write: false) {
+      (try events(), try interruptions(), try generation())
+    }
+    return try PersonalHistory.snapshot(
+      events: input.0, interruptions: input.1, generation: input.2, homeTimezone: homeTimezone,
+      asOfMS: asOfMS, period: period, offset: offset)
+  }
+
   public func retainedEvents() throws -> [TrackingEvent] {
     try journalTransaction(write: false) { try events(includeQuarantined: true) }
   }

@@ -39,6 +39,7 @@ __pycache__/
 crash.log
 
 # Generated Fastlane output
+fastlane/README.md
 fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/

@@ -6,7 +6,7 @@ import Security
 public enum InstallationIdentity {
   /// Shared by the app and intents through their configured Keychain access group.
   /// ThisDeviceOnly prevents a device backup from cloning the active source identity.
-  public static func loadOrCreate(service: String, accessGroup: String, directory: URL) throws
+  public static func loadOrCreate(service: String, accessGroup: String?, directory: URL) throws
     -> UUID
   {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -37,13 +37,13 @@ public enum InstallationIdentity {
       #endif
       return id
     }
-    let query: [String: Any] = [
+    var query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: service,
       kSecAttrAccount as String: "installation-v1",
-      kSecAttrAccessGroup as String: accessGroup,
       kSecAttrSynchronizable as String: false,
     ]
+    if let accessGroup { query[kSecAttrAccessGroup as String] = accessGroup }
     func read() throws -> UUID? {
       var request = query
       request[kSecReturnData as String] = true

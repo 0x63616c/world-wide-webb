@@ -27,7 +27,7 @@ targets:
     platform: iOS
     sources:
       - path: App
-        includes: ['*.swift']
+        includes: ['*.swift', '*.xcstrings']
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding

@@ -52,7 +52,9 @@ public enum TrackingReducer {
         (1...maximumInteger).contains(event.sequence),
         (0...maximumInteger).contains(event.observedAtMS),
         valid(event.generation), !event.timezoneID.isEmpty,
-        event.timezoneID.count <= 100, TimeZone(identifier: event.timezoneID) != nil
+        event.timezoneID.count <= 100, TimeZone(identifier: event.timezoneID) != nil,
+        !(event.timezoneID.hasPrefix("GMT+") || event.timezoneID.hasPrefix("GMT-"))
+          || TimeZone(identifier: event.timezoneID)?.identifier == event.timezoneID
       else { throw TrackingError.invalidEnvelope }
       if let old = byID[event.eventID] {
         guard old == event else { throw TrackingError.identityConflict }

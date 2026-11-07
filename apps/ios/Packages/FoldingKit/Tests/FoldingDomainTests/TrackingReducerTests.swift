@@ -126,3 +126,37 @@ private let deviceID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
   #expect(low < high)
   #expect(high < ResetGeneration(revision: 2, resetID: low.resetID))
 }
+
+@Test func sharedTimezonePolicyMatchesFoundationAndWireValidity() throws {
+  struct Cases: Decodable { let cases: [Entry] }
+  struct Entry: Decodable {
+    let timezoneID: String
+    let foundationIdentifier: String?
+    let valid: Bool
+    enum CodingKeys: String, CodingKey {
+      case timezoneID = "timezone_id"
+      case foundationIdentifier = "foundation_identifier"
+      case valid
+    }
+  }
+  var root = URL(fileURLWithPath: #filePath)
+  for _ in 0..<7 { root.deleteLastPathComponent() }
+  let cases = try JSONDecoder().decode(
+    Cases.self,
+    from: Data(contentsOf: root.appendingPathComponent("contracts/fixtures/timezones.json"))
+  ).cases
+  for entry in cases {
+    #expect(TimeZone(identifier: entry.timezoneID)?.identifier == entry.foundationIdentifier)
+    let event = TrackingEvent(
+      schemaVersion: 1, eventID: UUID(), deviceID: UUID(), sequence: 1, generation: .initial,
+      observedAtMS: 1, timezoneID: entry.timezoneID, transition: .open, isTest: false,
+      competitionEpochID: nil)
+    if entry.valid {
+      #expect(try TrackingReducer.reduce(events: [event], generation: .initial).folds == 1)
+    } else {
+      #expect(throws: TrackingError.invalidEnvelope) {
+        try TrackingReducer.reduce(events: [event], generation: .initial)
+      }
+    }
+  }
+}

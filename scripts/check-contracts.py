@@ -34,6 +34,12 @@ def invalid(schema, value):
 
 for stem in ('event-batch', 'event-receipt', 'reset-request', 'error'):
     valid(f'{stem}.schema.json', json.loads((FIXTURES / f'{stem}.json').read_text()))
+auth = json.loads((FIXTURES / 'auth-requests.json').read_text())
+for case in auth['valid']:
+    valid(f"{case['schema']}.schema.json", case['body'])
+for case in auth['invalid']:
+    invalid(f"{case['schema']}.schema.json", case['body'])
+
 reducer = json.loads((FIXTURES / 'reducer.json').read_text())
 for case in reducer['cases']:
     for event in case['events_in_arrival_order']:

@@ -107,3 +107,12 @@ The original fourteen work orders now have 33 linked deliverable issues (#15–#
 - Independent review found stale cached success after receipt quarantine and the reset/device restart step. Both are corrected with regression coverage; focused recheck found no blocker.
 - Added an atomic journal read feeding the new calendar analytics off MainActor. Setup-test events remain excluded. Full UI/intent composition, persisted transfer selection and live account wiring are still pending.
 - Package validation passes 57 Swift tests (18 domain,39 data); five new data tests cover setup completion/reopen, cancellation/expiry/reset, atomic rollback, invalidated receipt and journal analytics.
+
+## Native app integration and localization batch
+
+- Replaced the launch harness with the native Today/History/Leaderboard shell, a local development composition root and background opening/closing App Intents that return only after journal commit. Production compilation remains gated until real account/entitlement composition is complete.
+- Setup uses committed test receipts; test observations do not affect personal totals. Theme preferences persist, including the initial home timezone; travelling does not silently choose a new home timezone. Existing History refreshes after journal/foreground changes. A cancellable midnight task and system significant-time-change refresh keep the displayed day current.
+- Fastlane app-hosted verification passed eight tests, including real local journal setup/count/history/reset and preference regressions. This does not establish physical Shortcuts delivery, locked-device execution, live iCloud or production signing.
+- Added 125 localized strings across ten agreed locales; local checks now include catalog validation and ten mutation tests. Xcode compiled the real app catalog and App Intent metadata. Full language/screenshot acceptance remains open.
+- Shared timezone vectors now enforce Swift/Rust canonical fixed-offset parity. Contract validation executes fourteen additional auth request fixtures, for 54 schema/example checks.
+- Remaining in #27: verified localized automation instructions/handoff, production account composition and integration acceptance. Full release scope remains in the delivery board.

@@ -6,6 +6,8 @@ if [ ! -x .venv/contracts/bin/python ]; then
   exit 1
 fi
 .venv/contracts/bin/python scripts/check-contracts.py
+python3 scripts/check-localization.py
+python3 scripts/test-localization.py
 swift format lint --strict apps/ios/Packages/FoldingKit/Package.swift
 swift format lint --strict -r apps/ios/Packages/FoldingKit/Sources apps/ios/Packages/FoldingKit/Tests apps/ios/App apps/ios/BuildTests
 tofu fmt -check -recursive infra
