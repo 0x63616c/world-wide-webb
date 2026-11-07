@@ -151,16 +151,17 @@ import SwiftUI
         center.removePendingNotificationRequests(withIdentifiers: [id])
         center.removeDeliveredNotifications(withIdentifiers: [id])
     }
+    // With the delegate installed, the system does not present a foreground
+    // alert. Panel posts its own banner; the OS still handles background delivery.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        // Panel shows its own banner when active; the OS handles background delivery.
-        []
-    }
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse) async {
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-              response.notification.request.content.threadIdentifier == Self.thread else { return }
-        let id = response.notification.request.identifier
-        await MainActor.run { openedTimerID = id }
+        didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping @Sendable () -> Void) {
+        let request = response.notification.request
+        let id = response.actionIdentifier == UNNotificationDefaultActionIdentifier
+            && request.content.threadIdentifier == Self.thread ? request.identifier : nil
+        // UIKit finishes the foreground transition from this completion handler.
+        Task { @MainActor in
+            if let id { openedTimerID = id }
+            completionHandler()
+        }
     }
 }
