@@ -340,7 +340,6 @@ struct HomeView: View {
         case .walks: DogWalkPage(store: store)
         case .wifi: WifiController(wifi: store.wifi)
         case .car: TeslaController(provider: store.tesla)
-        case .photos: ModulePage(tile: feature.homeTile, store: store, close: home)
         }
     }
 }
@@ -354,7 +353,6 @@ extension PanelAppFeature {
         case .weather: .weather
         case .calendar: .calendar
         case .walks: .dogwalk
-        case .photos: .photos
         case .car: .tesla
         case .wifi: .wifi
         }

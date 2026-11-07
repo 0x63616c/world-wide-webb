@@ -1,3 +1,4 @@
+import UIKit
 import Foundation
 import Observation
 import PanelKit
@@ -57,7 +58,7 @@ import OSLog
          remindersAPI: any RemindersServing = RemindersAPI(), mediaAPI: any MediaServing = MediaAPI(),
          calendarAPI: CalendarAPI = CalendarAPI(), sonosLockDefaults: UserDefaults? = nil, now: @escaping () -> Date = Date.init,
          calendar: @escaping () -> Calendar = { .autoupdatingCurrent }, walkClock: SyncClock? = nil,
-         boothCapture: (@MainActor () async throws -> Data)? = nil) {
+         boothCapture: (@MainActor () async throws -> Data)? = nil, boothPreview: UIImage? = nil) {
         diagnosticsClient = PanelAPIClient(configuration: configuration)
         // An origin is sufficient to identify deployment; omit path/query/user info.
         if let url = configuration?.baseURL, let host = url.host {
@@ -89,7 +90,7 @@ import OSLog
             .appendingPathComponent("PanelPhotos").appendingPathComponent(namespace)
         let photosProvider = LivePhotosProvider(api: photoAPI, cache: PhotoCache(directory: cacheRoot))
         self.photosProvider = photosProvider
-        photoBoothCamera = PhotoBoothCameraModel(api: photoAPI, photos: photosProvider, capturePhoto: boothCapture)
+        photoBoothCamera = PhotoBoothCameraModel(api: photoAPI, photos: photosProvider, capturePhoto: boothCapture, testPreview: boothPreview)
         alarmsProvider = LiveAlarmsProvider(api: AlarmsAPI(client: client))
         lightsProvider = LiveLightsProvider(api: LightsAPI(client: client), initialLamps: .unavailable)
         climateProvider = LiveClimateProvider(api: ClimateAPI(client: client))
