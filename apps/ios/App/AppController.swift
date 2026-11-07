@@ -37,7 +37,10 @@ import struct FoldingData.SetupProgress
 
   var actions: FoldingActions {
     FoldingActions(
-      refresh: { try await self.refresh() },
+      refresh: {
+        try await self.refresh()
+        try await self.pollRemoval(allowRecovery: true)
+      },
       setup: { action in try await self.runtime.setup(action) },
       savePreferences: { preferences in
         guard preferences.schemaVersion == 1, TimeZone(identifier: preferences.homeTimezone) != nil,
@@ -144,13 +147,107 @@ import struct FoldingData.SetupProgress
       setParticipantBlocked: { id, blocked in
         try await self.competitionClient().setBlocked(id, blocked: blocked)
       },
-      leaveCompetition: {
-        _ = try await self.competitionClient().leave()
-        try await self.runtime.store().setCompetitionEpoch(nil)
-        self.presentation.invalidateCompetitionPresentation()
-        self.presentation.competition = .notJoined
-      },
+      leaveCompetition: { try await self.beginRemoval(.leave) },
+      deleteCompetitionAccount: { try await self.beginRemoval(.delete) },
       signInCompetition: { try await self.signInToCompetition() })
+  }
+
+  private func beginRemoval(_ kind: CompetitionRemovalOperation.Kind) async throws {
+    let api = try await competitionClient()
+    if let pending = try await api.transport.pendingRemoval() {
+      guard pending.kind == kind else { throw CompetitionTransportError.busy }
+      try await pollRemoval(allowRecovery: true)
+      return
+    }
+    var operation = CompetitionRemovalOperation(
+      kind: kind,
+      operationID: UUID().uuidString.lowercased(), accepted: false, deletionReceipt: nil)
+    let proof: String?
+    if kind == .delete {
+      proof = try await appleSignIn.reauthenticate(transport: api.transport, deviceID: api.deviceID)
+    } else {
+      proof = nil
+    }
+    try await api.transport.saveRemoval(operation)
+    presentation.competitionRemoval = kind == .delete ? .deleting : .leaving
+    do {
+      if let proof {
+        operation.deletionReceipt = try await api.deletion(
+          operationID: operation.operationID, reauthenticationToken: proof)
+      } else {
+        _ = try await api.leave(operationID: operation.operationID)
+      }
+      operation.accepted = true
+      try await api.transport.saveRemoval(operation)
+      try await runtime.store().setCompetitionEpoch(nil)
+      presentation.invalidateCompetitionPresentation()
+      try await pollRemoval(allowRecovery: false)
+    } catch {
+      presentation.competitionRemoval = kind == .delete ? .deleteFailed : .leaveFailed
+      throw error
+    }
+  }
+
+  func watchRemoval() async {
+    while !Task.isCancelled,
+      presentation.competitionRemoval == .leaving || presentation.competitionRemoval == .deleting
+    {
+      do {
+        try await Task.sleep(for: .seconds(5))
+        try Task.checkCancellation()
+        try await pollRemoval(allowRecovery: false)
+      } catch { return }
+    }
+  }
+
+  private func pollRemoval(allowRecovery: Bool) async throws {
+    let api = try await competitionClient()
+    guard var operation = try await api.transport.pendingRemoval() else { return }
+    presentation.competitionRemoval = operation.kind == .delete ? .deleting : .leaving
+    do {
+      let status: CompetitionOperation
+      if operation.kind == .delete {
+        if operation.deletionReceipt == nil
+          || operation.deletionReceipt!.polling_token_expires_at_ms <= TrackingRuntime.nowMS
+        {
+          guard allowRecovery else { throw CompetitionTransportError.unauthorized }
+          do {
+            operation.deletionReceipt = try await appleSignIn.recoverDeletion(
+              transport: api.transport, deviceID: api.deviceID, operationID: operation.operationID)
+          } catch CompetitionTransportError.server(404) {
+            let proof = try await appleSignIn.reauthenticate(
+              transport: api.transport, deviceID: api.deviceID)
+            operation.deletionReceipt = try await api.deletion(
+              operationID: operation.operationID, reauthenticationToken: proof)
+          }
+          operation.accepted = true
+          try await api.transport.saveRemoval(operation)
+        }
+        let receipt = operation.deletionReceipt!
+        status = try await api.transport.deletionStatus(
+          operationID: operation.operationID, token: receipt.polling_token)
+      } else {
+        if !operation.accepted {
+          _ = try await api.leave(operationID: operation.operationID)
+          operation.accepted = true
+          try await api.transport.saveRemoval(operation)
+        }
+        status = try await api.operationStatus(operation.operationID)
+      }
+      if status.state == "completed" {
+        try await runtime.store().setCompetitionEpoch(nil)
+        if operation.kind == .delete { try await api.transport.clearSession() }
+        try await api.transport.finishRemoval()
+        presentation.invalidateCompetitionPresentation()
+        presentation.competitionRemoval = nil
+        presentation.competition = .notJoined
+      } else if status.state == "failed" {
+        presentation.competitionRemoval = operation.kind == .delete ? .deleteFailed : .leaveFailed
+      }
+    } catch {
+      presentation.competitionRemoval = operation.kind == .delete ? .deleteFailed : .leaveFailed
+      throw error
+    }
   }
 
   private func competitionClient() async throws -> CompetitionAPI {
@@ -187,7 +284,12 @@ import struct FoldingData.SetupProgress
       !origin.isEmpty
     else { return }
     do {
-      let me = try await competitionClient().me()
+      let client = try await competitionClient()
+      if try await client.transport.pendingRemoval() != nil {
+        try await pollRemoval(allowRecovery: false)
+        return
+      }
+      let me = try await client.me()
       presentation.competitionProfile = await profilePresentation(me.profile)
       if me.profile.restriction != "none" {
         presentation.competition = .banned

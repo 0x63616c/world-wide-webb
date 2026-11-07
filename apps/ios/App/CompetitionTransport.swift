@@ -258,7 +258,8 @@ actor CompetitionTransport {
 
   private func execute<Response: Decodable & Sendable>(
     _ method: String, path: String, body: Data?,
-    token: String?, contentType: String = "application/json", headers: [String: String] = [:]
+    token: String?, authorizationScheme: String = "Bearer",
+    contentType: String = "application/json", headers: [String: String] = [:]
   ) async throws -> Response {
     guard path.hasPrefix("/v1/"), let url = URL(string: path, relativeTo: origin)?.absoluteURL,
       url.host == origin.host, url.scheme == "https"
@@ -268,7 +269,9 @@ actor CompetitionTransport {
     request.httpBody = body
     request.setValue(contentType, forHTTPHeaderField: "Content-Type")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
-    if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+    if let token {
+      request.setValue("\(authorizationScheme) \(token)", forHTTPHeaderField: "Authorization")
+    }
     for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
     let (data, response) = try await session.data(for: request)
     guard let http = response as? HTTPURLResponse else {
@@ -280,6 +283,23 @@ actor CompetitionTransport {
     }
     guard data.count <= 2 * 1024 * 1024 else { throw CompetitionTransportError.invalidResponse }
     return try JSONDecoder().decode(Response.self, from: data)
+  }
+
+  func saveRemoval(_ value: CompetitionRemovalOperation) throws {
+    try credentials.write(Self.encode(value), account: "removal")
+  }
+  func pendingRemoval() throws -> CompetitionRemovalOperation? {
+    guard let data = try credentials.read("removal") else { return nil }
+    return try JSONDecoder().decode(CompetitionRemovalOperation.self, from: data)
+  }
+  func finishRemoval() throws { try credentials.remove("removal") }
+  func deletionStatus(operationID: String, token: String) async throws -> CompetitionOperation {
+    guard UUID(uuidString: operationID) != nil else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    return try await execute(
+      "GET", path: "/v1/operations/\(operationID)", body: nil,
+      token: token, authorizationScheme: "Deletion")
   }
 
   private static func decodeBase64URL(_ value: String) -> Data? {

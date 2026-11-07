@@ -49,7 +49,7 @@ struct CompetitionBoard: Decodable, Sendable {
   let you: CompetitionWireRank?
   let population: Int
 }
-struct CompetitionOperation: Decodable, Sendable {
+struct CompetitionOperation: Codable, Sendable {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let operation_id: String
   let state: String
@@ -100,10 +100,10 @@ actor CompetitionAPI {
       ]))
     return result.profile
   }
-  func leave() async throws -> CompetitionOperation {
+  func leave(operationID: String) async throws -> CompetitionOperation {
     try await transport.send(
       "POST", path: "/v1/enrollment/leave",
-      body: CompetitionTransport.encode(["operation_id": UUID().uuidString.lowercased()]))
+      body: CompetitionTransport.encode(["operation_id": operationID]))
   }
   func setBlocked(_ id: String, blocked: Bool) async throws {
     guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }

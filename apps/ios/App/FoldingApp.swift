@@ -14,11 +14,20 @@ import SwiftUI
   @Environment(\.requestReview) private var requestReview
   @Environment(\.scenePhase) private var scenePhase
 
+  init() {
+    #if !targetEnvironment(simulator)
+      precondition(
+        !ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--folding-screenshot-") },
+        "Screenshot fixtures are not available in device builds")
+    #endif
+  }
+
   var body: some Scene {
     WindowGroup {
       FoldingRootView(model: controller.presentation, actions: controller.actions)
         .task { TipStore.shared.start() }
         .task { await controller.restoreCompetition() }
+        .task(id: controller.presentation.competitionRemoval) { await controller.watchRemoval() }
         .task { await controller.synchronizePrivateHistory() }
         .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
           Task { await controller.cloudAccountChanged() }

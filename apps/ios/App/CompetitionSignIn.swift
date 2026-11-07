@@ -20,7 +20,10 @@ struct CompetitionWireProfile: Codable, Sendable {
 struct CompetitionSignInResponse: Decodable, Sendable {
   let access_token: String?
   let refresh_token: String?
-  let expires_at_ms: Int64
+  let expires_at_ms: Int64?
+  let status: CompetitionOperation?
+  let polling_token: String?
+  let polling_token_expires_at_ms: Int64?
   let profile: CompetitionWireProfile?
   let reauthentication_token: String?
 }
@@ -39,13 +42,13 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   {
     let response = try await authorize(transport: transport, deviceID: deviceID, purpose: "sign_in")
     guard let access = response.access_token, let refresh = response.refresh_token,
-      let profile = response.profile
+      let profile = response.profile, let expiry = response.expires_at_ms
     else { throw CompetitionTransportError.invalidResponse }
     try await transport.clearSession()
     try await transport.saveSession(
       CompetitionSession(
         access_token: access,
-        refresh_token: refresh, expires_at_ms: response.expires_at_ms))
+        refresh_token: refresh, expires_at_ms: expiry))
     return profile
   }
 
@@ -58,7 +61,23 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
     return token
   }
 
-  private func authorize(transport: CompetitionTransport, deviceID: UUID, purpose: String)
+  func recoverDeletion(transport: CompetitionTransport, deviceID: UUID, operationID: String)
+    async throws -> CompetitionDeletionReceipt
+  {
+    let response = try await authorize(
+      transport: transport, deviceID: deviceID,
+      purpose: "recover_deletion", deletionOperationID: operationID)
+    guard let status = response.status, let token = response.polling_token,
+      let expiry = response.polling_token_expires_at_ms
+    else { throw CompetitionTransportError.invalidResponse }
+    return CompetitionDeletionReceipt(
+      status: status, polling_token: token, polling_token_expires_at_ms: expiry)
+  }
+
+  private func authorize(
+    transport: CompetitionTransport, deviceID: UUID, purpose: String,
+    deletionOperationID: String? = nil
+  )
     async throws -> CompetitionSignInResponse
   {
     guard continuation == nil, controller == nil else { throw CompetitionTransportError.busy }
@@ -110,6 +129,7 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       let authorization_code: String
       // swift-format-ignore: AlwaysUseLowerCamelCase
       let device_id: String
+      let deletionOperationID: String?
       // Required explicit null; synthesized optional encoding would omit this field.
       func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: Keys.self)
@@ -119,7 +139,11 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
         try container.encode(identity_token, forKey: .identity_token)
         try container.encode(authorization_code, forKey: .authorization_code)
         try container.encode(device_id, forKey: .device_id)
-        try container.encodeNil(forKey: .deletion_operation_id)
+        if let deletionOperationID {
+          try container.encode(deletionOperationID, forKey: .deletion_operation_id)
+        } else {
+          try container.encodeNil(forKey: .deletion_operation_id)
+        }
       }
       // swift-format-ignore: AlwaysUseLowerCamelCase
       enum Keys: String, CodingKey {
@@ -133,7 +157,8 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
         Exchange(
           operation_id: UUID().uuidString.lowercased(), purpose: purpose,
           challenge_id: challenge.challenge_id, identity_token: identity, authorization_code: code,
-          device_id: deviceID.uuidString.lowercased())), authenticated: purpose == "reauthenticate")
+          device_id: deviceID.uuidString.lowercased(), deletionOperationID: deletionOperationID)),
+      authenticated: purpose == "reauthenticate")
     return response
   }
 
