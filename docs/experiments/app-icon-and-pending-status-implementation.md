@@ -2,12 +2,12 @@
 
 November 7, 2026. Implemented and app/widget simulator build passed.
 
-The native icon adapts the existing website folded-paper mark. Its polygon geometry
-lives in `apps/ios/Branding/mark.svg`; `swift scripts/generate-app-icons.swift`
-reproducibly generates the three committed 1024-pixel PNGs. `--check` verifies that
-outputs match and runs from `scripts/check`. The blue default icon is opaque RGB,
-the dark mark has transparency for the system background, and the tinted image is
-opaque grayscale. There is no text, screenshot content, or baked corner mask.
+The selected white twin-panel mark on black lives in
+`apps/ios/Branding/icon-selected.png`. `swift scripts/generate-app-icons.swift`
+reproducibly generates the three committed opaque 1024-pixel PNGs. `--check`
+verifies that outputs match and runs from `scripts/check`. All appearances use
+the selected composition; there is no text, screenshot content, or baked corner mask.
+The website uses a scaled copy at `apps/web/assets/icon-selected.png`.
 
 The asset catalog provides Any/Dark/Tinted single-size variants; Xcode generates
 required platform sizes. The real app target specifies AppIcon and includes the
@@ -27,5 +27,5 @@ clears. Full native status-transition rendering remains final-pass acceptance.
 
 Validation: regeneration/check passed; PNG dimensions and alpha rules inspected;
 localization passed with 215 semantic keys × ten locales; generic app/widget build
-passed (`/tmp/folding-branding-build.log`). The generated light icon was inspected
-as an artifact, not accepted as complete device/Home Screen visual review.
+passed (`/tmp/folding-branding-build.log`). The selected icon was inspected as an
+artifact; final device/Home Screen appearance review remains pending.
