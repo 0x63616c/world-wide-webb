@@ -90,6 +90,15 @@ struct FoldingRootView: View {
   @ViewBuilder private func sheetContent(_ sheet: PresentedSheet) -> some View {
     switch sheet {
     case .settings: SettingsScreen(model: model, actions: actions)
+    case .trackingPhone:
+      NavigationStack {
+        TrackingPhoneScreen(model: model, actions: actions)
+          .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+              Button(String(localized: "action.done", defaultValue: "Done")) { model.sheet = nil }
+            }
+          }
+      }
     case .editSummary: SummaryEditor(model: model, actions: actions)
     case .travelInfo:
       InformationSheet(
@@ -153,6 +162,18 @@ private struct TodayScreen: View {
         } else if let status = model.status {
           Label(status, systemImage: "arrow.triangle.2.circlepath").font(.subheadline)
             .foregroundStyle(.secondary)
+        }
+        if model.analytics?.needsDeviceSelection == true {
+          Button {
+            model.present(.trackingPhone)
+          } label: {
+            Label(
+              String(localized: "phone.choose", defaultValue: "Choose tracking phone"),
+              systemImage: "iphone.gen3"
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+          }
         }
         if let today {
           VStack(alignment: .leading, spacing: 4) {
@@ -462,6 +483,13 @@ private struct SettingsScreen: View {
           NavigationLink(String(localized: "settings.homeTimezone", defaultValue: "Home timezone"))
           {
             TimezonePicker(model: model, actions: actions)
+          }
+          NavigationLink {
+            TrackingPhoneScreen(model: model, actions: actions)
+          } label: {
+            LabeledContent(
+              String(localized: "phone.title", defaultValue: "Tracking phone"),
+              value: model.trackingPhoneSelection?.title ?? "—")
           }
           Stepper(value: preference(\.dailyLimit), in: 1...100_000, step: 10) {
             LabeledContent(
@@ -1051,6 +1079,74 @@ private struct InformationSheet: View {
           }
         }
     }.presentationDetents([.medium])
+  }
+}
+
+private struct TrackingPhoneScreen: View {
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  @State private var confirming = false
+
+  var body: some View {
+    Form {
+      Section(String(localized: "phone.personalHistory", defaultValue: "Personal history")) {
+        if let selection = model.trackingPhoneSelection {
+          Label(
+            selection.title,
+            systemImage: selection == .thisPhone
+              ? "iphone.gen3" : "iphone.gen3.radiowaves.left.and.right")
+          if selection != .thisPhone, actions.useThisPhone != nil {
+            Button(String(localized: "phone.useThis", defaultValue: "Use this iPhone")) {
+              confirming = true
+            }
+            .disabled(model.operation != nil)
+          }
+        } else {
+          ProgressView()
+        }
+      }
+    }
+    .navigationTitle(String(localized: "phone.title", defaultValue: "Tracking phone"))
+    .navigationBarTitleDisplayMode(.inline)
+    .navigationDestination(isPresented: $confirming) {
+      TrackingPhoneConfirmation(model: model, actions: actions)
+    }
+  }
+}
+
+private struct TrackingPhoneConfirmation: View {
+  @Bindable var model: FoldingPresentation
+  let actions: FoldingActions
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    Form {
+      Section {
+        Text(
+          String(
+            localized: "phone.transferEffect",
+            defaultValue: "Folds not yet received from other phones will appear only in exports."))
+        Button(String(localized: "phone.useThis", defaultValue: "Use this iPhone")) {
+          Task {
+            await model.selectThisPhone(using: actions)
+          }
+        }
+        .disabled(
+          model.operation != nil || actions.useThisPhone == nil
+            || model.trackingPhoneSelection == .thisPhone)
+      }
+    }
+    .navigationTitle(String(localized: "phone.confirmTitle", defaultValue: "Use this iPhone?"))
+    .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      ToolbarItem(placement: .cancellationAction) {
+        Button(String(localized: "action.cancel", defaultValue: "Cancel")) { dismiss() }
+          .disabled(model.operation != nil)
+      }
+    }
+    .onChange(of: model.trackingPhoneSelection) { _, selection in
+      if selection == .thisPhone { dismiss() }
+    }
   }
 }
 

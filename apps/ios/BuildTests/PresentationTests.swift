@@ -202,6 +202,78 @@ import XCTest
     XCTAssertNil(model.error)
   }
 
+  func testTrackingPhoneStatusUsesExplicitSelectionOnly() throws {
+    let model = FoldingPresentation()
+    let local = UUID()
+    let other = UUID()
+    XCTAssertNil(model.trackingPhoneSelection)
+    model.localDeviceID = local
+    model.analytics = try phoneSnapshot(selected: nil, devices: [local, other])
+    XCTAssertEqual(model.trackingPhoneSelection, .notSelected)
+    XCTAssertEqual(model.analytics?.needsDeviceSelection, true)
+    XCTAssertEqual(model.analytics?.lifetime.folds, 2, "Before selection neither source is hidden")
+    model.analytics = try phoneSnapshot(selected: other, devices: [local, other])
+    XCTAssertEqual(model.trackingPhoneSelection, .anotherPhone)
+    model.analytics = try phoneSnapshot(selected: local, devices: [local, other])
+    XCTAssertEqual(model.trackingPhoneSelection, .thisPhone)
+  }
+
+  func testPhoneSelectionWaitsForCommittedSnapshot() async throws {
+    let model = FoldingPresentation()
+    let local = UUID()
+    model.localDeviceID = local
+    model.analytics = try phoneSnapshot(selected: nil)
+    var pending: CheckedContinuation<Void, Error>?
+    var actions = actions()
+    actions.useThisPhone = { try await withCheckedThrowingContinuation { pending = $0 } }
+    let task = Task { await model.selectThisPhone(using: actions) }
+    try await waitFor { pending != nil }
+    XCTAssertEqual(model.trackingPhoneSelection, .notSelected)
+    pending!.resume()
+    await task.value
+    XCTAssertEqual(
+      model.trackingPhoneSelection, .notSelected,
+      "Command completion cannot invent a durable selection")
+    model.analytics = try phoneSnapshot(selected: local)
+    XCTAssertEqual(model.trackingPhoneSelection, .thisPhone)
+  }
+
+  func testFailedPhoneSelectionPreservesExistingPhone() async throws {
+    let model = FoldingPresentation()
+    model.localDeviceID = UUID()
+    model.analytics = try phoneSnapshot(selected: UUID())
+    var actions = actions()
+    actions.useThisPhone = { throw Failure.unavailable }
+    await model.selectThisPhone(using: actions)
+    XCTAssertEqual(model.trackingPhoneSelection, .anotherPhone)
+    XCTAssertNotNil(model.error)
+    XCTAssertNil(model.operation)
+  }
+
+  private func phoneSnapshot(selected: UUID?, devices: [UUID] = []) throws
+    -> PersonalAnalyticsSnapshot
+  {
+    let events = devices.map { device in
+      TrackingEvent(
+        schemaVersion: 1, eventID: UUID(), deviceID: device, sequence: 1,
+        generation: .initial, observedAtMS: 1_000, timezoneID: "UTC", transition: .open,
+        isTest: false, competitionEpochID: nil)
+    }
+    let markers =
+      selected.map {
+        [
+          PrivateTransferMarker(
+            transferID: UUID(), revision: 1,
+            activeDeviceID: $0, sourceWatermarks: [:], createdAtMS: 2_000)
+        ]
+      } ?? []
+    return try PersonalAnalytics.snapshot(
+      events: events, generation: .initial, homeTimezone: "UTC",
+      asOfMS: 2_000,
+      range: PersonalDateRange.trailingDays(1, throughMS: 2_000, homeTimezone: "UTC"),
+      transferMarkers: markers)
+  }
+
   private func actions() -> FoldingActions {
     FoldingActions(
       refresh: {}, setup: { _ in throw Failure.unavailable }, savePreferences: { _ in })

@@ -148,18 +148,30 @@ enum CompetitionPresentation {
 }
 
 enum PresentedSheet: Identifiable, Equatable {
-  case settings, setup, editSummary, travelInfo, leaderboardInfo
+  case settings, setup, editSummary, travelInfo, leaderboardInfo, trackingPhone
   case tiedRank(Int)
   case export(UUID)
   var id: String {
     switch self {
     case .settings: "settings"
+    case .trackingPhone: "tracking-phone"
     case .setup: "setup"
     case .editSummary: "summary"
     case .travelInfo: "travel"
     case .leaderboardInfo: "leaderboard-info"
     case .tiedRank(let rank): "tie-\(rank)"
     case .export(let ticket): "export-\(ticket.uuidString)"
+    }
+  }
+}
+
+enum TrackingPhoneSelection: Equatable {
+  case notSelected, thisPhone, anotherPhone
+  var title: String {
+    switch self {
+    case .notSelected: String(localized: "phone.notSelected", defaultValue: "Not selected")
+    case .thisPhone: String(localized: "phone.thisPhone", defaultValue: "This iPhone")
+    case .anotherPhone: String(localized: "phone.anotherPhone", defaultValue: "Another iPhone")
     }
   }
 }
@@ -235,6 +247,21 @@ enum ExportChoice { case json, csv }
   var localDeviceID: UUID?
   var lastEventAt: Date?
   var needsSetup: Bool { setup?.step != .complete }
+  var trackingPhoneSelection: TrackingPhoneSelection? {
+    guard let analytics, let localDeviceID else { return nil }
+    guard let selected = analytics.selectedDeviceID else { return .notSelected }
+    return selected == localDeviceID ? .thisPhone : .anotherPhone
+  }
+
+  func selectThisPhone(using actions: FoldingActions) async {
+    guard let use = actions.useThisPhone, let selection = trackingPhoneSelection,
+      selection != .thisPhone
+    else { return }
+    await command(String(localized: "phone.switching", defaultValue: "Switching phone")) {
+      try await use()
+    }
+  }
+
   private var nextSheet: PresentedSheet?
   private var exportRevision = UUID()
   private var historyRequest = UUID()
