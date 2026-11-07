@@ -427,9 +427,10 @@ fn install_nix(
     }
     fs::set_permissions(&downloaded, fs::Permissions::from_mode(0o700))
         .map_err(|_| Error::InstallerVerification)?;
-    // A download can outlast sudo's credential cache. Reauthenticate before
-    // recording a mutation, so an expired cache cannot create uncertain state.
-    authenticate(tools, home)?;
+    // Lost authorization must stop before a mutation, never prompt mid-install.
+    if !crate::sudo_session::validate(&tools.sudo, home) {
+        return Err(Error::Elevation);
+    }
     journal
         .record(Phase::InstallingNix, None)
         .map_err(|_| Error::Journal)?;
@@ -768,6 +769,7 @@ fn run_inner(
     // Authentication happens explicitly in the terminal; mutation commands use
     // -n so they cannot unexpectedly wait for a password in the background.
     authenticate(tools, &home)?;
+    let _authorization = crate::sudo_session::Authorization::maintain(&tools.sudo, &home);
     if existing_key(tools, &home)? && !resuming_keys {
         return Err(Error::ExistingKey);
     }
@@ -869,9 +871,9 @@ fn run_inner(
         Error::Decryption,
     )?;
 
-    // Building can take longer than sudo's cache lifetime. A failed prompt
-    // leaves this resumable at VerifyingSecrets, before any key installation.
-    authenticate(tools, &home)?;
+    if !crate::sudo_session::validate(&tools.sudo, &home) {
+        return Err(Error::Elevation);
+    }
 
     // Persist uncertainty before each privileged mutation. Timeout does not
     // prove an unprivileged supervisor stopped a root-owned descendant.

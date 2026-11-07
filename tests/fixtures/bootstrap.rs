@@ -162,8 +162,8 @@ fn main() {
             }
         }
         "sudo" => {
-            if args == ["-v"] {
-                event(root, "authenticate");
+            if args == ["-v"] || args == ["-n", "-v"] {
+                event(root, if args == ["-v"] { "authenticate" } else { "validate-authorization" });
                 if flag("late-auth-fails")
                     && fs::read_to_string(root.join("events"))
                         .unwrap()

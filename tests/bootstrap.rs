@@ -482,12 +482,19 @@ fn bootstrap_uses_isolated_ssh_transport() {
 }
 
 #[test]
-fn authentication_is_refreshed_after_build_before_key_installation() {
+fn expired_authorization_stops_before_key_installation_without_prompting_again() {
     let fixture = Fixture::new(true);
     fixture.flag("late-auth-fails");
     assert_eq!(fixture.run().unwrap_err(), Error::Elevation);
     let events = fixture.events();
-    assert_eq!(events.last().unwrap(), "authenticate");
+    assert_eq!(events.last().unwrap(), "validate-authorization");
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| *event == "authenticate")
+            .count(),
+        1
+    );
     assert!(events.contains(&"verify-secrets".into()));
     fixture.no_host_mutation();
     let progress: serde_json::Value =

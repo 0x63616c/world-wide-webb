@@ -74,6 +74,8 @@ struct Progress {
         skip_serializing_if = "Option::is_none"
     )]
     repaired_from: Option<String>,
+    #[serde(default, rename = "repairedVia", skip_serializing_if = "Vec::is_empty")]
+    repaired_via: Vec<String>,
     phase: Phase,
     #[serde(rename = "builtSystem")]
     built_system: Option<PathBuf>,
@@ -271,7 +273,9 @@ impl Journal {
             }
             Err(StateError::Mismatch) => {
                 let journal = Self::open_mode(directory, repository, host, to, OpenMode::Repair)?;
-                if journal.progress.repaired_from.as_deref() != Some(from) {
+                if journal.progress.repaired_from.as_deref() != Some(from)
+                    || !journal.progress.repaired_via.is_empty()
+                {
                     return Err(StateError::Mismatch);
                 }
                 Ok(journal)
@@ -281,8 +285,14 @@ impl Journal {
     }
 
     fn ensure_repairable(&self) -> Result<(), StateError> {
-        if self.progress.repaired_from.is_some()
-            || self.progress.built_system.is_some()
+        if self.progress.repaired_from.is_some() {
+            return Err(StateError::NeedsInspection);
+        }
+        self.ensure_pre_key_repair()
+    }
+
+    fn ensure_pre_key_repair(&self) -> Result<(), StateError> {
+        if self.progress.built_system.is_some()
             || !matches!(
                 self.phase(),
                 Phase::Preparing | Phase::InstallingNix | Phase::Building
@@ -293,8 +303,97 @@ impl Journal {
         Ok(())
     }
 
+    /// Advance a failed repair without replacing its original reservation.
+    pub fn open_followup(
+        directory: &Path,
+        repository: &str,
+        host: &str,
+        original: &str,
+        previous: &str,
+        next: &str,
+    ) -> Result<Self, StateError> {
+        if [original, previous, next]
+            .iter()
+            .any(|revision| !crate::config::valid_revision(revision))
+            || original == previous
+            || previous == next
+            || original == next
+        {
+            return Err(StateError::Mismatch);
+        }
+        match Self::open_mode(directory, repository, host, previous, OpenMode::Repair) {
+            Ok(journal) => {
+                journal.ensure_pre_key_repair()?;
+                if journal.progress.repaired_from.as_deref() != Some(original)
+                    || journal.progress.repaired_via.len() >= 4
+                    || journal
+                        .progress
+                        .repaired_via
+                        .iter()
+                        .any(|revision| revision == next)
+                {
+                    return Err(StateError::Mismatch);
+                }
+                Ok(journal)
+            }
+            Err(StateError::Mismatch) => {
+                let journal = Self::open_mode(directory, repository, host, next, OpenMode::Repair)?;
+                if journal.progress.repaired_from.as_deref() != Some(original)
+                    || journal.progress.repaired_via.last().map(String::as_str) != Some(previous)
+                {
+                    return Err(StateError::Mismatch);
+                }
+                Ok(journal)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub fn record_followup(
+        &mut self,
+        original: &str,
+        previous: &str,
+        next: &str,
+    ) -> Result<(), StateError> {
+        if self.progress.repaired_from.as_deref() != Some(original)
+            || [original, previous, next]
+                .iter()
+                .any(|revision| !crate::config::valid_revision(revision))
+            || original == previous
+            || original == next
+            || previous == next
+        {
+            return Err(StateError::Mismatch);
+        }
+        if self.progress.revision == next
+            && self.progress.repaired_via.last().map(String::as_str) == Some(previous)
+        {
+            return Ok(());
+        }
+        self.ensure_pre_key_repair()?;
+        if self.progress.revision != previous
+            || self.progress.repaired_via.len() >= 4
+            || self
+                .progress
+                .repaired_via
+                .iter()
+                .any(|revision| revision == next)
+        {
+            return Err(StateError::Mismatch);
+        }
+        let mut progress = self.progress.clone();
+        progress.revision = next.into();
+        progress.repaired_via.push(previous.into());
+        self.write(&progress)?;
+        self.progress = progress;
+        Ok(())
+    }
+
     pub fn record_repair(&mut self, from: &str, to: &str) -> Result<(), StateError> {
-        if self.progress.revision == to && self.progress.repaired_from.as_deref() == Some(from) {
+        if self.progress.revision == to
+            && self.progress.repaired_from.as_deref() == Some(from)
+            && self.progress.repaired_via.is_empty()
+        {
             return Ok(());
         }
         self.ensure_repairable()?;
@@ -413,6 +512,7 @@ impl Journal {
                 host: host.into(),
                 revision: revision.into(),
                 repaired_from: None,
+                repaired_via: Vec::new(),
                 phase: Phase::Preparing,
                 built_system: None,
             }
