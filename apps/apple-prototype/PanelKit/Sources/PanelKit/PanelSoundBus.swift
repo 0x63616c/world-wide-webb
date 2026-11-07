@@ -1,7 +1,7 @@
 import AVFoundation
 
 /// Named, device-volume cues shared by native panel features.
-public enum PanelSoundCue: String, Sendable { case timerTick, timerFinished }
+public enum PanelSoundCue: String, Sendable { case timerFinished }
 
 @MainActor public protocol PanelSoundPlaying: AnyObject {
     func play(_ cue: PanelSoundCue)

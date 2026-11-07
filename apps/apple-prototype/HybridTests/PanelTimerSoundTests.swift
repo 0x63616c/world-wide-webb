@@ -3,7 +3,7 @@ import PanelKit
 @testable import Panel
 
 @MainActor final class PanelTimerSoundTests: XCTestCase {
-    func testTicksPauseCompletionAndReset() {
+    func testOnlyCompletionRingsAndStopSilencesIt() {
         let suite = "PanelTimerSoundTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -14,25 +14,28 @@ import PanelKit
         XCTAssertFalse(timer.keepsScreenAwake)
         timer.start(at: now)
         XCTAssertTrue(timer.keepsScreenAwake)
-        XCTAssertEqual(sound.cues, [.timerTick])
-        timer.tick(at: now)
-        XCTAssertEqual(sound.cues.count, 1, "No duplicate tick in one second")
+        XCTAssertTrue(sound.cues.isEmpty)
         timer.tick(at: now.addingTimeInterval(1))
-        XCTAssertEqual(sound.cues.count, 2)
+        XCTAssertTrue(sound.cues.isEmpty)
         timer.pause(at: now.addingTimeInterval(2))
         timer.tick(at: now.addingTimeInterval(3))
-        XCTAssertEqual(sound.cues.count, 2)
+        XCTAssertTrue(sound.cues.isEmpty)
         timer.start(at: now.addingTimeInterval(4))
         timer.tick(at: now.addingTimeInterval(7))
         XCTAssertEqual(timer.countdown.phase, .finished)
-        XCTAssertEqual(sound.cues.last, .timerFinished)
+        XCTAssertEqual(sound.cues, [.timerFinished])
+        timer.tick(at: now.addingTimeInterval(8))
+        XCTAssertEqual(sound.cues, [.timerFinished])
+        timer.tick(at: now.addingTimeInterval(10))
+        XCTAssertEqual(sound.cues, [.timerFinished, .timerFinished])
         XCTAssertTrue(timer.keepsScreenAwake)
+        let stops = sound.stops
         timer.reset()
         XCTAssertFalse(timer.keepsScreenAwake)
         let count = sound.cues.count
         timer.tick(at: now.addingTimeInterval(12))
         XCTAssertEqual(sound.cues.count, count)
-        XCTAssertGreaterThan(sound.stops, 0)
+        XCTAssertEqual(sound.stops, stops + 1)
     }
 }
 
