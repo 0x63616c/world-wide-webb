@@ -108,6 +108,14 @@ private enum HomeFacePageIndex { static let clock = 0, home = 1, controls = 2, m
         app.buttons["mode-heat_cool"].tap()
         XCTAssertTrue(app.buttons["climate-range-low"].waitForExistence(timeout: 10))
     }
+    func testClimateModeRemainsVisibleWhenIdle() throws {
+        let app = launch(["-openTile", "climate", "-climateMode", "heat"])
+        let mode = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Heat mode")).firstMatch
+        XCTAssertTrue(mode.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "Idle")).firstMatch.exists)
+    }
     func testPagingPreservesSharedState() throws {
         let app = launch(["-face", "home"])
         let ceiling = app.buttons["toggle-ceiling"]

@@ -8,6 +8,14 @@ struct ClimateController: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     private var climate: ClimateState { store.climate }
+    private var levelColor: Color {
+        switch climate.mode {
+        case .cool: .cyan
+        case .heat: .orange
+        case .heatCool: editingLow ? .orange : .cyan
+        case .off: .gray
+        }
+    }
     private var target: Int { climate.mode == .heatCool ? (editingLow ? climate.low : climate.high) : climate.target }
     private var bounds: ClosedRange<Int> {
         guard climate.mode == .heatCool else { return 67...77 }
@@ -30,6 +38,7 @@ struct ClimateController: View {
                         }.padding(.horizontal, 32).padding(.top, 16)
                     }
                     ClimateTemperatureSurface(value: target, midpoint: climate.ambient, range: bounds,
+                        mode: climate.mode, action: climate.action, accent: levelColor,
                         title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
                         commit: setTemperature)
                         .id("\(climate.mode.rawValue)-\(editingLow)")
@@ -103,6 +112,9 @@ private struct ClimateTemperatureSurface: View {
     let value: Int
     let midpoint: Int
     let range: ClosedRange<Int>
+    let mode: ClimateMode
+    let action: String
+    let accent: Color
     let title: String
     let commit: (Int) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -126,12 +138,12 @@ private struct ClimateTemperatureSurface: View {
         GeometryReader { proxy in
             let height = proxy.size.height
             ZStack(alignment: .bottom) {
-                Rectangle().fill(.yellow.opacity(0.08))
-                Rectangle().fill(Color.yellow.gradient.opacity(0.38))
+                Rectangle().fill(accent.opacity(0.08))
+                Rectangle().fill(accent.gradient.opacity(0.38))
                     .frame(height: height * position)
-                Rectangle().fill(.yellow.opacity(0.65)).frame(height: 1)
+                Rectangle().fill(accent.opacity(0.65)).frame(height: 1)
                     .offset(y: -height * position)
-                Capsule().fill(.yellow)
+                Capsule().fill(accent)
                     .frame(width: 112, height: 7)
                     .offset(y: -min(max(0, height - 9), max(9, height * position - 3.5)))
                     .accessibilityHidden(true)
@@ -143,6 +155,21 @@ private struct ClimateTemperatureSurface: View {
                     .shadow(color: .black.opacity(0.55), radius: 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("climate-value")
+                VStack(spacing: 5) {
+                    if mode == .heatCool {
+                        Label("Heat·Cool mode", systemImage: "thermometer.medium")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(.linearGradient(colors: [.orange, .cyan], startPoint: .leading, endPoint: .trailing))
+                    } else {
+                        Label("\(mode.label) mode", systemImage: mode == .cool ? "snowflake" : "sun.max.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(accent)
+                    }
+                    Text(action).font(.system(size: 20)).foregroundStyle(.white.opacity(0.7))
+                }
+                .padding(.top, 42)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .accessibilityElement(children: .combine)
             }.contentShape(.rect)
                 .gesture(DragGesture(minimumDistance: 6)
                     .onChanged { gesture in
