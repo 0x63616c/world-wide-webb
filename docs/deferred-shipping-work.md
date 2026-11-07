@@ -7,7 +7,8 @@ The owner cleared the broader shipping goal. These tasks are retained for a late
 - [x] Promote both initialized, exported and validated Core Data CloudKit schemas to Production and verify exact readback (`cloudkit/README.md`). Development snapshots and Production readbacks are sealed under `cloudkit/`.
 - [x] Verify synthetic private fold and reset convergence through live CloudKit export/import on the iCloud-signed Duo simulator, in both containers with Development and Production CloudKit entitlements (`docs/experiments/live-integration-2026-11-07.md`).
 - [x] Complete staging/production migrations 0001–0017, Worker deployment, six runtime secrets per environment and API/admin routing. Both live health endpoints returned HTTP 200 with commit `4594f762365962dc0fe0ba662bdeb5559ea4ac2b` on November 7, 2026. This confirms deployment health, not feature acceptance. See `docs/experiments/live-integration-2026-11-07.md`.
-- [ ] Deploy/activate watchdog and operational alerts; verify outbound email receipt and outage/recovery.
+- [x] Provision isolated staging/production watchdog D1, checksum migrations and disabled Workers; verify no Cron/public endpoint and byte-verified encrypted state backups (`docs/experiments/live-integration-2026-11-07.md`).
+- [ ] Activate watchdog and operational alerts; verify outbound email receipt and staging outage/recovery first.
 - [ ] Validate live sign-in/App Attest, iCloud/reset/account/phone transfer, Shortcuts uploads, rankings/corrections, avatars/moderation/cleanup, APNs/preferences and StoreKit purchases. Do not substitute local tests for provider/device evidence.
 - [ ] Measure realistic large-history/population resource use and address resulting issues.
 - [ ] Complete visual/accessibility/localization review and all ten-locale storefront screenshots/listing.
