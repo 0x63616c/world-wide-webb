@@ -15,7 +15,9 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 4. Review and merge that PR; the wizard installs, reboots and verifies the Mac.
 
 Use [CLI 0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0)
-or later for this enrollment flow.
+or later for this enrollment flow. Automatic installation of missing Apple
+Command Line Tools is planned for 0.3.1; fresh targets without those tools should
+wait for that release.
 
 The CLI ships its bootstrap helper. Your personal laptop needs neither Nix nor a local
 bootstrap build. Nix is installed and runs on the target only after approval.

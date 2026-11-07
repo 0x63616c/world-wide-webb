@@ -1,7 +1,8 @@
 # Set up a Mac
 
-This guide describes the upcoming enrollment release. Do not start physical-Mac
-setup until its VM validation and release are complete.
+CLI 0.3.0 is released. The automatic prerequisite installation described below
+is planned for 0.3.1 and is not available in 0.3.0; wait for that release before
+following this guide on a fresh Mac without developer tools.
 
 ## One-time work on the target
 
@@ -9,9 +10,10 @@ Create the administrator shown in `homelab.json` during Setup Assistant. Enable
 **System Settings → General → Sharing → Remote Login** for that administrator.
 Keep the Mac powered and reachable. Your personal laptop does not need Remote Login.
 
-The current bootstrap also needs Apple Command Line Tools on the target for Git.
-If missing, run `xcode-select --install` there and finish Apple's installer.
-The next CLI update checks this before reading setup credentials or changing state.
+In 0.3.1, **Begin setup** also authorizes installation of Apple Command Line Tools
+when missing. The wizard installs the required tools before preparing enrollment
+credentials; it does not install general macOS updates or replace a working Xcode
+selection. There is no separate installer confirmation in the wizard.
 
 ## Use the wizard
 
@@ -32,11 +34,17 @@ as the configured administrator to `tag:homelab`. Setup does not change that pol
 | Stage | What happens |
 | --- | --- |
 | Connect | SSH trust, agent public-key selection if needed, read-only host checks |
-| Approve setup | Review the Mac; automatically back up age keys to 1Password, verify backups, encrypt the scoped enrollment key and register the Mac's read-only Git key |
+| Begin setup | Review the Mac once; install missing Command Line Tools, back up and verify age keys in 1Password, encrypt the scoped enrollment key and register the Mac's read-only Git key |
 | Merge the PR | Review generated configuration in GitHub; the wizard waits for merge, installs that commit, reboots and verifies services and remote access |
 
-The wizard supplies the installer and remembers repository, host binding and
-private credential paths. Do not install Nix on your personal laptop.
+The wizard checks required client executables before starting a new enrollment.
+It supplies the installer and remembers repository, host binding and private
+credential paths. Do not install Nix on your personal laptop.
+
+Apple administrator authentication, 1Password unlock/SSH-agent approval and
+Tailscale policy approval may still appear. These are the underlying systems
+authorizing access; the wizard does not save passwords or bypass them. GitHub PR
+review remains required before installing the configuration.
 
 ## Review before activation
 

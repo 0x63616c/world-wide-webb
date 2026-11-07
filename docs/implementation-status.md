@@ -5,6 +5,8 @@ service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
 owns guided enrollment; private health and restore operations live in `host/`.
 No physical host has received this configuration. Public CLI
 [0.3.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.0) is released.
+Automatic Command Line Tools installation and earlier client prerequisite checks
+are planned for 0.3.1; validation and release are still pending.
 
 ## What is implemented
 
