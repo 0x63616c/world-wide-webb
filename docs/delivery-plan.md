@@ -14,11 +14,21 @@ Updated November 7, 2026. This is the execution companion to the [product specif
 
 ## Delivery rules
 
-Implement small, reviewable increments that finish a user behavior across the necessary modules. A milestone is complete only when its acceptance checks have evidence. Keep unfinished checks unchecked and link the PR, CI run, recording, or device result when completing them. Do not report simulator fixtures as proof of physical-device behavior.
+One execution agent implements the project sequentially in substantial feature batches. Do not delegate implementation to subagents. Independent agents may review completed work; the execution agent applies fixes. The detailed milestones and work orders remain scope/acceptance checklists, not instructions to stop after every item.
 
-Use `codex/` branches and focused PRs. Keep `main` buildable. Add CI and Fastlane at the start, expanding them as features arrive. Use the [technical specifications and agent work orders](technical/README.md) to constrain implementation. Use deterministic fixtures for daily development; physical-device tests are focused integration checkpoints, not a requirement for every edit.
+Use three validation checkpoints:
 
-This plan does not set a calendar promise before the first device and build-tool checks. Apple's processing/review time and owner-operated device tests are external dependencies. The ordered milestones below are the schedule; after M1, estimate remaining work from demonstrated progress.
+1. **Foundation proof (M0–M1):** prove real fold → durable local event → verified staging upload, private-sync/storage safety, signing, and a basic CI build/screenshot route. Run the bounded runtime experiments before building features that depend on them. Prove these mechanisms once; repeat only after a relevant change or failure.
+2. **Feature-batch validation (M2–M6):** build the personal tracker (M2–M3), then competition/admin/notifications (M4–M5), then polish/localization/tips/release assets (M6). Work continuously within each batch. At its end, run focused integration/UI checks and address findings before calling the batch complete. Reuse prior evidence for unchanged foundations. These are the three substantial batches within the second checkpoint, not per-file or per-button gates.
+3. **Integrated release validation (M7–M8):** run full real-device/TestFlight checks, independent UI/security reviews, localization coverage, recovery checks, and the release rehearsal. Submit only after required evidence passes; verify Apple submission and subsequent publication.
+
+Cheap automated checks may run in the background during a batch. Expensive simulator suites, full screenshot matrices, and owner-operated device checks run at checkpoint/batch completion or when a specific new risk justifies them. Fix a discovered foundational/security/data-integrity failure before building dependent work; batching is not permission to ignore known failures. Keep CI and required merge/release checks enforced. Do not repeatedly rerun unchanged passing checks without a reason.
+
+A milestone is complete only when its acceptance checks have evidence. Until batch validation, mark implementation as awaiting validation and keep acceptance boxes unchecked. Link the PR, CI run, recording, or device result when closing them. Do not report simulator fixtures as proof of physical-device behavior. GitHub Issues will track task status and evidence; the delivery plan tracks milestone progress. Issue creation remains pending and is not implied by this planning update.
+
+Use `codex/` branches and coherent PRs aligned to substantial changes, with commits at useful recovery points. Do not create a PR or request approval for every tiny edit. Keep `main` buildable. Add CI and Fastlane at the start. Use the [technical specifications and work orders](technical/README.md) to constrain implementation, and deterministic fixtures for routine development. Give progress updates without stopping execution for routine confirmation.
+
+This plan does not set a calendar promise before the first device and build-tool checks. Apple's processing/review time and owner-operated device tests are external dependencies. After M1, estimate remaining work from demonstrated progress. Dependencies below indicate technical ordering, not parallel execution-agent assignments.
 
 ## M0 — Accounts, identity, and repository foundation
 
@@ -92,7 +102,7 @@ This plan does not set a calendar promise before the first device and build-tool
 
 ## M4 — Competition, identity, and abuse controls
 
-**Dependencies:** M1 verified upload path, M2 event semantics/reset rules. Can overlap M3 once interfaces settle.
+**Dependencies:** M1 verified upload path, M2 event semantics/reset rules. Implement in the next substantial batch after the personal tracker; frozen interfaces allow fixtures without a second execution agent.
 
 - [ ] Define versioned request/response schemas, limits, structured errors, pagination, idempotency, and cross-language fixtures under `contracts/`.
 - [ ] Implement Sign in with Apple validation, session lifecycle, logout/revocation, active-device transfer, and one competition identity per Apple subject. Private tracking remains available without joining.

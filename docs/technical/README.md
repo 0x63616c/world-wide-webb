@@ -14,6 +14,10 @@ Read in order:
 
 Machine-readable contracts are in [contracts/](../../contracts/README.md). They define shapes and deterministic examples, not proof that an implementation is correct.
 
+## Execution cadence
+
+One execution agent builds substantial feature batches; no execution subagents. Independent agents are used only for review. Follow the [delivery plan](../delivery-plan.md#delivery-rules): foundation proof, focused validation at feature-batch completion, then full integrated release validation. Work-order acceptance checks remain required but do not trigger a stop after every small edit.
+
 ## Authority and change control
 
 The product specification controls user-visible behavior. These technical specifications control implementation defaults and supersede earlier *implementation recommendations* in architecture/delivery notes where explicitly recorded in an ADR. If they conflict on product behavior, fix the inconsistency before implementation; do not silently pick a different interpretation. Contracts and their examples must agree with both.

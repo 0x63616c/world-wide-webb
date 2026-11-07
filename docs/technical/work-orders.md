@@ -1,18 +1,27 @@
 # Agent work orders and handoff rules
 
-These are implementation instructions, not completed work. Every order starts with the [technical index](README.md) and its linked files. The coordinator owns shared contracts, target/crate manifests, migrations ordering, and integration decisions. Workers may not silently edit each other's interfaces or merge independent schema changes.
+These are implementation instructions, not completed work. One execution agent owns all implementation. No execution subagents; independent agents may review completed work only. Each order starts with the [technical index](README.md). Shared contracts, target/crate manifests, migrations, and integration decisions have the same execution owner.
 
-## Execution graph
+## Execution order and batching
 
-F00 account/toolchain work and F01 contracts can start together. F02 storage/device proof and F03 backend/runtime proof depend on their relevant F01 contracts and F00 access. F04 personal tracking depends on F02. F05 UI and F06 widgets build on F04. F07 competition depends on F03/F01 and integrates with F04. F08 admin and F09 result notifications depend on F07. F10 localization/assets starts from stable F05 screens and completes after F06–F09. F11 release rehearsal starts infrastructure early but cannot complete until F10 and real-device evidence pass. F12 submission follows a verified release instruction.
+Follow the [delivery plan's three validation checkpoints](../delivery-plan.md#delivery-rules): foundation proof, substantial feature batches, then integrated release validation. F00–F03 establish accounts, contracts, and the real tracking/upload route. Complete this foundation proof before dependent feature work.
 
-Use at most three build workers and one coordinator/reviewer. Assign disjoint files; coordinator integrates shared manifests/contracts. The UI worker may build against frozen fixtures while backend is underway, but feature completion requires real integration. Do not label a mocked screen “backend complete.”
+Then implement substantial batches sequentially:
 
-## Required handoff for every order
+- **Personal tracker:** F04–F06 — tracking/history/sync/export/reset, native setup/screens, widgets, and daily reminders.
+- **Competition and operations:** F07–F09 — competition, account lifecycle, admin/moderation, and result notifications.
+- **Polish and release assets:** F10 — localization, tips, branding, listing, and screenshot coverage; release automation already exists from F00.
+- **Full integration and release:** F11–F12 — TestFlight, independent UI/security review, recovery/release rehearsal, submission and publication verification.
 
-Include: changed files, contract version, caller-visible behavior, exact checks run and outcomes, evidence paths/CI URLs, known failure states, and downstream effects. A test that wasn't run is marked pending, not passed. Include at least one negative/retry path when the behavior touches persistence, auth, payments, or external writes. Stop only the dependent work if a platform gate fails; continue unrelated authorized work.
+Work orders define ownership, requirements, and acceptance evidence, not mandatory pauses. Build continuously within a batch and validate the whole behavior at its end. Run cheap checks in the background; reserve expensive suites/device checks for these points or a specific newly introduced risk. Do not rerun unchanged passing checks without cause. Technical dependencies and known failures still gate dependent work.
 
-No task may solve a failure by weakening verification, changing counting semantics, dropping a launch language, leaking internal data to UI, fabricating hardware evidence, or silently adding an external vendor. Use deterministic fixture adapters for local development, but build real integrations at the defined gates.
+## Required completion record
+
+At each batch checkpoint, record changed files, contract version, caller-visible behavior, checks/outcomes, evidence links, known failure states, and downstream effects against its work orders. Implementation can be marked awaiting validation; acceptance boxes remain unchecked until evidence passes. Reuse valid evidence across tasks rather than rerunning the same check for every checkbox.
+
+Include negative/retry coverage where behavior touches persistence, auth, payments, or external writes. Stop only dependent work if a platform gate fails; continue unrelated authorized work. Fix known security/data-integrity failures promptly. Routine progress updates do not require user confirmation.
+
+No task may solve a failure by weakening verification, changing counting semantics, dropping a launch language, leaking internal data to UI, fabricating hardware evidence, or silently adding an external vendor. Use deterministic fixtures for local development; real integration and physical-device gates remain required. Independent reviewers report findings; the execution agent implements their fixes.
 
 ## F00 — Account and build foundation
 
@@ -28,7 +37,7 @@ No task may solve a failure by weakening verification, changing counting semanti
 
 ## F01 — Contract freeze and domain fixtures
 
-**Owns:** `contracts/`, GLOSSARY.md, technical contract changes. Only one worker edits schemas at a time.
+**Owns:** `contracts/`, GLOSSARY.md, technical contract changes. The execution agent keeps both language contracts synchronized.
 
 **Read:** storage-and-tracking.md, backend-and-security.md, http-contracts.md.
 
@@ -100,7 +109,7 @@ No task may solve a failure by weakening verification, changing counting semanti
 
 ## F07 — Competition and public account lifecycle
 
-**Owns:** Rust competition domain/Worker operations and migrations; iOS competition transport model may be a separate worker against the frozen contract.
+**Owns:** Rust competition domain/Worker operations and migrations; the same execution agent integrates the iOS competition transport model against the frozen contract.
 
 **Deliver:** epochs/transfer, ingestion/receipts, replay/rebuild, weekly/monthly/all-time, percentiles, finalized results, reset/leave/delete, profile moderation lifecycle and share data. Keep schema migration numbering under one coordinator.
 

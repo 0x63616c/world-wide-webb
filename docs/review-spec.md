@@ -258,6 +258,8 @@ Apple enrollment, agreements, credentials, and review itself are external depend
 
 An independent agent reviews rendered screens and recorded flows against this spec: both displays, navigation, animations, localization, accessibility, widgets, empty/error/offline states, and setup. Fix actionable findings and re-review before release. Snapshot tests complement this review; they do not replace visual judgment.
 
+One execution agent performs all implementation; subagents are limited to independent review. Use the [delivery plan's larger batches and three validation checkpoints](delivery-plan.md#delivery-rules). Build continuously within a batch; run expensive checks at its completion or for a specific new risk, while preserving all release acceptance requirements.
+
 Implementation order after spec review:
 
 1. Establish the native shell, basic CI, Fastlane build/signing lanes, and a screenshot smoke capture. Add persistence, intent logging, physical-device trigger tests, and the attested upload spike.
