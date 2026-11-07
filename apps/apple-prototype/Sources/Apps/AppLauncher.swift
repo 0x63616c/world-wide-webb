@@ -96,10 +96,10 @@ struct LauncherGlassSurface: View {
         let args = ProcessInfo.processInfo.arguments
         if let index = args.firstIndex(of: "-previewLauncherEdgeWidth"), args.indices.contains(index + 1),
            let value = Double(args[index + 1]) {
-            return CGFloat(max(0, min(value, 2)))
+            return CGFloat(max(0, min(value, 10)))
         }
         #endif
-        return 2
+        return 10
     }
     static var footprint: some View {
         RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
