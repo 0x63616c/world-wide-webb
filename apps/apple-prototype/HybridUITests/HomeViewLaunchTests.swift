@@ -50,7 +50,7 @@ import XCTest
         app.buttons["launcher-clock"].tap()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
-        XCTAssertTrue(app.buttons["app-clock"].exists)
+        XCTAssertFalse(app.buttons["app-clock"].exists)
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             profile.exists && profile.frame.maxY < app.frame.height / 2
         }, object: nil)

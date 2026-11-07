@@ -8,7 +8,7 @@ import Testing
         #expect(Array(apps.dropFirst(5).prefix(3).map(\.id)) == ["car", "wifi", "music"])
         #expect(apps.last?.id == "settings")
         #expect(PanelAppCatalog.standard.app(id: "cameras") == nil)
-        #expect(PanelAppCatalog.standard.app(id: "clock")?.route == .clock)
+        #expect(PanelAppCatalog.standard.app(id: "clock") == nil)
         #expect(PanelAppCatalog.standard.app(id: "photos") == nil)
         #expect(apps.first { $0.id == "booth" }?.route == .photoBooth)
     }
