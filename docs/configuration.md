@@ -9,7 +9,7 @@ exact commit through your local GitHub CLI authentication.
 | `schema` | Currently `1`; unknown fields and versions are rejected |
 | `hosts` | Map of configuration names to administrator, SSH keys, readiness and services |
 | `tailscale.tag` | Tag assigned to single-use enrollment keys |
-| `tailscale.oauth` | Optional 1Password vault/item references, never secret values |
+| `tailscale.oauth` | 1Password vault/item references required for enrollment, never secret values |
 
 Your Nix configuration must import the same host facts, not maintain a second
 list. Export them from `lib.setupPlan.hosts` in the flake. The bootstrap compares
@@ -17,22 +17,37 @@ the fetched manifest and evaluated Nix host facts with what you reviewed.
 Administrator UID, authorized keys, readiness and service assignments must agree.
 Keep `activationReady: false` until secrets and host access are reviewed.
 
-The configuration repository also supplies `flake.lock`,
-`bootstrap/installer.json` (reviewed Determinate installer URL and SHA-256), and
-`secrets/<host>.sops.yaml`. It must build a system containing `homelab-host` for
-privileged installation and verification. This is a macOS/Nix contract, not a
-runner for arbitrary setup scripts.
+The configuration repository also supplies `flake.lock` and
+`bootstrap/installer.json` (reviewed Determinate installer URL and SHA-256).
+Enrollment creates `secrets/<host>.sops.yaml` in its PR; you do not prepare that
+file manually.
+
+The built system must supply:
+
+- `homelab-host` for privileged installation and verification.
+- `homelab-health`, which exits successfully only when the configured services
+  are healthy, and the `tailscale` CLI for node verification.
+- Comin, its `com.github.nlewo.comin` launchd job and `/run/comin-grpc.sock` status socket, configured
+  to reconcile this repository's `main` branch after enrollment releases its hold.
+- `etc/homelab/revision.json` with the exact `repository`, `host` and `revision`
+  of the built system. Completion checks this against Comin's actual deployment.
+
+Comin is required by this flow. This is a macOS/Nix contract, not a runner for
+arbitrary setup scripts. The [synthetic VM flake](../tests/fixtures/vm-config/flake.nix)
+shows the integration contract; its test credentials and health checks must not
+be used for production.
 
 ## Credentials
 
-The optional 1Password OAuth item needs `client-id` and a **concealed**
+The 1Password OAuth item needs `client-id` and a **concealed**
 `client-secret` field. Grant only Tailscale Auth Keys Write for the configured tag.
 The CLI requests a one-day, single-use, non-ephemeral enrollment key. It stores the
 key inside host ciphertext; the reusable OAuth credential stays on the operator.
-Manual hidden input remains available.
+Enrollment requires this item; the wizard does not ask you to paste tokens.
 
-The credential-source interface separates the wizard from 1Password. Tests use
-synthetic providers and local issuer fixtures. There is no dynamic plugin loader.
+1Password and Tailscale are the supported setup. Internal test boundaries allow
+synthetic providers and local issuer fixtures without accessing real accounts.
+There is no dynamic plugin loader or provider-selection workflow.
 
 ## Local state
 

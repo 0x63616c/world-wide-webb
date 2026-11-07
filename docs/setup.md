@@ -9,7 +9,7 @@ Bootstrap also needs Apple's Command Line Tools for Git. On a fresh target, run
 helper checks this prerequisite without opening the installer or changing host
 settings; a base VM with development tools already installed does not test it.
 On the client: install the CLI and sign in to GitHub CLI for private-repo access.
-Unlock 1Password with desktop CLI integration enabled. Connect the standalone
+Install the `op` CLI and unlock 1Password with desktop CLI integration enabled. Connect the standalone
 Tailscale client, with its CLI available. The App Store variant does not support
 the `tailscale ssh` wrapper used to verify the new connection.
 
