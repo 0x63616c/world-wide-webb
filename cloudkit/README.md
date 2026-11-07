@@ -1,6 +1,6 @@
 # Private CloudKit schema
 
-Apple-generated Development exports, bootstrap receipts and hashed manifests are sealed under `schemas/staging/v1` and `schemas/production/v1`. Generate future versions from Apple's initialized development environment; do not handwrite Core Data's `CD_` records or internal fields. This directory is for reviewed immutable schema exports/receipts, not records, credentials or private database dumps.
+Apple-generated Development exports, bootstrap receipts and hashed manifests are sealed under `schemas/staging/v1` and `schemas/production/v1`. Exact matching Production exports and verification receipts are under `readbacks/staging/v1` and `readbacks/production/v1`. Generate future versions from Apple's initialized development environment; do not handwrite Core Data's `CD_` records or internal fields. This directory is for reviewed immutable schema exports/receipts, not records, credentials or private database dumps.
 
 The app has four mirror entities: `ReplicatedEvent`, `ResetMarker`, `TrackingInterruption`, `TransferMarker`. All attributes remain optional. There are no CloudKit uniqueness constraints. Transfer-conflict tombstones share the existing transfer entity. Generation fields exist on events/interruption records only; payload remains authoritative. `logicalIDIndex` and `generationIndex` are **local Core Data** fetch indexes. The app does not query user-defined fields directly in CloudKit, so no speculative remote QUERYABLE/SORTABLE indexes are added. Preserve Apple's generated mirroring/system indexes in the full exported schema.
 
@@ -80,4 +80,4 @@ A matching schema is not sync acceptance. Final integration still requires actua
 - [Apple: production schema deployment and administrator role](https://developer.apple.com/documentation/cloudkit/deploying-an-icloud-container-s-schema)
 - [Apple: cktool authentication and development commands](https://developer.apple.com/icloud/ck-tool/)
 
-Installed command help was inspected on November 7, 2026. The primary agent created the management token, initialized both Development containers and sealed/validated their exports that day. Production promotion and live sync acceptance remain pending; see `docs/experiments/live-integration-2026-11-07.md`.
+Installed command help was inspected on November 7, 2026. The primary agent created the management token, initialized both Development containers, sealed/validated their exports, promoted both schemas in Console and verified exact Production readback that day. Live record sync acceptance remains pending; see `docs/experiments/live-integration-2026-11-07.md`.
