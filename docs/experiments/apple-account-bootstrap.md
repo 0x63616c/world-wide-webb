@@ -65,3 +65,7 @@ explicit separate setup requirement, not silently considered enabled.
 Apple account references were saved in the Folding vault as “Folding Apple
 account references”. This references the existing team credential rather than
 copying its secret material into another item.
+
+## Match repository bootstrap
+
+Created `https://github.com/0x63616c/folding-signing` and verified `isPrivate: true` using GitHub on November 7, 2026. This is the dedicated encrypted Fastlane match store; currently empty. Certificate/profile generation, encryption password recovery in 1Password and archive signing remain pending. Repository creation alone does not prove signing readiness.
