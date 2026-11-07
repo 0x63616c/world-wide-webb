@@ -5,7 +5,7 @@ launcher on one full-screen native Liquid Glass surface over the same living clo
 The clock stays fixed as the glass slides up from the bottom. Close Home with the
 top-right close button (or choose Clock); the glass slides back down. Horizontal
 swipes on the clock alternate between Green and Tide. Green retains the oversized
-12–3–6–9 dial. Tide has stacked SF Rounded Liquid Glass numerals over a blue
+12–3–6–9 dial. Tide has stacked SF Rounded clear, untinted Liquid Glass numerals over a blue
 colour field, with a date and no AM/PM label. Its glass follows the actual glyph
 outlines; Reduce Transparency or Increase Contrast uses solid, legible numerals.
 Both faces use the existing solar night appearance and device-local selection.

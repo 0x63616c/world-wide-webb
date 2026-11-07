@@ -25,7 +25,7 @@ struct TideClockDial: View {
             }
         }
         #endif
-        return .clear.tint(Color(red: 0.70, green: 0.91, blue: 1).opacity(0.65))
+        return .clear
     }
 
     var body: some View {
