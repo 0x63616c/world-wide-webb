@@ -16,7 +16,6 @@ struct AppLauncher: View {
             let iconFrameSide: CGFloat = sizeClass == .compact ? 76 : 112
             let iconSide = iconFrameSide * 0.9
             let headerInset: CGFloat = sizeClass == .compact ? 20 : 40
-            ZStack(alignment: .topTrailing) {
             ScrollView(.vertical) {
                 VStack(spacing: 32) {
                     TimelineView(.everyMinute) { context in
@@ -65,12 +64,7 @@ struct AppLauncher: View {
                               value.translation.height > 80 || value.predictedEndTranslation.height > 180 else { return }
                         close()
                     })
-                if isPresented {
-                    PanelProfileSelector()
-                        .padding(headerInset)
-                        .zIndex(1)
-                }
-            }
+                .modifier(PanelProfileSelector(isAvailable: isPresented, inset: headerInset))
         }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")

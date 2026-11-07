@@ -15,9 +15,10 @@ Only Classic opens the web board. See [app registration](../Sources/Apps/README.
 for the typed catalog and extension recipe. Older dashboard descriptions below
 refer to the retained preview components, not the current landing screen.
 
-Tap the avatar in the top-right corner of Home to open Profiles. Add User saves a
-name and photo on this device. Choosing a profile updates the avatar and the
-selection in the menu.
+Tap the avatar in the top-right corner of Home to open the two-column profile
+picker. The active profile has a checkmark, and Add User follows the profile
+tiles. The panel stores names and photos on this device. Selecting a profile
+updates the Home avatar and checkmark.
 
 ## Native display brightness
 

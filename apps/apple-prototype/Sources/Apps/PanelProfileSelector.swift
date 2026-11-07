@@ -16,10 +16,14 @@ private struct PanelProfiles: Codable {
     var selected: PanelProfile? { users.first { $0.id == selectedID } }
 }
 
-struct PanelProfileSelector: View {
+struct PanelProfileSelector: ViewModifier {
+    let isAvailable: Bool
+    let inset: CGFloat
+
     @AppStorage("panel.profiles") private var storage = Data()
     @AppStorage("panel.profilePhoto") private var legacyPhoto = Data()
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingProfiles = false
     @State private var addingUser = false
 
@@ -27,32 +31,63 @@ struct PanelProfileSelector: View {
         (try? JSONDecoder().decode(PanelProfiles.self, from: storage)) ?? PanelProfiles()
     }
 
-    var body: some View {
+    func body(content: Content) -> some View {
         let profiles = profiles
-        Button {
-            addingUser = false
-            showingProfiles = true
-        } label: {
-            ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: 48)
-                .foregroundStyle(.white.opacity(0.85))
-                .contentShape(.circle)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Profiles")
-        .accessibilityValue(profiles.selected?.name ?? "")
-        .accessibilityIdentifier("home-profile")
-        .popover(isPresented: $showingProfiles, arrowEdge: .top) {
-            Group {
-                if addingUser {
-                    AddPanelProfile(cancel: { addingUser = false }, save: add)
-                } else {
-                    profileList(profiles)
+        let isOpen = isAvailable && showingProfiles
+        content
+            .allowsHitTesting(!isOpen)
+            .accessibilityHidden(isOpen)
+            .overlay {
+                if isOpen {
+                    LinearGradient(
+                        colors: [.black.opacity(0.52), .black.opacity(0.85)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                        .ignoresSafeArea()
+                        .onTapGesture { showProfiles(false) }
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
                 }
             }
-            .frame(width: 284)
-            .padding(20)
-            .presentationCompactAdaptation(.sheet)
-        }
+            .overlay(alignment: .topTrailing) {
+                if isAvailable {
+                    VStack(alignment: .trailing, spacing: 18) {
+                        Button {
+                            showProfiles(!isOpen)
+                        } label: {
+                            ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: 48)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .contentShape(.circle)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isOpen ? "Close Profiles" : "Profiles")
+                        .accessibilityValue(profiles.selected?.name ?? "")
+                        .accessibilityIdentifier("home-profile")
+                        if isOpen {
+                            profileGrid(profiles)
+                                .transition(.opacity)
+                        }
+                    }
+                    .padding(inset)
+                    .foregroundStyle(.white)
+                    .accessibilityAction(.escape) { showProfiles(false) }
+                }
+            }
+            .sheet(isPresented: $addingUser) {
+                AddPanelProfile(cancel: { addingUser = false }, save: add)
+                    .foregroundStyle(.primary)
+                    .preferredColorScheme(.light)
+                    .padding(28)
+                    .frame(idealWidth: 380)
+                    .presentationSizing(.fitted)
+            }
+            .onChange(of: isAvailable) { _, available in
+                if !available {
+                    showingProfiles = false
+                    addingUser = false
+                }
+            }
     }
 
     private var launcherPhoto: Data {
@@ -63,73 +98,78 @@ struct PanelProfileSelector: View {
         return legacyPhoto
     }
 
-    private func profileList(_ profiles: PanelProfiles) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Profiles").font(.title3.bold()).accessibilityAddTraits(.isHeader)
-                Spacer()
-                if sizeClass == .compact {
-                    Button("Close", systemImage: "xmark", role: .close) { showingProfiles = false }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.glass)
-                }
-            }
-            if profiles.users.isEmpty {
-                Text("Add a name and photo to create a profile.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                ViewThatFits(in: .vertical) {
-                    profileRows(profiles).fixedSize(horizontal: false, vertical: true)
-                    ScrollView { profileRows(profiles) }
-                }
-                .frame(maxHeight: 244)
-            }
-            Divider()
-            Button {
-                addingUser = true
-            } label: {
-                Label("Add User", systemImage: "plus")
-                    .font(.body.weight(.medium))
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("profile-add")
+    private func showProfiles(_ showing: Bool) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            showingProfiles = showing
         }
     }
 
-    private func profileRows(_ profiles: PanelProfiles) -> some View {
-        LazyVStack(spacing: 4) {
-            ForEach(profiles.users) { user in
-                let selected = user.id == profiles.selectedID
+    private func profileGrid(_ profiles: PanelProfiles) -> some View {
+        let side: CGFloat = sizeClass == .compact ? 72 : 96
+        let columnWidth = side + 16
+        let spacing: CGFloat = 22
+        let columns = Array(repeating: GridItem(.fixed(columnWidth), spacing: spacing), count: 2)
+        let tiles = GlassEffectContainer(spacing: spacing) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: spacing) {
+                ForEach(profiles.users) { user in
+                    profileTile(user, selected: user.id == profiles.selectedID, side: side)
+                }
                 Button {
-                    var updated = self.profiles
-                    updated.selectedID = user.id
-                    persist(updated)
-                    showingProfiles = false
+                    addingUser = true
                 } label: {
-                    HStack(spacing: 12) {
-                        ProfileAvatar(photo: user.photo, side: 36)
-                        Text(user.name).lineLimit(2)
-                        Spacer(minLength: 4)
+                    VStack(spacing: 10) {
+                        Image(systemName: "plus")
+                            .font(.system(size: side * 0.32, weight: .medium))
+                            .frame(width: side, height: side)
+                            .glassEffect(.regular.tint(.white.opacity(0.1)).interactive(), in: .circle)
+                        Text("Add User").font(.subheadline.weight(.medium))
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("profile-add")
+            }
+            .padding(.vertical, 3)
+        }
+        return VStack(alignment: .leading, spacing: 18) {
+            Text("Profiles")
+                .font(.title2.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            ViewThatFits(in: .vertical) {
+                tiles.fixedSize(horizontal: false, vertical: true)
+                ScrollView { tiles }
+                    .scrollBounceBehavior(.basedOnSize)
+            }
+        }
+        .frame(width: columnWidth * 2 + spacing)
+    }
+
+    private func profileTile(_ user: PanelProfile, selected: Bool, side: CGFloat) -> some View {
+        Button {
+            var updated = profiles
+            updated.selectedID = user.id
+            persist(updated)
+            showProfiles(false)
+        } label: {
+            VStack(spacing: 10) {
+                ProfileAvatar(photo: user.photo, side: side)
+                    .overlay { Circle().strokeBorder(.white.opacity(0.16)) }
+                    .overlay(alignment: .topTrailing) {
                         if selected {
                             Image(systemName: "checkmark")
-                                .font(.subheadline.weight(.semibold))
+                                .font(.caption.weight(.bold))
+                                .frame(width: 26, height: 26)
+                                .background(.green, in: .circle)
                                 .accessibilityHidden(true)
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .frame(minHeight: 48)
-                    .background(selected ? AnyShapeStyle(.fill.tertiary) : AnyShapeStyle(.clear),
-                                in: .rect(cornerRadius: 14))
-                    .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selected ? .isSelected : [])
+                Text(user.name)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
             }
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func add(_ profile: PanelProfile) {
@@ -157,7 +197,31 @@ private struct AddPanelProfile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Add User").font(.title3.bold()).accessibilityAddTraits(.isHeader)
+            Text("Add User")
+                .font(.title2.bold())
+                .frame(maxWidth: .infinity)
+                .accessibilityAddTraits(.isHeader)
+
+            PhotosPicker(selection: $selection, matching: .images) {
+                VStack(spacing: 8) {
+                    ProfileAvatar(photo: photo ?? Data(), side: 80)
+                        .overlay {
+                            if selection != nil && imported?.item != selection {
+                                ProgressView().accessibilityLabel("Loading photo")
+                            }
+                        }
+                    Text(photo == nil ? "Choose Photo" : "Change Photo")
+                        .font(.subheadline.weight(.medium))
+                }
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("profile-photo")
+            if let imported, imported.item == selection, imported.photo == nil {
+                Text("Couldn’t load this photo. Choose another.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Name").font(.subheadline.weight(.medium))
@@ -168,28 +232,6 @@ private struct AddPanelProfile: View {
                     .frame(minHeight: 44)
                     .background(.fill.tertiary, in: .rect(cornerRadius: 12))
                     .accessibilityIdentifier("profile-name")
-            }
-
-            PhotosPicker(selection: $selection, matching: .images) {
-                HStack(spacing: 12) {
-                    ProfileAvatar(photo: photo ?? Data(), side: 48)
-                    Text(photo == nil ? "Choose Photo" : "Change Photo")
-                        .font(.body.weight(.medium))
-                    Spacer(minLength: 4)
-                    if selection != nil && imported?.item != selection {
-                        ProgressView().controlSize(.small).accessibilityLabel("Loading photo")
-                    } else {
-                        Image(systemName: "photo.on.rectangle").foregroundStyle(.secondary)
-                    }
-                }
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("profile-photo")
-            if let imported, imported.item == selection, imported.photo == nil {
-                Text("Couldn’t load this photo. Choose another.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
 
             Divider()
