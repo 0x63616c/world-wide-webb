@@ -15,6 +15,7 @@ use crate::inventory::{self, HostProfile, InventoryError};
 pub(crate) struct Terminal {
     raw: bool,
     alternate: bool,
+    _execution: crate::process::ExecutionScope,
 }
 
 impl Terminal {
@@ -23,6 +24,9 @@ impl Terminal {
         let mut terminal = Self {
             raw: false,
             alternate: false,
+            _execution: crate::process::ExecutionScope::enter(
+                crate::terminal_process::execute_background,
+            ),
         };
         terminal.resume()?;
         Ok(terminal)

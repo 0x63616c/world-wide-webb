@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::io::{self, Read};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
@@ -97,14 +98,40 @@ pub fn run_silent(command: &mut Command, timeout: Duration) -> Result<ExitStatus
     supervise(command, timeout, OutputMode::Discard).map(|output| output.status)
 }
 
-enum OutputMode {
+pub(crate) enum OutputMode {
     Capture,
     Discard,
     TerminalStderr,
     Status,
 }
 
+type Executor = fn(&mut Command, Duration, OutputMode) -> Result<Output, ProcessError>;
+thread_local! { static EXECUTOR: Cell<Option<Executor>> = const { Cell::new(None) }; }
+
+pub(crate) struct ExecutionScope(Option<Executor>);
+impl ExecutionScope {
+    pub(crate) fn enter(executor: Executor) -> Self {
+        Self(EXECUTOR.replace(Some(executor)))
+    }
+}
+impl Drop for ExecutionScope {
+    fn drop(&mut self) {
+        EXECUTOR.set(self.0);
+    }
+}
+
 fn supervise(
+    command: &mut Command,
+    timeout: Duration,
+    mode: OutputMode,
+) -> Result<Output, ProcessError> {
+    if let Some(execute) = EXECUTOR.get() {
+        return execute(command, timeout, mode);
+    }
+    supervise_blocking(command, timeout, mode)
+}
+
+pub(crate) fn supervise_blocking(
     command: &mut Command,
     timeout: Duration,
     mode: OutputMode,

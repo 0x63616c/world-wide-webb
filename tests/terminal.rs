@@ -489,7 +489,7 @@ fn success_preview_celebrates_and_enter_finishes_without_back() {
     let mut terminal =
         Terminal::with_arguments(&fixture.inventory, &["preview", "--screen", "complete"]);
     let screen = terminal.until("studio-mac is set up!");
-    assert!(screen.contains("Enter Done"));
+    assert!(screen.contains("Press Enter to finish"));
     assert!(screen.contains("Configuration: #a1b2c3d4"));
     assert!(!screen.contains("Esc Back"));
     assert!(!screen.contains("/commit/"));

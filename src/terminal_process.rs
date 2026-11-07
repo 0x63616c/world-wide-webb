@@ -142,6 +142,7 @@ pub(crate) fn diagnostic_status(
 
 #[doc(hidden)]
 pub fn within<T>(title: &str, host: &str, operation: impl FnOnce() -> T) -> T {
+    let _execution = crate::process::ExecutionScope::enter(execute_background);
     struct Restore(Option<Context>);
     impl Drop for Restore {
         fn drop(&mut self) {
@@ -158,6 +159,22 @@ pub fn within<T>(title: &str, host: &str, operation: impl FnOnce() -> T) -> T {
     });
     let _restore = Restore(previous);
     operation()
+}
+
+pub(crate) fn execute_background(
+    command: &mut Command,
+    timeout: Duration,
+    mode: crate::process::OutputMode,
+) -> Result<Output, crate::process::ProcessError> {
+    let context = context();
+    crate::ui::loading::run(
+        || match &context {
+            Some(context) => draw(context, "", ProcessScreen::Running),
+            None => crate::ui::redraw(),
+        },
+        || crate::process::supervise_blocking(command, timeout, mode),
+    )
+    .map_err(crate::process::ProcessError::Io)?
 }
 
 fn context() -> Option<Context> {

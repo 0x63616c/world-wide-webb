@@ -34,13 +34,13 @@ impl Step {
     }
     pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Tools => "Check developer tools",
-            Self::Identity => "Prepare Git identity",
-            Self::Credentials => "Back up and encrypt keys",
-            Self::Configuration => "Save configuration in Git",
-            Self::Install => "Install approved configuration",
-            Self::Verify => "Verify reboot and remote access",
-            Self::Updates => "Enable Git updates",
+            Self::Tools => "Developer tools",
+            Self::Identity => "Repository access",
+            Self::Credentials => "Recovery and secrets",
+            Self::Configuration => "Git configuration",
+            Self::Install => "Mac configuration",
+            Self::Verify => "Startup and connectivity",
+            Self::Updates => "Automatic updates",
         }
     }
     fn explanation(self) -> &'static str {
@@ -126,48 +126,8 @@ impl Checklist {
         self.message = message;
     }
 
-    fn stages(&self) -> [(&'static str, State); 4] {
-        [
-            (
-                ("Prepare", "Preparing", "Prepared", "Preparation failed"),
-                &self.states[..3],
-            ),
-            (
-                ("Install", "Installing", "Installed", "Installation failed"),
-                &self.states[3..5],
-            ),
-            (
-                ("Verify", "Verifying", "Verified", "Verification failed"),
-                &self.states[5..6],
-            ),
-            (
-                (
-                    "Enable Git updates",
-                    "Enabling Git updates",
-                    "Git updates enabled",
-                    "Git updates failed",
-                ),
-                &self.states[6..],
-            ),
-        ]
-        .map(|(label, states)| {
-            let state = if states.contains(&State::Failed) {
-                State::Failed
-            } else if states.contains(&State::Running) {
-                State::Running
-            } else if states.iter().all(|state| *state == State::Complete) {
-                State::Complete
-            } else {
-                State::Pending
-            };
-            let label = match state {
-                State::Pending => label.0,
-                State::Running => label.1,
-                State::Complete => label.2,
-                State::Failed => label.3,
-            };
-            (label, state)
-        })
+    fn stages(&self) -> [(&'static str, State); 7] {
+        STEPS.map(|step| (step.label(), self.states[step.index()]))
     }
 
     pub(super) fn message(&mut self, message: &str) {
@@ -431,22 +391,22 @@ mod tests {
     }
 
     #[test]
-    fn grouped_stages_require_every_internal_step_to_succeed() {
+    fn each_step_reports_its_own_state() {
         let mut checklist = Checklist::new("example");
         checklist.done(Step::Tools);
         checklist.done(Step::Identity);
         checklist.begin(Step::Credentials, "Backing up keys");
-        assert!(checklist.stages()[0].1 == State::Running);
+        assert!(checklist.stages()[2].1 == State::Running);
         checklist.fail(Step::Credentials, "Backup failed".into());
-        assert!(checklist.stages()[0].1 == State::Failed);
+        assert!(checklist.stages()[2].1 == State::Failed);
         checklist.begin(Step::Credentials, "Retrying backup");
         checklist.done(Step::Credentials);
-        assert!(checklist.stages()[0].1 == State::Complete);
+        assert!(checklist.stages()[2].1 == State::Complete);
         checklist.done(Step::Configuration);
-        assert!(checklist.stages()[1].1 == State::Pending);
+        assert!(checklist.stages()[4].1 == State::Pending);
         checklist.done(Step::Install);
-        assert!(checklist.stages()[1].1 == State::Complete);
-        assert!(checklist.stages()[2].1 == State::Pending);
+        assert!(checklist.stages()[4].1 == State::Complete);
+        assert!(checklist.stages()[5].1 == State::Pending);
     }
 
     #[test]
@@ -463,7 +423,7 @@ mod tests {
                 .iter()
                 .filter(|(line, _)| line.starts_with('✓'))
                 .count(),
-            0
+            1
         );
     }
 

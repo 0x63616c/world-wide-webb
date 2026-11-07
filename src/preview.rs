@@ -71,6 +71,30 @@ struct Fixture {
 }
 
 fn fixture(screen: Screen) -> Fixture {
+    if screen == Screen::Progress {
+        use ui::components::ProgressState;
+        let mut lines = vec![
+            ("studio-mac".into(), Role::Context),
+            (String::new(), Role::Body),
+        ];
+        for (label, state) in [
+            ("Developer tools", ProgressState::Complete),
+            ("Repository access", ProgressState::Complete),
+            ("Recovery and secrets", ProgressState::Running),
+            ("Git configuration", ProgressState::Pending),
+            ("Mac configuration", ProgressState::Pending),
+            ("Startup and connectivity", ProgressState::Pending),
+            ("Automatic updates", ProgressState::Pending),
+        ] {
+            lines.push(state.row(label));
+        }
+        lines.push((String::new(), Role::Body));
+        lines.push(("Backing up and encrypting keys".into(), Role::Context));
+        return Fixture {
+            title: "Setting up your Mac",
+            lines,
+        };
+    }
     if screen == Screen::Authentication {
         return Fixture {
             title: "Setting up your Mac",

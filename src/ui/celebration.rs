@@ -8,19 +8,13 @@ use ratatui::{
     widgets::Paragraph,
 };
 
-pub(super) fn render(frame: &mut Frame<'_>, elapsed: Duration, colour: bool) {
+pub(super) fn render(frame: &mut Frame<'_>, elapsed: Duration, colour: bool, panel: Rect) {
     let area = frame.area();
     if !colour || area.width < 40 || area.height < 12 {
         return;
     }
     let width = area.width - 4;
     let height = area.height - 6;
-    let panel = Rect::new(
-        area.x + area.width.saturating_sub(80) / 2,
-        area.y + area.height.saturating_sub(16) / 2,
-        area.width.min(80),
-        area.height.min(16),
-    );
     let count = (usize::from(width) * usize::from(height) / 200).clamp(8, 32);
     for index in 0..count {
         let seed = (index as u32 + 1).wrapping_mul(2654435761);
@@ -53,7 +47,9 @@ mod tests {
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 35)).unwrap();
         for elapsed in [Duration::from_millis(900), Duration::from_secs(60)] {
-            terminal.draw(|frame| render(frame, elapsed, true)).unwrap();
+            terminal
+                .draw(|frame| render(frame, elapsed, true, Rect::new(10, 9, 80, 16)))
+                .unwrap();
             let buffer = terminal.backend().buffer();
             assert!(buffer.content.iter().any(|cell| cell.symbol() != " "));
             for y in [0, 1, 2, 32, 33, 34] {

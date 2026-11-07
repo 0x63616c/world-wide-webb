@@ -3,6 +3,12 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Command, Stdio};
 fn main() {
     let mode = std::env::args().nth(1).unwrap();
+    if mode == "slow-background" {
+        std::fs::write(std::env::args().nth(2).unwrap(), "started").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(1800));
+        println!("background complete");
+        return;
+    }
     let mut tty = OpenOptions::new().read(true).write(true).open("/dev/tty").unwrap();
     assert!(Command::new("/bin/stty").arg("-echo").stdin(tty.try_clone().unwrap()).status().unwrap().success());
     // Terminal control sequences must never escape the parser into the parent.

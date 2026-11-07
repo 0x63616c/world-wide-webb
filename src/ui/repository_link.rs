@@ -49,7 +49,14 @@ pub(super) fn attach(link: &Link, colour: bool) -> io::Result<()> {
         style::SetAttribute(style::Attribute::Reset)
     )?;
     if colour {
-        queue!(output, style::SetForegroundColor(style::Color::DarkGrey))?;
+        queue!(
+            output,
+            style::SetForegroundColor(if link.label.starts_with('#') {
+                style::Color::Grey
+            } else {
+                style::Color::DarkGrey
+            })
+        )?;
     }
     queue!(output, style::SetAttribute(style::Attribute::Underlined))?;
     write_label(&mut output, link)?;

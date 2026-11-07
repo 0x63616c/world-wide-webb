@@ -19,6 +19,12 @@ recipes. Ordinary tests never enroll a device or start a VM.
 
 ## UI development without setup
 
+The interactive process executor keeps bounded subprocesses on scoped workers
+while the UI thread redraws and handles input. `cargo test --test authentication`
+includes delayed captured/silent subprocesses and requires input acknowledgement
+within 500 ms; native password masking, retry and terminal restoration use the
+same test driver. These tests do not contact a Mac or a credential provider.
+
 `just preview` builds the local CLI and opens synthetic screens through the same
 Ratatui renderer used by setup. `hl-dev preview --screen attention` jumps to a
 failure example. Use left/right to change examples and up/down to scroll.

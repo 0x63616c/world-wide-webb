@@ -11,7 +11,36 @@ pub(super) fn body_lines(
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     let mut list_indices = Vec::new();
+    let progress_width = body
+        .iter()
+        .filter(|(_, role)| *role == Role::Progress)
+        .map(|(text, _)| text.chars().skip(2).count())
+        .max()
+        .unwrap_or(0)
+        .min(width.saturating_sub(4));
     for (text, role) in body {
+        if *role == Role::Progress {
+            let (marker, label) = text.split_once(' ').unwrap_or(("○", text));
+            let (marker, role) = match marker {
+                "›" => (super::spinner(), Role::Working),
+                "✓" => ("✓", Role::Success),
+                "!" => ("!", Role::Warning),
+                _ => ("○", Role::Pending),
+            };
+            let label: String = label.chars().take(progress_width).collect();
+            let padding = width.saturating_sub(progress_width + 3) / 2;
+            lines.push(
+                Line::from(vec![
+                    Span::raw(" ".repeat(padding)),
+                    Span::styled(
+                        format!("{label:progress_width$}   {marker}"),
+                        style(role, colour),
+                    ),
+                ])
+                .alignment(Alignment::Left),
+            );
+            continue;
+        }
         if matches!(*role, Role::Repository | Role::Commit) {
             continue;
         }
@@ -146,13 +175,13 @@ pub(crate) enum ProgressState {
 }
 impl ProgressState {
     pub(crate) fn row(self, label: &str) -> (String, Role) {
-        let (symbol, role) = match self {
-            Self::Pending => ("○", Role::Pending),
-            Self::Running => ("›", Role::Working),
-            Self::Complete => ("✓", Role::Success),
-            Self::Failed => ("!", Role::Warning),
+        let symbol = match self {
+            Self::Pending => "○",
+            Self::Running => "›",
+            Self::Complete => "✓",
+            Self::Failed => "!",
         };
-        (format!("{symbol} {label}"), role)
+        (format!("{symbol} {label}"), Role::Progress)
     }
 }
 

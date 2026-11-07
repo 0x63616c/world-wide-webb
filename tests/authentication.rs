@@ -43,6 +43,22 @@ fn child(mode: &str, fixture: &Path) {
                     })
                     .map_err(std::io::Error::other)
             }
+            "background" => {
+                let status = homelab_client::terminal_process::status(&mut command)?;
+                for silent in [false, true, false] {
+                    let mut slow = Command::new(fixture);
+                    slow.arg("slow-background")
+                        .arg(fixture.parent().unwrap().join("background-started"));
+                    if silent {
+                        homelab_client::process::run_silent(&mut slow, Duration::from_secs(5))
+                            .map_err(std::io::Error::other)?;
+                    } else {
+                        homelab_client::process::capture(&mut slow, Duration::from_secs(5))
+                            .map_err(std::io::Error::other)?;
+                    }
+                }
+                Ok(status)
+            }
             _ => homelab_client::terminal_process::status(&mut command),
         },
     );
@@ -83,6 +99,8 @@ fn scenario(mode: &str, fixture: &Path) {
     let mut retried = false;
     let mut build_verified = false;
     let mut exit = None;
+    let mut background_stop = None;
+    let mut background_acknowledgements = 0;
     loop {
         let mut buffer = [0; 8192];
         match reader.read(&mut buffer) {
@@ -96,6 +114,28 @@ fn scenario(mode: &str, fixture: &Path) {
             Err(error) => panic!("PTY read: {error}"),
         }
         let screen = parser.screen().contents();
+        if mode == "background"
+            && background_stop.is_none()
+            && fixture
+                .parent()
+                .unwrap()
+                .join("background-started")
+                .exists()
+        {
+            writer.write_all(b"\x03").unwrap();
+            background_stop = Some(Instant::now());
+        }
+        if let Some(sent) = background_stop {
+            if screen.contains("Press Ctrl-C again to quit") {
+                background_acknowledgements += 1;
+                writer.write_all(b"x").unwrap();
+                background_stop = None;
+                std::fs::remove_file(fixture.parent().unwrap().join("background-started")).unwrap();
+            } else if sent.elapsed() > Duration::from_millis(500) {
+                let _ = child.kill();
+                panic!("UI stalled while a noninteractive subprocess was running");
+            }
+        }
         if !answered && screen.contains("Password:") {
             answered = true;
             pair.master
@@ -159,6 +199,9 @@ fn scenario(mode: &str, fixture: &Path) {
         std::thread::sleep(Duration::from_millis(10));
     }
     assert!(exit.unwrap().success());
+    if mode == "background" {
+        assert_eq!(background_acknowledgements, 3);
+    }
     let transcript = String::from_utf8_lossy(&transcript);
     assert!(
         !transcript.contains("fixture-password"),
@@ -217,6 +260,7 @@ fn main() {
         "failure-quit",
         "cancel",
         "timeout",
+        "background",
     ] {
         scenario(mode, &fixture);
         println!("passed: embedded authentication {mode}");

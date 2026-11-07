@@ -35,6 +35,7 @@ pub(crate) enum Role {
     Shortcut,
     Action,
     Working,
+    Progress,
     Warning,
     Success,
     SuccessTitle,
@@ -46,6 +47,30 @@ type Renderer = Terminal<CrosstermBackend<io::Stdout>>;
 thread_local! {
     // The input thread owns the terminal; operation workers only send progress.
     static RENDERER: RefCell<Option<Renderer>> = const { RefCell::new(None) };
+    static VIEW: RefCell<Option<View>> = const { RefCell::new(None) };
+}
+
+#[derive(Clone)]
+struct View {
+    title: String,
+    body: Vec<(String, Role)>,
+    offset: usize,
+    footer: Vec<Action>,
+    celebration: Option<std::time::Duration>,
+}
+
+pub(crate) fn redraw() -> io::Result<()> {
+    let view = VIEW.with(|view| view.borrow().clone());
+    if let Some(view) = view {
+        render_decorated(
+            &view.title,
+            &view.body,
+            view.offset,
+            &view.footer,
+            view.celebration,
+        )?;
+    }
+    Ok(())
 }
 
 pub(crate) fn invalidate() {
@@ -119,8 +144,9 @@ fn style(role: Role, colour: bool) -> Style {
         Role::Context | Role::Repository | Role::Pending => emphasis.fg(Color::Gray),
         Role::Warning => emphasis.fg(Color::LightYellow),
         Role::Success => emphasis.fg(Color::LightGreen),
-        Role::SuccessTitle => emphasis.fg(Color::Black).bg(Color::LightGreen),
+        Role::SuccessTitle => emphasis.fg(Color::Black).bg(Color::LightBlue),
         Role::Commit => emphasis,
+        Role::Progress => emphasis,
         Role::Body | Role::Section | Role::Field | Role::Input | Role::Shortcut => emphasis,
         Role::Placeholder => emphasis.fg(Color::DarkGray),
         Role::Hint => emphasis.fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
@@ -278,15 +304,11 @@ pub(crate) fn render_frame(
     update: Option<&str>,
 ) -> usize {
     let confirmation = [Action::ConfirmQuit];
-    let continuation = footer
-        .iter()
-        .any(|action| matches!(action, Action::Primary(label) if label == "Continue"));
-    let mut presented_body = body.to_vec();
-    if continuation {
-        presented_body.push((String::new(), Role::Body));
-        presented_body.push(("Press Enter to continue".into(), Role::Hint));
-    }
-    let body = presented_body.as_slice();
+    let continuation = footer.iter().find_map(|action| match action {
+        Action::Primary(label) if label == "Continue" => Some("Press Enter to continue"),
+        Action::Primary(label) if label == "Done" => Some("Press Enter to finish"),
+        _ => None,
+    });
     let footer = if crate::quit::armed() {
         &confirmation[..]
     } else {
@@ -301,9 +323,10 @@ pub(crate) fn render_frame(
         return 0;
     }
     let title_height = if title.is_empty() { 0 } else { 2 };
-    let content_room = area
-        .height
-        .saturating_sub(2 + reserved_footer_height(area.width, area.height, footer) + title_height);
+    let hint_height = if continuation.is_some() { 2 } else { 0 };
+    let content_room = area.height.saturating_sub(
+        2 + reserved_footer_height(area.width, area.height, footer) + title_height + hint_height,
+    );
     let line_count = body_lines(
         body,
         usize::from(area.width.saturating_sub(4).min(76)),
@@ -317,7 +340,7 @@ pub(crate) fn render_frame(
     let actions: Vec<_> = footer
         .iter()
         .filter(|action| {
-            !matches!(action, Action::Primary(label) if label == "Continue")
+            !matches!(action, Action::Primary(label) if label == "Continue" || label == "Done")
                 && (**action != Action::Navigation
                     || choices > 1
                     || line_count > usize::from(content_room))
@@ -383,7 +406,8 @@ pub(crate) fn render_frame(
     let title_height = if title.is_empty() { 0 } else { 2 };
     // Routine progress and wrapped messages share an anchor instead of moving
     // the heading whenever one line appears or disappears.
-    let panel_height = (lines.len() as u16 + title_height)
+    let hint_height = if continuation.is_some() { 2 } else { 0 };
+    let panel_height = (lines.len() as u16 + title_height + hint_height)
         .max(12)
         .min(content.height);
     let panel = Rect::new(
@@ -404,7 +428,7 @@ pub(crate) fn render_frame(
         panel.x,
         panel.y + title_height,
         panel.width,
-        panel.height.saturating_sub(title_height),
+        panel.height.saturating_sub(title_height + hint_height),
     );
     let last = lines.len().saturating_sub(usize::from(content.height));
     let offset = offset.min(last);
@@ -413,6 +437,14 @@ pub(crate) fn render_frame(
             .alignment(Alignment::Center),
         content,
     );
+    if let Some(hint) = continuation {
+        frame.render_widget(
+            Paragraph::new(hint)
+                .alignment(Alignment::Center)
+                .style(style(Role::Hint, colour)),
+            Rect::new(panel.x, panel.bottom().saturating_sub(1), panel.width, 1),
+        );
+    }
     let version = format!("v{}", crate::VERSION);
     let final_row = help.len().saturating_sub(1);
     let footer_lines = help
@@ -483,6 +515,15 @@ fn render_decorated(
     footer: &[Action],
     celebration: Option<std::time::Duration>,
 ) -> io::Result<usize> {
+    VIEW.with(|view| {
+        *view.borrow_mut() = Some(View {
+            title: title.into(),
+            body: body.to_vec(),
+            offset,
+            footer: footer.to_vec(),
+            celebration,
+        })
+    });
     RENDERER.with(|renderer| {
         let mut renderer = renderer.borrow_mut();
         if renderer.is_none() {
@@ -497,9 +538,27 @@ fn render_decorated(
             .as_mut()
             .expect("renderer initialized")
             .draw(|frame| {
-                if let Some(elapsed) = celebration {
-                    celebration::render(frame, elapsed, std::env::var_os("NO_COLOR").is_none());
-                }
+                static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+                let elapsed = celebration
+                    .unwrap_or_else(|| START.get_or_init(std::time::Instant::now).elapsed());
+                let area = frame.area();
+                let width = area.width.saturating_sub(4).min(76);
+                let lines = body_lines(body, usize::from(width.max(1)), false).len() as u16;
+                let height = (lines + if title.is_empty() { 0 } else { 2 } + 4)
+                    .max(16)
+                    .min(area.height.saturating_sub(4));
+                let panel = Rect::new(
+                    area.x + area.width.saturating_sub(80) / 2,
+                    area.y + area.height.saturating_sub(height) / 2,
+                    area.width.min(80),
+                    height,
+                );
+                celebration::render(
+                    frame,
+                    elapsed,
+                    std::env::var_os("NO_COLOR").is_none(),
+                    panel,
+                );
                 let brand_width = match crate::operator_profile::name() {
                     Some(name) => format!("[~] homelab ({name})").width(),
                     None => "[~] homelab".width(),
