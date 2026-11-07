@@ -18,6 +18,23 @@ pub enum Phase {
     Activated,
 }
 
+impl Phase {
+    /// Fixed operator messages deliberately exclude paths and subprocess output.
+    pub fn message(self) -> &'static str {
+        match self {
+            Self::Preparing => "Preparing the reviewed configuration…",
+            Self::InstallingNix => "Installing Nix. This can take several minutes…",
+            Self::Building => {
+                "Building the reviewed configuration. Downloads may take several minutes…"
+            }
+            Self::VerifyingSecrets => "Checking host secret decryption…",
+            Self::InstallingKey => "Installing this Mac’s identities…",
+            Self::Activating => "Activating the built configuration…",
+            Self::Activated => "Configuration activated; verification and reboot are next.",
+        }
+    }
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum StateError {
     #[error(
@@ -64,6 +81,87 @@ pub struct Journal {
     _lock: File,
 }
 
+impl Drop for Journal {
+    fn drop(&mut self) {
+        // A concurrent fork can retain a descriptor until exec. Closing our
+        // copy alone would prolong the lock beyond this journal's lifetime.
+        let _ = flock(&self._lock, FlockOperation::Unlock);
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OpenMode {
+    Fresh,
+    Resume,
+    StartOrResume,
+    Reconcile,
+}
+
+/// Absence is meaningful only when every existing ancestor is traversable and
+/// safely owned. Treat even an incomplete bootstrap directory as started.
+pub fn has_started(home: &Path) -> Result<bool, StateError> {
+    if !home.is_absolute() {
+        return Err(StateError::UnsafeLocation);
+    }
+    let mut path = home.to_path_buf();
+    for component in ["", ".local", "state", "homelab", "bootstrap"] {
+        if !component.is_empty() {
+            path.push(component);
+        }
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && !component.is_empty() => {
+                return Ok(false);
+            }
+            Err(_) => return Err(StateError::UnsafeLocation),
+        };
+        if !metadata.is_dir()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o022 != 0
+            || metadata.mode() & 0o100 == 0
+        {
+            return Err(StateError::UnsafeLocation);
+        }
+    }
+    Ok(true)
+}
+
+/// A candidate only: privileged activation receipts still decide whether setup
+/// can finish. This avoids requiring an expired enrollment key after activation.
+pub fn activation_candidate(
+    home: &Path,
+    repository: &str,
+    host: &str,
+    revision: &str,
+) -> Result<bool, StateError> {
+    if !has_started(home)? {
+        return Ok(false);
+    }
+    let mut bytes = Vec::new();
+    private_file(
+        &home.join(".local/state/homelab/bootstrap/progress.json"),
+        false,
+    )?
+    .take(65_537)
+    .read_to_end(&mut bytes)
+    .map_err(|_| StateError::Invalid)?;
+    if bytes.len() > 65_536 {
+        return Err(StateError::Invalid);
+    }
+    let progress: Progress = serde_json::from_slice(&bytes).map_err(|_| StateError::Invalid)?;
+    if progress.schema != 1
+        || progress.repository != repository
+        || progress.host != host
+        || progress.revision != revision
+    {
+        return Err(StateError::Mismatch);
+    }
+    Ok(
+        matches!(progress.phase, Phase::Activating | Phase::Activated)
+            && progress.built_system.is_some(),
+    )
+}
+
 fn private_file(path: &Path, create: bool) -> Result<File, StateError> {
     let flags = if create {
         OFlags::CREATE | OFlags::RDWR
@@ -94,6 +192,60 @@ impl Journal {
         host: &str,
         revision: &str,
         resume: bool,
+    ) -> Result<Self, StateError> {
+        Self::open_mode(
+            state_directory,
+            repository,
+            host,
+            revision,
+            if resume {
+                OpenMode::Resume
+            } else {
+                OpenMode::Fresh
+            },
+        )
+    }
+
+    /// A wizard retry does not need a separate first-run/resume question. The
+    /// journal still binds the exact inputs and blocks uncertain mutations.
+    pub fn start_or_resume(
+        state_directory: &Path,
+        repository: &str,
+        host: &str,
+        revision: &str,
+    ) -> Result<Self, StateError> {
+        Self::open_mode(
+            state_directory,
+            repository,
+            host,
+            revision,
+            OpenMode::StartOrResume,
+        )
+    }
+
+    /// Returns uncertain phases without replaying them. The caller must verify
+    /// privileged completion independently before making another mutation.
+    pub fn open_for_reconciliation(
+        state_directory: &Path,
+        repository: &str,
+        host: &str,
+        revision: &str,
+    ) -> Result<Self, StateError> {
+        Self::open_mode(
+            state_directory,
+            repository,
+            host,
+            revision,
+            OpenMode::Reconcile,
+        )
+    }
+
+    fn open_mode(
+        state_directory: &Path,
+        repository: &str,
+        host: &str,
+        revision: &str,
+        mode: OpenMode,
     ) -> Result<Self, StateError> {
         if repository.is_empty() || host.is_empty() || revision.is_empty() {
             return Err(StateError::Invalid);
@@ -167,18 +319,23 @@ impl Journal {
             {
                 return Err(StateError::Mismatch);
             }
-            if !resume {
+            if mode == OpenMode::Fresh {
                 return Err(StateError::AlreadyStarted);
             }
-            if matches!(
-                progress.phase,
-                Phase::InstallingNix | Phase::InstallingKey | Phase::Activating | Phase::Activated
-            ) {
+            if mode != OpenMode::Reconcile
+                && matches!(
+                    progress.phase,
+                    Phase::InstallingNix
+                        | Phase::InstallingKey
+                        | Phase::Activating
+                        | Phase::Activated
+                )
+            {
                 return Err(StateError::NeedsInspection);
             }
             progress
         } else {
-            if resume {
+            if mode == OpenMode::Resume {
                 return Err(StateError::Missing);
             }
             Progress {
@@ -203,6 +360,10 @@ impl Journal {
 
     pub fn phase(&self) -> Phase {
         self.progress.phase
+    }
+
+    pub fn built_system(&self) -> Option<&Path> {
+        self.progress.built_system.as_deref()
     }
 
     pub fn record(&mut self, phase: Phase, built_system: Option<&Path>) -> Result<(), StateError> {
@@ -245,5 +406,29 @@ impl Journal {
             .and_then(|directory| directory.sync_all())
             .map_err(|_| StateError::SaveFailed)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dropping_journal_unlocks_even_when_a_duplicate_descriptor_survives() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("state");
+        let open = || Journal::start_or_resume(&path, "example/config", "test-mac", "revision");
+        let journal = open().unwrap();
+        // A retained descriptor models another process sharing the open file description.
+        let retained = journal._lock.try_clone().unwrap();
+
+        assert!(matches!(open(), Err(StateError::Busy)));
+        drop(journal);
+
+        let resumed = open().expect("the journal lifetime, not the duplicate, owns the lock");
+        assert!(matches!(open(), Err(StateError::Busy)));
+        assert!(retained.metadata().is_ok());
+        drop(resumed);
+        drop(retained);
     }
 }

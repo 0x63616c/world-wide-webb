@@ -1,15 +1,20 @@
 {
-  "schema": 1,
+  "schema": 2,
+  "onePassword": { "backupVault": "aaaaaaaaaaaaaaaaaaaaaaaaaa" },
   "hosts": {
     "vm-test": {
       "adminUser": "admin",
       "adminUID": 501,
-      "authorizedKeys": [
-        "REPLACE_WITH_DISPOSABLE_VM_SSH_PUBLIC_KEY"
-      ],
-      "activationReady": true,
+      "authorizedKeys": [],
+      "activationReady": false,
       "services": []
     }
   },
-  "tailscale": null
+  "tailscale": {
+    "tag": "tag:vm-test",
+    "oauth": {
+      "vault": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "item": "dddddddddddddddddddddddddd"
+    }
+  }
 }

@@ -1,0 +1,168 @@
+{
+  "$defs": {
+    "Host": {
+      "additionalProperties": false,
+      "properties": {
+        "activationReady": {
+          "description": "Explicit reviewed approval for activation of this host configuration.",
+          "type": "boolean"
+        },
+        "adminUID": {
+          "description": "Existing administrator UID, verified against the target before setup.",
+          "format": "uint32",
+          "maximum": 4294967295,
+          "minimum": 501,
+          "type": "integer"
+        },
+        "adminUser": {
+          "description": "Existing administrator account; setup never guesses or renames this user.",
+          "maxLength": 253,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "authorizedKeys": {
+          "description": "Public SSH keys only, never private keys.",
+          "items": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "pattern": "^(?=.*\\S)[^\\x00-\\x1F\\x7F-\\x9F]+$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
+        "services": {
+          "description": "Names of services the target configuration must enable.",
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._][A-Za-z0-9._-]*$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
+        }
+      },
+      "required": [
+        "adminUser",
+        "adminUID",
+        "authorizedKeys",
+        "activationReady",
+        "services"
+      ],
+      "type": "object"
+    },
+    "OAuthReference": {
+      "additionalProperties": false,
+      "properties": {
+        "item": {
+          "description": "1Password item reference; no OAuth secret belongs in this document.",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^(?!-)(?=.*\\S)[^\\x00-\\x1F\\x7F-\\x9F]+$",
+          "type": "string"
+        },
+        "vault": {
+          "description": "1Password vault containing the OAuth issuer item; not the backup destination.",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^(?!-)(?=.*\\S)[^\\x00-\\x1F\\x7F-\\x9F]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "vault",
+        "item"
+      ],
+      "type": "object"
+    },
+    "OnePasswordConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "backupVault": {
+          "description": "Vault where host and recovery age identities are durably backed up.\nThis is independent of tailscale.oauth.vault, which contains the issuer.",
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "^(?!-)(?=.*\\S)[^\\x00-\\x1F\\x7F-\\x9F]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "backupVault"
+      ],
+      "type": "object"
+    },
+    "TailscaleConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "oauth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OAuthReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tag": {
+          "description": "Tailscale device tag used for this enrollment.",
+          "pattern": "^tag:[a-z]([a-z0-9-]{0,61}[a-z0-9])?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/0x63616c/homelab-cli/main/schema/homelab-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "description": "Inert editor metadata. The CLI never fetches this URL.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "hosts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Host"
+      },
+      "maxProperties": 32,
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$"
+      },
+      "type": "object"
+    },
+    "onePassword": {
+      "$ref": "#/$defs/OnePasswordConfig"
+    },
+    "schema": {
+      "const": 2,
+      "description": "Current configuration version."
+    },
+    "tailscale": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TailscaleConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "hosts",
+    "onePassword"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

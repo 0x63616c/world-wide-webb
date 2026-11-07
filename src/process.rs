@@ -33,12 +33,13 @@ fn read_available(
     pipe: &mut impl Read,
     destination: &mut Vec<u8>,
     combined_size: &mut usize,
+    limit: usize,
 ) -> Result<bool, ProcessError> {
     let mut buffer = [0; 4096];
     match pipe.read(&mut buffer) {
         Ok(0) => Ok(true),
         Ok(count) => {
-            if *combined_size + count > OUTPUT_LIMIT {
+            if *combined_size + count > limit {
                 return Err(ProcessError::ExcessiveOutput);
             }
             destination.extend_from_slice(&buffer[..count]);
@@ -76,6 +77,22 @@ pub fn capture(command: &mut Command, timeout: Duration) -> Result<Output, Proce
     supervise(command, timeout, OutputMode::Capture)
 }
 
+pub(crate) fn capture_status(
+    command: &mut Command,
+    timeout: Duration,
+) -> Result<Output, ProcessError> {
+    supervise(command, timeout, OutputMode::Status)
+}
+
+/// Interactive authentication may display a browser approval link on stderr.
+/// Use only for public transport diagnostics, never commands handling secrets.
+pub fn capture_with_terminal_stderr(
+    command: &mut Command,
+    timeout: Duration,
+) -> Result<Output, ProcessError> {
+    supervise(command, timeout, OutputMode::TerminalStderr)
+}
+
 pub fn run_silent(command: &mut Command, timeout: Duration) -> Result<ExitStatus, ProcessError> {
     supervise(command, timeout, OutputMode::Discard).map(|output| output.status)
 }
@@ -83,6 +100,8 @@ pub fn run_silent(command: &mut Command, timeout: Duration) -> Result<ExitStatus
 enum OutputMode {
     Capture,
     Discard,
+    TerminalStderr,
+    Status,
 }
 
 fn supervise(
@@ -91,8 +110,14 @@ fn supervise(
     mode: OutputMode,
 ) -> Result<Output, ProcessError> {
     let streams = match mode {
-        OutputMode::Capture => (Stdio::piped(), Stdio::piped()),
+        OutputMode::Capture | OutputMode::Status => (Stdio::piped(), Stdio::piped()),
         OutputMode::Discard => (Stdio::null(), Stdio::null()),
+        OutputMode::TerminalStderr => (Stdio::piped(), Stdio::inherit()),
+    };
+    let limit = if matches!(mode, OutputMode::Status) {
+        256 * 1024
+    } else {
+        OUTPUT_LIMIT
     };
     let mut child = command
         .stdout(streams.0)
@@ -121,10 +146,12 @@ fn supervise(
                 return Err(ProcessError::Timeout);
             }
             if !stdout_closed && let Some(stdout) = &mut child.stdout {
-                stdout_closed = read_available(stdout, &mut captured_stdout, &mut combined_size)?;
+                stdout_closed =
+                    read_available(stdout, &mut captured_stdout, &mut combined_size, limit)?;
             }
             if !stderr_closed && let Some(stderr) = &mut child.stderr {
-                stderr_closed = read_available(stderr, &mut captured_stderr, &mut combined_size)?;
+                stderr_closed =
+                    read_available(stderr, &mut captured_stderr, &mut combined_size, limit)?;
             }
             if !exited {
                 exited = waitid(

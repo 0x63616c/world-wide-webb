@@ -72,7 +72,20 @@ fn main() {
         assert!(args.iter().any(|arg| arg == "-s"));
         event("transfer");
         let start = args.iter().position(|arg| arg == "--").unwrap() + 1;
-        assert_eq!(args.len() - start, 8);
+        if root.join("git-identity").exists() {
+            assert_eq!(args.len() - start, 2);
+            assert!(args[start].ends_with("/homelab-host"));
+            assert_eq!(fs::read_to_string(&args[start]).unwrap(), "synthetic-helper");
+            assert!(!args.iter().any(|value| value.ends_with(".age") || value.ends_with("key.txt")));
+            if root.join("transfer-fails").exists() { std::process::exit(1); }
+            return;
+        }
+        assert_eq!(args.len() - start, 7);
+        assert!(
+            !args
+                .iter()
+                .any(|arg| arg.contains("github-token") || arg.contains("source-token"))
+        );
         assert_eq!(
             args.last().unwrap(),
             "admin@example-host:/private/tmp/homelab-setup.ABC12345/"
@@ -130,6 +143,12 @@ fn main() {
                 "501"
             }
         );
+    } else if input.contains("dseditgroup") {
+        event("prerequisites");
+        assert!(input.contains("xcode-select --print-path"));
+        assert!(input.contains("git --version"));
+        assert!(!input.contains("sudo"));
+        if root.join("missing-prerequisites").exists() { std::process::exit(11); }
     } else if input.contains("mktemp") {
         event("stage");
         assert!(input.contains("umask 077"));
@@ -137,6 +156,25 @@ fn main() {
             println!("/private/tmp/other-user");
         } else {
             println!("/private/tmp/homelab-setup.ABC12345");
+        }
+    } else if input.contains("exec ./homelab-host \"$6\"") {
+        event("prepare-git");
+        assert!(input.contains("shasum -a 256"));
+        assert!(args.last().unwrap().contains("'example/config' 'build-mac'"));
+        assert!(args.last().unwrap().contains(&format!("'{}'", "c".repeat(64))));
+        if args.last().unwrap().ends_with("'release-enrollment'") {
+            if root.join("bootstrap-started").exists() { std::process::exit(1); }
+            println!("released");
+            return;
+        }
+        assert!(args.last().unwrap().ends_with("'prepare-deploy-key'"));
+        if root.join("remote-hash-fails").exists() { std::process::exit(1); }
+        if root.join("unsafe-key-path").exists() {
+            println!("{{\"path\":\"/Users/admin/../../key\",\"public_key\":\"ssh-ed25519 AAAA\",\"bootstrap_started\":false}}");
+        } else {
+            let directory = fs::read_to_string(root.join("git-directory")).unwrap();
+            let started = root.join("bootstrap-started").exists();
+            println!("{{\"path\":\"/Users/admin/{directory}/key.txt\",\"public_key\":\"ssh-ed25519 AAAA comment\",\"bootstrap_started\":{started}}}");
         }
     } else if input.contains("shasum") {
         event("verify");

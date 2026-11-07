@@ -20,6 +20,24 @@ pub(crate) fn content_width(columns: u16) -> usize {
     usize::from(columns).saturating_sub(4).clamp(1, 76)
 }
 
+pub(crate) fn help_lines(help: &str, width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    for action in help.split(" · ") {
+        if !line.is_empty() && line.chars().count() + 3 + action.chars().count() > width {
+            lines.push(std::mem::take(&mut line));
+        }
+        if !line.is_empty() {
+            line.push_str(" · ");
+        }
+        line.push_str(action);
+    }
+    if !line.is_empty() {
+        lines.push(line);
+    }
+    lines
+}
+
 pub(crate) fn paint(output: &mut impl Write, text: &str, role: Role) -> io::Result<()> {
     let colour = std::env::var_os("NO_COLOR").is_none();
     if colour {

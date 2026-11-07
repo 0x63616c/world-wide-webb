@@ -22,25 +22,25 @@ const ARTIFACT_FILES: [&str; 4] = [
     "REVISION",
     "setup-plan.json",
 ];
-const STAGED_FILES: [&str; 7] = [
+const STAGED_FILES: [&str; 6] = [
     "homelab-host",
     "bootstrap.sh",
     "REVISION",
     "setup-plan.json",
     "SHA256SUMS",
     "host.age",
-    "github-token",
 ];
 const STAGE_PREFIX: &str = "/private/tmp/homelab-setup.";
 
 pub struct Request {
+    pub attempt: String,
     pub repository: String,
     pub profile: HostProfile,
     pub configuration_host: String,
     pub revision: String,
     pub artifact_directory: PathBuf,
     pub age_key: PathBuf,
-    pub github_token: PathBuf,
+    pub deploy_key: PathBuf,
     pub resume: bool,
 }
 
@@ -70,7 +70,7 @@ impl PreparedSetup {
             format!("Reviewed commit: {}", self.request.revision),
             format!("macOS {}, {}; UID {}; {:.1} GiB free", self.inspection.mac_os, self.inspection.architecture, self.inspection.uid, self.inspection.free_gib),
             format!("Enabled services: {}", if self.services.is_empty() { "none".into() } else { self.services.join(", ") }),
-            "Transfer the verified helper and only this host's age key and repository read token.".into(),
+            "Transfer the verified helper and this host's age identity. The Git private key stays on the target.".into(),
             "Install Nix if absent, verify the reviewed configuration, install its host key, and activate it.".into(),
             "The target will request administrator authentication. Existing keys are never replaced.".into(),
             if self.request.resume { "Resume requested; the target still blocks uncertain installation or activation state.".into() } else { "First setup requested; existing setup state requires explicit review and resume.".into() },
@@ -111,6 +111,8 @@ enum Failure {
     UnknownOutcome,
     Cleanup,
     Reconnect,
+    GitIdentity,
+    Prerequisites,
 }
 
 #[derive(Debug)]
@@ -147,12 +149,14 @@ impl Error {
             Failure::UnknownOutcome => "setup-outcome-unknown",
             Failure::Cleanup => "setup-cleanup-unconfirmed",
             Failure::Reconnect => "setup-reconnect-failed",
+            Failure::GitIdentity => "setup-git-identity-unconfirmed",
+            Failure::Prerequisites => "setup-prerequisites-unavailable",
         }
     }
     pub fn next_action(&self) -> String {
         let action = match self.failure {
             Failure::NotReady => {
-                "Review a host-specific readiness PR and obtain its matching successful CI artifact; no remote files were staged."
+                "Merge the host's enrollment PR, then retry with its approved configuration."
             }
             Failure::UnknownOutcome => {
                 "Reconnect using the existing verified route and inspect target setup state before retrying. Do not assume bootstrap or a privileged process stopped."
@@ -164,10 +168,16 @@ impl Error {
                 "Configuration activation completed, but SSH reconnect failed. Inspect access locally; do not delete saved fingerprints or rerun bootstrap blindly."
             }
             Failure::Credentials => {
-                "Use only this host's age key and scoped repository read token in current-user-owned files with mode 0400 or 0600."
+                "Use this host's private age identity and its target-local Git deploy key."
             }
             Failure::Cleanup => {
-                "Configuration activation completed. Confirm staging cleanup and SSH access before any further setup action; do not rerun bootstrap blindly."
+                "Confirm staging cleanup and SSH access before continuing; do not rerun bootstrap blindly."
+            }
+            Failure::Prerequisites => {
+                "Use the target's administrator account and install Apple's Command Line Tools on that Mac before retrying. No enrollment credentials were issued."
+            }
+            Failure::GitIdentity => {
+                "Retry to check the same target-local Git identity. No private Git key was transferred to this client."
             }
             _ => {
                 "Check the selected host, exact reviewed artifact and input paths before preparing setup again. Never bypass SSH host-key verification."
@@ -196,8 +206,10 @@ impl std::fmt::Display for Error {
             Failure::RemoteArtifact => "The staged artifact failed verification; bootstrap was not started.",
             Failure::Bootstrap => "The target reported incomplete bootstrap.",
             Failure::UnknownOutcome => "The setup connection ended without a confirmed outcome.",
-            Failure::Cleanup => "Configuration activated, but remote staging cleanup could not be confirmed.",
+            Failure::Cleanup => "Remote staging cleanup could not be confirmed.",
             Failure::Reconnect => "Setup completed, but the selected SSH connection was not verified afterward.",
+            Failure::GitIdentity => "The target's Git identity could not be confirmed.",
+            Failure::Prerequisites => "The target's administrator membership and developer tools could not be verified.",
         })
     }
 }
@@ -302,6 +314,13 @@ fn copy_input(
 
 /// Prepare a private snapshot and inspect the target without writing to it.
 pub fn prepare(request: Request, tools: &Tools) -> Result<PreparedSetup, Error> {
+    if !crate::enrollment_reservation::valid_attempt(&crate::enrollment_reservation::Attempt {
+        id: request.attempt.clone(),
+        repository: request.repository.clone(),
+        host: request.configuration_host.clone(),
+    }) {
+        return Err(Error::new(Failure::Inputs));
+    }
     let admin = request.profile.user.as_str();
     if !crate::config::valid_repository(&request.repository)
         || !crate::config::valid_host(&request.configuration_host)
@@ -417,13 +436,10 @@ pub fn prepare(request: Request, tools: &Tools) -> Result<PreparedSetup, Error> 
         65_536,
         0o600,
     )?;
-    copy_input(
-        &request.github_token,
-        &snapshot.path().join("github-token"),
-        true,
-        4096,
-        0o600,
-    )?;
+    // This is a target-local path. Its private bytes must never be copied by the client.
+    if !valid_target_key_path(&request.deploy_key) {
+        return Err(Error::new(Failure::Artifact));
+    }
     let services = host.services.clone();
     Ok(PreparedSetup {
         request,
@@ -496,6 +512,161 @@ fn failed_before_start(
     } else {
         Error::staged(failure, stage)
     }
+}
+
+pub fn check_prerequisites(profile: &HostProfile, tools: &Tools) -> Result<(), Error> {
+    inventory::validate_profile(profile).map_err(|_| Error::new(Failure::Inputs))?;
+    if !script(
+        profile,
+        tools,
+        include_str!("remote/prerequisites.sh"),
+        None,
+    )
+    .is_ok_and(|output| output.status.success())
+    {
+        return Err(Error::new(Failure::Prerequisites));
+    }
+    Ok(())
+}
+
+fn new_stage(profile: &HostProfile, tools: &Tools) -> Result<String, Error> {
+    let output = script(profile, tools, include_str!("remote/stage.sh"), None)?;
+    let stage = std::str::from_utf8(&output.stdout)
+        .map_err(|_| Error::new(Failure::Stage))?
+        .trim();
+    let suffix = stage
+        .strip_prefix(STAGE_PREFIX)
+        .ok_or_else(|| Error::new(Failure::Stage))?;
+    if !output.status.success()
+        || suffix.len() != 8
+        || !suffix.bytes().all(|byte| byte.is_ascii_alphanumeric())
+    {
+        return Err(Error::new(Failure::Stage));
+    }
+    Ok(stage.to_owned())
+}
+
+/// Stage only the public helper. The target retains its private Git identity;
+/// the response contains only its location and public half for registration.
+pub fn prepare_git_identity(
+    profile: &HostProfile,
+    attempt: &crate::enrollment_reservation::Attempt,
+    helper: &Path,
+    tools: &Tools,
+) -> Result<crate::deploy_identity::PreparedIdentity, Error> {
+    let bytes = enrollment_rpc(profile, attempt, helper, tools, "prepare-deploy-key")?;
+    let mut identity: crate::deploy_identity::PreparedIdentity =
+        serde_json::from_slice(&bytes).map_err(|_| Error::new(Failure::GitIdentity))?;
+    let expected = PathBuf::from(crate::deploy_identity::repository_directory(
+        &attempt.repository,
+    ))
+    .join("key.txt");
+    if !valid_target_key_path(&identity.path)
+        || !identity.path.ends_with(expected)
+        || identity
+            .activated_revision
+            .as_ref()
+            .is_some_and(|revision| {
+                !identity.bootstrap_started || !crate::config::valid_revision(revision)
+            })
+    {
+        return Err(Error::new(Failure::GitIdentity));
+    }
+    identity.public_key = crate::ssh_identity::canonical_key(&identity.public_key)
+        .filter(|key| key.starts_with("ssh-ed25519 "))
+        .ok_or_else(|| Error::new(Failure::GitIdentity))?;
+    Ok(identity)
+}
+
+pub fn release_enrollment(
+    profile: &HostProfile,
+    attempt: &crate::enrollment_reservation::Attempt,
+    helper: &Path,
+    tools: &Tools,
+) -> Result<(), Error> {
+    let bytes = enrollment_rpc(profile, attempt, helper, tools, "release-enrollment")?;
+    if bytes != b"released\n" {
+        return Err(Error::new(Failure::GitIdentity));
+    }
+    Ok(())
+}
+
+fn enrollment_rpc(
+    profile: &HostProfile,
+    attempt: &crate::enrollment_reservation::Attempt,
+    helper: &Path,
+    tools: &Tools,
+    operation: &str,
+) -> Result<Vec<u8>, Error> {
+    if !matches!(operation, "prepare-deploy-key" | "release-enrollment") {
+        return Err(Error::new(Failure::Inputs));
+    }
+    if !crate::enrollment_reservation::valid_attempt(attempt) {
+        return Err(Error::new(Failure::Inputs));
+    }
+    let repository = &attempt.repository;
+    inventory::validate_profile(profile).map_err(|_| Error::new(Failure::Inputs))?;
+    if !crate::config::valid_repository(repository) {
+        return Err(Error::new(Failure::Inputs));
+    }
+    let metadata = fs::symlink_metadata(helper).map_err(|_| Error::new(Failure::Artifact))?;
+    if !metadata.is_file() || metadata.mode() & 0o022 != 0 || metadata.mode() & 0o111 == 0 {
+        return Err(Error::new(Failure::Artifact));
+    }
+    let snapshot = tempfile::tempdir().map_err(|_| Error::new(Failure::Artifact))?;
+    let copy = snapshot.path().join("homelab-host");
+    let digest = copy_input(helper, &copy, false, 100 * 1024 * 1024, 0o700)?;
+    let stage = new_stage(profile, tools)?;
+    let result = (|| {
+        let mut transfer = Command::new(&tools.scp);
+        let _identity = crate::ssh_identity::configure(&mut transfer, profile.identity.as_ref())
+            .map_err(|_| Error::new(Failure::Transfer))?;
+        transfer
+            .args(["-s", "-p"])
+            .args(crate::ssh::OPTIONS)
+            .arg("--")
+            .arg(&copy)
+            .arg(format!("{}@{}:{stage}/", profile.user, profile.address))
+            .stdin(Stdio::null());
+        if !process::run_silent(&mut transfer, Duration::from_secs(600))
+            .is_ok_and(|status| status.success())
+        {
+            return Err(Error::new(Failure::Transfer));
+        }
+        let mut input = tempfile::tempfile().map_err(|_| Error::new(Failure::Stage))?;
+        input
+            .write_all(include_bytes!("remote/prepare-git.sh"))
+            .and_then(|()| input.rewind())
+            .map_err(|_| Error::new(Failure::Stage))?;
+        let (mut command, _identity) = ssh(profile, tools, false)?;
+        command
+            .arg(format!(
+                "/bin/sh -s -- '{stage}' '{digest}' '{repository}' '{}' '{}' '{operation}'",
+                attempt.host, attempt.id
+            ))
+            .stdin(Stdio::from(input));
+        let output = process::capture(&mut command, Duration::from_secs(90))
+            .map_err(|_| Error::new(Failure::GitIdentity))?;
+        if !output.status.success() {
+            return Err(Error::new(Failure::GitIdentity));
+        }
+        Ok(output.stdout)
+    })();
+    if !cleanup(profile, tools, &stage) {
+        return Err(Error::staged(Failure::Cleanup, &stage));
+    }
+    result
+}
+
+fn valid_target_key_path(path: &Path) -> bool {
+    path.is_absolute()
+        && path.to_str().is_some_and(|path| {
+            path.len() <= 1024
+                && path
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"/._-".contains(&byte))
+                && !path.split('/').any(|part| part == "..")
+        })
 }
 
 /// Apply only after the caller has obtained explicit approval of the prepared review.
@@ -576,11 +747,13 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
     // These values have restricted alphabets or are the validated mktemp path.
     // Secret values are transferred as files and never enter a shell command.
     let remote = format!(
-        "HOMELAB_BOOTSTRAP_APPROVED='{}' '{stage}/homelab-host' bootstrap '{}' '{}' '{stage}/host.age' '{stage}/github-token' --repository '{}' --manifest '{stage}/setup-plan.json'{}",
+        "HOMELAB_BOOTSTRAP_APPROVED='{}' '{stage}/homelab-host' bootstrap '{}' '{}' '{stage}/host.age' '{}' --repository '{}' --attempt '{}' --manifest '{stage}/setup-plan.json'{}",
         request.configuration_host,
         request.configuration_host,
         request.revision,
+        request.deploy_key.display(),
         request.repository,
+        request.attempt,
         if request.resume { " --resume" } else { "" }
     );
     let (mut bootstrap, _bootstrap_identity) = ssh(&request.profile, tools, true)

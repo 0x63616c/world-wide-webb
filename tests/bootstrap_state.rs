@@ -3,6 +3,41 @@ use std::os::unix::fs::{PermissionsExt, symlink};
 
 use homelab_client::bootstrap_state::{Journal, Phase, StateError};
 
+#[test]
+fn activated_resume_uses_original_revision_without_credentials() {
+    use homelab_client::bootstrap_state::activation_candidate;
+    let temporary = tempfile::tempdir().unwrap();
+    let home = temporary.path();
+    let revision = "a".repeat(40);
+    let probe = || activation_candidate(home, "example/config", "example", &revision);
+    assert!(!probe().unwrap());
+    let state = home.join(".local/state/homelab/bootstrap");
+    let mut journal =
+        Journal::start_or_resume(&state, "example/config", "example", &revision).unwrap();
+    for phase in [Phase::Preparing, Phase::Building, Phase::InstallingKey] {
+        journal
+            .record(phase, Some(std::path::Path::new("/nix/store/test-system")))
+            .unwrap();
+        assert!(!probe().unwrap());
+    }
+    for phase in [Phase::Activating, Phase::Activated] {
+        journal
+            .record(phase, Some(std::path::Path::new("/nix/store/test-system")))
+            .unwrap();
+        assert!(probe().unwrap());
+    }
+    assert_eq!(
+        activation_candidate(home, "example/config", "example", &"b".repeat(40)),
+        Err(StateError::Mismatch)
+    );
+    assert_eq!(
+        activation_candidate(home, "example/other", "example", &revision),
+        Err(StateError::Mismatch)
+    );
+    fs::remove_file(state.join("progress.json")).unwrap();
+    assert!(probe().is_err());
+}
+
 fn start(path: &std::path::Path) -> Journal {
     Journal::open(
         path,
@@ -12,6 +47,53 @@ fn start(path: &std::path::Path) -> Journal {
         false,
     )
     .unwrap()
+}
+
+#[test]
+fn renewal_probe_treats_partial_bootstrap_as_started_and_rejects_unsafe_ancestors() {
+    use homelab_client::bootstrap_state::has_started;
+    let temporary = tempfile::tempdir().unwrap();
+    let home = temporary.path();
+    fs::set_permissions(home, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(!has_started(home).unwrap());
+    let state = home.join(".local/state/homelab");
+    fs::create_dir_all(&state).unwrap();
+    assert!(!has_started(home).unwrap());
+    fs::create_dir(state.join("bootstrap")).unwrap();
+    assert!(has_started(home).unwrap());
+    fs::remove_dir(state.join("bootstrap")).unwrap();
+    symlink(home.join("missing"), state.join("bootstrap")).unwrap();
+    assert_eq!(has_started(home), Err(StateError::UnsafeLocation));
+    fs::remove_file(state.join("bootstrap")).unwrap();
+    fs::set_permissions(&state, fs::Permissions::from_mode(0o777)).unwrap();
+    assert_eq!(has_started(home), Err(StateError::UnsafeLocation));
+    fs::set_permissions(&state, fs::Permissions::from_mode(0o600)).unwrap();
+    assert_eq!(has_started(home), Err(StateError::UnsafeLocation));
+    fs::set_permissions(&state, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(!has_started(home).unwrap());
+}
+
+#[test]
+fn automatic_open_starts_or_resumes_only_the_same_safe_attempt() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("state");
+    let mut journal =
+        Journal::start_or_resume(&path, "example/config", "example", "revision").unwrap();
+    journal.record(Phase::Building, None).unwrap();
+    drop(journal);
+    let mut resumed =
+        Journal::start_or_resume(&path, "example/config", "example", "revision").unwrap();
+    assert_eq!(resumed.phase(), Phase::Building);
+    resumed.record(Phase::InstallingKey, None).unwrap();
+    drop(resumed);
+    assert!(matches!(
+        Journal::start_or_resume(&path, "example/config", "example", "revision"),
+        Err(StateError::NeedsInspection)
+    ));
+    assert!(matches!(
+        Journal::start_or_resume(&path, "example/config", "example", "different"),
+        Err(StateError::Mismatch)
+    ));
 }
 
 #[test]

@@ -1,5 +1,6 @@
 {
-  "schema": 1,
+  "$schema": "https://raw.githubusercontent.com/0x63616c/homelab-cli/main/schema/homelab-v2.schema.json",
+  "schema": 2,
   "hosts": {
     "build-mac": {
       "adminUser": "admin",
@@ -11,6 +12,12 @@
   },
   "tailscale": {
     "tag": "tag:lab",
-    "oauth": { "vault": "Infrastructure", "item": "Enrollment OAuth" }
+    "oauth": {
+      "vault": "Infrastructure",
+      "item": "Enrollment OAuth"
+    }
+  },
+  "onePassword": {
+    "backupVault": "Homelab Recovery"
   }
 }

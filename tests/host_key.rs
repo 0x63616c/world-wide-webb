@@ -3,7 +3,7 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt, symlink};
 use std::path::Path;
 use std::sync::{Arc, Barrier};
 
-use homelab_client::host_key::{InstallError, install};
+use homelab_client::host_key::{InstallError, ensure, install};
 
 fn source(path: &Path, contents: &[u8], mode: u32) {
     fs::write(path, contents).unwrap();
@@ -35,6 +35,31 @@ fn unprivileged_cli_rejects_installation_before_reading_source() {
             .contains("requires administrator elevation")
     );
     assert_eq!(fs::read_dir(temporary.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn resume_keeps_matching_identity_and_rejects_replacement_or_symlink() {
+    let temporary = tempfile::tempdir().unwrap();
+    let input = temporary.path().join("source");
+    let directory = temporary.path().join("keys");
+    source(&input, b"fixture-host-key\n", 0o600);
+    ensure(&input, &directory, uid()).unwrap();
+    let destination = directory.join("key.txt");
+    let inode = fs::metadata(&destination).unwrap().ino();
+    ensure(&input, &directory, uid()).unwrap();
+    assert_eq!(fs::metadata(&destination).unwrap().ino(), inode);
+    source(&input, b"different-key\n", 0o600);
+    assert_eq!(
+        ensure(&input, &directory, uid()),
+        Err(InstallError::AlreadyExists)
+    );
+    assert_eq!(fs::read(&destination).unwrap(), b"fixture-host-key\n");
+    fs::remove_file(&destination).unwrap();
+    symlink(&input, &destination).unwrap();
+    assert_eq!(
+        ensure(&input, &directory, uid()),
+        Err(InstallError::AlreadyExists)
+    );
 }
 
 #[test]

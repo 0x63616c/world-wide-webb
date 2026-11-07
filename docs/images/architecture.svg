@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="440" viewBox="0 0 960 550" role="img" aria-labelledby="title description">
+  <title id="title">What runs where in a homelab</title>
+  <desc id="description">Your laptop runs the homelab installer, 1Password, GitHub CLI and Tailscale. It enrolls each Mac once over SSH. Your private GitHub repository stores Nix configuration and encrypted secrets. Each Mac runs SSH and Tailscale, Nix and nix-darwin, and Comin, which pulls main. launchd starts services at boot. Containers and runner VMs are optional workloads configured separately.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .background { fill: #f6f8fa; }
+    .panel { fill: #ffffff; stroke: #d0d7de; stroke-width: 1.5; }
+    .heading { fill: #1f2328; font-size: 21px; font-weight: 650; }
+    .body { fill: #1f2328; font-size: 16px; }
+    .muted { fill: #59636e; font-size: 14px; }
+    .accent { fill: #0969da; font-size: 18px; font-weight: 600; }
+    .label { fill: #0969da; font-size: 13px; font-weight: 600; }
+    .line { stroke: #d8dee4; stroke-width: 1; }
+    .arrow { fill: none; stroke: #0969da; stroke-width: 2; marker-end: url(#arrow); }
+    .arrowhead { fill: #0969da; }
+    .optional { fill: none; stroke: #8c959f; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    @media (prefers-color-scheme: dark) {
+      .background { fill: #0d1117; }
+      .panel { fill: #161b22; stroke: #30363d; }
+      .heading, .body { fill: #e6edf3; }
+      .muted { fill: #9da7b3; }
+      .accent, .label, .arrowhead { fill: #79c0ff; }
+      .arrow { stroke: #79c0ff; }
+      .line { stroke: #30363d; }
+      .optional { stroke: #6e7681; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path class="arrowhead" d="M0 0L8 4L0 8Z"/>
+    </marker>
+  </defs>
+  <rect class="background" width="960" height="550" rx="16"/>
+  <text class="heading" x="32" y="47">Setup once. Managed from Git.</text>
+
+  <rect class="panel" x="32" y="82" width="330" height="184" rx="12"/>
+  <text class="heading" x="56" y="119">Your laptop</text>
+  <text class="accent" x="56" y="157">homelab CLI</text>
+  <text class="body" x="56" y="189">1Password · GitHub CLI · Tailscale</text>
+  <text class="muted" x="56" y="232">Recovery keys stay here and in your vault.</text>
+
+  <rect class="panel" x="32" y="314" width="330" height="176" rx="12"/>
+  <text class="heading" x="56" y="351">Your private GitHub repo</text>
+  <text class="body" x="56" y="387">Nix configuration</text>
+  <text class="body" x="56" y="414">Encrypted secrets</text>
+  <text class="muted" x="56" y="457">Review a PR. Merge to deploy.</text>
+
+  <path class="arrow" d="M374 174H518"/>
+  <text class="label" x="446" y="159" text-anchor="middle">Enroll once over SSH</text>
+  <path class="arrow" d="M374 366H518"/>
+  <text class="label" x="446" y="351" text-anchor="middle">Comin pulls main</text>
+
+  <rect class="panel" x="532" y="82" width="396" height="408" rx="12"/>
+  <text class="heading" x="556" y="119">Each homelab Mac</text>
+  <text class="muted" x="556" y="144">launchd starts services at boot</text>
+  <line class="line" x1="556" y1="164" x2="904" y2="164"/>
+  <text class="body" x="556" y="194">SSH + Tailscale</text>
+  <text class="muted" x="556" y="217">Secure remote access</text>
+  <text class="body" x="556" y="254">Nix + nix-darwin</text>
+  <text class="muted" x="556" y="277">Build and apply this Mac’s configuration</text>
+  <text class="accent" x="556" y="314">Comin</text>
+  <text class="muted" x="556" y="337">Keep the Mac in sync with Git</text>
+  <rect class="optional" x="556" y="375" width="348" height="91" rx="8"/>
+  <text class="body" x="574" y="402">Your workloads</text>
+  <text class="muted" x="574" y="426">Containers · runner VMs</text>
+  <text class="muted" x="574" y="449">Optional; configured separately in Nix</text>
+
+  <text class="muted" x="32" y="524">No Nix on your laptop. No 1Password or GitHub account token on the nodes.</text>
+</svg>
