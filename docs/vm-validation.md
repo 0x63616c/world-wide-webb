@@ -97,9 +97,12 @@ UID 501 and initially about 422 GiB free. The test guests report macOS 27.2
 (26B123), `VirtualMac2,1`, four vCPUs, 12 GiB RAM and a 120 GB virtual disk.
 Tart and the Determinate 3.24.1 installer passed their pinned checksum checks.
 
-A temporary four-hour `caffeinate -is` assertion prevents physical system sleep
-on AC. Screen locking remains enabled and does not stop SSH or the VMs. No
-permanent physical power, sudo or deployment configuration was changed.
+Keep a temporary `caffeinate -is -w <Tart PID>` assertion for the VM lifetime on
+AC. An idle-only `-i` assertion proved insufficient during the new rehearsal:
+the physical host repeatedly entered maintenance sleep and paused guest progress.
+The added `-s` assertion was confirmed through `pmset -g assertions`; the run is
+still being observed. Screen locking remains enabled. No permanent physical
+power, sudo or deployment configuration was changed.
 
 | Check | Evidence |
 | --- | --- |
