@@ -75,5 +75,5 @@ output "application_bindings" { value = module.application.bindings }
 
 variable "website_routes_enabled" {
   type    = bool
-  default = false
+  default = true
 }
