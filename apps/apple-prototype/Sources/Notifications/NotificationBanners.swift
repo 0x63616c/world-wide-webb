@@ -221,7 +221,9 @@ private struct NotificationBanner: View {
         .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
         .accessibilityValue(item.priority == .critical ? "Critical" : "")
         .accessibilityHint(count > 1 ? "Expands notifications" : "Opens \(source.name)")
-        .accessibilityAction(named: "Dismiss", dismiss)
+        .accessibilityActions {
+            if !item.isPersistentUpdate { Button("Dismiss", action: dismiss) }
+        }
         .offset(x: translation + captureDrag)
         .opacity(leaving && reduceMotion ? 0 : 1)
         .highPriorityGesture(DragGesture(minimumDistance: 10)
@@ -242,7 +244,7 @@ private struct NotificationBanner: View {
                 } else {
                     withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
                 }
-            })
+            }, including: item.isPersistentUpdate ? .none : .all)
         .onChange(of: dragging) { _, active in
             interaction.dragging = active
             touch(interaction.pressed || active || leaving)
