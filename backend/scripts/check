@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+# Do not let an inherited RUSTUP_TOOLCHAIN silently override the repository pin.
+export RUSTUP_TOOLCHAIN=1.99.1
+if [ "$(node --version)" != 'v26.13.0' ]; then
+  echo 'Use Node 26.13.0 for the pinned local workerd harness.' >&2
+  exit 1
+fi
+if ! cargo install --list | rg -q '^worker-build v0\.8\.7:$'; then
+  echo 'Install the pinned packager: cargo install worker-build --version 0.8.7 --locked' >&2
+  exit 1
+fi
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+# Typecheck Wasm-only runtime/binding paths as well as native-test code.
+cargo clippy -p folding-worker --target wasm32-unknown-unknown --locked -- -D warnings
+worker_build_binary="${CARGO_HOME:-$HOME/.cargo}/bin/worker-build"
+"$worker_build_binary" crates/worker --release --no-opt
+npm ci --ignore-scripts
+npm run test:runtime
+printf '%s\n' 'Local Rust/domain/crypto/image/template and workerd/D1 checks passed. Live staging, Apple enrollment and APNs are not covered.'
