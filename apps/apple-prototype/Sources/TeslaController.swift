@@ -41,7 +41,7 @@ struct TeslaController: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 Text(data.nick).font(.system(size: nameSize, weight: .semibold, design: .rounded))
                 Image(systemName: data.locked ? "lock.fill" : "lock.open.fill")
                     .font(.title3)
