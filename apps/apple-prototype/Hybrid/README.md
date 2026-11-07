@@ -563,8 +563,8 @@ results, not authenticated Live Activity rendering on the wall.
 `photos` defaults to `web`. Opt in with `-moduleFlag.photos native`; remove the
 argument or use `-moduleFlag.photos web` to return to the complete web board.
 Native routing requires successful `boothPhotos.list`, `wakePhotos.list` and
-`sessions.list` reads with at least one photo. Empty/unavailable listings keep
-WebKit mounted. Only opted-in Photos polls (60 seconds).
+`sessions.list` reads with at least one photo. Empty/unavailable listings route
+to WebKit when Photos opens. Only opted-in Photos polls (60 seconds).
 
 The native frame cycles captures every 12 seconds. Previous/Next remain available. Details show the capture,
 remove/clear-filter controls for booth groups, and read-only Activity sessions.
@@ -575,10 +575,11 @@ existing non-destructive `boothPhotos.clearFilter`, never a collection-wide wipe
 Because this combined surface includes private booth captures, **every opening**
 (including the frame) requires the synced six-digit panel PIN from `settings.get`.
 No PIN default is embedded in native code. Like the web (ADR-0004), this is a
-client-side gate. It deliberately applies booth's stricter private policy to
-wake photos too; it does not import or extend WebKit's shared Activity PIN
-session. Closing, switching face/details, backgrounding, or losing live data
-relocks it. The prototype and its mock provider are unchanged.
+client-side gate for the combined Photos view. The separate Photo Booth camera
+and Booth-only gallery open without a PIN; wake photos remain protected here.
+This gate does not import or extend WebKit's shared Activity PIN session.
+Closing, switching face/details, backgrounding, or losing live data relocks it.
+The prototype and its mock provider are unchanged.
 
 Images use `PanelAPIClient` media requests with paired CF Access headers, a
 redirect-rejecting ephemeral transport, and a bounded memory/disk cache (24
