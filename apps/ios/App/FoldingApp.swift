@@ -3,12 +3,6 @@ import CoreData
 import StoreKit
 import SwiftUI
 
-#if !DEBUG
-  #error(
-    "Production account composition and release gates are not implemented yet. Do not archive development storage."
-  )
-#endif
-
 @main @MainActor struct FoldingApp: App {
   @UIApplicationDelegateAdaptor(FoldingPushAppDelegate.self) private var pushDelegate
   @State private var controller = AppController()

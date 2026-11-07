@@ -5,7 +5,7 @@ This is implemented orchestration, not live release acceptance. Run through the 
 ## Inputs and identity
 
 - `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY`: existing App Store Connect API identity.
-- `APPLE_TEAM_ID`: registered team identifier.
+- Team `X9E4HG27NK` is pinned in `release-config.json` from the portal. Optional `APPLE_TEAM_ID` must match it.
 - Match credentials (`MATCH_PASSWORD` and SSH access) for the private `git@github.com:0x63616c/folding-signing.git` repository. Signing must already be provisioned; archive uses readonly match and a temporary keychain, removed on exit.
 - `FOLDING_WORKFLOW_RUN_URL`: durable run identity for the reservation.
 - `FOLDING_COPYRIGHT`: actual operator/copyright owner, supplied before sealing release assets.
@@ -62,4 +62,4 @@ Fastlane snapshot captures each locale/display/scenario. Screen power is selecte
 
 ## Remaining integration acceptance
 
-The lanes load and helpers compile, but the following are deliberately not claimed: real capture/render review; signed production archive/profile matching; TestFlight processing/distribution; App Store metadata/product/privacy readback; interruption/concurrency fault tests; live delivery against the current Apple asset API; final submission/readback; GitHub release workflow activation. Run those in the final validation/release phase. The actual app's production composition gate must also be removed by the app integration owner before an archive can succeed.
+The lanes load and helpers compile, but the following are deliberately not claimed: real capture/render review; signed production archive/profile matching; TestFlight processing/distribution; App Store metadata/product/privacy readback; interruption/concurrency fault tests; live delivery against the current Apple asset API; final submission/readback; GitHub release workflow activation. Run those in the final validation/release phase. The app now validates the full registered runtime configuration and refuses development storage in Release. Signed archive/entitlement and live account behavior still need final integration evidence.

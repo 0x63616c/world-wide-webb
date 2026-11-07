@@ -57,7 +57,7 @@ module FoldingRelease
     raise "Unknown environment" unless %w[production staging].include?(environment)
     identity = FoldingAppleAccount.config.fetch(environment)
     {
-      "environment" => environment, "identity" => identity,
+      "environment" => environment, "identity" => identity, "apple_team_id" => CONFIG.fetch("apple_team_id"),
       "scheme" => CONFIG.fetch("scheme"), "configuration" => CONFIG.fetch("archive_configuration"),
       "project_sha256" => sha(File.join(ROOT, "apps/ios/project.yml")),
       "toolchain_sha256" => sha(File.join(ROOT, "tool-versions.json")),
@@ -210,6 +210,7 @@ module FoldingRelease
 
   def self.reserve(tag:, environment:, version:)
     source = clean_commit!
+    raise "Wrong Apple team override" if ENV["APPLE_TEAM_ID"] && ENV["APPLE_TEAM_ID"] != CONFIG.fetch("apple_team_id")
     raise "Invalid marketing version" unless version.match?(/\A\d+\.\d+\.\d+\z/)
     raise "Production tag must match marketing version" if environment == "production" && tag != "v#{version}"
     visibility = JSON.parse(run("gh", "repo", "view", CONFIG.fetch("repository"), "--json", "visibility")).fetch("visibility")
@@ -262,7 +263,7 @@ module FoldingRelease
       "schema_version" => 1, "revision" => 1, "state" => "planned", "release_id" => SecureRandom.uuid,
       "tag" => tag, "environment" => environment, "commit_sha" => source, "marketing_version" => version,
       "build_number" => reservation.fetch("build_number"), "bundle_id" => identity.fetch("bundle_id"),
-      "apple_team_id" => ENV.fetch("APPLE_TEAM_ID"), "asc_app_id" => app.id,
+      "apple_team_id" => CONFIG.fetch("apple_team_id"), "asc_app_id" => app.id,
       "configuration_hash" => configuration_hash(environment), "archive_configuration" => config,
       "toolchain_versions" => read_json(File.join(ROOT, "tool-versions.json")),
       "dependency_lock_hashes" => locks.to_h { |path| [path, sha(File.join(ROOT, path))] },

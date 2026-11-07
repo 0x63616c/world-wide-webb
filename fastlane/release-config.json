@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "repository": "0x63616c/folding",
+  "apple_team_id": "X9E4HG27NK",
   "reservation_tag": "folding-build-reservations",
   "scheme": "Folding",
   "archive_configuration": "Release",

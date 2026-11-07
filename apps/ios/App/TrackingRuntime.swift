@@ -3,8 +3,8 @@ import FoldingDomain
 import Foundation
 import WidgetKit
 
-/// Local development composition until Apple entitlements/account routing are configured.
-/// Release remains compile-gated; this directory is never silently promoted to an iCloud account.
+/// Private tracking uses an account-fenced App Group journal. Development storage
+/// is compiled only for the unconfigured Debug simulator composition.
 actor TrackingRuntime {
   static let shared = TrackingRuntime()
   private let competitionUploader = CompetitionUploader()
@@ -19,47 +19,47 @@ actor TrackingRuntime {
 
   func store() async throws -> TrackingStore {
     if let journal { return journal }
-    if let identifier = Bundle.main.object(forInfoDictionaryKey: "FoldingCloudContainerIdentifier")
-      as? String,
-      !identifier.isEmpty
-    {
+    if let configuration = try ProductionConfiguration.current() {
       let token = accountRevision
       if cloudConnection == nil {
         guard
-          let group = Bundle.main.object(forInfoDictionaryKey: "FoldingAppGroupIdentifier")
-            as? String,
           let shared = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: group)
+            forSecurityApplicationGroupIdentifier: configuration.appGroup)
         else { throw CloudTrackingError.missingConfiguration }
         let root = shared.appendingPathComponent("FoldingPrivate", isDirectory: true)
         let installation = try InstallationIdentity.loadOrCreate(
-          service: "\(Bundle.main.bundleIdentifier ?? "app.getfolding.Folding").installation",
+          service: "\(configuration.bundleID).installation",
           accessGroup: nil, directory: root.appendingPathComponent("identity"))
         cloudConnection = CloudTrackingConnection(
-          containerIdentifier: identifier, root: root, installationID: installation)
+          containerIdentifier: configuration.cloudContainer, root: root,
+          installationID: installation)
       }
       let opened = try await cloudConnection!.connect()
       guard token == accountRevision else { throw PartitionError.superseded }
       journal = opened
       return opened
     }
-    let support = try FileManager.default.url(
-      for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-    let root = support.appendingPathComponent("FoldingDevelopment", isDirectory: true)
-    let installation = try InstallationIdentity.loadOrCreate(
-      service: "app.getfolding.Folding.installation", accessGroup: nil,
-      directory: root.appendingPathComponent("identity"))
-    let router = AccountPartitionRouter(directory: root)
-    let lease: PartitionLease
-    if let current = try router.currentLease(installationID: installation) {
-      lease = current
-    } else {
-      lease = try router.activate(
-        .local(UUID()), transition: router.suspend(), installationID: installation)
-    }
-    let opened = try router.openJournal(lease: lease, installationID: installation)
-    journal = opened
-    return opened
+    #if DEBUG && targetEnvironment(simulator)
+      let support = try FileManager.default.url(
+        for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+      let root = support.appendingPathComponent("FoldingDevelopment", isDirectory: true)
+      let installation = try InstallationIdentity.loadOrCreate(
+        service: "app.getfolding.Folding.installation", accessGroup: nil,
+        directory: root.appendingPathComponent("identity"))
+      let router = AccountPartitionRouter(directory: root)
+      let lease: PartitionLease
+      if let current = try router.currentLease(installationID: installation) {
+        lease = current
+      } else {
+        lease = try router.activate(
+          .local(UUID()), transition: router.suspend(), installationID: installation)
+      }
+      let opened = try router.openJournal(lease: lease, installationID: installation)
+      journal = opened
+      return opened
+    #else
+      throw CloudTrackingError.missingConfiguration
+    #endif
   }
 
   func accountChanged() async throws {
@@ -131,9 +131,12 @@ actor TrackingRuntime {
 
   func useThisPhone() async throws {
     let store = try await store()
-    // Public enrollment must transfer online first; never silently replace its active device.
     guard try await store.currentCompetitionEpoch() == nil else { throw StoreError.invalidInput }
     _ = try await store.selectTrackingDevice(store.deviceID, nowMS: Self.nowMS)
+    await trackingPhoneChanged()
+  }
+
+  func trackingPhoneChanged() async {
     await publishWidgets()
     changed()
   }

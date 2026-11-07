@@ -90,9 +90,12 @@ module FoldingRelease
         if main
           raise "Wrong CloudKit container" unless values["com.apple.developer.icloud-container-identifiers"] == [identity.fetch("cloudkit_container")]
           raise "Wrong distribution environments" unless values["com.apple.developer.icloud-container-environment"] == "Production" && values["com.apple.developer.devicecheck.appattest-environment"] == "production" && values["aps-environment"] == "production"
+          raise "Wrong runtime distribution configuration" unless info["FoldingICloudEnvironment"] == "Production" && info["FoldingAttestEnvironment"] == "production" && info["FoldingAPNSEnvironment"] == "production" && info["FoldingAppGroupIdentifier"] == identity.fetch("app_group") && info["FoldingCloudContainerIdentifier"] == identity.fetch("cloudkit_container")
           raise "Wrong backend configuration" unless info["FoldingAPIOrigin"] == record.data.fetch("archive_configuration").fetch("api_origin") && info["FoldingEnvironment"] == record.data.fetch("environment")
           binary = File.join(path, info.fetch("CFBundleExecutable"))
-          raise "Screenshot fixture leaked into device artifact" if File.binread(binary).include?("folding.screenshot.ready")
+          contents = File.binread(binary)
+          raise "Screenshot fixture leaked into device artifact" if contents.include?("folding.screenshot.ready")
+          raise "Development storage leaked into device artifact" if contents.include?("FoldingDevelopment")
         end
       end
     end
