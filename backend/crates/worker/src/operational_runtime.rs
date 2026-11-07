@@ -40,6 +40,7 @@ struct Page {
     operation: String,
     controls: Controls,
     history: Vec<Audit>,
+    alerts: Vec<crate::monitoring_runtime::Alert>,
 }
 #[derive(Deserialize)]
 struct Audit {
@@ -73,6 +74,7 @@ pub(crate) async fn admin(
             operation: uuid()?,
             controls: controls(db).await?,
             history,
+            alerts: crate::monitoring_runtime::alerts(db).await?,
         };
         return crate::admin_runtime::secure_html(
             page.render().map_err(|_| Failure::unavailable())?,
@@ -102,7 +104,7 @@ pub(crate) async fn admin(
         ]
         .iter()
         .all(|v| [0, 1].contains(v))
-        || !(10..=2000).contains(&input.reason.len())
+        || !crate::admin_runtime::valid_reason(&input.reason)
         || input.reason.chars().any(|c| c.is_control() && c != '\n')
     {
         return Err(Failure::malformed());

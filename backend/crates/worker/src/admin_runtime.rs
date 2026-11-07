@@ -88,6 +88,11 @@ struct State {
 struct Receipt {
     normalized_hash: Vec<u8>,
 }
+pub(crate) fn valid_reason(reason: &str) -> bool {
+    reason.len() <= 8192
+        && (10..=500).contains(&reason.graphemes(true).count())
+        && !reason.chars().any(|c| c.is_control() && c != '\n')
+}
 fn html(page: Page) -> std::result::Result<Response, Failure> {
     secure_html(page.render().map_err(|_| Failure::unavailable())?)
 }

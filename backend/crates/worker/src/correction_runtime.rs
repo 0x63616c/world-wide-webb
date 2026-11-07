@@ -197,7 +197,7 @@ pub(crate) async fn admin(
         serde_urlencoded::from_bytes(body).map_err(|_| Failure::malformed())?;
     admin.check_csrf(request, &command.csrf_token, config)?;
     if command.expected_version < 1
-        || !(10..=2000).contains(&command.reason.len())
+        || !crate::admin_runtime::valid_reason(&command.reason)
         || command.reason.chars().any(|c| c.is_control() && c != '\n')
     {
         return Err(Failure::malformed());

@@ -29,12 +29,41 @@ fn error(status: u16, code: &str, id: Id, retryable: bool) -> Result<Response> {
 }
 
 #[event(fetch)]
-async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Response> {
+async fn fetch(request: Request, env: Env, context: Context) -> Result<Response> {
     let id = request_id()?;
+    let route = crate::monitoring_runtime::route(&request.path());
+    let started = js_sys::Date::now();
+    let version = env
+        .var("WORKER_VERSION")
+        .map(|v| v.to_string())
+        .unwrap_or_else(|_| "unconfigured".into());
+    let result = handle(request, &env, id.clone()).await;
+    let status = result.as_ref().map(|r| r.status_code()).unwrap_or(500);
+    console_log!(
+        "{}",
+        serde_json::json!({"event":"request","request_id":id,"worker_version":version,"route":route,"outcome":format!("http_{status}"),"status":status,"duration_ms":(js_sys::Date::now()-started).max(0.0) as u64})
+    );
+    if route == "events.submit" {
+        context.wait_until(async move {
+            if let Ok(db) = env.d1("DB")
+                && crate::monitoring_runtime::record(&db, status)
+                    .await
+                    .is_err()
+            {
+                console_error!("ingestion_metrics_unavailable");
+            }
+        });
+    }
+    result
+}
+async fn handle(mut request: Request, env: &Env, id: Id) -> Result<Response> {
     if !request.url().is_ok_and(|url| url.scheme() == "https") {
         return error(400, "malformed_request", id, false);
     }
     let path = request.path();
+    if request.method() == Method::Get && path == "/v1/health" {
+        return crate::monitoring_runtime::health(env).await;
+    }
     // Auth handlers have their own complete trust boundary. Unimplemented community/admin routes
     // remain unavailable; an arbitrary bearer header never authorizes a request.
     if !path.starts_with("/v1/") && path != "/admin" && !path.starts_with("/admin/") {
@@ -75,7 +104,7 @@ async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Resp
         }
     }
     if path == "/admin" || path.starts_with("/admin/") {
-        return match crate::admin_runtime::dispatch(&request, &env, &body).await {
+        return match crate::admin_runtime::dispatch(&request, env, &body).await {
             Ok(response) => Ok(response),
             Err(failure) => {
                 let message = if failure.status == 409 {
@@ -95,7 +124,7 @@ async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Resp
             }
         };
     }
-    match crate::auth_runtime::dispatch(&request, &env, &body, &id).await {
+    match crate::auth_runtime::dispatch(&request, env, &body, &id).await {
         Ok(Some(response)) => Ok(response),
         Ok(None) => error(503, "temporarily_unavailable", id, true),
         Err(failure) => error(failure.status, failure.code, id, failure.retryable),

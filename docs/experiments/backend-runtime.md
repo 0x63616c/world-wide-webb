@@ -310,3 +310,24 @@ IDs from different participants. These approved narrow admin amendments are in t
 Focused checkpoint: Wasm compiles and 368 SQL preparations across 15 migrations pass. Final browser,
 retention-time, retry/idempotency and concurrent moderation tests remain deferred. No live account
 restriction, case closure, job retry or external communication was performed by this implementation.
+
+## Safe logging, readiness and operational thresholds
+
+Migration 0016 adds minute-level ingestion counts and protected alert indicators. Fetch logs contain
+request ID, configured Worker version, allowlisted route family, HTTP outcome and elapsed time; job
+logs contain dispatch ID, allowlisted category, version, attempt, outcome and duration. Neither logs
+raw URLs/query strings, bodies, participant IDs, emails, tokens, assertions or image bytes. Metrics store
+only minute/request/server-failure counts and expire after 24 hours. The monitor flags >5% server failures
+over the latest 15 minute buckets with at least 100 submissions, period finalization >30 minutes late,
+and unresolved failed dispatch/award records. Alerts appear on the protected Operations page and in
+structured logs. External outage/DLQ-growth notification delivery belongs to infrastructure; these
+in-process indicators cannot detect a completely unavailable Worker and are not claimed to do so.
+
+Approved public `GET /v1/health` performs an indexed singleton readiness query with a two-second response
+timeout and returns only status/version, or a generic503. It does not advertise accepted capabilities.
+The primary agent/release agent own external monitoring and alert-channel verification. No monitoring
+email or external notification has been sent by this implementation.
+
+Focused checkpoint: actual Wasm compilation succeeds; 376 SQL preparations across 16 migrations apply
+locally. Full structured-log redaction, provider outage and operational threshold acceptance remains
+part of the final validation phase.

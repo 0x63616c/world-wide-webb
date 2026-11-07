@@ -55,6 +55,8 @@ mod leaderboard_runtime;
 mod lifecycle_runtime;
 #[cfg(target_arch = "wasm32")]
 mod moderation_scores;
+#[cfg(target_arch = "wasm32")]
+mod monitoring_runtime;
 pub mod mutation;
 pub mod name_policy;
 #[cfg(target_arch = "wasm32")]

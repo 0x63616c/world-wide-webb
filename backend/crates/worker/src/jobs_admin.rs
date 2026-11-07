@@ -114,7 +114,7 @@ pub(crate) async fn admin(
         || !["dispatch", "award"].contains(&input.kind.as_str())
         || input.period_id.len() > 128
         || input.expected_attempts < 0
-        || !(10..=2000).contains(&input.reason.len())
+        || !crate::admin_runtime::valid_reason(&input.reason)
         || input.reason.chars().any(|c| c.is_control() && c != '\n')
     {
         return Err(Failure::malformed());

@@ -151,3 +151,9 @@ page support reasoned, confirmed, revision/attempt-fenced actions. Case evidence
 closure; annual review records upheld bans without automatically lifting them. Failed logical awards
 reuse their existing identity when retried and still recheck all delivery eligibility. Full retention and
 concurrency acceptance remains pending.
+
+Apply **0016** for operational metrics/alerts. `GET /v1/health` checks the indexed D1 control singleton
+with a2s response timeout and returns only status/version; it is independent of accepted capabilities.
+Operations shows ingestion/finalization/failed-job indicators. Safe structured logs omit raw URLs,
+identity data and request bodies. External outage monitoring/notification delivery must be provisioned
+separately; in-process monitoring is not proof of whole-service availability.

@@ -23,6 +23,7 @@ const KINDS: &[&str] = &[
     "deletion",
     "recovery_revocation",
     "retention",
+    "monitoring",
 ];
 pub(crate) async fn schedule(env: &Env, db: &D1Database) -> std::result::Result<(), Failure> {
     let time = now();
@@ -81,12 +82,17 @@ async fn run(env: &Env, db: &D1Database, id: &Id) -> std::result::Result<(), Fai
             "awards" => crate::apns_runtime::dispatch(env, db).await,
             "deletion" => crate::deletion_runtime::process(env, db).await,
             "recovery_revocation" => crate::deletion_runtime::revoke_recovery_grants(env, db).await,
+            "monitoring" => crate::monitoring_runtime::dispatch(db).await,
             "retention" => crate::auth_maintenance::cleanup(db, now())
                 .await
                 .map_err(|_| Failure::unavailable()),
             _ => Err(Failure::unavailable()),
         }
     };
+    console_log!(
+        "{}",
+        serde_json::json!({"event":"background_job","job_id":job.job_id,"kind":job.kind,"worker_version":env.var("WORKER_VERSION").map(|v|v.to_string()).unwrap_or_else(|_|"unconfigured".into()),"attempt":job.attempts,"outcome":if outcome.is_ok(){"completed"}else{"execution_failed"},"duration_ms":now()-time})
+    );
     let state = if outcome.is_ok() {
         "completed"
     } else if job.attempts >= 12 {
