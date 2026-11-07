@@ -254,7 +254,7 @@ fn probe(
     }
     let executable =
         trusted_store_path(&system.join("sw/bin/comin"), Path::new("/nix/store"), 0).ok()?;
-    let socket = Path::new("/run/comin-grpc.sock");
+    let socket = Path::new("/var/lib/homelab/comin.sock");
     if !trusted_socket(socket, 0) {
         return None;
     }
@@ -352,14 +352,14 @@ mod tests {
     }
 
     #[test]
-    fn root_socket_boundary_accepts_run_alias_but_rejects_replaceable_endpoints() {
+    fn socket_boundary_accepts_private_directory_and_rejects_native_group_writable_run() {
         use std::os::unix::fs::{PermissionsExt, symlink};
         use std::os::unix::net::UnixListener;
         let directory = tempfile::tempdir().unwrap();
         let owner = rustix::process::geteuid().as_raw();
         let run = directory.path().join("real-run");
         fs::create_dir(&run).unwrap();
-        fs::set_permissions(&run, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o700)).unwrap();
         let alias = directory.path().join("run");
         symlink(&run, &alias).unwrap();
         let socket = alias.join("comin.sock");
@@ -370,7 +370,8 @@ mod tests {
         let symlink_socket = alias.join("link.sock");
         symlink(&socket, &symlink_socket).unwrap();
         assert!(!trusted_socket(&symlink_socket, owner));
-        fs::set_permissions(&run, fs::Permissions::from_mode(0o777)).unwrap();
+        // Darwin's native /private/var/run is 0775; it must remain rejected.
+        fs::set_permissions(&run, fs::Permissions::from_mode(0o775)).unwrap();
         assert!(!trusted_socket(&socket, owner));
     }
 

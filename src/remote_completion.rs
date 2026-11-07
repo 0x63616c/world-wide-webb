@@ -121,7 +121,8 @@ impl Connection<'_> {
     fn root(&self, remote: &str) -> Result<std::process::ExitStatus, Error> {
         let (mut command, _identity) = self.command(true)?;
         let status = command
-            .arg(format!("/usr/bin/sudo {remote}"))
+            // Hide helper JSON on the target; keep the PTY for sudo prompts.
+            .arg(format!("/usr/bin/sudo {remote} > /dev/null"))
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())

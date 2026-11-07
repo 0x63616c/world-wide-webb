@@ -108,7 +108,12 @@
                 enable = true;
                 package = inputs.comin.packages.${pkgs.stdenv.hostPlatform.system}.comin;
                 hostname = "vm-test";
-                grpc = { unix_socket_group = "wheel"; unix_socket_mode = "0600"; };
+                # The gate requires this bootstrap-owned directory to remain 0700.
+                grpc = {
+                  unix_socket_path = "/var/lib/homelab/comin.sock";
+                  unix_socket_group = "wheel";
+                  unix_socket_mode = "0600";
+                };
                 exporter.listen_address = "127.0.0.1";
                 remotes = [{
                   name = "origin";

@@ -29,7 +29,7 @@ The built system must supply:
 - `homelab-host` for privileged installation and verification.
 - `homelab-health`, which exits successfully only when the configured services
   are healthy, and the `tailscale` CLI for node verification.
-- Comin, its `com.github.nlewo.comin` launchd job and `/run/comin-grpc.sock` status socket, configured
+- Comin, its `com.github.nlewo.comin` launchd job and `/var/lib/homelab/comin.sock` status socket, configured
   to reconcile this repository's `main` branch after enrollment releases its hold.
 - `etc/homelab/revision.json` with the exact `repository`, `host` and `revision`
   of the built system. Completion checks this against Comin's actual deployment.
