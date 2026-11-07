@@ -26,7 +26,7 @@
             cominConfiguration = import (inputs.comin + "/nix/comin-config.nix") {
               inherit config lib pkgs;
             };
-            fixtureTools = pkgs.runCommand "homelab-vm-fixture-tools" {
+            fixtureTools = pkgs.runCommandCC "homelab-vm-fixture-tools" {
               nativeBuildInputs = [ pkgs.rustc ];
             } ''
               mkdir -p $out/bin
