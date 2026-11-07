@@ -2,8 +2,9 @@
 
 Panel starts on the selected clock face. Tap the clock to reveal the vertically scrolling app
 launcher on one full-screen native Liquid Glass surface over the same living clock.
-The clock stays fixed as the glass slides up from the bottom. Its blur mask moves
-with the glass, so the clock blurs only behind the visible launcher. Swipe down
+The clock stays fixed as the glass slides up from the bottom. The native glass
+blurs only what it covers, without a second blurred clock render. The clock's
+timeline pauses while the launcher is open. Swipe down
 from the top of Home to slide the glass back down and return to the clock.
 Horizontal swipes on the clock alternate between Green and Tide. Green retains the oversized
 12–3–6–9 dial. Tide has stacked SF Rounded clear, untinted Liquid Glass numerals over a blue
