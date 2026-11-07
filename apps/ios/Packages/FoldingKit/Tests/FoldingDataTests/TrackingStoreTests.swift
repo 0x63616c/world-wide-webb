@@ -281,3 +281,28 @@ private func observation(
     Issue.record("Retired installation re-enrolled")
   } catch { #expect(error as? StoreError == .installationChanged) }
 }
+
+@Test func publicRetryAndTerminalSuspensionSurviveReopenWithoutErasingPrivateEvents() async throws {
+  let directory = try temporaryDirectory()
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let store = try TrackingStore(directory: directory, installationID: testInstallation)
+  let epoch = UUID()
+  try await store.setCompetitionEpoch(epoch)
+  _ = try await store.record(observation(.open, at: 1000, epoch: epoch), nowMS: 1000)
+  let work = try #require(await store.leaseCompetitionUpload(nowMS: 1000))
+  try await store.retryCompetitionUpload(work, atMS: 90000)
+  let reopened = try TrackingStore(directory: directory, installationID: testInstallation)
+  #expect(try await reopened.leaseCompetitionUpload(nowMS: 89999) == nil)
+  let retry = try #require(await reopened.leaseCompetitionUpload(nowMS: 90000))
+  #expect(retry.operationID == work.operationID)
+  #expect(retry.body == work.body)
+  #expect(retry.attempts == 1)
+  try await reopened.stopCompetitionUpload(retry, reason: "restricted")
+  let again = try TrackingStore(directory: directory, installationID: testInstallation)
+  #expect(try await again.leaseCompetitionUpload(nowMS: 1_000_000) == nil)
+  #expect(try await again.retainedEvents().count == 1)
+  let generation = try await again.reset(nowMS: 1_000_001)
+  let reset = try #require(await again.leaseCompetitionUpload(nowMS: 1_000_002))
+  #expect(reset.isReset)
+  #expect(reset.generation == generation)
+}

@@ -4,23 +4,25 @@
 
 The owner replaced the shipping goal with the 11 known coding fixes plus validation of the pending asset-sealing fix. Implementation is primary-agent only; subagents may review independently. Complete substantial coding batches before the final test/review pass. Earlier parallel-implementation guidance is superseded. See [deferred shipping work](deferred-shipping-work.md) before resuming external setup or deployment.
 
-- [ ] App Attest enrollment recovery
-- [ ] Immediate account-change privacy fencing
-- [ ] Typed upload failures, reconciliation and retry policy
-- [ ] Widget URL routing through setup
-- [ ] Effective notification locale and English fallback (implemented; final checks pending)
-- [ ] Reset raw-history purge
-- [ ] Automatic-quarantine approval
-- [ ] Trustworthy local/named-CI check evidence
-- [ ] First-release tip submission association/readback
-- [ ] Interrupted-signing recovery
-- [ ] Persistent verified deployment readiness
-- [ ] Asset sealing/candidate manifest fix (edited; final checks pending)
-- [ ] Final focused regression/build checks, fixes and completion report
+- [x] App Attest enrollment recovery
+- [x] Immediate account-change privacy fencing
+- [x] Typed upload failures, reconciliation and retry policy
+- [x] Widget URL routing through setup
+- [x] Effective notification locale and English fallback
+- [x] Reset raw-history purge
+- [x] Automatic-quarantine approval
+- [x] Trustworthy local/named-CI check evidence
+- [x] First-release tip submission association/readback
+- [x] Interrupted-signing recovery
+- [x] Persistent verified deployment readiness
+- [x] Asset sealing/candidate manifest fix
+- [x] Final focused regression/build checks, fixes and completion report
 
+
+Local evidence: [coding completion](experiments/coding-completion.md). Broader shipping acceptance remains open.
 The chronological shipping checkpoints below remain evidence, not authorization to resume the cleared shipping goal.
 
-[Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Owner authorized parallel implementation agents on November 7; the primary agent coordinates ownership, integration, credentials and deployment. Physical-device evidence is deferred to F13 after submission by owner instruction.
+[Folding — Ship v1](https://github.com/users/0x63616c/projects/9) is the live delivery board, with 33 linked deliverables under the original work orders. GitHub Issues hold acceptance criteria and evidence. Current execution is primary-agent implementation; subagents are limited to independent review. Physical-device evidence is deferred to F13 after submission by owner instruction.
 
 Update issue-body checkboxes as individual requirements are verified, with commit/evidence links. Progress comments supplement these checklists. Close fully accepted issues and tick their work-order entries below; partial or deferred work remains unchecked. These rules are enforced as agent instructions in `AGENTS.md`.
 

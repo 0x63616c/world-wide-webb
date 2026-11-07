@@ -1,9 +1,8 @@
 # Folding execution instructions
 
 - Read `docs/review-spec.md`, the relevant `docs/technical/` contract, and the associated GitHub issue before implementing work.
-- The owner authorized parallel implementation agents on November 7 to accelerate delivery. Use at most three subagents at a time. Assign separate file ownership, coordinate shared contracts through the primary agent, and integrate/review each batch. Older single-execution-agent wording is superseded.
+- Current scope: complete the coding checklist in `docs/work-tracker.md`. The primary agent implements; subagents are permitted only for independent review. Implement substantial feature batches before final validation. Keep updates brief. Before resuming shipping operations, read `docs/deferred-shipping-work.md`; deployment, credentials, Apple setup and publishing remain paused.
 - Only the primary agent accesses credentials or performs deployments. All `op` and secret-dependent commands reuse its persistent shell; delegated agents must never independently call `op` or trigger authorization prompts. Independent reviewers remain read-only.
-- Owner reiterated: implement the complete feature flows first, then perform reviews at the end. Use the authorized three implementation agents in parallel with separate ownership. During implementation, run only compilation and checks needed to unblock integration; defer independent reviews, broad test matrices, profiling and additional hardening passes until the final review phase. Preserve required final acceptance checks and never report deferred validation as passed.
 
 ## Keep completion tracking current
 

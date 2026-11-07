@@ -4,6 +4,45 @@ import XCTest
 @testable import Folding
 
 @MainActor final class PresentationTests: XCTestCase {
+  func testWidgetLinkPreservesSetupAndRejectsUntrustedDestinations() {
+    let model = FoldingPresentation()
+    model.present(.setup)
+    model.openWidgetURL(URL(string: "folding://history")!)
+    XCTAssertEqual(model.selectedTab, .history)
+    XCTAssertEqual(model.sheet, .setup)
+    for value in [
+      "https://history", "folding://user@today", "folding://today:443", "folding://today/erase",
+      "folding://today?reset=true",
+    ] {
+      model.openWidgetURL(URL(string: value)!)
+      XCTAssertEqual(model.selectedTab, .history)
+    }
+    model.openWidgetURL(URL(string: "folding://today")!)
+    XCTAssertEqual(model.selectedTab, .today)
+  }
+
+  func testNotificationLocalesFallbackWithoutBlockingPreferences() {
+    XCTAssertEqual(PushRegistration.supportedLocale("it-IT"), "en")
+    XCTAssertEqual(PushRegistration.supportedLocale("ja-JP"), "ja")
+    XCTAssertEqual(PushRegistration.supportedLocale("pt-BR"), "pt-BR")
+  }
+
+  func testAccountFenceDiscardsPendingHistoryResponse() async throws {
+    let model = FoldingPresentation()
+    var pending: CheckedContinuation<HistoryPresentation, Error>?
+    var actions = actions()
+    actions.loadHistory = { _, _ in
+      try await withCheckedThrowingContinuation { pending = $0 }
+    }
+    let task = Task { await model.requestHistory(using: actions) }
+    try await waitFor { pending != nil }
+    model.invalidatePersonalPresentation()
+    pending!.resume(returning: history("Old account"))
+    await task.value
+    XCTAssertNil(model.history)
+    XCTAssertFalse(model.historyLoading)
+  }
+
   private enum Failure: Error { case unavailable }
 
   func testOlderHistorySuccessDoesNotReplaceNewPeriod() async throws {

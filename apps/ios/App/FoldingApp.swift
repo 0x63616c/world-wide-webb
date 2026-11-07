@@ -33,6 +33,7 @@ import SwiftUI
 
   private var trackingContent: some View {
     FoldingRootView(model: controller.presentation, actions: controller.actions)
+      .onOpenURL { controller.presentation.openWidgetURL($0) }
       .task { controller.attachPushDelegate(pushDelegate) }
       .task { TipStore.shared.start() }
       .task { await controller.restoreCompetition() }

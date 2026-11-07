@@ -23,6 +23,8 @@ import struct FoldingData.SetupProgress
   private var competitionAPI: CompetitionAPI?
   private let appleSignIn = CompetitionSignIn()
   private var request = UUID()
+  private var accountChanging = false
+  private var accountChangeRevision = UUID()
   private var didLoad = false
   private let preferencesKey = "folding.preferences.v1"
 
@@ -269,7 +271,7 @@ import struct FoldingData.SetupProgress
           do {
             operation.deletionReceipt = try await appleSignIn.recoverDeletion(
               transport: api.transport, deviceID: api.deviceID, operationID: operation.operationID)
-          } catch CompetitionTransportError.server(404) {
+          } catch let failure as CompetitionTransportError where failure.statusCode == 404 {
             let proof = try await appleSignIn.reauthenticate(
               transport: api.transport, deviceID: api.deviceID)
             operation.deletionReceipt = try await api.deletion(
@@ -310,6 +312,8 @@ import struct FoldingData.SetupProgress
   }
 
   private func competitionClient() async throws -> CompetitionAPI {
+    guard !accountChanging else { throw CancellationError() }
+    let identity = accountChangeRevision
     if let competitionAPI { return competitionAPI }
     guard let originText = Bundle.main.object(forInfoDictionaryKey: "FoldingAPIOrigin") as? String,
       let origin = URL(string: originText),
@@ -319,6 +323,7 @@ import struct FoldingData.SetupProgress
     let transport = try await CompetitionTransportPool.shared.client(
       origin: origin, deployment: environment,
       deviceID: store.deviceID, bundleID: Bundle.main.bundleIdentifier ?? "app.getfolding.Folding")
+    guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
     let api = CompetitionAPI(transport: transport, deviceID: store.deviceID)
     competitionAPI = api
     return api
@@ -366,7 +371,9 @@ import struct FoldingData.SetupProgress
   }
 
   private func showPublicTrackingPhone(_ me: CompetitionMe) async throws {
+    let identity = accountChangeRevision
     let store = try await runtime.store()
+    guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
     let enrollment = me.profile.membership == "joined" ? me.enrollment : nil
     presentation.publicTrackingPhone = enrollment.map {
       $0.device_id == store.deviceID.uuidString.lowercased() ? .thisPhone : .anotherPhone
@@ -407,6 +414,8 @@ import struct FoldingData.SetupProgress
   }
 
   func restoreCompetition() async {
+    guard !accountChanging else { return }
+    let identity = accountChangeRevision
     guard let origin = Bundle.main.object(forInfoDictionaryKey: "FoldingAPIOrigin") as? String,
       !origin.isEmpty
     else { return }
@@ -417,14 +426,18 @@ import struct FoldingData.SetupProgress
         return
       }
       let me = try await client.me()
+      guard identity == accountChangeRevision, !accountChanging else { return }
       try await showPublicTrackingPhone(me)
-      presentation.competitionProfile = await profilePresentation(me.profile)
+      let profile = await profilePresentation(me.profile)
+      guard identity == accountChangeRevision, !accountChanging else { return }
+      presentation.competitionProfile = profile
       competitionRestored = true
       joinedParticipantID =
         me.profile.membership == "joined" && me.profile.restriction == "none"
         ? me.profile.participant_id : nil
       if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
       await configurePush()
+      guard identity == accountChangeRevision, !accountChanging else { return }
       if me.profile.restriction != "none" {
         presentation.competition = .banned
       } else if me.profile.membership == "joined" {
@@ -433,21 +446,27 @@ import struct FoldingData.SetupProgress
         presentation.competition = .notJoined
       }
     } catch CompetitionTransportError.unauthorized {
+      guard identity == accountChangeRevision, !accountChanging else { return }
       joinedParticipantID = nil
       presentation.publicTrackingPhone = nil
       competitionRestored = true
       await configurePush()
+      guard identity == accountChangeRevision, !accountChanging else { return }
       presentation.competition = .notJoined
     } catch {
+      guard identity == accountChangeRevision, !accountChanging else { return }
       presentation.competition = .failed(presentation.competition.previous)
     }
   }
 
   private func signInToCompetition() async throws {
+    let identity = accountChangeRevision
     let api = try await competitionClient()
     let store = try await runtime.store()
     let profile = try await appleSignIn.signIn(transport: api.transport, deviceID: store.deviceID)
-    presentation.competitionProfile = await profilePresentation(profile)
+    let displayedProfile = await profilePresentation(profile)
+    guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
+    presentation.competitionProfile = displayedProfile
     competitionRestored = true
     joinedParticipantID =
       profile.membership == "joined" && profile.restriction == "none" ? profile.participant_id : nil
@@ -455,7 +474,9 @@ import struct FoldingData.SetupProgress
       presentation.competition = .banned
     } else if profile.membership == "joined" {
       let me = try await api.me()
+      guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
       try await showPublicTrackingPhone(me)
+      guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
       if let remote = me.preferences { try notifications.applyResultPreferences(remote) }
       if let enrollment = me.enrollment,
         enrollment.device_id == store.deviceID.uuidString.lowercased(),
@@ -491,7 +512,9 @@ import struct FoldingData.SetupProgress
     let board: CompetitionBoard
     do {
       board = try await api.leaderboard(kind: period.rawValue, cursor: cursor)
-    } catch CompetitionTransportError.server(409) where cursor != nil {
+    } catch let failure as CompetitionTransportError
+      where failure.statusCode == 409 && cursor != nil
+    {
       throw LeaderboardPageError.snapshotChanged
     }
     guard board.period.kind == period.rawValue else {
@@ -608,25 +631,37 @@ import struct FoldingData.SetupProgress
   }
 
   func cloudAccountChanged() async {
+    let change = UUID()
+    accountChangeRevision = change
+    accountChanging = true
+    request = UUID()
     competitionIdentityRevision = UUID()
     presentation.invalidateCompetitionPresentation()
+    presentation.invalidatePersonalPresentation()
     pushDelegate?.discardPendingRoute()
+    let previousAPI = competitionAPI
+    competitionAPI = nil
+    joinedParticipantID = nil
+    presentation.publicTrackingPhone = nil
+    presentation.competition = .notJoined
+    competitionRestored = false
+    do {
+      try await runtime.suspendForAccountChange(revision: change)
+    } catch {
+      presentation.personalFailure = String(
+        localized: "tracking.unavailable", defaultValue: "Tracking unavailable")
+      return  // Stay fenced if local partition invalidation failed.
+    }
+    guard change == accountChangeRevision else { return }
     do { try await pushRegistration?.deactivate() } catch {
       // The account-change fence still proceeds; session revocation remains the server cleanup boundary.
     }
-    joinedParticipantID = nil
-    presentation.publicTrackingPhone = nil
-    competitionRestored = false
-    if let competitionAPI { try? await competitionAPI.transport.clearSession() }
-    competitionAPI = nil
-    presentation.competition = .notJoined
-    presentation.dismissExports()
-    presentation.syncStatus = nil
-    presentation.analytics = nil
-    presentation.history = nil
-    presentation.setup = nil
+    if let previousAPI { try? await previousAPI.transport.clearSession() }
+    guard change == accountChangeRevision else { return }
     do {
-      try await runtime.accountChanged()
+      try await runtime.resumeAfterAccountChange(revision: change)
+      guard change == accountChangeRevision else { return }
+      accountChanging = false
       await refreshVisible()
     } catch {
       presentation.personalFailure = String(
@@ -639,29 +674,39 @@ import struct FoldingData.SetupProgress
   func synchronizePrivateHistory() async { await runtime.synchronizePrivateHistory() }
 
   func refreshVisible() async {
+    guard !accountChanging else { return }
+    let identity = accountChangeRevision
     presentation.notificationPreferences = notifications.preferences
-    presentation.notificationAuthorization = await notifications.authorization()
+    let authorization = await notifications.authorization()
+    guard identity == accountChangeRevision, !accountChanging else { return }
+    presentation.notificationAuthorization = authorization
     await configurePush()
+    guard identity == accountChangeRevision, !accountChanging else { return }
     do {
       try await runtime.cleanupExports()
     } catch is CancellationError {
       return
     } catch {
+      guard identity == accountChangeRevision, !accountChanging else { return }
       presentation.error = String(
         localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
     }
+    guard identity == accountChangeRevision, !accountChanging else { return }
     do {
       try await refresh()
+      guard identity == accountChangeRevision, !accountChanging else { return }
       if presentation.history != nil {
         await presentation.requestHistory(using: actions)
       }
     } catch is CancellationError {} catch {
+      guard identity == accountChangeRevision, !accountChanging else { return }
       presentation.personalFailure = String(
         localized: "tracking.unavailable", defaultValue: "Tracking unavailable")
     }
   }
 
   func refresh() async throws {
+    guard !accountChanging else { throw CancellationError() }
     let token = UUID()
     request = token
     let store = try await runtime.store()

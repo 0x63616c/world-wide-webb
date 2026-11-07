@@ -52,6 +52,12 @@ targets:
   Folding:
     type: application
     platform: iOS
+    info:
+      path: Config/GeneratedFolding-Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: app.getfolding.navigation
+            CFBundleURLSchemes: [folding]
     sources:
       - path: App
         includes: ['*.swift', '*.xcstrings']

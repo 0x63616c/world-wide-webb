@@ -118,7 +118,9 @@ actor CompetitionAPI {
     do {
       page = try await transport.send(
         "GET", path: "/v1/blocks?" + (query.percentEncodedQuery ?? ""))
-    } catch CompetitionTransportError.server(409) where cursor != nil {
+    } catch let failure as CompetitionTransportError
+      where failure.statusCode == 409 && cursor != nil
+    {
       throw LeaderboardPageError.snapshotChanged
     }
     guard page.items.allSatisfy({ UUID(uuidString: $0.participantID) != nil }) else {

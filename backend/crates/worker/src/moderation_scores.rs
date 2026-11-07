@@ -1,4 +1,5 @@
-//! Provisional moderation replay; administrator's participant-revision guard commits this atomically.
+use crate::moderation_eligibility::{Epoch, approval_eligible};
+// Provisional moderation replay; administrator's participant-revision guard commits this atomically.
 use crate::auth_runtime::{Failure, now, number, statement, text};
 use folding_domain::{
     reducer,
@@ -11,6 +12,7 @@ struct Observation {
     event_json: String,
     disposition: String,
     reason_code: Option<String>,
+    received_at_ms: u64,
     submission_id: Option<String>,
 }
 #[derive(Deserialize)]
@@ -39,7 +41,7 @@ pub(crate) async fn change(
         revision: state.generation_revision,
         reset_id: Id::parse(&state.generation_id).map_err(|_| Failure::unavailable())?,
     };
-    let rows=statement(db,"SELECT event_json,disposition,reason_code,submission_id FROM observations WHERE participant_id=?1",&[text(participant)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Observation>().map_err(|_|Failure::unavailable())?;
+    let rows=statement(db,"SELECT event_json,disposition,reason_code,submission_id,received_at_ms FROM observations WHERE participant_id=?1",&[text(participant)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Observation>().map_err(|_|Failure::unavailable())?;
     let rows: Vec<_> = rows
         .into_iter()
         .map(|row| {
@@ -54,6 +56,42 @@ pub(crate) async fn change(
         .and_then(|(row, _)| row.submission_id.as_ref())
         .ok_or_else(Failure::conflict)?
         .clone();
+    // Approvals operate on the submitted group, never on arbitrary rejected events.
+    // Recheck immutable enrollment and time eligibility; an admin is not an auth bypass.
+    if reinstate {
+        let mut candidates = 0;
+        for (row, event) in &rows {
+            if row.submission_id.as_deref() != Some(&submission) || row.disposition != "quarantined"
+            {
+                continue;
+            }
+            if !matches!(
+                row.reason_code.as_deref(),
+                Some("moderator_quarantine" | "future_timestamp" | "clock_reversal")
+            ) || event.generation != generation
+                || event.is_test
+                || event.validate().is_err()
+                || event.observed_at_ms > now() as u64
+            {
+                return Err(Failure::conflict());
+            }
+            let epoch_id = event
+                .competition_epoch_id
+                .as_ref()
+                .ok_or_else(Failure::conflict)?;
+            let epoch = statement(db,
+                "SELECT device_id,issued_at_ms,closed_at_ms FROM epochs WHERE participant_id=?1 AND epoch_id=?2",
+                &[text(participant),text(epoch_id.as_str())])?
+                .first::<Epoch>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::conflict)?;
+            if !approval_eligible(event, &generation, row.received_at_ms, &epoch, now() as u64) {
+                return Err(Failure::conflict());
+            }
+            candidates += 1;
+        }
+        if candidates == 0 {
+            return Err(Failure::conflict());
+        }
+    }
     let accepted: Vec<_> = rows
         .iter()
         .filter(|(row, event)| {
@@ -65,7 +103,10 @@ pub(crate) async fn change(
                 row.disposition == "accepted"
                     || (target
                         && row.disposition == "quarantined"
-                        && row.reason_code.as_deref() == Some("moderator_quarantine"))
+                        && matches!(
+                            row.reason_code.as_deref(),
+                            Some("moderator_quarantine" | "future_timestamp" | "clock_reversal")
+                        ))
             } else {
                 row.disposition == "accepted" && !target
             }
@@ -90,7 +131,7 @@ pub(crate) async fn change(
         &[],
     )?];
     if reinstate {
-        writes.push(statement(db,"UPDATE observations SET disposition='accepted',reason_code=NULL,decision_version=(SELECT version FROM decision_clock WHERE singleton=1) WHERE participant_id=?1 AND submission_id=?2 AND disposition='quarantined' AND reason_code='moderator_quarantine' AND json_extract(event_json,'$.generation.revision')=?3 AND json_extract(event_json,'$.generation.reset_id')=?4",&[text(participant),text(&submission),number(generation.revision as i64),text(generation.reset_id.as_str())])?);
+        writes.push(statement(db,"UPDATE observations SET disposition='accepted',reason_code=NULL,decision_version=(SELECT version FROM decision_clock WHERE singleton=1) WHERE participant_id=?1 AND submission_id=?2 AND disposition='quarantined' AND reason_code IN ('moderator_quarantine','future_timestamp','clock_reversal') AND json_extract(event_json,'$.generation.revision')=?3 AND json_extract(event_json,'$.generation.reset_id')=?4",&[text(participant),text(&submission),number(generation.revision as i64),text(generation.reset_id.as_str())])?);
     } else {
         writes.push(statement(db,"UPDATE observations SET disposition='quarantined',reason_code='moderator_quarantine',decision_version=(SELECT version FROM decision_clock WHERE singleton=1) WHERE participant_id=?1 AND submission_id=?2 AND disposition='accepted'",&[text(participant),text(&submission)])?);
     }

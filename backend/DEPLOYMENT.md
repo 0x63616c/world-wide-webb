@@ -79,3 +79,11 @@ retries including paused external categories. Pauses preserve personal tracking 
 
 No live deployment, credential access, email, push, moderation action or production correction was
 performed by the backend implementation agent. See `docs/experiments/backend-runtime.md` for checkpoints.
+
+## Reviewed readiness overlay
+
+`generate-worker-config.py --readiness path/to/readiness.json` preserves reviewed feature readiness across regeneration. Without this option all three feature gates remain false and capabilities empty. Store the overlay with deployment evidence in the repo; never include secrets.
+
+Required fields: `environment`, exact `worker_version`, `bindings_sha256` (SHA-256 of the OpenTofu bindings serialized with sorted keys and compact JSON separators), `reviewer`, ISO-8601 `reviewed_at`, `capabilities`, `features`, and `evidence`. Features explicitly map `APNS_ENABLED`, `AVATAR_UPLOADS_ENABLED`, `ADMIN_EMAIL_ENABLED` to booleans. Evidence maps each capability and enabled feature to `{path, sha256}`; paths must stay inside the overlay directory. A changed commit/binding/evidence hash fails before replacing generated output. Promotion remains a reviewed acceptance decision; the generator never invents evidence. See `scripts/test-worker-readiness.py` for a synthetic example and regression coverage.
+
+`./scripts/check-backend` rebuilds the pinned Wasm artifact before local workerd tests. Host-only Cargo tests cannot exercise Worker bindings. Quarantine approval checks current membership/restriction/generation, original enrollment/device/cutoff, setup exclusion and time ordering; closed awards change only through the existing audited correction flow.

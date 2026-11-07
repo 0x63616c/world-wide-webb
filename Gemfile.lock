@@ -178,6 +178,7 @@ GEM
     logger (1.7.0)
     mini_magick (4.13.2)
     mini_mime (1.1.5)
+    minitest (5.20.0)
     multi_json (1.21.2)
     multipart-post (2.4.1)
     mutex_m (0.3.0)
@@ -259,6 +260,7 @@ PLATFORMS
 
 DEPENDENCIES
   fastlane (= 2.241.2)
+  minitest (= 5.20.0)
 
 CHECKSUMS
   CFPropertyList (3.0.8)
@@ -320,6 +322,7 @@ CHECKSUMS
   logger (1.7.0)
   mini_magick (4.13.2)
   mini_mime (1.1.5)
+  minitest (5.20.0)
   multi_json (1.21.2)
   multipart-post (2.4.1)
   mutex_m (0.3.0)

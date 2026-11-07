@@ -378,7 +378,10 @@ pub(crate) async fn dispatch(
                 revision: row.revision,
                 event_id: row.event_id.clone(),
                 operation: uuid()?,
-                actions: if row.reason_code.as_deref() == Some("moderator_quarantine") {
+                actions: if matches!(
+                    row.reason_code.as_deref(),
+                    Some("moderator_quarantine" | "future_timestamp" | "clock_reversal")
+                ) {
                     vec!["reinstate_submission".into()]
                 } else {
                     vec![]

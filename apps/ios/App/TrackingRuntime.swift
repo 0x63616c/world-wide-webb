@@ -10,6 +10,7 @@ actor TrackingRuntime {
   private let competitionUploader = CompetitionUploader()
   private var cloudConnection: CloudTrackingConnection?
   private var accountRevision = UUID()
+  private var accountSuspended = false
   private var journal: TrackingStore?
   private var exportService: TrackingExportService?
   private var exportTickets: [UUID: PreparedTrackingExport] = [:]
@@ -19,6 +20,7 @@ actor TrackingRuntime {
   private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
 
   func store() async throws -> TrackingStore {
+    guard !accountSuspended else { throw PartitionError.superseded }
     if let journal { return journal }
     if let configuration = try ProductionConfiguration.current() {
       let token = accountRevision
@@ -63,8 +65,9 @@ actor TrackingRuntime {
     #endif
   }
 
-  func accountChanged() async throws {
-    accountRevision = UUID()
+  func suspendForAccountChange(revision: UUID) async throws {
+    accountSuspended = true
+    accountRevision = revision
     journal = nil
     clearWidgets()
     try await cloudConnection?.invalidate()
@@ -72,6 +75,11 @@ actor TrackingRuntime {
     try await cancelExports()
     exportService = nil
     changed()
+  }
+
+  func resumeAfterAccountChange(revision: UUID) async throws {
+    guard accountRevision == revision else { throw PartitionError.superseded }
+    accountSuspended = false
     _ = try await store()
     await synchronizePrivateHistory()
   }

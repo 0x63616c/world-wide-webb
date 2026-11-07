@@ -42,15 +42,15 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   func signIn(transport: CompetitionTransport, deviceID: UUID) async throws
     -> CompetitionWireProfile
   {
+    let context = await transport.sessionContext()
     let response = try await authorize(transport: transport, deviceID: deviceID, purpose: "sign_in")
     guard let access = response.access_token, let refresh = response.refresh_token,
       let profile = response.profile, let expiry = response.expires_at_ms
     else { throw CompetitionTransportError.invalidResponse }
-    try await transport.clearSession()
-    try await transport.saveSession(
+    try await transport.replaceSession(
       CompetitionSession(
         access_token: access,
-        refresh_token: refresh, expires_at_ms: expiry))
+        refresh_token: refresh, expires_at_ms: expiry), context: context)
     return profile
   }
 

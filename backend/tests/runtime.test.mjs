@@ -18,20 +18,20 @@ const runtime = new Miniflare(convertV4MiniflareOptions({ workers: [{ name: "fol
 after(() => runtime.dispose());
 
 test("compiled Rust Worker fails closed and bounds untrusted bodies", async () => {
-  const response = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST", headers: { Authorization: "Bearer forged" }, body: "{}" });
+  const response = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST", headers: { Authorization: "Bearer forged", "Content-Type": "application/json" }, body: "{}" });
   assert.equal(response.status, 503);
   const body = await response.json();
   assert.equal(body.code, "temporarily_unavailable");
   assert.match(body.request_id, /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
-  const oversized = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST", body: "x".repeat(256 * 1024 + 1) });
+  const oversized = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST", headers: {"Content-Type":"application/json"}, body: "x".repeat(256 * 1024 + 1) });
   assert.equal(oversized.status, 413);
   assert.equal((await oversized.json()).code, "body_too_large");
   const empty = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST" });
   assert.equal(empty.status, 400);
   assert.equal((await empty.json()).code, "malformed_request");
   const admin = await runtime.dispatchFetch("https://api.example/admin/participants");
-  assert.equal(admin.status, 404);
+  assert.equal(admin.status, 503); // Admin fails closed when Access configuration is absent.
 });
 
 test("local D1 CHECK guard rolls back and admits only one competing revision", async () => {
@@ -138,6 +138,8 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
   ],
   compatibilityDate: "2026-11-04",
   outboundService: syntheticApple,
+  queueProducers: {JOBS:"folding-local-jobs", JOBS_DEAD:"folding-local-dead"},
+  queueConsumers: {"folding-local-jobs":{maxBatchSize:1,maxBatchTimeout:0}},
   bindings: {
     APP_ATTEST_APP_ID:"TEAM123456.app.test.Folding",APP_ATTEST_ENVIRONMENT:"development",APP_ATTEST_BUNDLE_VERSIONS:JSON.stringify(["1"]),
     APPLE_SIGN_IN_CLIENT_ID:"app.test.Folding",APPLE_SIGN_IN_TEAM_ID:"TEAM123456",APPLE_SIGN_IN_KEY_ID:"KEY1234567",
@@ -211,7 +213,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   await db.prepare("INSERT INTO sessions VALUES ('logout-session','auth-person','device2','staging',?,?,?, ?,0)").bind(timestamp,timestamp,timestamp+86400000,timestamp+86400000).run();
   const access=Buffer.alloc(32,12);
   await db.prepare("INSERT INTO access_tokens VALUES (?,'logout-session',?)").bind(hash(access),timestamp+900000).run();
-  await db.prepare("INSERT INTO push_installations VALUES ('device2','auth-person','logout-session','staging','sandbox',x'01','test-v1','app.test',1)").run();
+  await db.prepare("INSERT INTO push_installations(device_id,participant_id,session_id,deployment,environment,token_ciphertext,key_version,topic,enabled) VALUES ('device2','auth-person','logout-session','staging','sandbox',x'01','test-v1','app.test',1)").run();
   const otherRefresh=Buffer.alloc(32,13);
   await db.prepare("INSERT INTO refresh_tokens VALUES (?,'logout-session',?,NULL,NULL)").bind(hash(otherRefresh),timestamp).run();
   assert.equal((await post("refresh",{operation_id:operation,refresh_token:otherRefresh.toString("base64url")})).status,409);
@@ -285,7 +287,35 @@ test("scheduled retention purges expired ciphertext while keeping replay tombsto
   await db.prepare("UPDATE sign_in_receipts SET expires_at_ms=0").run();
   const worker=await authenticatedRuntime.getWorker();
   await worker.scheduled({cron:"* * * * *",scheduledTime:Date.now()});
+  for (let attempt=0;attempt<50;attempt++) {
+    if(await db.prepare("SELECT count(*) n FROM refresh_receipts").first("n")===0) break;
+    await new Promise(resolve=>setTimeout(resolve,100));
+  }
   assert.equal(await db.prepare("SELECT count(*) n FROM refresh_receipts").first("n"),0);
   assert.equal(await db.prepare("SELECT count(*) n FROM sign_in_receipts").first("n"),0);
   assert.equal(await db.prepare("SELECT count(*) n FROM auth_operation_claims").first("n"),before);
+});
+
+test("reset raw-history purge is atomic and preserves replay receipts and other accounts",async()=>{
+  const db=await authenticatedRuntime.getD1Database("DB");
+  const source=await readFile(`${root}crates/worker/src/lifecycle_runtime.rs`,"utf8");
+  const purge=source.match(/const PURGE_OBSERVATIONS: &str = "([^"]+)"/)[1];
+  await db.prepare("INSERT INTO participants(participant_id,subject_hmac,membership,restriction,generation_revision,generation_id) VALUES ('reset-person','reset-subject','joined','none',0,'old')").run();
+  await db.prepare("INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms) VALUES ('reset-person','raw-event','phone',1,?, 'accepted',1)").bind(JSON.stringify({private:"raw movement history"})).run();
+  await db.prepare("INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,received_at_ms) VALUES ('auth-person','other-event','other-phone',1,'{}','accepted',1)").run();
+  await db.prepare("INSERT INTO competition_operations VALUES ('reset-person','receipt','/v1/event-batches',?,'{}')").bind(Buffer.alloc(32)).run();
+  await assert.rejects(db.batch([
+    db.prepare(purge).bind("reset-person"),
+    db.prepare("INSERT INTO mutation_guards VALUES ('reset-rollback',0)"),
+  ]));
+  assert.equal(await db.prepare("SELECT count(*) n FROM observations WHERE participant_id='reset-person'").first("n"),1);
+  await db.batch([
+    db.prepare("INSERT INTO mutation_guards VALUES ('reset-success',1)"),
+    db.prepare(purge).bind("reset-person"),
+    db.prepare("UPDATE participants SET generation_revision=1,generation_id='new' WHERE participant_id='reset-person'"),
+    db.prepare("DELETE FROM mutation_guards WHERE guard_id='reset-success'"),
+  ]);
+  assert.equal(await db.prepare("SELECT count(*) n FROM observations WHERE participant_id='reset-person'").first("n"),0);
+  assert.equal(await db.prepare("SELECT count(*) n FROM observations WHERE participant_id='auth-person'").first("n"),1);
+  assert.equal(await db.prepare("SELECT count(*) n FROM competition_operations WHERE participant_id='reset-person'").first("n"),1);
 });

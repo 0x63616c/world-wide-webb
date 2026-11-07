@@ -1044,10 +1044,13 @@ public actor TrackingStore {
 
   private func setCompetitionEpochInTransaction(_ epoch: UUID?) throws {
     if try competitionEpoch() != epoch {
+      try database.execute("DELETE FROM settings WHERE key='competition_upload_suspended'")
       try database.execute("DELETE FROM settings WHERE key='competition_upload'")
     }
     try database.execute("DELETE FROM settings WHERE key='competition_epoch'")
     if let epoch {
+      try database.execute(
+        "DELETE FROM settings WHERE key='competition_upload_suspended' AND value='restricted'")
       try database.execute(
         "INSERT INTO settings(key,value) VALUES ('competition_epoch',?)", [.text(epoch.canonical)]
       )
@@ -1181,6 +1184,10 @@ public actor TrackingStore {
     try validateTime(nowMS)
     return try journalTransaction {
       guard let epoch = try competitionEpoch() else { return nil }
+      guard
+        try database.rows("SELECT value FROM settings WHERE key='competition_upload_suspended'")
+          .isEmpty
+      else { return nil }
       let current = try generation()
       if let value = try database.rows("SELECT value FROM settings WHERE key='competition_upload'")
         .first?["value"]
@@ -1303,9 +1310,21 @@ public actor TrackingStore {
     try journalTransaction {
       guard try validCompetitionUpload(upload) else { return }
       var pending = upload
+      pending.attempts = min((pending.attempts ?? 0) + 1, 20)
       pending.nextAttemptMS = atMS
       pending.leaseUntilMS = 0
       try saveCompetitionUpload(pending)
+    }
+  }
+
+  /// Preserve personal events and the immutable operation while stopping a terminal
+  /// public failure. A new confirmed enrollment or reset explicitly clears this fence.
+  public func stopCompetitionUpload(_ upload: CompetitionUpload, reason: String) throws {
+    try journalTransaction {
+      guard try validCompetitionUpload(upload) else { return }
+      try database.execute(
+        "INSERT INTO settings(key,value) VALUES('competition_upload_suspended',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        [.text(reason)])
     }
   }
 
@@ -1670,6 +1689,7 @@ public actor TrackingStore {
   }
 
   private func adoptReset(_ marker: ResetGeneration, nowMS: Int64) throws {
+    try database.execute("DELETE FROM settings WHERE key='competition_upload_suspended'")
     try rememberResetRevision(marker.revision)
     if let row = try database.rows(
       "SELECT revision,created_at_ms FROM reset_markers WHERE reset_id=?",

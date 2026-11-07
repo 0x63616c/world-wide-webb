@@ -1,3 +1,4 @@
+require_relative "review_submission"
 require "shellwords"
 require_relative "release_assets"
 
@@ -36,27 +37,28 @@ module FoldingRelease
 
     def self.assets(context, record)
       require_state!(record, "validated")
+      directory = File.join(record.directory, "assets")
       Assets.metadata(record) unless File.exist?(File.join(record.directory, "assets/metadata-manifest.json"))
       Assets.capture(context, record) unless File.exist?(File.join(record.directory, "assets/screenshot-manifest.json"))
-      raise "Tip review manifest changed" unless FoldingRelease.sha(File.join(directory, "tip-review-manifest.json")) == record.data.fetch("tip_review_manifest_sha256")
-      raise "Tip review map changed" unless FoldingRelease.sha(File.join(directory, "tip-review-screenshots.json")) == record.data.fetch("tip_review_map_sha256")
       Assets.validate!(record)
-      directory = File.join(record.directory, "assets")
+      manifest_hashes = {
+        "screenshot_manifest_sha256" => FoldingRelease.sha(File.join(directory, "screenshot-manifest.json")),
+        "tip_review_manifest_sha256" => FoldingRelease.sha(File.join(directory, "tip-review-manifest.json")),
+        "tip_review_map_sha256" => FoldingRelease.sha(File.join(directory, "tip-review-screenshots.json")),
+        "metadata_manifest_sha256" => FoldingRelease.sha(File.join(directory, "metadata-manifest.json"))
+      }
       bundle = File.join(record.directory, "assets.zip")
       raise "Copyright owner is required before sealing assets" unless File.file?(File.join(directory, "metadata/copyright.txt"))
       if File.exist?(bundle)
         raise "Unrecorded assets bundle; inspect before retry" unless record.data["assets_candidate_sha256"] == FoldingRelease.sha(bundle)
+        raise "Assets changed since bundle creation; inspect before retry" unless record.data["assets_candidate_manifests"] == manifest_hashes
       else
         FoldingRelease.run("ditto", "-c", "-k", "--keepParent", directory, bundle)
-        record.save("assets_candidate_sha256" => FoldingRelease.sha(bundle))
+        record.save("assets_candidate_sha256" => FoldingRelease.sha(bundle), "assets_candidate_manifests" => manifest_hashes)
       end
       record.remote.upload_artifact(bundle)
-      record.advance("assets_ready", {"assets_sha256" => FoldingRelease.sha(bundle),
-        "screenshot_manifest_sha256" => FoldingRelease.sha(File.join(directory, "screenshot-manifest.json")),
-        "tip_review_manifest_sha256" => FoldingRelease.sha(File.join(directory, "tip-review-manifest.json")),
-        "tip_review_map_sha256" => FoldingRelease.sha(File.join(directory, "tip-review-screenshots.json")),
-        "metadata_manifest_sha256" => FoldingRelease.sha(File.join(directory, "metadata-manifest.json")),
-        "artifacts" => record.data.fetch("artifacts").merge("assets" => File.basename(bundle))})
+      record.advance("assets_ready", manifest_hashes.merge("assets_sha256" => FoldingRelease.sha(bundle),
+        "artifacts" => record.data.fetch("artifacts").merge("assets" => File.basename(bundle))))
     end
 
     def self.restore_assets(record)
@@ -119,7 +121,8 @@ module FoldingRelease
       identity = record.data.fetch("archive_configuration").fetch("identity")
       keychain = "folding-release-#{SecureRandom.hex(8)}"
       password = SecureRandom.hex(32)
-      record.save("archive_attempt_started_at" => Time.now.utc.iso8601)
+      attempts = record.data.fetch("signing_attempts", []) + [{"started_at" => Time.now.utc.iso8601, "build_number" => record.data.fetch("build_number")}]
+      record.save("signing_attempts" => attempts)
       begin
         context.create_keychain(name: keychain, password: password, default_keychain: false, unlock: true, timeout: 3600, lock_when_sleeps: true)
         context.match(type: "appstore", readonly: true, app_identifier: [identity.fetch("bundle_id"), identity.fetch("widget_bundle_id")],
@@ -139,6 +142,7 @@ module FoldingRelease
         }
         archive = File.join(record.directory, "Folding.xcarchive")
         ipa = File.join(record.directory, "Folding.ipa")
+        record.save("archive_attempt_started_at" => Time.now.utc.iso8601)
         context.build_app(project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: CONFIG.fetch("scheme"),
           configuration: CONFIG.fetch("archive_configuration"), clean: true, archive_path: archive,
           output_directory: record.directory, output_name: "Folding.ipa", export_method: "app-store",
@@ -167,6 +171,54 @@ module FoldingRelease
       ensure
         context.delete_keychain(name: keychain)
       end
+    end
+
+    # An ambiguous build attempt burns its number. Signing-only failures can retry
+    # normally because archive_attempt_started_at is set immediately before build_app.
+    def self.replace_interrupted_archive(record, reason:)
+      require_state!(record, "assets_ready")
+      record.verify_identity!
+      raise "Recovery needs an audit reason" if reason.to_s.strip.empty?
+      raise "No interrupted archive" unless record.data["archive_attempt_started_at"]
+      raise "Publish sealed artifacts instead" if record.data["archive_candidates"]
+      source = record.data.fetch("commit_sha")
+      old_number = record.data.fetch("build_number")
+      actor = JSON.parse(FoldingRelease.run("gh", "api", "user")).fetch("login")
+      builds = %w[production staging].flat_map do |environment|
+        identity = FoldingRelease.configuration(environment).fetch("identity")
+        app = Spaceship::ConnectAPI::App.find(identity.fetch("bundle_id"), client: FoldingRelease.client)
+        raise "Missing registered app" unless app && app.id == identity.fetch("app_store_id")
+        app.get_builds(client: FoldingRelease.client).map { |build| Integer(build.version, 10) }
+      end
+      raise "Old build exists on Apple; reconcile it instead" if builds.include?(old_number)
+      ledger_store = GitHubArtifacts.new(CONFIG.fetch("reservation_tag"))
+      ledger = ledger_store.latest("reservations") or raise "Missing reservation ledger"
+      key = "replacement:#{record.data.fetch('release_id')}:#{old_number}"
+      reservation = ledger.fetch("reservations").find { |entry| entry["idempotency_key"] == key }
+      unless reservation
+        number = ([0] + builds + ledger.fetch("reservations").map { |entry| entry.fetch("build_number") }).max + 1
+        reservation = {"idempotency_key" => key, "tag" => record.data.fetch("tag"), "commit_sha" => source,
+          "build_number" => number, "replaces_build_number" => old_number, "actor" => actor,
+          "reason" => reason, "created_at" => Time.now.utc.iso8601}
+        ledger["reservations"] << reservation
+        ledger["revision"] += 1
+        Dir.mktmpdir("folding-reservation") do |directory|
+          file = File.join(directory, format("reservations-r%08d.json", ledger.fetch("revision")))
+          FoldingRelease.atomic_json(file, ledger)
+          ledger_store.upload(file)
+        end
+      end
+      # Keep old local outputs for inspection, outside the new build's fixed paths.
+      retired = File.join(record.directory, "retired-build-#{old_number}")
+      FileUtils.mkdir_p(retired)
+      %w[Folding.xcarchive Folding.ipa Folding.xcarchive.zip Folding.dSYMs.zip].each do |name|
+        path = File.join(record.directory, name)
+        next unless File.exist?(path)
+        raise "Retired output already exists; reconcile manually" if File.exist?(File.join(retired, name))
+        FileUtils.mv(path, retired)
+      end
+      record.save("build_number" => reservation.fetch("build_number"), "archive_attempt_started_at" => nil,
+        "archive_recoveries" => record.data.fetch("archive_recoveries", []) + [reservation])
     end
 
     def self.publish_archive(record)
@@ -234,6 +286,8 @@ module FoldingRelease
       return false if matches.empty?
       raise "Ambiguous review submission" unless matches.length == 1
       submission = matches.first
+      raise "Apple submission identity differs" unless submission.id == record.data.fetch("prepared_submission_id")
+      ReviewSubmission.verify_items!(record)
       record.advance("submitted", "submission_id" => submission.id, "submission_state" => submission.state, "automatic_release" => true)
       record.remote.publish
       true
@@ -259,8 +313,9 @@ module FoldingRelease
       selected = version(record)
       raise "Listing not attached to exact build" unless selected.get_build(client: FoldingRelease.client)&.id == record.data.fetch("asc_build_id")
       record.advance("ready_to_submit") if record.data["state"] == "processed"
+      ReviewSubmission.prepare(record, selected.id)
       record.save("submission_attempt_started_at" => Time.now.utc.iso8601)
-      context.upload_to_app_store(**options.merge(skip_metadata: true, skip_screenshots: true, submit_for_review: true))
+      ReviewSubmission.submit(record)
       raise "Submission sent; Apple readback is pending. Resume to observe, not resubmit." unless observe_submission(record)
     end
   end

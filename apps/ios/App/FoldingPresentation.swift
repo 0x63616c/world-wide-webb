@@ -270,6 +270,34 @@ enum ExportChoice { case json, csv }
 }
 
 @MainActor @Observable final class FoldingPresentation {
+  /// Widget links select the tab underneath setup; dismissing setup preserves the destination.
+  func openWidgetURL(_ url: URL) {
+    guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+      parts.scheme == "folding", parts.user == nil, parts.password == nil,
+      parts.port == nil, parts.fragment == nil,
+      parts.path.isEmpty || parts.path == "/", parts.query == nil
+    else { return }
+    switch parts.host {
+    case "today": selectedTab = .today
+    case "history": selectedTab = .history
+    default: return
+    }
+  }
+
+  func invalidatePersonalPresentation() {
+    historyRequest = UUID()
+    historyLoading = false
+    historyFailed = false
+    dismissExports()
+    analytics = nil
+    history = nil
+    setup = nil
+    syncStatus = nil
+    privateHistoryHealth = nil
+    lastEventAt = nil
+    localDeviceID = nil
+  }
+
   var selectedTab: FoldingTab = .today
   var analytics: PersonalAnalyticsSnapshot?
   var setup: SetupProgress?

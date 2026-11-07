@@ -8,6 +8,7 @@ require "time"
 require "tmpdir"
 require "uri"
 require_relative "apple_account"
+require_relative "check_evidence"
 
 module FoldingRelease
   ROOT = File.expand_path("../..", __dir__)
@@ -301,11 +302,9 @@ module FoldingRelease
     required -= %w[screenshots final-review] unless final
     required.each do |name|
       check = checks.find { |item| item["name"] == name }
-      raise "Required check is missing or failed: #{name}" unless check && check["conclusion"] == "success" && check["commit_sha"] == source && check["run_url"].to_s.start_with?("https://github.com/#{CONFIG.fetch('repository')}/")
-      match = check.fetch("run_url").match(%r{\Ahttps://github\.com/#{Regexp.escape(CONFIG.fetch("repository"))}/actions/runs/(\d+)(?:[/?#].*)?\z})
-      raise "Required evidence must reference a GitHub Actions run" unless match
-      run_record = JSON.parse(run("gh", "api", "repos/#{CONFIG.fetch('repository')}/actions/runs/#{match[1]}"))
-      raise "GitHub check is not a successful run for this commit" unless run_record["head_sha"] == source && run_record["status"] == "completed" && run_record["conclusion"] == "success"
+      raise "Required check is missing: #{name}" unless check
+      raise "Duplicate check name: #{name}" unless checks.count { |item| item["name"] == name } == 1
+      CheckEvidence.validate!(check, source: source, base: File.dirname(File.expand_path(path)))
     end
     raise "Apple account prerequisites not recorded" unless evidence["account_prerequisites_confirmed"] == true
     if final

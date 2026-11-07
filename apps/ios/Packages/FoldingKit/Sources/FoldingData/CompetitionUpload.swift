@@ -12,4 +12,5 @@ public struct CompetitionUpload: Codable, Sendable {
   var leaseToken: UUID
   var leaseUntilMS: Int64
   var nextAttemptMS: Int64
+  public var attempts: Int? = nil
 }

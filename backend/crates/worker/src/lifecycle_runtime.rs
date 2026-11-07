@@ -11,6 +11,7 @@ use folding_domain::wire::{Generation, Id, ResetRequest};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use worker::*;
+pub(crate) const PURGE_OBSERVATIONS: &str = "DELETE FROM observations WHERE participant_id=?1";
 #[derive(Deserialize)]
 struct State {
     epoch_id: Option<String>,
@@ -68,6 +69,14 @@ pub(crate) async fn reset(
     let winner = if winning { &input.generation } else { &old };
     if winning {
         writes.extend(erase_results(db, &session.participant_id)?);
+        // This guarded reset batch retires every previously accepted generation.
+        // Keep operation receipts and the participant generation fence for replay
+        // protection, but never retain the erased raw tracking envelopes.
+        writes.push(statement(
+            db,
+            PURGE_OBSERVATIONS,
+            &[text(&session.participant_id)],
+        )?);
         writes.push(statement(db,"UPDATE participants SET generation_revision=?1,generation_id=?2 WHERE participant_id=?3",&[number(winner.revision as i64),text(winner.reset_id.as_str()),text(&session.participant_id)])?);
         writes.push(statement(db,"UPDATE epochs SET generation_revision=?1,generation_id=?2 WHERE epoch_id=?3 AND participant_id=?4 AND closed_at_ms IS NULL",&[number(winner.revision as i64),text(winner.reset_id.as_str()),text(input.epoch_id.as_str()),text(&session.participant_id)])?);
         for table in ["live_scores", "score_jobs"] {

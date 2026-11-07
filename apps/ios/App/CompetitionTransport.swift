@@ -20,11 +20,26 @@ struct CompetitionSession: Codable, Sendable {
 }
 struct CompetitionServiceFailure: Decodable, Sendable {
   let code: String
+  let retryable: Bool?
+  let retryAfterSeconds: Int?
+  enum CodingKeys: String, CodingKey {
+    case code, retryable
+    case retryAfterSeconds = "retry_after_seconds"
+  }
 }
 enum CompetitionTransportError: Error {
   case unavailable, unauthorized, busy, invalidResponse
   case server(Int)
+  case service(status: Int, code: String, retryable: Bool, retryAfter: TimeInterval?)
   case unsupportedAttestation
+
+  var statusCode: Int? {
+    switch self {
+    case .server(let status), .service(let status, _, _, _): return status
+    case .unauthorized: return 401
+    default: return nil
+    }
+  }
 }
 
 /// Device-only credential storage; never mirrored or exported with personal history.
@@ -79,17 +94,40 @@ private final class CompetitionRedirectPolicy: NSObject, URLSessionTaskDelegate,
   ) { completionHandler(nil) }
 }
 
+protocol CompetitionAttestation: Sendable {
+  var isSupported: Bool { get }
+  func generateKey() async throws -> String
+  func attestKey(_ key: String, clientDataHash: Data) async throws -> Data
+  func generateAssertion(_ key: String, clientDataHash: Data) async throws -> Data
+}
+
+private struct AppleCompetitionAttestation: CompetitionAttestation {
+  var isSupported: Bool { DCAppAttestService.shared.isSupported }
+  func generateKey() async throws -> String { try await DCAppAttestService.shared.generateKey() }
+  func attestKey(_ key: String, clientDataHash: Data) async throws -> Data {
+    try await DCAppAttestService.shared.attestKey(key, clientDataHash: clientDataHash)
+  }
+  func generateAssertion(_ key: String, clientDataHash: Data) async throws -> Data {
+    try await DCAppAttestService.shared.generateAssertion(key, clientDataHash: clientDataHash)
+  }
+}
+
 actor CompetitionTransport {
   let origin: URL
   let deployment: String
   let deviceID: UUID
   private var avatarContextRevision = UUID()
+  private var sessionRevision = UUID()
   private let credentials: CompetitionCredentialStore
   private let session: URLSession
+  private let attestation: any CompetitionAttestation
   private var signing = false
   private var refreshing = false
 
-  init(origin: URL, deployment: String, deviceID: UUID, bundleID: String) throws {
+  init(
+    origin: URL, deployment: String, deviceID: UUID, bundleID: String,
+    session injectedSession: URLSession? = nil, attestation: (any CompetitionAttestation)? = nil
+  ) throws {
     let expectedHost =
       deployment == "production" ? "api.getfolding.app" : "api-staging.getfolding.app"
     guard ["production", "staging"].contains(deployment), origin.scheme == "https",
@@ -106,8 +144,11 @@ actor CompetitionTransport {
     configuration.httpCookieStorage = nil
     configuration.timeoutIntervalForRequest = 30
     configuration.timeoutIntervalForResource = 60
-    session = URLSession(
-      configuration: configuration, delegate: CompetitionRedirectPolicy(), delegateQueue: nil)
+    self.attestation = attestation ?? AppleCompetitionAttestation()
+    session =
+      injectedSession
+      ?? URLSession(
+        configuration: configuration, delegate: CompetitionRedirectPolicy(), delegateQueue: nil)
   }
 
   static func encode<T: Encodable>(_ value: T) throws -> Data {
@@ -119,7 +160,16 @@ actor CompetitionTransport {
   func saveSession(_ value: CompetitionSession) throws {
     try credentials.write(Self.encode(value), account: "session")
   }
+  func sessionContext() -> UUID { sessionRevision }
+
+  func replaceSession(_ value: CompetitionSession, context: UUID) throws {
+    guard context == sessionRevision else { throw CancellationError() }
+    try clearSession()
+    try saveSession(value)
+  }
+
   func clearSession() throws {
+    sessionRevision = UUID()
     avatarContextRevision = UUID()
     for account in [
       "session", "refresh-operation", "attest-enrolled", "attest-key", "attest-pending",
@@ -176,16 +226,29 @@ actor CompetitionTransport {
     _ method: String, path: String, body: Data? = nil,
     authenticated: Bool = true, contentType: String = "application/json"
   ) async throws -> Response {
+    let revision = sessionRevision
     let token = authenticated ? try await accessToken() : nil
-    return try await execute(method, path: path, body: body, token: token, contentType: contentType)
+    guard revision == sessionRevision else { throw CancellationError() }
+    do {
+      return try await execute(
+        method, path: path, body: body, token: token, contentType: contentType)
+    } catch CompetitionTransportError.unauthorized where authenticated {
+      let refreshed = try await accessToken(forceRefresh: true)
+      guard revision == sessionRevision else { throw CancellationError() }
+      return try await execute(
+        method, path: path, body: body, token: refreshed, contentType: contentType)
+    }
   }
 
-  private func accessToken() async throws -> String {
+  private func accessToken(forceRefresh: Bool = false) async throws -> String {
+    let revision = sessionRevision
     guard let data = try credentials.read("session") else {
       throw CompetitionTransportError.unauthorized
     }
     let stored = try JSONDecoder().decode(CompetitionSession.self, from: data)
-    if stored.expires_at_ms > TrackingRuntime.nowMS + 30_000 { return stored.access_token }
+    if !forceRefresh, stored.expires_at_ms > TrackingRuntime.nowMS + 30_000 {
+      return stored.access_token
+    }
     guard !refreshing else { throw CompetitionTransportError.busy }
     refreshing = true
     defer { refreshing = false }
@@ -207,6 +270,7 @@ actor CompetitionTransport {
     let updated: CompetitionSession = try await execute(
       "POST", path: "/v1/auth/refresh",
       body: Self.encode(request), token: nil)
+    guard revision == sessionRevision else { throw CancellationError() }
     try saveSession(updated)
     try credentials.remove("refresh-operation")
     return updated.access_token
@@ -220,47 +284,86 @@ actor CompetitionTransport {
   }
 
   private func ensureKey() async throws -> String {
-    let attest = DCAppAttestService.shared
+    let revision = sessionRevision
+    let attest = attestation
     guard attest.isSupported else { throw CompetitionTransportError.unsupportedAttestation }
     if let enrolled = try credentials.read("attest-enrolled"),
       let id = String(data: enrolled, encoding: .utf8)
     {
       return id
     }
+    // A successful Apple proof can only be generated once per key. Persist the exact
+    // request before network IO, and replay it even after challenge expiry: the server
+    // checks the durable operation receipt before checking the challenge.
+    let body: Data
     let key: String
-    if let saved = try credentials.read("attest-key"), let id = String(data: saved, encoding: .utf8)
-    {
+    if let pending = try credentials.read("attest-pending") {
+      let fields = try JSONDecoder().decode([String: String].self, from: pending)
+      guard let id = fields["key_id"] else { throw CompetitionTransportError.invalidResponse }
       key = id
+      body = pending
     } else {
-      key = try await attest.generateKey()
-      try credentials.write(Data(key.utf8), account: "attest-key")
+      if let saved = try credentials.read("attest-key"),
+        let id = String(data: saved, encoding: .utf8)
+      {
+        key = id
+      } else {
+        key = try await attest.generateKey()
+        guard revision == sessionRevision else { throw CancellationError() }
+        try credentials.write(Data(key.utf8), account: "attest-key")
+      }
+      let challenge: CompetitionChallenge = try await send(
+        "POST", path: "/v1/attestation/challenges",
+        body: Self.encode([
+          "purpose": "enroll_key", "device_id": deviceID.uuidString.lowercased(), "key_id": key,
+        ]))
+      guard revision == sessionRevision else { throw CancellationError() }
+      guard let nonce = Self.decodeBase64URL(challenge.nonce), nonce.count == 32 else {
+        throw CompetitionTransportError.invalidResponse
+      }
+      let object: Data
+      do {
+        object = try await attest.attestKey(key, clientDataHash: Data(SHA256.hash(data: nonce)))
+      } catch {
+        guard revision == sessionRevision else { throw CancellationError() }
+        if (error as NSError).domain == DCError.errorDomain,
+          (error as NSError).code == DCError.Code.invalidKey.rawValue
+        {
+          try credentials.remove("attest-key")
+        }
+        // Apple service outages preserve the key; an invalid/previously consumed key
+        // is replaced on the next bounded retry, never by an unbounded recursion.
+        throw error
+      }
+      guard revision == sessionRevision else { throw CancellationError() }
+      body = try Self.encode([
+        "operation_id": UUID().uuidString.lowercased(),
+        "device_id": deviceID.uuidString.lowercased(), "key_id": key,
+        "challenge_id": challenge.challenge_id, "attestation_base64": object.base64EncodedString(),
+      ])
+      try credentials.write(body, account: "attest-pending")
     }
-    let challenge: CompetitionChallenge = try await send(
-      "POST", path: "/v1/attestation/challenges",
-      body: Self.encode([
-        "purpose": "enroll_key", "device_id": deviceID.uuidString.lowercased(), "key_id": key,
-      ]))
-    guard let nonce = Self.decodeBase64URL(challenge.nonce), nonce.count == 32 else {
-      throw CompetitionTransportError.invalidResponse
-    }
-    let object = try await attest.attestKey(key, clientDataHash: Data(SHA256.hash(data: nonce)))
     struct Enrollment: Decodable, Sendable {
       // swift-format-ignore: AlwaysUseLowerCamelCase
       let key_id: String
       let enrolled: Bool
     }
-    let result: Enrollment = try await send(
-      "POST", path: "/v1/attestation/keys",
-      body: Self.encode([
-        "operation_id": UUID().uuidString.lowercased(),
-        "device_id": deviceID.uuidString.lowercased(),
-        "key_id": key, "challenge_id": challenge.challenge_id,
-        "attestation_base64": object.base64EncodedString(),
-      ]))
+    let result: Enrollment
+    do {
+      result = try await send("POST", path: "/v1/attestation/keys", body: body)
+    } catch CompetitionTransportError.service(_, let code, _, _) where code == "challenge_expired" {
+      guard revision == sessionRevision else { throw CancellationError() }
+      // The server has explicitly confirmed no receipt exists for this proof.
+      try credentials.remove("attest-pending")
+      try credentials.remove("attest-key")
+      throw CompetitionTransportError.unavailable
+    }
+    guard revision == sessionRevision else { throw CancellationError() }
     guard result.enrolled, result.key_id == key else {
       throw CompetitionTransportError.invalidResponse
     }
     try credentials.write(Data(key.utf8), account: "attest-enrolled")
+    try credentials.remove("attest-pending")
     return key
   }
 
@@ -272,8 +375,26 @@ actor CompetitionTransport {
     guard !path.contains("?") else { throw CompetitionTransportError.invalidResponse }
     signing = true
     defer { signing = false }
+    let revision = sessionRevision
+    do {
+      return try await protectedAttempt(
+        method, path: path, purpose: purpose, body: body, contentType: contentType)
+    } catch CompetitionTransportError.unauthorized {
+      guard revision == sessionRevision else { throw CancellationError() }
+      _ = try await accessToken(forceRefresh: true)
+      guard revision == sessionRevision else { throw CancellationError() }
+      return try await protectedAttempt(
+        method, path: path, purpose: purpose, body: body, contentType: contentType)
+    }
+  }
+
+  private func protectedAttempt<Response: Decodable & Sendable>(
+    _ method: String, path: String, purpose: String, body: Data, contentType: String
+  ) async throws -> Response {
+    let revision = sessionRevision
     let key = try await ensureKey()
     let token = try await accessToken()
+    guard revision == sessionRevision else { throw CancellationError() }
     let challenge: CompetitionChallenge = try await execute(
       "POST", path: "/v1/attestation/challenges",
       body: Self.encode([
@@ -282,9 +403,22 @@ actor CompetitionTransport {
     let digest = SHA256.hash(data: body).map { String(format: "%02x", $0) }.joined()
     let binding =
       "Folding-v1\n\(deployment)\n\(method)\n\(path)\n\(challenge.challenge_id)\n\(challenge.nonce)\n\(digest)"
-    let assertion = try await DCAppAttestService.shared.generateAssertion(
-      key,
-      clientDataHash: Data(SHA256.hash(data: Data(binding.utf8))))
+    let assertion: Data
+    do {
+      assertion = try await attestation.generateAssertion(
+        key, clientDataHash: Data(SHA256.hash(data: Data(binding.utf8))))
+    } catch {
+      guard revision == sessionRevision else { throw CancellationError() }
+      if (error as NSError).domain == DCError.errorDomain,
+        (error as NSError).code == DCError.Code.invalidKey.rawValue
+      {
+        try credentials.remove("attest-enrolled")
+        try credentials.remove("attest-key")
+        try credentials.remove("attest-pending")
+      }
+      throw error
+    }
+    guard revision == sessionRevision else { throw CancellationError() }
     return try await execute(
       method, path: path, body: body, token: token, contentType: contentType,
       headers: [
@@ -301,6 +435,7 @@ actor CompetitionTransport {
     token: String?, authorizationScheme: String = "Bearer",
     contentType: String = "application/json", headers: [String: String] = [:]
   ) async throws -> Response {
+    let revision = sessionRevision
     guard path.hasPrefix("/v1/"), let url = URL(string: path, relativeTo: origin)?.absoluteURL,
       url.host == origin.host, url.scheme == "https"
     else { throw CompetitionTransportError.invalidResponse }
@@ -314,11 +449,21 @@ actor CompetitionTransport {
     }
     for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
     let (data, response) = try await session.data(for: request)
+    guard revision == sessionRevision else { throw CancellationError() }
     guard let http = response as? HTTPURLResponse else {
       throw CompetitionTransportError.invalidResponse
     }
     guard (200..<300).contains(http.statusCode) else {
       if http.statusCode == 401 { throw CompetitionTransportError.unauthorized }
+      if let failure = try? JSONDecoder().decode(CompetitionServiceFailure.self, from: data) {
+        let retryAfter =
+          http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+          ?? failure.retryAfterSeconds.map(TimeInterval.init)
+        throw CompetitionTransportError.service(
+          status: http.statusCode, code: failure.code,
+          retryable: failure.retryable ?? (http.statusCode >= 500 || http.statusCode == 429),
+          retryAfter: retryAfter)
+      }
       throw CompetitionTransportError.server(http.statusCode)
     }
     guard data.count <= 2 * 1024 * 1024 else { throw CompetitionTransportError.invalidResponse }
@@ -350,6 +495,7 @@ actor CompetitionTransport {
   }
 
   func avatarImage(_ id: String) async throws -> Data {
+    let revision = sessionRevision
     guard UUID(uuidString: id) != nil,
       let url = URL(string: "/v1/avatars/\(id)/image", relativeTo: origin)?.absoluteURL
     else { throw CompetitionTransportError.invalidResponse }
@@ -364,6 +510,7 @@ actor CompetitionTransport {
       guard data.count < 512 * 1024 else { throw CompetitionTransportError.invalidResponse }
       data.append(byte)
     }
+    guard revision == sessionRevision else { throw CancellationError() }
     return data
   }
 }
