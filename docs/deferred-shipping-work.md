@@ -3,9 +3,9 @@
 The owner cleared the broader shipping goal. These tasks are retained for a later shipping goal, separately from the current coding backlog. They are not cancelled or accepted.
 
 - [ ] Finalize replacement logo and coherent app/site/light/dark/tinted assets. Butterfly concept exists under `design/brand/concepts/`; it is not installed.
-- [ ] Create/save the approved CloudKit management token, expiring November 7, 2027. Approval received; creation not completed. Check existing tokens before retrying the pending Console form.
+- [x] Create/save the approved CloudKit management token, expiring November 7, 2027. Saved in Folding's 1Password vault on November 7, 2026.
 - [ ] Initialize/export both exact Core Data CloudKit schemas, promote both containers to Production and verify readback (`cloudkit/README.md`).
-- [ ] Complete staging/production migrations, Worker deployment, secrets and routing. Only staging migrations0001–0015 have been verified. Regenerate bindings for the actual committed deployment.
+- [x] Complete staging/production migrations 0001–0017, Worker deployment, six runtime secrets per environment and API/admin routing. Both live health endpoints returned HTTP 200 with commit `5675b3e92263e46b4431acbb24fce7018e3c74da` on November 7, 2026. This confirms deployment health, not feature acceptance. See `docs/experiments/live-integration-2026-11-07.md`.
 - [ ] Deploy/activate watchdog and operational alerts; verify outbound email receipt and outage/recovery.
 - [ ] Validate live sign-in/App Attest, iCloud/reset/account/phone transfer, Shortcuts uploads, rankings/corrections, avatars/moderation/cleanup, APNs/preferences and StoreKit purchases. Do not substitute local tests for provider/device evidence.
 - [ ] Measure realistic large-history/population resource use and address resulting issues.
