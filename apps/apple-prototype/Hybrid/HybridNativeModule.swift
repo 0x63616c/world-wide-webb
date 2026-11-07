@@ -6,7 +6,6 @@ extension PanelModule {
         case .media: "Media"
         case .cameras: "Cameras"
         case .reminders: "Reminders"
-        case .all: "Web board"
         case .lights: "Lights"
         case .climate: "Climate"
         case .fan: "Fan"
@@ -23,7 +22,7 @@ extension PanelModule {
 }
 
 /// Reuses the design worker's leaf views, without its all-fixture HomeView or
-/// ControllerHost. The web board remains the route for unimplemented modules.
+/// ControllerHost. Missing live data is handled by a native unavailable screen.
 struct HybridNativeModule: View {
     let module: PanelModule
     let store: LiveHomeDataSource
@@ -66,7 +65,6 @@ struct HybridNativeModule: View {
         case .walk:
             DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
                 .disabled(store.walkProvider.isMutating)
-        case .all: EmptyView()
         }
     }
 
@@ -94,7 +92,6 @@ struct HybridNativeModule: View {
         case .walk:
             DogWalkPage(store: HybridWalkDataSource(store: store))
                 .disabled(store.walkProvider.isMutating)
-        case .all: EmptyView()
         }
     }
 

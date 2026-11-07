@@ -64,58 +64,10 @@ import PanelKit
         XCTAssertEqual(panelFailureReason(PanelAPIError.decoding(secret), fallback: "Unavailable"), "Server response couldn't be read")
     }
 
-    func testPhotosRequiresOptInAndNonemptyLiveListings() async throws {
-        let transport = try fixtureTransport()
-        let store = source(transport)
-        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.photos": "native"]))
-        XCTAssertEqual(router.route(for: .photos, hasLiveData: store.hasLiveData(for: .photos)), .webBoard)
-        await store.refresh(.photos)
-        XCTAssertEqual(store.photos.photos.count, 2)
-        XCTAssertEqual(router.route(for: .photos, hasLiveData: store.hasLiveData(for: .photos)), .native(.photos))
-        XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .photos, hasLiveData: true), .webBoard)
-        await transport.setFixture("photos/empty-booth.json", for: "boothPhotos.list")
-        await transport.setFixture("photos/empty-wakes.json", for: "wakePhotos.list")
-        await store.refresh(.photos)
-        XCTAssertFalse(store.hasLiveData(for: .photos))
-        XCTAssertEqual(router.route(for: .photos, hasLiveData: store.hasLiveData(for: .photos)), .webBoard)
-    }
-
-    func testInitializationAndWebDefaultsStartNoProviders() async throws {
-        let transport = try fixtureTransport()
-        let store = source(transport)
-        await store.run(modules: [])
-        let requests = await transport.requests
-        XCTAssertTrue(requests.isEmpty)
-        for module in PanelModule.allCases { XCTAssertFalse(store.hasLiveData(for: module)) }
-        XCTAssertFalse(store.lamps.anyOn)
-        XCTAssertEqual(store.lamps.brightness, 0)
-        XCTAssertEqual(store.lamps.scene, "Unavailable")
-        XCTAssertEqual(store.lamps.colors, ["", "", ""])
-        XCTAssertEqual(store.climate.ambient, 0)
-        XCTAssertEqual(store.climate.action, "Unavailable")
-        XCTAssertEqual(store.climate.fanLabel, "Unavailable")
-        XCTAssertNil(store.wifi.ssid)
-        XCTAssertNil(store.wifi.password)
-        XCTAssertTrue(store.weather.hours.isEmpty)
-        XCTAssertEqual(store.weather.city, "Unavailable")
-        XCTAssertTrue(store.rooms.isEmpty)
-        XCTAssertTrue(store.alarms.isEmpty)
-        XCTAssertNil(store.occurrence)
-        XCTAssertTrue(store.calendar.events.isEmpty)
-        XCTAssertTrue(store.photos.photos.isEmpty)
-        XCTAssertTrue(store.cameras.feeds.isEmpty)
-        XCTAssertTrue(store.media.items.isEmpty)
-        XCTAssertNil(store.media.videoURL)
-        XCTAssertTrue(store.walks.history.isEmpty)
-        XCTAssertNil(store.walks.activeWalk)
-        XCTAssertEqual(store.tesla.availability, .offline)
-    }
-
     func testAllLiveProvidersProjectExistingFixtures() async throws {
         let store = source(try fixtureTransport())
         await refreshAll(store)
-        for module in PanelModule.allCases where module != .all { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }
-        XCTAssertFalse(store.hasLiveData(for: .all))
+        for module in PanelModule.allCases { XCTAssertTrue(store.hasLiveData(for: module), module.rawValue) }
         XCTAssertTrue(store.walks === store.walkProvider)
         XCTAssertNil(store.walks.activeWalk)
         XCTAssertFalse(store.walks.history.isEmpty)
@@ -150,20 +102,6 @@ import PanelKit
         XCTAssertEqual(store.rooms[3].sourceKind, .lineIn)
     }
 
-    func testRouterRequiresEachIndependentFlagEvenAfterLiveReads() async throws {
-        let store = source(try fixtureTransport())
-        await refreshAll(store)
-        let defaults = HybridRouter(flags: ModuleFlags())
-        for module in PanelModule.allCases {
-            XCTAssertEqual(defaults.route(for: module, hasLiveData: store.hasLiveData(for: module)), .webBoard)
-            let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.\(module.rawValue)": "native"]))
-            for candidate in PanelModule.allCases {
-                let expected: HybridRouter.Route = candidate == module && candidate != .all ? .native(candidate) : .webBoard
-                XCTAssertEqual(router.route(for: candidate, hasLiveData: store.hasLiveData(for: candidate)), expected)
-            }
-        }
-    }
-
     func testOneFailedProviderFallsBackWithoutLosingOthersThenRecovers() async throws {
         let transport = try fixtureTransport()
         let store = source(transport)
@@ -174,11 +112,9 @@ import PanelKit
         XCTAssertTrue(store.weather.hours.isEmpty)
         XCTAssertEqual(store.weather.temperature, 0)
         for module in [PanelModule.lights, .climate, .fan, .wifi, .sonos] { XCTAssertTrue(store.hasLiveData(for: module)) }
-        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.weather": "native"]))
-        XCTAssertEqual(router.route(for: .weather, hasLiveData: store.hasLiveData(for: .weather)), .webBoard)
         await transport.setFixture("weather/now.json", for: "weather.now")
         await store.refresh(.weather)
-        XCTAssertEqual(router.route(for: .weather, hasLiveData: store.hasLiveData(for: .weather)), .native(.weather))
+        XCTAssertTrue(store.hasLiveData(for: .weather))
     }
 
     func testEmptyAndUnavailableResponsesNeverBecomeNative() async throws {

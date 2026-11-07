@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum PanelIconArtwork: String, CaseIterable {
-    case calendar, weather, lights, climate, walks, photos, car, wifi, music, clock, timer, booth, classic, settings
+    case calendar, weather, lights, climate, walks, photos, car, wifi, music, clock, timer, booth, settings
 
     /// The approved palette extended across the complete app family. Light comes from above.
     var background: LinearGradient {
@@ -18,7 +18,6 @@ enum PanelIconArtwork: String, CaseIterable {
         case .clock: [Color(hex: "#65D9B7"), Color(hex: "#15936F")]
         case .timer: [Color(hex: "#FFC65E"), Color(hex: "#F47A12")]
         case .booth: [Color(hex: "#FF8DAD"), Color(hex: "#DF3979")]
-        case .classic: [Color(hex: "#8CA9FF"), Color(hex: "#4753D9")]
         case .settings: [Color(hex: "#ADB8C8"), Color(hex: "#586A84")]
         }
         return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
@@ -48,7 +47,6 @@ struct PanelIconArtworkView: View {
             case .clock: ClockIconArtwork(side: side, parallax: parallax)
             case .timer: TimerIconArtwork(side: side, parallax: parallax)
             case .booth: BoothIconArtwork(side: side, parallax: parallax)
-            case .classic: ClassicIconArtwork(side: side, parallax: parallax)
             case .settings: SettingsIconArtwork(side: side, parallax: parallax)
             }
         }

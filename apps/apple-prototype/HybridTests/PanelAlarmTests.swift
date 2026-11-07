@@ -1,5 +1,4 @@
 import Foundation
-import WebKit
 import XCTest
 @testable import Panel
 
@@ -30,7 +29,7 @@ final class AlarmSnapshotTests: XCTestCase {
 /// Exercises the real JSON contract without starting Live Activities, touching
 /// Keychain, or making network requests in unit tests.
 actor AlarmCoordinatorSpy: PanelAlarmCoordinating {
-    private(set) var snapshots: [JSONValue] = []
+    private(set) var snapshots: [String] = []
     private(set) var calls: [String] = []
     private(set) var configuredURL: String?
     private(set) var configuredAccess: [String] = []
@@ -56,7 +55,7 @@ actor AlarmCoordinatorSpy: PanelAlarmCoordinating {
         if failSync { throw PanelAlarmError.server(503) }
         _ = try JSONDecoder().decode(AlarmSnapshot.self, from: Data(json.utf8))
         await Task.yield()
-        snapshots.append(try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8)))
+        snapshots.append(json)
     }
 }
 
@@ -78,16 +77,16 @@ final class PanelAlarmTests: XCTestCase {
     }
 
     @MainActor
-    func testMissingTokenSkipsNativeTransportButAllowsWebSync() async throws {
+    func testMissingTokenSkipsTransportConfiguration() async throws {
         let coordinator = AlarmCoordinatorSpy()
         let alarms = PanelAlarms(coordinator: coordinator)
         alarms.configure(serverURL: URL(string: "https://example.test")!, token: "", cfID: "", cfSecret: "")
         await alarms.refresh()
-        try await alarms.sync(next: .null)
+        try await alarms.sync(next: nil)
         let calls = await coordinator.calls
         let snapshots = await coordinator.snapshots
         XCTAssertTrue(calls.isEmpty)
-        XCTAssertEqual(snapshots, [.object(["next": .null])])
+        XCTAssertEqual(snapshots, ["{\"next\":null}"])
     }
 
     @MainActor
@@ -101,42 +100,4 @@ final class PanelAlarmTests: XCTestCase {
         XCTAssertTrue(calls.isEmpty)
     }
 
-    @MainActor
-    func testBridgeWaitsForSyncAndAcknowledgesNextAlarm() async throws {
-        let coordinator = AlarmCoordinatorSpy()
-        let session = makeSession(coordinator)
-        defer { session.stop() }
-        let next: JSONValue = .object(["id": .string("alarm_test"), "label": .string("Morning"),
-                                       "at": .string("2099-01-02T08:30:00Z")])
-        let response = await session.handle(request(next: next), in: WKWebView())
-        let snapshots = await coordinator.snapshots
-        XCTAssertEqual(snapshots, [.object(["next": next])])
-        let encoded = try JSONDecoder().decode(JSONValue.self, from: Data(response.encoded().utf8))
-        XCTAssertEqual(encoded, .object(["channel": .string("control-center-native"), "id": .string("alarm-request"),
-                                         "ok": .bool(true), "result": .null]))
-    }
-
-    @MainActor
-    func testBridgeRejectsMalformedSnapshotAndCoordinatorFailure() async {
-        let coordinator = AlarmCoordinatorSpy()
-        let session = makeSession(coordinator)
-        defer { session.stop() }
-        let malformed = await session.handle(request(next: .string("invalid")), in: WKWebView())
-        XCTAssertEqual(malformed, .failure(id: "alarm-request", message: "Could not sync the next alarm"))
-        await coordinator.setFailures(sync: true)
-        let failed = await session.handle(request(next: .null), in: WKWebView())
-        XCTAssertEqual(failed, .failure(id: "alarm-request", message: "Could not sync the next alarm"))
-        let snapshots = await coordinator.snapshots
-        XCTAssertTrue(snapshots.isEmpty)
-    }
-
-    @MainActor
-    private func makeSession(_ coordinator: AlarmCoordinatorSpy) -> KioskSession {
-        KioskSession(configuration: PanelConfiguration(info: [:], environment: [:]),
-                     alarms: PanelAlarms(coordinator: coordinator))
-    }
-
-    private func request(next: JSONValue) -> NativeRequest {
-        NativeRequest(channel: "control-center-native", id: "alarm-request", method: "syncNextAlarm", params: ["next": next])
-    }
 }

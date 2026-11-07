@@ -44,21 +44,20 @@ import PanelKit
             cache: FileNotificationHistoryCache(url: cacheURL))
     }
 
-    static func open(_ item: NotificationItem, store: LiveHomeDataSource, session: KioskSession,
-                     navigation: PanelNavigation, router: HybridRouter) -> Bool {
+    static func open(_ item: NotificationItem, store: LiveHomeDataSource,
+                     navigation: PanelNavigation) -> Bool {
         if item.deepLink == updateDeepLink {
             UIApplication.shared.open(testFlightURL)
             return true
         }
+        if item.deepLink == "module/all" {
+            navigation.returnHome()
+            return true
+        }
         guard let module = module(for: item.deepLink) else { return false }
-        let ready = store.hasLiveData(for: module) && (module != .alarms || session.nativeAlarms.ownsRinging)
-        if module == .alarms && router.route(for: module, hasLiveData: ready) == .native(module) {
+        if module == .alarms {
             navigation.openNativeAlarms()
-        } else if module == .alarms {
-            navigation.openClassic()
-            session.open(URL(string: "controlcenter://alarms")!)
         } else {
-            navigation.pendingNativeAlarmLink = false
             navigation.showingHome = false
             navigation.selection = module
             navigation.detail = true
@@ -81,7 +80,7 @@ import PanelKit
         case "booth": return .photos
         case "walks": return .walk
         case "events" where segments.count > 2 && segments[2] == "alarms": return .alarms
-        default: return PanelModule(rawValue: id).flatMap { $0 == .all ? nil : $0 }
+        default: return PanelModule(rawValue: id)
         }
     }
 

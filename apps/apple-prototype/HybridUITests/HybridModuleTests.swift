@@ -9,8 +9,8 @@ final class HybridModuleTests: XCTestCase {
         let modules = ["lights", "climate", "fan", "wifi", "sonos", "walk"]
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         for module in modules {
-            app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.\(module)", "native"]
-            app.launchModuleFromHome()
+            app.launchArguments = ["-hybridFixtures", "-hybridStill"]
+            app.launchModuleFromHome(module)
             XCTAssertFalse(app.buttons["module-detail"].exists)
             XCTAssertTrue(app.buttons["module-home"].waitForExistence(timeout: 30))
             XCTAssertGreaterThan(app.frame.width, app.frame.height)
@@ -27,50 +27,10 @@ final class HybridModuleTests: XCTestCase {
                 if qr.waitForExistence(timeout: 5) { qr.tap() }
             }
             app.returnHomeFromModule()
-            app.buttons["home-classic"].tap()
-            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
             let returned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
                 object: app.buttons["module-detail"])
             XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 10), .completed)
-            capture("\(module)-web-return")
-            app.terminate()
-        }
-    }
-
-    @MainActor
-    func testActiveWalkOpensExistingDetailAndFailedWriteReturnsToWeb() {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .landscapeLeft
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-hybridWalkActive", "-moduleFlag.walk", "native"]
-        app.launchModuleFromHome()
-        XCTAssertTrue(app.buttons["End walk"].waitForExistence(timeout: 10))
-        capture("walk-active-detail")
-        app.buttons["End walk"].tap() // Fixture writes fail closed, exercising live error routing.
-        XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["module-detail"].exists)
-        app.terminate()
-    }
-
-    @MainActor
-    func testDefaultAndUnavailableFlagsRetainWebBoard() {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .landscapeLeft
-        let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        for arguments in [
-            ["-hybridFixtures", "-hybridStill"],
-            ["-hybridFixtures", "-hybridStill", "-hybridUnavailable", "-moduleFlag.lights", "native"],
-            ["-hybridFixtures", "-hybridStill", "-hybridUnavailable", "-moduleFlag.walk", "native"],
-            ["-hybridFixtures", "-hybridStill", "-moduleFlag.walk", "web"],
-            ["-hybridFixtures", "-hybridStill", "-moduleFlag.all", "native"]
-        ] {
-            app.launchArguments = arguments
-            app.launchModuleFromHome()
-            // Reconnecting text comes and goes with WebKit retries; the fallback
-            // contract is the accessible web surface with no native controls.
-            XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
-            XCTAssertFalse(app.buttons["module-detail"].exists)
-            capture(arguments.contains("-hybridUnavailable") ? "unavailable-web-fallback" : "default-web-board")
+            capture("\(module)-return")
             app.terminate()
         }
     }
@@ -80,8 +40,8 @@ final class HybridModuleTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.climate", "native", "-moduleFlag.wifi", "native"]
-        app.launchModuleFromHome()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill"]
+        app.launchModuleFromHome("climate")
         XCTAssertTrue(app.descendants(matching: .any)["native-climate-detail"].firstMatch.waitForExistence(timeout: 30))
         app.returnHomeFromModule()
         app.openHomeModule("wifi")

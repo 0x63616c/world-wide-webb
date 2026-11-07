@@ -20,39 +20,6 @@ import XCTest
             transport: transport, now: { self.localNow }, walkClock: clock)
     }
 
-    func testWalkRoutesOnlyWithNativeFlagAndCurrentStateIncludingEmptyHistory() async throws {
-        let transport = try transport()
-        let store = source(transport)
-        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.walk": "native"]))
-        func route() -> HybridRouter.Route { router.route(for: .walk, hasLiveData: store.hasLiveData(for: .walk)) }
-        XCTAssertEqual(route(), .webBoard)
-        await transport.setFixture("walks/history-empty.json", for: "walks.history")
-        await store.refresh(.walk)
-        XCTAssertEqual(route(), .native(.walk), "A configured service with no walks is usable.")
-        XCTAssertTrue(store.walks === store.walkProvider)
-        XCTAssertNil(store.walks.activeWalk)
-        XCTAssertTrue(store.walks.history.isEmpty)
-        XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .walk, hasLiveData: true), .webBoard)
-        XCTAssertEqual(HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.walk": "web"],
-            nativeByDefault: ModuleFlags.shippedNative)).route(for: .walk, hasLiveData: true), .webBoard)
-
-        await transport.setFixture("walks/state-active.json", for: "walks.state")
-        await store.refresh(.walk)
-        let active = try XCTUnwrap(store.walks.activeWalk)
-        XCTAssertEqual(route(), .native(.walk))
-        await transport.setFixture("walks/unavailable.json", for: "walks.state")
-        await store.refresh(.walk)
-        XCTAssertEqual(route(), .webBoard)
-        XCTAssertEqual(store.walks.activeWalk, active, "A retained snapshot must not keep the route native.")
-        await transport.setFixture("walks/stop.json", for: "walks.state")
-        await store.refresh(.walk)
-        XCTAssertEqual(route(), .native(.walk))
-        XCTAssertNil(store.walks.activeWalk)
-        let missing = LiveHomeDataSource(configuration: nil, transport: transport)
-        await missing.refresh(.walk)
-        XCTAssertFalse(missing.hasLiveData(for: .walk))
-    }
-
     func testWalkUsesPanelConfigurationAndServerClockWithoutChangingOtherModules() async throws {
         let transport = try transport()
         let store = source(transport)

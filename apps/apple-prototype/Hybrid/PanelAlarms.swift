@@ -1,4 +1,5 @@
 import Foundation
+import PanelKit
 
 protocol PanelAlarmCoordinating: Sendable {
     func configure(url: String, token: String, clientID: String, clientSecret: String) async throws
@@ -8,9 +9,7 @@ protocol PanelAlarmCoordinating: Sendable {
 
 extension PanelAlarmCoordinator: PanelAlarmCoordinating {}
 
-/// Mirrors the server's next alarm into ActivityKit. Web-mode snapshots and
-/// the opted-in native provider share this widget path; NativeAlarmsRuntime
-/// separately owns the AlarmKit/web ringer handoff.
+/// Mirrors the native alarm provider's next alarm into ActivityKit.
 @MainActor
 final class PanelAlarms {
     private let coordinator: any PanelAlarmCoordinating
@@ -38,9 +37,20 @@ final class PanelAlarms {
         } catch {}
     }
 
-    func sync(next: JSONValue) async throws {
-        let snapshot = JSONValue.object(["next": next])
-        let json = String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self)
+    func sync(next: AlarmNext?) async throws {
+        let json = String(decoding: try JSONEncoder().encode(NextAlarmPayload(next: next)), as: UTF8.self)
         try await coordinator.sync(json: json)
     }
+}
+
+private struct NextAlarmPayload: Encodable {
+    let next: AlarmNext?
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let next { try container.encode(next, forKey: .next) }
+        else { try container.encodeNil(forKey: .next) }
+    }
+
+    private enum CodingKeys: String, CodingKey { case next }
 }

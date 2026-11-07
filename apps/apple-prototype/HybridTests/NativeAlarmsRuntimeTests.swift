@@ -1,7 +1,6 @@
 import Foundation
 import PanelKit
 import XCTest
-import WebKit
 @testable import Panel
 
 @MainActor private final class AlarmSchedulerSpy: NativeAlarmScheduling {
@@ -24,44 +23,37 @@ import WebKit
         return try await AlarmsAPI(client: PanelAPIClient(configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "https://alarms.example.invalid")!), transport: transport)).list()
     }
 
-    func testHandoffAcknowledgedBeforeScheduleAndCancelBeforeWebResume() async throws {
+    func testScheduleAndRelease() async throws {
         let driver = AlarmSchedulerSpy()
         let runtime = NativeAlarmsRuntime(scheduler: driver)
-        let value = try await snapshot("scheduled")
-        await runtime.reconcile(snapshot: value, available: true, configured: true,
-            handoff: { driver.events.append($0 ? "web-muted" : "web-resumed"); return true },
+        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
             syncWidget: { _ in driver.events.append("widget") })
-        XCTAssertEqual(driver.events, ["authorize", "web-muted", "schedule", "widget"])
+        XCTAssertEqual(driver.events, ["authorize", "schedule", "widget"])
         XCTAssertTrue(runtime.ownsRinging)
         driver.events = []
-        await runtime.release { driver.events.append($0 ? "web-muted" : "web-resumed"); return true }
-        XCTAssertEqual(driver.events, ["cancel", "web-resumed"])
+        await runtime.release()
+        XCTAssertEqual(driver.events, ["cancel"])
         XCTAssertFalse(runtime.ownsRinging)
     }
 
-    func testOldWebCannotEnableNativeRingerAndDeniedAuthorizationFallsBack() async throws {
+    func testDeniedAuthorizationLeavesAlarmsUnavailable() async throws {
         let driver = AlarmSchedulerSpy()
+        driver.authorized = false
         let runtime = NativeAlarmsRuntime(scheduler: driver)
-        let value = try await snapshot("scheduled")
-        await runtime.reconcile(snapshot: value, available: true, configured: true,
-            handoff: { _ in false }, syncWidget: { _ in XCTFail("No widget sync") })
+        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
+            syncWidget: { _ in XCTFail("No widget sync") })
         XCTAssertFalse(runtime.ownsRinging)
         XCTAssertFalse(driver.events.contains("schedule"))
-        driver.authorized = false
-        await runtime.reconcile(snapshot: value, available: true, configured: true,
-            handoff: { native in XCTAssertFalse(native); return true }, syncWidget: { _ in XCTFail() })
-        XCTAssertFalse(runtime.ownsRinging)
     }
 
-    func testFailedCancellationNeverResumesWebRinging() async throws {
+    func testFailedCancellationRetainsOwnershipForRetry() async throws {
         let driver = AlarmSchedulerSpy()
         let runtime = NativeAlarmsRuntime(scheduler: driver)
-        await runtime.reconcile(snapshot: try await snapshot("empty"), available: true, configured: true,
-            handoff: { _ in true }, syncWidget: { _ in })
+        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
+            syncWidget: { _ in })
         driver.failCancel = true
-        await runtime.release { _ in XCTFail("Would double-ring"); return true }
+        await runtime.release()
         XCTAssertTrue(runtime.ownsRinging)
-        XCTAssertThrowsError(try runtime.prepareNavigation())
     }
 
     func testUnavailableProviderReleasesAndWidgetOnlyUpdatesWhenNextChanges() async throws {
@@ -71,27 +63,12 @@ import WebKit
         var widgets = 0
         for _ in 0..<2 {
             await runtime.reconcile(snapshot: value, available: true, configured: true,
-                handoff: { _ in true }, syncWidget: { _ in widgets += 1 })
+                syncWidget: { _ in widgets += 1 })
         }
         XCTAssertEqual(widgets, 1)
         await runtime.reconcile(snapshot: value, available: false, configured: true,
-            handoff: { native in XCTAssertFalse(native); return true }, syncWidget: { _ in XCTFail() })
+            syncWidget: { _ in XCTFail() })
         XCTAssertFalse(runtime.ownsRinging)
-    }
-
-    func testNativeOwnershipIgnoresCompetingWebWidgetSnapshots() async throws {
-        let runtime = NativeAlarmsRuntime(scheduler: AlarmSchedulerSpy())
-        await runtime.reconcile(snapshot: try await snapshot("scheduled"), available: true, configured: true,
-            handoff: { _ in true }, syncWidget: { _ in })
-        let coordinator = AlarmCoordinatorSpy()
-        let session = KioskSession(configuration: PanelConfiguration(info: [:], environment: [:]),
-            alarms: PanelAlarms(coordinator: coordinator), nativeAlarmsRequested: true, nativeAlarms: runtime)
-        defer { session.stop() }
-        let request = NativeRequest(channel: "control-center-native", id: "test", method: "syncNextAlarm", params: ["next": .null])
-        let response = await session.handle(request, in: WKWebView())
-        XCTAssertTrue(response.ok)
-        let snapshots = await coordinator.snapshots
-        XCTAssertTrue(snapshots.isEmpty)
     }
 
     func testDeliveryUsesServerNextAndMatchesOnlyExactOccurrence() async throws {

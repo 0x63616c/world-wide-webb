@@ -6,9 +6,8 @@ import PanelKit
 
 @MainActor final class HomeViewIntegrationTests: XCTestCase {
     func testEveryHomeTileMapsToAnExistingProviderAndController() {
-        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases).subtracting([.all, .reminders, .cameras]))
+        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases).subtracting([.reminders, .cameras]))
         for tile in HomeTile.allCases {
-            XCTAssertNotEqual(tile.panelModule, .all, tile.rawValue)
             XCTAssertNotEqual(tile.panelModule, .reminders, tile.rawValue)
         }
         XCTAssertEqual(HomeTile.clock.panelModule, .alarms)
@@ -33,12 +32,11 @@ import PanelKit
             let runtime = NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())
             await runtime.reconcile(snapshot: store.alarmsProvider.snapshot,
                 available: store.hasLiveData(for: .alarms), configured: true,
-                handoff: { _ in true }, syncWidget: { _ in })
-            let session = KioskSession(configuration: PanelConfiguration(), nativeAlarms: runtime)
-            let router = HybridRouter(flags: ModuleFlags(nativeByDefault: HomeTile.panelProviders))
+                syncWidget: { _ in })
+            let session = PanelSession(configuration: PanelConfiguration(), nativeAlarms: runtime)
             for tile in HomeTile.allCases {
                 let view = PanelHomeDestination(module: tile.panelModule, store: store,
-                    session: session, router: router, close: {})
+                    session: session, close: {})
                     .environment(\.horizontalSizeClass, .regular)
                     .frame(width: 1366, height: 1024)
                 XCTAssertNotNil(ImageRenderer(content: view).uiImage, "\(tile.rawValue), unavailable=\(unavailable)")
@@ -67,9 +65,9 @@ import PanelKit
         XCTAssertEqual(store.climate.mode, .off)
         XCTAssertEqual(store.fanProvider.fanOn, true)
         let host = PanelHomePresentation(store: store,
-            session: KioskSession(configuration: PanelConfiguration(),
+            session: PanelSession(configuration: PanelConfiguration(),
                 nativeAlarms: NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())),
-            router: HybridRouter(flags: ModuleFlags()), navigation: PanelNavigation())
+            navigation: PanelNavigation())
         for tile in [HomeTile.fan, .sound, .clock, .dogwalk, .cameras, .photos] {
             XCTAssertNotNil(host.gridTile(tile, span: HomeGrid.span(2, 2), open: {}), tile.id)
         }

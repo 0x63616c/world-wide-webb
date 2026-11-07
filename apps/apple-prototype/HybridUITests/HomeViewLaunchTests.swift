@@ -17,19 +17,13 @@ import XCTest
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 30))
         return app
     }
-    func testHomeClassicAndReturn() {
+    func testLauncherHasNoClassicApp() {
         let app = launch()
         defer { app.terminate() }
-        XCTAssertFalse(app.descendants(matching: .any)["web-board"].firstMatch.exists)
         app.openAppGrid()
-        XCTAssertFalse(app.descendants(matching: .any)["web-board"].firstMatch.exists)
-        XCTAssertTrue(app.buttons["app-car"].staticTexts["Tesla"].exists)
+        XCTAssertFalse(app.buttons["app-classic"].exists)
+        XCTAssertTrue(app.buttons["app-settings"].exists)
         capture("native-launcher", app)
-        app.buttons["app-classic"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["native-home"].firstMatch.waitForNonExistence(timeout: 15))
-        XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.exists)
-        app.openAppGrid()
-        XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 15))
     }
     func testIdleClockCanWakeAndOpenApps() {
         continueAfterFailure = false
@@ -140,14 +134,6 @@ import XCTest
         capture("tesla-telemetry", app)
         XCTAssertFalse(app.buttons["pin-digit-0"].exists)
     }
-    func testRollbackLaunchesWebWithoutHome() {
-        let app = XCUIApplication()
-        app.launchArguments = ["-hybridFixtures", "-hybrid.webOnly", "YES"]
-        app.launch()
-        defer { app.terminate() }
-        XCTAssertTrue(app.descendants(matching: .any)["web-board"].firstMatch.waitForExistence(timeout: 30))
-        XCTAssertFalse(app.descendants(matching: .any)["native-home"].firstMatch.exists)
-    }
     func testUnavailableAppsStayNativeAndReturnHome() {
         let app = launch(unavailable: true)
         defer { app.terminate() }
@@ -160,13 +146,13 @@ import XCTest
             let reason = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "server", "unavailable")).firstMatch
             XCTAssertTrue(reason.waitForExistence(timeout: 15), id)
             XCTAssertFalse(reason.label.isEmpty)
-            XCTAssertFalse(app.buttons["classic-home"].exists)
+            XCTAssertFalse(app.buttons["app-classic"].exists)
             XCTAssertFalse(screen.staticTexts["0 mi"].exists)
             XCTAssertFalse(screen.staticTexts["0%"].exists)
         }
         app.openAppGrid()
     }
-    func testNativeAppsOpenWithoutClassicFallback() {
+    func testNativeAppsOpenFromLauncher() {
         let app = launch()
         defer { app.terminate() }
         for id in ["lights", "climate", "weather", "car"] {
@@ -178,7 +164,7 @@ import XCTest
             case "weather": XCTAssertTrue(app.staticTexts["Feels like"].waitForExistence(timeout: 20))
             default: XCTAssertTrue(app.descendants(matching: .any)["tesla-odometer"].firstMatch.waitForExistence(timeout: 20))
             }
-            XCTAssertFalse(app.buttons["classic-home"].exists)
+            XCTAssertFalse(app.buttons["app-classic"].exists)
             capture("native-\(id)", app)
             XCTAssertFalse(app.buttons["app-settings"].exists, "The launcher must stay hidden behind an open app")
         }

@@ -6,41 +6,6 @@ import XCTest
 @testable import Panel
 
 @MainActor final class HybridModuleTests: XCTestCase {
-    func testWifiOptInFallbackAndRecovery() async throws {
-        XCTAssertFalse(ModuleFlags.shippedNative.contains(.wifi))
-        XCTAssertEqual(ModuleFlags(nativeByDefault: ModuleFlags.shippedNative)[.wifi], .web)
-        let (store, transport) = try fixtureStore()
-        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.wifi": "native"]))
-        func route() -> HybridRouter.Route { router.route(for: .wifi, hasLiveData: store.hasLiveData(for: .wifi)) }
-        await store.run(modules: [])
-        let initialRequests = await transport.requests
-        XCTAssertTrue(initialRequests.isEmpty)
-        XCTAssertEqual(route(), .webBoard)
-        await store.refresh(.wifi)
-        XCTAssertEqual(route(), .native(.wifi))
-        XCTAssertEqual(store.wifi.ssid, "Example Guest")
-        XCTAssertNotNil(store.wifi.password)
-        let payload = try XCTUnwrap(store.wifiProvider.qrPayload)
-        XCTAssertTrue(payload.contains("H:true;"), "Preserve server fields beyond display credentials.")
-        try assertDecodes(payload)
-        for file in ["wifi/unconfigured.json", "wifi/malformed.json", "wifi/missing.json"] {
-            await transport.setFixture(file, for: "wifi.guestQr")
-            await store.refresh(.wifi)
-            XCTAssertEqual(route(), .webBoard)
-            XCTAssertNil(store.wifiProvider.qrPayload)
-            XCTAssertNil(store.wifi.password)
-            XCTAssertNil(store.wifi.ssid)
-        }
-        await transport.setFixture("wifi/open.json", for: "wifi.guestQr")
-        await store.refresh(.wifi)
-        XCTAssertEqual(route(), .native(.wifi))
-        XCTAssertNil(store.wifi.password)
-        try assertDecodes(XCTUnwrap(store.wifiProvider.qrPayload))
-        XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: .wifi, hasLiveData: true), .webBoard)
-        store.stop()
-        XCTAssertEqual(route(), .webBoard)
-    }
-
     func testBrightnessScopeRestoresExactlyOnceAndCanBeReused() {
         let lease = WifiBrightnessLease()
         var level: CGFloat = 0.37
@@ -112,15 +77,11 @@ import XCTest
         XCTAssertEqual(scene.screen.brightness, originalBrightness, accuracy: 0.01)
     }
 
-    func testSonosDefaultFallbackPlaybackAndSeekRouting() async throws {
-        XCTAssertFalse(ModuleFlags.shippedNative.contains(.sonos))
+    func testSonosPlaybackAndSeekRouting() async throws {
         let (store, transport) = try fixtureStore()
         defer { store.stop() }
-        let router = HybridRouter(flags: ModuleFlags(overrides: ["moduleFlag.sonos": "native"]))
-        func route() -> HybridRouter.Route { router.route(for: .sonos, hasLiveData: store.hasLiveData(for: .sonos)) }
-        XCTAssertEqual(route(), .webBoard)
         await store.refresh(.sonos)
-        XCTAssertEqual(route(), .native(.sonos))
+        XCTAssertTrue(store.hasLiveData(for: .sonos))
         XCTAssertFalse(store.sonosProvider.supportsPlaybackPosition)
         await transport.setFixture("sonos/playback.json", for: "sound.soundSystem")
         await store.refresh(.sonos)
@@ -141,14 +102,11 @@ import XCTest
         for file in ["sonos/empty.json", "sonos/unavailable.json"] {
             await transport.setFixture(file, for: "sound.soundSystem")
             await store.refresh(.sonos)
-            XCTAssertEqual(route(), .webBoard)
+            XCTAssertFalse(store.hasLiveData(for: .sonos))
         }
         await transport.setFixture("sonos/playback.json", for: "sound.soundSystem")
         await store.refresh(.sonos)
-        XCTAssertEqual(route(), .native(.sonos))
-        for module in [PanelModule.tesla, .walk, .cameras, .wifi, .media] {
-            XCTAssertEqual(HybridRouter(flags: ModuleFlags()).route(for: module, hasLiveData: true), .webBoard)
-        }
+        XCTAssertTrue(store.hasLiveData(for: .sonos))
     }
 
     func testSonosSurfacesRenderAtPanelSize() async throws {
