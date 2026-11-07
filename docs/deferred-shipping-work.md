@@ -13,7 +13,8 @@ The owner cleared the broader shipping goal. These tasks are retained for a late
 - [ ] Validate live sign-in/App Attest, iCloud/reset/account/phone transfer, Shortcuts uploads, rankings/corrections, avatars/moderation/cleanup, APNs/preferences and StoreKit purchases. Do not substitute local tests for provider/device evidence.
 - [ ] Measure realistic large-history/population resource use and address resulting issues.
 - [ ] Complete visual/accessibility/localization review and all ten-locale storefront screenshots/listing.
-- [ ] Finish tip reviewer asset processing/readiness. Three products are configured; screenshot capture succeeded in `/tmp/folding-release-assets/build/store-assets/03084e4d55c3e80effedfc28cd6858be93a7ef1f/production/assets`. Upload timed out: read Apple state before retrying.
+- [x] Finish tip reviewer asset processing/readiness. Apple readback shows all three exact consumables `READY_TO_SUBMIT`, each with a completed review screenshot of the same native Tip jar capture (`docs/experiments/testflight-preview-2026-11-07.md`).
+- [ ] Exercise all three tip purchases in TestFlight's sandbox with the owner; `READY_TO_SUBMIT` and screenshot processing do not prove a purchase works.
 - [x] Sign, upload and distribute a production-app TestFlight preview to the owner's internal group; Apple processed version 0.1.1 (build 2) and API readback confirmed exact build/group/tester membership (`docs/experiments/testflight-preview-2026-11-07.md`).
 - [ ] Complete Apple privacy/age-rating/review details and final release rehearsal. The preview is not an App Store submission.
 - [ ] Verify public pages. Production site is live; final acceptance remains open. Support forwarding is complete based on the owner's test; no additional inbox test is requested.

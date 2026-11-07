@@ -225,8 +225,13 @@ module FoldingTipProducts
     raise DiagnosticError, "Incomplete upload byte coverage" unless cursor == bytes.bytesize
     asset_id = screenshot.fetch("id")
     api.request("PATCH", "/v1/inAppPurchaseAppStoreReviewScreenshots/#{asset_id}", body: resource("inAppPurchaseAppStoreReviewScreenshots", id: asset_id, attributes: {"sourceFileChecksum" => checksum, "uploaded" => true}))
-    current = api.request("GET", "/v1/inAppPurchaseAppStoreReviewScreenshots/#{asset_id}").fetch("data")
-    raise DiagnosticError, "Review asset checksum readback failed" unless current.fetch("attributes")["sourceFileChecksum"] == checksum
+    current = nil
+    5.times do |attempt|
+      current = api.request("GET", "/v2/inAppPurchases/#{id}/appStoreReviewScreenshot").fetch("data")
+      break if current.fetch("id") == asset_id && current.fetch("attributes")["sourceFileChecksum"] == checksum
+      sleep 2 if attempt < 4
+    end
+    raise DiagnosticError, "Review asset checksum readback failed" unless current.fetch("id") == asset_id && current.fetch("attributes")["sourceFileChecksum"] == checksum
     {"id" => asset_id, "state" => current.fetch("attributes").fetch("assetDeliveryState").fetch("state"), "sha256" => Digest::SHA256.hexdigest(bytes)}
   end
 
