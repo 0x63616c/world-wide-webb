@@ -50,6 +50,14 @@ operator state are preserved; this is not a passed enrollment rehearsal. Fixing
 that command and the fixture adapter's mutation argument handling precedes the
 next clean attempt.
 
+The second clean attempt (`homelab-enrollment-full-2`, helper `b666d77`) passed
+deploy-key registration and created and merged fixture PR #1 at
+`30f7bf3f7c0fa7a2729143f1df8591e89bf77386`. It then stopped because the test-only
+GitHub adapter rejected the legitimate `compare/<revision>...main` read used to
+verify merge ancestry. A direct read returned `identical`. This is an adapter
+defect, not evidence of successful installation. The merged PR, operator state
+and guest remain preserved for an explicitly guarded resume test.
+
 The private worktree now pins schema-aware helper `a7b3ce8` and schema 2 with an
 explicit backup vault. Its final private Nix validation is still pending; the
 earlier full check does not cover this candidate.
