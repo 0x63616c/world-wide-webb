@@ -199,10 +199,10 @@ struct HomeView: View {
                 Color.black.ignoresSafeArea()
                 ZStack {
                     clockSurface(width: proxy.size.width)
-                    if !showingClock {
+                    if !showingClock, LauncherGlassSurface.blurRadius > 0 {
                         // Only the clock beneath the glass gets the extra blur.
                         clockSurface(width: proxy.size.width)
-                            .blur(radius: 1.5)
+                            .blur(radius: LauncherGlassSurface.blurRadius)
                             .mask { LauncherGlassSurface.footprint }
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
