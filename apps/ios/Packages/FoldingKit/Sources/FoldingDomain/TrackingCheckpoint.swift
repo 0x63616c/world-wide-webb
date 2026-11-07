@@ -1,0 +1,77 @@
+import Foundation
+
+/// Durable source state shared by full replay and append-only cache updates.
+public struct TrackingCheckpoint: Codable, Sendable {
+  public let schemaVersion: Int
+  public let deviceID: UUID
+  public let generation: ResetGeneration
+  public private(set) var sequence: Int64 = 0
+  private var last: Transition?
+  private var activeStartMS: Int64?
+  private var candidate = false
+
+  public init(deviceID: UUID, generation: ResetGeneration) {
+    self.schemaVersion = 1
+    self.deviceID = deviceID
+    self.generation = generation
+  }
+
+  public var runningSession: TrackingSession? {
+    activeStartMS.map {
+      TrackingSession(
+        deviceID: deviceID, generation: generation,
+        startMS: $0, endMS: nil, durationMS: nil, completeness: .running)
+    }
+  }
+
+  public mutating func interrupt() -> TrackingSession? {
+    guard let start = activeStartMS else { return nil }
+    activeStartMS = nil
+    return TrackingSession(
+      deviceID: deviceID, generation: generation, startMS: start,
+      endMS: nil, durationMS: nil, completeness: .incomplete)
+  }
+
+  public mutating func append(_ event: TrackingEvent) throws -> TrackingAppendResult {
+    try TrackingReducer.validate(event)
+    guard schemaVersion == 1, event.deviceID == deviceID, event.generation == generation,
+      event.sequence > sequence
+    else { throw TrackingError.sequenceConflict }
+    sequence = event.sequence
+    if event.isTest { return TrackingAppendResult() }
+    var delta = TrackingAppendResult()
+    if event.transition != last {
+      if event.transition == .open { delta.opens = 1 } else { delta.closes = 1 }
+    }
+    switch event.transition {
+    case .open:
+      if last == .open { delta.finishedSession = interrupt() }
+      activeStartMS = event.observedAtMS
+      candidate = last == .open
+    case .close:
+      if let start = activeStartMS {
+        let completeness: SessionCompleteness =
+          event.observedAtMS < start ? .incomplete : (candidate ? .candidate : .complete)
+        let duration = completeness == .incomplete ? nil : event.observedAtMS - start
+        delta.finishedSession = TrackingSession(
+          deviceID: deviceID, generation: generation,
+          startMS: start, endMS: event.observedAtMS, durationMS: duration,
+          completeness: completeness)
+        delta.cycles = completeness == .complete ? 1 : 0
+        delta.completeDurationMS = duration ?? 0
+        activeStartMS = nil
+      }
+    }
+    last = event.transition
+    return delta
+  }
+}
+
+public struct TrackingAppendResult: Sendable {
+  public internal(set) var opens = 0
+  public internal(set) var closes = 0
+  public internal(set) var cycles = 0
+  public internal(set) var completeDurationMS: Int64 = 0
+  public internal(set) var finishedSession: TrackingSession?
+  public var counted: Bool { opens + closes > 0 }
+}

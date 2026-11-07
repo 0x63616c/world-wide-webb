@@ -5,6 +5,20 @@ import Foundation
 // Local test helper only; never linked into the app or widget targets.
 @main struct JournalProbe {
   static func main() async throws {
+    if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--cached-read" {
+      let start = ContinuousClock.now
+      let store = try TrackingStore(
+        directory: URL(fileURLWithPath: CommandLine.arguments[2]),
+        installationID: UUID(uuidString: "12345678-1234-4234-8234-123456789abc")!)
+      let snapshot = try await store.compactAnalytics(
+        homeTimezone: "UTC", asOfMS: 200_000_000,
+        range: PersonalDateRange(startMS: 0, endMS: 3 * 86_400_000))
+      let elapsed = start.duration(to: .now).components
+      print(
+        "\(snapshot.lifetime.folds) \(Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18)"
+      )
+      return
+    }
     if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--partition-fence" {
       let root = URL(fileURLWithPath: CommandLine.arguments[2])
       let router = AccountPartitionRouter(directory: root)

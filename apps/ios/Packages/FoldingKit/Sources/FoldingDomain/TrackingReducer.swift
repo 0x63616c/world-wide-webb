@@ -10,7 +10,7 @@ public enum SessionCompleteness: String, Codable, Sendable {
   case complete, candidate, incomplete, running
 }
 
-public struct TrackingSession: Equatable, Sendable {
+public struct TrackingSession: Codable, Equatable, Sendable {
   public let deviceID: UUID
   public let generation: ResetGeneration
   public let startMS: Int64
@@ -19,7 +19,7 @@ public struct TrackingSession: Equatable, Sendable {
   public let completeness: SessionCompleteness
 }
 
-public struct TrackingSummary: Equatable, Sendable {
+public struct TrackingSummary: Codable, Equatable, Sendable {
   public internal(set) var opens = 0
   public internal(set) var closes = 0
   public internal(set) var cycles = 0
@@ -48,14 +48,7 @@ public enum TrackingReducer {
     var byID: [UUID: TrackingEvent] = [:]
     var bySource: [Source: [Int64: TrackingEvent]] = [:]
     for event in events {
-      guard event.schemaVersion == 1,
-        (1...maximumInteger).contains(event.sequence),
-        (0...maximumInteger).contains(event.observedAtMS),
-        valid(event.generation), !event.timezoneID.isEmpty,
-        event.timezoneID.count <= 100, TimeZone(identifier: event.timezoneID) != nil,
-        !(event.timezoneID.hasPrefix("GMT+") || event.timezoneID.hasPrefix("GMT-"))
-          || TimeZone(identifier: event.timezoneID)?.identifier == event.timezoneID
-      else { throw TrackingError.invalidEnvelope }
+      try validate(event)
       if let old = byID[event.eventID] {
         guard old == event else { throw TrackingError.identityConflict }
         continue
@@ -89,55 +82,22 @@ public enum TrackingReducer {
         }.map(\.afterSequence)
       ).sorted()
       var markerIndex = 0
-      var last: Transition?
-      var active: (start: Int64, candidate: Bool)?
-
-      func finish(end: Int64?, completeness: SessionCompleteness) {
-        guard let session = active else { return }
-        let duration =
-          completeness == .complete || completeness == .candidate
-          ? end.map { $0 - session.start } : nil
-        result.sessions.append(
-          TrackingSession(
-            deviceID: source.deviceID, generation: source.generation,
-            startMS: session.start, endMS: end, durationMS: duration,
-            completeness: completeness))
-
-        active = nil
-      }
-
+      var checkpoint = TrackingCheckpoint(deviceID: source.deviceID, generation: source.generation)
       for event in ordered {
         while markerIndex < markers.count && markers[markerIndex] < event.sequence {
-          finish(end: nil, completeness: .incomplete)
+          if let session = checkpoint.interrupt() { result.sessions.append(session) }
           markerIndex += 1
         }
-        if event.isTest { continue }
-        switch event.transition {
-        case .open:
-          if last == .open {
-            finish(end: nil, completeness: .incomplete)
-            active = (event.observedAtMS, true)
-          } else {
-            result.opens += 1
-            active = (event.observedAtMS, false)
-          }
-        case .close:
-          if last != .close { result.closes += 1 }
-          if let session = active {
-            if event.observedAtMS < session.start {
-              finish(end: event.observedAtMS, completeness: .incomplete)
-            } else {
-              if !session.candidate { result.cycles += 1 }
-              finish(
-                end: event.observedAtMS,
-                completeness: session.candidate ? .candidate : .complete)
-            }
-          }
-        }
-        last = event.transition
+        let delta = try checkpoint.append(event)
+        result.opens += delta.opens
+        result.closes += delta.closes
+        result.cycles += delta.cycles
+        if let session = delta.finishedSession { result.sessions.append(session) }
       }
-      if markerIndex < markers.count { finish(end: nil, completeness: .incomplete) }
-      finish(end: nil, completeness: .running)
+      if markerIndex < markers.count, let session = checkpoint.interrupt() {
+        result.sessions.append(session)
+      }
+      if let session = checkpoint.runningSession { result.sessions.append(session) }
     }
     for session in result.sessions {
       guard let duration = session.durationMS else { continue }
@@ -146,6 +106,17 @@ public enum TrackingReducer {
       result.completeDurationMS = sum
     }
     return result
+  }
+
+  static func validate(_ event: TrackingEvent) throws {
+    guard event.schemaVersion == 1,
+      (1...maximumInteger).contains(event.sequence),
+      (0...maximumInteger).contains(event.observedAtMS),
+      valid(event.generation), !event.timezoneID.isEmpty,
+      event.timezoneID.count <= 100, TimeZone(identifier: event.timezoneID) != nil,
+      !(event.timezoneID.hasPrefix("GMT+") || event.timezoneID.hasPrefix("GMT-"))
+        || TimeZone(identifier: event.timezoneID)?.identifier == event.timezoneID
+    else { throw TrackingError.invalidEnvelope }
   }
 
   private static func valid(_ generation: ResetGeneration) -> Bool {

@@ -6,7 +6,7 @@ extension SQLiteConnection {
       let version = try rows("PRAGMA user_version").first?["user_version"]
       guard
         version == "0" || version == "1" || version == "2" || version == "3" || version == "4"
-          || version == "5"
+          || version == "5" || version == "6"
       else {
         throw StoreError.incompatibleSchema
       }
@@ -14,7 +14,7 @@ extension SQLiteConnection {
       if version == "0" || version == "1" {
         try execute("ALTER TABLE work_outbox ADD COLUMN lease_token TEXT")
       }
-      if version != "3" && version != "4" && version != "5" {
+      if version != "3" && version != "4" && version != "5" && version != "6" && version != "6" {
         try execute(
           "CREATE TABLE sync_checkpoints (store_id TEXT PRIMARY KEY, token TEXT NOT NULL)")
         try execute(
@@ -26,7 +26,7 @@ extension SQLiteConnection {
         try execute("CREATE TABLE rejected_reset_ids (reset_id TEXT PRIMARY KEY)")
         try execute("PRAGMA user_version=3")
       }
-      if version != "4" && version != "5" {
+      if version != "4" && version != "5" && version != "6" {
         try execute(
           "ALTER TABLE deferred_imports ADD COLUMN generation_revision INTEGER NOT NULL DEFAULT 0")
         try execute(
@@ -56,7 +56,7 @@ extension SQLiteConnection {
         try execute("CREATE INDEX deferred_reset ON deferred_imports(generation_id)")
         try execute("PRAGMA user_version=4")
       }
-      if version != "5" {
+      if version != "5" && version != "6" {
         try execute(
           "CREATE TABLE transfer_markers (transfer_id TEXT PRIMARY KEY, revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 9007199254740991), payload_json TEXT NOT NULL)"
         )
@@ -74,6 +74,32 @@ extension SQLiteConnection {
           "CREATE TRIGGER remember_source_sequence AFTER INSERT ON events BEGIN INSERT INTO known_source_sequences VALUES (NEW.device_id,NEW.sequence) ON CONFLICT(device_id) DO UPDATE SET sequence=MAX(sequence,excluded.sequence); END"
         )
         try execute("PRAGMA user_version=5")
+      }
+      if version != "6" {
+        try execute(
+          "CREATE TABLE IF NOT EXISTS derived_state (id INTEGER PRIMARY KEY CHECK(id=1), journal_id TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision BETWEEN 0 AND 9007199254740991), epoch INTEGER NOT NULL CHECK(epoch BETWEEN 0 AND 9007199254740991))"
+        )
+        try execute(
+          "INSERT OR IGNORE INTO derived_state VALUES (1,?,0,0)",
+          [.text(UUID().uuidString.lowercased())])
+        try execute(
+          "CREATE TABLE IF NOT EXISTS derived_changes (revision INTEGER PRIMARY KEY,event_id TEXT NOT NULL)"
+        )
+        try execute(
+          "CREATE TRIGGER IF NOT EXISTS derived_event_append AFTER INSERT ON events BEGIN UPDATE derived_state SET revision=revision+1,epoch=epoch+CASE WHEN EXISTS(SELECT 1 FROM events WHERE device_id=NEW.device_id AND sequence>NEW.sequence) THEN 1 ELSE 0 END; INSERT INTO derived_changes SELECT revision,NEW.event_id FROM derived_state; DELETE FROM derived_changes WHERE revision<=(SELECT revision-2048 FROM derived_state); END"
+        )
+        for table in [
+          "events", "interruptions", "reset_markers", "transfer_markers", "rejected_transfer_ids",
+          "quarantines",
+        ] {
+          for operation in ["INSERT", "UPDATE", "DELETE"]
+          where !(table == "events" && operation == "INSERT") {
+            try execute(
+              "CREATE TRIGGER IF NOT EXISTS derived_\(table)_\(operation.lowercased()) AFTER \(operation) ON \(table) BEGIN UPDATE derived_state SET revision=revision+1,epoch=epoch+1; END"
+            )
+          }
+        }
+        try execute("PRAGMA user_version=6")
       }
       // Seed durable high-water marks for journals created before recovery diagnostics existed.
       if try rows("SELECT value FROM settings WHERE key='highest_reset_revision'").isEmpty {

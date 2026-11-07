@@ -31,7 +31,7 @@ public struct PersonalDateRange: Equatable, Sendable {
   }
 }
 
-public struct PersonalDailySummary: Equatable, Sendable {
+public struct PersonalDailySummary: Codable, Equatable, Sendable {
   public let startMS: Int64
   public let endMS: Int64
   public let date: String
@@ -76,7 +76,7 @@ public enum PersonalAnalytics {
       range.startMS >= -TrackingReducer.maximumInteger,
       range.endMS <= TrackingReducer.maximumInteger
     else { throw AnalyticsError.invalidRange }
-    let cal = try calendar(homeTimezone)
+    _ = try calendar(homeTimezone)
     // Validate the full immutable input before filtering; hidden conflicting history is still invalid.
     let validated = try TrackingReducer.reduce(
       events: events, interruptions: interruptions, generation: generation)
@@ -104,75 +104,23 @@ public enum PersonalAnalytics {
           durationMS: nil, completeness: .incomplete)
       }
     }
-    var bins: [Int64: PersonalDailySummary] = [:]
-    var cursor = cal.startOfDay(for: date(range.startMS))
-    while milliseconds(cursor) < range.endMS {
-      guard bins.count < 100_000, let next = cal.date(byAdding: .day, value: 1, to: cursor),
-        next > cursor
-      else { throw AnalyticsError.resultTooLarge }
-      let components = cal.dateComponents([.year, .month, .day], from: cursor)
-      let label = String(
-        format: "%04d-%02d-%02d", components.year!, components.month!, components.day!)
-      bins[milliseconds(cursor)] = PersonalDailySummary(
-        startMS: milliseconds(cursor), endMS: milliseconds(next), date: label,
-        timezoneID: homeTimezone)
-      cursor = next
-    }
-    func dayKey(_ ms: Int64) -> Int64 { milliseconds(cal.startOfDay(for: date(ms))) }
     var counted: Set<UUID> = []
     for source in Dictionary(grouping: included.filter { !$0.isTest }, by: \.deviceID).values {
       var last: Transition?
       for event in source.sorted(by: { $0.sequence < $1.sequence }) {
         if event.transition != last {
           counted.insert(event.eventID)
-          if (range.startMS..<range.endMS).contains(event.observedAtMS) {
-            let key = dayKey(event.observedAtMS)
-            if event.transition == .open { bins[key]?.opens += 1 } else { bins[key]?.closes += 1 }
-          }
+
         }
         last = event.transition
       }
     }
-    var segments = 0
-    for session in lifetime.sessions {
-      if session.completeness == .complete, let end = session.endMS,
-        (range.startMS..<range.endMS).contains(end)
-      {
-        bins[dayKey(end)]?.cycles += 1
-      }
-      let running = session.completeness == .running
-      let end: Int64
-      if running {
-        end = asOfMS
-      } else if session.durationMS != nil, let closed = session.endMS {
-        end = closed
-      } else {
-        continue
-      }
-      var start = max(session.startMS, range.startMS)
-      let stop = min(end, range.endMS)
-      while start < stop {
-        segments += 1
-        guard segments <= 1_000_000 else { throw AnalyticsError.resultTooLarge }
-        let key = dayKey(start)
-        guard let bin = bins[key] else { throw AnalyticsError.calendarFailure }
-        let until = min(stop, bin.endMS)
-        guard until > start else { throw AnalyticsError.calendarFailure }
-        let duration = until - start
-        let previous = running ? bin.runningDurationMS : bin.completeDurationMS
-        let (sum, overflow) = previous.addingReportingOverflow(duration)
-        guard !overflow else { throw TrackingError.invalidEnvelope }
-        if running {
-          bins[key]?.runningDurationMS = sum
-        } else {
-          bins[key]?.completeDurationMS = sum
-        }
-        start = until
-      }
-    }
+    let days = try PersonalDayAggregation.days(
+      countedEvents: included.filter { counted.contains($0.eventID) }, sessions: lifetime.sessions,
+      homeTimezone: homeTimezone, range: range, asOfMS: asOfMS)
     return PersonalAnalyticsSnapshot(
       generation: generation, homeTimezone: homeTimezone, asOfMS: asOfMS, range: range,
-      lifetime: lifetime, days: bins.values.sorted { $0.startMS < $1.startMS },
+      lifetime: lifetime, days: days,
       sessions: lifetime.sessions,
       includedEventIDs: Set(included.filter { !$0.isTest }.map(\.eventID)),
       countedEventIDs: counted,

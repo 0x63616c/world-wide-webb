@@ -40,6 +40,9 @@ public actor TrackingStore {
   private let partitionLease: PartitionLease?
   nonisolated let exportDirectory: URL
   private var exportPurgePending = false
+  private var derivedCache: PersonalDerivedCache?
+  private let derivedCacheDirectory: URL
+  private var derivedBuildObserver: (@Sendable (Bool) async -> Void)?
   public nonisolated let deviceID: UUID
 
   public init(directory: URL, installationID: UUID, partitionLease: PartitionLease? = nil) throws {
@@ -57,6 +60,7 @@ public actor TrackingStore {
     }
     self.partitionLease = partitionLease
     self.exportDirectory = directory.appendingPathComponent("exports", isDirectory: true)
+    self.derivedCacheDirectory = directory.appendingPathComponent("derived", isDirectory: true)
     self.deviceID = installationID
   }
 
@@ -178,7 +182,7 @@ public actor TrackingStore {
       {
         try enqueue("competition_event", entity: event.eventID, generation: current)
       }
-      // Read models are replayed from the committed journal until persistent caches are introduced.
+      // SQLite triggers commit derived-read invalidation/change-log entries with this observation.
       return RecordingReceipt(event: event, wasRetry: false)
     }
   }
@@ -490,6 +494,150 @@ public actor TrackingStore {
         .text(UUID().canonical), .text(id.canonical),
         .text(ResetGeneration.initial.resetID.canonical),
       ])
+  }
+
+  /// Calendar-aligned day ranges, at most 366 days. Running time is projected at the supplied clock.
+  public func compactAnalytics(homeTimezone: String, asOfMS: Int64, range: PersonalDateRange)
+    async throws -> CompactPersonalSnapshot
+  {
+    for _ in 0..<3 {
+      try await refreshDerivedCache(homeTimezone: homeTimezone)
+      if let result = try journalTransaction(
+        write: false,
+        {
+          try cache().compact(
+            timezone: homeTimezone, revision: derivedRevision(), asOfMS: asOfMS, range: range)
+        })
+      {
+        return result
+      }
+    }
+    throw PersonalReadError.changedSnapshot
+  }
+
+  public func sessionPage(
+    homeTimezone: String, range: PersonalDateRange,
+    cursor: PersonalSessionCursor? = nil, limit: Int = 50
+  ) async throws -> PersonalSessionPage {
+    for _ in 0..<3 {
+      try await refreshDerivedCache(homeTimezone: homeTimezone)
+      if let result = try journalTransaction(
+        write: false,
+        {
+          try cache().sessions(
+            timezone: homeTimezone, revision: derivedRevision(), range: range, cursor: cursor,
+            limit: limit)
+        })
+      {
+        return result
+      }
+    }
+    throw PersonalReadError.changedSnapshot
+  }
+
+  public func historyPage(
+    homeTimezone: String, asOfMS: Int64, period: PersonalHistoryPeriod,
+    offset: Int, cursor: PersonalHistoryCursor? = nil, limit: Int = 120
+  ) async throws -> CompactHistoryPage {
+    for _ in 0..<3 {
+      try await refreshDerivedCache(homeTimezone: homeTimezone)
+      if let result = try journalTransaction(
+        write: false,
+        {
+          try cache().history(
+            timezone: homeTimezone, revision: derivedRevision(), asOfMS: asOfMS,
+            period: period, offset: offset, cursor: cursor, limit: limit)
+        })
+      {
+        return result
+      }
+    }
+    throw PersonalReadError.changedSnapshot
+  }
+
+  // Test seam for deterministic reset/account/rebuild races; no alternate production data path.
+  func setDerivedBuildObserver(_ observer: (@Sendable (Bool) async -> Void)?) {
+    derivedBuildObserver = observer
+  }
+
+  private func cache() throws -> PersonalDerivedCache {
+    if let derivedCache { return derivedCache }
+    let cache = try PersonalDerivedCache(directory: derivedCacheDirectory)
+    derivedCache = cache
+    return cache
+  }
+
+  private func derivedRevision() throws -> DerivedRevision {
+    guard
+      let row = try database.rows("SELECT journal_id,revision,epoch FROM derived_state WHERE id=1")
+        .first,
+      let id = row["journal_id"].flatMap(UUID.init(uuidString:)),
+      let revision = row["revision"].flatMap(Int64.init),
+      let epoch = row["epoch"].flatMap(Int64.init)
+    else { throw StoreError.invalidInput }
+    return DerivedRevision(journalID: id, revision: revision, rebuildEpoch: epoch)
+  }
+
+  private func refreshDerivedCache(homeTimezone: String) async throws {
+    enum Work: Sendable {
+      case current
+      case append(DerivedHeader, DerivedRevision, [TrackingEvent])
+      case rebuild(DerivedInput)
+    }
+    let work: Work = try journalTransaction(write: false) {
+      let revision = try derivedRevision()
+      if let header = try cache().header(timezone: homeTimezone),
+        header.journalID == revision.journalID
+      {
+        if header.revision == revision.revision { return .current }
+        let gap = revision.revision - header.revision
+        if header.rebuildEpoch == revision.rebuildEpoch, (1...2048).contains(gap) {
+          let events: [TrackingEvent] = try database.rows(
+            "SELECT e.payload_json FROM derived_changes c JOIN events e ON e.event_id=c.event_id WHERE c.revision>? AND c.revision<=? ORDER BY c.revision LIMIT 2048",
+            [.integer(header.revision), .integer(revision.revision)]
+          ).map { try decode($0["payload_json"]!) }
+          if events.count == gap,
+            events.allSatisfy({
+              header.selection == nil || $0.deviceID == header.selection?.activeDeviceID
+            })
+          {
+            return .append(header, revision, events)
+          }
+        }
+      }
+      return .rebuild(
+        DerivedInput(
+          revision: revision, generation: try generation(), events: try events(),
+          interruptions: try interruptions(), transfers: try transferMarkersInTransaction()))
+    }
+    let directory = derivedCacheDirectory
+    let observer = derivedBuildObserver
+    switch work {
+    case .current: return
+    case .append(let header, let revision, let events):
+      let task = Task.detached(priority: .userInitiated) {
+        if let observer { await observer(false) }
+        try Task.checkCancellation()
+        _ = try PersonalDerivedCache(directory: directory).append(
+          events: events, from: header, to: revision)
+      }
+      try await withTaskCancellationHandler {
+        try await task.value
+      } onCancel: {
+        task.cancel()
+      }
+    case .rebuild(let input):
+      let task = Task.detached(priority: .userInitiated) {
+        if let observer { await observer(true) }
+        try Task.checkCancellation()
+        try PersonalDerivedCache(directory: directory).rebuild(input, timezone: homeTimezone)
+      }
+      try await withTaskCancellationHandler {
+        try await task.value
+      } onCancel: {
+        task.cancel()
+      }
+    }
   }
 
   public func summary() throws -> TrackingSummary {
