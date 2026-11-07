@@ -6,6 +6,7 @@ public struct CallingApp: Sendable, Equatable, Identifiable {
     public init(id: String, name: String) { self.id = id; self.name = name }
     public static let supported = [
         Self(id: "com.apple.FaceTime", name: "FaceTime"),
+        Self(id: "com.apple.mobilephone", name: "Phone"),
         Self(id: "us.zoom.xos", name: "Zoom"),
         Self(id: "com.microsoft.teams2", name: "Microsoft Teams"),
         Self(id: "com.microsoft.teams", name: "Microsoft Teams"),
@@ -20,11 +21,13 @@ public struct CallingApp: Sendable, Equatable, Identifiable {
     public static func matching(bundleID: String, executablePath: String = "", running: Set<String> = []) -> Self? {
         if bundleID == "co.calum.callkeep" || bundleID.lowercased().contains("wispr") { return nil }
         if let app = supported.first(where: { bundleID == $0.id || bundleID.hasPrefix($0.id + ".") }) { return app }
-        // FaceTime can delegate capture to Apple's AV conferencing service.
-        // Do not attribute that shared service to FaceTime unless FaceTime is running.
-        if running.contains("com.apple.FaceTime"),
-           bundleID.hasPrefix("com.apple.avconferenced") || URL(fileURLWithPath: executablePath).lastPathComponent == "avconferenced" {
-            return supported[0]
+        // Apple's shared conferencing service can capture on behalf of either app.
+        if bundleID.hasPrefix("com.apple.avconferenced") || URL(fileURLWithPath: executablePath).lastPathComponent == "avconferenced" {
+            let faceTime = running.contains("com.apple.FaceTime")
+            let phone = running.contains("com.apple.mobilephone")
+            if faceTime && phone { return Self(id: "com.apple.avconferenced", name: "Phone or FaceTime") }
+            if faceTime { return supported[0] }
+            if phone { return supported[1] }
         }
         return nil
     }

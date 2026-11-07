@@ -50,6 +50,10 @@ enum CallActivityScanner {
                 if let app = CallingApp.matching(bundleID: id, executablePath: path, running: running) { apps[app.id] = app }
             }
         }
+        // Prefer direct app attribution when the shared helper is ambiguous.
+        if apps["com.apple.FaceTime"] != nil || apps["com.apple.mobilephone"] != nil {
+            apps["com.apple.avconferenced"] = nil
+        }
         return Array(apps.values)
     }
 }

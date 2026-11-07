@@ -3,10 +3,16 @@ import XCTest
 
 final class CallActivityTests: XCTestCase {
     let faceTime = CallingApp.supported[0]
+    let phone = CallingApp.supported[1]
     func testFaceTimeHelpersNeedFaceTimeRunningAndIgnoreDictation() {
         XCTAssertEqual(CallingApp.matching(bundleID: "com.apple.FaceTime"), faceTime)
         XCTAssertNil(CallingApp.matching(bundleID: "com.apple.avconferenced"))
         XCTAssertEqual(CallingApp.matching(bundleID: "com.apple.avconferenced", running: ["com.apple.FaceTime"]), faceTime)
+        XCTAssertEqual(CallingApp.matching(bundleID: "com.apple.mobilephone"), phone)
+        XCTAssertEqual(CallingApp.matching(bundleID: "com.apple.mobilephone.helper"), phone)
+        XCTAssertEqual(CallingApp.matching(bundleID: "com.apple.avconferenced", running: ["com.apple.mobilephone"]), phone)
+        XCTAssertEqual(CallingApp.matching(bundleID: "com.apple.avconferenced", running: ["com.apple.mobilephone", "com.apple.FaceTime"])?.name, "Phone or FaceTime")
+        XCTAssertEqual(CallingApp.matching(bundleID: "", executablePath: "/usr/libexec/avconferenced", running: ["com.apple.mobilephone"]), phone)
         XCTAssertNil(CallingApp.matching(bundleID: "co.calum.callkeep"))
         XCTAssertNil(CallingApp.matching(bundleID: "com.electron.wispr-flow"))
         XCTAssertEqual(CallingApp.matching(bundleID: "com.google.Chrome.helper")?.name, "Google Chrome")
