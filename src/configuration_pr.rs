@@ -1,4 +1,7 @@
-//! Publish only enrollment configuration and ciphertext through a reviewable PR.
+//! Publish only enrollment configuration and ciphertext, preserving GitHub rules.
+#[path = "configuration_publish.rs"]
+mod direct;
+pub use direct::{Publication, publish_configuration, resolve_publication_for_renewal};
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
@@ -18,13 +21,19 @@ use crate::config::{self, Manifest, Workspace};
 pub enum Error {
     #[error("The enrollment configuration is invalid or contains unexpected secret fields.")]
     Invalid,
+    #[error(
+        "GitHub branch rules require a publishing method this client cannot safely perform. No rule bypass was attempted."
+    )]
+    Rules,
     #[error("GitHub access failed. Check your local GitHub sign-in and repository permissions.")]
     Access,
     #[error("A repository file was not found at the reviewed revision.")]
     Missing,
     #[error("Existing configuration conflicts with this enrollment. Nothing was overwritten.")]
     Conflict,
-    #[error("Publishing could not be confirmed. Resume to check the existing branch and PR.")]
+    #[error(
+        "Publishing could not be confirmed. Resume this saved setup to check the exact commit or pull request."
+    )]
     Unconfirmed,
     #[error(
         "The saved configuration proposal is unavailable or unsafe. Existing state was preserved."
@@ -57,7 +66,15 @@ impl GitHub {
         if raw {
             command.args(["--header", "Accept: application/vnd.github.raw+json"]);
         } else {
-            let projection = if path.contains("/git/matching-refs/") {
+            let projection = if path.contains("/rules/branches/") {
+                "map({type})"
+            } else if path.ends_with("/branches/main/protection") {
+                "{required_pull_request_reviews}"
+            } else if path.ends_with("/branches/main") {
+                "{protected,commit:{sha:.commit.sha}}"
+            } else if path.contains("/git/ref/heads/") || path.contains("/git/refs/heads/") {
+                "{ref,object:{sha:.object.sha}}"
+            } else if path.contains("/git/matching-refs/") {
                 "map({ref,object:{sha:.object.sha}})"
             } else if path.contains("/git/commits") {
                 "{sha,tree:{sha:.tree.sha}}"

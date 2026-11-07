@@ -19,7 +19,7 @@ Run locally with `cargo test --locked`, `cargo fmt --check` and
 ## Opt-in VM rehearsal
 
 For a fresh guest, [the full enrollment harness](https://github.com/0x63616c/homelab-cli/blob/main/tests/fixtures/vm-enrollment.md)
-drives the real wizard, a private fixture PR and merge, installation, reboot and
+drives the real wizard, publication to a private fixture repository, installation, reboot and
 Comin verification. It runs on the operator client through a pinned SSH jump host;
 vault and Tailscale adapters are synthetic. Run this rehearsal before each
 release. Normal tests run its local guards without contacting any machine.
@@ -96,7 +96,7 @@ The guest must have completed real bootstrap activation with the current helper,
 its protected hold and activation receipt. Never fabricate these receipts. It
 also needs real Comin, immutable health/revision metadata and synthetic Tailscale
 status. The configured Git repository must contain the exact encrypted files
-installed in that revision; mocked merge results are insufficient.
+installed in that revision; mocked publication results are insufficient.
 
 Run only on the approved VM host:
 

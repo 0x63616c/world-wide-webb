@@ -182,11 +182,12 @@ pub fn prepare(
                 &workspace.repository,
                 host,
             )?;
-            crate::configuration_pr::resolve_for_renewal(
+            crate::configuration_pr::resolve_publication_for_renewal(
                 &crate::configuration_pr::GitHub {
                     executable: "gh".into(),
                 },
                 &proposal,
+                &root.join("hosts").join(host).join("publication.json"),
             )?;
         }
         Ok(())

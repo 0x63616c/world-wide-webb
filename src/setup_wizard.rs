@@ -1,4 +1,7 @@
 //! Interactive first setup; credentials stay in files and sudo owns its terminal.
+#[path = "ui/checklist.rs"]
+mod checklist;
+use checklist::{Checklist, Step};
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -15,6 +18,16 @@ use crate::ui::{self, Role};
 use crate::{config, first_access, inspect, package};
 
 fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> io::Result<usize> {
+    render_with_link(title, body, offset, footer, None)
+}
+
+fn render_with_link(
+    title: &str,
+    body: &[(String, Role)],
+    offset: usize,
+    footer: &str,
+    link: Option<&str>,
+) -> io::Result<usize> {
     let (width, height) = terminal::size()?;
     let mut output = Vec::new();
     queue!(output, MoveTo(0, 0), Clear(ClearType::All))?;
@@ -45,7 +58,13 @@ fn render(title: &str, body: &[(String, Role)], offset: usize, footer: &str) -> 
     let mut row = 3;
     for (line, role) in visible {
         queue!(output, MoveTo(2, row))?;
-        if matches!(role, Role::Body) {
+        if line == "Open enrollment PR"
+            && let Some(url) = link
+        {
+            write!(output, "\x1b]8;;{url}\x1b\\")?;
+            ui::paint(&mut output, line, Role::Action)?;
+            write!(output, "\x1b]8;;\x1b\\")?;
+        } else if matches!(role, Role::Body) {
             ui::paint_fact(&mut output, line)?;
         } else {
             ui::paint(&mut output, line, *role)?;
@@ -85,6 +104,8 @@ pub(crate) fn draw(lines: &[String], offset: usize, footer: &str) -> io::Result<
                 Role::Selected
             } else if line.starts_with("! ") {
                 Role::Warning
+            } else if line.ends_with(':') && line.len() <= 32 {
+                Role::Section
             } else if index == 0 {
                 Role::Context
             } else {
@@ -1092,7 +1113,7 @@ fn saved_enrollment(url: &str) -> Outcome {
     Outcome {
         completed: false,
         lines: vec![
-            "Setup saved. Reopen setup to continue from this PR.".into(),
+            "Setup saved. Reopen this host to continue.".into(),
             url.into(),
         ],
     }
@@ -1190,26 +1211,51 @@ fn enroll(
     {
         return Ok(enrollment_failure(error));
     }
-    if !review(
-        &[
-            format!("Set up {host_name}"),
-            format!(
-                "{}@{} · {:.0} GiB free",
-                profile.user, profile.address, inspection.free_gib
-            ),
-            format!("Configuration: {}", workspace.repository),
-            String::new(),
-            "Install Apple's Command Line Tools if this Mac needs them.".into(),
-            "Back up recovery keys to 1Password and prepare encrypted configuration.".into(),
-            "Give this Mac read-only repository access and open an enrollment PR.".into(),
-            "After you merge that PR, install its approved configuration on this Mac.".into(),
-            "Restart the Mac, verify its services and remote access, then hand over to Git updates.".into(),
-            "If FileVault is enabled, you may need to unlock the Mac locally after restart.".into(),
-        ],
-        "Begin setup",
-    )? {
+    let saved_approval = match crate::provisioning::approved_installation(root, host_name) {
+        Ok(saved) => saved,
+        Err(error) => return Ok(enrollment_failure(error)),
+    };
+    if saved_approval.as_ref().is_some_and(|saved| {
+        saved.repository != workspace.repository || saved.revision != workspace.revision
+    }) {
+        return Ok(enrollment_failure(
+            "The saved approval does not match this configuration. Preserve the attempt.",
+        ));
+    }
+    if saved_approval.is_none()
+        && !review(
+            &[
+                format!("Set up {host_name}"),
+                format!(
+                    "{}@{} · {:.0} GiB free",
+                    profile.user, profile.address, inspection.free_gib
+                ),
+                format!("Configuration: {}", workspace.repository),
+                String::new(),
+                "Automatic setup:".into(),
+                "Install missing Apple developer tools.".into(),
+                "Back up keys; encrypt secrets.".into(),
+                "Commit setup to main; install it.".into(),
+                "Reboot; verify access and Git updates.".into(),
+                String::new(),
+                "May need attention:".into(),
+                "Mac password or 1Password approval.".into(),
+                "PR review if Git policy requires it.".into(),
+                "FileVault unlock after reboot.".into(),
+            ],
+            "Begin setup",
+        )?
+    {
         return Ok(enrollment_failure(
             "Setup cancelled before credential preparation.",
+        ));
+    }
+    let mut checklist = Checklist::new(host_name);
+    checklist.begin(Step::Tools, "Checking required developer tools");
+    checklist.draw("D Details")?;
+    if checklist.stop_requested()? {
+        return Ok(enrollment_failure(
+            "Setup cancelled before prerequisite installation.",
         ));
     }
     if prerequisites == remote_setup::Prerequisites::DeveloperToolsMissing {
@@ -1218,6 +1264,7 @@ fn enroll(
             Err(error) => return Ok(enrollment_failure(error)),
         };
         terminal.suspend()?;
+        println!("{}", checklist.native_status());
         println!(
             "Installing required Command Line Tools on {host_name}. Enter that Mac's administrator password if asked."
         );
@@ -1230,19 +1277,18 @@ fn enroll(
         }
         terminal.resume()?;
     }
-    let progress = |message: &str| {
-        let _ = draw(
-            &[format!("Setting up {host_name}"), message.into()],
-            0,
-            "Please wait",
-        );
+    checklist.done(Step::Tools);
+    let cancelled = || {
+        enrollment_failure(
+            "Setup stopped at a safe checkpoint. Reopen this host to resume saved progress.",
+        )
     };
     let attempt =
         match crate::provisioning::enrollment_attempt(root, &workspace.repository, host_name) {
             Ok(attempt) => attempt,
             Err(error) => return Ok(enrollment_failure(error)),
         };
-    loop {
+    {
         let current_workspace = match saved_installation_workspace(profile) {
             Ok(Some(workspace)) => workspace,
             Ok(None) => match config::fetch(&workspace.repository) {
@@ -1258,33 +1304,47 @@ fn enroll(
             return Ok(enrollment_failure(error));
         }
         let directory = root.join("hosts").join(host_name);
-        progress("Preparing this Mac's read-only Git access");
+
         let package = match package::prepare(workspace) {
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
         };
-        let identity = match remote_setup::prepare_git_identity(
-            profile,
-            &attempt,
-            &package.directory.join("homelab-host"),
-            &tools.remote_setup,
-        ) {
+        let identity = match checklist.run(Step::Identity, |_| {
+            remote_setup::prepare_git_identity(
+                profile,
+                &attempt,
+                &package.directory.join("homelab-host"),
+                &tools.remote_setup,
+            )
+        })? {
             Ok(identity) => identity,
             Err(error) => return Ok(remote_setup_failure(error)),
         };
+        checklist.done(Step::Identity);
+        if checklist.stop_requested()? {
+            return Ok(cancelled());
+        }
         if let Some(revision) = &identity.activated_revision {
+            checklist.begin(Step::Verify, "Checking the existing activated setup");
+            checklist.draw("Native authentication may appear")?;
             let installed = match config::fetch_revision(&workspace.repository, revision) {
                 Ok(workspace) => workspace,
                 Err(error) => return Ok(enrollment_failure(error)),
             };
             terminal.suspend()?;
-            return Ok(finish_enrollment(
-                profile,
-                host_name,
-                &installed,
-                tools,
-                dependencies,
-            ));
+            println!("{}", checklist.native_status());
+            let outcome = finish_enrollment(profile, host_name, &installed, tools, dependencies);
+            terminal.resume()?;
+            if outcome.completed {
+                checklist.done(Step::Verify);
+            }
+            checklist.message(if outcome.completed {
+                "Setup complete."
+            } else {
+                "Verification needs attention; saved progress is retained."
+            });
+            checklist.draw("Setup result follows")?;
+            return Ok(outcome);
         }
         let has_approval = match crate::provisioning::approved_installation(root, host_name) {
             Ok(approval) => approval.is_some(),
@@ -1308,29 +1368,40 @@ fn enroll(
                 "The current configuration no longer matches this Mac's administrator. Review the host configuration before continuing.",
             ));
         }
-        let credentials = match (dependencies.prepare_credentials)(
-            root,
-            host_name,
-            workspace,
-            identity.bootstrap_started,
-            &progress,
-        ) {
+        let credentials = match checklist.run(Step::Credentials, |progress| {
+            (dependencies.prepare_credentials)(
+                root,
+                host_name,
+                workspace,
+                identity.bootstrap_started,
+                progress,
+            )
+        })? {
             Ok(prepared) => prepared,
             Err(error) => return Ok(enrollment_failure(error)),
         };
+        if checklist.stop_requested()? {
+            return Ok(cancelled());
+        }
+        checklist.done(Step::Credentials);
         let registry = crate::deploy_keys::GitHub::new(Path::new("gh"));
-        if let Err(error) = crate::deploy_keys::register_saved(
-            &registry,
-            &crate::deploy_keys::Request {
-                repository: workspace.repository.clone(),
-                host: host_name.into(),
-                public_key: identity.public_key,
-            },
-            &directory.join("deploy-key.json"),
-        ) {
+        if let Err(error) = checklist.run(Step::Configuration, |_| {
+            crate::deploy_keys::register_saved(
+                &registry,
+                &crate::deploy_keys::Request {
+                    repository: workspace.repository.clone(),
+                    host: host_name.into(),
+                    public_key: identity.public_key.clone(),
+                },
+                &directory.join("deploy-key.json"),
+            )
+        })? {
             return Ok(enrollment_failure(error));
         }
-        progress("Preparing the enrollment pull request");
+        if checklist.stop_requested()? {
+            return Ok(cancelled());
+        }
+        checklist.begin(Step::Configuration, "Preparing encrypted Git changes");
         let api = crate::configuration_pr::GitHub {
             executable: "gh".into(),
         };
@@ -1366,70 +1437,89 @@ fn enroll(
         if let Err(error) = proposal.save(&proposal_path) {
             return Ok(enrollment_failure(error));
         }
-        let pull = match crate::configuration_pr::publish(&api, &proposal) {
-            Ok(pull) => pull,
+        if checklist.stop_requested()? {
+            return Ok(cancelled());
+        }
+        let publication = match checklist.run(Step::Configuration, |_| {
+            crate::configuration_pr::publish_configuration(
+                &api,
+                &proposal,
+                &directory.join("publication.json"),
+            )
+        })? {
+            Ok(publication) => publication,
             Err(error) => return Ok(enrollment_failure(error)),
         };
-        let approved = loop {
-            match crate::configuration_pr::approved_workspace(&api, &proposal, pull.number) {
-                Ok(Some(workspace)) => {
-                    if queued_cancellation()? {
-                        return Ok(save_and_release(
-                            &pull.html_url,
-                            profile,
-                            &attempt,
-                            &package.directory.join("homelab-host"),
-                            &tools.remote_setup,
-                            identity.bootstrap_started,
-                        ));
-                    }
-                    break workspace;
+        let (approved, publication_url) = match publication {
+            crate::configuration_pr::Publication::Published {
+                workspace,
+                html_url,
+            } => (workspace, html_url),
+            crate::configuration_pr::Publication::PullRequest(pull) => {
+                checklist.begin(
+                    Step::Configuration,
+                    "Review and merge the setup PR. Setup continues automatically.",
+                );
+                if !checklist.pull_request(&workspace.repository, pull.number, &pull.html_url) {
+                    return Ok(enrollment_failure(
+                        "GitHub returned an unexpected pull request address. Preserve the saved proposal.",
+                    ));
                 }
-                Ok(None) => {}
-                Err(error) => return Ok(enrollment_failure(error)),
-            }
-            draw(
-            &[
-                format!("Waiting for approval · {host_name}"),
-                "Review and merge the enrollment PR in GitHub.".into(),
-                pull.html_url.clone(),
-                String::new(),
-                "Setup continues automatically after merge. You can close this and resume later."
-                    .into(),
-            ],
-            0,
-            "Enter Open PR · Esc Save and exit",
-        )?;
-            if event::poll(std::time::Duration::from_secs(5))? {
-                match key()? {
-                    KeyCode::Esc => {
-                        return Ok(save_and_release(
-                            &pull.html_url,
-                            profile,
-                            &attempt,
-                            &package.directory.join("homelab-host"),
-                            &tools.remote_setup,
-                            identity.bootstrap_started,
-                        ));
-                    }
-                    KeyCode::Enter => {
-                        let expected = format!(
-                            "https://github.com/{}/pull/{}",
-                            workspace.repository, pull.number
-                        );
-                        if pull.html_url == expected {
-                            let _ = std::process::Command::new("/usr/bin/open")
-                                .arg(expected)
-                                .stdin(std::process::Stdio::null())
-                                .stdout(std::process::Stdio::null())
-                                .stderr(std::process::Stdio::null())
-                                .status();
+                let mut next_poll = std::time::Instant::now();
+                let approved = loop {
+                    if next_poll <= std::time::Instant::now() {
+                        match checklist.run(Step::Configuration, |_| {
+                            crate::configuration_pr::approved_workspace(
+                                &api,
+                                &proposal,
+                                pull.number,
+                            )
+                        })? {
+                            Ok(Some(approved)) => break approved,
+                            Ok(None) => checklist.message(
+                                "Review and merge the setup PR. Setup continues automatically.",
+                            ),
+                            Err(error) => return Ok(enrollment_failure(error)),
                         }
+                        next_poll = std::time::Instant::now() + std::time::Duration::from_secs(5);
                     }
-                    _ => {}
-                }
+                    checklist.draw("O Open PR · D Details · ↑/↓ Read · Esc Save and exit")?;
+                    if checklist.cancelled {
+                        return Ok(save_and_release(
+                            &pull.html_url,
+                            profile,
+                            &attempt,
+                            &package.directory.join("homelab-host"),
+                            &tools.remote_setup,
+                            identity.bootstrap_started,
+                        ));
+                    }
+                    if event::poll(std::time::Duration::from_millis(250))? {
+                        checklist.key(key()?);
+                    }
+                };
+                checklist.clear_link();
+                (approved, pull.html_url)
             }
         };
+        if let Err(error) = crate::provisioning::save_approved_installation(
+            root,
+            &approved.repository,
+            host_name,
+            &approved.revision,
+        ) {
+            return Ok(enrollment_failure(error));
+        }
+        if checklist.stop_requested()? {
+            return Ok(save_and_release(
+                &publication_url,
+                profile,
+                &attempt,
+                &package.directory.join("homelab-host"),
+                &tools.remote_setup,
+                identity.bootstrap_started,
+            ));
+        }
         match crate::enrollment_credentials::valid_for_installation(
             root,
             host_name,
@@ -1441,19 +1531,23 @@ fn enroll(
                     crate::enrollment_credentials::Error::ExpiredStartedSetup,
                 ));
             }
-            Ok(false) if has_approval => {
+            Ok(false) => {
                 return Ok(enrollment_failure(
                     crate::enrollment_credentials::Error::ExpiredApprovedSetup,
                 ));
             }
-            Ok(false) => continue,
             Err(error) => return Ok(enrollment_failure(error)),
         }
-        progress("Preparing the approved installation");
+        checklist.done(Step::Configuration);
+        checklist.begin(Step::Install, "Preparing the exact approved installation");
+        checklist.draw("D Details · Esc Stop before installation")?;
         let package = match package::prepare(&approved) {
             Ok(package) => package,
             Err(error) => return Ok(enrollment_failure(error)),
         };
+        if checklist.stop_requested()? {
+            return Ok(cancelled());
+        }
         let prepared = match remote_setup::prepare(
             Request {
                 attempt: attempt.id.clone(),
@@ -1473,7 +1567,7 @@ fn enroll(
         };
         if queued_cancellation()? {
             return Ok(save_and_release(
-                &pull.html_url,
+                &publication_url,
                 profile,
                 &attempt,
                 &package.directory.join("homelab-host"),
@@ -1481,26 +1575,29 @@ fn enroll(
                 identity.bootstrap_started,
             ));
         }
-        if let Err(error) = crate::provisioning::save_approved_installation(
-            root,
-            &approved.repository,
-            host_name,
-            &approved.revision,
-        ) {
-            return Ok(enrollment_failure(error));
-        }
         terminal.suspend()?;
+        println!("{}", checklist.native_status());
         println!("Installing on {host_name}. SSH may ask for the Mac's administrator password.");
-        return match remote_setup::apply(prepared, &tools.remote_setup) {
-            Ok(_) => Ok(finish_enrollment(
-                profile,
-                host_name,
-                &approved,
-                tools,
-                dependencies,
-            )),
+        match remote_setup::apply(prepared, &tools.remote_setup) {
+            Ok(_) => {
+                checklist.done(Step::Install);
+                checklist.begin(Step::Verify, "Checking reboot, services and Git updates");
+                println!("Verifying reboot and Git updates. Native authentication may appear.");
+                let outcome = finish_enrollment(profile, host_name, &approved, tools, dependencies);
+                terminal.resume()?;
+                if outcome.completed {
+                    checklist.done(Step::Verify);
+                }
+                checklist.message(if outcome.completed {
+                    "Setup complete."
+                } else {
+                    "Verification needs attention; saved progress is retained."
+                });
+                checklist.draw("Setup result follows")?;
+                Ok(outcome)
+            }
             Err(error) => Ok(remote_setup_failure(error)),
-        };
+        }
     }
 }
 
@@ -1540,7 +1637,10 @@ fn finish_enrollment(
             lines: vec![
                 format!("{host} is set up."),
                 "Reboot, services, Tailscale access and Git access verified.".into(),
-                format!("Setup configuration: {}", workspace.revision),
+                format!(
+                    "Configuration: https://github.com/{}/commit/{}",
+                    workspace.repository, workspace.revision
+                ),
                 format!("Tailscale: {}", report.tailscale.dns_name),
             ],
         },

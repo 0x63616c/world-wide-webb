@@ -14,6 +14,8 @@ pub(crate) enum Role {
     Action,
     Help,
     Warning,
+    Success,
+    Pending,
 }
 
 pub(crate) fn content_width(columns: u16) -> usize {
@@ -46,6 +48,8 @@ pub(crate) fn paint(output: &mut impl Write, text: &str, role: Role) -> io::Resu
             Role::Selected => (Color::Cyan, Attribute::Reverse),
             Role::Section => (Color::White, Attribute::Bold),
             Role::Context | Role::Help => (Color::Grey, Attribute::NormalIntensity),
+            Role::Success => (Color::Green, Attribute::Bold),
+            Role::Pending => (Color::DarkGrey, Attribute::NormalIntensity),
             Role::Warning => (Color::Yellow, Attribute::Bold),
             Role::Body => (Color::Reset, Attribute::NormalIntensity),
         };

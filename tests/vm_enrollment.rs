@@ -1,4 +1,4 @@
-//! Opt-in full wizard rehearsal with real fixture GitHub PRs and a disposable VM.
+//! Opt-in wizard rehearsal with real fixture Git publication and a disposable VM.
 //! No network or VM operation runs without --run and a private fixture file.
 #[allow(dead_code)]
 #[path = "vm_e2e.rs"]
@@ -28,6 +28,8 @@ const VAULT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaa";
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Fixture {
+    #[serde(default)]
+    review_required: bool,
     target: vm::Fixture,
     operator_hostname: String,
     state_directory: PathBuf,
@@ -196,7 +198,10 @@ fn github_arguments_allowed(repository: &str, args: &[std::ffi::OsString]) -> bo
             relative,
             "keys" | "git/trees" | "git/commits" | "git/refs" | "pulls"
         ),
-        "PATCH" => relative.strip_prefix("pulls/").is_some_and(pull_number),
+        "PATCH" => {
+            relative == "git/refs/heads/main"
+                || relative.strip_prefix("pulls/").is_some_and(pull_number)
+        }
         "PUT" => relative
             .strip_prefix("pulls/")
             .and_then(|path| path.strip_suffix("/merge"))
@@ -754,10 +759,23 @@ impl Terminal {
                 self.text.clear();
                 return;
             }
-            assert!(
-                self.text.len() <= 256 * 1024,
-                "unexpected terminal output volume while waiting for {expected}"
-            );
+            if self.text.contains("R Retry checks") {
+                let reason = SAFE_FAILURES
+                    .iter()
+                    .copied()
+                    .find(|message| self.text.contains(message))
+                    .unwrap_or("Checklist step failed; preserve fixture state for inspection.");
+                panic!("wizard needs attention before {expected}: {reason}");
+            }
+            // Live progress redraws indefinitely; retain a bounded tail instead
+            // of treating a slow, healthy installation as excessive output.
+            if self.text.len() > 128 * 1024 {
+                let mut start = self.text.len() - 64 * 1024;
+                while !self.text.is_char_boundary(start) {
+                    start += 1;
+                }
+                self.text.drain(..start);
+            }
             if self.child.try_wait().unwrap().is_some() {
                 let reason = SAFE_FAILURES
                     .iter()
@@ -808,6 +826,11 @@ const SAFE_FAILURES: &[&str] = &[
     "The reviewed configuration is not ready for this host's first setup.",
     "The private credential files could not be safely prepared.",
     "The target could not be inspected through verified SSH.",
+    "The target's Git identity could not be confirmed.",
+    "A private remote staging directory could not be confirmed.",
+    "The setup files could not be transferred.",
+    "The staged artifact failed verification; bootstrap was not started.",
+    "Remote staging cleanup could not be confirmed.",
 ];
 const COMPLETION_PHASES: &[&str] = &[
     "Checking services, Tailscale and Git access",
@@ -1016,16 +1039,27 @@ fn drive(f: &Fixture, resume: bool) {
     terminal.wait("Begin setup", Duration::from_secs(90));
     terminal.enter();
     let merged = if let Some(revision) = resumed_revision {
-        revision
+        Some(revision)
+    } else if f.review_required {
+        terminal.wait("Review and merge the setup PR", Duration::from_secs(300));
+        Some(merge_enrollment(f))
     } else {
-        terminal.wait(
-            "Review and merge the enrollment PR",
-            Duration::from_secs(300),
-        );
-        merge_enrollment(f)
+        None
     };
     terminal.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(90 * 60));
     assert!(terminal.child.wait().unwrap().success());
+    let approved = provisioning::approved_installation(
+        &f.state_directory.join(".local/state/homelab/provisioning"),
+        "vm-test",
+    )
+    .unwrap()
+    .expect("completed setup must retain its exact approved revision");
+    let merged = merged.unwrap_or_else(|| approved.revision.clone());
+    assert_eq!(merged, approved.revision);
+    vm::write_private(
+        &f.state_directory.join("merged-revision"),
+        merged.as_bytes(),
+    );
     assert_eq!(
         tcgetattr(&terminal.slave).unwrap().local_modes,
         terminal.original
@@ -1066,8 +1100,6 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut replay = Terminal::start(f);
-    replay.wait("Begin setup", Duration::from_secs(90));
-    replay.enter();
     replay.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(600));
     assert!(replay.child.wait().unwrap().success());
     assert_eq!(
@@ -1389,7 +1421,7 @@ fn complete_preserved(f: &Fixture) {
     );
 }
 
-fn resume_prepare(f: &Fixture) {
+fn resume_prepare(f: &Fixture, merged: bool) {
     use std::os::unix::fs::FileTypeExt;
     require_idle_operator(f);
     vm::guard_guest(&f.target, &f.state_directory.join("vm-ssh"));
@@ -1402,21 +1434,27 @@ fn resume_prepare(f: &Fixture) {
         .is_some(),
         "guest bootstrap state is not safely resumable"
     );
-    validate_resume(f);
+    let expected = if merged {
+        validate_resume(f)
+    } else {
+        assert!(
+            provisioning::approved_installation(
+                &f.state_directory.join(".local/state/homelab/provisioning"),
+                "vm-test"
+            )
+            .unwrap()
+            .is_none(),
+            "approved setups use the existing resume/completion route"
+        );
+        f.target.revision.clone()
+    };
     let main = api(
         f,
         "GET",
         &format!("repos/{}/commits/main", f.target.repository),
         None,
     );
-    assert_eq!(
-        main["sha"].as_str().unwrap(),
-        String::from_utf8(vm::private_bytes(
-            &f.state_directory.join("merged-revision"),
-            40
-        ))
-        .unwrap()
-    );
+    assert_eq!(main["sha"].as_str().unwrap(), expected);
     for name in ["vm-ssh", "vm-scp", "vm-tailnet", "gh", "vm-enrollment"] {
         install_adapter(
             &std::env::current_exe().unwrap(),
@@ -1432,7 +1470,7 @@ fn resume_prepare(f: &Fixture) {
         fs::remove_file(socket).unwrap();
     }
     let status = Command::new(f.state_directory.join("vm-enrollment"))
-        .arg("--resume-drive")
+        .arg(if merged { "--resume-drive" } else { "--drive" })
         .status()
         .unwrap();
     assert!(
@@ -1598,7 +1636,16 @@ fn main() {
             "--complete-drive",
         ),
         Some("--complete-drive") => complete_preserved(&fixture()),
-        Some("--resume-prepare") => resume_prepare(&fixture()),
+        Some("--resume-prepare") => resume_prepare(&fixture(), true),
+        Some("--retry-preparation-drive") => resume_prepare(&fixture(), false),
+        Some("--retry-preparation") => preserved_run(
+            Path::new(
+                &std::env::args_os()
+                    .nth(2)
+                    .expect("preserved fixture path required"),
+            ),
+            "--retry-preparation-drive",
+        ),
         Some("--resume-drive") => drive(&fixture(), true),
         Some("--drive") => drive(&fixture(), false),
         Some("--wizard-child") => wizard(&fixture()),
