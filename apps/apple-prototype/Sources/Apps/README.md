@@ -60,11 +60,13 @@ headings. Tap a photo or strip to open it, swipe or use the filmstrip to browse,
 and go back to the same place in the grid. Four completed frames save as one
 white-bordered JPEG and open a saved-strip screen. Older burst frames remain
 available as individual gallery items. The Photos launcher entry has been
-removed. A fresh synced PIN protects each opening, and backgrounding locks it.
+removed. Booth opens without a PIN; its gallery contains only Booth captures.
+Leaving or backgrounding the app closes Booth gallery access. Wake photos remain
+behind the Photos PIN gate.
 
 Capture runs on a serial actor. Leaving the camera stops it and cancels partial
 strips. The app owns each completed upload. An unsuccessful save can be retried
-or discarded from the unlocked camera. Without a camera the simulator shows
+or discarded from the camera. Without a camera the simulator shows
 the unavailable state. The DEBUG-only `-hybridBoothCamera` fixture supplies
 numbered frames for testing composition and saving. `-hybridBoothLibrary`
 adds dated gallery fixtures. For visual review, four sample JPEGs can be staged

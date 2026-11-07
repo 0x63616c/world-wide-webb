@@ -141,7 +141,7 @@ import XCTest
             button.press(forDuration: 0.7)
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
             if id == "booth" {
-                XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
+                XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
             }
             snapshot("layered-icons-\(id)")
             app.buttons["app-back"].tap()
@@ -228,8 +228,6 @@ import XCTest
         defer { app.terminate() }
         app.openAppGrid()
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
         XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
         print("MOTION_CAPTURE_READY photo-booth")
         Thread.sleep(forTimeInterval: 2)

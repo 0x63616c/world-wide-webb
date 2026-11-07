@@ -45,6 +45,24 @@ import XCTest
         do { _ = try await provider.image(photo); XCTFail("Locked cache loaded") } catch {}
     }
 
+    func testBoothOpensWithoutPINWhileWakePhotosStayLocked() async throws {
+        let (provider, transport, directory) = makeProvider()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        await provider.refresh()
+        let booth = try XCTUnwrap(provider.frames.first)
+        let wake = try XCTUnwrap(provider.frames.last)
+        provider.openBooth()
+        XCTAssertFalse(provider.unlocked)
+        _ = try await provider.image(booth)
+        do { _ = try await provider.image(wake); XCTFail("Wake photo loaded through Booth") } catch {}
+        await provider.clearFilter(booth)
+        let paths = await transport.paths
+        XCTAssertTrue(paths.contains("boothPhotos.clearFilter"))
+        provider.closeBooth()
+        do { _ = try await provider.image(booth); XCTFail("Closed Booth image loaded") } catch {}
+        XCTAssertFalse(provider.unlocked)
+    }
+
     func testUnavailableClearsStaleDataAndRecovers() async throws {
         let (provider, transport, directory) = makeProvider()
         defer { try? FileManager.default.removeItem(at: directory) }

@@ -19,12 +19,9 @@ extension HomeViewLaunchTests {
         XCTAssertFalse(app.buttons["app-photos"].exists)
         screenshot("01-launcher")
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        screenshot("02-pin")
-        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
         let gallery = app.buttons["booth-gallery"]
         XCTAssertTrue(gallery.waitForExistence(timeout: 10))
-        screenshot("03-photo")
+        screenshot("02-photo")
         let strip = app.buttons["Strip"]
         XCTAssertGreaterThan(strip.frame.midY, app.buttons["booth-shutter"].frame.midY)
         strip.tap()
@@ -79,8 +76,7 @@ extension HomeViewLaunchTests {
 
         app.openAppGrid()
         app.buttons["app-booth"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
+        XCTAssertTrue(app.buttons["booth-gallery"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Camera unavailable"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["booth-shutter"].isEnabled)
         screenshot("08-camera-unavailable")
