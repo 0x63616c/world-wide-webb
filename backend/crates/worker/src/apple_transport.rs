@@ -11,6 +11,7 @@ pub enum AppleTransportError {
     Unavailable,
     Rejected,
     InvalidResponse,
+    AuthorizationRejected,
 }
 struct CachedKeys {
     fetched_ms: f64,
@@ -191,10 +192,34 @@ pub async fn revoke_refresh_token(
     let request = Request::new_with_init("https://appleid.apple.com/auth/revoke", &init)
         .map_err(|_| AppleTransportError::Unavailable)?;
     let signal = AbortSignal::from(web_sys::AbortSignal::timeout_with_u32(10000));
-    let response = Fetch::Request(request)
+    let mut response = Fetch::Request(request)
         .send_with_signal(&signal)
         .await
         .map_err(|_| AppleTransportError::Unavailable)?;
+    if [401, 403].contains(&response.status_code()) {
+        return Err(AppleTransportError::AuthorizationRejected);
+    }
+    if response.status_code() == 400 {
+        let mut bytes = Vec::new();
+        if let Ok(mut stream) = response.stream() {
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk.map_err(|_| AppleTransportError::Unavailable)?;
+                if bytes.len() + chunk.len() > 4096 {
+                    return Err(AppleTransportError::InvalidResponse);
+                }
+                bytes.extend(chunk);
+            }
+        }
+        let value: serde_json::Value =
+            serde_json::from_slice(&bytes).map_err(|_| AppleTransportError::InvalidResponse)?;
+        if matches!(
+            value["error"].as_str(),
+            Some("invalid_client" | "unauthorized_client")
+        ) {
+            return Err(AppleTransportError::AuthorizationRejected);
+        }
+        return Err(AppleTransportError::Rejected);
+    }
     if response.status_code() != 200 {
         return Err(AppleTransportError::Unavailable);
     }

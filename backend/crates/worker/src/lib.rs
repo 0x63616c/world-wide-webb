@@ -76,6 +76,8 @@ mod reauth_runtime;
 pub mod receipt;
 #[cfg(target_arch = "wasm32")]
 mod results_runtime;
+#[cfg(target_arch = "wasm32")]
+mod retry_runtime;
 pub mod secrets;
 pub mod session;
 

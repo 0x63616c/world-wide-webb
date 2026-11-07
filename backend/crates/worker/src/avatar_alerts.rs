@@ -5,7 +5,6 @@ use worker::*;
 #[derive(Deserialize)]
 struct Alert {
     avatar_id: String,
-    attempts: i64,
 }
 pub(crate) async fn dispatch(env: &Env, db: &D1Database) -> Result<(), Failure> {
     if !env
@@ -14,38 +13,54 @@ pub(crate) async fn dispatch(env: &Env, db: &D1Database) -> Result<(), Failure> 
     {
         return Ok(());
     }
-    let from = env
-        .var("ADMIN_ALERT_FROM")
-        .map_err(|_| Failure::unavailable())?
-        .to_string();
-    let to = env
-        .var("ADMIN_ALERT_TO")
-        .map_err(|_| Failure::unavailable())?
-        .to_string();
-    let origin = env
-        .var("ADMIN_ORIGIN")
-        .map_err(|_| Failure::unavailable())?
-        .to_string();
-    if [&from, &to].iter().any(|s| {
-        s.len() > 254
-            || !s.contains('@')
-            || s.chars().any(|c| c.is_whitespace() || c == '<' || c == '>')
-    }) {
-        return Err(Failure::unavailable());
+    if !crate::retry_runtime::ready(db, "avatar_alerts", "").await? {
+        return Ok(());
     }
-    let url = Url::parse(&origin).map_err(|_| Failure::unavailable())?;
-    if url.scheme() != "https" || url.origin().ascii_serialization() != origin {
-        return Err(Failure::unavailable());
-    }
-    let binding = env
-        .send_email("ADMIN_EMAIL")
-        .map_err(|_| Failure::unavailable())?;
+    let configuration = (|| -> Result<_, Failure> {
+        let from = env
+            .var("ADMIN_ALERT_FROM")
+            .map_err(|_| Failure::unavailable())?
+            .to_string();
+        let to = env
+            .var("ADMIN_ALERT_TO")
+            .map_err(|_| Failure::unavailable())?
+            .to_string();
+        let origin = env
+            .var("ADMIN_ORIGIN")
+            .map_err(|_| Failure::unavailable())?
+            .to_string();
+        if [&from, &to].iter().any(|s| {
+            s.len() > 254
+                || !s.contains('@')
+                || s.chars().any(|c| c.is_whitespace() || c == '<' || c == '>')
+        }) {
+            return Err(Failure::unavailable());
+        }
+        let url = Url::parse(&origin).map_err(|_| Failure::unavailable())?;
+        if url.scheme() != "https" || url.origin().ascii_serialization() != origin {
+            return Err(Failure::unavailable());
+        }
+        let binding = env
+            .send_email("ADMIN_EMAIL")
+            .map_err(|_| Failure::unavailable())?;
+        Ok((from, to, origin, binding))
+    })();
+    let (from, to, origin, binding) = match configuration {
+        Ok(c) => c,
+        Err(error) => {
+            crate::retry_runtime::pause(db, "avatar_alerts").await?;
+            return Err(error);
+        }
+    };
     let time = now();
-    let jobs=statement(db,"SELECT j.avatar_id,j.attempts FROM avatar_alerts j JOIN avatar_objects a ON a.avatar_id=j.avatar_id WHERE j.state='pending' AND j.lease_until_ms<=?1 AND a.state='pending' ORDER BY a.created_at_ms LIMIT 10",&[number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Alert>().map_err(|_|Failure::unavailable())?;
+    let jobs=statement(db,"SELECT j.avatar_id,j.attempts FROM avatar_alerts j JOIN avatar_objects a ON a.avatar_id=j.avatar_id WHERE j.state='pending' AND j.lease_until_ms<=?1 AND a.state='pending' AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='avatar_alerts' AND r.work_key=j.avatar_id AND (r.state='failed' OR r.next_attempt_ms>?1)) ORDER BY a.created_at_ms LIMIT 10",&[number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Alert>().map_err(|_|Failure::unavailable())?;
     for job in jobs {
+        if !crate::retry_runtime::ready(db, "avatar_alerts", &job.avatar_id).await? {
+            continue;
+        }
         let lease = time + 120000;
         let claimed=statement(db,"UPDATE avatar_alerts SET lease_until_ms=?1,attempts=attempts+1 WHERE avatar_id=?2 AND state='pending' AND lease_until_ms<=?3 RETURNING avatar_id,attempts",&[number(lease),text(&job.avatar_id),number(time)])?.first::<Alert>(None).await.map_err(|_|Failure::unavailable())?;
-        let Some(claimed) = claimed else { continue };
+        let Some(_claimed) = claimed else { continue };
         let domain = from
             .split('@')
             .next_back()
@@ -57,10 +72,10 @@ pub(crate) async fn dispatch(env: &Env, db: &D1Database) -> Result<(), Failure> 
         let email =
             worker::EmailMessage::new(&from, &to, &raw).map_err(|_| Failure::unavailable())?;
         let state = if binding.send(&email).await.is_ok() {
+            crate::retry_runtime::clear(db, "avatar_alerts", &job.avatar_id).await?;
             "sent"
-        } else if claimed.attempts >= 8 {
-            "failed"
         } else {
+            crate::retry_runtime::failed(db, "avatar_alerts", &job.avatar_id).await?;
             "pending"
         };
         statement(db,"UPDATE avatar_alerts SET state=?1 WHERE avatar_id=?2 AND lease_until_ms=?3 AND state='pending'",&[text(state),text(&job.avatar_id),number(lease)])?.run().await.map_err(|_|Failure::unavailable())?;

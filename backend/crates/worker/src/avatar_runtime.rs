@@ -423,13 +423,25 @@ pub(crate) async fn cleanup_objects(
  statement(db,"UPDATE avatar_objects SET state='rejected',reason_code='expired',revision=revision+1 WHERE (state='uploading' AND created_at_ms<=?1-3600000) OR (state='pending' AND created_at_ms<=?1-604800000)",&[number(time)])?,
  statement(db,"UPDATE profiles SET avatar_status=CASE WHEN avatar_id IS NULL THEN 'rejected' ELSE 'approved' END WHERE avatar_status='pending' AND NOT EXISTS(SELECT 1 FROM avatar_objects a WHERE a.participant_id=profiles.participant_id AND a.state='pending')",&[])?,
  ]).await.map_err(|_|Failure::unavailable())?;
-    let jobs=statement(db,"SELECT object_key FROM avatar_purge_jobs WHERE lease_until_ms<=?1 ORDER BY object_key LIMIT 50",&[number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Purge>().map_err(|_|Failure::unavailable())?;
+    let jobs=statement(db,"SELECT object_key FROM avatar_purge_jobs WHERE lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='avatar_cleanup' AND r.work_key=avatar_purge_jobs.object_key AND (r.state='failed' OR r.next_attempt_ms>?1)) ORDER BY object_key LIMIT 50",&[number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Purge>().map_err(|_|Failure::unavailable())?;
     if jobs.is_empty() {
         finish_cleanup(db).await?;
         return Ok(());
     }
-    let bucket = env.bucket("AVATARS").map_err(|_| Failure::unavailable())?;
+    if !crate::retry_runtime::ready(db, "avatar_cleanup", "").await? {
+        return Ok(());
+    }
+    let bucket = match env.bucket("AVATARS") {
+        Ok(bucket) => bucket,
+        Err(_) => {
+            crate::retry_runtime::pause(db, "avatar_cleanup").await?;
+            return Err(Failure::unavailable());
+        }
+    };
     for job in jobs {
+        if !crate::retry_runtime::ready(db, "avatar_cleanup", &job.object_key).await? {
+            continue;
+        }
         let lease = time + 120000;
         let claimed=statement(db,"UPDATE avatar_purge_jobs SET lease_until_ms=?1,attempts=attempts+1 WHERE object_key=?2 AND lease_until_ms<=?3 RETURNING object_key",&[number(lease),text(&job.object_key),number(time)])?.first::<Purge>(None).await.map_err(|_|Failure::unavailable())?;
         if claimed.is_none() {
@@ -447,6 +459,7 @@ pub(crate) async fn cleanup_objects(
             .execute()
             .await;
         if purged.is_ok() {
+            crate::retry_runtime::clear(db, "avatar_cleanup", &job.object_key).await?;
             statement(
                 db,
                 "DELETE FROM avatar_purge_jobs WHERE object_key=?1 AND lease_until_ms=?2",
@@ -455,6 +468,8 @@ pub(crate) async fn cleanup_objects(
             .run()
             .await
             .map_err(|_| Failure::unavailable())?;
+        } else {
+            crate::retry_runtime::failed(db, "avatar_cleanup", &job.object_key).await?;
         }
     }
     finish_cleanup(db).await?;

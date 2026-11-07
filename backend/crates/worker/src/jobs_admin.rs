@@ -53,7 +53,7 @@ pub(crate) async fn admin(
             return Err(Failure::malformed());
         }
         let after = query.first().map(|(_, v)| v.as_ref()).unwrap_or("");
-        let jobs=statement(db,"SELECT kind,id,period_id,attempts,last_error FROM (SELECT 'dispatch' AS kind,job_id AS id,'' AS period_id,attempts,last_error FROM jobs WHERE state='failed' UNION ALL SELECT 'award' AS kind,participant_id AS id,period_id,attempts,last_error FROM award_jobs WHERE state='failed') WHERE kind||'/'||id||'/'||period_id>?1 ORDER BY kind,id,period_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Failed>().map_err(|_|Failure::unavailable())?;
+        let jobs=statement(db,"SELECT kind,id,period_id,attempts,last_error FROM (SELECT 'dispatch' AS kind,job_id AS id,'' AS period_id,attempts,last_error FROM jobs WHERE state='failed' UNION ALL SELECT 'award' AS kind,participant_id AS id,period_id,attempts,last_error FROM award_jobs WHERE state='failed' UNION ALL SELECT 'external' AS kind,retry_id AS id,kind AS period_id,attempts,last_error FROM external_retry_state WHERE state IN('failed','paused')) WHERE kind||'/'||id||'/'||period_id>?1 ORDER BY kind,id,period_id LIMIT 51",&[text(after)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Failed>().map_err(|_|Failure::unavailable())?;
         let next = if jobs.len() > 50 {
             let row = &jobs[49];
             format!(
@@ -111,7 +111,7 @@ pub(crate) async fn admin(
     let mut input: Retry = serde_urlencoded::from_bytes(body).map_err(|_| Failure::malformed())?;
     admin.check_csrf(request, &input.csrf_token, config)?;
     if input.confirmation != "yes"
-        || !["dispatch", "award"].contains(&input.kind.as_str())
+        || !["dispatch", "award", "external"].contains(&input.kind.as_str())
         || input.period_id.len() > 128
         || input.expected_attempts < 0
         || !crate::admin_runtime::valid_reason(&input.reason)
@@ -150,6 +150,9 @@ pub(crate) async fn admin(
         }
         writes.push(statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM jobs WHERE job_id=?2 AND state='failed' AND attempts=?3) THEN 1 ELSE 0 END)",&[text(&guard),text(id.as_str()),number(input.expected_attempts)])?);
         writes.push(statement(db,"UPDATE jobs SET state='pending',attempts=0,due_ms=?1,lease_until_ms=0,published_at_ms=NULL,last_error=NULL WHERE job_id=?2",&[number(now()),text(id.as_str())])?);
+    } else if input.kind == "external" {
+        writes.push(statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM external_retry_state WHERE retry_id=?2 AND kind=?3 AND state IN('failed','paused') AND attempts=?4) THEN 1 ELSE 0 END)",&[text(&guard),text(id.as_str()),text(&input.period_id),number(input.expected_attempts)])?);
+        writes.push(statement(db,"UPDATE external_retry_state SET state='pending',attempts=0,next_attempt_ms=0,updated_at_ms=?1,last_error=NULL WHERE retry_id=?2",&[number(now()),text(id.as_str())])?);
     } else {
         writes.push(statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM award_jobs WHERE participant_id=?2 AND period_id=?3 AND state='failed' AND attempts=?4) THEN 1 ELSE 0 END)",&[text(&guard),text(id.as_str()),text(&input.period_id),number(input.expected_attempts)])?);
         writes.push(statement(db,"UPDATE award_jobs SET state='pending',attempts=0,due_ms=NULL,lease_until_ms=0,next_attempt_ms=0,last_error=NULL WHERE participant_id=?1 AND period_id=?2 AND state='failed'",&[text(id.as_str()),text(&input.period_id)])?);

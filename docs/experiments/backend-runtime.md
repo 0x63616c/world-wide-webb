@@ -331,3 +331,20 @@ email or external notification has been sent by this implementation.
 Focused checkpoint: actual Wasm compilation succeeds; 376 SQL preparations across 16 migrations apply
 locally. Full structured-log redaction, provider outage and operational threshold acceptance remains
 part of the final validation phase.
+
+## External retry consistency checkpoint
+
+Migration0017 adds bounded external retry/review records without credentials or content. Account
+revocation, recovery-grant revocation, avatar tombstone cleanup and optional admin-email delivery now
+honor12attempts with30second exponential backoff capped at1hour plus jitter. Failed work remains fenced
+and reviewable in `/admin/jobs`; explicit audited retry resets the same work record. Configuration and
+recognized authorization failures pause their category and require administrative resume. Apple invalid
+request responses require review rather than being interpreted as successful revocation. Credentials
+and privacy cleanup tasks remain retained until completion. Queries exclude delayed/failed work before
+LIMIT so an early failing item cannot starve later jobs. Deletion waits for avatar purges before consuming
+its external revocation attempt budget. This supersedes earlier specialized retry policies.
+
+Focused evidence: actual Wasm compilation passes and384 SQL preparations across17 migrations apply
+locally. No external provider calls were executed. Full retry/provider-error/concurrency acceptance remains
+in the final validation phase. `backend/DEPLOYMENT.md` records exact binding/configuration requirements
+and the remaining acceptance inventory for the primary agent.

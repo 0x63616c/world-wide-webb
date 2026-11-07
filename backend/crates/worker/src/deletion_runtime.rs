@@ -265,9 +265,18 @@ struct Credential {
     refresh_token: String,
 }
 pub(crate) async fn process(env: &Env, db: &D1Database) -> std::result::Result<(), Failure> {
-    let config = Configuration::load(env)?;
+    if !crate::retry_runtime::ready(db, "account_revocation", "").await? {
+        return Ok(());
+    }
+    let config = match Configuration::load(env) {
+        Ok(c) => c,
+        Err(error) => {
+            crate::retry_runtime::pause(db, "account_revocation").await?;
+            return Err(error);
+        }
+    };
     let time = now();
-    let jobs=statement(db,"SELECT participant_id,operation_id FROM deletion_operations WHERE state='pending' AND lease_until_ms<=?1 ORDER BY created_at_ms LIMIT 10",&[number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Job>().map_err(|_|Failure::unavailable())?;
+    let jobs=statement(db,"SELECT participant_id,operation_id FROM deletion_operations WHERE state='pending' AND lease_until_ms<=?1 AND NOT EXISTS(SELECT 1 FROM avatar_purge_jobs a WHERE a.participant_id=deletion_operations.participant_id) AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='account_revocation' AND r.work_key=deletion_operations.operation_id AND (r.state='failed' OR r.next_attempt_ms>?1)) ORDER BY created_at_ms LIMIT 10",&[number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Job>().map_err(|_|Failure::unavailable())?;
     for job in jobs {
         let lease = time + 120000;
         let claimed=statement(db,"UPDATE deletion_operations SET lease_until_ms=?1,attempts=attempts+1 WHERE participant_id=?2 AND operation_id=?3 AND state='pending' AND lease_until_ms<=?4 RETURNING participant_id,operation_id",&[number(lease),text(&job.participant_id),text(&job.operation_id),number(time)])?.first::<Job>(None).await.map_err(|_|Failure::unavailable())?;
@@ -276,31 +285,59 @@ pub(crate) async fn process(env: &Env, db: &D1Database) -> std::result::Result<(
         }
         let authorization=statement(db,"SELECT ciphertext,key_version FROM apple_authorizations WHERE participant_id=?1 AND deployment=?2",&[text(&job.participant_id),text(&config.deployment)])?.first::<Authorization>(None).await.map_err(|_|Failure::unavailable())?;
         if let Some(auth) = authorization {
-            let plain = config
-                .keys
-                .open(
-                    &auth.key_version,
-                    &format!(
-                        "Folding-v1/{}/apple/{}",
-                        config.deployment, job.participant_id
-                    ),
-                    &auth.ciphertext,
-                )
-                .map_err(|_| Failure::unavailable())?;
+            let plaintext = config.keys.open(
+                &auth.key_version,
+                &format!(
+                    "Folding-v1/{}/apple/{}",
+                    config.deployment, job.participant_id
+                ),
+                &auth.ciphertext,
+            );
+            let plain = match plaintext {
+                Ok(plain) => plain,
+                Err(_) => {
+                    crate::retry_runtime::pause(db, "account_revocation").await?;
+                    return Err(Failure::unavailable());
+                }
+            };
             let credential: Credential =
                 serde_json::from_slice(&plain).map_err(|_| Failure::unavailable())?;
-            let (client, secret) = crate::reauth_runtime::client_secret(env, now())?;
-            if crate::apple_transport::revoke_refresh_token(
+            let (client, secret) = match crate::reauth_runtime::client_secret(env, now()) {
+                Ok(c) => c,
+                Err(error) => {
+                    crate::retry_runtime::pause(db, "account_revocation").await?;
+                    return Err(error);
+                }
+            };
+            if let Err(error) = crate::apple_transport::revoke_refresh_token(
                 &client,
                 &secret,
                 &credential.refresh_token,
             )
             .await
-            .is_err()
             {
+                if matches!(
+                    error,
+                    crate::apple_transport::AppleTransportError::AuthorizationRejected
+                ) {
+                    crate::retry_runtime::pause(db, "account_revocation").await?;
+                    return Err(Failure::unavailable());
+                }
+                if matches!(
+                    error,
+                    crate::apple_transport::AppleTransportError::Rejected
+                        | crate::apple_transport::AppleTransportError::InvalidResponse
+                ) {
+                    crate::retry_runtime::terminal(db, "account_revocation", &job.operation_id)
+                        .await?;
+                } else {
+                    crate::retry_runtime::failed(db, "account_revocation", &job.operation_id)
+                        .await?;
+                }
                 continue;
             }
         }
+        crate::retry_runtime::clear(db, "account_revocation", &job.operation_id).await?;
         let guard = uuid()?;
         let completed = now();
         let mut writes = vec![statement(
@@ -360,29 +397,54 @@ pub(crate) async fn revoke_recovery_grants(
     env: &Env,
     db: &D1Database,
 ) -> std::result::Result<(), Failure> {
-    let config = Configuration::load(env)?;
+    if !crate::retry_runtime::ready(db, "recovery_revocation", "").await? {
+        return Ok(());
+    }
+    let config = match Configuration::load(env) {
+        Ok(c) => c,
+        Err(error) => {
+            crate::retry_runtime::pause(db, "recovery_revocation").await?;
+            return Err(error);
+        }
+    };
     let time = now();
-    let jobs=statement(db,"SELECT job_id,ciphertext,key_version FROM apple_revocation_jobs WHERE deployment=?1 AND lease_until_ms<=?2 LIMIT 10",&[text(&config.deployment),number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Revocation>().map_err(|_|Failure::unavailable())?;
+    let jobs=statement(db,"SELECT job_id,ciphertext,key_version FROM apple_revocation_jobs WHERE deployment=?1 AND lease_until_ms<=?2 AND NOT EXISTS(SELECT 1 FROM external_retry_state r WHERE r.kind='recovery_revocation' AND r.work_key=apple_revocation_jobs.job_id AND (r.state='failed' OR r.next_attempt_ms>?2)) LIMIT 10",&[text(&config.deployment),number(time)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Revocation>().map_err(|_|Failure::unavailable())?;
     for job in jobs {
         let lease = time + 120000;
         let claimed=statement(db,"UPDATE apple_revocation_jobs SET lease_until_ms=?1 WHERE job_id=?2 AND lease_until_ms<=?3 RETURNING job_id,ciphertext,key_version",&[number(lease),text(&job.job_id),number(time)])?.first::<Revocation>(None).await.map_err(|_|Failure::unavailable())?;
         if claimed.is_none() {
             continue;
         }
-        let plain = config
-            .keys
-            .open(
-                &job.key_version,
-                &format!("Folding-v1/{}/revocation/{}", config.deployment, job.job_id),
-                &job.ciphertext,
-            )
-            .map_err(|_| Failure::unavailable())?;
+        let plaintext = config.keys.open(
+            &job.key_version,
+            &format!("Folding-v1/{}/revocation/{}", config.deployment, job.job_id),
+            &job.ciphertext,
+        );
+        let plain = match plaintext {
+            Ok(plain) => plain,
+            Err(_) => {
+                crate::retry_runtime::pause(db, "recovery_revocation").await?;
+                return Err(Failure::unavailable());
+            }
+        };
         let token = String::from_utf8(plain).map_err(|_| Failure::unavailable())?;
-        let (client, secret) = crate::reauth_runtime::client_secret(env, now())?;
-        if crate::apple_transport::revoke_refresh_token(&client, &secret, &token)
-            .await
-            .is_ok()
-        {
+        let (client, secret) = match crate::reauth_runtime::client_secret(env, now()) {
+            Ok(c) => c,
+            Err(error) => {
+                crate::retry_runtime::pause(db, "recovery_revocation").await?;
+                return Err(error);
+            }
+        };
+        let revoked = crate::apple_transport::revoke_refresh_token(&client, &secret, &token).await;
+        if matches!(
+            revoked,
+            Err(crate::apple_transport::AppleTransportError::AuthorizationRejected)
+        ) {
+            crate::retry_runtime::pause(db, "recovery_revocation").await?;
+            return Err(Failure::unavailable());
+        }
+        if revoked.is_ok() {
+            crate::retry_runtime::clear(db, "recovery_revocation", &job.job_id).await?;
             statement(
                 db,
                 "DELETE FROM apple_revocation_jobs WHERE job_id=?1 AND lease_until_ms=?2",
@@ -391,6 +453,14 @@ pub(crate) async fn revoke_recovery_grants(
             .run()
             .await
             .map_err(|_| Failure::unavailable())?;
+        } else if matches!(
+            revoked,
+            Err(crate::apple_transport::AppleTransportError::Rejected
+                | crate::apple_transport::AppleTransportError::InvalidResponse)
+        ) {
+            crate::retry_runtime::terminal(db, "recovery_revocation", &job.job_id).await?;
+        } else {
+            crate::retry_runtime::failed(db, "recovery_revocation", &job.job_id).await?;
         }
     }
     Ok(())

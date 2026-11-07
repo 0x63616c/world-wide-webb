@@ -157,3 +157,8 @@ with a2s response timeout and returns only status/version; it is independent of 
 Operations shows ingestion/finalization/failed-job indicators. Safe structured logs omit raw URLs,
 identity data and request bodies. External outage monitoring/notification delivery must be provisioned
 separately; in-process monitoring is not proof of whole-service availability.
+
+Apply **0017** for bounded external cleanup retries and paused-category review. `/admin/jobs` can retry
+these same records with audit/confirmation; privacy fences and revocation credentials remain until
+cleanup succeeds. See [DEPLOYMENT.md](DEPLOYMENT.md) for the complete deployment inventory and remaining
+acceptance checks. No compilation checkpoint enables production capabilities automatically.

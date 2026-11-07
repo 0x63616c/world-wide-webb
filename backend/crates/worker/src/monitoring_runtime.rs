@@ -49,7 +49,7 @@ pub(crate) async fn dispatch(db: &D1Database) -> std::result::Result<(), Failure
     }
     let delayed=statement(db,"SELECT count(*) AS count FROM periods WHERE state IN('grace','finalizing') AND cutoff_ms<?1-1800000",&[number(time)])?.first::<Count>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
     alert(db, "finalization_delayed", delayed.count > 0, delayed.count).await?;
-    let failed=statement(db,"SELECT (SELECT count(*) FROM jobs WHERE state='failed')+(SELECT count(*) FROM award_jobs WHERE state='failed') AS count",&[])?.first::<Count>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
+    let failed=statement(db,"SELECT (SELECT count(*) FROM jobs WHERE state='failed')+(SELECT count(*) FROM award_jobs WHERE state='failed')+(SELECT count(*) FROM external_retry_state WHERE state IN('failed','paused')) AS count",&[])?.first::<Count>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
     // The protected alert stays visible until the failed backlog is resolved; external queue
     // growth monitoring remains independent so a complete Worker outage is still observable.
     alert(db, "failed_jobs", failed.count > 0, failed.count).await?;
