@@ -86,10 +86,20 @@ struct LauncherGlassSurface: View {
         let args = ProcessInfo.processInfo.arguments
         if let index = args.firstIndex(of: "-previewLauncherEdge"), args.indices.contains(index + 1),
            let value = Double(args[index + 1]) {
-            return max(0, min(value, 0.2))
+            return max(0, min(value, 0.75))
         }
         #endif
         return 0.08
+    }
+    static var edgeWidth: CGFloat {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-previewLauncherEdgeWidth"), args.indices.contains(index + 1),
+           let value = Double(args[index + 1]) {
+            return CGFloat(max(0, min(value, 2)))
+        }
+        #endif
+        return 0.5
     }
     static var footprint: some View {
         RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
@@ -103,7 +113,7 @@ struct LauncherGlassSurface: View {
                 shape.strokeBorder(
                     LinearGradient(colors: [.white.opacity(Self.edgeOpacity), .white.opacity(Self.edgeOpacity * 0.25)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 0.5)
+                    lineWidth: Self.edgeWidth)
             }
             .padding(Self.edgeInset)
     }
