@@ -1,0 +1,43 @@
+# Local files
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Apple build output and signing material
+DerivedData/
+.build/
+build/
+*.xcuserstate
+xcuserdata/
+*.ipa
+*.dSYM/
+*.dSYM.zip
+*.xcarchive/
+*.p8
+*.p12
+*.mobileprovision
+*.keychain-db
+
+# Dependency/build caches
+node_modules/
+vendor/bundle/
+.bundle/
+target/
+.wrangler/
+
+# Infrastructure credentials and state
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.auto.tfvars
+*.auto.tfvars.json
+crash.log
+
+# Generated Fastlane output
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+fastlane/app_store_connect_api.json
