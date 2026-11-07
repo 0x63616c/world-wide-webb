@@ -14,7 +14,9 @@ import SwiftUI
     WindowGroup {
       FoldingRootView(model: controller.presentation, actions: controller.actions)
         .task { await controller.watch() }
-        .task(id: controller.presentation.analytics?.range.endMS) {
+        .task(id: [
+          controller.presentation.analytics?.range.endMS, controller.presentation.analytics?.asOfMS,
+        ]) {
           await controller.refreshAtDayBoundary()
         }
         .onReceive(

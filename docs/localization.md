@@ -53,7 +53,7 @@ The regression suite deliberately mutates a valid catalog to prove these failure
 - 125 semantic keys across ten locales passed structural validation and ten mutation regressions.
 - Xcode compiled the catalog in the isolated native preview. Foundation resolved compiled translations in all ten locales, including 40 plural cases (0, 1, 2, and 1,000,000), string interpolation and Intent keys. Run `xcrun xcstringstool compile apps/ios/App/Localizable.xcstrings --output-directory <temporary-directory>` then `swift scripts/test-localization-runtime.swift <temporary-directory>` to repeat this check.
 - Outer-display screenshots inspected in `build/ui-review/localization/`: German Today; German dark Settings at largest accessibility size; Japanese setup; Japanese leaderboard with interpolated pending count. Visible translated copy fits without observed overlap in these fixtures. Screenshots are local ignored artifacts, not release captures. The preview leaderboard period uses a fixed English fixture title; runtime composition must supply a localized period title.
-- The preview does not compile the live App Intent implementation. Its integration build and metadata extraction are owned by the primary agent.
+- The primary Fastlane integration build compiled the real app catalog and opening/closing App Intent metadata; eight app-hosted tests passed in commit `1d2d8cb`. This does not verify delivery from an actual Shortcuts automation.
 
 ## Remaining acceptance
 

@@ -116,3 +116,5 @@ The original fourteen work orders now have 33 linked deliverable issues (#15–#
 - Added 125 localized strings across ten agreed locales; local checks now include catalog validation and ten mutation tests. Xcode compiled the real app catalog and App Intent metadata. Full language/screenshot acceptance remains open.
 - Shared timezone vectors now enforce Swift/Rust canonical fixed-offset parity. Contract validation executes fourteen additional auth request fixtures, for 54 schema/example checks.
 - Remaining in #27: verified localized automation instructions/handoff, production account composition and integration acceptance. Full release scope remains in the delivery board.
+
+- Follow-up review fixed clock-change rescheduling of midnight refresh and added a clock-only running-duration projection bounded to the home day. The combined Fastlane app-hosted suite passes eleven tests; catalog validation and ten mutation tests also pass. No per-second journal writes or full-history replay were added.
