@@ -65,8 +65,43 @@ Current runtime status: configured deployments now expose the sign-in challenge,
 - Two concurrent refresh requests with the same operation converge on the same encrypted response-loss receipt. Other-operation reuse revokes the family and push binding. A stale recovery request cannot return a refresh token already rotated again and does not revoke the still-valid newer session merely for requesting stale recovery. A new family cannot reuse another family's participant-scoped operation ID. Non-secret operation tombstones preserve this rule after encrypted receipts are purged.
 - Sign-in receipt recovery verifies the same signed subject/nonce and normalized business body, returns the original session only within 60 seconds, and rechecks current account state, restriction, participant revision, session/device/deployment, and refresh-token state. Changed device/body, wrong subject/nonce, banned/deleting account or revoked session fails. Expiring the consumed challenge does not prematurely invalidate its already-committed receipt; an unused expired challenge fails. Once the receipt expires, a retry cannot create another session from the spent challenge. A valid native JWT paired with a valid but different-subject exchange JWT is rejected.
 - Logout atomically fences authorization, revokes the family, records the operation and removes its push binding. Existing banned accounts can establish a fresh privacy-capable session; sign-in does not enroll them or bypass community restriction guards. `participants.account_state` supports the upcoming deletion fence; new sign-in refuses deleting/deleted accounts.
-- The exported scheduled handler is locally invoked against workerd. It purges expired ciphertext/credentials/challenges/rate windows while preserving non-secret replay tombstones. Provision a **one-minute Cron** through OpenTofu before enabling auth in a deployed environment. The recovery authorization window ends exactly at expiry; physical cleanup occurs at the next successful scheduled pass, with opportunistic receipt cleanup on auth requests. A fixed safe log marker reports cleanup failure for later monitoring integration.
+- The exported scheduled handler is locally invoked against workerd. It purges expired ciphertext/credentials/challenges/rate windows while preserving non-secret replay tombstones. Provision the shared **five-minute dispatcher Cron** through OpenTofu before enabling auth in a deployed environment. The recovery authorization window ends exactly at expiry; physical cleanup occurs at the next successful scheduled pass, with opportunistic receipt cleanup on auth requests. A fixed safe log marker reports cleanup failure for later monitoring integration.
 
 Bindings, key-rotation constraints and remaining endpoints are listed in `backend/README.md`. Subject HMAC lookup checks every retained configured version and migrates a matched account digest without changing its restriction. Old keys cannot be removed while an active identity/ban or encrypted record still depends on them.
 
 Remaining F03/#33 gates: real Apple interoperability/configuration, native reauthentication and deletion recovery, complete App Attest CMS receipt verification/enrollment and official/device vectors, attestation challenge rate limits, and deployment/host configuration. F04/#34 still requires durable authorized event ingestion, joins/transfers/resets and live/finalized scoring. Auth success does not imply any competition endpoint is enabled. Native sign-in nonce semantics were checked against Apple's [request nonce documentation](https://developer.apple.com/documentation/authenticationservices/asauthorizationopenidrequest/nonce); Folding explicitly hashes the returned nonce string and shares `contracts/fixtures/apple-nonce.json` with Swift.
+
+## CMS enrollment and connected competition implementation checkpoint
+
+The next implementation batch adds bounded BER CMS verification, the fixed Apple Root CA G3 receipt
+trust anchor, and encrypted receipt storage. CMS accepts Apple's indefinite-length BER and optional
+signed attributes; duplicate attributes, extra signers, wrong digest/content type, wrong application,
+key/client hash or receipt kind, stale creation and expired receipts fail closed. The receipt signer must
+carry Apple's dedicated receipt marker, preventing an unrelated certificate under the shared root from
+becoming a receipt authority. Test-only private roots exist only under `cfg(test)`.
+
+Official Apple validation-guide inspection identified the credential EKU, P-384 issuers signing SHA-256
+leaves, and four-byte little-endian validation-category CBOR byte strings. The guide's flags can omit ED
+while extension bytes remain present; the implementation still requires and verifies the extensions.
+The published guide sample has inconsistent key/nonce/receipt bindings and is not treated as an
+end-to-end positive fixture. A licensed historical real-device Apple receipt and assertion are retained
+with provenance under `backend/tests/fixtures/apple-ios14`; modern full synthetic vectors use temporary
+OpenSSL keys, with no private keys committed. Earlier focused native runs validated the historical
+receipt/assertion and synthetic receipt cases. Final full-suite verification of this combined batch is
+explicitly deferred under the owner's implementation-first direction.
+
+The connected runtime now performs session-bound key enrollment, signed join/transfer, signed durable
+event ingestion and owner receipt reads. Enrollment never stores a key before both certificate and CMS
+verification. Assertion transport decrypts the challenge nonce, verifies exact request bytes and signed
+metadata, and provisionally extracts the counter. Each D1 mutation fences session validity, restriction,
+participant revision, key/environment/counter and challenge expiry/purpose. Ingestion additionally fences
+the active epoch/generation, stores immutable observations and receipts, and updates all-time scores
+from reducer replay. Join starts fresh public history; transfer retains history. Pending custom names
+retain the approved safe display name. Full multilingual moderation and its administrator UI are pending.
+
+Native and Wasm compilation pass for the new modules (explicit pinned Rust compiler). Comprehensive
+runtime/concurrency/replay acceptance remains pending, as do sustained history-size replay limits,
+period score consumers/finalization, mutation-rate enforcement, privacy lifecycle, preferences and real
+Apple/device enrollment. Existing test harness migrations/configuration were extended, but that harness
+has not been rerun for this combined batch. The shared dispatcher is aligned to the frozen five-minute
+schedule; exact cryptographic/receipt expiration never waits for scheduled cleanup.

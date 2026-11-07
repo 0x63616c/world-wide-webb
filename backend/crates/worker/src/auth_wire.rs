@@ -52,8 +52,7 @@ pub enum AttestationPurpose {
 pub struct AttestationChallengeRequest {
     pub purpose: AttestationPurpose,
     pub device_id: Id,
-    #[serde(deserialize_with = "required_nullable")]
-    pub key_id: Option<String>,
+    pub key_id: String,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -82,9 +81,18 @@ impl AppleExchangeRequest {
 
 impl AttestationChallengeRequest {
     pub fn validate(&self) -> bool {
-        match &self.key_id {
-            Some(key) => valid_key_id(key),
-            None => self.purpose == AttestationPurpose::EnrollKey,
+        valid_key_id(&self.key_id)
+    }
+}
+impl AttestationPurpose {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::EnrollKey => "enroll_key",
+            Self::Join => "join",
+            Self::Transfer => "transfer",
+            Self::SubmitEvents => "submit_events",
+            Self::Reset => "reset",
+            Self::AvatarUpload => "avatar_upload",
         }
     }
 }

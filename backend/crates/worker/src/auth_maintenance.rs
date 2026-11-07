@@ -1,4 +1,4 @@
-//! Retention cleanup is idempotent. Schedule each minute; authorization still checks exact expiry.
+//! Retention cleanup is idempotent. Use the shared five-minute dispatcher; authorization still checks exact expiry.
 use worker::*;
 pub async fn cleanup(db: &D1Database, timestamp: i64) -> Result<()> {
     let time = wasm_bindgen::JsValue::from_f64(timestamp as f64);

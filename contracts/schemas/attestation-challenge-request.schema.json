@@ -19,16 +19,8 @@
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
     "key_id": {
-      "anyOf": [
-        {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{43}=$"
     }
   },
   "required": [

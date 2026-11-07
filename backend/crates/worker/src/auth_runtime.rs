@@ -112,7 +112,7 @@ pub(crate) fn response(value: &impl Serialize) -> std::result::Result<Response, 
 pub(crate) struct Configuration {
     pub(crate) deployment: String,
     pub(crate) keys: KeyRing,
-    network_key: [u8; 32],
+    pub(crate) network_key: [u8; 32],
 }
 impl Configuration {
     fn load(env: &Env) -> std::result::Result<Self, Failure> {
@@ -155,12 +155,26 @@ pub async fn dispatch(
     body: &[u8],
     request_id: &Id,
 ) -> std::result::Result<Option<Response>, Failure> {
+    if request.method() == Method::Get
+        && (request.path() == "/v1/me" || request.path().starts_with("/v1/event-batches/"))
+    {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::community_reads::read(request, &db, &config, request_id).await?,
+        ));
+    }
     if request.method() != Method::Post
         || ![
             "/v1/auth/challenges",
             "/v1/auth/refresh",
             "/v1/auth/logout",
             "/v1/auth/apple",
+            "/v1/attestation/challenges",
+            "/v1/attestation/keys",
+            "/v1/event-batches",
+            "/v1/enrollment/join",
+            "/v1/enrollment/transfer",
         ]
         .contains(&request.path().as_str())
     {
@@ -191,6 +205,24 @@ pub async fn dispatch(
         "/v1/auth/refresh" => refresh(&db, &config, body, request_id).await?,
         "/v1/auth/apple" => {
             crate::auth_signin::sign_in(env, &db, &config, body, request_id).await?
+        }
+        "/v1/attestation/challenges" => {
+            crate::attestation_runtime::challenge(request, env, &db, &config, body, request_id)
+                .await?
+        }
+        "/v1/attestation/keys" => {
+            crate::attestation_runtime::enroll(request, env, &db, &config, body, request_id).await?
+        }
+        "/v1/event-batches" => {
+            crate::competition_runtime::events(request, env, &db, &config, body, request_id).await?
+        }
+        "/v1/enrollment/join" => {
+            crate::enrollment_runtime::mutate(request, env, &db, &config, body, request_id, false)
+                .await?
+        }
+        "/v1/enrollment/transfer" => {
+            crate::enrollment_runtime::mutate(request, env, &db, &config, body, request_id, true)
+                .await?
         }
         "/v1/auth/logout" => logout(request, &db, &config, body, request_id).await?,
         _ => return Ok(None),
@@ -480,4 +512,78 @@ async fn logout(
     .await
     .map_err(|_| Failure::unauthorized())?;
     response(&out)
+}
+
+/// Server-derived session identity for community operations, including key enrollment before join.
+pub(crate) struct CommunitySession {
+    pub session_id: String,
+    pub participant_id: String,
+    pub device_id: String,
+    pub revision: i64,
+    pub access_hash: [u8; 32],
+}
+#[derive(Deserialize)]
+struct CommunityRow {
+    session_id: String,
+    participant_id: String,
+    device_id: String,
+    revision: i64,
+}
+pub(crate) async fn community_session(
+    request: &Request,
+    db: &D1Database,
+    config: &Configuration,
+) -> std::result::Result<CommunitySession, Failure> {
+    authenticated_session(request, db, config, true).await
+}
+pub(crate) async fn authenticated_session(
+    request: &Request,
+    db: &D1Database,
+    config: &Configuration,
+    require_community: bool,
+) -> std::result::Result<CommunitySession, Failure> {
+    let authorization = request
+        .headers()
+        .get("Authorization")
+        .map_err(|_| Failure::unauthorized())?
+        .ok_or_else(Failure::unauthorized)?;
+    let hash = authorization
+        .strip_prefix("Bearer ")
+        .and_then(session::token_hash)
+        .ok_or_else(Failure::unauthorized)?;
+    let row=statement(db,"SELECT s.session_id,s.participant_id,s.device_id,r.revision FROM sessions s JOIN access_tokens a ON a.session_id=s.session_id JOIN participants p ON p.participant_id=s.participant_id JOIN participant_revisions r ON r.participant_id=p.participant_id WHERE a.token_hash=?1 AND s.deployment=?2 AND s.revoked=0 AND s.absolute_expires_at_ms>?3 AND s.idle_expires_at_ms>?3 AND a.expires_at_ms>?3 AND p.account_state='active' AND (?4=0 OR p.restriction='none')",&[blob(&hash),text(&config.deployment),number(now()),number(i64::from(require_community))])?.first::<CommunityRow>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unauthorized)?;
+    Ok(CommunitySession {
+        session_id: row.session_id,
+        participant_id: row.participant_id,
+        device_id: row.device_id,
+        revision: row.revision,
+        access_hash: hash,
+    })
+}
+pub(crate) const COMMUNITY_GUARD: &str = r#"
+INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS (
+ SELECT 1 FROM participants p JOIN participant_revisions r ON r.participant_id=p.participant_id
+ WHERE p.participant_id=?2 AND p.account_state='active' AND p.restriction='none' AND r.revision=?3
+) THEN 1 ELSE 0 END)
+"#;
+pub(crate) fn session_guard(
+    db: &D1Database,
+    guard: &str,
+    session: &CommunitySession,
+    config: &Configuration,
+    timestamp: i64,
+) -> std::result::Result<D1PreparedStatement, Failure> {
+    statement(
+        db,
+        session::SESSION_GUARD_SQL,
+        &[
+            text(guard),
+            text(&session.session_id),
+            text(&session.participant_id),
+            text(&session.device_id),
+            text(&config.deployment),
+            number(timestamp),
+            blob(&session.access_hash),
+        ],
+    )
 }

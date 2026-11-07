@@ -37,7 +37,7 @@
       "body": {
         "purpose": "enroll_key",
         "device_id": "00000000-0000-0000-0000-000000000001",
-        "key_id": null
+        "key_id": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="
       }
     },
     {
@@ -92,7 +92,7 @@
       "body": {
         "purpose": "enroll_key",
         "device_id": "00000000-0000-0000-0000-000000000001",
-        "key_id": null,
+        "key_id": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
         "admin": true
       }
     },
@@ -128,6 +128,14 @@
         "identity_token": "synthetic",
         "authorization_code": "synthetic",
         "device_id": "00000000-0000-0000-0000-000000000001"
+      }
+    },
+    {
+      "schema": "attestation-challenge-request",
+      "body": {
+        "purpose": "enroll_key",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "key_id": null
       }
     }
   ]

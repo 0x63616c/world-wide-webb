@@ -16,6 +16,11 @@ sha2.workspace = true
 worker = { version = "=0.8.7", features = ["d1", "queue"] }
 askama = { version = "=0.16.1", default-features = false, features = ["derive", "std"] }
 p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "alloc", "pkcs8"] }
+chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
+rasn = { version = "=0.30.0", default-features = false, features = ["bytes"] }
+rasn-cms = { version = "=0.30.0", default-features = false }
+unicode-segmentation = "=1.12.0"
+unicode-normalization = "=0.1.24"
 ciborium = "=0.2.2"
 serde_bytes = "=0.11.19"
 base64 = "=0.23.1"

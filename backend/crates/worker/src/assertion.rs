@@ -259,3 +259,27 @@ mod tests {
         assert!(client_data_hash(&binding).is_err());
     }
 }
+
+#[cfg(test)]
+mod apple_device_vector {
+    use super::*;
+    use base64::engine::general_purpose::STANDARD;
+    #[test]
+    fn historical_real_device_assertion_protocol() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/apple-ios14/vector.json"
+        ))
+        .unwrap();
+        let bytes = |name: &str| STANDARD.decode(fixture[name].as_str().unwrap()).unwrap();
+        assert_eq!(
+            verify_assertion(
+                &bytes("assertion"),
+                &bytes("public_key_sec1"),
+                fixture["app_id"].as_str().unwrap(),
+                0,
+                &bytes("client_hash").try_into().unwrap()
+            ),
+            Ok(1)
+        );
+    }
+}

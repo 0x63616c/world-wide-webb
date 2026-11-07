@@ -30,7 +30,7 @@ When all required configuration and migrations are present, the actual Worker im
 
 Opaque access tokens last 15 minutes; refresh families have 30-day inactivity and 90-day absolute limits. D1 contains token hashes, AES-256-GCM encrypted Apple authorization credentials and short-lived encrypted response-loss receipts. Token reuse revokes the family and push binding. Recovery checks a live unrevoked session and never returns a refresh token already rotated again. Operation IDs are participant/route scoped, including across families; non-secret tombstones outlive encrypted receipts. Sign-in preserves banned-account privacy access while preventing stale receipt replay from exposing a previously unrestricted profile.
 
-Apply **all migrations in order**. Schedule the exported handler every minute: it purges expired receipt ciphertext, tokens, sessions, challenges and short-lived network rate windows. Exact authorization expiry is checked independently of cleanup timing. A consumed challenge can support only its committed 60-second sign-in receipt; it never establishes another session. Account deletion must atomically set `participants.account_state` and revoke sessions before cleanup. New sign-in refuses deleting/deleted accounts; reauthentication and deletion recovery are separate pending handlers.
+Apply **all migrations in order**. Schedule the single exported dispatcher every five minutes, matching the operations contract: it purges expired receipt ciphertext, tokens, sessions, challenges and short-lived network rate windows. Exact authorization expiry is checked independently of cleanup timing. A consumed challenge can support only its committed 60-second sign-in receipt; it never establishes another session. Account deletion must atomically set `participants.account_state` and revoke sessions before cleanup. New sign-in refuses deleting/deleted accounts; reauthentication and deletion recovery are separate pending handlers.
 
 ### Required Worker bindings
 
@@ -55,3 +55,30 @@ The primary agent provisions bindings from approved secret storage; no keys belo
 All community writes, App Attest enrollment/challenges, reauthentication, deletion recovery, profile/results and admin handlers remain unavailable. No test identity or simulator fixture enables them. Local runtime tests replace only the outbound Apple service with a synthetic cryptographic issuer; production code has no alternate Apple URL/root or verifier bypass.
 
 Before deployment acceptance, finish the full key-enrollment/reauthentication/deletion lifecycle, production host separation, authorized durable ingestion/scoring/jobs, remote D1 evidence, official/device App Attest vectors, APNs HTTP/2 and image Worker stress evidence. Neither F01 nor F03 is complete. See [runtime evidence](../docs/experiments/backend-runtime.md).
+
+### App Attest and competition implementation
+
+Apply migrations 0005–0006 before enabling the additional routes. Required public bindings are
+`APP_ATTEST_APP_ID` (the full Apple team ID and bundle identifier), `APP_ATTEST_ENVIRONMENT`
+(`development` or `production`), and `APP_ATTEST_BUNDLE_VERSIONS` (a JSON array of explicitly allowed
+`CFBundleVersion` strings). No alternate certificate root or verifier is configurable. Each deployment
+has independent D1 data, session keys and App Attest environment.
+
+The client generates its key before requesting an enrollment challenge. Enrollment hashes the decoded
+32-byte nonce; assertion requests use the existing exact method/path/body/nonce binding. Challenge nonce
+bytes and CMS receipts are encrypted with the versioned server key ring. Credentials require the Apple
+App Attestation chain and receipt CMS verification under Apple Root CA G3, including signer purpose,
+application, credential key, client-data hash, creation time, expiry and ATTEST receipt type.
+
+Implemented routes now include key challenges/enrollment, join/transfer, event batches, owner batch
+receipt lookup and `/me`. All mutations fence session/revision and consume assertions inside the same
+D1 batch as their business changes. Idempotent retries require a fresh assertion and challenge. Join
+and transfer have distinct membership semantics; ingestion rechecks the active epoch/generation. Names
+that differ from the safe approved profile enter a pending queue without being published. All-time
+scores replay the accepted source stream; pending score jobs require the period-scoring consumer.
+
+These new routes have passed compilation, **not final runtime acceptance**. Before deployment, complete
+multilingual nickname detection/approval, privacy lifecycle (leave/reset/delete/recovery), preferences,
+period scoring/finalization and job consumption, rate enforcement for business operations, and the final
+workerd/D1 and device validation gates. Current `/me` preferences are the immutable opt-out defaults until
+the preference mutation is implemented. No leaderboard endpoint is exposed prematurely.
