@@ -1,50 +1,69 @@
 # Managing the homelab
 
 Use the public [homelab CLI](https://github.com/0x63616c/homelab-cli) from your
-personal Mac. This private repository contains configuration, not a second copy
-of the operator application.
+personal Mac. This private repository contains configuration and host operations,
+not a second copy of the operator application.
 
-## Everyday entry point
+## Start or resume enrollment
 
-Run `homelab`. Choose a host with **↑ / ↓**; **Enter** connects and opens setup.
-**i** inspects without changing the host; **d** opens the full result; **q** quits.
-The repository attachment and host binding are remembered.
+Run `homelab`, choose a saved connection and press **Enter**. The wizard handles
+first SSH access, remembers the selected identity and repository binding, and
+leads through enrollment. `homelab setup --host NAME` opens the same flow for a
+saved connection. This is an enrollment interface, not a general management
+dashboard. See [setup](setup.md) for target prerequisites.
 
-Setup has three stages: **Connect → Prepare → Review & set up**. See
-[setup](setup.md) for the one-time target settings and configuration review.
+The operator needs no local Nix or compiler. Review configuration offline with
+`homelab config validate homelab.json`. Schema 2 explicitly names the backup vault
+in `onePassword.backupVault`; the separate `tailscale.oauth` references locate the
+issuer credential. Neither field contains secret values.
 
-## Authentication
+## Credentials and approval
 
-| Connection | Credential |
+| Connection or purpose | Credential |
 | --- | --- |
-| Operator → GitHub | Local GitHub CLI login, used to read the private manifest |
-| Operator → host | SSH key, including keys held by the local 1Password SSH agent |
-| Operator → Tailscale API | Scoped OAuth credential from local 1Password, or manual hidden input |
-| Host → GitHub | Separate repository-read token provisioned for that host |
-| Host secrets | Host-specific age identity; recovery identity stays off nodes |
+| Operator → GitHub | Existing local GitHub CLI authentication |
+| Operator → target | Selected SSH key, including a local 1Password agent identity |
+| Recovery | Host and recovery age identities backed up and read back through client-side 1Password |
+| Tailscale enrollment | Single-use auth key issued through the configured OAuth item |
+| Target → GitHub | Target-generated, repository-scoped read-only SSH deploy key |
+| Target secret decryption | Host-specific age identity; recovery identity stays off the target |
 
-The 1Password integration is an adapter behind a small credential-source
-interface. Automated tests substitute synthetic credentials; they do not access
-your vault. No password manager or reusable OAuth client secret is installed on
-a node.
+The wizard does not ask for manually pasted tokens. Password-manager access and
+reusable OAuth credentials stay on the operator. Private SSH keys are not copied
+from the operator to the target. Native SSH handles any administrator password
+prompt directly.
 
-## What happens remotely
+After approval, the wizard verifies key backups, prepares host ciphertext and
+opens a configuration PR containing public recipients, the selected public SSH
+key and encrypted secrets. Review and merge that PR. The wizard verifies the
+merged configuration, installs its exact revision, reboots and checks the deployed
+system, services, SSH and configured Tailscale route before reporting completion.
+An approval is for that target and configuration, not a production-service cutover.
 
-The CLI uses ordinary SSH. It ships a native bootstrap helper and assembles a
-private review bundle from the exact selected Git commit; no local Nix or
-compiler is required. The target checks fetched manifest and evaluated Nix facts
-against your approved review before installing keys or activating.
+## Git updates after enrollment
 
-The CLI does not need a permanent node agent. Launchd owns boot services and
-scheduled jobs. A persistent operation service for reconnectable progress/logs
-is a possible later feature, not part of this release.
+The first-enrollment hold preserves the approved revision through reboot.
+Completion records verified enrollment and releases Comin, then checks its real
+Git fetch and deployed generation. Comin owns subsequent reconciliation of this
+repository's `main` branch using the target's deploy key and pinned GitHub host
+keys. Protecting and reviewing `main` is therefore the update authorization
+boundary; an Actions result is not a separate runtime deployment gate.
 
-## Safety and recovery
+Current Comin integration supports base hosts only. The Nix module rejects
+combining it with the stateful container or Home Assistant runtimes until their
+backup and deployment workflow is reviewed. It does not promise application-data
+rollback or recovery.
 
-Saved host-key changes are blocked. Secret values never enter command arguments
-or UI diagnostics. Interrupted setup journals are preserved and uncertain phases
-cannot resume blindly. Existing legacy preparation needs an explicit repository
-binding before reuse; switching repositories cannot silently reuse its keys.
+## Interrupted setup and migration
 
-A bootstrap is not a service cutover. Verify Tailscale, reboot/startup and recovery
-before moving production services. Wiping either Mac always needs separate approval.
+Preserve operator state, target journals and receipts after a failure. Changed
+SSH host keys are blocked; uncertain privileged phases cannot restart blindly.
+A completed attempt can recheck its saved installation without choosing a new
+revision. Historical preparation without verified backups requires an explicit
+schema-2 migration using the intended backup vault; do not delete state to bypass
+that check.
+
+The current disposable rehearsal is still being validated; see
+[implementation status](implementation-status.md) and [VM evidence](vm-validation.md).
+Production provisioning, service restoration and cutover need their own evidence
+and approval. Wiping either physical Mac always needs separate approval.

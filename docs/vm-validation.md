@@ -68,8 +68,11 @@ Pinned Comin waits 600 seconds for its first scheduled fetch, matching the old
 setup verification deadline. Helper `583788d` now requests one native Comin fetch
 after its protected RPC socket is ready, then retains the existing strict Git and
 deployment verification. Focused tests and independent review passed. A fresh
-`homelab-enrollment-full-3` rehearsal is running against unready baseline `034d093`;
-no successful completion is claimed yet.
+`homelab-enrollment-full-3` rehearsal used unready baseline `034d093`, created and
+merged fixture PR #2, activated and rebooted. It then stopped during completion
+before Comin started. Its report has `rebooted=true`, but completion and
+reconciliation are not verified. The guest and operator state remain preserved;
+read-only diagnosis is ongoing. No successful full rehearsal is claimed yet.
 
 The private helper now pins `583788d` and schema 2 uses an explicit backup vault.
 Final private Nix validation is still pending; the earlier full check does not
