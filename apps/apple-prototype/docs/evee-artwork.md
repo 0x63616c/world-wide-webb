@@ -1,20 +1,17 @@
 # Evee artwork
 
 `VehicleAssets.xcassets/EveeModelY.imageset/evee-side.png` was created with the
-built-in ImageGen tool on 2026-11-06. It is a transparent pictogram, not a photo
-or source of telemetry. It depicts the owner's original Model Y in a right-facing
-side profile, using Space Gray for the body and wheels and white for the interior.
+built-in ImageGen tool on 2026-11-06. It is a transparent-background pictogram,
+not a photo or source of telemetry. It depicts the owner's original Model Y in
+a right-facing side profile, with a Space Gray body, plain wheels and empty dark
+window openings. There are no seats or other interior details.
 
-Final edit prompt: “Simplify the existing side-view car into a flat two-colour
-pictogram. Preserve the original Model Y roofline, natural proportions and exact
-right-facing orthographic side view. Space Gray body and wheels, white windows
-and interior, true transparent background. One smooth body silhouette, two plain
-wheel circles separated by transparent wheel-arch gaps, and two broad window
-shapes. No outlines, panel seams, handles, lights, trim, spokes, logos, seats,
-shading, reflections, shadows or ground. Full vehicle centered in a 3:1 frame.”
+Final edit prompt: “Remove both white seats completely, including the headrest.
+Make both window openings empty and see-through so the black app background shows
+through. No seats, people, white marks, outlines, reflections or interior detail.
+Preserve the existing gray roof pillars, body silhouette, plain circular wheels,
+wheel-arch gaps and wide 3:1 framing. Keep the background transparent; no shadows
+or new details.”
 
-A follow-up edit kept the geometry and removed residual shading, requesting
-uniform gray and white fills.
-
-The edit used the earlier generated Evee illustration as a reference. Vehicle
+The edit used the earlier generated side profile as a reference. Vehicle
 telemetry and animation remain native SwiftUI elements separate from the artwork.

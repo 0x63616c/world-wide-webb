@@ -17,7 +17,7 @@ struct TeslaController: View {
                     Image("EveeModelY")
                         .resizable().scaledToFit()
                         .frame(maxWidth: 560)
-                        .accessibilityLabel("Evee, a Space Gray Model Y with white interior")
+                        .accessibilityLabel("Evee, a Space Gray Model Y")
                     TeslaEnergy(data: data, reported: reported)
                     Label("\(data.climate)°F", systemImage: data.preconditioning ? "fan.fill" : "thermometer.medium")
                         .font(.title3).foregroundStyle(.secondary)
@@ -40,8 +40,8 @@ struct TeslaController: View {
     }
 
     private var header: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(data.nick).font(.system(size: nameSize, weight: .semibold, design: .rounded))
                 Image(systemName: data.locked ? "lock.fill" : "lock.open.fill")
                     .font(.title3)
@@ -50,10 +50,11 @@ struct TeslaController: View {
                     .accessibilityLabel(reported ? "Last reported lock state" : "Door lock")
                     .accessibilityValue(data.locked ? "Locked" : "Unlocked")
                     .accessibilityIdentifier("tesla-lock-status")
+                Spacer(minLength: 16)
+                Text("\(data.odo) mi").font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                    .accessibilityLabel("Odometer, \(data.odo) miles")
+                    .accessibilityIdentifier("tesla-odometer")
             }
-            Text("\(data.odo) mi").font(.callout).monospacedDigit().foregroundStyle(.secondary)
-                .accessibilityLabel("Odometer, \(data.odo) miles")
-                .accessibilityIdentifier("tesla-odometer")
             if reported {
                 Label("Last reported", systemImage: "clock.arrow.circlepath")
                     .font(.callout).foregroundStyle(.secondary)

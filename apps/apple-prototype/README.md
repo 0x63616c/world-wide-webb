@@ -13,8 +13,9 @@ Native Liquid Glass supplies tile refraction, highlights and button chrome, with
 Lamps has an All lamps brightness fader, room power controls, expandable members and Color & Effects. The next-alarm face has 120 uniformly weighted ticks around an arc-length sampled rounded rectangle. The design corner radius is 112 points, with an 80-point inset ring radius. It is **not a measured iPad 13-inch hardware radius**: Apple does not publish that measurement in the available resources. The separate 18-point research token describes older documented iPad models and is not misrepresented as current hardware.
 
 Tesla presents Evee, the owner's original Space Gray Model Y with white interior.
-A flat side-profile car sits in a simple centered summary. Mileage appears directly
-under Evee without a visible label; a small lock glyph reports locked/unlocked.
+A flat side-profile car sits in a simple centered summary. Evee and the lock glyph
+sit left-aligned in the header, with mileage right-aligned on the same row without
+a visible label. The lock glyph reports locked/unlocked.
 The native screen is read-only, with no command buttons or PIN flow. Battery/range,
 active charging details and cabin temperature stay compact. Software notices appear
 only for available/installing updates. Optional HA telemetry supplies cable, charge
