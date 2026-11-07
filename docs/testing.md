@@ -18,7 +18,7 @@ Run locally with `cargo test --locked`, `cargo fmt --check` and
 
 ## Opt-in VM rehearsal
 
-For a fresh guest, [the full enrollment harness](../tests/fixtures/vm-enrollment.md)
+For a fresh guest, [the full enrollment harness](https://github.com/0x63616c/homelab-cli/blob/main/tests/fixtures/vm-enrollment.md)
 drives the real wizard, a private fixture PR and merge, installation, reboot and
 Comin verification. It runs on the operator client through a pinned SSH jump host;
 vault and Tailscale adapters are synthetic. Run this rehearsal before each
