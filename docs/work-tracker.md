@@ -1,6 +1,6 @@
 # Folding work tracker
 
-GitHub Issues are the live execution tracker. One execution agent; independent reviewers only. Physical-device evidence is deferred to F13 after submission by owner instruction.
+GitHub Issues are the live execution tracker. Owner authorized parallel implementation agents on November 7; the primary agent coordinates ownership, integration, credentials and deployment. Physical-device evidence is deferred to F13 after submission by owner instruction.
 
 Update issue-body checkboxes as individual requirements are verified, with commit/evidence links. Progress comments supplement these checklists. Close fully accepted issues and tick their work-order entries below; partial or deferred work remains unchecked. These rules are enforced as agent instructions in `AGENTS.md`.
 
@@ -82,3 +82,13 @@ Foundation and personal persistence are in progress. Reducer, journal and local 
 - Independent review identified restored routing authority on a new installation. Route/lease identity binding and a restoration regression fixed it; focused recheck found no remaining blocker.
 - `scripts/check` passed 40 Swift tests (6 domain, 34 data), six schemas/forty contract checks and formatting.
 - Still pending: real CloudKit account lookup/notification wiring, app/widget/export cache invalidation, signed capability validation and live account-change evidence. Local tests explicitly disable cloud transport.
+
+
+## Apple build foundation batch
+
+- Added a reproducibly generated Xcode project linking FoldingKit, a deliberately debug-only launch harness, and an app-hosted journal persistence test. Release compilation is blocked until the production composition replaces the harness.
+- Pinned observed tool versions, Ruby/Fastlane dependencies and lockfile; added Fastlane `verify`/`verify_app`, exact Apple toolchain/runtime validation and optional Apple bootstrap.
+- Xcode 27.2 (27B52) built the app for the Duo simulator; Fastlane `verify_app` passed its app-hosted persistence test. The 40 core tests/contracts/formatting also passed. This is not signing, physical tracking, product UI or App Store screenshot evidence.
+- Independent foundation review found no blocking code defect; architecture documentation now records the XcodeGen decision consistently.
+- Added an unprivileged GitHub contract-check workflow; its first run is pending. Native hosted CI is not enabled: the current hosted image has Xcode 27B48 and Duo runtime27.1 rather than the verified local pins. No self-hosted repo runners were registered at this checkpoint.
+- Owner now permits implementation agents for speed. Backend Rust work is assigned separately; primary retains credential/deployment access and integrates results.

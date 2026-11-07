@@ -44,3 +44,6 @@ fastlane/Preview.html
 fastlane/screenshots/
 fastlane/test_output/
 fastlane/app_store_connect_api.json
+
+# Reproducibly generated Xcode project
+apps/ios/Folding.xcodeproj/

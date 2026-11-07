@@ -59,7 +59,7 @@ scripts/
 .github/workflows/
 ```
 
-Commit an ordinary shared Xcode project initially; avoid adding a project generator unless repeated maintenance shows a benefit. Pin Swift packages, Cargo dependencies, Fastlane gems, and build-tool dependencies in their native lockfiles. Keep generated builds, screenshots, credentials, and infrastructure state out of source control. Publish release assets separately.
+Generate the shared Xcode project from `apps/ios/project.yml` with pinned XcodeGen 2.46.0; commit the specification and ignore the generated project. The November 7 build foundation uses this choice to keep targets, local package dependencies and shared schemes reproducible in local/Fastlane/CI builds without hand-editing project object IDs. Pin Swift packages, Cargo dependencies, Fastlane gems, and build-tool dependencies in their native lockfiles. Keep generated builds, screenshots, credentials, and infrastructure state out of source control. Publish release assets separately.
 
 ## Swift modules and caller contracts
 

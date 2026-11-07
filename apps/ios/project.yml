@@ -1,0 +1,64 @@
+name: Folding
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    iOS: '27.0'
+  createIntermediateGroups: true
+packages:
+  FoldingKit:
+    path: Packages/FoldingKit
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    TARGETED_DEVICE_FAMILY: '1'
+    MARKETING_VERSION: '1.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_CFBundleDisplayName: Folding
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ''
+targets:
+  Folding:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        includes: ['*.swift']
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding
+    dependencies:
+      - package: FoldingKit
+        product: FoldingDomain
+      - package: FoldingKit
+        product: FoldingData
+  FoldingBuildTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: BuildTests
+        includes: ['*.swift']
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.BuildTests
+    dependencies:
+      - target: Folding
+      - package: FoldingKit
+        product: FoldingData
+      - package: FoldingKit
+        product: FoldingDomain
+schemes:
+  Folding:
+    build:
+      targets:
+        Folding: all
+        FoldingBuildTests: [test]
+    test:
+      config: Debug
+      targets:
+        - FoldingBuildTests
+      gatherCoverageData: true

@@ -1,7 +1,8 @@
 # Folding execution instructions
 
 - Read `docs/review-spec.md`, the relevant `docs/technical/` contract, and the associated GitHub issue before implementing work.
-- Use one execution agent. Independent agents may review; they do not implement changes or access credentials.
+- The owner authorized parallel implementation agents on November 7 to accelerate delivery. Assign separate file ownership, coordinate shared contracts through the primary agent, and integrate/review each batch. Older single-execution-agent wording is superseded.
+- Only the primary agent accesses credentials or performs deployments. All `op` and secret-dependent commands reuse its persistent shell; delegated agents must never independently call `op` or trigger authorization prompts. Independent reviewers remain read-only.
 - Build in substantial batches. Run focused checks for newly introduced risks and the required checks at batch boundaries.
 
 ## Keep completion tracking current

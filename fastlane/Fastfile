@@ -1,0 +1,46 @@
+require "shellwords"
+
+def repository_root
+  File.expand_path("..", __dir__)
+end
+
+def apple_destination
+  sh("python3", File.join(repository_root, "scripts/apple-build-environment.py"), log: false).strip
+end
+
+def generate_project
+  sh("xcodegen", "generate", "--spec", File.join(repository_root, "apps/ios/project.yml"))
+end
+
+def run_app_verification
+  destination = apple_destination
+  generate_project
+  run_tests(
+    project: File.join(repository_root, "apps/ios/Folding.xcodeproj"),
+    scheme: "Folding",
+    configuration: "Debug",
+    destination: destination,
+    derived_data_path: File.join(repository_root, "build/ios"),
+    output_directory: File.join(repository_root, "build/test-results"),
+    result_bundle: true,
+    xcargs: "CODE_SIGNING_ALLOWED=NO",
+    parallel_testing: false,
+    concurrent_workers: 1,
+    skip_slack: true,
+    xcodebuild_formatter: ""
+  )
+end
+
+default_platform(:ios)
+platform :ios do
+  desc "Run contract/core checks and the app-hosted Duo simulator persistence test"
+  lane :verify do
+    sh(File.join(repository_root, "scripts/check"))
+    run_app_verification
+  end
+
+  desc "Run the app-hosted Duo simulator check (core checks are a separate prerequisite)"
+  lane :verify_app do
+    run_app_verification
+  end
+end

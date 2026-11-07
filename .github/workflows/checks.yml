@@ -1,0 +1,32 @@
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    name: Contract schemas and fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Read pinned Python
+        id: pins
+        run: python3 -c 'import json; print("python=" + json.load(open("tool-versions.json"))["python"])' >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ steps.pins.outputs.python }}
+          cache: pip
+          cache-dependency-path: scripts/requirements-contracts.txt
+      - name: Install contract dependencies
+        run: python -m pip install -r scripts/requirements-contracts.txt
+      - name: Validate schemas and shared fixtures
+        run: python scripts/check-contracts.py

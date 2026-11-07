@@ -11,3 +11,9 @@ python3 -m venv .venv/contracts
 .venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
 git config --local core.hooksPath .githooks
 echo 'Contract environment and repository-local hooks ready. No credentials or cloud resources accessed.'
+if [ "${1:-}" = "--apple" ]; then
+  python3 scripts/apple-build-environment.py
+  bundle check || BUNDLE_FROZEN=true bundle install
+  xcodegen generate --spec apps/ios/project.yml
+  echo 'Apple build dependencies resolved. Run bundle exec fastlane ios verify.'
+fi
