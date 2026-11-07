@@ -14,3 +14,5 @@ OpenTofu owns durable Cloudflare resources. Wrangler owns Worker code versions, 
 Credentials come from the persistent authorized shell, never committed files. Bootstrap creates only the private state bucket. Shared infrastructure applies require demonstrated remote locking and encrypted-backup restoration first. See `docs/technical/release-and-operations.md` for the full contract.
 
 Provider lockfiles are committed. Plans, state, local backend metadata and credentials are ignored. Never disable state encryption, locking or `prevent_destroy` to work around an error.
+
+Generate code bindings after a successful apply with `tofu output -json application_bindings | python3 scripts/generate-worker-config.py --configuration /path/to/public-runtime-config.json --output /path/to/wrangler.json`. The generator requires the exact Git commit and explicit Apple build allowlist, includes no credentials, disables public preview URLs, and initializes accepted capabilities to empty. Install runtime secrets separately. Queue consumers are added only once the Rust handler is implemented.

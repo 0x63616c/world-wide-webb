@@ -153,3 +153,21 @@ The original fourteen work orders now have 33 linked deliverable issues (#15–#
 - `53ba831` adds bounded obsolete mirror cleanup, migration/backfill coverage and authoritative reset health; 27 domain and 65 data tests passed at that checkpoint. These are local Core Data/journal tests, not live iCloud evidence.
 - `943fbb0` adds explicit tracking-phone selection UI. `63bfe7e` adds recovery UI and shared export/reset actions, with authoritative reset eligibility and 137 keys across ten locales. Fifteen presentation tests passed; recovery visual acceptance remains pending.
 - Controller health integration and compact incremental analytics are in progress. #30 remains open until integrated recovery acceptance; broader live account and performance requirements remain separately tracked.
+
+## Implementation-first feature integration
+
+The owner explicitly deferred independent reviews and comprehensive verification until the feature flows are implemented. The following are implementation/compilation checkpoints, not final acceptance:
+
+- `1476aa1`, `6f5ec17`: setup guidance, native widget extension, notification settings, StoreKit tip jar, review eligibility and runtime widget publication. Combined simulator build passed.
+- `88adea2`, `089c896`: compact derived analytics/history and durable daily-limit claims. `22a1c77` connects CloudKit account lifecycle and OS daily-limit delivery. Real cloud/container/signing and final notification behavior remain pending.
+- `5bfaaa1`, `b658fcb`: Rust enrollment, signed competition ingestion/join/transfer, live leaderboard reads and privacy lifecycle implementation; native/Wasm compilation passed, final runtime acceptance deferred.
+- `380aea9`, `380beab`, `ea86540`: native Apple authorization, authenticated competition client, core community actions, results/profile media/reporting, and durable leave/delete recovery. Combined simulator build passed. Live API deployment and full event-upload/public-reset integration remain unfinished.
+- `d17ee5e`: competition presentation, native Apple sign-in control, results/share/profile/report controls and pending removal states. Final visual/localization acceptance is deferred.
+- `05d83a3`: public static website built; not deployed. Fastlane release metadata, isolated screenshot target and release artifact automation are in progress.
+- `103fdb1`: device entitlement templates exist; this does not establish registered/associated cloud containers/groups or valid signing profiles.
+
+GitHub deliverables and Project statuses were reconciled for live iCloud, private-history cleanup, widgets/alerts, tips, website and screenshot automation. No broad acceptance issue was closed based solely on a build.
+
+### Infrastructure implementation checkpoint
+
+`3420c30` defines isolated D1/R2/queues/admin Access and opt-in routing for staging/production. Provider validation and additive production plan inspection passed. Production avatar R2 was provisioned with public access disabled; the partial apply is recorded and encrypted remote state backed up with byte-for-byte recovery verification. D1/queues/Access require broader deployment-token scopes (current bootstrap token returns 401/403). Routes remain disabled; no backend deployment is claimed. See issue #32 for backup identity and remaining acceptance.
