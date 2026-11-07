@@ -124,6 +124,37 @@ impl Connection<'_> {
     }
 
     fn root(&self, remote: &str) -> Result<std::process::ExitStatus, Error> {
+        if remote.starts_with(HELPER) && crate::setup_auth::active() {
+            let helper = std::env::current_exe()
+                .map_err(|_| Error::Verification)?
+                .canonicalize()
+                .map_err(|_| Error::Verification)?
+                .parent()
+                .ok_or(Error::Verification)?
+                .join("homelab-host");
+            let tools = crate::remote_setup::Tools {
+                ssh: self.ssh.to_owned(),
+                scp: "/usr/bin/scp".into(),
+            };
+            let (stage, digest) = crate::remote_setup::stage_helper(self.profile, &helper, &tools)
+                .map_err(|_| Error::Verification)?;
+            let action = remote.replacen(HELPER, &format!("{stage}/homelab-host"), 1);
+            let body = format!(
+                r#"actual=$(/usr/bin/shasum -a 256 '{stage}/homelab-host'); test "${{actual%% *}}" = '{digest}' && exec {action}"#
+            );
+            let result = self.root_run(
+                &format!("/bin/sh -c '{}'", body.replace('\'', "'\\''")),
+                None,
+            );
+            if let Ok((status, _)) = &result
+                && status.code().is_some_and(|code| code < 128)
+                && !remote.contains("request-setup-reboot")
+                && !crate::remote_setup::cleanup(self.profile, &tools, &stage)
+            {
+                return Err(Error::CheckFailed("helper-cleanup"));
+            }
+            return result.map(|(status, _)| status);
+        }
         self.root_run(remote, None).map(|(status, _)| status)
     }
 
@@ -405,6 +436,46 @@ pub fn finish_with_tools(
                     return Err(Error::CheckFailed(code));
                 }
             }
+            let helper = std::env::current_exe()
+                .map_err(|_| Error::Verification)?
+                .canonicalize()
+                .map_err(|_| Error::Verification)?
+                .parent()
+                .ok_or(Error::Verification)?
+                .join("homelab-host");
+            let tools = crate::remote_setup::Tools {
+                ssh: ssh.to_owned(),
+                scp: "/usr/bin/scp".into(),
+            };
+            let (stage, digest) = crate::remote_setup::stage_helper(profile, &helper, &tools)
+                .map_err(|_| Error::Verification)?;
+            let request = nonce()?;
+            let check = check_command("verify-setup", &selection, &system, &binding, &request)
+                .replacen(HELPER, &format!("{stage}/homelab-host"), 1);
+            let probe = format!(
+                r#"actual=$(/usr/bin/shasum -a 256 '{stage}/homelab-host'); test "${{actual%% *}}" = '{digest}' && {check} 2>&1"#
+            );
+            let start = format!("HL-{request}-diagnostic-start");
+            let end = format!("HL-{request}-diagnostic-end");
+            let result = connection.root_run(
+                &diagnostic_script(&probe, &start, &end),
+                Some((&start, &end, "strict-verifier")),
+            );
+            let cleaned = crate::remote_setup::cleanup(profile, &tools, &stage);
+            if let Ok((status, output)) = &result
+                && let Some(root) = crate::enrollment_credentials::state_directory()
+            {
+                crate::bootstrap_diagnostics::record_output(
+                    &root,
+                    "strict-verifier",
+                    status.code(),
+                    output,
+                );
+            }
+            if !cleaned {
+                return Err(Error::CheckFailed("diagnostic-cleanup"));
+            }
+            result?;
             return Err(Error::Verification);
         }
         let report = read_report(&connection, &system, &binding, &request)?;

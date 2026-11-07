@@ -3,7 +3,7 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -19,6 +19,8 @@ const SYSTEM_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
+    #[error("Setup verification failed [{0}]. The update hold is preserved.")]
+    VerificationCheck(&'static str),
     #[error("Use a private, expected-owner installer file and its reviewed SHA256.")]
     InvalidInstaller,
     #[error("The private installer snapshot could not be prepared.")]
@@ -219,11 +221,13 @@ pub fn verify_setup(
     request_id: &str,
 ) -> Result<VerifiedSetup, Error> {
     if !crate::setup_report::valid_binding(request_id) {
-        return Err(Error::VerificationUnconfirmed);
+        return Err(Error::VerificationCheck("service-health"));
     }
     let system = trusted_store_path(system, Path::new("/nix/store"), 0)?;
-    activation_status(&system, binding)?;
-    let hold = read_hold(Path::new("/var/lib/homelab"), &system, binding)?;
+    activation_status(&system, binding)
+        .map_err(|_| Error::VerificationCheck("activation-receipt"))?;
+    let hold = read_hold(Path::new("/var/lib/homelab"), &system, binding)
+        .map_err(|_| Error::VerificationCheck("update-hold"))?;
     let boot_session = boot_session()?;
     let health = trusted_store_path(
         &system.join("sw/bin/homelab-health"),
@@ -231,7 +235,7 @@ pub fn verify_setup(
         0,
     )?;
     let tailscale =
-        trusted_store_path(&system.join("sw/bin/tailscale"), Path::new("/nix/store"), 0)?;
+        trusted_cli_alias(&system.join("sw/bin/tailscale"), Path::new("/nix/store"), 0)?;
     let mut command = Command::new(health);
     command
         .env_clear()
@@ -242,7 +246,7 @@ pub fn verify_setup(
     if !process::run_silent(&mut command, Duration::from_secs(180))
         .is_ok_and(|status| status.success())
     {
-        return Err(Error::VerificationUnconfirmed);
+        return Err(Error::VerificationCheck("updater-service"));
     }
     let mut updater = Command::new("/bin/launchctl");
     updater
@@ -255,13 +259,13 @@ pub fn verify_setup(
         return Err(Error::VerificationUnconfirmed);
     }
     let node = crate::tailscale::verify_node(&tailscale, host, tag)
-        .map_err(|_| Error::VerificationUnconfirmed)?;
+        .map_err(|_| Error::VerificationCheck("tailscale-identity"))?;
     let main_revision = crate::git_ssh::verify_read_access(
         Path::new("/usr/bin/git"),
         Path::new("/var/lib/homelab-git/key.txt"),
         repository,
     )
-    .map_err(|_| Error::VerificationUnconfirmed)?;
+    .map_err(|_| Error::VerificationCheck("git-deploy-identity"))?;
     activation_status(&system, binding)?;
     let after = read_hold(Path::new("/var/lib/homelab"), &system, binding)?;
     if after.initial_boot_session != hold.initial_boot_session {
@@ -695,6 +699,42 @@ fn recorded_activation(
     journal
         .record(Phase::Activated, Some(system))
         .map_err(|_| Error::ActivationUnconfirmed)
+}
+
+fn trusted_cli_alias(path: &Path, store: &Path, owner: u32) -> Result<PathBuf, Error> {
+    // This package dispatches CLI/daemon mode from argv[0]; retain its CLI alias.
+    trusted_store_path(path, store, owner)?;
+    Ok(path.to_owned())
+}
+
+#[cfg(test)]
+#[test]
+fn trusted_cli_validation_preserves_alias_dispatch() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+    let root = tempfile::tempdir().unwrap();
+    let package = root.path().join("package");
+    fs::create_dir(&package).unwrap();
+    let daemon = package.join("tailscaled");
+    fs::write(
+        &daemon,
+        "#!/bin/sh\ncase \"$0\" in */tailscale) exit 0;; *) exit 9;; esac\n",
+    )
+    .unwrap();
+    fs::set_permissions(&daemon, fs::Permissions::from_mode(0o555)).unwrap();
+    let alias = package.join("tailscale");
+    symlink("tailscaled", &alias).unwrap();
+    fs::set_permissions(&package, fs::Permissions::from_mode(0o555)).unwrap();
+    let store = root.path().canonicalize().unwrap();
+    let selected = trusted_cli_alias(&alias, &store, rustix::process::geteuid().as_raw()).unwrap();
+    assert!(Command::new(selected).status().unwrap().success());
+    assert_eq!(
+        Command::new(alias.canonicalize().unwrap())
+            .status()
+            .unwrap()
+            .code(),
+        Some(9)
+    );
+    fs::set_permissions(&package, fs::Permissions::from_mode(0o755)).unwrap();
 }
 
 pub(crate) fn trusted_store_path(

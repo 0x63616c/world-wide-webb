@@ -511,7 +511,7 @@ fn script(
         .map_err(|_| Error::new(Failure::Stage))
 }
 
-fn cleanup(profile: &HostProfile, tools: &Tools, stage: &str) -> bool {
+pub(crate) fn cleanup(profile: &HostProfile, tools: &Tools, stage: &str) -> bool {
     // Delete only our fixed names. Never recursively remove a path from remote output.
     script(
         profile,
@@ -665,7 +665,7 @@ fn enrollment_rpc(
     result
 }
 
-fn stage_helper(
+pub(crate) fn stage_helper(
     profile: &HostProfile,
     helper: &Path,
     tools: &Tools,

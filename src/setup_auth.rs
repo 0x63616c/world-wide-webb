@@ -69,6 +69,9 @@ struct Attempt {
 thread_local! { static ATTEMPT: RefCell<Option<Attempt>> = const { RefCell::new(None) }; }
 
 pub(crate) struct Scope;
+pub(crate) fn active() -> bool {
+    ATTEMPT.with(|state| state.borrow().is_some())
+}
 impl Scope {
     pub(crate) fn begin_verified(target: &HostProfile, ssh: &Path) -> io::Result<Self> {
         let mut command = Command::new(ssh);
