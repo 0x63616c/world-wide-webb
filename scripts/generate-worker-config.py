@@ -68,7 +68,10 @@ result = {
         'database_name': bindings['database_name'], 'migrations_dir': str(root / 'backend/migrations')}],
     'r2_buckets': [{'binding': 'AVATARS', 'bucket_name': bindings['avatar_bucket']}],
     'queues': {'producers': [{'binding': 'JOBS', 'queue': bindings['jobs_queue']},
-        {'binding': 'JOBS_DEAD', 'queue': bindings['dead_queue']}]},
+        {'binding': 'JOBS_DEAD', 'queue': bindings['dead_queue']}],
+        'consumers': [{'queue': bindings['jobs_queue'], 'max_batch_size': 1,
+            'max_batch_timeout': 5, 'max_retries': 12, 'retry_delay': 30,
+            'max_concurrency': 2, 'dead_letter_queue': bindings['dead_queue']}]},
     'triggers': {'crons': ['*/5 * * * *']},
 }
 args.output.parent.mkdir(parents=True, exist_ok=True)
