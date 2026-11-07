@@ -56,4 +56,11 @@ public struct CallActivityFilter: Sendable {
         return nil
     }
     public func isActive(_ id: String, now: Double) -> Bool { seen[id].map { now - $0.last < 15 } ?? false }
+    /// Time until the next active, unreminded app reaches its debounce deadline.
+    public func nextReminderDelay(for apps: [CallingApp], now: Double, delay: Double) -> Double? {
+        apps.compactMap { app -> Double? in
+            guard let state = seen[app.id], !state.reminded else { return nil }
+            return max(0, delay - (now - state.first))
+        }.min()
+    }
 }

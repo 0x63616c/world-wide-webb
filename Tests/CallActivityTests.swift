@@ -40,4 +40,23 @@ final class CallActivityTests: XCTestCase {
         XCTAssertNil(filter.update([faceTime], now: 1.5, recording: false, delay: 2))
         XCTAssertEqual(filter.update([faceTime], now: 2, recording: false, delay: 2), faceTime)
     }
+    func testNextReminderDeadlineTracksActiveApps() {
+        var filter = CallActivityFilter()
+        XCTAssertNil(filter.nextReminderDelay(for: [phone], now: 10, delay: 0.5))
+        XCTAssertNil(filter.update([phone], now: 10, recording: false))
+        XCTAssertEqual(filter.nextReminderDelay(for: [phone], now: 10.2, delay: 0.5)!, 0.3, accuracy: 0.0001)
+        XCTAssertNil(filter.nextReminderDelay(for: [], now: 10.2, delay: 0.5))
+        XCTAssertEqual(filter.update([phone], now: 10.5, recording: false), phone)
+        XCTAssertNil(filter.nextReminderDelay(for: [phone], now: 10.5, delay: 0.5))
+    }
+    func testDeadlineUsesEarliestActiveAppAndConfiguredDelay() {
+        var filter = CallActivityFilter()
+        XCTAssertNil(filter.update([faceTime], now: 0, recording: false, delay: 2))
+        XCTAssertNil(filter.update([faceTime, phone], now: 0.5, recording: false, delay: 2))
+        XCTAssertEqual(filter.nextReminderDelay(for: [faceTime, phone], now: 0.5, delay: 2)!, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(filter.nextReminderDelay(for: [phone], now: 0.5, delay: 2)!, 2, accuracy: 0.0001)
+        XCTAssertEqual(filter.nextReminderDelay(for: [faceTime], now: 0.5, delay: 1)!, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(filter.update([faceTime, phone], now: 2, recording: false, delay: 2), faceTime)
+        XCTAssertEqual(filter.nextReminderDelay(for: [faceTime, phone], now: 2, delay: 2)!, 0.5, accuracy: 0.0001)
+    }
 }
