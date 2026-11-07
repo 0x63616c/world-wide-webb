@@ -26,6 +26,8 @@ Work orders define ownership, requirements, and acceptance evidence, not mandato
 
 ## Required completion record
 
+Update the corresponding GitHub issue's checklist as each deliverable is verified; comments alone are insufficient. Split broad checklist items to show verified partial progress without dropping requirements. Close fully accepted issues and tick `docs/work-tracker.md`; keep unverified and deferred acceptance items explicitly open.
+
 At each batch checkpoint, record changed files, contract version, caller-visible behavior, checks/outcomes, evidence links, known failure states, and downstream effects against its work orders. Implementation can be marked awaiting validation; acceptance boxes remain unchecked until evidence passes. Reuse valid evidence across tasks rather than rerunning the same check for every checkbox.
 
 Include negative/retry coverage where behavior touches persistence, auth, payments, or external writes. Stop only dependent work if a platform gate fails; continue unrelated authorized work. Fix known security/data-integrity failures promptly. Routine progress updates do not require user confirmation.

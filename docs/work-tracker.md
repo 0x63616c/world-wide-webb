@@ -2,6 +2,8 @@
 
 GitHub Issues are the live execution tracker. One execution agent; independent reviewers only. Physical-device evidence is deferred to F13 after submission by owner instruction.
 
+Update issue-body checkboxes as individual requirements are verified, with commit/evidence links. Progress comments supplement these checklists. Close fully accepted issues and tick their work-order entries below; partial or deferred work remains unchecked. These rules are enforced as agent instructions in `AGENTS.md`.
+
 ## Current batch
 
 Foundation/account setup is in progress. The initial Swift reducer is implemented and tested; full feature acceptance remains pending.
