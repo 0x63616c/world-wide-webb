@@ -17,8 +17,9 @@ refer to the retained preview components, not the current landing screen.
 
 Tap the avatar in the top-right corner of Home to open the two-column profile
 picker. The active profile has a checkmark, and Add User follows the profile
-tiles. The panel stores names and photos on this device. Selecting a profile
-updates the Home avatar and checkmark.
+tiles. Each Add User attempt requires the panel PIN before opening Photos. The
+panel stores names and photos on this device. Selecting a profile updates the
+Home avatar and checkmark.
 
 ## Native display brightness
 

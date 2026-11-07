@@ -1,4 +1,5 @@
 import ImageIO
+import PanelKit
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
@@ -22,6 +23,7 @@ struct PanelProfileSelector: ViewModifier {
 
     @AppStorage("panel.profiles") private var storage = Data()
     @AppStorage("panel.profilePhoto") private var legacyPhoto = Data()
+    @Environment(\.homeIntegration) private var integration
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingProfiles = false
@@ -51,34 +53,34 @@ struct PanelProfileSelector: ViewModifier {
                 }
             }
             .overlay(alignment: .topTrailing) {
-                if isAvailable {
-                    VStack(alignment: .trailing, spacing: 18) {
-                        Button {
-                            showProfiles(!isOpen)
-                        } label: {
-                            ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: 48)
-                                .foregroundStyle(.white.opacity(0.85))
-                                .contentShape(.circle)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(isOpen ? "Close Profiles" : "Profiles")
-                        .accessibilityValue(profiles.selected?.name ?? "")
-                        .accessibilityIdentifier("home-profile")
-                        if isOpen {
-                            profileGrid(profiles)
-                                .transition(.opacity)
-                        }
+                // Keep the avatar in the moving launcher even while Home is offscreen.
+                VStack(alignment: .trailing, spacing: 18) {
+                    Button {
+                        showProfiles(!isOpen)
+                    } label: {
+                        ProfileAvatar(photo: profiles.selected?.photo ?? launcherPhoto, side: 48)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .contentShape(.circle)
                     }
-                    .padding(inset)
-                    .foregroundStyle(.white)
-                    .accessibilityAction(.escape) { showProfiles(false) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isOpen ? "Close Profiles" : "Profiles")
+                    .accessibilityValue(profiles.selected?.name ?? "")
+                    .accessibilityIdentifier("home-profile")
+                    if isOpen {
+                        profileGrid(profiles)
+                            .transition(.opacity)
+                    }
                 }
+                .padding(inset)
+                .foregroundStyle(.white)
+                .allowsHitTesting(isAvailable)
+                .accessibilityHidden(!isAvailable)
+                .accessibilityAction(.escape) { showProfiles(false) }
             }
             .sheet(isPresented: $addingUser) {
-                AddPanelProfile(cancel: { addingUser = false }, save: add)
+                ProfileCreationSheet(pin: integration?.panelPIN, cancel: { addingUser = false }, save: add)
                     .preferredColorScheme(.dark)
-                    .padding(28)
-                    .frame(idealWidth: 380)
+                    .frame(idealWidth: 420)
                     .presentationSizing(.fitted)
             }
             .onChange(of: isAvailable) { _, available in
@@ -181,6 +183,55 @@ struct PanelProfileSelector: ViewModifier {
 
     private func persist(_ profiles: PanelProfiles) {
         if let data = try? JSONEncoder().encode(profiles) { storage = data }
+    }
+}
+
+private struct ProfileCreationSheet: View {
+    let pin: PanelPINAPI?
+    let cancel: () -> Void
+    let save: (PanelProfile) -> Void
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var authorized = false
+
+    var body: some View {
+        Group {
+            if authorized {
+                AddPanelProfile(cancel: cancel, save: save)
+                    .padding(28)
+            } else {
+                VStack(spacing: 0) {
+                    ViewThatFits(in: .vertical) {
+                        challenge.fixedSize(horizontal: false, vertical: true)
+                        ScrollView { challenge }
+                    }
+                    Button("Cancel", role: .cancel, action: cancel)
+                        .buttonStyle(.glass)
+                        .controlSize(.large)
+                        .padding(.bottom, 20)
+                }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { cancel() }
+        }
+    }
+
+    @ViewBuilder private var challenge: some View {
+        if let pin {
+            PanelPINEntry(title: "Add User", prompt: "Enter the panel PIN to access Photos") { entered in
+                do {
+                    guard try await pin.verify(entered) else { return "PIN not accepted. Try again." }
+                    guard !Task.isCancelled else { return nil }
+                    authorized = true
+                    return nil
+                } catch {
+                    return "Couldn’t verify the PIN. Try again."
+                }
+            }
+        } else {
+            ContentUnavailableView("PIN verification unavailable", systemImage: "lock",
+                                   description: Text("Connect to the panel server to add a user."))
+        }
     }
 }
 
