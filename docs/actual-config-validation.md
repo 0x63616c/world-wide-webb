@@ -40,7 +40,15 @@ The actual-module enrollment reached activation at fixture revision
 account collision. The installed Nix environment owns GID 350 (`nixbld`) and
 UID 351 (`_nixbld1`). The candidate moves homelab service accounts to 450/451,
 which were verified vacant in this guest, while retaining collision checks.
-This correction has not yet passed activation or reboot testing.
+Diagnostic fixture revision `28fc482` built and activated successfully with IDs
+450/451. The guest rebooted from boot timestamp `1794080249` to `1794082636`,
+then accepted the Git-configured SSH key. Its boot sentinel recorded that same
+new timestamp after validating the decrypted synthetic secret. Active output:
+`/nix/store/safd8php3zwdbkkryv10ghkh86vhag5y-darwin-system-26.11.ff0e21a`.
+
+This diagnostic activation bypassed the failed wizard attempt deliberately;
+it is not evidence of wizard recovery or of the new password implementation.
+The failed attempt's journals remain intact for inspection.
 
 Guest evidence is preserved in `/Users/admin/activation-diagnostic.log` and
 the bootstrap journal at phase `Activating`. This diagnostic activation was
