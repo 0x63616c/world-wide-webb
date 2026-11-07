@@ -24,11 +24,9 @@ struct ClimateController: View {
     var body: some View {
         VStack(spacing: 0) {
             if climate.mode == .off {
-                VStack(spacing: 20) {
-                    Image(systemName: "power").font(.system(size: 64, weight: .light)).foregroundStyle(.secondary)
-                    Text("Off").font(.system(size: compact ? 100 : 180, weight: .regular, design: .rounded))
-                        .accessibilityIdentifier("climate-value")
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("Off").font(.system(size: compact ? 100 : 180, weight: .regular, design: .rounded))
+                    .accessibilityIdentifier("climate-value")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 0) {
                     if climate.mode == .heatCool {
@@ -38,7 +36,7 @@ struct ClimateController: View {
                         }.padding(.horizontal, 32).padding(.top, 16)
                     }
                     ClimateTemperatureSurface(value: target, midpoint: climate.ambient, range: bounds,
-                        mode: climate.mode, action: climate.action, accent: levelColor,
+                        mode: climate.mode, accent: levelColor,
                         title: climate.mode == .heatCool ? (editingLow ? "Heat to" : "Cool to") : "Set temperature",
                         commit: setTemperature)
                         .id("\(climate.mode.rawValue)-\(editingLow)")
@@ -113,7 +111,6 @@ private struct ClimateTemperatureSurface: View {
     let midpoint: Int
     let range: ClosedRange<Int>
     let mode: ClimateMode
-    let action: String
     let accent: Color
     let title: String
     let commit: (Int) -> Void
@@ -133,13 +130,21 @@ private struct ClimateTemperatureSurface: View {
     private func bounded(_ value: Int) -> Int { min(range.upperBound, max(range.lowerBound, value)) }
     private var position: Double { dragFraction ?? fraction(for: Double(value)) }
     private var displayed: Int { bounded(Int(temperature(at: position).rounded())) }
+    private var levelFill: AnyShapeStyle {
+        if mode == .heatCool {
+            AnyShapeStyle(LinearGradient(colors: [.orange.opacity(0.42), .cyan.opacity(0.42)],
+                startPoint: .bottom, endPoint: .top))
+        } else {
+            AnyShapeStyle(accent.gradient.opacity(0.38))
+        }
+    }
 
     var body: some View {
         GeometryReader { proxy in
             let height = proxy.size.height
             ZStack(alignment: .bottom) {
                 Rectangle().fill(accent.opacity(0.08))
-                Rectangle().fill(accent.gradient.opacity(0.38))
+                Rectangle().fill(levelFill)
                     .frame(height: height * position)
                 Rectangle().fill(accent.opacity(0.65)).frame(height: 1)
                     .offset(y: -height * position)
@@ -155,21 +160,6 @@ private struct ClimateTemperatureSurface: View {
                     .shadow(color: .black.opacity(0.55), radius: 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("climate-value")
-                VStack(spacing: 5) {
-                    if mode == .heatCool {
-                        Label("Heat·Cool mode", systemImage: "thermometer.medium")
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(.linearGradient(colors: [.orange, .cyan], startPoint: .leading, endPoint: .trailing))
-                    } else {
-                        Label("\(mode.label) mode", systemImage: mode == .cool ? "snowflake" : "sun.max.fill")
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(accent)
-                    }
-                    Text(action).font(.system(size: 20)).foregroundStyle(.white.opacity(0.7))
-                }
-                .padding(.top, 42)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .accessibilityElement(children: .combine)
             }.contentShape(.rect)
                 .gesture(DragGesture(minimumDistance: 6)
                     .onChanged { gesture in
@@ -186,7 +176,7 @@ private struct ClimateTemperatureSurface: View {
                         }
                     })
                 .accessibilityElement(children: .contain)
-                .accessibilityLabel(title).accessibilityValue("\(displayed) degrees Fahrenheit")
+                .accessibilityLabel(title).accessibilityValue("\(mode.label) mode, \(displayed) degrees Fahrenheit")
                 .accessibilityAdjustableAction { direction in
                     withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
                         if direction == .increment { commit(bounded(value + 1)) }

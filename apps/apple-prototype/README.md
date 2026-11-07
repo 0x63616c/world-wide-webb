@@ -10,7 +10,7 @@ The Mac window has a fixed 1376×1032 content frame, hidden title bar and `.wind
 
 Native Liquid Glass supplies tile refraction, highlights and button chrome, without painted glass outlines. UI accents use semantic system colors and hierarchical text styles. The licensed photographic wallpaper and green clock artwork are the documented color exceptions. Clock green retains its hue and saturation with brightness reduced by 7%. System font metrics provide tracking. Near mode reserves a square dial, four complications including a charge ring, and a separate alarm footer.
 
-The full-screen Climate page names the selected HVAC mode above the setpoint and shows the live action beneath it. Its temperature level uses cyan for Cool and orange for Heat; in Heat·Cool it follows the selected cool or heat setpoint. The mode name remains visible when the system is idle.
+The full-screen Climate page uses a cyan temperature level for Cool, orange for Heat, and an orange-to-cyan level for Heat·Cool. Its handle follows the selected cool or heat setpoint. Off displays a single text label. VoiceOver announces the selected mode with the temperature.
 
 Lamps has an All lamps brightness fader, room power controls, expandable members and Color & Effects. The next-alarm face has 120 uniformly weighted ticks around an arc-length sampled rounded rectangle. The design corner radius is 112 points, with an 80-point inset ring radius. It is **not a measured iPad 13-inch hardware radius**: Apple does not publish that measurement in the available resources. The separate 18-point research token describes older documented iPad models and is not misrepresented as current hardware.
 
