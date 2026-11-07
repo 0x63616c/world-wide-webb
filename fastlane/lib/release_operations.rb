@@ -90,6 +90,7 @@ module FoldingRelease
         if main
           raise "Wrong CloudKit container" unless values["com.apple.developer.icloud-container-identifiers"] == [identity.fetch("cloudkit_container")]
           raise "Wrong distribution environments" unless values["com.apple.developer.icloud-container-environment"] == "Production" && values["com.apple.developer.devicecheck.appattest-environment"] == "production" && values["aps-environment"] == "production"
+          raise "Wrong source commit in signed app" unless info["FoldingSourceCommit"] == record.data.fetch("commit_sha")
           raise "Wrong runtime distribution configuration" unless info["FoldingICloudEnvironment"] == "Production" && info["FoldingAttestEnvironment"] == "production" && info["FoldingAPNSEnvironment"] == "production" && info["FoldingAppGroupIdentifier"] == identity.fetch("app_group") && info["FoldingCloudContainerIdentifier"] == identity.fetch("cloudkit_container")
           raise "Wrong backend configuration" unless info["FoldingAPIOrigin"] == record.data.fetch("archive_configuration").fetch("api_origin") && info["FoldingEnvironment"] == record.data.fetch("environment")
           binary = File.join(path, info.fetch("CFBundleExecutable"))
@@ -126,6 +127,7 @@ module FoldingRelease
           "FOLDING_APP_BUNDLE_ID" => identity.fetch("bundle_id"), "FOLDING_WIDGET_BUNDLE_ID" => identity.fetch("widget_bundle_id"),
           "FOLDING_APP_PROFILE_SPECIFIER" => app_profile, "FOLDING_WIDGET_PROFILE_SPECIFIER" => widget_profile,
           "FOLDING_APP_GROUP_IDENTIFIER" => identity.fetch("app_group"), "FOLDING_CLOUD_CONTAINER_IDENTIFIER" => identity.fetch("cloudkit_container"),
+          "FOLDING_SOURCE_COMMIT" => record.data.fetch("commit_sha"),
           "FOLDING_API_ORIGIN" => record.data.fetch("archive_configuration").fetch("api_origin"), "FOLDING_ENVIRONMENT" => record.data.fetch("environment"),
           "FOLDING_ICLOUD_ENVIRONMENT" => "Production", "FOLDING_ATTEST_ENVIRONMENT" => "production", "FOLDING_APNS_ENVIRONMENT" => "production"
         }

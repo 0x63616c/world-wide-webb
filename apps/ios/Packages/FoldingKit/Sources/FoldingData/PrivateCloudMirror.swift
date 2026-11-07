@@ -278,6 +278,21 @@ public actor PrivateCloudMirror {
     }
   }
 
+  #if DEBUG
+    /// Explicit development tooling only; never called by normal mirror startup.
+    /// Core Data creates/removes its own representative records, including internal types.
+    public func initializeDevelopmentSchema() throws -> PrivateCloudSchemaDescription {
+      guard !closed else { throw MirrorError.closed }
+      guard let options = container.persistentStoreDescriptions.first?.cloudKitContainerOptions,
+        options.databaseScope == .private,
+        ["iCloud.app.getfolding.Folding", "iCloud.app.getfolding.Folding.Staging"].contains(
+          options.containerIdentifier)
+      else { throw MirrorError.invalidRecord }
+      try container.initializeCloudKitSchema(options: [])
+      return PrivateCloudSchemaDescription(model: container.managedObjectModel)
+    }
+  #endif
+
   private static func model() -> NSManagedObjectModel {
     let model = NSManagedObjectModel()
     model.entities = ["ReplicatedEvent", "ResetMarker", "TrackingInterruption", "TransferMarker"]
@@ -295,6 +310,12 @@ public actor PrivateCloudMirror {
         payload.attributeType = .binaryDataAttributeType
         payload.isOptional = true
         entity.properties = [id, payload]
+        // Local Core Data lookup index; remote mirroring uses Apple's generated schema/indexes.
+        entity.indexes = [
+          NSFetchIndexDescription(
+            name: "logicalIDIndex",
+            elements: [NSFetchIndexElementDescription(property: id, collationType: .binary)])
+        ]
         if name == "ReplicatedEvent" || name == "TrackingInterruption" {
           let revision = NSAttributeDescription()
           revision.name = "generationRevision"
@@ -305,7 +326,7 @@ public actor PrivateCloudMirror {
           generationID.attributeType = .stringAttributeType
           generationID.isOptional = true
           entity.properties += [revision, generationID]
-          entity.indexes = [
+          entity.indexes += [
             NSFetchIndexDescription(
               name: "generationIndex",
               elements: [

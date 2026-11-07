@@ -117,4 +117,37 @@ platform :ios do
     FoldingRelease::Operations.submit(self, FoldingRelease::Record.new(options.fetch(:tag)), options.fetch(:evidence))
   end
 
+
+  desc "Build an explicit Debug CloudKit schema bootstrap app; does not initialize/upload schema"
+  lane :schema_bootstrap_build do |options|
+    environment = options[:environment] || "staging"
+    source = FoldingRelease.clean_commit!
+    config = FoldingRelease.configuration(environment)
+    identity = config.fetch("identity")
+    destination = apple_destination
+    generate_project
+    settings = {
+      "DEVELOPMENT_TEAM" => FoldingRelease::CONFIG.fetch("apple_team_id"),
+      "FOLDING_APP_BUNDLE_ID" => identity.fetch("bundle_id"),
+      "FOLDING_WIDGET_BUNDLE_ID" => identity.fetch("widget_bundle_id"),
+      "FOLDING_APP_GROUP_IDENTIFIER" => identity.fetch("app_group"),
+      "FOLDING_CLOUD_CONTAINER_IDENTIFIER" => identity.fetch("cloudkit_container"),
+      "FOLDING_API_ORIGIN" => config.fetch("api_origin"), "FOLDING_ENVIRONMENT" => environment,
+      "FOLDING_SOURCE_COMMIT" => source,
+      "FOLDING_ICLOUD_ENVIRONMENT" => "Development", "FOLDING_ATTEST_ENVIRONMENT" => "development",
+      "FOLDING_APNS_ENVIRONMENT" => "development",
+      "FOLDING_SIMULATOR_ENTITLEMENTS" => "Config/SchemaBootstrapSimulator.entitlements"
+    }
+    sh("xcodebuild", "-project", File.join(repository_root, "apps/ios/Folding.xcodeproj"),
+      "-scheme", "Folding", "-configuration", "Debug", "-sdk", "iphonesimulator",
+      "-destination", destination, "-derivedDataPath", File.join(repository_root, "build/cloudkit-bootstrap", environment),
+      "build", *settings.map { |key, value| "#{key}=#{value}" })
+  end
+
+
+  desc "Bootstrap scoped Folding distribution signing assets in the dedicated private match repository"
+  lane :setup_signing do
+    FoldingAppleAccount.bootstrap_signing(context: self)
+  end
+
 end

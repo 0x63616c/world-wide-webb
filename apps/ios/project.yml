@@ -27,17 +27,20 @@ settings:
     DEVELOPMENT_TEAM: ''
     FOLDING_APP_BUNDLE_ID: app.getfolding.Folding
     FOLDING_WIDGET_BUNDLE_ID: app.getfolding.Folding.Widgets
+    FOLDING_SIMULATOR_ENTITLEMENTS: Config/Simulator.entitlements
     FOLDING_APP_PROFILE_SPECIFIER: ''
     FOLDING_WIDGET_PROFILE_SPECIFIER: ''
     FOLDING_APP_GROUP_IDENTIFIER: ''
     FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
     FOLDING_API_ORIGIN: ''
     FOLDING_ENVIRONMENT: ''
+    FOLDING_SOURCE_COMMIT: ''
     FOLDING_APNS_ENVIRONMENT: ''
     FOLDING_ICLOUD_ENVIRONMENT: ''
     FOLDING_ATTEST_ENVIRONMENT: ''
     INFOPLIST_KEY_FoldingAPIOrigin: '$(FOLDING_API_ORIGIN)'
     INFOPLIST_KEY_FoldingEnvironment: '$(FOLDING_ENVIRONMENT)'
+    INFOPLIST_KEY_FoldingSourceCommit: '$(FOLDING_SOURCE_COMMIT)'
     INFOPLIST_KEY_FoldingAPNSEnvironment: '$(FOLDING_APNS_ENVIRONMENT)'
     INFOPLIST_KEY_FoldingICloudEnvironment: '$(FOLDING_ICLOUD_ENVIRONMENT)'
     INFOPLIST_KEY_FoldingAttestEnvironment: '$(FOLDING_ATTEST_ENVIRONMENT)'
@@ -57,7 +60,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(FOLDING_APP_BUNDLE_ID)
         'CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]': Config/Folding.entitlements
         'PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]': $(FOLDING_APP_PROFILE_SPECIFIER)
-        'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': Config/Simulator.entitlements
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': $(FOLDING_SIMULATOR_ENTITLEMENTS)
     dependencies:
       - target: FoldingWidgets
         embed: true
