@@ -1,5 +1,27 @@
 # Disposable VM validation
 
+## Checklist and direct publication (0.4.0)
+
+A fresh `homelab-checklist-1` clone, initially without Nix, passed the production
+checklist enrollment path against the private synthetic repository
+[`0x63616c/homelab-vm-checklist`](https://github.com/0x63616c/homelab-vm-checklist).
+It published directly to `main` with **zero enrollment PRs** and installed exact
+commit `e62a073712a2b9d4a612ead0a3252779032b0116`.
+
+The exercised CLI core and target helper were
+`99376a0148c3f3241102b18952e0bc4c9bf1c637`. Harness retry changes at `3db3b56`
+altered the harness and error copy; subsequent UI/result refinements passed
+public CI at `cc51c6e`. The first preparation run stopped on an idle error.
+Retrying the same saved preparation succeeded; this was not a first-attempt pass.
+
+Evidence at `homelab-cli/target/checklist-vm-operator/evidence.json` records
+`wizardCompleted`, `rebootVerified` and `completedReplayVerified` as true, with
+real completion verification of Comin. Git publication, age/SOPS encryption,
+Nix installation, activation, launchd and Comin were real. Credential providers
+were synthetic and the Tailscale route used a pinned guest SSH adapter, so this
+does not prove production vault access or tailnet policy. The VM is stopped and
+preserved; no physical host configuration was deployed.
+
 ## Automatic developer tools (0.3.1 candidate)
 
 CLI source `c218b9f` passed its native prerequisite installation on a fresh vanilla
@@ -15,9 +37,9 @@ setup approval, early client checks and interruption handling. It does not claim
 a new full enrollment/reboot run; that separate 0.3.0 evidence follows below.
 The physical MacBook was used only to host the disposable guest.
 
-## Current candidate and results
+## Earlier 0.3.0 configuration and results
 
-The current runtime helper is
+The runtime helper for that earlier rehearsal was
 `1c06e59f39373045e8be20a9957167dbc58a1644`. Public head `f9063f6` changes documentation
 only. Private candidate `2bd88e2` pins that helper and the identical reviewed Darwin
 Comin profile patch; its polling interval is 300 seconds.
@@ -84,7 +106,7 @@ Never apply the fixture's NOPASSWD/validation policy to a physical host.
 2. Run private flake checks against the exact archived source without activating
    either real host configuration.
 3. Run the production wizard core through the guarded PTY harness, using synthetic
-   providers and a real private fixture PR.
+   providers and real private fixture publication (direct or required PR).
 4. Verify enrollment reboot, exact activation, protected keys, launchd services,
    Comin handover and completed-wizard replay.
 5. Publish a harmless fixture change, wait for native polling, verify boot/live
@@ -109,7 +131,7 @@ Development base image:
 Record actual `sw_vers` rather than inferring it from a registry tag. Earlier guests
 reported macOS 27.2 (26B123), `VirtualMac2,1`, four vCPUs, 12 GiB RAM and a 120 GB
 virtual disk. Development images contain CLT/Homebrew and do not prove a fresh
-Mac's prerequisite path; the wizard requires CLT to be installed first.
+Mac's prerequisite path; the separate vanilla-image test above covers CLT installation.
 
 ## Relevant earlier findings
 
@@ -126,7 +148,7 @@ remained old. Evidence is preserved at
 That finding motivated the current standard-profile patch and readiness guard.
 The patch preserves active/default/history generations and uses Nix's locked
 native deletion; no parallel unbounded profile history is created. VM6's scheduled
-live-state check now passes, with post-update reboot proof still pending.
+live-state check and subsequent post-update reboot both passed, as recorded above.
 
 Detailed historical chronology remains in this document's Git history. No physical
-host deployment, production migration or release is claimed here.
+host deployment or production migration is authorized by this evidence.

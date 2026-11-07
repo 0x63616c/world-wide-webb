@@ -1,9 +1,8 @@
 # Set up a Mac
 
-This guide previews **CLI 0.4.0**. Final validation and release are pending.
-Released [0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
-has Git-first selection and automatic prerequisites, but always uses an
-enrollment PR. The checklist and direct-publication flow below are new in 0.4.0.
+Use [CLI 0.4.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.4.0)
+for this guide’s live checklist and direct-publication flow. Version 0.3.2 has
+Git-first selection and automatic prerequisites but uses an enrollment PR.
 
 ## One-time work on the target
 

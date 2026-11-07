@@ -15,11 +15,10 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 4. It publishes encrypted configuration to `main`, installs that exact commit,
    reboots and verifies the Mac. Required or existing PRs still wait for review.
 
-This guide previews **CLI 0.4.0**, whose release and final validation are pending.
-Released [0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
-has Git-first selection and automatic prerequisites but uses PR-based enrollment.
-In 0.4.0, Begin setup authorizes direct publication when GitHub rules permit it;
-the CLI never force-pushes or bypasses required PR review.
+Use [CLI 0.4.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.4.0)
+for the live checklist and direct-publication flow. Begin setup authorizes direct
+publication when GitHub rules permit it; the CLI never force-pushes or bypasses
+required PR review. Version 0.3.2 uses PR-based enrollment.
 
 `homelab.json` supplies the host list and administrator accounts. The CLI asks only
 for a new host’s connection address, defaulting to `<host>.local`. Saved aliases,
@@ -79,7 +78,9 @@ its enrollment PR is approved; application services and runners remain disabled.
 Private Nix checks and the full disposable enrollment/reboot/Comin replay passed.
 A later scheduled Git update and another reboot also passed. Release 0.3.0 passed
 public CI and a fresh-Mac smoke test without Nix. See [VM evidence](docs/vm-validation.md) for
-exact revisions and limits.
+exact revisions and limits. The 0.4.0 checklist also passed fresh-VM direct
+publication, installation, reboot, Comin handover and completed replay with
+synthetic providers.
 Private Actions workflows are manual-only until self-hosted runners are ready;
 routine validation runs in the disposable Mac VM without paid private CI minutes.
 
