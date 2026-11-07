@@ -1,5 +1,20 @@
 # Disposable VM validation
 
+## Automatic developer tools (0.3.1 candidate)
+
+CLI source `c218b9f` passed its native prerequisite installation on a fresh vanilla
+`homelab-clt-1` guest (`VirtualMac2,1`), initially without a developer selection or
+CLT package receipt. Apple offered `Command Line Tools for Xcode 27.2-27.2`; the
+helper installed it, selected `/Library/Developer/CommandLineTools`, and verified
+Git `2.54.0 (Apple Git-157)`. A second invocation exited 0 without changing the
+package version or installation time. Evidence is retained at
+`homelab-cli/target/clt-vm-evidence.json`.
+
+This tests the actual Apple installer helper. Synthetic tests cover SSH staging,
+setup approval, early client checks and interruption handling. It does not claim
+a new full enrollment/reboot run; that separate 0.3.0 evidence follows below.
+The physical MacBook was used only to host the disposable guest.
+
 ## Current candidate and results
 
 The current runtime helper is
