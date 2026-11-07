@@ -52,6 +52,7 @@ struct Profile {
     restriction: String,
     nickname_status: String,
     avatar_status: String,
+    pending_avatar_id: Option<String>,
 }
 pub(crate) async fn mutate(
     request: &Request,
@@ -130,7 +131,7 @@ pub(crate) async fn mutate(
             5,
         )
         .await?;
-        let mut profile=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,p.membership,p.restriction,f.nickname_status,f.avatar_status FROM participants p JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(&session.participant_id)])?.first::<Profile>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
+        let mut profile=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,p.membership,p.restriction,f.nickname_status,f.avatar_status,(SELECT a.avatar_id FROM avatar_objects a WHERE a.participant_id=p.participant_id AND a.state IN ('uploading','pending') ORDER BY a.created_at_ms DESC,a.avatar_id DESC LIMIT 1) AS pending_avatar_id FROM participants p JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(&session.participant_id)])?.first::<Profile>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
         if pending.display != profile.nickname {
             writes.push(statement(db,"INSERT INTO nickname_requests VALUES (?1,?2,?3,?4) ON CONFLICT(participant_id) DO UPDATE SET requested_nickname=excluded.requested_nickname,requested_at_ms=excluded.requested_at_ms,policy_version=excluded.policy_version",&[text(&session.participant_id),text(&pending.display),number(time),text(&pending.policy_version)])?);
             writes.push(statement(

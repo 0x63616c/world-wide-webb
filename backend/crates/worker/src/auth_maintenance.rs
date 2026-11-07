@@ -26,36 +26,10 @@ pub async fn cleanup(db: &D1Database, timestamp: i64) -> Result<()> {
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _context: ScheduleContext) {
     let result = match env.d1("DB") {
-        Ok(db) => {
-            if crate::avatar_runtime::cleanup_objects(&env, &db)
-                .await
-                .is_err()
-            {
-                console_error!("avatar_cleanup_failed");
-            }
-            if crate::avatar_alerts::dispatch(&env, &db).await.is_err() {
-                console_error!("avatar_alert_delivery_failed");
-            }
-            if crate::finalization_runtime::dispatch(&db).await.is_err() {
-                console_error!("period_finalization_failed");
-            }
-            if crate::apns_runtime::dispatch(&env, &db).await.is_err() {
-                console_error!("award_delivery_failed");
-            }
-            if crate::deletion_runtime::process(&env, &db).await.is_err() {
-                console_error!("account_deletion_job_failed");
-            }
-            if crate::deletion_runtime::revoke_recovery_grants(&env, &db)
-                .await
-                .is_err()
-            {
-                console_error!("recovery_grant_revocation_failed");
-            }
-            cleanup(&db, js_sys::Date::now() as i64).await
-        }
-        Err(error) => Err(error),
+        Ok(db) => crate::jobs_runtime::schedule(&env, &db).await,
+        Err(_) => Err(crate::auth_runtime::Failure::unavailable()),
     };
     if result.is_err() {
-        console_error!("auth_retention_cleanup_failed");
+        console_error!("background_dispatch_failed");
     }
 }

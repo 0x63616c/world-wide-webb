@@ -86,8 +86,10 @@ struct Receipt {
     normalized_hash: Vec<u8>,
 }
 fn html(page: Page) -> std::result::Result<Response, Failure> {
-    let mut response = Response::from_html(page.render().map_err(|_| Failure::unavailable())?)
-        .map_err(|_| Failure::unavailable())?;
+    secure_html(page.render().map_err(|_| Failure::unavailable())?)
+}
+pub(crate) fn secure_html(html: String) -> std::result::Result<Response, Failure> {
+    let mut response = Response::from_html(html).map_err(|_| Failure::unavailable())?;
     for (name, value) in [
         ("Cache-Control", "no-store"),
         ("X-Content-Type-Options", "nosniff"),
@@ -126,6 +128,9 @@ pub(crate) async fn dispatch(
     let config = Configuration::load(env)?;
     let admin = admin_auth::authorize(request, env, &config).await?;
     let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+    if request.path() == "/admin/config" {
+        return crate::operational_runtime::admin(request, &db, &config, &admin, body).await;
+    }
     if request.method() == Method::Post {
         return mutate(request, &db, &config, &admin, body).await;
     }

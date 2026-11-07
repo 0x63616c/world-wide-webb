@@ -203,10 +203,31 @@ pub(crate) async fn dispatch(env: &Env, db: &D1Database) -> std::result::Result<
     {
         return Ok(());
     }
+    if crate::operational_runtime::controls(db)
+        .await?
+        .result_notifications_enabled
+        == 0
+    {
+        return Ok(());
+    }
     let config = Configuration::load(env)?;
-    let (topic, environment, _) = crate::notification_runtime::push_configuration(env)?;
+    let (topic, environment, _) = match crate::notification_runtime::push_configuration(env) {
+        Ok(configuration) => configuration,
+        Err(error) => {
+            crate::operational_runtime::pause_notifications(db, "APNs configuration unavailable")
+                .await?;
+            return Err(error);
+        }
+    };
     let jobs=statement(db,"SELECT participant_id,period_id,attempts FROM award_jobs WHERE state='pending' AND lease_until_ms<=?1 AND next_attempt_ms<=?1 AND (due_ms IS NULL OR due_ms<=?1) ORDER BY COALESCE(due_ms,0),period_id,participant_id LIMIT 10",&[number(now())])?.all().await.map_err(|_|Failure::unavailable())?.results::<Job>().map_err(|_|Failure::unavailable())?;
     for job in jobs {
+        if crate::operational_runtime::controls(db)
+            .await?
+            .result_notifications_enabled
+            == 0
+        {
+            break;
+        }
         #[derive(Deserialize)]
         struct Schedule {
             finalized_at_ms: i64,
@@ -264,7 +285,32 @@ pub(crate) async fn dispatch(env: &Env, db: &D1Database) -> std::result::Result<
                     .map_err(|_| Failure::unavailable())?,
             )
             .map_err(|_| Failure::unavailable())?;
-            let jwt = provider(env, db, &config, &environment, &topic).await?;
+            let jwt = match provider(env, db, &config, &environment, &topic).await {
+                Ok(jwt) => jwt,
+                Err(error) => {
+                    crate::operational_runtime::pause_notifications(
+                        db,
+                        "Provider configuration unavailable",
+                    )
+                    .await?;
+                    return Err(error);
+                }
+            };
+            let fresh = target(db, &config, &job, &environment, &topic)
+                .await?
+                .ok_or_else(Failure::unavailable)?;
+            if fresh.token_hash != destination.token_hash
+                || fresh.registered_at_ms != destination.registered_at_ms
+                || fresh.weekly != destination.weekly
+                || fresh.monthly != destination.monthly
+                || fresh.home_timezone != destination.home_timezone
+                || fresh.locale != destination.locale
+                || fresh.rank != destination.rank
+                || fresh.medal != destination.medal
+            {
+                return Err(Failure::unavailable());
+            }
+            crate::operational_runtime::require(db, "notifications").await?;
             deliver(&token, &jwt, &environment, &topic, &job, &destination).await
         }
         .await;
@@ -292,18 +338,32 @@ pub(crate) async fn dispatch(env: &Env, db: &D1Database) -> std::result::Result<
                 {
                     statement(db,"UPDATE push_installations SET enabled=0 WHERE participant_id=?1 AND device_id=?2 AND token_hash=?3 AND registered_at_ms=?4",&[text(&job.participant_id),text(&destination.device_id),blob(&destination.token_hash),number(destination.registered_at_ms)])?.run().await.map_err(|_|Failure::unavailable())?;
                 }
+            } else if outcome.status == 403 {
+                crate::operational_runtime::pause_notifications(
+                    db,
+                    "APNs rejected provider authorization",
+                )
+                .await?;
+                error = "provider_authorization";
             } else if outcome.status != 429 && outcome.status < 500 {
                 state = "failed";
             }
         }
-        if state == "pending" && job.attempts >= 7 {
+        let paused = state != "sent"
+            && crate::operational_runtime::controls(db)
+                .await?
+                .result_notifications_enabled
+                == 0;
+        if paused {
+            state = "pending";
+        }
+        if state == "pending" && job.attempts >= 11 && !paused {
             state = "failed";
         }
-        let delays = [
-            60000, 300000, 900000, 3600000, 10800000, 21600000, 43200000, 86400000,
-        ];
-        let next = time + delays[(job.attempts as usize).min(7)];
-        statement(db,"UPDATE award_jobs SET state=?1,lease_until_ms=0,next_attempt_ms=?2,last_error=?3,sent_at_ms=CASE WHEN ?1='sent' THEN ?4 ELSE NULL END WHERE participant_id=?5 AND period_id=?6 AND state='pending' AND lease_until_ms=?7",&[text(state),number(next),text(error),number(now()),text(&job.participant_id),text(&job.period_id),number(lease)])?.run().await.map_err(|_|Failure::unavailable())?;
+        let base = (30000_i64.saturating_mul(1_i64 << job.attempts.min(11))).min(3600000);
+        let jitter = u16::from_be_bytes(random::<2>()?) as i64 % (base / 5 + 1);
+        let next = time + (base + jitter).min(3600000);
+        statement(db,"UPDATE award_jobs SET state=?1,lease_until_ms=0,next_attempt_ms=?2,last_error=?3,attempts=attempts-?8,sent_at_ms=CASE WHEN ?1='sent' THEN ?4 ELSE NULL END WHERE participant_id=?5 AND period_id=?6 AND state='pending' AND lease_until_ms=?7",&[text(state),number(next),text(error),number(now()),text(&job.participant_id),text(&job.period_id),number(lease),number(if paused{1}else{0})])?.run().await.map_err(|_|Failure::unavailable())?;
     }
     Ok(())
 }

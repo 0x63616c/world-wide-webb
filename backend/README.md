@@ -129,3 +129,14 @@ minutes. Logical awards remain unique across retries/corrections; stable APNs ID
 cannot promise exactly-once display. Both feature gates filter the advertised capability allowlist.
 These implementations still require final real-runtime/service acceptance. Queue wiring, historical
 corrections and remaining admin operational controls are not complete yet.
+
+### Background jobs and controls
+
+Apply **0013** before this Worker version. Cron now publishes durable D1 job identifiers to `JOBS`;
+configure this Worker as its queue consumer (batch size1, timeout5s, max retries12, retry delay30s,
+initial concurrency2). Bind `JOBS_DEAD` as producer/dead-letter destination; do not attach the ordinary
+consumer to the dead-letter queue. Domain state remains authoritative. `/admin/config` controls ingestion,
+avatars and notifications with audited revision fences; it cannot bypass deployment acceptance gates.
+Provider authorization/configuration failures pause notifications and appear there. Resume only after
+fixing the cause. Pending awards remain intact. APNs retry policy is12 attempts with30s exponential
+backoff capped at1h plus bounded jitter. Queue/runtime acceptance remains outstanding.

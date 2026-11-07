@@ -44,6 +44,8 @@ mod enrollment_runtime;
 mod finalization_runtime;
 pub mod ingestion;
 #[cfg(target_arch = "wasm32")]
+mod jobs_runtime;
+#[cfg(target_arch = "wasm32")]
 mod leaderboard_runtime;
 #[cfg(target_arch = "wasm32")]
 mod lifecycle_runtime;
@@ -53,6 +55,8 @@ pub mod mutation;
 pub mod name_policy;
 #[cfg(target_arch = "wasm32")]
 mod notification_runtime;
+#[cfg(target_arch = "wasm32")]
+mod operational_runtime;
 pub mod periods;
 pub mod presentation;
 #[cfg(target_arch = "wasm32")]

@@ -30,6 +30,7 @@ pub(crate) async fn upload(
     body: &[u8],
     request_id: &Id,
 ) -> std::result::Result<Response, Failure> {
+    crate::operational_runtime::require(db, "avatars").await?;
     if env
         .var("AVATAR_UPLOADS_ENABLED")
         .map(|v| v.to_string())

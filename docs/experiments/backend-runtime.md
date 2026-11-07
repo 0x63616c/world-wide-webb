@@ -239,3 +239,32 @@ external sends, deployments, CI runs or independent review were performed here.
 Protocol sources: [Apple token authentication](https://developer.apple.com/documentation/usernotifications/establishing-a-token-based-connection-to-apns),
 [APNs requests](https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns),
 [APNs response timestamps](https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html).
+
+## Queue and operational-control implementation checkpoint
+
+Migration 0013 adds the versioned administrative configuration, separate operational audit and durable
+D1 dispatch outbox. One five-minute Cron inserts unique category/slot work records and publishes only
+opaque job IDs to `JOBS`. The consumer derives the work type from D1, leases the dispatch, and invokes
+the bounded domain worker (whose individual mutation/job fences still apply). Lost queue publication
+is retried from D1; duplicate messages are harmless. The consumer uses 12 business execution attempts,
+30-second exponential backoff capped at one hour with jitter; exhausted identifiers go to `JOBS_DEAD`
+and remain failed in D1. A failed dead-letter publication retries publication without executing business
+work beyond the attempt limit. Completed dispatch metadata expires after 30 days. Provider queue
+settings: batch size 1, batch timeout 5 seconds, retries 12, initial retry delay 30 seconds, concurrency 2.
+
+`/admin/config` is Access-authenticated, escaped HTML with revision fences, CSRF, audit reason and
+idempotent operation receipts. Competition ingestion, avatar uploads and result notifications read
+these controls on relevant requests/jobs; defaults are enabled behind independent deployment acceptance
+gates. Pausing never clears business queues or affects personal tracking. APNs provider configuration
+or authorization failures pause notification work and surface an alert in this protected page with an
+operational audit. The APNs retry policy now matches the frozen 12-attempt/30-second/one-hour schedule;
+this supersedes the eight-attempt policy in the preceding checkpoint. Consent/ownership are checked
+again after provider-token preparation immediately before dispatch; in-flight external delivery remains
+inherently non-recallable. Remaining work includes explicit correction previews, complete failed-job
+management UI, appeals/case retention and final runtime/service acceptance.
+
+Approved owner-recovery contract amendment: authenticated `/me` and PATCH profile responses include
+optional `pending_avatar_id`, selecting the current uploading/pending reservation. Ranked/public/share
+projections exclude it. The native client can recover or cancel an upload after response loss/relaunch.
+Focused verification: actual Wasm compilation and 299 literal SQL preparations across 13 migrations pass.
+Full Queue/D1 concurrency and provider failure simulations remain deferred final acceptance.
