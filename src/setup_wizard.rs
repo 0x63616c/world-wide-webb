@@ -1637,7 +1637,10 @@ fn finish_enrollment(
             lines: vec![
                 format!("{host} is set up."),
                 "Reboot, services, Tailscale access and Git access verified.".into(),
-                format!("Setup configuration: {}", workspace.revision),
+                format!(
+                    "Configuration: https://github.com/{}/commit/{}",
+                    workspace.repository, workspace.revision
+                ),
                 format!("Tailscale: {}", report.tailscale.dns_name),
             ],
         },
