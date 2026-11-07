@@ -155,3 +155,27 @@ impl ProgressState {
         (format!("{symbol} {label}"), role)
     }
 }
+
+/// Authentication owns a fixed form; native retry history is never part of it.
+pub(crate) fn password_field(
+    host: &str,
+    label: &str,
+    masked_length: usize,
+    rejected: bool,
+) -> Vec<(String, Role)> {
+    vec![
+        (host.into(), Role::Context),
+        (String::new(), Role::Body),
+        (label.into(), Role::Section),
+        (
+            format!("> {}", "*".repeat(masked_length.min(48))),
+            Role::Input,
+        ),
+        (String::new(), Role::Body),
+        if rejected {
+            ("Password not accepted. Try again.".into(), Role::Warning)
+        } else {
+            (String::new(), Role::Body)
+        },
+    ]
+}

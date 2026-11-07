@@ -82,29 +82,62 @@ impl ProcessScreen {
     }
 }
 
-fn draw(context: &Context, text: &str, state: ProcessScreen) -> io::Result<()> {
-    let finished = state == ProcessScreen::Failed;
-    let authentication = state == ProcessScreen::Authentication;
+fn rejected_password(line: &str) -> bool {
+    let line = line.trim().to_ascii_lowercase();
+    line == "sorry, try again." || line == "permission denied, please try again."
+}
+
+fn process_body(context: &Context, text: &str, state: ProcessScreen) -> Vec<(String, Role)> {
     let mut body = vec![
         (context.host.clone(), Role::Context),
         (String::new(), Role::Body),
-        (
-            if finished {
-                "Step failed".into()
-            } else if authentication {
-                "Waiting for authentication".into()
-            } else {
-                context.message.clone()
-            },
-            if finished {
-                Role::Warning
-            } else {
-                Role::Working
-            },
-        ),
-        (String::new(), Role::Body),
     ];
-    body.extend(text.lines().map(|line| (line.to_owned(), Role::Body)));
+    if state == ProcessScreen::Authentication {
+        let prompt = text.lines().last().unwrap_or_default();
+        let label = if prompt.to_ascii_lowercase().contains("passphrase") {
+            "SSH key passphrase:"
+        } else {
+            "Password:"
+        };
+        // Only the locally generated mask is rendered, never native prompt history.
+        let mask = prompt
+            .chars()
+            .rev()
+            .take_while(|character| *character == '*')
+            .count()
+            .min(48);
+        return ui::components::password_field(
+            &context.host,
+            label,
+            mask,
+            text.lines().rev().skip(1).take(2).any(rejected_password),
+        );
+    }
+    let output: Vec<_> = text
+        .lines()
+        .filter(|line| {
+            !line.trim().is_empty() && !password_prompt(line) && !rejected_password(line)
+        })
+        .collect();
+    if state == ProcessScreen::Failed {
+        body.push(("Step failed".into(), Role::Warning));
+        body.push((String::new(), Role::Body));
+        body.extend(output.into_iter().map(|line| (line.to_owned(), Role::Body)));
+    } else {
+        body.push((
+            output
+                .last()
+                .map_or_else(|| context.message.clone(), |line| (*line).to_owned()),
+            Role::Working,
+        ));
+    }
+    body
+}
+
+fn draw(context: &Context, text: &str, state: ProcessScreen) -> io::Result<()> {
+    let finished = state == ProcessScreen::Failed;
+    let authentication = state == ProcessScreen::Authentication;
+    let body = process_body(context, text, state);
     let actions = if finished {
         vec![Action::Primary("Continue".into())]
     } else if authentication {

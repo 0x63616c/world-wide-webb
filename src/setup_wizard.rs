@@ -1625,7 +1625,7 @@ fn enroll(
                 identity.bootstrap_started,
             ));
         }
-        match crate::terminal_process::within("Installing your Mac", host_name, || {
+        match crate::terminal_process::within("Setting up your Mac", host_name, || {
             remote_setup::apply(prepared, &tools.remote_setup)
         }) {
             Ok(_) => {

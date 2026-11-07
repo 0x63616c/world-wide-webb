@@ -71,6 +71,12 @@ struct Fixture {
 }
 
 fn fixture(screen: Screen) -> Fixture {
+    if screen == Screen::Authentication {
+        return Fixture {
+            title: "Setting up your Mac",
+            lines: ui::components::password_field("studio-mac", "Password:", 8, false),
+        };
+    }
     if screen == Screen::Help {
         return Fixture {
             title: "Help",
@@ -270,16 +276,7 @@ fn fixture(screen: Screen) -> Fixture {
                 ("Backing up and encrypting keys", Role::Body),
             ],
         ),
-        Screen::Authentication => (
-            "Installing your Mac",
-            vec![
-                ("studio-mac", Role::Context),
-                ("", Role::Body),
-                ("Waiting for authentication", Role::Working),
-                ("", Role::Body),
-                ("Password:", Role::Body),
-            ],
-        ),
+        Screen::Authentication => unreachable!("handled above"),
         Screen::Attention => (
             "Setup needs attention",
             vec![

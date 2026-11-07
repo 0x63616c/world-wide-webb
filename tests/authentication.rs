@@ -79,6 +79,8 @@ fn scenario(mode: &str, fixture: &Path) {
     let mut answered = false;
     let mut acknowledged = false;
     let mut mask_verified = false;
+    let mut retried = false;
+    let mut build_verified = false;
     let mut exit = None;
     loop {
         let mut buffer = [0; 8192];
@@ -111,6 +113,18 @@ fn scenario(mode: &str, fixture: &Path) {
             } else if mode != "timeout" {
                 writer.write_all(b"dR?fixture-password\r").unwrap();
             }
+        }
+        if mode == "retry" && !retried && screen.contains("Password not accepted. Try again.") {
+            assert_eq!(screen.matches("Password:").count(), 1);
+            assert!(!screen.contains("Sorry, try again."));
+            retried = true;
+            writer.write_all(b"dR?fixture-password\r").unwrap();
+        }
+        if mode == "retry" && screen.contains("Building configuration…") {
+            assert!(!screen.contains("Password:"));
+            assert!(!screen.contains("Password not accepted"));
+            assert!(!screen.contains("Working…"));
+            build_verified = true;
         }
         if mode == "masked" && !mask_verified && screen.contains("******************") {
             mask_verified = true;
@@ -164,6 +178,7 @@ fn scenario(mode: &str, fixture: &Path) {
     assert_eq!(transcript.matches("\x1b[?1049h").count(), 1);
     assert_eq!(transcript.matches("\x1b[?1049l").count(), 1);
     assert!(mode != "masked" || mask_verified);
+    assert!(mode != "retry" || (retried && build_verified));
     assert!(answered, "native prompt wasn't displayed");
 }
 
@@ -194,6 +209,7 @@ fn main() {
     for mode in [
         "status",
         "masked",
+        "retry",
         "input",
         "capture",
         "failure",

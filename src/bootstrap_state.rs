@@ -24,9 +24,7 @@ impl Phase {
         match self {
             Self::Preparing => "Preparing the reviewed configuration…",
             Self::InstallingNix => "Installing Nix. This can take several minutes…",
-            Self::Building => {
-                "Building the reviewed configuration. Downloads may take several minutes…"
-            }
+            Self::Building => "Building configuration…",
             Self::VerifyingSecrets => "Checking host secret decryption…",
             Self::InstallingKey => "Installing this Mac’s identities…",
             Self::Activating => "Activating the built configuration…",

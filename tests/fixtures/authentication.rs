@@ -11,6 +11,16 @@ fn main() {
     let mut password = String::new();
     BufReader::new(tty.try_clone().unwrap()).read_line(&mut password).unwrap();
     assert_eq!(password.trim(), "dR?fixture-password");
+    if mode == "retry" {
+        write!(tty, "\nSorry, try again.\nPassword: ").unwrap();
+        tty.flush().unwrap();
+        password.clear();
+        BufReader::new(tty.try_clone().unwrap()).read_line(&mut password).unwrap();
+        assert_eq!(password.trim(), "dR?fixture-password");
+        writeln!(tty, "\nBuilding configuration…").unwrap();
+        tty.flush().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(400));
+    }
     assert!(Command::new("/bin/stty").arg("echo").stdin(tty.try_clone().unwrap()).status().unwrap().success());
     if mode == "input" {
         let mut input = String::new();
