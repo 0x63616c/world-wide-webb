@@ -138,6 +138,7 @@ jobs:
       - run: tofu -chdir=infra/cloudflare init -backend=false -lockfile=readonly
       - run: tofu -chdir=infra/cloudflare validate
       - run: tofu -chdir=infra/cloudflare test
+      - run: python3 tools/test_state_backend.py
   build-and-test:
     if: always()
     needs: [changes, typecheck, test-unit, apple, image, infra]
