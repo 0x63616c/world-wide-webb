@@ -5,10 +5,10 @@ All values are synthetic fixtures, not a screenshot of the owner's live location
 or vehicle telemetry. Artwork is generated; provenance is in
 `apps/apple-prototype/docs/evee-artwork.md`.
 
-`TeslaDashboardTests/testVehicleStatesAndPINEntry` captured parked, unlocked,
-charging, driving, update available, installing, offline, no power, and the fresh
-PIN flow. It verifies the odometer stays visible in every state and lock controls
-are disabled while driving, installing or offline. All eight scenarios passed.
+`TeslaDashboardTests/testReadOnlyVehicleStates` captured parked, unlocked,
+charging, driving, update available, installing, offline and no power. It verifies
+the mileage stays visible, the lock indicator reports the fixture's actual state,
+and there is no lock button, toggle or PIN entry in any state.
 
 `charging-glow.mov` shows the actual charging highlight and glow in a simulator
 launched with `-hybridFixtures -hybridMotion -hybridTeslaScenario charging`.
