@@ -214,29 +214,4 @@ extension CompetitionAPI {
           operationID: UUID().uuidString.lowercased(),
           participantID: participantID, reason: reason)))
   }
-  func uploadAvatar(_ bytes: Data) async throws -> String {
-    guard !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024 else {
-      throw CompetitionTransportError.invalidResponse
-    }
-    let type: String
-    if bytes.starts(with: [0xff, 0xd8, 0xff]) {
-      type = "image/jpeg"
-    } else if bytes.starts(with: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) {
-      type = "image/png"
-    } else {
-      throw CompetitionTransportError.invalidResponse
-    }
-    struct Response: Decodable, Sendable { let state: String }
-    let result: Response = try await transport.protected(
-      "PUT",
-      path: "/v1/avatars/\(UUID().uuidString.lowercased())", purpose: "avatar_upload",
-      body: bytes, contentType: type)
-    return result.state
-  }
-  func removeAvatar(_ id: String) async throws {
-    guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }
-    let _: CompetitionOperation = try await transport.send(
-      "DELETE",
-      path: "/v1/avatars/\(id)?operation_id=\(UUID().uuidString.lowercased())")
-  }
 }

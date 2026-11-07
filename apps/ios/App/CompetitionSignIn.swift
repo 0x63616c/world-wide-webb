@@ -9,12 +9,14 @@ struct CompetitionWireProfile: Codable, Sendable {
   let nickname: String
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let avatar_id: String?
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  var pending_avatar_id: String? = nil
   let membership: String
   let restriction: String
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let nickname_status: String
   // swift-format-ignore: AlwaysUseLowerCamelCase
-  let avatar_status: String
+  var avatar_status: String
 }
 // swift-format-ignore: AlwaysUseLowerCamelCase
 struct CompetitionSignInResponse: Decodable, Sendable {

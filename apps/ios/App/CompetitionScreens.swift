@@ -31,6 +31,8 @@ struct CompetitionSheetScreen: View {
 }
 
 struct CompetitionProfileScreen: View {
+  @Environment(\.scenePhase) private var scenePhase
+  @State private var profileRefreshFailed = false
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
   let joining: Bool
@@ -59,6 +61,11 @@ struct CompetitionProfileScreen: View {
         if rejectedName {
           Text(String(localized: "profile.chooseName", defaultValue: "Choose another name"))
             .foregroundStyle(.red)
+        }
+        if profileRefreshFailed {
+          Button(String(localized: "action.retry", defaultValue: "Retry")) {
+            Task { await refreshProfile() }
+          }
         }
         if !creating, model.competitionProfile?.nicknamePending == true {
           Label(
@@ -165,6 +172,27 @@ struct CompetitionProfileScreen: View {
     .task {
       nickname = joining ? model.joinNickname : (model.competitionProfile?.nickname ?? "")
     }
+    .task(
+      id:
+        "\(scenePhase)-\(model.competitionProfile?.avatarState.rawValue ?? "none")-\(model.competitionProfile?.nicknamePending == true)"
+    ) {
+      guard !creating, scenePhase == .active else { return }
+      repeat {
+        await refreshProfile()
+        guard !Task.isCancelled, !profileRefreshFailed,
+          model.competitionProfile?.avatarState == .pending
+            || model.competitionProfile?.nicknamePending == true
+        else { return }
+        do { try await Task.sleep(for: .seconds(15)) } catch { return }
+      } while !Task.isCancelled
+    }
+    .onChange(of: model.competitionProfile?.avatarState) { _, state in
+      avatarState = state
+      if state == .approved {
+        photo = nil
+        photoItem = nil
+      }
+    }
     .task(id: photoItem) { await loadPhoto() }
     .confirmationDialog(
       removal == .delete
@@ -202,6 +230,17 @@ struct CompetitionProfileScreen: View {
           defaultValue: "Removes public scores and results. Personal history stays."))
     }
   }
+  private func refreshProfile() async {
+    guard let refresh = actions.refreshCompetitionProfile else { return }
+    do {
+      let profile = try await refresh()
+      guard !Task.isCancelled else { return }
+      model.competitionProfile = profile
+      avatarState = profile.avatarState
+      profileRefreshFailed = false
+    } catch is CancellationError {} catch { profileRefreshFailed = true }
+  }
+
   @ViewBuilder private var avatarPreview: some View {
     if let photo {
       Image(uiImage: photo).resizable().scaledToFill().scaleEffect(zoom)

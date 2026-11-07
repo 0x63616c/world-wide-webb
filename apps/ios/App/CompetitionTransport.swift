@@ -83,6 +83,7 @@ actor CompetitionTransport {
   let origin: URL
   let deployment: String
   let deviceID: UUID
+  private var avatarContextRevision = UUID()
   private let credentials: CompetitionCredentialStore
   private let session: URLSession
   private var signing = false
@@ -119,11 +120,50 @@ actor CompetitionTransport {
     try credentials.write(Self.encode(value), account: "session")
   }
   func clearSession() throws {
+    avatarContextRevision = UUID()
     for account in [
       "session", "refresh-operation", "attest-enrolled", "attest-key", "attest-pending",
+      "avatar-upload", "avatar-removals",
     ] {
       try credentials.remove(account)
     }
+  }
+
+  func avatarContext() -> UUID { avatarContextRevision }
+
+  func avatarUpload() throws -> CompetitionAvatarUpload? {
+    guard let data = try credentials.read("avatar-upload") else { return nil }
+    return try JSONDecoder().decode(CompetitionAvatarUpload.self, from: data)
+  }
+  func saveAvatarUpload(_ upload: CompetitionAvatarUpload?, context: UUID) throws {
+    guard context == avatarContextRevision else { throw CancellationError() }
+    if let upload {
+      try credentials.write(Self.encode(upload), account: "avatar-upload")
+    } else {
+      try credentials.remove("avatar-upload")
+    }
+  }
+  func avatarRemovalOperation(id: String, context: UUID) throws -> String {
+    guard context == avatarContextRevision else { throw CancellationError() }
+    let values =
+      try credentials.read("avatar-removals").map {
+        try JSONDecoder().decode([String: String].self, from: $0)
+      } ?? [:]
+    if let operation = values[id] { return operation }
+    var next = values
+    let operation = UUID().uuidString.lowercased()
+    next[id] = operation
+    try credentials.write(Self.encode(next), account: "avatar-removals")
+    return operation
+  }
+  func finishAvatarRemoval(id: String, context: UUID) throws {
+    guard context == avatarContextRevision else { throw CancellationError() }
+    var values =
+      try credentials.read("avatar-removals").map {
+        try JSONDecoder().decode([String: String].self, from: $0)
+      } ?? [:]
+    values[id] = nil
+    try credentials.write(Self.encode(values), account: "avatar-removals")
   }
 
   func challenge(purpose: String) async throws -> CompetitionChallenge {

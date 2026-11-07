@@ -250,6 +250,7 @@ enum ExportChoice { case json, csv }
   var exportURL: ((UUID) async throws -> URL)?
   var exportFinished: ((UUID) async -> Void)?
   var joinCompetition: ((String) async throws -> Void)?
+  var refreshCompetitionProfile: (() async throws -> CompetitionProfile)?
   var saveNickname: ((String) async throws -> CompetitionProfile)?
   var uploadAvatar: ((Data) async throws -> AvatarReviewState)?
   var removeAvatar: (() async throws -> Void)?

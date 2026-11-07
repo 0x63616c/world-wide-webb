@@ -142,20 +142,33 @@ import struct FoldingData.SetupProgress
         await self.configurePush()
         await self.presentation.requestLeaderboard(using: self.actions)
       },
+      refreshCompetitionProfile: {
+        let revision = self.competitionIdentityRevision
+        let profile = try await self.competitionClient().refreshedProfile()
+        let value = await self.profilePresentation(profile)
+        guard revision == self.competitionIdentityRevision else { throw CancellationError() }
+        return value
+      },
       saveNickname: { value in
         let profile = try await self.competitionClient().nickname(value)
         return await self.profilePresentation(profile)
       },
       uploadAvatar: { bytes in
-        let state = try await self.competitionClient().uploadAvatar(bytes)
-        return AvatarReviewState(rawValue: state) ?? .pending
+        let revision = self.competitionIdentityRevision
+        let api = try await self.competitionClient()
+        _ = try await api.uploadAvatar(bytes)
+        let profile = try await api.refreshedProfile()
+        let value = await self.profilePresentation(profile)
+        guard revision == self.competitionIdentityRevision else { throw CancellationError() }
+        self.presentation.competitionProfile = value
+        return value.avatarState
       },
       removeAvatar: {
-        let api = try await self.competitionClient()
-        let me = try await api.me()
-        if let id = me.profile.avatar_id { try await api.removeAvatar(id) }
-        let refreshed = try await api.me()
-        self.presentation.competitionProfile = await self.profilePresentation(refreshed.profile)
+        let revision = self.competitionIdentityRevision
+        let profile = try await self.competitionClient().removeProfileAvatars()
+        let value = await self.profilePresentation(profile)
+        guard revision == self.competitionIdentityRevision else { throw CancellationError() }
+        self.presentation.competitionProfile = value
       },
       loadResults: { period, cursor in
         let page = try await self.competitionClient().results(kind: period.rawValue, cursor: cursor)

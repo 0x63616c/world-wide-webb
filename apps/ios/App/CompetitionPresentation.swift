@@ -8,7 +8,7 @@ struct CompetitionProfile: Equatable, Sendable {
   let avatarState: AvatarReviewState
   var approvedAvatarData: Data? = nil
 }
-enum AvatarReviewState: String, Sendable { case none, pending, approved, rejected }
+enum AvatarReviewState: String, Codable, Sendable { case none, pending, approved, rejected }
 enum CompetitionUIError: Error { case chooseAnotherName }
 enum ParticipantReportReason: String, CaseIterable, Identifiable, Sendable {
   case abusiveName = "abusive_name"
