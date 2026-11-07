@@ -38,14 +38,6 @@ settings:
     FOLDING_APNS_ENVIRONMENT: ''
     FOLDING_ICLOUD_ENVIRONMENT: ''
     FOLDING_ATTEST_ENVIRONMENT: ''
-    INFOPLIST_KEY_FoldingAPIOrigin: '$(FOLDING_API_ORIGIN)'
-    INFOPLIST_KEY_FoldingEnvironment: '$(FOLDING_ENVIRONMENT)'
-    INFOPLIST_KEY_FoldingSourceCommit: '$(FOLDING_SOURCE_COMMIT)'
-    INFOPLIST_KEY_FoldingAPNSEnvironment: '$(FOLDING_APNS_ENVIRONMENT)'
-    INFOPLIST_KEY_FoldingICloudEnvironment: '$(FOLDING_ICLOUD_ENVIRONMENT)'
-    INFOPLIST_KEY_FoldingAttestEnvironment: '$(FOLDING_ATTEST_ENVIRONMENT)'
-    INFOPLIST_KEY_FoldingCloudContainerIdentifier: '$(FOLDING_CLOUD_CONTAINER_IDENTIFIER)'
-    INFOPLIST_KEY_FoldingAppGroupIdentifier: '$(FOLDING_APP_GROUP_IDENTIFIER)'
     'CODE_SIGN_IDENTITY[sdk=iphonesimulator*]': '-'
     'CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]': YES
 targets:
@@ -58,6 +50,14 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: app.getfolding.navigation
             CFBundleURLSchemes: [folding]
+        FoldingAPIOrigin: '$(FOLDING_API_ORIGIN)'
+        FoldingEnvironment: '$(FOLDING_ENVIRONMENT)'
+        FoldingSourceCommit: '$(FOLDING_SOURCE_COMMIT)'
+        FoldingAPNSEnvironment: '$(FOLDING_APNS_ENVIRONMENT)'
+        FoldingICloudEnvironment: '$(FOLDING_ICLOUD_ENVIRONMENT)'
+        FoldingAttestEnvironment: '$(FOLDING_ATTEST_ENVIRONMENT)'
+        FoldingCloudContainerIdentifier: '$(FOLDING_CLOUD_CONTAINER_IDENTIFIER)'
+        FoldingAppGroupIdentifier: '$(FOLDING_APP_GROUP_IDENTIFIER)'
     sources:
       - path: App
         includes: ['*.swift', '*.xcstrings']
