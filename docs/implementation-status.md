@@ -4,7 +4,7 @@ The private [homelab repository](https://github.com/0x63616c/homelab) owns host 
 service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
 owns guided enrollment; private health and restore operations live in `host/`.
 No physical host has received this configuration. Public CLI
-[0.3.1](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.1) provides
+[0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2) provides
 Git-first host selection, automatic Command Line Tools installation and earlier
 client prerequisite checks.
 

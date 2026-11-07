@@ -14,7 +14,7 @@ Install the public [homelab CLI](https://github.com/0x63616c/homelab-cli), open
 3. The wizard backs up keys, prepares encrypted secrets and opens an enrollment PR.
 4. Review and merge that PR; the wizard installs, reboots and verifies the Mac.
 
-Use [CLI 0.3.1](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.1)
+Use [CLI 0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2)
 for Git-first host selection and automatic installation of missing Apple Command
 Line Tools. Version 0.3.0 does not include these changes.
 
