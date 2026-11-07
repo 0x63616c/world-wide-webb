@@ -2,9 +2,10 @@
 
 Panel starts on the selected clock face. Tap the clock to reveal the vertically scrolling app
 launcher on one full-screen native Liquid Glass surface over the same living clock.
-The clock stays fixed as the glass slides up from the bottom. Swipe down from the
-top of Home to slide the glass back down and return to the clock. Horizontal
-swipes on the clock alternate between Green and Tide. Green retains the oversized
+The clock stays fixed as the glass slides up from the bottom. Its blur mask moves
+with the glass, so the clock blurs only behind the visible launcher. Swipe down
+from the top of Home to slide the glass back down and return to the clock.
+Horizontal swipes on the clock alternate between Green and Tide. Green retains the oversized
 12–3–6–9 dial. Tide has stacked SF Rounded clear, untinted Liquid Glass numerals over a blue
 colour field, with a date and no AM/PM label. Its glass follows the actual glyph
 outlines; Reduce Transparency or Increase Contrast uses solid, legible numerals.
@@ -16,7 +17,9 @@ and `-previewDayClock` to compare the material at consistent daytime brightness.
 The glass follows the screen corners with an 8-point inset, and a 0.3-second reveal. The hands cast a subtle shadow on the dial.
 The launcher has no photographic wallpaper or Background picker. Each app opens
 full screen as the clock and launcher move away together. Back restores both.
-Only Classic opens the web board. See [app registration](../Sources/Apps/README.md)
+Classic mounts the web board on demand, so its Cloudflare Access browser cannot
+appear on native startup. Explicit web-only rollback and web module fallbacks
+also mount the board. See [app registration](../Sources/Apps/README.md)
 for the typed catalog and extension recipe. Older dashboard descriptions below
 refer to the retained preview components, not the current landing screen.
 
@@ -32,7 +35,7 @@ On iPad, the shell sets the containing screen's hardware brightness, without a
 second dark overlay. Waking explicitly restores the configured wake level, not
 the previous system value. Leaving the active app restores the prior system
 brightness. The Mac app and simulator preview dim through a visual overlay.
-The retained Classic web board may control brightness only while it is visible;
+The Classic web board may control brightness only while it is visible;
 its background idle timer cannot override the native shell.
 
 # Panel hybrid kiosk (WWW-18)
@@ -90,7 +93,8 @@ Only LakeWallpaper and CloudPhoto image sets are linked into Hybrid's asset
 catalogue; prototype photo fixtures and local video stay out of Panel.
 
 The small bottom-trailing **Classic** entry (`safari`) opens the full legacy web
-board. The existing WKWebView remains mounted behind Home and native controllers.
+board. WKWebView mounts when Classic or a web fallback opens and detaches on return
+to native Home, avoiding a Cloudflare Access sign-in on ordinary startup.
 Classic and module fallbacks hide the module strip and always show a top-leading
 glass **Home** button, including during loading and reconnection. No rollout flag
 is needed. iOS Settings > Panel > **Web board only** (`hybrid.webOnly`) restores

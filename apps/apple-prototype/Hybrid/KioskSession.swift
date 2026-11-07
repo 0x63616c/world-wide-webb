@@ -10,7 +10,7 @@ final class KioskSession {
     private(set) var reconnecting = false
     var browser: BrowserDestination?
     var share: ShareDestination?
-    // The retained web board must not dim the screen behind the native shell.
+    // Classic must not dim the screen behind the native shell.
     var webBrightnessEnabled = false
     let launchedAt: Int64
     let nativeAlarms: NativeAlarmsRuntime
@@ -92,6 +92,17 @@ final class KioskSession {
         reload = nil
         webView = nil
         UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    func detach(_ view: WKWebView) {
+        guard webView === view else { return }
+        watchdog?.cancel()
+        watchdog = nil
+        reload?.cancel()
+        reload = nil
+        rendered = false
+        reconnecting = false
+        webView = nil
     }
 
     func open(_ url: URL) {
@@ -183,6 +194,8 @@ final class KioskSession {
 
     func setAlarmOwner(_ native: Bool) async -> Bool {
         if isAlarmFixture { return true }
+        // Until Classic is opened, no web ringer exists to hand off from.
+        if webView == nil { return true }
         guard let webView, KioskURLPolicy.isTrusted(webView.url, serverURL: configuration.serverURL) else { return false }
         let expected = generation
         let acknowledged = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in

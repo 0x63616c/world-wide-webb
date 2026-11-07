@@ -20,7 +20,9 @@ import XCTest
     func testHomeClassicAndReturn() {
         let app = launch()
         defer { app.terminate() }
+        XCTAssertFalse(app.descendants(matching: .any)["web-board"].firstMatch.exists)
         app.openAppGrid()
+        XCTAssertFalse(app.descendants(matching: .any)["web-board"].firstMatch.exists)
         XCTAssertTrue(app.buttons["app-car"].staticTexts["Tesla"].exists)
         capture("native-launcher", app)
         app.buttons["app-classic"].tap()

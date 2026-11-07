@@ -134,17 +134,16 @@ struct PanelRoot: View {
     var body: some View {
         @Bindable var session = session
         ZStack {
-            VStack(spacing: 0) {
-                webBoard
-            }
+            if webOnly || (!homeVisible && !nativeVisible) {
+                VStack(spacing: 0) {
+                    webBoard
+                }
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if !homeVisible && !nativeVisible && !webOnly {
                         PanelAppNavigationBar(back: navigation.returnHome)
                     }
                 }
-                .opacity(nativeVisible || homeVisible ? 0 : 1)
-                .allowsHitTesting(!nativeVisible && !homeVisible)
-                .accessibilityHidden(nativeVisible || homeVisible)
+            }
             if homeVisible {
                 PanelHome(store: store, session: session, router: router, navigation: navigation, timer: timer)
             }
