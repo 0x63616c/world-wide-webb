@@ -1,6 +1,6 @@
 name: Submit for review
 
-# Submits the app's editable App Store version for App Review (see scripts/submit-review.rb).
+# Submits the app and its ready purchase versions together through fastlane deliver.
 # Run it after the TestFlight workflow has uploaded and processed the build for the version.
 on:
   workflow_dispatch:
@@ -17,14 +17,6 @@ on:
         description: 'Exact processed TestFlight build number prepared for this release'
         type: string
         required: true
-      whats_new:
-        description: "What's New text"
-        type: string
-        default: ''
-      cancel_waiting:
-        description: 'Cancel a submission that is still waiting for review first'
-        type: boolean
-        default: false
       dry_run:
         description: 'Report what would change without changing anything'
         type: boolean
@@ -57,7 +49,8 @@ jobs:
           APP: ${{ inputs.app }}
           VERSION: ${{ inputs.version }}
           BUILD_NUMBER: ${{ inputs.build }}
-          WHATS_NEW: ${{ inputs.whats_new }}
-          CANCEL_WAITING: ${{ inputs.cancel_waiting }}
           DRY_RUN: ${{ inputs.dry_run }}
-        run: bundle exec ruby scripts/submit-review.rb "$APP"
+        run: |
+          args=(ios submit_with_iap "app:$APP" "build:$BUILD_NUMBER" "dry_run:$DRY_RUN")
+          if [[ -n "$VERSION" ]]; then args+=("version:$VERSION"); fi
+          bundle exec fastlane "${args[@]}"

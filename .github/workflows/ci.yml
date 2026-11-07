@@ -42,7 +42,9 @@ jobs:
       - name: Validate app configuration
         run: ruby scripts/app-config.rb --list
       - name: Release lane checks (no Apple access)
-        run: ruby scripts/check-release.rb
+        run: |
+          ruby scripts/check-release.rb
+          ruby scripts/test-review-products.rb
       - name: Install impact resolver dependencies
         run: python3 -m pip install -r scripts/requirements.txt
       - name: Path filter regression checks

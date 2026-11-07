@@ -4,6 +4,7 @@ require "net/http"
 require "shellwords"
 require "yaml"
 require_relative "../scripts/release-build"
+require_relative "../scripts/review-products"
 
 default_platform(:ios)
 
@@ -456,6 +457,38 @@ platform :ios do
       tip_review_screenshot(asc, id, config["iap_review_screenshot"])
       state = asc.get("v2/inAppPurchases/#{id}").body.dig("data", "attributes", "state")
       UI.success("#{tip[:product_id]}: #{tip[:name]} $#{tip[:price]}, state #{state}")
+    end
+  end
+
+  desc "Submit the exact build with all ready IAPs/subscriptions, preserving existing prices and products"
+  lane :submit_with_iap do |options|
+    config = r_app(options)
+    number = ReleaseBuild.number!(options[:build])
+    api_key = connect_api_key
+    app = app_store_app(config)
+    version = editable_app_store_version(app)
+    target = options[:version] || config["version"]
+    UI.user_error!("Expected version #{target}, found #{version.version_string}") unless version.version_string == target
+    allowed = %w[PREPARE_FOR_SUBMISSION READY_FOR_REVIEW DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY]
+    UI.user_error!("Version is #{version.app_store_state}; leaving it untouched") unless allowed.include?(version.app_store_state)
+    asc = Spaceship::ConnectAPI.client.tunes_request_client
+    ReleaseBuild.find!(asc, app.id, target, number)
+    coordinator = ReviewProducts.new(asc, app.id, version.id).inventory!
+    if options[:dry_run].to_s == "true"
+      UI.success("Dry run: validated build #{number} and #{coordinator.targets.length - 1} product/group versions; no changes")
+      next
+    end
+    require "deliver"
+    require "deliver/submit_for_review"
+    Deliver::SubmitForReview.prepend(DeliverWithProducts) unless Deliver::SubmitForReview < DeliverWithProducts
+    begin
+      Thread.current[:review_products] = coordinator
+      deliver(api_key: api_key, app_identifier: config["bundle_id"], app_version: target,
+              build_number: number.to_s, platform: "ios", skip_binary_upload: true,
+              skip_metadata: true, skip_screenshots: true, submit_for_review: true,
+              run_precheck_before_submit: false, precheck_include_in_app_purchases: false, force: true)
+    ensure
+      Thread.current[:review_products] = nil
     end
   end
 

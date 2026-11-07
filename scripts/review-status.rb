@@ -67,3 +67,39 @@ if rejected
 end
 
 File.write(ENV["GITHUB_STEP_SUMMARY"], summary.join("\n") + "\n", mode: "a") if ENV["GITHUB_STEP_SUMMARY"]
+
+# Product inventory is read-only and includes every page and subscription group.
+def inventory_all(asc, path)
+  rows = []
+  while path
+    body = asc.get(path).body
+    rows.concat(body.fetch("data"))
+    path = body.dig("links", "next")
+  end
+  rows
+end
+inventory_all(asc, "v1/apps/#{APP_ID}/inAppPurchasesV2").each do |product|
+  puts "PRODUCT: #{product.dig('attributes', 'productId')} #{product.dig('attributes', 'state')} id=#{product['id']}"
+  %w[inAppPurchaseLocalizations iapPriceSchedule appStoreReviewScreenshot versions].each do |relation|
+    begin
+      body = asc.get("v2/inAppPurchases/#{product['id']}/#{relation}").body
+      data = body.fetch("data")
+      detail = case relation
+               when "versions" then Array(data).map { |v| "#{v['id']}:#{v.dig('attributes', 'state')}" }.join(", ")
+               when "appStoreReviewScreenshot" then data&.dig("attributes", "assetDeliveryState", "state")
+               when "inAppPurchaseLocalizations" then Array(data).map { |v| v.dig("attributes", "locale") }.join(", ")
+               else data ? "present" : "missing"
+               end
+      puts "PRODUCT_DETAIL: #{relation} #{detail}"
+    rescue StandardError => error
+      puts "PRODUCT_DETAIL: #{relation} unavailable #{error.message.lines.first}"
+    end
+  end
+end
+groups = inventory_all(asc, "v1/apps/#{APP_ID}/subscriptionGroups")
+puts "SUBSCRIPTION_GROUPS: #{groups.length}"
+groups.each do |group|
+  inventory_all(asc, "v1/subscriptionGroups/#{group['id']}/subscriptions").each do |product|
+    puts "SUBSCRIPTION: #{product.dig('attributes', 'productId')} #{product.dig('attributes', 'state')} id=#{product['id']}"
+  end
+end
