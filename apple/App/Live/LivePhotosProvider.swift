@@ -14,7 +14,6 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
 @MainActor @Observable final class LivePhotosProvider: PhotosProvider {
     private(set) var photos: [PhotoItem] = []
     private(set) var frames: [LivePhoto] = []
-    private(set) var sessions: [PhotoSession] = []
     private(set) var availability: LiveAvailability = .loading
     private(set) var unlocked = false
     private(set) var boothOpen = false
@@ -79,10 +78,9 @@ struct LivePhoto: Identifiable, Hashable, Sendable {
             }.sorted { $0.capturedAt > $1.capturedAt }
             // Existing protocol remains usable, but live bytes are rendered by Hybrid.
             photos = frames.map { PhotoItem(id: $0.id, asset: $0.path, title: "Photo", credit: "") }
-            sessions = []
             availability = .live
         } catch {
-            frames = []; photos = []; sessions = []
+            frames = []; photos = []
             availability = .unavailable(panelFailureReason(error, fallback: "Photos are unavailable."))
             lock()
         }

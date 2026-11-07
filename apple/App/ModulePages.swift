@@ -24,10 +24,8 @@ struct ModulePage: View {
                         switch tile {
                         case .weather: WeatherPage(weather: store.weather)
                         case .calendar: AgendaPage(provider: store.calendar, now: store.now)
-                        case .media: MediaPage(provider: store.media, store: store)
                         case .sonosRooms: SonosRoomsPage(store: store)
                         case .dogwalk: DogWalkPage(store: store)
-                        case .cameras: CamerasPage(provider: store.cameras, now: store.now)
                         default: EmptyView()
                         }
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)

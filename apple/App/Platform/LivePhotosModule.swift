@@ -12,7 +12,6 @@ struct LivePhotosModule: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedID: String?
     @State private var removal: LivePhoto?
-    @State private var showSessions = false
 
     private var selected: LivePhoto? {
         provider.frames.first { $0.id == selectedID } ?? provider.frames.first
@@ -28,15 +27,11 @@ struct LivePhotosModule: View {
                             HStack {
                                 Text("Photos").font(.title)
                                 Spacer()
-                                Button(showSessions ? "Photos" : "Activity sessions") { showSessions.toggle() }
-                                    .buttonStyle(.glass)
                             }
                         }
-                        if showSessions && detail { sessions }
-                        else {
                             AuthenticatedPhoto(provider: provider, photo: photo)
                                 .id(photo).frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .clipped().accessibilityLabel(photo.groupID == nil ? "Wake photo" : "Photo Booth capture")
+                                .clipped().accessibilityLabel("Photo Booth capture")
                             HStack {
                                 Button("Previous", systemImage: "chevron.left") { advance(-1) }
                                 Spacer()
@@ -53,7 +48,6 @@ struct LivePhotosModule: View {
                                 }.buttonStyle(.glass).disabled(provider.pending)
                             }
                             if let error = provider.error { Text(error).foregroundStyle(.secondary) }
-                        }
                     }.padding(24)
                 } else { ContentUnavailableView("No photos", systemImage: "photo") }
             }
@@ -93,17 +87,6 @@ struct LivePhotosModule: View {
     private var gate: some View {
         PanelPINEntry(title: "Photos") { entered in
             await provider.unlock(pin: entered) ? nil : (provider.error ?? "PIN not accepted. Try again.")
-        }
-    }
-
-    private var sessions: some View {
-        List(provider.sessions) { session in
-            VStack(alignment: .leading, spacing: 8) {
-                Text(Date(timeIntervalSince1970: session.startedAt / 1000), style: .date)
-                Text(session.deviceName)
-                Text("\(session.eventCount) events · \(session.photoPaths.count) photos")
-                if let digest = session.digest { Text(digest) }
-            }
         }
     }
 

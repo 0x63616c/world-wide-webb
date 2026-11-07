@@ -13,8 +13,6 @@ extension HomeTile {
         case .sound, .sonosRooms: .sonos
         case .tesla: .tesla
         case .calendar: .calendar
-        case .media: .media
-        case .cameras: .cameras
         case .photos: .photos
         case .dogwalk: .walk
         case .bedroom, .livingRoom, .ceiling, .cabinet, .all, .lamps, .lights: .lights
@@ -120,10 +118,6 @@ struct PanelHome: View {
         case .dogwalk:
             return AnyView(DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
                 .disabled(store.walkProvider.isMutating))
-        case .cameras:
-            return AnyView(PanelTileLauncher(label: "Open Cameras", open: open) {
-                CamerasModule(provider: self.store.camerasProvider, detail: false, open: open)
-            })
         case .photos:
             return AnyView(Button(action: open) {
                 Label("Photos", systemImage: "lock.fill").font(.title2)
@@ -265,7 +259,7 @@ private struct PanelAccessoryCard: View {
     let open: () -> Void
     var body: some View {
         Group {
-            if [.weather, .hourly, .tesla, .calendar, .sonosRooms, .wifi, .media, .photos, .cameras].contains(tile) {
+            if [.weather, .hourly, .tesla, .calendar, .sonosRooms, .wifi, .photos].contains(tile) {
                 Button(action: open) { content.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(.rect) }
                     .buttonStyle(.plain)
             } else {
@@ -290,16 +284,12 @@ private struct PanelAccessoryCard: View {
         case .wifi:
             PanelCardSummary(symbol: "wifi", color: .blue, title: "Wi-Fi",
                 subtitle: store.wifi.ssid ?? "Guest network unavailable")
-        case .media:
-            PanelCardSummary(symbol: "play.rectangle.fill", color: .pink, title: "Media",
-                subtitle: store.media.items.isEmpty ? "Library empty" : "\(store.media.items.count) items in your library")
         case .photos:
             VStack(alignment: .leading, spacing: 0) {
                 HStack { PanelCardGlyph(symbol: "photo.stack", color: .pink); Spacer(); Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.65)) }
                 Spacer()
                 title("Photos", subtitle: "Unlock to view your library")
             }.padding(28)
-        case .cameras: PanelCameraCard(provider: store.camerasProvider)
         case .dogwalk: walk
         default: EmptyView()
         }
@@ -465,43 +455,6 @@ private struct PanelAccessoryCard: View {
                 }.padding(.top, 24)
             }.padding(28)
         }
-    }
-}
-
-private struct PanelCameraCard: View {
-    let provider: LiveCamerasProvider
-    @Environment(\.scenePhase) private var scenePhase
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                PanelCardGlyph(symbol: "video.fill", color: .mint)
-                Spacer()
-                Text("\(provider.feeds.count) cameras").font(.system(size: 17)).foregroundStyle(.white.opacity(0.65))
-            }
-            if let feed = provider.feeds.first {
-                GeometryReader { proxy in
-                    if let image = provider.frames[feed.id] {
-                        Image(decorative: image, scale: 1).resizable().scaledToFill()
-                            .frame(width: proxy.size.width, height: proxy.size.height).clipped()
-                    } else {
-                        Image(systemName: "video.slash").font(.largeTitle).foregroundStyle(.white.opacity(0.65))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                }.clipShape(.rect(cornerRadius: 18))
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(feed.name).font(.system(size: 22, weight: .semibold))
-                    Text(provider.frames[feed.id] == nil ? "Snapshot unavailable" : "Camera snapshot")
-                        .font(.system(size: 17)).foregroundStyle(.white.opacity(0.65))
-                }
-            } else { Spacer(); Text("No cameras").font(.title3) }
-        }.padding(28)
-            .task(id: "\(scenePhase)-\(provider.feeds.first?.id ?? "")") {
-                guard scenePhase == .active, let feed = provider.feeds.first else { return }
-                while !Task.isCancelled {
-                    await provider.refreshSnapshots(ids: [feed.id])
-                    do { try await Task.sleep(for: .seconds(3)) } catch { return }
-                }
-            }
     }
 }
 

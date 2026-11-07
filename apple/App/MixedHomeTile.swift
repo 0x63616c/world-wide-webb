@@ -5,10 +5,8 @@ enum MixedHomeLayout {
     static func cells(_ tile: HomeTile, controls: Bool = false) -> (x: Int, y: Int, w: Int, h: Int) {
         if controls {
             return switch tile {
-            case .cameras: (0, 0, 2, 1)
             case .dogwalk: (0, 1, 2, 1)
             case .photos: (2, 0, 2, 1)
-            case .media: (2, 1, 2, 1)
             case .sonosRooms: (4, 0, 1, 2)
             case .clock: (0, 2, 1, 1)
             case .ceiling: (1, 2, 1, 1)
@@ -62,7 +60,7 @@ struct MixedHomeTile: View {
             else if tile == .dogwalk { DogWalkTile(store: store, open: open) }
             else if tile == .sound { music }
             else if tile == .tesla { car }
-            else if [.weather, .calendar, .media, .sonosRooms, .cameras, .photos].contains(tile) { ModuleTile(tile: tile, store: store, open: open) }
+            else if [.weather, .calendar, .sonosRooms, .photos].contains(tile) { ModuleTile(tile: tile, store: store, open: open) }
             else if tile == .clock {
                 Button(action: open) { TileFace(tile: .clock, store: store, open: open) }.buttonStyle(.plain)
             } else { roundControl }

@@ -50,32 +50,38 @@ enum HomeGrid {
     ]
     /// Page 2: ordinary grid cards, packed to 24/24 cells like page 1.
     static let more: [GridPlacement] = [
-        .init(.nowPlaying, "B", 0, 0), .init(.cameras, "A", 2, 0), .init(.photos, "A", 4, 0),
-        .init(.sonosRooms, "A", 0, 2), .init(.dogwalk, "A", 2, 2), .init(.media, "A", 4, 2),
-        .init(.wifi, "A", 0, 3)
+        .init(.nowPlaying, "B", 0, 0), .init(.photos, "A", 4, 0),
+        .init(.sonosRooms, "A", 0, 2), .init(.dogwalk, "A", 2, 2), .init(.wifi, "A", 0, 3)
     ]
     static func placements(page: Int) -> [GridPlacement] { page == 0 ? home : more }
 }
 
 enum GridCard: String, CaseIterable {
     case climate, lamps, weather, car, calendar, nowPlaying = "nowplaying", fan, lights, clock
-    case cameras, photos, sonosRooms, wifi, dogwalk, media
+    case photos, sonosRooms, wifi, dogwalk
     var title: String {
         switch self {
-        case .climate: "Climate"; case .lamps: "Lamps"; case .weather: "Weather"; case .car: "Tesla"
-        case .cameras: "Cameras"; case .photos: "Photos"; case .sonosRooms: "Sonos rooms"
-        case .wifi: "Wi-Fi"; case .dogwalk: "Dog Walker"; case .media: "Media"
-        case .calendar: "Up next"; case .nowPlaying: "Now Playing"; case .fan: "Fan"; case .lights: "Lights"; case .clock: "Clock"
+        case .climate: "Climate"
+        case .lamps: "Lamps"
+        case .weather: "Weather"
+        case .car: "Tesla"
+        case .photos: "Photos"
+        case .sonosRooms: "Sonos rooms"
+        case .wifi: "Wi-Fi"
+        case .dogwalk: "Dog Walker"
+        case .calendar: "Up next"
+        case .nowPlaying: "Now Playing"
+        case .fan: "Fan"
+        case .lights: "Lights"
+        case .clock: "Clock"
         }
     }
     var variants: [GridVariant] {
         switch self {
-        case .cameras: [.init("A", 2, 2, "Full-bleed feed + caption"), .init("B", 2, 1, "Wide feed + caption")]
         case .photos: [.init("A", 2, 2, "Full-bleed rotating photo"), .init("B", 2, 1, "Wide rotating photo")]
         case .sonosRooms: [.init("A", 2, 1, "Playing rooms + room count"), .init("B", 2, 2, "Room playback + volumes")]
         case .wifi: [.init("A", 2, 1, "Guest network + join"), .init("B", 2, 2, "Guest network + join QR")]
         case .dogwalk: [.init("A", 2, 2, "Walk status + weekly total"), .init("B", 2, 1, "Walk status + start/end")]
-        case .media: [.init("A", 2, 2, "Library artwork + title"), .init("B", 2, 1, "Library glance")]
         case .climate: [.init("A", 2, 2, "Hero: inside temp, stepper below"), .init("B", 2, 1, "Wide: inside left, setpoint right"),
                         .init("C", 1, 2, "Tall: inside temp over stepper"), .init("D", 1, 1, "Glance: inside + setpoint, tap to adjust")]
         case .lamps: [.init("A", 2, 1, "Count + brightness bar"), .init("B", 2, 2, "Room toggles + brightness"),
@@ -188,11 +194,9 @@ extension GridCard {
         case .nowPlaying, .sonosRooms: .sonos
         case .fan: .fan
         case .clock: nil
-        case .cameras: .cameras
         case .photos: .photos
         case .wifi: .wifi
         case .dogwalk: .walk
-        case .media: .media
         }
     }
 }
@@ -219,7 +223,7 @@ struct GridCardView: View {
     private var round: Bool { (card == .fan || card == .lights) && v == "B" }
     private var image: Bool {
         if let module = card.module, store.status(for: module) != .live { return false }
-        return card == .cameras || card == .photos || card == .weather || card == .clock
+        return card == .photos || card == .weather || card == .clock
             || (card == .nowPlaying && (v == "B" || v == "C"))
     }
     var body: some View {
@@ -250,12 +254,10 @@ struct GridCardView: View {
         case .fan: GridFan(v: v, store: store)
         case .lights: GridLights(v: v, accessory: accessory ?? .ceiling, store: store)
         case .clock: GridClock(v: v, store: store)
-        case .cameras: GridCameras(store: store)
         case .photos: GridPhotos(store: store)
         case .sonosRooms: GridSonosRooms(v: v, store: store)
         case .wifi: GridWifi(v: v, store: store)
         case .dogwalk: GridDogWalk(v: v, store: store, open: open)
-        case .media: GridMedia(v: v, store: store)
         }
     }
 }
@@ -1054,10 +1056,18 @@ struct GridHomeFace: View {
     }
     private func tile(_ p: GridPlacement) -> HomeTile {
         switch p.card {
-        case .climate: .climate; case .lamps: .lamps; case .weather: .weather; case .car: .tesla
-        case .calendar: .calendar; case .nowPlaying: .sound; case .fan: .fan; case .clock: .clock
-        case .cameras: .cameras; case .photos: .photos; case .sonosRooms: .sonosRooms
-        case .wifi: .wifi; case .dogwalk: .dogwalk; case .media: .media
+        case .climate: .climate
+        case .lamps: .lamps
+        case .weather: .weather
+        case .car: .tesla
+        case .calendar: .calendar
+        case .nowPlaying: .sound
+        case .fan: .fan
+        case .clock: .clock
+        case .photos: .photos
+        case .sonosRooms: .sonosRooms
+        case .wifi: .wifi
+        case .dogwalk: .dogwalk
         case .lights: p.accessory == .cabinet ? .cabinet : p.accessory == .all ? .all : .ceiling
         }
     }
@@ -1155,12 +1165,21 @@ enum WallpaperChoice: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .aurora, .ribbons, .ocean, .stars, .contours, .eclipse, .dunes, .prism, .embers, .paper: rawValue.capitalized
-        case .black: "Black"; case .lake: "Lake"; case .coast: "Coast"; case .forest: "Forest"; case .cloud: "Sky"; case .graphite: "Graphite"; case .dusk: "Dusk"
+        case .black: "Black"
+        case .lake: "Lake"
+        case .coast: "Coast"
+        case .forest: "Forest"
+        case .cloud: "Sky"
+        case .graphite: "Graphite"
+        case .dusk: "Dusk"
         }
     }
     var asset: String? {
         switch self {
-        case .lake: "LakeWallpaper"; case .coast: "CoastPhoto"; case .forest: "ForestPhoto"; case .cloud: "CloudPhoto"
+        case .lake: "LakeWallpaper"
+        case .coast: "CoastPhoto"
+        case .forest: "ForestPhoto"
+        case .cloud: "CloudPhoto"
         default: nil
         }
     }

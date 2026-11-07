@@ -44,7 +44,7 @@ import XCTest
             }
             XCTAssertEqual(occupied.count, 24)
         }
-        XCTAssertEqual(Set(HomeGrid.more.map(\.card)), [.nowPlaying, .cameras, .photos, .sonosRooms, .wifi, .dogwalk, .media])
+        XCTAssertEqual(Set(HomeGrid.more.map(\.card)), [.nowPlaying, .photos, .sonosRooms, .wifi, .dogwalk])
         XCTAssertEqual(HomeGrid.more.first { $0.card == .sonosRooms }?.variant.w, 2)
     }
     func testMixedHomeSpansFillGridWithoutOverlap() {

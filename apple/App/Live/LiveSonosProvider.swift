@@ -375,7 +375,7 @@ import PanelKit
     @discardableResult func send(_ command: HomeCommand) -> Bool {
         switch command {
         case .transport, .seek, .rawVolume, .roomVolumes, .volume, .mute, .globalLock, .groupLock,
-             .calibrate, .clearCalibration, .joinAll, .join, .leave, .playMedia:
+             .calibrate, .clearCalibration, .joinAll, .join, .leave:
             source.send(command)
             return true
         default: return false

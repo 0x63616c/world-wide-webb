@@ -9,11 +9,6 @@ final class PhotosAPITests: XCTestCase {
         let booth = try await api.booth()
         XCTAssertEqual(booth.groups.first?.frames.first?.id, "bp_fixture")
         XCTAssertEqual(booth.groups.first?.filter, "mono")
-        let wakes = try await api.wakes()
-        XCTAssertEqual(wakes.days.first?.photos.first?.interactionSessionId, "ses_fixture")
-        let sessions = try await api.sessions()
-        XCTAssertEqual(sessions.first?.eventCount, 1)
-        XCTAssertNil(sessions.first?.digest)
         try await api.remove(groupID: "bpg_fixture")
         try await api.clearFilter(groupID: "bpg_fixture")
         let requests = await transport.requests

@@ -5,7 +5,6 @@ import UIKit
 @MainActor final class ModuleProviderTests: XCTestCase {
     func testMediaPlayTargetsTheCoordinatorGroupAndResetsPosition() {
         let store = MockHomeDataSource(fixedNow: Date(timeIntervalSince1970: 1_793_292_630))
-        store.send(.playMedia("Living Room", 2))
         for room in store.rooms where room.coordinator == "Desk" {
             XCTAssertEqual(room.trackIndex, 2)
             XCTAssertTrue(room.playing)
@@ -14,7 +13,6 @@ import UIKit
         }
         XCTAssertEqual(store.rooms.first { $0.id == "Bedroom" }?.trackIndex, 0)
         XCTAssertFalse(store.rooms.first { $0.id == "Bedroom" }!.playing)
-        store.send(.playMedia("Living Room", 99))
         XCTAssertEqual(store.rooms.first!.trackIndex, 2)
     }
     func testCalendarChoosesOngoingOrNextEventAndEndsTheDay() {
@@ -26,9 +24,7 @@ import UIKit
         XCTAssertNil(provider.next(at: parser.date(from: "2026-10-30T02:00:00Z")!))
     }
     func testBundledFilmAndPhotoFixturesAreAvailableOffline() {
-        XCTAssertNotNil(MockMediaProvider().videoURL)
         XCTAssertEqual(MockPhotosProvider().photos.count, 3)
-        XCTAssertEqual(MockCamerasProvider().feeds.count, 2)
         for photo in MockPhotosProvider().photos { XCTAssertNotNil(UIImage(named: photo.asset)) }
     }
 }

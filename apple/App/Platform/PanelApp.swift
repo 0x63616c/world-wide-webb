@@ -87,10 +87,7 @@ struct PanelRoot: View {
             _store = State(initialValue: LiveHomeDataSource(
                 configuration: PanelKit.PanelConfiguration(baseURL: URL(string: "http://localhost:18733")!,
                     accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
-                transport: transport, remindersAPI: HybridRemindersFixture(
-                    unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
-                mediaAPI: HybridMediaFixture(unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
-                calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
+                transport: transport, calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
                     selection: CalendarSelection(suiteName: "Panel.CalendarFixtures")),
                 now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }, boothCapture: boothCapture,

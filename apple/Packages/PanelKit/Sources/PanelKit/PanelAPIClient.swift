@@ -96,6 +96,8 @@ public struct PanelAPIClient: Sendable {
     }
     public func photoData(collection: String, path: String) async throws -> Data {
         let c = try configured()
+        let prefix = "/media/booth-photos/"
+        let path = path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : path
         guard collection == "booth-photos", !path.isEmpty, !path.contains(".."), !path.contains("%"),
               !path.hasPrefix("/"), !path.contains(":"),
               path.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "-_./".contains($0)) }) else {

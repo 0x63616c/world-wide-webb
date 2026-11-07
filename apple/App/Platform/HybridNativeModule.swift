@@ -3,9 +3,6 @@ import SwiftUI
 extension PanelModule {
     var title: String {
         switch self {
-        case .media: "Media"
-        case .cameras: "Cameras"
-        case .reminders: "Reminders"
         case .lights: "Lights"
         case .climate: "Climate"
         case .fan: "Fan"
@@ -49,7 +46,6 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var face: some View {
         switch module {
-        case .media: MediaModule(provider: store.mediaProvider, detail: false, open: open)
         case .lights: AccessoryFace(key: .lamps, store: store, open: open)
         case .fan: fan
         case .climate: TileFace(tile: .climate, store: store, open: open)
@@ -59,8 +55,6 @@ struct HybridNativeModule: View {
         case .photos: LivePhotosModule(provider: store.photosProvider, detail: detail)
         case .calendar: ModuleTile(tile: .calendar, store: store, open: open)
         case .alarms: HybridClockFace(store: store, open: open)
-        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
-        case .reminders: RemindersModule(provider: store.remindersProvider)
         case .tesla: TeslaTile(provider: store.teslaProvider)
         case .walk:
             DogWalkTile(store: HybridWalkDataSource(store: store), open: open)
@@ -70,7 +64,6 @@ struct HybridNativeModule: View {
 
     @ViewBuilder private var controller: some View {
         switch module {
-        case .media: MediaModule(provider: store.mediaProvider, detail: true, open: open)
         case .lights: ControlsController(store: store, fanIsOn: store.hasLiveData(for: .fan) ? store.fanProvider.fanOn : nil)
         case .climate: ClimateController(store: store)
         case .fan:
@@ -86,8 +79,6 @@ struct HybridNativeModule: View {
             ClockController(store: store, newAlarm: store.alarmsProvider.newAlarm, save: store.alarmsProvider.save,
                             timeZone: .current, locationLabel: TimeZone.current.identifier)
                 .disabled(store.alarmsProvider.pending)
-        case .cameras: CamerasModule(provider: store.camerasProvider, detail: detail, open: open)
-        case .reminders: RemindersModule(provider: store.remindersProvider)
         case .tesla: TeslaModule(provider: store.teslaProvider)
         case .walk:
             DogWalkPage(store: HybridWalkDataSource(store: store))

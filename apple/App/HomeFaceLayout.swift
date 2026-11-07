@@ -54,9 +54,8 @@ struct HomeFaceLayout {
             items.append(Item(tile: tile, frame: CGRect(x: left + x, y: y, width: width, height: height), round: round))
         }
         if controls {
-            add(.cameras, width: width, height: 184); y += 184 + gap
             add(.dogwalk, width: width, height: 184); y += 184 + gap
-            for tile in [HomeTile.photos, .media, .sonosRooms] {
+            for tile in [HomeTile.photos, .sonosRooms] {
                 let height: CGFloat = tile == .sonosRooms ? 216 : 184
                 add(tile, width: width, height: height); y += height + gap
             }

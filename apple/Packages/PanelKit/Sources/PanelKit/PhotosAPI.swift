@@ -20,31 +20,6 @@ public struct BoothPhotoListing: Decodable, Sendable {
     public let totalCount: Int
     public let totalBytes: Int
 }
-public struct WakePhotoListing: Decodable, Sendable {
-    public struct Day: Decodable, Sendable {
-        public struct Photo: Decodable, Sendable {
-            public let path: String
-            public let capturedAt: Double
-            public let interactionSessionId: String?
-        }
-        public let day: String
-        public let photos: [Photo]
-    }
-    public let days: [Day]
-    public let totalCount: Int
-    public let totalBytes: Int
-}
-public struct PhotoSession: Decodable, Sendable, Identifiable {
-    public let id: String
-    public let startedAt: Double
-    public let endedAt: Double?
-    public let durationMs: Double?
-    public let eventCount: Int
-    public let endReason: String?
-    public let deviceName: String
-    public let photoPaths: [String]
-    public let digest: String?
-}
 public struct PhotosAPI: Sendable {
     private let client: PanelAPIClient
     /// Injected media transports must reject redirects to keep Access headers on-origin.
@@ -63,12 +38,6 @@ public struct PhotosAPI: Sendable {
     public func savePhoto(jpeg: Data, capturedAt: Date) async throws {
         try await client.uploadBoothPhoto(jpeg: jpeg, capturedAt: capturedAt)
     }
-    public func wakes() async throws -> WakePhotoListing {
-        try await client.get("retired/wake-photos", as: WakePhotoListing.self)
-    }
-    public func sessions() async throws -> [PhotoSession] {
-        try await client.get("retired/sessions", as: [PhotoSession].self)
-    }
     public func remove(groupID: String) async throws {
         struct Reply: Decodable, Sendable { let removed: Int }
         _ = try await client.delete("booth/" + PanelAPIClient.component(groupID), as: Reply.self)
@@ -77,7 +46,7 @@ public struct PhotosAPI: Sendable {
         struct Reply: Decodable, Sendable { let cleared: Int }
         _ = try await client.delete("booth/" + PanelAPIClient.component(groupID) + "/filter", as: Reply.self)
     }
-    /// Same synced setting and client-side comparison as the web PIN gate (ADR-0004).
+    /// The server verifies the synced PIN; it is never downloaded.
     /// The PIN is never persisted or included in a diagnostic.
     public func unlock(pin: String) async throws -> Bool {
         try await PanelPINAPI(client: client).verify(pin)
@@ -85,5 +54,4 @@ public struct PhotosAPI: Sendable {
     public func image(collection: String, path: String) async throws -> Data {
         try await client.photoData(collection: collection, path: path)
     }
-    private struct GroupInput: Encodable, Sendable { let groupId: String }
 }

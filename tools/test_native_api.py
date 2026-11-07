@@ -25,7 +25,7 @@ def main():
         env = dict(os.environ)
         keys = ["HA_URL", "HA_TOKEN", "HOME_LAT", "HOME_LON", "TESLA_ENTITIES",
                 "CLIMATE_ENTITY_ID", "WIFI_GUEST_SSID", "WIFI_GUEST_PASSWORD",
-                "ALARM_LIGHT_TARGET", "ALARM_SNOOZE_MINUTES",
+                "ALARM_LIGHT_TARGET", "ALARM_SNOOZE_MINUTES", "ALARM_API_TOKEN",
                 "BEDROOM_SWITCH_INPUT_ENABLED", "BEDROOM_SWITCH_INPUT_VERIFIED",
                 "BEDROOM_SWITCH_INPUT_ENTITY_ID"]
         for key in keys:
@@ -51,7 +51,7 @@ def main():
                         if time.monotonic() > deadline:
                             raise RuntimeError("isolated server did not become ready") from None
                         time.sleep(0.05)
-                env.update(WWW_NATIVE_TEST_URL=url, WWW_NATIVE_TEST_TOKEN=token)
+                env.update(WWW_NATIVE_TEST_URL=url, WWW_NATIVE_TEST_TOKEN=token, WWW_NATIVE_TEST_PHOTO=str(root / "apple/Resources/PanelAssets.xcassets/CloudPhoto.imageset/photo.jpg"))
                 subprocess.run(["swift", "test", "--package-path",
                                 str(root / "apple/Packages/PanelKit"),
                                 "--filter", "NativeServerRoundTrip"], env=env, check=True)

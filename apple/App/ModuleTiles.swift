@@ -14,11 +14,6 @@ struct ModuleTile: View {
                 case .weather: weather
                 case .calendar: calendar
                 case .photos: PhotoRotation(provider: store.photos, now: store.now, fullScreen: false)
-                case .cameras:
-                    if let feed = store.cameras.feeds.first {
-                        HomeCameraTile(feed: feed, count: store.cameras.feeds.count, now: store.now)
-                    }
-                case .media: media
                 case .sonosRooms: rooms
                 default: EmptyView()
                 }
@@ -61,17 +56,6 @@ struct ModuleTile: View {
             Spacer(minLength: 0)
         }.padding(compact ? 24 : 32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
-    private var media: some View {
-        HStack(spacing: 24) {
-            FixtureArtwork(tint: "#485c85").frame(width: compact ? 80 : 112, height: compact ? 80 : 112).clipShape(.rect(cornerRadius: 24))
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Media").font(.system(size: compact ? 22 : 28, weight: .semibold))
-                Text("Music & films").font(.system(size: compact ? 16 : 24)).foregroundStyle(.primary)
-                Text("Browse library ›").font(.system(size: compact ? 14 : 20))
-            }
-            Spacer(minLength: 0)
-        }.padding(compact ? 24 : 32)
-    }
     private var rooms: some View {
         VStack(alignment: .leading, spacing: compact ? 16 : 24) {
             Label("Sonos Rooms", systemImage: "hifispeaker.fill").font(.system(size: compact ? 20 : 23, weight: .semibold))
@@ -90,46 +74,3 @@ struct ModuleTile: View {
 
 
 /// Home owns its caption arrangement; full-screen feed composition is separate.
-private struct HomeCameraTile: View {
-    let feed: CameraFeed
-    let count: Int
-    let now: Date
-    @Environment(\.motionPhase) private var phase
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    private var compact: Bool { sizeClass == .compact }
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: phase != nil)) { context in
-            let t = phase ?? context.date.timeIntervalSinceReferenceDate
-            GeometryReader { proxy in
-                ZStack {
-                    Image(feed.asset).resizable().scaledToFill()
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                        .scaleEffect(1.025 + sin(t / 8) * 0.015)
-                    LinearGradient(stops: [.init(color: .black.opacity(0.62), location: 0),
-                                           .init(color: .black.opacity(0.10), location: 0.52),
-                                           .init(color: .black.opacity(0.65), location: 1)],
-                                   startPoint: .top, endPoint: .bottom)
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Label("Cameras", systemImage: "video.fill")
-                                .font(.system(size: compact ? 20 : 28, weight: .semibold))
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Circle().fill(.red).frame(width: 7, height: 7)
-                                Text("LIVE").font(.system(size: 14, weight: .bold))
-                            }
-                        }
-                        Text("\(count) demo feeds").font(.system(size: compact ? 16 : 24))
-                        Spacer(minLength: 8)
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(feed.name).font(.system(size: compact ? 17 : 20, weight: .medium))
-                            Spacer(minLength: 8)
-                            Text(fixtureTime(phase == nil ? context.date : now, format: "HH:mm:ss"))
-                                .font(.system(size: compact ? 14 : 20)).monospacedDigit()
-                        }
-                    }.padding(compact ? 24 : 32).foregroundStyle(.white)
-                }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
-            }
-        }
-    }
-}

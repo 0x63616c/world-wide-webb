@@ -12,7 +12,6 @@ import XCTest
         XCTAssertEqual(provider.availability, .live)
         XCTAssertEqual(provider.frames.map(\.id), ["booth:bp_fixture"])
         XCTAssertEqual(provider.photos.count, 1)
-        XCTAssertTrue(provider.sessions.isEmpty)
         let paths = await transport.paths
         XCTAssertFalse(paths.contains("wakePhotos.list"))
         XCTAssertFalse(paths.contains("sessions.list"))
@@ -73,7 +72,6 @@ import XCTest
         await transport.setUnavailable(true)
         await provider.refresh()
         XCTAssertTrue(provider.frames.isEmpty)
-        XCTAssertTrue(provider.sessions.isEmpty)
         XCTAssertFalse(provider.unlocked)
         XCTAssertEqual(provider.availability, .unavailable("Can't reach server"))
         await transport.setUnavailable(false)

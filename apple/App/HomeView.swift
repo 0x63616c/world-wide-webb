@@ -4,9 +4,9 @@ import PanelKit
 enum HomeTile: String, CaseIterable, Identifiable {
     case climate, clock, wifi, bedroom, livingRoom, ceiling, cabinet, fan, all
     // Existing controllers stay available by launch argument for later faces.
-    case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, media, sonosRooms, cameras, photos, dogwalk
+    case lamps, lights, weather, hourly, sound, alarm, tesla, calendar, sonosRooms, photos, dogwalk
     static let homeFace: [HomeTile] = [.climate, .lamps, .weather, .tesla, .calendar, .sound, .fan]
-    static let controlsFace: [HomeTile] = [.cameras, .dogwalk, .photos, .media, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
+    static let controlsFace: [HomeTile] = [.dogwalk, .photos, .sonosRooms, .clock, .ceiling, .cabinet, .wifi, .all]
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -25,9 +25,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .alarm: "Next alarm"
         case .tesla: "Tesla"
         case .calendar: "Up Next"
-        case .media: "Media"
         case .sonosRooms: "Sonos Rooms"
-        case .cameras: "Cameras"
         case .photos: "Photos"
         case .dogwalk: "Dog Walker"
         }
@@ -70,7 +68,7 @@ enum HomeTile: String, CaseIterable, Identifiable {
         case .wifi: Palette.teal
         case .weather, .hourly: Color.blue.mix(with: .black, by: 0.45)
         case .sound: Color.purple.mix(with: .black, by: 0.65)
-        case .alarm, .tesla, .calendar, .media, .sonosRooms, .cameras, .photos, .dogwalk: .black
+        case .alarm, .tesla, .calendar, .sonosRooms, .photos, .dogwalk: .black
         }
     }
 }
@@ -432,7 +430,7 @@ struct HomeFaceGrid: View {
             ForEach(layout.items) { item in
                 MixedHomeTile(tile: item.tile, store: store, open: { open(item.tile) })
                     .frame(width: item.frame.width, height: item.frame.height)
-                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos, .cameras].contains(item.tile)))
+                    .modifier(MixedTileMaterial(round: item.round, on: tileOn(item.tile), imageContent: [.weather, .photos].contains(item.tile)))
                     .glassEffectID("\(controls)-\(item.id)", in: zoom)
                     .matchedTransitionSource(id: "\(controls ? 1 : 0)-\(item.id)", in: zoom)
                     .position(x: item.frame.midX, y: item.frame.midY)

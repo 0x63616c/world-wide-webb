@@ -273,13 +273,12 @@ enum HomeCommand {
     case mode(ClimateMode), target(Int), low(Int), high(Int), shiftRange(Int)
     case saveAlarm(Alarm), deleteAlarm(Int), enableAlarm(Int, Bool)
     case snoozeAlarm(Int, Int), stopAlarm(Int, Int)
-    case playMedia(String, Int)
     case transport(String, SonosTransport), seek(String, Double), rawVolume(String, Int), roomVolumes([String: Int])
     case volume(String, Int), mute(String), globalLock, groupLock, calibrate, clearCalibration, joinAll(String), join(String, String), leave(String)
 }
 /// Shared presentation status; reasons are authored by providers, never raw server text.
 enum HomeModule: String, CaseIterable {
-    case lights, climate, fan, wifi, sonos, weather, photos, walk, reminders, alarms, calendar, media, tesla, cameras
+    case lights, climate, fan, wifi, sonos, weather, photos, walk, alarms, calendar, tesla
 }
 enum HomeModuleStatus: Equatable {
     case loading, live, unavailable(String), unconfigured(String)
@@ -307,8 +306,6 @@ enum HomeModuleStatus: Equatable {
     var tesla: any TeslaProvider { get }
     var calendar: any CalendarProvider { get }
     var photos: any PhotosProvider { get }
-    var cameras: any CamerasProvider { get }
-    var media: any MediaProvider { get }
     var walks: any WalkProvider { get }
     var walkActivity: WalkLiveActivityManager { get }
     var alarms: [Alarm] { get }
@@ -350,8 +347,6 @@ extension HomeDataSource {
     let tesla: any TeslaProvider = MockTeslaProvider()
     let calendar: any CalendarProvider = MockCalendarProvider()
     let photos: any PhotosProvider = MockPhotosProvider()
-    let cameras: any CamerasProvider = MockCamerasProvider()
-    let media: any MediaProvider = MockMediaProvider()
     let walks: any WalkProvider
     let walkActivity = WalkLiveActivityManager()
     private(set) var alarms = [Alarm(id: 1, label: "Morning", time: "07:00", repeatDays: [1,2,3,4,5]), Alarm(id: 2, label: "Weekend", time: "09:00", repeatDays: [0,6], enabled: false)]
@@ -492,13 +487,6 @@ extension HomeDataSource {
         case .stopAlarm(let id, let version):
             guard let active = occurrence, active.alarm.id == id, active.version == version, active.isRinging(at: now) else { return }
             occurrence = nil; markPending("alarms")
-        case .playMedia(let id, let trackIndex):
-            guard FixtureTrack.queue.indices.contains(trackIndex), let room = rooms.first(where: { $0.id == id }) else { return }
-            for i in rooms.indices where rooms[i].coordinator == room.coordinator {
-                rooms[i].trackIndex = trackIndex; rooms[i].playing = true
-                rooms[i].sourceKind = .other; rooms[i].sourceLabel = "Fixture library"
-                rooms[i].positionSeconds = 0; rooms[i].positionUpdatedAt = now
-            }; markPending("sound")
         case .transport(let id, let command):
             guard let room = rooms.first(where: { $0.id == id }) else { return }
             for i in rooms.indices where rooms[i].coordinator == room.coordinator {

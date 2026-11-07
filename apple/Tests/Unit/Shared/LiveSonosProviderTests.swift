@@ -48,7 +48,6 @@ import XCTest
             XCTAssertEqual(room.position(at: .distantFuture), 0)
         }
         XCTAssertFalse(provider.send(.seek(alpha, 100)))
-        XCTAssertFalse(provider.send(.playMedia(alpha, 1)))
         XCTAssertFalse(provider.send(.volume(offline, 50)))
         XCTAssertFalse(provider.send(.volume("Test Room", 50)))
         XCTAssertFalse(provider.send(.target(72)))

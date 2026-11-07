@@ -53,35 +53,3 @@ struct PhotoItem: Identifiable, Equatable {
         PhotoItem(id: "photo_coast", asset: "CoastPhoto", title: "Evening on the coast", credit: "Luca Bravo")
     ]
 }
-struct CameraFeed: Identifiable {
-    let id: String
-    let name: String
-    let asset: String
-}
-@MainActor protocol CamerasProvider: AnyObject, Observable { var feeds: [CameraFeed] { get } }
-@MainActor @Observable final class MockCamerasProvider: CamerasProvider {
-    let feeds = [CameraFeed(id: "camera_lake", name: "Lakeside", asset: "LakeWallpaper"),
-                 CameraFeed(id: "camera_woodland", name: "Woodland", asset: "ForestPhoto")]
-}
-struct MediaItem: Identifiable, Equatable {
-    enum Kind { case album, playlist, video }
-    let id: String
-    let title: String
-    let subtitle: String
-    let kind: Kind
-    let trackIndex: Int
-    let tint: String
-}
-@MainActor protocol MediaProvider: AnyObject, Observable {
-    var items: [MediaItem] { get }
-    var videoURL: URL? { get }
-}
-@MainActor @Observable final class MockMediaProvider: MediaProvider {
-    let items = [
-        MediaItem(id: "media_evening", title: "Evening Hours", subtitle: "Album · 3 tracks", kind: .album, trackIndex: 0, tint: "#8f456e"),
-        MediaItem(id: "media_rain", title: "After the Rain", subtitle: "Playlist · Quiet moments", kind: .playlist, trackIndex: 1, tint: "#485c85"),
-        MediaItem(id: "media_focus", title: "Soft Focus", subtitle: "Playlist · Unwind", kind: .playlist, trackIndex: 2, tint: "#a56a3d"),
-        MediaItem(id: "media_lake", title: "A moment by the lake", subtitle: "Silent film · 12 seconds", kind: .video, trackIndex: 0, tint: "#485c85")
-    ]
-    var videoURL: URL? { Bundle.main.url(forResource: "LakeStudy", withExtension: "mp4") }
-}

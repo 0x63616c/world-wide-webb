@@ -15,7 +15,6 @@ import PanelKit
     private func source(_ transport: HybridFixtureTransport) -> LiveHomeDataSource {
         LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
             baseURL: URL(string: "http://localhost:18733")!), transport: transport,
-            remindersAPI: HybridRemindersFixture(unavailable: false), mediaAPI: HybridMediaFixture(unavailable: false),
             calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root:
                 Bundle(for: LiveHomeDataSource.self).resourceURL!.appendingPathComponent("Fixtures"))),
             now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
@@ -41,9 +40,6 @@ import PanelKit
         await transport.setFixture("tesla/ready.json", for: "tesla.state")
         await store.refresh(.tesla)
         XCTAssertEqual(store.status(for: .tesla), .live)
-        await transport.setFixture("cameras/empty.json", for: "cameras.list")
-        await store.refresh(.cameras)
-        XCTAssertEqual(store.status(for: .cameras), .unavailable("No cameras configured"))
         await transport.setFixture("sonos/empty.json", for: "sound.soundSystem")
         await store.refresh(.sonos)
         XCTAssertEqual(store.status(for: .sonos), .unavailable("No Sonos rooms available"))
@@ -233,7 +229,6 @@ import PanelKit
         store.send(.target(72))
         store.send(.volume("unknown", 40))
         store.send(.saveAlarm(Alarm()))
-        store.send(.playMedia("fixture", 0))
         store.send(.seek("unknown", 30))
         // Walk views receive the guarded server-time adapter from HybridNativeModule.
         HybridWalkDataSource(store: store).toggleWalk()
@@ -284,7 +279,6 @@ import PanelKit
         let before = requests.count
         store.send(.joinAll("Test Room")) // Two rooms share this label: ambiguous shortcut is rejected.
         store.send(.seek("media_player.test_alpha", 50))
-        store.send(.playMedia("fixture", 0))
         await Task.yield()
         requests = await transport.requests
         XCTAssertEqual(requests.count, before)
@@ -351,7 +345,7 @@ import PanelKit
         let transport = try fixtureTransport()
         let store = source(transport)
         for command in [HomeCommand.toggle(.lamps), .brightness(30), .kelvin(3000), .scene("white"),
-                        .mode(.heat), .target(72), .low(68), .high(74), .fan(true), .fanMode("off"), .playMedia("fixture", 0)] {
+                        .mode(.heat), .target(72), .low(68), .high(74), .fan(true), .fanMode("off")] {
             let revision = store.errorRevision
             store.send(command)
             XCTAssertNotNil(store.errorMessage)

@@ -105,12 +105,9 @@ import PanelKit
         case .weather: symbol = "cloud.sun.fill"
         case .photos: symbol = "photo.fill"
         case .walk: symbol = "figure.walk"
-        case .reminders: symbol = "checklist"
         case .alarms: symbol = "alarm.fill"
         case .calendar: symbol = "calendar"
-        case .media: symbol = "play.rectangle.fill"
         case .tesla: symbol = "car.fill"
-        case .cameras: symbol = "video.fill"
         default: symbol = "app.fill"
         }
         return NotificationSource(name: module?.title ?? id.capitalized, symbol: symbol)

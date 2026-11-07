@@ -18,6 +18,11 @@ struct NativeServerRoundTrip {
         let history=try await walks.history(limit:10)
         #expect(history.walks.contains{$0.id == active.id})
         #expect(try await !PanelPINAPI(client:client).verify("000000"))
+        let photo=try Data(contentsOf:URL(fileURLWithPath:try #require(env["WWW_NATIVE_TEST_PHOTO"])))
+        let photos=PhotosAPI(client:client)
+        try await photos.savePhoto(jpeg:photo,capturedAt:Date())
+        let frame=try #require(try await photos.booth().groups.first?.frames.first)
+        #expect(try await photos.image(collection:"booth-photos",path:frame.path) == photo)
         let denied=PanelAPIClient(configuration:PanelConfiguration(baseURL:configuration.baseURL,apiToken:"fixture-invalid-token"))
         await #expect(throws:PanelAPIError.self){_ = try await WalksAPI(client:denied).state()}
     }

@@ -2,24 +2,6 @@ import SwiftUI
 
 // Page-2 faces share the grid's ink inset and material; their providers and
 // full-screen destinations are the same ones used by the legacy Home.
-struct GridCameras: View {
-    let store: any HomeDataSource
-    var body: some View {
-        GridCaptionImage(asset: store.cameras.feeds.first?.asset) {
-            Corners {
-                Cap("Cameras", 22, .semibold)
-            } tr: {
-                Cap("\(store.cameras.feeds.count) feeds", 17).opacity(0.75)
-            } bl: {
-                VStack(alignment: .leading, spacing: 12) {
-                    Cap(store.cameras.feeds.first?.name ?? "No cameras", 26, .semibold, lines: 2)
-                    Cap("Demo feeds", 17).opacity(0.75)
-                }
-            } br: { EmptyView() }
-        }
-    }
-}
-
 struct GridPhotos: View {
     let store: any HomeDataSource
     @Environment(\.motionPhase) private var phase
@@ -171,25 +153,3 @@ struct GridDogWalk: View {
     }
 }
 
-struct GridMedia: View {
-    let v: String
-    let store: any HomeDataSource
-    var body: some View {
-        Corners {
-            Cap("Media", 22, .semibold)
-        } tr: {
-            Cap("\(store.media.items.count) items", 17).opacity(0.65)
-        } bl: {
-            VStack(alignment: .leading, spacing: 16) {
-                if let item = store.media.items.first {
-                    if v == "A" {
-                        FixtureArtwork(tint: item.tint).frame(width: 152, height: 152)
-                            .clipShape(.rect(cornerRadius: 20)).accessibilityHidden(true)
-                    }
-                    Cap(item.title, 26, .medium, lines: 2)
-                }
-                Cap(store.media.items.isEmpty ? "Library empty" : "Browse library ›", 17).opacity(0.65)
-            }
-        } br: { EmptyView() }
-    }
-}

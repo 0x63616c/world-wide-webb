@@ -38,8 +38,6 @@ import Observation
     var tesla: any TeslaProvider { store.tesla }
     var calendar: any CalendarProvider { store.calendar }
     var photos: any PhotosProvider { store.photos }
-    var cameras: any CamerasProvider { store.cameras }
-    var media: any MediaProvider { store.media }
     var alarms: [Alarm] { store.alarms }
     var occurrence: AlarmOccurrence? { store.occurrence }
     var rooms: [SoundRoom] { store.rooms }

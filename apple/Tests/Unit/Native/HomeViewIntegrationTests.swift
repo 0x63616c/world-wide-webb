@@ -6,9 +6,8 @@ import PanelKit
 
 @MainActor final class HomeViewIntegrationTests: XCTestCase {
     func testEveryHomeTileMapsToAnExistingProviderAndController() {
-        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases).subtracting([.reminders, .cameras]))
+        XCTAssertEqual(HomeTile.panelProviders, Set(PanelModule.allCases))
         for tile in HomeTile.allCases {
-            XCTAssertNotEqual(tile.panelModule, .reminders, tile.rawValue)
         }
         XCTAssertEqual(HomeTile.clock.panelModule, .alarms)
         XCTAssertEqual(HomeTile.all.panelModule, .lights)
@@ -22,7 +21,6 @@ import PanelKit
         for unavailable in [false, true] {
             let store = LiveHomeDataSource(configuration: configuration,
                 transport: HybridFixtureTransport(root: root, unavailable: unavailable),
-                mediaAPI: HybridMediaFixture(unavailable: unavailable),
                 calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root, unavailable: unavailable)),
                 now: { HybridCalendarFixtureStore.now }, calendar: { HybridCalendarFixtureStore.calendar })
             for module in HomeTile.panelProviders {
@@ -56,10 +54,8 @@ import PanelKit
         await calendar.setFilename("empty.json")
         let store = LiveHomeDataSource(configuration: PanelKit.PanelConfiguration(
             baseURL: URL(string: "http://localhost:18733")!), transport: transport,
-            mediaAPI: HybridMediaFixture(unavailable: false),
             calendarAPI: CalendarAPI(store: calendar),
             now: { HybridCalendarFixtureStore.now })
-        XCTAssertFalse(HomeTile.panelProviders.contains(.cameras))
         for module in HomeTile.panelProviders { await store.refresh(module) }
         defer { store.stop() }
         XCTAssertEqual(store.climate.mode, .off)
@@ -68,7 +64,7 @@ import PanelKit
             session: PanelSession(configuration: PanelConfiguration(),
                 nativeAlarms: NativeAlarmsRuntime(scheduler: FixtureAlarmScheduler())),
             navigation: PanelNavigation())
-        for tile in [HomeTile.fan, .sound, .clock, .dogwalk, .cameras, .photos] {
+        for tile in [HomeTile.fan, .sound, .clock, .dogwalk, .photos] {
             XCTAssertNotNil(host.gridTile(tile, span: HomeGrid.span(2, 2), open: {}), tile.id)
         }
         XCTAssertNotNil(host.gridTile(.climate, span: HomeGrid.span(2, 2), open: {}))

@@ -29,14 +29,12 @@ extension WeatherState {
 /// Modules without live data show native unavailable states. Satisfy the
 /// shared protocol with empty, inert providers, never MockHomeDataSource.
 @MainActor @Observable final class UnavailableHomeProviders:
-    TeslaProvider, CalendarProvider, PhotosProvider, CamerasProvider, MediaProvider, WalkProvider {
+    TeslaProvider, CalendarProvider, PhotosProvider, WalkProvider {
     let data = TeslaData(name: "Unavailable", nick: "Unavailable", place: "", charging: false,
                          chargingState: "", rate: 0, pct: 0, range: 0, odo: "", climate: 0)
     let availability: TeslaAvailability = .offline
     let events: [AgendaEvent] = []
     let photos: [PhotoItem] = []
-    let feeds: [CameraFeed] = []
-    let items: [MediaItem] = []
     let videoURL: URL? = nil
     let activeWalk: DogWalk? = nil
     let history: [DogWalk] = []
