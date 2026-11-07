@@ -148,6 +148,7 @@ ENV["ASC_REVIEW_PHONE"] = "+1 555 0100"
 check.metadata({ app: "tendr" })
 listing = check.calls.assoc(:deliver).last
 raise "metadata lane must never submit or upload a binary" unless listing[:submit_for_review] == false && listing[:skip_binary_upload] == true && !listing.key?(:ipa)
+raise "Tendr must release automatically after approval" unless listing[:automatic_release] == true
 raise "metadata lane must run unattended" unless listing[:force] && listing[:run_precheck_before_submit] == false
 tendr = File.expand_path("../apps/tendr", __dir__)
 raise "metadata paths" unless listing[:metadata_path] == "#{tendr}/fastlane/metadata" && listing[:screenshots_path] == "#{tendr}/fastlane/screenshots" && listing[:overwrite_screenshots]
@@ -244,3 +245,13 @@ Dir[File.expand_path("../apps/*/fastlane/metadata", __dir__)].sort.each do |meta
   raise "listing mentions #{listing_text[banned]}; keep drug names and medical claims out of the listing" if listing_text.match?(banned)
 end
 puts "Release checks passed (app selection, local signing, CI signing, next build, distribution, failure gates, App Store listings)."
+
+# Submission paths use the same policy even when deliver skips metadata.
+policy_writes = []
+policy_api = Object.new
+policy_api.define_singleton_method(:patch) { |path, body| policy_writes << [path, body] }
+ReleasePolicy.apply!(policy_api, { "bundle_id" => "com.calumwebb.still" }, "next-version")
+raise "automatic release policy" unless policy_writes == [["v1/appStoreVersions/next-version", { data: { type: "appStoreVersions", id: "next-version", attributes: { releaseType: "AFTER_APPROVAL" } } }]]
+ReleasePolicy.apply!(policy_api, { "bundle_id" => "com.calumwebb.airmiles" }, "other-version")
+raise "changed another app's release policy" unless policy_writes.length == 1 && ReleasePolicy.automatic?({ "bundle_id" => "com.calumwebb.airmiles" }).nil?
+puts "Release policy checks passed (Tendr automatic, other apps unchanged)."

@@ -6,6 +6,7 @@
 require "spaceship"
 require "yaml"
 require_relative "release-build"
+require_relative "release-policy"
 
 APP = ARGV.first || ENV["APP"] || abort("usage: submit-review.rb <app>")
 abort("Invalid app slug") unless APP.match?(/\A[a-z][a-z0-9-]*\z/)
@@ -83,6 +84,8 @@ if DRY_RUN
   puts "SUBMIT: dry run, stopping before submission"
   exit
 end
+
+ReleasePolicy.apply!(asc, CONFIG, version.fetch("id"))
 
 submission = submissions.find { |s| s.dig("attributes", "state") == "READY_FOR_REVIEW" }
 submission ||= asc.post("v1/reviewSubmissions", { data: { type: "reviewSubmissions", attributes: { platform: "IOS" }, relationships: { app: { data: { type: "apps", id: APP_ID } } } } }).body["data"]

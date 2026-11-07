@@ -96,6 +96,8 @@ class ReleaseTests(unittest.TestCase):
             build_call = next(body for path, body in calls if path.endswith("/relationships/build"))
             self.assertEqual(build_call["data"]["id"], "build-18")
             self.assertIn("build 18", result.stdout)
+            release_call = next(body for path, body in calls if body.get("data", {}).get("attributes", {}).get("releaseType"))
+            self.assertEqual(release_call["data"]["attributes"]["releaseType"], "AFTER_APPROVAL")
 
     def test_duo_export(self):
         with tempfile.TemporaryDirectory() as tmp:

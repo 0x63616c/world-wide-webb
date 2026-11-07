@@ -4,6 +4,7 @@ require "net/http"
 require "shellwords"
 require "yaml"
 require_relative "../scripts/release-build"
+require_relative "../scripts/release-policy"
 require_relative "../scripts/review-products"
 
 default_platform(:ios)
@@ -282,6 +283,7 @@ platform :ios do
       app_review_information: review_contact,
       skip_binary_upload: true,
       submit_for_review: false,
+      automatic_release: ReleasePolicy.automatic?(app),
       run_precheck_before_submit: false,
       precheck_include_in_app_purchases: false,
       force: true
@@ -480,6 +482,7 @@ platform :ios do
     end
     require "deliver"
     require "deliver/submit_for_review"
+    ReleasePolicy.apply!(asc, config, version.id)
     Deliver::SubmitForReview.prepend(DeliverWithProducts) unless Deliver::SubmitForReview < DeliverWithProducts
     begin
       Thread.current[:review_products] = coordinator
