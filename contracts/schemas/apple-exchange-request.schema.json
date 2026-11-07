@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://getfolding.app/contracts/v1/apple-exchange-request.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "purpose": {
+      "enum": [
+        "sign_in",
+        "reauthenticate",
+        "recover_deletion"
+      ]
+    },
+    "challenge_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "identity_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    },
+    "authorization_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "deletion_operation_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "operation_id",
+    "purpose",
+    "challenge_id",
+    "identity_token",
+    "authorization_code",
+    "device_id",
+    "deletion_operation_id"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "purpose": {
+            "const": "recover_deletion"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "deletion_operation_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "deletion_operation_id": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

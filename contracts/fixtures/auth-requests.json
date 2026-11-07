@@ -1,0 +1,134 @@
+{
+  "note": "Shape fixtures only. Synthetic tokens/attestation bytes are not cryptographic credentials.",
+  "valid": [
+    {
+      "schema": "auth-challenge-request",
+      "body": {
+        "purpose": "sign_in"
+      }
+    },
+    {
+      "schema": "apple-exchange-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "purpose": "sign_in",
+        "challenge_id": "00000000-0000-0000-0000-000000000001",
+        "identity_token": "synthetic",
+        "authorization_code": "synthetic",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "deletion_operation_id": null
+      }
+    },
+    {
+      "schema": "auth-refresh-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "refresh_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    },
+    {
+      "schema": "auth-logout-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001"
+      }
+    },
+    {
+      "schema": "attestation-challenge-request",
+      "body": {
+        "purpose": "enroll_key",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "key_id": null
+      }
+    },
+    {
+      "schema": "attestation-key-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "key_id": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+        "challenge_id": "00000000-0000-0000-0000-000000000001",
+        "attestation_base64": "AQ=="
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "schema": "auth-challenge-request",
+      "body": {
+        "purpose": "sign_in",
+        "admin": true
+      }
+    },
+    {
+      "schema": "apple-exchange-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "purpose": "sign_in",
+        "challenge_id": "00000000-0000-0000-0000-000000000001",
+        "identity_token": "synthetic",
+        "authorization_code": "synthetic",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "deletion_operation_id": null,
+        "admin": true
+      }
+    },
+    {
+      "schema": "auth-refresh-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "refresh_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "admin": true
+      }
+    },
+    {
+      "schema": "auth-logout-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "admin": true
+      }
+    },
+    {
+      "schema": "attestation-challenge-request",
+      "body": {
+        "purpose": "enroll_key",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "key_id": null,
+        "admin": true
+      }
+    },
+    {
+      "schema": "attestation-key-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "key_id": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+        "challenge_id": "00000000-0000-0000-0000-000000000001",
+        "attestation_base64": "AQ==",
+        "admin": true
+      }
+    },
+    {
+      "schema": "apple-exchange-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "purpose": "recover_deletion",
+        "challenge_id": "00000000-0000-0000-0000-000000000001",
+        "identity_token": "synthetic",
+        "authorization_code": "synthetic",
+        "device_id": "00000000-0000-0000-0000-000000000001",
+        "deletion_operation_id": null
+      }
+    },
+    {
+      "schema": "apple-exchange-request",
+      "body": {
+        "operation_id": "00000000-0000-0000-0000-000000000001",
+        "purpose": "sign_in",
+        "challenge_id": "00000000-0000-0000-0000-000000000001",
+        "identity_token": "synthetic",
+        "authorization_code": "synthetic",
+        "device_id": "00000000-0000-0000-0000-000000000001"
+      }
+    }
+  ]
+}

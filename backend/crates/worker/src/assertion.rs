@@ -69,14 +69,57 @@ pub fn verify_assertion(
     previous_counter: u32,
     client_hash: &[u8; 32],
 ) -> Result<u32, AssertionError> {
+    verify_assertion_inner(
+        encoded,
+        public_key_sec1,
+        app_id,
+        previous_counter,
+        client_hash,
+        None,
+    )
+}
+/// Production entry point requires current Apple distribution/version extensions. The legacy
+/// primitive above exists for independent historical vectors and must not authorize enrollment.
+pub fn verify_assertion_with_policy(
+    encoded: &[u8],
+    public_key_sec1: &[u8],
+    previous_counter: u32,
+    client_hash: &[u8; 32],
+    policy: &crate::attestation::AppPolicy<'_>,
+) -> Result<u32, AssertionError> {
+    verify_assertion_inner(
+        encoded,
+        public_key_sec1,
+        policy.app_id,
+        previous_counter,
+        client_hash,
+        Some(policy),
+    )
+}
+fn verify_assertion_inner(
+    encoded: &[u8],
+    public_key_sec1: &[u8],
+    app_id: &str,
+    previous_counter: u32,
+    client_hash: &[u8; 32],
+    policy: Option<&crate::attestation::AppPolicy<'_>>,
+) -> Result<u32, AssertionError> {
     if encoded.len() > 16 * 1024 {
         return Err(AssertionError::Malformed);
     }
     let mut reader = Cursor::new(encoded);
     let assertion: Assertion =
         ciborium::from_reader(&mut reader).map_err(|_| AssertionError::Malformed)?;
-    if reader.position() as usize != encoded.len() || assertion.authenticator_data.len() != 37 {
+    if reader.position() as usize != encoded.len() || assertion.authenticator_data.len() < 37 {
         return Err(AssertionError::Malformed);
+    }
+    match policy {
+        Some(policy) => {
+            crate::attestation::verify_assertion_metadata(&assertion.authenticator_data, policy)
+                .map_err(|_| AssertionError::WrongApplication)?
+        }
+        None if assertion.authenticator_data.len() != 37 => return Err(AssertionError::Malformed),
+        None => {}
     }
     if assertion.authenticator_data[..32] != Sha256::digest(app_id.as_bytes())[..] {
         return Err(AssertionError::WrongApplication);

@@ -19,6 +19,13 @@ p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "al
 ciborium = "=0.2.2"
 serde_bytes = "=0.11.19"
 base64 = "=0.23.1"
+rustls-webpki = { version = "=0.103.15", default-features = false, features = ["alloc"] }
+rustls-pki-types = { version = "=1.14.1", default-features = false, features = ["alloc"] }
+x509-cert = { version = "=0.3.0", default-features = false }
+der = { version = "=0.8.3", default-features = false, features = ["alloc", "derive"] }
+p384 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "alloc"] }
+rsa = { version = "=0.9.10", default-features = false, features = ["sha2"] }
+sha2_10 = { package = "sha2", version = "=0.10.9", default-features = false, features = ["oid"] }
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
