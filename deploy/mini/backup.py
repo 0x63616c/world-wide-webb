@@ -6,6 +6,7 @@ and database snapshots. Hindsight uses its existing online PostgreSQL backup.
 Failed snapshots remain local. Seven completed local sets are retained; NAS
 copies are never purged. No alerts are sent.
 """
+import argparse
 import contextlib
 import datetime
 import gzip
@@ -17,6 +18,8 @@ import shutil
 import subprocess
 import sys
 import time
+
+from sqlite_snapshot import sqlite_snapshot
 
 HOME = Path('/Users/calum')
 ROOT = HOME / 'homelab-backups'
@@ -60,7 +63,7 @@ def container_files(output, context, name, path):
             raise RuntimeError(f'Failed copying {name} configuration')
 
 
-def snapshot(destination):
+def snapshot(destination, database_engine="postgres"):
     app = HOME / 'www-control-center'
     # Serialize against release.sh/recover.sh; never remove someone else's lock.
     lock = app / 'deploy.lock'
@@ -68,18 +71,23 @@ def snapshot(destination):
     try:
         images = {}
         for context, name in [('orbstack', n) for n in
-                              ['www-control-center-www-1', 'www-control-center-postgres-1',
-                               'hindsight', 'bambuddy', 'bambu-studio-api', 'bambuddy-tailscale',
-                               'www-tunnel-cloudflared-1']] + [('colima-ha', 'www-home-assistant-home-assistant-1')]:
+                              (['www-control-center-postgres-1'] if database_engine == 'postgres' else []) +
+                              ['www-control-center-www-1', 'hindsight', 'bambuddy', 'bambu-studio-api',
+                               'bambuddy-tailscale', 'www-tunnel-cloudflared-1']] + [('colima-ha', 'www-home-assistant-home-assistant-1')]:
             image_id = subprocess.check_output(docker(context, 'inspect', '--format', '{{.Image}}', name), text=True).strip()
             digests = json.loads(subprocess.check_output(
                 docker(context, 'image', 'inspect', '--format', '{{json .RepoDigests}}', image_id), text=True))
             images[name] = {'id': image_id, 'repo_digests': digests}
         (destination / 'images.json').write_text(json.dumps(images, indent=2))
         with stopped('orbstack', 'www-control-center-www-1'):
-            with (destination / 'control-center.dump').open('wb') as output:
-                run(docker('orbstack', 'exec', 'www-control-center-postgres-1',
-                           'pg_dump', '-U', 'postgres', '-d', 'control_center', '-Fc'), stdout=output)
+            if database_engine == 'postgres':
+                with (destination / 'control-center.dump').open('xb') as output:
+                    run(docker('orbstack', 'exec', 'www-control-center-postgres-1',
+                               'pg_dump', '-U', 'postgres', '-d', 'control_center', '-Fc'), stdout=output)
+            elif database_engine == 'sqlite':
+                sqlite_snapshot(app / 'data/sqlite/control-center.sqlite', destination / 'control-center.sqlite')
+            else:
+                raise ValueError('Unsupported database engine')
             archive(destination / 'control-center-files.tar.gz', app,
                     'data/media', 'secrets', 'runtime.env', 'current.env', 'compose.yaml', 'release.sh', 'recover.sh')
     finally:
@@ -137,6 +145,9 @@ def verify_restarted_services():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--database-engine', choices=['postgres', 'sqlite'], default='postgres')
+    args = parser.parse_args()
     os.umask(0o077)
     ROOT.mkdir(mode=0o700, exist_ok=True)
     if shutil.disk_usage(ROOT).free < 5 * 1024 ** 3:
@@ -147,7 +158,7 @@ def main():
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
         destination = ROOT / stamp
         destination.mkdir()
-        snapshot(destination)
+        snapshot(destination, args.database_engine)
         verify_restarted_services()
         uploader = Path(__file__).with_name('nas-upload.py')
         payloads = sorted(destination.iterdir())
