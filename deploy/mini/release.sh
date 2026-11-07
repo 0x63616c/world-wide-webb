@@ -3,6 +3,7 @@
 set -euo pipefail
 export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
 root="${WWW_ROOT:-$HOME/www-control-center}"
+code="${WWW_CODE_DIR:-$root}"
 image="${1:?image digest required}"
 revision="${2:?commit SHA required}"
 generation="${3:?monotonic workflow run number required}"
@@ -11,7 +12,7 @@ generation="${3:?monotonic workflow run number required}"
 [[ "$generation" =~ ^[0-9]{1,12}$ ]] || exit 64
 generation=$((10#$generation))
 test -f "$root/runtime.env"
-test -f "$root/compose.yaml"
+test -f "$code/compose.yaml"
 mkdir -p "$root/releases"
 if ! mkdir "$root/deploy.lock" 2>/dev/null; then
   echo 'Another deployment holds the lock; retry after it finishes.' >&2
@@ -31,22 +32,40 @@ umask 077
 printf 'WWW_IMAGE=%s\n' "$image" > "$release"
 compose() {
   docker compose --env-file "$root/runtime.env" --env-file "$release" \
-    -f "$root/compose.yaml" "$@"
+    -f "$code/compose.yaml" "$@"
 }
 compose config --quiet
 compose pull www
 observed=$(docker run --rm --read-only --network none --entrypoint www-server "$image" version)
 [[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
 # A deployment must never create a fresh production DB because of a wrong path.
-data_dir=$(compose config --format json | python3 "$root/sqlite_preflight.py")
+data_dir=$(compose config --format json | python3 "$code/sqlite_preflight.py")
+legacy_pg_id=""
+if [[ -f "$root/compose.yaml" ]] && grep -q '^  postgres:' "$root/compose.yaml"; then
+  test -f "$root/.sqlite-import-verified.json" || { echo 'Finish and verify the frozen-writer SQLite import before the first Rust release.' >&2; exit 1; }
+  legacy_pg_id=$(docker compose --env-file "$root/runtime.env" --env-file "$release" -f "$root/compose.yaml" ps -q postgres)
+fi
 if [[ -f "$root/current.env" ]]; then cp "$root/current.env" "$root/previous.env"; fi
 # Ensure only one cycle owner runs; never bring the entire project down.
 compose stop www
 mkdir -p "$root/backups"
-python3 "$root/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
+python3 "$code/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
   "$root/backups/before-release-$generation-$revision-$(date -u +%Y%m%dT%H%M%SZ)-$$.sqlite"
 compose up -d --no-deps --wait --wait-timeout 180 www
 compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck
+if [[ "$code" != "$root" ]]; then
+  for name in release.sh recover.sh compose.yaml sqlite_preflight.py sqlite_snapshot.py backup.py nas-upload.py publish-apple-release.py; do
+    cp "$code/$name" "$root/$name.tmp"
+    mv "$root/$name.tmp" "$root/$name"
+  done
+  backup_root="${WWW_BACKUP_ROOT:-$HOME/homelab-backups}"
+  test -d "$backup_root"
+  for name in backup.py nas-upload.py sqlite_snapshot.py; do
+    cp "$code/$name" "$backup_root/$name.tmp"
+    mv "$backup_root/$name.tmp" "$backup_root/$name"
+  done
+fi
+if [[ -n "$legacy_pg_id" ]]; then docker stop "$legacy_pg_id" >/dev/null; fi
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 printf '%s\n' "$generation" > "$root/generation.tmp"

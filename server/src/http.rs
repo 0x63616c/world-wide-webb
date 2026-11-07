@@ -153,7 +153,16 @@ async fn authenticate(State(state): State<AppState>, request: Request, next: Nex
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .unwrap_or("");
-    if !bool::from(supplied.as_bytes().ct_eq(state.token.as_bytes())) {
+    // Native installations cannot publish release metadata. The automation
+    // token is provisioned separately and never distributed to clients.
+    let publishing = request.method() == axum::http::Method::POST
+        && request.uri().path() == "/api/v1/releases/latest";
+    let expected = if publishing {
+        state.config.release_token.as_deref().unwrap_or("")
+    } else {
+        &state.token
+    };
+    if expected.len() < 32 || !bool::from(supplied.as_bytes().ct_eq(expected.as_bytes())) {
         return (
             StatusCode::UNAUTHORIZED,
             [(header::WWW_AUTHENTICATE, "Bearer")],

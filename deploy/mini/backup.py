@@ -63,7 +63,7 @@ def container_files(output, context, name, path):
             raise RuntimeError(f'Failed copying {name} configuration')
 
 
-def snapshot(destination, database_engine="postgres"):
+def snapshot(destination, database_engine="sqlite"):
     app = HOME / 'www-control-center'
     # Serialize against release.sh/recover.sh; never remove someone else's lock.
     lock = app / 'deploy.lock'
@@ -79,6 +79,10 @@ def snapshot(destination, database_engine="postgres"):
                 docker(context, 'image', 'inspect', '--format', '{{json .RepoDigests}}', image_id), text=True))
             images[name] = {'id': image_id, 'repo_digests': digests}
         (destination / 'images.json').write_text(json.dumps(images, indent=2))
+        infra = HOME / 'homelab-infra/cloudflare'
+        if (infra / 'cloudflare.tfstate').is_file():
+            archive(destination / 'cloudflare-infra.tar.gz', infra,
+                    'cloudflare.tfstate', 'production.tfvars.json')
         with stopped('orbstack', 'www-control-center-www-1'):
             if database_engine == 'postgres':
                 with (destination / 'control-center.dump').open('xb') as output:
@@ -146,7 +150,7 @@ def verify_restarted_services():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--database-engine', choices=['postgres', 'sqlite'], default='postgres')
+    parser.add_argument('--database-engine', choices=['postgres', 'sqlite'], default='sqlite')
     args = parser.parse_args()
     os.umask(0o077)
     ROOT.mkdir(mode=0o700, exist_ok=True)

@@ -7,20 +7,35 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use www_server::{AppState, http, storage};
+const RELEASE_TOKEN: &str = "fixture-release-only-token-32-bytes";
 const TOKEN: &str = "test-only-provisioned-api-token-32-bytes";
 async fn fixture() -> (tempfile::TempDir, Router, sqlx::SqlitePool) {
     let dir = tempfile::tempdir().unwrap();
     let db = storage::open(&dir.path().join("test.sqlite"))
         .await
         .unwrap();
-    let state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    state.config = std::sync::Arc::new(www_server::config::Config {
+        release_token: Some(RELEASE_TOKEN.into()),
+        ..Default::default()
+    });
     (dir, http::router(state), db)
 }
 async fn call(app: &Router, method: &str, path: &str, body: Value) -> (StatusCode, Value) {
     let request = Request::builder()
         .method(method)
         .uri(path)
-        .header("authorization", format!("Bearer {TOKEN}"))
+        .header(
+            "authorization",
+            format!(
+                "Bearer {}",
+                if method == "POST" && path == "/api/v1/releases/latest" {
+                    RELEASE_TOKEN
+                } else {
+                    TOKEN
+                }
+            ),
+        )
         .header("content-type", "application/json")
         .body(Body::from(body.to_string()))
         .unwrap();
@@ -1159,4 +1174,31 @@ async fn diagnostics_accept_only_redacted_bounded_support_evidence() {
             .len(),
         20
     );
+}
+
+#[tokio::test]
+async fn native_credentials_cannot_publish_releases_and_release_credentials_cannot_read_private_state()
+ {
+    let (_dir, app, _) = fixture().await;
+    for (method, path, token, body) in [
+        (
+            "POST",
+            "/api/v1/releases/latest",
+            TOKEN,
+            json!({"app":"panel","build":123}),
+        ),
+        ("GET", "/api/v1/walks/state", RELEASE_TOKEN, Value::Null),
+    ] {
+        let request = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        assert_eq!(
+            app.clone().oneshot(request).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
 }

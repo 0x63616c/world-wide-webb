@@ -1,455 +1,87 @@
-# Native replacement for the Expo kiosk, using the existing TestFlight app.
 name: Apple Panel TestFlight
-
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/apple-panel-testflight.yml"
-      - ".github/scripts/apple-*"
-      - ".github/workflows/apple-prototype-ci.yml"
-      - "apps/apple-prototype/**"
-      - "apps/panel/**"
-      - "!apps/apple-prototype/**/README.md"
-      - "!apps/panel/**/README.md"
-      - "!apps/apple-prototype/**/AGENTS.md"
-      - "!apps/panel/**/AGENTS.md"
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - ".github/workflows/apple-panel-testflight.yml"
-      - ".github/scripts/apple-*"
-      - ".github/workflows/apple-prototype-ci.yml"
-      - "apps/apple-prototype/**"
-      - "apps/panel/**"
-      - "!apps/apple-prototype/**/README.md"
-      - "!apps/panel/**/README.md"
-      - "!apps/apple-prototype/**/AGENTS.md"
-      - "!apps/panel/**/AGENTS.md"
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: Native source ref (must contain the hybrid Panel target)
-        type: string
-        default: main
-        required: true
-      smoke_only:
-        description: Run the simulator launch check without signing or uploading
-        type: boolean
-        default: false
-      regenerate_profiles:
-        description: Regenerate signing profiles once after an App ID capability change
-        type: boolean
-        default: false
-
 permissions:
   contents: read
   actions: read
-
 concurrency:
-  group: apple-panel-testflight-${{ github.event_name == 'pull_request' && github.ref || 'release' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
+  group: panel-testflight-upload
+  cancel-in-progress: false
 jobs:
-  plan:
+  selection:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     outputs:
-      source_sha: ${{ steps.source.outputs.sha }}
-      verified_run: ${{ steps.proof.outputs.verified_run }}
+      apple: ${{ steps.selection.outputs.apple }}
     steps:
-      - uses: actions/checkout@v5
-      - name: Verify smoke evidence rules
-        run: |
-          python3 -B .github/scripts/apple-smoke-proof-test.py
-          python3 -B .github/scripts/apple-smoke-parallel-test.py
-          python3 -B .github/scripts/apple-toolchain-test.py
-      - name: Resolve immutable release source
-        id: source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
-        run: echo "sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SOURCE_REF" --jq .sha)" >> "$GITHUB_OUTPUT"
-      - name: Verify native inputs already passed PR smoke
-        id: proof
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ steps.source.outputs.sha }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: python3 .github/scripts/apple-smoke-proof.py
-
-  smoke_build:
-    needs: plan
-    if: needs.plan.outputs.verified_run == ''
-    runs-on: macos-26
-    timeout-minutes: 20
-    outputs:
-      toolchain: ${{ steps.toolchain.outputs.version }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ needs.plan.outputs.source_sha }}
-      - name: Record tested source commit
-        id: source
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "tree=$(python3 .github/scripts/apple-smoke-proof.py --fingerprint)" >> "$GITHUB_OUTPUT"
-
-      - name: Select newest Xcode 26.x
-        run: |
-          DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
-          export DEVELOPER_DIR
-          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
-          xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
-
-      - name: Generate simulator project
-        working-directory: apps/apple-prototype
-        run: |
-          # Fail closed on refs predating WWW-64; Xcode accepts an empty test filter.
-          if [[ ! -f HybridUITests/HomeViewLaunchTests.swift ]]; then
-            echo "::error::Selected ref predates WWW-64: HomeViewLaunchTests.swift is required."
-            exit 1
-          fi
-          brew install xcodegen
-          xcodegen generate
-
-      - name: Identify simulator toolchain
-        id: toolchain
-        run: echo "version=$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-
-      # Products only: test-without-building needs no compiler intermediates.
-      # Exact source tree + toolchain + architecture; never restore a partial match.
-      # Namespace by ref: inaccessible PR caches can still conflict on reservation.
-      # Main push checks populate the default-branch cache before release dispatch.
-      - name: Restore simulator test products
-        id: products
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/panel-smoke-build/Build/Products
-          key: panel-launch-v4-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ steps.source.outputs.tree }}-${{ github.ref }}
-
-      - name: Restore incremental compiler cache
-        if: steps.products.outputs.cache-hit != 'true'
-        id: compiler
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ${{ runner.temp }}/panel-smoke-build/Build/Intermediates.noindex
-            ${{ runner.temp }}/panel-smoke-build/ModuleCache.noindex
-            ${{ runner.temp }}/panel-smoke-build/SourcePackages
-            ~/Library/Caches/org.swift.swiftpm
-          key: panel-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ github.ref }}-${{ steps.source.outputs.tree }}
-          restore-keys: |
-            panel-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.version }}-${{ github.ref }}-
-
-      # Let XCTest boot after compilation. On the small Intel runners, early
-      # simulator boot coincided with 15-20 minute cold builds; unit compilation
-      # without early boot completed in 126 seconds even on a cache miss.
-      - name: Build only the Panel launch UI suite
-        if: steps.products.outputs.cache-hit != 'true'
-        working-directory: apps/apple-prototype
-        run: |
-          set -o pipefail
-          xcodebuild build-for-testing -project WorldWideWebb.xcodeproj \
-            -scheme Panel-Smoke -configuration Debug \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath "$RUNNER_TEMP/panel-smoke-build" \
-            -only-testing:PanelUITests/HomeViewLaunchTests \
-            -only-testing:PanelUITests/NotificationHistoryTests \
-            -only-testing:PanelUITests/UpdateReadyBannerTests \
-            -only-testing:PanelUITests/GridInteractionTests \
-            ARCHS="$(uname -m)" CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-build.log"
-
-      - name: Save compiled simulator products before tests
-        if: steps.products.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/panel-smoke-build/Build/Products
-          key: ${{ steps.products.outputs.cache-primary-key }}
-
-      - name: Save compiler cache before tests
-        if: steps.products.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ runner.temp }}/panel-smoke-build/Build/Intermediates.noindex
-            ${{ runner.temp }}/panel-smoke-build/ModuleCache.noindex
-            ${{ runner.temp }}/panel-smoke-build/SourcePackages
-            ~/Library/Caches/org.swift.swiftpm
-          key: ${{ steps.compiler.outputs.cache-primary-key }}
-
-      - name: Package shared test products
-        run: tar -czf "$RUNNER_TEMP/panel-ui-products.tgz" -C "$RUNNER_TEMP/panel-smoke-build" Build/Products
-      - name: Share test products with UI runners
-        uses: actions/upload-artifact@v4
-        with:
-          name: panel-ui-products
-          path: ${{ runner.temp }}/panel-ui-products.tgz
-          compression-level: 0
-          retention-days: 2
-
-  smoke_tests:
-    name: UI / ${{ matrix.suite }}
-    needs: [plan, smoke_build]
-    runs-on: macos-26
-    # Include simulator boot, XCTest result collection and artifact cleanup.
-    # Hosted runners have exceeded 20 minutes despite every test passing.
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: [HomeViewLaunchTests, NotificationHistoryTests, UpdateReadyBannerTests, GridInteractionTests]
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ needs.plan.outputs.source_sha }}
-      - name: Select newest Xcode 26.x
-        run: |
-          DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
-          export DEVELOPER_DIR
-          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
-          xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
-
-      - name: Verify matching build toolchain
-        env:
-          BUILD_TOOLCHAIN: ${{ needs.smoke_build.outputs.toolchain }}
-        run: test "$(xcodebuild -version | shasum -a 256 | cut -d' ' -f1)" = "$BUILD_TOOLCHAIN"
       - uses: actions/download-artifact@v4
         with:
-          name: panel-ui-products
-          path: ${{ runner.temp }}
-      - name: Restore shared test products
+          name: ci-selection
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - id: selection
         run: |
-          mkdir -p "$RUNNER_TEMP/panel-smoke-build"
-          tar -xzf "$RUNNER_TEMP/panel-ui-products.tgz" -C "$RUNNER_TEMP/panel-smoke-build"
-      - name: Create 1366x1024 iPad simulator
-        id: simulator
-        run: |
-          xcrun simctl list --json > "$RUNNER_TEMP/simulators.json"
-          python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
-          import json, os, subprocess
-          with open(os.environ['RUNNER_TEMP'] + '/simulators.json') as source:
-              catalog = json.load(source)
-          # 12.9-inch iPad Pro is 1366x1024 points; the newer 13-inch is 1376x1032.
-          device_type = next(device['identifier'] for device in catalog['devicetypes']
-                             if '12.9-inch' in device['name'] and '6th generation' in device['name'])
-          runtime = max((runtime for runtime in catalog['runtimes']
-                         if runtime.get('isAvailable') and '.iOS-26' in runtime['identifier']),
-                        key=lambda runtime: tuple(map(int, runtime['version'].split('.'))))
-          device_id = subprocess.check_output(
-              ['xcrun', 'simctl', 'create', 'Panel Launch Smoke', device_type, runtime['identifier']], text=True).strip()
-          print('id=' + device_id)
-          PYCODE
-      - name: Finish first simulator boot before XCTest
-        env:
-          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
-        run: |
-          xcrun simctl boot "$SIMULATOR_ID"
-          xcrun simctl bootstatus "$SIMULATOR_ID" -b
-      - name: Run UI group
-        working-directory: apps/apple-prototype
-        env:
-          SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
-          TEST_SUITE: ${{ matrix.suite }}
-        run: |
-          set -o pipefail
-          shopt -s nullglob
-          test_plans=("$RUNNER_TEMP/panel-smoke-build/Build/Products/"*.xctestrun)
-          [[ ${#test_plans[@]} == 1 ]]
-          xcodebuild test-without-building -xctestrun "${test_plans[0]}" \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -resultBundlePath "$RUNNER_TEMP/panel-launch.xcresult" \
-            "-only-testing:PanelUITests/$TEST_SUITE" \
-            -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 \
-            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/panel-smoke-test.log"
-
-      - name: Require nonempty passing UI results
-        run: |
-          xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/panel-launch.xcresult" > "$RUNNER_TEMP/panel-smoke-summary.json"
-          jq -e '.passedTests > 0 and .failedTests == 0 and .skippedTests == 0' "$RUNNER_TEMP/panel-smoke-summary.json"
-
-      - name: Export simulator screenshots
-        if: always()
-        run: |
-          if [[ -d "$RUNNER_TEMP/panel-launch.xcresult" ]]; then
-            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/panel-launch.xcresult" \
-              --output-path "$RUNNER_TEMP/panel-launch-screenshots"
-          fi
-
-      - name: Save launch test evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: panel-launch-smoke-${{ matrix.suite }}
-          path: |
-            ${{ runner.temp }}/panel-launch.xcresult
-            ${{ runner.temp }}/panel-launch-screenshots
-            ${{ runner.temp }}/panel-smoke-*.log
-          retention-days: 7
-
-  smoke:
-    needs: [plan, smoke_build, smoke_tests]
-    if: always() && needs.plan.result == 'success' && needs.plan.outputs.verified_run == ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      # The checkout log anchors the exact tree used by every dependency, for
-      # release proof. A skipped, cancelled or failed group must fail this gate.
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ needs.plan.outputs.source_sha }}
-      - name: Require build and every UI group
-        env:
-          BUILD_RESULT: ${{ needs.smoke_build.result }}
-          TEST_RESULT: ${{ needs.smoke_tests.result }}
-        run: test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
-
+          python3 - <<'PY'
+          import json,os
+          value=json.load(open('ci-selection.json'))['apple']
+          assert isinstance(value,bool)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('apple='+str(value).lower()+'\n')
+          PY
   upload:
-    needs: [plan, smoke]
-    if: >-
-      always() && needs.plan.result == 'success' &&
-      (needs.smoke.result == 'success' ||
-       (needs.smoke.result == 'skipped' && needs.plan.outputs.verified_run != '')) &&
-      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only))
+    needs: selection
+    if: needs.selection.outputs.apple == 'true'
     runs-on: macos-26
     timeout-minutes: 45
     environment: production
-    # Also shared with the manual Expo rollback workflow: one bundle ID, one
-    # TestFlight build-number allocator. Never cancel an upload already in flight.
-    concurrency:
-      group: panel-testflight-upload
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
         with:
-          # Pin release machinery to this workflow; inputs.ref selects only native source.
-          ref: ${{ github.sha }}
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ needs.plan.outputs.source_sha }}
-          path: native
-
-      - name: Check uploaded commit receipt
-        id: receipt
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
-        run: |
-          set -euo pipefail
-          count=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/artifacts" \
-            -f "name=panel-testflight-$SOURCE_SHA" -f per_page=100 \
-            --jq '[.artifacts[] | select(.expired == false)] | length')
-          echo "uploaded=$([[ $count -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
-      - name: Select newest Xcode 26.x
-        if: steps.receipt.outputs.uploaded != 'true'
-        run: |
-          DEVELOPER_DIR="$(python3 .github/scripts/apple-toolchain.py)"
-          export DEVELOPER_DIR
-          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
-          xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
-
-      - name: Install XcodeGen and check native SDK requirements
-        if: steps.receipt.outputs.uploaded != 'true'
-        run: |
-          brew install xcodegen
-          ruby -ryaml -e '
-            spec = YAML.load_file("native/apps/apple-prototype/project.yml")
-            panel = spec.fetch("targets").fetch("Panel") { abort "Selected ref has no Panel target; use a ref that contains the hybrid Panel target (main)." }
-            required = panel["deploymentTarget"] || spec.dig("options", "deploymentTarget", "iOS")
-            sdk = `xcrun --sdk iphoneos --show-sdk-version`.strip
-            abort "Native Panel requires iOS #{required}, but installed SDK is #{sdk}; update the runner/Xcode image." if Gem::Version.new(required.to_s) > Gem::Version.new(sdk)
-          '
-
-      # Decrypt vault — the only step touching AGE_PRIVATE_KEY. No set -x here.
-      - name: Decrypt vault (SOPS+age)
-        if: steps.receipt.outputs.uploaded != 'true'
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Select supported Xcode
+        run: echo "DEVELOPER_DIR=$(python3 .github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
+      - run: brew install xcodegen sops age
+      - name: Load signing and deployment credentials once
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: |
-          brew install sops age 2>/dev/null || true
-
-          extract() { sops -d "$GITHUB_WORKSPACE/secrets/vault.yaml" | grep "^$1:" | cut -d' ' -f2-; }
-
-          MATCH_PWD=$(extract APP_STORE_CONNECT_API__MATCH_PASSWORD)
-          GIT_AUTH=$(extract MATCH_GIT_BASIC_AUTHORIZATION)
-          KEY_ID=$(extract APP_STORE_CONNECT_API__KEY_ID)
-          ISSUER_ID=$(extract APP_STORE_CONNECT_API__ISSUER_ID)
-          P8=$(extract APP_STORE_CONNECT_API__P8_CONTENT)
-          CF_ID=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_ID)
-          CF_SECRET=$(extract CF_ACCESS_KIOSK_TOKEN__CLIENT_SECRET)
-          ALARM_TOKEN=$(extract PANEL_ALARMS__TOKEN)
-
-          echo "::add-mask::$MATCH_PWD"
-          echo "::add-mask::$GIT_AUTH"
-          echo "::add-mask::$KEY_ID"
-          echo "::add-mask::$ISSUER_ID"
-          echo "::add-mask::$P8"
-          echo "::add-mask::$CF_ID"
-          echo "::add-mask::$CF_SECRET"
-          echo "::add-mask::$ALARM_TOKEN"
-
-          echo "MATCH_PASSWORD=$MATCH_PWD" >> "$GITHUB_ENV"
-          echo "MATCH_GIT_BASIC_AUTHORIZATION=$GIT_AUTH" >> "$GITHUB_ENV"
-          echo "ASC_KEY_ID=$KEY_ID" >> "$GITHUB_ENV"
-          echo "ASC_ISSUER_ID=$ISSUER_ID" >> "$GITHUB_ENV"
-          echo "ASC_KEY_CONTENT=$P8" >> "$GITHUB_ENV"
-          echo "CF_ACCESS_KIOSK_CLIENT_ID=$CF_ID" >> "$GITHUB_ENV"
-          echo "CF_ACCESS_KIOSK_CLIENT_SECRET=$CF_SECRET" >> "$GITHUB_ENV"
-          echo "ALARM_API_TOKEN=$ALARM_TOKEN" >> "$GITHUB_ENV"
-          echo "MATCH_GIT_URL=https://github.com/0x63616c/certificates.git" >> "$GITHUB_ENV"
-
-      - name: Setup Ruby
-        if: steps.receipt.outputs.uploaded != 'true'
-        uses: ruby/setup-ruby@v1
+        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_signing_env.py'
+      - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: '3.4'
           bundler-cache: true
-          working-directory: apps/panel
-
-      - name: Build and upload native Panel to TestFlight
-        if: steps.receipt.outputs.uploaded != 'true'
-        working-directory: apps/panel
+          working-directory: apple
+      - name: Build and upload tested native revision
+        working-directory: apple
+        env:
+          PANEL_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: bundle exec fastlane release_native
+      - name: Record processed upload
         env:
-          PANEL_SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
-          NATIVE_ROOT: ${{ github.workspace }}/native/apps/apple-prototype
-          MATCH_PASSWORD: ${{ env.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_BASIC_AUTHORIZATION }}
-          MATCH_GIT_URL: ${{ env.MATCH_GIT_URL }}
-          ASC_KEY_ID: ${{ env.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ env.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ env.ASC_KEY_CONTENT }}
-          CF_ACCESS_KIOSK_CLIENT_ID: ${{ env.CF_ACCESS_KIOSK_CLIENT_ID }}
-          CF_ACCESS_KIOSK_CLIENT_SECRET: ${{ env.CF_ACCESS_KIOSK_CLIENT_SECRET }}
-          ALARM_API_TOKEN: ${{ env.ALARM_API_TOKEN }}
-          MATCH_REGENERATE: ${{ inputs.regenerate_profiles }}
-
-      - name: Write upload receipt
-        if: steps.receipt.outputs.uploaded != 'true'
-        env:
-          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
-        run: echo "$SOURCE_SHA $PANEL_UPLOADED_BUILD" > "$RUNNER_TEMP/panel-testflight-receipt.txt"
-
-      - name: Retain upload receipt for duplicate dispatches and reruns
-        if: steps.receipt.outputs.uploaded != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: panel-testflight-${{ needs.plan.outputs.source_sha }}
-          path: ${{ runner.temp }}/panel-testflight-receipt.txt
-          retention-days: 90
-
-      - name: Record uploaded panel build
-        if: steps.receipt.outputs.uploaded != 'true'
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          if ! curl -fsS --retry 3 --connect-timeout 10 --max-time 30 \
-            -H "CF-Access-Client-Id: $CF_ACCESS_KIOSK_CLIENT_ID" \
-            -H "CF-Access-Client-Secret: $CF_ACCESS_KIOSK_CLIENT_SECRET" \
-            -H "Authorization: Bearer $ALARM_API_TOKEN" \
-            -H 'Content-Type: application/json' \
-            --data "{\"app\":\"panel\",\"build\":$PANEL_UPLOADED_BUILD}" \
-            https://app.worldwidewebb.co/api/releases/latest; then
-            echo "::warning::TestFlight upload succeeded, but recording the latest panel build failed."
-          fi
+          python3 - <<'PY'
+          import json,os
+          json.dump({'sha':os.environ['SOURCE_SHA'],'build':int(os.environ['PANEL_UPLOADED_BUILD'])},open('testflight-receipt.json','w'))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: panel-testflight-${{ github.event.workflow_run.head_sha }}
+          path: testflight-receipt.json
+          retention-days: 90
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ env.TS_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_CLIENT_SECRET }}
+          tags: tag:ci
+      - name: Publish processed build from the mini
+        env:
+          MINI_KNOWN_HOSTS: ${{ vars.MINI_KNOWN_HOSTS }}
+        run: |
+          test -n "$MINI_KNOWN_HOSTS"
+          printf '%s\n' "$MINI_KNOWN_HOSTS" > "$RUNNER_TEMP/mini-known-hosts"
+          ssh -i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts" \
+            calum@homelab.tail8c014d.ts.net "python3 /Users/calum/www-control-center/publish-apple-release.py '$PANEL_UPLOADED_BUILD'"

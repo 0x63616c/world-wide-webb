@@ -1,17 +1,29 @@
 terraform {
-  required_version = ">= 1.10, < 2.0"
+  required_version = ">= 1.13, < 1.14"
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
       version = "5.24.0"
     }
   }
-  # Bucket, region and key come from a private backend config at init time.
-  # AWS S3 conditional writes provide real cross-runner locking.
-  backend "s3" {
-    encrypt      = true
-    use_lockfile = true
+  # CI executes on the mini; all runs share this backend's OS-level lock.
+  # The production path is supplied outside the checkout at init time.
+  backend "local" {}
+  encryption {
+    key_provider "pbkdf2" "state" {
+      passphrase = var.state_passphrase
+    }
+    method "aes_gcm" "state" {
+      keys = key_provider.pbkdf2.state
+    }
+    state {
+      method   = method.aes_gcm.state
+      enforced = true
+    }
+    plan {
+      method   = method.aes_gcm.state
+      enforced = true
+    }
   }
 }
-
 provider "cloudflare" {}

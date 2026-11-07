@@ -1,103 +1,107 @@
 name: Deploy Mac mini
-
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
-
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful main CI run to deploy
+        type: string
+        required: true
 permissions:
   contents: read
+  actions: read
   packages: write
-
 concurrency:
   group: deploy-mini
   cancel-in-progress: false
-
 jobs:
-  release:
+  source:
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      vars.MINI_DEPLOY_ENABLED == 'true'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+      vars.MINI_DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      generation: ${{ steps.source.outputs.generation }}
+      image: ${{ steps.selection.outputs.image }}
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
+        run: python3 tools/ci_release_source.py "$RUN_ID"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-selection
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - id: selection
+        run: |
+          python3 - <<'PY'
+          import json,os
+          value=json.load(open('ci-selection.json'))['image']
+          assert isinstance(value,bool)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('image='+str(value).lower()+'\n')
+          PY
+  release:
+    needs: source
+    if: needs.source.outputs.image == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
           persist-credentials: false
       - uses: docker/setup-buildx-action@v4
       - uses: ./.github/actions/ghcr-login
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-      - name: Compute build timestamp
-        id: commit-time
-        run: echo "ms=$(($(git log -1 --format=%ct) * 1000))" >> "$GITHUB_OUTPUT"
-      - name: Build tested revision
-        id: image
+      - id: image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: Dockerfile
-          platforms: linux/arm64
           push: true
-          tags: ghcr.io/0x63616c/www-control-center-mini:${{ github.event.workflow_run.head_sha }}
-          build-args: |
-            BUILD_HASH=${{ github.event.workflow_run.head_sha }}
-            BUILD_TIME=${{ steps.commit-time.outputs.ms }}
+          platforms: linux/arm64
+          tags: ghcr.io/0x63616c/www-control-center-mini:${{ needs.source.outputs.sha }}
+          build-args: BUILD_HASH=${{ needs.source.outputs.sha }}
           cache-from: type=gha,scope=www-mini
           cache-to: type=gha,mode=max,scope=www-mini
-      - name: Load deployment credentials
+      - name: Load deployment credentials once
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: |
-          sops exec-env secrets/vault.yaml 'python3 - <<'"'"'PY'"'"'
-          import os
-          from pathlib import Path
-          for source, target in [("TAILSCALE_OAUTH_CLIENT__CLIENT_ID", "TS_CLIENT_ID"), ("TAILSCALE_OAUTH_CLIENT__CLIENT_SECRET", "TS_CLIENT_SECRET")]:
-              value = os.environ[source]
-              print("::add-mask::" + value)
-              with open(os.environ["GITHUB_ENV"], "a") as f:
-                  f.write(target + "=" + value + "\n")
-          key = Path(os.environ["RUNNER_TEMP"]) / "mini-key"
-          key.write_text(os.environ["HOMELAB_SSH__PRIVATE_KEY"] + "\n")
-          key.chmod(0o600)
-          PY'
+        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
       - uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ env.TS_CLIENT_ID }}
           oauth-secret: ${{ env.TS_CLIENT_SECRET }}
           tags: tag:ci
-      - name: Deploy and verify
+      - name: Deploy tested image and operations together
         env:
           IMAGE: ghcr.io/0x63616c/www-control-center-mini@${{ steps.image.outputs.digest }}
-          REVISION: ${{ github.event.workflow_run.head_sha }}
-          GENERATION: ${{ github.event.workflow_run.run_number }}
+          REVISION: ${{ needs.source.outputs.sha }}
+          GENERATION: ${{ needs.source.outputs.generation }}
           MINI_KNOWN_HOSTS: ${{ vars.MINI_KNOWN_HOSTS }}
         run: |
+          set -euo pipefail
           test -n "$MINI_KNOWN_HOSTS"
           printf '%s\n' "$MINI_KNOWN_HOSTS" > "$RUNNER_TEMP/mini-known-hosts"
-          ssh -i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts" \
-            calum@homelab.tail8c014d.ts.net \
-            "bash /Users/calum/www-control-center/release.sh '$IMAGE' '$REVISION' '$GENERATION'"
-      - name: Install tunnel recovery
-        env:
-          GENERATION: ${{ github.event.workflow_run.run_number }}
-        run: |
-          # Ship these host files from the same tested checkout as the app image.
           remote=calum@homelab.tail8c014d.ts.net
-          ssh_options=(-i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes
+          options=(-i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts")
-          stage=$(ssh "${ssh_options[@]}" "$remote" 'mktemp -d /Users/calum/tunnel-recovery-install.XXXXXX')
-          [[ "$stage" =~ ^/Users/calum/tunnel-recovery-install\.[[:alnum:]]+$ ]]
-          cleanup() { ssh "${ssh_options[@]}" "$remote" "rm -rf -- '$stage'"; }
+          stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/calum/www-control-center/candidate.XXXXXX')
+          [[ "$stage" =~ ^/Users/calum/www-control-center/candidate\.[[:alnum:]]+$ ]]
+          cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
           trap cleanup EXIT
-          scp "${ssh_options[@]}" deploy/mini/tunnel_watchdog.py \
-            deploy/mini/com.calum.tunnel-recovery.plist deploy/mini/install-tunnel-recovery.sh \
-            "$remote:$stage/"
-          ssh "${ssh_options[@]}" "$remote" "bash '$stage/install-tunnel-recovery.sh' '$GENERATION'"
-      - name: Remove temporary key
-        if: always()
-        run: rm -f "$RUNNER_TEMP/mini-key"
+          files=(release.sh recover.sh compose.yaml sqlite_preflight.py sqlite_snapshot.py backup.py nas-upload.py publish-apple-release.py)
+          for file in "${files[@]}"; do scp "${options[@]}" "deploy/mini/$file" "$remote:$stage/$file"; done
+          ssh "${options[@]}" "$remote" \
+            "WWW_CODE_DIR='$stage' bash '$stage/release.sh' '$IMAGE' '$REVISION' '$GENERATION'"

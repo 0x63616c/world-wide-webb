@@ -4,6 +4,7 @@ use std::{env, fs, path::PathBuf};
 // Deliberately not Debug/Serialize: configuration contains credentials and home coordinates.
 #[derive(Clone)]
 pub struct Config {
+    pub release_token: Option<String>,
     pub workers_enabled: bool,
     pub ha: Option<HomeAssistant>,
     pub climate_entity: Option<String>,
@@ -107,6 +108,7 @@ impl Config {
             return Err("Invalid alarm defaults".into());
         }
         Ok(Self {
+            release_token: value("ALARM_API_TOKEN")?,
             workers_enabled,
             ha,
             weather,
@@ -140,6 +142,7 @@ pub fn wifi_payload(ssid: &str, password: &str) -> String {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            release_token: None,
             workers_enabled: true,
             ha: None,
             climate_entity: None,

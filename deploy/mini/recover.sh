@@ -3,6 +3,7 @@
 set -euo pipefail
 export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
 root="${WWW_ROOT:-$HOME/www-control-center}"
+code="${WWW_CODE_DIR:-$root}"
 target="${1:?previous or recovery-from required}"
 revision="${2:?expected target commit SHA required}"
 [[ "$target" == previous || "$target" == recovery-from ]] || exit 64
@@ -23,17 +24,17 @@ release="$root/releases/recovery-$stamp.env"
 printf '%s\n' "$line" > "$release"
 compose() {
   docker compose --env-file "$root/runtime.env" --env-file "$release" \
-    -f "$root/compose.yaml" "$@"
+    -f "$code/compose.yaml" "$@"
 }
 compose config --quiet
 compose pull www
 observed=$(docker run --rm --read-only --network none --entrypoint www-server "${line#WWW_IMAGE=}" version)
 [[ "$observed" == "$revision" ]] || { echo 'Image revision does not match the requested release.' >&2; exit 1; }
-data_dir=$(compose config --format json | python3 "$root/sqlite_preflight.py")
+data_dir=$(compose config --format json | python3 "$code/sqlite_preflight.py")
 cp "$root/current.env" "$root/recovery-from.env"
 compose stop www
 # Capture a consistent recovery point with application writers stopped.
-python3 "$root/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
+python3 "$code/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
   "$root/backups/before-recovery-$stamp.sqlite"
 compose up -d --no-deps --wait --wait-timeout 180 www
 compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck

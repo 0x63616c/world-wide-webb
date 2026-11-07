@@ -30,3 +30,12 @@ variable "apply_access_gate" {
   type        = bool
   default     = false
 }
+
+variable "state_passphrase" {
+  type      = string
+  sensitive = true
+  validation {
+    condition     = length(var.state_passphrase) >= 32
+    error_message = "Use a separately backed-up state passphrase of at least 32 characters."
+  }
+}
