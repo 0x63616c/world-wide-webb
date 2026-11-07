@@ -23,6 +23,121 @@ struct Context {
     message: String,
 }
 thread_local! { static CONTEXT: RefCell<Option<Context>> = const { RefCell::new(None) }; }
+thread_local! { static DIAGNOSTIC: RefCell<Option<Diagnostic>> = const { RefCell::new(None) }; }
+
+struct Diagnostic {
+    directory: Option<std::path::PathBuf>,
+    code: &'static str,
+    start: Vec<u8>,
+    end: Vec<u8>,
+    pending: Vec<u8>,
+    output: Vec<u8>,
+    active: bool,
+    finished: bool,
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+
+    #[test]
+    fn captures_only_framed_check_output_across_split_reads() {
+        let mut capture = Diagnostic {
+            directory: None,
+            code: "test-check",
+            start: b"BEGIN".to_vec(),
+            end: b"END".to_vec(),
+            pending: Vec::new(),
+            output: Vec::new(),
+            active: false,
+            finished: false,
+        };
+        for byte in b"Password: private-input BEG"
+            .iter()
+            .chain(b"INhealth check failedENDPassword: ignored")
+        {
+            capture.observe(&[*byte]);
+        }
+        assert!(capture.finished);
+        assert_eq!(capture.output, b"health check failed");
+    }
+}
+
+impl Diagnostic {
+    fn observe(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            if self.finished {
+                break;
+            }
+            self.pending.push(*byte);
+            if !self.active {
+                if self.pending.ends_with(&self.start) {
+                    self.active = true;
+                    self.pending.clear();
+                } else if self.pending.len() > self.start.len() {
+                    self.pending.remove(0);
+                }
+            } else if self.pending.ends_with(&self.end) {
+                let size = self.pending.len() - self.end.len();
+                self.output.extend_from_slice(&self.pending[..size]);
+                self.pending.clear();
+                self.finished = true;
+                if let Some(root) = &self.directory {
+                    crate::bootstrap_diagnostics::record_output(
+                        root,
+                        self.code,
+                        None,
+                        &self.output,
+                    );
+                }
+            } else if self.pending.len() > self.end.len() {
+                if self.output.len() < 16 * 1024 {
+                    self.output.push(self.pending[0]);
+                }
+                self.pending.remove(0);
+            }
+        }
+    }
+}
+
+pub(crate) fn diagnostic_status(
+    command: &mut Command,
+    exchange: Option<crate::setup_auth::Exchange>,
+    start: &str,
+    end: &str,
+    code: &'static str,
+) -> io::Result<(ExitStatus, Vec<u8>)> {
+    struct Clear;
+    impl Drop for Clear {
+        fn drop(&mut self) {
+            DIAGNOSTIC.with(|state| *state.borrow_mut() = None);
+        }
+    }
+    let _clear = Clear;
+    DIAGNOSTIC.with(|state| {
+        *state.borrow_mut() = Some(Diagnostic {
+            directory: crate::enrollment_credentials::state_directory(),
+            code,
+            start: start.as_bytes().to_vec(),
+            end: end.as_bytes().to_vec(),
+            pending: Vec::new(),
+            output: Vec::new(),
+            active: false,
+            finished: false,
+        })
+    });
+    let status = authenticated_status(command, exchange)?;
+    let bytes = DIAGNOSTIC.with(|state| {
+        let mut state = state.borrow_mut();
+        let capture = state.as_mut().unwrap();
+        if capture.finished {
+            std::mem::take(&mut capture.output)
+        } else {
+            Vec::new()
+        }
+    });
+    Ok((status, bytes))
+}
 
 #[doc(hidden)]
 pub fn within<T>(title: &str, host: &str, operation: impl FnOnce() -> T) -> T {
@@ -337,6 +452,11 @@ fn embedded(
                         break;
                     }
                     Ok(count) => {
+                        DIAGNOSTIC.with(|state| {
+                            if let Some(capture) = state.borrow_mut().as_mut() {
+                                capture.observe(&buffer[..count]);
+                            }
+                        });
                         if let Some(exchange) = &mut auth_exchange {
                             exchange.observe(&buffer[..count], &mut writer)?;
                         }

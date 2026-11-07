@@ -15,6 +15,10 @@ struct Event<'a> {
     timestamp: u64,
     phase: Option<Phase>,
     code: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exit_code: Option<i32>,
 }
 
 pub(crate) fn record(directory: &Path, phase: Option<Phase>, code: &'static str) {
@@ -27,6 +31,36 @@ pub(crate) fn record(directory: &Path, phase: Option<Phase>, code: &'static str)
                 .as_secs(),
             phase,
             code,
+            output: None,
+            exit_code: None,
+        },
+    );
+}
+
+pub(crate) fn record_output(
+    directory: &Path,
+    code: &'static str,
+    exit_code: Option<i32>,
+    bytes: &[u8],
+) {
+    let text = String::from_utf8_lossy(&bytes[..bytes.len().min(16 * 1024)]);
+    if ["PRIVATE KEY", "AGE-SECRET-KEY-", "tskey-", "HL-"]
+        .iter()
+        .any(|marker| text.contains(marker))
+    {
+        return;
+    }
+    let _ = append(
+        directory,
+        &Event {
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+            phase: None,
+            code,
+            output: Some(text.trim()),
+            exit_code,
         },
     );
 }

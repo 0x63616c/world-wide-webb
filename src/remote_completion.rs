@@ -124,11 +124,24 @@ impl Connection<'_> {
     }
 
     fn root(&self, remote: &str) -> Result<std::process::ExitStatus, Error> {
+        self.root_run(remote, None).map(|(status, _)| status)
+    }
+
+    fn root_run(
+        &self,
+        remote: &str,
+        diagnostic: Option<(&str, &str, &'static str)>,
+    ) -> Result<(std::process::ExitStatus, Vec<u8>), Error> {
         let (mut command, _identity) = self.command(true)?;
+        let redirected = if diagnostic.is_some() {
+            remote.to_owned()
+        } else {
+            format!("{remote} > /dev/null")
+        };
         let prepared = if self.tailscale.is_none() {
             crate::setup_auth::Exchange::prepare(
                 self.profile,
-                &format!("/usr/bin/sudo -n {remote} > /dev/null"),
+                &format!("/usr/bin/sudo -n {redirected}"),
             )
             .map_err(|_| Error::Verification)?
         } else {
@@ -136,7 +149,7 @@ impl Connection<'_> {
         };
         let (remote, exchange) = match prepared {
             Some((remote, exchange)) => (remote, Some(exchange)),
-            None => (format!("/usr/bin/sudo {remote} > /dev/null"), None),
+            None => (format!("/usr/bin/sudo {redirected}"), None),
         };
         command
             // Hide helper JSON on the target; keep the PTY for sudo prompts.
@@ -144,9 +157,14 @@ impl Connection<'_> {
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit());
-        let status = crate::terminal_process::authenticated_status(&mut command, exchange)
-            .map_err(|_| Error::Verification)?;
-        Ok(status)
+        if let Some((start, end, code)) = diagnostic {
+            crate::terminal_process::diagnostic_status(&mut command, exchange, start, end, code)
+                .map_err(|_| Error::Verification)
+        } else {
+            crate::terminal_process::authenticated_status(&mut command, exchange)
+                .map(|status| (status, Vec::new()))
+                .map_err(|_| Error::Verification)
+        }
     }
 }
 
@@ -349,8 +367,26 @@ pub fn finish_with_tools(
                 ),
             ] {
                 // The complete probe runs under sudo; shell redirection stays in that scope.
-                let script = format!("/bin/sh -c '{}'", probe.replace('\'', "'\\''"));
-                if !connection.root(&script)?.success() {
+                let token = nonce()?;
+                let start = format!("HL-{token}-diagnostic-start");
+                let end = format!("HL-{token}-diagnostic-end");
+                let probe = probe
+                    .replace(" >/dev/null 2>&1", " 2>&1")
+                    .replace(" >/dev/null", " 2>&1");
+                let body = format!(
+                    "printf '%s\\n' '{start}'; {probe}; result=$?; printf '\\n%s\\n' '{end}'; exit \"$result\""
+                );
+                let script = format!("/bin/sh -c '{}'", body.replace('\'', "'\\''"));
+                let (status, output) = connection.root_run(&script, Some((&start, &end, code)))?;
+                if let Some(root) = crate::enrollment_credentials::state_directory() {
+                    crate::bootstrap_diagnostics::record_output(
+                        &root,
+                        code,
+                        status.code(),
+                        &output,
+                    );
+                }
+                if !status.success() {
                     if let Some(root) = crate::enrollment_credentials::state_directory() {
                         crate::bootstrap_diagnostics::record(&root, None, code);
                     }
