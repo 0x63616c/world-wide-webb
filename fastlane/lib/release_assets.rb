@@ -73,6 +73,7 @@ module FoldingRelease
             raw_dir = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"))
             context.capture_screenshots(
               project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
+              app_identifier: "app.getfolding.Folding.Screenshots",
               configuration: PLAN.fetch("configuration"), devices: [name],
               languages: [locale.fetch("snapshot_locale")],
               launch_arguments: ["--folding-screenshot-locale #{locale.fetch('app_locale')} --folding-screenshot-appearance #{PLAN.fetch('appearance')}"],
