@@ -108,6 +108,10 @@ pub(crate) fn manifest(fixture: &Fixture) -> config::Manifest {
 }
 fn valid_fixture_manifest(manifest: &config::Manifest) -> bool {
     manifest.hosts.len() == 1
+        && manifest
+            .one_password
+            .as_ref()
+            .is_none_or(|settings| settings.backup_vault == "aaaaaaaaaaaaaaaaaaaaaaaaaa")
         && manifest.hosts.get("vm-test").is_some_and(|host| {
             host.admin_user == "admin" && host.admin_uid == 501 && host.services.is_empty()
         })
@@ -126,6 +130,15 @@ pub(crate) fn manifest_guard_regressions() {
         "authorizedKeys":[],"activationReady":false,"services":[]}},"tailscale":{"tag":"tag:vm-test"}
     })).unwrap();
     assert!(valid_fixture_manifest(&manifest));
+    manifest.schema = 2;
+    manifest.one_password = Some(config::OnePasswordConfig {
+        backup_vault: "aaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
+    });
+    assert!(valid_fixture_manifest(&manifest));
+    manifest.one_password.as_mut().unwrap().backup_vault = "production".into();
+    assert!(!valid_fixture_manifest(&manifest));
+    manifest.schema = 1;
+    manifest.one_password = None;
     manifest.hosts.get_mut("vm-test").unwrap().activation_ready = true;
     assert!(valid_fixture_manifest(&manifest));
     manifest.tailscale.as_mut().unwrap().oauth = Some(config::OAuthReference {

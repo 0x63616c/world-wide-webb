@@ -453,6 +453,8 @@ pub fn run_with_progress(
     }
     let approved = &request.expected_host;
     let manifest = crate::config::Manifest {
+        schema_url: None,
+        one_password: None,
         schema: 1,
         hosts: [(request.host.clone(), approved.clone())].into(),
         tailscale: None,

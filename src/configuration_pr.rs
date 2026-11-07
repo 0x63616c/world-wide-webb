@@ -714,6 +714,8 @@ pub fn approved_workspace(
     manifest.validate().map_err(|_| Error::Invalid)?;
     if manifest.hosts.get(&changes.host) != changes.manifest.hosts.get(&changes.host)
         || manifest.tailscale != changes.manifest.tailscale
+        || manifest.schema != changes.manifest.schema
+        || manifest.one_password != changes.manifest.one_password
     {
         return Err(Error::Conflict);
     }

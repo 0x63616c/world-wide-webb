@@ -1,4 +1,5 @@
 //! Repository metadata is data; only an explicitly approved target executes Nix.
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
@@ -23,34 +24,76 @@ pub fn setup_binding(repository: &str, host: &str, revision: &str) -> Option<Str
     )
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Host {
+    /// Existing administrator account; setup never guesses or renames this user.
+    #[schemars(length(min = 1, max = 253), pattern(r"^[A-Za-z0-9._][A-Za-z0-9._-]*$"))]
     pub admin_user: String,
     #[serde(rename = "adminUID")]
+    /// Existing administrator UID, verified against the target before setup.
+    #[schemars(range(min = 501, max = 4294967295u32))]
     pub admin_uid: u32,
+    /// Public SSH keys only, never private keys.
+    #[schemars(length(max = 32))]
     pub authorized_keys: Vec<String>,
+    /// Explicit reviewed approval for activation of this host configuration.
     pub activation_ready: bool,
+    /// Names of services the target configuration must enable.
+    #[schemars(length(max = 32))]
     pub services: Vec<String>,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OAuthReference {
+    /// 1Password vault containing the OAuth issuer item; not the backup destination.
+    #[schemars(
+        length(min = 1, max = 200),
+        pattern(r"^(?!-)(?=.*\S)[^\x00-\x1F\x7F-\x9F]+$")
+    )]
     pub vault: String,
+    /// 1Password item reference; no OAuth secret belongs in this document.
+    #[schemars(
+        length(min = 1, max = 200),
+        pattern(r"^(?!-)(?=.*\S)[^\x00-\x1F\x7F-\x9F]+$")
+    )]
     pub item: String,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TailscaleConfig {
+    /// Tailscale device tag used for this enrollment.
+    #[schemars(pattern(r"^tag:[a-z]([a-z0-9-]{0,61}[a-z0-9])?$"))]
     pub tag: String,
     pub oauth: Option<OAuthReference>,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
+    /// Inert editor metadata. The CLI never fetches this URL.
+    #[serde(rename = "$schema", default, skip_serializing_if = "Option::is_none")]
+    pub schema_url: Option<String>,
+    /// Version 2 requires an explicit, independent recovery-key backup vault.
     pub schema: u8,
+    #[serde(
+        rename = "onePassword",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub one_password: Option<OnePasswordConfig>,
     pub hosts: BTreeMap<String, Host>,
     pub tailscale: Option<TailscaleConfig>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct OnePasswordConfig {
+    /// Vault where host and recovery age identities are durably backed up.
+    /// This is independent of tailscale.oauth.vault, which contains the issuer.
+    #[schemars(
+        length(min = 1, max = 200),
+        pattern(r"^(?!-)(?=.*\S)[^\x00-\x1F\x7F-\x9F]+$")
+    )]
+    pub backup_vault: String,
 }
 #[derive(Clone, Debug)]
 pub struct Workspace {
@@ -128,7 +171,12 @@ impl Manifest {
                 && s.bytes()
                     .all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
         };
-        if self.schema != 1
+        if !matches!(self.schema, 1 | 2)
+            || (self.schema == 2 && self.one_password.is_none())
+            || self
+                .one_password
+                .as_ref()
+                .is_some_and(|p| !valid_reference(&p.backup_vault))
             || self.hosts.is_empty()
             || self.hosts.len() > 32
             || self.hosts.iter().any(|(name, h)| {
@@ -151,11 +199,7 @@ impl Manifest {
             }
             if let Some(o) = &t.oauth {
                 for value in [&o.vault, &o.item] {
-                    if value.trim().is_empty()
-                        || value.len() > 200
-                        || value.starts_with('-')
-                        || value.chars().any(char::is_control)
-                    {
+                    if !valid_reference(value) {
                         return Err(Error::InvalidManifest);
                     }
                 }
@@ -164,6 +208,136 @@ impl Manifest {
         Ok(())
     }
 }
+pub fn valid_reference(value: &str) -> bool {
+    !value.trim().is_empty()
+        && value.len() <= 200
+        && !value.starts_with('-')
+        && !value.chars().any(char::is_control)
+}
+
+/// Generated from the same types used to parse repository configuration.
+/// Only the current authoring version is published; historical v1 remains readable.
+pub fn schema() -> serde_json::Value {
+    let generated = schemars::generate::SchemaSettings::draft2020_12()
+        .into_generator()
+        .into_root_schema_for::<Manifest>();
+    let mut schema = serde_json::to_value(generated).expect("derived schema is serializable");
+    schema["$id"] = serde_json::json!(
+        "https://raw.githubusercontent.com/0x63616c/homelab-cli/main/schema/homelab-v2.schema.json"
+    );
+    schema["properties"]["schema"] =
+        serde_json::json!({"const":2,"description":"Current configuration version."});
+    schema["properties"]["onePassword"] = serde_json::json!({"$ref":"#/$defs/OnePasswordConfig"});
+    schema["required"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!("onePassword"));
+    schema["properties"]["hosts"]["minProperties"] = serde_json::json!(1);
+    schema["properties"]["hosts"]["maxProperties"] = serde_json::json!(32);
+    schema["properties"]["hosts"]["propertyNames"] =
+        serde_json::json!({"pattern":"^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$"});
+    schema["$defs"]["Host"]["properties"]["authorizedKeys"]["items"] = serde_json::json!({"type":"string","minLength":1,"maxLength":8192,"pattern":r"^(?=.*\S)[^\x00-\x1F\x7F-\x9F]+$"});
+    schema["$defs"]["Host"]["properties"]["services"]["items"] = serde_json::json!({"type":"string","minLength":1,"maxLength":253,"pattern":"^[A-Za-z0-9._][A-Za-z0-9._-]*$"});
+    schema
+}
+
+/// Diagnostics use fixed paths, never Serde's error message or caller-controlled keys.
+#[derive(Debug, Error)]
+#[error("Invalid configuration at {path}. {message}")]
+pub struct Diagnostic {
+    pub path: &'static str,
+    pub message: &'static str,
+}
+
+pub fn parse(bytes: &[u8]) -> Result<Manifest, Diagnostic> {
+    let fail = |path, message| Diagnostic { path, message };
+    if bytes.len() > 65536 {
+        return Err(fail("$", "Configuration exceeds 64 KiB."));
+    }
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    let manifest: Manifest =
+        serde_path_to_error::deserialize(&mut deserializer).map_err(|error| {
+            let path = match error.path().to_string().as_str() {
+                "schema" => "$.schema",
+                "onePassword" | "onePassword.backupVault" => "$.onePassword.backupVault",
+                "tailscale.tag" => "$.tailscale.tag",
+                "tailscale.oauth.vault" => "$.tailscale.oauth.vault",
+                "tailscale.oauth.item" => "$.tailscale.oauth.item",
+                "hosts" => "$.hosts",
+                _ => {
+                    use serde_path_to_error::Segment;
+                    let segments: Vec<_> = error.path().iter().collect();
+                    match segments.as_slice() {
+                        [
+                            Segment::Map { key },
+                            Segment::Map { .. },
+                            Segment::Map { key: field },
+                            ..,
+                        ] if key == "hosts" => match field.as_str() {
+                            "adminUser" => "$.hosts.*.adminUser",
+                            "adminUID" => "$.hosts.*.adminUID",
+                            "authorizedKeys" => "$.hosts.*.authorizedKeys",
+                            "activationReady" => "$.hosts.*.activationReady",
+                            "services" => "$.hosts.*.services",
+                            _ => "$",
+                        },
+                        _ => "$",
+                    }
+                }
+            };
+            fail(path, "Check the documented fields and their types.")
+        })?;
+    deserializer
+        .end()
+        .map_err(|_| fail("$", "Expected one JSON document."))?;
+    if !matches!(manifest.schema, 1 | 2) {
+        return Err(fail("$.schema", "Use configuration version 2."));
+    }
+    if manifest.schema == 2 && manifest.one_password.is_none() {
+        return Err(fail(
+            "$.onePassword.backupVault",
+            "Version 2 requires an explicit backup vault.",
+        ));
+    }
+    if manifest
+        .one_password
+        .as_ref()
+        .is_some_and(|p| !valid_reference(&p.backup_vault))
+    {
+        return Err(fail(
+            "$.onePassword.backupVault",
+            "Use a nonempty vault name or ID without control characters.",
+        ));
+    }
+    manifest.validate().map_err(|_| {
+        fail(
+            "$",
+            "Configuration violates the documented host, key or Tailscale constraints.",
+        )
+    })?;
+    Ok(manifest)
+}
+
+pub fn validate_file(path: &Path) -> Result<Manifest, Diagnostic> {
+    let unavailable = || Diagnostic {
+        path: "$",
+        message: "Could not read a regular configuration file (maximum 64 KiB).",
+    };
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32)
+        .open(path)
+        .map_err(|_| unavailable())?;
+    if !file.metadata().map_err(|_| unavailable())?.is_file() {
+        return Err(unavailable());
+    }
+    let mut bytes = Vec::new();
+    file.take(65537)
+        .read_to_end(&mut bytes)
+        .map_err(|_| unavailable())?;
+    parse(&bytes)
+}
+
 fn gh() -> Result<PathBuf, Error> {
     std::env::var_os("PATH")
         .into_iter()

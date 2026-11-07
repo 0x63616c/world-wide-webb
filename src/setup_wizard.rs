@@ -1108,6 +1108,11 @@ fn enroll(
     terminal: Terminal,
 ) -> io::Result<Outcome> {
     let (tools, dependencies) = dependencies;
+    if let Err(error) =
+        crate::enrollment_credentials::check_setup_configuration(root, host_name, workspace)
+    {
+        return Ok(enrollment_failure(error));
+    }
     let _enrollment = match crate::provisioning::lock_enrollment(root) {
         Ok(lock) => lock,
         Err(error) => return Ok(enrollment_failure(error)),
@@ -1208,6 +1213,11 @@ fn enroll(
             Err(error) => return Ok(enrollment_failure(error)),
         };
         let workspace = &current_workspace;
+        if let Err(error) =
+            crate::enrollment_credentials::check_setup_configuration(root, host_name, workspace)
+        {
+            return Ok(enrollment_failure(error));
+        }
         let directory = root.join("hosts").join(host_name);
         progress("Preparing this Mac's read-only Git access");
         let package = match package::prepare(workspace) {
@@ -1595,6 +1605,8 @@ mod tests {
             revision: "a".repeat(40),
             manifest: config::Manifest {
                 schema: 1,
+                schema_url: None,
+                one_password: None,
                 tailscale: None,
                 hosts: ["build-mac", "service-mac"]
                     .into_iter()

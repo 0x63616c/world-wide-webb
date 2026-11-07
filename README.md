@@ -90,6 +90,11 @@ production services or tailnet policy are correct.
 
 ## Documentation
 
+When editing your configuration, use the [editor schema](schema/homelab-v2.schema.json)
+for autocomplete and run `homelab config validate ./homelab.json` to check it
+offline. The schema describes the host fields and 1Password references; secrets
+never belong in the manifest.
+
 - [Setup and recovery](docs/setup.md) — prerequisites, authentication and interrupted setup.
 - [Configuration contract](docs/configuration.md) — connect your private Nix repository.
 - [Example manifest](examples/homelab.json) — host facts and credential references, not a complete flake.

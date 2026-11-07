@@ -6,7 +6,9 @@ exact commit through your local GitHub CLI authentication.
 
 | Field | Purpose |
 | --- | --- |
-| `schema` | Currently `1`; unknown fields and versions are rejected |
+| `$schema` | Optional editor hint; the CLI never fetches it |
+| `schema` | Use `2` for new configuration; historical `1` remains readable |
+| `onePassword.backupVault` | Explicit vault for host/recovery age-key backups; required in version 2 |
 | `hosts` | Map of configuration names to administrator, SSH keys, readiness and services |
 | `tailscale.tag` | Tag assigned to single-use enrollment keys |
 | `tailscale.oauth` | 1Password vault/item references required for enrollment, never secret values |
@@ -37,7 +39,38 @@ arbitrary setup scripts. The [synthetic VM flake](../tests/fixtures/vm-config/fl
 shows the integration contract; its test credentials and health checks must not
 be used for production.
 
+## Offline validation and editor support
+
+Run `homelab config validate path/to/homelab.json` before publishing configuration.
+It requires neither a terminal, a home directory, Nix nor network access. It reads
+one regular JSON file up to 64 KiB and rejects unknown fields, unsupported versions
+and invalid host, key and reference values. Errors contain fixed field paths;
+unknown field names and invalid values are never copied into diagnostics.
+
+The example points `$schema` at the committed
+[version 2 JSON Schema](../schema/homelab-v2.schema.json). Editors may use that hint;
+the CLI treats it as inert metadata. `homelab config schema` prints the same
+Draft 2020-12 schema, generated from the Rust configuration types. CI checks for
+schema drift and validates the example against both the schema and the authoritative
+Rust semantic checks. The schema describes current authoring; it does not describe
+all historical configuration the CLI can reconcile.
+
+To migrate version 1, set `schema` to `2` and add an explicit
+`onePassword: {"backupVault": "Homelab Recovery"}`. Choose the intended backup vault,
+not a value inferred from the OAuth item. Existing version 1 files remain readable
+for historical reconciliation. Fresh enrollment requires version 2; an existing
+attempt must retain its verified key-backup state rather than silently choosing a
+new vault. A historical attempt interrupted before verified backups fails closed.
+Migrate it explicitly to version 2 with the same intended backup vault, preserving
+local state so the existing keys and backup receipts can be recovered. Do not delete
+state to bypass this check.
+
 ## Credentials
+
+`onePassword.backupVault` receives verified backups of the host and recovery age
+identities. `tailscale.oauth.vault` and `tailscale.oauth.item` locate the separate
+OAuth issuer credential. These references may point to different vaults. They are
+public configuration references, never passwords or tokens.
 
 The 1Password OAuth item needs `client-id` and a **concealed**
 `client-secret` field. Grant only Tailscale Auth Keys Write for the configured tag.

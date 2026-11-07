@@ -20,11 +20,24 @@ struct Arguments {
 
 #[derive(Subcommand)]
 enum Operation {
+    /// Inspect configuration offline; no home directory or terminal is required.
+    Config {
+        #[command(subcommand)]
+        operation: ConfigOperation,
+    },
     /// Start or resume setup of a saved Mac.
     Setup {
         #[arg(long)]
         host: String,
     },
+}
+
+#[derive(Subcommand)]
+enum ConfigOperation {
+    /// Validate a local homelab.json without contacting any service.
+    Validate { file: PathBuf },
+    /// Print the current JSON Schema for editors and validation tools.
+    Schema,
 }
 
 struct Failure {
@@ -50,6 +63,34 @@ impl From<inventory::InventoryError> for Failure {
 }
 
 fn execute(arguments: Arguments) -> Result<(), Failure> {
+    if let Some(Operation::Config { operation }) = &arguments.operation {
+        let output = match operation {
+            ConfigOperation::Schema => {
+                serde_json::to_string_pretty(&homelab_client::config::schema()).unwrap()
+            }
+            ConfigOperation::Validate { file } => {
+                let manifest = homelab_client::config::validate_file(file).map_err(|error| {
+                    Failure::new(
+                        "invalid-configuration",
+                        error.to_string(),
+                        "See docs/configuration.md; no local or remote state was changed.",
+                    )
+                })?;
+                if manifest.schema == 1 {
+                    "Valid historical schema 1 configuration. New enrollment requires schema 2 and onePassword.backupVault.".into()
+                } else {
+                    "Configuration is valid (schema 2).".into()
+                }
+            }
+        };
+        return writeln!(io::stdout().lock(), "{output}").map_err(|_| {
+            Failure::new(
+                "output-unavailable",
+                "Could not write configuration result.",
+                "Check standard output and retry.",
+            )
+        });
+    }
     let path = arguments
         .inventory
         .or_else(|| {
@@ -65,6 +106,7 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
         })?;
 
     match arguments.operation {
+        Some(Operation::Config { .. }) => unreachable!("configuration handled before inventory"),
         None => {
             tui::launch(&path).map_err(|error| match error {
                 tui::MenuError::Inventory(error) => Failure::from(error),
@@ -116,7 +158,9 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
 
 fn main() -> ExitCode {
     let arguments = Arguments::parse();
-    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+    if !matches!(&arguments.operation, Some(Operation::Config { .. }))
+        && (!io::stdin().is_terminal() || !io::stdout().is_terminal())
+    {
         Arguments::command()
             .error(
                 clap::error::ErrorKind::InvalidValue,

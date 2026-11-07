@@ -1,5 +1,6 @@
 {
-  "schema": 1,
+  "schema": 2,
+  "onePassword": { "backupVault": "aaaaaaaaaaaaaaaaaaaaaaaaaa" },
   "hosts": {
     "vm-test": {
       "adminUser": "admin",

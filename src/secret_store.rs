@@ -148,6 +148,40 @@ struct Receipt {
     item: Option<String>,
 }
 
+/// Read the existing destination before any restore or backup can mutate state.
+pub(crate) fn recorded_vault(
+    receipt: &Path,
+    repository: &str,
+    role: &str,
+    require_verified: bool,
+) -> Result<Option<String>, Error> {
+    match fs::symlink_metadata(receipt) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(Error::State),
+        Ok(_) => {}
+    }
+    let saved: Receipt =
+        serde_json::from_slice(&read_private(receipt)?).map_err(|_| Error::State)?;
+    let tag = Backup {
+        repository,
+        role,
+        recipient: "",
+        identity: "",
+    }
+    .tag();
+    if saved.schema != 1
+        || saved.tag != tag
+        || !identifier(&saved.vault)
+        || saved.item.as_ref().is_some_and(|item| !identifier(item))
+    {
+        return Err(Error::Conflict);
+    }
+    if require_verified && saved.item.is_none() {
+        return Err(Error::Unconfirmed);
+    }
+    Ok(Some(saved.vault))
+}
+
 fn read_private(path: &Path) -> Result<Vec<u8>, Error> {
     let file = OpenOptions::new()
         .read(true)

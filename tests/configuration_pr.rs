@@ -446,6 +446,10 @@ fn existing_service_secrets_and_plaintext_are_rejected_before_writes() {
 #[test]
 fn merge_verification_rejects_altered_host_settings_or_wrong_base() {
     let mut api = GitHub::new();
+    api.manifest.schema = 2;
+    api.manifest.one_password = Some(homelab_client::config::OnePasswordConfig {
+        backup_vault: "reviewed-backup-vault".into(),
+    });
     let change = changes(&api).unwrap();
     let mut merged = pr();
     merged["state"] = json!("closed");
@@ -481,6 +485,20 @@ fn merge_verification_rejects_altered_host_settings_or_wrong_base() {
         Err(Error::Conflict)
     ));
     api.manifest.tailscale = change.manifest.tailscale.clone();
+    api.manifest.one_password = Some(homelab_client::config::OnePasswordConfig {
+        backup_vault: "another-backup-destination".into(),
+    });
+    assert!(matches!(
+        configuration_pr::approved_workspace(&api, &change, 7),
+        Err(Error::Conflict)
+    ));
+    api.manifest.one_password = change.manifest.one_password.clone();
+    api.manifest.schema = 1;
+    assert!(matches!(
+        configuration_pr::approved_workspace(&api, &change, 7),
+        Err(Error::Conflict)
+    ));
+    api.manifest = change.manifest.clone();
     merged["base"]["ref"] = json!("other");
     *api.pull.borrow_mut() = Some(merged);
     assert_eq!(

@@ -30,9 +30,10 @@ Existing client agent authentication is used only to reach the approved virtuali
   nonce and pinned guest host-key checks. Guest-only sudo must permit both `sudo -n true` and
   `sudo -n -v`.
 - Use a dedicated **private** repository named `homelab-vm-*`. Its main must be the actual
-  fixture Nix source. Start with `vm-test` unready, no authorised keys, no host ciphertext and
-  `tailscale: {"tag":"tag:vm-
-  test","oauth":{"vault":"aaaaaaaaaaaaaaaaaaaaaaaaaa","item":"dddddddddddddddddddddddddd"}}`.
+  fixture Nix source. Use schema 2 with
+  `onePassword: {"backupVault":"aaaaaaaaaaaaaaaaaaaaaaaaaa"}`.
+  Start with `vm-test` unready, no authorised keys, no host ciphertext and
+  `tailscale: {"tag":"tag:vm-test","oauth":{"vault":"aaaaaaaaaaaaaaaaaaaaaaaaaa","item":"dddddddddddddddddddddddddd"}}`.
   The fixture health and boot scripts must check the production SOPS field `tailscale-auth-key`
   against `tskey-auth-synthetic-vm-only`, not the obsolete `vm-rehearsal-marker` field.
 - Use real client `gh` authentication already authorised for this fixture. The harness

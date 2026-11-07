@@ -702,6 +702,192 @@ pub fn bind_repository(directory: &Path, repository: &str) -> Result<(), Error> 
     bind_locked(directory, repository)
 }
 
+fn existing_private_directory(path: &Path) -> Result<bool, Error> {
+    match fs::symlink_metadata(path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(_) => Err(Error::UnsafeState),
+        Ok(metadata)
+            if metadata.is_dir()
+                && metadata.uid() == rustix::process::geteuid().as_raw()
+                && metadata.mode() & 0o077 == 0 =>
+        {
+            Ok(true)
+        }
+        Ok(_) => Err(Error::UnsafeState),
+    }
+}
+
+/// The repository-wide recovery receipt pins the destination even if a backup
+/// write was interrupted. Reading it must not create a new provisioning session.
+pub fn recorded_backup_vault(root: &Path, repository: &str) -> Result<Option<String>, Error> {
+    if !root.is_absolute() || !crate::config::valid_repository(repository) {
+        return Err(Error::InvalidInput);
+    }
+    if !existing_private_directory(root)? {
+        return Ok(None);
+    }
+    let path = root.join("repository.json");
+    match fs::symlink_metadata(&path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if ["recovery-backup.json", "hosts", "retired"]
+                .iter()
+                .any(|name| fs::symlink_metadata(root.join(name)).is_ok())
+            {
+                return Err(Error::UnsafeState);
+            }
+            return Ok(None);
+        }
+        Err(_) => return Err(Error::UnsafeState),
+        Ok(_) => {}
+    }
+    let binding: Value =
+        serde_json::from_slice(&read_private(&path, 4096)?).map_err(|_| Error::UnsafeState)?;
+    if binding != json!({"schema":1,"repository":repository}) {
+        return Err(Error::RepositoryMismatch);
+    }
+    let mut vault = crate::secret_store::recorded_vault(
+        &root.join("recovery-backup.json"),
+        repository,
+        "recovery",
+        false,
+    )
+    .map_err(|_| Error::Backup)?;
+    // A missing recovery receipt must not allow other retained backups to move.
+    let mut hosts = std::collections::BTreeSet::new();
+    for parent in [root.join("hosts"), root.join("retired")] {
+        if !existing_private_directory(&parent)? {
+            continue;
+        }
+        for entry in fs::read_dir(parent).map_err(|_| Error::UnsafeState)? {
+            let entry = entry.map_err(|_| Error::UnsafeState)?;
+            let host = entry
+                .file_name()
+                .into_string()
+                .map_err(|_| Error::UnsafeState)?;
+            if !crate::config::valid_host(&host) || hosts.len() >= 128 {
+                return Err(Error::UnsafeState);
+            }
+            hosts.insert(host);
+        }
+    }
+    for host in hosts {
+        for directory in backup_directories(root, &host)? {
+            if let Some(saved) = crate::secret_store::recorded_vault(
+                &directory.join("host-backup.json"),
+                repository,
+                &host,
+                false,
+            )
+            .map_err(|_| Error::Backup)?
+            {
+                if vault.as_ref().is_some_and(|vault| *vault != saved) {
+                    return Err(Error::Backup);
+                }
+                vault = Some(saved);
+            }
+        }
+    }
+    Ok(vault)
+}
+
+fn backup_directories(root: &Path, host: &str) -> Result<Vec<PathBuf>, Error> {
+    let mut candidates = Vec::new();
+    for parent in [root.join("hosts"), root.join("retired")] {
+        if !existing_private_directory(&parent)? {
+            continue;
+        }
+        let directory = parent.join(host);
+        if !existing_private_directory(&directory)? {
+            continue;
+        }
+        if parent == root.join("hosts") {
+            candidates.push(directory);
+        } else {
+            for entry in fs::read_dir(directory).map_err(|_| Error::UnsafeState)? {
+                let path = entry.map_err(|_| Error::UnsafeState)?.path();
+                let name = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .ok_or(Error::UnsafeState)?;
+                if name.len() != 64
+                    || !name.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    || !existing_private_directory(&path)?
+                    || candidates.len() >= 128
+                {
+                    return Err(Error::UnsafeState);
+                }
+                candidates.push(path);
+            }
+        }
+    }
+    Ok(candidates)
+}
+
+/// Legacy eligibility requires both verified backup receipts and a host-bound
+/// identity. A directory or an unfinished backup intent is not evidence of setup.
+pub fn legacy_backup_vault(
+    root: &Path,
+    repository: &str,
+    host: &str,
+) -> Result<Option<String>, Error> {
+    if !crate::config::valid_host(host) {
+        return Err(Error::InvalidInput);
+    }
+    let Some(vault) = recorded_backup_vault(root, repository)? else {
+        return Ok(None);
+    };
+    crate::secret_store::recorded_vault(
+        &root.join("recovery-backup.json"),
+        repository,
+        "recovery",
+        true,
+    )
+    .map_err(|_| Error::Backup)?
+    .ok_or(Error::Backup)?;
+    let candidates = backup_directories(root, host)?;
+    let mut verified = false;
+    for directory in candidates {
+        let receipt = directory.join("identity.json");
+        match fs::symlink_metadata(&receipt) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => return Err(Error::UnsafeState),
+            Ok(_) => {}
+        }
+        let identity: Value = serde_json::from_slice(&read_private(&receipt, 4096)?)
+            .map_err(|_| Error::UnsafeState)?;
+        let host_recipient = identity
+            .get("hostRecipient")
+            .and_then(Value::as_str)
+            .ok_or(Error::UnsafeState)?;
+        let recovery = identity
+            .get("recoveryRecipient")
+            .and_then(Value::as_str)
+            .ok_or(Error::UnsafeState)?;
+        if host_recipient == recovery
+            || !host_recipient.starts_with("age1")
+            || !recovery.starts_with("age1")
+            || identity
+                != json!({"schema":1,"host":host,"hostRecipient":host_recipient,"recoveryRecipient":recovery})
+        {
+            return Err(Error::UnsafeState);
+        }
+        if let Some(saved) = crate::secret_store::recorded_vault(
+            &directory.join("host-backup.json"),
+            repository,
+            host,
+            true,
+        )
+        .map_err(|_| Error::Backup)?
+        {
+            if saved != vault {
+                return Err(Error::Backup);
+            }
+            verified = true;
+        }
+    }
+    Ok(verified.then_some(vault))
+}
+
 impl Session {
     pub fn open(
         host: &str,
@@ -720,6 +906,9 @@ impl Session {
         store: &dyn crate::secret_store::Store,
         vault: &str,
     ) -> Result<Self, Error> {
+        if recorded_backup_vault(state_directory, repository)?.is_some_and(|saved| saved != vault) {
+            return Err(Error::Backup);
+        }
         Self::open_inner(
             host,
             repository,

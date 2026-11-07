@@ -15,6 +15,10 @@ pub enum Error {
         "The repository needs a Tailscale enrollment tag and a 1Password credential reference."
     )]
     Configuration,
+    #[error(
+        "New setup requires schema 2 and onePassword.backupVault in homelab.json. Existing recovery material was preserved."
+    )]
+    BackupConfiguration,
     #[error(transparent)]
     Preparation(#[from] provisioning::Error),
     #[error(transparent)]
@@ -44,6 +48,62 @@ pub enum Error {
 pub fn state_directory() -> Option<PathBuf> {
     std::env::var_os("HOME")
         .map(|home| PathBuf::from(home).join(".local/state/homelab/provisioning"))
+}
+
+/// Called before reserving the target. Historical approved installations can
+/// reconcile without opening 1Password, even after local backup files are lost.
+pub fn check_setup_configuration(
+    root: &Path,
+    host: &str,
+    workspace: &Workspace,
+) -> Result<(), Error> {
+    workspace
+        .manifest
+        .validate()
+        .map_err(|_| Error::Configuration)?;
+    if workspace.manifest.schema == 2 && workspace.manifest.one_password.is_some() {
+        return Ok(());
+    }
+    if let Some(saved) = provisioning::approved_installation(root, host)? {
+        if saved.repository != workspace.repository || saved.revision != workspace.revision {
+            return Err(Error::BackupConfiguration);
+        }
+        return Ok(());
+    }
+    provisioning::legacy_backup_vault(root, &workspace.repository, host)?
+        .ok_or(Error::BackupConfiguration)?;
+    Ok(())
+}
+
+fn backup_vault(
+    root: &Path,
+    host: &str,
+    workspace: &Workspace,
+    resolve: impl FnOnce(&str) -> Result<String, secret_store::Error>,
+) -> Result<String, Error> {
+    workspace
+        .manifest
+        .validate()
+        .map_err(|_| Error::Configuration)?;
+    let vault = if workspace.manifest.schema == 2 {
+        let config = workspace
+            .manifest
+            .one_password
+            .as_ref()
+            .ok_or(Error::BackupConfiguration)?;
+        resolve(&config.backup_vault)?
+    } else {
+        // Never resolve a legacy display name again: the verified receipt owns
+        // this destination, independently of the OAuth item's current vault.
+        provisioning::legacy_backup_vault(root, &workspace.repository, host)?
+            .ok_or(Error::BackupConfiguration)?
+    };
+    if provisioning::recorded_backup_vault(root, &workspace.repository)?
+        .is_some_and(|saved| saved != vault)
+    {
+        return Err(secret_store::Error::Conflict.into());
+    }
+    Ok(vault)
 }
 
 /// Scoped issuance result shared by provider contracts and the opt-in VM harness.
@@ -79,6 +139,7 @@ pub fn prepare(
     bootstrap_started: bool,
     progress: impl Fn(&str),
 ) -> Result<Details, Error> {
+    check_setup_configuration(root, host, workspace)?;
     let tailscale = workspace
         .manifest
         .tailscale
@@ -91,13 +152,10 @@ pub fn prepare(
         executable: executable.clone(),
     };
     progress("Verifying recovery backups in 1Password");
-    let vault = store.vault_id(&reference.vault)?;
+    let vault = backup_vault(root, host, workspace, |reference| store.vault_id(reference))?;
     let session =
         Session::open_with_store(host, &workspace.repository, root, &tools, &store, &vault)?;
     let (credentials, issuer) = tailscale_oauth::resolve_credentials(&executable, reference)?;
-    if issuer.vault != vault {
-        return Err(Error::Configuration);
-    }
     session.bind_issuer(&issuer)?;
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let retained = retire_expired(session, bootstrap_started, now, || {
@@ -306,6 +364,234 @@ mod tests {
     use std::collections::BTreeMap;
 
     const VAULT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    fn configuration(schema: u8) -> Workspace {
+        let mut manifest = serde_json::json!({"schema":schema,"hosts":{
+            "test-mac":{"adminUser":"admin","adminUID":501,"authorizedKeys":[],"activationReady":false,"services":[]}
+        },"tailscale":{"tag":"tag:homelab","oauth":{"vault":"OAuth vault","item":"Issuer"}}});
+        if schema == 2 {
+            manifest["onePassword"] = serde_json::json!({"backupVault":"Recovery vault"});
+        }
+        Workspace {
+            repository: "example/config".into(),
+            revision: "a".repeat(40),
+            manifest: serde_json::from_value(manifest).unwrap(),
+        }
+    }
+
+    #[test]
+    fn fresh_legacy_configuration_is_rejected_without_creating_state() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("state");
+        assert!(matches!(
+            check_setup_configuration(&root, "test-mac", &configuration(1)),
+            Err(Error::BackupConfiguration)
+        ));
+        assert!(!root.exists());
+        std::fs::create_dir_all(root.join("hosts/test-mac")).unwrap();
+        assert!(check_setup_configuration(&root, "test-mac", &configuration(1)).is_err());
+        assert!(!root.join("repository.json").exists());
+        assert!(!root.join("hosts/test-mac/host-age-key.txt").exists());
+    }
+
+    #[test]
+    fn explicit_backup_vault_is_independent_of_the_oauth_issuer() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("state");
+        let tools = Tools::discover().unwrap();
+        let store = MemoryStore::default();
+        let workspace = configuration(2);
+        let vault = backup_vault(&root, "test-mac", &workspace, |reference| {
+            assert_eq!(reference, "Recovery vault");
+            Ok(VAULT.into())
+        })
+        .unwrap();
+        let session = Session::open_with_store(
+            "test-mac",
+            &workspace.repository,
+            &root,
+            &tools,
+            &store,
+            &vault,
+        )
+        .unwrap();
+        let issuer = tailscale_oauth::ResolvedIdentity {
+            vault: "d".repeat(26),
+            item: "e".repeat(26),
+        };
+        session.bind_issuer(&issuer).unwrap();
+        let revoked = Cell::new(false);
+        complete(
+            session,
+            &store,
+            &vault,
+            || Ok(SyntheticKey { revoked: &revoked }),
+            |_| {},
+        )
+        .unwrap();
+        assert!(!revoked.get());
+        assert_eq!(store.items.borrow().len(), 2);
+        assert!(
+            store
+                .items
+                .borrow()
+                .values()
+                .all(|item| item.vault == VAULT)
+        );
+        assert_eq!(
+            provisioning::legacy_backup_vault(&root, &workspace.repository, "test-mac")
+                .unwrap()
+                .as_deref(),
+            Some(VAULT)
+        );
+    }
+
+    #[test]
+    fn legacy_backups_and_same_vault_upgrade_preserve_keys_but_new_vault_fails_before_restore() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("state");
+        let tools = Tools::discover().unwrap();
+        let store = MemoryStore::default();
+        let session = Session::open("test-mac", "example/config", &root, &tools).unwrap();
+        session.backup(&store, VAULT).unwrap();
+        let details = session.details();
+        let key = std::fs::read(&details.host_key_path).unwrap();
+        let receipt_path = root.join("hosts/test-mac/host-backup.json");
+        let receipt = std::fs::read(&receipt_path).unwrap();
+        drop(session);
+        let legacy = configuration(1);
+        check_setup_configuration(&root, "test-mac", &legacy).unwrap();
+        assert_eq!(
+            backup_vault(&root, "test-mac", &legacy, |_| panic!(
+                "legacy names must not be resolved again"
+            ))
+            .unwrap(),
+            VAULT
+        );
+        assert_eq!(
+            backup_vault(&root, "test-mac", &configuration(2), |_| Ok(VAULT.into())).unwrap(),
+            VAULT
+        );
+        let upgraded =
+            Session::open_with_store("test-mac", "example/config", &root, &tools, &store, VAULT)
+                .unwrap();
+        upgraded.backup(&store, VAULT).unwrap();
+        drop(upgraded);
+        assert!(matches!(
+            backup_vault(&root, "test-mac", &configuration(2), |_| Ok("d".repeat(26))),
+            Err(Error::Vault(secret_store::Error::Conflict))
+        ));
+        let recovery_receipt = root.join("recovery-backup.json");
+        let recovery_bytes = std::fs::read(&recovery_receipt).unwrap();
+        std::fs::remove_file(&recovery_receipt).unwrap();
+        assert!(matches!(
+            backup_vault(&root, "test-mac", &configuration(2), |_| Ok("d".repeat(26))),
+            Err(Error::Vault(secret_store::Error::Conflict))
+        ));
+        assert_eq!(
+            backup_vault(&root, "test-mac", &configuration(2), |_| Ok(VAULT.into())).unwrap(),
+            VAULT
+        );
+        std::fs::write(&recovery_receipt, recovery_bytes).unwrap();
+        std::fs::set_permissions(
+            &recovery_receipt,
+            std::os::unix::fs::PermissionsExt::from_mode(0o600),
+        )
+        .unwrap();
+        // Even callers below the wizard cannot restore into a newly resolved vault.
+        store.locked.set(true);
+        assert!(matches!(
+            Session::open_with_store(
+                "test-mac",
+                "example/config",
+                &root,
+                &tools,
+                &store,
+                &"d".repeat(26)
+            ),
+            Err(provisioning::Error::Backup)
+        ));
+        assert_eq!(std::fs::read(&details.host_key_path).unwrap(), key);
+        assert_eq!(std::fs::read(&receipt_path).unwrap(), receipt);
+        assert_eq!(store.items.borrow().len(), 2);
+        assert!(provisioning::legacy_backup_vault(&root, "example/other", "test-mac").is_err());
+        assert!(
+            provisioning::legacy_backup_vault(&root, "example/config", "other-mac")
+                .unwrap()
+                .is_none()
+        );
+        std::fs::write(&receipt_path, b"{}").unwrap();
+        assert!(check_setup_configuration(&root, "test-mac", &legacy).is_err());
+    }
+
+    #[test]
+    fn approved_legacy_completion_does_not_require_local_backup_files() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("state");
+        let workspace = configuration(1);
+        provisioning::save_approved_installation(
+            &root,
+            &workspace.repository,
+            "test-mac",
+            &workspace.revision,
+        )
+        .unwrap();
+        check_setup_configuration(&root, "test-mac", &workspace).unwrap();
+        assert!(!root.join("recovery-backup.json").exists());
+        assert!(!root.join("hosts/test-mac").exists());
+        let changed = Workspace {
+            revision: "b".repeat(40),
+            ..workspace
+        };
+        assert!(check_setup_configuration(&root, "test-mac", &changed).is_err());
+    }
+
+    #[test]
+    fn legacy_renewal_uses_archived_verified_receipts_and_rejects_unconfirmed_backup() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("state");
+        let tools = Tools::discover().unwrap();
+        let store = MemoryStore::default();
+        let mut session = Session::open("test-mac", "example/config", &root, &tools).unwrap();
+        session.backup(&store, VAULT).unwrap();
+        session
+            .encrypt(BaseTokens {
+                tailscale_auth: "synthetic-expired-key".into(),
+            })
+            .unwrap();
+        session.record_enrollment("expired-id", 2000).unwrap();
+        let archived = session.retire_for_renewal(2001, 60).unwrap();
+        assert!(!root.join("hosts/test-mac").exists());
+        check_setup_configuration(&root, "test-mac", &configuration(1)).unwrap();
+        let receipt = root.join("recovery-backup.json");
+        let original = std::fs::read(&receipt).unwrap();
+        let mut pending: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        pending["item"] = serde_json::Value::Null;
+        std::fs::write(&receipt, serde_json::to_vec(&pending).unwrap()).unwrap();
+        assert!(check_setup_configuration(&root, "test-mac", &configuration(1)).is_err());
+        assert!(!root.join("hosts/test-mac").exists());
+        assert!(archived.join("host-backup.json").is_file());
+        check_setup_configuration(&root, "test-mac", &configuration(2)).unwrap();
+        assert_eq!(
+            backup_vault(&root, "test-mac", &configuration(2), |_| Ok(VAULT.into())).unwrap(),
+            VAULT
+        );
+        let resumed =
+            Session::open_with_store("test-mac", "example/config", &root, &tools, &store, VAULT)
+                .unwrap();
+        resumed.backup(&store, VAULT).unwrap();
+        drop(resumed);
+        assert_eq!(std::fs::read(&receipt).unwrap(), original);
+        assert_eq!(store.items.borrow().len(), 2);
+        std::fs::write(&receipt, original).unwrap();
+        let host_receipt = archived.join("host-backup.json");
+        let previous = std::fs::read(&host_receipt).unwrap();
+        std::fs::remove_file(&host_receipt).unwrap();
+        std::os::unix::fs::symlink(root.join("recovery-backup.json"), &host_receipt).unwrap();
+        assert!(check_setup_configuration(&root, "test-mac", &configuration(1)).is_err());
+        assert!(host_receipt.is_symlink());
+        assert!(!previous.is_empty());
+    }
     #[derive(Default)]
     struct MemoryStore {
         items: RefCell<BTreeMap<String, Item>>,

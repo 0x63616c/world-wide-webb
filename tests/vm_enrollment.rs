@@ -48,8 +48,13 @@ fn fixture() -> Fixture {
 fn load(path: &Path) -> Fixture {
     let f: Fixture = serde_json::from_slice(&vm::private_bytes(path, 32 * 1024)).unwrap();
     vm::validate_fixture(&f.target);
+    let manifest = vm::manifest(&f.target);
     assert!(
-        vm::manifest(&f.target).tailscale.unwrap().oauth.is_some(),
+        manifest.schema == 2 && manifest.one_password.is_some(),
+        "full enrollment requires schema 2 and the synthetic backup vault"
+    );
+    assert!(
+        manifest.tailscale.unwrap().oauth.is_some(),
         "full enrollment requires the exact synthetic OAuth reference"
     );
     assert!(
