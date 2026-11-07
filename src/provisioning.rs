@@ -533,6 +533,8 @@ pub struct ApprovedInstallation {
     pub repository: String,
     pub host: String,
     pub revision: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair: Option<crate::setup_repair::Selection>,
 }
 
 pub fn approved_installation(
@@ -564,6 +566,13 @@ pub fn approved_installation(
     {
         return Err(Error::UnsafeState);
     }
+    if saved
+        .repair
+        .as_ref()
+        .is_some_and(|repair| !repair.matches(&saved.repository, host, &saved.revision))
+    {
+        return Err(Error::UnsafeState);
+    }
     let binding: Value =
         serde_json::from_slice(&read_private(&root.join("repository.json"), 4096)?)
             .map_err(|_| Error::UnsafeState)?;
@@ -588,13 +597,51 @@ pub fn save_approved_installation(
     bind_locked(root, repository)?;
     let directory = root.join("installations");
     private_directory(&directory)?;
-    approved_installation(root, host)?;
+    let previous = approved_installation(root, host)?;
+    if previous
+        .as_ref()
+        .is_some_and(|saved| saved.repair.is_some() && saved.revision != revision)
+    {
+        return Err(Error::UnsafeState);
+    }
+    let repair = previous.and_then(|saved| {
+        (saved.revision == revision)
+            .then_some(saved.repair)
+            .flatten()
+    });
     let saved = ApprovedInstallation {
         schema: 1,
         repository: repository.into(),
         host: host.into(),
         revision: revision.into(),
+        repair,
     };
+    let mut file = tempfile::NamedTempFile::new_in(&directory).map_err(|_| Error::Save)?;
+    serde_json::to_writer(&mut file, &saved).map_err(|_| Error::Save)?;
+    file.as_file().sync_all().map_err(|_| Error::Save)?;
+    file.persist(directory.join(format!("{host}.json")))
+        .map_err(|_| Error::Save)?;
+    sync_directory(&directory)
+}
+
+/// Freeze repair selection without changing the original approval or credentials.
+pub fn save_installation_repair(
+    root: &Path,
+    host: &str,
+    selection: &crate::setup_repair::Selection,
+) -> Result<(), Error> {
+    let _lock = lock_state(root)?;
+    let mut saved = approved_installation(root, host)?.ok_or(Error::UnsafeState)?;
+    if !selection.matches(&saved.repository, host, &saved.revision)
+        || (saved.repair.is_none() && selection.previous.is_some())
+        || saved.repair.as_ref().is_some_and(|existing| {
+            existing != selection && selection.previous.as_deref() != Some(existing)
+        })
+    {
+        return Err(Error::UnsafeState);
+    }
+    saved.repair = Some(selection.clone());
+    let directory = root.join("installations");
     let mut file = tempfile::NamedTempFile::new_in(&directory).map_err(|_| Error::Save)?;
     serde_json::to_writer(&mut file, &saved).map_err(|_| Error::Save)?;
     file.as_file().sync_all().map_err(|_| Error::Save)?;
@@ -715,6 +762,61 @@ fn existing_private_directory(path: &Path) -> Result<bool, Error> {
         }
         Ok(_) => Err(Error::UnsafeState),
     }
+}
+
+/// Detect resumable preparation without opening keys or creating state directories.
+pub fn has_saved_preparation(root: &Path, repository: &str, host: &str) -> Result<bool, Error> {
+    if !root.is_absolute()
+        || !crate::config::valid_repository(repository)
+        || !crate::config::valid_host(host)
+    {
+        return Err(Error::InvalidInput);
+    }
+    let hosts = root.join("hosts");
+    let directory = hosts.join(host);
+    for path in [root, hosts.as_path(), directory.as_path()] {
+        if !existing_private_directory(path)? {
+            return Ok(false);
+        }
+    }
+    let binding: Value =
+        serde_json::from_slice(&read_private(&root.join("repository.json"), 4096)?)
+            .map_err(|_| Error::UnsafeState)?;
+    if binding != json!({"schema":1,"repository":repository}) {
+        return Err(Error::RepositoryMismatch);
+    }
+    let receipt = directory.join("identity.json");
+    match fs::symlink_metadata(&receipt) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(_) => return Err(Error::UnsafeState),
+        Ok(_) => {}
+    }
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields, rename_all = "camelCase")]
+    struct PreparedIdentity {
+        schema: u8,
+        host: String,
+        host_recipient: String,
+        recovery_recipient: String,
+    }
+    let identity: PreparedIdentity =
+        serde_json::from_slice(&read_private(&receipt, 4096)?).map_err(|_| Error::UnsafeState)?;
+    let valid_recipient = |value: &str| {
+        value.starts_with("age1")
+            && value.len() == 62
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+    };
+    if identity.schema != 1
+        || identity.host != host
+        || !valid_recipient(&identity.host_recipient)
+        || !valid_recipient(&identity.recovery_recipient)
+        || identity.host_recipient == identity.recovery_recipient
+    {
+        return Err(Error::UnsafeState);
+    }
+    Ok(true)
 }
 
 /// The repository-wide recovery receipt pins the destination even if a backup
@@ -1395,6 +1497,44 @@ impl Session {
 #[cfg(test)]
 mod lock_tests {
     use super::*;
+
+    #[test]
+    fn preparation_lookup_is_read_only_and_repository_bound() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("not-created");
+        assert!(!has_saved_preparation(&root, "example/config", "test-mac").unwrap());
+        assert!(!root.exists());
+
+        let host = root.join("hosts/test-mac");
+        private_directory(&host).unwrap();
+        write_new(
+            &root.join("repository.json"),
+            br#"{"schema":1,"repository":"example/config"}"#,
+        )
+        .unwrap();
+        let receipt = serde_json::to_vec(&json!({
+            "schema":1, "host":"test-mac",
+            "hostRecipient":format!("age1{}", "q".repeat(58)),
+            "recoveryRecipient":format!("age1{}", "p".repeat(58))
+        }))
+        .unwrap();
+        write_new(&host.join("identity.json"), &receipt).unwrap();
+        assert!(has_saved_preparation(&root, "example/config", "test-mac").unwrap());
+        assert!(!root.join(".lock").exists());
+        assert!(matches!(
+            has_saved_preparation(&root, "other/config", "test-mac"),
+            Err(Error::RepositoryMismatch)
+        ));
+        assert!(!has_saved_preparation(&root, "example/config", "another-mac").unwrap());
+        assert!(!root.join("hosts/another-mac").exists());
+        fs::remove_file(host.join("identity.json")).unwrap();
+        std::os::unix::fs::symlink(root.join("repository.json"), host.join("identity.json"))
+            .unwrap();
+        assert!(matches!(
+            has_saved_preparation(&root, "example/config", "test-mac"),
+            Err(Error::UnsafeState)
+        ));
+    }
 
     #[test]
     fn retained_descriptor_does_not_prolong_a_finished_session_lock() {

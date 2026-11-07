@@ -8,11 +8,14 @@ use homelab_client::{inventory, tui};
 #[derive(Parser)]
 #[command(
     name = "homelab",
-    version,
+    version = homelab_client::VERSION,
     about = "Set up a Mac from your Git configuration"
 )]
 struct Arguments {
-    #[arg(long, global = true, hide = true)]
+    /// Use separate local state; omit for your existing default profile.
+    #[arg(long, global = true, value_parser = homelab_client::operator_profile::parse_name)]
+    profile: Option<String>,
+    #[arg(long, global = true, hide = true, conflicts_with = "profile")]
     inventory: Option<PathBuf>,
     #[command(subcommand)]
     operation: Option<Operation>,
@@ -29,6 +32,18 @@ enum Operation {
     Setup {
         #[arg(long)]
         host: String,
+    },
+    /// Explore synthetic UI screens without accounts, saved state or a target Mac.
+    Preview {
+        #[arg(long, value_enum, default_value_t = homelab_client::preview::Screen::Input)]
+        screen: homelab_client::preview::Screen,
+        /// Print a plain-text rendering instead of opening the interactive preview.
+        #[arg(long)]
+        dump: bool,
+        #[arg(long, default_value_t = 100, value_parser = clap::value_parser!(u16).range(1..=300))]
+        width: u16,
+        #[arg(long, default_value_t = 30, value_parser = clap::value_parser!(u16).range(1..=120))]
+        height: u16,
     },
 }
 
@@ -84,6 +99,34 @@ fn menu_failure(error: tui::MenuError) -> Failure {
 }
 
 fn execute(arguments: Arguments) -> Result<(), Failure> {
+    homelab_client::operator_profile::select(arguments.profile).map_err(|message| {
+        Failure::new(
+            "profile-unavailable",
+            message,
+            "Restart homelab with a valid --profile name.",
+        )
+    })?;
+    if let Some(Operation::Preview {
+        screen,
+        dump,
+        width,
+        height,
+    }) = &arguments.operation
+    {
+        let result = if *dump {
+            homelab_client::preview::dump(*screen, *width, *height)
+                .and_then(|text| writeln!(io::stdout().lock(), "{text}"))
+        } else {
+            homelab_client::preview::launch(*screen)
+        };
+        return result.map_err(|_| {
+            Failure::new(
+                "preview-unavailable",
+                "Could not display the local preview.",
+                "Open an interactive terminal and run homelab preview again.",
+            )
+        });
+    }
     if let Some(Operation::Config { operation }) = &arguments.operation {
         let output = match operation {
             ConfigOperation::Schema => {
@@ -112,12 +155,14 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
             )
         });
     }
+    if let Some(home) = std::env::var_os("HOME") {
+        homelab_client::local_storage::migrate(std::path::Path::new(&home)).map_err(|error| {
+            Failure::new("state-migration", error.to_string(), "Close other homelab sessions and retry. Existing saved files have not been overwritten.")
+        })?;
+    }
     let path = arguments
         .inventory
-        .or_else(|| {
-            std::env::var_os("HOME")
-                .map(|home| PathBuf::from(home).join(".config/homelab/inventory.json"))
-        })
+        .or_else(homelab_client::operator_profile::inventory_path)
         .ok_or_else(|| {
             Failure::new(
                 "inventory-unavailable",
@@ -128,6 +173,7 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
 
     match arguments.operation {
         Some(Operation::Config { .. }) => unreachable!("configuration handled before inventory"),
+        Some(Operation::Preview { .. }) => unreachable!("preview handled before inventory"),
         None => {
             tui::launch(&path).map_err(menu_failure)?;
             Ok(())
@@ -140,14 +186,24 @@ fn execute(arguments: Arguments) -> Result<(), Failure> {
 }
 
 fn main() -> ExitCode {
+    if let Some(status) = homelab_client::terminal_process::dispatch_bridge() {
+        return status;
+    }
     let arguments = Arguments::parse();
-    if !matches!(&arguments.operation, Some(Operation::Config { .. }))
-        && (!io::stdin().is_terminal() || !io::stdout().is_terminal())
+
+    if !matches!(
+        &arguments.operation,
+        Some(Operation::Config { .. } | Operation::Preview { dump: true, .. })
+    ) && (!io::stdin().is_terminal() || !io::stdout().is_terminal())
     {
         Arguments::command()
             .error(
                 clap::error::ErrorKind::InvalidValue,
-                "Setup needs an interactive terminal. Open Terminal and run homelab to start or resume setup.",
+                if matches!(&arguments.operation, Some(Operation::Preview { .. })) {
+                    "Preview needs an interactive terminal. Open Terminal and run homelab preview."
+                } else {
+                    "Setup needs an interactive terminal. Open Terminal and run homelab to start or resume setup."
+                },
             )
             .exit();
     }

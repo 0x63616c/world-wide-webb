@@ -13,8 +13,59 @@ issuer endpoints are synthetic; CI cannot access an operator's vault or tailnet.
 | Terminal | Pseudo-terminal keyboard input, secret non-echo and terminal restoration |
 | Packaging | Native ARM64 binaries, macOS-only dynamic dependencies, fresh-runner help smoke |
 
-Run locally with `cargo test --locked`, `cargo fmt --check` and
-`cargo clippy --locked --all-targets -- -D warnings`.
+Run `just test` for the local suite, `just test-terminal` for keyboard and terminal
+handoff checks, and `just check` for formatting and Clippy. Plain `just` lists all
+recipes. Ordinary tests never enroll a device or start a VM.
+
+## UI development without setup
+
+The interactive process executor keeps bounded subprocesses on scoped workers
+while the UI thread redraws and handles input. `cargo test --test authentication`
+includes delayed captured/silent subprocesses and requires input acknowledgement
+within 500 ms; native password masking, retry and terminal restoration use the
+same test driver. These tests do not contact a Mac or a credential provider.
+
+`just preview` builds the local CLI and opens synthetic screens through the same
+Ratatui renderer used by setup. `hl-dev preview --screen attention` jumps to a
+failure example. Use left/right to change examples and up/down to scroll.
+Add `--dump --width 100 --height 30` to emit a plain-text screen artifact without
+an interactive terminal. This uses Ratatui's test backend and production layout.
+Preview does not load the operator's inventory, journals, credentials or accounts;
+it cannot perform setup. It demonstrates presentation, not real provider success.
+
+Native SSH/sudo runs in an embedded PTY without leaving the TUI. The
+`authentication` test runs the production transport and exec bridge against a
+synthetic no-echo prompt: password keys, public-key stdin, separate JSON stdout,
+resize, failure acknowledgment, cancellation, timeout, and inert clipboard escape
+sequences. It checks that passwords never appear in the rendered transcript.
+
+The scoped-authentication tests cover fragmented acceptance markers, misleading
+output, rejected credentials, cancellation, input overflow and unsupported edits.
+A nested PTY test enters one synthetic password for two exchanges through the
+embedded event loop. It uses a direct child under libtest; the integration test
+above covers the executable bridge. Neither substitutes for password-required
+sudo and SSH verification in a disposable Mac VM.
+
+Bootstrap fixtures cover accepted and refused interrupted-Nix recovery, including
+a failed installer exit with verified completion. Recovery must never rerun the
+installer. Receipt tests reject missing, partial and mismatched evidence. These
+tests use local fixtures; they do not claim a fresh real-Mac enrollment.
+
+## Boundaries used by tests
+
+| Boundary | Production | Test replacement |
+| --- | --- | --- |
+| Presentation | Ratatui screen and keyboard | Synthetic preview, render buffers and pseudo-terminal keys |
+| Target transport | Native SSH and SCP | Explicit `WizardTools` executable paths or pinned disposable guest |
+| Recovery backup | 1Password | `secret_store::Store` with synthetic identities |
+| Enrollment credentials | Scoped Tailscale issuance | `EnrollmentKey` and `EnrollmentDependencies` |
+| GitHub | Repository operations | Fixture executables; dedicated repository for full VM enrollment |
+| Saved progress | Operator-owned files | Temporary directories with interrupted/resumed attempts |
+
+These boundaries keep test credentials out of production paths without making
+provider selection part of the user interface. Tests should exercise the real
+workflow and replace only its external effects; a screen saying “complete” is
+not evidence that installation succeeded.
 
 ## Opt-in VM rehearsal
 
@@ -23,6 +74,18 @@ drives the real wizard, publication to a private fixture repository, installatio
 Comin verification. It runs on the operator client through a pinned SSH jump host;
 vault and Tailscale adapters are synthetic. Run this rehearsal before each
 release. Normal tests run its local guards without contacting any machine.
+
+With a prepared disposable guest and the private fixture described in that guide:
+
+```sh
+just test-vm /absolute/private/vm-enrollment.json
+```
+
+This is an explicit, mutating VM test, not part of `just test`. The harness checks
+the guest's VM identity and dedicated fixture repository before enrollment. It
+uses real installation and reboot operations with synthetic vault/tailnet
+adapters. VM preparation and cleanup are separate; the recipe does not erase or
+reset any Mac. Preserve a failed guest and its journal for inspection.
 
 The Rust runner in `tests/vm_e2e.rs` exercises real completion on an already
 activated synthetic guest: verify, reboot, reconnect, release the hold, and
@@ -116,7 +179,43 @@ completion command is a recovery diagnostic, not a substitute for that journey.
 A failure preserves the VM for inspection and must not be retried blindly. The removed
 manual-token `--run` journey is rejected before contacting a target.
 
-## Historical rehearsal
+## November 7, 2026 local rehearsal
+
+The configuration/state cleanup passed full enrollment on a clean disposable
+macOS guest with no Nix installation. The wizard prepared synthetic credentials,
+published to a dedicated private fixture repository, installed the configuration,
+rebooted, verified real Comin reconciliation and replayed the completed setup
+without issuing credentials or rebooting again. The guest already had Apple's
+Command Line Tools; this run did not reinstall them.
+
+The fixture's enrolled revision was
+`387caffbe9a1cab4b53e31d63f917173890a428b`. Its vendored helper-source Git tree was
+`44f99fd58e1cd7322b658c4f1b02825b28790c9f`: only Cargo files, `build.rs`, `src/`
+and checked-in synthetic `tests/` were included, never operator state or secrets.
+The vault/issuer and Tailscale transport were synthetic; SSH, Git publication,
+age/SOPS, Nix installation, activation, reboot and Comin verification were real.
+The guest and private evidence were preserved after stopping the VM.
+
+An earlier fresh attempt stopped safely because the fixture lacked `.sops.yaml`.
+The template now includes empty creation rules. That failed guest and its journals
+were preserved; the successful run used a new clean guest and operator directory.
+
+The current private Nix worktree also evaluated successfully in the guest:
+`lib.setupPlan` and both host system derivations. No private host configuration
+was built or activated. This checks evaluation, not production service behavior.
+
+The current configuration-contract cleanup is local-only. A normal wizard reads
+the configuration repository's GitHub `main`, not this laptop's Nix checkout.
+Before production enrollment, publish the compatible private Nix/module changes
+and reviewed helper pin together with the CLI release. Removing `activationReady`
+from a new enrollment while the old private `main` still requires it is not a
+supported mixed-version deployment. Historical saved proposals retain their
+original bytes for reconciliation; they are not silently rewritten.
+
+Repeat the clean-guest rehearsal before release when setup or helper behavior
+changes. UI preview and unit tests do not replace full setup/reboot validation.
+
+## Earlier rehearsals
 
 The November 4, 2026 rehearsal passed guided installation, activation, SSH recovery
 and guest reboot on a disposable macOS 27.2 VM. It used helper source
@@ -137,3 +236,12 @@ enrollment and Comin flow. It does not
 validate production services, tailnet enrollment, FileVault recovery or nested
 runner VMs. Production Macs are never automatic test fixtures; real 1Password
 authorization remains a separate adapter smoke test.
+
+### Configuration repair recovery
+
+`cargo test --test bootstrap --test bootstrap_state --test setup_repair`
+covers failed evaluation with a completed Nix install, unchanged credentials,
+interruption before and after journal migration, repeated resume, protected-file
+changes, wrong revision pairs, missing journals and forbidden activation phases.
+The frozen client selection also survives edits or deletion of the Git repair
+descriptor. These tests use synthetic command adapters and do not deploy to Macs.

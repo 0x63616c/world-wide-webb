@@ -35,7 +35,7 @@ The CLI finishes after enrollment.
 | Where | What you need |
 | --- | --- |
 | Your laptop | Apple silicon macOS; GitHub CLI signed in; 1Password with its `op` CLI and desktop integration; the standalone Tailscale app and CLI, connected to your tailnet |
-| New Mac | Apple silicon macOS; an administrator account; Remote Login enabled for that account; power and network access |
+| New Mac | Apple silicon macOS; an administrator account; Remote Login enabled for that account; local hostname matching the Git host name; power and the same LAN as your laptop |
 | Configuration | A GitHub repository implementing the [configuration contract](docs/configuration.md), including a locked nix-darwin flake |
 | Tailscale | A tag-scoped OAuth credential saved in 1Password, and tailnet policy allowing your administrator's Tailscale SSH connection |
 
@@ -52,12 +52,14 @@ brew install 0x63616c/tap/homelab
 homelab
 ```
 
+`hl` is the short name for the same installed CLI.
+
 Setup starts with three choices, then runs as a live checklist:
 
 1. **Open your repository.** Enter `owner/repository` once. Git supplies the host
    list, administrator accounts and desired configuration.
-2. **Choose your Mac.** Enter its initial address once. Saved
-   addresses and SSH identities are reused; missing developer tools install automatically.
+2. **Choose your Mac.** The CLI connects to `adminUser@host-name.local` from Git.
+   Your selected SSH identity is reused; missing developer tools install automatically.
 3. **Begin setup.** Approve preparation, publication to Git, installation and
    reboot once. The checklist advances automatically and asks for attention only
    when needed, such as native authentication or a required PR review.
@@ -68,15 +70,67 @@ PRs keep their review path. Success means reboot and access checks passed and
 Git-managed updates are enabled.
 
 Use **↑ / ↓** to choose, **Enter** to continue and **Esc** to go back. To reopen a
-saved attempt, select the same host again. Press **e** to edit a saved connection's
-address without starting setup. `homelab setup --host NAME` also works.
+saved attempt, select the same host again. `homelab setup --host NAME` also works.
 
-Local files remember connection details and recovery progress, not a second host
-configuration. Existing saved connections and keys survive this upgrade.
+Local files remember the repository, selected SSH identity and recovery progress.
+Git owns the host and administrator; the SSH address is always `<host-name>.local`.
+Existing keys and setup journals survive this upgrade.
 
 Administrator authentication may be needed during setup. FileVault can require
 someone to unlock the target locally after reboot. See the [setup guide](docs/setup.md)
 for prerequisites and recovery; do not delete saved keys or journals to bypass an error.
+
+## Local development
+
+To try the real first-run flow with fresh local state:
+
+```sh
+hl-dev --profile demo
+```
+
+Enter your Git repository at the first prompt. The profile name appears in the
+header. Reusing `demo` resumes it; use another name to start fresh again. Plain
+`hl-dev` (or `--profile default`) keeps your existing setup.
+
+Profiles separate repository selection, SSH key selection and recovery progress.
+They share installed tools, external sign-ins and SSH host trust. This is the real
+wizard, not a dry run; use `hl-dev preview` for screens without setup operations.
+
+The footer shows the installed version. Interactive setup checks the public GitHub
+release endpoint in the background, at most once every six hours, and shows newer
+versions without installing them. It sends no setup data or credentials. Set
+`HOMELAB_NO_UPDATE_CHECK=1` to disable this check; previews never perform it.
+
+With Rust and Just installed (`brew install just`), run `just dev` once from this checkout. It
+installs `homelab-dev` and `hl-dev` launchers that build the CLI and matching helper
+in `~/.local/bin` (that directory must be on your PATH). Run either name to try
+the local version. Reopening either command rebuilds changed source automatically. No GitHub release is needed.
+Run plain `just` to list the available commands and their descriptions.
+
+Try the interface without accounts or a target Mac:
+
+```sh
+just preview
+# Or, after building:
+hl-dev preview --screen progress
+# Write a plain-text rendering for review, without a terminal:
+hl-dev preview --screen progress --dump --width 100 --height 30
+```
+
+Preview uses synthetic examples and the same renderer as setup. Use **← / →**
+to browse host selection, summary, progress, attention, completion, input and help
+screens. It never reads saved setup state or contacts GitHub, Tailscale or
+1Password. The example actions do not perform setup.
+
+Run `just test` for automated local checks, `just test-terminal` for terminal
+interaction, and `just check` for formatting and lints. See [Testing](docs/testing.md)
+for explicitly selected disposable-VM rehearsals.
+
+Development builds show `VERSION-dev(#COMMIT)` in `--version` and the screen
+footer, with `-dirty` when tracked files differ from that commit. They use a
+separate build directory and leave the Homebrew release untouched. Both versions
+use the same saved connections and setup journals; run one setup session at a time.
+Building alone never starts setup or deploys a machine.
 
 ## Security and scope
 

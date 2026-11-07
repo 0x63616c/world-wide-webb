@@ -319,3 +319,196 @@ fn unsafe_permissions_and_symlinks_are_rejected_without_repair() {
         fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
     }
 }
+
+#[test]
+fn repair_requires_existing_journal_and_exact_original_effective_pair() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("state");
+    let old = "a".repeat(40);
+    let new = "b".repeat(40);
+    let open = || Journal::open_repair(&path, "example/config", "example", &old, &new);
+    assert!(matches!(open(), Err(StateError::Missing)));
+    assert!(!path.join("progress.json").exists());
+    let mut journal = Journal::open(&path, "example/config", "example", &old, false).unwrap();
+    journal.record(Phase::InstallingNix, None).unwrap();
+    drop(journal);
+    let before = fs::read(path.join("progress.json")).unwrap();
+    drop(open().unwrap());
+    assert_eq!(fs::read(path.join("progress.json")).unwrap(), before);
+    let mut journal = open().unwrap();
+    journal.record_repair(&old, &new).unwrap();
+    drop(journal);
+    let after = fs::read(path.join("progress.json")).unwrap();
+    let mut journal = open().unwrap();
+    journal.record_repair(&old, &new).unwrap();
+    drop(journal);
+    assert_eq!(fs::read(path.join("progress.json")).unwrap(), after);
+    assert!(
+        Journal::open_repair(&path, "example/config", "example", &old, &"c".repeat(40)).is_err()
+    );
+    assert!(
+        Journal::open_repair(&path, "example/config", "example", &new, &"c".repeat(40)).is_err()
+    );
+}
+
+#[test]
+fn repaired_activation_reports_effective_revision_for_original_reservation() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join(".local/state/homelab/bootstrap");
+    let old = "a".repeat(40);
+    let new = "b".repeat(40);
+    let mut journal = Journal::open(&path, "example/config", "example", &old, false).unwrap();
+    journal.record_repair(&old, &new).unwrap();
+    journal
+        .record(
+            Phase::Activated,
+            Some(std::path::Path::new("/nix/store/repaired-system")),
+        )
+        .unwrap();
+    drop(journal);
+    assert_eq!(
+        homelab_client::bootstrap_state::activation_revision(
+            temporary.path(),
+            "example/config",
+            "example",
+            &old
+        )
+        .unwrap(),
+        Some(new)
+    );
+}
+
+#[test]
+fn followup_repair_preserves_anchor_and_requires_exact_predecessor_on_replay() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("state");
+    let original = "a".repeat(40);
+    let previous = "b".repeat(40);
+    let next = "c".repeat(40);
+    let mut journal = Journal::open(&path, "example/config", "example", &original, false).unwrap();
+    journal.record_repair(&original, &previous).unwrap();
+    journal.record(Phase::Building, None).unwrap();
+    drop(journal);
+    let mut journal = Journal::open_followup(
+        &path,
+        "example/config",
+        "example",
+        &original,
+        &previous,
+        &next,
+    )
+    .unwrap();
+    journal
+        .record_followup(&original, &previous, &next)
+        .unwrap();
+    drop(journal);
+    let before = fs::read(path.join("progress.json")).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&before).unwrap();
+    assert_eq!(saved["repairedFrom"], original);
+    assert_eq!(saved["repairedVia"], serde_json::json!([previous]));
+    let mut journal = Journal::open_followup(
+        &path,
+        "example/config",
+        "example",
+        &original,
+        &previous,
+        &next,
+    )
+    .unwrap();
+    journal
+        .record_followup(&original, &previous, &next)
+        .unwrap();
+    drop(journal);
+    assert_eq!(fs::read(path.join("progress.json")).unwrap(), before);
+    for (from, to) in [
+        ("d".repeat(40), next.clone()),
+        (previous.clone(), "d".repeat(40)),
+    ] {
+        assert!(
+            Journal::open_followup(&path, "example/config", "example", &original, &from, &to)
+                .is_err()
+        );
+    }
+    assert!(Journal::open_repair(&path, "example/config", "example", &original, &next).is_err());
+}
+
+#[test]
+fn followup_never_migrates_key_uncertainty_but_can_reopen_its_own_later_phase() {
+    for phase in [
+        Phase::VerifyingSecrets,
+        Phase::InstallingKey,
+        Phase::Activating,
+        Phase::Activated,
+    ] {
+        let temporary = tempfile::tempdir().unwrap();
+        let path = temporary.path().join("state");
+        let original = "a".repeat(40);
+        let previous = "b".repeat(40);
+        let next = "c".repeat(40);
+        let mut journal =
+            Journal::open(&path, "example/config", "example", &original, false).unwrap();
+        journal.record_repair(&original, &previous).unwrap();
+        journal
+            .record(phase, Some(std::path::Path::new("/nix/store/test-system")))
+            .unwrap();
+        drop(journal);
+        let before = fs::read(path.join("progress.json")).unwrap();
+        assert!(
+            Journal::open_followup(
+                &path,
+                "example/config",
+                "example",
+                &original,
+                &previous,
+                &next
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read(path.join("progress.json")).unwrap(), before);
+    }
+}
+
+#[test]
+fn followup_replay_keeps_its_completed_activation_available() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join(".local/state/homelab/bootstrap");
+    let original = "a".repeat(40);
+    let previous = "b".repeat(40);
+    let next = "c".repeat(40);
+    let mut journal = Journal::open(&path, "example/config", "example", &original, false).unwrap();
+    journal.record_repair(&original, &previous).unwrap();
+    journal
+        .record_followup(&original, &previous, &next)
+        .unwrap();
+    journal
+        .record(
+            Phase::Activated,
+            Some(std::path::Path::new("/nix/store/test-system")),
+        )
+        .unwrap();
+    drop(journal);
+    let mut journal = Journal::open_followup(
+        &path,
+        "example/config",
+        "example",
+        &original,
+        &previous,
+        &next,
+    )
+    .unwrap();
+    journal
+        .record_followup(&original, &previous, &next)
+        .unwrap();
+    assert_eq!(journal.phase(), Phase::Activated);
+    drop(journal);
+    assert_eq!(
+        homelab_client::bootstrap_state::activation_revision(
+            temporary.path(),
+            "example/config",
+            "example",
+            &original
+        )
+        .unwrap(),
+        Some(next)
+    );
+}

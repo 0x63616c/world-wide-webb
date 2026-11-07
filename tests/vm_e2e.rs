@@ -139,7 +139,12 @@ pub(crate) fn manifest_guard_regressions() {
     assert!(!valid_fixture_manifest(&manifest));
     manifest.schema = 1;
     manifest.one_password = None;
-    manifest.hosts.get_mut("vm-test").unwrap().activation_ready = true;
+    manifest
+        .hosts
+        .get_mut("vm-test")
+        .unwrap()
+        .authorized_keys
+        .push("ssh-ed25519 synthetic".into());
     assert!(valid_fixture_manifest(&manifest));
     manifest.tailscale.as_mut().unwrap().oauth = Some(config::OAuthReference {
         vault: "aaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
@@ -213,6 +218,23 @@ fn transport_args_allowed(
                 };
                 if name == "HostKeyAlias" {
                     if option != format!("HostKeyAlias={ip}") {
+                        return false;
+                    }
+                    index += 2;
+                    continue;
+                }
+                if [
+                    "HostKeyAlgorithms=ssh-ed25519",
+                    "GlobalKnownHostsFile=/dev/null",
+                    "UpdateHostKeys=no",
+                ]
+                .contains(&option)
+                {
+                    index += 2;
+                    continue;
+                }
+                if let Some(path) = option.strip_prefix("UserKnownHostsFile=") {
+                    if !Path::new(path).is_absolute() || path.contains(['\n', '\r']) {
                         return false;
                     }
                     index += 2;

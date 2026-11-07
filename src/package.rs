@@ -54,7 +54,7 @@ fn verify_version(helper: &Path) -> Result<(), Error> {
         .map_err(|_| Error::Version)?;
     if !output.status.success()
         || String::from_utf8_lossy(&output.stdout).trim()
-            != concat!("homelab-host ", env!("CARGO_PKG_VERSION"))
+            != format!("homelab-host {}", crate::VERSION)
     {
         return Err(Error::Version);
     }
@@ -140,7 +140,7 @@ mod tests {
             &helper,
             concat!(
                 "#!/bin/sh\nprintf 'homelab-host ",
-                env!("CARGO_PKG_VERSION"),
+                env!("HOMELAB_BUILD_VERSION"),
                 "\\n'\n"
             ),
         )
@@ -180,7 +180,7 @@ mod tests {
             &helper,
             concat!(
                 "#!/bin/sh\nprintf 'homelab-host ",
-                env!("CARGO_PKG_VERSION"),
+                env!("HOMELAB_BUILD_VERSION"),
                 "\\n'\n"
             ),
         )
@@ -201,7 +201,7 @@ mod tests {
         assert_eq!(plan["schema"], 2);
         assert_eq!(plan["repository"], w.repository);
         assert_eq!(plan["revision"], w.revision);
-        assert_eq!(plan["hosts"]["build-mac"]["activationReady"], false);
+        assert!(plan["hosts"]["build-mac"].get("activationReady").is_none());
         assert_eq!(
             fs::read_to_string(p.directory.join("SHA256SUMS"))
                 .unwrap()

@@ -40,6 +40,8 @@ struct Fixture {
     jump_host: String,
     jump_known_hosts: PathBuf,
     jump_agent_socket: PathBuf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    password_file: Option<PathBuf>,
 }
 
 fn fixture() -> Fixture {
@@ -682,10 +684,20 @@ struct Terminal {
     child: Child,
     original: rustix::termios::LocalModes,
     text: String,
+    screen: vt100::Parser,
     last_phase: Option<&'static str>,
+    password: Option<zeroize::Zeroizing<Vec<u8>>>,
+    password_visible: bool,
+    password_entries: usize,
+    installation_acknowledged: bool,
 }
 impl Terminal {
     fn start(f: &Fixture) -> Self {
+        let password = f.password_file.as_ref().map(|path| {
+            let bytes = zeroize::Zeroizing::new(vm::private_bytes(path, 128));
+            assert!(bytes.len() >= 16 && bytes.iter().all(u8::is_ascii_alphanumeric));
+            bytes
+        });
         let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY).unwrap();
         grantpt(&master).unwrap();
         unlockpt(&master).unwrap();
@@ -734,7 +746,12 @@ impl Terminal {
             child,
             original,
             text: String::new(),
+            screen: vt100::Parser::new(60, 120, 0),
             last_phase: None,
+            password,
+            password_visible: false,
+            password_entries: 0,
+            installation_acknowledged: false,
         }
     }
     fn wait(&mut self, expected: &'static str, duration: Duration) {
@@ -742,28 +759,65 @@ impl Terminal {
         loop {
             let mut buffer = [0; 8192];
             match self.master.read(&mut buffer) {
-                Ok(size) => self
-                    .text
-                    .push_str(&String::from_utf8_lossy(&buffer[..size])),
+                Ok(size) => {
+                    self.text
+                        .push_str(&String::from_utf8_lossy(&buffer[..size]));
+                    self.screen.process(&buffer[..size]);
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(_) => panic!(
                     "wizard terminal unavailable while waiting for {expected}; preserve fixture state"
                 ),
             }
-            self.last_phase = observed_phase(&self.text).or(self.last_phase);
+            let screen = self.screen.screen().contents();
+            if !self.installation_acknowledged
+                && screen.contains("Installation complete.")
+                && screen.contains("Press Enter to continue")
+            {
+                self.enter();
+                self.installation_acknowledged = true;
+            }
+            if let Some(password) = &self.password {
+                let text = std::str::from_utf8(password).unwrap();
+                assert!(
+                    !self.text.contains(text) && !screen.contains(text),
+                    "fixture password was rendered"
+                );
+                let visible = screen.contains("Password:") && screen.contains("Submit");
+                if visible && !self.password_visible {
+                    assert_eq!(
+                        self.password_entries, 0,
+                        "wizard requested a second password entry"
+                    );
+                    self.master.write_all(password).unwrap();
+                    self.master.write_all(b"\r").unwrap();
+                    self.password_entries += 1;
+                }
+                self.password_visible = visible;
+            }
+            self.last_phase = observed_phase(&screen)
+                .or_else(|| observed_phase(&self.text))
+                .or(self.last_phase);
             assert!(
-                !self.text.contains(AUTH_KEY) && !self.text.contains("AGE-SECRET-KEY-"),
+                !self.text.contains(AUTH_KEY)
+                    && !self.text.contains("AGE-SECRET-KEY-")
+                    && !screen.contains(AUTH_KEY)
+                    && !screen.contains("AGE-SECRET-KEY-"),
                 "synthetic credential appeared while waiting for {expected}"
             );
-            if self.text.contains(expected) {
+            if self.text.contains(expected) || screen.contains(expected) {
                 self.text.clear();
                 return;
             }
-            if self.text.contains("R Retry checks") {
+            if self.text.contains("R Retry checks")
+                || screen.contains("R Retry checks")
+                || screen.contains("Setup needs attention")
+                || screen.contains("Step failed")
+            {
                 let reason = SAFE_FAILURES
                     .iter()
                     .copied()
-                    .find(|message| self.text.contains(message))
+                    .find(|message| self.text.contains(message) || screen.contains(message))
                     .unwrap_or("Checklist step failed; preserve fixture state for inspection.");
                 panic!("wizard needs attention before {expected}: {reason}");
             }
@@ -836,7 +890,7 @@ const COMPLETION_PHASES: &[&str] = &[
     "Checking services, Tailscale and Git access",
     "Restarting the Mac and waiting for it to return",
     "Verifying the Mac after reboot",
-    "Finishing setup and enabling Git updates",
+    "Building and applying Git main",
 ];
 fn observed_phase(text: &str) -> Option<&'static str> {
     COMPLETION_PHASES
@@ -883,7 +937,7 @@ fn wizard(f: &Fixture) {
         println!("{FAILURE_PREFIX}{}", safe_failure(&result.lines));
     }
     assert!(
-        result.completed && result.lines.iter().any(|line| line == "vm-test is set up."),
+        result.completed && result.lines.iter().any(|line| line == "vm-test is set up!"),
         "enrollment did not complete; preserve fixture state"
     );
     drop(_selected_socket);
@@ -894,7 +948,7 @@ fn wizard(f: &Fixture) {
 fn merge_enrollment(f: &Fixture) -> String {
     let path = f
         .state_directory
-        .join(".local/state/homelab/provisioning/hosts/vm-test/proposal.json");
+        .join(".homelab/profiles/default/provisioning/hosts/vm-test/proposal.json");
     let proposal = configuration_pr::Changes::load(&path, &f.target.repository, "vm-test").unwrap();
     assert_eq!(
         proposal.base, f.target.revision,
@@ -1036,6 +1090,8 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut terminal = Terminal::start(f);
+    terminal.wait("✓ Mac checked", Duration::from_secs(90));
+    terminal.enter();
     terminal.wait("Begin setup", Duration::from_secs(90));
     terminal.enter();
     let merged = if let Some(revision) = resumed_revision {
@@ -1047,9 +1103,16 @@ fn drive(f: &Fixture, resume: bool) {
         None
     };
     terminal.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(90 * 60));
+    if f.password_file.is_some() {
+        assert_eq!(
+            terminal.password_entries, 1,
+            "native sudo authentication was not exercised"
+        );
+    }
     assert!(terminal.child.wait().unwrap().success());
     let approved = provisioning::approved_installation(
-        &f.state_directory.join(".local/state/homelab/provisioning"),
+        &f.state_directory
+            .join(".homelab/profiles/default/provisioning"),
         "vm-test",
     )
     .unwrap()
@@ -1100,6 +1163,8 @@ fn drive(f: &Fixture, resume: bool) {
     ))
     .unwrap();
     let mut replay = Terminal::start(f);
+    replay.wait("✓ Mac checked", Duration::from_secs(90));
+    replay.enter();
     replay.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(600));
     assert!(replay.child.wait().unwrap().success());
     assert_eq!(
@@ -1134,7 +1199,7 @@ fn drive(f: &Fixture, resume: bool) {
         .unwrap();
     let ciphertext = fs::read(
         f.state_directory
-            .join(".local/state/homelab/provisioning/hosts/vm-test/review/vm-test.sops.yaml"),
+            .join(".homelab/profiles/default/provisioning/hosts/vm-test/review/vm-test.sops.yaml"),
     )
     .unwrap();
     assert_eq!(
@@ -1144,7 +1209,7 @@ fn drive(f: &Fixture, resume: bool) {
     let mut activated = f.target.clone();
     activated.revision = merged.clone();
     vm::verify_activation(&activated, &f.state_directory.join("vm-ssh"));
-    vm::write_private(&f.state_directory.join("evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"wizardCompleted":true,"rebootVerified":true,"completedReplayVerified":true,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter","comin":"real completion verification"})).unwrap());
+    vm::write_private(&f.state_directory.join("evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"wizardCompleted":true,"rebootVerified":true,"completedReplayVerified":true,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter","comin":"real completion verification","passwordEntries":terminal.password_entries,"passwordRequired":f.password_file.is_some()})).unwrap());
     println!(
         "Full VM wizard completed. Evidence preserved; provider and Tailscale transport were synthetic."
     );
@@ -1180,7 +1245,9 @@ fn validate_resume(f: &Fixture) -> String {
         !f.state_directory.join("evidence.json").exists(),
         "completed fixtures use the completion replay, not pre-bootstrap resume"
     );
-    let root = f.state_directory.join(".local/state/homelab/provisioning");
+    let root = f
+        .state_directory
+        .join(".homelab/profiles/default/provisioning");
     assert!(
         provisioning::approved_installation(&root, "vm-test")
             .unwrap()
@@ -1263,6 +1330,18 @@ const PRE_BOOTSTRAP_CHECK: &str = r#"
 [ "$?" -eq 1 ]
 "#;
 
+// Before enrollment, Nix may already exist from the unchanged-config build.
+// No bootstrap journal or installed enrollment identities may exist.
+const PRE_PREPARATION_CHECK: &str = r#"
+/usr/bin/sudo -n /bin/test ! -e /Users/admin/.local/state/homelab/bootstrap || exit 2
+/usr/bin/sudo -n /bin/test ! -e /var/lib/sops-nix/key.txt || exit 2
+/usr/bin/sudo -n /bin/test ! -e /var/lib/homelab-git/key.txt || exit 2
+/usr/bin/pgrep -x homelab-host >/dev/null
+[ "$?" -eq 1 ] || exit 2
+/usr/bin/pgrep -x nix-installer >/dev/null
+[ "$?" -eq 1 ]
+"#;
+
 fn require_idle_operator(f: &Fixture) {
     // Match only executable paths in this attempt, not a potentially enormous
     // process listing or shell arguments mentioning the fixture path.
@@ -1297,7 +1376,7 @@ fn completion_matches(
         && report.boot_session.eq_ignore_ascii_case(boot.trim())
 }
 
-fn complete_preserved(f: &Fixture) {
+fn complete_preserved(f: &Fixture, already_rebooted: bool) {
     use homelab_client::remote_completion;
     assert_eq!(
         vm::bounded(Command::new("/bin/hostname")).unwrap().trim(),
@@ -1310,16 +1389,21 @@ fn complete_preserved(f: &Fixture) {
         "/usr/bin/pgrep -x homelab-host >/dev/null; [ \"$?\" -eq 1 ] || exit 2; /usr/bin/pgrep -x nix-installer >/dev/null; [ \"$?\" -eq 1 ]"
     )).is_some(), "guest bootstrap/helper may still be active");
     let saved = provisioning::approved_installation(
-        &f.state_directory.join(".local/state/homelab/provisioning"),
+        &f.state_directory
+            .join(".homelab/profiles/default/provisioning"),
         "vm-test",
     )
     .unwrap()
     .expect("saved approved installation required");
-    let merged = String::from_utf8(vm::private_bytes(
-        &f.state_directory.join("merged-revision"),
-        40,
-    ))
-    .unwrap();
+    let merged = if already_rebooted {
+        String::from_utf8(vm::private_bytes(
+            &f.state_directory.join("merged-revision"),
+            40,
+        ))
+        .unwrap()
+    } else {
+        saved.revision.clone()
+    };
     assert!(config::valid_revision(&merged));
     assert_eq!(saved.repository, f.target.repository);
     assert_eq!(saved.host, "vm-test");
@@ -1352,20 +1436,32 @@ fn complete_preserved(f: &Fixture) {
         json!({"repository":f.target.repository,"host":"vm-test","revision":merged})
     );
     let binding = config::setup_binding(&f.target.repository, "vm-test", &merged).unwrap();
-    let report: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(
-        &format!("/bin/cat /var/db/homelab-setup/{binding}.json"),
-    ))
-    .unwrap();
-    // Authenticate the existing public report through the real read-only helper.
-    assert!(
-        report.request_id.len() == 64 && report.request_id.bytes().all(|c| c.is_ascii_hexdigit())
-    );
-    let verified: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(&format!("/run/current-system/sw/bin/homelab-host read-setup-report --binding '{binding}' --request-id '{}'", report.request_id))).unwrap();
     let boot = read("/usr/sbin/sysctl -n kern.bootsessionuuid");
-    assert!(
-        completion_matches(&verified, &binding, &system, &boot),
-        "recovery requires proof this installation already rebooted"
-    );
+    if already_rebooted {
+        let report: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(
+            &read(&format!("/bin/cat /var/db/homelab-setup/{binding}.json")),
+        )
+        .unwrap();
+        // Authenticate the existing public report through the real read-only helper.
+        assert!(
+            report.request_id.len() == 64
+                && report.request_id.bytes().all(|c| c.is_ascii_hexdigit())
+        );
+        let verified: homelab_client::bootstrap_privileged::VerifiedSetup = serde_json::from_str(&read(&format!("/run/current-system/sw/bin/homelab-host read-setup-report --binding '{binding}' --request-id '{}'", report.request_id))).unwrap();
+        assert!(
+            completion_matches(&verified, &binding, &system, &boot),
+            "recovery requires proof this installation already rebooted"
+        );
+    } else {
+        let journal: Value = serde_json::from_str(&read(
+            "/bin/cat /Users/admin/.local/state/homelab/bootstrap/progress.json",
+        ))
+        .unwrap();
+        assert_eq!(journal["phase"], "Activated");
+        assert_eq!(journal["revision"], merged);
+        assert_eq!(journal["repository"], f.target.repository);
+        assert_eq!(journal["builtSystem"].as_str(), system.to_str());
+    }
     let main = api(
         f,
         "GET",
@@ -1378,7 +1474,8 @@ fn complete_preserved(f: &Fixture) {
         b"one synthetic issuance"
     );
     assert!(!f.state_directory.join("revoked").exists());
-    for _ in 0..2 {
+    let mut previous_boot = boot.clone();
+    for attempt in 0..2 {
         let result = remote_completion::finish_with_tools(
             profile,
             &ssh,
@@ -1390,7 +1487,7 @@ fn complete_preserved(f: &Fixture) {
                 tag: "tag:vm-test",
             },
             |phase| {
-                if let Some(known) = observed_phase(phase) {
+                if let Some(known) = observed_phase(phase.message()) {
                     println!("{known}");
                 }
             },
@@ -1406,18 +1503,26 @@ fn complete_preserved(f: &Fixture) {
                 && report.rebooted
                 && report.reconciled_revision.as_deref() == Some(merged.as_str())
         );
-        assert_eq!(
-            read("/usr/sbin/sysctl -n kern.bootsessionuuid"),
-            boot,
-            "completion recovery must not reboot again"
-        );
+        let current_boot = read("/usr/sbin/sysctl -n kern.bootsessionuuid");
+        if !already_rebooted && attempt == 0 {
+            assert_ne!(
+                current_boot, boot,
+                "completion must reboot the activated VM"
+            );
+        } else {
+            assert_eq!(
+                current_boot, previous_boot,
+                "completion replay must not reboot again"
+            );
+        }
+        previous_boot = current_boot;
     }
     let mut activated = f.target.clone();
     activated.revision = merged.clone();
     vm::verify_activation(&activated, &ssh);
-    vm::write_private(&f.state_directory.join("completion-recovery-evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"recoveredCompletion":true,"completionReplayVerified":true,"bootUnchanged":true,"uninterruptedWizardVerified":false,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter"})).unwrap());
+    vm::write_private(&f.state_directory.join("completion-recovery-evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"recoveredCompletion":true,"completionReplayVerified":true,"rebootVerified":true,"bootUnchanged":already_rebooted,"uninterruptedWizardVerified":false,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter"})).unwrap());
     println!(
-        "Preserved post-reboot completion and replay passed; uninterrupted wizard still unverified."
+        "Preserved VM completion, reboot verification and replay passed; uninterrupted wizard still unverified."
     );
 }
 
@@ -1429,7 +1534,11 @@ fn resume_prepare(f: &Fixture, merged: bool) {
         vm::bounded(vm::ssh(
             &f.target,
             &f.state_directory.join("vm-ssh"),
-            PRE_BOOTSTRAP_CHECK
+            if merged {
+                PRE_BOOTSTRAP_CHECK
+            } else {
+                PRE_PREPARATION_CHECK
+            }
         ))
         .is_some(),
         "guest bootstrap state is not safely resumable"
@@ -1439,7 +1548,8 @@ fn resume_prepare(f: &Fixture, merged: bool) {
     } else {
         assert!(
             provisioning::approved_installation(
-                &f.state_directory.join(".local/state/homelab/provisioning"),
+                &f.state_directory
+                    .join(".homelab/profiles/default/provisioning"),
                 "vm-test"
             )
             .unwrap()
@@ -1501,8 +1611,7 @@ fn prepare_run(path: &Path) {
     f.jump_known_hosts = state.join("jump-known-hosts");
     let manifest = vm::manifest(&f.target);
     assert!(
-        !manifest.hosts["vm-test"].activation_ready
-            && manifest.hosts["vm-test"].authorized_keys.is_empty(),
+        manifest.hosts["vm-test"].authorized_keys.is_empty(),
         "full enrollment starts with an unready, unauthorised host"
     );
     let known = fs::read_to_string(&f.target.known_hosts).unwrap();
@@ -1599,6 +1708,14 @@ fn prepare_run(path: &Path) {
 }
 
 fn main() {
+    if let Some(status) = homelab_client::terminal_process::dispatch_bridge() {
+        use std::process::Termination;
+        std::process::exit(if status.report() == std::process::ExitCode::SUCCESS {
+            0
+        } else {
+            1
+        });
+    }
     regressions();
     let executable = std::env::args_os().next().unwrap();
     let name = Path::new(&executable)
@@ -1635,7 +1752,16 @@ fn main() {
             ),
             "--complete-drive",
         ),
-        Some("--complete-drive") => complete_preserved(&fixture()),
+        Some("--complete-drive") => complete_preserved(&fixture(), true),
+        Some("--finish-activated-drive") => complete_preserved(&fixture(), false),
+        Some("--finish-activated") => preserved_run(
+            Path::new(
+                &std::env::args_os()
+                    .nth(2)
+                    .expect("preserved fixture path required"),
+            ),
+            "--finish-activated-drive",
+        ),
         Some("--resume-prepare") => resume_prepare(&fixture(), true),
         Some("--retry-preparation-drive") => resume_prepare(&fixture(), false),
         Some("--retry-preparation") => preserved_run(

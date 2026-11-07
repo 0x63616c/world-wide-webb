@@ -59,7 +59,7 @@ impl Fixture {
             "url":"https://github.com/DeterminateSystems/nix-installer/releases/download/v1.2.3/nix-installer-aarch64-darwin",
             "sha256":Sha256::digest(b"fixture-installer").iter().map(|byte| format!("{byte:02x}")).collect::<String>()
         })).unwrap()).unwrap();
-        fs::write(root.join("readiness.json"), serde_json::to_vec(&json!({"activationReady":true,"adminUser":"admin","adminUID":501,"authorizedKeys":["ssh-ed25519 AAAA"],"services":[]})).unwrap()).unwrap();
+        fs::write(root.join("readiness.json"), serde_json::to_vec(&json!({"adminUser":"admin","adminUID":501,"authorizedKeys":["ssh-ed25519 AAAA"],"services":[]})).unwrap()).unwrap();
         let expected_host: homelab_client::config::Host =
             serde_json::from_slice(&fs::read(root.join("readiness.json")).unwrap()).unwrap();
         fs::write(
@@ -76,6 +76,8 @@ impl Fixture {
             deploy_key: root.join("deploy-key"),
             approved_host: Some("workstation".into()),
             resume: false,
+            repair_from: None,
+            repair_previous: None,
         };
         let tools = Tools {
             git: root.join("git"),
@@ -174,6 +176,7 @@ fn approval_identity_and_exact_revision_are_required_before_secrets_or_network()
     ] {
         let mut fixture = Fixture::new(true);
         fs::remove_file(&fixture.request.age_key).unwrap();
+
         let expected = match case {
             "no-approval" => {
                 fixture.request.approved_host = None;
@@ -228,7 +231,6 @@ fn missing_ciphertext_or_wrong_commit_never_mutates_host() {
 #[test]
 fn unready_or_wrong_identity_configuration_never_builds_or_installs_key() {
     for (field, value) in [
-        ("activationReady", json!(false)),
         ("adminUID", json!(502)),
         ("adminUser", json!("other")),
         ("authorizedKeys", json!([])),
@@ -417,10 +419,10 @@ fn interrupted_installation_requires_inspection_even_when_nix_runs() {
         drop(journal);
         let progress = fs::read(fixture.state().join("progress.json")).unwrap();
         fixture.request.resume = true;
-        fs::remove_file(&fixture.request.age_key).unwrap();
+
         assert_eq!(fixture.run().unwrap_err(), Error::RecoveryRequired);
         fixture.no_host_mutation();
-        assert!(fixture.events().is_empty());
+        assert!(fixture.events().contains(&"nix-status".into()));
         assert_eq!(
             fs::read(fixture.state().join("progress.json")).unwrap(),
             progress
@@ -481,12 +483,19 @@ fn bootstrap_uses_isolated_ssh_transport() {
 }
 
 #[test]
-fn authentication_is_refreshed_after_build_before_key_installation() {
+fn expired_authorization_stops_before_key_installation_without_prompting_again() {
     let fixture = Fixture::new(true);
     fixture.flag("late-auth-fails");
     assert_eq!(fixture.run().unwrap_err(), Error::Elevation);
     let events = fixture.events();
-    assert_eq!(events.last().unwrap(), "authenticate");
+    assert_eq!(events.last().unwrap(), "validate-authorization");
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| *event == "authenticate")
+            .count(),
+        0
+    );
     assert!(events.contains(&"verify-secrets".into()));
     fixture.no_host_mutation();
     let progress: serde_json::Value =
@@ -597,4 +606,204 @@ fn existing_run_api_does_not_emit_progress_or_child_output() {
         assert!(!stdout.contains(phase.message()));
     }
     assert!(!stdout.contains("AGE-SECRET"));
+}
+
+#[test]
+fn verified_interrupted_nix_resumes_without_reinstalling() {
+    let mut fixture = Fixture::new(true);
+    let mut journal = Journal::open(
+        &fixture.state(),
+        &fixture.request.repository,
+        &fixture.request.host,
+        &fixture.request.revision,
+        false,
+    )
+    .unwrap();
+    journal.record(Phase::InstallingNix, None).unwrap();
+    drop(journal);
+    fixture.request.resume = true;
+    fixture.flag("nix-confirmed");
+    assert!(fixture.run().is_ok());
+    assert!(fixture.events().contains(&"nix-status".into()));
+    assert!(!fixture.events().contains(&"install-nix".into()));
+    assert!(!fixture.events().contains(&"download-installer".into()));
+}
+
+#[test]
+fn installer_failure_is_reconciled_only_with_verified_completion() {
+    for confirmed in [false, true] {
+        let fixture = Fixture::new(false);
+        fixture.flag("installer-exit-fails");
+        if !confirmed {
+            fixture.flag("nix-unconfirmed");
+        }
+        assert_eq!(fixture.run().is_ok(), confirmed);
+        assert_eq!(
+            fixture
+                .events()
+                .iter()
+                .filter(|event| *event == "install-nix")
+                .count(),
+            1
+        );
+        if !confirmed {
+            assert!(!fixture.events().contains(&"activate".into()));
+        }
+    }
+}
+
+#[test]
+fn diagnostics_record_codes_without_credentials_or_process_output() {
+    let fixture = Fixture::new(true);
+    fixture.flag("build-fails");
+    assert!(fixture.run().is_err());
+    let path = fixture.state().join("diagnostics.jsonl");
+    let content = fs::read_to_string(&path).unwrap();
+    assert!(content.contains("bootstrap-build-failed"));
+    assert!(!content.contains("fixture-only-never-a-real-secret"));
+    assert!(!content.contains("PRIVATE KEY"));
+    assert_eq!(
+        fs::metadata(path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    for line in content.lines() {
+        let event: serde_json::Value = serde_json::from_str(line).unwrap();
+        assert_eq!(event.as_object().unwrap().len(), 3);
+    }
+}
+
+fn repair_fixture(phase: Phase) -> Fixture {
+    let mut fixture = Fixture::new(true);
+    let original = "b".repeat(40);
+    let mut journal = Journal::open(
+        &fixture.state(),
+        &fixture.request.repository,
+        &fixture.request.host,
+        &original,
+        false,
+    )
+    .unwrap();
+    journal.record(phase, None).unwrap();
+    drop(journal);
+    fixture.request.resume = true;
+    fixture.request.repair_from = Some(original);
+    fixture.flag("nix-confirmed");
+    fixture
+}
+
+#[test]
+fn configuration_repair_resumes_completed_nix_without_reissuing_credentials_or_installing_nix() {
+    let fixture = repair_fixture(Phase::InstallingNix);
+    let key = fs::read(&fixture.request.age_key).unwrap();
+    let deploy = fs::read(&fixture.request.deploy_key).unwrap();
+    fixture.run().unwrap();
+    let events = fixture.events();
+    assert!(events.contains(&"nix-status".into()));
+    assert!(events.contains(&"repair-protected-files".into()));
+    assert!(events.contains(&"repair-ancestry".into()));
+    assert!(!events.contains(&"install-nix".into()));
+    assert!(!events.contains(&"download-installer".into()));
+    assert_eq!(fs::read(&fixture.request.age_key).unwrap(), key);
+    assert_eq!(fs::read(&fixture.request.deploy_key).unwrap(), deploy);
+    let state: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture.state().join("progress.json")).unwrap()).unwrap();
+    assert_eq!(state["revision"], fixture.request.revision);
+    assert_eq!(state["repairedFrom"], "b".repeat(40));
+    assert_eq!(state["phase"], "Activated");
+}
+
+#[test]
+fn failed_repair_checks_preserve_original_journal_and_never_mutate_host() {
+    for flag in [
+        "evaluation-fails",
+        "repair-changed-inputs",
+        "repair-not-descendant",
+        "existing-key",
+        "nix-unconfirmed",
+    ] {
+        let fixture = repair_fixture(Phase::InstallingNix);
+        if flag == "nix-unconfirmed" {
+            fs::remove_file(fixture.directory.path().join("nix-confirmed")).unwrap();
+        }
+        fixture.flag(flag);
+        let before = fs::read(fixture.state().join("progress.json")).unwrap();
+        assert!(fixture.run().is_err(), "{flag}");
+        assert_eq!(
+            fs::read(fixture.state().join("progress.json")).unwrap(),
+            before,
+            "{flag}"
+        );
+        fixture.no_host_mutation();
+    }
+}
+
+#[test]
+fn configuration_repair_refuses_uncertain_key_installation_or_activation_before_fetch() {
+    for phase in [Phase::InstallingKey, Phase::Activating, Phase::Activated] {
+        let fixture = repair_fixture(phase);
+        let before = fs::read(fixture.state().join("progress.json")).unwrap();
+        assert_eq!(fixture.run().unwrap_err(), Error::RecoveryRequired);
+        assert_eq!(
+            fs::read(fixture.state().join("progress.json")).unwrap(),
+            before
+        );
+        assert!(fixture.events().is_empty());
+    }
+}
+
+#[test]
+fn repair_retries_after_persisting_new_revision_without_losing_original_attempt() {
+    let fixture = repair_fixture(Phase::InstallingNix);
+    fixture.flag("build-fails");
+    assert_eq!(fixture.run().unwrap_err(), Error::Build);
+    let state: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture.state().join("progress.json")).unwrap()).unwrap();
+    assert_eq!(state["revision"], fixture.request.revision);
+    assert_eq!(state["repairedFrom"], "b".repeat(40));
+    assert_eq!(state["phase"], "Building");
+    fixture.no_host_mutation();
+    fs::remove_file(fixture.directory.path().join("build-fails")).unwrap();
+    fixture.run().unwrap();
+    assert!(!fixture.events().contains(&"install-nix".into()));
+}
+
+#[test]
+fn followup_build_repair_preserves_keys_and_checks_both_ancestries() {
+    let mut fixture = repair_fixture(Phase::Building);
+    let original = fixture.request.repair_from.clone().unwrap();
+    let previous = "c".repeat(40);
+    let mut journal = Journal::open_repair(
+        &fixture.state(),
+        &fixture.request.repository,
+        &fixture.request.host,
+        &original,
+        &previous,
+    )
+    .unwrap();
+    journal.record_repair(&original, &previous).unwrap();
+    drop(journal);
+    fixture.request.repair_previous = Some(previous.clone());
+    let key = fs::read(&fixture.request.age_key).unwrap();
+    fixture.run().unwrap();
+    let events = fixture.events();
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| *event == "repair-ancestry")
+            .count(),
+        2
+    );
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| *event == "repair-protected-files")
+            .count(),
+        2
+    );
+    assert_eq!(fs::read(&fixture.request.age_key).unwrap(), key);
+    let state: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture.state().join("progress.json")).unwrap()).unwrap();
+    assert_eq!(state["repairedFrom"], original);
+    assert_eq!(state["repairedVia"], serde_json::json!([previous]));
+    assert_eq!(state["phase"], "Activated");
 }

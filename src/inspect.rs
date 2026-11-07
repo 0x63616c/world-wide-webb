@@ -28,6 +28,10 @@ pub struct Inspection {
     pub uid: u64,
     #[serde(rename = "freeGiB")]
     pub free_gib: f64,
+    #[serde(rename = "totalGB")]
+    pub total_gb: f64,
+    #[serde(rename = "usedGB")]
+    pub used_gb: f64,
     pub message: &'static str,
     #[serde(rename = "nextAction")]
     pub next_action: &'static str,
@@ -36,6 +40,10 @@ pub struct Inspection {
 impl Inspection {
     pub fn is_ready(&self) -> bool {
         self.state == InspectionState::Ready
+    }
+
+    pub fn storage_label(&self) -> String {
+        format!("{:.0} / {:.0} GB used", self.used_gb, self.total_gb)
     }
 
     pub fn lines(&self) -> Vec<String> {
@@ -47,7 +55,7 @@ impl Inspection {
             ),
             format!("macOS {} / {}", self.mac_os, self.architecture),
             format!("Account: {} (UID {})", self.user, self.uid),
-            format!("Free space: {:.1} GiB", self.free_gib),
+            format!("Storage: {}", self.storage_label()),
             self.message.into(),
             self.next_action.into(),
         ]
@@ -131,7 +139,7 @@ pub fn inspect(host: &HostProfile, ssh: &Path) -> Result<Inspection, InspectionE
     }
     let text = std::str::from_utf8(&output.stdout).map_err(|_| UNEXPECTED)?;
     let fields: Vec<_> = text.lines().collect();
-    if fields.len() != 5 || fields.iter().any(|field| field.len() > 256) {
+    if fields.len() != 6 || fields.iter().any(|field| field.len() > 256) {
         return Err(UNEXPECTED);
     }
     let version: Vec<_> = fields[0].split('.').collect();
@@ -142,11 +150,18 @@ pub fn inspect(host: &HostProfile, ssh: &Path) -> Result<Inspection, InspectionE
         || fields[2] != host.user
         || !decimal(fields[3])
         || !decimal(fields[4])
+        || !decimal(fields[5])
     {
         return Err(UNEXPECTED);
     }
     let uid = fields[3].parse().map_err(|_| UNEXPECTED)?;
     let free_kib: u64 = fields[4].parse().map_err(|_| UNEXPECTED)?;
+    let total_kib: u64 = fields[5].parse().map_err(|_| UNEXPECTED)?;
+    if total_kib == 0 || free_kib > total_kib {
+        return Err(UNEXPECTED);
+    }
+    // APFS volumes share capacity; total minus available includes the whole shared allocation.
+    let used_kib = total_kib - free_kib;
     Ok(Inspection {
         schema: 1,
         host: host.name.clone(),
@@ -160,6 +175,8 @@ pub fn inspect(host: &HostProfile, ssh: &Path) -> Result<Inspection, InspectionE
         user: fields[2].into(),
         uid,
         free_gib: (free_kib as f64 / 1_048_576.0 * 10.0).round() / 10.0,
+        total_gb: total_kib as f64 * 1024.0 / 1_000_000_000.0,
+        used_gb: used_kib as f64 * 1024.0 / 1_000_000_000.0,
         message: "SSH inspection complete. No settings changed.",
         next_action: "Review host readiness before setup. This does not validate services, backups or runner isolation.",
     })

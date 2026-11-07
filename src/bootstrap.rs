@@ -29,6 +29,8 @@ pub struct Request {
     pub deploy_key: PathBuf,
     pub approved_host: Option<String>,
     pub resume: bool,
+    pub repair_from: Option<String>,
+    pub repair_previous: Option<String>,
 }
 
 pub struct Tools {
@@ -170,13 +172,13 @@ impl Error {
                 "Inspect and repair the existing Nix installation separately before resuming."
             }
             Self::NotReady => {
-                "Review activationReady, the existing administrator identity and authorized SSH keys in the selected commit. Nix may already have been installed."
+                "Review the existing administrator identity and authorized SSH keys in the selected commit. Nix may already have been installed."
             }
             Self::InvalidCredentials | Self::Decryption => {
                 "Check this host's private age identity and target-local Git deploy key. Resume through the setup wizard; do not supply a GitHub account token."
             }
             Self::Elevation => {
-                "Use an interactive target terminal to authenticate the existing administrator; do not store or pipe a password."
+                "Administrator authorization expired. Resume setup in the wizard to authenticate again."
             }
             _ => {
                 "Review the selected target, prerequisites and exact configuration revision before retrying with explicit resume if a journal exists."
@@ -286,8 +288,8 @@ fn existing_key(tools: &Tools, home: &Path) -> Result<bool, Error> {
 
 fn authenticate(tools: &Tools, home: &Path) -> Result<(), Error> {
     let status = command(&tools.sudo, home)
-        .arg("-v")
-        .stdin(Stdio::inherit())
+        .args(["-n", "-v"])
+        .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
@@ -351,6 +353,26 @@ fn usable_nix(tools: &Tools, home: &Path) -> Result<Option<PathBuf>, Error> {
     Ok(nix)
 }
 
+fn verify_completed_nix(tools: &Tools, home: &Path, repo: &Path) -> Result<(), Error> {
+    let installer = verify_installer(&repo.join("bootstrap/installer.json"))?;
+    let version = installer
+        .url
+        .rsplit('/')
+        .nth(1)
+        .and_then(|value| value.strip_prefix('v'))
+        .ok_or(Error::InstallerVerification)?;
+    checked_silent(
+        command(&tools.sudo, home)
+            .arg("-n")
+            .arg(&tools.helper)
+            .arg("bootstrap-nix-status")
+            .arg("--version")
+            .arg(version),
+        SHORT,
+        Error::RecoveryRequired,
+    )
+}
+
 fn install_nix(
     tools: &Tools,
     home: &Path,
@@ -406,9 +428,10 @@ fn install_nix(
     }
     fs::set_permissions(&downloaded, fs::Permissions::from_mode(0o700))
         .map_err(|_| Error::InstallerVerification)?;
-    // A download can outlast sudo's credential cache. Reauthenticate before
-    // recording a mutation, so an expired cache cannot create uncertain state.
-    authenticate(tools, home)?;
+    // Lost authorization must stop before a mutation, never prompt mid-install.
+    if !crate::sudo_session::validate(&tools.sudo, home) {
+        return Err(Error::Elevation);
+    }
     journal
         .record(Phase::InstallingNix, None)
         .map_err(|_| Error::Journal)?;
@@ -424,7 +447,13 @@ fn install_nix(
         .arg(&installer.sha256)
         .arg("--source-uid")
         .arg(uid.to_string());
-    checked_silent(&mut install, INSTALL, Error::Installation)?;
+    let installation = checked_silent(&mut install, INSTALL, Error::Installation);
+    // A disconnected installer can finish successfully. Its protected receipt and
+    // live daemon, not its exit status or a client binary alone, prove completion.
+    if verify_completed_nix(tools, home, repo).is_err() {
+        return Err(installation.err().unwrap_or(Error::Installation));
+    }
+
     checked_silent(
         command(&tools.installed_nix, home).arg("--version"),
         SHORT,
@@ -445,9 +474,41 @@ pub fn run_with_progress(
     state_directory: &Path,
     mut progress: impl FnMut(Phase),
 ) -> Result<Report, Error> {
+    let mut phase = None;
+    let result = run_inner(request, tools, state_directory, |next| {
+        phase = Some(next);
+        crate::bootstrap_diagnostics::record(state_directory, phase, "phase-started");
+        progress(next);
+    });
+    crate::bootstrap_diagnostics::record(
+        state_directory,
+        phase,
+        match &result {
+            Ok(_) => "bootstrap-completed",
+            Err(error) => error.code(),
+        },
+    );
+    result
+}
+
+fn run_inner(
+    request: &Request,
+    tools: &Tools,
+    state_directory: &Path,
+    mut progress: impl FnMut(Phase),
+) -> Result<Report, Error> {
     if !crate::config::valid_host(&request.host)
         || !crate::config::valid_repository(&request.repository)
         || !crate::config::valid_revision(&request.revision)
+        || request.repair_from.as_ref().is_some_and(|from| {
+            !request.resume || !crate::config::valid_revision(from) || from == &request.revision
+        })
+        || request.repair_previous.as_ref().is_some_and(|previous| {
+            request.repair_from.is_none()
+                || !crate::config::valid_revision(previous)
+                || Some(previous) == request.repair_from.as_ref()
+                || previous == &request.revision
+        })
     {
         return Err(Error::InvalidRequest);
     }
@@ -461,7 +522,7 @@ pub fn run_with_progress(
     };
     manifest.validate().map_err(|_| Error::InvalidRequest)?;
     let admin = approved.admin_user.as_str();
-    if !approved.activation_ready || approved.authorized_keys.is_empty() {
+    if approved.authorized_keys.is_empty() {
         return Err(Error::NotReady);
     }
     if request.approved_host.as_deref() != Some(request.host.as_str()) {
@@ -536,22 +597,40 @@ pub fn run_with_progress(
         Error::CommandLineToolsRequired,
     )?;
 
-    let journal = if request.resume {
-        Journal::open_for_reconciliation(
-            state_directory,
-            &request.repository,
-            &request.host,
-            &request.revision,
-        )
-    } else {
-        Journal::open(
-            state_directory,
-            &request.repository,
-            &request.host,
-            &request.revision,
-            false,
-        )
-    };
+    let journal =
+        if let (Some(from), Some(previous)) = (&request.repair_from, &request.repair_previous) {
+            Journal::open_followup(
+                state_directory,
+                &request.repository,
+                &request.host,
+                from,
+                previous,
+                &request.revision,
+            )
+        } else if let Some(from) = &request.repair_from {
+            Journal::open_repair(
+                state_directory,
+                &request.repository,
+                &request.host,
+                from,
+                &request.revision,
+            )
+        } else if request.resume {
+            Journal::open_for_reconciliation(
+                state_directory,
+                &request.repository,
+                &request.host,
+                &request.revision,
+            )
+        } else {
+            Journal::open(
+                state_directory,
+                &request.repository,
+                &request.host,
+                &request.revision,
+                false,
+            )
+        };
     let mut journal = journal.map_err(|error| match error {
         StateError::NeedsInspection => Error::RecoveryRequired,
         _ => Error::Journal,
@@ -560,7 +639,6 @@ pub fn run_with_progress(
         crate::config::setup_binding(&request.repository, &request.host, &request.revision)
             .ok_or(Error::Journal)?;
     match journal.phase() {
-        Phase::InstallingNix => return Err(Error::RecoveryRequired),
         Phase::Activating | Phase::Activated => {
             let system = journal
                 .built_system()
@@ -595,6 +673,7 @@ pub fn run_with_progress(
     if journal.phase() == Phase::Preparing {
         progress(Phase::Preparing);
     }
+    let resuming_nix = journal.phase() == Phase::InstallingNix;
     let resuming_keys = journal.phase() == Phase::InstallingKey;
     if resuming_keys && journal.built_system().is_none() {
         return Err(Error::RecoveryRequired);
@@ -673,15 +752,54 @@ pub fn run_with_progress(
         }
     }
 
+    for from in request
+        .repair_from
+        .iter()
+        .chain(request.repair_previous.iter())
+    {
+        checked_silent(
+            git_command(tools, &home, &key).arg("-C").arg(&repo).args([
+                "merge-base",
+                "--is-ancestor",
+                from,
+                &request.revision,
+            ]),
+            SHORT,
+            Error::NotReady,
+        )?;
+        // A code repair cannot rotate identities, change desired services, or
+        // reinterpret a previously completed Nix installation.
+        checked_silent(
+            git_command(tools, &home, &key).arg("-C").arg(&repo).args([
+                "diff",
+                "--quiet",
+                from,
+                &request.revision,
+                "--",
+                "homelab.json",
+                ".sops.yaml",
+                "secrets",
+                "flake.lock",
+                "bootstrap/installer.json",
+            ]),
+            SHORT,
+            Error::NotReady,
+        )?;
+    }
+
     // Authentication happens explicitly in the terminal; mutation commands use
     // -n so they cannot unexpectedly wait for a password in the background.
     authenticate(tools, &home)?;
+    let _authorization = crate::sudo_session::Authorization::maintain(&tools.sudo, &home);
     if existing_key(tools, &home)? && !resuming_keys {
         return Err(Error::ExistingKey);
     }
+    if resuming_nix {
+        verify_completed_nix(tools, &home, &repo).map_err(|_| Error::RecoveryRequired)?;
+    }
     let nix = match usable_nix(tools, &home)? {
         Some(nix) => nix,
-        None if resuming_keys => return Err(Error::RecoveryRequired),
+        None if resuming_keys || resuming_nix => return Err(Error::RecoveryRequired),
         None => install_nix(
             tools,
             &home,
@@ -709,6 +827,13 @@ pub fn run_with_progress(
     // overrides one of its defaults during evaluation.
     if &readiness != approved {
         return Err(Error::NotReady);
+    }
+    if let Some(from) = &request.repair_from {
+        match &request.repair_previous {
+            Some(previous) => journal.record_followup(from, previous, &request.revision),
+            None => journal.record_repair(from, &request.revision),
+        }
+        .map_err(|_| Error::Journal)?;
     }
     if !resuming_keys {
         journal
@@ -769,9 +894,9 @@ pub fn run_with_progress(
         Error::Decryption,
     )?;
 
-    // Building can take longer than sudo's cache lifetime. A failed prompt
-    // leaves this resumable at VerifyingSecrets, before any key installation.
-    authenticate(tools, &home)?;
+    if !crate::sudo_session::validate(&tools.sudo, &home) {
+        return Err(Error::Elevation);
+    }
 
     // Persist uncertainty before each privileged mutation. Timeout does not
     // prove an unprivileged supervisor stopped a root-owned descendant.

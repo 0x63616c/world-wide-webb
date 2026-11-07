@@ -8,7 +8,7 @@ use homelab_client::power::configure_ac_power;
 #[derive(Parser)]
 #[command(
     name = "homelab-host",
-    version,
+    version = homelab_client::VERSION,
     about = "Local operations invoked by host configuration and bootstrap"
 )]
 struct Arguments {
@@ -122,6 +122,15 @@ enum Operation {
         deploy_key: PathBuf,
         #[arg(long)]
         resume: bool,
+        #[arg(long)]
+        repair_from: Option<String>,
+        #[arg(long)]
+        repair_previous: Option<String>,
+    },
+    #[command(hide = true)]
+    BootstrapNixStatus {
+        #[arg(long)]
+        version: String,
     },
     #[command(hide = true)]
     BootstrapInstallNix {
@@ -210,7 +219,7 @@ fn bootstrap(request: homelab_client::bootstrap::Request, attempt: String) -> Ex
                 repository: request.repository.clone(),
                 host: request.host.clone(),
             },
-            &request.revision,
+            request.repair_from.as_deref().unwrap_or(&request.revision),
         )
     });
     if let Err(error) = claim {
@@ -532,14 +541,13 @@ fn main() -> ExitCode {
                         revision,
                     } = &phase
                     {
-                        match homelab_client::bootstrap_state::activation_candidate(
+                        match homelab_client::bootstrap_state::activation_revision(
                             Path::new(&home),
                             &repository,
                             &attempt.host,
                             revision,
                         ) {
-                            Ok(true) => identity.activated_revision = Some(revision.clone()),
-                            Ok(false) => {}
+                            Ok(activated) => identity.activated_revision = activated,
                             Err(error) => {
                                 eprintln!("Saved bootstrap progress could not be read: {error}");
                                 return ExitCode::FAILURE;
@@ -623,6 +631,8 @@ fn main() -> ExitCode {
             age_key,
             deploy_key,
             resume,
+            repair_from,
+            repair_previous,
         } => {
             let expected_host = match reviewed_host(&manifest, &repository, &revision, &host) {
                 Ok(host) => host,
@@ -642,6 +652,8 @@ fn main() -> ExitCode {
                     age_key,
                     deploy_key,
                     resume,
+                    repair_from,
+                    repair_previous,
                     approved_host: std::env::var("HOMELAB_BOOTSTRAP_APPROVED").ok(),
                 },
                 attempt,
@@ -656,6 +668,18 @@ fn main() -> ExitCode {
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => ExitCode::from(3),
                 Err(_) => {
                     eprintln!("The installed host identity could not be checked.");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Operation::BootstrapNixStatus { version } => {
+            if !root_bootstrap_operation() {
+                return ExitCode::FAILURE;
+            }
+            match homelab_client::nix_installation::verify(&version) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(error) => {
+                    eprintln!("Nix verification incomplete: {error}");
                     ExitCode::FAILURE
                 }
             }

@@ -1,11 +1,14 @@
 [package]
 name = "homelab-client"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 rust-version = "1.89"
 description = "Guided enrollment for Git-managed macOS homelabs"
 license = "MIT"
 publish = false
+
+[features]
+local-dev = []
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -16,12 +19,19 @@ clap = { version = "4", features = ["derive"] }
 rustix = { version = "1", features = ["process", "fs"] }
 
 tempfile = "3"
-crossterm = "0.29.0"
+# Level-triggered TTY polling preserves input arriving alongside SIGWINCH.
+crossterm = { version = "0.29.0", features = ["use-dev-tty"] }
 sha2 = "0.11.1"
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 time = { version = "0.3.55", default-features = false, features = ["formatting", "parsing", "std"] }
 schemars = { version = "=1.2.2", features = ["derive"] }
 serde_path_to_error = "0.1"
+ratatui = { version = "0.29.0", default-features = false, features = ["crossterm"] }
+unicode-width = "0.2.0"
+portable-pty = "0.9.0"
+vt100 = "0.15.2"
+filedescriptor = "0.8.3"
+zeroize = "1.9.1"
 
 [dev-dependencies]
 jsonschema = { version = "=0.30.0", default-features = false }
@@ -41,4 +51,9 @@ harness = false
 [[test]]
 name = "vm_enrollment"
 path = "tests/vm_enrollment.rs"
+harness = false
+
+[[test]]
+name = "authentication"
+path = "tests/authentication.rs"
 harness = false

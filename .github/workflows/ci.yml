@@ -48,9 +48,10 @@ jobs:
           done
           mkdir -p dist
           cp target/release/homelab target/release/homelab-host dist/
+          ln -s homelab dist/hl
           cp README.md LICENSE CONTRIBUTING.md dist/
           cp -R docs examples schema dist/
-          tar -czf homelab-aarch64-apple-darwin.tar.gz -C dist homelab homelab-host README.md LICENSE CONTRIBUTING.md docs examples schema
+          tar -czf homelab-aarch64-apple-darwin.tar.gz -C dist homelab hl homelab-host README.md LICENSE CONTRIBUTING.md docs examples schema
           shasum -a 256 homelab-aarch64-apple-darwin.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -77,6 +78,7 @@ jobs:
           test -s release/docs/images/architecture.svg
           test -s release/schema/homelab-v2.schema.json
           release/homelab --version
+          release/hl --version
           release/homelab-host --version
           release/homelab --help
           release/homelab config validate release/examples/homelab.json

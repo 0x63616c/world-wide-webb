@@ -1,9 +1,10 @@
 //! Presentation only: durable journals, not these rows, decide what can resume.
+use crate::ui::actions::Action;
 use std::io;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use crossterm::terminal;
 
 use crate::ui::Role;
@@ -16,14 +17,16 @@ pub(super) enum Step {
     Configuration,
     Install,
     Verify,
+    Updates,
 }
-const STEPS: [Step; 6] = [
+const STEPS: [Step; 7] = [
     Step::Tools,
     Step::Identity,
     Step::Credentials,
     Step::Configuration,
     Step::Install,
     Step::Verify,
+    Step::Updates,
 ];
 impl Step {
     fn index(self) -> usize {
@@ -31,18 +34,19 @@ impl Step {
     }
     pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Tools => "Check developer tools",
-            Self::Identity => "Prepare Git identity",
-            Self::Credentials => "Back up and encrypt keys",
-            Self::Configuration => "Save configuration in Git",
-            Self::Install => "Install approved configuration",
-            Self::Verify => "Verify reboot and Git updates",
+            Self::Tools => "Developer tools",
+            Self::Identity => "Repository access",
+            Self::Credentials => "Recovery and secrets",
+            Self::Configuration => "Git configuration",
+            Self::Install => "Mac configuration",
+            Self::Verify => "Startup and connectivity",
+            Self::Updates => "Automatic updates",
         }
     }
     fn explanation(self) -> &'static str {
         match self {
             Self::Tools => {
-                "Use working developer tools or install Apple's Command Line Tools. Administrator authentication may appear outside this screen."
+                "Use working developer tools or install Apple's Command Line Tools. Administrator authentication stays inside setup."
             }
             Self::Identity => {
                 "Reconcile the target-local read-only Git identity. Private Git keys stay on the target."
@@ -54,24 +58,19 @@ impl Step {
                 "Publish only the reviewed enrollment changes. Repository policy may require a pull request instead of a direct commit."
             }
             Self::Install => {
-                "Install the exact approved revision. Native SSH and sudo own password prompts; an uncertain activation is never blindly repeated."
+                "Install the exact approved revision. SSH and sudo handle embedded password prompts; an uncertain activation is never blindly repeated."
             }
             Self::Verify => {
-                "Verify services, remote access, reboot and Git reconciliation before releasing the update hold. FileVault may need local unlock."
+                "Verify services, remote access and reboot. FileVault may need local unlock."
             }
+            Self::Updates => "Release the setup hold and let Comin build and apply Git main.",
         }
     }
 }
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum State {
-    Pending,
-    Current,
-    Done,
-    Failed,
-}
+use crate::ui::components::ProgressState as State;
 pub(super) struct Checklist {
     host: String,
-    states: [State; 6],
+    states: [State; 7],
     current: Step,
     started: Instant,
     message: String,
@@ -83,11 +82,15 @@ pub(super) struct Checklist {
 }
 impl Checklist {
     pub(super) fn new(host: &str) -> Self {
+        Self::new_at(host, Instant::now())
+    }
+
+    fn new_at(host: &str, now: Instant) -> Self {
         Self {
             host: host.into(),
-            states: [State::Pending; 6],
+            states: [State::Pending; 7],
             current: Step::Tools,
-            started: Instant::now(),
+            started: now,
             message: String::new(),
             details: false,
             offset: 0,
@@ -97,41 +100,50 @@ impl Checklist {
         }
     }
     pub(super) fn begin(&mut self, step: Step, message: &str) {
-        if self.current != step || self.states[step.index()] != State::Current {
-            self.started = Instant::now();
+        self.begin_at(step, message, Instant::now());
+    }
+
+    fn begin_at(&mut self, step: Step, message: &str, now: Instant) {
+        if self.current != step || self.states[step.index()] != State::Running {
+            self.started = now;
             self.offset = 0;
         }
         self.current = step;
-        self.states[step.index()] = State::Current;
+        self.states[step.index()] = State::Running;
         self.message = message.into();
     }
     pub(super) fn done(&mut self, step: Step) {
-        self.states[step.index()] = State::Done;
+        self.states[step.index()] = State::Complete;
     }
-    pub(super) fn native_status(&self) -> String {
-        let mut lines = vec![format!("Setup · {}", self.host)];
-        for step in STEPS {
-            let symbol = match self.states[step.index()] {
-                State::Pending => "○",
-                State::Current => "›",
-                State::Done => "✓",
-                State::Failed => "!",
-            };
-            lines.push(format!("{symbol} {}", step.label()));
-        }
-        lines.push(
-            "Native authentication is using the terminal; the checklist returns afterward.".into(),
-        );
-        lines.join("\n")
+    pub(super) fn rows(&self) -> Vec<(String, Role)> {
+        self.stages()
+            .into_iter()
+            .map(|(label, state)| state.row(label))
+            .collect()
     }
+    fn fail(&mut self, step: Step, message: String) {
+        self.states[step.index()] = State::Failed;
+        self.message = message;
+    }
+
+    fn stages(&self) -> [(&'static str, State); 7] {
+        STEPS.map(|step| (step.label(), self.states[step.index()]))
+    }
+
     pub(super) fn message(&mut self, message: &str) {
         self.message = message.into();
     }
     fn body(&self, height: usize) -> Vec<(String, Role)> {
+        self.body_at(height, Instant::now())
+    }
+
+    fn body_at(&self, height: usize, now: Instant) -> Vec<(String, Role)> {
+        let elapsed = now.saturating_duration_since(self.started);
         let mut body = vec![(
-            format!("{} · {}s", self.host, self.started.elapsed().as_secs()),
+            format!("{} · {}s", self.host, elapsed.as_secs()),
             Role::Context,
         )];
+        body.push((String::new(), Role::Body));
         if self.details {
             body.push((self.current.label().into(), Role::Section));
             body.push((self.current.explanation().into(), Role::Body));
@@ -139,17 +151,10 @@ impl Checklist {
             body.push((self.message.clone(), Role::Body));
             return body;
         }
-        // Small terminals show the current neighborhood; no unseen row is claimed complete.
-        let count = if height < 18 { 2 } else { 6 };
-        let start = self.current.index().saturating_sub(count - 1);
-        for step in STEPS.iter().skip(start).take(count) {
-            let (symbol, role) = match self.states[step.index()] {
-                State::Pending => ("○", Role::Pending),
-                State::Current => ("›", Role::Selected),
-                State::Done => ("✓", Role::Success),
-                State::Failed => ("!", Role::Warning),
-            };
-            body.push((format!("{symbol} {}", step.label()), role));
+        for (step, (label, state)) in STEPS.into_iter().zip(self.stages()) {
+            if height >= 18 || step == self.current {
+                body.push(state.row(label));
+            }
         }
         if height >= 18 {
             body.push((String::new(), Role::Body));
@@ -167,10 +172,10 @@ impl Checklist {
         ));
         body
     }
-    pub(super) fn draw(&mut self, actions: &str) -> io::Result<()> {
+    pub(super) fn draw(&mut self, actions: &[Action]) -> io::Result<()> {
         let (_, height) = terminal::size()?;
         self.last_offset = super::render_with_link(
-            "Set up your Mac",
+            "Setting up your Mac",
             &self.body(usize::from(height)),
             self.offset,
             actions,
@@ -181,21 +186,18 @@ impl Checklist {
     }
     pub(super) fn key(&mut self, key: KeyCode) {
         match key {
-            KeyCode::Char('d' | 'D') => {
+            KeyCode::Char('?' | 'd' | 'D') => {
                 self.details = !self.details;
                 self.offset = 0;
             }
             KeyCode::Up => self.offset = self.offset.saturating_sub(1),
             KeyCode::Down => self.offset = (self.offset + 1).min(self.last_offset),
-            KeyCode::Esc => self.cancelled = true,
+            code if Action::Back.matches(code) => self.cancelled = true,
             KeyCode::Char('o' | 'O') => {
                 if let Some(url) = &self.link {
-                    let _ = std::process::Command::new("/usr/bin/open")
-                        .arg(url)
-                        .stdin(std::process::Stdio::null())
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::null())
-                        .status();
+                    let mut command = std::process::Command::new("/usr/bin/open");
+                    command.arg(url).stdin(std::process::Stdio::null());
+                    let _ = crate::process::run_silent(&mut command, Duration::from_secs(5));
                 }
             }
             _ => (),
@@ -213,23 +215,25 @@ impl Checklist {
         self.link = None;
     }
     pub(super) fn stop_requested(&mut self) -> io::Result<bool> {
-        while event::poll(Duration::ZERO)? {
+        while event::poll(Duration::from_millis(1))? {
             if let Event::Key(key) = event::read()?
                 && key.kind != KeyEventKind::Release
             {
-                self.key(
-                    if key.code == KeyCode::Char('c')
-                        && key.modifiers.contains(KeyModifiers::CONTROL)
-                    {
-                        KeyCode::Esc
-                    } else {
-                        key.code
-                    },
-                );
+                self.key(crate::quit::handle(key));
             }
         }
         Ok(self.cancelled)
     }
+    /// Run preparation once without blocking presentation or offering mutation retries.
+    pub(super) fn background<T: Send>(
+        &mut self,
+        operation: impl FnOnce() -> T + Send,
+    ) -> io::Result<T> {
+        let result = crate::ui::loading::run(|| self.draw(&[Action::Quit]), operation)?;
+        self.cancelled |= crate::quit::requested();
+        Ok(result)
+    }
+
     /// Keep input and the clock responsive while existing noninteractive operations run.
     /// Cancellation waits for the operation to finish; it never kills a mutation.
     pub(super) fn run<T: Send, E: std::fmt::Display + Send>(
@@ -254,11 +258,16 @@ impl Checklist {
                             self.message(&message);
                             redraw = Instant::now() - Duration::from_secs(1);
                         }
-                        if redraw.elapsed() >= Duration::from_secs(1) {
+                        if redraw.elapsed() >= Duration::from_millis(80) {
                             self.draw(if self.link.is_some() {
-                                "O Open PR · D Details · ↑/↓ Read · Esc Stop after step"
+                                &[
+                                    Action::OpenPr,
+                                    Action::Help,
+                                    Action::Navigation,
+                                    Action::StopAfterStep,
+                                ]
                             } else {
-                                "D Details · ↑/↓ Read · Esc Stop after step"
+                                &[Action::Help, Action::Navigation, Action::StopAfterStep]
                             })?;
                             redraw = Instant::now();
                         }
@@ -266,15 +275,7 @@ impl Checklist {
                             && let Event::Key(key) = event::read()?
                             && key.kind != KeyEventKind::Release
                         {
-                            self.key(
-                                if key.code == KeyCode::Char('c')
-                                    && key.modifiers.contains(KeyModifiers::CONTROL)
-                                {
-                                    KeyCode::Esc
-                                } else {
-                                    key.code
-                                },
-                            );
+                            self.key(crate::quit::handle(key));
                             redraw = Instant::now() - Duration::from_secs(1);
                         }
                     }
@@ -291,16 +292,20 @@ impl Checklist {
             match result {
                 Ok(value) => return Ok(Ok(value)),
                 Err(error) => {
-                    self.states[step.index()] = State::Failed;
-                    self.message = format!("{}", error);
+                    self.fail(step, error.to_string());
                     if self.cancelled {
                         return Ok(Err(error));
                     }
                     loop {
-                        self.draw("R Retry checks · D Details · ↑/↓ Read · Esc Save and exit")?;
+                        self.draw(&[
+                            Action::Retry,
+                            Action::Help,
+                            Action::Navigation,
+                            Action::SaveAndExit,
+                        ])?;
                         match super::key()? {
                             KeyCode::Char('r' | 'R') => break,
-                            KeyCode::Esc => {
+                            code if Action::Back.matches(code) => {
                                 self.cancelled = true;
                                 return Ok(Err(error));
                             }
@@ -318,13 +323,99 @@ mod tests {
     use super::*;
 
     #[test]
+    fn elapsed_time_and_repeated_progress_are_deterministic() {
+        let start = Instant::now();
+        let mut checklist = Checklist::new_at("fixture-mac", start);
+        checklist.begin_at(Step::Tools, "Checking tools", start);
+        checklist.offset = 3;
+
+        let later = start + Duration::from_secs(61);
+        checklist.begin_at(Step::Tools, "Installing tools", later);
+        assert_eq!(checklist.body_at(24, later)[0].0, "fixture-mac · 61s");
+        assert_eq!(checklist.offset, 3);
+        assert_eq!(checklist.message, "Installing tools");
+
+        checklist.done(Step::Tools);
+        checklist.begin_at(Step::Identity, "Checking Git identity", later);
+        assert_eq!(checklist.body_at(24, later)[0].0, "fixture-mac · 0s");
+        assert_eq!(checklist.offset, 0);
+        assert!(checklist.states[Step::Tools.index()] == State::Complete);
+    }
+
+    #[test]
+    fn retry_resets_only_the_failed_stage() {
+        let start = Instant::now();
+        let mut checklist = Checklist::new_at("fixture-mac", start);
+        checklist.done(Step::Tools);
+        checklist.begin_at(Step::Credentials, "Checking backups", start);
+        checklist.fail(Step::Credentials, "Synthetic provider unavailable".into());
+        checklist.offset = 4;
+        assert!(checklist.states[Step::Credentials.index()] == State::Failed);
+
+        let retry = start + Duration::from_secs(120);
+        checklist.begin_at(Step::Credentials, "Retrying backup checks", retry);
+        assert_eq!(checklist.body_at(24, retry)[0].0, "fixture-mac · 0s");
+        assert_eq!(checklist.offset, 0);
+        assert!(checklist.states[Step::Tools.index()] == State::Complete);
+        assert!(checklist.states[Step::Credentials.index()] == State::Running);
+        assert!(checklist.states[Step::Install.index()] == State::Pending);
+        assert!(checklist.states[Step::Verify.index()] == State::Pending);
+    }
+
+    #[test]
+    fn cancellation_and_details_do_not_certify_or_reset_work() {
+        let start = Instant::now();
+        let mut checklist = Checklist::new_at("fixture-mac", start);
+        checklist.begin_at(Step::Install, "Installing configuration", start);
+        checklist.key(KeyCode::Esc);
+        checklist.key(KeyCode::Char('?'));
+        assert!(checklist.details);
+        checklist.key(KeyCode::Char('?'));
+        assert!(!checklist.details);
+        assert!(checklist.cancelled);
+        assert!(checklist.states[Step::Install.index()] == State::Running);
+        assert!(checklist.states[Step::Verify.index()] == State::Pending);
+        assert!(
+            checklist
+                .body_at(24, start)
+                .iter()
+                .any(|(line, _)| { line == "Stopping after this step; progress stays saved." })
+        );
+        assert!(
+            !checklist
+                .body_at(24, start)
+                .iter()
+                .any(|(_, role)| *role == Role::Success)
+        );
+    }
+
+    #[test]
+    fn each_step_reports_its_own_state() {
+        let mut checklist = Checklist::new("example");
+        checklist.done(Step::Tools);
+        checklist.done(Step::Identity);
+        checklist.begin(Step::Credentials, "Backing up keys");
+        assert!(checklist.stages()[2].1 == State::Running);
+        checklist.fail(Step::Credentials, "Backup failed".into());
+        assert!(checklist.stages()[2].1 == State::Failed);
+        checklist.begin(Step::Credentials, "Retrying backup");
+        checklist.done(Step::Credentials);
+        assert!(checklist.stages()[2].1 == State::Complete);
+        checklist.done(Step::Configuration);
+        assert!(checklist.stages()[4].1 == State::Pending);
+        checklist.done(Step::Install);
+        assert!(checklist.stages()[4].1 == State::Complete);
+        assert!(checklist.stages()[5].1 == State::Pending);
+    }
+
+    #[test]
     fn resume_never_marks_unchecked_stages_successful() {
         let mut checklist = Checklist::new("example");
         checklist.done(Step::Tools);
         checklist.begin(Step::Verify, "Checking existing activation");
         assert!(checklist.states[Step::Install.index()] == State::Pending);
         assert!(checklist.states[Step::Credentials.index()] == State::Pending);
-        assert!(checklist.states[Step::Verify.index()] == State::Current);
+        assert!(checklist.states[Step::Verify.index()] == State::Running);
         assert_eq!(
             checklist
                 .body(24)
@@ -370,6 +461,22 @@ mod tests {
         let mut checklist = Checklist::new("fixture-mac");
         let mut attempts = 0;
         let started = Instant::now();
+        if mode == "background" {
+            checklist.begin(Step::Install, "Preparing the approved installation");
+            let result = checklist
+                .background(|| {
+                    attempts += 1;
+                    std::thread::sleep(Duration::from_millis(1600));
+                    Err::<(), _>("Synthetic preparation failure")
+                })
+                .unwrap();
+            assert!(result.is_err());
+            assert_eq!(attempts, 1);
+            assert!(started.elapsed() >= Duration::from_millis(1600));
+            drop(_terminal);
+            println!("CHECKLIST_TEST_COMPLETE");
+            return;
+        }
         let result = checklist
             .run(Step::Credentials, |progress| {
                 attempts += 1;
@@ -390,7 +497,7 @@ mod tests {
             assert!(result.is_ok());
             assert_eq!(attempts, 2);
             // Successful suboperations do not certify an entire checklist stage.
-            assert!(checklist.states[Step::Credentials.index()] == State::Current);
+            assert!(checklist.states[Step::Credentials.index()] == State::Running);
         }
         drop(_terminal);
         println!("CHECKLIST_TEST_COMPLETE");
@@ -405,7 +512,7 @@ mod tests {
         use std::fs::File;
         use std::io::{Read, Write};
         use std::process::{Command, Stdio};
-        for mode in ["cancel", "retry"] {
+        for mode in ["cancel", "retry", "background"] {
             let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY).unwrap();
             fcntl_setfd(&master, FdFlags::CLOEXEC).unwrap();
             grantpt(&master).unwrap();
@@ -444,12 +551,16 @@ mod tests {
             fcntl_setfl(&master, OFlags::NONBLOCK).unwrap();
             let mut master = File::from(master);
             let mut output = String::new();
+            let mut screen = vt100::Parser::new(24, 80, 0);
             let mut wait = |needle: &str, master: &mut File| {
                 let deadline = Instant::now() + Duration::from_secs(10);
-                while !output.contains(needle) {
+                while !screen.screen().contents().contains(needle) {
                     let mut bytes = [0; 4096];
                     match master.read(&mut bytes) {
-                        Ok(count) => output.push_str(&String::from_utf8_lossy(&bytes[..count])),
+                        Ok(count) => {
+                            screen.process(&bytes[..count]);
+                            output.push_str(&String::from_utf8_lossy(&bytes[..count]));
+                        }
                         Err(error) if error.kind() == io::ErrorKind::WouldBlock => (),
                         Err(error) => panic!("PTY failed: {error}"),
                     }
@@ -460,10 +571,20 @@ mod tests {
                     std::thread::sleep(Duration::from_millis(10));
                 }
             };
+            if mode == "background" {
+                wait("Preparing the approved installation", &mut master);
+                master.write_all(b"\x03").unwrap();
+                wait("Press Ctrl-C again to quit", &mut master);
+                master.write_all(b"x").unwrap();
+                wait("fixture-mac · 1s", &mut master);
+                wait("CHECKLIST_TEST_COMPLETE", &mut master);
+                assert!(child.wait().unwrap().success());
+                continue;
+            }
             wait("Verifying saved backups", &mut master);
             wait("fixture-mac · 1s", &mut master);
             if mode == "cancel" {
-                master.write_all(b"d").unwrap();
+                master.write_all(b"?").unwrap();
                 wait("Verify recovery backups in 1Password", &mut master);
                 master.write_all(b"\x1b").unwrap();
             } else {

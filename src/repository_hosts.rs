@@ -1,4 +1,4 @@
-//! Git defines hosts; the local inventory stores only how this operator reaches them.
+//! Git defines host identity and its canonical local route; cache retains SSH key selection.
 use crate::config::{Host, Manifest};
 use crate::inventory::{HostProfile, validate_profile};
 use thiserror::Error;
@@ -84,6 +84,7 @@ pub fn resolve(name: &str, host: &Host, cache: &[HostProfile]) -> Result<Connect
     });
     // Keep the original local name: existing setup journals are keyed by it.
     profile.user = host.admin_user.clone();
+    profile.address = format!("{name}.local");
     profile.configuration_host = Some(name.to_owned());
     validate_profile(&profile).map_err(|_| Error::Invalid)?;
     Ok(Connection {
@@ -103,7 +104,6 @@ mod tests {
             admin_user: admin.into(),
             admin_uid: 501,
             authorized_keys: vec![],
-            activation_ready: false,
             services: vec![],
         }
     }
@@ -119,7 +119,7 @@ mod tests {
     }
 
     #[test]
-    fn explicit_alias_preserves_route_identity_and_journal_name() {
+    fn explicit_alias_preserves_identity_and_journal_name_but_not_route_override() {
         let mut original = cached("my-server", Some("build-mac"));
         original.identity = Some(AgentIdentity {
             public_key: "ssh-ed25519 AAAA".into(),
@@ -128,7 +128,7 @@ mod tests {
         let resolved =
             resolve("build-mac", &host("admin"), std::slice::from_ref(&original)).unwrap();
         assert_eq!(resolved.profile.name, "my-server");
-        assert_eq!(resolved.profile.address, original.address);
+        assert_eq!(resolved.profile.address, "build-mac.local");
         assert_eq!(resolved.profile.identity, original.identity);
         assert_eq!(resolved.profile.user, "admin");
         assert!(resolved.requires_review());

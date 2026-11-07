@@ -3,10 +3,6 @@
     "Host": {
       "additionalProperties": false,
       "properties": {
-        "activationReady": {
-          "description": "Explicit reviewed approval for activation of this host configuration.",
-          "type": "boolean"
-        },
         "adminUID": {
           "description": "Existing administrator UID, verified against the target before setup.",
           "format": "uint32",
@@ -48,7 +44,6 @@
         "adminUser",
         "adminUID",
         "authorizedKeys",
-        "activationReady",
         "services"
       ],
       "type": "object"

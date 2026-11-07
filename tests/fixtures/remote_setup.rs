@@ -114,7 +114,7 @@ fn main() {
         if args.last().unwrap().contains("install-developer-tools") {
             event("install-tools");
             assert!(args.last().unwrap().contains("shasum -a 256 homelab-host"));
-            assert!(args.last().unwrap().contains("exec /usr/bin/sudo -- ./homelab-host"));
+            assert!(args.last().unwrap().contains("exec /usr/bin/sudo -n -- ./homelab-host"));
             if let Ok(status) = fs::read_to_string(root.join("interrupted-status")) {
                 std::process::exit(status.parse().unwrap());
             }
@@ -147,7 +147,7 @@ fn main() {
             std::process::exit(255);
         }
         println!(
-            "27.2\narm64\nadmin\n{}\n104857600",
+            "27.2\narm64\nadmin\n{}\n104857600\n500000000",
             if root.join("changed-uid").exists() {
                 "502"
             } else {

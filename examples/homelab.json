@@ -6,7 +6,6 @@
       "adminUser": "admin",
       "adminUID": 501,
       "authorizedKeys": [],
-      "activationReady": false,
       "services": []
     }
   },

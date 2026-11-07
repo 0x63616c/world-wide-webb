@@ -193,6 +193,16 @@ pub fn load(path: &Path) -> Result<Vec<HostProfile>, InventoryError> {
     Ok(inventory.hosts)
 }
 
+struct InventoryLock(File);
+
+impl Drop for InventoryLock {
+    fn drop(&mut self) {
+        // A concurrent child may inherit this descriptor before exec. Release
+        // ownership explicitly so that child cannot prolong a finished save.
+        let _ = flock(&self.0, FlockOperation::Unlock);
+    }
+}
+
 pub fn add(path: &Path, host: HostProfile) -> Result<Vec<HostProfile>, InventoryError> {
     validate_profile(&host)?;
     save(path, Change::Add(host))
@@ -321,6 +331,7 @@ fn save(path: &Path, change: Change<'_>) -> Result<Vec<HostProfile>, InventoryEr
             InventoryError::SaveFailed
         }
     })?;
+    let _lock = InventoryLock(lock);
 
     match fs::symlink_metadata(path) {
         Ok(metadata) if !metadata.is_file() => return Err(InventoryError::UnsafeLocation),
@@ -425,4 +436,28 @@ fn save(path: &Path, change: Change<'_>) -> Result<Vec<HostProfile>, InventoryEr
         .and_then(|directory| directory.sync_all())
         .map_err(|_| InventoryError::SaveFailed)?;
     Ok(inventory.hosts)
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::*;
+    #[test]
+    fn inherited_descriptor_does_not_keep_a_completed_save_locked() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let owner = File::options()
+            .read(true)
+            .write(true)
+            .open(file.path())
+            .unwrap();
+        flock(&owner, FlockOperation::NonBlockingLockExclusive).unwrap();
+        let inherited = owner.try_clone().unwrap();
+        drop(InventoryLock(owner));
+        let next = File::options()
+            .read(true)
+            .write(true)
+            .open(file.path())
+            .unwrap();
+        flock(&next, FlockOperation::NonBlockingLockExclusive).unwrap();
+        drop(inherited);
+    }
 }
