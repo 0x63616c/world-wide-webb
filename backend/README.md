@@ -140,3 +140,8 @@ avatars and notifications with audited revision fences; it cannot bypass deploym
 Provider authorization/configuration failures pause notifications and appear there. Resume only after
 fixing the cause. Pending awards remain intact. APNs retry policy is12 attempts with30s exponential
 backoff capped at1h plus bounded jitter. Queue/runtime acceptance remains outstanding.
+
+Historical corrections require **0014**. `/admin/periods` lists published periods; prepare a correction,
+wait for the queued immutable preview, then explicitly publish the exact digest within ten minutes.
+Privacy changes invalidate that preview. Publication is versioned/audited and cannot create another
+original award notification. Full concurrency and realistic D1-size acceptance remains outstanding.

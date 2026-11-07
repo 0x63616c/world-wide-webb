@@ -268,3 +268,24 @@ optional `pending_avatar_id`, selecting the current uploading/pending reservatio
 projections exclude it. The native client can recover or cancel an upload after response loss/relaunch.
 Focused verification: actual Wasm compilation and 299 literal SQL preparations across 13 migrations pass.
 Full Queue/D1 concurrency and provider failure simulations remain deferred final acceptance.
+
+## Historical correction implementation checkpoint
+
+Migration 0014 adds audited correction snapshots. The protected period list links finalized periods to
+an explicit prepare/preview/publish workflow. Preparation freezes currently accepted observations
+received before the original cutoff, at the current decision watermark, using the prior eligible roster
+and its original generation/join era. Reset/deleted rosters cannot be recreated. A queued correction
+worker reuses the shared reducer and stages a new unpublished result version. Existing published
+results remain visible throughout preparation. Expired unpublished copies are purged.
+
+The preview shows changed fold totals/ranks and binds all eligible result rows to a SHA256 digest.
+Confirmation is restricted to the preparing administrator, the exact published base version, the
+preview digest and a ten-minute ready window. Publication checks current privacy eligibility and
+result-row count inside the transaction, writes a reasoned audit and swaps only the published version.
+A privacy removal invalidates the old preview instead of silently publishing a different result. No
+original-award job is inserted by corrections; pending original jobs recheck the latest published result.
+Original finalization time remains unchanged, so correction does not move notification scheduling.
+
+Actual Wasm compilation passes. Fourteen migrations apply and literal plus multiline SQL guards prepare
+on SQLite. Full original-finalization/correction/privacy interleavings, large-roster D1 statement limits
+and browser review remain final acceptance work; no live results have been corrected or published.

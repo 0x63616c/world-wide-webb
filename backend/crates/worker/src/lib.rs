@@ -37,6 +37,8 @@ mod community_reads;
 #[cfg(target_arch = "wasm32")]
 mod competition_runtime;
 #[cfg(target_arch = "wasm32")]
+mod correction_runtime;
+#[cfg(target_arch = "wasm32")]
 mod deletion_runtime;
 #[cfg(target_arch = "wasm32")]
 mod enrollment_runtime;

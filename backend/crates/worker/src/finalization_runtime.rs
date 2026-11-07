@@ -7,12 +7,12 @@ use folding_domain::{
 use serde::Deserialize;
 use worker::*;
 #[derive(Deserialize)]
-struct Period {
-    period_id: String,
-    start_ms: u64,
-    end_ms: u64,
-    cutoff_ms: u64,
-    target_version: i64,
+pub(crate) struct Period {
+    pub(crate) period_id: String,
+    pub(crate) start_ms: u64,
+    pub(crate) end_ms: u64,
+    pub(crate) cutoff_ms: u64,
+    pub(crate) target_version: i64,
 }
 #[derive(Deserialize)]
 struct Roster {
@@ -109,7 +109,7 @@ async fn freeze(db: &D1Database, period: &Period, time: i64) -> std::result::Res
     }
     Ok(())
 }
-async fn stage(db: &D1Database, period: &Period) -> std::result::Result<(), Failure> {
+pub(crate) async fn stage(db: &D1Database, period: &Period) -> std::result::Result<(), Failure> {
     let rows=statement(db,"SELECT participant_id,generation_revision,generation_id,joined_at_ms FROM period_roster WHERE period_id=?1 AND version=?2 AND state='pending' ORDER BY participant_id LIMIT 25",&[text(&period.period_id),number(period.target_version)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Roster>().map_err(|_|Failure::unavailable())?;
     for row in rows {
         let input=statement(db,"SELECT event_json FROM finalization_inputs WHERE period_id=?1 AND version=?2 AND participant_id=?3",&[text(&period.period_id),number(period.target_version),text(&row.participant_id)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Input>().map_err(|_|Failure::unavailable())?;
@@ -157,13 +157,17 @@ INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(
  SELECT 1 FROM period_roster r JOIN periods d ON d.period_id=r.period_id
  JOIN participants p ON p.participant_id=r.participant_id JOIN epochs e ON e.epoch_id=p.epoch_id
  WHERE r.period_id=?2 AND r.version=?3 AND r.participant_id=?4 AND r.state<>'removed'
- AND d.state='finalizing' AND d.target_version=?3 AND p.account_state='active'
+ AND ((d.state='finalizing' AND d.target_version=?3) OR (d.state='finalized' AND EXISTS(SELECT 1 FROM period_corrections c WHERE c.period_id=d.period_id AND c.version=?3 AND c.base_version=d.published_version AND c.state='building'))) AND p.account_state='active'
  AND p.membership='joined' AND p.restriction='none' AND p.generation_revision=?5 AND p.generation_id=?6
  AND e.joined_at_ms=?7 AND e.closed_at_ms IS NULL
  AND NOT EXISTS(SELECT 1 FROM staged_results s WHERE s.period_id=?2 AND s.version=?3 AND s.participant_id=?4 AND s.folds<>?8)
 ) THEN 1 ELSE 0 END)
 "#;
-async fn suppress(db: &D1Database, period: &str, version: i64) -> std::result::Result<(), Failure> {
+pub(crate) async fn suppress(
+    db: &D1Database,
+    period: &str,
+    version: i64,
+) -> std::result::Result<(), Failure> {
     db.batch(vec![
  statement(db,"UPDATE period_roster SET state='removed' WHERE period_id=?1 AND version=?2 AND NOT EXISTS(SELECT 1 FROM participants p JOIN epochs e ON e.epoch_id=p.epoch_id WHERE p.participant_id=period_roster.participant_id AND p.account_state='active' AND p.membership='joined' AND p.restriction='none' AND p.generation_revision=period_roster.generation_revision AND p.generation_id=period_roster.generation_id AND e.joined_at_ms=period_roster.joined_at_ms AND e.closed_at_ms IS NULL)",&[text(period),number(version)])?,
  statement(db,"DELETE FROM finalization_inputs WHERE period_id=?1 AND version=?2 AND participant_id IN(SELECT participant_id FROM period_roster WHERE period_id=?1 AND version=?2 AND state='removed')",&[text(period),number(version)])?,
@@ -196,7 +200,7 @@ async fn publish(db: &D1Database, period: &Period) -> std::result::Result<(), Fa
     }
     Ok(())
 }
-const PUBLISH_RESULTS: &str = r#"
+pub(crate) const PUBLISH_RESULTS: &str = r#"
 INSERT INTO results
 WITH ranked AS (
  SELECT s.*,r.generation_revision,r.generation_id,r.joined_at_ms,

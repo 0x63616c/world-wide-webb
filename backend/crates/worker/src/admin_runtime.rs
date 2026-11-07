@@ -128,6 +128,20 @@ pub(crate) async fn dispatch(
     let config = Configuration::load(env)?;
     let admin = admin_auth::authorize(request, env, &config).await?;
     let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+    if request.path() == "/admin/periods" {
+        return crate::correction_runtime::list(request, &db).await;
+    }
+    if let Some(raw) = request.path().strip_prefix("/admin/periods/") {
+        let raw = raw.strip_suffix("/corrections").unwrap_or(raw);
+        let period = percent_encoding::percent_decode_str(raw)
+            .decode_utf8()
+            .map_err(|_| Failure::malformed())?;
+        if period.len() > 128 || period.contains('/') {
+            return Err(Failure::malformed());
+        }
+        return crate::correction_runtime::admin(request, &db, &config, &admin, body, &period)
+            .await;
+    }
     if request.path() == "/admin/config" {
         return crate::operational_runtime::admin(request, &db, &config, &admin, body).await;
     }
