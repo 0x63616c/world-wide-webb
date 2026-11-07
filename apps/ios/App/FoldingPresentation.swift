@@ -302,3 +302,40 @@ func foldingDuration(_ milliseconds: Int64) -> String {
   Duration.milliseconds(max(0, milliseconds)).formatted(
     .units(allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 2))
 }
+
+/// Clock-only projection of already-reduced running sessions. Never records or replays events.
+struct RunningDurationPresentation {
+  private let startsMS: [Int64]
+  private let asOfMS: Int64
+  private let dayEndMS: Int64
+  var isRunning: Bool { !startsMS.isEmpty }
+
+  init(snapshot: PersonalAnalyticsSnapshot, day: PersonalDailySummary) {
+    asOfMS = snapshot.asOfMS
+    dayEndMS = day.endMS
+    startsMS = snapshot.sessions.compactMap { session in
+      guard day.timezoneID == snapshot.homeTimezone,
+        day.startMS <= snapshot.asOfMS, snapshot.asOfMS < day.endMS,
+        session.generation == snapshot.generation,
+        session.completeness == .running, session.endMS == nil,
+        session.startMS <= snapshot.asOfMS
+      else { return nil }
+      return max(day.startMS, session.startMS)
+    }
+  }
+
+  func durationMS(at date: Date) -> Int64 {
+    let rawMS = date.timeIntervalSince1970 * 1000
+    // A backwards/invalid wall clock cannot subtract confirmed elapsed time. Future-dated
+    // session anchors stay excluded until a new authoritative snapshot makes them eligible.
+    let boundedMS =
+      rawMS.isFinite
+      ? min(Double(dayEndMS), max(Double(asOfMS), rawMS)) : Double(asOfMS)
+    let endMS = Int64(boundedMS)
+    return startsMS.reduce(Int64(0)) { total, start in
+      let elapsed = max(0, endMS - start)
+      let sum = total.addingReportingOverflow(elapsed)
+      return sum.overflow ? Int64.max : sum.partialValue
+    }
+  }
+}

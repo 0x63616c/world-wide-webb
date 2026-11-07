@@ -1,3 +1,4 @@
+import FoldingDomain
 import XCTest
 
 @testable import Folding
@@ -76,6 +77,58 @@ import XCTest
     XCTAssertNil(model.sheet)
     model.didDismissSheet()
     XCTAssertEqual(model.sheet, .setup)
+  }
+
+  func testRunningDurationAdvancesWithoutMutatingSnapshot() throws {
+    let snapshot = try runningSnapshot(open: "2026-03-08T09:00:00Z", at: "2026-03-08T09:00:00Z")
+    let day = try XCTUnwrap(snapshot.days.last)
+    let running = RunningDurationPresentation(snapshot: snapshot, day: day)
+    XCTAssertTrue(running.isRunning, "A zero-second session must show its live timer")
+    XCTAssertEqual(running.durationMS(at: date("2026-03-08T09:00:05Z")), 5_000)
+    XCTAssertEqual(day.runningDurationMS, 0, "Rendering must not change the immutable snapshot")
+  }
+
+  func testRunningDurationClampsToDSTHomeDayAndBackwardsClock() throws {
+    let snapshot = try runningSnapshot(open: "2026-03-08T07:00:00Z", at: "2026-03-08T09:00:00Z")
+    let day = try XCTUnwrap(snapshot.days.last)
+    let running = RunningDurationPresentation(snapshot: snapshot, day: day)
+    XCTAssertEqual(running.durationMS(at: date("2026-03-08T08:00:00Z")), 3_600_000)
+    XCTAssertEqual(running.durationMS(at: date("2026-03-10T12:00:00Z")), 23 * 3_600_000)
+    XCTAssertEqual(day.endMS - day.startMS, 23 * 3_600_000)
+  }
+
+  func testFutureOrClosedSessionDoesNotStartLiveTimer() throws {
+    let future = try runningSnapshot(open: "2026-03-09T09:00:00Z", at: "2026-03-08T09:00:00Z")
+    let futureRunning = RunningDurationPresentation(
+      snapshot: future, day: try XCTUnwrap(future.days.last))
+    XCTAssertFalse(futureRunning.isRunning)
+    XCTAssertEqual(futureRunning.durationMS(at: date("2026-03-10T09:00:00Z")), 0)
+    let closed = try runningSnapshot(
+      open: "2026-03-08T08:30:00Z", at: "2026-03-08T09:00:00Z", closed: true)
+    XCTAssertFalse(
+      RunningDurationPresentation(snapshot: closed, day: try XCTUnwrap(closed.days.last)).isRunning)
+  }
+
+  private func date(_ iso: String) -> Date { ISO8601DateFormatter().date(from: iso)! }
+
+  private func runningSnapshot(open: String, at: String, closed: Bool = false) throws
+    -> PersonalAnalyticsSnapshot
+  {
+    let device = UUID()
+    func event(_ sequence: Int64, _ transition: Transition, _ time: String) -> TrackingEvent {
+      TrackingEvent(
+        schemaVersion: 1, eventID: UUID(), deviceID: device, sequence: sequence,
+        generation: .initial, observedAtMS: Int64(date(time).timeIntervalSince1970 * 1000),
+        timezoneID: "America/Los_Angeles", transition: transition, isTest: false,
+        competitionEpochID: nil)
+    }
+    var events = [event(1, .open, open)]
+    if closed { events.append(event(2, .close, at)) }
+    let now = Int64(date(at).timeIntervalSince1970 * 1000)
+    return try PersonalAnalytics.snapshot(
+      events: events, generation: .initial,
+      homeTimezone: "America/Los_Angeles", asOfMS: now,
+      range: PersonalDateRange.trailingDays(1, throughMS: now, homeTimezone: "America/Los_Angeles"))
   }
 
   private func actions() -> FoldingActions {

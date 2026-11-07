@@ -208,13 +208,20 @@ private struct TodayScreen: View {
     switch metric {
     case .timeUnfolded:
       MetricRow(title: metric.title, value: foldingDuration(today.completeDurationMS))
-      if today.runningDurationMS > 0 {
-        Label(foldingDuration(today.runningDurationMS), systemImage: "timer")
-          .font(.subheadline).foregroundStyle(.secondary)
-          .accessibilityLabel(
-            String(
-              localized: "session.runningDuration",
-              defaultValue: "Running, \(foldingDuration(today.runningDurationMS))"))
+      if let snapshot = model.analytics {
+        let running = RunningDurationPresentation(snapshot: snapshot, day: today)
+        if running.isRunning {
+          TimelineView(.periodic(from: .now, by: 1)) { context in
+            let durationMS = running.durationMS(at: context.date)
+            Label(foldingDuration(durationMS), systemImage: "timer")
+              .font(.subheadline).foregroundStyle(.secondary)
+              .monospacedDigit()
+              .accessibilityLabel(
+                String(
+                  localized: "session.runningDuration",
+                  defaultValue: "Running, \(foldingDuration(durationMS))"))
+          }
+        }
       }
     case .trend:
       VStack(alignment: .leading, spacing: 12) {

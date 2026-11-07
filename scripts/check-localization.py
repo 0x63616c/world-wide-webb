@@ -15,7 +15,7 @@ LOCALES = {'en', 'de', 'fr', 'es', 'es-419', 'ja', 'ko', 'pt-BR', 'zh-Hans', 'zh
 INTERPOLATIONS = {
     'leaderboard.pending': (r'\(value.pendingFolds)', '%lld'),
     'leaderboard.periodTimezone': (r'\(periodTitle)', '%@'),
-    'session.runningDuration': (r'\(foldingDuration(today.runningDurationMS))', '%@'),
+    'session.runningDuration': (r'\(foldingDuration(durationMS))', '%@'),
 }
 LITERAL = r'"((?:[^"\\]|\\.)*)"'
 SOURCE_PATTERN = re.compile(
