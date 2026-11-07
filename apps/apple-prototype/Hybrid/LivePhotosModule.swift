@@ -1,3 +1,4 @@
+import ImageIO
 import SwiftUI
 import UIKit
 import CoreImage
@@ -118,25 +119,41 @@ struct LivePhotosModule: View {
 struct AuthenticatedPhoto: View {
     let provider: LivePhotosProvider
     let photo: LivePhoto
+    var mode: ContentMode = .fit
+    var thumbnailSize: CGFloat?
+    @Environment(\.displayScale) private var displayScale
     @State private var image: UIImage?
     @State private var failed = false
     var body: some View {
         GeometryReader { proxy in
             Group {
                 if let image {
-                    Image(uiImage: image).resizable().scaledToFit()
+                    Image(uiImage: image).resizable()
+                        .aspectRatio(contentMode: image.size.width / image.size.height < 0.45 ? .fit : mode)
                 } else if failed {
                     ContentUnavailableView("Photo unavailable", systemImage: "photo.badge.exclamationmark")
                 } else { ProgressView() }
             }.frame(width: proxy.size.width, height: proxy.size.height)
-        }.task {
+        }.clipped().task(id: photo) {
+            image = nil; failed = false
             do {
                 let data = try await provider.image(photo)
                 try Task.checkCancellation()
-                guard let decoded = UIImage(data: data) else { failed = true; return }
+                guard let decoded = await Self.decode(data, maxPixels: thumbnailSize.map { Int($0 * displayScale) }) else { failed = true; return }
+                try Task.checkCancellation()
                 image = PhotoDisplayFilter.apply(photo.filter, to: decoded)
             } catch { if !Task.isCancelled { failed = true } }
         }
+    }
+    nonisolated private static func decode(_ data: Data, maxPixels: Int?) async -> UIImage? {
+        guard let maxPixels else { return UIImage(data: data) }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixels
+              ] as CFDictionary) else { return nil }
+        return UIImage(cgImage: image)
     }
 }
 

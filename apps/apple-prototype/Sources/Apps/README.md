@@ -48,29 +48,27 @@ Glass. Home comparison captures live in `docs/screenshots/layered-home-icons/`.
 
 ## Photo Booth
 
-Photo Booth prefers the front camera. Photo takes one shot; Strip takes four,
-with a three-second posing countdown between shots. The self-timer offers Off,
-1, 3, 5 and 10 seconds before the first shot (3 seconds by default). The shutter
-becomes Cancel during capture, and leaving/backgrounding cancels partial strips
-without uploading them. Four completed frames become one white-bordered JPEG
-strip, readable in both native and web galleries. A finished strip stays in the
-preview until the next capture or navigation. A shot saves to the existing booth
-gallery; the gallery button opens earlier booth photos and every frame of older
-burst/strip captures. Wake photos are
-excluded. Back moves from an enlarged photo to the gallery, then to the camera,
-then Home. The existing booth manifest is private, so each opening requires a
-fresh synced PIN and backgrounding locks the page.
+Photo Booth opens to a full-screen, mirrored front-camera preview on devices
+with a front camera. Photo takes one shot. Strip takes four, with a three-second
+posing countdown between shots. Switch modes with the Liquid Glass control
+under the shutter. The self-timer offers Off, 1, 3, 5, and 10 seconds before the
+first shot. The shutter cancels an active countdown or partial strip.
 
-Capture/configuration runs on a serial actor, with a real AVFoundation preview
-and rotation coordinator. Leaving the camera stops it. Saving belongs to the
-app's data source, so a failed JPEG remains available for retry after navigation
-while the app stays open; explicit discard requires the unlocked page. Uploads
-use the existing same-origin booth endpoint and bounded JPEG contract. Capture
-of single photos has been confirmed on Calum's panel; physical strip capture and
-rotation remain unverified. Without a camera the simulator shows its unavailable
-state. The explicit DEBUG-only `-hybridBoothCamera` fixture supplies numbered,
-clearly labelled simulator test images to exercise capture, composition, upload
-and gallery display without private photos or a fabricated live camera feed.
+The lower-left thumbnail opens Booth photos, the gallery for this app. A dense
+grid groups captures by local date, with sticky Today, Yesterday, and date
+headings. Tap a photo or strip to open it, swipe or use the filmstrip to browse,
+and go back to the same place in the grid. Four completed frames save as one
+white-bordered JPEG and open a saved-strip screen. Older burst frames remain
+available as individual gallery items. The Photos launcher entry has been
+removed. A fresh synced PIN protects each opening, and backgrounding locks it.
+
+Capture runs on a serial actor. Leaving the camera stops it and cancels partial
+strips. The app owns each completed upload. An unsuccessful save can be retried
+or discarded from the unlocked camera. Without a camera the simulator shows
+the unavailable state. The DEBUG-only `-hybridBoothCamera` fixture supplies
+numbered frames for testing composition and saving. `-hybridBoothLibrary`
+adds dated gallery fixtures. For visual review, four sample JPEGs can be staged
+as `photos/review/0.jpg` through `3.jpg` under the fixture bundle before building.
 
 ## Timer
 

@@ -6,6 +6,7 @@ import PanelKit
 
 /// Composition and module identity stay in Hybrid; the inbox has no routing dependency.
 @MainActor enum PanelNotifications {
+    static let timerDeepLink = "app/timer"
     static let updateDeepLink = "module/updates/testflight"
     static let testFlightURL = URL(string: "itms-beta://")!
 

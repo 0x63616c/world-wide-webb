@@ -117,13 +117,13 @@ import XCTest
         snapshot("layered-icons-home")
         print("MOTION_CAPTURE_READY layered-icons")
         Thread.sleep(forTimeInterval: 2) // Video lead-in, not a correctness wait.
-        for id in ["weather", "lights", "music", "photos"] {
+        for id in ["weather", "lights", "music", "booth"] {
             let button = app.buttons["app-\(id)"]
             XCTAssertTrue(button.isHittable, id)
             // Hold the real button long enough to see its depth feedback, then release.
             button.press(forDuration: 0.7)
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
-            if id == "photos" {
+            if id == "booth" {
                 XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
             }
             snapshot("layered-icons-\(id)")
@@ -133,7 +133,7 @@ import XCTest
         Thread.sleep(forTimeInterval: 1)
         print("MOTION_CAPTURE_DONE layered-icons")
         // The recording stays short; every remaining redesigned app is also opened.
-        for id in ["calendar", "climate", "walks", "car", "wifi", "timer", "booth", "classic", "settings"] {
+        for id in ["calendar", "climate", "walks", "car", "wifi", "timer", "classic", "settings"] {
             let button = app.buttons["app-\(id)"]
             XCTAssertTrue(button.isHittable, id)
             button.tap()
@@ -158,7 +158,7 @@ import XCTest
         app.openAppGrid()
         print("MOTION_CAPTURE_READY back-buttons")
         Thread.sleep(forTimeInterval: 1) // Recording lead-in, not a correctness wait.
-        for id in ["weather", "photos", "settings"] {
+        for id in ["weather", "booth", "settings"] {
             app.buttons["app-\(id)"].tap()
             let back = app.buttons["app-back"]
             XCTAssertTrue(back.waitForExistence(timeout: 10), id)

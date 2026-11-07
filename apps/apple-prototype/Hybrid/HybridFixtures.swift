@@ -9,6 +9,8 @@ import UIKit
     private var frame = 0
     func photo() throws -> Data {
         frame += 1
+        if let root = Bundle.main.resourceURL?.appendingPathComponent("Fixtures"),
+           let photo = BoothReviewFixture.image(root: root, index: (frame - 1) % 4) { return photo }
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1; format.opaque = true
         return UIGraphicsImageRenderer(size: CGSize(width: 800, height: 600), format: format)
@@ -20,6 +22,38 @@ import UIKit
                 ("SIMULATOR TEST IMAGE" as NSString).draw(at: CGPoint(x: 210, y: 445), withAttributes: [
                     .font: UIFont.systemFont(ofSize: 30, weight: .medium), .foregroundColor: UIColor.white])
             }
+    }
+}
+
+/// Review captures use the regular camera/gallery views and their real image loaders.
+enum BoothReviewFixture {
+    static var enabled: Bool { ProcessInfo.processInfo.arguments.contains("-hybridBoothLibrary") }
+
+    static func image(root: URL, index: Int) -> Data? {
+        guard enabled else { return nil }
+        return try? Data(contentsOf: root.appendingPathComponent("photos/review/\(index).jpg"))
+    }
+
+    @MainActor static func preview(root: URL) -> UIImage? {
+        image(root: root, index: 0).flatMap { UIImage(data: $0) }
+    }
+
+    static func gallery() throws -> Data {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        let earlier = calendar.date(from: DateComponents(year: 2025, month: 11, day: 2)) ?? yesterday
+        let groups = [today, yesterday, earlier].enumerated().flatMap { day, date in
+            (0..<(day == 2 ? 18 : 6)).map { index -> [String: Any] in
+                let id = "bp_review_\(day)_\(index)"
+                let captured = (date.timeIntervalSince1970 + Double(900 - index * 30)) * 1000
+                return ["groupId": "bpg_\(id)", "mode": "photo", "capturedAt": captured,
+                        "frames": [["id": id, "path": "review-\((day + index) % 4).jpg",
+                                    "frameIdx": 0, "capturedAt": captured, "mimeType": "image/jpeg"]]]
+            }
+        }
+        return try JSONSerialization.data(withJSONObject: ["result": ["data": [
+            "groups": groups, "totalCount": groups.count, "totalBytes": 0]]])
     }
 }
 
@@ -85,6 +119,18 @@ actor HybridFixtureTransport: PanelTransport {
                 "groups": [group], "totalCount": 1, "totalBytes": boothCapture.count]]])
             return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
+        if BoothReviewFixture.enabled {
+            if url.lastPathComponent == "boothPhotos.list" {
+                return (try BoothReviewFixture.gallery(),
+                        HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            if url.lastPathComponent.hasPrefix("review-"),
+               let index = url.lastPathComponent.dropFirst(7).first?.wholeNumberValue,
+               let image = BoothReviewFixture.image(root: root, index: index) {
+                return (image, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                    headerFields: ["Content-Type": "image/jpeg"])!)
+            }
+        }
         if url.path.hasPrefix("/media/"), !url.path.hasPrefix("/media/cameras/") {
             let data = try Data(contentsOf: root.appendingPathComponent("photos/image.png"))
             return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
@@ -112,6 +158,8 @@ actor HybridFixtureTransport: PanelTransport {
         else {
             switch procedure {
             case "settings.get": file = "photos/settings.json"
+            case "boothPhotos.list" where ProcessInfo.processInfo.arguments.contains("-hybridBoothEmpty"):
+                file = "photos/empty-booth.json"
             case "boothPhotos.list":
                 file = ProcessInfo.processInfo.arguments.contains("-hybridBoothBurst") ? "photos/booth-burst.json" : "photos/booth.json"
             case "wakePhotos.list": file = "photos/wakes.json"

@@ -49,7 +49,7 @@ extension HomeViewLaunchTests {
         wait(for: [reset], timeout: 5)
         XCTAssertTrue(app.buttons["timer-edit"].isEnabled)
     }
-    @MainActor func testCustomTimerFinishesAndCanStartAgain() {
+    @MainActor func testCustomTimerFinishesAndCanBeStopped() {
         let app = launchTimer()
         defer { app.terminate() }
         app.buttons["timer-edit"].tap()
@@ -59,10 +59,17 @@ extension HomeViewLaunchTests {
         app.buttons["timer-edit-save"].tap()
         XCTAssertEqual(app.staticTexts["timer-remaining"].value as? String, "5 seconds")
         app.buttons["timer-start-pause"].tap()
+        app.buttons["app-back"].tap()
+        let banner = app.buttons["notification-banner-timer"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 12))
+        banner.tap()
         let finished = expectation(for: NSPredicate(format: "label == %@", "Time’s up"), evaluatedWith: app.staticTexts["timer-status"])
         wait(for: [finished], timeout: 12)
         XCTAssertEqual(app.staticTexts["timer-remaining"].value as? String, "0 seconds")
-        XCTAssertTrue(app.buttons["timer-start-pause"].label.contains("Again"))
+        XCTAssertTrue(app.buttons["timer-stop"].isHittable)
+        app.buttons["timer-stop"].tap()
+        XCTAssertEqual(app.staticTexts["timer-remaining"].value as? String, "5 seconds")
+        XCTAssertTrue(app.buttons["timer-start-pause"].label.contains("Start"))
         app.buttons["timer-start-pause"].tap()
         XCTAssertTrue(app.buttons["timer-start-pause"].label.contains("Pause"))
         app.buttons["timer-reset"].tap()

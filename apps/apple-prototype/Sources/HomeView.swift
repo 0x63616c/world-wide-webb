@@ -83,7 +83,8 @@ struct HomeView: View {
     var onWake: () -> Void = {}
     @State private var shell = PanelShellState()
     private let launcherMotion = ClockLauncherMotion.current
-    @State private var timer = PanelTimerStore()
+    @State private var timer: PanelTimerStore
+    private let runsTimer: Bool
     private var display = PanelDisplayPreferences()
     @AppStorage("panel.clockFace") private var clockFace = PanelClockFace.green
     @GestureState private var faceDrag: CGFloat = 0
@@ -100,11 +101,13 @@ struct HomeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let catalog = PanelAppCatalog.standard
     init(store: any HomeDataSource, initialTile: HomeTile? = nil, demo: Bool = false,
-         initialFace: Int = 0, onWake: @escaping () -> Void = {}) {
+         initialFace: Int = 0, managedTimer: PanelTimerStore? = nil, onWake: @escaping () -> Void = {}) {
         self.store = store
         self.initialTile = initialTile
         self.demo = demo
         self.initialFace = initialFace
+        _timer = State(initialValue: managedTimer ?? PanelTimerStore())
+        runsTimer = managedTimer == nil
         self.onWake = onWake
     }
 
@@ -242,13 +245,13 @@ struct HomeView: View {
                 .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
                     store.walkActivity.synchronize(walk: walk, now: store.now)
                 }
+                .onChange(of: timer.openRequested, initial: true) { _, requested in
+                    guard requested, let app = catalog.app(id: "timer") else { return }
+                    timer.openRequested = false
+                    open(app)
+                }
                 .task(id: scenePhase) {
-                    guard scenePhase == .active else { timer.deactivate(); return }
-                    timer.activate()
-                    while !Task.isCancelled {
-                        timer.tick()
-                        do { try await Task.sleep(for: .seconds(1)) } catch { return }
-                    }
+                    if runsTimer { await timer.run(while: scenePhase) }
                 }
                 .task {
                     #if DEBUG
@@ -256,6 +259,7 @@ struct HomeView: View {
                     if let index = arguments.firstIndex(of: "-previewApp"), arguments.indices.contains(index + 1),
                        let app = catalog.app(id: arguments[index + 1]) { open(app); return }
                     #endif
+                    guard selected == nil else { return }
                     if initialFace != HomeFacePage.clock { shell.showLauncher() }
                     if let initialTile, let app = catalog.apps.first(where: { definition in
                         if case .feature(let feature) = definition.route { return feature.homeTile == initialTile }
@@ -312,7 +316,10 @@ struct HomeView: View {
             }
             .overlay(alignment: .topTrailing) {
                 if app.route == .timer || app.route == .feature(.climate) {
-                    PanelAppBackButton(back: home).padding(.horizontal, 24).padding(.top, 16)
+                    // The timer’s angled marks extend inward around the corner.
+                    PanelAppBackButton(back: home)
+                        .padding(.horizontal, app.route == .timer ? 40 : 24)
+                        .padding(.top, app.route == .timer ? 32 : 16)
                 }
             }
             .scrollBounceBehavior(.basedOnSize)
@@ -333,7 +340,6 @@ struct HomeView: View {
         case .walks: DogWalkPage(store: store)
         case .wifi: WifiController(wifi: store.wifi)
         case .car: TeslaController(provider: store.tesla)
-        case .photos: ModulePage(tile: feature.homeTile, store: store, close: home)
         }
     }
 }
@@ -347,7 +353,6 @@ extension PanelAppFeature {
         case .weather: .weather
         case .calendar: .calendar
         case .walks: .dogwalk
-        case .photos: .photos
         case .car: .tesla
         case .wifi: .wifi
         }
