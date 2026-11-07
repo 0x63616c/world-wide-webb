@@ -240,10 +240,11 @@ fn bootstrap(request: homelab_client::bootstrap::Request, attempt: String) -> Ex
         }),
         installed_nix: "/nix/var/nix/profiles/default/bin/nix".into(),
     };
-    match homelab_client::bootstrap::run(
+    match homelab_client::bootstrap::run_with_progress(
         &request,
         &tools,
         &home.join(".local/state/homelab/bootstrap"),
+        |phase| eprintln!("{}", phase.message()),
     ) {
         Ok(report) => {
             println!("{} at {}: {}", report.host, report.revision, report.message);

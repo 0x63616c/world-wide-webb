@@ -518,3 +518,83 @@ fn missing_or_broken_developer_tools_stop_before_secrets_journal_or_network() {
         );
     }
 }
+
+#[test]
+fn progress_follows_durable_phases_and_stops_at_the_failed_operation() {
+    use homelab_client::bootstrap::run_with_progress;
+    for fail_build in [false, true] {
+        let fixture = Fixture::new(false);
+        if fail_build {
+            fixture.flag("build-fails");
+        }
+        let mut phases = Vec::new();
+        let result = run_with_progress(
+            &fixture.request,
+            &fixture.tools,
+            &fixture.state(),
+            |phase| {
+                let saved: serde_json::Value = serde_json::from_slice(
+                    &fs::read(fixture.state().join("progress.json")).unwrap(),
+                )
+                .unwrap();
+                assert_eq!(saved["phase"], serde_json::to_value(phase).unwrap());
+                phases.push(phase);
+            },
+        );
+        let mut expected = vec![Phase::Preparing, Phase::InstallingNix, Phase::Building];
+        if fail_build {
+            assert_eq!(result.unwrap_err(), Error::Build);
+        } else {
+            result.unwrap();
+            expected.extend([
+                Phase::VerifyingSecrets,
+                Phase::InstallingKey,
+                Phase::Activating,
+                Phase::Activated,
+            ]);
+        }
+        assert_eq!(phases, expected);
+        let messages = phases
+            .iter()
+            .map(|phase| phase.message())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!messages.contains(fixture.directory.path().to_str().unwrap()));
+        assert!(!messages.contains(&fixture.request.revision));
+        assert!(!messages.contains(&fixture.request.repository));
+        assert!(!messages.contains("AGE-SECRET"));
+    }
+}
+
+#[test]
+fn silent_bootstrap_child() {
+    if std::env::var_os("HOMELAB_TEST_SILENT_BOOTSTRAP").is_none() {
+        return;
+    }
+    Fixture::new(true).run().unwrap();
+}
+
+#[test]
+fn existing_run_api_does_not_emit_progress_or_child_output() {
+    let output = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "silent_bootstrap_child", "--nocapture"])
+        .env("HOMELAB_TEST_SILENT_BOOTSTRAP", "1")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.is_empty());
+    for phase in [
+        Phase::Preparing,
+        Phase::InstallingNix,
+        Phase::Building,
+        Phase::VerifyingSecrets,
+        Phase::InstallingKey,
+        Phase::Activating,
+        Phase::Activated,
+    ] {
+        assert!(!stdout.contains(phase.message()));
+    }
+    assert!(!stdout.contains("AGE-SECRET"));
+}

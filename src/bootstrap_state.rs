@@ -18,6 +18,23 @@ pub enum Phase {
     Activated,
 }
 
+impl Phase {
+    /// Fixed operator messages deliberately exclude paths and subprocess output.
+    pub fn message(self) -> &'static str {
+        match self {
+            Self::Preparing => "Preparing the reviewed configuration…",
+            Self::InstallingNix => "Installing Nix. This can take several minutes…",
+            Self::Building => {
+                "Building the reviewed configuration. Downloads may take several minutes…"
+            }
+            Self::VerifyingSecrets => "Checking host secret decryption…",
+            Self::InstallingKey => "Installing this Mac’s identities…",
+            Self::Activating => "Activating the built configuration…",
+            Self::Activated => "Configuration activated; verification and reboot are next.",
+        }
+    }
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum StateError {
     #[error(

@@ -358,6 +358,7 @@ fn install_nix(
     work: &Path,
     journal: &mut Journal,
     uid: u32,
+    progress: &mut dyn FnMut(Phase),
 ) -> Result<PathBuf, Error> {
     let installer = verify_installer(&repo.join("bootstrap/installer.json"))?;
     let downloaded = work.join("nix-installer");
@@ -411,6 +412,7 @@ fn install_nix(
     journal
         .record(Phase::InstallingNix, None)
         .map_err(|_| Error::Journal)?;
+    progress(Phase::InstallingNix);
     let mut install = command(&tools.sudo, home);
     install
         .arg("-n")
@@ -433,6 +435,16 @@ fn install_nix(
 
 /// Apply an explicitly approved first-setup request on the selected target.
 pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<Report, Error> {
+    run_with_progress(request, tools, state_directory, |_| {})
+}
+
+/// Report fixed phases without exposing child output or changing recovery state.
+pub fn run_with_progress(
+    request: &Request,
+    tools: &Tools,
+    state_directory: &Path,
+    mut progress: impl FnMut(Phase),
+) -> Result<Report, Error> {
     if !crate::config::valid_host(&request.host)
         || !crate::config::valid_repository(&request.repository)
         || !crate::config::valid_revision(&request.revision)
@@ -568,6 +580,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             journal
                 .record(Phase::Activated, Some(&system))
                 .map_err(|_| Error::Journal)?;
+            progress(Phase::Activated);
             return Ok(Report {
                 host: request.host.clone(),
                 revision: request.revision.clone(),
@@ -576,6 +589,9 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             });
         }
         _ => {}
+    }
+    if journal.phase() == Phase::Preparing {
+        progress(Phase::Preparing);
     }
     let resuming_keys = journal.phase() == Phase::InstallingKey;
     if resuming_keys && journal.built_system().is_none() {
@@ -664,7 +680,15 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     let nix = match usable_nix(tools, &home)? {
         Some(nix) => nix,
         None if resuming_keys => return Err(Error::RecoveryRequired),
-        None => install_nix(tools, &home, &repo, work.path(), &mut journal, uid)?,
+        None => install_nix(
+            tools,
+            &home,
+            &repo,
+            work.path(),
+            &mut journal,
+            uid,
+            &mut progress,
+        )?,
     };
     let target = format!("{}#darwinConfigurations.{}", repo.display(), request.host);
     let mut evaluate = command(&nix, &home);
@@ -689,6 +713,9 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             .record(Phase::Building, None)
             .map_err(|_| Error::Journal)?;
     }
+    // Progress describes the active operation. A resumed key installation keeps
+    // its stronger durable uncertainty marker while revalidating the same build.
+    progress(Phase::Building);
     let system_link = work.path().join("system");
     let build_status = process::run_silent(
         command(&nix, &home)
@@ -726,6 +753,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
             .record(Phase::VerifyingSecrets, Some(&system))
             .map_err(|_| Error::Journal)?;
     }
+    progress(Phase::VerifyingSecrets);
     checked_silent(
         command(&helper, &home)
             .arg("verify-host-secrets")
@@ -748,6 +776,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     journal
         .record(Phase::InstallingKey, Some(&system))
         .map_err(|_| Error::Journal)?;
+    progress(Phase::InstallingKey);
     checked_silent(
         command(&tools.sudo, &home)
             .arg("-n")
@@ -777,6 +806,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     journal
         .record(Phase::Activating, Some(&system))
         .map_err(|_| Error::Journal)?;
+    progress(Phase::Activating);
     checked_silent(
         command(&tools.sudo, &home)
             .arg("-n")
@@ -792,6 +822,7 @@ pub fn run(request: &Request, tools: &Tools, state_directory: &Path) -> Result<R
     journal
         .record(Phase::Activated, Some(&system))
         .map_err(|_| Error::Journal)?;
+    progress(Phase::Activated);
     Ok(Report {
         host: request.host.clone(),
         revision: request.revision.clone(),
