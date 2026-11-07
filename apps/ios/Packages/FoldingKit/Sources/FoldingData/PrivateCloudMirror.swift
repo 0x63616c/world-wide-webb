@@ -309,9 +309,9 @@ public actor PrivateCloudMirror {
         payload.name = "payload"
         payload.attributeType = .binaryDataAttributeType
         payload.isOptional = true
-        entity.properties = [id, payload]
+        var properties: [NSPropertyDescription] = [id, payload]
         // Local Core Data lookup index; remote mirroring uses Apple's generated schema/indexes.
-        entity.indexes = [
+        var indexes = [
           NSFetchIndexDescription(
             name: "logicalIDIndex",
             elements: [NSFetchIndexElementDescription(property: id, collationType: .binary)])
@@ -325,8 +325,8 @@ public actor PrivateCloudMirror {
           generationID.name = "generationID"
           generationID.attributeType = .stringAttributeType
           generationID.isOptional = true
-          entity.properties += [revision, generationID]
-          entity.indexes += [
+          properties += [revision, generationID]
+          indexes += [
             NSFetchIndexDescription(
               name: "generationIndex",
               elements: [
@@ -335,6 +335,8 @@ public actor PrivateCloudMirror {
               ])
           ]
         }
+        entity.properties = properties
+        entity.indexes = indexes
         return entity
       }
     return model
