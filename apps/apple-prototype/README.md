@@ -14,7 +14,7 @@ Lamps has an All lamps brightness fader, room power controls, expandable members
 
 Tesla preserves the retired service's field names and types: `name`, `nick`, `place`, optional `lat`/`lon`, `charging`, `chargingState`, `preconditioning`, `rate`, `pct`, `range`, `odo` and `climate`. Online/asleep/offline availability is separate. The fixture is Model Y / Car, Home, 78%, 241 mi, charging at 11 kW, cabin 64°F, with no coordinates. Vehicle telemetry is read-only; only lock and unlock are available on the live panel. There is no map.
 
-Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses through KeyframeAnimator only while charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
+Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses through KeyframeAnimator only while charging. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
 
 The research specification, reference images, independent reviews, comparison sheets, live log and motion proof remain outside this repository at `/workspace/wwwebb-ui/prototype/v2/`. Reference images are never bundled or committed. Images under `docs/screenshots/v2/` document the previous iteration, not this pass. `mac-home.png` is explicitly an **iOS-hosted Mac layout render**; the build mini runs macOS 15.6 and cannot launch a macOS 26 app.
 
@@ -115,7 +115,7 @@ Arguments:
 - `-wifiFixture`: secured, open or unconfigured.
 - `-alarmRinging`: seed a ringing alarm occurrence.
 - `-snapshot`: fixed 10:10:30 Pacific fixture date and deterministic motion phase.
-- `-demoAutoPage`: show Home for five seconds, Controls for five, then Music; enable the mock fan to demonstrate its state-driven motion. Reduced Motion suppresses automatic paging.
+- `-demoAutoPage`: show Home for five seconds, Controls for five, then Music; enable the mock fan to demonstrate its state-driven motion.
 
 The iPad simulator screenshots and 10–15-second `simctl io recordVideo --codec h264` recording provide the runtime material and motion evidence. Phone screenshots come from an iPhone 17 Pro simulator. Native macOS appearance and interaction still require macOS 26 hardware.
 
@@ -129,7 +129,7 @@ Run `bash scripts/verify-live.sh` on the mini to build, run all unit tests (incl
 
 Home adds Weather and Calendar; swipe to Home · More for Cameras, Photos, Media and Sonos Rooms. All tiles open their full-screen controllers with native zoom. The shared layout solver tests both pages and both phone scroll boundaries. Tesla offers charging and cabin preconditioning only. Sonos volume locks remain.
 
-Weather: four current metrics and 12 hours. Calendar: generic fixture day agenda. Media: choose an album/playlist and a Sonos room, or play the bundled silent lake film in AVKit. Sonos Rooms: per-room calibrated volume, mute, grouping. Cameras: two animated stock-photo feeds, explicitly marked Demo feed / Simulated camera. Photos: three bundled photos crossfade every 12 seconds; Reduce Motion disables automatic changes. All providers and commands are in-memory fixtures.
+Weather: four current metrics and 12 hours. Calendar: generic fixture day agenda. Media: choose an album/playlist and a Sonos room, or play the bundled silent lake film in AVKit. Sonos Rooms: per-room calibrated volume, mute, grouping. Cameras: two animated stock-photo feeds, explicitly marked Demo feed / Simulated camera. Photos: three bundled photos crossfade every 12 seconds. All providers and commands are in-memory fixtures.
 
 Launch the new pages with `-openTile weather|calendar|media|sonosRooms|cameras|photos`; use `-openTile media -showVideo` for deterministic video review. `-face controls` opens Home · More.
 

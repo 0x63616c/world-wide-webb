@@ -71,8 +71,6 @@ private struct NotificationEdgePan: UIViewRepresentable {
 
 struct NotificationHistory: View {
     @Environment(NotificationCenter.self) private var center
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
     let source: (String) -> NotificationSource
     @State private var expanded: Set<String> = []
     @State private var clearing = false
@@ -128,7 +126,7 @@ struct NotificationHistory: View {
             Text("Notification Center").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             Button("Clear All") { clear() }
-                .buttonStyle(.glass).disabled(clearing || center.history.isEmpty)
+                .buttonStyle(.glass).disabled(clearing || !center.history.contains(where: { !$0.isPersistentUpdate }))
                 .accessibilityIdentifier("notification-history-clear-all")
             Button("Close", systemImage: "xmark") { center.historyPresented = false }
                 .labelStyle(.iconOnly).buttonStyle(.glass)
@@ -143,7 +141,7 @@ struct NotificationHistory: View {
     private func groupHeader(_ group: NotificationGroup) -> some View {
         HStack {
             Button {
-                withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+                withAnimation(.snappy(duration: 0.25)) {
                     if !expanded.insert(group.id).inserted { expanded.remove(group.id) }
                 }
             } label: {
@@ -159,7 +157,7 @@ struct NotificationHistory: View {
             .accessibilityIdentifier("notification-history-group-\(group.id)")
             Spacer()
             Button("Clear All") { clear(group.id) }
-                .frame(minHeight: 44).disabled(clearing)
+                .frame(minHeight: 44).disabled(clearing || !group.items.contains(where: { !$0.isPersistentUpdate }))
                 .accessibilityLabel("Clear all \(source(group.id).name) notifications")
                 .accessibilityIdentifier("notification-history-clear-\(group.id)")
         }
@@ -229,10 +227,14 @@ private struct NotificationHistoryRow: View {
         .accessibilityHint("Opens \(source.name)")
         .accessibilityIdentifier("notification-history-item-\(item.id)")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button("Clear", systemImage: "trash", role: .destructive) { Task { await center.dismiss(item.id) } }
-                .tint(.red)
+            if !item.isPersistentUpdate {
+                Button("Clear", systemImage: "trash", role: .destructive) { Task { await center.dismiss(item.id) } }
+                    .tint(.red)
+            }
         }
-        .accessibilityAction(named: "Clear") { Task { await center.dismiss(item.id) } }
+        .accessibilityActions {
+            if !item.isPersistentUpdate { Button("Clear") { Task { await center.dismiss(item.id) } } }
+        }
     }
 }
 

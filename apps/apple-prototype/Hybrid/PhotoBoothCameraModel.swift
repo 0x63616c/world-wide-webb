@@ -20,6 +20,7 @@ import PanelKit
     private(set) var error: String?
     private(set) var preview: UIImage?
     var rotation: CGFloat = 0
+    let testPreview: UIImage?
     let capture = PhotoBoothCaptureSession()
     @ObservationIgnored private let api: PhotosAPI
     @ObservationIgnored private let photos: LivePhotosProvider
@@ -33,11 +34,12 @@ import PanelKit
     @ObservationIgnored private var retainsPreview = false
     var hasUnsavedPhoto: Bool { unsaved != nil && !saving }
     var usesTestCamera: Bool { capturePhoto != nil }
+    var hasSavedStrip: Bool { retainsPreview && unsaved == nil && preview != nil }
 
     init(api: PhotosAPI, photos: LivePhotosProvider,
-         capturePhoto: (@MainActor () async throws -> Data)? = nil,
+         capturePhoto: (@MainActor () async throws -> Data)? = nil, testPreview: UIImage? = nil,
          sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
-        self.api = api; self.photos = photos; self.capturePhoto = capturePhoto; self.sleep = sleep
+        self.api = api; self.photos = photos; self.capturePhoto = capturePhoto; self.testPreview = testPreview; self.sleep = sleep
     }
     func activate(_ active: Bool) async {
         generation += 1
@@ -145,6 +147,10 @@ import PanelKit
         } catch { self.error = "Couldn’t save the photo. Try again." }
         saving = false
     }
+    func dismissSavedPreview() {
+        if hasSavedStrip { preview = nil; saved = false }
+    }
+
     func discard() { unsaved = nil; preview = nil; error = nil; saved = false }
 }
 

@@ -31,13 +31,12 @@ struct Wallpaper: View {
     var dimming = 0.28
     var blurRadius = 2.0
     @AppStorage(WallpaperChoice.key) private var choice: WallpaperChoice = .black
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { proxy in
             Group {
                 if let asset { Image(asset).resizable().scaledToFill() } else { choice.fill.id(choice).transition(.opacity) }
             }
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: choice)
+                .animation(.easeInOut(duration: 0.3), value: choice)
                 .saturation(saturation).blur(radius: blurRadius)
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: alignment).clipped()
                 .overlay(.black.opacity(dimming))

@@ -124,16 +124,16 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(banner.waitForNonExistence(timeout: 20))
     }
 
-    @MainActor func testReduceMotionAndAccessibilityText() {
+    @MainActor func testAccessibilityText() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-notificationCapture", "single", "-notificationReduceMotion", "-notificationHold",
+        app.launchArguments = ["-notificationCapture", "single", "-notificationHold",
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         XCUIDevice.shared.orientation = .landscapeLeft
         app.launch()
         let banner = app.buttons["notification-banner-updates"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
         XCTAssertTrue(banner.isHittable)
-        capture("notification-accessibility-reduce-motion", app)
+        capture("notification-accessibility-text", app)
         swipeRight(banner)
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
     }

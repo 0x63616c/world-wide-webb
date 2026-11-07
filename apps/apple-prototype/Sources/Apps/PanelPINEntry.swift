@@ -11,7 +11,6 @@ struct PanelPINEntry: View {
     var busy = false
     let submit: @MainActor (String) async -> String?
     @Environment(\.scenePhase) private var phase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var digits = ""
     @State private var checking = false
     @State private var message: String?
@@ -32,7 +31,7 @@ struct PanelPINEntry: View {
                         .frame(width: 13, height: 13)
                 }
             }.frame(height: 26)
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: digits.count)
+                .animation(.easeOut(duration: 0.12), value: digits.count)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("PIN").accessibilityValue("\(digits.count) of 6 digits")
                 .accessibilityIdentifier("pin-progress")

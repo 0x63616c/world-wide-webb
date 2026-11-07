@@ -23,7 +23,7 @@ struct NowPlayingView: View {
                     if !isFace { Color.black.ignoresSafeArea() }
                     VStack(spacing: 0) {
                         HStack {
-                            CircleButton(symbol: isFace ? "house" : "xmark", label: isFace ? "Home" : "Close music", size: compact ? 44 : 64, action: close)
+                            CircleButton(symbol: isFace ? "house" : "xmark", label: isFace ? "Home" : "Close Sonos", size: compact ? 44 : 64, action: close)
                             Spacer()
                             VStack(spacing: 5) {
                                 Text(room.name).font(.system(size: compact ? 20 : 25, weight: .semibold))

@@ -13,6 +13,7 @@ struct NotificationItem: Identifiable, Equatable, Codable, Sendable {
     let createdAt: Date
     var readAt: Date?
     let remote: Bool
+    var isPersistentUpdate: Bool { !remote && sourceModule == "updates" && deepLink == "module/updates/testflight" }
 
     init(_ row: PanelNotification) {
         id = row.id; sourceModule = row.sourceModule; title = row.title; body = row.body
@@ -170,13 +171,13 @@ struct NotificationGroup: Identifiable, Equatable {
     func open(_ id: String) async {
         guard let item = items[id], openHandler?(item) != false else { return }
         historyPresented = false
-        hideBanner(id)
+        if !item.isPersistentUpdate { hideBanner(id) }
         openFeedback += 1
         await markRead(id)
     }
 
     func dismiss(_ id: String) async {
-        guard let item = items[id] else { return }
+        guard let item = items[id], !item.isPersistentUpdate else { return }
         hideBanner(id)
         dismissFeedback += 1
         do {
@@ -201,7 +202,7 @@ struct NotificationGroup: Identifiable, Equatable {
             if failed { lastError = "Some notifications couldn’t be cleared. Try again." }
             return
         }
-        let snapshot = history
+        let snapshot = history.filter { !$0.isPersistentUpdate }
         do {
             if snapshot.contains(where: \.remote), let api { _ = try await api.dismissAll() }
             // A local post arriving during the request must not be lost.
@@ -226,7 +227,7 @@ struct NotificationGroup: Identifiable, Equatable {
     /// The banner stack exposes newest items across sources; inbox ordering stays unchanged.
     func advanceBanners(by elapsed: TimeInterval, visibleIDs: Set<String>, paused: Bool = false) {
         guard !historyPresented, !paused, elapsed > 0, elapsed.isFinite else { return }
-        for id in visibleIDs where banners.contains(id) {
+        for id in visibleIDs where banners.contains(id) && items[id]?.isPersistentUpdate != true {
             guard let seconds = remaining[id] else { continue }
             if seconds <= elapsed { hideBanner(id) }
             else { remaining[id] = seconds - elapsed }
@@ -234,6 +235,7 @@ struct NotificationGroup: Identifiable, Equatable {
     }
 
     func hideBanner(_ id: String) {
+        guard items[id]?.isPersistentUpdate != true else { return }
         banners.remove(id)
         remaining.removeValue(forKey: id)
     }
@@ -271,6 +273,16 @@ struct NotificationGroup: Identifiable, Equatable {
         banners.insert(id)
         remaining[id] = item.priority.bannerDuration
         if feedback { arrivalFeedback += 1 }
+    }
+
+    /// Reconcile local update notices against a successfully fetched release.
+    func reconcileUpdate(build: Int?) {
+        let key = build.map { "update-\($0)" }
+        for item in history where item.isPersistentUpdate && item.dedupeKey != key { remove(item.id) }
+        if let item = history.first(where: { $0.isPersistentUpdate && $0.dedupeKey == key }) {
+            banners.insert(item.id)
+        }
+        persist()
     }
 
     private func remove(_ id: String) { items.removeValue(forKey: id); hideBanner(id) }

@@ -48,24 +48,21 @@ struct WeatherPage: View {
                 VStack(spacing: 28) {
                     VStack(spacing: 10) {
                         Text(weather.city).font(.system(size: compact ? 30 : 40, weight: .medium))
-                        Text("\(weather.temperature)°").font(.system(size: compact ? 100 : 140, weight: .thin)).monospacedDigit()
+                        Text("\(weather.temperature)°").font(.system(size: compact ? 100 : 140, weight: .thin, design: .rounded)).monospacedDigit()
                         Text(weather.condition).font(.title2.weight(.medium))
                         Text("H:\(weather.high)°  L:\(weather.low)°").font(.title3)
                     }.frame(maxWidth: .infinity)
                         .frame(minHeight: compact ? 300 : max(320, geometry.size.height * 0.45))
                     VStack(alignment: .leading, spacing: 24) {
-                        Label("HOURLY FORECAST", systemImage: "clock").font(.caption.weight(.semibold)).foregroundStyle(.white.opacity(0.75))
-                        ScrollView(.horizontal) {
-                            HStack(spacing: 0) {
-                                ForEach(weather.hours) { hour in
-                                    VStack(spacing: 20) {
-                                        Text(hour.time).font(.system(size: 18, weight: .medium))
-                                        Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 28)).frame(height: 34)
-                                        Text("\(hour.temperature)°").font(.system(size: 24, weight: .medium)).monospacedDigit()
-                                    }.frame(width: max(72, (geometry.size.width - (compact ? 96 : 144)) / CGFloat(max(1, weather.hours.count))))
-                                }
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: compact ? 6 : 12), spacing: 24) {
+                            ForEach(weather.hours) { hour in
+                                VStack(spacing: 20) {
+                                    Text(hour.time).font(.system(size: 18, weight: .medium))
+                                    Image(systemName: hour.symbol).symbolRenderingMode(.multicolor).font(.system(size: 28)).frame(height: 34)
+                                    Text("\(hour.temperature)°").font(.system(size: 24, weight: .medium)).monospacedDigit()
+                                }.frame(maxWidth: .infinity)
                             }
-                        }.scrollIndicators(.hidden)
+                        }
                         Divider().overlay(.white.opacity(0.15))
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: compact ? 2 : 4), alignment: .leading, spacing: 24) {
                             weatherMetric("Feels like", value: "\(weather.feels)°", symbol: "thermometer.medium")
@@ -76,7 +73,7 @@ struct WeatherPage: View {
                     }.padding(24).background(.black.opacity(0.18), in: .rect(cornerRadius: 28))
                 }.padding(.horizontal, compact ? 24 : 48).padding(.top, 32).padding(.bottom, 96)
                     .frame(minHeight: geometry.size.height, alignment: .top)
-            }
+            }.scrollDisabled(!compact)
         }.foregroundStyle(.white).background { WeatherAtmosphere(weather: weather).ignoresSafeArea() }
     }
     private func weatherMetric(_ title: String, value: String, symbol: String) -> some View {

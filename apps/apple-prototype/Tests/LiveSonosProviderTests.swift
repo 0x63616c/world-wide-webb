@@ -30,6 +30,7 @@ import XCTest
         XCTAssertEqual(provider.availability, .live)
         XCTAssertEqual(provider.rooms.map(\.id), [alpha, beta, gamma, offline])
         XCTAssertEqual(provider.rooms[0].displayVolume, 50)
+        XCTAssertEqual(provider.rooms[0].transportState, "PLAYING")
         XCTAssertEqual(provider.rooms[1].displayVolume, 150)
         XCTAssertEqual(provider.rooms[1].coordinator, alpha)
         XCTAssertEqual(provider.rooms[0].baseline, 120)
@@ -51,6 +52,16 @@ import XCTest
         XCTAssertFalse(provider.send(.volume(offline, 50)))
         XCTAssertFalse(provider.send(.volume("Test Room", 50)))
         XCTAssertFalse(provider.send(.target(72)))
+    }
+
+    func testFollowersUseTheCoordinatorsExactTransportState() async {
+        let transport = SonosProviderStub([.state(alphaTransport: "PAUSED_PLAYBACK"), .state(alphaTransport: "STOPPED")])
+        let provider = makeProvider(transport)
+        await provider.refresh()
+        XCTAssertEqual(provider.rooms.first { $0.id == beta }?.transportState, "PAUSED_PLAYBACK")
+        await provider.refresh()
+        XCTAssertEqual(provider.rooms.first { $0.id == beta }?.transportState, "STOPPED")
+        XCTAssertEqual(provider.rooms.first { $0.id == offline }?.transportState, "UNKNOWN")
     }
 
     func testVolumeIsOptimisticUsesBaselineAndQueriesAfterVoidAcknowledgement() async throws {
@@ -87,6 +98,42 @@ import XCTest
                 try await assertRequest(transport, at: 3, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_gamma","volume":50}"#)
             }
         }
+    }
+
+    func testRoomVolumesOptimisticallySetOnlySelectedAvailableRooms() async throws {
+        let transport = SonosProviderStub([.state(), .void, .void, .state()], held: [1])
+        let provider = makeProvider(transport)
+        defer { provider.stop() }
+        await provider.refresh()
+
+        XCTAssertFalse(provider.globalLock)
+        let originalGammaVolume = provider.rooms.first { $0.id == gamma }?.rawVolume
+        XCTAssertTrue(provider.send(.roomVolumes([alpha: 42, beta: 23, offline: 50])))
+        XCTAssertEqual(provider.rooms.prefix(2).map(\.rawVolume), [42, 23])
+        XCTAssertEqual(provider.rooms.first { $0.id == gamma }?.rawVolume, originalGammaVolume)
+        XCTAssertEqual(provider.pending, [alpha, beta, "sound"])
+        try await waitFor(transport, count: 2)
+        await transport.release(1)
+        try await settled(provider)
+        try await assertRequest(transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":42}"#)
+        try await assertRequest(transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":23}"#)
+        let count = await transport.count
+        XCTAssertEqual(count, 4) // Initial query, two writes and confirmation.
+    }
+
+    func testMasterVolumeScalesTheRoomMixAndHandlesTheVolumeLimits() {
+        let balance = SonosVolumeBalance(levels: ["desk": 40, "bedroom": 20])
+        XCTAssertEqual(balance.adjusted(to: 45), ["desk": 60, "bedroom": 30])
+        XCTAssertEqual(balance.adjusted(to: 15), ["desk": 20, "bedroom": 10])
+        XCTAssertEqual(balance.adjusted(to: 90), ["desk": 100, "bedroom": 80])
+        XCTAssertEqual(balance.adjusted(to: 0), ["desk": 0, "bedroom": 0])
+        let almostFull = SonosVolumeBalance(levels: ["desk": 100, "bedroom": 99])
+        XCTAssertEqual(almostFull.adjusted(to: 100), ["desk": 100, "bedroom": 100])
+        let silent = SonosVolumeBalance(levels: ["desk": 0, "bedroom": 0])
+        XCTAssertEqual(silent.adjusted(to: 35), ["desk": 35, "bedroom": 35])
+        let mixed = SonosVolumeBalance(levels: ["desk": 40, "bedroom": 0])
+        XCTAssertEqual(mixed.adjusted(to: 40), ["desk": 80, "bedroom": 0])
+        XCTAssertEqual(mixed.adjusted(to: 75), ["desk": 100, "bedroom": 50])
     }
 
     func testRawVolumeMuteTransportAndTopologyUseExactTargets() async throws {
@@ -338,7 +385,7 @@ import XCTest
 
 private actor SonosProviderStub: PanelTransport {
     enum Reply: Sendable {
-        case state(alphaVolume: Int = 60, alphaBaseline: Int? = 120, playback: Bool = false)
+        case state(alphaVolume: Int = 60, alphaBaseline: Int? = 120, playback: Bool = false, alphaTransport: String = "PLAYING")
         case void, calibration, unavailable, empty
 
         var json: String {
@@ -348,7 +395,7 @@ private actor SonosProviderStub: PanelTransport {
             case .unavailable:
                 return #"{"error":{"message":"Synthetic failure","code":-32603,"data":{"code":"SERVICE_UNAVAILABLE","httpStatus":503}}}"#
             case .empty: return envelope("[]")
-            case .state(let volume, let baseline, let playback):
+            case .state(let volume, let baseline, let playback, let alphaTransport):
                 // Synthetic contract from features/sound/api.ts; legacy IP/UUID fields are HA IDs.
                 let specifications: [(String, String, Int, Int?, Bool, Bool)] = [
                     ("alpha", "alpha", volume, baseline, false, true),
@@ -362,7 +409,7 @@ private actor SonosProviderStub: PanelTransport {
                      "coordinatorUuid":"media_player.test_\(coordinator)",
                      "memberUuids":\(coordinator == "alpha" ? #"["media_player.test_alpha","media_player.test_beta"]"# : "[\"media_player.test_\(id)\"]"),
                      "isCoordinator":\(id == coordinator),"volume":\(raw),"baseline":\(baseline.map(String.init) ?? "null"),
-                     "muted":\(muted),"transportState":"\(available ? "PLAYING" : "UNAVAILABLE")",
+                     "muted":\(muted),"transportState":"\(available ? (id == "alpha" ? alphaTransport : "PLAYING") : "UNAVAILABLE")",
                      "sourceLabel":"Spotify","sourceKind":"spotify","trackTitle":"Synthetic Track",
                      "trackArtist":"Fixture Artist","albumArtUri":"https://example.invalid/art/test.png",
                      "availability":"\(available ? "available" : "unavailable")",
