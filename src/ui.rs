@@ -184,7 +184,7 @@ fn prose_lines(body: &[(String, Role)], width: usize, colour: bool) -> Vec<Line<
             } else {
                 crate::tui::wrap(std::slice::from_ref(text), width)
             };
-            lines.into_iter().map(|line| {
+            lines.into_iter().map(move |line| {
                 if *role == Role::Working {
                     return Line::styled(
                         format!("{} {}", spinner(), line.trim_start_matches("› ")),
