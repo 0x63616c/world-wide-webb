@@ -27,6 +27,12 @@ All 135 Photo Booth references resolve to restored files. On 2026-11-07 Calum cl
 Live sample: DB 371,889,855 bytes; media 171,712 KiB / 1,705 files; 135 booth records,
 1,621 wake-photo records, 11 walks. See plan for measurement caveats.
 
+## Execution order
+
+Finish backend, transport/auth, deployment tooling, repository cleanup and CI first.
+Full iPad/iPhone/Duo/Mac layout and interaction testing is the last local verification step,
+followed by independent final review, fixes and publication. Compile checks continue during implementation.
+
 ## Final gate (all required)
 
 - [ ] Every retained feature parity scenario implemented and passing
@@ -38,3 +44,10 @@ Live sample: DB 371,889,855 bytes; media 171,712 KiB / 1,705 files; 135 booth re
 - [ ] Independent final review findings resolved
 - [ ] Publish local tracking and candidate, required CI green, coordinated cutover
 - [ ] Verify deployed app, Apple processing, after measurements and new backup restore
+
+## User priority clarification — 2026-11-07
+
+Complete the working faithful iPad app against Rust, verified database and Photo Booth migration,
+and removal of the old stack first. iPhone/Duo and Mac remain important and in scope, but their
+remaining adaptation and full interaction testing come last, after the core migration and cleanup.
+Do not delay core implementation for phone or Mac polish. Final review and publication follow.

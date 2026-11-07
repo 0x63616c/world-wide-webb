@@ -236,7 +236,7 @@ Remove obsolete Biome/Knip/TS alias/codegen checks only when their code has been
 Implementation order: build and test the replacement locally, finish repository cleanup, then finalize
 the replacement CI workflows against the completed layout. Validate workflow syntax, path filters and
 deployment gates locally. Run local Rust/Swift tests and production builds throughout implementation;
-run the relevant full local acceptance suite and independent agent review before publishing.
+run full iPad/iPhone/Duo/Mac layout and interaction acceptance last, after implementation, cleanup and CI changes; then complete independent agent review before publishing. Continue compile checks during implementation.
 Do not wait for hosted CI between features or work packages. Push the complete locally verified candidate
 and open the implementation PR only after code, configuration, workflows and review fixes are ready.
 Then run required hosted checks; fix genuine hosted-only failures and push follow-up corrections as needed.
@@ -427,3 +427,10 @@ to open a draft PR early and push batches. The original review predates this wor
 - https://github.com/swiftlang/swift-format
 - https://github.com/realm/SwiftLint
 - https://github.com/rhysd/actionlint
+
+## User priority clarification — 2026-11-07
+
+Complete the working faithful iPad app against Rust, verified database and Photo Booth migration,
+and removal of the old stack first. iPhone/Duo and Mac remain important and in scope, but their
+remaining adaptation and full interaction testing come last, after the core migration and cleanup.
+Do not delay core implementation for phone or Mac polish. Final review and publication follow.

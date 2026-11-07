@@ -547,3 +547,129 @@ async fn lights_enforce_lamps_but_adopt_wall_switches_and_honor_fresh_commands()
     assert_eq!(before, after);
     task.abort();
 }
+
+#[tokio::test]
+async fn sound_uses_fresh_topology_and_persists_calibration_without_touching_zero_rooms() {
+    use axum::{
+        Json,
+        extract::Path,
+        routing::{get, post},
+    };
+    use std::sync::{Arc, RwLock};
+    use www_server::{config::Config, integrations::homeassistant::HomeAssistant};
+    let (dir, _, db) = fixture().await;
+    let live = Arc::new(RwLock::new(json!([
+        {"entity_id":"media_player.desk","state":"playing","attributes":{"friendly_name":"Desk","group_members":["media_player.desk","media_player.bedroom"],"volume_level":0.6,"source":"Spotify","media_title":"Actual title","media_position":12,"media_duration":120,"media_position_updated_at":"2026-11-07T12:00:00Z"}},
+        {"entity_id":"media_player.bedroom","state":"paused","attributes":{"friendly_name":"Bedroom","group_members":["media_player.desk","media_player.bedroom"],"volume_level":0.0}},
+        {"entity_id":"media_player.television","state":"playing","attributes":{"friendly_name":"TV"}}
+    ])));
+    let calls = Arc::new(RwLock::new(Vec::<(String, Value)>::new()));
+    let read = live.clone();
+    let called = calls.clone();
+    let ha_app = Router::new()
+        .route(
+            "/api/states",
+            get(move || {
+                let x = read.clone();
+                async move { Json(x.read().unwrap().clone()) }
+            }),
+        )
+        .route(
+            "/api/services/{domain}/{service}",
+            post(
+                move |Path((domain, service)): Path<(String, String)>, Json(body): Json<Value>| {
+                    let c = called.clone();
+                    async move {
+                        c.write()
+                            .unwrap()
+                            .push((format!("{domain}/{service}"), body));
+                        Json(json!([]))
+                    }
+                },
+            ),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
+    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    state.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    let app = http::router(state);
+    sqlx::query(
+        "INSERT INTO sound_calibration VALUES('media_player.bedroom',40,'2026-11-07T00:00:00Z')",
+    )
+    .execute(&db)
+    .await
+    .unwrap();
+    let (status, body) = call(&app, "GET", "/api/v1/sound", Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["rooms"].as_array().unwrap().len(), 2);
+    assert_eq!(body["rooms"][1]["trackTitle"], "Actual title");
+    assert_eq!(body["rooms"][1]["transportState"], "PLAYING");
+    assert_eq!(body["rooms"][1]["volume"], 0);
+    assert_eq!(body["rooms"][1]["position"], 12.0);
+    let (status, calibration) = call(&app, "POST", "/api/v1/sound/calibration", json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(calibration["media_player.desk"], 120);
+    assert!(calibration.get("media_player.bedroom").is_none());
+    let (_, body) = call(&app, "GET", "/api/v1/sound", Value::Null).await;
+    assert_eq!(body["rooms"][1]["baseline"], 40);
+    live.write().unwrap()[1]["attributes"]["group_members"] = json!(["media_player.bedroom"]);
+    let (_, body) = call(&app, "GET", "/api/v1/sound", Value::Null).await;
+    assert_eq!(body["rooms"][1]["isCoordinator"], true);
+    // Invalid group members are rejected before selecting TV or making any write.
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/sound",
+            json!({"action":"tv","room":"media_player.desk","members":["media_player.television"]})
+        )
+        .await
+        .0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert!(calls.read().unwrap().is_empty());
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/sound",
+            json!({"action":"volume","room":"media_player.desk","volume":101})
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+    assert!(calls.read().unwrap().is_empty());
+    assert_eq!(call(&app,"POST","/api/v1/sound",json!({"action":"join","coordinator":"media_player.desk","members":["media_player.bedroom"]})).await.0,StatusCode::OK);
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/v1/sound",
+            json!({"action":"seek","room":"media_player.desk","positionSeconds":15.5})
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    assert_eq!(calls.read().unwrap().len(), 2);
+    assert_eq!(
+        calls.read().unwrap()[0],
+        (
+            "media_player/join".into(),
+            json!({"entity_id":"media_player.desk","group_members":["media_player.bedroom"]})
+        )
+    );
+    assert_eq!(calls.read().unwrap()[1].1["seek_position"], 15.5);
+    call(&app, "DELETE", "/api/v1/sound/calibration", Value::Null).await;
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM sound_calibration")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert_eq!(count, 0);
+    task.abort();
+}
