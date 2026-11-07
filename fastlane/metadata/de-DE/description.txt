@@ -1,0 +1,10 @@
+Folding erfasst die Faltungen deines Duo. Richte in Kurzbefehle Automationen zum Öffnen und Schließen ein, teste sie in der App und entdecke deine täglichen Gewohnheiten.
+
+• Erfasse Faltungen, geöffnete Zeit und geschätzte Bewegung.
+• Entdecke Statistiken für Tage, Wochen, Monate und die gesamte Zeit.
+• Synchronisiere deinen privaten Verlauf mit iCloud.
+• Wähle Farben, Lieblingsstatistiken und Widgets.
+• Nimm freiwillig an wöchentlichen, monatlichen und Gesamtranglisten teil.
+• Exportiere deinen Verlauf als JSON oder CSV oder setze ihn zurück.
+
+Alle Funktionen sind kostenlos. Freiwillige Trinkgelder schalten nichts frei und bringen keinen Ranglistenvorteil. Die Bewegung wird aus erfassten Ereignissen geschätzt; sie misst keinen Scharnierverschleiß.

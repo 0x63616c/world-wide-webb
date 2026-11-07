@@ -1,0 +1,10 @@
+Folding is a personal fold tracker for Duo. Set up your open and close automations in Shortcuts, test them in the app, and start seeing the patterns in your day.
+
+• Track folds, time open, and estimated travel.
+• Explore daily, weekly, monthly, and all-time statistics.
+• Keep private history in sync with iCloud.
+• Choose your colours, favourite stats, and widgets.
+• Join optional weekly, monthly, and all-time leaderboards.
+• Export your history as JSON or CSV, or reset it whenever you want.
+
+All features are free. Optional tips unlock nothing and give no leaderboard advantage. Travel is an estimate based on recorded events, not a measurement of hinge wear.

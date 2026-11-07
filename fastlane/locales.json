@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "source_locale": "en-US",
+  "storefront_identifiers_source": "https://developer.apple.com/help/app-store-connect/reference/app-information/app-store-localizations",
+  "locales": [
+    {
+      "app_locale": "en",
+      "notification_locale": "en",
+      "storefront_locale": "en-US",
+      "snapshot_locale": "en-US"
+    },
+    {
+      "app_locale": "de",
+      "notification_locale": "de",
+      "storefront_locale": "de-DE",
+      "snapshot_locale": "de-DE"
+    },
+    {
+      "app_locale": "fr",
+      "notification_locale": "fr",
+      "storefront_locale": "fr-FR",
+      "snapshot_locale": "fr-FR"
+    },
+    {
+      "app_locale": "es",
+      "notification_locale": "es",
+      "storefront_locale": "es-ES",
+      "snapshot_locale": "es-ES"
+    },
+    {
+      "app_locale": "es-419",
+      "notification_locale": "es-419",
+      "storefront_locale": "es-MX",
+      "snapshot_locale": "es-MX"
+    },
+    {
+      "app_locale": "ja",
+      "notification_locale": "ja",
+      "storefront_locale": "ja",
+      "snapshot_locale": "ja"
+    },
+    {
+      "app_locale": "ko",
+      "notification_locale": "ko",
+      "storefront_locale": "ko",
+      "snapshot_locale": "ko"
+    },
+    {
+      "app_locale": "pt-BR",
+      "notification_locale": "pt-BR",
+      "storefront_locale": "pt-BR",
+      "snapshot_locale": "pt-BR"
+    },
+    {
+      "app_locale": "zh-Hans",
+      "notification_locale": "zh-Hans",
+      "storefront_locale": "zh-Hans",
+      "snapshot_locale": "zh-Hans"
+    },
+    {
+      "app_locale": "zh-Hant",
+      "notification_locale": "zh-Hant",
+      "storefront_locale": "zh-Hant",
+      "snapshot_locale": "zh-Hant"
+    }
+  ]
+}

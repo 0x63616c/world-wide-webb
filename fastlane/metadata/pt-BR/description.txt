@@ -1,0 +1,10 @@
+O Folding registra as dobras do seu Duo. Configure as automações de abertura e fechamento no Atalhos, teste no app e descubra seus hábitos diários.
+
+• Registre dobras, tempo aberto e movimento estimado.
+• Veja estatísticas diárias, semanais, mensais e de todo o período.
+• Sincronize seu histórico privado com o iCloud.
+• Escolha cores, estatísticas favoritas e widgets.
+• Participe, se quiser, de rankings semanais, mensais e gerais.
+• Exporte seu histórico em JSON ou CSV, ou redefina quando quiser.
+
+Todos os recursos são gratuitos. Gorjetas opcionais não desbloqueiam recursos nem dão vantagens no ranking. O movimento é estimado a partir dos eventos registrados; não mede o desgaste da dobradiça.

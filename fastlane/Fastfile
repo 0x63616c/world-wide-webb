@@ -1,5 +1,6 @@
 require "shellwords"
 require_relative "lib/apple_account"
+require_relative "lib/release_operations"
 
 def repository_root
   File.expand_path("..", __dir__)
@@ -72,4 +73,48 @@ platform :ios do
   lane :verify_app do
     run_app_verification
   end
+
+  desc "Capture the complete local App Store matrix without Apple credentials"
+  lane :screenshots do |options|
+    apple_destination
+    generate_project
+    record = FoldingRelease::LocalCaptureRecord.new(environment: options[:environment] || "production")
+    FoldingRelease::Assets.metadata(record) unless File.exist?(File.join(record.directory, "assets/metadata-manifest.json"))
+    FoldingRelease::Assets.capture(self, record)
+  end
+
+  desc "Reserve a globally monotonic build and immutable draft release record"
+  lane :reserve do |options|
+    FoldingRelease.reserve(tag: options.fetch(:tag), environment: options[:environment] || "production", version: options.fetch(:version))
+  end
+
+  desc "Check current evidence/backend/pages; final:true also checks processed release assets"
+  lane :release_preflight do |options|
+    FoldingRelease::Operations.preflight(FoldingRelease::Record.new(options.fetch(:tag)), options.fetch(:evidence), final: options[:final] == true || options[:final] == "true")
+  end
+
+  desc "Capture and seal metadata/screenshots into immutable release artifacts"
+  lane :release_assets do |options|
+    apple_destination
+    generate_project
+    FoldingRelease::Operations.assets(self, FoldingRelease::Record.new(options.fetch(:tag)))
+  end
+
+  desc "Create one signed archive using readonly match; reuse its immutable artifacts on retry"
+  lane :archive do |options|
+    apple_destination
+    generate_project
+    FoldingRelease::Operations.archive(self, FoldingRelease::Record.new(options.fetch(:tag)))
+  end
+
+  desc "Upload the exact IPA and distribute its processed build to explicit TestFlight groups"
+  lane :beta do |options|
+    FoldingRelease::Operations.beta(self, FoldingRelease::Record.new(options.fetch(:tag)))
+  end
+
+  desc "Submit the exact reviewed production build and verify Apple review state"
+  lane :submit do |options|
+    FoldingRelease::Operations.submit(self, FoldingRelease::Record.new(options.fetch(:tag)), options.fetch(:evidence))
+  end
+
 end
