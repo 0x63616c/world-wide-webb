@@ -103,12 +103,43 @@ import struct FoldingData.SetupProgress
           throw CompetitionTransportError.invalidResponse
         }
         try await store.setCompetitionEpoch(epoch)
-        self.presentation.competitionProfile = self.profilePresentation(result.profile)
+        self.presentation.competitionProfile = await self.profilePresentation(result.profile)
         await self.presentation.requestLeaderboard(using: self.actions)
       },
       saveNickname: { value in
         let profile = try await self.competitionClient().nickname(value)
-        return self.profilePresentation(profile)
+        return await self.profilePresentation(profile)
+      },
+      uploadAvatar: { bytes in
+        let state = try await self.competitionClient().uploadAvatar(bytes)
+        return AvatarReviewState(rawValue: state) ?? .pending
+      },
+      removeAvatar: {
+        let api = try await self.competitionClient()
+        let me = try await api.me()
+        if let id = me.profile.avatar_id { try await api.removeAvatar(id) }
+        let refreshed = try await api.me()
+        self.presentation.competitionProfile = await self.profilePresentation(refreshed.profile)
+      },
+      loadResults: { period, cursor in
+        let page = try await self.competitionClient().results(kind: period.rawValue, cursor: cursor)
+        return CompetitionResultsPage(
+          items: try page.items.map(self.resultPresentation),
+          nextCursor: page.next_cursor, snapshotVersion: page.snapshot_version)
+      },
+      loadResultShare: { periodID in
+        let api = try await self.competitionClient()
+        let share = try await api.share(periodID: periodID)
+        let avatar =
+          if let id = share.profile.avatar_id { try? await api.transport.avatarImage(id) } else {
+            nil as Data?
+          }
+        return CompetitionShare(
+          result: try self.resultPresentation(share.result),
+          nickname: share.profile.nickname, approvedAvatarURL: nil, approvedAvatarData: avatar)
+      },
+      reportParticipant: { id, reason in
+        try await self.competitionClient().report(participantID: id, reason: reason.rawValue)
       },
       setParticipantBlocked: { id, blocked in
         try await self.competitionClient().setBlocked(id, blocked: blocked)
@@ -137,11 +168,18 @@ import struct FoldingData.SetupProgress
     return api
   }
 
-  private func profilePresentation(_ profile: CompetitionWireProfile) -> CompetitionProfile {
-    CompetitionProfile(
+  private func profilePresentation(_ profile: CompetitionWireProfile) async -> CompetitionProfile {
+    let avatar: Data?
+    if let id = profile.avatar_id, let api = competitionAPI {
+      avatar = try? await api.transport.avatarImage(id)
+    } else {
+      avatar = nil
+    }
+    return CompetitionProfile(
       id: profile.participant_id, nickname: profile.nickname,
       approvedAvatarURL: nil, nicknamePending: profile.nickname_status == "pending",
-      avatarState: AvatarReviewState(rawValue: profile.avatar_status) ?? .none)
+      avatarState: AvatarReviewState(rawValue: profile.avatar_status) ?? .none,
+      approvedAvatarData: avatar)
   }
 
   func restoreCompetition() async {
@@ -150,7 +188,7 @@ import struct FoldingData.SetupProgress
     else { return }
     do {
       let me = try await competitionClient().me()
-      presentation.competitionProfile = profilePresentation(me.profile)
+      presentation.competitionProfile = await profilePresentation(me.profile)
       if me.profile.restriction != "none" {
         presentation.competition = .banned
       } else if me.profile.membership == "joined" {
@@ -169,7 +207,7 @@ import struct FoldingData.SetupProgress
     let api = try await competitionClient()
     let store = try await runtime.store()
     let profile = try await appleSignIn.signIn(transport: api.transport, deviceID: store.deviceID)
-    presentation.competitionProfile = profilePresentation(profile)
+    presentation.competitionProfile = await profilePresentation(profile)
     if profile.restriction == "banned" || profile.restriction == "suspended" {
       presentation.competition = .banned
     } else if profile.membership == "joined" {
@@ -187,18 +225,41 @@ import struct FoldingData.SetupProgress
     }
   }
 
+  private func resultPresentation(_ result: CompetitionWireResult) throws -> CompetitionResult {
+    guard let period = CompetitionPeriod(rawValue: result.kind), period != .all else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    return CompetitionResult(
+      id: result.period_id, period: period,
+      start: Date(timeIntervalSince1970: Double(result.start_ms) / 1000),
+      end: Date(timeIntervalSince1970: Double(result.end_ms) / 1000), version: result.version,
+      finalizedAt: Date(timeIntervalSince1970: Double(result.finalized_at_ms) / 1000),
+      folds: result.folds, rank: result.rank, population: result.population,
+      percentile: result.percentile, medal: result.medal.flatMap(CompetitionMedal.init(rawValue:)))
+  }
+
   private func loadCompetition(_ period: CompetitionPeriod) async throws -> LeaderboardPresentation
   {
-    let board = try await competitionClient().leaderboard(kind: period.rawValue)
+    let api = try await competitionClient()
+    let board = try await api.leaderboard(kind: period.rawValue)
+    let ids = Set((board.page.items + (board.you.map { [$0] } ?? [])).compactMap(\.avatar_id))
+    let avatars = await withTaskGroup(of: (String, Data?).self) { group in
+      for id in ids { group.addTask { (id, try? await api.transport.avatarImage(id)) } }
+      var values: [String: Data] = [:]
+      for await (id, data) in group { if let data { values[id] = data } }
+      return values
+    }
     func entry(_ row: CompetitionWireRank) -> LeaderboardEntry {
       LeaderboardEntry(
         id: row.participant_id, rank: row.rank, displayName: row.nickname,
         folds: row.folds, approvedAvatarURL: nil,
-        isCurrentUser: row.participant_id == board.you?.participant_id)
+        isCurrentUser: row.participant_id == board.you?.participant_id,
+        approvedAvatarData: row.avatar_id.flatMap { avatars[$0] }, percentile: row.percentile)
     }
     return LeaderboardPresentation(
       periodTitle: period.title, entries: board.page.items.map(entry),
-      currentUser: board.you.map(entry), pendingFolds: 0, updatedAt: Date())
+      currentUser: board.you.map(entry), pendingFolds: 0, updatedAt: Date(),
+      population: board.population, percentile: board.you?.percentile)
   }
 
   func claimReviewRequest() -> Bool {

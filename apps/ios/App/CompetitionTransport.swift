@@ -288,4 +288,22 @@ actor CompetitionTransport {
     standard += String(repeating: "=", count: (4 - standard.count % 4) % 4)
     return Data(base64Encoded: standard)
   }
+
+  func avatarImage(_ id: String) async throws -> Data {
+    guard UUID(uuidString: id) != nil,
+      let url = URL(string: "/v1/avatars/\(id)/image", relativeTo: origin)?.absoluteURL
+    else { throw CompetitionTransportError.invalidResponse }
+    var request = URLRequest(url: url)
+    request.setValue("Bearer \(try await accessToken())", forHTTPHeaderField: "Authorization")
+    let (bytes, response) = try await session.bytes(for: request)
+    guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+      http.mimeType == "image/jpeg"
+    else { throw CompetitionTransportError.invalidResponse }
+    var data = Data()
+    for try await byte in bytes {
+      guard data.count < 512 * 1024 else { throw CompetitionTransportError.invalidResponse }
+      data.append(byte)
+    }
+    return data
+  }
 }

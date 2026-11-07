@@ -113,3 +113,106 @@ actor CompetitionAPI {
       body: CompetitionTransport.encode(["operation_id": UUID().uuidString.lowercased()]))
   }
 }
+
+// swift-format-ignore: AlwaysUseLowerCamelCase
+struct CompetitionWireResult: Decodable, Sendable {
+  let period_id: String
+  let kind: String
+  let start_ms: Int64
+  let end_ms: Int64
+  let version: Int
+  let finalized_at_ms: Int64
+  let folds: Int
+  let rank: Int
+  let population: Int
+  let percentile: Int?
+  let medal: String?
+}
+struct CompetitionWireShare: Decodable, Sendable {
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  struct Profile: Decodable, Sendable {
+    let nickname: String
+    let avatar_id: String?
+  }
+  let result: CompetitionWireResult
+  let profile: Profile
+}
+
+extension CompetitionAPI {
+  func results(kind: String, cursor: String?) async throws -> CompetitionWirePage<
+    CompetitionWireResult
+  > {
+    guard ["week", "month"].contains(kind) else { throw CompetitionTransportError.invalidResponse }
+    var query = URLComponents()
+    query.queryItems = [
+      URLQueryItem(name: "kind", value: kind), URLQueryItem(name: "limit", value: "30"),
+    ]
+    if let cursor { query.queryItems?.append(URLQueryItem(name: "cursor", value: cursor)) }
+    return try await transport.send("GET", path: "/v1/results?" + (query.percentEncodedQuery ?? ""))
+  }
+  func share(periodID: String) async throws -> CompetitionWireShare {
+    guard !periodID.isEmpty, periodID.count < 128,
+      periodID.unicodeScalars.allSatisfy({
+        CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_:")).contains($0)
+      })
+    else { throw CompetitionTransportError.invalidResponse }
+    return try await transport.send("GET", path: "/v1/results/\(periodID)/share")
+  }
+  func report(participantID: String, reason: String) async throws {
+    guard UUID(uuidString: participantID) != nil,
+      ["abusive_name", "abusive_avatar", "suspected_cheating", "other"].contains(reason)
+    else { throw CompetitionTransportError.invalidResponse }
+    struct Report: Encodable {
+      let operationID: String
+      let participantID: String
+      let reason: String
+      func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: Keys.self)
+        try container.encode(operationID, forKey: .operationID)
+        try container.encode(participantID, forKey: .participantID)
+        try container.encode(reason, forKey: .reason)
+        try container.encodeNil(forKey: .contentID)
+        try container.encodeNil(forKey: .comment)
+      }
+      enum Keys: String, CodingKey {
+        case operationID = "operation_id"
+        case participantID = "subject_participant_id"
+        case reason
+        case contentID = "content_id"
+        case comment
+      }
+    }
+    struct Response: Decodable, Sendable { let state: String }
+    let _: Response = try await transport.send(
+      "POST", path: "/v1/reports",
+      body: CompetitionTransport.encode(
+        Report(
+          operationID: UUID().uuidString.lowercased(),
+          participantID: participantID, reason: reason)))
+  }
+  func uploadAvatar(_ bytes: Data) async throws -> String {
+    guard !bytes.isEmpty, bytes.count <= 5 * 1024 * 1024 else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    let type: String
+    if bytes.starts(with: [0xff, 0xd8, 0xff]) {
+      type = "image/jpeg"
+    } else if bytes.starts(with: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) {
+      type = "image/png"
+    } else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    struct Response: Decodable, Sendable { let state: String }
+    let result: Response = try await transport.protected(
+      "PUT",
+      path: "/v1/avatars/\(UUID().uuidString.lowercased())", purpose: "avatar_upload",
+      body: bytes, contentType: type)
+    return result.state
+  }
+  func removeAvatar(_ id: String) async throws {
+    guard UUID(uuidString: id) != nil else { throw CompetitionTransportError.invalidResponse }
+    let _: CompetitionOperation = try await transport.send(
+      "DELETE",
+      path: "/v1/avatars/\(id)?operation_id=\(UUID().uuidString.lowercased())")
+  }
+}

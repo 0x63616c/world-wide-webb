@@ -16,14 +16,13 @@ struct CompetitionWireProfile: Codable, Sendable {
   // swift-format-ignore: AlwaysUseLowerCamelCase
   let avatar_status: String
 }
+// swift-format-ignore: AlwaysUseLowerCamelCase
 struct CompetitionSignInResponse: Decodable, Sendable {
-  // swift-format-ignore: AlwaysUseLowerCamelCase
-  let access_token: String
-  // swift-format-ignore: AlwaysUseLowerCamelCase
-  let refresh_token: String
-  // swift-format-ignore: AlwaysUseLowerCamelCase
+  let access_token: String?
+  let refresh_token: String?
   let expires_at_ms: Int64
-  let profile: CompetitionWireProfile
+  let profile: CompetitionWireProfile?
+  let reauthentication_token: String?
 }
 
 @MainActor
@@ -38,8 +37,32 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   func signIn(transport: CompetitionTransport, deviceID: UUID) async throws
     -> CompetitionWireProfile
   {
+    let response = try await authorize(transport: transport, deviceID: deviceID, purpose: "sign_in")
+    guard let access = response.access_token, let refresh = response.refresh_token,
+      let profile = response.profile
+    else { throw CompetitionTransportError.invalidResponse }
+    try await transport.clearSession()
+    try await transport.saveSession(
+      CompetitionSession(
+        access_token: access,
+        refresh_token: refresh, expires_at_ms: response.expires_at_ms))
+    return profile
+  }
+
+  func reauthenticate(transport: CompetitionTransport, deviceID: UUID) async throws -> String {
+    let response = try await authorize(
+      transport: transport, deviceID: deviceID, purpose: "reauthenticate")
+    guard let token = response.reauthentication_token else {
+      throw CompetitionTransportError.invalidResponse
+    }
+    return token
+  }
+
+  private func authorize(transport: CompetitionTransport, deviceID: UUID, purpose: String)
+    async throws -> CompetitionSignInResponse
+  {
     guard continuation == nil, controller == nil else { throw CompetitionTransportError.busy }
-    let challenge = try await transport.challenge(purpose: "sign_in")
+    let challenge = try await transport.challenge(purpose: purpose)
     guard challenge.expires_at_ms > TrackingRuntime.nowMS else {
       throw CompetitionTransportError.unauthorized
     }
@@ -78,7 +101,7 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
     struct Exchange: Encodable {
       // swift-format-ignore: AlwaysUseLowerCamelCase
       let operation_id: String
-      let purpose = "sign_in"
+      let purpose: String
       // swift-format-ignore: AlwaysUseLowerCamelCase
       let challenge_id: String
       // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -108,15 +131,10 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       "POST", path: "/v1/auth/apple",
       body: CompetitionTransport.encode(
         Exchange(
-          operation_id: UUID().uuidString.lowercased(),
+          operation_id: UUID().uuidString.lowercased(), purpose: purpose,
           challenge_id: challenge.challenge_id, identity_token: identity, authorization_code: code,
-          device_id: deviceID.uuidString.lowercased())), authenticated: false)
-    try await transport.clearSession()
-    try await transport.saveSession(
-      CompetitionSession(
-        access_token: response.access_token,
-        refresh_token: response.refresh_token, expires_at_ms: response.expires_at_ms))
-    return response.profile
+          device_id: deviceID.uuidString.lowercased())), authenticated: purpose == "reauthenticate")
+    return response
   }
 
   func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
