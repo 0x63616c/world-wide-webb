@@ -1,6 +1,6 @@
 # Native Swift, Rust, SQLite and OpenTofu reset
 
-Status: draft for independent agent review and Calum's approval. Written 2026-11-07.
+Status: independently reviewed; awaiting Calum's approval. Written 2026-11-07.
 Source baseline: `7841e2732c73b99f99344142eedccf15e75aa53e` plus read-only production measurements.
 This document authorizes no cutover by itself. The planning task includes backup and measurement;
 implementation and GitHub project/issues follow review and approval.
@@ -366,6 +366,15 @@ user choices or blockers. Record each answer in the issue/plan before dependent 
 - Which Duo simulator/device configurations are actually available, and what platform features differ?
 - Which native alarm/notification/Live Activity responsibilities are device-local versus server-owned?
 - Can all data be represented losslessly, and what pre-existing media-reference exceptions exist?
+
+## Independent review record
+
+Agent `migration_plan_review` inspected the plan and relevant source read-only on 2026-11-07.
+It raised three actionable findings: the routine backup restarts writers, existing native credentials
+are injected into builds, and the three deployment/publication triggers require separate gates.
+All were corrected. The reviewer rechecked commit `dfa959561` and reported all three resolved with
+no remaining actionable concerns in the revised sections. This is plan review, not implementation
+or production-migration certification. Final code/data/cutover evidence still requires independent review.
 
 ## References
 
