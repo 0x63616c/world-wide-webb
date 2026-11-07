@@ -29,8 +29,8 @@ final class PhotosAPITests: XCTestCase {
         XCTAssertFalse(bytes.isEmpty)
         let requests = await transport.requests
         XCTAssertEqual(requests.first?.url?.path, "/media/booth-photos/2027-01-15/bp_fixture.jpg")
-        XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "CF-Access-Client-Id"), "fixture-id")
-        XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "CF-Access-Client-Secret"), "fixture-secret")
+        XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "CF-Access-Client-Id"), nil)
+        XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "CF-Access-Client-Secret"), nil)
         for path in ["../secret", "/absolute", "https://other.invalid/x", "%2e%2e/x", "x?query", "x#fragment"] {
             do {
                 _ = try await api.image(collection: "booth-photos", path: path)
@@ -77,8 +77,7 @@ final class PhotosAPITests: XCTestCase {
     private func client(_ transport: PhotosTestTransport) -> PanelAPIClient {
         PanelAPIClient(
             configuration: PanelConfiguration(
-                baseURL: URL(string: "https://fixtures.example.invalid")!,
-                accessClientID: "fixture-id", accessClientSecret: "fixture-secret"), transport: transport)
+                baseURL: URL(string: "https://fixtures.example.invalid")!), transport: transport)
     }
 }
 

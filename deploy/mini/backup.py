@@ -129,6 +129,10 @@ def snapshot(destination, database_engine="sqlite"):
                 "compose.yaml",
                 "release.sh",
                 "recover.sh",
+                "sqlite_preflight.py",
+                "sqlite_snapshot.py",
+                "tailscale_serve.py",
+                "publish-apple-release.py",
             )
     finally:
         lock.rmdir()

@@ -12,13 +12,12 @@ import Testing
         let transport = ArtworkStub()
         let api = SonosArtworkAPI(
             configuration: PanelConfiguration(
-                baseURL: URL(string: "https://panel.example.invalid")!,
-                accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"), transport: transport)
+                baseURL: URL(string: "https://panel.example.invalid")!), transport: transport)
         #expect(try await api.artwork(room: "media_player.example") == Data([1, 2, 3]))
         let request = try #require(await transport.request)
         #expect(request.url?.absoluteString == "https://panel.example.invalid/media/sonos/media_player.example/artwork")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == "synthetic-id")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "synthetic-secret")
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == nil)
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
         #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
         await #expect(throws: PanelAPIError.self) { _ = try await api.artwork(room: "media_player.x/../secret") }
         #expect(await transport.count == 1)

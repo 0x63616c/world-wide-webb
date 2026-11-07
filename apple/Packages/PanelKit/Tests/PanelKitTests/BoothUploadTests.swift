@@ -16,7 +16,7 @@ import Testing
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "image/jpeg")
         #expect(request.value(forHTTPHeaderField: "x-mode") == "photo")
         #expect(request.value(forHTTPHeaderField: "x-captured-at") == "1800000000000")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == "synthetic-id")
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == nil)
         #expect(request.value(forHTTPHeaderField: "x-group-id") == nil)  // Server mints the capture group.
     }
     @Test func rejectsInvalidOrOversizeBytesBeforeSendingAnything() async {
@@ -42,8 +42,7 @@ import Testing
     private func client(_ transport: BoothUploadTransport) -> PanelAPIClient {
         PanelAPIClient(
             configuration: PanelConfiguration(
-                baseURL: URL(string: "https://fixtures.example.invalid")!,
-                accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"), transport: transport)
+                baseURL: URL(string: "https://fixtures.example.invalid")!), transport: transport)
     }
 }
 private actor BoothUploadTransport: PanelTransport {

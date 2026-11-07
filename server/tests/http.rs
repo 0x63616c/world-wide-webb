@@ -8,13 +8,12 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 use www_server::{AppState, http, storage};
 const RELEASE_TOKEN: &str = "fixture-release-only-token-32-bytes";
-const TOKEN: &str = "test-only-provisioned-api-token-32-bytes";
 async fn fixture() -> (tempfile::TempDir, Router, sqlx::SqlitePool) {
     let dir = tempfile::tempdir().unwrap();
     let db = storage::open(&dir.path().join("test.sqlite"))
         .await
         .unwrap();
-    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut state = AppState::new(db.clone(), dir.path().join("media"));
     state.config = std::sync::Arc::new(www_server::config::Config {
         release_token: Some(RELEASE_TOKEN.into()),
         ..Default::default()
@@ -22,20 +21,11 @@ async fn fixture() -> (tempfile::TempDir, Router, sqlx::SqlitePool) {
     (dir, http::router(state), db)
 }
 async fn call(app: &Router, method: &str, path: &str, body: Value) -> (StatusCode, Value) {
-    let request = Request::builder()
-        .method(method)
-        .uri(path)
-        .header(
-            "authorization",
-            format!(
-                "Bearer {}",
-                if method == "POST" && path == "/api/v1/releases/latest" {
-                    RELEASE_TOKEN
-                } else {
-                    TOKEN
-                }
-            ),
-        )
+    let mut request = Request::builder().method(method).uri(path);
+    if method == "POST" && path == "/api/v1/releases/latest" {
+        request = request.header("authorization", format!("Bearer {RELEASE_TOKEN}"));
+    }
+    let request = request
         .header("content-type", "application/json")
         .body(Body::from(body.to_string()))
         .unwrap();
@@ -48,7 +38,7 @@ async fn call(app: &Router, method: &str, path: &str, body: Value) -> (StatusCod
     )
 }
 #[tokio::test]
-async fn authentication_is_required_and_health_is_real() {
+async fn tailnet_api_requires_no_app_credentials_and_health_is_real() {
     let (_dir, app, db) = fixture().await;
     let r = app
         .clone()
@@ -60,7 +50,7 @@ async fn authentication_is_required_and_health_is_real() {
         )
         .await
         .unwrap();
-    assert_eq!(r.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(r.status(), StatusCode::OK);
     assert_eq!(
         call(&app, "GET", "/healthz", Value::Null).await.0,
         StatusCode::OK
@@ -201,7 +191,6 @@ async fn booth_upload_rejects_bad_bytes_and_removal_preserves_file() {
         Request::builder()
             .method("POST")
             .uri("/media/booth-photo")
-            .header("authorization", format!("Bearer {TOKEN}"))
             .header("x-mode", "photo")
             .body(Body::from(bytes))
             .unwrap()
@@ -248,7 +237,7 @@ async fn weather_ingest_is_atomic_and_newest_forecast_wins() {
     use chrono::{Timelike, Utc};
     use www_server::features::weather::{Forecast, store_forecast};
     let (dir, app, db) = fixture().await;
-    let s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let s = AppState::new(db.clone(), dir.path().join("media"));
     let at = Utc::now();
     let hour = at
         .with_minute(0)
@@ -421,7 +410,7 @@ async fn climate_keeps_live_temperature_and_adopts_external_changes() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
-    let mut s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut s = AppState::new(db.clone(), dir.path().join("media"));
     s.config = Arc::new(Config {
         ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
         ..Default::default()
@@ -501,7 +490,7 @@ async fn lights_enforce_lamps_but_adopt_wall_switches_and_honor_fresh_commands()
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
-    let mut s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut s = AppState::new(db.clone(), dir.path().join("media"));
     s.config = Arc::new(Config {
         ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
         ..Default::default()
@@ -606,7 +595,7 @@ async fn sound_uses_fresh_topology_and_persists_calibration_without_touching_zer
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
-    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut state = AppState::new(db.clone(), dir.path().join("media"));
     state.config = Arc::new(Config {
         ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
         ..Default::default()
@@ -738,7 +727,7 @@ async fn tesla_converts_real_telemetry_keeps_snapshot_and_checks_pin_before_comm
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
-    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut state = AppState::new(db.clone(), dir.path().join("media"));
     state.config = Arc::new(Config {
         ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
         ..Default::default()
@@ -826,7 +815,7 @@ async fn tesla_converts_real_telemetry_keeps_snapshot_and_checks_pin_before_comm
 async fn bedroom_input_edges_are_atomic_debounced_and_never_replayed_after_restart() {
     use www_server::{features::lights::BedroomInput, integrations::homeassistant::Entity};
     let (dir, _, db) = fixture().await;
-    let state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let state = AppState::new(db.clone(), dir.path().join("media"));
     for (id, entity) in [
         ("bed-left", "light.bed_lamp_left"),
         ("bed-right", "light.bed_lamp_right"),
@@ -968,7 +957,7 @@ async fn bedroom_websocket_subscribes_before_snapshot_and_ignores_early_events()
         .unwrap();
         ws.close(None).await.unwrap();
     });
-    let mut state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut state = AppState::new(db.clone(), dir.path().join("media"));
     state.config = Arc::new(Config {
         ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
         ..Default::default()
@@ -1024,7 +1013,7 @@ async fn slow_alarm_lights_do_not_hold_the_sqlite_writer_or_delay_other_rings() 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
-    let mut s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let mut s = AppState::new(db.clone(), dir.path().join("media"));
     s.config = Arc::new(Config {
         ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
         ..Default::default()
@@ -1177,37 +1166,25 @@ async fn diagnostics_accept_only_redacted_bounded_support_evidence() {
 }
 
 #[tokio::test]
-async fn native_credentials_cannot_publish_releases_and_release_credentials_cannot_read_private_state()
- {
-    let (_dir, app, _) = fixture().await;
-    for (method, path, token, body) in [
-        (
-            "POST",
-            "/api/v1/releases/latest",
-            TOKEN,
-            json!({"app":"panel","build":123}),
-        ),
-        ("GET", "/api/v1/walks/state", RELEASE_TOKEN, Value::Null),
-    ] {
-        let request = Request::builder()
-            .method(method)
-            .uri(path)
-            .header("authorization", format!("Bearer {token}"))
-            .header("content-type", "application/json")
-            .body(Body::from(body.to_string()))
-            .unwrap();
-        assert_eq!(
-            app.clone().oneshot(request).await.unwrap().status(),
-            StatusCode::UNAUTHORIZED
-        );
-    }
+async fn release_publication_still_requires_the_automation_credential() {
+    let (_, app, _) = fixture().await;
+    let request = Request::builder()
+        .method("POST")
+        .uri("/api/v1/releases/latest")
+        .header("content-type", "application/json")
+        .body(Body::from(json!({"app":"panel","build":123}).to_string()))
+        .unwrap();
+    assert_eq!(
+        app.oneshot(request).await.unwrap().status(),
+        StatusCode::UNAUTHORIZED
+    );
 }
 
 #[tokio::test]
 async fn late_alarm_claim_preserves_native_scheduled_occurrence() {
     use www_server::features::alarms;
     let (dir, _, db) = fixture().await;
-    let state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let state = AppState::new(db.clone(), dir.path().join("media"));
     let start = chrono::DateTime::parse_from_rfc3339("2026-11-07T10:00:00Z")
         .unwrap()
         .with_timezone(&chrono::Utc);

@@ -4,15 +4,13 @@ import Testing
 @testable import PanelKit
 
 @Suite struct RESTMigrationTests {
-    private let token = "fixture-private-native-token-32-bytes"
     private func client(_ transport: RESTStub) -> PanelAPIClient {
         PanelAPIClient(
             configuration: PanelConfiguration(
-                baseURL: URL(string: "https://example.invalid")!,
-                accessClientID: "fixture-id", accessClientSecret: "fixture-secret", apiToken: token),
+                baseURL: URL(string: "https://example.invalid")!),
             transport: transport)
     }
-    @Test func authenticatesRESTAndEncodesFlatQueryParameters() async throws {
+    @Test func credentialFreeRESTEncodesFlatQueryParameters() async throws {
         let stub = RESTStub(#"{"walks":[]}"#)
         _ = try await WalksAPI(client: client(stub)).history(
             limit: 20,
@@ -23,8 +21,8 @@ import Testing
         #expect(request.httpBody == nil)
         let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
         #expect(query.first { $0.name == "limit" }?.value == "20")
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer " + token)
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "fixture-secret")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
     }
     @Test func pinVerificationUsesOnlyPOSTAndNeverDownloadsPIN() async throws {
         let stub = RESTStub(#"{"verified":false}"#)
@@ -51,10 +49,10 @@ import Testing
         #expect(body["action"] as? String == "stop")
         #expect(body["version"] as? Int == 3)
     }
-    @Test func sonosCommandsAndMediaCarryAuthentication() async throws {
+    @Test func sonosCommandsAndMediaUsePrivateOrigin() async throws {
         let stub = RESTStub("null")
         let api = SonosAPI(
-            configuration: PanelConfiguration(baseURL: URL(string: "https://example.invalid")!, apiToken: token),
+            configuration: PanelConfiguration(baseURL: URL(string: "https://example.invalid")!),
             transport: stub)
         try await api.setVolume(deviceIp: "media_player.desk", volume: 42)
         let request = try #require(await stub.requests.first)
@@ -64,7 +62,7 @@ import Testing
         #expect(command["room"] as? String == "media_player.desk")
         let photo = RESTStub("image", mime: "image/jpeg")
         _ = try await client(photo).photoData(collection: "booth-photos", path: "2026/bp_fixture.jpg")
-        #expect(await photo.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer " + token)
+        #expect(await photo.requests.first?.value(forHTTPHeaderField: "Authorization") == nil)
     }
     @Test func unauthorizedAndFailedMutationsAreNotRetried() async throws {
         let stub = RESTStub(#"{"error":"Unauthorized"}"#, status: 401)
@@ -76,20 +74,7 @@ import Testing
         }
         #expect(await stub.requests.count == 1)
     }
-    @Test func enrollmentRequiresSecureEndpointAndRedactsCredentials() async throws {
-        let raw =
-            #"{"baseURL":"https://api.example.invalid","apiToken":"fixture-private-native-token-32-bytes","accessClientID":"fixture-id","accessClientSecret":"fixture-secret"}"#
-        let enrollment = try PanelEnrollment.parse(raw)
-        for text in [enrollment.description, enrollment.debugDescription, String(reflecting: enrollment)] {
-            #expect(!text.contains(token) && !text.contains("fixture-secret"))
-        }
-        #expect(throws: PanelAPIError.self) {
-            try PanelEnrollment.parse(raw.replacingOccurrences(of: "https://", with: "http://"))
-        }
-        let stub = RESTStub(#"{"serverNow":"2026-11-07T00:00:00Z"}"#)
-        try await enrollment.verify(transport: stub)
-        #expect(await stub.requests.first?.url?.path == "/api/v1/alarms")
-    }
+
 }
 private actor RESTStub: PanelTransport {
     private(set) var requests: [URLRequest] = []

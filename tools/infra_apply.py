@@ -19,7 +19,13 @@ from pathlib import Path
 def safe_plan(plan):
     # Removing the explicitly retired app hostname is allowed; retained services
     # and the shared tunnel may not be destroyed by an automatic release.
-    retired = {'cloudflare_dns_record.home["app"]', 'cloudflare_zero_trust_access_application.home["app"]'}
+    retired = {
+        'cloudflare_dns_record.home["app"]',
+        'cloudflare_zero_trust_access_application.home["app"]',
+        'cloudflare_dns_record.home["api"]',
+        'cloudflare_zero_trust_access_application.home["api"]',
+        "cloudflare_zero_trust_access_policy.devices[0]",
+    }
     for change in plan.get("resource_changes", []):
         if "delete" in change.get("change", {}).get("actions", []) and change["address"] not in retired:
             raise RuntimeError("automatic apply would destroy retained infrastructure")

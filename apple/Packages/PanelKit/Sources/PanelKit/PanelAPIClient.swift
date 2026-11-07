@@ -96,13 +96,6 @@ public struct PanelAPIClient: Sendable {
         else { throw PanelAPIError.notConfigured }
         return c
     }
-    private func authorize(_ request: inout URLRequest, _ c: PanelConfiguration) {
-        if let token = c.apiToken { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
-        if let id = c.accessClientID, let secret = c.accessClientSecret {
-            request.setValue(id, forHTTPHeaderField: "CF-Access-Client-Id")
-            request.setValue(secret, forHTTPHeaderField: "CF-Access-Client-Secret")
-        }
-    }
     public func photoData(collection: String, path: String) async throws -> Data {
         let c = try configured()
         let prefix = "/media/booth-photos/"
@@ -116,7 +109,6 @@ public struct PanelAPIClient: Sendable {
         var request = URLRequest(
             url: c.baseURL.appendingPathComponent("media/booth-photos/" + path),
             timeoutInterval: c.requestTimeout)
-        authorize(&request, c)
         let (data, response) = try await transport.send(request)
         try Task.checkCancellation()
         guard response.statusCode == 200 else { throw PanelAPIError.http(status: response.statusCode) }
@@ -140,7 +132,6 @@ public struct PanelAPIClient: Sendable {
         request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
         request.setValue("photo", forHTTPHeaderField: "x-mode")
         request.setValue(String(Int64(milliseconds)), forHTTPHeaderField: "x-captured-at")
-        authorize(&request, c)
         let (data, response) = try await transport.send(request)
         try Task.checkCancellation()
         guard response.statusCode == 201 else { throw PanelAPIError.http(status: response.statusCode) }
@@ -214,7 +205,6 @@ public struct PanelAPIClient: Sendable {
                 request.httpBody = input
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             }
-            authorize(&request, c)
             let data: Data
             let response: HTTPURLResponse
             do { (data, response) = try await transport.send(request) } catch is CancellationError {
@@ -226,10 +216,7 @@ public struct PanelAPIClient: Sendable {
             try Task.checkCancellation()
             guard (200..<300).contains(response.statusCode) else {
                 if let body = try? JSONDecoder().decode(RESTFailure.self, from: data) {
-                    let message = [c.apiToken, c.accessClientID, c.accessClientSecret].compactMap { $0 }
-                        .filter { !$0.isEmpty }.reduce(body.error) {
-                            $0.replacingOccurrences(of: $1, with: "<redacted>")
-                        }
+                    let message = body.error
                     throw PanelAPIError.server(
                         code: Self.code(response.statusCode), message: message, httpStatus: response.statusCode)
                 }

@@ -19,25 +19,19 @@ pub struct AppState {
     pub diagnostics: Arc<std::sync::Mutex<std::collections::VecDeque<serde_json::Value>>>,
     pub light_gate: Arc<tokio::sync::Mutex<()>>,
     pub alarm_light_gate: Arc<tokio::sync::Mutex<()>>,
-    // Provisioned per installation outside the application bundle. Never logged.
-    token: Arc<str>,
 }
 impl AppState {
-    pub fn new(db: sqlx::SqlitePool, media: PathBuf, token: String) -> Result<Self, &'static str> {
-        if token.len() < 32 {
-            return Err("API token must contain at least 32 bytes");
-        }
-        Ok(Self {
+    pub fn new(db: sqlx::SqlitePool, media: PathBuf) -> Self {
+        Self {
             db,
             media,
-            token: token.into(),
             config: Arc::new(config::Config::default()),
             shutdown: tokio::sync::watch::channel(false).0,
             workers: Default::default(),
             diagnostics: Default::default(),
             alarm_light_gate: Default::default(),
             light_gate: Default::default(),
-        })
+        }
     }
 }
 pub fn now() -> String {

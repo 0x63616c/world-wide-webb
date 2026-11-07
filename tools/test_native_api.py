@@ -15,10 +15,6 @@ def main():
     root = Path(__file__).resolve().parent.parent
     with tempfile.TemporaryDirectory(prefix="www-native-api-") as scratch:
         data = Path(scratch)
-        token = "fixture-private-native-token-32-bytes"
-        credential = data / "token"
-        credential.write_text(token)
-        credential.chmod(0o600)
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
@@ -45,7 +41,7 @@ def main():
             env.pop(key + "_FILE", None)
         for key in ["WWW_SECRETS_DIR", "WWW_DATABASE_PATH", "MEDIA_STORAGE_DIR"]:
             env.pop(key, None)
-        env.update(WWW_DATA_DIR=str(data), WWW_API_TOKEN_FILE=str(credential), WWW_LISTEN=f"127.0.0.1:{port}")
+        env.update(WWW_DATA_DIR=str(data), WWW_LISTEN=f"127.0.0.1:{port}")
         url = f"http://127.0.0.1:{port}"
         with (data / "server.log").open("wb") as log:
             server = subprocess.Popen([str(root / "target/debug/www-server")], env=env, stdout=log, stderr=log)
@@ -63,7 +59,6 @@ def main():
                         time.sleep(0.05)
                 env.update(
                     WWW_NATIVE_TEST_URL=url,
-                    WWW_NATIVE_TEST_TOKEN=token,
                     WWW_NATIVE_TEST_PHOTO=str(
                         root / "apple/Resources/PanelAssets.xcassets/CloudPhoto.imageset/photo.jpg"
                     ),

@@ -35,11 +35,11 @@ private func client(_ transport: StubTransport) -> PanelAPIClient {
     PanelAPIClient(
         configuration: PanelConfiguration(
             baseURL: URL(string: "https://panel.example.invalid/panel/")!,
-            accessClientID: "test-client-id", accessClientSecret: "test-client-secret", requestTimeout: 12
+            requestTimeout: 12
         ), transport: transport)
 }
 
-@Test func queryWithoutInputAndAuthHeaders() async throws {
+@Test func queryWithoutInputUsesNoAppCredentials() async throws {
     let transport = StubTransport(try fixture("all-on"))
     let state = try await LightsAPI(client: client(transport)).list()
     #expect(state.lamps.count == 8)
@@ -48,8 +48,8 @@ private func client(_ transport: StubTransport) -> PanelAPIClient {
     #expect(request.httpMethod == "GET")
     #expect(request.httpBody == nil)
     #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
-    #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == "test-client-id")
-    #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "test-client-secret")
+    #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == nil)
+    #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
     #expect(request.timeoutInterval == 12)
 }
 
@@ -97,7 +97,7 @@ private func client(_ transport: StubTransport) -> PanelAPIClient {
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "test-client-secret")
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
         let body = try #require(request.httpBody)
         var expectedBody = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! [String: Any]
         expectedBody["action"] =
@@ -184,14 +184,14 @@ func decodeEveryStateVariant(name: String) async throws {
     await #expect(throws: CancellationError.self) { try await LightsAPI(client: client(cancelled)).list() }
 }
 
-@Test func notConfiguredAndPartialCredentials() async throws {
+@Test func notConfiguredAndCredentialFreeEndpoint() async throws {
     let transport = StubTransport(try fixture("all-off"))
     let missing = PanelAPIClient(configuration: nil, transport: transport)
     await #expect(throws: PanelAPIError.notConfigured) { try await missing.get("controls", as: ControlsState.self) }
     #expect(await transport.requests.isEmpty)
     let partial = PanelAPIClient(
         configuration: PanelConfiguration(
-            baseURL: URL(string: "https://panel.example.invalid")!, accessClientID: "test-client-id"),
+            baseURL: URL(string: "https://panel.example.invalid")!),
         transport: transport)
     _ = try await partial.get("controls", as: ControlsState.self)
     let request = try #require(await transport.requests.first)
@@ -217,32 +217,12 @@ func decodeEveryStateVariant(name: String) async throws {
             "WWW_PANEL_API_URL": "https://panel.example.invalid",
             "WWW_CF_ACCESS_CLIENT_ID": "test-client-id", "WWW_CF_ACCESS_CLIENT_SECRET": "test-client-secret",
         ]))
-    #expect(config.accessClientID == "test-client-id")
-    #expect(config.accessClientSecret == "test-client-secret")
     for text in [config.description, config.debugDescription, String(reflecting: config)] {
         #expect(!text.contains("test-client-id"))
         #expect(!text.contains("test-client-secret"))
         #expect(text.contains("<redacted>"))
     }
 }
-
-#if canImport(Security)
-    @Test func environmentCredentialsTakePrecedenceOverKeychain() throws {
-        let config = try #require(
-            PanelConfiguration.fromEnvironment([
-                "WWW_PANEL_API_URL": "https://panel.example.invalid", "WWW_CF_ACCESS_CLIENT_ID": "test-environment-id",
-            ]))
-        var requested: [PanelKeychain.Key] = []
-        let resolved = config.fillingCredentials { key in
-            requested.append(key)
-            return "test-keychain-value"
-        }
-        #expect(resolved.accessClientID == "test-environment-id")
-        #expect(resolved.accessClientSecret == "test-keychain-value")
-        #expect(requested == [.accessClientSecret, .apiToken])
-        #expect(PanelConfiguration.resolve([:]) == nil)
-    }
-#endif
 
 @Test func invalidMutationInputsDoNotReachTransport() async throws {
     let transport = StubTransport(try fixture("all-on"))

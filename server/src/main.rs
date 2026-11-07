@@ -31,9 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         db.close().await;
         return Ok(());
     }
-    let token_path = env::var("WWW_API_TOKEN_FILE")?;
-    let token = tokio::fs::read_to_string(token_path).await?;
-    let mut state = AppState::new(db.clone(), media, token.trim().to_owned())?;
+    let mut state = AppState::new(db.clone(), media);
     state.config = std::sync::Arc::new(www_server::config::Config::load()?);
     let listen = env::var("WWW_LISTEN").unwrap_or_else(|_| "127.0.0.1:4201".into());
     let listener = tokio::net::TcpListener::bind(&listen).await?;

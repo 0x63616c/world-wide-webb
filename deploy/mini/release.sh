@@ -53,8 +53,9 @@ python3 "$code/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
   "$root/backups/before-release-$generation-$revision-$(date -u +%Y%m%dT%H%M%SZ)-$$.sqlite"
 compose up -d --no-deps --wait --wait-timeout 180 www
 compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck
+python3 "$code/tailscale_serve.py"
 if [[ "$code" != "$root" ]]; then
-  for name in release.sh recover.sh compose.yaml sqlite_preflight.py sqlite_snapshot.py backup.py nas-upload.py publish-apple-release.py; do
+  for name in release.sh recover.sh compose.yaml sqlite_preflight.py sqlite_snapshot.py tailscale_serve.py backup.py nas-upload.py publish-apple-release.py; do
     cp "$code/$name" "$root/$name.tmp"
     mv "$root/$name.tmp" "$root/$name"
   done

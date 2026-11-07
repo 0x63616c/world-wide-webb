@@ -33,13 +33,6 @@ public struct SonosArtworkAPI: Sendable {
             url: url, cachePolicy: .reloadIgnoringLocalCacheData,
             timeoutInterval: min(configuration.requestTimeout, 10))
         request.setValue("image/jpeg, image/png, image/webp", forHTTPHeaderField: "Accept")
-        if let token = configuration.apiToken {
-            request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        }
-        if let id = configuration.accessClientID, let secret = configuration.accessClientSecret {
-            request.setValue(id, forHTTPHeaderField: "CF-Access-Client-Id")
-            request.setValue(secret, forHTTPHeaderField: "CF-Access-Client-Secret")
-        }
         let (data, response): (Data, HTTPURLResponse)
         do { (data, response) = try await transport.send(request) } catch is CancellationError {
             throw CancellationError()

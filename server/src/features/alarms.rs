@@ -519,12 +519,7 @@ mod tests {
         let db = crate::storage::open(&dir.path().join("db.sqlite"))
             .await
             .unwrap();
-        let s = AppState::new(
-            db.clone(),
-            dir.path().join("media"),
-            "fixture-provisioned-token-32-bytes".into(),
-        )
-        .unwrap();
+        let s = AppState::new(db.clone(), dir.path().join("media"));
         let start = at("2026-10-05T15:59:00Z");
         let due = at("2026-10-05T16:00:00Z");
         let alarm = create_at(&s, def(json!({})), Some("fixture-key".into()), start)

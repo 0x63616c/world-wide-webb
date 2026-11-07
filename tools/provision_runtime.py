@@ -2,13 +2,11 @@
 """Render required runtime credentials privately from sops exec-env, without printing values.
 
 Run only during the final cutover. Existing installation tokens are retained on rerun.
-Enrollment records require explicitly provisioned per-device Cloudflare credentials.
+Native clients connect through Tailscale and have no provisioned application credentials.
 """
 
 import argparse
-import json
 import os
-import secrets
 import subprocess
 import tempfile
 from pathlib import Path
@@ -52,14 +50,8 @@ def private_write(path, value):
             temporary.unlink(missing_ok=True)
 
 
-def render(root, environment, enrollment=None):
+def render(root, environment):
     outside_git(root)
-    if enrollment:
-        outside_git(enrollment.parent)
-        # Validate before updating any runtime files.
-        for key in ["CF_ACCESS_DEVICE_CLIENT_ID", "CF_ACCESS_DEVICE_CLIENT_SECRET"]:
-            if not environment.get(key):
-                raise ValueError("explicit per-device credentials are required for enrollment")
     missing = [source for source in FIELDS.values() if source not in environment]
     if missing:
         raise ValueError("required runtime credential fields are missing")
@@ -69,28 +61,8 @@ def render(root, environment, enrollment=None):
         raise ValueError("credential directory cannot be a symlink")
     directory.mkdir(mode=0o700, exist_ok=True)
     os.chmod(directory, 0o700)
-    token_file = directory / "WWW_API_TOKEN"
-    token = environment.get("WWW_API_TOKEN") or (
-        token_file.read_text().strip() if token_file.is_file() else secrets.token_urlsafe(48)
-    )
-    if len(token) < 32 or any(c.isspace() for c in token):
-        raise ValueError("invalid installation token")
     for target, source in FIELDS.items():
         private_write(directory / target, environment[source])
-    private_write(token_file, token)
-    if enrollment:
-        enrollment.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-        private_write(
-            enrollment,
-            json.dumps(
-                {
-                    "baseURL": "https://api.worldwidewebb.co",
-                    "apiToken": token,
-                    "accessClientID": environment["CF_ACCESS_DEVICE_CLIENT_ID"],
-                    "accessClientSecret": environment["CF_ACCESS_DEVICE_CLIENT_SECRET"],
-                }
-            ),
-        )
     print("Rendered private runtime credentials without changing application data")
 
 
@@ -98,9 +70,8 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
-    parser.add_argument("--enrollment-output", type=Path)
     args = parser.parse_args()
-    render(args.root, os.environ, args.enrollment_output)
+    render(args.root, os.environ)
 
 
 if __name__ == "__main__":

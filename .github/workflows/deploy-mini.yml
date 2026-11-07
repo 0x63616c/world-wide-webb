@@ -102,7 +102,7 @@ jobs:
           # shellcheck disable=SC2029 # The validated staging path must expand locally.
           cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
           trap cleanup EXIT
-          files=(release.sh recover.sh compose.yaml sqlite_preflight.py sqlite_snapshot.py backup.py nas-upload.py publish-apple-release.py)
+          files=(release.sh recover.sh compose.yaml sqlite_preflight.py sqlite_snapshot.py tailscale_serve.py backup.py nas-upload.py publish-apple-release.py)
           for file in "${files[@]}"; do scp "${options[@]}" "deploy/mini/$file" "$remote:$stage/$file"; done
           # shellcheck disable=SC2029 # Pass locally validated paths and release identity.
           ssh "${options[@]}" "$remote" \

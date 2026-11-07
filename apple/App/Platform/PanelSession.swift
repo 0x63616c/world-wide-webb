@@ -16,9 +16,7 @@ final class PanelSession {
         self.configuration = configuration
         self.alarms = alarms
         self.nativeAlarms = nativeAlarms
-        alarms.configure(
-            serverURL: configuration.serverURL, token: configuration.apiToken,
-            cfID: configuration.cfAccessClientID, cfSecret: configuration.cfAccessClientSecret)
+        alarms.configure(serverURL: configuration.serverURL)
     }
 
     func activate() {
@@ -35,7 +33,7 @@ final class PanelSession {
     func reconcileAlarms(_ provider: LiveAlarmsProvider) async {
         await nativeAlarms.reconcile(
             snapshot: provider.snapshot, available: provider.availability == .live,
-            configured: !configuration.apiToken.isEmpty || isAlarmFixture,
+            configured: true,
             syncWidget: { next in
                 if self.isAlarmFixture { return }
                 try await self.alarms.sync(next: next)

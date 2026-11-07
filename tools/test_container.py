@@ -21,10 +21,6 @@ def main(image, revision):
     root = Path(__file__).resolve().parent.parent
     with tempfile.TemporaryDirectory(prefix="www-image-check-") as scratch:
         data = Path(scratch)
-        token = "fixture-private-container-token-32-bytes"
-        secret = data / "api-token"
-        secret.write_text(token)
-        secret.chmod(0o600)
         state = data / "state"
         state.mkdir()
         container = docker(
@@ -36,10 +32,6 @@ def main(image, revision):
             "127.0.0.1::4201",
             "--mount",
             f"type=bind,src={state},dst=/app/data",
-            "--mount",
-            f"type=bind,src={secret},dst=/run/test-api-token,readonly",
-            "-e",
-            "WWW_API_TOKEN_FILE=/run/test-api-token",
             "-e",
             "WORKER_CYCLES=off",
             "-e",
@@ -50,9 +42,8 @@ def main(image, revision):
             port = docker("port", container, "4201/tcp").split(":")[-1]
             origin = f"http://127.0.0.1:{port}"
 
-            def request(path, body=None, headers=None, authenticated=True):
-                auth = {"Authorization": "Bearer " + token} if authenticated else {}
-                req = urllib.request.Request(origin + path, data=body, headers=dict(auth, **(headers or {})))
+            def request(path, body=None, headers=None):
+                req = urllib.request.Request(origin + path, data=body, headers=headers or {})
                 with urllib.request.urlopen(req, timeout=5) as response:
                     return response.read()
 
@@ -60,7 +51,7 @@ def main(image, revision):
                 deadline = time.monotonic() + 30
                 while True:
                     try:
-                        health = json.loads(request("/healthz", authenticated=False))
+                        health = json.loads(request("/healthz"))
                         assert health["build"] == revision
                         assert health["cycles"]["enabled"] is False
                         return
@@ -75,11 +66,6 @@ def main(image, revision):
             walk = json.loads(
                 request("/api/v1/walks/start", b'{"source":"ipad"}', {"Content-Type": "application/json"})
             )["active"]
-            try:
-                request("/api/v1/walks/state", authenticated=False)
-                raise AssertionError("unauthenticated state was accepted")
-            except urllib.error.HTTPError as error:
-                assert error.code == 401
             photo = (root / "apple/Resources/PanelAssets.xcassets/CloudPhoto.imageset/photo.jpg").read_bytes()
             receipt = json.loads(
                 request(
@@ -100,7 +86,7 @@ def main(image, revision):
             assert json.loads(request("/api/v1/walks/state"))["active"]["id"] == walk["id"]
             assert request(path) == photo
             docker("exec", "-e", "EXPECTED_REVISION=" + revision, container, "www-server", "healthcheck")
-            print("PASS: image revision, authorization, SQLite restart and Photo Booth bytes")
+            print("PASS: image revision, credential-free private API, SQLite restart and Photo Booth bytes")
         finally:
             subprocess.run(["docker", "rm", "-f", container], stdout=subprocess.DEVNULL, check=True)
 

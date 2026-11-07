@@ -10,7 +10,6 @@ services:
       WWW_DATABASE_PATH: /app/data/control-center.sqlite
       MEDIA_STORAGE_DIR: /app/media
       WWW_SECRETS_DIR: /run/secrets
-      WWW_API_TOKEN_FILE: /run/secrets/WWW_API_TOKEN
       HA_URL: ${HA_URL:?Set the Home Assistant origin}
       WORKER_CYCLES: ${WORKER_CYCLES:?Explicitly choose on or off}
       BEDROOM_SWITCH_INPUT_ENABLED: ${BEDROOM_SWITCH_INPUT_ENABLED:-false}

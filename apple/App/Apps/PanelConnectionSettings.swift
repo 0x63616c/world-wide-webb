@@ -2,41 +2,24 @@ import PanelKit
 import SwiftUI
 
 struct PanelConnectionSettings: View {
-    @State private var details = ""
-    @State private var connecting = false
-    @State private var message: String?
+    @State private var checking = false
+    @State private var status: String?
     var body: some View {
-        Section("Server connection") {
-            SecureField("Paste private device connection", text: $details)
-                .privacySensitive()
-                .accessibilityIdentifier("connection-details")
-            Button(connecting ? "Connecting…" : "Verify and connect") {
-                connecting = true
+        Section("Home server") {
+            Text("Connect this device to Tailscale to reach your home server.")
+            Button(checking ? "Checking…" : "Check connection") {
+                checking = true
                 Task { @MainActor in
-                    defer {
-                        connecting = false
-                        details = ""
-                    }
+                    defer { checking = false }
+                    struct Health: Decodable, Sendable { let status: String }
                     do {
-                        let enrollment = try PanelEnrollment.parse(details)
-                        try await enrollment.verify()
-                        try Task.checkCancellation()
-                        try enrollment.save()
-                        message = "Connected."
-                    } catch { message = "Connection failed. Check the device details and server availability." }
+                        let value = try await PanelAPIClient(configuration: PanelConfiguration().api).get(
+                            "health", as: Health.self)
+                        status = value.status == "ok" ? "Connected." : "Home server unavailable."
+                    } catch { status = "Cannot reach your home server. Check that Tailscale is connected." }
                 }
-            }
-            .disabled(connecting || details.isEmpty)
-            .accessibilityIdentifier("connection-save")
-            Button("Disconnect this device", role: .destructive) {
-                do {
-                    try PanelEnrollment.disconnect()
-                    message = "Disconnected."
-                } catch { message = "Couldn’t remove this device’s connection." }
-            }
-            .disabled(connecting)
-            if let message { Text(message).foregroundStyle(.secondary) }
+            }.disabled(checking)
+            if let status { Text(status).foregroundStyle(.secondary) }
         }
-        .onDisappear { details = "" }
     }
 }

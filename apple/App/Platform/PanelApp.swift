@@ -14,7 +14,6 @@ final class PanelAppDelegate: NSObject, UIApplicationDelegate {
 
 @main
 struct PanelApp: App {
-    @State private var connectionRevision = 0
     @UIApplicationDelegateAdaptor(PanelAppDelegate.self) private var appDelegate
     private var fixtureMotionPhase: Double? {
         #if DEBUG
@@ -42,10 +41,7 @@ struct PanelApp: App {
                     #endif
                 }
             }
-            .id(connectionRevision)
-            .onReceive(Foundation.NotificationCenter.default.publisher(for: PanelEnrollment.changed)) { _ in
-                connectionRevision += 1
-            }
+
         }
     }
 }
@@ -69,8 +65,7 @@ struct PanelRoot: View {
                 // Fixture transport keeps launch tests off the live server.
                 let config = PanelConfiguration(
                     environment: [
-                        "PANEL_SERVER_URL": "http://localhost:1", "WWW_CF_ACCESS_CLIENT_ID": "",
-                        "WWW_CF_ACCESS_CLIENT_SECRET": "", "WWW_API_TOKEN": "",
+                        "PANEL_SERVER_URL": "http://localhost:1"
                     ])
                 _session = State(
                     initialValue: PanelSession(
@@ -103,8 +98,7 @@ struct PanelRoot: View {
                 _store = State(
                     initialValue: LiveHomeDataSource(
                         configuration: PanelKit.PanelConfiguration(
-                            baseURL: URL(string: "http://localhost:18733")!,
-                            accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
+                            baseURL: URL(string: "http://localhost:18733")!),
                         transport: transport,
                         calendarAPI: CalendarAPI(
                             store: HybridCalendarFixtureStore(

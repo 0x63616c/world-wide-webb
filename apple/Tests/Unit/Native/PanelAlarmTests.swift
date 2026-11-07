@@ -36,7 +36,6 @@ actor AlarmCoordinatorSpy: PanelAlarmCoordinating {
     private(set) var snapshots: [String] = []
     private(set) var calls: [String] = []
     private(set) var configuredURL: String?
-    private(set) var configuredAccess: [String] = []
     var failSync = false
     var failConfiguration = false
 
@@ -45,11 +44,10 @@ actor AlarmCoordinatorSpy: PanelAlarmCoordinating {
         failConfiguration = configuration
     }
 
-    func configure(url: String, token: String, clientID: String, clientSecret: String) async throws {
+    func configure(url: String) async throws {
         await Task.yield()
         if failConfiguration { throw PanelAlarmError.invalidURL }
         configuredURL = url
-        configuredAccess = [token, clientID, clientSecret]
         calls.append("configure")
     }
 
@@ -69,29 +67,13 @@ final class PanelAlarmTests: XCTestCase {
         let coordinator = AlarmCoordinatorSpy()
         let alarms = PanelAlarms(coordinator: coordinator)
         alarms.configure(
-            serverURL: URL(string: "https://example.test")!, token: "test-token",
-            cfID: "test-id", cfSecret: "test-secret")
+            serverURL: URL(string: "https://example.test")!)
         await alarms.refresh()
         await alarms.refresh()
         let calls = await coordinator.calls
         let url = await coordinator.configuredURL
-        let access = await coordinator.configuredAccess
         XCTAssertEqual(calls, ["configure", "refresh", "refresh"])
         XCTAssertEqual(url, "https://example.test")
-        XCTAssertEqual(access, ["test-token", "test-id", "test-secret"])
-    }
-
-    @MainActor
-    func testMissingTokenSkipsTransportConfiguration() async throws {
-        let coordinator = AlarmCoordinatorSpy()
-        let alarms = PanelAlarms(coordinator: coordinator)
-        alarms.configure(serverURL: URL(string: "https://example.test")!, token: "", cfID: "", cfSecret: "")
-        await alarms.refresh()
-        try await alarms.sync(next: nil)
-        let calls = await coordinator.calls
-        let snapshots = await coordinator.snapshots
-        XCTAssertTrue(calls.isEmpty)
-        XCTAssertEqual(snapshots, ["{\"next\":null}"])
     }
 
     @MainActor
@@ -99,7 +81,7 @@ final class PanelAlarmTests: XCTestCase {
         let coordinator = AlarmCoordinatorSpy()
         await coordinator.setFailures(configuration: true)
         let alarms = PanelAlarms(coordinator: coordinator)
-        alarms.configure(serverURL: URL(string: "http://example.test")!, token: "test-token", cfID: "", cfSecret: "")
+        alarms.configure(serverURL: URL(string: "http://example.test")!)
         await alarms.refresh()
         let calls = await coordinator.calls
         XCTAssertTrue(calls.isEmpty)

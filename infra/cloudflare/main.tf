@@ -1,13 +1,10 @@
 locals {
-  origins = merge({
-    api       = { service = "http://127.0.0.1:4201", no_tls_verify = false }
+  origins = {
     ha        = { service = "http://192.168.0.130:8123", no_tls_verify = false }
     hindsight = { service = "http://127.0.0.1:9999", no_tls_verify = false }
     bambuddy  = { service = "http://127.0.0.1:8000", no_tls_verify = false }
     dsm       = { service = "https://192.168.0.218:5001", no_tls_verify = true }
-    }, var.retain_legacy_app ? {
-    app = { service = "http://127.0.0.1:4201", no_tls_verify = false }
-  } : {})
+  }
 }
 
 resource "cloudflare_zero_trust_tunnel_cloudflared" "home" {
@@ -25,15 +22,6 @@ resource "cloudflare_zero_trust_access_policy" "email" {
   include          = [{ email = { email = var.allowed_email } }]
 }
 
-resource "cloudflare_zero_trust_access_policy" "devices" {
-  # An empty list must not create an empty/malformed allow policy.
-  count      = nonsensitive(length(var.api_service_token_ids)) > 0 ? 1 : 0
-  account_id = var.account_id
-  name       = "native-device-service-auth"
-  decision   = "non_identity"
-  include    = [for id in var.api_service_token_ids : { service_token = { token_id = id } }]
-}
-
 resource "cloudflare_zero_trust_access_application" "home" {
   for_each                   = local.origins
   account_id                 = var.account_id
@@ -43,10 +31,7 @@ resource "cloudflare_zero_trust_access_application" "home" {
   http_only_cookie_attribute = true
   session_duration           = "720h"
   tags                       = ["bosun:control-center"]
-  policies = concat(
-    contains(["api", "app"], each.key) ? [for p in cloudflare_zero_trust_access_policy.devices : { id = p.id, precedence = 1 }] : [],
-    [{ id = cloudflare_zero_trust_access_policy.email.id, precedence = 2 }]
-  )
+  policies                   = [{ id = cloudflare_zero_trust_access_policy.email.id, precedence = 2 }]
 }
 
 resource "cloudflare_zero_trust_access_policy" "deny" {

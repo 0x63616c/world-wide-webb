@@ -17,8 +17,8 @@ import Testing
         let request = try #require(await transport.requests.first)
         #expect(request.url?.path == "/api/v1/releases/latest")
         #expect(request.httpMethod == "GET")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == "synthetic-id")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "synthetic-secret")
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == nil)
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         let components = try #require(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
         #expect(components.queryItems?.first?.value == "panel")
@@ -63,8 +63,7 @@ import Testing
         ReleasesAPI(
             client: PanelAPIClient(
                 configuration: PanelConfiguration(
-                    baseURL: URL(string: "https://panel.example.invalid")!, accessClientID: "synthetic-id",
-                    accessClientSecret: "synthetic-secret"), transport: transport))
+                    baseURL: URL(string: "https://panel.example.invalid")!), transport: transport))
     }
 }
 

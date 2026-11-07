@@ -17,8 +17,7 @@ import XCTest
     private func source(_ transport: HybridFixtureTransport, clock: SyncClock? = nil) -> LiveHomeDataSource {
         LiveHomeDataSource(
             configuration: PanelKit.PanelConfiguration(
-                baseURL: URL(string: "https://fixtures.example.invalid/panel")!,
-                accessClientID: "synthetic-access-id", accessClientSecret: "synthetic-access-secret"),
+                baseURL: URL(string: "https://fixtures.example.invalid/panel")!),
             transport: transport, now: { self.localNow }, walkClock: clock)
     }
 
@@ -30,8 +29,8 @@ import XCTest
         XCTAssertEqual(requests.map { $0.url!.path }, ["/panel/api/v1/walks/state", "/panel/api/v1/walks/history"])
         for request in requests {
             XCTAssertEqual(request.url?.host, "fixtures.example.invalid")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "CF-Access-Client-Id"), "synthetic-access-id")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "CF-Access-Client-Secret"), "synthetic-access-secret")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "CF-Access-Client-Id"), nil)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "CF-Access-Client-Secret"), nil)
         }
         let presentation = HybridWalkDataSource(store: store)
         XCTAssertEqual(store.now, localNow)

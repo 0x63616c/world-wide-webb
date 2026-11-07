@@ -38,6 +38,7 @@ python3 "$code/sqlite_snapshot.py" "$data_dir/control-center.sqlite" \
   "$root/backups/before-recovery-$stamp.sqlite"
 compose up -d --no-deps --wait --wait-timeout 180 www
 compose exec -T -e EXPECTED_REVISION="$revision" www www-server healthcheck
+python3 "$code/tailscale_serve.py"
 cp "$release" "$root/current.env.tmp"
 mv "$root/current.env.tmp" "$root/current.env"
 # Keep the highest accepted CI generation so delayed old jobs stay rejected.

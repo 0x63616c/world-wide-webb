@@ -21,8 +21,8 @@ import Testing
         #expect(page.items.first?.dedupeKey == "morning")
         let request = try #require(await stub.requests.first)
         #expect(request.url?.path == "/api/v1/notifications")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == "synthetic-id")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "synthetic-secret")
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Id") == nil)
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
         let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
         #expect(query.first { $0.name == "limit" }?.value == "200")
         #expect(!query.contains { $0.name == "unread" })
@@ -85,8 +85,7 @@ import Testing
         NotificationsAPI(
             client: PanelAPIClient(
                 configuration: PanelConfiguration(
-                    baseURL: URL(string: "https://panel.example.invalid")!,
-                    accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"), transport: transport))
+                    baseURL: URL(string: "https://panel.example.invalid")!), transport: transport))
     }
 }
 

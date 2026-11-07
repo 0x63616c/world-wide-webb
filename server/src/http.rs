@@ -138,15 +138,15 @@ pub fn router(state: AppState) -> Router {
         .route("/media/booth-photos/{*path}", get(booth::download))
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024));
     Router::new()
-        .merge(
-            api.merge(media)
-                .route_layer(middleware::from_fn_with_state(state.clone(), authenticate)),
-        )
+        .merge(api.merge(media).route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            restrict_release,
+        )))
         .route("/up", get(|| async { StatusCode::NO_CONTENT }))
         .route("/healthz", get(health))
         .with_state(state)
 }
-async fn authenticate(State(state): State<AppState>, request: Request, next: Next) -> Response {
+async fn restrict_release(State(state): State<AppState>, request: Request, next: Next) -> Response {
     let supplied = request
         .headers()
         .get(header::AUTHORIZATION)
@@ -157,18 +157,15 @@ async fn authenticate(State(state): State<AppState>, request: Request, next: Nex
     // token is provisioned separately and never distributed to clients.
     let publishing = request.method() == axum::http::Method::POST
         && request.uri().path() == "/api/v1/releases/latest";
-    let expected = if publishing {
-        state.config.release_token.as_deref().unwrap_or("")
-    } else {
-        &state.token
-    };
-    if expected.len() < 32 || !bool::from(supplied.as_bytes().ct_eq(expected.as_bytes())) {
-        return (
-            StatusCode::UNAUTHORIZED,
-            [(header::WWW_AUTHENTICATE, "Bearer")],
-            Json(json!({"error":"Unauthorized"})),
-        )
-            .into_response();
+    if publishing {
+        let expected = state.config.release_token.as_deref().unwrap_or("");
+        if expected.len() < 32 || !bool::from(supplied.as_bytes().ct_eq(expected.as_bytes())) {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({"error":"Unauthorized"})),
+            )
+                .into_response();
+        }
     }
     let mut response = next.run(request).await;
     response

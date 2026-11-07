@@ -23,7 +23,7 @@ class ReleaseTests(unittest.TestCase):
         with sqlite3.connect(self.db) as db:
             for table in ["settings", "booth_photo", "walk", "_sqlx_migrations"]:
                 db.execute(f'CREATE TABLE "{table}"(id INTEGER)')
-        for name in ["sqlite_preflight.py", "sqlite_snapshot.py"]:
+        for name in ["sqlite_preflight.py", "sqlite_snapshot.py", "tailscale_serve.py"]:
             shutil.copyfile(ROOT / name, self.root / name)
         (self.root / "runtime.env").touch()
         (self.root / "compose.yaml").touch()
@@ -34,6 +34,14 @@ class ReleaseTests(unittest.TestCase):
             PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
             TEST_REVISION=REVISION,
         )
+        tailnet = self.root / "bin/tailscale"
+        tailnet.write_text("""#!/usr/bin/env python3
+import json,sys
+if sys.argv[1] == 'status':print(json.dumps({'Self':{'DNSName':'homelab.tail8c014d.ts.net.'}}))
+elif 'status' in sys.argv:print(json.dumps({'TCP':{'443':{'HTTPS':True}},'Web':{'homelab.tail8c014d.ts.net:443':{'Handlers':{'/':{'Proxy':'http://127.0.0.1:4201'}}}}}))
+""")
+        tailnet.chmod(0o755)
+        self.env["WWW_TAILSCALE_BIN"] = str(tailnet)
         docker = self.root / "bin/docker"
         docker.write_text("""#!/usr/bin/env python3
 import json,os,sys
@@ -43,7 +51,7 @@ with open(os.environ['MINI_TEST_LOG'],'a') as log:log.write(json.dumps(args)+'\\
 if args[0]=='run':
  print('bad' if os.environ.get('IMAGE_FAILURE') else os.environ['TEST_REVISION'])
 elif 'config' in args and '--format' in args:
- print(json.dumps({'services':{'www':{'volumes':[{'type':'bind','source':os.environ['WWW_ROOT']+'/sqlite','target':'/app/data'}]}}}))
+ print(json.dumps({'services':{'www':{'ports':[{'host_ip':('0.0.0.0' if os.environ.get('PUBLIC_LISTENER') else '127.0.0.1'),'target':4201}], 'volumes':[{'type':'bind','source':os.environ['WWW_ROOT']+'/sqlite','target':'/app/data'}]}}}))
 elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
 """)
         docker.chmod(0o755)
@@ -62,6 +70,8 @@ elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
     def test_missing_database_or_wrong_image_never_stops_working_app(self):
         result = self.run_release(IMAGE_FAILURE="1")
         self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any("stop" in call for call in self.calls()))
+        self.assertNotEqual(self.run_release(PUBLIC_LISTENER="1").returncode, 0)
         self.assertFalse(any("stop" in call for call in self.calls()))
         self.db.unlink()
         self.assertNotEqual(self.run_release().returncode, 0)

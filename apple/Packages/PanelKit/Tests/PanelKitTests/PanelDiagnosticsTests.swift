@@ -75,8 +75,7 @@ private struct DiagnosticsResult: Decodable, Sendable { let ok: Bool }
     log.record(control: "controls.toggle", input: Data(#"{"on":true,"id":"synthetic-secret"}"#.utf8), status: 200)
     let transport = DiagnosticsTransport(status: 200)
     let config = PanelConfiguration(
-        baseURL: URL(string: "https://panel.example")!,
-        accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret")
+        baseURL: URL(string: "https://panel.example")!)
     let client = PanelAPIClient(configuration: config, transport: transport, commandLog: log)
     let snapshot = PanelDiagnosticsSnapshot(
         source: "fixture", backendURL: "https://panel.example", build: "1", gitSHA: "dev", backend: "reachable",
@@ -85,7 +84,7 @@ private struct DiagnosticsResult: Decodable, Sendable { let ok: Bool }
         "diagnostics", input: PanelDiagnosticsSubmission(snapshot: snapshot, commands: log.snapshot()),
         as: DiagnosticsResult.self)
     let request = try #require(await transport.requests.first)
-    #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "synthetic-secret")
+    #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
     let body = String(decoding: try #require(request.httpBody), as: UTF8.self)
     for value in ["CF-Access", "synthetic-id", "synthetic-secret", "Authorization"] { #expect(!body.contains(value)) }
     #expect(log.snapshot().count == 1, "Sending diagnostics must not recursively log itself")

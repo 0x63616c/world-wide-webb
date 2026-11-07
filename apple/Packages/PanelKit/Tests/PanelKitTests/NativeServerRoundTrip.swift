@@ -8,8 +8,7 @@ struct NativeServerRoundTrip {
     @Test func swiftClientReadsAndMutatesRealRustServer() async throws {
         let env = ProcessInfo.processInfo.environment
         let configuration = PanelConfiguration(
-            baseURL: URL(string: try #require(env["WWW_NATIVE_TEST_URL"]))!,
-            apiToken: try #require(env["WWW_NATIVE_TEST_TOKEN"]))
+            baseURL: URL(string: try #require(env["WWW_NATIVE_TEST_URL"]))!)
         let client = PanelAPIClient(configuration: configuration)
         let walks = WalksAPI(client: client)
         #expect(try await walks.state().active == nil)
@@ -31,8 +30,6 @@ struct NativeServerRoundTrip {
         try await photos.savePhoto(jpeg: photo, capturedAt: Date())
         let frame = try #require(try await photos.booth().groups.first?.frames.first)
         #expect(try await photos.image(collection: "booth-photos", path: frame.path) == photo)
-        let denied = PanelAPIClient(
-            configuration: PanelConfiguration(baseURL: configuration.baseURL, apiToken: "fixture-invalid-token"))
-        await #expect(throws: PanelAPIError.self) { _ = try await WalksAPI(client: denied).state() }
+
     }
 }

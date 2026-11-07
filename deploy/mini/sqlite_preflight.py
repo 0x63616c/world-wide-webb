@@ -9,7 +9,16 @@ from pathlib import Path
 
 def main():
     config = json.load(sys.stdin)
-    mounts = config["services"]["www"]["volumes"]
+    service = config["services"]["www"]
+    ports = service.get("ports", [])
+    if (
+        service.get("network_mode") == "host"
+        or len(ports) != 1
+        or ports[0].get("host_ip") != "127.0.0.1"
+        or ports[0].get("target") != 4201
+    ):
+        raise RuntimeError("The native API must be published on loopback only; Tailscale Serve owns external access")
+    mounts = service["volumes"]
     sources = [v["source"] for v in mounts if v.get("target") == "/app/data" and v.get("type") == "bind"]
     if len(sources) != 1:
         raise RuntimeError("exactly one SQLite data directory must be mounted")

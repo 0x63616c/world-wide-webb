@@ -2,7 +2,7 @@ import Foundation
 import PanelKit
 
 protocol PanelAlarmCoordinating: Sendable {
-    func configure(url: String, token: String, clientID: String, clientSecret: String) async throws
+    func configure(url: String) async throws
     func refresh() async throws
     func sync(json: String) async throws
 }
@@ -19,19 +19,16 @@ final class PanelAlarms {
         self.coordinator = coordinator
     }
 
-    func configure(serverURL: URL, token: String, cfID: String, cfSecret: String) {
-        guard !token.isEmpty else { return }
+    func configure(serverURL: URL) {
         configuration = Task {
-            try await coordinator.configure(
-                url: serverURL.absoluteString, token: token,
-                clientID: cfID, clientSecret: cfSecret)
+            try await coordinator.configure(url: serverURL.absoluteString)
         }
     }
 
     func refresh() async {
         guard let configuration else { return }
-        // Foreground refresh must wait for launch-time Keychain storage.
-        // Like Expo, an unavailable server must not interrupt the board.
+        // Foreground refresh must wait for launch-time endpoint configuration.
+        // An unavailable server must not interrupt the board.
         do {
             try await configuration.value
             try await coordinator.refresh()

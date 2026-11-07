@@ -25,8 +25,7 @@ private actor TeslaAPITransport: PanelTransport {
         TeslaAPI(
             client: PanelAPIClient(
                 configuration: PanelConfiguration(
-                    baseURL: URL(string: "https://panel.example.invalid")!,
-                    accessClientID: "fixture-id", accessClientSecret: "fixture-secret"), transport: transport))
+                    baseURL: URL(string: "https://panel.example.invalid")!), transport: transport))
     }
     @Test func decodesBackendFixtureAndUsesAuthenticatedGET() async throws {
         let transport = TeslaAPITransport(try fixture("ready"))
@@ -39,7 +38,7 @@ private actor TeslaAPITransport: PanelTransport {
         #expect(data.locked && !data.climateOn && data.cabinFahrenheit == 68 && data.odometerMiles == 10000)
         let request = try #require(await transport.requests.first)
         #expect(request.httpMethod == "GET" && request.url?.path == "/api/v1/tesla")
-        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == "fixture-secret")
+        #expect(request.value(forHTTPHeaderField: "CF-Access-Client-Secret") == nil)
     }
     @Test func absentAndUnavailableNeverDecodeAsData() async throws {
         #expect(try await api(TeslaAPITransport(fixture("unconfigured"))).state() == .unconfigured)

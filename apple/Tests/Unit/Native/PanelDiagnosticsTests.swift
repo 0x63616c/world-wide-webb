@@ -26,8 +26,7 @@ import XCTest
     func testModulesIncludeEveryProviderAndRefreshWithoutExposingTransportSecrets() async throws {
         let store = LiveHomeDataSource(
             configuration: PanelKit.PanelConfiguration(
-                baseURL: URL(string: "https://panel.example")!,
-                accessClientID: "synthetic-id", accessClientSecret: "synthetic-secret"),
+                baseURL: URL(string: "https://panel.example")!),
             transport: SecretDiagnosticsTransport())
         let initial = PanelDiagnosticsView.moduleStatuses(in: store)
         XCTAssertEqual(initial.map(\.module), HomeModule.allCases.map(\.rawValue))
