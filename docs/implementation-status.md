@@ -1,112 +1,71 @@
 # Implementation status
 
-Configuration remains in the private
-[homelab repository](https://github.com/0x63616c/homelab). The reusable operator and
-bootstrap helper live in the public
-[homelab-cli repository](https://github.com/0x63616c/homelab-cli). Private health and
-restore operations live in `host/`; `host/Cargo.toml` pins the public implementation
-used by the private package. No current release or completed migration is claimed
-by this document.
+The private [homelab repository](https://github.com/0x63616c/homelab) owns host and
+service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
+owns guided enrollment; private health and restore operations live in `host/`.
+No physical host has received this configuration, and 0.3.0 is not yet released.
 
-## Current enrollment implementation
+## What is implemented
 
-The Rust CLI is focused on enrollment. It provides guided SSH access, persistent
-connection identity and repository binding, then a single reviewed setup flow.
-There is no separate inspection dashboard or manual token-entry workflow. The
-operator does not install Nix or compile a bootstrap package locally.
+The Rust wizard verifies SSH identity, attaches the configuration repository,
+backs up and verifies age identities through client-side 1Password, and creates
+a scoped Tailscale enrollment key. The target generates its own read-only Git
+key. Schema 2 names the backup vault separately from the OAuth issuer. Neither
+reusable OAuth credentials nor recovery identities reach the target.
 
-Schema 2 separates `onePassword.backupVault` from the Tailscale OAuth item's vault
-and item. The client verifies host/recovery age-key backups before issuing the
-single-use enrollment key. Reusable OAuth credentials and recovery keys stay off
-the target. The target generates its own read-only GitHub deploy key.
+An enrollment PR contains public recipients, the selected SSH public key and
+ciphertext. After merge, bootstrap installs the approved revision, verifies it,
+reboots and reconciles completion. Journals preserve uncertain outcomes; setup
+does not silently reinstall or regenerate identities after failure. Nix runs on
+the target, not the operator laptop.
 
-Enrollment opens an encrypted configuration PR, verifies the exact merged
-revision, installs and activates it, then owns reboot and completion checks.
-Target identity, immutable build output, host-only decryption and no-replace key
-installation remain enforced. Journals and receipts preserve uncertain outcomes;
-setup does not silently reinstall after an ambiguous privileged operation.
+Comin owns subsequent Git reconciliation every 300 seconds. Enrollment holds it
+until verification completes. A narrow pinned patch uses Darwin's standard
+system profile for both activation and retention; native Nix generation deletion
+preserves the current profile under its lock. Completion checks Comin's deployed
+revision, the boot profile and live `/etc/static`. Reviewed `main` is the update
+authorization boundary; Actions status is not a separate runtime gate.
 
-Comin replaces the custom Python updater. The initial hold keeps the enrollment
-revision fixed through reboot. After verified completion, Comin reconciles Git
-`main` using the deploy key and pinned GitHub host keys. Runtime authorization is
-the reviewed branch, not an Actions-status gate. The startup race between its
-first scheduled poll and completion's deadline has a reviewed native-fetch fix;
-its real full-journey validation is still in progress.
+Both physical host manifests remain unready, without authorized keys or assigned
+services. Comin cannot be enabled alongside the stateful container/Home Assistant
+runtimes until their backup and deployment workflow is reviewed. Runner lifecycle
+and registration remain disabled. Existing Python backup/snapshot/reconciliation
+operations remain where used; the custom Python updater was removed.
 
-Both private host definitions enable base-host Comin reconciliation, while their
-manifest entries remain `activationReady: false`, with no authorized keys or
-assigned services. The update module rejects stateful container/Home Assistant
-enablement alongside this base enrollment path. No production host configuration
-or service cutover has been activated.
+## Current evidence
 
-## Validation evidence and current limits
+The exercised helper is `1c06e59f39373045e8be20a9957167dbc58a1644`; public head
+`f9063f6` changes documentation only. Private candidate `2bd88e2` pins that helper
+and the Darwin profile patch. See [VM validation](vm-validation.md) for exact
+revisions, evidence locations and limits.
 
-See [VM validation](vm-validation.md) for exact revisions, failed attempts and
-preserved guests. Earlier disposable rehearsals proved base activation and reboot
-for earlier helpers; they do not establish the complete current enrollment flow.
+- VM6 passed the complete wizard, enrollment reboot, real Comin handover and
+  completed-wizard replay; the harness exited 0.
+- A subsequent native scheduled update reached `586e0ade043e75601ae3b82be76ef21533b6b7ee`.
+  Boot profile, current system and live `/etc` agreed, the new marker was present,
+  and the independent activation verifier exited 0.
+- Reboot after that scheduled update passed: the new boot retained the exact
+  deployment, the secret/launchd verifier passed and Comin was running.
+- The full nine-check private Nix run at `2bd88e2` passed, including both hosts,
+  the current profile patch and helper pin.
+- Final current-artifact CI, replacement of the old draft tap artifact and release
+  publication remain pending.
 
-The current tests cover the real provisioning transaction with synthetic
-1Password/OAuth providers, a real private fixture PR, actual target bootstrap,
-reboot and Comin verification. The Tailscale route adapter is synthetic, so even
-a passing fixture run will not prove production tailnet policy or routing.
-The third disposable full-wizard VM run activated and rebooted, then stopped
-during completion before Comin started. Its preserved state is under investigation.
-The full private `nix flake check --no-update-lock-file --max-jobs 1 --cores 1`
-passed all nine checks at private candidate
-`56090782e1c8cbf7dd1dd2923221a9bf7e5dda5b`, pinning public 0.3.0 candidate
-`df524c5c20a07ff76c9c55973f9a973bfc70c355`. This includes both host systems, dormant container paths,
-client, service-assignment, SOPS, Compose and runner-package checks. The disposable
-validation guest is stopped and preserved; no physical configuration was activated.
-The fourth rehearsal activated, rebooted and reached a real Comin switch. It exposed
-a missing native activation command in PATH and a completion race across Comin's
-own restart. Candidate `df524c5` and the corrected daemon PATH address those issues;
-focused tests and independent review passed. The fourth wizard exited 101 after
-its completion wait without a manual retry; that guest is stopped and preserved.
-The fifth fresh rehearsal passed the complete wizard, reboot, real Comin
-reconciliation and completed-wizard replay with helper `df524c5`, installing fixture
-revision `ab62552141ab526a77be4b01d5c7baa4be499f8d`. The harness exited 0 and its
-saved evidence records all three success flags. No `command not found` message
-appeared in the observed Comin log. This uses synthetic providers and a pinned
-SSH adapter for the Tailscale route; it does not prove real tailnet access policy.
-
-The scheduled update to `e0d2914` then failed the live-state check: Comin advanced
-its reported system while Darwin's boot profile and `/etc/static` remained old.
-The pinned Comin patch now uses the standard profile, including bounded native
-retention, and helper `1c06e59` refuses completion unless the boot and live-state
-pointers agree. Unit tests and independent review passed; the new candidate still
-needs fresh runtime and Nix validation. Polling is explicit in Nix at 300 seconds.
-No release or physical deployment is claimed.
-
-Local and hosted checks cover Rust behavior, terminal restoration, configuration
-schema/example consistency and native no-Nix artifacts. No production vault
-credentials or production service data were used in the disposable rehearsal.
-
-The pinned-image Hindsight synthetic restore previously passed dump/restore,
-vector, Unicode, sequence and restart checks in an isolated hosted container;
-see [restore rehearsal](restore-rehearsal.md). That proves neither restoration of
-production data nor readiness of the complete application stack.
+The VM uses synthetic credential providers and a pinned SSH adapter for Tailscale
+transport. It proves neither real tailnet policy nor FileVault unlock, production
+service recovery, hardware power behavior or nested container/runner isolation.
+The separate pinned-image Hindsight synthetic restore passed; production-data
+restore remains untested. See [restore rehearsal](restore-rehearsal.md).
 
 ## Before production migration
 
-- Finish the separate native scheduled-update test and release validation.
-  Repeat private configuration checks if the reviewed source or helper pin changes.
-- Provision and verify the real host SSH/SOPS configuration and actual Tailscale
-  access. Current private manifests deliberately remain unready.
-- Validate consistent backups and service-specific restore rehearsals before
-  moving Control Center, Home Assistant, Bambuddy or Hindsight data.
-- Review stateful-service deployment ownership, health and failure handling.
-  Comin's base-host handover does not implement application-aware rollback.
-- Validate Home Assistant networking and cold start against the intended target
-  interface and runtime. Runner lifecycle and registration remain disabled work.
+Finish artifact checks and release validation. Then
+provision and verify actual SSH/SOPS and Tailscale access on the intended host.
+Rehearse consistent backups, application restores and stateful deployment failure
+handling before service cutover. Home Assistant networking and runner isolation
+need their own target evidence.
 
-Existing Python backup, snapshot and service-reconciliation code remains where
-still used. A wholesale language conversion was explicitly deferred; the custom
-Python updater is not the current update architecture. See [operations](operations.md),
-[backups](backups.md) and [runner implementation](runner-implementation.md) for those
-separate scopes.
-
-Authorization currently covers disposable VM testing on the approved MacBook VM
-host, including its scoped test tooling. It does not authorize production service
-migration, installing the private configuration on physical hosts, or wiping a
-Mac. Preserve the live mini until its replacement and recovery path are independently
-verified; every physical wipe requires separate approval.
+Current execution authorization is limited to disposable VM testing on the
+approved MacBook host. Preserve the live mini until replacement and recovery are
+verified. Physical configuration activation, production migration and every
+physical wipe require their separate approval.
