@@ -89,7 +89,7 @@ struct LauncherGlassSurface: View {
             return max(0, min(value, 0.75))
         }
         #endif
-        return 0.08
+        return 0.75
     }
     static var edgeWidth: CGFloat {
         #if DEBUG
@@ -99,7 +99,7 @@ struct LauncherGlassSurface: View {
             return CGFloat(max(0, min(value, 2)))
         }
         #endif
-        return 0.5
+        return 2
     }
     static var footprint: some View {
         RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - edgeInset)
@@ -108,12 +108,12 @@ struct LauncherGlassSurface: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: PanelSurface.cornerRadius - Self.edgeInset)
         Color.clear.glassEffect(preview == "regular" ? .regular.tint(.white.opacity(0.06)) : .clear, in: shape)
-            .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
-            .overlay {
+            .background {
                 shape.strokeBorder(
                     LinearGradient(colors: [.white.opacity(Self.edgeOpacity), .white.opacity(Self.edgeOpacity * 0.25)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing),
                     lineWidth: Self.edgeWidth)
+                    .background(.black.opacity(preview == "clearDim" ? 0.22 : 0), in: shape)
             }
             .padding(Self.edgeInset)
     }
