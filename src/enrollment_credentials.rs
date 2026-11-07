@@ -597,3 +597,7 @@ mod tests {
         assert_eq!(issued.get(), 1);
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/fixtures/enrollment_renewal.rs"]
+mod renewal_tests;

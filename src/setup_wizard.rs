@@ -1036,6 +1036,17 @@ fn saved_installation_workspace(
     )?))
 }
 
+fn preparation_workspace(
+    saved: config::Workspace,
+    bootstrap_started: bool,
+) -> Result<config::Workspace, config::Error> {
+    if bootstrap_started {
+        Ok(saved)
+    } else {
+        config::fetch(&saved.repository)
+    }
+}
+
 fn enrollment_failure(error: impl std::fmt::Display) -> Outcome {
     Outcome {
         completed: false,
@@ -1228,14 +1239,11 @@ fn enroll(
         }
         // Before the target claims a revision, expired preparations can still
         // renew. Each replacement PR must be based on what main contains now.
-        let current_workspace = if identity.bootstrap_started {
-            current_workspace
-        } else {
-            match config::fetch(&workspace.repository) {
+        let current_workspace =
+            match preparation_workspace(current_workspace, identity.bootstrap_started) {
                 Ok(workspace) => workspace,
                 Err(error) => return Ok(enrollment_failure(error)),
-            }
-        };
+            };
         let workspace = &current_workspace;
         if !workspace.manifest.hosts.get(host_name).is_some_and(|host| {
             host.admin_user == inspection.user && u64::from(host.admin_uid) == inspection.uid
@@ -1482,6 +1490,47 @@ fn finish_enrollment(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unclaimed_renewals_refresh_main_but_claimed_installations_keep_their_revision() {
+        const CHILD: &str = "HOMELAB_RENEWAL_FIXTURE";
+        if let Some(root) = std::env::var_os(CHILD) {
+            let root = std::path::PathBuf::from(root);
+            for revision in ["b".repeat(40), "c".repeat(40)] {
+                std::fs::write(root.join("main"), &revision).unwrap();
+                let fresh = preparation_workspace(workspace(), false).unwrap();
+                assert_eq!(fresh.revision, revision);
+            }
+            std::fs::remove_file(root.join("main")).unwrap();
+            let claimed = preparation_workspace(workspace(), true).unwrap();
+            assert_eq!(claimed.revision, "a".repeat(40));
+            return;
+        }
+        let temporary = tempfile::tempdir().unwrap();
+        let output = std::process::Command::new("rustc")
+            .args(["--edition=2024", "-o"])
+            .arg(temporary.path().join("gh"))
+            .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/renewal_manifest.rs"))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "setup_wizard::tests::unclaimed_renewals_refresh_main_but_claimed_installations_keep_their_revision", "--test-threads=1"])
+            .env(CHILD, temporary.path())
+            .env("HOME", temporary.path())
+            .env("PATH", temporary.path())
+            .output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
     #[test]
     fn saved_installation_does_not_consult_current_main() {
