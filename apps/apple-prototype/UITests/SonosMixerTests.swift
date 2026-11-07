@@ -26,6 +26,11 @@ import XCTest
         XCTAssertEqual(app.staticTexts.matching(identifier: "Desk").count, 1)
         XCTAssertFalse(app.staticTexts["Home speakers"].exists)
         XCTAssertTrue(app.buttons["Play together"].exists)
+        let masterLabelGap = abs(app.staticTexts["Master"].frame.midY - master.frame.midY)
+        for (label, slider) in [("Desk", desk), ("Bedroom", bedroom), ("TV", tv)] {
+            let labelGap = abs(app.staticTexts[label].frame.midY - slider.frame.midY)
+            XCTAssertEqual(labelGap, masterLabelGap, accuracy: 1, label)
+        }
         snapshot("sonos-mixer", app: app)
 
         func percentage(_ slider: XCUIElement) -> String {

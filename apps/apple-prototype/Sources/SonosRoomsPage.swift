@@ -44,14 +44,15 @@ struct SonosRoomsPage: View {
                 header
                 GlassEffectContainer(spacing: 12) {
                     VStack(spacing: 16) {
-                        master
+                        volumeRow(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill")
+                            .disabled(speakers.isEmpty)
                         Divider()
                         ForEach(speakers) { room in
-                            roomVolume(room, title: room.name, symbol: "speaker.wave.2.fill")
+                            volumeRow(value: shownVolume(for: room), title: room.name, symbol: "speaker.wave.2.fill", roomID: room.id)
                         }
                         if let tv {
                             Divider()
-                            roomVolume(tv, title: "TV", symbol: "tv")
+                            volumeRow(value: shownVolume(for: tv), title: "TV", symbol: "tv", roomID: tv.id)
                         }
                     }
                 }
@@ -91,30 +92,22 @@ struct SonosRoomsPage: View {
         .frame(minHeight: 54)
     }
 
-    private var master: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 4) {
-                Text("Master").font(.title3.weight(.semibold))
-                Spacer()
-                Button {
-                    store.send(.globalLock)
-                } label: {
-                    Image(systemName: store.globalLock ? "lock.fill" : "lock.open")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: 28, height: 28)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                        .frame(width: 44, height: 44)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Link Home speaker volumes")
-                .accessibilityHint("Moving a Home speaker volume adjusts the other Home speakers")
-                .accessibilityAddTraits(store.globalLock ? .isSelected : [])
-                .accessibilityIdentifier("sonos-volume-lock")
-            }
-            volumeBar(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill")
+    private var volumeLock: some View {
+        Button {
+            store.send(.globalLock)
+        } label: {
+            Image(systemName: store.globalLock ? "lock.fill" : "lock.open")
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .glassEffect(.regular.interactive(), in: .circle)
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
         }
-        .disabled(speakers.isEmpty)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Link Home speaker volumes")
+        .accessibilityHint("Moving a Home speaker volume adjusts the other Home speakers")
+        .accessibilityAddTraits(store.globalLock ? .isSelected : [])
+        .accessibilityIdentifier("sonos-volume-lock")
     }
 
     private func shownVolume(for room: SoundRoom) -> Int {
@@ -124,26 +117,27 @@ struct SonosRoomsPage: View {
         return room.rawVolume
     }
 
-    private func roomVolume(_ room: SoundRoom, title: String, symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.headline)
-            volumeBar(value: shownVolume(for: room), title: title, symbol: symbol, roomID: room.id)
-        }
-    }
-
-    private func volumeBar(value: Int, title: String, symbol: String, roomID: String? = nil) -> some View {
+    private func volumeRow(value: Int, title: String, symbol: String, roomID: String? = nil) -> some View {
         let targetIDs: Set<String>
         if let roomID, !store.globalLock || roomID == tv?.id {
             targetIDs = [roomID]
         } else {
             targetIDs = Set(speakers.map(\.id))
         }
-        return FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol, showsPercentage: true, preview: { value in
-            dragPreview = value.map { VolumePreview(roomIDs: targetIDs, value: $0) }
-        }) { value in
-            store.send(.roomVolumes(targetIDs, value))
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.headline)
+                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                // Overlay the larger touch target to keep every label row the same height.
+                .overlay(alignment: .trailing) {
+                    if roomID == nil { volumeLock }
+                }
+            FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol, showsPercentage: true, preview: { value in
+                dragPreview = value.map { VolumePreview(roomIDs: targetIDs, value: $0) }
+            }) { value in
+                store.send(.roomVolumes(targetIDs, value))
+            }
+            .frame(height: 58)
+            .accessibilityIdentifier("sonos-volume-\(roomID ?? "master")")
         }
-        .frame(height: 58)
-        .accessibilityIdentifier("sonos-volume-\(roomID ?? "master")")
     }
 }
