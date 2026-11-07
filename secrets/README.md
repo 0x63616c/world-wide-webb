@@ -1,32 +1,41 @@
 # Host secrets
 
-No private keys or plaintext values belong in this repository. Real encrypted
-files cannot be generated until host age public recipients are supplied.
-Activation fails closed when the host file or its local age key is absent.
+Only SOPS-encrypted host files belong here. No production ciphertext is committed
+yet; the enrollment wizard creates it using real host and recovery recipients.
+Activation remains blocked until the host's encrypted file and local age key exist.
 
-Create one age identity for each host, store its recovery copy in 1Password on your personal Mac,
-and add only its public recipient to `.sops.yaml`. Use a separate exact
-`path_regex` rule for each `secrets/<hostname>.sops.yaml`; include an operator
-recovery recipient. Encrypt `tailscale-auth-key` and `github-read-token` with
-SOPS for base-only setup. Add `containers-env` when enabling the general container
-runtime; it is a multiline Compose environment file. Service credentials must
-remain file-delivered at runtime.
+## New Mac
 
-Provision the host private key at `/var/lib/sops-nix/key.txt`, root-owned mode
-0600, outside the Nix store. Do not copy a host identity to the other host.
+Use [homelab](https://github.com/0x63616c/homelab-cli#readme) on your personal laptop.
+The wizard:
 
-Rotation: add the new public recipient, run `sops updatekeys` for affected files,
-provision the new private key and verify decryption. Then remove the old
-recipient and update keys again. Re-encryption does not revoke a leaked API key:
-rotate the underlying credential too. Keep recovery access in 1Password on the
-personal operator Mac. No homelab node or runner guest receives vault access,
-a password-manager client, or the operator recovery identity. Transfer only the
-individual host key and scoped bootstrap GitHub token over authenticated SSH,
-and remove temporary transfer files after confirming bootstrap has finished.
-After a disconnected session, inspect the journal and running processes first;
-do not assume the remote process stopped when SSH ended.
+1. Creates/restores the host and recovery age identities and verifies their backups
+   in 1Password. You may need to unlock/approve access; you do not save files manually.
+2. Obtains a scoped Tailscale enrollment key and encrypts `tailscale-auth-key` for
+   both recipients in `secrets/<hostname>.sops.yaml`.
+3. Opens the enrollment PR with an exact host-path rule in `.sops.yaml` and public
+   configuration. Review and merge it; setup continues from that approved revision.
+4. Installs only this Mac's age identity at `/var/lib/sops-nix/key.txt`, root-owned
+   mode 0600. The recovery identity and 1Password access stay off the target.
 
-See [the service secret catalog](../docs/secrets.md) for exact keys, readers and
-rotation constraints. Runtime projection is implemented; Colima delivery validation and complete
-bootstrap preflight are still pending. The absence of ciphertext is deliberate,
-not evidence that this configuration is deployment-ready.
+Git access is separate: the target generates an SSH key, and the wizard registers
+its public half as a repository-specific read-only deploy key. Its private key is
+installed at `/var/lib/homelab-git/key.txt`. No GitHub token belongs in the base-host
+SOPS document, and the node does not receive your GitHub account credentials.
+
+## Resume or rotate
+
+Resume the same saved setup after interruption. Do not delete local state, replace
+keys or assume a disconnected SSH session stopped the installer. The wizard retains
+protected recovery material and receipts; legacy local token files are preserved
+rather than silently discarded.
+
+Identity rotation is a separate operation: add the replacement recipient, rewrap
+and verify the ciphertext with the securely provisioned new key, then remove the
+old recipient and rewrap again. Verify the replacement backup in 1Password too.
+Rotate a leaked service credential at its issuer; SOPS re-encryption alone does not
+revoke it.
+
+See [secret ownership and the service catalog](../docs/secrets.md) before enabling
+services. Service-secret migration and Colima delivery are not part of base-host
+enrollment and still need target validation.
