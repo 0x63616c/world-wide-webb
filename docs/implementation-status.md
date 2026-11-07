@@ -52,15 +52,20 @@ a passing fixture run will not prove production tailnet policy or routing.
 The third disposable full-wizard VM run activated and rebooted, then stopped
 during completion before Comin started. Its preserved state is under investigation.
 The full private `nix flake check --no-update-lock-file --max-jobs 1 --cores 1`
-passed all nine checks at `c08bc7d751e2e983131c48c0ef87d68e7ae81652`, pinning public
-0.3.0 candidate `f7f2a72`. This includes both host systems, dormant container paths,
+passed all nine checks at current private candidate
+`56090782e1c8cbf7dd1dd2923221a9bf7e5dda5b`, pinning public 0.3.0 candidate
+`df524c5c20a07ff76c9c55973f9a973bfc70c355`. This includes both host systems, dormant container paths,
 client, service-assignment, SOPS, Compose and runner-package checks. The disposable
 validation guest is stopped and preserved; no physical configuration was activated.
 The fourth rehearsal activated, rebooted and reached a real Comin switch. It exposed
 a missing native activation command in PATH and a completion race across Comin's
 own restart. Candidate `df524c5` and the corrected daemon PATH address those issues;
-focused tests and independent review passed. The new candidate's full Nix check,
-fresh reconciliation and completed-wizard replay still need runtime evidence.
+focused tests and independent review passed. The fourth wizard exited 101 after
+its completion wait without a manual retry; that guest is stopped and preserved.
+A fifth fresh rehearsal starts from fixture baseline `68064fb` with helper
+`df524c5`. Full wizard reconciliation and completed-wizard replay still need
+successful runtime evidence. Current-candidate hosted CI and artifact validation
+remain pending; earlier `f7f2a72` CI and fresh artifact smoke passed.
 Publication/release remains pending.
 
 Local and hosted checks cover Rust behavior, terminal restoration, configuration

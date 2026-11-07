@@ -79,7 +79,8 @@ Read-only inspection then identified a second handover issue: `/run` resolves to
 the native `root:daemon` `0775` directory, so the helper correctly rejected its
 replaceable socket location. Candidate `f7f2a72` relocates RPC to the existing
 root-owned `0700` `/var/lib/homelab` directory without weakening the guard. Its
-tests and independent review passed; runtime validation is still pending.
+tests and independent review passed; the fourth rehearsal below subsequently
+verified that Comin could use the protected socket.
 
 Schema 2 uses an explicit backup vault.
 At private commit `c08bc7d751e2e983131c48c0ef87d68e7ae81652`,
@@ -94,15 +95,26 @@ activation on either physical host.
 The fourth wizard rehearsal used fixture baseline `a84b7e4` with helper `f7f2a72`.
 It merged fixture PR #3, activated and rebooted. The protected socket worked and
 Comin fetched and switched revision `430efd7725ee16d73fe4540e851f9d70868f2f1d`.
-Two runtime issues remain: activation's user script could not find native `grep`,
+It exited 101 after the completion wait, without a manual retry. The guest is
+stopped and preserved. Two runtime issues were observed: activation's user script could not find native `grep`,
 and Comin's normal restart resets its fetch state before completion can verify it.
 
 Candidate `df524c5` requests a native fetch once per validated socket instance,
 only after repository state initializes; strict reconciliation checks are unchanged.
 The daemon PATH now includes trusted macOS system directories. Focused tests and
-independent review passed. The private helper pins this candidate, whose full Nix
-check and fresh wizard/replay evidence remain pending. No successful full journey
-is claimed by the earlier Nix check result.
+independent review passed. The private helper pins this candidate.
+
+The full `nix flake check --no-update-lock-file --max-jobs 1 --cores 1` completed
+with exit 0 at exact private commit `56090782e1c8cbf7dd1dd2923221a9bf7e5dda5b`
+inside the fourth disposable guest. All nine checks listed above passed, including
+both host systems and the dormant container path. Evidence is retained at
+`homelab-cli/target/private-validation-5609078.log`. This covers the updated helper
+pin and activation PATH; it is not proof of a successful full enrollment journey.
+
+A fifth fresh rehearsal starts from fixture baseline `68064fb` with helper
+`df524c5`. Full enrollment/reboot/reconciliation and completed-wizard replay remain
+pending. Earlier helper `f7f2a72` passed hosted CI and fresh no-Nix artifact smoke;
+current helper CI run `42328940225` is queued. Release remains pending.
 
 ## Authorized boundary
 
