@@ -77,6 +77,7 @@ impl Fixture {
             approved_host: Some("workstation".into()),
             resume: false,
             repair_from: None,
+            repair_previous: None,
         };
         let tools = Tools {
             git: root.join("git"),
@@ -764,4 +765,45 @@ fn repair_retries_after_persisting_new_revision_without_losing_original_attempt(
     fs::remove_file(fixture.directory.path().join("build-fails")).unwrap();
     fixture.run().unwrap();
     assert!(!fixture.events().contains(&"install-nix".into()));
+}
+
+#[test]
+fn followup_build_repair_preserves_keys_and_checks_both_ancestries() {
+    let mut fixture = repair_fixture(Phase::Building);
+    let original = fixture.request.repair_from.clone().unwrap();
+    let previous = "c".repeat(40);
+    let mut journal = Journal::open_repair(
+        &fixture.state(),
+        &fixture.request.repository,
+        &fixture.request.host,
+        &original,
+        &previous,
+    )
+    .unwrap();
+    journal.record_repair(&original, &previous).unwrap();
+    drop(journal);
+    fixture.request.repair_previous = Some(previous.clone());
+    let key = fs::read(&fixture.request.age_key).unwrap();
+    fixture.run().unwrap();
+    let events = fixture.events();
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| *event == "repair-ancestry")
+            .count(),
+        2
+    );
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| *event == "repair-protected-files")
+            .count(),
+        2
+    );
+    assert_eq!(fs::read(&fixture.request.age_key).unwrap(), key);
+    let state: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture.state().join("progress.json")).unwrap()).unwrap();
+    assert_eq!(state["repairedFrom"], original);
+    assert_eq!(state["repairedVia"], serde_json::json!([previous]));
+    assert_eq!(state["phase"], "Activated");
 }

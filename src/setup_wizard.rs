@@ -1587,6 +1587,13 @@ fn enroll(
                 Ok(repaired) => repaired,
                 Err(error) => return Ok(enrollment_failure(error)),
             };
+        let repair_previous = match crate::provisioning::approved_installation(root, host_name) {
+            Ok(Some(saved)) => saved
+                .repair
+                .and_then(|repair| repair.previous.map(|previous| previous.repaired_revision)),
+            Ok(None) => None,
+            Err(error) => return Ok(enrollment_failure(error)),
+        };
         checklist.done(Step::Configuration);
         checklist.begin(Step::Install, "Preparing the exact approved installation");
         checklist.draw(&[Action::Help, Action::StopBeforeInstallation])?;
@@ -1609,6 +1616,7 @@ fn enroll(
                 deploy_key: identity.path,
                 resume: true,
                 repair_from,
+                repair_previous,
             },
             &tools.remote_setup,
         ) {

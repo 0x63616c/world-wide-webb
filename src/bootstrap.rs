@@ -30,6 +30,7 @@ pub struct Request {
     pub approved_host: Option<String>,
     pub resume: bool,
     pub repair_from: Option<String>,
+    pub repair_previous: Option<String>,
 }
 
 pub struct Tools {
@@ -502,6 +503,12 @@ fn run_inner(
         || request.repair_from.as_ref().is_some_and(|from| {
             !request.resume || !crate::config::valid_revision(from) || from == &request.revision
         })
+        || request.repair_previous.as_ref().is_some_and(|previous| {
+            request.repair_from.is_none()
+                || !crate::config::valid_revision(previous)
+                || Some(previous) == request.repair_from.as_ref()
+                || previous == &request.revision
+        })
     {
         return Err(Error::InvalidRequest);
     }
@@ -590,30 +597,40 @@ fn run_inner(
         Error::CommandLineToolsRequired,
     )?;
 
-    let journal = if let Some(from) = &request.repair_from {
-        Journal::open_repair(
-            state_directory,
-            &request.repository,
-            &request.host,
-            from,
-            &request.revision,
-        )
-    } else if request.resume {
-        Journal::open_for_reconciliation(
-            state_directory,
-            &request.repository,
-            &request.host,
-            &request.revision,
-        )
-    } else {
-        Journal::open(
-            state_directory,
-            &request.repository,
-            &request.host,
-            &request.revision,
-            false,
-        )
-    };
+    let journal =
+        if let (Some(from), Some(previous)) = (&request.repair_from, &request.repair_previous) {
+            Journal::open_followup(
+                state_directory,
+                &request.repository,
+                &request.host,
+                from,
+                previous,
+                &request.revision,
+            )
+        } else if let Some(from) = &request.repair_from {
+            Journal::open_repair(
+                state_directory,
+                &request.repository,
+                &request.host,
+                from,
+                &request.revision,
+            )
+        } else if request.resume {
+            Journal::open_for_reconciliation(
+                state_directory,
+                &request.repository,
+                &request.host,
+                &request.revision,
+            )
+        } else {
+            Journal::open(
+                state_directory,
+                &request.repository,
+                &request.host,
+                &request.revision,
+                false,
+            )
+        };
     let mut journal = journal.map_err(|error| match error {
         StateError::NeedsInspection => Error::RecoveryRequired,
         _ => Error::Journal,
@@ -735,7 +752,11 @@ fn run_inner(
         }
     }
 
-    if let Some(from) = &request.repair_from {
+    for from in request
+        .repair_from
+        .iter()
+        .chain(request.repair_previous.iter())
+    {
         checked_silent(
             git_command(tools, &home, &key).arg("-C").arg(&repo).args([
                 "merge-base",
@@ -808,9 +829,11 @@ fn run_inner(
         return Err(Error::NotReady);
     }
     if let Some(from) = &request.repair_from {
-        journal
-            .record_repair(from, &request.revision)
-            .map_err(|_| Error::Journal)?;
+        match &request.repair_previous {
+            Some(previous) => journal.record_followup(from, previous, &request.revision),
+            None => journal.record_repair(from, &request.revision),
+        }
+        .map_err(|_| Error::Journal)?;
     }
     if !resuming_keys {
         journal

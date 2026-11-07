@@ -633,10 +633,10 @@ pub fn save_installation_repair(
     let _lock = lock_state(root)?;
     let mut saved = approved_installation(root, host)?.ok_or(Error::UnsafeState)?;
     if !selection.matches(&saved.repository, host, &saved.revision)
-        || saved
-            .repair
-            .as_ref()
-            .is_some_and(|existing| existing != selection)
+        || (saved.repair.is_none() && selection.previous.is_some())
+        || saved.repair.as_ref().is_some_and(|existing| {
+            existing != selection && selection.previous.as_deref() != Some(existing)
+        })
     {
         return Err(Error::UnsafeState);
     }

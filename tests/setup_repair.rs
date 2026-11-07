@@ -12,6 +12,7 @@ struct Git {
     changed_ciphertext: bool,
     descendant: bool,
     main_reads: Cell<usize>,
+    followup: Cell<bool>,
 }
 impl Default for Git {
     fn default() -> Self {
@@ -21,6 +22,7 @@ impl Default for Git {
             changed_ciphertext: false,
             descendant: true,
             main_reads: Cell::new(0),
+            followup: Cell::new(false),
         }
     }
 }
@@ -36,6 +38,12 @@ impl Api for Git {
     }
     fn raw(&self, path: &str) -> Result<Vec<u8>, Error> {
         if path.contains("/setup-repairs/") {
+            if path.contains(&format!("/{}.json", "b".repeat(40))) && self.followup.get() {
+                return Ok(serde_json::to_vec(&json!({"schema":1,"repository":"example/config","host":"build-mac","originalRevision":"b".repeat(40),"repairedRevision":"d".repeat(40)})).unwrap());
+            }
+            if !path.contains(&format!("/{}.json", "a".repeat(40))) {
+                return Err(Error::Missing);
+            }
             if !self.descriptor_exists.get() {
                 return Err(Error::Missing);
             }
@@ -75,7 +83,7 @@ fn frozen_repair_survives_changed_or_deleted_descriptor_without_replacing_origin
             .revision,
         "b".repeat(40)
     );
-    assert_eq!(api.main_reads.get(), 1);
+    assert_eq!(api.main_reads.get(), 2);
     let saved = provisioning::approved_installation(&root, "build-mac")
         .unwrap()
         .unwrap();
@@ -164,4 +172,41 @@ fn published_repair_matches_saved_enrollment() {
     assert_eq!(from.as_deref(), Some(saved.revision.as_str()));
     assert_ne!(repaired.revision, saved.revision);
     assert_eq!(std::fs::read(source.join(filename)).unwrap(), original);
+}
+
+#[test]
+fn followup_freezes_previous_selection_without_replacing_original_approval() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("state");
+    saved(&root);
+    let api = Git::default();
+    setup_repair::resolve(&api, &root, workspace(), "build-mac").unwrap();
+    let first = provisioning::approved_installation(&root, "build-mac")
+        .unwrap()
+        .unwrap()
+        .repair
+        .unwrap();
+    api.followup.set(true);
+    let (effective, original) =
+        setup_repair::resolve(&api, &root, workspace(), "build-mac").unwrap();
+    assert_eq!(effective.revision, "d".repeat(40));
+    assert_eq!(original, Some("a".repeat(40)));
+    let latest = provisioning::approved_installation(&root, "build-mac")
+        .unwrap()
+        .unwrap();
+    assert_eq!(latest.revision, "a".repeat(40));
+    assert_eq!(
+        latest.repair.as_ref().unwrap().previous.as_deref(),
+        Some(&first)
+    );
+    api.followup.set(false);
+    api.descriptor_exists.set(false);
+    assert_eq!(
+        setup_repair::resolve(&api, &root, workspace(), "build-mac")
+            .unwrap()
+            .0
+            .revision,
+        "d".repeat(40)
+    );
+    assert!(provisioning::save_installation_repair(&root, "build-mac", &first).is_err());
 }

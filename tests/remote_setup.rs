@@ -78,6 +78,7 @@ impl Fixture {
             deploy_key: PathBuf::from("/Users/admin/.local/state/homelab/git/key.txt"),
             resume: false,
             repair_from: None,
+            repair_previous: None,
         }
     }
     fn checksums(&self) {

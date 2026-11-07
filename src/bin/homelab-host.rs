@@ -124,6 +124,8 @@ enum Operation {
         resume: bool,
         #[arg(long)]
         repair_from: Option<String>,
+        #[arg(long)]
+        repair_previous: Option<String>,
     },
     #[command(hide = true)]
     BootstrapNixStatus {
@@ -630,6 +632,7 @@ fn main() -> ExitCode {
             deploy_key,
             resume,
             repair_from,
+            repair_previous,
         } => {
             let expected_host = match reviewed_host(&manifest, &repository, &revision, &host) {
                 Ok(host) => host,
@@ -650,6 +653,7 @@ fn main() -> ExitCode {
                     deploy_key,
                     resume,
                     repair_from,
+                    repair_previous,
                     approved_host: std::env::var("HOMELAB_BOOTSTRAP_APPROVED").ok(),
                 },
                 attempt,

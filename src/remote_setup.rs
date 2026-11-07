@@ -43,6 +43,7 @@ pub struct Request {
     pub deploy_key: PathBuf,
     pub resume: bool,
     pub repair_from: Option<String>,
+    pub repair_previous: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -342,6 +343,11 @@ pub fn prepare(request: Request, tools: &Tools) -> Result<PreparedSetup, Error> 
     }
     if request.repair_from.as_ref().is_some_and(|from| {
         !request.resume || !crate::config::valid_revision(from) || from == &request.revision
+    }) || request.repair_previous.as_ref().is_some_and(|previous| {
+        request.repair_from.is_none()
+            || !crate::config::valid_revision(previous)
+            || Some(previous) == request.repair_from.as_ref()
+            || previous == &request.revision
     }) || inventory::validate_profile(&request.profile).is_err()
         || request.revision.len() != 40
         || !request
@@ -816,7 +822,7 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
     // These values have restricted alphabets or are the validated mktemp path.
     // Secret values are transferred as files and never enter a shell command.
     let remote = format!(
-        "HOMELAB_BOOTSTRAP_APPROVED='{}' '{stage}/homelab-host' bootstrap '{}' '{}' '{stage}/host.age' '{}' --repository '{}' --attempt '{}' --manifest '{stage}/setup-plan.json'{}{}",
+        "HOMELAB_BOOTSTRAP_APPROVED='{}' '{stage}/homelab-host' bootstrap '{}' '{}' '{stage}/host.age' '{}' --repository '{}' --attempt '{}' --manifest '{stage}/setup-plan.json'{}{}{}",
         request.configuration_host,
         request.configuration_host,
         request.revision,
@@ -828,6 +834,11 @@ pub fn apply(prepared: PreparedSetup, tools: &Tools) -> Result<Report, Error> {
             .repair_from
             .as_ref()
             .map(|from| format!(" --repair-from {from}"))
+            .unwrap_or_default(),
+        request
+            .repair_previous
+            .as_ref()
+            .map(|previous| format!(" --repair-previous {previous}"))
             .unwrap_or_default()
     );
     let (mut bootstrap, _bootstrap_identity) = ssh(&request.profile, tools, true)
