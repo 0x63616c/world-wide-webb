@@ -108,8 +108,9 @@ and uses native SSH with an explicit private key and known-hosts file; it never
 reads or writes the operator's SSH configuration. The target independently verifies
 its activated system and actual Git reconciliation.
 
-The new completion runner has not yet passed its real-VM rehearsal. A failure
-preserves the VM for inspection and must not be retried blindly. The removed
+Use the full enrollment harness above for release validation. This standalone
+completion command is a recovery diagnostic, not a substitute for that journey.
+A failure preserves the VM for inspection and must not be retried blindly. The removed
 manual-token `--run` journey is rejected before contacting a target.
 
 ## Historical rehearsal
