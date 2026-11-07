@@ -195,21 +195,13 @@ Pin provider/tool versions, commit provider lockfile, plan in CI and apply seria
 No applies from PRs or untrusted forks; no production secrets in fork runs. Sensitive plans are private
 artifacts with short retention. Workflow concurrency supplements backend locking, never substitutes for it.
 
-Bring up api.worldwidewebb.co, verify TLS, Access and authenticated native calls, then retire app hostname.
-Current Hybrid/PanelConfiguration.swift reads a Cloudflare service-token pair and an alarm bearer token
-from plist/defaults; apple-panel-testflight.yml injects them into the build. This is NOT an existing
-interactive-login flow. Replace bundled credentials with a concrete native enrollment/auth design:
-evaluate interactive Access login with Keychain-backed session versus privately provisioned per-device
-credentials, including alarm/background and widget access. Choose/test the simplest workable approach
-in package 1, before implementing dependent endpoints. No service credential may ship in a public app
-artifact. Revoke/rotate old embedded credentials after clients switch, preserving rollback credentials
-through a private provisioning procedure rather than retaining credentials in old distributed binaries.
-Explicit acceptance includes unattended kiosk operation, enrollment/session renewal, App Intent/background
-alarm calls, revocation and migration of existing Keychain entries. Remove build-time credential injection
-only as the replacement is installed and usable; browser login alone is not proof of background access.
-Implement server-side authorization/PIN enforcement explicitly;
-test expired sessions, unauthorized reads/writes, SSE and uploads. This is an implementation prerequisite.
-Preserve unrelated routes and external integrations; no blanket zone reset.
+User amendment: the API is Tailscale-only and all Tailnet devices are trusted. Native clients use
+`https://homelab.tail8c014d.ts.net` with no app login, pasted credentials, Cloudflare service-token pair or
+installation bearer token. Tailscale handles device authentication and network access. Publish Docker only
+on loopback; versioned deployment code declares private Tailscale Serve HTTPS443, rejects Funnel and
+preserves independent Serve routes. Retire public api/app DNS, Access applications/policies and tunnel
+routes at cutover; preserve unrelated Cloudflare services. Release metadata publication retains its own
+server-side automation credential. This supersedes the earlier native-enrollment proposal.
 
 ## 8. Tooling, linters and hooks
 

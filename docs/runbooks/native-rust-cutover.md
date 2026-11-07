@@ -12,7 +12,7 @@ are mandatory. Retain original PostgreSQL dumps, full media and encrypted recove
 
 Finish the implementation and local tests, then one independent final review and its fixes. Keep everything
 local until that gate passes. Verify `tools/check` areas, production iPad build/unit tests and real retained
-feature interactions. Exercise iPhone/Duo and Mac last. Record privacy-safe screenshots/video; preserve
+feature interactions. Exercise iPhone/Duo and Mac last. Keep optional visual evidence outside Git; preserve
 physical-iPad or deployment checks as explicitly outstanding until they actually run.
 
 The current typed PanelKit client remains; `tools/check integration` proves actual Rust read/mutation and
@@ -24,8 +24,8 @@ image before release; a local host without Docker cannot certify that step.
 
 1. Coordinate all secret access through one primary-agent PTY, with history and tracing disabled. Pass required
    fields directly to commands without printing values. `tools/provision_runtime.py` renders private runtime
-   files outside Git and retains an existing installation token on rerun. Per-device enrollment requires an
-   explicitly provisioned Cloudflare token pair. Do not reuse a credential formerly embedded in app builds.
+   integration/automation files outside Git. Native clients need no provisioned credentials: all Tailnet devices
+   are trusted. Keep release publication's automation token server-side.
 2. Preserve existing runtime flags, especially the verified bedroom input configuration. Set the existing HA
    origin, explicit worker ownership, data/media directories and private secret directory in runtime.env.
    Do not activate an unverified physical switch binding. Compose mounts the entire SQLite directory.
@@ -35,9 +35,11 @@ image before release; a local host without Docker cannot certify that step.
    and `secrets/CF_API_TOKEN`, all owner-only. Import retained resources into enforced encrypted state at
    `cloudflare.tfstate`; review the full plan privately. Keep encrypted state recovery copies and the recovery
    key in the approved secret system. Verify NAS read-back and restore before enabling automatic applies.
-5. Provision API DNS/Access and privately enrolled device credentials. Verify TLS, authenticated reads/writes
-   and background alarms. Retain the legacy app hostname until the native client works, then retire it and
-   revoke the formerly bundled service credential. Unrelated service routes and tunnel identity must survive.
+5. Verify the versioned Tailscale Serve rule for private HTTPS443 to loopback4201, with Funnel disabled and
+   unrelated Serve routes unchanged. The app uses `https://homelab.tail8c014d.ts.net` automatically. Test from
+   another Tailnet device without application credentials. At cutover, retire public api/app DNS, Access and
+   tunnel ingress through the tested OpenTofu configuration. Revoke unused app-only service tokens; retain
+   HA/Hindsight/Bambuddy/DSM access and the tunnel. No new native-device token provisioning is needed.
 
 ## Final database freeze and cutover
 

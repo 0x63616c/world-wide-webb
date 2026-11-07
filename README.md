@@ -12,9 +12,9 @@ Install the pinned Rust toolchain, OpenTofu, Xcode 26.4 or newer, XcodeGen and s
 `bash tools/test_apple.sh` builds and tests the production iPad app.
 
 Build the service with `cargo build --locked -p www-server`. For local experiments, use an isolated data
-directory and private `WWW_API_TOKEN_FILE`; set `WORKER_CYCLES=off` to avoid physical-device actions.
-The app's connection settings accept a privately provisioned enrollment record, verified before saving in Keychain.
-No production credentials are bundled with the app.
+directory; set `WORKER_CYCLES=off` to avoid physical-device actions.
+The app connects automatically over private Tailscale HTTPS. Devices must be connected to the Tailnet;
+no app login or credentials are required. The server container is published on loopback only.
 
 Deployment, backup and migration instructions are in
 [the cutover runbook](docs/runbooks/native-rust-cutover.md). User data, media and encrypted infrastructure

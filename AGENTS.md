@@ -9,8 +9,9 @@ Calum approved the native Swift + Rust/SQLite + OpenTofu reset in `docs/plans/na
 The primary agent implements everything. Subagents are allowed only for one independent final review.
 Keep implementation, verification, review fixes and commits local until the complete candidate is reviewed.
 Then publish the drafted GitHub issues/project and one PR, satisfy required checks, merge and verify delivery.
-Manual per-device credential entry has been rejected. Keep PR #943 unmerged until the replacement connection
-flow is agreed and implemented. Before any later cutover, read the resumed-writer warning in the progress tracker.
+Calum chose a Tailscale-only API: all devices on the Tailnet are trusted, with no app login or credential entry.
+Complete and review this replacement before updating PR #943. Before cutover, read the resumed-writer warning
+in the progress tracker; never deploy its stale SQLite rehearsal.
 Documentation follows working code. Prioritize iPad fidelity, database/Photo Booth preservation and Rust;
 exercise iPhone/Duo and Mac last. They remain in scope. Legacy wake images are not a blocker.
 
@@ -29,8 +30,9 @@ exercise iPhone/Duo and Mac last. They remain in scope. Legacy wake images are n
   foreign keys, row counts and values. Preserve all Photo Booth media and raw legacy archive data.
 - Only one production process owns scheduled work. Device commands have explicit ownership and idempotency;
   avoid automatic mutation retries. Trace structured, sanitized metadata, never credentials or payloads.
-- Provision device credentials privately into Keychain. No credentials in plist, build artifacts, defaults,
-  Git, screenshots or logs. Installation API credentials cannot publish releases.
+- The app connects to `https://homelab.tail8c014d.ts.net` without application credentials. Publish the
+  container only on loopback; `deploy/mini/tailscale_serve.py` owns private HTTPS443 and rejects Funnel.
+  Preserve unrelated Serve routes. Only release publication retains a server-side automation credential.
 - OpenTofu owns retained Cloudflare DNS/Access/tunnel resources. Its enforced encrypted local backend is
   on the mini, outside app storage, operated over SSH with native file locking and NAS recovery copies.
   Import existing resources before enabling automatic applies; protect unrelated services and the tunnel.

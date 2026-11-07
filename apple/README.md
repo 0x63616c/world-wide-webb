@@ -9,7 +9,8 @@ Run `bash tools/check apple` for package tests and `bash tools/test_apple.sh` fo
 Use the existing UI tests for launch, slide-up and retained-feature evidence. `project.yml` is the target source
 of truth. Existing app and alarm-widget bundle identifiers remain unchanged.
 
-Connection settings verify a privately provisioned enrollment record and save it atomically in device Keychain.
-No credentials belong in plist, xcconfig, screenshots or build artifacts. DEBUG fixtures stay isolated from
-production integrations. Historical design studies under `docs/` are reference material, not alternate app targets.
+The app automatically connects to `https://homelab.tail8c014d.ts.net` over private Tailscale HTTPS.
+All Tailnet devices are trusted; no app login or pasted connection record is required. Connection settings
+can check reachability. DEBUG fixtures stay isolated from production integrations. No runtime credentials
+are bundled. Historical design studies are reference material, not alternate app targets.
 Signing/TestFlight automation uses `fastlane/Fastfile` and publishes release metadata only after Apple processing.

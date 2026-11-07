@@ -80,3 +80,22 @@ and reconciliation are mandatory before any later Rust deployment. Do not restor
 Cloudflare adoption/API provisioning completed; old app access and its existing device token remain working.
 Private recovery/enrollment material is retained in the world-wide-webb 1Password vault.
 Screenshot archives and the mandatory PR-screenshot rule are to be removed after the core cutover, per Calum.
+
+
+## Tailscale-only access approved and implemented locally
+
+Calum chose all Tailnet devices as the trust boundary. Manual enrollment, Keychain connection records,
+Cloudflare client credentials and the general API bearer token are removed. The shared app defaults to
+private Tailscale HTTPS; release publication keeps a server-side automation token. Host release/recovery
+code declares private HTTPS443, rejects Funnel/conflicting routes and preserves other services. Container
+preflight rejects non-loopback publication. Cloudflare HCL now retains only the four independent services.
+
+Current local checks: 23 Rust tests and strict Clippy, 51 Python tests, 99 Swift package tests, all 256
+production iPad unit tests, the actual credential-free Swift/Rust Photo Booth round trip, Mac Catalyst build,
+and both OpenTofu route tests plus encryption/locking/recovery proof pass. The private HTTPS route is
+installed and reachable from the Mac; existing production remains healthy on Bun/PostgreSQL. The public
+Cloudflare retirements are not yet applied. Final source review of this user-directed change is in progress.
+
+The fresh frozen-writer migration remains mandatory because original PostgreSQL writes resumed. Keep the
+old import marker invalidated and its candidate outside production. PR #943 is a draft with auto-merge off;
+finish the Tailscale review and update the complete candidate before resuming publication/cutover.

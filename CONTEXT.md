@@ -10,5 +10,5 @@ can still become the authoritative source after that window. **Worker cycle** me
 the single Rust process, never a separate queue or worker deployment.
 
 **Photo Booth** means user-created camera captures and their persistent media. Legacy wake-capture data is
-archival; missing historical wake images do not block this migration. **Enrollment** is the private per-device
-connection record stored atomically in Keychain, including installation API and Cloudflare Access credentials.
+archival; missing historical wake images do not block this migration. **Private API** is the home server reached over Tailscale HTTPS. All devices permitted on the Tailnet are
+trusted. The native app has no separate accounts, sign-in or enrollment credentials.
