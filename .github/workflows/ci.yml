@@ -85,7 +85,8 @@ jobs:
       - name: Select supported Xcode
         run: echo "DEVELOPER_DIR=$(python3 .github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
       - run: brew install xcodegen
-      - uses: actions/cache@v4
+      - id: apple-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             apple/Packages/PanelKit/.build
@@ -98,6 +99,13 @@ jobs:
         env:
           APPLE_DERIVED_DATA: ${{ runner.temp }}/apple-derived
         run: bash tools/test_apple.sh
+      - uses: actions/cache/save@v4
+        if: always() && steps.apple-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            apple/Packages/PanelKit/.build
+            ${{ runner.temp }}/apple-derived
+          key: ${{ steps.apple-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

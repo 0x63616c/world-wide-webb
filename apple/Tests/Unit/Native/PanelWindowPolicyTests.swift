@@ -9,11 +9,12 @@ final class PanelWindowPolicyTests: XCTestCase {
         XCTAssertNil(PanelWindowPolicy.minimumSize(isDesktop: false))
     }
 
-    func testHostedAppSupportsPortraitAndWindowResizing() throws {
+    func testHostedAppPreservesPlatformWindowPolicy() throws {
         let info = try XCTUnwrap(Bundle.main.infoDictionary)
-        XCTAssertEqual(info["UIRequiresFullScreen"] as? Bool, false)
+        let isPanel = UIDevice.current.userInterfaceIdiom == .pad
+        XCTAssertEqual(info["UIRequiresFullScreen"] as? Bool, isPanel)
         let orientations = try XCTUnwrap(info["UISupportedInterfaceOrientations"] as? [String])
-        XCTAssertTrue(orientations.contains("UIInterfaceOrientationPortrait"))
+        XCTAssertEqual(orientations.contains("UIInterfaceOrientationPortrait"), !isPanel)
         XCTAssertTrue(orientations.contains("UIInterfaceOrientationLandscapeLeft"))
         XCTAssertTrue(orientations.contains("UIInterfaceOrientationLandscapeRight"))
     }

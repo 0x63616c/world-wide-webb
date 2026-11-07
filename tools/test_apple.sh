@@ -31,6 +31,13 @@ xcodebuild "${args[@]}" build-for-testing > "$out/build.log" 2>&1 || {
 }
 xcodebuild "${args[@]}" test-without-building -only-testing:PanelTests \
   -resultBundlePath "$out/unit-$stamp.xcresult" > "$out/unit.log" 2>&1 || {
-  tail -50 "$out/unit.log"; exit 1;
+  python3 - "$out/unit.log" <<'PY'
+import sys
+from pathlib import Path
+for line in Path(sys.argv[1]).read_text().splitlines():
+    if ": error:" in line or "Failing tests:" in line:
+        print(line)
+PY
+  tail -20 "$out/unit.log"; exit 1;
 }
 echo 'PASS: iPad production target and native unit tests'
