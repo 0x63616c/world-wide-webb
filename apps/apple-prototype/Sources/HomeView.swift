@@ -191,6 +191,14 @@ struct HomeView: View {
                 Color.black.ignoresSafeArea()
                 ZStack {
                     clockSurface(width: proxy.size.width)
+                    if !showingClock, LauncherGlassSurface.blurRadius > 0 {
+                        // Only the clock beneath the glass gets the extra blur.
+                        clockSurface(width: proxy.size.width)
+                            .blur(radius: LauncherGlassSurface.blurRadius)
+                            .mask { LauncherGlassSurface.footprint }
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
                     if showingClock {
                         // A tap recognizer cancels on movement; a full-screen Button
                         // can activate after a drag that ends inside its large bounds.

@@ -2,6 +2,8 @@
 
 Native SwiftUI study targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
+The current app launcher places its first icon row 24 points below the profile selector. Its native Liquid Glass panel has a 3-point blur confined to the glass footprint and uses the system's glass edge without an added outline; the material tint is 0.06 white opacity. DEBUG captures can override the blur with `-previewLauncherBlur` (0–3).
+
 ## Iteration 6
 
 The iPad canvas is 1376×1032 points. Two Home pages use mixed 2×2, 2×1, 1×2 and circular 1×1 spans with 24-point gutters. The first shows Climate, global Lamps brightness, Weather, Tesla, Calendar, Now Playing and Fan. Home · More shows Cameras, Walk Zero, Photos, Media, Sonos Rooms and all five remaining round accessory shortcuts. Every tile opens a full-screen page with native zoom; accessory glyphs also toggle. Clock and Music remain separate faces.
