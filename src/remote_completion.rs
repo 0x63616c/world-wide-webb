@@ -154,6 +154,34 @@ fn nonce() -> Result<String, Error> {
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
+fn wait_for_enrollment(connection: &Connection<'_>, progress: &impl Fn(&str)) -> Result<(), Error> {
+    #[derive(serde::Deserialize)]
+    struct Status {
+        #[serde(rename = "BackendState")]
+        state: String,
+    }
+    // Enrollment is a separate launchd job which retries every five minutes.
+    let deadline = Instant::now() + Duration::from_secs(330);
+    loop {
+        let status: Status = serde_json::from_slice(
+            &connection.read("/run/current-system/sw/bin/tailscale status --json --peers=false")?,
+        )
+        .map_err(|_| Error::Verification)?;
+        if status.state == "Running" {
+            return Ok(());
+        }
+        if !matches!(
+            status.state.as_str(),
+            "NeedsLogin" | "Starting" | "NoState" | "NeedsMachineAuth"
+        ) || Instant::now() >= deadline
+        {
+            return Err(Error::Verification);
+        }
+        progress("Joining Tailscale…");
+        std::thread::sleep(Duration::from_secs(5));
+    }
+}
+
 fn safe_system(system: &Path) -> bool {
     system.parent() == Some(Path::new("/nix/store"))
         && system
@@ -285,6 +313,7 @@ pub fn finish_with_tools(
         return Err(Error::Verification);
     }
     if completed.is_none() {
+        wait_for_enrollment(&connection, &progress)?;
         progress("Checking services, Tailscale and Git access");
         let request = nonce()?;
         if !connection

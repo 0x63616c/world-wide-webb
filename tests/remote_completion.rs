@@ -8,6 +8,21 @@ struct Fixture {
     directory: tempfile::TempDir,
 }
 
+#[test]
+fn enrollment_can_finish_before_health_verification_without_reinstallation() {
+    let fixture = Fixture::new();
+    fixture.flag("enrollment-pending");
+    assert!(fixture.finish().unwrap().completed);
+    let events = fixture.events();
+    assert_eq!(
+        events
+            .matches("tailscale status --json --peers=false")
+            .count(),
+        2
+    );
+    assert!(events.find("tailscale status").unwrap() < events.find("verify-setup").unwrap());
+}
+
 impl Fixture {
     fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();

@@ -24,7 +24,15 @@ fn main() {
         std::process::exit(255);
     }
     let field = |name: &str| command.split(&format!("--{name} '")).nth(1).unwrap().split('\'').next().unwrap().to_owned();
-    if command.contains("read-setup-completion") {
+    if command.ends_with("tailscale status --json --peers=false") {
+        let pending = root.join("enrollment-pending");
+        if pending.exists() {
+            fs::remove_file(pending).unwrap();
+            println!("{{\"BackendState\":\"NeedsLogin\"}}");
+        } else {
+            println!("{{\"BackendState\":\"Running\"}}");
+        }
+    } else if command.contains("read-setup-completion") {
         print!("{}", fs::read_to_string(root.join("completion")).unwrap_or_else(|_| "null".into()));
     } else if command.ends_with(" current-system") {
         println!("\"/nix/store/test-system\"");
