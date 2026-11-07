@@ -158,4 +158,10 @@ platform :ios do
     UI.message(JSON.pretty_generate(result))
   end
 
+
+  desc "Initialize missing production app availability globally; preserve existing selections"
+  lane :configure_app_availability do
+    UI.message(JSON.pretty_generate(FoldingTipProducts.configure_app_availability))
+  end
+
 end

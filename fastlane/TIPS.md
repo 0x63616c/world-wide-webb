@@ -58,3 +58,20 @@ Implemented against Apple's downloaded **App Store Connect OpenAPI 4.6** on Nove
 - [Official OpenAPI download](https://developer.apple.com/sample-code/app-store-connect/app-store-connect-openapi-specification.zip)
 
 The helper's source/lane loading and metadata validation were checked without credentials. Live Apple writes, returned-price matching, upload-host compatibility, product readiness, StoreKit sandbox purchases and final localization review are still pending.
+
+## App availability bootstrap and interruption diagnostics
+
+If Apple reports no app availability resource, the separate lane below initializes the production app in every territory actually returned by Apple's territory API and enables future territories. It does not change legal/tax/banking/rating answers or publish an app version. If any availability resource already exists, all selections are preserved—even an empty selection. It reads back the resource and territory flags and writes `build/tips/app-availability.json`.
+
+```sh
+bundle exec fastlane ios configure_app_availability
+bundle exec fastlane ios setup_tips
+```
+
+No POST/PATCH retries are added. A timeout after availability creation is reconciled through GET on the next invocation before any attempted create.
+
+Tip setup emits bounded progress at each product/stage and locale (at most ten locales per product), with no URLs, headers, tokens or raw Apple response bodies. Before any product stage, and after completed substages, it checkpoints `product-inventory.json` and an attempt-specific file under `build/tips/attempts/`. The prior inventory is retained separately before a new run. Partial records distinguish in-progress stages from prepared products; IDs/localization count/resolved price-point IDs survive an interruption after their corresponding stages.
+
+Transport errors report timeout/connection category and the current stage without a Fastlane stack dump. A stopped report stores only the request method, resource name(s), HTTP status when available and error class. An ambiguous write is never called failed remotely or automatically retried: re-run setup to read Apple's actual state first.
+
+Live evidence received from the primary agent: the initial setup hit a localization POST read timeout. An idempotent reconciliation run subsequently reached the app-availability prerequisite, establishing why incremental evidence and a separate availability bootstrap are necessary. The implementation agent did not execute those authenticated runs.
