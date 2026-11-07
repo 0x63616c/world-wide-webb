@@ -118,3 +118,17 @@ providers and Tailscale transport; real production policy remains untested.
 See [VM validation](vm-validation.md) for exact revisions and untested production
 workloads; this does not authorize deployment to a physical Mac.
 See the public [testing guide](https://github.com/0x63616c/homelab-cli/blob/main/docs/testing.md).
+
+## Saved setup repair
+
+The saved MacBook enrollment at `fdc8781` has an explicit configuration repair in
+`setup-repairs/`. Use the current local `hl-dev` build for this retry; the released
+0.4.0 CLI does not read repair descriptors. Select **homelab-macbook** and resume
+setup. Keep the existing profile and credentials—do not start a new enrollment.
+
+The repair removes the obsolete `activationReady` dependency. It preserves the
+manifest, encrypted secrets, recipients, lockfile and installer pin. The CLI freezes
+the repair commit locally, verifies it on the target, and adopts it only before a
+system build has been recorded or host identities have been installed. Completed
+Nix installation is verified and reused. No configuration was activated while
+preparing this repair.
