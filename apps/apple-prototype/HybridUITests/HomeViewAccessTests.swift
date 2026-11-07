@@ -61,9 +61,9 @@ extension HomeViewLaunchTests {
             app.buttons["app-\(id)"].tap()
             XCTAssertTrue(app.buttons["app-back"].waitForExistence(timeout: 15), id)
             app.buttons["app-back"].tap()
-            XCTAssertTrue(app.buttons["app-clock"].waitForExistence(timeout: 10), id)
+            XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 10), id)
         }
-        app.buttons["app-clock"].tap()
+        app.swipeDown()
         XCTAssertTrue(app.descendants(matching: .any)["launcher-clock"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["app-back"].exists)
     }

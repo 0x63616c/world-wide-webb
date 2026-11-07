@@ -8,6 +8,7 @@ import Testing
         #expect(Array(apps.dropFirst(5).prefix(3).map(\.id)) == ["car", "wifi", "music"])
         #expect(apps.last?.id == "settings")
         #expect(PanelAppCatalog.standard.app(id: "cameras") == nil)
+        #expect(PanelAppCatalog.standard.app(id: "clock")?.route == .clock)
         #expect(PanelAppCatalog.standard.app(id: "photos") == nil)
         #expect(apps.first { $0.id == "booth" }?.route == .photoBooth)
     }
@@ -48,10 +49,6 @@ import Testing
         state.showLauncher()
         #expect(state.screen == .launcher)
         state.showClock()
-        #expect(state.screen == .clock)
-        state.showLauncher()
-        let openedClock = state.open("clock")
-        #expect(openedClock)
         #expect(state.screen == .clock)
     }
 }

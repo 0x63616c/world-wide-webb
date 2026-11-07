@@ -45,10 +45,12 @@ import XCTest
     func testClockTapOpensHomeAndSwipeDownReturnsToClock() {
         let app = launch()
         defer { app.terminate() }
+        let profile = app.buttons["home-profile"]
+        XCTAssertFalse(profile.isHittable)
         app.buttons["launcher-clock"].tap()
         XCTAssertTrue(app.buttons["app-settings"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["app-settings"].isHittable)
-        let profile = app.buttons["home-profile"]
+        XCTAssertTrue(app.buttons["app-clock"].exists)
         let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             profile.exists && profile.frame.maxY < app.frame.height / 2
         }, object: nil)
@@ -59,9 +61,45 @@ import XCTest
         app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(app.buttons["app-settings"].exists)
+        XCTAssertFalse(profile.isHittable)
+    }
+    func testAddingAProfileRequiresAFreshPIN() {
+        let app = launch()
+        defer { app.terminate() }
         app.openAppGrid()
-        app.buttons["app-clock"].tap()
-        XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5))
+
+        app.buttons["home-profile"].tap()
+        XCTAssertTrue(app.staticTexts["Profiles"].waitForExistence(timeout: 5))
+        let addUser = app.buttons["profile-add"]
+        let pinDigit = app.buttons["pin-digit-0"]
+        let name = app.textFields["profile-name"]
+        let photo = app.buttons["profile-photo"]
+
+        addUser.tap()
+        XCTAssertTrue(pinDigit.waitForExistence(timeout: 5))
+        XCTAssertFalse(name.exists)
+        XCTAssertFalse(photo.exists)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "add-user-pin"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        for digit in "999999" { app.buttons["pin-digit-\(digit)"].tap() }
+        XCTAssertTrue(app.staticTexts["PIN not accepted. Try again."].waitForExistence(timeout: 5))
+        XCTAssertFalse(photo.exists)
+        for digit in "135790" { app.buttons["pin-digit-\(digit)"].tap() }
+
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(photo.exists)
+        XCTAssertFalse(app.buttons["profile-save"].isEnabled)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(addUser.waitForExistence(timeout: 5))
+
+        addUser.tap()
+        XCTAssertTrue(pinDigit.waitForExistence(timeout: 5))
+        XCTAssertFalse(photo.exists)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(addUser.waitForExistence(timeout: 5))
     }
     func testSwipingDoesNotNavigateBetweenClockAndHome() {
         let app = launch()

@@ -16,8 +16,7 @@ struct AppLauncher: View {
             let iconFrameSide: CGFloat = sizeClass == .compact ? 76 : 112
             let iconSide = iconFrameSide * 0.9
             let headerInset: CGFloat = sizeClass == .compact ? 20 : 40
-            let firstRowTop = headerInset + PanelProfilePhoto.side + 24
-            ZStack(alignment: .topTrailing) {
+            let firstRowTop = headerInset + PanelProfileSelector.avatarSide + 24
             ScrollView(.vertical) {
                 GlassEffectContainer(spacing: 32) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 28), count: columns), spacing: 48) {
@@ -54,12 +53,7 @@ struct AppLauncher: View {
                               value.translation.height > 80 || value.predictedEndTranslation.height > 180 else { return }
                         close()
                     })
-                if isPresented {
-                    PanelProfilePhoto()
-                        .padding(headerInset)
-                        .zIndex(1)
-                }
-            }
+                .modifier(PanelProfileSelector(isAvailable: isPresented, inset: headerInset))
         }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("app-launcher")
