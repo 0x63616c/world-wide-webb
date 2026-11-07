@@ -66,6 +66,7 @@ def main(image, revision):
                         return
                     except (urllib.error.URLError, TimeoutError):
                         if time.monotonic() > deadline:
+                            subprocess.run(["docker", "logs", "--tail", "30", container], check=False)
                             raise RuntimeError("image did not become ready") from None
                         time.sleep(0.1)
 
@@ -92,6 +93,9 @@ def main(image, revision):
             assert receipt["id"] == listing["groups"][0]["frames"][0]["id"]
             assert request(path) == photo
             docker("restart", "--time", "10", container)
+            # Docker may allocate a new ephemeral host port when recreating networking.
+            port = docker("port", container, "4201/tcp").split(":")[-1]
+            origin = f"http://127.0.0.1:{port}"
             ready()
             assert json.loads(request("/api/v1/walks/state"))["active"]["id"] == walk["id"]
             assert request(path) == photo
