@@ -6,8 +6,8 @@ OpenTofu owns durable Cloudflare resources. Wrangler owns Worker code versions, 
 | --- | --- | --- |
 | Private `folding-infrastructure-state` R2 bucket | `bootstrap/` OpenTofu root | Encrypted bootstrap state, recovery copy in Folding 1Password vault |
 | Production Email Routing DNS and `support@getfolding.app` rule | `environments/production/` using `modules/support-email/` | Encrypted remote production state; applied November 7, 2026 |
-| Application D1, private avatar R2, jobs/dead queues | Each environment root using `modules/application/` | Defined; deployment evidence recorded separately |
-| Admin Access application and email allowlist | Same application module | Explicit allowlist, one-hour sessions |
+| Application D1, private avatar R2, jobs/dead queues | Each environment root using `modules/application/` | Applied in both environments November 7; issue #32 records evidence |
+| Admin Access application and email allowlist | Same application module | Applied in both environments; explicit allowlist, one-hour sessions |
 | API/admin DNS and Worker routes | Same application module | Disabled until compatible Worker code exists |
 | Existing verified forwarding destination | Account owner | Referenced only; not created or deleted by this project |
 
@@ -16,3 +16,5 @@ Credentials come from the persistent authorized shell, never committed files. Bo
 Provider lockfiles are committed. Plans, state, local backend metadata and credentials are ignored. Never disable state encryption, locking or `prevent_destroy` to work around an error.
 
 Generate code bindings after a successful apply with `tofu output -json application_bindings | python3 scripts/generate-worker-config.py --configuration /path/to/public-runtime-config.json --output /path/to/wrangler.json`. The generator requires the exact Git commit and explicit Apple build allowlist, includes no credentials, disables public preview URLs, and initializes accepted capabilities to empty. Install runtime secrets separately. Queue consumers are added only once the Rust handler is implemented.
+
+The bootstrap root also owns `cloudflare_account_token.deployment`. Its token-minter provider receives `TF_VAR_token_minter` only in the primary authorized shell. The generated owner-operated deployment token is in 1Password item `6plik7nl5z2uxc477uua344hdq`; it is not a CI identity. Service permissions are account-scoped where Cloudflare requires that granularity; DNS/routes/email are restricted to the getfolding.app zone. Do not reuse it for untrusted jobs. Bootstrap state recovery document was refreshed after token creation. Staging state key: `5v2cq5dof2mh4hnk7uus3racoa`.

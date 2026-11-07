@@ -171,3 +171,5 @@ GitHub deliverables and Project statuses were reconciled for live iCloud, privat
 ### Infrastructure implementation checkpoint
 
 `3420c30` defines isolated D1/R2/queues/admin Access and opt-in routing for staging/production. Provider validation and additive production plan inspection passed. Production avatar R2 was provisioned with public access disabled; the partial apply is recorded and encrypted remote state backed up with byte-for-byte recovery verification. D1/queues/Access require broader deployment-token scopes (current bootstrap token returns 401/403). Routes remain disabled; no backend deployment is claimed. See issue #32 for backup identity and remaining acceptance.
+
+Infrastructure follow-up: `d672a16` manages the deployment credential with OpenTofu; securely saved in the Folding vault. Staging and production D1/private R2/queues/admin Access now provisioned successfully with no destructive changes, and both encrypted states backed up. The token-scope blocker is resolved. Worker deployment, routing, runtime secrets and final acceptance remain open in #32. Private `0x63616c/folding-signing` repository exists; signing assets remain pending.
