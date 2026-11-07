@@ -977,3 +977,77 @@ async fn bedroom_websocket_subscribes_before_snapshot_and_ignores_early_events()
     assert_eq!(saved["changed"], "2026-11-07T10:00:00.000000Z");
     assert!(saved["actedAt"].is_null());
 }
+
+#[tokio::test]
+async fn slow_alarm_lights_do_not_hold_the_sqlite_writer_or_delay_other_rings() {
+    use axum::{
+        Json,
+        routing::{get, post},
+    };
+    use std::sync::Arc;
+    use www_server::{
+        config::Config, features::alarms, integrations::homeassistant::HomeAssistant,
+    };
+    let (dir, _, db) = fixture().await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let (seen, unblock) = (entered.clone(), release.clone());
+    let ha_app = Router::new()
+        .route("/api/states", get(|| async { Json(json!([])) }))
+        .route(
+            "/api/services/light/turn_on",
+            post(move || {
+                let seen = seen.clone();
+                let unblock = unblock.clone();
+                async move {
+                    seen.notify_one();
+                    unblock.notified().await;
+                    Json(json!([]))
+                }
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, ha_app).await.unwrap() });
+    let mut s = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    s.config = Arc::new(Config {
+        ha: Some(HomeAssistant::new(&format!("http://{addr}"), "fixture".into()).unwrap()),
+        ..Default::default()
+    });
+    let start = chrono::DateTime::parse_from_rfc3339("2026-11-07T10:00:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let due = start + chrono::Duration::minutes(1);
+    for (n, at) in [(0, due), (1, due + chrono::Duration::minutes(1))] {
+        let def=serde_json::from_value(json!({"label":format!("alarm {n}"),"timeZone":"UTC","at":at.to_rfc3339(),"lightTarget":"light.bed_lamp_left"})).unwrap();
+        let _ = alarms::create_at(&s, def, None, start).await.unwrap();
+    }
+    assert_eq!(alarms::claim_due(&s, due).await.unwrap(), 1);
+    let state = s.clone();
+    let delivery = tokio::spawn(async move { alarms::deliver_lights(&state, due).await });
+    tokio::time::timeout(std::time::Duration::from_secs(2), entered.notified())
+        .await
+        .unwrap();
+    // An actual pending HTTP call is holding the delivery gate here.
+    assert_eq!(
+        tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            alarms::claim_due(&s, due + chrono::Duration::minutes(1))
+        )
+        .await
+        .unwrap()
+        .unwrap(),
+        1
+    );
+    release.notify_one();
+    delivery.await.unwrap().unwrap();
+    let delivered: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM alarm_ring WHERE lights_delivered_at IS NOT NULL")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert_eq!(delivered, 1);
+    let brightness:f64=sqlx::query_scalar("SELECT json_extract(desired_state,'$.brightness') FROM device_state WHERE entity_id='light.bed_lamp_left'").fetch_one(&db).await.unwrap();
+    assert_eq!(brightness, 180.0);
+    task.abort();
+}

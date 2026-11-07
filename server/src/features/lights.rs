@@ -405,6 +405,7 @@ pub async fn command(State(s): State<AppState>, Json(c): Json<Command>) -> Resul
             return get(State(s)).await;
         }
     }
+    let _gate = s.light_gate.lock().await;
     let old = rows(&s).await?;
     if !old.iter().any(reachable) {
         return Err(unavailable());
@@ -556,10 +557,12 @@ pub async fn command(State(s): State<AppState>, Json(c): Json<Command>) -> Resul
         }
     }
     tx.commit().await?;
+    drop(_gate);
     get(State(s)).await
 }
 
 pub async fn reconcile(s: &AppState) -> Result<()> {
+    let _gate = s.light_gate.lock().await;
     let ha = s.config.ha.as_ref().ok_or_else(unavailable)?;
     let entities = match ha.states().await {
         Ok(v) => v,
@@ -583,20 +586,7 @@ pub async fn reconcile(s: &AppState) -> Result<()> {
                 .await?;
             continue;
         };
-        let a = &entity.attributes;
-        let color = if a.get("color_mode").and_then(Value::as_str) == Some("color_temp") {
-            a.get("color_temp_kelvin").map(|k| json!({"kelvin":k}))
-        } else {
-            a.get("xy_color")
-                .map(|v| json!({"xy":v}))
-                .or_else(|| a.get("rgb_color").map(|v| json!({"rgb":v})))
-        };
-        let reported = Light {
-            on: entity.state == "on",
-            brightness: a.get("brightness").and_then(Value::as_f64),
-            color,
-            transition_seconds: None,
-        };
+        let reported = reported_light(entity);
         let stamp = now();
         let value = serde_json::to_string(&reported).map_err(|_| unavailable())?;
         if let Some(old) = map.get(e.entity) {
@@ -658,6 +648,7 @@ pub struct PartyClock {
     tick: usize,
 }
 pub async fn party(s: &AppState, clock: &mut PartyClock) -> Result<()> {
+    let _gate = s.light_gate.lock().await;
     let p = preferences(s).await?;
     let Some((mode, speed)) = p.get("singleton") else {
         return Ok(());
@@ -763,6 +754,7 @@ impl BedroomInput {
             self.previous = None;
             return Ok(());
         };
+        let _gate = s.light_gate.lock().await;
         let mut tx = s.db.begin().await?;
         let saved: Option<String> =
             sqlx::query_scalar("SELECT value FROM input_checkpoint WHERE entity_id=?")
@@ -830,4 +822,103 @@ impl BedroomInput {
         self.previous = Some(next);
         Ok(())
     }
+}
+
+fn reported_light(entity: &crate::integrations::homeassistant::Entity) -> Light {
+    let a = &entity.attributes;
+    let color = if a.get("color_mode").and_then(Value::as_str) == Some("color_temp") {
+        a.get("color_temp_kelvin").map(|k| json!({"kelvin":k}))
+    } else {
+        a.get("xy_color")
+            .map(|v| json!({"xy":v}))
+            .or_else(|| a.get("rgb_color").map(|v| json!({"rgb":v})))
+    };
+    Light {
+        on: entity.state == "on",
+        brightness: a.get("brightness").and_then(Value::as_f64),
+        color,
+        transition_seconds: None,
+    }
+}
+
+/// Alarm lighting shares command ordering with manual controls/input, while
+/// releasing the SQLite writer before any Home Assistant call.
+pub async fn alarm_lights(s: &AppState, target: &str) -> Result<()> {
+    if !super::alarms::valid_target(target) {
+        return Err(ApiError::bad("Invalid alarm light target"));
+    }
+    let _gate = s.light_gate.lock().await;
+    let ha = s.config.ha.as_ref().ok_or_else(unavailable)?;
+    let scene = target.starts_with("scene.");
+    let values: Vec<(String, Light)> = if scene {
+        let all = ha.states().await.map_err(|_| unavailable())?;
+        let members = all
+            .iter()
+            .find(|e| e.entity_id == target)
+            .and_then(|e| e.attributes.get("entity_id"))
+            .and_then(Value::as_array)
+            .filter(|a| a.iter().all(Value::is_string))
+            .ok_or_else(unavailable)?;
+        let members: Vec<_> = members
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect();
+        ha.call("scene", "turn_on", json!({"entity_id":target}))
+            .await
+            .map_err(|_| unavailable())?;
+        let all = ha.states().await.map_err(|_| unavailable())?;
+        let mut values = vec![];
+        for id in members {
+            if LIGHTS.iter().any(|e| e.entity == id) {
+                let entity = all
+                    .iter()
+                    .find(|e| e.entity_id == id && ["on", "off"].contains(&e.state.as_str()))
+                    .ok_or_else(unavailable)?;
+                values.push((id, reported_light(entity)));
+            }
+        }
+        values
+    } else {
+        let old = rows(s).await?;
+        let mut values = vec![];
+        for entity in target.split(',') {
+            if let Some(entry) = LIGHTS.iter().find(|e| e.entity == entity) {
+                let mut value = old
+                    .iter()
+                    .find(|r| r.entity_id == entity)
+                    .map(effective)
+                    .transpose()?
+                    .unwrap_or_default();
+                value.on = true;
+                if entry.lamp && value.brightness.unwrap_or(0.0) <= 0.0 {
+                    value.brightness = Some(180.0)
+                }
+                values.push((entity.to_owned(), value));
+            }
+        }
+        values
+    };
+    let mut tx = s.db.begin().await?;
+    let stamp = now();
+    let until =
+        (Utc::now() + chrono::Duration::seconds(10)).to_rfc3339_opts(SecondsFormat::Micros, true);
+    for (entity, value) in values {
+        let entry = LIGHTS
+            .iter()
+            .find(|e| e.entity == entity)
+            .ok_or_else(unavailable)?;
+        sqlx::query("INSERT INTO device_state(id,kind,entity_id,domain,label,desired_state,desired_at_utc,desired_until_utc,created_at_utc,updated_at_utc) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(entity_id) DO UPDATE SET desired_state=excluded.desired_state,desired_at_utc=excluded.desired_at_utc,desired_until_utc=excluded.desired_until_utc,updated_at_utc=excluded.updated_at_utc")
+            .bind(entry.id).bind(if entry.lamp{"light"}else{"switch"}).bind(&entity).bind(if entry.lamp{"light"}else{"switch"}).bind(entry.name).bind(serde_json::to_string(&value).map_err(|_|unavailable())?).bind(&stamp).bind(&until).bind(&stamp).bind(&stamp).execute(&mut *tx).await?;
+    }
+    tx.commit().await?;
+    if !scene {
+        for entity in target.split(',') {
+            let domain = entity.split_once('.').ok_or_else(unavailable)?.0;
+            ha.call(domain, "turn_on", json!({"entity_id":entity}))
+                .await
+                .map_err(|_| unavailable())?;
+        }
+    }
+    Ok(())
 }

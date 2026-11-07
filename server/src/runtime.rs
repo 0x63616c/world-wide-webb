@@ -121,6 +121,28 @@ impl Runtime {
                 stop.subscribe(),
             )));
         }
+        for (name, is_lights) in [("alarm-clock", false), ("alarm-lights", true)] {
+            let s = s.clone();
+            let mut stopping = stop.subscribe();
+            s.workers
+                .write()
+                .expect("worker lock")
+                .insert(name.into(), WorkerHealth::default());
+            tasks.push(tokio::spawn(async move {
+                let mut interval=tokio::time::interval(Duration::from_secs(1));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                loop {tokio::select! {
+                    _=stopping.changed()=>break,
+                    _=interval.tick()=>{
+                        let start=Instant::now();
+                        let result=if is_lights {crate::features::alarms::deliver_lights(&s,chrono::Utc::now()).await} else {crate::features::alarms::claim_due(&s,chrono::Utc::now()).await.map(|_|())};
+                        let mut workers=s.workers.write().expect("worker lock");let health=workers.get_mut(name).expect("registered worker");
+                        health.total_runs+=1;health.last_run_at=Some(now());health.last_duration_ms=start.elapsed().as_millis();health.consecutive_failures=if result.is_err(){health.consecutive_failures+1}else{0};
+                        if result.is_err(){tracing::warn!(worker=name,"cycle failed");}
+                    }
+                }}
+            }));
+        }
         Ok(Self { stop, tasks })
     }
     pub async fn stop(self) {

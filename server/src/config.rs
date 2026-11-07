@@ -2,7 +2,7 @@ use crate::integrations::homeassistant::HomeAssistant;
 use std::{env, fs, path::PathBuf};
 
 // Deliberately not Debug/Serialize: configuration contains credentials and home coordinates.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Config {
     pub ha: Option<HomeAssistant>,
     pub climate_entity: Option<String>,
@@ -10,6 +10,8 @@ pub struct Config {
     pub tesla_entities: Option<std::collections::BTreeMap<String, String>>,
     pub weather: Option<(f64, f64)>,
     pub wifi_qr: Option<String>,
+    pub alarm_snooze_minutes: i64,
+    pub alarm_light_target: String,
 }
 fn value(key: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if let Ok(path) = env::var(format!("{key}_FILE")) {
@@ -86,6 +88,18 @@ impl Config {
                 Ok::<_, Box<dyn std::error::Error>>(wifi_payload(&ssid, &password))
             })
             .transpose()?;
+        let alarm_snooze_minutes = value("ALARM_SNOOZE_MINUTES")?
+            .map(|v| v.parse::<i64>())
+            .transpose()
+            .map_err(|_| "Invalid alarm snooze minutes")?
+            .unwrap_or(9);
+        let alarm_light_target = value("ALARM_LIGHT_TARGET")?
+            .unwrap_or_else(|| "light.bed_lamp_left,light.bed_lamp_right".into());
+        if !(1..=60).contains(&alarm_snooze_minutes)
+            || !crate::features::alarms::valid_target(&alarm_light_target)
+        {
+            return Err("Invalid alarm defaults".into());
+        }
         Ok(Self {
             ha,
             weather,
@@ -93,6 +107,8 @@ impl Config {
             climate_entity: value("CLIMATE_ENTITY_ID")?,
             tesla_entities,
             bedroom_input,
+            alarm_snooze_minutes,
+            alarm_light_target,
         })
     }
 }
@@ -114,6 +130,21 @@ pub fn wifi_payload(ssid: &str, password: &str) -> String {
         format!("WIFI:T:WPA;S:{};P:{};;", escape(ssid), escape(password))
     }
 }
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            ha: None,
+            climate_entity: None,
+            bedroom_input: None,
+            tesla_entities: None,
+            weather: None,
+            wifi_qr: None,
+            alarm_snooze_minutes: 9,
+            alarm_light_target: "light.bed_lamp_left,light.bed_lamp_right".into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

@@ -15,6 +15,8 @@ pub struct AppState {
     pub media: PathBuf,
     pub config: Arc<config::Config>,
     pub workers: runtime::Health,
+    pub light_gate: Arc<tokio::sync::Mutex<()>>,
+    pub alarm_light_gate: Arc<tokio::sync::Mutex<()>>,
     // Provisioned per installation outside the application bundle. Never logged.
     token: Arc<str>,
 }
@@ -29,6 +31,8 @@ impl AppState {
             token: token.into(),
             config: Arc::new(config::Config::default()),
             workers: Default::default(),
+            alarm_light_gate: Default::default(),
+            light_gate: Default::default(),
         })
     }
 }

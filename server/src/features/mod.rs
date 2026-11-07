@@ -1,3 +1,4 @@
+pub mod alarms;
 pub mod bedroom_input;
 pub mod booth;
 pub mod climate;
