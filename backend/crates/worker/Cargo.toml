@@ -15,7 +15,7 @@ serde_json.workspace = true
 sha2.workspace = true
 worker = { version = "=0.8.7", features = ["d1", "queue"] }
 askama = { version = "=0.16.1", default-features = false, features = ["derive", "std"] }
-p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "alloc"] }
+p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "alloc", "pkcs8"] }
 ciborium = "=0.2.2"
 serde_bytes = "=0.11.19"
 base64 = "=0.23.1"
@@ -24,12 +24,14 @@ rustls-pki-types = { version = "=1.14.1", default-features = false, features = [
 x509-cert = { version = "=0.3.0", default-features = false }
 der = { version = "=0.8.3", default-features = false, features = ["alloc", "derive"] }
 p384 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "alloc"] }
+aes-gcm = { version = "=0.11.0", default-features = false, features = ["aes", "alloc", "zeroize"] }
+hmac = "=0.13.0"
 rsa = { version = "=0.9.10", default-features = false, features = ["sha2"] }
 sha2_10 = { package = "sha2", version = "=0.10.9", default-features = false, features = ["oid"] }
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "=0.3.106", features = ["Crypto", "WorkerGlobalScope"] }
+web-sys = { version = "=0.3.106", features = ["Crypto", "WorkerGlobalScope", "AbortSignal"] }
 js-sys = "=0.3.106"
 wasm-bindgen = "=0.2.129"
 futures-util = "=0.3.31"

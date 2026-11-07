@@ -1,0 +1,5 @@
+{
+  "nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "apple_request_nonce": "ea866a757e4c38babfa8127cbe9a409d3e1f93a00ff1488ff735fcf917afffd0",
+  "rule": "Set ASAuthorizationAppleIDRequest.nonce explicitly to lowercase hex SHA256 of UTF8 challenge nonce; Apple does not hash it for Folding."
+}

@@ -15,9 +15,12 @@ fn error(status: u16, code: &str, id: Id, retryable: bool) -> Result<Response> {
         code: code.into(),
         request_id: id,
         retryable,
-        retry_after_seconds: None,
+        retry_after_seconds: if status == 429 { Some(60) } else { None },
     })?
     .with_status(status);
+    if status == 429 {
+        response.headers_mut().set("Retry-After", "60")?;
+    }
     response.headers_mut().set("Cache-Control", "no-store")?;
     response
         .headers_mut()
@@ -26,14 +29,18 @@ fn error(status: u16, code: &str, id: Id, retryable: bool) -> Result<Response> {
 }
 
 #[event(fetch)]
-async fn fetch(mut request: Request, _env: Env, _context: Context) -> Result<Response> {
+async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Response> {
     let id = request_id()?;
+    if !request.url().is_ok_and(|url| url.scheme() == "https") {
+        return error(400, "malformed_request", id, false);
+    }
     let path = request.path();
-    // No production success route until authenticators, account operations and transactional
-    // storage are integrated. In particular, an arbitrary bearer header never authorizes a request.
+    // Auth handlers have their own complete trust boundary. Unimplemented community/admin routes
+    // remain unavailable; an arbitrary bearer header never authorizes a request.
     if !path.starts_with("/v1/") {
         return error(404, "not_found", id, false);
     }
+    let mut body = Vec::new();
     if request.method() != Method::Get && request.method() != Method::Head {
         if let Some(length) = request.headers().get("Content-Length")? {
             let Ok(length) = length.parse::<usize>() else {
@@ -55,10 +62,15 @@ async fn fetch(mut request: Request, _env: Env, _context: Context) -> Result<Res
             if length > MAX_JSON_BYTES {
                 return error(413, "body_too_large", id, false);
             }
+            body.extend(chunk);
         }
         if length == 0 {
             return error(400, "malformed_request", id, false);
         }
     }
-    error(503, "temporarily_unavailable", id, true)
+    match crate::auth_runtime::dispatch(&request, &env, &body, &id).await {
+        Ok(Some(response)) => Ok(response),
+        Ok(None) => error(503, "temporarily_unavailable", id, true),
+        Err(failure) => error(failure.status, failure.code, id, failure.retryable),
+    }
 }

@@ -165,6 +165,19 @@ pub fn verify_identity_token(
 mod tests {
     use super::*;
     #[test]
+    fn native_nonce_contract_is_explicit_utf8_hashing() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../contracts/fixtures/apple-nonce.json"
+        ))
+        .unwrap();
+        assert_eq!(
+            crate::assertion::hex(&Sha256::digest(
+                fixture["nonce"].as_str().unwrap().as_bytes()
+            )),
+            fixture["apple_request_nonce"].as_str().unwrap()
+        );
+    }
+    #[test]
     fn independently_signed_tokens_enforce_signature_claims_and_algorithms() {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../../../tests/fixtures/apple-jwt.json")).unwrap();

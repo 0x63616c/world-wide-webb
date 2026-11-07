@@ -1,0 +1,25 @@
+//! Retention cleanup is idempotent. Schedule each minute; authorization still checks exact expiry.
+use worker::*;
+pub async fn cleanup(db: &D1Database, timestamp: i64) -> Result<()> {
+    let time = wasm_bindgen::JsValue::from_f64(timestamp as f64);
+    let older = wasm_bindgen::JsValue::from_f64((timestamp - 120000) as f64);
+    db.batch(vec![
+        db.prepare("DELETE FROM refresh_receipts WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM sign_in_receipts WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM access_tokens WHERE expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM sessions WHERE absolute_expires_at_ms<=?1 OR idle_expires_at_ms<=?1").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM challenges WHERE expires_at_ms<=?1 AND NOT EXISTS (SELECT 1 FROM sign_in_receipts r WHERE r.challenge_id=challenges.challenge_id)").bind(std::slice::from_ref(&time))?,
+        db.prepare("DELETE FROM auth_rate_windows WHERE window_ms<?1").bind(&[older])?,
+    ]).await?;
+    Ok(())
+}
+#[event(scheduled)]
+pub async fn scheduled(_event: ScheduledEvent, env: Env, _context: ScheduleContext) {
+    let result = match env.d1("DB") {
+        Ok(db) => cleanup(&db, js_sys::Date::now() as i64).await,
+        Err(error) => Err(error),
+    };
+    if result.is_err() {
+        console_error!("auth_retention_cleanup_failed");
+    }
+}

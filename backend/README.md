@@ -1,4 +1,4 @@
-# Rust backend foundation
+# Rust backend
 
 The workspace has two crates: `folding-domain` owns deterministic wire validation/reduction/ranking, and `folding-worker` owns runtime, assertion, image, HTML and transaction integrations. No per-feature crates or Node backend are introduced. Node is only the pinned local workerd/D1 test harness.
 
@@ -19,13 +19,39 @@ The Miniflare 5 beta is the exact version used by Wrangler 4.158.0 at this check
 - `EventBatch::decode` validates bounded input, exact write fields, required nullable epoch, canonical UUIDs, known timezone, safe integer limits and immutable event identities before an operation can write.
 - `reduce` processes per-device/generation sequence order, ignores tests/retries, preserves interruption/deduplication rules and returns counted event IDs for period allocation. Do not pre-filter observations by date before reduction.
 - `rank_scores` excludes zero scorers, assigns competition ranks/tie medals, deterministic ID order and integer round-half-up percentiles. `eligible_by_receipt` uses the exclusive 24-hour cutoff.
-- `client_data_hash` binds exact HTTP bytes, method/path, deployment and challenge nonce. `verify_assertion` checks a provisionally trusted P-256 key, RP hash and increasing counter. It does **not** validate an attestation certificate chain, authenticate a session, authorize a participant or consume a challenge. Those required operations are not yet implemented.
+- `client_data_hash` binds exact HTTP bytes, method/path, deployment and challenge nonce. `verify_assertion` checks a provisionally trusted P-256 key, RP hash and increasing counter. It does **not** validate an attestation certificate chain, authenticate a session, authorize a participant or consume a challenge. Certificate and metadata verification stages exist, but CMS receipt verification and complete key enrollment remain unavailable. Production assertion checks must use `verify_assertion_with_policy`; the historical primitive is for fixture comparison.
 - Avatar processing rejects unsupported/content-type-mismatched/animated/oversized input, applies decoder allocation/dimension limits and re-encodes a 256px JPEG. Worker stress/CPU acceptance and R2 moderation lifecycle remain pending. Some valid high-bit-depth inputs may exceed the 64 MiB decoder allocation cap and fail safely; tune only after measured runtime evidence.
 - Askama autoescaping is compiled for Wasm and tested with hostile nickname/attribute text. Admin authentication/forms are not implemented.
 - The D1 fence SQL trips a CHECK constraint on stale participant revision, generation/epoch, key/device/deployment, challenge nonce/purpose/expiry or counter. All concrete mutation writes and receipt/job inserts must stay in that one guarded D1 batch. The helper is not an authenticated ingestion route.
 
-## Deliberately unavailable operations
+## Authentication runtime
 
-Every `/v1/` request currently fails closed with 503 after the bounded request check; admin/unknown paths return404. No bearer text, test identity or simulator fixture enables public writes. The local runtime test proves this behavior; it is not an API acceptance test. There are no production capability claims or health-success responses to accidentally pass a release preflight.
+When all required configuration and migrations are present, the actual Worker implements `POST /v1/auth/challenges`, `/auth/apple` with purpose `sign_in`, `/auth/refresh`, and `/auth/logout`. Auth writes require HTTPS and JSON. Missing configuration fails closed. Apple endpoints are fixed HTTPS URLs, responses are bounded, redirects are never followed, and requests have a ten-second deadline. The native JWT and code-exchange JWT must both verify and identify the same subject/nonce/audience. Initial sign-in does not enroll a device or award scores.
 
-Before deployment acceptance, implement the full Apple exchange/key-enrollment/session/refresh lifecycle, production configuration validation/host separation, route-specific request schemas, authorized idempotent mutations, persisted scoring/jobs, real D1 integration, App Attest official/device vectors, APNs HTTP/2 connectivity and bounded-image Worker stress evidence. Neither F01 nor F03 is complete. See [runtime evidence](../docs/experiments/backend-runtime.md).
+Opaque access tokens last 15 minutes; refresh families have 30-day inactivity and 90-day absolute limits. D1 contains token hashes, AES-256-GCM encrypted Apple authorization credentials and short-lived encrypted response-loss receipts. Token reuse revokes the family and push binding. Recovery checks a live unrevoked session and never returns a refresh token already rotated again. Operation IDs are participant/route scoped, including across families; non-secret tombstones outlive encrypted receipts. Sign-in preserves banned-account privacy access while preventing stale receipt replay from exposing a previously unrestricted profile.
+
+Apply **all migrations in order**. Schedule the exported handler every minute: it purges expired receipt ciphertext, tokens, sessions, challenges and short-lived network rate windows. Exact authorization expiry is checked independently of cleanup timing. A consumed challenge can support only its committed 60-second sign-in receipt; it never establishes another session. Account deletion must atomically set `participants.account_state` and revoke sessions before cleanup. New sign-in refuses deleting/deleted accounts; reauthentication and deletion recovery are separate pending handlers.
+
+### Required Worker bindings
+
+| Binding | Storage | Meaning |
+| --- | --- | --- |
+| `DB` | D1 binding | This deployment's database |
+| `DEPLOYMENT` | Variable | `staging` or `production` |
+| `AUTH_ENCRYPTION_KEY_VERSION` | Variable | Current version in the encryption key ring |
+| `AUTH_ENCRYPTION_KEYS` | Secret | JSON object mapping versions to base64url 32-byte AES keys |
+| `AUTH_NETWORK_HMAC_KEY` | Secret | Base64url 32-byte network rate-limit digest key |
+| `AUTH_SUBJECT_HMAC_KEY_VERSION` | Variable | Current version in the subject key ring |
+| `AUTH_SUBJECT_HMAC_KEYS` | Secret | JSON object mapping versions to base64url 32-byte subject HMAC keys |
+| `APPLE_SIGN_IN_CLIENT_ID` | Variable | Deployment's registered native bundle identifier |
+| `APPLE_SIGN_IN_TEAM_ID` | Variable | Apple team identifier |
+| `APPLE_SIGN_IN_KEY_ID` | Variable | Sign in with Apple key identifier |
+| `APPLE_SIGN_IN_PRIVATE_KEY_PKCS8` | Secret | Base64url DER PKCS#8 encoding of the Apple P-256 private key |
+
+The primary agent provisions bindings from approved secret storage; no keys belong in Git, command literals or logs. Retain old encryption keys until their ciphertext is migrated/purged. Retain old subject HMAC keys until every associated identity/active-ban digest is migrated or expires through the reviewed policy. Login searches all configured subject keys and migrates the matching participant's digest without changing membership or restriction. The key rings accept at most eight concurrent versions; never remove old active-ban keys to make room without migration. Key values differ between deployments and between encryption, subject and network purposes.
+
+## Remaining unavailable operations
+
+All community writes, App Attest enrollment/challenges, reauthentication, deletion recovery, profile/results and admin handlers remain unavailable. No test identity or simulator fixture enables them. Local runtime tests replace only the outbound Apple service with a synthetic cryptographic issuer; production code has no alternate Apple URL/root or verifier bypass.
+
+Before deployment acceptance, finish the full key-enrollment/reauthentication/deletion lifecycle, production host separation, authorized durable ingestion/scoring/jobs, remote D1 evidence, official/device App Attest vectors, APNs HTTP/2 and image Worker stress evidence. Neither F01 nor F03 is complete. See [runtime evidence](../docs/experiments/backend-runtime.md).
