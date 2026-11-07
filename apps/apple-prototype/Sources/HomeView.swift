@@ -191,11 +191,15 @@ struct HomeView: View {
                 Color.black.ignoresSafeArea()
                 ZStack {
                     clockSurface(width: proxy.size.width)
-                    if !showingClock, LauncherGlassSurface.blurRadius > 0 {
-                        // Only the clock beneath the glass gets the extra blur.
+                    if LauncherGlassSurface.blurRadius > 0 {
+                        // Move the blur footprint with the glass. Keeping this layer
+                        // mounted also prevents a full-screen blur flash on tap.
                         clockSurface(width: proxy.size.width)
                             .blur(radius: LauncherGlassSurface.blurRadius)
-                            .mask { LauncherGlassSurface.footprint }
+                            .mask {
+                                LauncherGlassSurface.footprint
+                                    .offset(y: showingClock ? proxy.size.height : 0)
+                            }
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
