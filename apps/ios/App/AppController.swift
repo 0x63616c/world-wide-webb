@@ -1,12 +1,14 @@
 import FoldingDomain
 import Foundation
 import SwiftUI
+import UIKit
 
 import struct FoldingData.SetupProgress
 
 @MainActor final class AppController {
   let presentation = FoldingPresentation()
   private let runtime: TrackingRuntime
+  private let notifications: NotificationSettingsStore
   private let preferencesStore: UserDefaults
   private var request = UUID()
   private var didLoad = false
@@ -18,6 +20,7 @@ import struct FoldingData.SetupProgress
   ) {
     self.runtime = runtime
     self.preferencesStore = preferencesStore
+    self.notifications = NotificationSettingsStore(defaults: preferencesStore)
     presentation.preferences = initialPreferences
     if let data = preferencesStore.data(forKey: preferencesKey),
       let preferences = try? JSONDecoder().decode(FoldingPreferences.self, from: data),
@@ -41,14 +44,33 @@ import struct FoldingData.SetupProgress
         let data = try JSONEncoder().encode(preferences)
         self.preferencesStore.set(data, forKey: self.preferencesKey)
         self.presentation.preferences = preferences
+        await self.runtime.publishWidgets()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
       },
       loadHistory: { period, offset in try await self.history(period, offset: offset) },
+      saveNotifications: { requested in
+        let saved = try await self.notifications.save(requested)
+        self.presentation.notificationAuthorization = await self.notifications.authorization()
+        return saved
+      },
+      openNotificationSettings: {
+        guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+      },
       useThisPhone: {
         try await self.runtime.useThisPhone()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
+      },
+      openShortcuts: {
+        guard let url = URL(string: "shortcuts://") else { return }
+        UIApplication.shared.open(url) { opened in
+          if !opened {
+            self.presentation.error = String(
+              localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+          }
+        }
       },
       reset: {
         self.presentation.dismissExports()
@@ -70,6 +92,22 @@ import struct FoldingData.SetupProgress
       })
   }
 
+  func claimReviewRequest() -> Bool {
+    guard presentation.selectedTab == .history, presentation.history != nil,
+      !presentation.historyLoading, !presentation.historyFailed,
+      presentation.sheet == nil, presentation.operation == nil,
+      presentation.error == nil, presentation.personalFailure == nil,
+      presentation.setup?.step == .complete,
+      let completion = presentation.setup?.lastCompletion,
+      let analytics = presentation.analytics,
+      analytics.days.contains(where: { $0.endMS <= analytics.asOfMS && $0.folds > 0 })
+    else { return false }
+    return ReviewEligibility(defaults: preferencesStore).claim(
+      setupCompletedAtMS: completion.completedAtMS,
+      activeDays: analytics.days.filter { $0.folds > 0 }.count,
+      nowMS: TrackingRuntime.nowMS)
+  }
+
   func watch() async {
     for await _ in await runtime.updates() {
       if Task.isCancelled { return }
@@ -78,6 +116,8 @@ import struct FoldingData.SetupProgress
   }
 
   func refreshVisible() async {
+    presentation.notificationPreferences = notifications.preferences
+    presentation.notificationAuthorization = await notifications.authorization()
     do {
       try await runtime.cleanupExports()
     } catch is CancellationError {
@@ -107,12 +147,14 @@ import struct FoldingData.SetupProgress
     let analytics = try await store.analytics(homeTimezone: timezone, asOfMS: now, range: range)
     let setup = try await store.setupProgress(nowMS: now)
     let lastEvent = try await store.lastObservedAtMS()
+    let health = try await store.privateHistoryHealth()
     guard request == token, !Task.isCancelled else { return }
     if let previous = presentation.analytics, previous.generation != analytics.generation {
       presentation.dismissExports()
       try await runtime.cancelExports()
       guard request == token, !Task.isCancelled else { return }
     }
+    presentation.privateHistoryHealth = health
     presentation.localDeviceID = store.deviceID
     presentation.lastEventAt = lastEvent.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     presentation.analytics = analytics

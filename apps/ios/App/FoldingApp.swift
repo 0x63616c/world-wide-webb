@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 
 #if !DEBUG
@@ -8,11 +9,13 @@ import SwiftUI
 
 @main @MainActor struct FoldingApp: App {
   @State private var controller = AppController()
+  @Environment(\.requestReview) private var requestReview
   @Environment(\.scenePhase) private var scenePhase
 
   var body: some Scene {
     WindowGroup {
       FoldingRootView(model: controller.presentation, actions: controller.actions)
+        .task { TipStore.shared.start() }
         .task { await controller.watch() }
         .task(id: [
           controller.presentation.analytics?.range.endMS, controller.presentation.analytics?.asOfMS,
@@ -26,6 +29,9 @@ import SwiftUI
         }
         .task(id: controller.presentation.setup?.attemptID) {
           await controller.observeSetupAttempt()
+        }
+        .onChange(of: controller.presentation.historyLoading) { _, loading in
+          if !loading, scenePhase == .active, controller.claimReviewRequest() { requestReview() }
         }
         .onChange(of: scenePhase) { _, phase in
           if phase == .active { Task { await controller.refreshVisible() } }
