@@ -27,6 +27,13 @@ single launch test, early simulator boot and cached test products target a two-m
 release gate. Cold compilation takes longer; check actual runner timings rather
 than treating two minutes as a guaranteed cold-build SLA.
 
+Build, UI-test and upload jobs use GitHub-hosted `macos-26-intel` runners
+to avoid the ARM runner capacity shortage. Simulator products and compiler
+caches remain keyed by runner architecture; existing ARM products are not reused.
+The same smoke gate is required before signing or upload. UI-test jobs open the
+Simulator app before waiting for boot, so XCTest can initialize its accessibility
+host on the Intel runner.
+
 The workflow selects the newest installed Xcode 26.x and checks the Panel iOS
 deployment target against its SDK. A newer SDK/API requirement requires updating
 the runner/toolchain. XcodeGen generates `WorldWideWebb.xcodeproj`; the release lane

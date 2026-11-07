@@ -5,7 +5,9 @@
 `build-and-test` retains the original check name and always reports a result.
 A failed or cancelled planner/suite fails that gate. An empty selection succeeds.
 
-Three independent `macos-26` lanes preserve the previous coverage:
+Three independent `macos-26-intel` lanes preserve the previous coverage.
+The Intel pool avoids the ARM runner capacity shortage; all lanes still select
+the newest installed Xcode 26.x and use architecture-specific caches:
 
 | Lane | Work |
 | --- | --- |

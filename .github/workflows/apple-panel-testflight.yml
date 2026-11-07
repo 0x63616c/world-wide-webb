@@ -80,7 +80,8 @@ jobs:
   smoke_build:
     needs: plan
     if: needs.plan.outputs.verified_run == ''
-    runs-on: macos-26
+    # Use the Intel pool while GitHub ARM runners are capacity constrained.
+    runs-on: macos-26-intel
     timeout-minutes: 20
     outputs:
       toolchain: ${{ steps.toolchain.outputs.version }}
@@ -191,7 +192,8 @@ jobs:
   smoke_tests:
     name: UI / ${{ matrix.suite }}
     needs: [plan, smoke_build]
-    runs-on: macos-26
+    # Use the Intel pool while GitHub ARM runners are capacity constrained.
+    runs-on: macos-26-intel
     # Include simulator boot, XCTest result collection and artifact cleanup.
     # Hosted runners have exceeded 20 minutes despite every test passing.
     timeout-minutes: 30
@@ -246,6 +248,8 @@ jobs:
           SIMULATOR_ID: ${{ steps.simulator.outputs.id }}
         run: |
           xcrun simctl boot "$SIMULATOR_ID"
+          # UI automation needs the Simulator accessibility host on Intel runners.
+          open -a "$DEVELOPER_DIR/Applications/Simulator.app" --args -CurrentDeviceUDID "$SIMULATOR_ID"
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
       - name: Run UI group
         working-directory: apps/apple-prototype
@@ -312,7 +316,8 @@ jobs:
       (needs.smoke.result == 'success' ||
        (needs.smoke.result == 'skipped' && needs.plan.outputs.verified_run != '')) &&
       (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.smoke_only))
-    runs-on: macos-26
+    # Use the Intel pool while GitHub ARM runners are capacity constrained.
+    runs-on: macos-26-intel
     timeout-minutes: 45
     environment: production
     # Also shared with the manual Expo rollback workflow: one bundle ID, one
