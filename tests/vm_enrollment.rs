@@ -207,7 +207,12 @@ fn github_arguments_allowed(repository: &str, args: &[std::ffi::OsString]) -> bo
     mutation_allowed
         && (endpoint == prefix || endpoint.starts_with(&format!("{prefix}/")))
         && !endpoint.contains(['%', '\\'])
-        && !endpoint.contains("..")
+        && (!endpoint.contains("..")
+            || (method == "GET"
+                && relative
+                    .strip_prefix("compare/")
+                    .and_then(|value| value.strip_suffix("...main"))
+                    .is_some_and(config::valid_revision)))
         && !args
             .iter()
             .skip(3)
@@ -216,6 +221,51 @@ fn github_arguments_allowed(repository: &str, args: &[std::ffi::OsString]) -> bo
 
 fn regressions() {
     vm::manifest_guard_regressions();
+    let check = PRE_BOOTSTRAP_CHECK
+        .replace("/usr/bin/sudo -n /bin/test", "fixture_test")
+        .replace("/usr/bin/pgrep", "fixture_pgrep");
+    for (journal, store, helper, installer, accepted) in [
+        (0, 0, 1, 1, true),
+        (1, 0, 1, 1, false),
+        (0, 1, 1, 1, false),
+        (0, 0, 0, 1, false),
+        (0, 0, 1, 0, false),
+        (0, 0, 2, 1, false),
+        (0, 0, 1, 2, false),
+    ] {
+        let script = format!(
+            "fixture_test() {{ case \"$3\" in /var/db/homelab-setup) return {journal};; *) return {store};; esac; }}\nfixture_pgrep() {{ case \"$2\" in homelab-host) return {helper};; *) return {installer};; esac; }}\n{check}"
+        );
+        assert_eq!(
+            Command::new("/bin/sh")
+                .arg("-c")
+                .arg(script)
+                .status()
+                .unwrap()
+                .success(),
+            accepted
+        );
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let old = directory.path().join("old");
+    let adapter = directory.path().join("adapter");
+    let new = directory.path().join("new");
+    fs::write(&old, b"old executable").unwrap();
+    fs::hard_link(&old, &adapter).unwrap();
+    fs::write(&new, b"new reviewed executable").unwrap();
+    install_adapter(&new, &adapter);
+    assert_eq!(fs::read(&old).unwrap(), b"old executable");
+    assert_eq!(fs::read(&adapter).unwrap(), b"new reviewed executable");
+
+    assert_eq!(
+        safe_failure(&["secret sentinel should not escape".into()]),
+        "Unclassified wizard outcome; saved state preserved."
+    );
+    assert_eq!(
+        safe_failure(&[SAFE_FAILURES[0].into(), "secret sentinel".into()]),
+        SAFE_FAILURES[0]
+    );
     let args = |items: &[&str]| {
         items
             .iter()
@@ -320,8 +370,28 @@ fn regressions() {
             ])
         ));
     }
+    let comparison = format!(
+        "repos/owner/homelab-vm-test/compare/{}...main",
+        "a".repeat(40)
+    );
+    assert!(github_arguments_allowed(
+        "owner/homelab-vm-test",
+        &args(&[
+            "api",
+            "--hostname",
+            "github.com",
+            "--method",
+            "GET",
+            &comparison,
+            "--jq",
+            "{status}",
+        ])
+    ));
     for endpoint in [
         "repos/owner/production/pulls",
+        "repos/owner/homelab-vm-test/compare/../main",
+        "repos/owner/homelab-vm-test/compare/not-a-revision...main",
+        "repos/owner/homelab-vm-test/compare/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...main/../hooks",
         "repos/owner/homelab-vm-test-other/pulls",
         "repos/owner/homelab-vm-test/../production",
         "https://example.org",
@@ -358,6 +428,7 @@ fn github(f: &Fixture) -> ! {
         .args(args)
         .env_clear()
         .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+        .env("HOME", &f.state_directory)
         .env("GH_CONFIG_DIR", &f.github_config_directory)
         .env("GH_PROMPT_DISABLED", "1")
         .exec();
@@ -616,10 +687,14 @@ impl Terminal {
                 self.text.len() <= 256 * 1024,
                 "unexpected terminal output volume while waiting for {expected}"
             );
-            assert!(
-                self.child.try_wait().unwrap().is_none(),
-                "wizard stopped before {expected}; preserve fixture state"
-            );
+            if self.child.try_wait().unwrap().is_some() {
+                let reason = SAFE_FAILURES
+                    .iter()
+                    .copied()
+                    .find(|message| self.text.contains(&format!("{FAILURE_PREFIX}{message}")))
+                    .unwrap_or("Unclassified wizard outcome; saved state preserved.");
+                panic!("wizard stopped before {expected}: {reason}");
+            }
             assert!(
                 Instant::now() < deadline,
                 "wizard timed out waiting for {expected}; preserve fixture state"
@@ -638,6 +713,30 @@ impl Drop for Terminal {
             let _ = self.child.wait();
         }
     }
+}
+
+// Only these reviewed static messages may leave the captured wizard. Never print
+// Outcome lines wholesale: future errors could contain paths or provider data.
+const SAFE_FAILURES: &[&str] = &[
+    "GitHub access failed. Check your local GitHub sign-in and repository permissions.",
+    "Existing configuration conflicts with this enrollment. Nothing was overwritten.",
+    "A repository file was not found at the reviewed revision.",
+    "The enrollment configuration is invalid or contains unexpected secret fields.",
+    "The private bootstrap review bundle could not be prepared.",
+    "The matching homelab-host helper is missing. Reinstall homelab from the official release or Homebrew tap.",
+    "The setup selection is invalid or does not use the intended existing administrator.",
+    "The local artifact, checksums, revision or setup plan could not be verified.",
+    "The reviewed configuration is not ready for this host's first setup.",
+    "The private credential files could not be safely prepared.",
+    "The target could not be inspected through verified SSH.",
+];
+const FAILURE_PREFIX: &str = "VM_ENROLLMENT_FAILURE: ";
+fn safe_failure(lines: &[String]) -> &'static str {
+    SAFE_FAILURES
+        .iter()
+        .copied()
+        .find(|message| lines.iter().any(|line| line == message))
+        .unwrap_or("Unclassified wizard outcome; saved state preserved.")
 }
 
 fn wizard(f: &Fixture) {
@@ -664,6 +763,9 @@ fn wizard(f: &Fixture) {
     };
     let result = setup_wizard::launch_with_dependencies(&profile, &path, &tools, &dependencies)
         .expect("wizard IO failed");
+    if !result.completed {
+        println!("{FAILURE_PREFIX}{}", safe_failure(&result.lines));
+    }
     assert!(
         result.completed && result.lines.iter().any(|line| line == "vm-test is set up."),
         "enrollment did not complete; preserve fixture state"
@@ -752,7 +854,7 @@ fn merge_enrollment(f: &Fixture) -> String {
     merged
 }
 
-fn drive(f: &Fixture) {
+fn drive(f: &Fixture, resume: bool) {
     let hostname = vm::bounded(Command::new("/bin/hostname")).unwrap();
     assert_eq!(hostname.trim(), f.operator_hostname);
     let mut jump = Command::new("/usr/bin/ssh");
@@ -779,7 +881,11 @@ fn drive(f: &Fixture) {
         &format!("repos/{}/commits/main", f.target.repository),
         None,
     );
-    assert_eq!(main["sha"], f.target.revision);
+    let resumed_revision = resume.then(|| validate_resume(f));
+    assert_eq!(
+        main["sha"],
+        resumed_revision.as_deref().unwrap_or(&f.target.revision)
+    );
     use configuration_pr::Api;
     let github = configuration_pr::GitHub {
         executable: f.state_directory.join("gh"),
@@ -818,11 +924,15 @@ fn drive(f: &Fixture) {
     terminal.enter();
     terminal.wait("Begin setup", Duration::from_secs(90));
     terminal.enter();
-    terminal.wait(
-        "Review and merge the enrollment PR",
-        Duration::from_secs(300),
-    );
-    let merged = merge_enrollment(f);
+    let merged = if let Some(revision) = resumed_revision {
+        revision
+    } else {
+        terminal.wait(
+            "Review and merge the enrollment PR",
+            Duration::from_secs(300),
+        );
+        merge_enrollment(f)
+    };
     terminal.wait("VM_FULL_ENROLLMENT_COMPLETE", Duration::from_secs(90 * 60));
     assert!(terminal.child.wait().unwrap().success());
     assert_eq!(
@@ -916,6 +1026,188 @@ fn drive(f: &Fixture) {
     vm::write_private(&f.state_directory.join("evidence.json"), &serde_json::to_vec_pretty(&json!({"repository":f.target.repository,"enrollmentRevision":merged,"wizardCompleted":true,"rebootVerified":true,"completedReplayVerified":true,"provider":"synthetic","tailscaleRoute":"pinned guest SSH adapter","comin":"real completion verification"})).unwrap());
     println!(
         "Full VM wizard completed. Evidence preserved; provider and Tailscale transport were synthetic."
+    );
+}
+
+fn install_adapter(source: &Path, destination: &Path) {
+    // Rename a complete new inode; old hard links and running mappings stay intact.
+    let mut staged = tempfile::NamedTempFile::new_in(destination.parent().unwrap()).unwrap();
+    let mut source = File::open(source).unwrap();
+    std::io::copy(&mut source, &mut staged).unwrap();
+    staged
+        .as_file()
+        .set_permissions(fs::Permissions::from_mode(0o700))
+        .unwrap();
+    staged.as_file().sync_all().unwrap();
+    staged.persist(destination).unwrap();
+}
+
+fn validate_resume(f: &Fixture) -> String {
+    use configuration_pr::Api;
+    let revision = String::from_utf8(vm::private_bytes(
+        &f.state_directory.join("merged-revision"),
+        40,
+    ))
+    .unwrap();
+    assert!(config::valid_revision(&revision));
+    assert_eq!(
+        vm::private_bytes(&f.state_directory.join("issued"), 128),
+        b"one synthetic issuance"
+    );
+    assert!(!f.state_directory.join("revoked").exists());
+    assert!(
+        !f.state_directory.join("evidence.json").exists(),
+        "completed fixtures use the completion replay, not pre-bootstrap resume"
+    );
+    let root = f.state_directory.join(".local/state/homelab/provisioning");
+    assert!(
+        provisioning::approved_installation(&root, "vm-test")
+            .unwrap()
+            .is_none(),
+        "resume is limited to the merged-PR, pre-bootstrap boundary"
+    );
+    let proposal = configuration_pr::Changes::load(
+        &root.join("hosts/vm-test/proposal.json"),
+        &f.target.repository,
+        "vm-test",
+    )
+    .unwrap();
+    assert_eq!(proposal.base, f.target.revision);
+    // Validate with this reviewed executable, not a preserved older adapter.
+    let temporary = tempfile::tempdir().unwrap();
+    let adapter = temporary.path().join("gh");
+    install_adapter(&std::env::current_exe().unwrap(), &adapter);
+    let github = configuration_pr::GitHub {
+        executable: adapter,
+    };
+    let owner = f.target.repository.split('/').next().unwrap();
+    let pulls = github
+        .json(
+            "GET",
+            &format!(
+                "repos/{}/pulls?state=all&head={owner}:{}&base=main",
+                f.target.repository,
+                proposal.branch()
+            ),
+            None,
+        )
+        .unwrap();
+    let pulls = pulls.as_array().unwrap();
+    assert_eq!(pulls.len(), 1);
+    let approved = configuration_pr::approved_workspace(
+        &github,
+        &proposal,
+        pulls[0]["number"].as_u64().unwrap(),
+    )
+    .unwrap()
+    .expect("saved enrollment PR must be merged");
+    assert_eq!(approved.revision, revision);
+    // Exact-main equality is checked by drive before launching the wizard.
+    revision
+}
+
+fn resume_run(path: &Path) {
+    let f = load(path);
+    assert_eq!(
+        path,
+        f.state_directory.join("enrollment.json"),
+        "use the preserved fixture snapshot"
+    );
+    let status = Command::new(std::env::current_exe().unwrap())
+        .arg("--resume-prepare")
+        .env_clear()
+        .env(ENV, path)
+        .env("HOME", &f.state_directory)
+        .env(
+            "PATH",
+            format!(
+                "{}:/usr/bin:/bin:/usr/sbin:/sbin",
+                f.state_directory.display()
+            ),
+        )
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "resume failed; preserve the existing attempt"
+    );
+}
+
+const PRE_BOOTSTRAP_CHECK: &str = r#"
+/usr/bin/sudo -n /bin/test ! -e /var/db/homelab-setup || exit 2
+/usr/bin/sudo -n /bin/test ! -e /nix/store || exit 2
+/usr/bin/pgrep -x homelab-host >/dev/null
+[ "$?" -eq 1 ] || exit 2
+/usr/bin/pgrep -x nix-installer >/dev/null
+[ "$?" -eq 1 ]
+"#;
+
+fn resume_prepare(f: &Fixture) {
+    use std::os::unix::fs::FileTypeExt;
+    // Match only executable paths in this attempt, not a potentially enormous
+    // process listing or shell arguments mentioning the fixture path.
+    let mut pattern = String::from("^");
+    for character in f.state_directory.to_str().unwrap().chars() {
+        if ".^$*+?()[]{}|\\".contains(character) {
+            pattern.push('\\');
+        }
+        pattern.push(character);
+    }
+    pattern.push('/');
+    let mut command = Command::new("/usr/bin/pgrep");
+    command.args(["-f", &pattern]).stdin(Stdio::null());
+    let result = homelab_client::process::capture(&mut command, Duration::from_secs(10)).unwrap();
+    assert_eq!(
+        result.status.code(),
+        Some(1),
+        "an operator process for this attempt may still be active"
+    );
+    vm::guard_guest(&f.target, &f.state_directory.join("vm-ssh"));
+    assert!(
+        vm::bounded(vm::ssh(
+            &f.target,
+            &f.state_directory.join("vm-ssh"),
+            PRE_BOOTSTRAP_CHECK
+        ))
+        .is_some(),
+        "guest bootstrap state is not safely resumable"
+    );
+    validate_resume(f);
+    let main = api(
+        f,
+        "GET",
+        &format!("repos/{}/commits/main", f.target.repository),
+        None,
+    );
+    assert_eq!(
+        main["sha"].as_str().unwrap(),
+        String::from_utf8(vm::private_bytes(
+            &f.state_directory.join("merged-revision"),
+            40
+        ))
+        .unwrap()
+    );
+    for name in ["vm-ssh", "vm-scp", "vm-tailnet", "gh", "vm-enrollment"] {
+        install_adapter(
+            &std::env::current_exe().unwrap(),
+            &f.state_directory.join(name),
+        );
+    }
+    let socket = f.state_directory.join("selected-agent.sock");
+    if let Ok(metadata) = fs::symlink_metadata(&socket) {
+        assert!(
+            metadata.file_type().is_socket(),
+            "unexpected selected-agent path"
+        );
+        fs::remove_file(socket).unwrap();
+    }
+    let status = Command::new(f.state_directory.join("vm-enrollment"))
+        .arg("--resume-drive")
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "resume failed; preserve the existing attempt"
     );
 }
 
@@ -1059,7 +1351,14 @@ fn main() {
                 .nth(2)
                 .expect("private fixture path required"),
         )),
-        Some("--drive") => drive(&fixture()),
+        Some("--resume") => resume_run(Path::new(
+            &std::env::args_os()
+                .nth(2)
+                .expect("preserved fixture path required"),
+        )),
+        Some("--resume-prepare") => resume_prepare(&fixture()),
+        Some("--resume-drive") => drive(&fixture(), true),
+        Some("--drive") => drive(&fixture(), false),
         Some("--wizard-child") => wizard(&fixture()),
         _ => println!(
             "Full VM enrollment skipped. Explicit opt-in: vm_enrollment --run /absolute/private/fixture.json"

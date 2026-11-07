@@ -101,3 +101,20 @@ The harness reopens the completed wizard with the same operator state. It requir
 credential issuance (the issuance marker is create-new), unchanged fixture deploy keys and pull
 requests, and the same guest boot UUID. This replay uses the production saved-installation and
 completion paths.
+
+## Resume a merged PR before bootstrap
+
+After confirming that the earlier driver/wizard has exited, a reviewed rebuilt harness can resume
+its preserved snapshot explicitly:
+
+```
+vm_enrollment --resume /absolute/private/operator-state/enrollment.json
+```
+
+This narrow path requires the original guest nonce and pinned host keys, no guest setup journal,
+Nix store or active bootstrap/installer process, and the original saved proposal approved at exactly
+the saved merged revision still on main. It replaces only harness adapter executables using new
+inodes, preserving old hard links, credentials, receipts and the create-new issuance marker.
+The wizard then follows its production resume path without another PR merge. It refuses later
+bootstrap phases; it is not a general retry command. No raw Outcome or terminal transcript is
+printed: failure diagnostics use reviewed static messages only.
