@@ -116,7 +116,7 @@ struct PhotoBoothPreview: UIViewRepresentable {
         init(session: AVCaptureSession, device: AVCaptureDevice, rotation: @escaping @MainActor @Sendable (CGFloat) -> Void) {
             super.init(frame: .zero)
             preview.session = session
-            preview.videoGravity = .resizeAspect
+            preview.videoGravity = .resizeAspectFill
             let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: preview)
             self.coordinator = coordinator
             observation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]) { [weak self] coordinator, _ in

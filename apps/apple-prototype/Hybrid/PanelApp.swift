@@ -92,7 +92,8 @@ struct PanelRoot: View {
                 calendarAPI: CalendarAPI(store: HybridCalendarFixtureStore(root: root,
                     unavailable: ProcessInfo.processInfo.arguments.contains("-hybridUnavailable")),
                     selection: CalendarSelection(suiteName: "Panel.CalendarFixtures")),
-                now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }, boothCapture: boothCapture))
+                now: fixtureNow, calendar: { HybridCalendarFixtureStore.calendar }, boothCapture: boothCapture,
+                boothPreview: BoothReviewFixture.preview(root: root)))
             return
         }
         #endif
