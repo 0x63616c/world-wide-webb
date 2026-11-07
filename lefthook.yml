@@ -13,7 +13,7 @@ pre-commit:
       glob: '.claude/hooks/guard-worktree-only*.sh'
       run: bash .claude/hooks/guard-worktree-only.test.sh
     gitleaks:
-      run: gitleaks git --staged --no-banner -c .gitleaks.toml
+      run: gitleaks git --staged --redact --no-banner -c .gitleaks.toml
 pre-push:
   commands:
     rust-and-ops:

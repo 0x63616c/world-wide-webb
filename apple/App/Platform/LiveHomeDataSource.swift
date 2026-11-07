@@ -79,7 +79,7 @@ import OSLog
         } ?? PhotosAPI(configuration: configuration)
         photoBoothAPI = photoAPI
         sonosArtwork = SonosArtworkAPI(configuration: configuration, transport: transport)
-        let transport = transport ?? URLSession(configuration: session)
+        let transport = transport ?? URLSession(configuration: session, delegate: PhotoSessionDelegate(), delegateQueue: nil)
         let client = PanelAPIClient(configuration: configuration, transport: transport)
         panelPIN = PanelPINAPI(client: client)
         walkProvider = LiveWalkProvider(api: WalksAPI(client: client), device: .iPad, now: now, clock: walkClock)
