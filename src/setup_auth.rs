@@ -493,6 +493,7 @@ mod tests {
             })
             .unwrap();
         let mut command = CommandBuilder::new(std::env::current_exe().unwrap());
+        command.cwd(std::env::current_dir().unwrap());
         command.args([
             "--exact",
             "setup_auth::tests::embedded_authentication_child",

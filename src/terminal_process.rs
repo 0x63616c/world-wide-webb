@@ -295,6 +295,8 @@ fn embedded(
     }
     if let Some(directory) = command.get_current_dir() {
         builder.cwd(directory);
+    } else {
+        builder.cwd(std::env::current_dir()?);
     }
     builder.env("TERM", "dumb");
     let mut reader = FileDescriptor::dup(
