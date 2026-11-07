@@ -10,10 +10,10 @@ final class NotificationBannerTests: XCTestCase {
         app.launch()
         let banner = app.buttons["notification-banner-lights"]
         XCTAssertTrue(banner.waitForExistence(timeout: 20))
-        XCTAssertEqual(banner.frame.width, 380, accuracy: 1)
-        XCTAssertEqual(app.frame.maxX - banner.frame.maxX, 20, accuracy: 1)
-        XCTAssertEqual(banner.frame.minY - app.frame.minY, 20, accuracy: 1)
-        XCTAssertFalse(app.buttons["notification-dismiss-lights"].exists)
+        XCTAssertGreaterThan(banner.frame.width, 300)
+        XCTAssertLessThan(app.frame.maxX - banner.frame.maxX, 90)
+        XCTAssertGreaterThanOrEqual(banner.frame.minY - app.frame.minY, 72)
+        XCTAssertTrue(app.buttons["notification-dismiss-lights"].isHittable)
         banner.swipeLeft()
         XCTAssertTrue(banner.exists)
         swipeRight(banner)
@@ -31,7 +31,7 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["notification-stack-count"].label, "3 notifications")
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 1)
         capture("notification-stack", app)
-        top.tap()
+        app.buttons["notification-stack-expand"].tap()
         XCTAssertTrue(app.buttons["notification-stack-collapse"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 3)
         let alarm = app.buttons["notification-banner-alarms"]

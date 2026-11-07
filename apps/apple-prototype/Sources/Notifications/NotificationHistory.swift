@@ -69,108 +69,158 @@ private struct NotificationEdgePan: UIViewRepresentable {
 }
 #endif
 
+/// A floating inbox keeps the current app in view. Glass is reserved for
+/// navigation; a neutral reading surface keeps colorful wallpapers out of text.
 struct NotificationHistory: View {
     @Environment(NotificationCenter.self) private var center
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
+    @Environment(\.dynamicTypeSize) private var typeSize
     let source: (String) -> NotificationSource
     @State private var expanded: Set<String> = []
     @State private var clearing = false
+    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            if let error = center.lastError ?? center.cacheError {
-                Text(error).font(.callout).foregroundStyle(.secondary)
-                    .padding(.horizontal, 24).padding(.bottom, 12)
-                    .accessibilityIdentifier("notification-history-error")
-            }
-            if center.connection == .unavailable {
-                Label("Offline", systemImage: "wifi.slash")
-                    .font(.callout).foregroundStyle(.secondary).padding(.bottom, 12)
-            }
-            if center.history.isEmpty {
-                ContentUnavailableView("No notifications", systemImage: "bell.slash")
-                    .accessibilityIdentifier("notification-history-empty")
-            } else {
-                List {
-                    ForEach(center.groups) { group in
-                        Section {
-                            ForEach(expanded.contains(group.id) ? group.items : Array(group.items.prefix(1))) { item in
-                                NotificationHistoryRow(item: item, source: source(group.id))
-                            }
-                        } header: {
-                            groupHeader(group)
-                        }
+        ZStack(alignment: .topTrailing) {
+            Color.clear.contentShape(.rect)
+                .onTapGesture { center.historyPresented = false }
+                .accessibilityHidden(true)
+            VStack(spacing: 12) {
+                header
+                    .glassEffect(.regular, in: .rect(cornerRadius: 32))
+                VStack(spacing: 0) {
+                    status
+                    if center.history.isEmpty {
+                        ContentUnavailableView("All caught up", systemImage: "checkmark")
+                            .accessibilityIdentifier("notification-history-empty")
+                    } else {
+                        historyList
                     }
+                    closeHandle
                 }
-                #if os(iOS)
-                .listStyle(.insetGrouped)
-                #else
-                .listStyle(.inset)
-                #endif
-                .scrollContentBackground(.hidden)
+                .background(.background, in: .rect(cornerRadius: 28))
+                .clipShape(.rect(cornerRadius: 28))
             }
-            closeHandle
+            .frame(maxWidth: typeSize.isAccessibilitySize ? 760 : 600,
+                   maxHeight: typeSize.isAccessibilitySize ? .infinity : 700)
+            .padding(20)
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+            .accessibilityAction(.escape) { center.historyPresented = false }
+            .accessibilityIdentifier("notification-history")
         }
-        .frame(maxWidth: 760, maxHeight: .infinity)
-        .frame(maxWidth: .infinity)
-        .background(.regularMaterial)
-        .environment(\.colorScheme, .dark)
-        .accessibilityElement(children: .contain)
-        .accessibilityAddTraits(.isModal)
-        .accessibilityAction(.escape) { center.historyPresented = false }
-        .accessibilityIdentifier("notification-history")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var historyList: some View {
+        List {
+            ForEach(center.groups) { group in
+                Section {
+                    ForEach(expanded.contains(group.id) ? group.items : Array(group.items.prefix(1))) { item in
+                        NotificationHistoryRow(item: item, source: source(group.id))
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    }
+                } header: {
+                    groupHeader(group)
+                }
+            }
+        }
+        #if os(iOS)
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(20)
+        #else
+        .listStyle(.inset)
+        #endif
+        .scrollContentBackground(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: expanded)
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 16) {
-            Text("Notification Center").font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 0)
-            Button("Clear All") { clear() }
-                .buttonStyle(.glass).disabled(clearing || !center.history.contains(where: { !$0.isPersistentUpdate }))
+        HStack(spacing: 12) {
+            Button { center.historyPresented = false } label: {
+                Image(systemName: "chevron.up")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(.circle)
+            }
+            .accessibilityLabel("Close Notification Center")
+            .accessibilityIdentifier("notification-history-close")
+            Text("Notifications")
+                .font(.title.bold()).accessibilityAddTraits(.isHeader)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            NotificationIconButton(label: "Clear all notifications", symbol: "xmark") { clear() }
+                .disabled(clearing || !center.history.contains(where: { !$0.isPersistentUpdate }))
                 .accessibilityIdentifier("notification-history-clear-all")
-            Button("Close", systemImage: "xmark") { center.historyPresented = false }
-                .labelStyle(.iconOnly).buttonStyle(.glass)
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityIdentifier("notification-history-close")
         }
-        .padding(24)
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 16).padding(.vertical, 12)
         .contentShape(.rect)
         .simultaneousGesture(closeGesture)
     }
 
+    @ViewBuilder private var status: some View {
+        if let error = center.lastError ?? center.cacheError {
+            Label(error, systemImage: "exclamationmark.circle")
+                .font(.callout).foregroundStyle(.secondary)
+                .padding(.horizontal, 28).padding(.vertical, 12)
+                .accessibilityIdentifier("notification-history-error")
+        }
+        if center.connection == .unavailable {
+            Label("Offline", systemImage: "wifi.slash")
+                .font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
+        }
+    }
+
     private func groupHeader(_ group: NotificationGroup) -> some View {
-        HStack {
-            Button {
-                withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) {
+        let identity = source(group.id)
+        let isExpanded = expanded.contains(group.id)
+        return HStack(spacing: 8) {
+            if group.items.count > 1 {
+                Button {
                     if !expanded.insert(group.id).inserted { expanded.remove(group.id) }
+                } label: {
+                    groupLabel(group, identity: identity, isExpanded: isExpanded)
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    NotificationSourceIcon(source: source(group.id), side: 24)
-                    Text("\(source(group.id).name) · \(group.items.count)")
-                    Image(systemName: expanded.contains(group.id) ? "chevron.up" : "chevron.down")
-                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(identity.name), \(group.items.count) notifications")
+                .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+                .accessibilityHint("Shows or hides older notifications")
+                .accessibilityIdentifier("notification-history-group-\(group.id)")
+            } else {
+                groupLabel(group, identity: identity, isExpanded: false)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("notification-history-group-\(group.id)")
             }
-            .frame(minHeight: 44)
-            .accessibilityValue(expanded.contains(group.id) ? "Expanded" : "Collapsed")
-            .accessibilityHint("Shows or hides older notifications in this group")
-            .accessibilityIdentifier("notification-history-group-\(group.id)")
-            Spacer()
-            Button("Clear All") { clear(group.id) }
-                .frame(minHeight: 44).disabled(clearing || !group.items.contains(where: { !$0.isPersistentUpdate }))
-                .accessibilityLabel("Clear all \(source(group.id).name) notifications")
+            NotificationIconButton(label: "Clear all \(identity.name) notifications", symbol: "xmark") { clear(group.id) }
+                .disabled(clearing || !group.items.contains(where: { !$0.isPersistentUpdate }))
                 .accessibilityIdentifier("notification-history-clear-\(group.id)")
         }
         .textCase(nil)
+        .padding(.bottom, 4)
+    }
+
+    private func groupLabel(_ group: NotificationGroup, identity: NotificationSource, isExpanded: Bool) -> some View {
+        HStack(spacing: 12) {
+            NotificationSourceIcon(source: identity, side: 32)
+            Text(identity.name).font(.headline).foregroundStyle(Color.primary)
+            if group.items.count > 1 {
+                Text(group.items.count, format: .number)
+                    .font(.subheadline.monospacedDigit()).foregroundStyle(Color.secondary)
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption.weight(.semibold)).foregroundStyle(Color.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 44).contentShape(.rect)
     }
 
     private var closeHandle: some View {
         Button { center.historyPresented = false } label: {
-            Capsule().fill(.secondary).frame(width: 48, height: 5)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(.rect)
+            Capsule().fill(.secondary).frame(width: 36, height: 5)
+                .frame(maxWidth: .infinity, minHeight: 44).contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Close Notification Center")
@@ -178,7 +228,7 @@ struct NotificationHistory: View {
         .simultaneousGesture(closeGesture)
     }
 
-    // Header/handle own the closing swipe so scrolling history never dismisses it.
+    // Closing gestures never compete with scrolling or native row swipe actions.
     private var closeGesture: some Gesture {
         DragGesture(minimumDistance: 12).onEnded { value in
             if NotificationHistoryGesture.closes(x: value.translation.width, y: value.translation.height) {
@@ -188,6 +238,7 @@ struct NotificationHistory: View {
     }
 
     private func clear(_ sourceModule: String? = nil) {
+        guard !clearing else { return }
         clearing = true
         Task {
             await center.clear(sourceModule: sourceModule)
@@ -205,37 +256,26 @@ private struct NotificationHistoryRow: View {
         Button {
             Task { await center.open(item.id) }
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    if item.readAt == nil {
-                        Image(systemName: "circle.fill").font(.caption2).foregroundStyle(.tint)
-                            .accessibilityLabel("Unread")
-                    }
-                    Text(item.title).font(.headline)
-                    Spacer()
-                    Text(item.createdAt, style: .relative).font(.caption).foregroundStyle(.secondary)
-                }
-                if !item.body.isEmpty { Text(item.body).font(.body) }
-                if item.priority == .critical {
-                    Label("Critical", systemImage: "exclamationmark.circle").font(.caption)
-                }
-            }
-            .foregroundStyle(.primary)
-            .multilineTextAlignment(.leading)
-            .padding(.vertical, 8)
-            .contentShape(.rect)
+            NotificationMessage(item: item)
+                .padding(.vertical, 2)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens \(source.name)")
         .accessibilityIdentifier("notification-history-item-\(item.id)")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if !item.isPersistentUpdate {
-                Button("Clear", systemImage: "trash", role: .destructive) { Task { await center.dismiss(item.id) } }
-                    .tint(.red)
+                Button("Clear", systemImage: "xmark", role: .destructive) { Task { await center.dismiss(item.id) } }
+                    .tint(.gray)
             }
         }
         .accessibilityActions {
             if !item.isPersistentUpdate { Button("Clear") { Task { await center.dismiss(item.id) } } }
+        }
+        .contextMenu {
+            if !item.isPersistentUpdate {
+                Button("Clear", systemImage: "xmark") { Task { await center.dismiss(item.id) } }
+            }
         }
     }
 }

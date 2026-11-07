@@ -208,8 +208,8 @@ tests extend the existing HomeViewLaunchTests smoke suite, adding no CI job.
 Lights brightness and white temperature use `FilledLevelControl`, shared with
 Music volume: a filled draggable bar with local drag preview, one commit on
 release, bounded values, and adjustable accessibility actions. Cameras is no
-longer registered in the native app catalog. Notification banners sit 20 points
-from the top-right edges, and the entire notification history uses dark mode;
+longer registered in the native app catalog. Notification banners sit 20 points from the trailing edge and below the top
+controls. The v2 glass inbox and banners follow the host appearance;
 Classic reconnects against a black native background.
 
 Lights and Calendar omit redundant page titles. The clock places its date at
