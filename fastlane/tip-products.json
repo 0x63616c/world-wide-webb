@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "app_store_id": "6832059501",
+  "bundle_id": "app.getfolding.Folding",
+  "base_territory": "USA",
+  "currency": "USD",
+  "availability": "mirror_selected_app_territories",
+  "translations_status": "draft_pending_final_localization_review",
+  "review_note": "Optional consumable tip supporting Folding. It grants no content, feature, currency, entitlement or leaderboard advantage. All app features are free. Access: Settings > Tip jar.",
+  "products": [
+    {
+      "product_id": "app.getfolding.Folding.tip.small",
+      "reference_name": "Folding Small Tip",
+      "usd_price": "0.99",
+      "localizations": {
+        "en-US": {
+          "name": "Small tip",
+          "description": "Support Folding. No features are unlocked."
+        },
+        "de-DE": {
+          "name": "Kleines Trinkgeld",
+          "description": "Unterstütze Folding. Schaltet keine Funktionen frei."
+        },
+        "fr-FR": {
+          "name": "Petit pourboire",
+          "description": "Soutenez Folding. Aucune fonction n’est débloquée."
+        },
+        "es-ES": {
+          "name": "Propina pequeña",
+          "description": "Apoya Folding. No desbloquea funciones."
+        },
+        "es-MX": {
+          "name": "Propina pequeña",
+          "description": "Apoya Folding. No desbloquea funciones."
+        },
+        "ja": {
+          "name": "小さなチップ",
+          "description": "Foldingを応援。追加機能の解除はありません。"
+        },
+        "ko": {
+          "name": "작은 팁",
+          "description": "Folding을 응원해 주세요. 추가 기능은 제공되지 않아요."
+        },
+        "pt-BR": {
+          "name": "Gorjeta pequena",
+          "description": "Apoie o Folding. Não libera recursos."
+        },
+        "zh-Hans": {
+          "name": "小额打赏",
+          "description": "支持 Folding，不会解锁额外功能。"
+        },
+        "zh-Hant": {
+          "name": "小額打賞",
+          "description": "支持 Folding，不會解鎖額外功能。"
+        }
+      }
+    },
+    {
+      "product_id": "app.getfolding.Folding.tip.medium",
+      "reference_name": "Folding Medium Tip",
+      "usd_price": "2.99",
+      "localizations": {
+        "en-US": {
+          "name": "Medium tip",
+          "description": "Support Folding. No features are unlocked."
+        },
+        "de-DE": {
+          "name": "Mittleres Trinkgeld",
+          "description": "Unterstütze Folding. Schaltet keine Funktionen frei."
+        },
+        "fr-FR": {
+          "name": "Pourboire moyen",
+          "description": "Soutenez Folding. Aucune fonction n’est débloquée."
+        },
+        "es-ES": {
+          "name": "Propina mediana",
+          "description": "Apoya Folding. No desbloquea funciones."
+        },
+        "es-MX": {
+          "name": "Propina mediana",
+          "description": "Apoya Folding. No desbloquea funciones."
+        },
+        "ja": {
+          "name": "中くらいのチップ",
+          "description": "Foldingを応援。追加機能の解除はありません。"
+        },
+        "ko": {
+          "name": "보통 팁",
+          "description": "Folding을 응원해 주세요. 추가 기능은 제공되지 않아요."
+        },
+        "pt-BR": {
+          "name": "Gorjeta média",
+          "description": "Apoie o Folding. Não libera recursos."
+        },
+        "zh-Hans": {
+          "name": "中额打赏",
+          "description": "支持 Folding，不会解锁额外功能。"
+        },
+        "zh-Hant": {
+          "name": "中額打賞",
+          "description": "支持 Folding，不會解鎖額外功能。"
+        }
+      }
+    },
+    {
+      "product_id": "app.getfolding.Folding.tip.large",
+      "reference_name": "Folding Large Tip",
+      "usd_price": "4.99",
+      "localizations": {
+        "en-US": {
+          "name": "Large tip",
+          "description": "Support Folding. No features are unlocked."
+        },
+        "de-DE": {
+          "name": "Großes Trinkgeld",
+          "description": "Unterstütze Folding. Schaltet keine Funktionen frei."
+        },
+        "fr-FR": {
+          "name": "Grand pourboire",
+          "description": "Soutenez Folding. Aucune fonction n’est débloquée."
+        },
+        "es-ES": {
+          "name": "Propina grande",
+          "description": "Apoya Folding. No desbloquea funciones."
+        },
+        "es-MX": {
+          "name": "Propina grande",
+          "description": "Apoya Folding. No desbloquea funciones."
+        },
+        "ja": {
+          "name": "大きなチップ",
+          "description": "Foldingを応援。追加機能の解除はありません。"
+        },
+        "ko": {
+          "name": "큰 팁",
+          "description": "Folding을 응원해 주세요. 추가 기능은 제공되지 않아요."
+        },
+        "pt-BR": {
+          "name": "Gorjeta grande",
+          "description": "Apoie o Folding. Não libera recursos."
+        },
+        "zh-Hans": {
+          "name": "大额打赏",
+          "description": "支持 Folding，不会解锁额外功能。"
+        },
+        "zh-Hant": {
+          "name": "大額打賞",
+          "description": "支持 Folding，不會解鎖額外功能。"
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 require "shellwords"
 require_relative "lib/apple_account"
 require_relative "lib/release_operations"
+require_relative "lib/tip_products"
 
 def repository_root
   File.expand_path("..", __dir__)
@@ -148,6 +149,13 @@ platform :ios do
   desc "Bootstrap scoped Folding distribution signing assets in the dedicated private match repository"
   lane :setup_signing do
     FoldingAppleAccount.bootstrap_signing(context: self)
+  end
+
+
+  desc "Create/update the three production consumable tips without submitting them for review"
+  lane :setup_tips do |options|
+    result = FoldingTipProducts.setup(screenshot_manifest: options[:screenshots])
+    UI.message(JSON.pretty_generate(result))
   end
 
 end
