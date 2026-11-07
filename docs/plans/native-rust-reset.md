@@ -18,6 +18,9 @@ implementation and GitHub project/issues follow review and approval.
 - Data, photos and other user files must not be lost. Removing a feature never authorizes deleting its data.
 - Work in large coherent steps, aiming for one implementation PR. Commit coherent slices locally;
   commit frequency does not imply PR frequency. Do not create 30 PRs or a prolonged compatibility platform.
+- Complete all implementation, repository cleanup and CI/workflow changes locally before the first push.
+  Do not open an early draft PR or push intermediate batches to obtain CI feedback. Hosted CI can take
+  30–60 minutes; it is a final publication gate, not a dependency between local work packages.
 - Final cleanup is delivery work, not a future optional task. No new product features or visual redesign.
 
 ## 2. Product scope and ownership
@@ -229,6 +232,16 @@ Remove obsolete Biome/Knip/TS alias/codegen checks only when their code has been
 
 ## 9. CI and delivery design
 
+Implementation order: build and test the replacement locally, finish repository cleanup, then finalize
+the replacement CI workflows against the completed layout. Validate workflow syntax, path filters and
+deployment gates locally. Run local Rust/Swift tests and production builds throughout implementation;
+run the relevant full local acceptance suite and independent agent review before publishing.
+Do not wait for hosted CI between features or work packages. Push the complete locally verified candidate
+and open the implementation PR only after code, configuration, workflows and review fixes are ready.
+Then run required hosted checks; fix genuine hosted-only failures and push follow-up corrections as needed.
+The final pushed head must pass all required checks before merge. This changes when we publish, not the
+merge standard, and does not authorize a production cutover before verification.
+
 One validation workflow uses path filters plus an ALWAYS-RUN aggregate required check that fails for failed,
 cancelled or unexpectedly skipped relevant jobs. Test its path selection (Swift, Rust, contract, infra,
 ops, workflow, docs). Do not let a path-skipped required check leave PRs stuck or silently green.
@@ -328,9 +341,11 @@ Statuses: Todo, In progress, Review, Done. No issue per file or trivial subtask.
    measure after, verify backup restore, independently review and resolve findings. Preserve rollback assets
    outside Git. Done when clean builds contain no obsolete stack and deployed artifacts are verified.
 
-Default: a single feature branch and implementation PR with coherent commits, independent review before
-merge, and one planned cutover. If required-check migration/bootstrap genuinely needs a preparatory PR,
-use at most one focused extra PR and explain the dependency; do not inflate work into many PRs.
+Default: a single local feature branch with coherent commits, all code/repository/CI changes completed
+and independently reviewed locally, then one final publication and one implementation PR, followed by
+required hosted checks and one planned cutover. No early draft PR or intermediate pushes. Resolve CI
+bootstrap and required-check naming within that candidate wherever possible; if a platform constraint
+truly requires a separate preparatory PR, explain the concrete blocker to Calum before changing this flow.
 Capture final cleanup in the implementation PR wherever possible; post-cutover evidence can be a small
 follow-up if facts only become observable after deployment. Final cleanup may not remain an untracked promise.
 
@@ -338,6 +353,9 @@ follow-up if facts only become observable after deployment. Final cleanup may no
 
 - Read this plan, AGENTS.md and current overview; use wtp worktrees from fresh origin/main.
 - Follow approved scope, work autonomously in large slices, commit often, avoid repeated permission prompts.
+- Keep implementation commits local until the complete candidate, including final cleanup and CI changes,
+  passes local verification and independent review. Do not push to trigger incremental CI. After the final
+  publication, follow required checks through completion and fix failures without bypassing them.
 - Use repo Apple skills; share components faithfully. Do not start a visual redesign.
 - Maintain an issue checklist and factual progress/evidence; report blockers early, not unchanged status.
 - Coordinate all credential access through the primary agent's single persistent session. Delegates must
@@ -384,6 +402,10 @@ are injected into builds, and the three deployment/publication triggers require 
 All were corrected. The reviewer rechecked commit `dfa959561` and reported all three resolved with
 no remaining actionable concerns in the revised sections. This is plan review, not implementation
 or production-migration certification. Final code/data/cutover evidence still requires independent review.
+
+Subsequent user-directed workflow amendment: complete and review all code, repository and CI changes
+locally before pushing the finished candidate. This supersedes the earlier conversational suggestion
+to open a draft PR early and push batches. The original review predates this workflow amendment.
 
 ## References
 
