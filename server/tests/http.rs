@@ -1202,3 +1202,40 @@ async fn native_credentials_cannot_publish_releases_and_release_credentials_cann
         );
     }
 }
+
+#[tokio::test]
+async fn late_alarm_claim_preserves_native_scheduled_occurrence() {
+    use www_server::features::alarms;
+    let (dir, _, db) = fixture().await;
+    let state = AppState::new(db.clone(), dir.path().join("media"), TOKEN.into()).unwrap();
+    let start = chrono::DateTime::parse_from_rfc3339("2026-11-07T10:00:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let due = start + chrono::Duration::minutes(1);
+    let def = serde_json::from_value(
+        json!({"label":"Native occurrence", "timeZone":"UTC", "at":due.to_rfc3339()}),
+    )
+    .unwrap();
+    alarms::create_at(&state, def, None, start).await.unwrap();
+    assert_eq!(
+        alarms::claim_due(&state, due + chrono::Duration::milliseconds(375))
+            .await
+            .unwrap(),
+        1
+    );
+    let (scheduled, ring): (String, String) =
+        sqlx::query_as("SELECT scheduled_at,ring_at FROM alarm_ring")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+    assert_eq!(
+        ring, scheduled,
+        "native intents match the original scheduled instant"
+    );
+    assert_eq!(
+        alarms::claim_due(&state, due + chrono::Duration::seconds(1))
+            .await
+            .unwrap(),
+        0
+    );
+}

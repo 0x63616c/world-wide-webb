@@ -391,7 +391,7 @@ pub async fn claim_due(s: &AppState, now: DateTime<Utc>) -> Result<u64> {
             .unwrap_or(persisted);
         let ring = now - scheduled <= chrono::Duration::minutes(15);
         let rid = id("alr");
-        let inserted=sqlx::query("INSERT INTO alarm_ring(id,alarm_id,scheduled_at,label,status,ring_at,expires_at,snooze_minutes,light_target,lights_retry_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(alarm_id,scheduled_at) DO NOTHING").bind(&rid).bind(&alarm.id).bind(stamp(scheduled)).bind(&def.label).bind(if ring{"ringing"}else{"missed"}).bind(&stamp_now).bind(stamp(now+chrono::Duration::minutes(30))).bind(def.snooze_minutes.unwrap_or(s.config.alarm_snooze_minutes)).bind(def.light_target.as_deref().unwrap_or(&s.config.alarm_light_target)).bind(&stamp_now).execute(&mut *tx).await?.rows_affected();
+        let inserted=sqlx::query("INSERT INTO alarm_ring(id,alarm_id,scheduled_at,label,status,ring_at,expires_at,snooze_minutes,light_target,lights_retry_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(alarm_id,scheduled_at) DO NOTHING").bind(&rid).bind(&alarm.id).bind(stamp(scheduled)).bind(&def.label).bind(if ring{"ringing"}else{"missed"}).bind(stamp(scheduled)).bind(stamp(now+chrono::Duration::minutes(30))).bind(def.snooze_minutes.unwrap_or(s.config.alarm_snooze_minutes)).bind(def.light_target.as_deref().unwrap_or(&s.config.alarm_light_target)).bind(&stamp_now).execute(&mut *tx).await?.rows_affected();
         if inserted > 0 {
             notice(
                 &mut tx,

@@ -101,15 +101,21 @@ final class HomeFaceLayoutTests: XCTestCase {
             for b in frames.dropFirst(index + 1) {
                 XCTAssertFalse(a.intersects(b), "Overlapping tile frames: \(a), \(b)", file: file, line: line)
             }
-            // The nearest neighbour along each occupied row/column must have
-            // exactly the declared gutter, regardless of mixed tile spans.
+            // Retired features leave empty cells; retained tiles still align to the grid.
+            let step = frames.map { min($0.width, $0.height) }.min()! + layout.gutter
             let right = frames.filter { $0.minX >= a.maxX && min(a.maxY, $0.maxY) > max(a.minY, $0.minY) }
             if let edge = right.map(\.minX).min() {
-                XCTAssertEqual(edge - a.maxX, layout.gutter, accuracy: 0.5, file: file, line: line)
+                XCTAssertGreaterThanOrEqual(edge - a.maxX, layout.gutter, file: file, line: line)
+                XCTAssertEqual(
+                    (edge - a.maxX - layout.gutter).truncatingRemainder(dividingBy: step), 0, accuracy: 0.5, file: file,
+                    line: line)
             }
             let below = frames.filter { $0.minY >= a.maxY && min(a.maxX, $0.maxX) > max(a.minX, $0.minX) }
             if let edge = below.map(\.minY).min() {
-                XCTAssertEqual(edge - a.maxY, layout.gutter, accuracy: 0.5, file: file, line: line)
+                XCTAssertGreaterThanOrEqual(edge - a.maxY, layout.gutter, file: file, line: line)
+                XCTAssertEqual(
+                    (edge - a.maxY - layout.gutter).truncatingRemainder(dividingBy: step), 0, accuracy: 0.5, file: file,
+                    line: line)
             }
         }
     }
