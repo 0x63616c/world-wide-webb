@@ -1561,7 +1561,7 @@ calendar-color rendering remain native validation requirements.
 The live Home grid uses `PanelAccessoryCard` and shared glyph/summary styling in
 `PanelHome.swift`. Both pages retain their fixed grid spans. The green clock is
 unchanged; Weather occupies the upper centre and Climate the lower centre.
-Weather opens the native full-screen current-conditions and hourly forecast page.
+Weather opens the native full-screen current-conditions and hourly forecast page. On the panel, the forecast and weather metrics stay fixed in place; all available forecast hours fit in the page without horizontal scrolling. The main temperature uses the rounded system font. Compact layouts wrap the forecast and retain vertical scrolling when needed.
 Accessory cards expose compact quick actions: native light switches, fan mode
 segments, lamp power, Sonos transport, and walk start/stop. Full controls remain in
 native destinations. Only the dedicated Classic card opens the web dashboard.
