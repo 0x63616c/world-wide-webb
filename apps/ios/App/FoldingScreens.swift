@@ -100,9 +100,12 @@ struct FoldingRootView: View {
           defaultValue:
             "A playful full-swing equivalent based on your recorded folds, not measured movement."))
     case .leaderboardInfo:
+      let periodTitle = model.competition.previous?.periodTitle ?? ""
       InformationSheet(
         title: String(localized: "leaderboard.period", defaultValue: "Period"),
-        text: (model.competition.previous?.periodTitle ?? "") + " · UTC")
+        text: String(
+          localized: "leaderboard.periodTimezone",
+          defaultValue: "\(periodTitle) · UTC"))
     case .tiedRank(let rank):
       NavigationStack {
         List(model.competition.previous?.entries.filter { $0.rank == rank } ?? []) { entry in
@@ -209,8 +212,9 @@ private struct TodayScreen: View {
         Label(foldingDuration(today.runningDurationMS), systemImage: "timer")
           .font(.subheadline).foregroundStyle(.secondary)
           .accessibilityLabel(
-            String(localized: "session.running", defaultValue: "Running") + ", "
-              + foldingDuration(today.runningDurationMS))
+            String(
+              localized: "session.runningDuration",
+              defaultValue: "Running, \(foldingDuration(today.runningDurationMS))"))
       }
     case .trend:
       VStack(alignment: .leading, spacing: 12) {
