@@ -1,0 +1,11 @@
+name: Install SOPS
+description: Install the pinned SOPS CLI without reading any credentials
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        case "$(uname -m)" in aarch64|arm64) arch=arm64 ;; x86_64|amd64) arch=amd64 ;; *) exit 1 ;; esac
+        curl -fsSL "https://github.com/getsops/sops/releases/download/v3.13.1/sops-v3.13.1.linux.$arch" -o "$RUNNER_TEMP/sops"
+        chmod +x "$RUNNER_TEMP/sops"
+        echo "$RUNNER_TEMP" >> "$GITHUB_PATH"

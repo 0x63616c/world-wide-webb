@@ -1,291 +1,162 @@
 name: CI
-
 on:
-  # PR updates run once; main pushes still build and deploy.
   push:
     branches: [main]
   pull_request:
-    branches: ["**"]
   workflow_dispatch:
     inputs:
       force_all:
-        description: "Validate the app image even without app changes"
         type: boolean
         default: true
-
 permissions:
   contents: read
-  packages: read
-
-# Cancellation behavior depends on the ref: cancel-in-progress is on for feature
-# branches (killing superseded runs saves runner minutes) but off on main (where a
-# newer push may already be deploying). On main at observed saturation (rho ~1.14),
-# cancelling in-flight runs killed them before deploy and delayed commits waiting
-# for others' later runs — lead time p50 was 2227s (37.1m) against a 777s (12.9m)
-# pipeline. With cancellation off, GitHub keeps only the newest PENDING run per
-# group and discards older pending ones, so intermediate pushes coalesce for free
-# (zero compute) and the run that does start carries all of their commits. On
-# feature branches, cancellation remains enabled; superseding is the right behavior
-# there and nothing deploys from them (www-c0m).
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref_name != 'main' }}
-
 jobs:
-  # Determine which apps actually changed so we only rebuild what's needed.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      www: ${{ steps.filter.outputs.www }}
-      cloudflareinfra: ${{ steps.filter.outputs.cloudflareinfra }}
+      apple: ${{ steps.select.outputs.apple }}
+      image: ${{ steps.select.outputs.image }}
+      infra: ${{ steps.select.outputs.infra }}
     steps:
       - uses: actions/checkout@v5
-      - uses: dorny/paths-filter@v4
-        id: filter
         with:
-          filters: |
-            www:
-              - 'Dockerfile'
-              - '.dockerignore'
-              - '.github/workflows/ci.yml'
-              - '.github/workflows/deploy-mini.yml'
-              - 'apps/api/**'
-              - 'apps/worker/**'
-              - 'apps/web/**'
-              - 'packages/**'
-              - 'features/**'
-              - 'app-kit/**'
-              - 'package.json'
-              - 'bun.lock'
-              - 'tsconfig.json'
-            cloudflareinfra:
-              - 'infra/cloudflare/**'
-              - 'packages/platform/src/index.ts'
-
-  # Unit suite (jsdom) + all the fast hermetic bash guards.
-  test-unit:
-    needs: [changes]
+          fetch-depth: 0
+          persist-credentials: false
+      - id: select
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+          HEAD: ${{ github.sha }}
+          FORCE: ${{ inputs.force_all || false }}
+        run: |
+          args=()
+          if [ "$FORCE" = true ]; then args+=(--force); fi
+          python3 tools/ci_changes.py "$BASE" "$HEAD" "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-selection
+          path: ci-selection.json
+          retention-days: 7
+  typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
+      - run: bash tools/install_ci_linters.sh
+      - run: bash tools/check lint
+      - name: Install pinned Rust
+        run: rustup show active-toolchain
+      - uses: actions/cache@v4
         with:
-          bun-version: 1.4.4
-      - name: Cache Bun downloads
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-1.4.4-
-      - name: Install deps
-        run: bun install --frozen-lockfile
-      - name: Lint (biome)
-        # Lint gate in CI, not just the lefthook pre-commit hook: a --no-verify
-        # bypass (or a hook that isn't installed on a contributor's machine)
-        # would otherwise ship lint regressions undetected (www-355t.6).
-        run: bun run lint
-      - name: Alias parity guard
-        # Static backstop (Track C, C7): the @app-kit / @app-kit/server /
-        # @features authoring-surface aliases must be declared identically
-        # across all 8 resolver configs (tsconfig `paths` + vite/vitest
-        # resolve.alias), or a module resolves in one tool and not another.
-        # Fast (grep), runs alongside the other hermetic guards.
-        run: bash scripts/check-alias-parity.sh
-      - name: Dockerfile manifest coverage guard
-        run: bun run test:dockerfile-manifests
-      - name: Main deployment contract
-        run: bash scripts/test-deploy-gate.sh
-      - name: Mac mini release scenarios
-        run: bash scripts/test-mini-release.sh
-      - name: Mac mini recovery scenarios
-        run: bash scripts/test-mini-recovery.sh
-      - name: Mac mini backup and tunnel recovery safety checks
-        run: python3 -m unittest discover -s deploy/mini -p 'test_*.py'
-      - name: Native ARM64 build guard
-        run: bash scripts/test-build-matrix.sh
-      - name: Wall-panel health classifier tests
-        # Hermetic self-test of the panel health classifier (1366x1024 +
-        # CF-error/skeleton markers, mirrored from iOS KioskHealth). No
-        # cluster/DB/network/secrets. Fast, runs before the slow Playwright
-        # install.
-        run: node scripts/test-panel-health.mjs
-      - name: Test (unit, jsdom)
-        run: bun run test:unit
-
-  # The mini deploy workflow only accepts a successful complete CI run.
-  typecheck:
-    needs: [changes]
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-check
+      - run: cargo check --locked --workspace --all-targets
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+  test-unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
+      - run: rustup show active-toolchain
+      - uses: actions/cache@v4
         with:
-          bun-version: 1.4.4
-      - name: Cache Bun downloads
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-1.4.4-
-      - name: Install deps
-        run: bun install --frozen-lockfile
-      - name: Check committed app codegen
-        # This is the authoritative backstop for committed App
-        # codegen: a local hook is bypassable, and deployment requires successful CI.
-        run: bun run apps:check
-      - name: Typecheck
-        run: bun run typecheck
-      - name: Dead code (knip, zero-tolerance)
-        # Authoritative backstop for the lefthook pre-push guard (which a
-        # --no-verify bypass or an uninstalled hook can skip).
-        # A typecheck failure blocks production deployment.
-        run: bun run knip
-
-  # Validate the single production Dockerfile on the mini's native architecture.
-  # Publishing and deployment happen only after CI succeeds, in deploy-mini.yml.
-  build-www:
-    needs: [changes]
-    if: needs.changes.outputs.www == 'true' || (github.event_name == 'workflow_dispatch' && inputs.force_all)
-    runs-on: ubuntu-24.04-arm
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-test
+      - run: cargo test --locked --workspace
+      - run: bash tools/check ops
+      - run: python3 -m unittest discover -s tools -p 'test_ci.py'
+  apple:
+    needs: changes
+    if: needs.changes.outputs.apple == 'true'
+    runs-on: macos-26
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
+      - name: Select supported Xcode
+        run: echo "DEVELOPER_DIR=$(python3 .github/scripts/apple-toolchain.py)" >> "$GITHUB_ENV"
+      - run: brew install xcodegen
+      - id: apple-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            apple/Packages/PanelKit/.build
+            ${{ runner.temp }}/apple-derived
+          key: apple-${{ runner.os }}-${{ hashFiles('apple/project.yml', 'apple/**/Package.resolved') }}-${{ github.sha }}
+          restore-keys: apple-${{ runner.os }}-${{ hashFiles('apple/project.yml', 'apple/**/Package.resolved') }}-
+      - run: xcrun swift-format lint --strict --recursive apple/App apple/Extensions apple/Packages/PanelKit/Sources apple/Tests
+      - run: bash tools/check apple
+      - name: Build and exercise iPad target
+        env:
+          APPLE_DERIVED_DATA: ${{ runner.temp }}/apple-derived
+        run: bash tools/test_apple.sh
+      - uses: actions/cache/save@v4
+        if: always() && steps.apple-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            apple/Packages/PanelKit/.build
+            ${{ runner.temp }}/apple-derived
+          key: ${{ steps.apple-cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: apple-failure-evidence
+          path: |
+            ${{ runner.temp }}/apple-derived/*.xcresult
+            ${{ runner.temp }}/apple-derived/*.log
+          retention-days: 3
+  image:
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v4
-      - name: Compute build timestamp
-        id: commit-time
-        run: echo "ms=$(($(git log -1 --format=%ct) * 1000))" >> "$GITHUB_OUTPUT"
-      - name: Validate production image
-        uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@v7
         with:
           context: .
-          file: Dockerfile
-          platforms: linux/arm64
-          push: false
-          build-args: |
-            BUILD_HASH=${{ github.sha }}
-            BUILD_TIME=${{ steps.commit-time.outputs.ms }}
+          load: true
+          tags: www-server:check
+          build-args: BUILD_HASH=${{ github.sha }}
           cache-from: type=gha,scope=www-mini
           cache-to: type=gha,mode=max,scope=www-mini
-
-  # Cloudflare remains a separate retained Pulumi project. Require application
-  # checks before changing edge routes; the mini release follows complete CI.
-  deploy-cloudflare:
-    needs: [changes, typecheck, test-unit, build-www]
-    if: |
-      always() &&
-      github.ref_name == 'main' &&
-      needs.changes.outputs.cloudflareinfra == 'true' &&
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled')
+      - name: Verify image identity and runtime
+        run: python3 tools/test_container.py www-server:check "$GITHUB_SHA"
+  infra:
+    env:
+      TF_VAR_state_passphrase: fixture-only-open-tofu-encryption-passphrase
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production
     steps:
       - uses: actions/checkout@v5
-
-      # Decrypt only PULUMI_ACCESS_TOKEN from the vault (the sole secret this
-      # job needs off the AGE key; the Cloudflare-specific config lives
-      # encrypted in Pulumi.prod.yaml itself, see header comment above).
-      - name: Decrypt vault (SOPS+age)
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-        run: |
-          curl -fsSL https://github.com/getsops/sops/releases/download/v3.13.1/sops-v3.13.1.linux.amd64 \
-            -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
-          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz \
-            | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
-
-          PULUMI_TOKEN=$(sops -d secrets/vault.yaml | grep "^PULUMI__ACCESS_TOKEN:" | cut -d' ' -f2-)
-          echo "::add-mask::$PULUMI_TOKEN"
-          echo "PULUMI_ACCESS_TOKEN=$PULUMI_TOKEN" >> "$GITHUB_ENV"
-
-      - uses: oven-sh/setup-bun@v2
+      - uses: opentofu/setup-opentofu@v1
         with:
-          bun-version: 1.4.4
-
-      - name: Install infra deps
-        run: bun install --frozen-lockfile
-
-      - name: Install Pulumi CLI
-        uses: pulumi/actions@v7
-
-      - name: pulumi up (Cloudflare edge state)
-        working-directory: infra/cloudflare
-        run: |
-          STACK=prod
-          pulumi login
-          pulumi stack select "$STACK"
-          pulumi up --yes --stack "$STACK"
-
-  # Push a phone ping via ntfy.sh when main CI fails, and a quiet "deployed"
-  # ping when the deploy job succeeds. Terminal job: never fails the pipeline
-  # (curl errors are swallowed), never runs off main. The topic name lives in
-  # the SOPS vault (NTFY_TOPIC), so this job needs the prod environment for
-  # AGE_PRIVATE_KEY, same as deploy. Docs-only pushes (deploy skipped, nothing
-  # failed) send nothing.
-  notify:
-    needs:
-      [
-        changes,
-        test-unit,
-        typecheck,
-        build-www,
-        deploy-cloudflare,
-      ]
-    if: always() && github.ref_name == 'main'
+          tofu_version_file: .opentofu-version
+          tofu_wrapper: false
+      - run: tofu -chdir=infra/cloudflare fmt -check
+      - run: tofu -chdir=infra/cloudflare init -backend=false -lockfile=readonly
+      - run: tofu -chdir=infra/cloudflare validate
+      - run: tofu -chdir=infra/cloudflare test
+      - run: python3 tools/test_state_backend.py
+  build-and-test:
+    if: always()
+    needs: [changes, typecheck, test-unit, apple, image, infra]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: production
     steps:
       - uses: actions/checkout@v5
-
-      - name: Send ntfy notification
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-          ANY_FAILED: ${{ contains(needs.*.result, 'failure') }}
-          DEPLOY_CLOUDFLARE_RESULT: ${{ needs.deploy-cloudflare.result }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          if [ "$ANY_FAILED" != "true" ] \
-            && [ "$DEPLOY_CLOUDFLARE_RESULT" != "success" ]; then
-            echo "Nothing to notify (no failure, no deploy)."
-            exit 0
-          fi
-
-          # Install sops + age to read NTFY_TOPIC from the vault.
-          curl -fsSL https://github.com/getsops/sops/releases/download/v3.13.1/sops-v3.13.1.linux.amd64 \
-            -o /usr/local/bin/sops && chmod +x /usr/local/bin/sops
-          curl -fsSL https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz \
-            | tar -xzC /usr/local/bin --strip-components=1 age/age age/age-keygen
-
-          TOPIC=$(sops -d secrets/vault.yaml | grep '^NTFY_TOPIC:' | cut -d' ' -f2-)
-          echo "::add-mask::$TOPIC"
-          if [ -z "$TOPIC" ]; then
-            echo "NTFY_TOPIC not set in vault; skipping."
-            exit 0
-          fi
-
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          SUBJECT=$(git log -1 --pretty=%s)
-
-          if [ "$ANY_FAILED" = "true" ]; then
-            curl -fsS --max-time 10 \
-              -H "Title: CI failed on main" \
-              -H "Priority: high" \
-              -H "Tags: rotating_light" \
-              -H "Click: $RUN_URL" \
-              -d "$SUBJECT ($SHORT_SHA)" \
-              "https://ntfy.sh/$TOPIC" || true
-          else
-            curl -fsS --max-time 10 \
-              -H "Title: Deployed" \
-              -H "Priority: low" \
-              -H "Tags: rocket" \
-              -H "Click: $RUN_URL" \
-              -d "$SUBJECT ($SHORT_SHA)" \
-              "https://ntfy.sh/$TOPIC" || true
-          fi
+      - env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 tools/ci_gate.py

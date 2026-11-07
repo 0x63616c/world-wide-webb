@@ -1,0 +1,90 @@
+name: Apply Cloudflare
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful main CI run to apply
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: cloudflare-apply
+  cancel-in-progress: false
+jobs:
+  source:
+    if: >-
+      vars.OPEN_TOFU_DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      infra: ${{ steps.selection.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
+        run: python3 tools/ci_release_source.py "$RUN_ID"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-selection
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - id: selection
+        run: |
+          python3 - <<'PY'
+          import json,os
+          value=json.load(open('ci-selection.json'))['infra']
+          assert isinstance(value,bool)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('infra='+str(value).lower()+'\n')
+          PY
+  apply:
+    needs: source
+    if: needs.source.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/install-sops
+      - name: Load deployment credentials once
+        env:
+          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
+        run: sops exec-env secrets/vault.yaml 'python3 tools/ci_deploy_env.py'
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ env.TS_CLIENT_ID }}
+          oauth-secret: ${{ env.TS_CLIENT_SECRET }}
+          tags: tag:ci
+      - name: Apply tested configuration on the state owner
+        env:
+          MINI_KNOWN_HOSTS: ${{ vars.MINI_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$MINI_KNOWN_HOSTS"
+          printf '%s\n' "$MINI_KNOWN_HOSTS" > "$RUNNER_TEMP/mini-known-hosts"
+          remote=calum@homelab.tail8c014d.ts.net
+          options=(-i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts")
+          stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/calum/homelab-infra/candidate.XXXXXX')
+          [[ "$stage" =~ ^/Users/calum/homelab-infra/candidate\.[[:alnum:]]+$ ]]
+          # shellcheck disable=SC2029 # The validated staging path must expand locally.
+          cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
+          trap cleanup EXIT
+          scp "${options[@]}" infra/cloudflare/*.tf infra/cloudflare/.terraform.lock.hcl \
+            .opentofu-version tools/infra_apply.py "$remote:$stage/"
+          # shellcheck disable=SC2029 # Pass locally validated paths and release identity.
+          ssh "${options[@]}" "$remote" "python3 '$stage/infra_apply.py' '$stage'"

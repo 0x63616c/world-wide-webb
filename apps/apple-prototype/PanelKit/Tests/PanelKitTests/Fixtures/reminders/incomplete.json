@@ -1,9 +1,0 @@
-[
-  { "id": "fixture_one", "title": "Synthetic task", "list": "Test list", "writable": true },
-  {
-    "id": "fixture_readonly",
-    "title": "Shared task",
-    "list": "Shared test list",
-    "writable": false
-  }
-]

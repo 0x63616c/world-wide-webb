@@ -1,3 +1,6 @@
+> Historical reference from before the native/Rust reset. Current operations and source locations are
+> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+
 # Cold-start HTML cache
 
 Control Center on iPhone uses the Expo shell's hosted WKWebView, not a separate

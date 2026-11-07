@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+case "${1:-all}" in
+  --staged)
+    cargo fmt --all -- --check
+    python3 -m compileall -q tools deploy/mini
+    ;;
+  lint)
+    ruff check tools deploy/mini .github/scripts
+    ruff format --check tools deploy/mini .github/scripts
+    actionlint
+    shellcheck --severity=warning tools/check tools/*.sh deploy/mini/*.sh
+    ;;
+  rust)
+    cargo fmt --all -- --check
+    cargo clippy --workspace --all-targets -- -D warnings
+    cargo test --workspace
+    ;;
+  ops)
+    python3 -m unittest discover -s deploy/mini -p 'test_*.py'
+    python3 -m unittest discover -s tools -p 'test_*.py'
+    ;;
+  apple)
+    swift test --package-path apple/Packages/PanelKit
+    ;;
+  integration)
+    cargo build -p www-server --locked
+    python3 tools/test_native_api.py
+    ;;
+  infra)
+    export TF_VAR_state_passphrase=fixture-only-open-tofu-encryption-passphrase
+    tofu -chdir=infra/cloudflare fmt -check
+    tofu -chdir=infra/cloudflare init -backend=false -lockfile=readonly
+    tofu -chdir=infra/cloudflare validate
+    tofu -chdir=infra/cloudflare test
+    python3 tools/test_state_backend.py
+    ;;
+  all)
+    bash tools/check lint
+    bash tools/check rust
+    bash tools/check ops
+    bash tools/check apple
+    bash tools/check integration
+    bash tools/check infra
+    ;;
+  *) echo 'Usage: tools/check [lint|rust|ops|apple|integration|infra|--staged|all]' >&2; exit 64 ;;
+esac

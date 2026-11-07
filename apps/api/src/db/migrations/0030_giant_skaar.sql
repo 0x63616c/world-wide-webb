@@ -1,1 +1,0 @@
-DROP TABLE "board_tile_placement" CASCADE;

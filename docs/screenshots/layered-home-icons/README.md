@@ -1,3 +1,6 @@
+> Historical reference from before the native/Rust reset. Current operations and source locations are
+> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+
 # Layered home app icons
 
 The four `approved-*.png` files are the design references approved in the icon

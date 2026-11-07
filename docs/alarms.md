@@ -1,3 +1,6 @@
+> Historical reference from before the native/Rust reset. Current operations and source locations are
+> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+
 # Clock alarms
 
 Tap the existing Clock tile to create, edit, enable, disable, or delete alarms.

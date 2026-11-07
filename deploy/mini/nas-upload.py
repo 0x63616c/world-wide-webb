@@ -7,6 +7,7 @@ Credentials are consumed from a private JSON file, never logged. TLS is pinned
 before sending credentials; certificate rotation requires deliberate reprovisioning.
 No remote overwrite, deletion, retention purge, or notification is performed.
 """
+
 import argparse
 import hashlib
 import http.client
@@ -22,7 +23,7 @@ from pathlib import Path
 class NasApiError(RuntimeError):
     def __init__(self, operation, code):
         self.code = code
-        super().__init__(f'NAS {operation} error {code}')
+        super().__init__(f"NAS {operation} error {code}")
 
 
 class Nas:
@@ -37,44 +38,51 @@ class Nas:
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         connection = http.client.HTTPSConnection(
-            self.config['host'], self.config.get('port', 5001),
-            context=context, timeout=300,
+            self.config["host"],
+            self.config.get("port", 5001),
+            context=context,
+            timeout=300,
         )
         connection.connect()
         actual = hashlib.sha256(connection.sock.getpeercert(binary_form=True)).hexdigest()
-        if actual != self.config['certificate_sha256']:
+        if actual != self.config["certificate_sha256"]:
             connection.close()
-            raise RuntimeError('NAS certificate pin mismatch')
+            raise RuntimeError("NAS certificate pin mismatch")
         return connection
 
     def call(self, api, method, version=2, **params):
         params.update(api=api, method=method, version=version)
         if self.sid:
-            params['_sid'] = self.sid
+            params["_sid"] = self.sid
         body = urllib.parse.urlencode(params).encode()
         c = self.connect()
         try:
-            c.request('POST', '/webapi/entry.cgi', body,
-                      {'Content-Type': 'application/x-www-form-urlencoded'})
+            c.request("POST", "/webapi/entry.cgi", body, {"Content-Type": "application/x-www-form-urlencoded"})
             response = c.getresponse()
             if response.status != 200:
-                raise RuntimeError(f'NAS HTTP status {response.status}')
+                raise RuntimeError(f"NAS HTTP status {response.status}")
             result = json.load(response)
-            if not result.get('success'):
-                raise NasApiError(f'{api}.{method}', result.get('error', {}).get('code'))
-            return result.get('data', {})
+            if not result.get("success"):
+                raise NasApiError(f"{api}.{method}", result.get("error", {}).get("code"))
+            return result.get("data", {})
         finally:
             c.close()
 
     def login(self):
         self.sid = None
-        self.sid = self.call('SYNO.API.Auth', 'login', 6,
-                             account=self.config['username'], passwd=self.config['password'],
-                             session='FileStation', format='sid')['sid']
+        self.sid = self.call(
+            "SYNO.API.Auth",
+            "login",
+            6,
+            account=self.config["username"],
+            passwd=self.config["password"],
+            session="FileStation",
+            format="sid",
+        )["sid"]
 
     def logout(self):
         if self.sid:
-            self.call('SYNO.API.Auth', 'logout', 6, session='FileStation')
+            self.call("SYNO.API.Auth", "logout", 6, session="FileStation")
             self.sid = None
 
     def upload(self, path, destination):
@@ -90,29 +98,32 @@ class Nas:
                 self.login()
 
     def _upload(self, path, destination):
-        if not re.fullmatch(r'[A-Za-z0-9_.-]+', path.name):
-            raise ValueError('Backup filename must contain only letters, numbers, dots, dashes or underscores')
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", path.name):
+            raise ValueError("Backup filename must contain only letters, numbers, dots, dashes or underscores")
         boundary = secrets.token_hex(24)
-        fields = dict(api='SYNO.FileStation.Upload', version='2', method='upload',
-                      path=destination, create_parents='true')
+        fields = dict(
+            api="SYNO.FileStation.Upload", version="2", method="upload", path=destination, create_parents="true"
+        )
         # Omitting overwrite makes an existing destination an error, not success
         # with an old file or replacement of a prior backup.
-        prefix = ''.join(
+        prefix = "".join(
             f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'
             for key, value in fields.items()
         ).encode()
-        prefix += (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; '
-                   f'filename="{path.name}"\r\nContent-Type: application/octet-stream\r\n\r\n').encode()
-        suffix = f'\r\n--{boundary}--\r\n'.encode()
+        prefix += (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; '
+            f'filename="{path.name}"\r\nContent-Type: application/octet-stream\r\n\r\n'
+        ).encode()
+        suffix = f"\r\n--{boundary}--\r\n".encode()
         checksum = hashlib.sha256()
         c = self.connect()
         try:
-            with path.open('rb') as source:
+            with path.open("rb") as source:
                 size = path.stat().st_size
                 # DSM authenticates uploads before parsing multipart fields.
-                c.putrequest('POST', '/webapi/entry.cgi?' + urllib.parse.urlencode({'_sid': self.sid}))
-                c.putheader('Content-Type', f'multipart/form-data; boundary={boundary}')
-                c.putheader('Content-Length', str(len(prefix) + size + len(suffix)))
+                c.putrequest("POST", "/webapi/entry.cgi?" + urllib.parse.urlencode({"_sid": self.sid}))
+                c.putheader("Content-Type", f"multipart/form-data; boundary={boundary}")
+                c.putheader("Content-Length", str(len(prefix) + size + len(suffix)))
                 c.endheaders()
                 c.send(prefix)
                 sent = 0
@@ -121,32 +132,42 @@ class Nas:
                     checksum.update(chunk)
                     sent += len(chunk)
                 if sent != size:
-                    raise RuntimeError('Backup file changed size during upload')
+                    raise RuntimeError("Backup file changed size during upload")
                 c.send(suffix)
             response = c.getresponse()
             if response.status != 200:
-                raise RuntimeError(f'NAS upload HTTP status {response.status}')
+                raise RuntimeError(f"NAS upload HTTP status {response.status}")
             result = json.load(response)
-            if not result.get('success'):
-                raise NasApiError('upload', result.get('error', {}).get('code'))
+            if not result.get("success"):
+                raise NasApiError("upload", result.get("error", {}).get("code"))
         finally:
             c.close()
-        remote_path = destination + '/' + path.name
+        remote_path = destination + "/" + path.name
         actual, downloaded = self.download_hash(remote_path)
         if actual != checksum.hexdigest() or downloaded != size:
-            raise RuntimeError('NAS read-back checksum or size mismatch; backup is unverified')
+            raise RuntimeError("NAS read-back checksum or size mismatch; backup is unverified")
         return dict(file=path.name, bytes=size, sha256=actual, remote_path=remote_path)
 
     def download_hash(self, path):
-        params = dict(api='SYNO.FileStation.Download', method='download', version=2,
-                      path=json.dumps([path]), mode='open', _sid=self.sid)
+        params = dict(
+            api="SYNO.FileStation.Download",
+            method="download",
+            version=2,
+            path=json.dumps([path]),
+            mode="open",
+            _sid=self.sid,
+        )
         c = self.connect()
         try:
-            c.request('POST', '/webapi/entry.cgi', urllib.parse.urlencode(params),
-                      {'Content-Type': 'application/x-www-form-urlencoded'})
+            c.request(
+                "POST",
+                "/webapi/entry.cgi",
+                urllib.parse.urlencode(params),
+                {"Content-Type": "application/x-www-form-urlencoded"},
+            )
             response = c.getresponse()
             if response.status != 200:
-                raise RuntimeError(f'NAS download HTTP status {response.status}')
+                raise RuntimeError(f"NAS download HTTP status {response.status}")
             checksum, size = hashlib.sha256(), 0
             while chunk := response.read(1024 * 1024):
                 checksum.update(chunk)
@@ -158,14 +179,14 @@ class Nas:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, required=True)
-    parser.add_argument('--destination', required=True)
-    parser.add_argument('files', type=Path, nargs='+')
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--destination", required=True)
+    parser.add_argument("files", type=Path, nargs="+")
     args = parser.parse_args()
-    if not re.fullmatch(r'/Homelab/backups/mac-mini/[A-Za-z0-9_-]+', args.destination):
-        parser.error('Use a unique directory directly under /Homelab/backups/mac-mini/')
+    if not re.fullmatch(r"/Homelab/backups/mac-mini/[A-Za-z0-9_-]+", args.destination):
+        parser.error("Use a unique directory directly under /Homelab/backups/mac-mini/")
     if args.config.stat().st_mode & 0o077:
-        parser.error('Credential file must not be accessible to group or others')
+        parser.error("Credential file must not be accessible to group or others")
     nas = Nas(json.loads(args.config.read_text()))
     try:
         nas.login()
@@ -175,7 +196,7 @@ def main():
         nas.logout()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         main()
     except Exception as error:

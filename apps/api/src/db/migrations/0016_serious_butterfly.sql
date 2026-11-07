@@ -1,1 +1,0 @@
-CREATE INDEX "frontend_log_ui_session_idx" ON "frontend_log" USING btree (("data"->>'interactionSessionId')) WHERE "frontend_log"."source" = 'ui';

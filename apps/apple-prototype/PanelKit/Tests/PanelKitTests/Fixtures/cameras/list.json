@@ -1,9 +1,0 @@
-{
-  "result": {
-    "data": [
-      { "id": "camera.test_a", "name": "Test Camera A", "state": "idle" },
-      { "id": "camera.test_b", "name": "Test Camera B", "state": "streaming" },
-      { "id": "camera.test_offline", "name": "Offline Camera", "state": "unavailable" }
-    ]
-  }
-}

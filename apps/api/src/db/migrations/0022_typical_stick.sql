@@ -1,1 +1,0 @@
-ALTER TABLE "booth_photo" ADD COLUMN "source_only" boolean DEFAULT false NOT NULL;

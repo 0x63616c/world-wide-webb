@@ -1,74 +1,20 @@
-skip_output: true
-
 pre-commit:
-  parallel: true
   commands:
-    format:
-      glob: "*.{ts,tsx,js,jsx,json,jsonc,css}"
-      # Apply safe auto-fixes and re-stage; remaining format/lint errors block the commit.
-      run: bun scripts/quality-gate.ts format-staged {staged_files}
-      stage_fixed: true
-    no-inline-ids:
-      glob: "*.{ts,tsx}"
-      # BLOCKING: rejects hand-rolled `prefix_${crypto.randomUUID()}` ids outside
-      # packages/platform/src/id.ts. Use genId() so every id-mint site shares one
-      # implementation. See www-184.
-      run: bash scripts/check-no-inline-ids.sh {staged_files}
+    format-and-syntax:
+      run: bash tools/check --staged
     no-home-address:
-      # BLOCKING: rejects the private home-location name (any casing) so the home
-      # address never re-enters the public repo. The blocked pattern is
-      # base64-encoded inside the script so the name is never spelled out. Real
-      # values live in 1Password (HOME_* env). See www-3zi / www-d3j.
       run: bash scripts/check-no-home-address.sh {staged_files}
     no-personal-email:
-      # BLOCKING: rejects Calum's personal login email so it never enters the
-      # public repo (his commit identity is the GitHub noreply address). The guard
-      # stores a ONE-WAY SHA-256 of the email, base64 can't hide an email (it's
-      # reversible), so unlike the home-address guard nothing is spelled out and
-      # the stored digest is irreversible. Real email lives only in 1Password / the
-      # git global config. See www-twpy / www-4ma.
       run: bash scripts/check-no-personal-email.sh {staged_files}
     no-plaintext-secrets:
-      glob: "secrets/*.yaml"
-      # BLOCKING: rejects any secrets/*.yaml that is not a VALID SOPS file —
-      # both structure (has a `sops:` block, i.e. not plaintext) AND integrity
-      # (actually decrypts; a raw-editor edit leaves the block intact but breaks
-      # the MAC and silently kills decryption). See the script header.
+      glob: 'secrets/*.yaml'
       run: bash scripts/check-sops-encrypted.sh {staged_files}
     worktree-guard:
-      glob: ".claude/hooks/guard-worktree-only*.sh"
-      # BLOCKING: this guard is the only thing keeping concurrent agent sessions
-      # out of each other's working trees, so its table test must pass before a
-      # change to it lands. Builds a throwaway repo + worktree; no network.
+      glob: '.claude/hooks/guard-worktree-only*.sh'
       run: bash .claude/hooks/guard-worktree-only.test.sh
     gitleaks:
-      # BLOCKING: scans the staged diff for secrets (prefixed tokens, private
-      # keys, high-entropy strings). Config + allowlist live in .gitleaks.toml.
-      # Keeps credentials in 1Password only, especially ahead of going public (www-4ma).
-      run: gitleaks git --staged --no-banner -c .gitleaks.toml
-
+      run: gitleaks git --staged --redact --no-banner -c .gitleaks.toml
 pre-push:
-  # piped: run commands sequentially in priority order and ABORT the chain on the
-  # first failure, so a biome-lint failure skips the slower knip-deadcode run
-  # (www-lh1a). Without piped, lefthook runs every command regardless of earlier
-  # failures (priority only reorders them).
-  piped: true
   commands:
-    biome-lint:
-      # Runs FIRST (priority 1); a failure here aborts the push before knip runs.
-      priority: 1
-      # BLOCKING: mirror CI's `biome check .` lint gate so a lint regression can
-      # never reach the remote (CI runs the same check and `deploy` depends on it,
-      # so a push that fails lint just breaks main). The pre-commit `format` step
-      # only auto-fixes STAGED files and is glob-limited (no HTML), so an already-
-      # committed or non-staged lint error slips through, exactly how a tracked
-      # experiments/*.html broke CI (www-goat). Scoped to TRACKED files (git
-      # ls-files) so it sees precisely what CI's clean checkout sees and never
-      # trips on untracked local WIP. biome.json includes still apply.
-      run: bun run lint:tracked
-    knip-deadcode:
-      # Runs AFTER biome-lint (priority 2). BLOCKING: knip catches unused
-      # files, dependencies, exports and types before push. Tag a deliberate
-      # public surface `@public` rather than reaching for an ignore entry.
-      priority: 2
-      run: bun run knip
+    rust-and-ops:
+      run: bash tools/check rust && bash tools/check ops

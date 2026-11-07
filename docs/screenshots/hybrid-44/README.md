@@ -1,3 +1,6 @@
+> Historical reference from before the native/Rust reset. Current operations and source locations are
+> defined by `CODEBASE_OVERVIEW.md` and `docs/runbooks/native-rust-cutover.md` at the repository root.
+
 # WWW-44 hybrid module captures
 
 Captured from the actual `Panel` app built from implementation commit `462fd09c`

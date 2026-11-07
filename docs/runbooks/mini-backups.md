@@ -15,7 +15,7 @@ lock behind: inspect processes and service state before removing a stale lock.
 
 ## Contents
 
-- Control Center: consistent PostgreSQL dump, complete media directory, secrets,
+- Control Center: consistent SQLite backup (PostgreSQL only for explicit legacy archive mode), complete media directory, secrets,
   runtime configuration, accepted image and release/recovery scripts.
 - HA: complete cold `/config` archive (SQLite database, WAL, integrations,
   credentials, dashboards and automations), Compose and host startup files.

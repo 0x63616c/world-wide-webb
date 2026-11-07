@@ -1,1 +1,0 @@
-ALTER TABLE "weight_measurement" ADD COLUMN "deleted_at" timestamp with time zone;

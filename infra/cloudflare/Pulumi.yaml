@@ -1,9 +1,0 @@
-name: world-wide-webb-cloudflare
-runtime:
-  name: nodejs
-  options:
-    typescript: false
-description: >
-  Production Cloudflare tunnel, proxied DNS and Access policies for the Mac mini
-  application and retained LAN appliances.
-main: program.ts

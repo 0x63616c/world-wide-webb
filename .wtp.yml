@@ -16,19 +16,15 @@ hooks:
     - type: command
       command: "bash scripts/configure-worktree-upstream.sh"
 
-    # This repo has no .env — local dev env comes from scripts/secrets.sh at
-    # runtime, never a dotenv file (see AGENTS.md). A wtp hook that copies a
-    # nonexistent file aborts every later hook in the chain, so the essential
-    # setup steps run before the optional per-machine copy.
+    # Runtime credentials stay outside Git; setup installs no credential files.
     - type: command
-      command: "bun install"
+      command: "bash tools/setup"
 
     - type: command
-      command: "bunx lefthook install --force"
+      command: "lefthook install --force"
 
     # Per-machine Claude Code permission grants (gitignored). Not present on
-    # every machine — kept last so its absence doesn't block bun install /
-    # lefthook above.
+    # every machine — kept last so its absence does not block setup.
     - type: copy
       from: ".claude/settings.local.json"
       to: ".claude/settings.local.json"
