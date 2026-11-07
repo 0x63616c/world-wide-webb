@@ -84,7 +84,7 @@ public enum IdentityError: Error {
 }
 
 extension SQLiteConnection {
-  func retireInstallation(_ source: String) throws {
+  func retireInstallation(_ source: String, reason: InterruptionReason = .transferAway) throws {
     guard let device = UUID(uuidString: source),
       let raw = try rows(
         "SELECT next_sequence FROM source_state WHERE device_id=?", [.text(source)]
@@ -104,7 +104,7 @@ extension SQLiteConnection {
     }
     let marker = TrackingInterruption(
       interruptionID: UUID(), deviceID: device, generation: generation,
-      afterSequence: sequence - 1, reason: .transferAway,
+      afterSequence: sequence - 1, reason: reason,
       observedAtMS: Int64(Date().timeIntervalSince1970 * 1000))
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]

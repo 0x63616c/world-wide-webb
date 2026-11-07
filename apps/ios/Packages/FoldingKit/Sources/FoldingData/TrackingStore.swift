@@ -37,9 +37,29 @@ public struct SetupAttempt: Sendable, Equatable {
 /// Give each private iCloud account namespace its own protected directory.
 public actor TrackingStore {
   private let database: SQLiteConnection
+  private let partitionLease: PartitionLease?
   public nonisolated let deviceID: UUID
 
-  public init(directory: URL, installationID: UUID) throws {
+  public init(directory: URL, installationID: UUID, partitionLease: PartitionLease? = nil) throws {
+    if let partitionLease {
+      guard partitionLease.installationID == installationID else { throw PartitionError.inactive }
+      guard
+        directory.standardizedFileURL
+          == partitionLease.directory.appendingPathComponent("journal").standardizedFileURL
+      else { throw PartitionError.inactive }
+      self.database = try partitionLease.withActive {
+        try Self.openConnection(directory: directory, installationID: installationID)
+      }
+    } else {
+      self.database = try Self.openConnection(directory: directory, installationID: installationID)
+    }
+    self.partitionLease = partitionLease
+    self.deviceID = installationID
+  }
+
+  private nonisolated static func openConnection(directory: URL, installationID: UUID) throws
+    -> SQLiteConnection
+  {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     #if os(iOS)
       try FileManager.default.setAttributes(
@@ -75,8 +95,26 @@ public actor TrackingStore {
         "INSERT OR IGNORE INTO source_state(device_id,next_sequence) VALUES (?,1)",
         [.text(installationID.canonical)])
     }
-    self.database = connection
-    self.deviceID = installationID
+    return connection
+  }
+
+  /// Router holds the exclusive fence while preparing an inaccessible target partition.
+  nonisolated static func preparePartitionActivation(directory: URL, installationID: UUID) throws {
+    let connection = try openConnection(directory: directory, installationID: installationID)
+    try connection.transaction {
+      let sequence = try connection.rows(
+        "SELECT next_sequence FROM source_state WHERE device_id=?",
+        [.text(installationID.uuidString.lowercased())]
+      ).first?["next_sequence"]
+      if let sequence, let next = Int64(sequence), next > 1 {
+        try connection.retireInstallation(
+          installationID.uuidString.lowercased(), reason: .trackingInterruption)
+      }
+      try connection.execute("DELETE FROM settings WHERE key='competition_epoch'")
+      try connection.execute(
+        "DELETE FROM work_outbox WHERE kind IN ('competition_event','competition_reset')")
+      try connection.execute("UPDATE setup_attempt SET status='cancelled' WHERE status='waiting'")
+    }
   }
 
   public func currentGeneration() throws -> ResetGeneration {
@@ -652,6 +690,13 @@ public actor TrackingStore {
   }
 
   private func journalTransaction<T>(write: Bool = true, _ operation: () throws -> T) throws -> T {
+    if let partitionLease {
+      return try partitionLease.withActive { try fencedJournalTransaction(write: write, operation) }
+    }
+    return try fencedJournalTransaction(write: write, operation)
+  }
+
+  private func fencedJournalTransaction<T>(write: Bool, _ operation: () throws -> T) throws -> T {
     try database.transaction(write: write) {
       guard
         try database.rows("SELECT value FROM settings WHERE key='installation_id'").first?["value"]
