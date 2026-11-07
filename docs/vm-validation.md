@@ -74,7 +74,14 @@ before Comin started. Its report has `rebooted=true`, but completion and
 reconciliation are not verified. The guest and operator state remain preserved;
 read-only diagnosis is ongoing. No successful full rehearsal is claimed yet.
 
-The private helper now pins 0.3.0 candidate `5c0103b`; schema 2 uses an explicit backup vault.
+Post-reboot recovery passed service verification and released the Comin hold.
+Read-only inspection then identified a second handover issue: `/run` resolves to
+the native `root:daemon` `0775` directory, so the helper correctly rejected its
+replaceable socket location. Candidate `f7f2a72` relocates RPC to the existing
+root-owned `0700` `/var/lib/homelab` directory without weakening the guard. Its
+tests and independent review passed; runtime validation is still pending.
+
+The private helper now pins 0.3.0 candidate `f7f2a72`; schema 2 uses an explicit backup vault.
 Final private Nix validation is still pending; the earlier full check does not
 cover this candidate.
 

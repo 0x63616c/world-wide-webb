@@ -32,8 +32,10 @@ changes. Comin owns Git polling, builds and deployments; the Rust wrapper only
 protects first enrollment. It is not a general pause switch for a running updater.
 
 Comin logs to `/var/log/comin.log`. Its status API is restricted to root through
-`/run/comin-grpc.sock`; metrics bind to localhost. The wizard reads bounded status
-JSON without printing raw commit messages or errors.
+`/var/lib/homelab/comin.sock`, inside the bootstrap-owned root `0700` directory;
+metrics bind to localhost. The startup gate checks that directory before starting
+Comin. The native macOS `/run` directory is group-writable and is not used for RPC.
+The wizard reads bounded status JSON without printing raw commit messages or errors.
 
 Application backup and restore remain separate workflows. Comin does not provide
 the former custom updater's backup-before-activation or application rollback

@@ -20,6 +20,9 @@ in {
       debug = false;
       hostname = config.networking.hostName;
       grpc = {
+        # The native /run directory is group-writable on macOS. Keep RPC inside
+        # the bootstrap-owned private directory, checked by the startup gate.
+        unix_socket_path = "/var/lib/homelab/comin.sock";
         unix_socket_group = "wheel";
         unix_socket_mode = "0600";
       };
