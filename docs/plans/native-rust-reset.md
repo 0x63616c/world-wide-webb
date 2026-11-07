@@ -369,6 +369,15 @@ user choices or blockers. Record each answer in the issue/plan before dependent 
 
 ## Independent review record
 
+Precautionary backup completed during planning: `20261107T202453Z` (2026-11-07).
+Existing backup workflow exited zero; all 14 payloads (475,622,543 bytes) and the completion
+manifest passed NAS read-back verification. Location: `/Homelab/backups/mac-mini/20261107T202453Z`.
+Manifest SHA-256: `4134ae935bc22a5cf3090fd0067ec1d8787ed775a3a1aecc90e3844fc42528a1`.
+Local NAS_VERIFIED marker confirmed. App/PostgreSQL, HA and Bambuddy recovered; app health reports
+database OK and all ten reported workers have zero consecutive failures. This verifies backup creation
+and transfer, not a restored/imported database; isolated restore rehearsal remains package 1's gate.
+Backups contain private data/secrets and remain outside Git. A new frozen backup is still required at cutover.
+
 Agent `migration_plan_review` inspected the plan and relevant source read-only on 2026-11-07.
 It raised three actionable findings: the routine backup restarts writers, existing native credentials
 are injected into builds, and the three deployment/publication triggers require separate gates.
