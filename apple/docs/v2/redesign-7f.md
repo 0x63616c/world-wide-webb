@@ -1,5 +1,0 @@
-Pass 7f: restore native regular glass for reading surfaces and the original LakeWallpaper treatment after the failed clear-glass trial. Reduce Home active-light tint to 4%; reserve clear glass for photo/weather content. Restore full Lamps exactly to its accepted source. Preserve accepted Clock, Music and Walk detail bodies.
-
-Home changes structure: Weather becomes a compact square at (3,0), with Ceiling at (4,0). Climate remains the 2×2 hero; Lamps is tall; Tesla, Calendar and Music remain wide. Two round accessories now appear on the first panel. The phone retains its four primary controls together, adds explicit Target meaning, and keeps its lower Music contour.
-
-More changes structure: Sonos moves from a narrow tall column to a 2×1 module at (0,2), with two equal room columns and a full-width footer. Clock and Ceiling move to (4,0)/(4,1); Cabinet, Guest Wi-Fi and All lights occupy the remaining bottom cells. All 24-point gutters, safe margins and zoom destinations stay in the shared frame solver. This resolves the repeated cramped-column finding without squeezing type or gutters.

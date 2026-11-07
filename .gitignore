@@ -88,3 +88,9 @@ __pycache__/
 **/*.xcodeproj/
 
 ci-selection.json
+
+# Review screenshots and recordings belong outside the repository.
+/docs/screenshots/
+/docs/pr-screenshots/
+/apple/docs/screenshots/
+/apple/App/Platform/Verification/
