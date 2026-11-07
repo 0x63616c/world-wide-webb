@@ -171,5 +171,16 @@
         inherit (host.config.homelab) adminUser adminUID authorizedKeys activationReady services;
       };
       checks.aarch64-darwin.vm-test = host.system;
+      checks.aarch64-darwin.completion-contract = host.pkgs.runCommand "vm-completion-contract" {
+        nativeBuildInputs = [ host.pkgs.jq host.pkgs.coreutils ];
+      } ''
+        jq -e --arg repository '${fixture.repository}' --arg revision '${self.rev}' \
+          '.repository == $repository and .host == "vm-test" and .revision == $revision' \
+          ${host.system}/etc/homelab/revision.json
+        # The verifier canonicalizes paths, so health must retain its own name.
+        test "$(basename "$(realpath ${host.system}/sw/bin/homelab-health)")" = homelab-health
+        test "$(basename "$(realpath ${host.system}/sw/bin/tailscale)")" = tailscale
+        touch "$out"
+      '';
     };
 }
