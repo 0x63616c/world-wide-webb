@@ -126,7 +126,7 @@ pub(crate) fn diagnostic_status(
             finished: false,
         })
     });
-    let status = authenticated_status(command, exchange)?;
+    let status = authenticated_status_continuing(command, exchange)?;
     let bytes = DIAGNOSTIC.with(|state| {
         let mut state = state.borrow_mut();
         let capture = state.as_mut().unwrap();
@@ -278,7 +278,14 @@ pub fn status(command: &mut Command) -> io::Result<ExitStatus> {
     if context().is_none() {
         return command.status();
     }
-    embedded(command, None, None, Duration::from_secs(90 * 60), None)
+    embedded(
+        command,
+        None,
+        None,
+        Duration::from_secs(90 * 60),
+        None,
+        true,
+    )
 }
 
 pub(crate) fn authenticated_status(
@@ -288,7 +295,31 @@ pub(crate) fn authenticated_status(
     if context().is_none() {
         return command.status();
     }
-    embedded(command, None, None, Duration::from_secs(90 * 60), exchange)
+    embedded(
+        command,
+        None,
+        None,
+        Duration::from_secs(90 * 60),
+        exchange,
+        true,
+    )
+}
+
+pub(crate) fn authenticated_status_continuing(
+    command: &mut Command,
+    exchange: Option<crate::setup_auth::Exchange>,
+) -> io::Result<ExitStatus> {
+    if context().is_none() {
+        return command.status();
+    }
+    embedded(
+        command,
+        None,
+        None,
+        Duration::from_secs(90 * 60),
+        exchange,
+        false,
+    )
 }
 
 #[doc(hidden)]
@@ -302,6 +333,7 @@ pub fn status_with_input(command: &mut Command, input: &Path) -> io::Result<Exit
         None,
         Duration::from_secs(15 * 60),
         None,
+        true,
     )
 }
 
@@ -320,6 +352,7 @@ pub fn capture(
         Some(output.path()),
         timeout,
         None,
+        true,
     )?;
     let mut stdout = Vec::new();
     output
@@ -373,6 +406,7 @@ fn embedded(
     output: Option<&Path>,
     timeout: Duration,
     mut auth_exchange: Option<crate::setup_auth::Exchange>,
+    acknowledge_failure: bool,
 ) -> io::Result<ExitStatus> {
     let context = context().ok_or_else(|| io::Error::other("No terminal session"))?;
     let mut dimensions = size()?;
@@ -567,9 +601,10 @@ fn embedded(
     }
     let _ = child.wait();
     // Never retain a terminal transcript, including across invocations.
-    if result
-        .as_ref()
-        .is_ok_and(|status| !status.success() && status.code().is_some_and(|code| code < 128))
+    if acknowledge_failure
+        && result
+            .as_ref()
+            .is_ok_and(|status| !status.success() && status.code().is_some_and(|code| code < 128))
     {
         let text = parser.screen().contents();
         while event::poll(Duration::from_millis(1))? {

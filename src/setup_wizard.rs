@@ -619,7 +619,6 @@ fn connection_progress(profile: &HostProfile, stage: ConnectionStage) -> io::Res
             ),
             (String::new(), Role::Body),
             connection,
-            (String::new(), Role::Body),
             inspection,
         ],
         0,
@@ -1367,6 +1366,15 @@ fn enroll(
             return Ok(cancelled());
         }
         if let Some(revision) = &identity.activated_revision {
+            for step in [
+                Step::Tools,
+                Step::Identity,
+                Step::Credentials,
+                Step::Configuration,
+                Step::Install,
+            ] {
+                checklist.done(step);
+            }
             checklist.begin(Step::Verify, "Checking the existing activated setup");
             checklist.draw(&[Action::Help])?;
             let installed = match config::fetch_revision(&workspace.repository, revision) {

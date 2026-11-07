@@ -161,7 +161,7 @@ impl Connection<'_> {
             crate::terminal_process::diagnostic_status(&mut command, exchange, start, end, code)
                 .map_err(|_| Error::Verification)
         } else {
-            crate::terminal_process::authenticated_status(&mut command, exchange)
+            crate::terminal_process::authenticated_status_continuing(&mut command, exchange)
                 .map(|status| (status, Vec::new()))
                 .map_err(|_| Error::Verification)
         }
@@ -174,6 +174,13 @@ fn nonce() -> Result<String, Error> {
         .and_then(|mut file| file.read_exact(&mut bytes))
         .map_err(|_| Error::Verification)?;
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
+fn diagnostic_script(probe: &str, start: &str, end: &str) -> String {
+    let body = format!(
+        r#"printf '%s\n' '{start}'; {probe}; result=$?; printf '\n%s\n' '{end}'; exit "$result""#
+    );
+    format!("/bin/sh -c '{}'", body.replace('\'', "'\\''"))
 }
 
 fn wait_for_enrollment(connection: &Connection<'_>, progress: &impl Fn(&str)) -> Result<(), Error> {
@@ -365,6 +372,14 @@ pub fn finish_with_tools(
                         selection.repository
                     ),
                 ),
+                (
+                    "activation-state",
+                    format!(
+                        "{HELPER} bootstrap-activation-status --system '{}' --binding '{binding}'",
+                        system.display()
+                    ),
+                ),
+                ("update-hold", "/bin/cat /var/lib/homelab/hold".to_owned()),
             ] {
                 // The complete probe runs under sudo; shell redirection stays in that scope.
                 let token = nonce()?;
@@ -373,10 +388,7 @@ pub fn finish_with_tools(
                 let probe = probe
                     .replace(" >/dev/null 2>&1", " 2>&1")
                     .replace(" >/dev/null", " 2>&1");
-                let body = format!(
-                    "printf '%s\\n' '{start}'; {probe}; result=$?; printf '\\n%s\\n' '{end}'; exit \"$result\""
-                );
-                let script = format!("/bin/sh -c '{}'", body.replace('\'', "'\\''"));
+                let script = diagnostic_script(&probe, &start, &end);
                 let (status, output) = connection.root_run(&script, Some((&start, &end, code)))?;
                 if let Some(root) = crate::enrollment_credentials::state_directory() {
                     crate::bootstrap_diagnostics::record_output(
@@ -483,4 +495,25 @@ pub fn finish_with_tools(
         return Err(Error::Verification);
     }
     Ok(report)
+}
+
+#[cfg(test)]
+mod diagnostic_script_tests {
+    use super::*;
+    #[test]
+    fn real_shell_preserves_output_and_the_actual_probe_exit_status() {
+        for code in [0, 7] {
+            let script = diagnostic_script(
+                &format!("(printf 'health detail'; exit {code})"),
+                "BEGIN",
+                "END",
+            );
+            let output = Command::new("/bin/sh")
+                .args(["-c", &script])
+                .output()
+                .unwrap();
+            assert_eq!(output.status.code(), Some(code));
+            assert_eq!(output.stdout, b"BEGIN\nhealth detail\nEND\n");
+        }
+    }
 }

@@ -111,7 +111,6 @@ fn fixture(screen: Screen) -> Fixture {
                 ("admin@studio-mac.local", Role::Context),
                 ("", Role::Body),
                 ("✓ Connected over SSH", Role::Success),
-                ("", Role::Body),
                 ("› Checking Mac", Role::Working),
             ],
         ),
