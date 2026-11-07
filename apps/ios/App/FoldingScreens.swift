@@ -558,8 +558,8 @@ private struct SettingsScreen: View {
         }
         Section(String(localized: "settings.support", defaultValue: "Support")) {
           NavigationLink(String(localized: "tips.title", defaultValue: "Tip jar")) {
-            TipJarView(store: .shared)
-          }
+            if let tipJar = actions.tipJar { tipJar() }
+          }.disabled(actions.tipJar == nil)
           Link(
             String(localized: "support.contact", defaultValue: "Contact"),
             destination: URL(string: "mailto:support@getfolding.app")!)

@@ -1,4 +1,8 @@
 name: Folding
+configs:
+  Debug: debug
+  Release: release
+  Screenshots: release
 options:
   minimumXcodeGenVersion: 2.46.0
   deploymentTarget:
@@ -21,6 +25,10 @@ settings:
     INFOPLIST_KEY_CFBundleDisplayName: Folding
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ''
+    FOLDING_APP_BUNDLE_ID: app.getfolding.Folding
+    FOLDING_WIDGET_BUNDLE_ID: app.getfolding.Folding.Widgets
+    FOLDING_APP_PROFILE_SPECIFIER: ''
+    FOLDING_WIDGET_PROFILE_SPECIFIER: ''
     FOLDING_APP_GROUP_IDENTIFIER: ''
     FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
     FOLDING_API_ORIGIN: ''
@@ -40,7 +48,9 @@ targets:
         includes: ['*.swift', '*.xcstrings']
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOLDING_APP_BUNDLE_ID)
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]': Config/Folding.entitlements
+        'PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]': $(FOLDING_APP_PROFILE_SPECIFIER)
         'CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]': Config/Simulator.entitlements
     dependencies:
       - target: FoldingWidgets
@@ -57,7 +67,9 @@ targets:
       - path: App/Localizable.xcstrings
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(FOLDING_WIDGET_BUNDLE_ID)
+        'CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]': Config/Widgets.entitlements
+        'PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]': $(FOLDING_WIDGET_PROFILE_SPECIFIER)
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
         INFOPLIST_KEY_CFBundleDisplayName: Folding
@@ -69,6 +81,45 @@ targets:
     dependencies:
       - package: FoldingKit
         product: FoldingData
+  FoldingScreenshots:
+    type: application
+    platform: iOS
+    sources:
+      - path: Screenshots
+      - path: App/FoldingScreens.swift
+      - path: App/FoldingPresentation.swift
+      - path: App/CompetitionScreens.swift
+      - path: App/CompetitionPresentation.swift
+      - path: App/NotificationPreferences.swift
+      - path: App/Localizable.xcstrings
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.Screenshots
+        SUPPORTED_PLATFORMS: iphonesimulator
+        SUPPORTS_MACCATALYST: NO
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: FOLDING_SCREENSHOTS
+        FOLDING_APP_GROUP_IDENTIFIER: ''
+        FOLDING_CLOUD_CONTAINER_IDENTIFIER: ''
+        FOLDING_API_ORIGIN: ''
+        FOLDING_ENVIRONMENT: ''
+        SWIFT_OPTIMIZATION_LEVEL: '-O'
+    dependencies:
+      - package: FoldingKit
+        product: FoldingDomain
+      - package: FoldingKit
+        product: FoldingData
+  FoldingScreenshotTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ScreenshotTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.getfolding.Folding.ScreenshotTests
+        TEST_TARGET_NAME: FoldingScreenshots
+        SUPPORTED_PLATFORMS: iphonesimulator
+    dependencies:
+      - target: FoldingScreenshots
   FoldingBuildTests:
     type: bundle.unit-test
     platform: iOS
@@ -95,3 +146,16 @@ schemes:
       targets:
         - FoldingBuildTests
       gatherCoverageData: true
+
+  FoldingScreenshots:
+    build:
+      targets:
+        FoldingScreenshots: all
+        FoldingScreenshotTests: [test]
+    run:
+      config: Screenshots
+    test:
+      config: Screenshots
+      targets:
+        - FoldingScreenshotTests
+      gatherCoverageData: false

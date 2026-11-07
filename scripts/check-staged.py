@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check staged Swift/OpenTofu blobs without modifying files or the Git index."""
+import hashlib
 from pathlib import Path
 import subprocess
 import tempfile
@@ -17,7 +18,14 @@ with tempfile.TemporaryDirectory(prefix='folding-staged-') as temporary:
             continue
         target = Path(temporary) / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(subprocess.check_output(['git', 'show', ':' + str(path)], cwd=root))
+        blob = subprocess.check_output(['git', 'show', ':' + str(path)], cwd=root)
+        if str(path) == 'apps/ios/ScreenshotTests/SnapshotHelper.swift':
+            # Unmodified helper vendored from pinned Fastlane 2.241.2, with its MIT license.
+            if hashlib.sha256(blob).hexdigest() != '434d6d7d0578f3b4b7dde23fda0ab2df53ffb9e392bf41916b13cd066183b65f':
+                failed = True
+                print('Vendored SnapshotHelper differs from pinned Fastlane 2.241.2.', file=sys.stderr)
+            continue
+        target.write_bytes(blob)
         command = (['swift', 'format', 'lint', '--strict', str(target)] if path.suffix == '.swift'
                    else ['tofu', 'fmt', '-check', str(target)])
         result = subprocess.run(command, capture_output=True, text=True)

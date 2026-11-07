@@ -220,6 +220,7 @@ enum ExportChoice { case json, csv }
   var setup: (SetupAction) async throws -> SetupProgress
   var savePreferences: (FoldingPreferences) async throws -> Void
   var loadHistory: ((HistoryPeriod, Int) async throws -> HistoryPresentation)?
+  var tipJar: (() -> AnyView)?
   var saveNotifications: ((NotificationPreferences) async throws -> NotificationPreferences)?
   var openNotificationSettings: (() -> Void)?
   var useThisPhone: (() async throws -> Void)?
