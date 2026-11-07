@@ -80,6 +80,7 @@ extension FoldingPresentation {
 
   /// Invalidate all private result/profile presentation on reset, leave or account change.
   func invalidateCompetitionPresentation() {
+    invalidateLeaderboardRequests()
     resultsRequestID = UUID()
     requestedResultID = nil
     results = []

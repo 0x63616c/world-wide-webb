@@ -135,7 +135,12 @@ struct LeaderboardPresentation: Sendable {
   let updatedAt: Date
   var population: Int = 0
   var percentile: Int? = nil
+  var nextCursor: String? = nil
+  var snapshotVersion: String? = nil
+  var periodID: String? = nil
 }
+
+enum LeaderboardPageError: Error { case snapshotChanged }
 
 enum CompetitionPresentation {
   case unavailable, notJoined
@@ -225,6 +230,7 @@ enum ExportChoice { case json, csv }
   var openNotificationSettings: (() -> Void)?
   var useThisPhone: (() async throws -> Void)?
   var loadLeaderboard: ((CompetitionPeriod) async throws -> LeaderboardPresentation)?
+  var loadLeaderboardPage: ((CompetitionPeriod, String?) async throws -> LeaderboardPresentation)?
   var openShortcuts: (() -> Void)?
   var reset: (() async throws -> Void)?
   var export: ((ExportChoice) async throws -> UUID)?
@@ -320,6 +326,9 @@ enum ExportChoice { case json, csv }
   private var exportRevision = UUID()
   private var historyRequest = UUID()
   private var competitionRequest = UUID()
+  private var leaderboardLoadedPeriod: CompetitionPeriod?
+  var leaderboardLoadingMore = false
+  var leaderboardPageFailed = false
 
   func present(_ next: PresentedSheet) {
     guard sheet != next else { return }
@@ -400,21 +409,77 @@ enum ExportChoice { case json, csv }
     }
   }
 
-  func requestLeaderboard(using actions: FoldingActions) async {
-    guard let load = actions.loadLeaderboard else { return }
+  func invalidateLeaderboardRequests() {
+    competitionRequest = UUID()
+    leaderboardLoadingMore = false
+    leaderboardPageFailed = false
+    leaderboardLoadedPeriod = nil
+  }
+
+  func requestLeaderboard(using actions: FoldingActions, nextPage: Bool = false) async {
+    guard actions.loadLeaderboard != nil || actions.loadLeaderboardPage != nil else { return }
+    let period = competitionPeriod
+    let previous = leaderboardLoadedPeriod == period ? competition.previous : nil
+    if nextPage
+      && (leaderboardLoadingMore || previous?.nextCursor == nil
+        || actions.loadLeaderboardPage == nil)
+    {
+      return
+    }
     let request = UUID()
     competitionRequest = request
-    let previous = competition.previous
-    competition = .loading(previous)
+    leaderboardPageFailed = false
+    leaderboardLoadingMore = nextPage
+    if !nextPage { competition = .loading(previous) }
     do {
-      let value = try await load(competitionPeriod)
-      guard request == competitionRequest, !Task.isCancelled else { return }
+      let page: LeaderboardPresentation
+      if let load = actions.loadLeaderboardPage {
+        page = try await load(period, nextPage ? previous?.nextCursor : nil)
+      } else if let load = actions.loadLeaderboard {
+        page = try await load(period)
+      } else {
+        return
+      }
+      guard request == competitionRequest, period == competitionPeriod, !Task.isCancelled else {
+        return
+      }
+      var value = page
+      if nextPage, let previous {
+        guard page.snapshotVersion == previous.snapshotVersion, page.periodID == previous.periodID
+        else {
+          competition = .loading(nil)
+          leaderboardLoadedPeriod = nil
+          leaderboardLoadingMore = false
+          await requestLeaderboard(using: actions)
+          return
+        }
+        let known = Set(previous.entries.map(\.id))
+        value = LeaderboardPresentation(
+          periodTitle: page.periodTitle,
+          entries: previous.entries + page.entries.filter { !known.contains($0.id) },
+          currentUser: page.currentUser, pendingFolds: page.pendingFolds, updatedAt: page.updatedAt,
+          population: page.population, percentile: page.percentile,
+          nextCursor: page.nextCursor, snapshotVersion: page.snapshotVersion,
+          periodID: page.periodID)
+      }
       competition = .loaded(value)
+      leaderboardLoadedPeriod = period
+      leaderboardLoadingMore = false
     } catch {
-      guard request == competitionRequest else { return }
-      competition = .failed(previous)
+      guard request == competitionRequest, period == competitionPeriod else { return }
+      leaderboardLoadingMore = false
+      if nextPage, case LeaderboardPageError.snapshotChanged = error {
+        competition = .loading(nil)
+        leaderboardLoadedPeriod = nil
+        await requestLeaderboard(using: actions)
+      } else if nextPage {
+        leaderboardPageFailed = !(error is CancellationError)
+      } else {
+        competition = .failed(previous)
+      }
     }
   }
+
 }
 
 func foldingDuration(_ milliseconds: Int64) -> String {

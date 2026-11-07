@@ -1042,7 +1042,8 @@ private struct LeaderboardScreen: View {
           selection: $model.competitionPeriod
         ) {
           ForEach(CompetitionPeriod.allCases) { Text($0.title).tag($0) }
-        }.pickerStyle(.segmented).disabled(actions.loadLeaderboard == nil)
+        }.pickerStyle(.segmented).disabled(
+          actions.loadLeaderboard == nil && actions.loadLeaderboardPage == nil)
         HStack {
           Text(value.periodTitle).font(.subheadline).foregroundStyle(.secondary)
           Spacer()
@@ -1090,6 +1091,21 @@ private struct LeaderboardScreen: View {
         ForEach(value.entries.filter { !model.hiddenParticipantIDs.contains($0.id) }) { entry in
           LeaderboardRow(entry: entry).contextMenu {
             ParticipantMenu(entry: entry, model: model, actions: actions)
+          }
+        }
+        if value.nextCursor != nil, actions.loadLeaderboardPage != nil {
+          if model.leaderboardLoadingMore {
+            ProgressView().frame(maxWidth: .infinity)
+          } else {
+            Button {
+              Task { await model.requestLeaderboard(using: actions, nextPage: true) }
+            } label: {
+              if model.leaderboardPageFailed {
+                Text(String(localized: "action.retry", defaultValue: "Retry"))
+              } else {
+                Text(String(localized: "leaderboard.more", defaultValue: "More places"))
+              }
+            }
           }
         }
       }

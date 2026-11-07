@@ -93,6 +93,9 @@ import struct FoldingData.SetupProgress
         await self.presentation.requestHistory(using: self.actions)
       },
       loadLeaderboard: { period in try await self.loadCompetition(period) },
+      loadLeaderboardPage: { period, cursor in
+        try await self.loadCompetition(period, cursor: cursor)
+      },
       openShortcuts: {
         guard let url = URL(string: "shortcuts://") else { return }
         UIApplication.shared.open(url) { opened in
@@ -460,10 +463,19 @@ import struct FoldingData.SetupProgress
       percentile: result.percentile, medal: result.medal.flatMap(CompetitionMedal.init(rawValue:)))
   }
 
-  private func loadCompetition(_ period: CompetitionPeriod) async throws -> LeaderboardPresentation
+  private func loadCompetition(_ period: CompetitionPeriod, cursor: String? = nil) async throws
+    -> LeaderboardPresentation
   {
     let api = try await competitionClient()
-    let board = try await api.leaderboard(kind: period.rawValue)
+    let board: CompetitionBoard
+    do {
+      board = try await api.leaderboard(kind: period.rawValue, cursor: cursor)
+    } catch CompetitionTransportError.server(409) where cursor != nil {
+      throw LeaderboardPageError.snapshotChanged
+    }
+    guard board.period.kind == period.rawValue else {
+      throw CompetitionTransportError.invalidResponse
+    }
     let ids = Set((board.page.items + (board.you.map { [$0] } ?? [])).compactMap(\.avatar_id))
     let avatars = await withTaskGroup(of: (String, Data?).self) { group in
       for id in ids { group.addTask { (id, try? await api.transport.avatarImage(id)) } }
@@ -482,7 +494,9 @@ import struct FoldingData.SetupProgress
       periodTitle: period.title, entries: board.page.items.map(entry),
       currentUser: board.you.map(entry),
       pendingFolds: try await runtime.store().pendingCompetitionEventCount(), updatedAt: Date(),
-      population: board.population, percentile: board.you?.percentile)
+      population: board.population, percentile: board.you?.percentile,
+      nextCursor: board.page.next_cursor, snapshotVersion: board.page.snapshot_version,
+      periodID: board.period.id)
   }
 
   func attachPushDelegate(_ delegate: FoldingPushAppDelegate) {
