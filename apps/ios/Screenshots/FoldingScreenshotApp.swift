@@ -17,10 +17,24 @@ import struct FoldingData.SetupProgress
   }
   var body: some Scene {
     WindowGroup {
-      FoldingRootView(model: fixture.model, actions: fixture.actions)
-        .environment(\.locale, Locale(identifier: fixture.locale))
-        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-        .accessibilityIdentifier("folding.screenshot.ready")
+      Group {
+        if fixture.scenario == "tipjar" {
+          NavigationStack {
+            TipJarContent(
+              rows: fixture.tipRows, loading: false, purchasing: nil, message: nil,
+              retry: { fatalError("Reviewer capture is read-only") },
+              purchase: { _ in fatalError("Reviewer capture is read-only") })
+          }
+          .allowsHitTesting(false)
+          .preferredColorScheme(.light)
+          .tint(FoldingAccent.blue.color)
+        } else {
+          FoldingRootView(model: fixture.model, actions: fixture.actions)
+        }
+      }
+      .environment(\.locale, Locale(identifier: fixture.locale))
+      .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+      .accessibilityIdentifier("folding.screenshot.ready")
     }
   }
 }
@@ -32,6 +46,8 @@ import struct FoldingData.SetupProgress
   let model: FoldingPresentation
   let actions: FoldingActions
   let locale: String
+  let scenario: String
+  let tipRows: [TipJarRow]
   enum Failure: Error { case invalidArguments, readOnly }
 
   init(arguments: [String]) throws {
@@ -41,14 +57,22 @@ import struct FoldingData.SetupProgress
       }
       return arguments[index + 1]
     }
-    let scenario = value("--folding-screenshot-scenario", default: "today")
+    scenario = value("--folding-screenshot-scenario", default: "today")
     locale = value("--folding-screenshot-locale", default: "en")
     let appearance = value("--folding-screenshot-appearance", default: "light")
-    guard ["today", "history", "leaderboard", "settings"].contains(scenario),
+    guard ["today", "history", "leaderboard", "settings", "tipjar"].contains(scenario),
       ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"].contains(
-        locale),
+        locale) || (scenario == "tipjar" && locale == "en-US"),
       ["light", "dark"].contains(appearance)
     else { throw Failure.invalidArguments }
+    if scenario == "tipjar" {
+      guard ["en", "en-US"].contains(locale), appearance == "light" else {
+        throw Failure.invalidArguments
+      }
+      tipRows = try TipReviewFixture.load()
+    } else {
+      tipRows = []
+    }
     let now = ISO8601DateFormatter().date(from: Self.fixedClock)!
     let nowMS = Int64(now.timeIntervalSince1970 * 1000)
     let device = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!

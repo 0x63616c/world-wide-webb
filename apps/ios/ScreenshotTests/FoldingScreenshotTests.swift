@@ -7,6 +7,7 @@ import XCTest
   func testHistory() { capture("history") }
   func testLeaderboard() { capture("leaderboard") }
   func testSettings() { capture("settings") }
+  func testTipJar() { capture("tipjar") }
 
   private func capture(_ scenario: String) {
     let app = XCUIApplication()
