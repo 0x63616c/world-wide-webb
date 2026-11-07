@@ -28,27 +28,25 @@ import PanelKit
         guard batteryPercent >= 10, rangeMiles > 0 else { return nil }
         return Int((rangeMiles * 100 / batteryPercent / 5).rounded()) * 5
     }
-    var availability: TeslaAvailability { hasLiveData && snapshot?.stale != true ? .online : .offline }
+    var availability: TeslaAvailability { hasLiveData && snapshot?.stale != true && snapshot?.vehicleOnline != false ? .online : .offline }
     var data: TeslaData {
         guard hasLiveData, let snapshot else {
             return TeslaData(name: "Unavailable", nick: "Tesla", place: "", charging: false,
                 chargingState: "", preconditioning: false, rate: 0, pct: 0, range: 0, maxRange: 0, odo: "", climate: 0)
         }
-        return TeslaData(name: "Tesla", nick: "Tesla", place: "",
+        return TeslaData(name: "Model Y", nick: "Evee", place: "",
             charging: snapshot.chargingState == .charging, chargingState: snapshot.chargingState.rawValue,
             preconditioning: snapshot.climateOn, rate: snapshot.chargePowerKW,
             pct: Int(snapshot.batteryPercent.rounded()), range: Int(snapshot.rangeMiles.rounded()),
             maxRange: maxRange,
             locked: snapshot.locked,
             odo: Int(snapshot.odometerMiles.rounded()).formatted(), climate: Int(snapshot.cabinFahrenheit.rounded()),
-            softwareUpdate: snapshot.softwareUpdate.map { update in
-                switch update.status {
-                case "available": "Available" + (update.latestVersion.map { " · \($0)" } ?? "")
-                case "up_to_date": "Up to date"
-                case "installing": "Installing"
-                default: "Unknown"
-                }
-            })
+            softwareUpdate: snapshot.softwareUpdate,
+            driveState: snapshot.driveState,
+            cableConnected: snapshot.cableConnected,
+            chargeLimitPercent: snapshot.chargeLimitPercent,
+            chargeCompleteAt: TeslaData.date(snapshot.chargeCompleteAt),
+            lastUpdatedAt: TeslaData.date(snapshot.lastUpdatedAt))
     }
 
     func refresh() async {
@@ -67,9 +65,13 @@ import PanelKit
         }
     }
 
+    var canControl: Bool {
+        hasLiveData && availability == .online && !data.isInGear && !data.isInstalling
+    }
+
     func request(_ action: TeslaAction) {
         guard action == .lock || action == .unlock else { return }
-        guard hasLiveData, availability == .online, !busy, requestedAction == nil else { return }
+        guard canControl, !busy, requestedAction == nil else { return }
         requestedAction = action
         errorMessage = nil
     }
@@ -98,7 +100,7 @@ import PanelKit
     }
 
     func confirm(pin: String) async {
-        guard hasLiveData, availability == .online, !busy, let action = requestedAction else { return }
+        guard canControl, !busy, let action = requestedAction else { return }
         guard pin.utf8.count == 6, pin.utf8.allSatisfy({ (48...57).contains($0) }) else {
             errorMessage = "Enter the six-digit panel PIN."
             return
@@ -140,7 +142,7 @@ import PanelKit
         switch state {
         case .ready(let value):
             snapshot = value; hasLiveData = true; moduleStatus = .live
-            if value.stale == true { requestedAction = nil }
+            if !canControl { requestedAction = nil }
             if let estimate = Self.estimateMaxRange(rangeMiles: value.rangeMiles, batteryPercent: value.batteryPercent), estimate != maxRange {
                 maxRange = estimate
                 defaults.set(estimate, forKey: Self.maxRangeKey)

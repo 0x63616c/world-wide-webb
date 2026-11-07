@@ -216,3 +216,29 @@ describe("discovery lifecycle", () => {
     expect(client.callService).not.toHaveBeenCalled();
   });
 });
+
+describe("optional dashboard telemetry", () => {
+  it("finds the real Evee roles without confusing charge rate with driving", () => {
+    const result = discoverTeslaEntities([
+      ...fleet(),
+      entity("sensor", "shift_state"),
+      entity("sensor", "charge_rate", "mph", "speed"),
+      entity("binary_sensor", "status", undefined, "connectivity"),
+      entity("binary_sensor", "charge_cable", undefined, "connectivity"),
+      entity("number", "charge_limit", "%"),
+      entity("sensor", "time_to_full_charge", undefined, "timestamp"),
+    ]);
+    expect(result.missing).toEqual([]);
+    expect(result.entities).toMatchObject({
+      shiftState: `sensor.${prefix}_shift_state`,
+      vehicleOnline: `binary_sensor.${prefix}_status`,
+      cableConnected: `binary_sensor.${prefix}_charge_cable`,
+      chargeLimit: `number.${prefix}_charge_limit`,
+      chargeCompleteAt: `sensor.${prefix}_time_to_full_charge`,
+    });
+    expect(
+      discoverTeslaEntities([...fleet(), entity("sensor", "charge_rate", "mph")]).entities
+        ?.shiftState,
+    ).toBeUndefined();
+  });
+});

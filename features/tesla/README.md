@@ -87,7 +87,7 @@ No PIN is logged, returned, or placed in a query string. Invalid input is reject
 before checking the PIN or calling HA. HA failures return a generic 503.
 
 {accepted:true} means HA accepted the service call, not that the vehicle changed.
-The native Tesla app exposes only lock and unlock; its other vehicle data is read-only. Clients re-read state and do not automatically retry commands. Vehicle state may
+The native Tesla app is read-only; its lock indicator reports telemetry and has no action. Clients re-read state and do not automatically retry commands. Vehicle state may
 lag until the integration next updates. The rollout check must confirm the
 specific HA entities and command signing setup; no real vehicle commands were
 issued during development.
@@ -105,3 +105,54 @@ all six service targets, malformed/unavailable data, PIN failures, missing setti
 database failures, generic upstream errors, prefix/domain/unit filtering, naming
 variants and priorities, discovery expiry, concurrent requests, override precedence,
 and recovery after failures. Fixtures do not verify the live HA inventory.
+
+## Evee dashboard
+
+The Swift dashboard identifies the owner's original Model Y as **Evee**. A flat,
+right-facing side-profile pictogram uses Space Gray for the body and simple wheel
+circles, with empty dark window openings and no interior detail. It is artwork, not live camera imagery.
+The summary follows a simple centered column: title and lock indicator on the left
+of the header, mileage on the right without a visible label, then the car,
+battery/range and cabin temperature. All native
+vehicle UI is read-only; there is no lock button, PIN flow or Details disclosure.
+The full odometer and lock descriptions remain available to VoiceOver.
+
+The filled battery bar has a slow moving highlight and soft green glow during
+fresh active charging only; Reduce Motion keeps a steady glow. The fill length
+always represents the reported charge. `-hybridMotion` enables motion for simulator
+fixture review; normal fixture tests remain still. Normal/up-to-date software adds
+no banner; available and installing updates do. Installation stays in the Tesla app.
+
+Additional optional roles are discovered independently:
+
+| Role | Matching HA entity | Native use |
+| --- | --- | --- |
+| vehicleOnline | binary_sensor, status/online, connectivity class | False marks readings as last reported |
+| cableConnected | binary_sensor, charge_cable/charger_connected | Available to clients; omitted from the minimal dashboard |
+| chargeLimit | number, charge_limit, % | Reported target while actively charging |
+| chargeCompleteAt | sensor, time_to_full_charge, timestamp class | Reported completion time while actively charging |
+| shiftState | sensor, shift_state/gear (including API-path suffixes) | P/D/R/N → parked/driving/reversing/neutral |
+
+Unknown, unavailable, malformed or missing optional readings stay absent and do
+not make the base snapshot unavailable. Missing shift state never means parked;
+charge rate in mph is **not vehicle speed**. Reported non-P gear and software installation have distinct read-only presentations.
+Older servers/fixtures without these optional fields remain readable.
+
+A read-only inventory on 2026-11-06 verified Evee's cable, charge limit, completion
+sensor, connectivity, temperatures, windows/doors, covers and software entities.
+The completion sensor was unavailable while unplugged, and **no active shift-state
+sensor existed**. Driving presentation is therefore implemented and fixture-tested
+but will only appear live after the integration exposes a recognized gear entity.
+No HA configuration or real vehicle state was changed. Connectivity false cannot
+distinguish sleep from loss of connection; the UI says “Last reported”, not “Asleep”.
+
+Future controls supported upstream include climate, charge start/stop, charge
+limit/current, boot/froot, windows, sentry, wake, flash and horn. This redesign
+keeps all native vehicle actions unavailable, including lock/unlock and software
+installation. Existing backend command endpoints are unchanged. The existing HA integration remains the source rather
+than adding a second Fleet OAuth/streaming service.
+
+References: [HA Tesla Fleet](https://www.home-assistant.io/integrations/tesla_fleet/),
+[Tesla Fleet Telemetry fields](https://developer.tesla.com/docs/fleet-api/fleet-telemetry/available-data),
+[Apple materials](https://developer.apple.com/design/human-interface-guidelines/materials),
+[Apple motion](https://developer.apple.com/design/human-interface-guidelines/motion).

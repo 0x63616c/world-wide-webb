@@ -22,7 +22,7 @@ export function discoverTeslaEntities(all: readonly HaEntity[]): {
     }
   }
   const missing = (Object.keys(teslaEntitiesSchema.shape) as (keyof TeslaEntities)[]).filter(
-    (role) => role !== "softwareUpdate" && !found[role],
+    (role) => !teslaEntitiesSchema.shape[role].isOptional() && !found[role],
   );
   const parsed = teslaEntitiesSchema.safeParse(found);
   return { entities: parsed.success ? parsed.data : null, missing };
@@ -39,6 +39,18 @@ function matchScore(role: keyof TeslaEntities, entity: HaEntity): number {
     return index < 0 ? 0 : 100 - index + (name === names[index] ? 100 : 0);
   };
   switch (role) {
+    case "shiftState":
+      return domain === "sensor" ? suffix("shift_state", "gear") : 0;
+    case "vehicleOnline":
+      return domain === "binary_sensor" && deviceClass === "connectivity"
+        ? suffix("status", "online")
+        : 0;
+    case "cableConnected":
+      return domain === "binary_sensor" ? suffix("charge_cable", "charger_connected") : 0;
+    case "chargeLimit":
+      return domain === "number" && unit === "%" ? suffix("charge_limit") : 0;
+    case "chargeCompleteAt":
+      return domain === "sensor" && deviceClass === "timestamp" ? suffix("time_to_full_charge") : 0;
     case "softwareUpdate":
       return domain === "update"
         ? suffix("software_update", "software_update_status", "software", "firmware") ||

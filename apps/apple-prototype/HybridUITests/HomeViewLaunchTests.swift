@@ -87,19 +87,18 @@ import XCTest
         app.swipeDown()
         XCTAssertTrue(app.buttons["launcher-clock"].waitForExistence(timeout: 5), app.debugDescription)
     }
-    func testTeslaShowsTelemetryAndOnlyLockControl() {
+    func testTeslaShowsReadOnlyTelemetry() {
         let app = launch()
         defer { app.terminate() }
         app.openHomeModule("tesla")
-        XCTAssertTrue(app.staticTexts["Estimated range"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Software update"].exists)
-        XCTAssertTrue(app.switches["tesla-door-lock"].exists)
+        XCTAssertTrue(app.staticTexts["Evee"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["tesla-energy"].firstMatch.exists)
+        XCTAssertTrue(app.images["tesla-lock-status"].exists)
+        XCTAssertFalse(app.buttons["tesla-door-lock"].exists)
         XCTAssertFalse(app.switches["Charge"].exists)
         XCTAssertFalse(app.switches["Precondition"].exists)
         capture("tesla-telemetry", app)
-        app.switches["tesla-door-lock"].tap()
-        XCTAssertTrue(app.buttons["pin-digit-0"].waitForExistence(timeout: 10))
-        app.buttons["Cancel"].tap()
+        XCTAssertFalse(app.buttons["pin-digit-0"].exists)
     }
     func testRollbackLaunchesWebWithoutHome() {
         let app = XCUIApplication()
@@ -137,7 +136,7 @@ import XCTest
             case "lights": XCTAssertTrue(app.buttons["controller-toggle-bedroom"].waitForExistence(timeout: 20))
             case "climate": XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "More")).firstMatch.waitForExistence(timeout: 20))
             case "weather": XCTAssertTrue(app.staticTexts["Feels like"].waitForExistence(timeout: 20))
-            default: XCTAssertTrue(app.staticTexts["Odometer"].waitForExistence(timeout: 20))
+            default: XCTAssertTrue(app.descendants(matching: .any)["tesla-odometer"].firstMatch.waitForExistence(timeout: 20))
             }
             XCTAssertFalse(app.buttons["classic-home"].exists)
             capture("native-\(id)", app)

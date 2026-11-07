@@ -2,8 +2,6 @@
 
 Native SwiftUI study targeting iPadOS/iOS 26 and macOS 26. All values are fixtures; commands only change memory. No backend, personal data, device credentials, location permission or real device actuation is involved.
 
-The current app launcher places its first icon row 24 points below the profile selector. Its native Liquid Glass panel has a 3-point blur confined to the glass footprint and uses the system's glass edge without an added outline; the material tint is 0.06 white opacity. DEBUG captures can override the blur with `-previewLauncherBlur` (0–3).
-
 ## Iteration 6
 
 The iPad canvas is 1376×1032 points. Two Home pages use mixed 2×2, 2×1, 1×2 and circular 1×1 spans with 24-point gutters. The first shows Climate, global Lamps brightness, Weather, Tesla, Calendar, Now Playing and Fan. Home · More shows Cameras, Walk Zero, Photos, Media, Sonos Rooms and all five remaining round accessory shortcuts. Every tile opens a full-screen page with native zoom; accessory glyphs also toggle. Clock and Music remain separate faces.
@@ -12,13 +10,20 @@ The Mac window has a fixed 1376×1032 content frame, hidden title bar and `.wind
 
 Native Liquid Glass supplies tile refraction, highlights and button chrome, without painted glass outlines. UI accents use semantic system colors and hierarchical text styles. The licensed photographic wallpaper and green clock artwork are the documented color exceptions. Clock green retains its hue and saturation with brightness reduced by 7%. System font metrics provide tracking. Near mode reserves a square dial, four complications including a charge ring, and a separate alarm footer.
 
-The full-screen Climate page uses a cyan temperature level for Cool, orange for Heat, and an orange-to-cyan level for Heat·Cool. Its handle follows the selected cool or heat setpoint. Off displays a single text label. VoiceOver announces the selected mode with the temperature.
-
 Lamps has an All lamps brightness fader, room power controls, expandable members and Color & Effects. The next-alarm face has 120 uniformly weighted ticks around an arc-length sampled rounded rectangle. The design corner radius is 112 points, with an 80-point inset ring radius. It is **not a measured iPad 13-inch hardware radius**: Apple does not publish that measurement in the available resources. The separate 18-point research token describes older documented iPad models and is not misrepresented as current hardware.
 
-Tesla preserves the retired service's field names and types: `name`, `nick`, `place`, optional `lat`/`lon`, `charging`, `chargingState`, `preconditioning`, `rate`, `pct`, `range`, `odo` and `climate`. Online/asleep/offline availability is separate. The fixture is Model Y / Car, Home, 78%, 241 mi, charging at 11 kW, cabin 64°F, with no coordinates. Vehicle telemetry is read-only; only lock and unlock are available on the live panel. There is no map.
+Tesla presents Evee, the owner's original Space Gray Model Y with white interior.
+A flat side-profile car sits in a simple centered summary. Evee and the lock glyph
+sit left-aligned in the header, with mileage right-aligned on the same row without
+a visible label. The lock glyph reports locked/unlocked.
+The native screen is read-only, with no command buttons or PIN flow. Battery/range,
+active charging details and cabin temperature stay compact. Software notices appear
+only for available/installing updates. Optional HA telemetry supplies cable, charge
+limit, completion time, connectivity and gear without inventing missing readings.
+Evee has no active shift-state entity yet; driving presentation is fixture-tested
+and waits for real gear data. See `features/tesla/README.md` for the inventory.
 
-Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla pulses through KeyframeAnimator only while charging. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
+Weather uses a condition-driven sky, licensed cloud photography and Canvas rain, Clock sweeps with TimelineView, Fan rotates only when on, Lamps breathes through PhaseAnimator according to brightness, Sonos EQ runs only when playing, and Tesla moves a soft highlight through the filled battery bar only while actively charging. Reduced Motion uses static frames. `-snapshot` injects a fixed date and animation phase. iOS tile presentation uses matched transition sources and the native zoom navigation transition.
 
 The research specification, reference images, independent reviews, comparison sheets, live log and motion proof remain outside this repository at `/workspace/wwwebb-ui/prototype/v2/`. Reference images are never bundled or committed. Images under `docs/screenshots/v2/` document the previous iteration, not this pass. `mac-home.png` is explicitly an **iOS-hosted Mac layout render**; the build mini runs macOS 15.6 and cannot launch a macOS 26 app.
 
@@ -119,7 +124,7 @@ Arguments:
 - `-wifiFixture`: secured, open or unconfigured.
 - `-alarmRinging`: seed a ringing alarm occurrence.
 - `-snapshot`: fixed 10:10:30 Pacific fixture date and deterministic motion phase.
-- `-demoAutoPage`: show Home for five seconds, Controls for five, then Music; enable the mock fan to demonstrate its state-driven motion.
+- `-demoAutoPage`: show Home for five seconds, Controls for five, then Music; enable the mock fan to demonstrate its state-driven motion. Reduced Motion suppresses automatic paging.
 
 The iPad simulator screenshots and 10–15-second `simctl io recordVideo --codec h264` recording provide the runtime material and motion evidence. Phone screenshots come from an iPhone 17 Pro simulator. Native macOS appearance and interaction still require macOS 26 hardware.
 
@@ -133,7 +138,7 @@ Run `bash scripts/verify-live.sh` on the mini to build, run all unit tests (incl
 
 Home adds Weather and Calendar; swipe to Home · More for Cameras, Photos, Media and Sonos Rooms. All tiles open their full-screen controllers with native zoom. The shared layout solver tests both pages and both phone scroll boundaries. Tesla offers charging and cabin preconditioning only. Sonos volume locks remain.
 
-Weather: four current metrics and 12 hours. Calendar: generic fixture day agenda. Media: choose an album/playlist and a Sonos room, or play the bundled silent lake film in AVKit. Sonos Rooms: per-room calibrated volume, mute, grouping. Cameras: two animated stock-photo feeds, explicitly marked Demo feed / Simulated camera. Photos: three bundled photos crossfade every 12 seconds. All providers and commands are in-memory fixtures.
+Weather: four current metrics and 12 hours. Calendar: generic fixture day agenda. Media: choose an album/playlist and a Sonos room, or play the bundled silent lake film in AVKit. Sonos Rooms: per-room calibrated volume, mute, grouping. Cameras: two animated stock-photo feeds, explicitly marked Demo feed / Simulated camera. Photos: three bundled photos crossfade every 12 seconds; Reduce Motion disables automatic changes. All providers and commands are in-memory fixtures.
 
 Launch the new pages with `-openTile weather|calendar|media|sonosRooms|cameras|photos`; use `-openTile media -showVideo` for deterministic video review. `-face controls` opens Home · More.
 

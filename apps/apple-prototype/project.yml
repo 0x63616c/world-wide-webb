@@ -21,7 +21,7 @@ targets:
   WorldWideWebb:
     type: application
     platform: macOS
-    sources: [Sources, Shared]
+    sources: [Sources, Shared, VehicleAssets.xcassets]
     dependencies:
       - package: PanelKit
     settings:
@@ -33,7 +33,7 @@ targets:
   WorldWideWebb-iPad:
     type: application
     platform: iOS
-    sources: [Sources, Shared]
+    sources: [Sources, Shared, VehicleAssets.xcassets]
     dependencies:
       - package: PanelKit
       - target: WalkActivityExtension
@@ -105,6 +105,7 @@ targets:
       - path: Sources
         excludes: [App.swift, Media, Assets.xcassets]
       - path: Shared
+      - path: VehicleAssets.xcassets
       - path: PanelKit/Tests/PanelKitTests/Fixtures
         type: folder
         buildPhase: resources

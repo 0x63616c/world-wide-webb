@@ -1,9 +1,10 @@
 import SwiftUI
+import PanelKit
 
 /// Field names and value types mirror the retired features/tesla/service.ts contract.
 struct TeslaData: Equatable {
     var name = "Model Y"
-    var nick = "Tesla"
+    var nick = "Evee"
     var place = "Home"
     var lat: Double? = nil
     var lon: Double? = nil
@@ -18,7 +19,41 @@ struct TeslaData: Equatable {
     var locked = true
     var odo = "12,480"
     var climate = 64
-    var softwareUpdate: String? = nil
+    var softwareUpdate: TeslaSoftwareUpdate? = nil
+    var driveState: TeslaDriveState? = nil
+    var cableConnected: Bool? = nil
+    var chargeLimitPercent: Double? = nil
+    var chargeCompleteAt: Date? = nil
+    var lastUpdatedAt: Date? = nil
+
+    var isInGear: Bool { driveState?.isInGear == true }
+    var isInstalling: Bool { softwareUpdate?.status == "installing" }
+    var chargeLabel: String {
+        switch chargingState {
+        case "charging": "Charging"
+        case "starting": "Starting charge"
+        case "complete": "Charge complete"
+        case "stopped": "Charge paused"
+        case "no_power": "No power"
+        case "disconnected": "Unplugged"
+        default: "Charge status unknown"
+        }
+    }
+    var driveLabel: String? {
+        switch driveState {
+        case .parked: "Parked"
+        case .driving: "Driving"
+        case .reversing: "Reversing"
+        case .neutral: "In neutral"
+        case nil: nil
+        }
+    }
+    static func date(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
 }
 enum TeslaAvailability: String, CaseIterable { case online, asleep, offline }
 
@@ -42,24 +77,28 @@ enum TeslaAvailability: String, CaseIterable { case online, asleep, offline }
 
 struct TeslaTile: View {
     let provider: any TeslaProvider
+    private var data: TeslaData { provider.data }
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(provider.data.nick, systemImage: "car.side.fill").font(.system(size: 22, weight: .medium))
-                Spacer()
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Text(data.nick).font(.title2.weight(.semibold))
+                    Image(systemName: data.locked ? "lock.fill" : "lock.open.fill")
+                        .font(.subheadline).foregroundStyle(data.locked ? Color.secondary : .orange)
+                }
+                Text("\(data.pct)%").font(.system(size: 44, weight: .medium, design: .rounded)).monospacedDigit()
+                Text("\(data.range) mi").font(.title3).foregroundStyle(.secondary)
                 if provider.availability != .online {
-                    Text(provider.availability.rawValue.capitalized).font(.system(size: 16, weight: .medium))
-                        .padding(.horizontal, 10).padding(.vertical, 6).background(.quaternary, in: .capsule)
-                } else { ChargingPulse(active: provider.data.charging).frame(width: 28, height: 28) }
+                    Label("Last reported", systemImage: "clock.arrow.circlepath").font(.callout).foregroundStyle(.secondary)
+                } else if data.isInGear {
+                    Label(data.driveLabel ?? "In gear", systemImage: "steeringwheel").font(.callout)
+                } else if data.charging {
+                    Label("\(data.rate.formatted()) kW", systemImage: "bolt.fill").font(.callout).foregroundStyle(.green)
+                }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text("\(provider.data.pct)").font(.system(size: 84, weight: .medium, design: .rounded)).monospacedDigit()
-                Text("%").font(.system(size: 32)).foregroundStyle(.secondary)
-            }.contentTransition(.numericText())
-            Text("\(provider.data.range) mi").font(.system(size: 26, weight: .medium))
-            Text(provider.availability == .online ? (provider.data.charging ? "Charging · \(provider.data.rate.formatted()) kW" : provider.data.chargingState.replacingOccurrences(of: "_", with: " ").capitalized) : "Last reported charge")
-                .font(.system(size: 20)).foregroundStyle(.secondary)
-        }.padding(32).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            Image("EveeModelY").resizable().scaledToFit().accessibilityHidden(true)
+                .frame(maxWidth: .infinity)
+        }.padding(28).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -78,63 +117,9 @@ struct TeslaChargeComplication: View {
                 }
             }.gaugeStyle(.accessoryCircularCapacity).tint(accented ? .white : .green)
                 .scaleEffect(sizeClass == .compact ? 1.0 : 1.2).frame(width: sizeClass == .compact ? 64 : 80, height: sizeClass == .compact ? 64 : 80)
-            Text(provider.availability == .online ? (provider.data.charging ? "Tesla · Charging" : "Tesla") : provider.availability.rawValue.capitalized)
+            Text(provider.availability == .online ? (provider.data.charging ? "Evee · Charging" : "Evee") : provider.availability.rawValue.capitalized)
                 .font(.system(size: sizeClass == .compact ? 16 : 20, weight: .regular)).foregroundStyle(.primary)
         }.frame(width: sizeClass == .compact ? 140 : 180, alignment: .leading).accessibilityElement(children: .ignore)
             .accessibilityLabel("Car charge \(provider.data.pct) percent, \(provider.availability.rawValue)")
-    }
-}
-
-struct TeslaController: View {
-    let provider: any TeslaProvider
-    var lockAction: (() -> Void)? = nil
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    private var compact: Bool { sizeClass == .compact }
-    var body: some View {
-        ScrollView {
-            VStack(spacing: compact ? 28 : 28) {
-                VStack(spacing: 8) {
-                    Image(systemName: "car.side.fill").font(.system(size: compact ? 44 : 64)).foregroundStyle(.secondary)
-                    Text(provider.data.name).font(.system(size: compact ? 28 : 36, weight: .semibold))
-                    Text(provider.data.place).font(.system(size: compact ? 17 : 24)).foregroundStyle(.secondary)
-                }
-                VStack(spacing: 12) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(provider.data.pct)").font(.system(size: compact ? 92 : 112, weight: .medium, design: .rounded)).monospacedDigit()
-                        Text("%").font(.system(size: compact ? 36 : 48)).foregroundStyle(.secondary)
-                    }
-                    Gauge(value: Double(provider.data.pct), in: 0...100) { EmptyView() }
-                        .gaugeStyle(.linearCapacity).tint(.green).labelsHidden()
-                        .padding(.vertical, 8)
-                    HStack {
-                        Label(provider.data.chargingState.replacingOccurrences(of: "_", with: " ").capitalized, systemImage: provider.data.charging ? "bolt.fill" : "battery.75percent")
-                        Spacer()
-                        if provider.data.charging { Text("\(provider.data.rate.formatted()) kW") }
-                    }.font(.system(size: compact ? 18 : 26, weight: .medium)).foregroundStyle(.primary)
-                    if provider.availability != .online {
-                        Text("\(provider.availability.rawValue.capitalized) · Last reported values")
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack { Text("Estimated range"); Spacer(); Text("\(provider.data.range) mi") }
-                        .font(.system(size: compact ? 18 : 26, weight: .medium))
-                }
-                HStack { Text("Software update"); Spacer(); Text(provider.data.softwareUpdate ?? "Unknown").foregroundStyle(.secondary) }
-                    .font(.system(size: compact ? 16 : 22))
-                if let lockAction {
-                    Toggle(isOn: Binding(get: { provider.data.locked }, set: { _ in lockAction() })) {
-                        HStack {
-                            Text("Doors")
-                            Spacer()
-                            Text(provider.data.locked ? "Locked" : "Unlocked").foregroundStyle(.secondary)
-                        }
-                    }.font(.system(size: compact ? 16 : 22))
-                        .tint(.green)
-                        .accessibilityIdentifier("tesla-door-lock")
-                }
-                HStack { Text("Odometer"); Spacer(); Text("\(provider.data.odo) mi").monospacedDigit() }
-                    .font(.system(size: compact ? 16 : 22)).foregroundStyle(.secondary)
-            }.frame(maxWidth: compact ? 600 : 680).padding(compact ? 24 : 32)
-                .frame(maxWidth: .infinity)
-        }
     }
 }

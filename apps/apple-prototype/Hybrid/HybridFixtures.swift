@@ -167,7 +167,10 @@ actor HybridFixtureTransport: PanelTransport {
             case "cameras.list": file = "cameras/list.json"
             case "snapshot" where url.path.hasPrefix("/media/cameras/camera."): file = "cameras/snapshot.png"
             case "alarms.list": file = "alarms/\(alarmScenario).json"
-            case "tesla.state": file = "tesla/ready.json"
+            case "tesla.state":
+                let scenario = UserDefaults.standard.string(forKey: "hybridTeslaScenario") ?? "ready"
+                let allowed = ["ready", "parked", "unlocked", "charging", "driving", "update", "installing", "offline", "no-power"]
+                file = "tesla/\(allowed.contains(scenario) ? scenario : "ready").json"
             case "controls.list": file = "all-on.json"
             case "climate.get": file = climateOff ? "climate/off.json" : "climate/cool.json"
             case "wifi.guestQr": file = "wifi/hybrid.json"
