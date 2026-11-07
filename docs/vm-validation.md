@@ -81,7 +81,7 @@ replaceable socket location. Candidate `f7f2a72` relocates RPC to the existing
 root-owned `0700` `/var/lib/homelab` directory without weakening the guard. Its
 tests and independent review passed; runtime validation is still pending.
 
-The private helper now pins 0.3.0 candidate `f7f2a72`; schema 2 uses an explicit backup vault.
+Schema 2 uses an explicit backup vault.
 At private commit `c08bc7d751e2e983131c48c0ef87d68e7ae81652`,
 `nix flake check --no-update-lock-file --max-jobs 1 --cores 1` completed with exit 0
 inside the disposable third guest. All nine checks passed: `mac-mini`, `macbook`,
@@ -91,10 +91,18 @@ at `homelab-cli/target/private-validation-c08bc7d.log`; the guest is stopped and
 preserved. This validates the pinned configuration builds and checks, not its
 activation on either physical host.
 
-A fresh fourth wizard rehearsal is starting from fixture baseline `a84b7e4` with
-helper `f7f2a72`. Full enrollment, reboot, Comin reconciliation and completed-wizard
-replay remain pending, as does release approval. No successful full journey is
-claimed by the Nix check result.
+The fourth wizard rehearsal used fixture baseline `a84b7e4` with helper `f7f2a72`.
+It merged fixture PR #3, activated and rebooted. The protected socket worked and
+Comin fetched and switched revision `430efd7725ee16d73fe4540e851f9d70868f2f1d`.
+Two runtime issues remain: activation's user script could not find native `grep`,
+and Comin's normal restart resets its fetch state before completion can verify it.
+
+Candidate `df524c5` requests a native fetch once per validated socket instance,
+only after repository state initializes; strict reconciliation checks are unchanged.
+The daemon PATH now includes trusted macOS system directories. Focused tests and
+independent review passed. The private helper pins this candidate, whose full Nix
+check and fresh wizard/replay evidence remain pending. No successful full journey
+is claimed by the earlier Nix check result.
 
 ## Authorized boundary
 

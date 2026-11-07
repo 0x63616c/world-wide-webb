@@ -52,7 +52,10 @@ in {
       serviceConfig = {
         # Determinate owns Nix, so nix-darwin deliberately disables nix.package.
         EnvironmentVariables = lib.mkForce {
-          PATH = "/nix/var/nix/profiles/default/bin:" + lib.makeBinPath [ pkgs.git pkgs.openssh ];
+          # Darwin activation also invokes native tools such as grep by name.
+          PATH = "/nix/var/nix/profiles/default/bin:"
+            + lib.makeBinPath [ pkgs.git pkgs.openssh ]
+            + ":/usr/bin:/bin:/usr/sbin:/sbin";
         };
         KeepAlive = lib.mkForce { SuccessfulExit = false; };
         # Comin exits successfully when its configuration changes. The interval

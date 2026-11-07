@@ -56,9 +56,12 @@ passed all nine checks at `c08bc7d751e2e983131c48c0ef87d68e7ae81652`, pinning pu
 0.3.0 candidate `f7f2a72`. This includes both host systems, dormant container paths,
 client, service-assignment, SOPS, Compose and runner-package checks. The disposable
 validation guest is stopped and preserved; no physical configuration was activated.
-A fourth fresh wizard rehearsal uses fixture baseline `a84b7e4` and helper
-`f7f2a72`. Final reconciliation and completed-wizard replay still need successful
-runtime evidence. Publication/release remains pending.
+The fourth rehearsal activated, rebooted and reached a real Comin switch. It exposed
+a missing native activation command in PATH and a completion race across Comin's
+own restart. Candidate `df524c5` and the corrected daemon PATH address those issues;
+focused tests and independent review passed. The new candidate's full Nix check,
+fresh reconciliation and completed-wizard replay still need runtime evidence.
+Publication/release remains pending.
 
 Local and hosted checks cover Rust behavior, terminal restoration, configuration
 schema/example consistency and native no-Nix artifacts. These checks cannot
