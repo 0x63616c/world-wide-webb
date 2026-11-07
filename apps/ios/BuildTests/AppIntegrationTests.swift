@@ -52,6 +52,56 @@ import XCTest
     XCTAssertEqual(controller.presentation.setup?.step, .openingReady)
   }
 
+  func testExportCleanupFailureDoesNotHideHealthyTracking() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let suite = "folding.cleanup.test.\(UUID())"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+      defaults.removePersistentDomain(forName: suite)
+    }
+    let journal = try TrackingStore(directory: directory, installationID: UUID())
+    let runtime = TrackingRuntime(journal: journal)
+    try await runtime.record(.open)
+    // An invalid export-directory entry must not turn healthy journal reads into a failure.
+    try Data("invalid export directory".utf8).write(to: directory.appendingPathComponent("exports"))
+    let controller = AppController(runtime: runtime, preferencesStore: defaults)
+    await controller.refreshVisible()
+    XCTAssertEqual(controller.presentation.analytics?.lifetime.folds, 1)
+    XCTAssertNil(controller.presentation.personalFailure)
+    XCTAssertNotNil(controller.presentation.error)
+  }
+
+  func testExportUsesJournalAndResetRevokesPreparedShare() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let suite = "folding.export.test.\(UUID())"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer {
+      try? FileManager.default.removeItem(at: directory)
+      defaults.removePersistentDomain(forName: suite)
+    }
+    let journal = try TrackingStore(directory: directory, installationID: UUID())
+    let runtime = TrackingRuntime(journal: journal)
+    let controller = AppController(runtime: runtime, preferencesStore: defaults)
+    try await runtime.record(.open)
+    try await controller.refresh()
+    XCTAssertNotNil(controller.presentation.lastEventAt)
+    let ticket = try await controller.actions.export!(.json)
+    let file = try await controller.actions.exportURL!(ticket)
+    let json = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+    XCTAssertEqual((json["events"] as? [[String: Any]])?.count, 1)
+    controller.presentation.present(.export(ticket))
+    try await controller.actions.reset!()
+    XCTAssertNotEqual(controller.presentation.sheet, .export(ticket))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+    do {
+      _ = try await controller.actions.exportURL!(ticket)
+      XCTFail("Reset must revoke the prepared export")
+    } catch {}
+    await controller.actions.exportFinished!(ticket)
+  }
+
   func testInitialHomeTimezoneSurvivesTravelWithoutEditingSettings() {
     let suite = "folding.timezone.test.\(UUID())"
     let defaults = UserDefaults(suiteName: suite)!

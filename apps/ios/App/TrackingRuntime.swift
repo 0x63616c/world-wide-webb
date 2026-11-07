@@ -7,6 +7,8 @@ import Foundation
 actor TrackingRuntime {
   static let shared = TrackingRuntime()
   private var journal: TrackingStore?
+  private var exportService: TrackingExportService?
+  private var exportTickets: [UUID: PreparedTrackingExport] = [:]
   init(journal: TrackingStore? = nil) { self.journal = journal }
 
   private var observers: [UUID: AsyncStream<Void>.Continuation] = [:]
@@ -63,8 +65,42 @@ actor TrackingRuntime {
   }
 
   func reset() async throws {
+    try await cancelExports()
     _ = try await store().reset(nowMS: Self.nowMS)
     changed()
+  }
+
+  private func exports() throws -> TrackingExportService {
+    if let exportService { return exportService }
+    let service = TrackingExportService(store: try store())
+    exportService = service
+    return service
+  }
+
+  func prepareExport(_ format: TrackingExportFormat, homeTimezone: String) async throws -> UUID {
+    let ticket = try await exports().prepare(
+      format: format, homeTimezone: homeTimezone, nowMS: Self.nowMS)
+    exportTickets[ticket.id] = ticket
+    return ticket.id
+  }
+
+  func exportURL(_ id: UUID) async throws -> URL {
+    guard let ticket = exportTickets[id] else { throw TrackingExportError.wrongOwner }
+    return try await exports().shareURL(for: ticket)
+  }
+
+  func finishExport(_ id: UUID) async throws {
+    guard let ticket = exportTickets.removeValue(forKey: id) else { return }
+    try await exports().finish(ticket)
+  }
+
+  func cancelExports() async throws {
+    exportTickets.removeAll()
+    try await exportService?.cancelAll()
+  }
+
+  func cleanupExports() async throws {
+    try await exports().cleanupExpired(nowMS: Self.nowMS)
   }
 
   nonisolated static var nowMS: Int64 { Int64(Date().timeIntervalSince1970 * 1000) }

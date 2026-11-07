@@ -46,9 +46,22 @@ import struct FoldingData.SetupProgress
       },
       loadHistory: { period, offset in try await self.history(period, offset: offset) },
       reset: {
+        self.presentation.dismissExports()
         try await self.runtime.reset()
         try await self.refresh()
         await self.presentation.requestHistory(using: self.actions)
+      },
+      export: { choice in
+        try await self.runtime.prepareExport(
+          choice == .json ? .json : .csv,
+          homeTimezone: self.presentation.preferences.homeTimezone)
+      },
+      exportURL: { id in try await self.runtime.exportURL(id) },
+      exportFinished: { id in
+        do { try await self.runtime.finishExport(id) } catch {
+          self.presentation.error = String(
+            localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+        }
       })
   }
 
@@ -60,6 +73,14 @@ import struct FoldingData.SetupProgress
   }
 
   func refreshVisible() async {
+    do {
+      try await runtime.cleanupExports()
+    } catch is CancellationError {
+      return
+    } catch {
+      presentation.error = String(
+        localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+    }
     do {
       try await refresh()
       if presentation.history != nil {
@@ -80,7 +101,14 @@ import struct FoldingData.SetupProgress
     let range = try PersonalDateRange.trailingDays(7, throughMS: now, homeTimezone: timezone)
     let analytics = try await store.analytics(homeTimezone: timezone, asOfMS: now, range: range)
     let setup = try await store.setupProgress(nowMS: now)
+    let lastEvent = try await store.lastObservedAtMS()
     guard request == token, !Task.isCancelled else { return }
+    if let previous = presentation.analytics, previous.generation != analytics.generation {
+      presentation.dismissExports()
+      try await runtime.cancelExports()
+      guard request == token, !Task.isCancelled else { return }
+    }
+    presentation.lastEventAt = lastEvent.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     presentation.analytics = analytics
     presentation.setup = setup
     presentation.personalFailure = nil

@@ -118,3 +118,11 @@ The original fourteen work orders now have 33 linked deliverable issues (#15–#
 - Remaining in #27: verified localized automation instructions/handoff, production account composition and integration acceptance. Full release scope remains in the delivery board.
 
 - Follow-up review fixed clock-change rescheduling of midnight refresh and added a clock-only running-duration projection bounded to the home day. The combined Fastlane app-hosted suite passes eleven tests; catalog validation and ten mutation tests also pass. No per-second journal writes or full-history replay were added.
+
+## Protected export integration
+
+- Added a consistent journal export snapshot, generation/account fences, protected backup-excluded temporary files, and streamed JSON/CSV ZIP output. Cleanup runs on share completion/cancellation, foreground expiry, reset and account suspension. Snapshot/document arrays remain materialized; output writes stream off MainActor.
+- The app queues only an opaque export ticket while dismissing Settings; the native share host resolves its URL on activation. Reset invalidates queued/active sheets and late preparation results. Last event now reflects the journal's latest local observation.
+- Independent integration review found export cleanup failures could hide healthy tracking; isolated maintenance errors from data refresh and added a filesystem-failure regression.
+- Evidence: storage commit `605ccbf`, UI commit `ec0d69c`; 74 package tests (27 domain, 47 data), including eight export tests; seventeen combined app-hosted tests pass through Fastlane. ZIP output was independently extracted and compared. No physical file-protection or native share visual acceptance is claimed.
+- #31 remains open for public reset/pending-state integration, live account/CloudKit behavior and complete visual acceptance. #30 retains private transfer persistence. Apple account setup is awaiting the user's App Store Connect sign-in; the existing 1Password shell's metadata lookup timed out awaiting authorization, with no credentials read or printed.
