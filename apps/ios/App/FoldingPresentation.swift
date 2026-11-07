@@ -1,0 +1,304 @@
+import AuthenticationServices
+import FoldingDomain
+import Foundation
+import Observation
+import SwiftUI
+
+import enum FoldingData.SetupAction
+import struct FoldingData.SetupProgress
+
+// Preferences contain presentation choices only. The composition root persists their versioned value.
+enum FoldingAppearance: String, Codable, CaseIterable, Identifiable {
+  case system, light, dark
+  var id: Self { self }
+  var scheme: ColorScheme? { self == .system ? nil : (self == .dark ? .dark : .light) }
+  var title: String {
+    switch self {
+    case .system: String(localized: "appearance.system", defaultValue: "System")
+    case .light: String(localized: "appearance.light", defaultValue: "Light")
+    case .dark: String(localized: "appearance.dark", defaultValue: "Dark")
+    }
+  }
+}
+
+enum FoldingAccent: String, Codable, CaseIterable, Identifiable {
+  case blue, teal, green, orange, pink, purple
+  var id: Self { self }
+  var color: Color {
+    switch self {
+    case .blue: .blue
+    case .teal: .teal
+    case .green: .green
+    case .orange: .orange
+    case .pink: .pink
+    case .purple: .purple
+    }
+  }
+  var title: String {
+    switch self {
+    case .blue: String(localized: "accent.blue", defaultValue: "Blue")
+    case .teal: String(localized: "accent.teal", defaultValue: "Teal")
+    case .green: String(localized: "accent.green", defaultValue: "Green")
+    case .orange: String(localized: "accent.orange", defaultValue: "Orange")
+    case .pink: String(localized: "accent.pink", defaultValue: "Pink")
+    case .purple: String(localized: "accent.purple", defaultValue: "Purple")
+    }
+  }
+}
+
+enum SummaryMetric: String, Codable, CaseIterable, Identifiable {
+  case timeUnfolded, trend, opens, closes, cycles, lifetimeFolds, equivalentTravel
+  var id: Self { self }
+  var title: String {
+    switch self {
+    case .timeUnfolded: String(localized: "metric.timeUnfolded", defaultValue: "Time unfolded")
+    case .trend: String(localized: "metric.trend", defaultValue: "Last 7 days")
+    case .opens: String(localized: "metric.opens", defaultValue: "Opens")
+    case .closes: String(localized: "metric.closes", defaultValue: "Closes")
+    case .cycles: String(localized: "metric.cycles", defaultValue: "Cycles")
+    case .lifetimeFolds: String(localized: "metric.lifetimeFolds", defaultValue: "All-time folds")
+    case .equivalentTravel:
+      String(localized: "metric.equivalentTravel", defaultValue: "Equivalent travel")
+    }
+  }
+}
+
+struct FoldingPreferences: Codable, Equatable {
+  var schemaVersion = 1
+  var appearance: FoldingAppearance = .system
+  var accent: FoldingAccent = .blue
+  var metrics: [SummaryMetric] = [.timeUnfolded, .trend]
+  var homeTimezone = TimeZone.current.identifier
+  var dailyLimit = 100
+}
+
+enum HistoryPeriod: String, CaseIterable, Identifiable {
+  case day, week, month, all
+  var id: Self { self }
+  var title: String {
+    switch self {
+    case .day: String(localized: "history.day", defaultValue: "Day")
+    case .week: String(localized: "history.week", defaultValue: "Week")
+    case .month: String(localized: "history.month", defaultValue: "Month")
+    case .all: String(localized: "history.all", defaultValue: "All")
+    }
+  }
+}
+
+/// Bins are supplied by the analytics layer at the requested grain; views do not rebucket events.
+struct HistoryBin: Identifiable, Sendable {
+  let start: Date
+  let end: Date
+  let label: String
+  let folds: Int
+  var id: Date { start }
+}
+
+struct HistoryPresentation: Sendable {
+  let title: String
+  let folds: Int
+  let completeDurationMS: Int64
+  let bins: [HistoryBin]
+  let sessions: [TrackingSession]
+  let canGoNext: Bool
+}
+
+enum CompetitionPeriod: String, CaseIterable, Identifiable {
+  case week, month, all
+  var id: Self { self }
+  var title: String {
+    switch self {
+    case .week: String(localized: "leaderboard.week", defaultValue: "Week")
+    case .month: String(localized: "leaderboard.month", defaultValue: "Month")
+    case .all: String(localized: "leaderboard.all", defaultValue: "All Time")
+    }
+  }
+}
+
+struct LeaderboardEntry: Identifiable, Sendable {
+  let id: String
+  let rank: Int
+  let displayName: String
+  let folds: Int
+  let approvedAvatarURL: URL?
+  let isCurrentUser: Bool
+}
+
+struct LeaderboardPresentation: Sendable {
+  let periodTitle: String
+  let entries: [LeaderboardEntry]
+  let currentUser: LeaderboardEntry?
+  let pendingFolds: Int
+  let updatedAt: Date
+}
+
+enum CompetitionPresentation {
+  case unavailable, notJoined
+  case loading(LeaderboardPresentation?)
+  case loaded(LeaderboardPresentation)
+  case failed(LeaderboardPresentation?)
+  case banned
+  var previous: LeaderboardPresentation? {
+    switch self {
+    case .loaded(let value): value
+    case .loading(let value), .failed(let value): value
+    default: nil
+    }
+  }
+}
+
+enum PresentedSheet: Identifiable, Equatable {
+  case settings, setup, editSummary, travelInfo, leaderboardInfo
+  case tiedRank(Int)
+  case export(URL)
+  var id: String {
+    switch self {
+    case .settings: "settings"
+    case .setup: "setup"
+    case .editSummary: "summary"
+    case .travelInfo: "travel"
+    case .leaderboardInfo: "leaderboard-info"
+    case .tiedRank(let rank): "tie-\(rank)"
+    case .export(let file): "export-\(file.lastPathComponent)"
+    }
+  }
+}
+
+enum FoldingTab: Hashable { case today, history, leaderboard }
+struct SessionPresentation: Hashable {
+  let deviceID: UUID
+  let start: Date
+  let end: Date?
+  let durationMS: Int64?
+  let completeness: SessionCompleteness
+  init(_ session: TrackingSession) {
+    deviceID = session.deviceID
+    start = Date(timeIntervalSince1970: Double(session.startMS) / 1000)
+    end = session.endMS.map { Date(timeIntervalSince1970: Double($0) / 1000) }
+    durationMS = session.durationMS
+    completeness = session.completeness
+  }
+}
+
+enum HistoryRoute: Hashable { case session(SessionPresentation) }
+
+extension SessionCompleteness {
+  var title: String {
+    switch self {
+    case .complete: String(localized: "session.complete", defaultValue: "Complete")
+    case .candidate: String(localized: "session.candidate", defaultValue: "Uncertain")
+    case .incomplete: String(localized: "session.incomplete", defaultValue: "Incomplete")
+    case .running: String(localized: "session.running", defaultValue: "Running")
+    }
+  }
+}
+enum ExportChoice { case json, csv }
+
+/// All operations are supplied by the app composition. A nil optional command is unavailable,
+/// never a simulated success. Commands must return only after durable work has completed.
+@MainActor struct FoldingActions {
+  var refresh: () async throws -> Void
+  var setup: (SetupAction) async throws -> SetupProgress
+  var savePreferences: (FoldingPreferences) async throws -> Void
+  var loadHistory: ((HistoryPeriod, Int) async throws -> HistoryPresentation)?
+  var loadLeaderboard: ((CompetitionPeriod) async throws -> LeaderboardPresentation)?
+  var openShortcuts: (() -> Void)?
+  var reset: (() async throws -> Void)?
+  var export: ((ExportChoice) async throws -> URL)?
+  var exportFinished: ((URL) async -> Void)?
+  var appleRequest: ((ASAuthorizationAppleIDRequest) -> Void)?
+  var appleCompletion: ((Result<ASAuthorization, Error>) -> Void)?
+  /// Verified per-OS/localized instructions, supplied by composition rather than invented by views.
+  var openingInstructions: String?
+  var closingInstructions: String?
+}
+
+@MainActor @Observable final class FoldingPresentation {
+  var selectedTab: FoldingTab = .today
+  var analytics: PersonalAnalyticsSnapshot?
+  var setup: SetupProgress?
+  var preferences = FoldingPreferences()
+  var history: HistoryPresentation?
+  var historyPeriod: HistoryPeriod = .week
+  var historyOffset = 0
+  var historyLoading = false
+  var historyFailed = false
+  var competition: CompetitionPresentation = .unavailable
+  var competitionPeriod: CompetitionPeriod = .week
+  var sheet: PresentedSheet?
+  var status: String?
+  var personalFailure: String?
+  var error: String?
+  var operation: String?
+  var lastEventAt: Date?
+  var needsSetup: Bool { setup?.step != .complete }
+  private var nextSheet: PresentedSheet?
+  private var historyRequest = UUID()
+  private var competitionRequest = UUID()
+
+  func present(_ next: PresentedSheet) {
+    guard sheet != next else { return }
+    if sheet == nil {
+      sheet = next
+    } else {
+      nextSheet = next
+      sheet = nil
+    }
+  }
+
+  func didDismissSheet() {
+    if let nextSheet {
+      sheet = nextSheet
+      self.nextSheet = nil
+    }
+  }
+
+  func command(_ label: String, _ operation: () async throws -> Void) async {
+    guard self.operation == nil else { return }
+    self.operation = label
+    defer { self.operation = nil }
+    do { try await operation() } catch is CancellationError {} catch {
+      self.error = String(
+        localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+    }
+  }
+
+  func requestHistory(using actions: FoldingActions) async {
+    guard let load = actions.loadHistory else { return }
+    let request = UUID()
+    historyRequest = request
+    historyLoading = true
+    historyFailed = false
+    do {
+      let value = try await load(historyPeriod, historyOffset)
+      guard request == historyRequest, !Task.isCancelled else { return }
+      history = value
+      historyLoading = false
+    } catch {
+      guard request == historyRequest else { return }
+      historyLoading = false
+      historyFailed = !(error is CancellationError)
+    }
+  }
+
+  func requestLeaderboard(using actions: FoldingActions) async {
+    guard let load = actions.loadLeaderboard else { return }
+    let request = UUID()
+    competitionRequest = request
+    let previous = competition.previous
+    competition = .loading(previous)
+    do {
+      let value = try await load(competitionPeriod)
+      guard request == competitionRequest, !Task.isCancelled else { return }
+      competition = .loaded(value)
+    } catch {
+      guard request == competitionRequest else { return }
+      competition = .failed(previous)
+    }
+  }
+}
+
+func foldingDuration(_ milliseconds: Int64) -> String {
+  Duration.milliseconds(max(0, milliseconds)).formatted(
+    .units(allowed: [.hours, .minutes, .seconds], width: .abbreviated, maximumUnitCount: 2))
+}
