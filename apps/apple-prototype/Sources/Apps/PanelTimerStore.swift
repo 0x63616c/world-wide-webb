@@ -16,7 +16,7 @@ import SwiftUI
     @ObservationIgnored private let backgroundAlertsEnabled: Bool
     @ObservationIgnored private let sound: any PanelSoundPlaying
     @ObservationIgnored private var nextAlarmCue: Date?
-    var keepsScreenAwake: Bool { countdown.phase != .ready }
+    var keepsScreenAwake: Bool { countdown.phase == .running }
     @ObservationIgnored private var alertTask: Task<Void, Never>?
     @ObservationIgnored private var alertID: String?
     private static let stateKey = "panel.timer.countdown.v1"
