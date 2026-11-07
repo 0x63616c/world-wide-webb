@@ -108,17 +108,32 @@ import XCTest
 
         XCTAssertFalse(provider.globalLock)
         let originalGammaVolume = provider.rooms.first { $0.id == gamma }?.rawVolume
-        XCTAssertTrue(provider.send(.roomVolumes([alpha, beta, offline], 42)))
-        XCTAssertEqual(provider.rooms.prefix(2).map(\.rawVolume), [42, 42])
+        XCTAssertTrue(provider.send(.roomVolumes([alpha: 42, beta: 23, offline: 50])))
+        XCTAssertEqual(provider.rooms.prefix(2).map(\.rawVolume), [42, 23])
         XCTAssertEqual(provider.rooms.first { $0.id == gamma }?.rawVolume, originalGammaVolume)
         XCTAssertEqual(provider.pending, [alpha, beta, "sound"])
         try await waitFor(transport, count: 2)
         await transport.release(1)
         try await settled(provider)
         try await assertRequest(transport, at: 1, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_alpha","volume":42}"#)
-        try await assertRequest(transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":42}"#)
+        try await assertRequest(transport, at: 2, path: "sonosSetVolume", json: #"{"deviceIp":"media_player.test_beta","volume":23}"#)
         let count = await transport.count
         XCTAssertEqual(count, 4) // Initial query, two writes and confirmation.
+    }
+
+    func testMasterVolumeScalesTheRoomMixAndHandlesTheVolumeLimits() {
+        let balance = SonosVolumeBalance(levels: ["desk": 40, "bedroom": 20])
+        XCTAssertEqual(balance.adjusted(to: 45), ["desk": 60, "bedroom": 30])
+        XCTAssertEqual(balance.adjusted(to: 15), ["desk": 20, "bedroom": 10])
+        XCTAssertEqual(balance.adjusted(to: 90), ["desk": 100, "bedroom": 80])
+        XCTAssertEqual(balance.adjusted(to: 0), ["desk": 0, "bedroom": 0])
+        let almostFull = SonosVolumeBalance(levels: ["desk": 100, "bedroom": 99])
+        XCTAssertEqual(almostFull.adjusted(to: 100), ["desk": 100, "bedroom": 100])
+        let silent = SonosVolumeBalance(levels: ["desk": 0, "bedroom": 0])
+        XCTAssertEqual(silent.adjusted(to: 35), ["desk": 35, "bedroom": 35])
+        let mixed = SonosVolumeBalance(levels: ["desk": 40, "bedroom": 0])
+        XCTAssertEqual(mixed.adjusted(to: 40), ["desk": 80, "bedroom": 0])
+        XCTAssertEqual(mixed.adjusted(to: 75), ["desk": 100, "bedroom": 50])
     }
 
     func testRawVolumeMuteTransportAndTopologyUseExactTargets() async throws {

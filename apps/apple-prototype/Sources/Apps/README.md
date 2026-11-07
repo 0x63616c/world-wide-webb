@@ -209,9 +209,8 @@ Lights brightness and white temperature use `FilledLevelControl`, shared with
 Sonos volume: a filled draggable bar with local drag preview, one commit on
 release, bounded values, and adjustable accessibility actions. The Sonos Home
 mixer shows live percentages inside the bars, with TV below the other rooms.
-Master shows the average raw volume of the Home speakers and moves them to
-the chosen level. The lock beside Master links their room adjustments. TV has
-its own volume control. The Sonos header offers Play together until the
+Master shows the average raw volume of the Home speakers and raises or lowers
+their levels proportionally. Each room also has its own volume control. The Sonos header offers Play together until the
 available Home speakers are grouped on Desk’s line-in. The header reports
 when they’re playing together or when the group is paused. Cameras is no
 longer registered in the native app catalog. Notification banners sit 20 points

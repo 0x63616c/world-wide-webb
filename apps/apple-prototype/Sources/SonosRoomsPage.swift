@@ -5,11 +5,12 @@ struct SonosRoomsPage: View {
     var playDeskLineIn: (() -> Void)? = nil
     var busy = false
 
-    @State private var dragPreview: VolumePreview?
+    @State private var masterDrag: MasterDrag?
+    @State private var roomPreviews: [String: Int] = [:]
 
-    private struct VolumePreview {
-        let roomIDs: Set<String>
-        let value: Int
+    private struct MasterDrag {
+        let balance: SonosVolumeBalance
+        let levels: [String: Int]
     }
 
     private var tv: SoundRoom? {
@@ -32,10 +33,23 @@ struct SonosRoomsPage: View {
         }
     }
 
+    private var currentBalance: SonosVolumeBalance {
+        SonosVolumeBalance(levels: Dictionary(uniqueKeysWithValues: speakers.map { ($0.id, $0.rawVolume) }))
+    }
+
     private var masterVolume: Int {
-        let volumes = speakers.map { shownVolume(for: $0) }
-        guard !volumes.isEmpty else { return 0 }
-        return Int((Double(volumes.reduce(0, +)) / Double(volumes.count)).rounded())
+        SonosVolumeBalance.average(speakers.map { shownVolume(for: $0) })
+    }
+
+    private func previewMaster(_ target: Int?) {
+        guard let target else { masterDrag = nil; return }
+        let balance = masterDrag?.balance ?? currentBalance
+        masterDrag = MasterDrag(balance: balance, levels: balance.adjusted(to: target))
+    }
+
+    private func commitMaster(_ target: Int) {
+        let balance = masterDrag?.balance ?? currentBalance
+        if !balance.levels.isEmpty { store.send(.roomVolumes(balance.adjusted(to: target))) }
     }
 
     var body: some View {
@@ -44,15 +58,16 @@ struct SonosRoomsPage: View {
                 header
                 GlassEffectContainer(spacing: 12) {
                     VStack(spacing: 16) {
-                        volumeRow(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill")
+                        volumeRow(value: masterVolume, title: "Master", symbol: "hifispeaker.2.fill",
+                                  id: "master", preview: previewMaster, commit: commitMaster)
                             .disabled(speakers.isEmpty)
                         Divider()
                         ForEach(speakers) { room in
-                            volumeRow(value: shownVolume(for: room), title: room.name, symbol: "speaker.wave.2.fill", roomID: room.id)
+                            roomRow(room, title: room.name, symbol: "speaker.wave.2.fill")
                         }
                         if let tv {
                             Divider()
-                            volumeRow(value: shownVolume(for: tv), title: "TV", symbol: "tv", roomID: tv.id)
+                            roomRow(tv, title: "TV", symbol: "tv")
                         }
                     }
                 }
@@ -92,52 +107,61 @@ struct SonosRoomsPage: View {
         .frame(minHeight: 54)
     }
 
-    private var volumeLock: some View {
-        Button {
-            store.send(.globalLock)
-        } label: {
-            Image(systemName: store.globalLock ? "lock.fill" : "lock.open")
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 28, height: 28)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .frame(width: 44, height: 44, alignment: .trailing)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Link Home speaker volumes")
-        .accessibilityHint("Moving a Home speaker volume adjusts the other Home speakers")
-        .accessibilityAddTraits(store.globalLock ? .isSelected : [])
-        .accessibilityIdentifier("sonos-volume-lock")
-    }
-
     private func shownVolume(for room: SoundRoom) -> Int {
-        if let dragPreview, dragPreview.roomIDs.contains(room.id) {
-            return dragPreview.value
-        }
-        return room.rawVolume
+        roomPreviews[room.id] ?? masterDrag?.levels[room.id] ?? room.rawVolume
     }
 
-    private func volumeRow(value: Int, title: String, symbol: String, roomID: String? = nil) -> some View {
-        let targetIDs: Set<String>
-        if let roomID, !store.globalLock || roomID == tv?.id {
-            targetIDs = [roomID]
-        } else {
-            targetIDs = Set(speakers.map(\.id))
-        }
-        return VStack(alignment: .leading, spacing: 8) {
+    private func roomRow(_ room: SoundRoom, title: String, symbol: String) -> some View {
+        volumeRow(value: shownVolume(for: room), title: title, symbol: symbol, id: room.id, preview: {
+            roomPreviews[room.id] = $0
+        }, commit: {
+            store.send(.rawVolume(room.id, $0))
+        })
+    }
+
+    private func volumeRow(value: Int, title: String, symbol: String, id: String,
+                           preview: @escaping (Int?) -> Void, commit: @escaping (Int) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-                // Overlay the larger touch target to keep every label row the same height.
-                .overlay(alignment: .trailing) {
-                    if roomID == nil { volumeLock }
-                }
-            FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol, showsPercentage: true, preview: { value in
-                dragPreview = value.map { VolumePreview(roomIDs: targetIDs, value: $0) }
-            }) { value in
-                store.send(.roomVolumes(targetIDs, value))
-            }
-            .frame(height: 58)
-            .accessibilityIdentifier("sonos-volume-\(roomID ?? "master")")
+            FilledLevelControl(value: value, label: "\(title) volume", symbol: symbol,
+                               showsPercentage: true, preview: preview, commit: commit)
+                .frame(height: 58)
+                .accessibilityIdentifier("sonos-volume-\(id)")
         }
+    }
+}
+
+/// A snapshot of the room mix, reused for every preview in a Master gesture.
+struct SonosVolumeBalance {
+    let levels: [String: Int]
+
+    static func average(_ levels: [Int]) -> Int {
+        guard !levels.isEmpty else { return 0 }
+        return Int((Double(levels.reduce(0, +)) / Double(levels.count)).rounded())
+    }
+
+    func adjusted(to target: Int) -> [String: Int] {
+        if target == 0 || target == 100 { return levels.mapValues { _ in target } }
+        if target == Self.average(Array(levels.values)) { return levels }
+
+        var remainingVolume = target * levels.count
+        var remainingWeight = levels.values.reduce(0, +)
+        var remainingRooms = levels.count
+        var adjusted: [String: Int] = [:]
+        // Reserve 100% for saturated rooms before scaling the quieter ones.
+        // When every remaining room started silent, split the remaining volume evenly.
+        for (id, weight) in levels.sorted(by: { $0.value > $1.value }) {
+            let volume = remainingWeight > 0
+                ? Double(weight * remainingVolume) / Double(remainingWeight)
+                : Double(remainingVolume) / Double(remainingRooms)
+            adjusted[id] = min(100, Int(volume.rounded()))
+            if volume >= 100 {
+                remainingVolume -= 100
+                remainingWeight -= weight
+                remainingRooms -= 1
+            }
+        }
+        return adjusted
     }
 }

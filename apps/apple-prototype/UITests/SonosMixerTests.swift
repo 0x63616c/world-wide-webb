@@ -1,7 +1,7 @@
 import XCTest
 
 @MainActor final class SonosMixerTests: XCTestCase {
-    func testMasterAndLockAdjustTheCenteredMixer() {
+    func testMasterPreservesRoomBalanceInTheCenteredMixer() {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication()
@@ -48,29 +48,27 @@ import XCTest
         }
 
         let initialTV = percentage(tv)
+        XCTAssertEqual(percentage(master), "21 percent")
         XCTAssertEqual(percentage(desk), "32 percent")
-        drag(desk, from: 0.32, to: 0.59)
-        XCTAssertNotEqual(percentage(desk), "32 percent")
+        XCTAssertFalse(app.buttons["sonos-volume-lock"].exists)
+        drag(master, from: 0.79, to: 0.55)
+        let level = Int(percentage(master).split(separator: " ").first ?? "") ?? 0
+        XCTAssertTrue((40...60).contains(level))
+        XCTAssertEqual(percentage(desk), "\(Int((32.0 * Double(level) / 21).rounded())) percent")
+        XCTAssertEqual(percentage(bedroom), "\(Int((18.0 * Double(level) / 21).rounded())) percent")
         XCTAssertEqual(percentage(tv), initialTV)
+        snapshot("sonos-balanced", app: app)
 
-        drag(master, from: 0.28, to: 0.47)
-        XCTAssertEqual(percentage(tv), initialTV)
-        XCTAssertEqual(percentage(desk), percentage(bedroom))
-        XCTAssertEqual(percentage(master), percentage(desk))
-
-        app.buttons["sonos-volume-lock"].tap()
-        let before = percentage(desk)
-        drag(bedroom, from: 0.47, to: 0.36)
-        let linked = percentage(desk)
-        XCTAssertNotEqual(linked, before)
-        XCTAssertEqual(linked, percentage(bedroom))
-        XCTAssertEqual(linked, percentage(master))
-        XCTAssertEqual(percentage(tv), initialTV)
+        let adjustedDesk = percentage(desk)
+        let adjustedBedroom = percentage(bedroom)
+        drag(bedroom, from: 0.55, to: 0.20)
+        XCTAssertNotEqual(percentage(bedroom), adjustedBedroom)
+        XCTAssertEqual(percentage(desk), adjustedDesk)
+        XCTAssertNotEqual(percentage(master), "\(level) percent")
 
         drag(tv, from: 0.76, to: 0.64)
         XCTAssertNotEqual(percentage(tv), initialTV)
-        XCTAssertEqual(percentage(desk), linked)
-        XCTAssertEqual(percentage(master), linked)
+        XCTAssertEqual(percentage(desk), adjustedDesk)
     }
 
     func testGroupedLineInShowsPlayingAndPausedStates() {
