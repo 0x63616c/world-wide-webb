@@ -18,6 +18,10 @@ pub enum Error {
     #[error("Setup verification could not be confirmed. Resume this attempt; do not reinstall.")]
     Verification,
     #[error(
+        "Setup verification failed [{0}]. The installation and update hold are preserved; no reinstall is needed."
+    )]
+    CheckFailed(&'static str),
+    #[error(
         "Tailscale SSH could not reach this Mac. Check this client's Tailscale connection, SSH access policy and any browser approval request, then resume setup."
     )]
     Tailnet,
@@ -326,6 +330,33 @@ pub fn finish_with_tools(
             ))?
             .success()
         {
+            // Read-only probes give actionable errors even with an older installed helper.
+            for (code, probe) in [
+                (
+                    "service-health",
+                    "/run/current-system/sw/bin/homelab-health >/dev/null".to_owned(),
+                ),
+                (
+                    "updater-service",
+                    "/bin/launchctl print system/com.github.nlewo.comin >/dev/null 2>&1".to_owned(),
+                ),
+                (
+                    "repository-access",
+                    format!(
+                        "/usr/bin/env GIT_SSH_COMMAND=\"/usr/bin/ssh -F /dev/null -i /var/lib/homelab-git/key.txt -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/homelab/github_known_hosts -o GlobalKnownHostsFile=/dev/null -o ConnectTimeout=10\" /usr/bin/git ls-remote --exit-code git@github.com:{}.git refs/heads/main >/dev/null 2>&1",
+                        selection.repository
+                    ),
+                ),
+            ] {
+                // The complete probe runs under sudo; shell redirection stays in that scope.
+                let script = format!("/bin/sh -c '{}'", probe.replace('\'', "'\\''"));
+                if !connection.root(&script)?.success() {
+                    if let Some(root) = crate::enrollment_credentials::state_directory() {
+                        crate::bootstrap_diagnostics::record(&root, None, code);
+                    }
+                    return Err(Error::CheckFailed(code));
+                }
+            }
             return Err(Error::Verification);
         }
         let report = read_report(&connection, &system, &binding, &request)?;

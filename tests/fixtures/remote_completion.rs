@@ -43,7 +43,16 @@ fn main() {
         println!("bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee");
     } else if command.starts_with("/usr/bin/sudo ") {
         assert_eq!(args[0], "-tt");
+        if command.contains("/bin/sh -c") {
+            if command.contains("homelab-health") && root.join("service-health-fails").exists() {
+                std::process::exit(1);
+            }
+            return;
+        }
         assert!(command.contains("--system '/nix/store/test-system'"));
+        if command.contains("verify-setup") && root.join("service-health-fails").exists() {
+            std::process::exit(1);
+        }
         if command.contains("request-setup-reboot") {
             if root.join("reboot-denied").exists() { std::process::exit(1); }
             fs::write(root.join("rebooted"), "yes").unwrap();

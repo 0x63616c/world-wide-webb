@@ -9,6 +9,17 @@ struct Fixture {
 }
 
 #[test]
+fn service_failure_is_identified_without_rebooting() {
+    let fixture = Fixture::new();
+    fixture.flag("service-health-fails");
+    assert!(matches!(
+        fixture.finish(),
+        Err(remote_completion::Error::CheckFailed("service-health"))
+    ));
+    assert!(!fixture.events().contains("request-setup-reboot"));
+}
+
+#[test]
 fn enrollment_can_finish_before_health_verification_without_reinstallation() {
     let fixture = Fixture::new();
     fixture.flag("enrollment-pending");
