@@ -177,7 +177,16 @@ struct SettingsView: View {
                     RecordingAccessView(permissions: model.permissions, notifications: model.transcriptionNotifications, recording: model.isRecording).modifier(SettingsSurface())
                 }
                 SettingsSection("Updates") {
-                    SettingsSwitchRow("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
+                    VStack(spacing: 0) {
+                        SettingsSwitchRow("Check for updates automatically", isOn: $updates.automaticallyChecksForUpdates)
+                        SettingsDivider()
+                        SettingsRow {
+                            Text("Check for updates")
+                            Spacer()
+                            Button("Check Now") { updates.checkForUpdates() }
+                                .disabled(!updates.canCheckForUpdates || model.isRecording || model.isBusy)
+                        }
+                    }
                 }
                 SettingsSection("Diagnostics") {
                     SettingsRow {
@@ -189,7 +198,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Callkeep · Build \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "4")")
                     Spacer()
-                    Button("About Recording") { showingInfo = true }.buttonStyle(.link)
+                    Button("About Callkeep") { showingInfo = true }.buttonStyle(.link)
                 }.font(.caption).foregroundStyle(.secondary)
             }.frame(maxWidth: 560).padding(32).frame(maxWidth: .infinity, alignment: .top)
         }
@@ -208,7 +217,7 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingInfo) {
             VStack(alignment: .leading, spacing: 18) {
-                Text("About Recording").font(.title2.weight(.semibold))
+                Text("About Callkeep").font(.title2.weight(.semibold))
                 Text("Callkeep records your default microphone and audio from all apps. Muting in a call does not mute Callkeep.")
                 Text("Audio uses about 1 GB per hour. Finished recordings move to iCloud Drive when enabled and available. Changing audio devices or sleeping the Mac ends the recording.")
                 Text("Get everyone’s agreement before recording.")

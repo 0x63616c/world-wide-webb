@@ -49,13 +49,13 @@ struct LibraryView: View {
                     HStack(spacing: 8) {
                         Button { model.showSettings() } label: {
                             HStack(spacing: 10) {
-                            Image(systemName: "gearshape").frame(width: 22)
-                            Text("Settings")
-                            Spacer()
+                                Image(systemName: "gearshape").frame(width: 22)
+                                Text("Settings")
+                                Spacer()
+                                Text(AppIdentity.version).font(.caption).foregroundStyle(.secondary)
                             }.padding(.horizontal, 10).padding(.vertical, 9).contentShape(Rectangle())
                             .background(model.showingSettings ? Color.primary.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 7))
                         }.buttonStyle(.plain)
-                        Text(AppIdentity.version).font(.caption).foregroundStyle(.secondary)
                         if updates.updateAvailable {
                             Button { updates.checkForUpdates() } label: {
                                 Image(systemName: "arrow.down.circle.fill").foregroundStyle(Color.accentColor)
@@ -228,6 +228,8 @@ struct RecordingDetail: View {
     let recording: Recording
     @Binding var renamingID: UUID?
     @State private var waveform = RecordingWaveform()
+    @State private var waveformLoading = true
+    @State private var waveformError = false
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             HStack(alignment: .top) {
@@ -239,7 +241,7 @@ struct RecordingDetail: View {
                 Spacer(minLength: 8)
             }
             TitleSuggestionView(model: model, recording: recording)
-            PlaybackTimelineView(playback: model.playback, waveform: waveform)
+            PlaybackTimelineView(playback: model.playback, waveform: waveform, waveformLoading: waveformLoading, waveformError: waveformError)
                 .disabled(model.isRecording || recording.duration == 0)
             HStack(spacing: 30) {
                 Spacer()
@@ -262,16 +264,20 @@ struct RecordingDetail: View {
         }.padding(.horizontal, 40).padding(.vertical, 28)
             .frame(maxWidth: 850).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: model.store?.folder(for: recording)) {
-            guard let store = model.store else { return }
+            waveformLoading = true; waveformError = false
+            guard let store = model.store else { waveformLoading = false; waveformError = true; return }
             let folder = store.folder(for: recording)
             let task = Task.detached(priority: .utility) {
                 try RecordingWaveform.read(recording, folder: folder)
             }
-            let result = await withTaskCancellationHandler {
-                try? await task.value
-            } onCancel: { task.cancel() }
-            guard !Task.isCancelled else { return }
-            waveform = result ?? RecordingWaveform()
+            do {
+                let result = try await withTaskCancellationHandler {
+                    try await task.value
+                } onCancel: { task.cancel() }
+                guard !Task.isCancelled else { return }
+                waveform = result; waveformLoading = false
+            } catch is CancellationError { }
+            catch { guard !Task.isCancelled else { return }; waveformLoading = false; waveformError = true }
         }
     }
 
@@ -337,6 +343,8 @@ private struct RecordingInfoView: View {
 private struct PlaybackTimelineView: View {
     @Bindable var playback: Playback
     let waveform: RecordingWaveform
+    let waveformLoading: Bool
+    let waveformError: Bool
     @State private var scrubbing = false
     @State private var scrubPosition: TimeInterval = 0
     @State private var resumeAfterScrubbing = false
@@ -347,7 +355,16 @@ private struct PlaybackTimelineView: View {
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
                     WaveformLegend(microphoneEnabled: $playback.microphoneEnabled, systemAudioEnabled: $playback.systemAudioEnabled)
-                    WaveformView(waveform: waveform, microphoneEnabled: playback.microphoneEnabled, systemAudioEnabled: playback.systemAudioEnabled, progress: playback.duration > 0 ? position / playback.duration : 0).frame(height: 104)
+                    Group {
+                        if waveformLoading {
+                            ProgressView("Loading waveform…").controlSize(.small)
+                        } else if waveformError {
+                            Label("Waveform unavailable", systemImage: "exclamationmark.circle")
+                                .font(.callout).foregroundStyle(.secondary)
+                        } else {
+                            WaveformView(waveform: waveform, microphoneEnabled: playback.microphoneEnabled, systemAudioEnabled: playback.systemAudioEnabled, progress: playback.duration > 0 ? position / playback.duration : 0)
+                        }
+                    }.frame(maxWidth: .infinity).frame(height: 104)
                 }
                 VStack(spacing: 8) {
                     Slider(value: Binding(get: { position }, set: { value in
