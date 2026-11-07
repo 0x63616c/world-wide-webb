@@ -32,9 +32,9 @@ struct TeslaEnergy: View {
                     if let limit = data.chargeLimitPercent {
                         if let finish = data.chargeCompleteAt, finish > Date() {
                             Text("\(Int(limit.rounded()))% by \(finish, format: .dateTime.hour().minute())")
-                                .font(.subheadline).foregroundStyle(.secondary)
+                                .font(.subheadline).foregroundStyle(Color.secondary)
                         } else {
-                            Text("To \(Int(limit.rounded()))%").font(.subheadline).foregroundStyle(.secondary)
+                            Text("To \(Int(limit.rounded()))%").font(.subheadline).foregroundStyle(Color.secondary)
                         }
                     }
                 }.foregroundStyle(.green)
@@ -58,7 +58,7 @@ struct TeslaUpdateNotice: View {
             else { Image(systemName: "arrow.down.circle.fill").font(.title2).foregroundStyle(.blue) }
             VStack(alignment: .leading, spacing: 5) {
                 Text(installing ? "Installing update" : "Update available").font(.headline)
-                if let version = update.latestVersion { Text(version).font(.subheadline).foregroundStyle(.secondary) }
+                if let version = update.latestVersion { Text(version).font(.subheadline).foregroundStyle(Color.secondary) }
             }
             Spacer(minLength: 0)
         }
