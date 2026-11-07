@@ -20,6 +20,11 @@ struct WeatherAtmosphere: View {
         if fog { return [Color(hex: "#617888"), Color(hex: "#9aabb5"), Color(hex: "#526c82")] }
         return [Color(hex: "#1268af"), Color(hex: "#459bce"), Color(hex: "#246c9e")]
     }
+    // Stable sampling avoids a visible grid while keeping animation continuous between frames.
+    private func sample(_ index: Int, _ seed: Double) -> Double {
+        let value = sin(Double(index) * 127.1 + seed * 311.7) * 43758.5453
+        return value - floor(value)
+    }
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 24, paused: reduceMotion || scenePhase != .active || fixedPhase != nil)) { tick in
             let time = fixedPhase ?? (reduceMotion ? 0 : tick.date.timeIntervalSinceReferenceDate)
@@ -35,11 +40,15 @@ struct WeatherAtmosphere: View {
                     }
                     Canvas { context, canvas in
                         if night && !clouds {
-                            for index in 0..<60 {
-                                let x = Double((index * 73 + 19) % 997) / 997 * canvas.width
-                                let y = Double((index * 137 + 41) % 991) / 991 * canvas.height * 0.65
-                                let alpha = 0.3 + (sin(time / 3 + Double(index)) + 1) * 0.2
-                                context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 2, height: 2)), with: .color(.white.opacity(alpha)))
+                            for index in 0..<85 {
+                                let x = sample(index, 1) * canvas.width
+                                let y = sample(index, 2) * canvas.height * 0.78
+                                let size = 0.7 + sample(index, 3) * 1.6
+                                let phase = sample(index, 4) * .pi * 2
+                                let speed = 0.35 + sample(index, 5) * 0.8
+                                let shimmer = (sin(time * speed + phase) + 1) / 2
+                                let alpha = (0.2 + sample(index, 6) * 0.42) * (0.55 + shimmer * 0.45)
+                                context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: size, height: size)), with: .color(.white.opacity(alpha)))
                             }
                         }
                         if clouds {
@@ -55,14 +64,21 @@ struct WeatherAtmosphere: View {
                             }
                         }
                         if rain || snow {
-                            for index in 0..<90 {
-                                let x = Double((index * 79) % 997) / 997 * canvas.width
-                                let y = (Double(index) / 90 + time * (snow ? 0.035 : 0.3)).truncatingRemainder(dividingBy: 1) * canvas.height
+                            for index in 0..<120 {
+                                let x = sample(index, 11) * canvas.width
+                                let offset = sample(index, 12)
+                                let speed = snow ? 0.025 + sample(index, 13) * 0.025 : 0.35 + sample(index, 13) * 0.35
+                                let y = (offset + time * speed).truncatingRemainder(dividingBy: 1) * (canvas.height + 40) - 20
                                 if snow {
-                                    context.fill(Path(ellipseIn: CGRect(x: x + sin(time + Double(index)) * 12, y: y, width: 4, height: 4)), with: .color(.white.opacity(0.65)))
+                                    let size = 2 + sample(index, 14) * 3
+                                    context.fill(Path(ellipseIn: CGRect(x: x + sin(time * 0.7 + offset * 10) * 12, y: y, width: size, height: size)), with: .color(.white.opacity(0.45)))
                                 } else {
-                                    var streak = Path(); streak.move(to: CGPoint(x: x, y: y)); streak.addLine(to: CGPoint(x: x - 7, y: y + 22))
-                                    context.stroke(streak, with: .color(.white.opacity(0.25)), lineWidth: 1)
+                                    let length = 10 + sample(index, 14) * 23
+                                    let alpha = 0.08 + sample(index, 15) * 0.19
+                                    var streak = Path()
+                                    streak.move(to: CGPoint(x: x, y: y))
+                                    streak.addLine(to: CGPoint(x: x - length * 0.22, y: y + length))
+                                    context.stroke(streak, with: .color(.white.opacity(alpha)), lineWidth: 0.6 + sample(index, 16) * 0.5)
                                 }
                             }
                         }
