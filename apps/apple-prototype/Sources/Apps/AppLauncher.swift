@@ -163,12 +163,11 @@ struct PanelSettingsPage: View {
 
 /// Small, interruptible press feedback; screen navigation itself stays a crossfade.
 private struct LauncherPressStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .environment(\.launcherIconPressed, configuration.isPressed)
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.8 : 1)
-            .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: configuration.isPressed)
+            .animation(.smooth(duration: 0.2), value: configuration.isPressed)
     }
 }

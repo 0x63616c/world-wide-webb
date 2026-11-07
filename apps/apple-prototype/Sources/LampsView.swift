@@ -4,7 +4,6 @@ struct LampsController: View {
     let store: any HomeDataSource
     @State private var showingEffects = false
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
         ScrollView {
@@ -53,7 +52,7 @@ struct LampsController: View {
             Text("\(store.lamps.brightness)%")
                 .font(.system(size: compact ? 72 : 96, weight: .medium, design: .rounded)).monospacedDigit()
                 .contentTransition(.numericText()).accessibilityIdentifier("lamp-brightness-value")
-                .animation(reduceMotion ? nil : .smooth(duration: 0.25), value: store.lamps.brightness)
+                .animation(.smooth(duration: 0.25), value: store.lamps.brightness)
             Text("\(store.lamps.onCount(.lamps)) of 8 on").font(.system(size: 22, weight: .medium))
         }
     }

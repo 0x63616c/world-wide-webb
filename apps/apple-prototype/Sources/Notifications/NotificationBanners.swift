@@ -37,7 +37,6 @@ struct NotificationSourceIcon: View {
 /// Only cards and controls intercept input; the rest of the board remains usable.
 struct NotificationBanners: View {
     @Environment(NotificationCenter.self) private var center
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
@@ -48,8 +47,7 @@ struct NotificationBanners: View {
     var initiallyExpanded = false
     var captureDrag: CGFloat = 0
 
-    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
-    private var motion: Animation { reduceMotion ? .easeOut(duration: 0.15) : .spring(duration: 0.36, bounce: 0.12) }
+    private var motion: Animation { .spring(duration: 0.36, bounce: 0.12) }
     private var items: [NotificationItem] { NotificationBannerStack.ordered(center.bannerGroups) }
     private var isActivePresenter: Bool { center.isActivePresenter(presenterID) }
     private var pauseTimers: Bool {
@@ -69,7 +67,7 @@ struct NotificationBanners: View {
             if isActivePresenter {
                 if center.historyPresented {
                     NotificationHistory(source: source)
-                        .transition(reduceMotion ? .opacity : .move(edge: .top))
+                        .transition(.move(edge: .top))
                 } else { NotificationHistoryEdge() }
             }
         }
@@ -165,12 +163,11 @@ struct NotificationBanners: View {
                 if active { interaction.touching.insert(item.id) } else { interaction.touching.remove(item.id) }
             })
             .id(item.id)
-            .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
+            .transition(.move(edge: .trailing).combined(with: .opacity))
     }
 }
 
 private struct NotificationBanner: View {
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @State private var translation: CGFloat = 0
     @State private var leaving = false
     @State private var interaction = NotificationCardInteraction()
@@ -182,7 +179,6 @@ private struct NotificationBanner: View {
     let open: () -> Void
     let dismiss: () -> Void
     let touch: (Bool) -> Void
-    private var reduceMotion: Bool { NotificationMotion.isReduced(systemReduceMotion) }
 
     var body: some View {
         Button(action: open) {
@@ -217,7 +213,7 @@ private struct NotificationBanner: View {
         }))
         .foregroundStyle(.primary)
         .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
-        .glassEffectTransition(reduceMotion ? .identity : .materialize)
+        .glassEffectTransition(.materialize)
         .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
         .accessibilityValue(item.priority == .critical ? "Critical" : "")
         .accessibilityHint(count > 1 ? "Expands notifications" : "Opens \(source.name)")
@@ -225,7 +221,6 @@ private struct NotificationBanner: View {
             if !item.isPersistentUpdate { Button("Dismiss", action: dismiss) }
         }
         .offset(x: translation + captureDrag)
-        .opacity(leaving && reduceMotion ? 0 : 1)
         .highPriorityGesture(DragGesture(minimumDistance: 10)
             .updating($dragging) { _, active, _ in active = true }
             .onChanged { value in
@@ -238,18 +233,18 @@ private struct NotificationBanner: View {
                     predictedX: value.predictedEndTranslation.width) {
                     leaving = true
                     touch(true)
-                    withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.22)) {
-                        translation = reduceMotion ? 0 : 680
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        translation = 680
                     } completion: { dismiss() }
                 } else {
-                    withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
+                    withAnimation(.spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
                 }
             }, including: item.isPersistentUpdate ? .none : .all)
         .onChange(of: dragging) { _, active in
             interaction.dragging = active
             touch(interaction.pressed || active || leaving)
             if !active && !leaving {
-                withAnimation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
+                withAnimation(.spring(duration: 0.3, bounce: 0.18)) { translation = 0 }
             }
         }
         .onDisappear { touch(false) }
@@ -260,16 +255,6 @@ private struct NotificationTouchStyle: ButtonStyle {
     let touch: (Bool) -> Void
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.onChange(of: configuration.isPressed) { _, pressed in touch(pressed) }
-    }
-}
-
-enum NotificationMotion {
-    static func isReduced(_ system: Bool) -> Bool {
-        #if DEBUG
-        system || ProcessInfo.processInfo.arguments.contains("-notificationReduceMotion")
-        #else
-        system
-        #endif
     }
 }
 

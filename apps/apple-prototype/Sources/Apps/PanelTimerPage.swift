@@ -7,7 +7,6 @@ struct PanelTimerPage: View {
     @State private var hours = 0
     @State private var minutes = 15
     @State private var seconds = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -100,7 +99,7 @@ struct PanelTimerPage: View {
     private func editDuration() {
         let total = Int(timer.countdown.duration)
         hours = total / 3600; minutes = total / 60 % 60; seconds = total % 60
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) { editing = true }
+        withAnimation(.easeOut(duration: 0.18)) { editing = true }
     }
     private var durationEditor: some View {
         VStack(spacing: 40) {

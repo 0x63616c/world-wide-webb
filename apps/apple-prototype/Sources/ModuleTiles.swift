@@ -95,12 +95,11 @@ private struct HomeCameraTile: View {
     let count: Int
     let now: Date
     @Environment(\.motionPhase) private var phase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var compact: Bool { sizeClass == .compact }
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: reduceMotion || phase != nil)) { context in
-            let t = phase ?? (reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate)
+        TimelineView(.animation(minimumInterval: 1.0 / 12, paused: phase != nil)) { context in
+            let t = phase ?? context.date.timeIntervalSinceReferenceDate
             GeometryReader { proxy in
                 ZStack {
                     Image(feed.asset).resizable().scaledToFill()

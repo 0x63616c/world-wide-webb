@@ -105,7 +105,6 @@ private struct ClimateTemperatureSurface: View {
     let range: ClosedRange<Int>
     let title: String
     let commit: (Int) -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dragFraction: Double?
 
     // Put the room temperature at the center while preserving the full setpoint range.
@@ -139,7 +138,7 @@ private struct ClimateTemperatureSurface: View {
                     .font(.system(size: min(310, proxy.size.width * 0.32), weight: .medium, design: .rounded))
                     .monospacedDigit().minimumScaleFactor(0.6).lineLimit(1)
                     .contentTransition(.numericText(value: Double(displayed)))
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: displayed)
+                    .animation(.easeOut(duration: 0.16), value: displayed)
                     .shadow(color: .black.opacity(0.55), radius: 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("climate-value")
@@ -153,7 +152,7 @@ private struct ClimateTemperatureSurface: View {
                     }
                     .onEnded { _ in
                         let target = displayed
-                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
+                        withAnimation(.smooth(duration: 0.22)) {
                             if target != value { commit(target) }
                             dragFraction = nil
                         }
@@ -161,7 +160,7 @@ private struct ClimateTemperatureSurface: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(title).accessibilityValue("\(displayed) degrees Fahrenheit")
                 .accessibilityAdjustableAction { direction in
-                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
+                    withAnimation(.smooth(duration: 0.22)) {
                         if direction == .increment { commit(bounded(value + 1)) }
                         else if direction == .decrement { commit(bounded(value - 1)) }
                     }
