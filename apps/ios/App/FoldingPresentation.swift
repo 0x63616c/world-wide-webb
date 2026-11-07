@@ -302,6 +302,8 @@ enum ExportChoice { case json, csv }
   var analytics: PersonalAnalyticsSnapshot?
   var setup: SetupProgress?
   var preferences = FoldingPreferences()
+  var hasLoadedInitialState = false
+  var showInitialSetup = false
   var history: HistoryPresentation?
   var historyPeriod: HistoryPeriod = .week
   var historyOffset = 0

@@ -11,52 +11,62 @@ struct FoldingRootView: View {
   @State private var historyPath: [HistoryRoute] = []
 
   var body: some View {
-    TabView(selection: $model.selectedTab) {
-      Tab(
-        String(localized: "tab.today", defaultValue: "Today"), systemImage: "chart.bar",
-        value: .today
-      ) {
-        NavigationStack {
-          TodayScreen(model: model, actions: actions)
-            .navigationTitle(String(localized: "tab.today", defaultValue: "Today"))
-            .toolbar { settingsButton }
-        }
-      }
-      Tab(
-        String(localized: "tab.history", defaultValue: "History"), systemImage: "clock",
-        value: .history
-      ) {
-        NavigationStack(path: $historyPath) {
-          HistoryScreen(model: model, actions: actions)
-            .navigationTitle(String(localized: "tab.history", defaultValue: "History"))
-            .toolbar { settingsButton }
-            .navigationDestination(for: HistoryRoute.self) { route in
-              switch route {
-              case .session(let session): SessionScreen(session: session)
-              }
+    Group {
+      if !model.hasLoadedInitialState {
+        ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+      } else if model.showInitialSetup {
+        SetupScreen(model: model, actions: actions)
+      } else {
+        TabView(selection: $model.selectedTab) {
+          Tab(
+            String(localized: "tab.today", defaultValue: "Today"), systemImage: "chart.bar",
+            value: .today
+          ) {
+            NavigationStack {
+              TodayScreen(model: model, actions: actions)
+                .navigationTitle(String(localized: "tab.today", defaultValue: "Today"))
+                .toolbar { settingsButton }
             }
-        }
-      }
-      Tab(
-        String(localized: "tab.leaderboard", defaultValue: "Leaderboard"), systemImage: "trophy",
-        value: .leaderboard
-      ) {
-        NavigationStack {
-          LeaderboardScreen(model: model, actions: actions)
-            .navigationTitle(String(localized: "tab.leaderboard", defaultValue: "Leaderboard"))
-            .toolbar {
-              settingsButton
-              if model.competitionProfile != nil {
-                ToolbarItem(placement: .topBarLeading) {
-                  Button {
-                    model.present(.competition(.profile))
-                  } label: {
-                    Image(systemName: "person.crop.circle")
+          }
+          Tab(
+            String(localized: "tab.history", defaultValue: "History"), systemImage: "clock",
+            value: .history
+          ) {
+            NavigationStack(path: $historyPath) {
+              HistoryScreen(model: model, actions: actions)
+                .navigationTitle(String(localized: "tab.history", defaultValue: "History"))
+                .toolbar { settingsButton }
+                .navigationDestination(for: HistoryRoute.self) { route in
+                  switch route {
+                  case .session(let session): SessionScreen(session: session)
                   }
-                  .accessibilityLabel(String(localized: "profile.title", defaultValue: "Profile"))
                 }
-              }
             }
+          }
+          Tab(
+            String(localized: "tab.leaderboard", defaultValue: "Leaderboard"),
+            systemImage: "trophy",
+            value: .leaderboard
+          ) {
+            NavigationStack {
+              LeaderboardScreen(model: model, actions: actions)
+                .navigationTitle(String(localized: "tab.leaderboard", defaultValue: "Leaderboard"))
+                .toolbar {
+                  settingsButton
+                  if model.competitionProfile != nil {
+                    ToolbarItem(placement: .topBarLeading) {
+                      Button {
+                        model.present(.competition(.profile))
+                      } label: {
+                        Image(systemName: "person.crop.circle")
+                      }
+                      .accessibilityLabel(
+                        String(localized: "profile.title", defaultValue: "Profile"))
+                    }
+                  }
+                }
+            }
+          }
         }
       }
     }
@@ -173,7 +183,7 @@ private struct TodayScreen: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 24) {
+      VStack(alignment: .leading, spacing: 16) {
         if let failure = model.personalFailure, model.analytics != nil {
           Label(failure, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(
             .secondary)
@@ -237,12 +247,25 @@ private struct TodayScreen: View {
           VStack(alignment: .leading, spacing: 4) {
             Text(today.folds, format: .number).font(
               .system(.largeTitle, design: .rounded, weight: .bold)
-            ).monospacedDigit()
+            ).monospacedDigit().foregroundStyle(model.preferences.accent.color)
             Text(String(localized: "metric.folds", defaultValue: "Folds")).foregroundStyle(
               .secondary)
           }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(20)
+          .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 20)
+          )
           .accessibilityElement(children: .combine)
-          ForEach(model.preferences.metrics) { metric in metricView(metric, today: today) }
+          ForEach(model.preferences.metrics) { metric in
+            metricView(metric, today: today)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(20)
+              .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 20))
+          }
           Button(String(localized: "today.editSummary", defaultValue: "Edit Summary")) {
             model.present(.editSummary)
           }
@@ -259,6 +282,7 @@ private struct TodayScreen: View {
       .padding(16)
       .frame(maxWidth: .infinity)
     }
+    .background(Color(uiColor: .systemGroupedBackground))
     .refreshable {
       await model.command(String(localized: "action.refreshing", defaultValue: "Refreshing")) {
         try await actions.refresh()
@@ -335,6 +359,7 @@ private struct TodayScreen: View {
                 Date(timeIntervalSince1970: Double(day.startMS) / 1000)),
               y: .value(String(localized: "metric.folds", defaultValue: "Folds"), day.folds)
             )
+            .foregroundStyle(model.preferences.accent.color)
             .accessibilityLabel(day.date)
             .accessibilityValue(day.folds.formatted())
           }
@@ -530,16 +555,25 @@ private struct SettingsScreen: View {
           ) {
             ForEach(FoldingAppearance.allCases) { Text($0.title).tag($0) }
           }
-          Picker(
-            String(localized: "settings.accent", defaultValue: "Accent"),
-            selection: preference(\.accent)
-          ) {
-            ForEach(FoldingAccent.allCases) { accent in
-              Label {
-                Text(accent.title)
-              } icon: {
-                Image(systemName: "circle.fill").foregroundStyle(accent.color)
-              }.tag(accent)
+          VStack(alignment: .leading, spacing: 12) {
+            Text(String(localized: "settings.accent", defaultValue: "Accent"))
+            HStack(spacing: 0) {
+              ForEach(FoldingAccent.allCases) { accent in
+                Button {
+                  preference(\.accent).wrappedValue = accent
+                } label: {
+                  Image(
+                    systemName: model.preferences.accent == accent
+                      ? "checkmark.circle.fill" : "circle.fill"
+                  )
+                  .font(.title2)
+                  .foregroundStyle(accent.color)
+                  .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(accent.title)
+                .accessibilityAddTraits(model.preferences.accent == accent ? .isSelected : [])
+              }
             }
           }
         }
@@ -685,12 +719,17 @@ private struct SettingsScreen: View {
     Binding(
       get: { model.preferences[keyPath: key] },
       set: { value in
-        var next = model.preferences
+        let previous = model.preferences
+        var next = previous
         next[keyPath: key] = value
+        model.preferences = next
         Task {
-          await model.command(String(localized: "settings.saving", defaultValue: "Saving")) {
+          do {
             try await actions.savePreferences(next)
-            model.preferences = next
+          } catch {
+            if model.preferences == next { model.preferences = previous }
+            model.error = String(
+              localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
           }
         }
       })
@@ -805,9 +844,12 @@ private struct TimezonePicker: View {
   }
 }
 
+private enum HingePosture { case closed, partiallyOpen, fullyOpen }
+
 private struct SetupScreen: View {
   @Bindable var model: FoldingPresentation
   let actions: FoldingActions
+  @State private var hinge: HingePosture?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   private var step: SetupStep { model.setup?.step ?? .welcome }
   private var closing: Bool {
@@ -818,90 +860,146 @@ private struct SetupScreen: View {
   private var instructions: String? {
     closing ? actions.closingInstructions : actions.openingInstructions
   }
+  private var readyForTest: Bool {
+    guard let hinge else { return true }
+    if step == .openingReady { return hinge == .closed }
+    if step == .closingReady { return hinge != .closed }
+    return true
+  }
 
-  var body: some View {
-    NavigationStack {
-      ScrollView {
-        VStack(spacing: 24) {
-          FoldIllustration(open: !closing, success: passed)
-            .id(step)
-            .frame(height: 180)
-            .accessibilityHidden(true)
-          Text(title).font(.largeTitle.bold()).multilineTextAlignment(.center)
-          if let sentence {
-            Text(sentence).font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
-          }
-          if step.isWaiting {
-            ProgressView().accessibilityLabel(title)
-            if let expires = model.setup?.expiresAtMS {
-              Text(Date(timeIntervalSince1970: Double(expires) / 1000), style: .timer)
-                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                .accessibilityLabel(
-                  String(localized: "setup.timeRemaining", defaultValue: "Time remaining"))
-            }
-          }
-          if step != .openingInstructions && step != .closingInstructions { primaryButton }
-          if step == .openingInstructions || step == .closingInstructions {
-            if let open = actions.openShortcuts {
-              Button(
-                String(localized: "setup.openShortcuts", defaultValue: "Open Shortcuts"),
-                action: open
-              )
-              .buttonStyle(.borderedProminent).controlSize(.large)
-            }
-            Button(String(localized: "setup.configured", defaultValue: "I've set it up")) {
-              perform(.next)
-            }.disabled(model.operation != nil)
-            DisclosureGroup(String(localized: "action.help", defaultValue: "Help")) {
-              VStack(alignment: .leading, spacing: 12) {
-                Text(
-                  closing
-                    ? String(
-                      localized: "setup.createClosing",
-                      defaultValue: "Create a shortcut with Folding’s Record Closing action.")
-                    : String(
-                      localized: "setup.createOpening",
-                      defaultValue: "Create a shortcut with Folding’s Record Opening action."))
-                if let instructions {
-                  Text(instructions)
-                } else {
-                  Text(
-                    closing
-                      ? String(
-                        localized: "setup.chooseClosing",
-                        defaultValue:
-                          "In the editor, choose an automation for when your Duo closes.")
-                      : String(
-                        localized: "setup.chooseOpening",
-                        defaultValue: "In the editor, choose an automation for when your Duo opens."
-                      ))
-                }
-                Text(
-                  String(
-                    localized: "setup.lockedHelp",
-                    defaultValue:
-                      "Check the shortcut’s privacy settings to allow running while locked."))
-                Text(
-                  String(
-                    localized: "setup.existingHelp",
-                    defaultValue:
-                      "Already created it? Edit the existing shortcut to avoid duplicates."))
-                Link(
-                  String(localized: "setup.appleGuide", defaultValue: "Shortcuts guide"),
-                  destination: URL(
-                    string:
-                      "https://support.apple.com/guide/shortcuts/add-automations-apdfbdbd7123/ios")!
-                )
-              }.frame(maxWidth: .infinity, alignment: .leading)
-            }.font(.subheadline)
-          }
-          if step == .openingRetry || step == .closingRetry, let open = actions.openShortcuts {
-            Button(String(localized: "setup.checkSetup", defaultValue: "Check setup"), action: open)
-          }
+  @ViewBuilder var body: some View {
+    if #available(iOS 27.1, *) {
+      content.onHingeChange { _, context in
+        guard let status = context.hinge?.status else {
+          hinge = nil
+          return
         }
-        .frame(maxWidth: 520)
-        .padding(24)
-        .frame(maxWidth: .infinity)
+        if status == .closed {
+          hinge = .closed
+        } else if status == .fullyOpen {
+          hinge = .fullyOpen
+        } else {
+          hinge = .partiallyOpen
+        }
+      }
+    } else {
+      content
+    }
+  }
+
+  private var content: some View {
+    NavigationStack {
+      GeometryReader { geometry in
+        ScrollView {
+          VStack(spacing: 20) {
+            Spacer(minLength: 12)
+            FoldIllustration(open: hinge.map { $0 != .closed } ?? !closing, success: passed)
+              .id(step)
+              .frame(height: 180)
+              .accessibilityHidden(true)
+            Text(title).font(.largeTitle.bold()).multilineTextAlignment(.center)
+            if let hinge {
+              Label(hingeStatus(hinge), systemImage: "iphone.gen3")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            }
+            if let sentence {
+              Text(sentence).font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            if !readyForTest {
+              Text(
+                step == .openingReady
+                  ? String(localized: "setup.startClosed", defaultValue: "Close your Duo first.")
+                  : String(localized: "setup.startOpen", defaultValue: "Open your Duo first.")
+              ).font(.subheadline).foregroundStyle(.secondary)
+            }
+            if step.isWaiting {
+              ProgressView().accessibilityLabel(title)
+              if let expires = model.setup?.expiresAtMS {
+                Text(Date(timeIntervalSince1970: Double(expires) / 1000), style: .timer)
+                  .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                  .accessibilityLabel(
+                    String(localized: "setup.timeRemaining", defaultValue: "Time remaining"))
+              }
+            }
+            if step != .openingInstructions && step != .closingInstructions {
+              primaryButton.frame(maxWidth: 320)
+            }
+            if step == .openingInstructions || step == .closingInstructions {
+              Text(
+                String(
+                  localized: "setup.trigger", defaultValue: "Automation → Display → Open or Closed")
+              )
+              .font(.subheadline.weight(.medium))
+              Label(
+                closing
+                  ? String(
+                    localized: "setup.createClosing",
+                    defaultValue: "Create a shortcut with Folding’s Record Closing action.")
+                  : String(
+                    localized: "setup.createOpening",
+                    defaultValue: "Create a shortcut with Folding’s Record Opening action."),
+                systemImage: "magnifyingglass"
+              )
+              .font(.subheadline)
+              if let open = actions.openShortcuts {
+                Button(
+                  String(localized: "setup.openShortcuts", defaultValue: "Open Shortcuts"),
+                  action: open
+                )
+                .buttonStyle(.borderedProminent).controlSize(.large)
+              }
+              Button(String(localized: "setup.configured", defaultValue: "I've set it up")) {
+                perform(.next)
+              }.disabled(model.operation != nil)
+              DisclosureGroup(String(localized: "action.help", defaultValue: "Help")) {
+                VStack(alignment: .leading, spacing: 12) {
+                  if let instructions {
+                    Text(instructions)
+                  } else {
+                    Text(
+                      closing
+                        ? String(
+                          localized: "setup.chooseClosing",
+                          defaultValue:
+                            "In the editor, choose an automation for when your Duo closes.")
+                        : String(
+                          localized: "setup.chooseOpening",
+                          defaultValue:
+                            "In the editor, choose an automation for when your Duo opens."
+                        ))
+                  }
+                  Text(
+                    String(
+                      localized: "setup.lockedHelp",
+                      defaultValue:
+                        "Check the shortcut’s privacy settings to allow running while locked."))
+                  Text(
+                    String(
+                      localized: "setup.existingHelp",
+                      defaultValue:
+                        "Already created it? Edit the existing shortcut to avoid duplicates."))
+                  Link(
+                    String(localized: "setup.appleGuide", defaultValue: "Shortcuts guide"),
+                    destination: URL(
+                      string:
+                        "https://support.apple.com/guide/shortcuts/add-automations-apdfbdbd7123/ios"
+                    )!
+                  )
+                }.frame(maxWidth: .infinity, alignment: .leading)
+              }.font(.subheadline)
+            }
+            if step == .openingRetry || step == .closingRetry, let open = actions.openShortcuts {
+              Button(
+                String(localized: "setup.checkSetup", defaultValue: "Check setup"), action: open)
+            }
+            Spacer(minLength: 12)
+          }
+          .frame(maxWidth: 520)
+          .frame(minHeight: geometry.size.height)
+          .padding(.horizontal, 24)
+          .frame(maxWidth: .infinity)
+        }
       }
       .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: step)
       .toolbar {
@@ -923,6 +1021,16 @@ private struct SetupScreen: View {
         ).post()
       }
     }
+  }
+
+  private func hingeStatus(_ status: HingePosture) -> String {
+    if status == .closed {
+      return String(localized: "setup.hingeClosed", defaultValue: "Closed")
+    }
+    if status == .fullyOpen {
+      return String(localized: "setup.hingeOpen", defaultValue: "Open")
+    }
+    return String(localized: "setup.hingePartlyOpen", defaultValue: "Partly open")
   }
 
   private var title: String {
@@ -970,7 +1078,7 @@ private struct SetupScreen: View {
       Button(buttonTitle) { perform(buttonAction) }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
-        .disabled(model.operation != nil)
+        .disabled(model.operation != nil || !readyForTest)
     }
   }
 
@@ -999,6 +1107,7 @@ private struct SetupScreen: View {
     Task {
       await model.command(String(localized: "setup.updating", defaultValue: "Updating setup")) {
         model.setup = try await actions.setup(.dismiss)
+        model.showInitialSetup = false
         model.sheet = nil
       }
     }

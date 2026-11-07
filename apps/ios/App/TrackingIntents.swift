@@ -30,3 +30,20 @@ struct RecordClosingIntent: AppIntent {
     return .result()
   }
 }
+
+struct FoldingShortcuts: AppShortcutsProvider {
+  static var appShortcuts: [AppShortcut] {
+    AppShortcut(
+      intent: RecordOpeningIntent(),
+      phrases: ["Record opening in \(.applicationName)"],
+      shortTitle: LocalizedStringResource(
+        "intent.recordOpening.title", defaultValue: "Record Opening"),
+      systemImageName: "arrow.up.right")
+    AppShortcut(
+      intent: RecordClosingIntent(),
+      phrases: ["Record closing in \(.applicationName)"],
+      shortTitle: LocalizedStringResource(
+        "intent.recordClosing.title", defaultValue: "Record Closing"),
+      systemImageName: "arrow.down.left")
+  }
+}

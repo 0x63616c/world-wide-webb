@@ -702,11 +702,16 @@ import struct FoldingData.SetupProgress
       guard identity == accountChangeRevision, !accountChanging else { return }
       presentation.personalFailure = String(
         localized: "tracking.unavailable", defaultValue: "Tracking unavailable")
+      presentation.hasLoadedInitialState = true
     }
   }
 
   func refresh() async throws {
     guard !accountChanging else { throw CancellationError() }
+    // A fold can move the app to the background while its shared journal is open.
+    // Finish the short SQLite read before iOS suspends the process.
+    let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Refresh tracking")
+    defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
     let token = UUID()
     request = token
     let store = try await runtime.store()
@@ -733,12 +738,9 @@ import struct FoldingData.SetupProgress
     presentation.personalFailure = nil
     if !didLoad {
       didLoad = true
-      // Presentation-only preference; authoritative setup success remains in the journal.
-      if !preferencesStore.bool(forKey: "folding.didPresentInitialSetup") {
-        preferencesStore.set(true, forKey: "folding.didPresentInitialSetup")
-        presentation.present(.setup)
-      }
+      presentation.showInitialSetup = setup.step != .complete
     }
+    presentation.hasLoadedInitialState = true
   }
 
   func refreshAtDayBoundary() async {

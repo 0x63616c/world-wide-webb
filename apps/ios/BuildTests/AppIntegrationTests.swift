@@ -10,6 +10,7 @@ import XCTest
       "folding-app-test-\(UUID())")
     let suite = "folding.tests.\(UUID())"
     let preferences = UserDefaults(suiteName: suite)!
+    preferences.set(true, forKey: "folding.didPresentInitialSetup")
     defer {
       try? FileManager.default.removeItem(at: directory)
       preferences.removePersistentDomain(forName: suite)
@@ -19,6 +20,8 @@ import XCTest
     let controller = AppController(runtime: runtime, preferencesStore: preferences)
     try await controller.refresh()
     XCTAssertEqual(controller.presentation.setup?.step, .welcome)
+    XCTAssertTrue(controller.presentation.hasLoadedInitialState)
+    XCTAssertTrue(controller.presentation.showInitialSetup)
     XCTAssertEqual(controller.presentation.analytics?.lifetime.folds, 0)
     _ = try await controller.actions.setup(.next)
     _ = try await controller.actions.setup(.next)
@@ -34,6 +37,9 @@ import XCTest
     _ = try await controller.actions.setup(.next)
     try await controller.refresh()
     XCTAssertEqual(controller.presentation.setup?.step, .complete)
+    let relaunched = AppController(runtime: runtime, preferencesStore: preferences)
+    try await relaunched.refresh()
+    XCTAssertFalse(relaunched.presentation.showInitialSetup)
     XCTAssertEqual(controller.presentation.analytics?.lifetime.folds, 0)
     try await runtime.record(.open)
     try await runtime.record(.close)

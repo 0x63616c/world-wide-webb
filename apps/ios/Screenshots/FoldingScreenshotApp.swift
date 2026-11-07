@@ -145,6 +145,7 @@ import struct FoldingData.SetupProgress
       """
     let setup = try JSONDecoder().decode(SetupProgress.self, from: Data(setupJSON.utf8))
     let model = FoldingPresentation()
+    model.hasLoadedInitialState = true
     model.analytics = analytics
     model.setup = setup
     model.localDeviceID = device

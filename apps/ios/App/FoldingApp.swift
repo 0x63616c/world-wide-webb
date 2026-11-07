@@ -1,3 +1,4 @@
+import AppIntents
 import CloudKit
 import CoreData
 import StoreKit
@@ -10,6 +11,7 @@ import SwiftUI
   @Environment(\.scenePhase) private var scenePhase
 
   init() {
+    FoldingShortcuts.updateAppShortcutParameters()
     #if !targetEnvironment(simulator)
       precondition(
         !ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("--folding-screenshot-") },
@@ -50,6 +52,7 @@ import SwiftUI
         Task { await controller.synchronizePrivateHistory() }
       }
       .task { await controller.watch() }
+      .task { await controller.refreshVisible() }
       .task(id: [
         controller.presentation.analytics?.range.endMS, controller.presentation.analytics?.asOfMS,
       ]) {
