@@ -155,6 +155,18 @@ pub async fn dispatch(
     body: &[u8],
     request_id: &Id,
 ) -> std::result::Result<Option<Response>, Failure> {
+    if request.method() == Method::Get && request.path() == "/v1/capabilities" {
+        return Ok(Some(crate::capabilities_runtime::get(env, request_id)?));
+    }
+    if request.method() == Method::Get
+        && (request.path() == "/v1/results" || request.path().starts_with("/v1/results/"))
+    {
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::results_runtime::history(request, &db, &config, request_id).await?,
+        ));
+    }
     if request.method() == Method::Get && request.path().starts_with("/v1/operations/") {
         let config = Configuration::load(env)?;
         let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
@@ -176,6 +188,25 @@ pub async fn dispatch(
         let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
         return Ok(Some(
             crate::community_reads::read(request, &db, &config, request_id).await?,
+        ));
+    }
+    if (request.path() == "/v1/profile" && request.method() == Method::Patch)
+        || (request.path() == "/v1/reports" && request.method() == Method::Post)
+        || (request.path().starts_with("/v1/blocks/")
+            && [Method::Put, Method::Delete].contains(&request.method()))
+    {
+        let content_type = request
+            .headers()
+            .get("Content-Type")
+            .map_err(|_| Failure::malformed())?
+            .unwrap_or_default();
+        if content_type.split(';').next().map(str::trim) != Some("application/json") {
+            return Err(Failure::malformed());
+        }
+        let config = Configuration::load(env)?;
+        let db = env.d1("DB").map_err(|_| Failure::unavailable())?;
+        return Ok(Some(
+            crate::profile_runtime::mutate(request, &db, &config, body, request_id).await?,
         ));
     }
     if request.method() != Method::Post

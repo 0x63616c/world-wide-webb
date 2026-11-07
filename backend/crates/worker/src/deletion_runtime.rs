@@ -110,6 +110,10 @@ pub(crate) async fn delete(
             &[number(time), text(&session.participant_id)],
         )?,
     ];
+    writes.extend(crate::lifecycle_runtime::erase_results(
+        db,
+        &session.participant_id,
+    )?);
     for table in [
         "live_scores",
         "score_jobs",
@@ -306,6 +310,9 @@ pub(crate) async fn process(env: &Env, db: &D1Database) -> std::result::Result<(
             ],
         )?];
         for table in [
+            "results",
+            "period_roster",
+            "award_jobs",
             "observations",
             "live_scores",
             "score_jobs",

@@ -92,3 +92,23 @@ shared dispatcher revokes Apple credentials and purges rows. Completion mapping 
 active restriction records are retained independently. Finalized results, avatar objects and future tables
 must join this deletion fence/purge list as those modules are added. These flows still require final
 concurrency and external-service acceptance before shipping.
+
+### Results, moderation and deployment handshake
+
+Apply all migrations through **0010**. The dispatcher now snapshots eligible period input/rosters,
+replays frozen sources and atomically publishes tied rankings. Historical boards and owner result/share
+routes read published versions only. Award jobs are persisted, but APNs delivery and Queue integration
+remain pending. Explicit correction previews/republishing are still required for retroactive awards.
+
+Admin bindings: `ADMIN_ORIGIN` (canonical HTTPS origin), `ACCESS_TEAM_DOMAIN` (for example
+`https://team.cloudflareaccess.com`, no trailing slash), `ACCESS_AUDIENCE`, and
+`ADMIN_EMAIL_ALLOWLIST` (JSON array). No empty/default allowlist grants access. Pages and form commands
+verify Access independently, enforce same-origin/token-bound CSRF and use participant/report revisions.
+Name/report decisions and restriction/submission actions are audited. Custom names remain pending until
+approval. Profile/report/block routes and business rate limits are implemented. Avatars, correction
+previews, operational switches, appeals/annual ban review and full pagination/retention polish remain.
+
+`WORKER_VERSION` must identify the exact deployed Worker. `VERIFIED_CAPABILITIES` is a JSON array that
+the deployment owner populates **only after final acceptance**; the safe default is `[]`. `/v1/capabilities`
+returns no user or authentication data. The supported names and reserved later names are in the HTTP
+catalog. Compiling a handler does not itself authorize advertising it as release-ready.

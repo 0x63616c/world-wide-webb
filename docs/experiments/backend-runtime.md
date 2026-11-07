@@ -145,3 +145,52 @@ includes lost deletion responses, capability expiry/recovery, revoked proof/sess
 lease recovery, Apple outage retries, period boundaries, cursor tampering and privacy-versus-ingestion
 races. Profile/avatar moderation, preferences, reports/block mutations, finalized results and APNs remain
 outstanding. Revocation contract source: [Apple token revocation](https://developer.apple.com/documentation/signinwithapplerestapi/revoke-tokens).
+
+## Frozen results, moderation and capability implementation checkpoint
+
+Migrations 0009–0010 add the decision watermark, period state machine, frozen roster/input records,
+staged replay totals, atomically published ranked results, unique original-award jobs, report cases,
+moderation audit rows and durable rate windows. Finalization copies all eligible baseline observations
+and the current roster in one D1 transaction at freeze, using strict receipt cutoff and current decision
+version. Each frozen source replays independently; publication computes tied ranks/percentiles with SQL
+window functions and switches the published version atomically. Failed or incomplete staging never
+publishes partial awards. Privacy mutations remove copied inputs/results and suppress pending awards;
+other recipients' stored rank/population never changes merely because a person disappears.
+
+The dispatcher catches up calendar periods, stages bounded roster batches and publishes completed
+periods. Self-result history, share data and historical leaderboard reads use only published versions.
+Current visibility/generation/join-era checks and signed snapshot cursors apply. Measured D1 snapshot
+and publication size limits, production history scale, Queue orchestration, APNs delivery and correction
+preview/versioned republishing remain final implementation/acceptance gates; this checkpoint does not
+claim those components are complete.
+
+The admin origin now verifies Cloudflare Access RS256 signatures against the configured team's HTTPS
+certificates, exact issuer/audience/time claims, app token type and explicit administrator email allowlist.
+Every request authenticates independently, including alternate-host attempts, which fail the configured
+canonical-origin check. POST forms require matching Origin, an Access-token-bound HMAC CSRF token,
+a reason and expected row revision. Askama escapes the People, Names, Reports, Quarantine, Audit and
+participant-evidence views. Name approval/rejection/removal, report close/reopen, suspension/ban/unban
+and batch quarantine/reinstatement commit audit rows atomically with the guarded change. Reinstatement
+only restores observations that the moderator quarantined from an accepted state and refuses a new
+clock reversal; validation-quarantined events do not become accepted through this shortcut. Live scores
+replay immediately after a moderation change; frozen awards require the still-pending correction flow.
+
+Nickname policy is versioned under `policies/names-v1.json`; NFC display normalization is separate from
+NFKC/full casefold detection. Whole words and explicit obfuscations are checked without naive substring
+rejection. Every new custom name still waits for human approval. This initial multilingual vocabulary
+requires final localization/moderation review. Profile edits (5/hour), reports (5/day), blocks and event
+batches have durable rate windows. Report case evidence purges 90 days after closure. Broader case
+retention/annual permanent-ban review, appeals, audit/queue pagination refinements and admin operational
+switches remain outstanding; these are not silently treated as finished moderation requirements.
+
+`GET /v1/capabilities` is public and read-only. Its exact `WORKER_VERSION` and owner-managed
+`VERIFIED_CAPABILITIES` deployment allowlist let release preflight distinguish code presence from final
+accepted capability. The default is an empty list; unknown/unimplemented names fail configuration. This
+is not a private-tracking remote switch. HTTP catalog additions (capabilities and report decisions) were
+approved by the primary agent and coordinated with release/native work.
+
+Checkpoint evidence: native all-targets and Wasm compilation pass; ten additive migrations apply to
+fresh SQLite; 231 literal SQL statements prepare successfully against that schema. These compilation
+checks do not replace the deferred final workerd/D1 concurrency, real Access/Apple, image-stress, UI,
+notification or device tests. No deployment, credentials, secret reads or CI runs were performed.
+Access protocol reference: [Cloudflare JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/).

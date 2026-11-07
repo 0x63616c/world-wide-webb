@@ -1,0 +1,5 @@
+{
+  "version": "2026-11-07-v1",
+  "reject_whole_words": ["fuck", "fucker", "fucking", "shit", "shithead", "asshole", "cunt", "bitch", "nigger", "nigga", "faggot", "putain", "merde", "connard", "connasse", "salope", "pute", "scheisse", "scheiße", "arschloch", "hurensohn", "fotze", "puta", "puto", "mierda", "coño", "cabron", "cabrón", "caralho", "porra", "viado", "buceta", "씨발", "시발", "개새끼", "병신", "くそ", "クソ", "死ね", "ちんこ", "まんこ", "傻逼", "操你妈", "操你媽", "草你妈", "草你媽", "肏", "屌你老母"],
+  "reserved_whole_names": ["admin", "administrator", "moderator", "support", "folding", "folding support", "folding admin", "官方", "管理者", "관리자"]
+}

@@ -12,6 +12,8 @@ crate-type = ["cdylib", "rlib"]
 folding-domain = { path = "../domain" }
 serde.workspace = true
 serde_json.workspace = true
+serde_urlencoded = "=0.7.1"
+percent-encoding = "=2.3.2"
 sha2.workspace = true
 worker = { version = "=0.8.7", features = ["d1", "queue"] }
 askama = { version = "=0.16.1", default-features = false, features = ["derive", "std"] }
@@ -19,6 +21,7 @@ p256 = { version = "=0.14.0", default-features = false, features = ["ecdsa", "al
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 rasn = { version = "=0.30.0", default-features = false, features = ["bytes"] }
 rasn-cms = { version = "=0.30.0", default-features = false }
+unicode-casefold = "=0.2.0"
 unicode-segmentation = "=1.12.0"
 unicode-normalization = "=0.1.24"
 ciborium = "=0.2.2"

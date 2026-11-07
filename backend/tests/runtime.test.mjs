@@ -156,7 +156,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   const {createHash}=await import("node:crypto");
   const hash=bytes=>createHash("sha256").update(bytes).digest();
   const db=await authenticatedRuntime.getD1Database("DB");
-  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql"]) {
+  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql"]) {
     const source=await readFile(`${root}migrations/${migration}`,"utf8");
     for(const sql of source.split(";").filter(s=>s.trim())) await db.prepare(sql).run();
   }

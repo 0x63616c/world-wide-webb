@@ -9,8 +9,6 @@ use crate::{
 use folding_domain::wire::{Generation, Id};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use unicode_normalization::UnicodeNormalization;
-use unicode_segmentation::UnicodeSegmentation;
 use worker::*;
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -98,13 +96,9 @@ pub(crate) async fn mutate(
         )
     } else {
         let mut v: Join = decode(body)?;
-        v.nickname = v.nickname.trim().nfc().collect();
-        let count = v.nickname.graphemes(true).count();
-        let detection: String = v.nickname.nfkc().flat_map(char::to_lowercase).collect();
-        if !(3..=20).contains(&count) || v.nickname.len()>320
-            || v.nickname.chars().any(|c| c.is_control() || matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}'))
-            || v.nickname.contains("  ") || detection.contains("://") || detection.contains("www.")
-        { return Err(Failure::malformed()); }
+        v.nickname = crate::name_policy::validate(&v.nickname)
+            .map_err(|_| Failure::malformed())?
+            .display;
         let hash = Sha256::digest(serde_json::to_vec(&v).map_err(|_| Failure::unavailable())?);
         (
             v.operation_id,
@@ -138,7 +132,7 @@ pub(crate) async fn mutate(
             .and_then(|v| v.get("epoch_id"))
             .and_then(|v| v.as_str())
             .ok_or_else(Failure::unavailable)?;
-        writes.push(statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM participants WHERE participant_id=?2 AND membership='joined' AND epoch_id=?3 AND active_device_id=?4) THEN 1 ELSE 0 END)",&[text(&format!("{guard}-business")),text(&session.participant_id),text(epoch),text(device.as_str())])?);
+        writes.push(statement(db,"INSERT INTO mutation_guards VALUES (?1,CASE WHEN EXISTS(SELECT 1 FROM participants WHERE participant_id=?2 AND membership='joined' AND epoch_id=?3 AND active_device_id=?4 AND generation_revision=?5 AND generation_id=?6) THEN 1 ELSE 0 END)",&[text(&format!("{guard}-business")),text(&session.participant_id),text(epoch),text(device.as_str()),number(generation.revision as i64),text(generation.reset_id.as_str())])?);
         writes.push(cleanup(db, &guard)?);
         db.batch(writes).await.map_err(|_| Failure::conflict())?;
         return response(&value);
@@ -150,18 +144,34 @@ pub(crate) async fn mutate(
         }
         let e = current(db, state.epoch_id.as_deref().ok_or_else(Failure::conflict)?).await?;
         if e.generation != generation {
-            return Err(Failure::conflict());
+            return Err(Failure {
+                status: 409,
+                code: "generation_stale",
+                retryable: false,
+            });
         }
         e
     } else {
-        if transfer
-            && (state.membership != "joined"
-                || state.epoch_id.as_deref() != prior.as_ref().map(Id::as_str)
-                || state.generation_revision != generation.revision
+        if transfer {
+            if state.generation_revision != generation.revision
                 || state.generation_id != generation.reset_id.as_str()
-                || state.active_device_id.as_deref() == Some(device.as_str()))
-        {
-            return Err(Failure::conflict());
+            {
+                return Err(Failure {
+                    status: 409,
+                    code: "generation_stale",
+                    retryable: false,
+                });
+            }
+            if state.membership != "joined"
+                || state.epoch_id.as_deref() != prior.as_ref().map(Id::as_str)
+                || state.active_device_id.as_deref() == Some(device.as_str())
+            {
+                return Err(Failure {
+                    status: 409,
+                    code: "epoch_stale",
+                    retryable: false,
+                });
+            }
         }
         let joined = if transfer {
             current(db, state.epoch_id.as_deref().ok_or_else(Failure::conflict)?)
@@ -216,7 +226,16 @@ pub(crate) async fn mutate(
         let mut profile=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,p.membership,p.restriction,f.nickname_status,f.avatar_status FROM participants p JOIN profiles f ON f.participant_id=p.participant_id WHERE p.participant_id=?1",&[text(&session.participant_id)])?.first::<Profile>(None).await.map_err(|_|Failure::unavailable())?.ok_or_else(Failure::unavailable)?;
         profile.membership = "joined".into();
         if let Some(name) = nickname.filter(|n| n != &profile.nickname) {
-            writes.push(statement(db,"INSERT INTO nickname_requests VALUES (?1,?2,?3) ON CONFLICT(participant_id) DO UPDATE SET requested_nickname=excluded.requested_nickname,requested_at_ms=excluded.requested_at_ms",&[text(&session.participant_id),text(&name),number(time)])?);
+            crate::rate_limit::enforce(
+                db,
+                config,
+                "profile-edits",
+                &session.participant_id,
+                3600000,
+                5,
+            )
+            .await?;
+            writes.push(statement(db,"INSERT INTO nickname_requests(participant_id,requested_nickname,requested_at_ms) VALUES (?1,?2,?3) ON CONFLICT(participant_id) DO UPDATE SET requested_nickname=excluded.requested_nickname,requested_at_ms=excluded.requested_at_ms",&[text(&session.participant_id),text(&name),number(time)])?);
             writes.push(statement(
                 db,
                 "UPDATE profiles SET nickname_status='pending' WHERE participant_id=?1",

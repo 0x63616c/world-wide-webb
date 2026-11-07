@@ -1,4 +1,9 @@
 //! Worker authentication and domain integrations. Community writes remain unavailable until complete App Attest enrollment.
+pub mod access_identity;
+#[cfg(target_arch = "wasm32")]
+mod admin_auth;
+#[cfg(target_arch = "wasm32")]
+mod admin_runtime;
 pub mod apple_client;
 pub mod apple_identity;
 #[cfg(target_arch = "wasm32")]
@@ -15,6 +20,8 @@ mod auth_runtime;
 mod auth_signin;
 pub mod auth_wire;
 pub mod avatar;
+#[cfg(target_arch = "wasm32")]
+mod capabilities_runtime;
 pub mod certificate;
 #[cfg(target_arch = "wasm32")]
 mod community_reads;
@@ -24,19 +31,30 @@ mod competition_runtime;
 mod deletion_runtime;
 #[cfg(target_arch = "wasm32")]
 mod enrollment_runtime;
+#[cfg(target_arch = "wasm32")]
+mod finalization_runtime;
 pub mod ingestion;
 #[cfg(target_arch = "wasm32")]
 mod leaderboard_runtime;
 #[cfg(target_arch = "wasm32")]
 mod lifecycle_runtime;
+#[cfg(target_arch = "wasm32")]
+mod moderation_scores;
 pub mod mutation;
+pub mod name_policy;
 pub mod periods;
 pub mod presentation;
 #[cfg(target_arch = "wasm32")]
+mod profile_runtime;
+#[cfg(target_arch = "wasm32")]
 mod protected_request;
+#[cfg(target_arch = "wasm32")]
+mod rate_limit;
 #[cfg(target_arch = "wasm32")]
 mod reauth_runtime;
 pub mod receipt;
+#[cfg(target_arch = "wasm32")]
+mod results_runtime;
 pub mod secrets;
 pub mod session;
 

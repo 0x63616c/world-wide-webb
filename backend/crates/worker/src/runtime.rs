@@ -37,7 +37,7 @@ async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Resp
     let path = request.path();
     // Auth handlers have their own complete trust boundary. Unimplemented community/admin routes
     // remain unavailable; an arbitrary bearer header never authorizes a request.
-    if !path.starts_with("/v1/") {
+    if !path.starts_with("/v1/") && path != "/admin" && !path.starts_with("/admin/") {
         return error(404, "not_found", id, false);
     }
     let mut body = Vec::new();
@@ -67,6 +67,27 @@ async fn fetch(mut request: Request, env: Env, _context: Context) -> Result<Resp
         if length == 0 {
             return error(400, "malformed_request", id, false);
         }
+    }
+    if path == "/admin" || path.starts_with("/admin/") {
+        return match crate::admin_runtime::dispatch(&request, &env, &body).await {
+            Ok(response) => Ok(response),
+            Err(failure) => {
+                let message = if failure.status == 409 {
+                    "Changed since loading. Reload and try again."
+                } else if failure.status == 401 {
+                    "Sign in to continue."
+                } else {
+                    "Unable to complete this request."
+                };
+                let mut response=Response::from_html(format!("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><title>Folding</title><p>{message}</p><a href=\"/admin/participants\">Reload</a></html>"))?.with_status(failure.status);
+                response.headers_mut().set("Cache-Control", "no-store")?;
+                response.headers_mut().set(
+                    "Content-Security-Policy",
+                    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+                )?;
+                Ok(response)
+            }
+        };
     }
     match crate::auth_runtime::dispatch(&request, &env, &body, &id).await {
         Ok(Some(response)) => Ok(response),

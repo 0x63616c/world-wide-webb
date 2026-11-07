@@ -67,6 +67,7 @@ pub(crate) async fn reset(
     let winning = input.generation > old;
     let winner = if winning { &input.generation } else { &old };
     if winning {
+        writes.extend(erase_results(db, &session.participant_id)?);
         writes.push(statement(db,"UPDATE participants SET generation_revision=?1,generation_id=?2 WHERE participant_id=?3",&[number(winner.revision as i64),text(winner.reset_id.as_str()),text(&session.participant_id)])?);
         writes.push(statement(db,"UPDATE epochs SET generation_revision=?1,generation_id=?2 WHERE epoch_id=?3 AND participant_id=?4 AND closed_at_ms IS NULL",&[number(winner.revision as i64),text(winner.reset_id.as_str()),text(input.epoch_id.as_str()),text(&session.participant_id)])?);
         for table in ["live_scores", "score_jobs"] {
@@ -137,13 +138,19 @@ pub(crate) async fn leave(
             serde_json::from_str(&old.response_json).map_err(|_| Failure::unavailable())?;
         return Ok(response(&value)?.with_status(202));
     }
+    writes.extend(erase_results(db, &session.participant_id)?);
     writes.push(statement(
         db,
         "UPDATE epochs SET closed_at_ms=?1 WHERE participant_id=?2 AND closed_at_ms IS NULL",
         &[number(time), text(&session.participant_id)],
     )?);
     writes.push(statement(db,"UPDATE participants SET membership='left',epoch_id=NULL,active_device_id=NULL WHERE participant_id=?1",&[text(&session.participant_id)])?);
-    for table in ["observations", "live_scores", "score_jobs"] {
+    for table in [
+        "observations",
+        "live_scores",
+        "score_jobs",
+        "push_installations",
+    ] {
         writes.push(statement(
             db,
             &format!("DELETE FROM {table} WHERE participant_id=?1"),
@@ -169,4 +176,27 @@ pub(crate) async fn leave(
     writes.push(cleanup(db, &guard)?);
     db.batch(writes).await.map_err(|_| Failure::conflict())?;
     Ok(response(&value)?.with_status(202))
+}
+
+pub(crate) fn erase_results(
+    db: &D1Database,
+    participant: &str,
+) -> std::result::Result<Vec<D1PreparedStatement>, Failure> {
+    Ok(vec![
+        statement(
+            db,
+            "DELETE FROM results WHERE participant_id=?1",
+            &[text(participant)],
+        )?,
+        statement(
+            db,
+            "DELETE FROM period_roster WHERE participant_id=?1",
+            &[text(participant)],
+        )?,
+        statement(
+            db,
+            "UPDATE award_jobs SET state='suppressed' WHERE participant_id=?1 AND state<>'sent'",
+            &[text(participant)],
+        )?,
+    ])
 }

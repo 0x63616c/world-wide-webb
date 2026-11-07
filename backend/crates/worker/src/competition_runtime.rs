@@ -124,6 +124,15 @@ pub(crate) async fn events(
             serde_json::from_str(&old.response_json).map_err(|_| Failure::unavailable())?;
         return response(&value);
     }
+    crate::rate_limit::enforce(
+        db,
+        config,
+        "event-batches",
+        &session.participant_id,
+        60000,
+        60,
+    )
+    .await?;
     let rows = statement(
         db,
         "SELECT event_json,disposition FROM observations WHERE participant_id=?1",
@@ -169,6 +178,11 @@ pub(crate) async fn events(
         code: "identity_conflict",
         retryable: false,
     })?;
+    writes.push(statement(
+        db,
+        "UPDATE decision_clock SET version=version+1 WHERE singleton=1",
+        &[],
+    )?);
     for new in &plan.new_observations {
         let disposition = match new.disposition {
             Disposition::Accepted => "accepted",
@@ -178,7 +192,7 @@ pub(crate) async fn events(
         };
         writes.push(statement(
             db,
-            "INSERT INTO observations VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+            "INSERT INTO observations(participant_id,event_id,device_id,sequence,event_json,disposition,reason_code,received_at_ms,decision_version,submission_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,(SELECT version FROM decision_clock WHERE singleton=1),?9)",
             &[
                 text(&session.participant_id),
                 text(new.event.event_id.as_str()),
@@ -191,6 +205,7 @@ pub(crate) async fn events(
                     .map(text)
                     .unwrap_or(wasm_bindgen::JsValue::NULL),
                 number(time),
+                text(batch.operation_id.as_str()),
             ],
         )?);
     }
@@ -214,6 +229,7 @@ pub(crate) async fn events(
         }
     }
     for period in windows.values() {
+        writes.push(statement(db,"INSERT INTO periods(period_id,kind,start_ms,end_ms,cutoff_ms,state) VALUES (?1,?2,?3,?4,?5,'open') ON CONFLICT(period_id) DO NOTHING",&[text(&period.id),text(period.kind),number(period.start_ms as i64),number(period.end_ms as i64),number((period.end_ms+86400000) as i64)])?);
         let folds = plan
             .counted_timestamps
             .iter()

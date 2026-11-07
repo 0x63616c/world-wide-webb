@@ -115,8 +115,9 @@ pub(crate) async fn board(
     let window = windows.iter().find(|w| w.kind == kind);
     let period = window.map(|w| w.id.as_str()).unwrap_or("all");
     if query.get("period_id").is_some_and(|id| id != period) {
-        return Err(Failure::unavailable());
-    } // Historical boards require published frozen versions.
+        return crate::results_runtime::board(request, db, config, request_id, &query, kind, limit)
+            .await;
+    }
     let rows=statement(db,"SELECT p.participant_id,f.nickname,f.avatar_id,s.folds FROM live_scores s JOIN participants p ON p.participant_id=s.participant_id JOIN profiles f ON f.participant_id=p.participant_id WHERE s.period_id=?1 AND s.generation_revision=p.generation_revision AND s.generation_id=p.generation_id AND p.membership='joined' AND p.restriction='none' AND p.account_state='active' AND s.folds>0 ORDER BY p.participant_id",&[text(period)])?.all().await.map_err(|_|Failure::unavailable())?.results::<Row>().map_err(|_|Failure::unavailable())?;
     let blocks = statement(
         db,

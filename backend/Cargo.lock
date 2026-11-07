@@ -566,6 +566,7 @@ dependencies = [
  "js-sys",
  "p256",
  "p384",
+ "percent-encoding",
  "rasn",
  "rasn-cms",
  "rsa",
@@ -575,8 +576,10 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "serde_urlencoded",
  "sha2 0.10.9",
  "sha2 0.11.1",
+ "unicode-casefold",
  "unicode-normalization",
  "unicode-segmentation",
  "wasm-bindgen",
@@ -1820,6 +1823,12 @@ name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
+
+[[package]]
+name = "unicode-casefold"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7f66b1c8f8caa2ab31dc6d3f35386f16efdab89668f93411e565ac368908e8f"
 
 [[package]]
 name = "unicode-ident"
