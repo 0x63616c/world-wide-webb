@@ -27,11 +27,11 @@ struct PanelHome: View {
     @State private var presentation: PanelHomePresentation
     let timer: PanelTimerStore
 
-    init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
+    init(store: LiveHomeDataSource, session: PanelSession,
          navigation: PanelNavigation, timer: PanelTimerStore) {
         self.timer = timer
         _presentation = State(initialValue: PanelHomePresentation(store: store, session: session,
-            router: router, navigation: navigation))
+            navigation: navigation))
     }
 
     var body: some View {
@@ -66,11 +66,9 @@ struct PanelHome: View {
 
 @MainActor final class PanelHomePresentation: HomeIntegration {
     let store: LiveHomeDataSource
-    let session: KioskSession
-    let router: HybridRouter
+    let session: PanelSession
     let navigation: PanelNavigation
     let caption = ""
-    var supportsClassic: Bool { true }
     var panelPIN: PanelPINAPI? { store.panelPIN }
     func photoBooth(close: @escaping () -> Void) -> AnyView? {
         AnyView(LivePhotoBoothModule(camera: store.photoBoothCamera, photos: store.photosProvider, close: close))
@@ -83,13 +81,10 @@ struct PanelHome: View {
         wakeCapture.capture(using: store.diagnosticsClient)
     }
 
-    func openClassicApp() { navigation.openClassic() }
-
-    init(store: LiveHomeDataSource, session: KioskSession, router: HybridRouter,
+    init(store: LiveHomeDataSource, session: PanelSession,
          navigation: PanelNavigation) {
         self.store = store
         self.session = session
-        self.router = router
         self.navigation = navigation
     }
 
@@ -100,13 +95,6 @@ struct PanelHome: View {
 
     static func isInformationalFace(_ tile: HomeTile) -> Bool {
         [.clock].contains(tile)
-    }
-
-    var classicTile: AnyView? {
-        AnyView(Button(action: navigation.openClassic) {
-            PanelCardSummary(symbol: "safari", color: .white, title: "Classic",
-                             subtitle: "Open the web dashboard")
-        }.buttonStyle(.plain).accessibilityIdentifier("tile-classic"))
     }
 
     func available(_ tile: HomeTile) -> Bool {
@@ -169,7 +157,7 @@ struct PanelHome: View {
 
     func destination(_ tile: HomeTile, close: @escaping () -> Void) -> AnyView {
         AnyView(PanelHomeDestination(module: tile.panelModule, store: store, session: session,
-            router: router, close: close)
+            close: close)
             .overlay { PanelStatusOverlays(store: store, session: session, navigation: navigation) }
             .modifier(NotificationHistoryAccess()))
     }
@@ -180,8 +168,7 @@ struct PanelHome: View {
 struct PanelHomeDestination: View {
     let module: PanelModule
     let store: LiveHomeDataSource
-    let session: KioskSession
-    let router: HybridRouter
+    let session: PanelSession
     let close: () -> Void
 
     private var ready: Bool {

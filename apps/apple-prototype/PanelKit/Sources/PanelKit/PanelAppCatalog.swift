@@ -11,7 +11,6 @@ public enum PanelAppRoute: Sendable, Equatable {
     case timer
     case photoBooth
     case clock
-    case classic
 }
 public struct PanelAppDefinition: Identifiable, Sendable, Equatable {
     public let id: String
@@ -38,9 +37,6 @@ public struct PanelAppCatalog: Sendable {
         self.apps = apps
     }
     public func app(id: String) -> PanelAppDefinition? { apps.first { $0.id == id } }
-    public func visibleApps(classicSupported: Bool) -> [PanelAppDefinition] {
-        apps.filter { classicSupported || $0.route != .classic }
-    }
     public static let standard: PanelAppCatalog = {
         // Authored, validated identifiers; these are not database record IDs.
         let definitions: [PanelAppDefinition] = [
@@ -54,7 +50,6 @@ public struct PanelAppCatalog: Sendable {
             .init(id: "music", name: "Sonos", symbol: "hifispeaker.2.fill", accent: "#252527", route: .feature(.music)),
             .init(id: "timer", name: "Timer", symbol: "timer", accent: "#ed951c", route: .timer),
             .init(id: "booth", name: "Photo Booth", symbol: "camera.fill", accent: "#cc476b", route: .photoBooth),
-            .init(id: "classic", name: "Classic", symbol: "safari", accent: "#4b67c9", route: .classic),
             .init(id: "settings", name: "Settings", symbol: "gearshape.fill", accent: "#707986", route: .settings)
         ]
         do { return try PanelAppCatalog(apps: definitions) }

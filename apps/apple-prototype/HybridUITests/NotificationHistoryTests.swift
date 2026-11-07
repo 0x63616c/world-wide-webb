@@ -94,8 +94,7 @@ final class NotificationHistoryTests: XCTestCase {
     @MainActor private func launch(extraArguments: [String] = []) -> XCUIApplication {
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-moduleFlag.lights", "native",
-            "-moduleFlag.climate", "native", "-notificationSamples", "-notificationStack", "-notificationHold",
+        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples", "-notificationStack", "-notificationHold",
             "-notificationPersistentCache", "-notificationResetCache"] + extraArguments
         app.launch()
         app.alignPanelOrientation()

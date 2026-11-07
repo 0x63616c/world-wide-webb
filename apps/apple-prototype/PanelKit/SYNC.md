@@ -1,3 +1,5 @@
+> Historical rollout notes. The current Panel app uses native destinations only; the web fallback and module flags described below were removed. See `../Hybrid/README.md` for the current runtime.
+
 # Native state synchronization (WWW-38)
 
 The server is the source of truth for iPhone and wall iPad state. Each feature

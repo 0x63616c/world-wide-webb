@@ -18,7 +18,7 @@ extension HomeViewLaunchTests {
         XCTAssertFalse(app.buttons["app-photos"].exists)
         XCTAssertLessThan(app.buttons["app-car"].frame.minX, app.buttons["app-wifi"].frame.minX)
         XCTAssertGreaterThan(app.buttons["app-settings"].frame.minY, app.buttons["app-wifi"].frame.minY)
-        XCTAssertGreaterThan(app.buttons["app-settings"].frame.minX, app.buttons["app-classic"].frame.minX)
+        XCTAssertTrue(app.buttons["app-settings"].exists)
     }
     @MainActor func testBoothGalleryShowsBoothPhotosWithoutPINAfterBackgroundOrReopening() {
         continueAfterFailure = false

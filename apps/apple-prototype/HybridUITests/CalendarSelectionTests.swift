@@ -5,8 +5,8 @@ final class CalendarSelectionTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
-        app.launchArguments = ["-hybridFixtures", "-hybridStill", "-moduleFlag.calendar", "native"]
-        app.launchModuleFromHome()
+        app.launchArguments = ["-hybridFixtures", "-hybridStill"]
+        app.launchModuleFromHome("calendar")
         app.buttons["calendar-picker"].tap()
         XCTAssertTrue(app.buttons["calendar-show-all"].waitForExistence(timeout: 10))
         app.buttons["calendar-show-all"].tap()
@@ -23,7 +23,7 @@ final class CalendarSelectionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Design workshop"].waitForNonExistence(timeout: 10))
         capture("calendar-filtered-home")
         app.terminate()
-        app.launchModuleFromHome()
+        app.launchModuleFromHome("calendar")
         XCTAssertTrue(app.staticTexts["Design workshop"].waitForNonExistence(timeout: 10))
         app.buttons["calendar-picker"].tap()
         XCTAssertEqual(work.value as? String, "0")

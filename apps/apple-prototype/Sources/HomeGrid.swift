@@ -1025,10 +1025,8 @@ struct GridHomeFace: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             ForEach(HomeGrid.placements(page: page)) { placement in
-                let p = placement.card == .media && integration?.classicTile != nil
-                    ? GridPlacement(.media, "B", placement.x, placement.y) : placement
-                let f = HomeGrid.frame(p, in: size)
-                let t = tile(p)
+                let f = HomeGrid.frame(placement, in: size)
+                let t = tile(placement)
                 Group {
                     // A host with no live data for this module shows its own unavailable tile.
                     if let integration, t != .clock, !integration.available(t), let replacement = integration.tile(t, open: { open(t) }) {
@@ -1038,7 +1036,8 @@ struct GridHomeFace: View {
                             .clipShape(.rect(cornerRadius: HomeGrid.radius))
                             .modifier(GridMaterial(on: false))
                     } else {
-                        GridCardView(card: p.card, variant: p.variant, accessory: p.accessory, store: store, open: { open(t) }, layoutSize: f.size)
+                        GridCardView(card: placement.card, variant: placement.variant, accessory: placement.accessory,
+                            store: store, open: { open(t) }, layoutSize: f.size)
                     }
                 }.overlay(alignment: .topTrailing) {
                     if t == .clock {
@@ -1048,11 +1047,6 @@ struct GridHomeFace: View {
                 }.accessibilityElement(children: .contain).accessibilityIdentifier("tile-\(t.id)")
                     .matchedTransitionSource(id: "\(page + 1)-\(t.id)", in: zoom ?? standaloneZoom)
                     .position(x: f.midX, y: f.midY)
-            }
-            if page == 1, let classic = integration?.classicTile {
-                let f = HomeGrid.frame(GridPlacement(.media, "B", 4, 3), in: size)
-                classic.frame(width: f.width, height: f.height)
-                    .modifier(GridMaterial(on: false)).position(x: f.midX, y: f.midY)
             }
         }.frame(width: size.width, height: size.height)
             .overlay { if HomeGrid.overlay { GridOverlay(size: size).allowsHitTesting(false) } }

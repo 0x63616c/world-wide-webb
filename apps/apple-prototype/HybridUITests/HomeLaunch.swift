@@ -16,11 +16,6 @@ extension XCUIApplication {
             wake.tap()
             XCTAssertTrue(wake.waitForNonExistence(timeout: 5))
         }
-        if buttons["classic-home"].exists {
-            buttons["classic-home"].tap()
-            XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
-            return
-        }
         if buttons["app-back"].exists {
             buttons["app-back"].tap()
             XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
@@ -30,20 +25,18 @@ extension XCUIApplication {
         buttons["launcher-clock"].tap()
         XCTAssertTrue(buttons["app-settings"].waitForExistence(timeout: 15))
     }
-    @MainActor func launchModuleFromHome() {
+    @MainActor func launchModuleFromHome(_ module: String? = nil) {
         launch()
         if launchArguments.contains("-hybridAlarmRinging") { return }
-        let order = ["lights", "climate", "fan", "wifi", "sonos", "weather", "photos", "walk", "alarms", "calendar", "media", "tesla", "cameras"]
-        if let module = order.first(where: { launchArguments.contains("-moduleFlag.\($0)") }) { openHomeModule(module) }
-        else { openAppGrid(); buttons["app-classic"].tap() }
+        if let module { openHomeModule(module) }
+        else { openAppGrid() }
     }
     @MainActor func returnHomeFromModule() { openAppGrid() }
     @MainActor func selectHomeFace(_ index: Int) { openAppGrid() }
     @MainActor func openHomeModule(_ module: String) {
         openAppGrid()
         if module == "alarms" {
-            if launchArguments.contains("-hybridUnavailable") || launchArguments.contains("web") { buttons["app-classic"].tap() }
-            else { open(URL(string: "controlcenter://alarms")!) }
+            open(URL(string: "controlcenter://alarms")!)
             return
         }
         let ids = ["lights": "lights", "climate": "climate", "fan": "climate", "wifi": "wifi", "sonos": "music", "weather": "weather", "photos": "photos", "walk": "walks", "calendar": "calendar", "media": "music", "tesla": "car", "cameras": "cameras"]

@@ -208,7 +208,7 @@ struct HomeView: View {
                             .accessibilityAction { home() }
                             .accessibilityIdentifier("launcher-clock")
                     }
-                    AppLauncher(apps: catalog.visibleApps(classicSupported: integration?.supportsClassic ?? false), open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
+                    AppLauncher(apps: catalog.apps, open: open, close: clock, isPresented: !showingClock && selected == nil, namespace: zoom)
                         .environment(\.motionPhase, selected == nil && !showingClock ? nil : 0)
                         .background {
                             LauncherGlassSurface()
@@ -268,13 +268,8 @@ struct HomeView: View {
     }
     private func open(_ app: PanelAppDefinition) {
         if app.route == .clock { clock(); return }
-        if app.route == .classic {
-            shell.showLauncher()
-            integration?.openClassicApp()
-        } else {
-            withAnimation(launcherMotion.animation) {
-                _ = shell.open(app.id, catalog: catalog)
-            }
+        withAnimation(launcherMotion.animation) {
+            _ = shell.open(app.id, catalog: catalog)
         }
     }
     private func appScreen(_ app: PanelAppDefinition) -> some View {
@@ -291,7 +286,7 @@ struct HomeView: View {
                         }
                         .safeAreaInset(edge: .top, spacing: 0) { PanelAppNavigationBar(back: home) }
                     }
-                case .classic, .clock: EmptyView()
+                case .clock: EmptyView()
                 case .feature(let feature):
                     if let integration { integration.destination(feature.homeTile, close: home) }
                     else { prototypeScreen(feature) }

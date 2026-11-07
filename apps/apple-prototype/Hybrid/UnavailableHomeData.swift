@@ -26,7 +26,7 @@ extension WeatherState {
     }
 }
 
-/// Modules without a live implementation stay on the web board. Satisfy the
+/// Modules without live data show native unavailable states. Satisfy the
 /// shared protocol with empty, inert providers, never MockHomeDataSource.
 @MainActor @Observable final class UnavailableHomeProviders:
     TeslaProvider, CalendarProvider, PhotosProvider, CamerasProvider, MediaProvider, WalkProvider {
