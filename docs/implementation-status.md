@@ -4,9 +4,9 @@ The private [homelab repository](https://github.com/0x63616c/homelab) owns host 
 service configuration. The public [CLI](https://github.com/0x63616c/homelab-cli)
 owns guided enrollment; private health and restore operations live in `host/`.
 No physical host has received this configuration. Public CLI
-[0.3.2](https://github.com/0x63616c/homelab-cli/releases/tag/v0.3.2) provides
-Git-first host selection, automatic Command Line Tools installation and earlier
-client prerequisite checks.
+[0.4.0](https://github.com/0x63616c/homelab-cli/releases/tag/v0.4.0) provides
+Git-first host selection, automatic Command Line Tools installation, a live
+enrollment checklist and direct publication to `main` when GitHub permits it.
 
 ## What is implemented
 
@@ -16,9 +16,11 @@ a scoped Tailscale enrollment key. The target generates its own read-only Git
 key. Schema 2 names the backup vault separately from the OAuth issuer. Neither
 reusable OAuth credentials nor recovery identities reach the target.
 
-An enrollment PR contains public recipients, the selected SSH public key and
-ciphertext. After merge, bootstrap installs the approved revision, verifies it,
-reboots and reconciles completion. Journals preserve uncertain outcomes; setup
+Enrollment publishes public recipients, the selected SSH public key and
+ciphertext. Version 0.4.0 publishes directly when
+branch rules permit, while preserving existing PRs and required PR review.
+Bootstrap installs the exact approved revision, verifies it, reboots and
+reconciles completion. Journals preserve uncertain outcomes; setup
 does not silently reinstall or regenerate identities after failure. Nix runs on
 the target, not the operator laptop.
 
@@ -50,9 +52,33 @@ installed within approved setup using only the matching Apple CLT catalog item;
 working Xcode selections are preserved and uncertain installs are not replayed.
 These changes do not authorize physical deployment.
 
+## Checklist and publication behavior
+
+Begin setup approves the enrollment operation once. The checklist retains stage
+results and elapsed time, yielding the terminal for native authentication. A stop
+request takes effect at a safe boundary; it does not undo an operation already
+in flight. Saved progress and uncertain outcomes remain available for resume.
+
+Direct publication uses a non-force update, preserves unrelated configuration
+changes and rejects conflicting host changes. A private receipt records the exact
+candidate commit before publication, allowing lost responses to be reconciled.
+Existing enrollment PRs and GitHub-required PR review are not bypassed. Expired
+approved credentials are preserved for inspection rather than silently renewed.
+
 ## Current evidence
 
-The exercised helper is `1c06e59f39373045e8be20a9957167dbc58a1644`; public head
+The 0.4.0 checklist passed a fresh no-Nix VM rehearsal on `homelab-checklist-1`:
+real private Git publication without a PR, installation, reboot, Comin handover
+and completed-wizard replay. The first preparation attempt stopped on an idle
+error; retrying the same saved preparation succeeded. Synthetic providers and a
+pinned guest SSH adapter were used. Public CI passed at `cc51c6e`; exact source,
+installed revision and evidence paths are in [VM validation](vm-validation.md).
+The VM is stopped and preserved. No production deployment is implied.
+
+Earlier 0.3.0 validation remains below for the private configuration checks and
+scheduled-update reboot evidence; it is not a new 0.4.0 private Nix run.
+
+The earlier exercised helper is `1c06e59f39373045e8be20a9957167dbc58a1644`; public head
 `f9063f6` changes documentation only. Private candidate `2bd88e2` pins that helper
 and the Darwin profile patch. See [VM validation](vm-validation.md) for exact
 revisions, evidence locations and limits.
