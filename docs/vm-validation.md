@@ -74,7 +74,7 @@ before Comin started. Its report has `rebooted=true`, but completion and
 reconciliation are not verified. The guest and operator state remain preserved;
 read-only diagnosis is ongoing. No successful full rehearsal is claimed yet.
 
-The private helper now pins `583788d` and schema 2 uses an explicit backup vault.
+The private helper now pins 0.3.0 candidate `5c0103b`; schema 2 uses an explicit backup vault.
 Final private Nix validation is still pending; the earlier full check does not
 cover this candidate.
 
