@@ -1,10 +1,10 @@
 # Linux runner validation
 
 November 8, 2026. Implementation is on `codex/linux-runners`, including private
-main `0bf8d4c`. The production controller is held idle during real canary validation. A separate
-controller uses its own journal and VM inventory, with four shared slots and at
-most two macOS guests. Persistent Linux admission remains off pending completion
-of the real mixed-load and recovery gates.
+main `0bf8d4c`. Real canary validation used a separate controller and VM inventory, with four
+shared slots and at most two macOS guests. Production was held idle for these
+checks; the temporary controller is now unloaded. Permanent activation and its
+verification are recorded separately from the canary evidence.
 
 ## Source checks
 
@@ -122,8 +122,9 @@ The initial [job artifacts](evidence/linux-github-smoke-proof.json) establish
 successful Linux/macOS job lifecycles, but only two Linux build workloads overlapped.
 Linux and macOS measured workloads did not overlap in this short smoke run.
 
-The corrected host controller and enabled host generation then built natively at
-`d540db8`; see [native build proof](evidence/linux-final-nix-proof.json). Production
+The corrected host controller built natively at `d540db8`; the final enabled host
+generation, Linux fixture, capacity limits and process-survival check built after
+incorporating PR33 at `f31128d`. See [native build proof](evidence/linux-final-nix-proof.json). Production
 activation is still pending.
 
 Ten-second host samples independently record journal ownership, CPU/RAM
@@ -164,7 +165,7 @@ individual job speed for more simultaneous work; this is not a general benchmark
 All 192 ten-second samples spanning the workload intervals reported normal
 pressure (1), zero used swap and no reported thermal/performance warning. The
 highest reservation was 12 vCPUs/24576 MiB, ownership never exceeded four/two Macs,
-and free disk remained above 295 GiB. Thermal data is the native warning status,
+and minimum recorded free space was approximately 295 GiB. Thermal data is the native warning status,
 not a measured temperature or proof of constant CPU frequency. Raw resource
 samples are retained outside Git; selected samples, their full-file digest and
 all job artifacts are captured in [capacity proof](evidence/linux-github-capacity-proof.json).
@@ -191,13 +192,18 @@ disposable VMs. See [mixed network proof](evidence/linux-mixed-network-proof.jso
 The production image cache was installed as UID451, verified against the pinned
 manifest, cloned with a cleared registry environment and verified again afterward.
 The stopped proof clone was deleted. No registry credential was delivered to the
-MacBook. The old production controller remains held until the final activation;
-there are no owned validation guests or registered recovery runners left.
+MacBook. There are no owned validation guests or registered recovery runners left. The
+idle temporary controller and sampler have been unloaded.
+
+An automatic update encountered the validation maintenance hold after advancing
+its boot profile. Its original stateless activation record was inspected and
+completed under the real operation lock and original transaction token, with
+both idle controllers unloaded before releasing the hold. Boot/live profiles
+and the permanent daemon were verified before completing that record. No app
+data or controller journal was reset. See [update recovery proof](evidence/linux-update-recovery-proof.json).
 
 ## Remaining rollout gates
 
-- Build the final host generation after incorporating the Mini-only connection
-  repair from PR33; preserve that repair and all unrelated main changes.
 - Merge the reviewed runner change, stop the idle temporary controller, activate
   the permanent profile and verify runtime four/two limits, the pinned Linux
   image/cache and actual job bootstrap/cleanup under the production daemon.
