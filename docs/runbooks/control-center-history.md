@@ -94,3 +94,44 @@ PostgreSQL still uses a macOS bind mount; no corruption was observed, but moving
 separate service's database requires coordinated backup/restore validation. Penpot's
 independent local backup retention still depends on NAS success and should be bounded
 separately. These services were not migrated or stopped as part of the Control Center fix.
+
+## Deployment and recovery copies on the NAS
+
+Every verified pre-deployment and pre-recovery database snapshot is also replicated to:
+
+`/Homelab/backups/mac-mini/deployment-history/<snapshot name without .sqlite>/`
+
+Each directory contains `control-center.sqlite.gz` and `COMPLETE.json`. The manifest
+records the original filename, capture time, raw database SHA-256 and compressed
+payload checksum/size. These are database-only snapshots; the separate hourly
+history includes photos.
+
+Successful deployments/recoveries request a background backup run. An unavailable
+background job or NAS never blocks the release; the hourly schedule retries. This
+stream also runs if the current hourly photo capture fails. Existing matching local
+release/recovery snapshots are picked up automatically on first run.
+
+The uploader checks SQLite integrity and foreign keys, persists an immutable gzip
+stage under `~/www-control-center/backups/.nas-pending/`, and uploads the completion
+manifest last. Retries verify existing remote bytes rather than overwriting them.
+Only read-back verification of both files creates a local `.NAS_VERIFIED` receipt.
+A corrupt older snapshot cannot prevent replication of newer good snapshots.
+
+NAS copies expire **seven days after their original capture time**, not after seven
+deployments or seven days after upload. Cleanup considers only strictly named,
+completed snapshots inside `deployment-history`; hourly/weekly history and incident,
+migration and manual archives are outside its scope. A failed batch with no new
+verified uploads skips expiration.
+
+Local cleanup keeps the latest seven deployment and three recovery snapshots, plus
+all snapshots still awaiting NAS verification. Checksummed receipts are required
+before older local copies can be removed. Cleanup runs during releases/recovery and
+hourly capture. Snapshot creation and compression check available workspace above
+the 5 GiB production reserve; if local storage is exhausted, a release cannot create
+its required backup and resumes the existing app rather than deleting pending data.
+
+To restore a deployment copy, download its manifest and gzip payload into private
+staging, verify the compressed checksum and size, decompress it, then verify the raw
+SHA-256, SQLite integrity and foreign keys before using the stopped-writer recovery
+procedure. Pair it with an appropriate media history and compatible application
+image; the filename's target release is not a claim about the source database schema.

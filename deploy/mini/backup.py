@@ -12,7 +12,6 @@ import contextlib
 import datetime
 import fcntl
 import gzip
-import hashlib
 import json
 import os
 import re
@@ -23,7 +22,14 @@ import tempfile
 import time
 from pathlib import Path
 
-from sqlite_snapshot import snapshot_container
+from sqlite_snapshot import (
+    file_digest,
+    prune_release_snapshots,
+    read_database,
+    release_snapshot_time,
+    release_snapshot_verified,
+    snapshot_container,
+)
 
 HOME = Path("/Users/calum")
 ROOT = HOME / "homelab-backups"
@@ -249,14 +255,6 @@ def prune_full_sets(root):
         shutil.rmtree(old)
 
 
-def file_digest(path):
-    checksum = hashlib.sha256()
-    with path.open("rb") as source:
-        while chunk := source.read(1024 * 1024):
-            checksum.update(chunk)
-    return checksum.hexdigest()
-
-
 def history_sets(root):
     return sorted(
         p
@@ -371,6 +369,7 @@ def create_history(root, stamp):
         from sqlite_snapshot import inspect_volume
 
         inspect_volume(mounts[0]["Name"])
+        prune_release_snapshots(app / "backups")
         run(docker("orbstack", "exec", APP_CONTAINER, "www-server", "database-clean-snapshots"))
         database_size = int(
             subprocess.check_output(
@@ -455,8 +454,8 @@ def upload_once(nas, path, destination):
         nas.upload(path, destination)
 
 
-def publish_history(root):
-    """Only the dedicated history namespace can expire; weekly representatives never expire."""
+@contextlib.contextmanager
+def nas_session():
     import importlib.util
 
     credential = ROOT / "nas-credentials.json"
@@ -468,55 +467,194 @@ def publish_history(root):
     nas = uploader.Nas(json.loads(credential.read_text()))
     try:
         nas.login()
-        failures, uploaded = 0, 0
-        for directory in history_sets(root):
-            if (directory / "NAS_VERIFIED").is_file():
-                continue
-            try:
-                validate_history(directory)
-                remote = HISTORY_REMOTE + "/" + directory.name
-                for name in ["control-center.sqlite.gz", "media.tar.gz", "COMPLETE.json"]:
-                    upload_once(nas, directory / name, remote)
-                (directory / "NAS_VERIFIED").touch()
-                uploaded += 1
-                (directory / "UPLOAD_FAILED").unlink(missing_ok=True)
-            except Exception as error:
-                # An older damaged set must not block newer good backups. Keep
-                # its bytes as evidence and report only a safe error class.
-                (directory / "UPLOAD_FAILED").write_text(type(error).__name__)
-                failures += 1
-        if failures and not uploaded:
-            raise RuntimeError("NAS history has pending failures; no new verified upload; expiration skipped")
-        names, offset = [], 0
-        while True:
-            result = nas.call("SYNO.FileStation.List", "list", folder_path=HISTORY_REMOTE, offset=offset, limit=1000)
-            rows = result.get("files", [])
-            for row in rows:
-                name = row.get("name", "")
-                if (
-                    STAMP.fullmatch(name)
-                    and row.get("isdir")
-                    and row.get("path") == HISTORY_REMOTE + "/" + name
-                    and nas_exists(nas, HISTORY_REMOTE + "/" + name + "/COMPLETE.json")
-                ):
-                    names.append(name)
-            offset += len(rows)
-            if offset >= result["total"]:
-                break
-            if not rows:
-                raise RuntimeError("NAS listing made no progress")
-        keep = retained(names, weekly=True)
-        for name in sorted(set(names) - keep) if len(keep) >= 2 else []:
-            # Regex + exact parent checks scope expiration to this job's snapshots.
-            if not STAMP.fullmatch(name):
-                raise RuntimeError("Unsafe retention path")
-            nas.call(
-                "SYNO.FileStation.Delete", "delete", path=json.dumps([HISTORY_REMOTE + "/" + name]), recursive="true"
-            )
-        if failures:
-            raise RuntimeError("NAS history has older pending failures; newer snapshots verified")
+        yield nas
     finally:
         nas.logout()
+
+
+def publish_hourly_history(nas, root):
+    failures, uploaded = 0, 0
+    for directory in history_sets(root):
+        if (directory / "NAS_VERIFIED").is_file():
+            continue
+        try:
+            validate_history(directory)
+            remote = HISTORY_REMOTE + "/" + directory.name
+            for name in ["control-center.sqlite.gz", "media.tar.gz", "COMPLETE.json"]:
+                upload_once(nas, directory / name, remote)
+            (directory / "NAS_VERIFIED").touch()
+            uploaded += 1
+            (directory / "UPLOAD_FAILED").unlink(missing_ok=True)
+        except Exception as error:
+            # An older damaged set must not block newer good backups. Keep
+            # its bytes as evidence and report only a safe error class.
+            (directory / "UPLOAD_FAILED").write_text(type(error).__name__)
+            failures += 1
+    if failures and not uploaded:
+        raise RuntimeError("NAS history has pending failures; no new verified upload; expiration skipped")
+    names, offset = [], 0
+    while True:
+        result = nas.call("SYNO.FileStation.List", "list", folder_path=HISTORY_REMOTE, offset=offset, limit=1000)
+        rows = result.get("files", [])
+        for row in rows:
+            name = row.get("name", "")
+            if (
+                STAMP.fullmatch(name)
+                and row.get("isdir")
+                and row.get("path") == HISTORY_REMOTE + "/" + name
+                and nas_exists(nas, HISTORY_REMOTE + "/" + name + "/COMPLETE.json")
+            ):
+                names.append(name)
+        offset += len(rows)
+        if offset >= result["total"]:
+            break
+        if not rows:
+            raise RuntimeError("NAS listing made no progress")
+    keep = retained(names, weekly=True)
+    for name in sorted(set(names) - keep) if len(keep) >= 2 else []:
+        # Regex + exact parent checks scope expiration to this job's snapshots.
+        if not STAMP.fullmatch(name):
+            raise RuntimeError("Unsafe retention path")
+        nas.call("SYNO.FileStation.Delete", "delete", path=json.dumps([HISTORY_REMOTE + "/" + name]), recursive="true")
+    if failures:
+        raise RuntimeError("NAS history has older pending failures; newer snapshots verified")
+
+
+DEPLOYMENT_REMOTE = "/Homelab/backups/mac-mini/deployment-history"
+
+
+def deployment_snapshots(root):
+    return sorted(
+        (p for p in root.glob("*.sqlite") if p.is_file() and not p.is_symlink() and release_snapshot_time(p.name)),
+        key=lambda p: (release_snapshot_time(p.name), p.name),
+    )
+
+
+def stage_deployment(source):
+    """Immutable compressed payloads survive interrupted uploads and keep retry bytes identical."""
+    stage = source.parent / ".nas-pending" / source.stem
+    stage.mkdir(parents=True, mode=0o700, exist_ok=True)
+    manifest = stage / "COMPLETE.json"
+    raw_sha = file_digest(source)
+    if manifest.exists():
+        data = json.loads(manifest.read_text())
+        payload = stage / "control-center.sqlite.gz"
+        entry = data["files"][0]
+        if (
+            data["snapshot"] != source.name
+            or data["raw_sha256"] != raw_sha
+            or entry["file"] != payload.name
+            or entry["bytes"] != payload.stat().st_size
+            or entry["sha256"] != file_digest(payload)
+        ):
+            raise RuntimeError("Deployment staging checksum mismatch")
+        return stage, data
+    with read_database(source) as db:
+        if db.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
+            raise RuntimeError("Deployment snapshot integrity failed")
+        if db.execute("PRAGMA foreign_key_check").fetchone():
+            raise RuntimeError("Deployment snapshot foreign keys failed")
+    partial = stage / "control-center.sqlite.gz.partial"
+    payload = stage / "control-center.sqlite.gz"
+    # No completion manifest means no accepted stage; reclaim interrupted work first.
+    for stale in [partial, payload, stage / "COMPLETE.json.partial"]:
+        stale.unlink(missing_ok=True)
+    if shutil.disk_usage(stage).free < 5 * 1024**3 + source.stat().st_size + 64 * 1024**2:
+        raise RuntimeError("Insufficient deployment upload staging reserve")
+    with source.open("rb") as src, partial.open("xb") as target:
+        with gzip.GzipFile(filename="", fileobj=target, mode="wb", compresslevel=6, mtime=0) as compressed:
+            shutil.copyfileobj(src, compressed)
+    os.replace(partial, payload)
+    if raw_sha != file_digest(source):
+        raise RuntimeError("Deployment snapshot changed during compression")
+    data = {
+        "snapshot": source.name,
+        "captured_at": release_snapshot_time(source.name).isoformat(),
+        "kind": "deployment" if source.name.startswith("before-release-") else "recovery",
+        "raw_sha256": raw_sha,
+        "raw_bytes": source.stat().st_size,
+        "files": [{"file": payload.name, "bytes": payload.stat().st_size, "sha256": file_digest(payload)}],
+    }
+    temp_manifest = stage / "COMPLETE.json.partial"
+    temp_manifest.write_text(json.dumps(data, sort_keys=True, indent=2))
+    os.replace(temp_manifest, manifest)
+    return stage, data
+
+
+def publish_deployments(nas, now=None):
+    root = HOME / "www-control-center/backups"
+    snapshots = deployment_snapshots(root)
+    if not snapshots:
+        return
+    failures, uploaded = 0, 0
+    for source in snapshots:
+        if release_snapshot_verified(source):
+            completed_stage = root / ".nas-pending" / source.stem
+            if completed_stage.is_dir() and not completed_stage.is_symlink():
+                shutil.rmtree(completed_stage)
+            continue
+        try:
+            stage, data = stage_deployment(source)
+            destination = DEPLOYMENT_REMOTE + "/" + source.stem
+            for name in ["control-center.sqlite.gz", "COMPLETE.json"]:
+                upload_once(nas, stage / name, destination)
+            receipt = {
+                "file": source.name,
+                "bytes": data["raw_bytes"],
+                "sha256": data["raw_sha256"],
+                "remote": destination,
+            }
+            marker = Path(str(source) + ".NAS_VERIFIED")
+            temporary = Path(str(marker) + ".partial")
+            temporary.write_text(json.dumps(receipt, sort_keys=True))
+            os.replace(temporary, marker)
+            Path(str(source) + ".UPLOAD_FAILED").unlink(missing_ok=True)
+            shutil.rmtree(stage)
+            uploaded += 1
+        except Exception as error:
+            Path(str(source) + ".UPLOAD_FAILED").write_text(type(error).__name__)
+            failures += 1
+    if failures and not uploaded:
+        raise RuntimeError("Deployment backups pending; NAS expiration skipped")
+    cutoff = (now or datetime.datetime.now(datetime.timezone.utc)) - datetime.timedelta(days=7)
+    offset = 0
+    expired = []
+    while True:
+        result = nas.call("SYNO.FileStation.List", "list", folder_path=DEPLOYMENT_REMOTE, offset=offset, limit=1000)
+        rows = result.get("files", [])
+        for row in rows:
+            name = row.get("name", "")
+            captured = release_snapshot_time(name + ".sqlite")
+            if (
+                captured
+                and captured < cutoff
+                and row.get("isdir")
+                and row.get("path") == DEPLOYMENT_REMOTE + "/" + name
+                and nas_exists(nas, DEPLOYMENT_REMOTE + "/" + name + "/COMPLETE.json")
+            ):
+                expired.append(DEPLOYMENT_REMOTE + "/" + name)
+        offset += len(rows)
+        if offset >= result["total"]:
+            break
+        if not rows:
+            raise RuntimeError("Deployment NAS listing made no progress")
+    for path in expired:
+        nas.call("SYNO.FileStation.Delete", "delete", path=json.dumps([path]), recursive="true")
+    if failures:
+        raise RuntimeError("Older deployment backups pending; newer copies verified")
+
+
+def publish_history(root):
+    # Keep independent backup streams progressing even if one has a bad older set.
+    with nas_session() as nas:
+        failures = []
+        for operation in [lambda: publish_hourly_history(nas, root), lambda: publish_deployments(nas)]:
+            try:
+                operation()
+            except Exception as error:
+                failures.append(error)
+        if failures:
+            raise failures[0]
 
 
 def publish_history_bounded(root):
@@ -534,15 +672,21 @@ def hourly_backup(local_only=False):
     lock = (root / ".hourly.lock").open("a")
     fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     try:
-        prune_history(root)
-        now = datetime.datetime.now(datetime.timezone.utc)
-        sets = history_sets(root)
-        if not sets or sets[-1].name[:11] != now.strftime("%Y%m%dT%H"):
-            snapshot = create_history(root, now.strftime("%Y%m%dT%H%M%SZ"))
-            print("Hourly database and photo snapshot verified: " + snapshot.name, flush=True)
-        prune_history(root)
+        capture_error = None
+        try:
+            prune_history(root)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            sets = history_sets(root)
+            if not sets or sets[-1].name[:11] != now.strftime("%Y%m%dT%H"):
+                snapshot = create_history(root, now.strftime("%Y%m%dT%H%M%SZ"))
+                print("Hourly database and photo snapshot verified: " + snapshot.name, flush=True)
+            prune_history(root)
+        except Exception as error:
+            capture_error = error
         if not local_only:
             publish_history_bounded(root)
+        if capture_error:
+            raise capture_error
     finally:
         lock.close()
 
@@ -574,6 +718,7 @@ def install_hourly():
 
 
 def main(argv=None):
+    os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database-engine", choices=["postgres", "sqlite"], default="sqlite")
     parser.add_argument("--local-only", action="store_true", help="Verify local snapshots without contacting the NAS")

@@ -36,7 +36,13 @@ class ReleaseTests(unittest.TestCase):
             PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
             TEST_REVISION=REVISION,
             WWW_DOCKER_BIN=str(self.root / "bin/docker"),
+            WWW_LAUNCHCTL_BIN=str(self.root / "bin/launchctl"),
         )
+        launchctl = self.root / "bin/launchctl"
+        launchctl.write_text(
+            "#!/usr/bin/env python3\nimport os,sys\nsys.exit(1 if os.environ.get('LAUNCH_FAILURE') else 0)\n"
+        )
+        launchctl.chmod(0o755)
         tailnet = self.root / "bin/tailscale"
         tailnet.write_text("""#!/usr/bin/env python3
 import json,sys
@@ -53,7 +59,8 @@ args=sys.argv[1:]
 if args[:2]==['--context','orbstack']:args=args[2:]
 with open(os.environ['MINI_TEST_LOG'],'a') as log:log.write(json.dumps(args)+'\\n')
 if args[0]=='run':
- if args[-1]=='capabilities':print(json.dumps({'databaseCheck':True}))
+ if '--entrypoint' in args and args[args.index('--entrypoint')+1]=='stat':print(Path(os.environ['WWW_ROOT']+'/sqlite/control-center.sqlite').stat().st_size)
+ elif args[-1]=='capabilities':print(json.dumps({'databaseCheck':True}))
  elif args[-1]=='database-check':
   try:
    db=sqlite3.connect('file:'+os.environ['WWW_ROOT']+'/sqlite/control-center.sqlite?mode=rw',uri=True)
@@ -67,7 +74,7 @@ elif args[:2]==['volume','inspect']:
 elif args[0]=='inspect' and '--format' in args:
  print('accepted-validator')
 elif args[0]=='inspect':
- print(json.dumps([{'State':{'Running':False},'Mounts':[{'Destination':'/app/data','Type':'volume','Name':'www-control-center-sqlite'}]}]))
+ print(json.dumps([{'Image':'test-image','Config':{'User':'501:20'},'State':{'Running':False},'Mounts':[{'Destination':'/app/data','Type':'volume','Name':'www-control-center-sqlite'}]}]))
 elif args[0]=='cp':
  if os.environ.get('COPY_FAILURE'):sys.exit(1)
  for p in Path(os.environ['WWW_ROOT']+'/sqlite').iterdir():shutil.copyfile(p,Path(args[-1])/p.name)
@@ -116,6 +123,12 @@ elif 'exec' in args and os.environ.get('HEALTH_FAILURE'):sys.exit(1)
         self.assertEqual(self.run_release(1).returncode, 0)
         self.assertEqual(len(self.calls()), count)
         self.assertFalse((self.root / "deploy.lock").exists())
+
+    def test_unavailable_background_uploader_does_not_block_deployment(self):
+        result = self.run_release(LAUNCH_FAILURE="1")
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.assertTrue((self.root / "current.env").exists())
+        self.assertIn(b"next hourly", result.stderr)
 
     def test_failed_snapshot_restarts_existing_app_without_advancing_release(self):
         self.assertNotEqual(self.run_release(COPY_FAILURE="1").returncode, 0)

@@ -1,8 +1,11 @@
 """Consistent SQLite backups shared by nightly and cutover workflows."""
 
+import datetime
+import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -64,6 +67,30 @@ def snapshot_container(name, destination):
     if len(mounts) != 1 or mounts[0]["Type"] != "volume":
         raise RuntimeError("SQLite must use Linux-local volume storage")
     inspect_volume(mounts[0]["Name"])
+    size = int(
+        subprocess.check_output(
+            docker(
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--read-only",
+                "--user",
+                info["Config"]["User"],
+                "--mount",
+                f"type=volume,source={mounts[0]['Name']},target=/app/data,readonly",
+                "--entrypoint",
+                "stat",
+                info["Image"],
+                "-c",
+                "%s",
+                "/app/data/control-center.sqlite",
+            ),
+            text=True,
+        )
+    )
+    if shutil.disk_usage(Path(destination).parent).free < 5 * 1024**3 + 2 * size + 64 * 1024**2:
+        raise RuntimeError("Insufficient snapshot headroom above the production reserve")
     with tempfile.TemporaryDirectory(prefix="www-sqlite-snapshot-") as temp:
         # A stopped container preserves the complete SQLite/WAL/SHM set. macOS
         # SQLite opens only this private copy; it never touches the live files.
@@ -71,25 +98,59 @@ def snapshot_container(name, destination):
         sqlite_snapshot(Path(temp) / "control-center.sqlite", Path(destination))
 
 
-def prune_release_snapshots(root):
-    """Bound automatic release copies; never touch incident or migration archives."""
-    for prefix, count in [("before-release-", 7), ("before-recovery-", 3)]:
-        pattern = (
-            r"before-release-\d+-[0-9a-f]{40}-\d{8}T\d{6}Z-\d+\.sqlite"
-            if prefix == "before-release-"
-            else r"before-recovery-\d{8}T\d{6}Z-\d+\.sqlite"
+RELEASE_PATTERN = re.compile(r"before-release-\d+-[0-9a-f]{40}-(\d{8}T\d{6}Z)-\d+\.sqlite")
+RECOVERY_PATTERN = re.compile(r"before-recovery-(\d{8}T\d{6}Z)-\d+\.sqlite")
+
+
+def release_snapshot_time(name):
+    match = RELEASE_PATTERN.fullmatch(name) or RECOVERY_PATTERN.fullmatch(name)
+    if match is None:
+        return None
+    try:
+        return datetime.datetime.strptime(match[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+
+
+def file_digest(path):
+    checksum = hashlib.sha256()
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            checksum.update(chunk)
+    return checksum.hexdigest()
+
+
+def release_snapshot_verified(path):
+    try:
+        receipt = json.loads(Path(str(path) + ".NAS_VERIFIED").read_text())
+        return (
+            receipt["file"] == path.name
+            and receipt["bytes"] == path.stat().st_size
+            and receipt["sha256"] == file_digest(path)
         )
+    except (FileNotFoundError, ValueError, KeyError, TypeError):
+        return False
+
+
+def prune_release_snapshots(root):
+    """Keep 7 release/3 recovery copies plus every snapshot awaiting NAS verification."""
+    for prefix, count in [("before-release-", 7), ("before-recovery-", 3)]:
         copies = sorted(
             (
                 p
                 for p in root.glob(prefix + "*.sqlite")
-                if p.is_file() and not p.is_symlink() and re.fullmatch(pattern, p.name)
+                if p.is_file() and not p.is_symlink() and release_snapshot_time(p.name)
             ),
-            key=lambda p: p.stat().st_mtime,
+            key=lambda p: release_snapshot_time(p.name),
         )
         for old in copies[:-count]:
+            if not release_snapshot_verified(old):
+                continue
+            staged = root / ".nas-pending" / old.stem
+            if staged.is_dir() and not staged.is_symlink():
+                shutil.rmtree(staged)
             old.unlink()
-            for suffix in ["-wal", "-shm"]:
+            for suffix in ["-wal", "-shm", ".NAS_VERIFIED", ".UPLOAD_FAILED"]:
                 Path(str(old) + suffix).unlink(missing_ok=True)
 
 
