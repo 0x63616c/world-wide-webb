@@ -1,0 +1,9 @@
+name: Callkeep
+delivery_handler: callkeep
+platform: macos
+testflight: false
+distribution: private_homebrew
+ci_workflow: callkeep-ci.yml
+release_workflow: callkeep-release.yml
+uses: []
+paths: []

@@ -88,6 +88,9 @@ with tempfile.TemporaryDirectory(prefix="affected-") as directory:
     expect(change("apps/samplr/app.yml", "testflight: false\nuses: []\npaths: []\n"), ["samplr"])
     expect(change("apps/samplr/app.yml", "testflight: true\nuses: []\npaths: []\n"), ["samplr"], ["samplr"])
     expect(change("apps/samplr/app.yml", "testflight: true\nuses: []\npaths: ['extra/**']\n"), ["samplr"])
+    # Products with a custom delivery handler never enter the standard iOS matrix.
+    expect(change("apps/folding/app.yml", "testflight: true\ndelivery_handler: folding\nuses: []\npaths: []\n"))
+    expect(change("apps/folding/apps/ios/App/Screen.swift"))
     # Unknown packages must fail rather than silently lose dependency coverage.
     change("apps/samplr/app.yml", "uses: [Missing]\n")
     result = subprocess.run(["scripts/affected", "HEAD", "--intent", "verify"],

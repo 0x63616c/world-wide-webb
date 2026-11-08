@@ -1,0 +1,52 @@
+name: Folding PR screenshots
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: FILEFolding PR screenshots-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  selection:
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      verify: ${{ steps.select.outputs.verify }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: select
+        uses: ./.github/actions/select
+  capture:
+    name: JOBFolding PR screenshots
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      DUO_HOST_CONTROL: '1'
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    defaults:
+      run:
+        working-directory: apps/folding
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: apple
+      - run: bundle exec fastlane ios screenshots_preview
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FILEFolding PR screenshots-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            apps/folding/build/preview-assets/**/assets/screenshots
+            apps/folding/build/preview-assets/**/assets/*manifest.json
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,142 @@
+name: Folding CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: folding-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+defaults:
+  run:
+    working-directory: apps/folding
+jobs:
+  selection:
+    name: Folding selection
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      verify: ${{ steps.selection.outputs.verify }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: selection
+        uses: ./.github/actions/select
+  contracts:
+    name: Folding contracts
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.contracts')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: contracts
+      - run: .venv/contracts/bin/python scripts/check-contracts.py
+  localization:
+    name: Folding localization
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native') || contains(fromJSON(needs.selection.outputs.verify), 'folding.tooling')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: |
+          python3 scripts/check-localization.py
+          python3 scripts/test-localization.py
+  backend:
+    name: Folding backend
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.backend')
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: backend
+      - run: scripts/check-backend
+      - name: Database policy and migration source fences
+        run: |
+          python3 scripts/test-published-build.py
+          python3 scripts/test-migration-source.py
+  domain:
+    name: Folding domain and storage
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 35
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: apple
+      - run: swift test --package-path apps/ios/Packages/FoldingKit
+      - name: Native formatting and generated icons
+        run: |
+          swift format lint --strict -r apps/ios/Packages/FoldingKit/Sources apps/ios/Packages/FoldingKit/Tests apps/ios/App apps/ios/BuildTests
+          swift scripts/generate-app-icons.swift --check
+      - name: Release invariants without provider access
+        run: bundle exec ruby -e 'Dir["fastlane/tests/*_test.rb"].sort.each { |file| require_relative file }'
+  native:
+    name: Folding native
+    needs: selection
+    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: apple
+      - run: bundle exec fastlane ios verify_app
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: folding-native-results-${{ github.sha }}
+          path: apps/folding/build/test-results
+          retention-days: 7
+  gate:
+    name: Folding checks
+    needs: [selection, contracts, localization, backend, domain, native]
+    if: always()
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        working-directory: .
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          results = json.loads(os.environ["RESULTS"])
+          assert results["selection"]["result"] == "success", "Selection failed"
+          selected = json.loads(results["selection"]["outputs"]["verify"])
+          expected = {"contracts": "folding.contracts", "backend": "folding.backend", "domain": "folding.native", "native": "folding.native"}
+          for job, unit in expected.items():
+              wanted = "success" if unit in selected else "skipped"
+              assert results[job]["result"] == wanted, f"{job}: expected {wanted}"
+          wanted = "success" if set(selected) & {"folding.native", "folding.tooling"} else "skipped"
+          assert results["localization"]["result"] == wanted, "Localization did not complete as selected"
+          PYTHON

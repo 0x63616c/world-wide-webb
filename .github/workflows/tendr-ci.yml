@@ -18,6 +18,7 @@ concurrency:
 
 jobs:
   changes:
+    name: Standard iOS selection
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -33,6 +34,7 @@ jobs:
         with:
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           intent: verify
+          only: standard_ios
 
   tooling:
     runs-on: ubuntu-latest

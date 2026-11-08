@@ -183,8 +183,9 @@ module FoldingRelease
     # normally because archive_attempt_started_at is set immediately before build_app.
     def self.replace_interrupted_archive(record, reason:)
       return FoldingRelease.follow_replacement(record.data.fetch("tag")) if record.data["replacement_tag"]
-      require_state!(record, "assets_ready")
       record.verify_identity!
+      allowed = record.data["preview_backend_verification"] ? "planned" : "assets_ready"
+      require_state!(record, allowed)
       raise "Recovery needs an audit reason" if reason.to_s.strip.empty?
       raise "No interrupted archive" unless record.data["archive_attempt_started_at"]
       raise "Publish sealed artifacts instead" if record.data["archive_candidates"]
@@ -240,17 +241,22 @@ module FoldingRelease
       receipt = File.join(directory, "published-build-receipt.json")
       recorded = record.data["build_policy_receipt_sha256"]
       name = "published-build-#{record.data.fetch('build_number')}.json"
-      if recorded && !File.exist?(receipt)
+      remote_receipt = record.remote.info.fetch("assets").any? { |asset| asset.fetch("name") == name }
+      if (recorded || remote_receipt) && !File.exist?(receipt)
         record.remote.download(name, directory)
         FileUtils.mv(File.join(directory, name), receipt)
       end
       raise "Published build receipt changed" if recorded && FoldingRelease.sha(receipt) != recorded
+      confirm_only = recorded || record.data["build_policy_registration_started_at"] || File.exist?(receipt) || remote_receipt
+      # Persist intent before the first write. A crash on either side of D1 must
+      # resume with readback, including when the receipt/checkpoint was never saved.
+      record.save("build_policy_registration_started_at" => Time.now.utc.iso8601) unless confirm_only
       Dir.mktmpdir("folding-release-policy") do |scratch|
         configuration = File.join(scratch, "configuration.json")
         FoldingRelease.atomic_json(configuration, config)
         arguments = ["python3", File.join(ROOT, "scripts/register-published-build.py"), "--record", record.path,
           "--configuration", configuration, "--receipt", receipt]
-        arguments << "--read-only" if recorded
+        arguments << "--read-only" if confirm_only
         FoldingRelease.run(*arguments)
       end
       unless recorded
@@ -266,7 +272,8 @@ module FoldingRelease
       if record.data["preview_backend_verification"]
         FoldingRelease.preview_prerequisites!(record)
       else
-        FoldingRelease.live_prerequisites!(record)
+        worker = FoldingRelease.live_prerequisites!(record)
+        record.save("deployed_worker_version" => worker)
       end
       raise "Archive required" if STATES.index(record.data.fetch("state")) < STATES.index("archived")
       register_build_policy(record)

@@ -1,3 +1,5 @@
+delivery_handler: standard_ios
+standard_ios: true
 name: Air Miles
 project: AirMiles.xcodeproj
 scheme: AirMiles

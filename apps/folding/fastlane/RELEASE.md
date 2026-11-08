@@ -189,3 +189,11 @@ The backend receipt is checked against Cloudflare's current single-version, 100%
 deployment and the uploaded version's public source/environment/app and D1 bindings. A receipt
 for another database cannot authorize builds for the live Worker. Distribution retries only
 confirm an already-recorded build-policy row; they do not recreate revoked authorization.
+
+## Monorepo capture jobs
+
+`folding-screenshots.yml` captures five English outer-display PR previews. Its `preview-manifest.json`
+and separate `build/preview-assets` output are not App Store acceptance. `folding-store-checks.yml`
+captures the full existing locale/display matrix on an explicit main-branch dispatch. Both use
+`DUO_HOST_CONTROL=1` with the repository's scoped native controller on an isolated Mac guest.
+Capture artifacts stay private; no screenshot branches or public comments are created.

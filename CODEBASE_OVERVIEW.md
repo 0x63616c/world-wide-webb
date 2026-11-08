@@ -9,11 +9,11 @@ Start with [README.md](README.md) and the relevant product README.
 - `apps/callkeep`: macOS recording/transcription source, packages and release scripts.
 - `apps/control-center`: complete native Swift/Rust/SQLite product. Read its
   [source map](apps/control-center/CODEBASE_OVERVIEW.md) before changing it.
-- `scripts/ci`: repository-wide input selection and isolation tests.
+- `scripts/ci`: repository-wide input selection and isolation tests. Test-only changes verify without delivery.
 - `scripts`, `fastlane`, `templates`: imported Tendr delivery/scaffolding handlers, being adapted.
 - `sites`: static website source; installed legacy URLs are retained until replacement proof.
-- `infra/cloudflare`: retained home infrastructure; separate app infrastructure relocation is pending.
-- `.github`: product pipelines and shared actions. Runner/image and exact-source cutovers are pending.
+- `infra/cloudflare`: retained home infrastructure; separate home and Folding state roots with preserved resource addresses.
+- `.github`: selective product pipelines and shared actions. Folding and Callkeep CI use Linux/Mac homelab routes; live runner/release cutovers are pending.
 - `.agents/skills`: pinned Apple and Matt Pocock guidance; provenance in `SOURCES.md`.
 
 [Migration progress](docs/plans/monorepo-migration-progress.md) distinguishes local evidence from

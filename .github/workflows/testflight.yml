@@ -39,6 +39,7 @@ jobs:
         with:
           base: ${{ github.event.before }}
           intent: ship
+          only: standard_ios
       - id: detect
         env:
           INPUT_APP: ${{ inputs.app }}
@@ -46,6 +47,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            [[ "$(ruby scripts/app-config.rb "$INPUT_APP" delivery_handler)" == standard_ios ]] || { echo "::error::Use the selected product delivery workflow"; exit 1; }
             [[ "$(ruby scripts/app-config.rb "$INPUT_APP" testflight)" == true ]] || { echo "::error::$INPUT_APP does not have testflight: true"; exit 1; }
             echo "apps=[\"$INPUT_APP\"]" >> "$GITHUB_OUTPUT"
           else
@@ -67,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Require CI for this exact main revision
-        if: github.ref == 'refs/heads/main' && contains(fromJSON(needs.changes.outputs.apps), 'tendr')
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/wait-release-ci.py

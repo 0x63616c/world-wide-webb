@@ -14,6 +14,16 @@ CONFIG = json.loads(selection.CONFIG.read_text())
 
 
 class SelectionTests(unittest.TestCase):
+    def test_test_only_changes_verify_their_product_without_delivery(self):
+        paths = ["apps/tendr/Tests/ImportTests.swift", "apps/folding/apps/ios/Packages/FoldingKit/Tests/SyncTests.swift",
+                 "apps/folding/backend/crates/worker/tests/runtime.rs", "apps/callkeep/Tests/RecorderTests.swift",
+                 "apps/control-center/server/tests/health.rs", "infra/cloudflare/home/tests/routing.tftest.hcl"]
+        for path in paths:
+            with self.subTest(path=path):
+                result = selection.select([path], CONFIG)
+                self.assertTrue(result["verify"])
+                self.assertEqual(result["delivery_candidates"], [])
+
     def test_native_change_only_releases_its_product(self):
         result = selection.select(["apps/folding/apps/ios/App/FoldingScreens.swift"], CONFIG)
         self.assertEqual(result["verify"], ["folding.native"])
@@ -64,13 +74,13 @@ class SelectionTests(unittest.TestCase):
             git("init", "-q")
             git("config", "user.name", "Test")
             git("config", "user.email", "test@example.invalid")
-            (repo / "apps/tendr").mkdir(parents=True)
-            (repo / "apps/tendr/old.swift").write_text("let a = 1\n")
+            (repo / "apps/tendr/Still").mkdir(parents=True)
+            (repo / "apps/tendr/Still/old.swift").write_text("let a = 1\n")
             git("add", ".")
             git("commit", "-qm", "base")
             base = git("rev-parse", "HEAD")
-            (repo / "apps/callkeep").mkdir()
-            (repo / "apps/tendr/old.swift").rename(repo / "apps/callkeep/new.swift")
+            (repo / "apps/callkeep/Sources").mkdir(parents=True)
+            (repo / "apps/tendr/Still/old.swift").rename(repo / "apps/callkeep/Sources/new.swift")
             git("add", ".")
             git("commit", "-qm", "move")
             paths = selection.changed_paths(base, git("rev-parse", "HEAD"), "push", repo)

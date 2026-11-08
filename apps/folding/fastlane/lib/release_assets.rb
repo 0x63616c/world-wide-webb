@@ -1,4 +1,5 @@
 require_relative "release_manifest"
+require_relative "../../../../scripts/duo-host"
 
 module FoldingRelease
   module Assets
@@ -40,9 +41,10 @@ module FoldingRelease
       FoldingRelease.atomic_json(File.join(record.directory, "assets/metadata-manifest.json"), manifest)
     end
 
-    def self.capture(context, record, review_only: false)
+    def self.capture(context, record, review_only: false, preview: false)
       record.verify_identity!
       FoldingRelease.clean_commit!
+      raise "Preview captures require a separate preview record" if preview && record.data["purpose"] != "preview"
       output = File.join(record.directory, "assets")
       if review_only && File.exist?(File.join(output, "tip-review-manifest.json"))
         return validate_tip_review!(record)
@@ -52,20 +54,22 @@ module FoldingRelease
       name = "Folding Capture #{SecureRandom.hex(6)}"
       device = FoldingRelease.run("xcrun", "simctl", "create", name, PLAN.fetch("device_type"), PLAN.fetch("runtime"))
       entries = []
+      controller = nil
       begin
         FoldingRelease.run("xcrun", "simctl", "boot", device)
         FoldingRelease.run("xcrun", "simctl", "bootstatus", device, "-b")
         FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", PLAN.fetch("appearance"))
         FoldingRelease.run("xcrun", "simctl", "status_bar", device, "override", "--time", "9:41", "--batteryState", "charged", "--batteryLevel", "100")
+        controller = DuoHost.new(directory: File.join(output, "native-control"), device_name: name).start if ENV["DUO_HOST_CONTROL"] == "1"
         PLAN.fetch("devices").reverse_each do |display|
-          next if review_only && display.fetch("id") != "duo-outer"
-          request_native_pose(output, device, name, display)
+          next if (review_only || preview) && display.fetch("id") != "duo-outer"
+          request_native_pose(output, device, name, display, controller: controller)
           LOCALES.each do |locale|
-            next if review_only && locale.fetch("storefront_locale") != "en-US"
+            next if (review_only || preview) && locale.fetch("storefront_locale") != "en-US"
             export = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"))
             result = File.join(output, "results", "#{display.fetch('id')}-#{locale.fetch('storefront_locale')}.xcresult")
             tests = review_only ? [] : ["#{PLAN.fetch('test_target')}/StorefrontRenderTests/#{display.fetch('id') == 'duo-outer' ? 'testRenderOuter' : 'testRenderInner'}"]
-            if locale.fetch("storefront_locale") == "en-US" && display.fetch("id") == "duo-outer"
+            if !preview && locale.fetch("storefront_locale") == "en-US" && display.fetch("id") == "duo-outer"
               tests << "#{PLAN.fetch('test_target')}/StorefrontRenderTests/testRenderTipReview"
             end
             # Execute actual UIKit views in XCTest, without launching/navigating simulator UI.
@@ -91,12 +95,12 @@ module FoldingRelease
             (review_only ? [] : PLAN.fetch("scenarios")).each do |scene|
               entries << compose(record, find_capture.call(display, scene), display, locale, scene)
             end
-            PLAN.fetch("review_scenarios").select { |scene| scene["device_id"] == display["id"] && scene["storefront_locale"] == locale["storefront_locale"] }.each do |scene|
+            (preview ? [] : PLAN.fetch("review_scenarios")).select { |scene| scene["device_id"] == display["id"] && scene["storefront_locale"] == locale["storefront_locale"] }.each do |scene|
               package_tip_review(record, find_capture.call(display, scene), display, locale, scene)
             end
           end
         end
-        (review_only ? [] : PLAN.fetch("additional_upload_slots")).each do |slot|
+        (review_only || preview ? [] : PLAN.fetch("additional_upload_slots")).each do |slot|
           LOCALES.each do |locale|
             source = entries.find { |entry| entry["device_id"] == slot.fetch("source_device_id") && entry["scenario_id"] == slot.fetch("scenario_id") && entry["storefront_locale"] == locale.fetch("storefront_locale") }
             scenario = PLAN.fetch("scenarios").find { |item| item["id"] == slot.fetch("scenario_id") }
@@ -109,10 +113,17 @@ module FoldingRelease
         end
         manifest = {"schema_version" => 1, "commit_sha" => record.data.fetch("commit_sha"),
           "configuration_hash" => record.data.fetch("configuration_hash"), "entries" => entries}
+        if preview
+          raise "Incomplete PR preview" unless entries.length == PLAN.fetch("scenarios").length && entries.all? { |entry| entry["device_id"] == "duo-outer" && entry["storefront_locale"] == "en-US" }
+          FoldingRelease.atomic_json(File.join(output, "preview-manifest.json"), manifest.merge("purpose" => "preview"))
+          FoldingRelease.clean_commit!
+          return manifest
+        end
         FoldingRelease.atomic_json(File.join(output, "screenshot-manifest.json"), manifest)
         FoldingRelease.clean_commit!
         validate!(record)
       ensure
+        controller&.close
         # Only the simulator created by this invocation is ever shut down/deleted.
         system("xcrun", "simctl", "shutdown", device, out: File::NULL, err: File::NULL)
         system("xcrun", "simctl", "delete", device, out: File::NULL, err: File::NULL)
@@ -122,7 +133,8 @@ module FoldingRelease
     # Native chrome uses the real Duo pose, not the framebuffer's power state.
     # A host controller acknowledges this request after selecting Open/Closed in Device Hub;
     # XCTest independently requires the exact resulting native window geometry.
-    def self.request_native_pose(output, device, name, display)
+    def self.request_native_pose(output, device, name, display, controller: nil)
+      return controller.pose(display.fetch("id") == "duo-inner" ? "inner" : "outer") if controller
       directory = File.join(output, "native-control")
       identifier = SecureRandom.hex(12)
       FoldingRelease.atomic_json(File.join(directory, "request.json"), {
@@ -255,10 +267,11 @@ module FoldingRelease
   # Unprivileged screenshots require neither Apple credentials nor GitHub artifact access.
   class LocalCaptureRecord
     attr_reader :data, :directory
-    def initialize(environment: "production")
+    def initialize(environment: "production", purpose: "store")
+      raise "Unknown capture purpose" unless %w[store preview].include?(purpose)
       source = FoldingRelease.clean_commit!
-      @data = {"commit_sha" => source, "configuration_hash" => FoldingRelease.configuration_hash(environment), "environment" => environment}
-      @directory = File.join(ROOT, "build/store-assets", source, environment)
+      @data = {"commit_sha" => source, "configuration_hash" => FoldingRelease.configuration_hash(environment), "environment" => environment, "purpose" => purpose}
+      @directory = File.join(ROOT, purpose == "preview" ? "build/preview-assets" : "build/store-assets", source, environment)
     end
 
     def verify_identity!

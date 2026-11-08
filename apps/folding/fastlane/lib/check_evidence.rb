@@ -76,8 +76,9 @@ module FoldingRelease
         raise "Expected exact Actions run URL" unless match
         prefix = "repos/#{CONFIG.fetch('repository')}/actions/runs/#{match[1]}"
         run = JSON.parse(FoldingRelease.run("gh", "api", prefix))
+        trusted_event = run["event"] == "push" || (name == "screenshots" && run["event"] == "workflow_dispatch")
         raise "Wrong workflow/source or unsuccessful run" unless run["head_sha"] == source && run["path"] == workflow && run["status"] == "completed" && run["conclusion"] == "success" &&
-          run["event"] == "push" && run["head_branch"] == "main" && run.dig("head_repository", "full_name") == CONFIG.fetch("repository") &&
+          trusted_event && run["head_branch"] == "main" && run.dig("head_repository", "full_name") == CONFIG.fetch("repository") &&
           run["run_attempt"].is_a?(Integer) && run["run_attempt"] > 0 && (!match[2] || match[2].to_i == run["run_attempt"])
         pages = JSON.parse(FoldingRelease.run("gh", "api", "--paginate", "--slurp", "#{prefix}/attempts/#{run.fetch('run_attempt')}/jobs?per_page=100"))
         jobs = pages.flat_map { |page| page.fetch("jobs") }.select { |job| job["name"] == job_name }

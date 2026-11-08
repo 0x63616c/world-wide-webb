@@ -7,6 +7,91 @@ class CodingRegressionsTest < Minitest::Test
     def verify_identity!; end
     def save(values); data.merge!(values); end
     def advance(state, values = {}); save(values.merge("state" => state)); end
+    def path; File.join(directory, "release.json"); end
+  end
+  def test_policy_registration_crash_retries_only_confirm_even_without_final_manifest_checkpoint
+    previous = ENV["FOLDING_BACKEND_DEPLOYMENT_RECEIPT"]
+    [:before_write, :local_receipt, :remote_receipt].each do |boundary|
+      Dir.mktmpdir do |directory|
+        deployment = File.join(directory, "deployment.json")
+        FoldingRelease.atomic_json(deployment, {"runtime_configuration" => {}})
+        ENV["FOLDING_BACKEND_DEPLOYMENT_RECEIPT"] = deployment
+        remote = Object.new
+        remote.instance_variable_set(:@assets, {})
+        def remote.info; {"assets" => @assets.keys.map { |name| {"name" => name} }}; end
+        def remote.upload_artifact(file); @assets[File.basename(file)] = File.read(file); end
+        def remote.download(name, directory); File.write(File.join(directory, name), @assets.fetch(name)); end
+        record = Record.new({"build_number" => 42}, directory, remote)
+        operation = lambda do |*arguments|
+          assert record.data["build_policy_registration_started_at"], "Intent must persist before any possible write"
+          refute_includes arguments, "--read-only"
+          unless boundary == :before_write
+            File.write(File.join(directory, "published-build-receipt.json"), "{}")
+          end
+          if boundary == :remote_receipt
+            artifact = File.join(directory, "published-build-42.json")
+            File.write(artifact, "{}")
+            remote.upload_artifact(artifact)
+            File.delete(File.join(directory, "published-build-receipt.json"))
+          end
+          raise "Simulated process interruption"
+        end
+        FoldingRelease.stub(:run, operation) do
+          assert_raises(RuntimeError) { FoldingRelease::Operations.register_build_policy(record) }
+        end
+        refute record.data.key?("build_policy_receipt_sha256")
+        FoldingRelease.stub(:run, ->(*arguments) { assert_includes arguments, "--read-only"; raise "Revoked/missing row stays missing" }) do
+          assert_raises(RuntimeError) { FoldingRelease::Operations.register_build_policy(record) }
+        end
+      end
+    end
+  ensure
+    ENV["FOLDING_BACKEND_DEPLOYMENT_RECEIPT"] = previous
+  end
+
+  def test_beta_records_the_current_compatible_worker_before_registering_policy
+    record = Record.new({"state" => "archived", "deployed_worker_version" => "old"})
+    FoldingRelease.stub(:live_prerequisites!, "current") do
+      FoldingRelease::Operations.stub(:register_build_policy, ->(value) { assert_equal "current", value.data.fetch("deployed_worker_version"); raise "Stop before Apple" }) do
+        assert_raises(RuntimeError) { FoldingRelease::Operations.beta(nil, record) }
+      end
+    end
+  end
+  def test_real_archive_recovery_handles_preview_and_store_states_without_mutating_old_build_identity
+    %w[planned assets_ready].each do |state|
+      old = Record.new({"state" => state, "build_number" => 42, "tag" => "folding/build-42", "release_id" => "old",
+        "environment" => "production", "marketing_version" => "1.0.0", "archive_attempt_started_at" => "time"})
+      old.data["preview_backend_verification"] = {"worker_version" => "a" * 40} if state == "planned"
+      replacement = Record.new({"state" => "planned", "build_number" => 43, "tag" => "folding/build-43"})
+      registered = Struct.new(:id) do
+        def get_builds(**); [Struct.new(:version).new("41")]; end
+      end
+      find = lambda do |identifier, **_options|
+        identity = FoldingAppleAccount.config.values.find { |item| item.is_a?(Hash) && item["bundle_id"] == identifier }
+        registered.new(identity.fetch("app_store_id"))
+      end
+      reserve = lambda do |**arguments|
+        assert_equal "old", arguments.fetch(:replacement_for)
+        assert_equal "1.0.0", arguments.fetch(:version)
+        replacement
+      end
+      FoldingRelease.stub(:run, '{"login":"test-actor"}') do
+        FoldingRelease.stub(:client, :test_client) do
+          Spaceship::ConnectAPI::App.stub(:find, find) do
+            FoldingRelease.stub(:reserve, reserve) do
+              assert_same replacement, FoldingRelease::Operations.replace_interrupted_archive(old, reason: "interrupted build")
+            end
+          end
+        end
+      end
+      assert_equal 42, old.data.fetch("build_number")
+      assert_equal true, old.data.fetch("cancelled")
+      assert_equal "folding/build-43", old.data.fetch("replacement_tag")
+      assert_equal "test-actor", replacement.data.fetch("archive_replacement").fetch("actor")
+      FoldingRelease.stub(:follow_replacement, ->(tag) { assert_equal "folding/build-42", tag; replacement }) do
+        assert_same replacement, FoldingRelease::Operations.replace_interrupted_archive(old, reason: "retry")
+      end
+    end
   end
   def test_preview_requires_complete_capabilities_and_verified_compatible_backend
     source = "a" * 40

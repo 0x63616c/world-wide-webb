@@ -31,7 +31,7 @@ def validate(config):
     for name, unit in config["units"].items():
         if not re.fullmatch(r"[a-z][a-z0-9.-]*", name):
             raise ValueError(f"Invalid unit: {name}")
-        for key in ("paths", "exclude"):
+        for key in ("paths", "exclude", "delivery_paths", "delivery_exclude"):
             for pattern in unit.get(key, []):
                 if not isinstance(pattern, str) or pattern.startswith("/") or ".." in pattern.split("/"):
                     raise ValueError(f"Invalid {name} {key}")
@@ -44,6 +44,7 @@ def validate(config):
 def select(paths, config, force=False):
     units = validate(config)["units"]
     direct = set()
+    delivery = set()
     unknown = set()
     shared = False
     for path in paths:
@@ -62,6 +63,9 @@ def select(paths, config, force=False):
             if matches(path, unit["paths"]) and not matches(path, unit.get("exclude", []))
         }
         direct.update(owners)
+        delivery.update(name for name in owners if units[name].get("delivery") and
+                        matches(path, units[name].get("delivery_paths", units[name]["paths"])) and
+                        not matches(path, units[name].get("delivery_exclude", [])))
         if not owners:
             unknown.add(path)
     # Unknown paths fail conservatively into verification, never deployment.
@@ -75,7 +79,7 @@ def select(paths, config, force=False):
     return {
         "version": 1,
         "verify": sorted(verify),
-        "delivery_candidates": sorted(name for name in direct if units[name].get("delivery")),
+        "delivery_candidates": sorted(delivery),
         "shared_tooling": shared,
         "unmapped": sorted(unknown),
     }

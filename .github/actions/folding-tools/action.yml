@@ -1,0 +1,61 @@
+name: Folding toolchain
+description: Prepare pinned product tools without credentials
+inputs:
+  target:
+    description: contracts, backend or apple
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: pins
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
+        import json
+        for key, value in json.load(open("apps/folding/tool-versions.json")).items():
+            if isinstance(value, str):
+                print(f"{key}={value}")
+        PYTHON
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      with:
+        python-version: ${{ steps.pins.outputs.python }}
+    - if: inputs.target == 'contracts'
+      shell: bash
+      working-directory: apps/folding
+      run: |
+        python3 -m venv .venv/contracts
+        .venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
+    - if: inputs.target == 'backend'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ steps.pins.outputs.node }}
+    - if: inputs.target == 'backend'
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: ${{ steps.pins.outputs.bun }}
+    - if: inputs.target == 'backend'
+      shell: bash
+      env:
+        RUST_VERSION: ${{ steps.pins.outputs.rust }}
+        WORKER_BUILD_VERSION: ${{ steps.pins.outputs.worker_build }}
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        rustup toolchain install "$RUST_VERSION" --profile minimal --target wasm32-unknown-unknown
+        if ! worker-build --version 2>/dev/null | grep -Fq "$WORKER_BUILD_VERSION"; then
+          cargo +"$RUST_VERSION" install worker-build --version "$WORKER_BUILD_VERSION" --locked
+        fi
+        cd apps/folding/backend
+        bun install --frozen-lockfile
+    - if: inputs.target == 'apple'
+      shell: bash
+      working-directory: apps/folding
+      env:
+        RUBY_VERSION: ${{ steps.pins.outputs.ruby }}
+        BUNDLER_VERSION: ${{ steps.pins.outputs.bundler }}
+      run: |
+        [[ "$(ruby -e 'print RUBY_VERSION')" == "$RUBY_VERSION" ]]
+        gem install bundler --version "$BUNDLER_VERSION" --no-document
+        bundle config set --local path "$RUNNER_TEMP/folding-bundle"
+        BUNDLE_FROZEN=true bundle install
+        python3 scripts/apple-build-environment.py

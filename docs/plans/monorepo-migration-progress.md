@@ -161,3 +161,40 @@ private HTTPS Serve. That chat owns the immediate endpoint repair. This migratio
 its resulting commit/route contract before cutover and must not overlap identity/Serve changes.
 Linux runner work is still active; its latest report proves four overlapping Linux builds passed
 with mixed Apple/Linux load validation remaining. Homelab authority handover remains pending.
+
+## Selective product CI and screenshot automation — approximately 31% overall
+
+Folding now has root workflows for independently selected contracts, backend, domain/storage,
+localization and native checks, plus a fail-closed aggregate gate. Callkeep has its own native
+CI and aggregate. Linux jobs target the pending homelab Linux route; Apple jobs use the existing
+homelab Mac route. New workflows remain local, with no claim of live runner acceptance.
+
+Every product has a registry manifest and explicit delivery handler. Standard iOS matrices and
+Fastlane reject custom handlers; adding Folding/Control Center cannot accidentally feed them
+through Tendr signing or upload logic. All standard-iOS products now wait for exact-source CI.
+Ten shared selector tests pass, including test-only non-delivery; real Git impact fixtures pass
+including custom-handler exclusion and cross-app moves. All workflows pass actionlint.
+
+Folding has separate five-scene English outer-display PR previews and full ten-locale App Store
+capture workflows. Previews have a distinct directory/purpose/manifest and cannot serve as full
+listing evidence. A shared scoped native Device Hub process controller automates Open/Closed
+requests; product XCTest still verifies native geometry. Controller build/sandbox and actual VM
+capture acceptance are tracked separately; live capture proof remains outstanding.
+
+Astra's final Folding invariant report at `/tmp/monorepo-folding-invariants-final-astra-review.md`
+found no remaining actionable issue after preview recovery, pre-write durable registration intent
+and current accepted-backend source propagation fixes. Crash-boundary tests exercise read-only
+retry before a receipt, after local receipt and after remote artifact publication. This focused
+review does not cover the subsequent CI/capture wiring or replace the complete final review.
+
+The shared native controller builds for macOS and its signed sandbox grants exactly the temporary
+capture directory. This proves compilation/entitlement scope, not yet actual pose/capture behavior.
+The full Folding Ruby suite passes at this candidate: 22 tests / 576 assertions.
+
+The independent endpoint-repair chat now reports private HTTPS/app API restored at the original
+`homelab.tail8c014d.ts.net` via `svc:homelab`, approved only on the rebuilt Mini. The old offline
+node was renamed `homelab-retired`. Preserve this service route; host SSH must use
+`admin@homelab-mac-mini.tail8c014d.ts.net`, not the now-service `homelab` DNS name. Its durable
+homelab candidate is `ec73547` (publication pending when reported). An existing resolver symlink
+health issue remains for the homelab owner to reconcile. These are reported repair findings;
+this migration still owes independent delivery verification.

@@ -96,6 +96,10 @@ def main():
     build_tooling = any(tooling(path) for path in files)
     apps = []
     for app, config in configs.items():
+        # This is the standard iOS handler's resolver. Other products use the
+        # repository unit selector and their own build/release state machines.
+        if config.get("delivery_handler", "standard_ios") != "standard_ios":
+            continue
         if args.intent == "ship" and config.get("testflight") is not True:
             continue
         if args.only and not config.get(args.only):

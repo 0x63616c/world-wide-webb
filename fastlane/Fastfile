@@ -23,7 +23,9 @@ def r_app(options)
   UI.user_error!("Pass app:<name>, for example `fastlane ios beta app:tendr`. Apps: #{apps.join(', ')}") if slug.empty?
   UI.user_error!("Unknown app '#{slug}'. Apps: #{apps.join(', ')}") unless apps.include?(slug)
   dir = File.join(REPO_ROOT, "apps", slug)
-  YAML.safe_load_file(File.join(dir, "app.yml")).merge(
+  config = YAML.safe_load_file(File.join(dir, "app.yml"))
+  UI.user_error!("#{slug} uses its #{config['delivery_handler']} delivery handler; see apps/#{slug}/README.md") unless config.fetch("delivery_handler", "standard_ios") == "standard_ios"
+  config.merge(
     "slug" => slug,
     "dir" => dir,
     "metadata_path" => File.join(dir, "fastlane", "metadata"),

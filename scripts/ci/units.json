@@ -14,7 +14,28 @@
       "paths": [
         "apps/tendr/**"
       ],
-      "delivery": "testflight"
+      "delivery": "testflight",
+      "delivery_paths": [
+        "apps/tendr/Still/**",
+        "apps/tendr/Packages/RDesign/Sources/**",
+        "apps/tendr/Packages/RDesign/Package.swift",
+        "apps/tendr/project.yml",
+        "apps/tendr/Package.swift",
+        "apps/tendr/app.yml",
+        "apps/tendr/fastlane/metadata/**",
+        "apps/tendr/screenshots.json",
+        "apps/tendr/Tendr.storekit"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "airmiles.native": {
       "paths": [
@@ -28,13 +49,50 @@
         "apps/folding/cloudkit/**",
         "apps/folding/fastlane/**"
       ],
-      "delivery": "testflight"
+      "delivery": "testflight",
+      "delivery_paths": [
+        "apps/folding/apps/ios/App/**",
+        "apps/folding/apps/ios/Widgets/**",
+        "apps/folding/apps/ios/Branding/**",
+        "apps/folding/apps/ios/Config/**",
+        "apps/folding/apps/ios/Packages/FoldingKit/Sources/**",
+        "apps/folding/apps/ios/Packages/FoldingKit/Package.swift",
+        "apps/folding/apps/ios/project.yml",
+        "apps/folding/cloudkit/**"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "folding.backend": {
       "paths": [
         "apps/folding/backend/**"
       ],
-      "delivery": "worker"
+      "delivery": "worker",
+      "delivery_paths": [
+        "apps/folding/backend/crates/*/src/**",
+        "apps/folding/backend/crates/*/Cargo.toml",
+        "apps/folding/backend/Cargo.toml",
+        "apps/folding/backend/Cargo.lock",
+        "apps/folding/backend/migrations/**"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "folding.contracts": {
       "paths": [
@@ -70,13 +128,47 @@
       "paths": [
         "apps/callkeep/**"
       ],
-      "delivery": "homebrew"
+      "delivery": "homebrew",
+      "delivery_paths": [
+        "apps/callkeep/Sources/**",
+        "apps/callkeep/Resources/**",
+        "apps/callkeep/Packages/*/Sources/**",
+        "apps/callkeep/Packages/*/Package.swift",
+        "apps/callkeep/Packages/*/Package.resolved",
+        "apps/callkeep/project.yml"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "control-center.native": {
       "paths": [
         "apps/control-center/apple/**"
       ],
-      "delivery": "testflight"
+      "delivery": "testflight",
+      "delivery_paths": [
+        "apps/control-center/apple/App/**",
+        "apps/control-center/apple/Packages/*/Sources/**",
+        "apps/control-center/apple/Packages/*/Package.swift",
+        "apps/control-center/apple/project.yml"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "control-center.server": {
       "paths": [
@@ -87,7 +179,25 @@
         "apps/control-center/.dockerignore",
         "apps/control-center/deploy/**"
       ],
-      "delivery": "container"
+      "delivery": "container",
+      "delivery_paths": [
+        "apps/control-center/server/src/**",
+        "apps/control-center/server/migrations/**",
+        "apps/control-center/Cargo.*",
+        "apps/control-center/Dockerfile",
+        "apps/control-center/.dockerignore",
+        "apps/control-center/deploy/mini/**"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "control-center.contracts": {
       "paths": [
@@ -123,13 +233,33 @@
         "sites/tendr/**",
         "sites/.legacy-root/**"
       ],
-      "delivery": "site"
+      "delivery": "site",
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "sites.folding": {
       "paths": [
         "sites/folding/**"
       ],
-      "delivery": "site"
+      "delivery": "site",
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "cloudflare.home": {
       "paths": [
@@ -138,13 +268,42 @@
         "apps/control-center/tools/test_infra_apply.py",
         "apps/control-center/tools/test_state_backend.py"
       ],
-      "delivery": "infra"
+      "delivery": "infra",
+      "delivery_paths": [
+        "infra/cloudflare/home/*.tf",
+        "infra/cloudflare/home/.terraform.lock.hcl",
+        "apps/control-center/tools/infra_apply.py"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "cloudflare.folding": {
       "paths": [
         "infra/cloudflare/folding/**"
       ],
-      "delivery": "infra"
+      "delivery": "infra",
+      "delivery_paths": [
+        "infra/cloudflare/folding/**/*.tf",
+        "infra/cloudflare/folding/**/.terraform.lock.hcl"
+      ],
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "homelab.config": {
       "paths": [
@@ -159,7 +318,17 @@
       "exclude": [
         "homelab/cli/**"
       ],
-      "delivery": "host-promotion"
+      "delivery": "host-promotion",
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "homelab.cli": {
       "paths": [
@@ -168,7 +337,17 @@
       "verify_dependents": [
         "homelab.config"
       ],
-      "delivery": "homebrew"
+      "delivery": "homebrew",
+      "delivery_exclude": [
+        "**/Tests/**",
+        "**/tests/**",
+        "**/test_*",
+        "**/*_test.*",
+        "**/fixtures/**",
+        "**/BuildTests/**",
+        "**/ScreenshotTests/**",
+        "**/StorefrontTests/**"
+      ]
     },
     "templates": {
       "paths": [
