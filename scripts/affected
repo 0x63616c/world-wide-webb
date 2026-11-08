@@ -50,23 +50,32 @@ def main():
     parser.add_argument("base", nargs="?", default="")
     parser.add_argument("--intent", required=True, choices=["verify", "ship"])
     parser.add_argument("--only", help="Keep apps with this enabled app.yml capability")
+    parser.add_argument("--head", help="Compare this committed tree instead of HEAD and working-tree configuration")
     args = parser.parse_args()
+    head = args.head or "HEAD"
+    if args.head and not usable(head):
+        parser.error("--head must name an available commit")
     configs = {}
-    for config_path in sorted(ROOT.glob("apps/*/app.yml")):
-        config = yaml.safe_load(config_path.read_text())
+    config_paths = ([ROOT / path for path in git("ls-tree", "-r", "--name-only", head, "apps").decode().splitlines()
+                     if len(Path(path).parts) == 3 and path.endswith("/app.yml")]
+                    if args.head else sorted(ROOT.glob("apps/*/app.yml")))
+    for config_path in config_paths:
+        config = yaml.safe_load(git("show", f"{head}:{config_path.relative_to(ROOT)}") if args.head else config_path.read_text())
         for key in ("uses", "paths"):
             values = config.get(key, [])
             if not isinstance(values, list) or not all(isinstance(v, str) and v for v in values):
                 parser.error(f"{config_path}: {key} must be a list of nonempty strings")
         for package in config.get("uses", []):
-            if not (ROOT / "packages" / package).is_dir() or "/" in package or package in {".", ".."}:
+            package_exists = (bool(git("ls-tree", "-d", "--name-only", head, f"packages/{package}"))
+                              if args.head else (ROOT / "packages" / package).is_dir())
+            if not package_exists or "/" in package or package in {".", ".."}:
                 parser.error(f"{config_path}: unknown package {package}")
         for pattern in config.get("paths", []):
             if pattern.startswith("/") or ".." in pattern.split("/"):
                 parser.error(f"{config_path}: paths must be repo-relative globs")
         configs[config_path.parent.name] = config
     base = resolve_base(args.base)
-    files = git("diff", "--no-renames", "--name-only", "-z", base, "HEAD").decode().split("\0")
+    files = git("diff", "--no-renames", "--name-only", "-z", base, head).decode().split("\0")
     files = [path for path in files if path and not ignored(path)]
     if args.intent == "ship":
         # Adding impact declarations does not change a binary. Other app.yml edits
@@ -77,7 +86,7 @@ def main():
                 continue
             try:
                 before = yaml.safe_load(git("show", f"{base}:{path}"))
-                after = yaml.safe_load(git("show", f"HEAD:{path}"))
+                after = yaml.safe_load(git("show", f"{head}:{path}"))
             except subprocess.CalledProcessError:
                 continue  # A new app config is a real app change.
             if all(isinstance(config, dict) for config in (before, after)):

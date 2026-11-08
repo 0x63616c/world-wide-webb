@@ -60,6 +60,21 @@ class StorefrontStatusTest < Minitest::Test
     assert check.fetch(:idle)
   end
 
+  def test_waiting_can_resume_a_replacement_without_claiming_public_availability
+    result = check(state: "WAITING_FOR_REVIEW", review_state: "WAITING_FOR_REVIEW")
+    refute result.fetch(:idle)
+    assert result.fetch(:resumable)
+    result = check(state: "IN_REVIEW", review_state: "IN_REVIEW")
+    refute result.fetch(:resumable)
+    refute check(state: "WAITING_FOR_REVIEW", review_state: "CANCELING").fetch(:resumable)
+    refute check(state: "WAITING_FOR_REVIEW", review_state: "NEW_APPLE_STATE").fetch(:resumable)
+  end
+
+  def test_a_deferred_withdrawal_can_resume_when_editable
+    assert check(state: "DEVELOPER_REJECTED").fetch(:resumable)
+    assert check(state: "PREPARE_FOR_SUBMISSION").fetch(:resumable)
+  end
+
   def test_live_app_does_not_hide_pending_or_rejected_purchase_review
     result = check(review_state: "IN_REVIEW")
     refute result.fetch(:idle)

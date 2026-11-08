@@ -21,15 +21,17 @@ module StorefrontStatus
     state = ReleasePipeline.state(latest)
     version = latest.dig("attributes", "versionString")
     summary = "Tendr #{version}: #{state}."
-    if %w[REJECTED METADATA_REJECTED INVALID_BINARY DEVELOPER_REJECTED PENDING_DEVELOPER_RELEASE].include?(state)
+    if %w[REJECTED METADATA_REJECTED INVALID_BINARY PENDING_DEVELOPER_RELEASE].include?(state)
       raise("#{summary} Action needed in App Store Connect; automatic publication has not completed")
     end
     reviews = ReleasePipeline.reviews(asc, config.fetch("apple_id"))
     if reviews.any? { |row| row.dig("attributes", "state") == "UNRESOLVED_ISSUES" }
       raise("#{summary} Joint app/purchase review has unresolved issues; action needed in App Store Connect")
     end
-    if reviews.any? { |row| ReleasePipeline::ACTIVE_REVIEW.include?(row.dig("attributes", "state")) }
-      return { idle: false, summary: "#{summary} Joint app/purchase review pending; no public-availability claim." }
+    active = reviews.reject { |row| %w[COMPLETE READY_FOR_REVIEW].include?(row.dig("attributes", "state")) }
+    unless active.empty?
+      waiting = state == "WAITING_FOR_REVIEW" && active.one? && active.first.dig("attributes", "state") == "WAITING_FOR_REVIEW"
+      return { idle: false, resumable: waiting, summary: "#{summary} Joint app/purchase review pending; no public-availability claim." }
     end
     if ReleasePipeline::LIVE.include?(state)
       %w[us gb].each do |country|
@@ -48,7 +50,8 @@ module StorefrontStatus
     else
       summary += " Publication pending; no public-availability claim."
     end
-    { idle: ReleasePipeline::LIVE.include?(state), summary: summary }
+    idle = ReleasePipeline::LIVE.include?(state)
+    { idle: idle, resumable: idle || %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED].include?(state), summary: summary }
   end
 end
 
@@ -58,6 +61,9 @@ if $PROGRAM_NAME == __FILE__
   Spaceship::ConnectAPI.auth(key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"), key: ENV.fetch("ASC_KEY_CONTENT"))
   result = StorefrontStatus.check(Spaceship::ConnectAPI.client.tunes_request_client, config)
   puts result.fetch(:summary)
-  File.open(ENV.fetch("GITHUB_OUTPUT"), "a") { |f| f.puts("idle=#{result.fetch(:idle)}") } if ENV["GITHUB_OUTPUT"]
+  File.open(ENV.fetch("GITHUB_OUTPUT"), "a") do |f|
+    f.puts("idle=#{result.fetch(:idle)}")
+    f.puts("resumable=#{result.fetch(:resumable)}")
+  end if ENV["GITHUB_OUTPUT"]
   File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |f| f.puts(result.fetch(:summary)) } if ENV["GITHUB_STEP_SUMMARY"]
 end

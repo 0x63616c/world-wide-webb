@@ -23,10 +23,23 @@ def pending_state(runs, artifacts, read_state):
     return None
 
 
+def workflow_runs(repo):
+    # A long review can outlast hundreds of unrelated main pushes. Do not lose
+    # its durable deferral behind a fixed recent-run window; stop lazily as soon
+    # as pending_state finds a decision or an active publisher.
+    page = 1
+    while True:
+        batch = json.loads(gh("api", f"repos/{repo}/actions/workflows/testflight.yml/runs?branch=main&per_page=100&page={page}"))["workflow_runs"]
+        yield from ({"databaseId": row["id"], "status": row["status"]} for row in batch)
+        if len(batch) < 100:
+            return
+        page += 1
+
+
 def main():
     import os
     repo = os.environ["GITHUB_REPOSITORY"]
-    runs = json.loads(gh("run", "list", "--repo", repo, "--workflow", "testflight.yml", "--branch", "main", "--limit", "50", "--json", "databaseId,status"))
+    runs = workflow_runs(repo)
 
     def artifacts(run_id):
         return json.loads(gh("api", f"repos/{repo}/actions/runs/{run_id}/artifacts"))["artifacts"]

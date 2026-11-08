@@ -46,13 +46,16 @@ jobs:
           ruby scripts/check-release.rb
           ruby scripts/test-review-products.rb
           ruby scripts/test-release-pipeline.rb
+          ruby scripts/test-pending-release.rb
           ruby scripts/test-storefront-status.rb
           python3 scripts/test-resume-release.py
           python3 scripts/test-wait-release-ci.py
       - name: Install impact resolver dependencies
         run: python3 -m pip install -r scripts/requirements.txt
       - name: Path filter regression checks
-        run: python3 scripts/test-changed-apps.py
+        run: |
+          python3 scripts/test-changed-apps.py
+          python3 scripts/test-release-source.py
       - name: Duo capture and Xcode selection checks
         run: python3 scripts/test-duo-screenshots.py
       - name: Install screenshot export dependencies

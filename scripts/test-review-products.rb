@@ -89,4 +89,18 @@ class ReviewProductsTest < Minitest::Test
     assert_raises(RuntimeError) { @review.inventory! }
     assert_empty @api.writes
   end
+
+  def test_withdrawn_purchase_cannot_disappear_from_replacement
+    required = [["inAppPurchaseVersion", "inAppPurchaseVersions", "another-tip-version"]]
+    review = ReviewProducts.new(@api, 'app', 'app-version', required_targets: required)
+    assert_raises(RuntimeError) { review.inventory! }
+    assert_empty @api.writes
+  end
+
+  def test_newer_merge_during_assembly_prevents_submission
+    fence = -> { raise "Newer source supersedes this release" }
+    review = ReviewProducts.new(@api, 'app', 'app-version', before_submit: fence)
+    assert_raises(RuntimeError) { review.inventory!.submit! }
+    refute @api.writes.any? { |_, body| body.dig(:data, :attributes, :submitted) }
+  end
 end

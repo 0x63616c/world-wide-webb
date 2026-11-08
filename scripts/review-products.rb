@@ -3,8 +3,9 @@
 class ReviewProducts
   attr_reader :targets, :submission_id
 
-  def initialize(asc, app_id, version_id)
+  def initialize(asc, app_id, version_id, required_targets: [], before_submit: nil)
     @asc, @app_id, @version_id = asc, app_id, version_id
+    @required_targets, @before_submit = required_targets, before_submit
     @targets = [["appStoreVersion", "appStoreVersions", version_id]]
   end
 
@@ -37,6 +38,7 @@ class ReviewProducts
         @targets << ["subscriptionGroupVersion", "subscriptionGroupVersions", version.fetch("id")]
       end
     end
+    raise "A withdrawn purchase version is missing from the replacement" unless (@required_targets - @targets).empty?
     submissions = all("v1/reviewSubmissions", { "filter[app]" => @app_id, "filter[platform]" => "IOS" })
     raise "An iOS submission is already in progress; leaving it untouched" if submissions.any? { |s| %w[WAITING_FOR_REVIEW IN_REVIEW CANCELING COMPLETING].include?(s.dig("attributes", "state")) }
     drafts = submissions.select { |s| %w[READY_FOR_REVIEW UNRESOLVED_ISSUES].include?(s.dig("attributes", "state")) }
@@ -127,6 +129,7 @@ class ReviewProducts
     rows.select { |item| item.dig("attributes", "state") == "REJECTED" }.each do |item|
       @asc.patch("v1/reviewSubmissionItems/#{item['id']}", { data: { type: "reviewSubmissionItems", id: item["id"], attributes: { resolved: true } } })
     end
+    @before_submit&.call
     result = @asc.patch("v1/reviewSubmissions/#{@submission_id}", { data: { type: "reviewSubmissions", id: @submission_id, attributes: { submitted: true } } }).body
     puts "SUBMIT: #{result.dig('data', 'attributes', 'state')} submission #{@submission_id}"
     status!

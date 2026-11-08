@@ -41,19 +41,24 @@ class ReleasePipelineTest < Minitest::Test
       ENV["RELEASE_MANIFEST"] = File.join(dir, "manifest.json")
       ENV["GITHUB_SHA"] = "source-revision"
       ENV["GITHUB_STEP_SUMMARY"] = File.join(dir, "summary")
+      ENV["GITHUB_ENV"] = File.join(dir, "environment")
       File.write(ENV["RELEASE_MANIFEST"], JSON.generate({ app: "tendr", sha: "source-revision", version: "1.1.1", build: "8" }))
-      Spaceship::ConnectAPI.client = OpenStruct.new(tunes_request_client: Object.new)
+      build_api = Object.new
+      build_api.define_singleton_method(:get) do |path, _params = nil|
+        raise path unless path == "v1/builds"
+        OpenStruct.new(body: { "data" => [{ "id" => "build-8", "attributes" => { "version" => "8", "processingState" => "VALID", "expired" => false } }] })
+      end
+      Spaceship::ConnectAPI.client = OpenStruct.new(tunes_request_client: build_api)
       lane = ReleaseCheck.new
       events = []
       lane.define_singleton_method(:r_app) { |_| config }
       lane.define_singleton_method(:prepare_review) { |**opts| events << [:prepare, opts] }
-      lane.define_singleton_method(:app_store_app) { |_| Object.new }
+      lane.define_singleton_method(:app_store_app) { |_| OpenStruct.new(id: "app") }
       lane.define_singleton_method(:editable_app_store_version) { |_| OpenStruct.new(id: "v", version_string: "1.1.1") }
       lane.define_singleton_method(:submit_with_iap) { |**opts| events << [:submit, opts] }
       # Real verifier fails before making requests if no screenshots were staged.
-      assert_raises(RuntimeError) { lane.finish_release(app: "tendr") }
-      assert_equal [:prepare], events.map(&:first)
-      assert_equal({ app: "tendr", version: "1.1.1", build: "8", strict: true }, events.first.last)
+      assert_raises(RuntimeError) { ReleaseSource.stub(:current!, nil) { lane.finish_release(app: "tendr") } }
+      assert_empty events
       events.clear
       FileUtils.mkdir_p(File.join(dir, "en-US"))
       shots = %w[inner outer].map do |pose|
@@ -62,32 +67,43 @@ class ReleasePipelineTest < Minitest::Test
         { "attributes" => { "fileName" => name, "sourceFileChecksum" => Digest::MD5.hexdigest("fixture-#{pose}"), "assetDeliveryState" => { "state" => "COMPLETE" } } }
       end
       api = Object.new
-      api.define_singleton_method(:get) do |path|
+      reviews = []
+      api.define_singleton_method(:get) do |path, params = nil|
+        next build_api.get(path, params) if path == "v1/builds"
         data = case path
                when /appStoreVersionLocalizations$/ then [{ "id" => "loc", "attributes" => { "locale" => "en-US" } }]
                when /appScreenshotSets$/ then [{ "id" => "set", "attributes" => { "screenshotDisplayType" => "APP_IPHONE_DUO" } }]
                when /appScreenshots$/ then shots
+               when /reviewSubmissions\?/ then reviews
                else raise path
                end
         OpenStruct.new(body: { "data" => data })
       end
       Spaceship::ConnectAPI.client = OpenStruct.new(tunes_request_client: api)
-      lane.finish_release(app: "tendr")
+      ReleaseSource.stub(:current!, nil) { lane.finish_release(app: "tendr") }
       assert_equal [:prepare, :submit], events.map(&:first)
-      assert_equal({ app: "tendr", version: "1.1.1", build: "8", dry_run: false }, events.last.last)
+      assert_equal({ app: "tendr", version: "1.1.1", build: "8", dry_run: false, required_targets: [], automatic: true }, events.last.last)
       assert_includes File.read(ENV["GITHUB_STEP_SUMMARY"]), "Apple review is pending"
       state_path = File.expand_path("../build/release-state.json", __dir__)
       assert_equal "submitted", JSON.parse(File.read(state_path)).fetch("state")
       File.delete(state_path)
       events.clear
+      reviews << { "attributes" => { "state" => "IN_REVIEW" } }
+      ReleaseSource.stub(:current!, nil) { lane.finish_release(app: "tendr") }
+      assert_empty events
+      assert_equal "deferred", JSON.parse(File.read(state_path)).fetch("state")
+      assert_includes File.read(ENV["GITHUB_ENV"]), "RELEASE_SKIP=true"
+      File.delete(state_path)
+      reviews.clear
       File.write(ENV["RELEASE_MANIFEST"], JSON.generate({ app: "tendr", sha: "wrong-source", version: "1.1.1", build: "8" }))
-      assert_raises(RuntimeError) { lane.finish_release(app: "tendr") }
+      assert_raises(RuntimeError) { ReleaseSource.stub(:current!, nil) { lane.finish_release(app: "tendr") } }
       assert_empty events
     ensure
       Spaceship::ConnectAPI.client = nil
       ENV.delete("RELEASE_MANIFEST")
       ENV.delete("GITHUB_STEP_SUMMARY")
       ENV.delete("GITHUB_SHA")
+      ENV.delete("GITHUB_ENV")
     end
   end
 

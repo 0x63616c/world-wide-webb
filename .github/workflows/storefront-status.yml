@@ -38,7 +38,9 @@ jobs:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: bundle exec ruby scripts/storefront-status.rb
       - name: Resume changes deferred by an earlier review
-        if: steps.store.outputs.idle == 'true'
+        # A protected/untracked waiting bundle must not create an immediate
+        # workflow_run -> deferral -> workflow_run redispatch loop.
+        if: steps.store.outputs.resumable == 'true' && github.event_name != 'workflow_run'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/resume-release.py

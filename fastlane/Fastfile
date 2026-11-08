@@ -7,6 +7,8 @@ require "yaml"
 require_relative "../scripts/release-build"
 require_relative "../scripts/release-policy"
 require_relative "../scripts/release-pipeline"
+require_relative "../scripts/pending-release"
+require_relative "../scripts/release-source"
 require_relative "../scripts/review-products"
 
 default_platform(:ios)
@@ -28,6 +30,18 @@ def r_app(options)
     "screenshots_path" => File.join(dir, "fastlane", "screenshots"),
     "iap_review_screenshot" => File.join(dir, "fastlane", "iap", "tip-sheet-review.png")
   )
+end
+
+# Durable decisions let the hourly monitor coalesce changes after an active review.
+def release_paused(config, error)
+  state = error.is_a?(ReleasePipeline::AlreadySubmitted) ? "submitted" : "deferred"
+  FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
+  File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate({
+    state: state, app: config["slug"], sha: ENV.fetch("GITHUB_SHA"), reason: error.message
+  }))
+  File.open(ENV.fetch("GITHUB_ENV"), "a") { |f| f.puts("RELEASE_SKIP=true") }
+  File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |f| f.puts("## Release #{state}\n\n#{error.message}") }
+  UI.success(error.message)
 end
 
 # Internal groups set to receive every build reject manual assignment, so skip those.
@@ -269,53 +283,74 @@ platform :ios do
     end
   end
 
-  desc "Plan the next automatic App Store update without disturbing active reviews"
+  desc "Plan an automatic update, reusing a pipeline-owned waiting version"
   lane :plan_release do |options|
     config = r_app(options)
     UI.user_error!("Automatic App Store delivery is not enabled") unless config["app_store_automatic"] == true
-    connect_api_key
-    asc = Spaceship::ConnectAPI.client.tunes_request_client
-    record = app_store_app(config)
-    rows = ReleasePipeline.all(asc, "v1/apps/#{record.id}/appStoreVersions?filter[platform]=IOS&limit=50")
     begin
-      ReleasePipeline.require_idle_reviews!(ReleasePipeline.reviews(asc, record.id))
-      target, id = ReleasePipeline.version(rows, config.fetch("version"))
-    rescue ReleasePipeline::Deferred
-      FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
-      File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate({
-        state: "deferred", app: config["slug"], sha: ENV.fetch("GITHUB_SHA")
-      }))
-      raise
+      ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA"))
+      connect_api_key
+      asc = Spaceship::ConnectAPI.client.tunes_request_client
+      record = app_store_app(config)
+      rows = ReleasePipeline.all(asc, "v1/apps/#{record.id}/appStoreVersions?filter[platform]=IOS&limit=50")
+      planner = PendingRelease.new(asc, record.id, ENV.fetch("GITHUB_SHA"), ancestor: ReleaseSource.method(:ancestor?))
+      target, id = planner.plan(rows, config.fetch("version"))
+      unless id
+        asc.post("v1/appStoreVersions", { data: { type: "appStoreVersions",
+          attributes: { platform: "IOS", versionString: target, releaseType: "AFTER_APPROVAL" },
+          relationships: { app: { data: { type: "apps", id: record.id } } }
+        } })
+      end
+      File.open(ENV.fetch("GITHUB_ENV"), "a") { |f| f.puts("RELEASE_VERSION=#{target}") }
+      UI.success("Planned #{target}; replacement evidence will be prepared before any withdrawal")
+    rescue ReleasePipeline::Deferred, ReleasePipeline::AlreadySubmitted => error
+      release_paused(config, error)
     end
-    unless id
-      asc.post("v1/appStoreVersions", { data: { type: "appStoreVersions",
-        attributes: { platform: "IOS", versionString: target, releaseType: "AFTER_APPROVAL" },
-        relationships: { app: { data: { type: "apps", id: record.id } } }
-      } })
-    end
-    File.open(ENV.fetch("GITHUB_ENV"), "a") { |f| f.puts("RELEASE_VERSION=#{target}") }
-    UI.success("Planned #{target}; active submissions were left untouched")
   end
 
-  desc "Verify uploaded screenshot bytes and submit the exact build from this run"
+  desc "Skip expensive capture when a newer eligible main merge has superseded this run"
+  lane :check_release_source do |options|
+    config = r_app(options)
+    begin
+      ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA"))
+    rescue ReleasePipeline::Superseded => error
+      release_paused(config, error)
+    end
+  end
+
+  desc "Verify replacement evidence, replace a waiting bundle, and submit the exact build"
   lane :finish_release do |options|
     config = r_app(options)
     UI.user_error!("Automatic App Store delivery is not enabled") unless config["app_store_automatic"] == true
     manifest = JSON.parse(File.read(ENV.fetch("RELEASE_MANIFEST")))
     UI.user_error!("Release provenance mismatch") unless manifest.values_at("app", "sha") == [config["slug"], ENV.fetch("GITHUB_SHA")]
     target, number = manifest.values_at("version", "build")
-    prepare_review(app: config["slug"], version: target, build: number, strict: true)
-    record = app_store_app(config)
-    current = editable_app_store_version(record)
-    UI.user_error!("Release version changed during preparation") unless current.version_string == target
-    count = JSON.parse(File.read(File.join(config["dir"], "screenshots.json"))).fetch("duo_shots").length * 2
-    uploaded = ReleasePipeline.screenshots!(Spaceship::ConnectAPI.client.tunes_request_client,
-      current.id, File.join(config["screenshots_path"], "en-US"), count)
-    submit_with_iap(app: config["slug"], version: target, build: number, dry_run: false)
-    FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
-    File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate(manifest.merge("state" => "submitted")))
-    File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |f|
-      f.puts("## Submitted #{config['name']} #{target} (#{number})\n\nSource: #{manifest['sha']}\n\nVerified #{uploaded} uploaded screenshots, including #{count} Duo images. App and ready purchases submitted together. Apple review is pending; public availability is checked separately.")
+    begin
+      ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA"))
+      connect_api_key
+      asc = Spaceship::ConnectAPI.client.tunes_request_client
+      record = app_store_app(config)
+      # Do not take the waiting release out of Apple's queue until its replacement
+      # binary has processed and both display galleries have been captured.
+      ReleaseBuild.find!(asc, record.id, target, number)
+      count = JSON.parse(File.read(File.join(config["dir"], "screenshots.json"))).fetch("duo_shots").length * 2
+      directory = File.join(config["screenshots_path"], "en-US")
+      ReleasePipeline.staged!(directory, count)
+      replacement = PendingRelease.new(asc, record.id, ENV.fetch("GITHUB_SHA"), ancestor: ReleaseSource.method(:ancestor?))
+      required = replacement.replace!(target, before_cancel: -> { ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA")) })
+      prepare_review(app: config["slug"], version: target, build: number, strict: true)
+      current = editable_app_store_version(record)
+      UI.user_error!("Release version changed during preparation") unless current.version_string == target
+      uploaded = ReleasePipeline.screenshots!(asc, current.id, directory, count)
+      submit_with_iap(app: config["slug"], version: target, build: number, dry_run: false,
+                      required_targets: required, automatic: true)
+      FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
+      File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate(manifest.merge("state" => "submitted")))
+      File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |f|
+        f.puts("## Submitted #{config['name']} #{target} (#{number})\n\nSource: #{manifest['sha']}\n\nVerified #{uploaded} uploaded screenshots, including #{count} Duo images. App and ready purchases submitted together. Apple review is pending; public availability is checked separately.")
+      end
+    rescue ReleasePipeline::Deferred, ReleasePipeline::AlreadySubmitted => error
+      release_paused(config, error)
     end
   end
 
@@ -533,7 +568,9 @@ platform :ios do
     UI.user_error!("Version is #{version.app_store_state}; leaving it untouched") unless allowed.include?(version.app_store_state)
     asc = Spaceship::ConnectAPI.client.tunes_request_client
     ReleaseBuild.find!(asc, app.id, target, number)
-    coordinator = ReviewProducts.new(asc, app.id, version.id).inventory!
+    fence = -> { ReleaseSource.current!(config["slug"], ENV.fetch("GITHUB_SHA")) } if options[:automatic]
+    coordinator = ReviewProducts.new(asc, app.id, version.id,
+      required_targets: options[:required_targets] || [], before_submit: fence).inventory!
     if options[:dry_run].to_s == "true"
       UI.success("Dry run: validated build #{number} and #{coordinator.targets.length - 1} product/group versions; no changes")
       next
