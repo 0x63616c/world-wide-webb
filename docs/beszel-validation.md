@@ -14,6 +14,10 @@ Observed 2026-11-08, after deploying homelab revision `0bf8d4ce`.
   listing returns no records.
 - Beszel-only cold snapshot, service recovery and NAS upload/readback passed:
   `20261108T200922Z-3aa58ba9`.
+- Isolated volume restore passed: existing login, public/private hub identity,
+  both system identities and exact historical samples matched the snapshot.
+  The snapshot contained 11 Mini and 15 MacBook history records. Temporary
+  containers, network and volume were removed after the rehearsal.
 - Python backup/reconciliation tests, Rust health checks, all Compose models,
   both Darwin system builds and Cloudflare infrastructure tests passed.
 
@@ -30,10 +34,9 @@ This role does not require an ordinary SSH authorized key.
 
 ## Remaining checks
 
-- Isolated restore must verify saved login, hub identity and historical samples.
 - Publish the Access-protected endpoint and verify its access gate.
-- Transfer encrypted OpenTofu state and recovery credentials to the Mini and
-  verify the updated deployment workflow.
+- Encrypted OpenTofu state and recovery credentials are installed privately on
+  the Mini; verify the updated deployment workflow through its CI identity.
 
 No host reboot was needed for monitoring. Other services and runner assignments
 were retained.
