@@ -12,7 +12,7 @@ python3 -m venv .venv/contracts
 lefthook install
 echo 'Contract environment and shared repository hooks ready. No credentials or cloud resources accessed.'
 if [ "${1:-}" = "--apple" ]; then
-  python3 scripts/apple-build-environment.py
+  python3 scripts/apple-build-environment.py --create-device
   bundle check || BUNDLE_FROZEN=true bundle install
   xcodegen generate --spec apps/ios/project.yml
   echo 'Apple build dependencies resolved. Run bundle exec fastlane ios verify.'

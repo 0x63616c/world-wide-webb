@@ -50,6 +50,12 @@ runs:
         cd apps/folding/backend
         bun install --frozen-lockfile
     - if: inputs.target == 'apple' || inputs.target == 'deploy'
+      uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1
+      with:
+        ruby-version: ${{ steps.pins.outputs.ruby }}
+        bundler: ${{ steps.pins.outputs.bundler }}
+        working-directory: apps/folding
+    - if: inputs.target == 'apple' || inputs.target == 'deploy'
       shell: bash
       working-directory: apps/folding
       env:
@@ -67,4 +73,4 @@ runs:
     - if: inputs.target == 'apple'
       shell: bash
       working-directory: apps/folding
-      run: python3 scripts/apple-build-environment.py
+      run: python3 scripts/apple-build-environment.py --create-device

@@ -60,6 +60,7 @@ jobs:
       - run: |
           python3 scripts/check-localization.py
           python3 scripts/test-localization.py
+          python3 scripts/test-apple-build-environment.py
   backend:
     name: Folding backend
     needs: selection

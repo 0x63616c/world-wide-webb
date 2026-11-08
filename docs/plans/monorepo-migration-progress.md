@@ -395,8 +395,30 @@ remain strict. A durable monotonic promotion fence is saved before changing the 
 tap push followed by a lost delivery-pointer write can no longer permit an older source rollback.
 A newer sealed source stranded below that fence gets a fresh higher reservation with an explicit
 replacement reason; the old signed bytes and records remain unchanged. Eleven producer tests
-and eight shared artifact tests pass. Independent fix review is pending; live delivery is unproved.
+and eight shared artifact tests pass. Astra independently cleared the fix batch at `b1ad43a4b`, including an actual Homebrew
+staging/fingerprint probe. Live delivery remains unproved.
 
 Upstream freshness: WWW main now includes Linux runner CI PR958 at `4af50b39b`; homelab main
 includes permanent runner validation PR35 at `574330c`. Import/handover still requires preserving
 active CLI/source work and confirming current live ownership before any writer changes.
+
+## Homelab source import and toolchain preparation — approximately 38% overall
+
+Homelab main `574330ce97b88c1045509f1b8ad85e5e85207d32` and CLI main
+`6ad2c833c607a065d6f56e6a51755529447dbf54` are imported without squashing into
+`homelab` and `homelab/cli`. Active dirty source work and the local CLI credential commit
+remain untouched; merge their accepted final deltas before handover. No host source/ref/key
+has switched. Root compatibility files and local filtered Nix package dependencies are next.
+
+WWW runner PR958 is merged locally, preserving selective Control Center checks and architecture-
+specific Rust caches. Its baseline/mixed-load workflows now use relocated product paths. All
+15 Control Center CI tests, workflow lint and the ARM-aware linter installer checks pass.
+
+Folding's composite action now installs its exact Ruby/Bundler instead of assuming the VM's
+system Ruby matches. It uses the pinned upstream ruby/setup-ruby action; its documented self-
+hosted toolcache/dependency requirements must pass the new image canary:
+https://github.com/ruby/setup-ruby#using-self-hosted-runners . Apple preparation can explicitly
+create a missing Duo device only after its exact pinned runtime/build is available; it never
+substitutes a runtime or mutates existing devices. Three portable device-policy tests pass,
+and the actual local Xcode/SDK/Swift/XcodeGen/device check passes. New image boot/runtime/Ruby
+and capture verification remains pending; this is preparation, not a live runner upgrade.
