@@ -64,7 +64,7 @@ def private_recovery_tree(root):
         Path(directory).chmod(0o700)
         for name in files:
             path = Path(directory) / name
-            path.chmod(0o600 | (path.stat().st_mode & 0o111))
+            path.chmod(0o600 | (path.stat().st_mode & 0o100))
 
 
 def recovery_bundle(destination, services, configuration):

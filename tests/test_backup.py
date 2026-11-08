@@ -25,6 +25,8 @@ class RecoveryPermissionsTests(unittest.TestCase):
             source.mkdir()
             (source / 'compose.yaml').write_text('public fixture')
             (source / 'compose.yaml').chmod(0o444)
+            (source / 'helper').write_text('public executable fixture')
+            (source / 'helper').chmod(0o555)
             source.chmod(0o555)
             destination = root / 'backup'
             destination.mkdir()
