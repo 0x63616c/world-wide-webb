@@ -25,7 +25,7 @@ The final product name is **Folding**, selected by the owner. App Store registra
 - Selectable home-screen statistics; all discussed metrics should be available where supportable.
 - Installable widgets with configurable metrics and coordinated appearance.
 - Optional daily fold threshold, configured in Settings, with a notification when reached.
-- Data export.
+- One-tap CSV package export.
 - Reset personal history and public scores together.
 - Optional competition using Sign in with Apple and a separate public identity; exact nickname rules remain open.
 - Weekly, monthly, and all-time leaderboard views, podium treatment, and historical personal placements.
@@ -42,13 +42,12 @@ The final product name is **Folding**, selected by the owner. App Store registra
 
 **Proposed flow:**
 
-1. Explain fold counting with a short animation.
-2. Guide opening-automation configuration.
-3. Ask the user to physically open the Duo and confirm receipt.
-4. Guide closing-automation configuration and test it.
-5. Show successful setup and initial activity.
+1. Show **Log Duo Opened** and open Shortcuts for its Display automation.
+2. On return, start checking automatically and ask the user to open the Duo.
+3. Repeat with **Log Duo Closed** and a physical closing.
+4. Show successful setup and initial activity.
 
-Preserve progress across app switches, offer targeted recovery from failed tests, and provide a separate Test Tracking action. Exact Shortcuts destinations and handoff behavior are unverified.
+Preserve progress across app switches and offer targeted recovery from failed checks. Do not make users tap Test or watch a countdown. Exact Shortcuts handoff behavior still needs physical-device acceptance.
 
 Display evidence such as “Open test passed,” “Close test passed,” and “Last event received.” Do not claim to know an automation is currently enabled unless an actual supported inspection API is verified. Silence alone does not prove tracking is broken.
 

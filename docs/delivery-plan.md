@@ -87,7 +87,7 @@ This plan does not set a calendar promise before the first device and build-tool
 - [ ] Implement equivalent travel with versioned formula and optional help; never use it for ranks or physical-wear claims.
 - [ ] Implement private iCloud synchronization, local-only operation, sync recovery, active-device transfer, and explicit behavior when iCloud is unavailable or the Apple account changes. Never merge different iCloud users' private history silently.
 - [ ] Implement reset markers with deterministic convergence and surviving tombstones. Test offline concurrent resets, old devices, queued events, and new events created during a losing reset.
-- [ ] Export CSV and versioned JSON through the share sheet, including incomplete sessions and source/timezone details without security material.
+- [ ] Export the CSV package through a one-tap share action, including interrupted sessions and source/timezone details without security material.
 - [ ] Add data-model migration tests and representative large-history fixtures. Keep chart queries and export from blocking the main UI thread.
 
 **Done when:** a user can collect, inspect, export, reset, and recover personal history offline and after sync. Tests exercise public module behavior and real persistence; no private implementation details need to be called from views.

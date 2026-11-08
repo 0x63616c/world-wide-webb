@@ -30,6 +30,11 @@ struct CompetitionSignInResponse: Decodable, Sendable {
   let reauthentication_token: String?
 }
 
+struct CompetitionSignInResult {
+  let profile: CompetitionWireProfile
+  let suggestedName: String?
+}
+
 @MainActor
 final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   ASAuthorizationControllerPresentationContextProviding
@@ -40,10 +45,11 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   private var anchor: ASPresentationAnchor?
 
   func signIn(transport: CompetitionTransport, deviceID: UUID) async throws
-    -> CompetitionWireProfile
+    -> CompetitionSignInResult
   {
     let context = await transport.sessionContext()
-    let response = try await authorize(transport: transport, deviceID: deviceID, purpose: "sign_in")
+    let (response, name) = try await authorize(
+      transport: transport, deviceID: deviceID, purpose: "sign_in")
     guard let access = response.access_token, let refresh = response.refresh_token,
       let profile = response.profile, let expiry = response.expires_at_ms
     else { throw CompetitionTransportError.invalidResponse }
@@ -51,11 +57,11 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       CompetitionSession(
         access_token: access,
         refresh_token: refresh, expires_at_ms: expiry), context: context)
-    return profile
+    return CompetitionSignInResult(profile: profile, suggestedName: name)
   }
 
   func reauthenticate(transport: CompetitionTransport, deviceID: UUID) async throws -> String {
-    let response = try await authorize(
+    let (response, _) = try await authorize(
       transport: transport, deviceID: deviceID, purpose: "reauthenticate")
     guard let token = response.reauthentication_token else {
       throw CompetitionTransportError.invalidResponse
@@ -66,7 +72,7 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
   func recoverDeletion(transport: CompetitionTransport, deviceID: UUID, operationID: String)
     async throws -> CompetitionDeletionReceipt
   {
-    let response = try await authorize(
+    let (response, _) = try await authorize(
       transport: transport, deviceID: deviceID,
       purpose: "recover_deletion", deletionOperationID: operationID)
     guard let status = response.status, let token = response.polling_token,
@@ -80,7 +86,7 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
     transport: CompetitionTransport, deviceID: UUID, purpose: String,
     deletionOperationID: String? = nil
   )
-    async throws -> CompetitionSignInResponse
+    async throws -> (CompetitionSignInResponse, String?)
   {
     guard continuation == nil, controller == nil else { throw CompetitionTransportError.busy }
     let challenge = try await transport.challenge(purpose: purpose)
@@ -88,7 +94,7 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
       throw CompetitionTransportError.unauthorized
     }
     let request = ASAuthorizationAppleIDProvider().createRequest()
-    request.requestedScopes = []
+    request.requestedScopes = purpose == "sign_in" ? [.fullName] : []
     request.nonce = SHA256.hash(data: Data(challenge.nonce.utf8)).map { String(format: "%02x", $0) }
       .joined()
     request.state = UUID().uuidString.lowercased()
@@ -161,7 +167,14 @@ final class CompetitionSignIn: NSObject, ASAuthorizationControllerDelegate,
           challenge_id: challenge.challenge_id, identity_token: identity, authorization_code: code,
           device_id: deviceID.uuidString.lowercased(), deletionOperationID: deletionOperationID)),
       authenticated: purpose == "reauthenticate")
-    return response
+    let suggestedName = credential.fullName.flatMap { components -> String? in
+      let full = PersonNameComponentsFormatter().string(from: components)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      if (3...20).contains(full.count) { return full }
+      let given = components.givenName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      return (3...20).contains(given.count) ? given : nil
+    }
+    return (response, suggestedName)
   }
 
   func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {

@@ -6,6 +6,8 @@ At source commit `ccdaf43344a814d0111727426681c957e3cc541d`, the checksum wrappe
 
 A repeat of the live private-sync probe initially failed in both containers: it wrote an event in the initial generation even though prior probes had left reset markers in those same containers. The receiving Core Data mirror reported a successful import, but the journal correctly discarded the stale event. The probe now imports the current reset, creates a fresh generation, then writes its event. Staging and production probes passed against their Production CloudKit databases; staging passed again after temporary diagnostics were removed. The app's generated Info.plist also now includes `UIBackgroundModes: remote-notification`, eliminating Core Data's explicit missing-background-mode warning. These current-source results remain simulator evidence, not second-device push or TestFlight device evidence.
 
+The follow-up production preview Worker was deployed at source `6b402e61dd64efcd31f1d577d68c203131e9a75d` (Cloudflare version `5fecb7ad-fa11-42ea-a71c-28ad8fe2ce03`), with public health returning that exact source. Apple processed and Fastlane distributed matching 0.1.4 build 5. Owner confirmation of the startup and setup fixes is pending.
+
 Deployment identity: `5675b3e92263e46b4431acbb24fce7018e3c74da`. Generated runtime files and logs are under ignored `build/runtime/`; no credentials or raw CloudKit records are committed.
 
 | Area | Verified | Still open |

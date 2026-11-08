@@ -74,6 +74,11 @@ struct FoldingPreferences: Codable, Equatable {
   var metrics: [SummaryMetric] = [.timeUnfolded, .trend]
   var homeTimezone = TimeZone.current.identifier
   var dailyLimit = 100
+  var travelUnit: TravelUnit? = nil
+}
+
+enum TravelUnit: String, Codable, CaseIterable {
+  case metres, feet
 }
 
 enum HistoryPeriod: String, CaseIterable, Identifiable {
@@ -161,14 +166,13 @@ enum CompetitionPresentation {
 }
 
 enum PresentedSheet: Identifiable, Equatable {
-  case settings, setup, editSummary, travelInfo, leaderboardInfo, trackingPhone, syncStatus
+  case settings, setup, editSummary, travelInfo, leaderboardInfo, trackingPhone
   case tiedRank(Int)
   case export(UUID)
   case competition(CompetitionSheet)
   var id: String {
     switch self {
     case .settings: "settings"
-    case .syncStatus: "sync-status"
     case .competition(let screen): "competition-\(screen.rawValue)"
     case .trackingPhone: "tracking-phone"
     case .setup: "setup"
@@ -192,7 +196,7 @@ enum TrackingPhoneSelection: Equatable {
   }
 }
 
-enum FoldingTab: Hashable { case today, history, leaderboard }
+enum FoldingTab: Hashable { case today, history, leaderboard, settings }
 struct SessionPresentation: Hashable {
   let deviceID: UUID
   let start: Date
@@ -215,7 +219,7 @@ extension SessionCompleteness {
     switch self {
     case .complete: String(localized: "session.complete", defaultValue: "Complete")
     case .candidate: String(localized: "session.candidate", defaultValue: "Uncertain")
-    case .incomplete: String(localized: "session.incomplete", defaultValue: "Incomplete")
+    case .incomplete: String(localized: "session.incomplete", defaultValue: "Interrupted")
     case .running: String(localized: "session.running", defaultValue: "Running")
     }
   }

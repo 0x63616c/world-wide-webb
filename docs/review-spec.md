@@ -17,7 +17,7 @@ This is the single document to review. It combines requirements already agreed w
 
 A free, beautifully native iPhone Duo app that quietly records folding activity, makes personal habits interesting, and offers optional friendly competition. Everything works without payment. Tips support development.
 
-The experience has three destinations: **Today**, **History**, and **Leaderboard**. Settings is accessible from the main interface. People can finish setup and then rely on widgets, returning when they want detail.
+The experience has four tabs: **Today**, **History**, **Leaderboard**, and **Settings**. People can finish setup and then rely on widgets, returning when they want detail.
 
 Ship all core capabilities described here in v1. Do not add social feeds, messaging, subscriptions, import, Android support, or a separate iPad/Mac app. No haptic-engine background tracking. The owner selected **Folding** as the final product name. App Store registration is pending; initial public searches found no exact app-name match. Proposed subtitle: **Fold Stats & Leaderboards**. The owner purchased **getfolding.app** and selected **0x63616c/folding** as the private project repository.
 
@@ -59,15 +59,14 @@ This keeps the fun distance idea without introducing an unreliable background se
 
 ## 3. Guided setup
 
-1. Welcome and a short folding animation explain what the app records.
-2. Guide the opening automation and open Shortcuts using supported handoff mechanisms.
-3. Ask the user to open their Duo and confirm that its event arrived.
-4. Guide the closing automation and physically test it.
-5. Show a calm success animation and the Today screen.
+1. Show the opening automation and its exact Folding action, **Log Duo Opened**. Open Shortcuts, then let the user confirm they added it. Returning from Shortcuts alone does not start a test.
+2. Prompt the physical opening and confirm the event. Start checking automatically when a known hinge posture shows the Duo is ready. If hinge state is unavailable or setup resumes at this step, offer a single **Start test** action with the starting posture shown.
+3. Repeat for the closing automation, using **Log Duo Closed**.
+4. Show a brief success state and the Today screen.
 
 Do not ask for competition login or notification permission before tracking works. If iCloud is unavailable, explain that local tracking works and sync can resume later.
 
-Preserve setup progress across app switches. Failed tests offer Retry and clear instructions. Returning users can run setup again or test tracking from Settings without erasing data or creating duplicate automations unnecessarily.
+Preserve setup progress across app switches. The user should not watch a countdown. A manual test action is a fallback for unavailable hinge state or resumed setup. While checking, show which movement to make and that the app is waiting for Shortcuts. Failed tests offer Retry and a Shortcuts handoff. Returning users can run setup again from Settings without erasing data or creating duplicate automations unnecessarily.
 
 Status shows “Setup tested,” individual open/close test results, and last received event. Do not imply direct knowledge of an automation's enabled state. No events for a while does not trigger an alarming failure message.
 
@@ -81,7 +80,7 @@ Default order: today's folds; time unfolded; seven-day trend. A compact setup/sy
 
 ### History
 
-Offer day, week, month, and all-time ranges, an accessible chart, daily breakdowns, and session details. Show incomplete tracking explicitly. Provide concise values alongside charts and accessible summaries for VoiceOver. No streak pressure or notification barrage.
+Offer day, week, month, and all-time ranges, an accessible chart, and session details. The chart supplies the selected-bin breakdown without repeating every zero-value bin as a list row. Label interrupted sessions clearly. Use two columns for chart and sessions on the wider Duo canvas. No streak pressure or notification barrage.
 
 ### Widgets
 
@@ -93,7 +92,7 @@ Each widget has its own metric selection. Follow app accent preferences where sy
 
 System appearance is the default; Light and Dark overrides are available. Offer a restrained palette of accessible accent colors. Use native typography, controls, navigation, sheets, and chart interactions; Liquid Glass belongs on appropriate system surfaces rather than every card.
 
-Layouts adapt gracefully between outer and inner displays. Support Dynamic Type, VoiceOver, increased contrast, Reduce Motion, and non-color status cues.
+Layouts adapt deliberately between outer and inner displays: small count cards pair in two columns, charts expand, and History places chart and sessions side by side when space allows. Equivalent travel defaults to the device's usual unit, with metres/feet override in Settings. Support Dynamic Type, VoiceOver, increased contrast, Reduce Motion, and non-color status cues.
 
 ### Minimal UI copy — mandatory review criterion
 
@@ -107,23 +106,23 @@ Personal data is local-first with private iCloud sync. No app account is needed 
 
 V1 follows **one active tracking phone at a time**. History survives phone replacement and is grouped by device, but the main totals continue across devices. Switching the active phone requires an explicit transfer; the old phone's later events do not count toward competition. Offline personal events remain visible with their source device. Before the first explicit private-device selection, merged initial history is retained and multiple sources prompt a tracking-phone selection; this is a bootstrap exception, not automatic device election. A private transfer captures each inactive source's highest locally known sequence: later unknown observations from it remain in device details/export but are excluded from the main summary. A deterministic transfer marker resolves concurrent private choices. Public transfer accepts old-device submissions only if received before server-confirmed transfer; later old-epoch uploads are ineligible. Resolve the active-device handover server-side for competition and reconcile the private selection through iCloud.
 
-Use a **home timezone**, initially the device timezone, for personal daily charts, thresholds, and calendar boundaries. It remains stable while travelling. A user can change it in Settings; history is then regrouped consistently using the new zone. Store UTC timestamps and original timezone context so export preserves the facts. Use timezone-aware calendar arithmetic for daylight-saving changes.
+Use a **home timezone**, captured from the device initially, for personal daily charts, thresholds, and calendar boundaries. It remains stable while travelling and stays out of Settings. Store UTC timestamps and original timezone context so export preserves the facts. Use timezone-aware calendar arithmetic for daylight-saving changes.
 
 Global competitions use UTC, independently of personal charts. Show a countdown or date range; use a compact “UTC” only where needed. Keep boundary rules in optional details, not explanatory banners.
 
 ### Export
 
-Offer CSV (a ZIP containing event, session, and daily-summary CSV files) and versioned JSON through the share sheet. Export raw events, daily summaries, session completeness, device references, timezone context, and the equivalent-travel formula/version. JSON is versioned for future portability. Do not export security tokens or internal abuse evidence. Import is outside v1.
+Export a single CSV package (a ZIP containing event, session, and daily-summary CSV files) through the share sheet, without a format chooser. Include raw events, daily summaries, session completeness, device references, timezone context, and the equivalent-travel formula/version. Do not export security tokens or internal abuse evidence. Import is outside v1.
 
 ## 6. Competition
 
-Joining is optional, using Sign in with Apple. Choose a public nickname; suggest a generated name and permit a moderated custom name of 3–20 characters. Never publish the Apple account name/email automatically. Custom avatars are supported through the system photo picker, with a generated fallback. No biographies or chat in v1.
+Joining is optional, using Sign in with Apple. Suggest the Apple name when the user shares it; otherwise leave the field blank. The user reviews/edits a public name of 3–20 characters before tapping Join. Never publish the Apple account name/email automatically. Apple sign-in supplies no profile photo, so a tappable monogram avatar opens the system photo picker. No biographies or chat in v1.
 
 Only folds recorded after joining and from the active tracking phone count. No retroactive pre-join history or setup-test events. One competition identity per Apple subject identifier; reinstall/reset does not create a fresh identity to evade restrictions.
 
 ### Avatars, names, and sharing
 
-Let users crop and preview their own avatar. Accept bounded raster uploads, validate decoded content and dimensions, strip metadata, re-encode, and store approved derivatives in R2. Keep new uploads private pending automated/manual moderation; show the previous approved image or fallback while pending. Provide reporting, hide/block participant controls, and admin removal of names/images. Deletion removes associated avatar assets and invalidates cached derivatives.
+Let users crop and preview their own avatar. Accept bounded raster uploads, validate decoded content and dimensions, strip metadata, re-encode, and store approved derivatives in R2. Keep new uploads private pending automated/manual moderation; show the previous approved image or fallback while pending. Provide reporting and admin removal of names/images. Individual hide/block controls are omitted from v1 UI. Deletion removes associated avatar assets and invalidates cached derivatives.
 
 Validate display names server-side on creation and changes. Normalize Unicode for abuse detection, check whole words and common obfuscations against a versioned multilingual profanity/slur policy, and rate-limit changes. Avoid naive substring matching that rejects innocent names. Reject clear violations with “Choose another name”; send ambiguous cases for review. A safe generated nickname lets users proceed.
 
@@ -149,9 +148,9 @@ Display “More folds than X% of participants,” using the number of other part
 
 ### Historical results
 
-Your Results shows finalized weekly/monthly rank, score, participant count, comparison, and medals, with period navigation. Store finalized snapshots rather than recomputing them from live totals. Show provisional status before finalization.
+Your Results lives in the Leaderboard tab and shows finalized weekly/monthly rank, score, participant count, comparison, and medals, with period navigation. Store finalized snapshots rather than recomputing them from live totals. Show provisional status before finalization.
 
-On reset, leaving competition, or account deletion, remove that person's public scores and their own result history, remove public identity references from historical entries and cached share data, and cancel queued result notifications. A reset may retain the current profile for future participation, but must remove its association with erased results. Leaving/deletion also removes avatar assets and cached derivatives. Preserve other users' already-earned results; anonymize/remove affected public entries rather than silently rerank historical awards. Block/hide controls change the viewer's visible entries, never underlying ranks or the comparison population. Confirmed cheating can trigger an explicit, audited period correction and medal reissue. Never send duplicate original award notifications after a correction.
+On reset, leaving competition, or account deletion, remove that person's public scores and their own result history, remove public identity references from historical entries and cached share data, and cancel queued result notifications. A reset may retain the current profile for future participation, but must remove its association with erased results. Leaving/deletion also removes avatar assets and cached derivatives. Preserve other users' already-earned results; anonymize/remove affected public entries rather than silently rerank historical awards. Confirmed cheating can trigger an explicit, audited period correction and medal reissue. Never send duplicate original award notifications after a correction.
 
 ## 7. Notifications, daily limit, and reviews
 

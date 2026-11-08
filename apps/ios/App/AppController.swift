@@ -463,7 +463,8 @@ import struct FoldingData.SetupProgress
     let identity = accountChangeRevision
     let api = try await competitionClient()
     let store = try await runtime.store()
-    let profile = try await appleSignIn.signIn(transport: api.transport, deviceID: store.deviceID)
+    let signedIn = try await appleSignIn.signIn(transport: api.transport, deviceID: store.deviceID)
+    let profile = signedIn.profile
     let displayedProfile = await profilePresentation(profile)
     guard identity == accountChangeRevision, !accountChanging else { throw CancellationError() }
     presentation.competitionProfile = displayedProfile
@@ -487,7 +488,9 @@ import struct FoldingData.SetupProgress
       await presentation.requestLeaderboard(using: actions)
     } else {
       presentation.competition = .notJoined
-      presentation.beginJoin(suggestedNickname: profile.nickname)
+      let suggested = signedIn.suggestedName ?? profile.nickname
+      presentation.beginJoin(
+        suggestedNickname: ["Folder", "Member"].contains(suggested) ? "" : suggested)
     }
     await configurePush()
   }

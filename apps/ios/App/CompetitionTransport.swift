@@ -42,6 +42,21 @@ enum CompetitionTransportError: Error {
   }
 }
 
+extension CompetitionTransportError: CompetitionJoinFailure {
+  var joinMessage: String {
+    let base = String(localized: "error.tryAgain", defaultValue: "Something went wrong. Try again.")
+    switch self {
+    case .service(_, let code, _, _): return "\(base) (\(code))"
+    case .server(let status): return "\(base) (HTTP \(status))"
+    case .unsupportedAttestation: return "\(base) (App Attest unavailable)"
+    case .unauthorized: return "\(base) (unauthorized)"
+    case .busy: return "\(base) (busy)"
+    case .invalidResponse: return "\(base) (invalid response)"
+    case .unavailable: return "\(base) (service unavailable)"
+    }
+  }
+}
+
 /// Device-only credential storage; never mirrored or exported with personal history.
 struct CompetitionCredentialStore: Sendable {
   let service: String

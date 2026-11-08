@@ -60,7 +60,8 @@ import struct FoldingData.SetupProgress
     scenario = value("--folding-screenshot-scenario", default: "today")
     locale = value("--folding-screenshot-locale", default: "en")
     let appearance = value("--folding-screenshot-appearance", default: "light")
-    guard ["today", "history", "leaderboard", "settings", "setup", "tipjar"].contains(scenario),
+    guard
+      ["today", "history", "leaderboard", "settings", "setup", "join", "tipjar"].contains(scenario),
       ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"].contains(
         locale) || (scenario == "tipjar" && locale == "en-US"),
       ["light", "dark"].contains(appearance)
@@ -162,7 +163,10 @@ import struct FoldingData.SetupProgress
     switch scenario {
     case "history": model.selectedTab = .history
     case "leaderboard": model.selectedTab = .leaderboard
-    case "settings": model.sheet = .settings
+    case "settings": model.selectedTab = .settings
+    case "join":
+      model.joinNickname = "Mika"
+      model.sheet = .competition(.join)
     case "setup":
       model.setup = try JSONDecoder().decode(
         SetupProgress.self,
@@ -177,6 +181,8 @@ import struct FoldingData.SetupProgress
     self.actions = FoldingActions(
       refresh: {}, setup: { _ in throw Failure.readOnly },
       savePreferences: { _ in throw Failure.readOnly }, loadHistory: { _, _ in history },
-      loadLeaderboard: { _ in board })
+      loadLeaderboard: { _ in board }, openShortcuts: {},
+      joinCompetition: { _ in throw Failure.readOnly },
+      uploadAvatar: { _ in throw Failure.readOnly })
   }
 }

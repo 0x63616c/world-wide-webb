@@ -1,5 +1,9 @@
 # Owner TestFlight preview — 2026-11-07
 
+## Latest internal build
+
+Fastlane signed, uploaded, and distributed **0.1.4 (build 5)** from `6b402e61dd64efcd31f1d577d68c203131e9a75d` to `Folding Internal`. Apple reported exact build ID `da1006a6-2824-419f-81ea-5084f3825b48`, state `VALID`, and exempt encryption `false`. The signed archive contains two App Shortcuts and `UIBackgroundModes = [remote-notification]`. The production preview Worker health returned the same source commit; Cloudflare version ID is `5fecb7ad-fa11-42ea-a71c-28ad8fe2ce03`. Local Duo simulator capture of the setup fixture showed vertically centered content without illustration/title overlap. The owner reported that 0.1.3 build 4 showed a generic alert immediately on opening setup; build 5 moves best-effort export cleanup after the initial refresh. The owner has not yet confirmed that the alert is gone on the physical Duo.
+
 The production app `app.getfolding.Folding` has a signed TestFlight preview at version **0.1.1**, build **2**, source commit `fa93af82ca62fc25d8b7a1a770afadc83f7f2678`. Fastlane readonly match signed the app and widget with the provisioned distribution profiles; archive and packaged IPA identity, entitlements, source commit and code signatures passed the release helper's inspection. The immutable IPA/archive/dSYM are attached to private draft release `v0.1.1`.
 
 Apple accepted the IPA, processed the exact build as `VALID`, and recorded build ID `ce76da95-e347-4c84-b8a8-574de20cc063`. Fastlane distributed it to the internal **Folding Internal** TestFlight group. App Store Connect readback showed that exact build in the group and `calumpeterwebb@icloud.com` as a member. No App Review submission was requested. The first preview, 0.1.0 build 1, was rejected by Apple's uploader for missing supported orientations; the committed project configuration now specifies all four, and build 2 passed upload.
