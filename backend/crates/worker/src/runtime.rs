@@ -82,13 +82,13 @@ async fn handle(mut request: Request, env: &Env, id: Id) -> Result<Response> {
     }
     let path = request.path();
     if request.method() == Method::Get && path == "/v1/client-policy" {
-        return match crate::client_policy_runtime::policy(env, &id) {
+        return match crate::client_policy_runtime::policy(env, &id).await {
             Ok(response) => Ok(response),
             Err(failure) => error(failure.status, failure.code, id, failure.retryable),
         };
     }
     if path.starts_with("/v1/") {
-        match crate::client_policy_runtime::rejection(&request, env, &id) {
+        match crate::client_policy_runtime::rejection(&request, env, &id).await {
             Ok(Some(response)) => return Ok(response),
             Ok(None) => (),
             Err(failure) => return error(failure.status, failure.code, id, failure.retryable),

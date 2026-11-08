@@ -1,0 +1,9 @@
+# Admin-managed minimum build — November 8, 2026
+
+Owner requested the admin panel as the sole control, replacing the deployment variable. #65 extends the shipped policy-aware app without requiring another app binary.
+
+Operations exposes Minimum build (0 = off) in its existing guarded form. Migration 0020 adds the bounded integer to the singleton configuration with default 0. Existing Access/CSRF checks, revision CAS, idempotent operation IDs and before/after audit records cover changes. Policy and server retirement share a 60-second isolate cache; saving invalidates the handling isolate, and an in-flight pre-save read cannot repopulate its cache. Other isolates refresh within one minute. Policy failures do not extend expired values; recovery routes remain exempt. Generator output contains no environment override and rejects the obsolete input.
+
+Local checks: 34 Rust tests, native/Wasm Clippy/format and compiled Wasm packaging pass. All 16 workerd/D1 tests pass, including protected admin rendering, malformed/negative/overflow input, missing/forged authorization, CSRF/origin rejection, stale revision, response-loss retry without duplicate audit, operation-payload conflict, activation and rollback. Cached hot requests still enforce the floor after the synthetic policy table is removed, demonstrating no per-request database read; a cold missing policy database fails closed. Database constraints reject invalid values. Configuration regression passes.
+
+Local ignored evidence: `build/admin-minimum-check.log` (Rust/Wasm checks) and `build/admin-minimum-runtime.log` (final 16-test Worker/D1 pass), in the original workspace. Provider rollout is not yet claimed. Keep the production minimum at 0; no user lockout is authorized by adding this control. Device acceptance remains #47/F13; no new TestFlight binary is needed.
