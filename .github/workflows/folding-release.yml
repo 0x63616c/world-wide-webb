@@ -1,0 +1,127 @@
+name: Folding delivery
+on:
+  workflow_run:
+    workflows: [Folding CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  selection:
+    if: >-
+      vars.FOLDING_DELIVERY_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, homelab-linux]
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.select.outputs.backend }}
+      beta: ${{ steps.select.outputs.beta }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: folding-selection
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - id: select
+        env:
+          SOURCE: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          value = json.load(open('ci-selection.json'))
+          assert value['head'] == os.environ['SOURCE'] and value['event'] == 'push', 'Selection identity differs'
+          candidates = value['delivery_candidates']
+          assert isinstance(candidates, list)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for name, unit in [('backend', 'folding.backend'), ('beta', 'folding.native')]:
+                  output.write(name + '=' + str(unit in candidates).lower() + '\n')
+          PYTHON
+  publish:
+    needs: selection
+    if: needs.selection.outputs.backend == 'true' || needs.selection.outputs.beta == 'true'
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
+    timeout-minutes: 180
+    environment: production
+    concurrency:
+      group: folding-distribution
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    defaults:
+      run:
+        working-directory: apps/folding
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      FOLDING_SOURCE_CI_RUN_URL: ${{ github.event.workflow_run.html_url }}/attempts/${{ github.event.workflow_run.run_attempt }}
+      FOLDING_WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+      CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false'
+      WRANGLER_SEND_METRICS: 'false'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/folding-tools
+        with:
+          target: deploy
+      - uses: actions/download-artifact@v4
+        if: needs.selection.outputs.backend == 'true'
+        with:
+          name: folding-worker-${{ github.event.workflow_run.head_sha }}
+          path: apps/folding/backend/crates/worker/build
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Publish the tested Worker and immutable deployment receipt
+        if: needs.selection.outputs.backend == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FOLDING_PRODUCTION_WORKER_CONFIG: ${{ secrets.FOLDING_PRODUCTION_WORKER_CONFIG }}
+          FOLDING_RELEASE_POLICY_TOKEN: ${{ secrets.FOLDING_RELEASE_POLICY_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.FOLDING_DEPLOY_TOKEN }}
+        run: bundle exec ruby scripts/continuous-delivery.rb backend
+      - id: native
+        name: Coalesce pending native changes after acquiring the delivery slot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bundle exec ruby scripts/continuous-delivery.rb native-needed
+      - name: Resolve the current immutable backend receipt
+        if: steps.native.outputs.beta == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FOLDING_PRODUCTION_WORKER_CONFIG: ${{ secrets.FOLDING_PRODUCTION_WORKER_CONFIG }}
+          FOLDING_RELEASE_POLICY_TOKEN: ${{ secrets.FOLDING_RELEASE_POLICY_TOKEN }}
+        run: bundle exec ruby scripts/continuous-delivery.rb receipt
+      - name: Prepare exact-source native CI evidence
+        if: steps.native.outputs.beta == 'true'
+        run: bundle exec ruby scripts/continuous-delivery.rb evidence
+      - name: Trust GitHub signing host keys from its HTTPS metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        if: steps.native.outputs.beta == 'true'
+        run: |
+          mkdir -p "$HOME/.ssh"
+          gh api meta --jq '.ssh_keys[] | "github.com " + .' >> "$HOME/.ssh/known_hosts"
+          chmod 700 "$HOME/.ssh"
+          chmod 600 "$HOME/.ssh/known_hosts"
+      - name: Archive once and deliver the exact processed internal beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FOLDING_RELEASE_POLICY_TOKEN: ${{ secrets.FOLDING_RELEASE_POLICY_TOKEN }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.FOLDING_ASC_PRIVATE_KEY }}
+          MATCH_PASSWORD: ${{ secrets.FOLDING_MATCH_PASSWORD }}
+          FOLDING_SIGNING_GIT_PRIVATE_KEY: ${{ secrets.FOLDING_SIGNING_GIT_PRIVATE_KEY }}
+          FOLDING_TESTFLIGHT_GROUPS: ${{ vars.FOLDING_TESTFLIGHT_GROUPS }}
+        if: steps.native.outputs.beta == 'true'
+        run: |
+          version=$(ruby ../../scripts/app-config.rb folding version)
+          bundle exec fastlane ios continuous_beta "version:$version" "evidence:$FOLDING_BETA_EVIDENCE"

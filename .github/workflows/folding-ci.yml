@@ -26,10 +26,16 @@ jobs:
           persist-credentials: false
       - id: selection
         uses: ./.github/actions/select
+      - uses: actions/upload-artifact@v4
+        with:
+          name: folding-selection
+          path: ${{ runner.temp }}/ci-selection.json
+          retention-days: 14
+          if-no-files-found: error
   contracts:
     name: Folding contracts
     needs: selection
-    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.contracts')
+    if: contains(fromJSON(needs.selection.outputs.verify), 'folding.contracts') || contains(fromJSON(needs.selection.outputs.verify), 'folding.native')
     runs-on: [self-hosted, Linux, ARM64, homelab-linux]
     timeout-minutes: 10
     steps:
@@ -67,6 +73,20 @@ jobs:
         with:
           target: backend
       - run: scripts/check-backend
+      - name: Seal the tested Worker bytes
+        run: |
+          python3 - <<'PYTHON'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path('backend/crates/worker/build')
+          names = ['index.js', 'index_bg.wasm', 'package.json', 'worker/shim.mjs']
+          (root / 'artifact.json').write_text(json.dumps({'source_sha': os.environ['GITHUB_SHA'], 'files': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names}}, sort_keys=True) + '\n')
+          PYTHON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: folding-worker-${{ github.sha }}
+          path: apps/folding/backend/crates/worker/build
+          retention-days: 14
+          if-no-files-found: error
       - name: Database policy and migration source fences
         run: |
           python3 scripts/test-published-build.py
@@ -133,10 +153,12 @@ jobs:
           results = json.loads(os.environ["RESULTS"])
           assert results["selection"]["result"] == "success", "Selection failed"
           selected = json.loads(results["selection"]["outputs"]["verify"])
-          expected = {"contracts": "folding.contracts", "backend": "folding.backend", "domain": "folding.native", "native": "folding.native"}
+          expected = {"backend": "folding.backend", "domain": "folding.native", "native": "folding.native"}
           for job, unit in expected.items():
               wanted = "success" if unit in selected else "skipped"
               assert results[job]["result"] == wanted, f"{job}: expected {wanted}"
+          wanted = "success" if set(selected) & {"folding.contracts", "folding.native"} else "skipped"
+          assert results["contracts"]["result"] == wanted, "Contract validation did not complete as selected"
           wanted = "success" if set(selected) & {"folding.native", "folding.tooling"} else "skipped"
           assert results["localization"]["result"] == wanted, "Localization did not complete as selected"
           PYTHON

@@ -98,7 +98,7 @@ module FoldingRelease
   class GitHubArtifacts
     attr_reader :tag
     def initialize(tag)
-      raise "Invalid release tag" unless tag.match?(/\A(?:v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?|folding\/build-[1-9]\d*|folding-build-reservations)\z/)
+      raise "Invalid release tag" unless tag.match?(/\A(?:v\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?|folding\/build-[1-9]\d*|folding\/backend-(?:production|staging)|folding-build-reservations)\z/)
       @tag = tag
     end
 
@@ -227,6 +227,7 @@ module FoldingRelease
         return existing
       end
       build = [maximum, ledger.fetch("reservations").map { |entry| entry.fetch("build_number") }.max || 0].max + 1
+      raise "Build number exceeds the supported signed metadata range" unless build <= 2_147_483_647
       tag = "folding/build-#{build}"
       raise "New releases use the allocated build tag #{tag}" if requested_tag && requested_tag != tag
       reservation = {"idempotency_key" => key, "tag" => tag, "commit_sha" => source, "marketing_version" => version,
@@ -297,8 +298,9 @@ module FoldingRelease
         build.version.to_i
       end
     end.max || 0
+    floor = minimum_supported_build(environment)
     reservation = allocate_build(source: source, version: version, environment: environment,
-      identity: identity, maximum: maximum, requested_tag: tag, replacement_for: replacement_for)
+      identity: identity, maximum: [maximum, floor - 1].max, requested_tag: tag, replacement_for: replacement_for)
     tag = reservation.fetch("tag")
     remote = GitHubArtifacts.new(tag)
     existing = remote.latest("manifest")
@@ -338,6 +340,13 @@ module FoldingRelease
     end
     raise "HTTP prerequisite failed (#{response.code})" unless response.is_a?(Net::HTTPSuccess)
     JSON.parse(response.body)
+  end
+
+  def self.minimum_supported_build(environment)
+    origin = environment == "production" ? "https://api.getfolding.app" : "https://api-staging.getfolding.app"
+    floor = fetch_json("#{origin}/v1/client-policy").fetch("minimum_ios_build")
+    raise "Invalid live minimum build policy" unless floor.is_a?(Integer) && floor.between?(0, 2_147_483_647)
+    floor
   end
 
   def self.check_evidence!(record, path, final: false)

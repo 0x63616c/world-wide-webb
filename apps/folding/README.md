@@ -2,7 +2,7 @@
 
 A free, native iPhone Duo folding tracker: personal statistics, guided Shortcuts setup, iCloud sync, widgets, and optional competition.
 
-**Status:** shipping goal active; account setup and implementation are now authorized. The Swift tracking domain, durable journal and private infrastructure-state bootstrap are implemented; the app, backend and release pipeline remain in progress. The owner selected **Folding** as the final product name. App Store name registration is pending. The owner has purchased **getfolding.app**. The private repository is [0x63616c/folding](https://github.com/0x63616c/folding).
+**Status:** shipping goal active; account setup and implementation are now authorized. The Swift tracking domain, durable journal and private infrastructure-state bootstrap are implemented; the app, backend and release pipeline remain in progress. The owner selected **Folding** as the final product name. App Store name registration is pending. The owner has purchased **getfolding.app**. Source is being consolidated into private World Wide Webb under `apps/folding`; the [original repository](https://github.com/0x63616c/folding) retains historical records until verified handover.
 
 ## Start here
 
@@ -32,3 +32,11 @@ These documents consolidate the planning conversation through November 7, 2026. 
 ## Local development
 
 Run `scripts/bootstrap` to prepare the contract validator and repository-local Git hooks, then `scripts/check` for implemented personal-core/contract checks. `scripts/format` formats owned Swift and OpenTofu files without staging them. These are initial checks; backend, simulator and release CI gates are still being added.
+
+## Monorepo automation
+
+Run product commands from `apps/folding`. Root `folding-ci.yml` selects its checks independently
+from other products. PR previews use five English outer-display scenes; full App Store captures
+retain all locales/displays and separate evidence. Both use the native Device Hub controller
+inside an isolated Mac guest. See [release operations](fastlane/RELEASE.md) for the prepared
+automatic TestFlight/Worker flow, immutable retry behavior and remaining activation acceptance.

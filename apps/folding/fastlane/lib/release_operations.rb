@@ -132,7 +132,8 @@ module FoldingRelease
       begin
         context.create_keychain(name: keychain, password: password, default_keychain: false, unlock: true, timeout: 3600, lock_when_sleeps: true)
         context.match(type: "appstore", readonly: true, app_identifier: [identity.fetch("bundle_id"), identity.fetch("widget_bundle_id")],
-          git_url: "git@github.com:0x63616c/folding-signing.git", api_key: FoldingRelease.api_key, team_id: record.data.fetch("apple_team_id"),
+          git_url: ENV.fetch("FOLDING_SIGNING_GIT_URL", "git@github.com:0x63616c/folding-signing.git"),
+          git_private_key: ENV["FOLDING_SIGNING_GIT_PRIVATE_KEY"], api_key: FoldingRelease.api_key, team_id: record.data.fetch("apple_team_id"),
           keychain_name: keychain, keychain_password: password)
         app_profile = ENV.fetch("sigh_#{identity.fetch('bundle_id')}_appstore_profile-name")
         widget_profile = ENV.fetch("sigh_#{identity.fetch('widget_bundle_id')}_appstore_profile-name")
@@ -267,7 +268,36 @@ module FoldingRelease
       end
     end
 
-    def self.beta(context, record)
+    def self.continuous_beta(context, version:, evidence_path:)
+      evidence = FoldingRelease.read_json(evidence_path)
+      source = FoldingRelease.clean_commit!
+      raise "Beta evidence belongs to another source" unless evidence.fetch("commit_sha") == source
+      %w[contracts domain-storage simulator localization].each do |name|
+        checks = evidence.fetch("required_checks").select { |check| check["name"] == name }
+        raise "Missing or duplicated beta CI evidence: #{name}" unless checks.length == 1 && checks.first["kind"] == "ci"
+        CheckEvidence.validate!(checks.first, source: source, base: File.dirname(File.expand_path(evidence_path)))
+      end
+      record = FoldingRelease.reserve(environment: "production", version: version)
+      floor = FoldingRelease.minimum_supported_build("production")
+      if record.data.fetch("build_number") < floor
+        replacement = FoldingRelease.reserve(environment: "production", version: version,
+          replacement_for: "minimum-build:#{record.data.fetch('release_id')}:#{floor}")
+        replacement.save("minimum_build_replacement" => {"replaced_tag" => record.data.fetch("tag"), "minimum_ios_build" => floor})
+        record.save("cancelled" => true, "replacement_tag" => replacement.data.fetch("tag"), "retired_by_minimum_build" => floor)
+        record = replacement
+      end
+      # A confirmed interrupted compile burns its reservation. Sealed archive
+      # candidates are reconciled by archive rather than built a second time.
+      if record.data["archive_attempt_started_at"] && !record.data["archive_candidates"] && record.data["state"] == "planned"
+        record = replace_interrupted_archive(record, reason: "Resume interrupted automatic internal beta archive")
+      end
+      record.save("beta_source_checks" => evidence.fetch("required_checks"))
+      archive(context, record, preview: true) if record.data.fetch("state") == "planned"
+      beta(context, record, wait_for_processing: true)
+      record
+    end
+
+    def self.beta(context, record, wait_for_processing: false)
       record.verify_identity!
       if record.data["preview_backend_verification"]
         FoldingRelease.preview_prerequisites!(record)
@@ -279,12 +309,25 @@ module FoldingRelease
       register_build_policy(record)
       build = FoldingRelease.exact_build(record.data)
       unless build
-        raise "Previous upload outcome is ambiguous; inspect Apple before explicit retry" if record.data["upload_attempt_started_at"]
-        record.save("upload_attempt_started_at" => Time.now.utc.iso8601)
-        context.upload_to_testflight(api_key: FoldingRelease.api_key, app_identifier: record.data.fetch("bundle_id"),
-          apple_id: record.data.fetch("asc_app_id"), ipa: record.artifact("ipa"),
-          skip_waiting_for_build_processing: true, skip_submission: true)
-        record.advance("uploaded")
+        if record.data["upload_attempt_started_at"]
+          raise "Previous upload outcome is ambiguous; inspect Apple before explicit retry" unless wait_for_processing
+        else
+          record.save("upload_attempt_started_at" => Time.now.utc.iso8601)
+          context.upload_to_testflight(api_key: FoldingRelease.api_key, app_identifier: record.data.fetch("bundle_id"),
+            apple_id: record.data.fetch("asc_app_id"), ipa: record.artifact("ipa"),
+            skip_waiting_for_build_processing: true, skip_submission: true)
+          record.advance("uploaded")
+        end
+      end
+      if wait_for_processing
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 3600
+        loop do
+          build = FoldingRelease.exact_build(record.data)
+          break if build && build.processing_state == "VALID"
+          raise "Apple rejected this immutable build" if build && %w[FAILED INVALID].include?(build.processing_state)
+          raise "Apple processing is still pending; rerun the same source to reconcile without uploading again" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+          sleep 30
+        end
       end
       # One read per invocation; a processing build resumes via the same lane without a new upload.
       build = verify_processed!(record)
@@ -292,6 +335,9 @@ module FoldingRelease
         record.advance("processed", "asc_build_id" => build.id, "asc_processing_state" => build.processing_state)
       end
       groups = ENV.fetch(CONFIG.fetch("testflight_groups_env")).split(",").map(&:strip).reject(&:empty?)
+      if wait_for_processing && record.data.fetch("build_number") < FoldingRelease.minimum_supported_build(record.data.fetch("environment"))
+        raise "Build was retired while Apple processed it; do not distribute"
+      end
       raise "Explicit TestFlight groups are required" if groups.empty?
       if record.data["testflight_distributed_build_id"] == build.id
         raise "Previously distributed groups differ" unless record.data["testflight_groups"] == groups

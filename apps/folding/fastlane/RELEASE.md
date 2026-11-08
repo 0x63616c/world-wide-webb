@@ -1,6 +1,6 @@
 # Folding release operations
 
-This is implemented orchestration, not live release acceptance. Run through the primary agent's existing credential session or a trusted release runner. Never put key values on command lines or in repository files. CI remains deferred by the owner; no new workflow trigger has been enabled.
+This is implemented orchestration, not live release acceptance. Run through the primary agent's existing credential session or a trusted release runner. Never put key values on command lines or in repository files. Monorepo workflows are prepared locally. Automatic delivery stays off until private-source, credentials, ledger and live runner/provider acceptance pass.
 
 ## Inputs and identity
 
@@ -60,7 +60,7 @@ Fastlane runs direct hosted XCTest renders of production views for each locale/d
 - Reload the latest remote manifest after a conflict. Never overwrite revision files or use `gh release upload --clobber`.
 - If archive candidate hashes were recorded, `archive` resumes publishing the same local/remote files. If signing/building stopped before a candidate record, inspect the retained archive; the tool refuses an automatic rebuild under that reservation.
 - If a partially uploaded artifact already exists, compare its downloaded bytes before treating it as complete. Missing local *and* remote candidates are an explicit recovery error.
-- A failed attempt retains the last stable state and attempt marker. Read Apple before retrying upload/submission. No automatic cancellation of an Apple review, certificate revocation or new build allocation occurs.
+- A failed attempt retains the last stable state and attempt marker. Read Apple before retrying upload/submission. Automatic internal-beta recovery may allocate a new audited reservation after an interrupted compile. It never cancels Apple review, revokes a certificate or rebuilds a sealed candidate.
 - Keep signing recovery assets in 1Password/match and retain private release artifacts for the lifetime of the distributed version. Do not upload arbitrary workspaces or raw logs.
 
 ## Remaining integration acceptance
@@ -197,3 +197,20 @@ and separate `build/preview-assets` output are not App Store acceptance. `foldin
 captures the full existing locale/display matrix on an explicit main-branch dispatch. Both use
 `DUO_HOST_CONTROL=1` with the repository's scoped native controller on an isolated Mac guest.
 Capture artifacts stay private; no screenshot branches or public comments are created.
+
+## Automatic internal beta delivery
+
+`folding-release.yml` consumes only a successful trusted main push from `folding-ci.yml` and
+its source-bound selection. `FOLDING_DELIVERY_ENABLED` stays off through setup. Backend inputs
+reuse the exact Worker Wasm tested in CI, record a D1 recovery bookmark before checksum-fenced
+migrations, and publish an immutable provider-version receipt. Native inputs verify named
+source CI jobs, reuse the live compatible backend receipt, reserve once, archive once and wait
+for Apple's processing before explicit internal-group distribution. A retry reads Apple and
+retained artifacts; it does not blindly upload again. Store submission retains its existing
+full capability, screenshot, listing and final-review prerequisites.
+
+The existing readonly signing store remains the initial signing backend. `FOLDING_SIGNING_GIT_URL`
+can later point to the verified consolidated encrypted store. Current required secrets are listed
+in `folding-release.yml`; they enter runner memory/environment and temporary files only.
+Cloudflare Time Travel bookmark commands are documented at
+https://developers.cloudflare.com/d1/reference/time-travel/ . Live restore acceptance remains required.

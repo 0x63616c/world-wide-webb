@@ -57,6 +57,39 @@ class CodingRegressionsTest < Minitest::Test
       end
     end
   end
+
+  def test_automatic_beta_reconciles_a_lost_upload_response_without_another_binary_upload
+    previous = ENV["FOLDING_TESTFLIGHT_GROUPS"]
+    ENV["FOLDING_TESTFLIGHT_GROUPS"] = "Owner Preview"
+    record = Record.new({"state" => "archived", "environment" => "production", "build_number" => 42,
+      "bundle_id" => "app", "asc_app_id" => "asc-app", "marketing_version" => "1.0.0",
+      "preview_backend_verification" => {}, "upload_attempt_started_at" => "previous-attempt"})
+    build = Struct.new(:id, :processing_state).new("apple42", "VALID")
+    reads = 0
+    uploads = []
+    context = Object.new
+    context.define_singleton_method(:upload_to_testflight) { |**options| uploads << options }
+    FoldingRelease.stub(:preview_prerequisites!, "worker") do
+      FoldingRelease.stub(:minimum_supported_build, 0) do
+        FoldingRelease.stub(:api_key, {}) do
+          FoldingRelease.stub(:exact_build, ->(_data) { reads += 1; reads == 1 ? nil : build }) do
+            FoldingRelease::Operations.stub(:register_build_policy, nil) do
+              FoldingRelease::Operations.stub(:verify_processed!, build) do
+                2.times { FoldingRelease::Operations.beta(context, record, wait_for_processing: true) }
+              end
+            end
+          end
+        end
+      end
+    end
+    assert_equal 1, uploads.length
+    assert_equal true, uploads.first.fetch(:distribute_only)
+    refute uploads.first.key?(:ipa)
+    assert_equal "apple42", record.data.fetch("testflight_distributed_build_id")
+    assert_equal "VALID", record.data.fetch("asc_processing_state")
+  ensure
+    ENV["FOLDING_TESTFLIGHT_GROUPS"] = previous
+  end
   def test_real_archive_recovery_handles_preview_and_store_states_without_mutating_old_build_identity
     %w[planned assets_ready].each do |state|
       old = Record.new({"state" => state, "build_number" => 42, "tag" => "folding/build-42", "release_id" => "old",

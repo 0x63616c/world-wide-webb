@@ -55,7 +55,7 @@ class BuildReservationsTest < Minitest::Test
     FileUtils.remove_entry(@temporary)
   end
 
-  def reserve(environment = "production", tag: nil, replacement_for: nil)
+  def reserve(environment = "production", tag: nil, replacement_for: nil, floor: 0)
     commands = lambda do |*args|
       case args[0, 3]
       when ["gh", "repo", "view"] then '{"visibility":"PRIVATE"}'
@@ -67,19 +67,25 @@ class BuildReservationsTest < Minitest::Test
       identity = FoldingAppleAccount.config.values.find { |item| item.is_a?(Hash) && item["bundle_id"] == identifier }
       App.new(identity.fetch("app_store_id"))
     end
-    FoldingRelease.stub(:clean_commit!, -> { @source }) do
-      FoldingRelease.stub(:commit, -> { @source }) do
-        FoldingRelease.stub(:client, :test_client) do
-          FoldingRelease.stub(:run, commands) do
-            Spaceship::ConnectAPI::App.stub(:find, find) do
-              FoldingRelease::GitHubArtifacts.stub(:new, ->(name) { @stores[name] }) do
-                FoldingRelease.reserve(version: "1.0.0", environment: environment, tag: tag, replacement_for: replacement_for)
+    FoldingRelease.stub(:minimum_supported_build, floor) do
+      FoldingRelease.stub(:clean_commit!, -> { @source }) do
+        FoldingRelease.stub(:commit, -> { @source }) do
+          FoldingRelease.stub(:client, :test_client) do
+            FoldingRelease.stub(:run, commands) do
+              Spaceship::ConnectAPI::App.stub(:find, find) do
+                FoldingRelease::GitHubArtifacts.stub(:new, ->(name) { @stores[name] }) do
+                  FoldingRelease.reserve(version: "1.0.0", environment: environment, tag: tag, replacement_for: replacement_for)
+                end
               end
             end
           end
         end
       end
     end
+  end
+
+  def test_live_minimum_build_seeds_the_allocator_without_retiring_the_new_beta
+    assert_equal 100, reserve(floor: 100).data.fetch("build_number")
   end
 
   def test_same_version_sources_get_unique_records_and_retries_keep_the_existing_build

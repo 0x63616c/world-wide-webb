@@ -47,7 +47,8 @@
       "paths": [
         "apps/folding/apps/ios/**",
         "apps/folding/cloudkit/**",
-        "apps/folding/fastlane/**"
+        "apps/folding/fastlane/**",
+        "apps/folding/app.yml"
       ],
       "delivery": "testflight",
       "delivery_paths": [
@@ -58,7 +59,8 @@
         "apps/folding/apps/ios/Packages/FoldingKit/Sources/**",
         "apps/folding/apps/ios/Packages/FoldingKit/Package.swift",
         "apps/folding/apps/ios/project.yml",
-        "apps/folding/cloudkit/**"
+        "apps/folding/cloudkit/**",
+        "apps/folding/app.yml"
       ],
       "delivery_exclude": [
         "**/Tests/**",
@@ -91,6 +93,9 @@
         "**/BuildTests/**",
         "**/ScreenshotTests/**",
         "**/StorefrontTests/**"
+      ],
+      "verify_dependents": [
+        "folding.native"
       ]
     },
     "folding.contracts": {

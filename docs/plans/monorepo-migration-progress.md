@@ -212,3 +212,52 @@ full screenshot job names match evidence validation, active Tendr shipping uses 
 inputs (test-only edits do not publish), and Worker embedded HTML/policy/certificate/build inputs
 select backend delivery. Twelve selector/real-Git delivery tests, existing impact fixtures and all
 six evidence workflow/job-name pairs pass. Report: `/tmp/monorepo-ci-capture-astra-review.md`.
+
+### Unblocked Linux rollout from the retired deployment target
+
+Verified GitHub `MINI_DEPLOY_ENABLED` was true while the active old deployment workflow still
+SSHs `calum@homelab.tail8c014d.ts.net` and stages under `/Users/calum/www-control-center`.
+The repaired hostname is now the HTTPS service, not a host SSH identity. Disabled that broken
+trigger by setting the variable false; the current Mini service and private HTTPS route are
+untouched. This temporary bridge prevents an unrelated CI-only merge from invoking obsolete
+operations. It is not replacement deployment acceptance; enable only the reviewed new host/service
+promotion route after live verification. The Linux agent reports all load/restart/cancel/isolation
+gates passed and permanent pool rollout is in progress.
+
+## Automatic Folding delivery adapter — approximately 34% overall
+
+The root Folding delivery workflow now consumes source-bound selection from successful trusted
+main CI, with its enable switch remaining off. CI seals the actual tested Wasm/JS artifact;
+deployment validates those bytes, retains pre-migration D1 recovery-bookmark metadata, uses the
+existing checksum-fenced migration wrapper, and publishes an immutable verified provider receipt.
+The receipt omits unrelated/private runtime variables. Crash fixtures cover migration interruption
+and lost deployment/receipt outcomes, preserving the first recovery bookmark and reusing the
+already deployed source instead of rebuilding it.
+
+Internal betas validate the exact named native CI jobs and live compatible backend, use readonly
+signing, archive once, poll Apple processing and distribute only to configured internal groups.
+Lost-upload-response tests reconcile a processed build without a second binary upload. The
+allocator accounts for the live minimum-build floor; a retired pending reservation gets a new
+linked immutable reservation rather than mutating its build identity.
+
+A durable native-input delivery receipt handles GitHub's replaceable pending job: after acquiring
+the shared delivery slot, the latest candidate compares actual native inputs with the last
+confirmed distribution. A backend-only source can carry forward an otherwise lost pending native
+change; identical native inputs do not ship. Older source completions cannot roll back a newer
+recorded native distribution or a newer known Worker deployment. Backend verification also checks
+its native client, and small contract checks run for native candidates so evidence is complete.
+Thirteen selector/real-Git input-equivalence tests pass; backend crash/coalescing tests pass.
+This is local wiring/test evidence. Secrets, ledger transfer, private visibility, live provider,
+Apple and native VM screenshot acceptance still gate activation.
+
+Before schema writes, the delivery adapter now confirms that the configuration's exact D1
+identity/app/environment are bound to the current live Worker. Production credentials are
+scoped to their specific publication steps, after dependency setup. The existing repaired
+Control Center health endpoint was independently verified from this primary session: HTTP200,
+revision `72f9533c84cc9362b9a3df9a5fe3f079411c638d`, after disabling the obsolete trigger.
+
+The completed local automatic-delivery batch passes all 28 Folding release tests / 610 assertions,
+13 selector/input-equivalence tests and actionlint. Four backend tests cover artifact identity,
+live DB binding, crash/retry order and queue coalescing; the upload-response test distributes the
+already processed build once without uploading another IPA. Complete independent batch review
+is next; live channels remain off pending the documented acceptance gates.

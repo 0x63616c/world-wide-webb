@@ -2,7 +2,7 @@ name: Folding toolchain
 description: Prepare pinned product tools without credentials
 inputs:
   target:
-    description: contracts, backend or apple
+    description: contracts, backend, deploy or apple
     required: true
 runs:
   using: composite
@@ -26,11 +26,11 @@ runs:
       run: |
         python3 -m venv .venv/contracts
         .venv/contracts/bin/python -m pip install -r scripts/requirements-contracts.txt
-    - if: inputs.target == 'backend'
+    - if: inputs.target == 'backend' || inputs.target == 'deploy'
       uses: actions/setup-node@v4
       with:
         node-version: ${{ steps.pins.outputs.node }}
-    - if: inputs.target == 'backend'
+    - if: inputs.target == 'backend' || inputs.target == 'deploy'
       uses: oven-sh/setup-bun@v2
       with:
         bun-version: ${{ steps.pins.outputs.bun }}
@@ -47,7 +47,7 @@ runs:
         fi
         cd apps/folding/backend
         bun install --frozen-lockfile
-    - if: inputs.target == 'apple'
+    - if: inputs.target == 'apple' || inputs.target == 'deploy'
       shell: bash
       working-directory: apps/folding
       env:
@@ -58,4 +58,11 @@ runs:
         gem install bundler --version "$BUNDLER_VERSION" --no-document
         bundle config set --local path "$RUNNER_TEMP/folding-bundle"
         BUNDLE_FROZEN=true bundle install
-        python3 scripts/apple-build-environment.py
+    - if: inputs.target == 'deploy'
+      shell: bash
+      working-directory: apps/folding/backend
+      run: bun install --frozen-lockfile
+    - if: inputs.target == 'apple'
+      shell: bash
+      working-directory: apps/folding
+      run: python3 scripts/apple-build-environment.py
