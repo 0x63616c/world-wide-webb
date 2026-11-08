@@ -7,12 +7,16 @@ import XCTest
 /// Store assets render the production views directly with isolated fixed-clock data.
 /// The runtime only executes UIKit/XCTest; no simulator UI navigation or live clients.
 @MainActor final class StorefrontRenderTests: XCTestCase {
+  override func setUpWithError() throws { continueAfterFailure = false }
+
   struct Plan: Decodable {
+    let fixtureVersion: Int
     let scenarios: [Scene]
     let devices: [Display]
     let reviewScenarios: [ReviewScene]
     enum CodingKeys: String, CodingKey {
       case scenarios, devices
+      case fixtureVersion = "fixture_version"
       case reviewScenarios = "review_scenarios"
     }
   }
@@ -41,17 +45,21 @@ import XCTest
     }
   }
 
-  func testRenderStorefront() async throws {
+  func testRenderOuter() async throws { try await renderMatrix(displayID: "duo-outer") }
+  func testRenderInner() async throws { try await renderMatrix(displayID: "duo-inner") }
+
+  private func renderMatrix(displayID: String) async throws {
     let url = try XCTUnwrap(
       Bundle(for: Self.self).url(forResource: "screenshot-plan", withExtension: "json"))
     let plan = try JSONDecoder().decode(Plan.self, from: Data(contentsOf: url))
+    XCTAssertEqual(plan.fixtureVersion, ScreenshotFixture.version)
     let preferred = try XCTUnwrap(Bundle.main.preferredLocalizations.first)
     let locale = preferred == "en-US" ? "en" : preferred
     XCTAssertTrue(
       ["en", "de", "fr", "es", "es-419", "ja", "ko", "pt-BR", "zh-Hans", "zh-Hant"].contains(locale)
     )
     print("STOREFRONT_APP_LOCALE=\(locale)")
-    for display in plan.devices {
+    for display in plan.devices where display.id == displayID {
       for scene in plan.scenarios {
         let fixture = try ScreenshotFixture(arguments: [
           "--folding-screenshot-scenario", scene.id, "--folding-screenshot-locale", locale,
@@ -83,14 +91,18 @@ import XCTest
     let scale: CGFloat = 3
     let size = CGSize(
       width: CGFloat(display.pixelWidth) / scale, height: CGFloat(display.pixelHeight) / scale)
+    XCTAssertEqual(
+      windowScene.coordinateSpace.bounds.size, size,
+      "Activate the matching Duo display before rendering; never stretch outer native chrome into an inner canvas"
+    )
+    print("STOREFRONT_NATIVE_GEOMETRY=\(windowScene.coordinateSpace.bounds.size)")
     let content: AnyView
     switch scene {
     case "milestones":
       content = AnyView(
-        NavigationStack { MilestonesScreen(model: fixture.model, actions: fixture.actions) })
+        CompetitionSheetScreen(screen: .milestones, model: fixture.model, actions: fixture.actions))
     case "patterns":
-      content = AnyView(
-        NavigationStack { PatternsScreen(model: fixture.model, actions: fixture.actions) })
+      content = AnyView(PatternsScreen(model: fixture.model, actions: fixture.actions))
     case "tipjar":
       content = AnyView(
         NavigationStack {
@@ -114,9 +126,11 @@ import XCTest
         .frame(width: size.width, height: size.height))
     host.safeAreaRegions = []
     host.overrideUserInterfaceStyle = appearance == "dark" ? .dark : .light
+    window.frame = CGRect(origin: .zero, size: size)
     let parent = UIViewController()
     window.rootViewController = parent
     parent.addChild(host)
+    parent.view.frame = window.bounds
     parent.view.addSubview(host.view)
     host.didMove(toParent: parent)
     parent.setOverrideTraitCollection(

@@ -6,6 +6,8 @@ module FoldingRelease
     # Compare Apple's ordered gallery to the exact sealed bytes, including the shared Duo slot.
     def self.verify!(record, selected, client: FoldingRelease.client)
       output = File.join(record.directory, "assets")
+      copyright = File.join(output, "metadata/copyright.txt")
+      raise "Apple copyright differs" if File.file?(copyright) && selected.copyright.to_s.strip != File.read(copyright).strip
       entries = FoldingRelease.read_json(File.join(output, "screenshot-manifest.json")).fetch("entries")
       app = FoldingRelease.app(record.data)
       info = app.fetch_edit_app_info(client: client)

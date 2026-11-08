@@ -23,8 +23,8 @@
       "id": "duo-inner",
       "model": "iPhone Duo",
       "screen": "primary-1",
-      "pixel_width": 2007,
-      "pixel_height": 2853,
+      "pixel_width": 2853,
+      "pixel_height": 2007,
       "upload_display_type": "APP_IPHONE_DUO"
     }
   ],

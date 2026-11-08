@@ -5,7 +5,7 @@
   "reservation_tag": "folding-build-reservations",
   "scheme": "Folding",
   "archive_configuration": "Release",
-  "fixture_version": 1,
+  "fixture_version": 2,
   "backend_contract_version": 1,
   "preview_backend_capabilities": [
     "profiles.milestones"

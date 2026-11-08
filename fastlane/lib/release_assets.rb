@@ -13,6 +13,7 @@ module FoldingRelease
     end
 
     def self.validate_metadata!
+      raise "Fixture version differs from release config" unless PLAN.fetch("fixture_version") == CONFIG.fetch("fixture_version")
       LOCALES.each do |locale|
         directory = File.join(ROOT, "fastlane/metadata", locale.fetch("storefront_locale"))
         {"name" => 30, "subtitle" => 30, "keywords" => 100, "description" => 4000,
@@ -56,35 +57,37 @@ module FoldingRelease
         FoldingRelease.run("xcrun", "simctl", "bootstatus", device, "-b")
         FoldingRelease.run("xcrun", "simctl", "ui", device, "appearance", PLAN.fetch("appearance"))
         FoldingRelease.run("xcrun", "simctl", "status_bar", device, "override", "--time", "9:41", "--batteryState", "charged", "--batteryLevel", "100")
-        LOCALES.each do |locale|
-          next if review_only && locale.fetch("storefront_locale") != "en-US"
-          export = File.join(output, "raw", locale.fetch("storefront_locale"))
-          result = File.join(output, "results", "#{locale.fetch('storefront_locale')}.xcresult")
-          tests = review_only ? [] : ["#{PLAN.fetch('test_target')}/StorefrontRenderTests/testRenderStorefront"]
-          if locale.fetch("storefront_locale") == "en-US"
-            tests << "#{PLAN.fetch('test_target')}/StorefrontRenderTests/testRenderTipReview"
-          end
-          # Execute actual UIKit views in XCTest, without launching/navigating simulator UI.
-          context.run_tests(
-            project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
-            configuration: PLAN.fetch("configuration"), destination: "platform=iOS Simulator,id=#{device}",
-            only_testing: tests, derived_data_path: File.join(ROOT, "build/screenshot-release"),
-            result_bundle: true, result_bundle_path: result,
-            output_directory: File.join(output, "logs", locale.fetch("storefront_locale")),
-            xcargs: "-testLanguage #{locale.fetch('app_locale')} -testRegion #{locale.fetch('test_region')}",
-            parallel_testing: false, concurrent_workers: 1, skip_slack: true, xcodebuild_formatter: ""
-          )
-          FoldingRelease.run("xcrun", "xcresulttool", "export", "attachments", "--path", result, "--output-path", export)
-          attachments = FoldingRelease.read_json(File.join(export, "manifest.json")).flat_map { |test| test.fetch("attachments") }
-          find_capture = lambda do |display, scene|
-            prefix = "storefront-#{locale.fetch('app_locale')}-#{display.fetch('id')}-#{scene.fetch('id')}_"
-            matches = attachments.select { |item| item.fetch("suggestedHumanReadableName").start_with?(prefix) && item.fetch("exportedFileName").end_with?(".png") }
-            raise "Missing/duplicate direct capture: #{prefix}" unless matches.length == 1
-            path = File.join(export, matches.first.fetch("exportedFileName"))
-            raise "Wrong direct capture dimensions" unless png_size(path) == display.values_at("pixel_width", "pixel_height")
-            path
-          end
-          PLAN.fetch("devices").each do |display|
+        PLAN.fetch("devices").reverse_each do |display|
+          next if review_only && display.fetch("id") != "duo-outer"
+          request_native_pose(output, device, name, display)
+          LOCALES.each do |locale|
+            next if review_only && locale.fetch("storefront_locale") != "en-US"
+            export = File.join(output, "raw", display.fetch("id"), locale.fetch("storefront_locale"))
+            result = File.join(output, "results", "#{display.fetch('id')}-#{locale.fetch('storefront_locale')}.xcresult")
+            tests = review_only ? [] : ["#{PLAN.fetch('test_target')}/StorefrontRenderTests/#{display.fetch('id') == 'duo-outer' ? 'testRenderOuter' : 'testRenderInner'}"]
+            if locale.fetch("storefront_locale") == "en-US" && display.fetch("id") == "duo-outer"
+              tests << "#{PLAN.fetch('test_target')}/StorefrontRenderTests/testRenderTipReview"
+            end
+            # Execute actual UIKit views in XCTest, without launching/navigating simulator UI.
+            context.run_tests(
+              project: File.join(ROOT, "apps/ios/Folding.xcodeproj"), scheme: PLAN.fetch("scheme"),
+              configuration: PLAN.fetch("configuration"), destination: "platform=iOS Simulator,id=#{device}",
+              only_testing: tests, derived_data_path: File.join(ROOT, "build/screenshot-release"),
+              result_bundle: true, result_bundle_path: result,
+              output_directory: File.join(output, "logs", display.fetch("id"), locale.fetch("storefront_locale")),
+              xcargs: "-testLanguage #{locale.fetch('app_locale')} -testRegion #{locale.fetch('test_region')}",
+              parallel_testing: false, concurrent_workers: 1, skip_slack: true, xcodebuild_formatter: ""
+            )
+            FoldingRelease.run("xcrun", "xcresulttool", "export", "attachments", "--path", result, "--output-path", export)
+            attachments = FoldingRelease.read_json(File.join(export, "manifest.json")).flat_map { |test| test.fetch("attachments") }
+            find_capture = lambda do |display, scene|
+              prefix = "storefront-#{locale.fetch('app_locale')}-#{display.fetch('id')}-#{scene.fetch('id')}_"
+              matches = attachments.select { |item| item.fetch("suggestedHumanReadableName").start_with?(prefix) && item.fetch("exportedFileName").end_with?(".png") }
+              raise "Missing/duplicate direct capture: #{prefix}" unless matches.length == 1
+              path = File.join(export, matches.first.fetch("exportedFileName"))
+              raise "Wrong direct capture dimensions" unless png_size(path) == display.values_at("pixel_width", "pixel_height")
+              path
+            end
             (review_only ? [] : PLAN.fetch("scenarios")).each do |scene|
               entries << compose(record, find_capture.call(display, scene), display, locale, scene)
             end
@@ -113,6 +116,25 @@ module FoldingRelease
         # Only the simulator created by this invocation is ever shut down/deleted.
         system("xcrun", "simctl", "shutdown", device, out: File::NULL, err: File::NULL)
         system("xcrun", "simctl", "delete", device, out: File::NULL, err: File::NULL)
+      end
+    end
+
+    # Native chrome uses the real Duo pose, not the framebuffer's power state.
+    # A host controller acknowledges this request after selecting Open/Closed in Device Hub;
+    # XCTest independently requires the exact resulting native window geometry.
+    def self.request_native_pose(output, device, name, display)
+      directory = File.join(output, "native-control")
+      identifier = SecureRandom.hex(12)
+      FoldingRelease.atomic_json(File.join(directory, "request.json"), {
+        "id" => identifier, "device_id" => device, "device_name" => name,
+        "display" => display.fetch("id"), "control" => display.fetch("id") == "duo-inner" ? "Open" : "Closed"})
+      puts "Native Duo pose required: #{display.fetch('id')} on #{name}; request #{directory}/request.json"
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 300
+      loop do
+        response = File.join(directory, "acknowledgment.json")
+        return if File.file?(response) && FoldingRelease.read_json(response)["id"] == identifier
+        raise "Native Duo pose was not acknowledged; task simulator will be cleaned up" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        sleep 0.25
       end
     end
 
