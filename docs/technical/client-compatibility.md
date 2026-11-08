@@ -5,9 +5,10 @@ Owner decision, November 8, 2026: once a confirmed minimum exceeds the installed
 ## Wire policy
 
 - `GET /v1/client-policy` is public and returns `{minimum_ios_build: integer, request_id: UUID}` with `Cache-Control: no-store`. It remains reachable by unsupported clients.
-- `MINIMUM_IOS_BUILD` is a deployment-owned string representing an integer from 0 through 2,147,483,647. Omitted/0 disables enforcement; invalid configured values fail closed. The configuration generator accepts this optional field and preserves reviewed feature gates.
+- Operations (`/admin/config`) owns the minimum build in the singleton administrative configuration row. Values are integers from 0 through 2,147,483,647; 0 disables enforcement. Access authentication, CSRF, expected revision, idempotent operation IDs and before/after audit records protect changes. There is no deployment-variable override. Migration 0020 defaults the value to 0.
+- Public policy and business enforcement share a 60-second isolate cache of the database value. Successful admin saves invalidate the handling isolate immediately; other isolates refresh within one minute. Failures are never cached or used to extend an expired value; unavailable/invalid policy fails closed for business endpoints. Recovery exemptions still bypass policy loading.
 - App requests send `X-Folding-Build`, using monotonically increasing integer `CFBundleVersion`, not the marketing version string. These headers are client-asserted and never replace authentication/App Attest.
-- With an active minimum, missing/malformed/older headers receive HTTP 426 `{code: "app_update_required", request_id, retryable: true, retry_after_seconds: 3600, minimum_ios_build}` and `X-Folding-Minimum-Build`, before reading the request body or opening D1. `Retry-After: 3600` preserves older uploaders’ queued data instead of triggering their terminal-error path; retryability also permits a policy rollback. The API still rejects unsupported builds. The existing network burst controls still run first.
+- With an active minimum, missing/malformed/older headers receive HTTP 426 `{code: "app_update_required", request_id, retryable: true, retry_after_seconds: 3600, minimum_ios_build}` and `X-Folding-Minimum-Build`, before reading the request body or opening business/account data (a cache miss reads the shared policy row). `Retry-After: 3600` preserves older uploaders’ queued data instead of triggering their terminal-error path; retryability also permits a policy rollback. The API still rejects unsupported builds. The existing network burst controls still run first.
 - Policy, health/capabilities, authentication, leave/delete, deletion status and avatar/push removal retain their small stable recovery/privacy contracts. The server can retire older **business** APIs; this does not authorize removing privacy recovery without a replacement.
 
 ## Client behavior
@@ -22,10 +23,10 @@ Background upload errors with `app_update_required` retain their operation/event
 
 ## Activation and rollback
 
-1. Deploy the compatible default-zero policy endpoint first; all existing clients remain allowed. No schema migration is needed for this policy feature (resource-protection migration 0019 remains a separate prerequisite for that Worker branch).
+1. Apply migration 0020 and deploy the compatible policy endpoint. Its persisted minimum defaults to 0, so existing clients remain allowed.
 2. Ship the policy-aware app through the existing Fastlane process. Keep old/current API compatibility during store processing. Builds that predate the gate cannot display the new screen; HTTP 426 only stops their business API calls.
-3. Only after an installable, compatible replacement exists, set `MINIMUM_IOS_BUILD` to its build number in the reviewed public deployment configuration and redeploy. Validate staging first, preserve current secrets/bindings/feature gates, and verify production readback. Never set a floor higher than the available replacement or require a version unsupported on the user's device without a retirement plan.
-4. To recover from a mistaken floor, lower it or set `0` and redeploy; affected clients recover on their next successful check. Offline clients with a known requirement remain blocked until they reconnect or install a supported build.
+3. Only after an installable, compatible replacement exists, open Operations, set Minimum build to its build number, provide a reason and Save. Validate staging first and verify the public policy readback after cache propagation. No redeploy is needed. Never set a floor higher than the available replacement or require a version unsupported on the user's device without a retirement plan.
+4. To recover from a mistaken floor, lower Minimum build or set `0` in Operations; affected clients recover on their next successful check. Offline clients with a known requirement remain blocked until they reconnect or install a supported build.
 
 The minimum is intentionally disabled by default. Provider activation, a new TestFlight build and post-submission device acceptance are not established by local tests or a Git push.
 

@@ -18,6 +18,9 @@ const runtime = new Miniflare(convertV4MiniflareOptions({ workers: [{ name: "fol
 after(() => runtime.dispose());
 
 test("compiled Rust Worker fails closed and bounds untrusted bodies", async () => {
+  const policyDB = await runtime.getD1Database("DB");
+  for(const migration of ["0013_operations.sql","0020_admin_minimum_build.sql"])
+    for(const sql of (await readFile(`${root}migrations/${migration}`,"utf8")).split(";").filter(s=>s.trim())) await policyDB.prepare(sql).run();
   const response = await runtime.dispatchFetch("https://api.example/v1/event-batches", { method: "POST", headers: { Authorization: "Bearer forged", "Content-Type": "application/json" }, body: "{}" });
   assert.equal(response.status, 503);
   const body = await response.json();
@@ -143,7 +146,7 @@ const authenticatedRuntime = new Miniflare(convertV4MiniflareOptions({ workers: 
   queueProducers: {JOBS:"folding-local-jobs", JOBS_DEAD:"folding-local-dead"},
   queueConsumers: {"folding-local-jobs":{maxBatchSize:1,maxBatchTimeout:0}},
   bindings: {
-    ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),AVATAR_UPLOADS_ENABLED:"true",
+    WORKER_VERSION:"synthetic-local-worker",ADMIN_ORIGIN:"https://admin.example",ACCESS_TEAM_DOMAIN:"https://folding-test.cloudflareaccess.com",ACCESS_AUDIENCE:"local-admin",ADMIN_EMAIL_ALLOWLIST:JSON.stringify(["admin@example.test"]),AVATAR_UPLOADS_ENABLED:"true",
     APP_ATTEST_APP_ID:"TEAM123456.app.test.Folding",APP_ATTEST_ENVIRONMENT:"development",APP_ATTEST_BUNDLE_VERSIONS:JSON.stringify(["1"]),
     APPLE_SIGN_IN_CLIENT_ID:"app.test.Folding",APPLE_SIGN_IN_TEAM_ID:"TEAM123456",APPLE_SIGN_IN_KEY_ID:"KEY1234567",
     APPLE_SIGN_IN_PRIVATE_KEY_PKCS8:appleClient.privateKey.export({type:"pkcs8",format:"der"}).toString("base64url"),
@@ -162,7 +165,7 @@ test("actual Worker issues bounded challenges and rotates encrypted sessions wit
   const {createHash}=await import("node:crypto");
   const hash=bytes=>createHash("sha256").update(bytes).digest();
   const db=await authenticatedRuntime.getD1Database("DB");
-  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql"]) {
+  for (const migration of ["0001_mutation_fences.sql","0002_sessions.sql","0003_auth_operations.sql","0004_sign_in.sql","0005_attestation_enrollment.sql","0006_competition.sql","0007_community_reads.sql","0008_privacy_lifecycle.sql","0009_period_finalization.sql","0010_moderation.sql","0011_avatars.sql","0012_notifications.sql", "0013_operations.sql", "0014_corrections.sql", "0015_moderation_cases.sql", "0016_monitoring.sql", "0017_external_retries.sql", "0018_entry_deletions.sql", "0019_resource_protection.sql", "0020_admin_minimum_build.sql"]) {
     const source=await readFile(`${root}migrations/${migration}`,"utf8");
     for(const sql of source.split(";").filter(s=>s.trim())) await db.prepare(sql).run();
   }
@@ -444,15 +447,24 @@ test('D1 neighbor lookups stay scoped and negative score deltas apply atomically
  assert.equal(await db.prepare("SELECT revision FROM live_scores WHERE participant_id='p'").first('revision'),2);
 });
 
-test('minimum-build policy rejects old business requests before body/DB work and preserves recovery',async()=>{
+test('database minimum-build policy uses bounded cached reads and preserves recovery',async()=>{
  const make=minimum=>new Miniflare(convertV4MiniflareOptions({workers:[{
   name:`policy-${minimum}`,modules:[{type:'ESModule',path:`${root}crates/worker/build/index.js`},{type:'CompiledWasm',path:`${root}crates/worker/build/index_bg.wasm`}],
-  compatibilityDate:'2026-11-04',bindings:{MINIMUM_IOS_BUILD:minimum}
+  compatibilityDate:'2026-11-04',d1Databases:{DB:`policy-${minimum}`}
  }]}));
  const worker=make('10'),disabled=make('0'),invalid=make('invalid');
  try {
+  for(const [instance,minimum] of [[worker,10],[disabled,0]]) {
+    const db=await instance.getD1Database('DB');
+    for(const migration of ['0013_operations.sql','0020_admin_minimum_build.sql'])
+      for(const sql of (await readFile(`${root}migrations/${migration}`,'utf8')).split(';').filter(s=>s.trim())) await db.prepare(sql).run();
+    await db.prepare('UPDATE administrative_configuration SET minimum_ios_build=?').bind(minimum).run();
+    await assert.rejects(db.prepare('UPDATE administrative_configuration SET minimum_ios_build=-1').run());
+    await assert.rejects(db.prepare('UPDATE administrative_configuration SET minimum_ios_build=2147483648').run());
+  }
   const policy=await worker.dispatchFetch('https://api.example/v1/client-policy');
   assert.equal(policy.status,200);assert.equal((await policy.json()).minimum_ios_build,10);assert.equal(policy.headers.get('Cache-Control'),'no-store');
+  await (await worker.getD1Database('DB')).prepare('DROP TABLE administrative_configuration').run(); // hot requests use the cached policy, not another database read
   for(const build of [undefined,'9','bad','2147483648']) {
     const headers=build===undefined?{}:{'X-Folding-Build':build};
     const result=await worker.dispatchFetch('https://api.example/v1/event-batches',{method:'POST',headers,body:'x'.repeat(256*1024+1)});
@@ -563,4 +575,44 @@ test("admin root stays host-scoped and every admin view retains shared dark navi
   const retiredLeave=await authenticatedRuntime.dispatchFetch("https://api.example/v1/enrollment/leave",{method:"POST",headers:{Authorization:"Bearer "+Buffer.alloc(32,46).toString("base64url"),"Content-Type":"application/json"},body:JSON.stringify({operation_id:"00000000-0000-4000-8000-000000000062"})});
   assert.ok(retiredLeave.status>=400);assert.equal(await db.prepare("SELECT membership FROM participants WHERE participant_id=?").bind(participant).first("membership"),"joined");
 
+});
+
+
+test("admin minimum build is authenticated, audited, revision guarded and reversible",async()=>{
+ const db=await authenticatedRuntime.getD1Database('DB');
+ const jwt=appleToken({iss:'https://folding-test.cloudflareaccess.com',aud:['local-admin'],sub:'synthetic-admin',email:'admin@example.test',type:'app'});
+ const auth={'Cf-Access-Jwt-Assertion':jwt};
+ const policy=async()=>{const r=await authenticatedRuntime.dispatchFetch('https://api.example/v1/client-policy');assert.equal(r.status,200);return (await r.json()).minimum_ios_build;};
+ assert.equal(await policy(),0);
+ const form=async()=>{
+  const r=await authenticatedRuntime.dispatchFetch('https://admin.example/admin/config',{headers:auth});assert.equal(r.status,200);
+  const html=await r.text();assert.match(html,/name="minimum_ios_build"/);assert.match(html,/0 = off/);
+  const field=name=>html.match(new RegExp(`name="${name}" value="([^"]+)"`))[1];
+  return {operation_id:field('operation_id'),csrf_token:field('csrf_token'),expected_revision:field('expected_revision'),competition_ingestion_enabled:'1',result_notifications_enabled:'1',avatar_uploads_enabled:'1',minimum_ios_build:'12',reason:'Require available build 12'};
+ };
+ const post=(input,headers={})=>authenticatedRuntime.dispatchFetch('https://admin.example/admin/config',{method:'POST',redirect:'manual',headers:{...auth,Origin:'https://admin.example','Content-Type':'application/x-www-form-urlencoded',...headers},body:new URLSearchParams(input)});
+ const input=await form();
+ const auditBefore=await db.prepare('SELECT count(*) n FROM operational_audit').first('n');
+ for(const minimum of ['-1','2147483648','bad','1.5']) assert.equal((await post({...input,minimum_ios_build:minimum})).status,422);
+ assert.equal((await post(input,{'Cf-Access-Jwt-Assertion':'forged'})).status,401);
+ assert.equal((await post(input,{Origin:'https://attacker.invalid'})).status,401);
+ assert.equal((await post({...input,csrf_token:'forged'})).status,401);
+ assert.equal((await post({...input,expected_revision:'999999'})).status,409);
+ assert.equal(await policy(),0);assert.equal(await db.prepare('SELECT count(*) n FROM operational_audit').first('n'),auditBefore);
+ assert.equal((await post(input)).status,303);
+ assert.equal(await policy(),12); // successful save invalidates this isolate's cached 0
+ const older=await authenticatedRuntime.dispatchFetch('https://api.example/v1/me',{headers:{'X-Folding-Build':'11'}});
+ assert.equal(older.status,426);assert.equal((await older.json()).minimum_ios_build,12);
+ assert.equal((await authenticatedRuntime.dispatchFetch('https://api.example/v1/me',{headers:{'X-Folding-Build':'12'}})).status,401);
+ assert.equal((await authenticatedRuntime.dispatchFetch('https://api.example/v1/health')).status,200);
+ assert.equal((await authenticatedRuntime.dispatchFetch('https://api.example/v1/account/delete',{method:'POST',body:'{}'})).status,400);
+ assert.equal((await post(input)).status,303); // exact response-loss retry does not duplicate the audit
+ assert.equal(await db.prepare('SELECT count(*) n FROM operational_audit').first('n'),auditBefore+1);
+ assert.equal((await post({...input,minimum_ios_build:'13'})).status,409);
+ assert.equal((await post({...input,operation_id:crypto.randomUUID()})).status,409);
+ const audit=await db.prepare('SELECT before_json,after_json FROM operational_audit WHERE operation_id=?').bind(input.operation_id).first();
+ assert.equal(JSON.parse(audit.before_json).minimum_ios_build,0);assert.equal(JSON.parse(audit.after_json).minimum_ios_build,12);
+ const rollback={...await form(),minimum_ios_build:'0',reason:'Disable required updates'};
+ assert.equal((await post(rollback)).status,303);assert.equal(await policy(),0);
+ assert.equal((await authenticatedRuntime.dispatchFetch('https://api.example/v1/me',{headers:{'X-Folding-Build':'11'}})).status,401);
 });

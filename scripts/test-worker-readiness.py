@@ -43,7 +43,7 @@ class ReadinessTests(unittest.TestCase):
             generated = json.loads(output.read_text())
             self.assertEqual(generated['vars']['APNS_ENABLED'], 'false')
             self.assertEqual(generated['limits']['cpu_ms'], 5000)
-            self.assertEqual(generated['vars']['MINIMUM_IOS_BUILD'], '0')
+            self.assertNotIn('MINIMUM_IOS_BUILD', generated['vars'])
             self.assertEqual(generated['observability']['head_sampling_rate'], 0.1)
             self.assertFalse(generated['observability']['logs']['invocation_logs'])
             self.assertEqual([r['simple']['limit'] for r in generated['ratelimits']], [600,60,120])
@@ -51,8 +51,7 @@ class ReadinessTests(unittest.TestCase):
             self.assertEqual(generated['queues']['consumers'][0]['max_batch_size'],10)
             configuration['MINIMUM_IOS_BUILD'] = '10'
             config.write_text(json.dumps(configuration))
-            self.assertEqual(run(False).returncode, 0)
-            self.assertEqual(json.loads(output.read_text())['vars']['MINIMUM_IOS_BUILD'], '10')
+            self.assertNotEqual(run(False).returncode, 0)
             configuration['MINIMUM_IOS_BUILD'] = '-1'
             config.write_text(json.dumps(configuration))
             self.assertNotEqual(run(False).returncode, 0)
