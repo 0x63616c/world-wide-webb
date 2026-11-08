@@ -76,11 +76,11 @@ jobs:
           set -euo pipefail
           test -n "$MINI_KNOWN_HOSTS"
           printf '%s\n' "$MINI_KNOWN_HOSTS" > "$RUNNER_TEMP/mini-known-hosts"
-          remote=calum@homelab.tail8c014d.ts.net
+          remote=admin@homelab-mac-mini.tail8c014d.ts.net
           options=(-i "$RUNNER_TEMP/mini-key" -o BatchMode=yes -o IdentitiesOnly=yes
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/mini-known-hosts")
-          stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/calum/homelab-infra/candidate.XXXXXX')
-          [[ "$stage" =~ ^/Users/calum/homelab-infra/candidate\.[[:alnum:]]+$ ]]
+          stage=$(ssh "${options[@]}" "$remote" 'mktemp -d /Users/admin/homelab-infra/candidate.XXXXXX')
+          [[ "$stage" =~ ^/Users/admin/homelab-infra/candidate\.[[:alnum:]]+$ ]]
           # shellcheck disable=SC2029 # The validated staging path must expand locally.
           cleanup() { ssh "${options[@]}" "$remote" "rm -rf -- '$stage'"; }
           trap cleanup EXIT
