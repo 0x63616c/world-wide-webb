@@ -81,3 +81,24 @@ The first live check expected a restricted feature write to return 403; the exis
 Ignored evidence: `build/ship-milestones/{staging-feature-verification,staging-deployment-verification,staging-owner,staging-public}.json` and migration directories; `/tmp/folding-milestones-live-stage.log`. Apple baseline readback confirms production 0.1.12 (13) remains the latest VALID build; no app upload has occurred.
 
 Day-grant follow-up: store the first eligible event timestamp on the seventh/thirtieth qualifying UTC day, rather than synthesizing midnight. The UI already formats these dates in UTC; this change makes the underlying earned record faithful to event evidence. Non-midnight fixtures verify both thresholds. Optimized build and all 26 applicable milestone/general/admin runtime cases pass; the previously passing 100k load case was excluded from this focused rerun.
+
+## Single integrated internal release
+
+[PR #74](https://github.com/0x63616c/folding/pull/74) merged as `091b09f359526cb81cf9b16de13fb750803eb579`. Fastlane readonly-match signed, inspected, uploaded once and distributed **0.1.13 (14)** to **Folding Internal**. Apple independently confirms build `08771b6f-1dcf-451e-8a4e-03fd5ac0efd1` is **VALID**, non-exempt encryption is false and that exact build belongs to the exact internal group. No external beta review or App Store submission occurred. The first observation preceded Apple's processing/visibility; later invocations only observed/distributed the same uploaded IPA.
+
+Both API environments expose that exact source, contract 1 and only the newly accepted `profiles.milestones` capability; other broad capabilities remain unadvertised. All 21 checksum migrations verify. Existing secret/public bindings, CPU/observability/rate-limit settings, preview flags and minimum build 0 are preserved; production retains App Attest builds 2–13 and adds 14. Staging Cloudflare version is `e7e996ca-1cd4-466b-854e-0b1c3ddb1ab8`; production is `87150954-548a-46fd-be27-00cc91a998b1`. Readiness overlays bind the exact source/bindings and hashed evidence; retained preview flags do not claim APNs/avatar functional acceptance.
+
+The exact merged service passed the full isolated staging flow and actual Swift model validation. An additional live Queue check stopped owner-read polling after the first bounded page; the Queue consumer finished the remaining source pages and published ready state. Test participants were removed and absence confirmed. Privacy/deletion copy is live and read back; static web versions are staging `500b3635-3880-4015-aecf-f388b089f7b0` and production `272d9bf1-4dce-4176-8391-c29fe7f31fae`. This is narrow policy verification, not final website acceptance.
+
+Sealed private release `v0.1.13` retains the immutable manifest, archive, IPA, dSYM and curated `milestone-verification-r1.json` / `milestone-apple-distribution.json`. Both evidence assets were downloaded and their SHA-256 compared. The manifest links their hashes and independently observed Apple membership.
+
+- Archive SHA-256: `67838b9bc1234ee2b4547eae4271c018992f5909c792dac9bf9e6ef894da3c9d`.
+- IPA SHA-256: `0fdc8a8591870b6ca272d2aff78599889233f01add7f0cbdb875594393e14042`.
+- dSYM SHA-256: `fc130ae24822573b37c0e4e7bef3109819321d5223e0b9a7c44cffdfc7f6ad5a`.
+- Feature proof SHA-256: `85f23b2036528dcc88a3f0caa420a5be211875fedad17df5861c4be2c07ef13b`.
+
+Local evidence includes 109 personal-core, 47 Rust, ten milestone runtime, 17 general/admin runtime, 66 app-hosted cases and seven release regressions / 20 assertions; 236 semantic keys × ten locales validate after main integration. The final day-date change passed 26 applicable runtime cases; the earlier 100k run remains the load evidence rather than being repeated without cause.
+
+The implementation/internal-release objective is complete. #71 stays open as **Deferred formal acceptance** because its original artwork/readability and accessibility/native-language acceptance criteria are not fully verified. Those exact requirements remain in #25/#47. Local direct renders/semantic checks are not final visual, native-language or physical-device passes. CI (#46), formal storefront/visual review, App Store submission (#13/F12), broader Apple/App Attest/iCloud integration and #47/F13 post-submission hardware checks retain their existing deferrals. No full shipping completion is claimed.
+
+All task-created simulator devices were terminated/shut down with state readback and deleted; existing review sessions were preserved and Simulator.app was never opened. The task-owned orphaned altool diagnostic stream was stopped after upload. Credentials remained in the primary persistent shell and were never saved in artifacts.

@@ -102,23 +102,25 @@ Confirm schema retention, privacy policy and account-data export coverage for ba
 2. Build self/other profile navigation, milestone progress, full earned collection, detail/featuring, leaderboard display and acknowledgment/celebration behavior against the same revisioned data.
 3. Finish six badge artworks, all supported localizations, accessibility, privacy/reset copy and focused integration verification. Validate compatible staging service/client behavior and prepare one app release containing the entire feature.
 
-No step is a separate feature launch. No implementation or deployment is performed by this planning task.
+No step is a separate feature launch. Implementation is delivered in internal TestFlight 0.1.13 (14); formal acceptance retains the recorded deferrals.
 
 ## Acceptance checklist
 
-- [ ] Catalog/DTO/API/schema amendments cover every read/write and preserve older clients.
-- [ ] All six badge assets and localized names/requirements are bundled; artwork is readable at row and detail sizes, in both appearances and increased contrast.
+- [x] Catalog/DTO/API/schema amendments cover every read/write and preserve older clients.
+- [ ] All six badge assets and localized names/requirements are bundled; artwork is readable at row and detail sizes, in both appearances and increased contrast. **Deferred formal acceptance:** #25 and #47/F13. Local rendering/semantic evidence is separate and does not pass this item.
 - [x] Folds show only 1 → 100 → 1,000 → 10,000; days show only 7 → 30; exact boundaries, multi-award batches and completed tracks behave correctly. Local domain, typed-client and direct production-view evidence is recorded in the implementation checkpoint; broader live/release acceptance remains open.
-- [ ] Progress uses eligible counted folds and distinct UTC days; duplicate, zero-count, setup, incomplete/ineligible, rejected/quarantined, transfer, midnight and late/replayed events are covered.
-- [ ] Existing participants backfill correctly; reads/updates remain bounded on realistic histories and cannot publish a stale reset/deletion generation.
-- [ ] Own profile, Settings shortcut, leaderboard/podium/tie-group entry, other profile, complete earned collection, badge detail and Edit Profile work together; navigation position is retained.
-- [ ] Featuring is optional, one-at-a-time, server-owned and persistent; unearned/foreign/unknown IDs and lost/duplicate responses are covered.
-- [ ] Only owners see next progress and earned dates; member reads never reveal private history, pending totals, timezone or restricted/deleted profiles.
-- [ ] Cached/offline progress, upload acceptance, failed profile reads/saves, account switching, reinstall and phone transfer behave as specified.
-- [ ] Grouped celebrations respect presentation priority and durable acknowledgment; no repeated unlock barrage or new push category.
-- [ ] Reset/delete/moderation/correction revoke the correct data and invalid selection; stale caches/jobs cannot resurrect them. Reset copy includes badges.
-- [ ] Dynamic Type, VoiceOver progress/selection labels, Reduce Motion, narrow/wide layouts and supported-language formatting are checked. Prefer direct XCTest rendering for static screens; coordinate/clean up any required runtime use.
-- [ ] Verify the integrated service/client feature with linked commit, local/staging evidence and one release manifest covering all parts. Keep deferred CI/storefront/visual/submission checks explicit; do not claim them passed.
+- [x] Progress uses eligible counted folds and distinct UTC days; duplicate, zero-count, setup, incomplete/ineligible, rejected/quarantined, transfer, midnight and late/replayed events are covered.
+- [x] Existing participants backfill correctly; reads/updates remain bounded on realistic histories and cannot publish a stale reset/deletion generation.
+- [x] Own profile, Settings shortcut, leaderboard/podium/tie-group entry, other profile, complete earned collection, badge detail and Edit Profile work together; navigation position is retained.
+- [x] Featuring is optional, one-at-a-time, server-owned and persistent; unearned/foreign/unknown IDs and lost/duplicate responses are covered.
+- [x] Only owners see next progress and earned dates; member reads never reveal private history, pending totals, timezone or restricted/deleted profiles.
+- [x] Cached/offline progress, upload acceptance, failed profile reads/saves, account switching, reinstall and phone transfer behave as specified.
+- [x] Grouped celebrations respect presentation priority and durable acknowledgment; no repeated unlock barrage or new push category.
+- [x] Reset/delete/moderation/correction revoke the correct data and invalid selection; stale caches/jobs cannot resurrect them. Reset copy includes badges.
+- [ ] Dynamic Type, VoiceOver progress/selection labels, Reduce Motion, narrow/wide layouts and supported-language formatting are checked. Prefer direct XCTest rendering for static screens; coordinate/clean up any required runtime use. **Deferred formal acceptance:** #25 and #47/F13. Local rendering/semantic evidence is separate and does not pass this item.
+- [x] Verify the integrated service/client feature with linked commit, local/staging evidence and one release manifest covering all parts. Keep deferred CI/storefront/visual/submission checks explicit; do not claim them passed.
 - [x] Add feature-specific physical-device checks to #47/F13, retaining the owner-approved post-submission deferral. Six unchecked hardware checks are tracked there; broader shipping remains incomplete until those checks and resulting fixes are done.
 
 References: [Product](../review-spec.md), [UI](ui.md), [HTTP](http-contracts.md), [Security](backend-and-security.md), [Tracking](storage-and-tracking.md), [deferred shipping](../deferred-shipping-work.md).
+
+Implementation/internal distribution are complete at `091b09f` in 0.1.13 (14). #71 remains open as Deferred only for the two formal acceptance criteria above; original requirements remain tracked in #25/#47. See [release evidence](../experiments/profile-milestones-implementation-2026-11-08.md#single-integrated-internal-release).
