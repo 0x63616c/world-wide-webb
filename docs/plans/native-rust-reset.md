@@ -433,3 +433,11 @@ Complete the working faithful iPad app against Rust, verified database and Photo
 and removal of the old stack first. iPhone/Duo and Mac remain important and in scope, but their
 remaining adaptation and full interaction testing come last, after the core migration and cleanup.
 Do not delay core implementation for phone or Mac polish. Final review and publication follow.
+
+## Final user acceptance — 2026-11-07
+
+Calum confirmed physical iPad TestFlight build 171 rings while locked and that snooze and stop work.
+He accepted the recorded production CPU/memory/storage measurements with their documented limits,
+in place of section 10's matched before/after benchmark. Preserve those limits when reporting results;
+this acceptance does not turn uncontrolled samples into a matched benchmark. Final delivery and
+preservation evidence is recorded in `native-rust-progress.md` and PR #947.

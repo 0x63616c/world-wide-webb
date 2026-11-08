@@ -93,5 +93,18 @@ Historical Mac verification above records past work, not a supported product. Ma
 The final delivery cleanup publishes and deploys the same CI-tested immutable image, exercises the real
 Swift/Rust contract in CI, and separates native validation from TestFlight publication selection.
 
-Physical locked-screen/background AlarmKit acceptance remains unverified in issue #940. Do not treat
-foreground unit tests or simulator interaction tests as proof of system alarm delivery.
+## Final acceptance
+
+PR #947 merged as `5f48ec0a86d86def98e8e983b4179af0e4ff1840`. Main CI 42438244156,
+mini deployment 42438994141, OpenTofu apply 42438994165 and TestFlight delivery 42438994181 passed.
+The processed-upload receipt records build 171 for that revision. Production image ID and configured digest
+match the CI-tested immutable image; live API reads and all 135 original Photo Booth file hashes passed.
+
+Calum confirmed on the physical iPad with TestFlight build 171 that the alarm rings while locked, and
+snooze and stop work. This closes the physical-device acceptance gap in #940; it is user-observed evidence,
+separate from automated foreground/simulator tests.
+
+Calum explicitly accepted the recorded production CPU/memory/storage observations with their documented
+limits instead of an isolated matched old-versus-new benchmark. Section 10's matched-workload requirement
+is superseded by that acceptance. The observations above remain uncontrolled production samples; no
+matched benchmark or whole-host resource improvement is claimed. No required migration acceptance remains.
