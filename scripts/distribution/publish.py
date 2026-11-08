@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from prepare import ROOT, fingerprint, run, validate_payload
+from prepare import ROOT, fingerprint, git_command, run, validate_payload
 
 REPOSITORY = "0x63616c/world-wide-webb"
 REMOTE = "https://github.com/" + REPOSITORY + ".git"
@@ -18,7 +18,7 @@ REMOTE = "https://github.com/" + REPOSITORY + ".git"
 
 def remote_commit(remote, tag):
     result = subprocess.run(
-        ["git", "ls-remote", "--exit-code", "--refs", remote, "refs/tags/" + tag],
+        git_command("ls-remote", "--exit-code", "--refs", remote, "refs/tags/" + tag),
         capture_output=True,
         text=True,
         check=False,
@@ -70,7 +70,9 @@ def publish(prepared, remote=REMOTE):
             raise ValueError("Immutable artifact tag already points to different bytes")
         return commit
     # No force and no source refs. A lost response is reconciled by exact readback.
-    subprocess.run(["git", "push", remote, commit + ":refs/tags/" + tag], cwd=repo, capture_output=True, check=False)
+    subprocess.run(
+        git_command("push", remote, commit + ":refs/tags/" + tag), cwd=repo, capture_output=True, check=False
+    )
     if remote_commit(remote, tag) != commit:
         raise RuntimeError("Artifact publication is not confirmed; retry the same prepared artifact")
     return commit

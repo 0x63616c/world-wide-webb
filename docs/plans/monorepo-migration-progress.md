@@ -314,3 +314,28 @@ Eight distribution tests now pass. A real Git server fixture advertises filterin
 branch plus a separate 3 MB synthetic orphan binary tag, and proves full source/tag history can
 be fetched/checked out while the binary blob remains missing and total received pack data stays
 below 1 MB. This is local Git/filter proof, not a GitHub authorization or install proof.
+
+### Artifact foundation review complete
+
+Astra found and verified two fixes: the cask explicitly selects `only_path: "Callkeep.app"` so
+Homebrew uses its built-in sparse partial clone, and the privileged Folding publication job keeps
+checkout credentials nonpersistent through dependency setup. Authenticated publication commands
+use a per-invocation Git helper reading their already-scoped GH_TOKEN, without writing token values
+to arguments or Git configuration. Readonly source selection can retain its temporary checkout token.
+
+Actual installed Homebrew fetch, staging and cached refetch passed with the exact selected app
+revision/bytes/executable mode. The synthetic 1 MB source blob and unrelated 3 MB orphan artifact
+remained missing; received pack data was 822 bytes. Probe/report are outside Git at
+`/tmp/artifact-homebrew-strategy-review.rb`, `.json` and
+`/tmp/monorepo-artifact-foundation-astra-review.md`. Eight distribution tests pass. No remaining
+actionable foundation review findings; the full producer/private signed install is still pending.
+
+### Mac image alignment required before app activation
+
+The active homelab candidate still pins its documented Xcode26.4.1 image (`e329b2ea...`), while
+Folding requires Xcode27.2/27B52 and its exact Duo runtime. Public GHCR metadata confirms an image
+candidate `ghcr.io/cirruslabs/macos-tahoe-xcode@sha256:f8315a2f627daf64ab2c4e11d29a4d267953902a16151ee28fcdd7185927c317`
+for tag27.2, uploaded2026-10-31, with a140000000000-byte uncompressed disk. This is registry metadata,
+not yet booted toolchain/runtime proof. Upgrade through the homelab owner after its current work lands,
+with admission held, disk reserve/old-image recovery retained, and fresh native/mixed-load canaries.
+Do not overlap its current pool rollout or silently lower Folding's pins to the old image.

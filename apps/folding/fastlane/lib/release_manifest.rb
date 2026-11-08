@@ -17,6 +17,11 @@ module FoldingRelease
   NULL_FIELDS = %w[archive_sha256 ipa_sha256 dsym_sha256 screenshot_manifest_sha256 metadata_manifest_sha256 tip_review_manifest_sha256 tip_review_map_sha256 deployed_worker_version asc_build_id asc_processing_state submission_id submission_state].freeze
 
   def self.run(*arguments)
+    if arguments.first == "git" && ENV["GITHUB_ACTIONS"] == "true" && ENV["GH_TOKEN"] && !ENV["GH_TOKEN"].empty?
+      # Authenticated lazy reads inherit this invocation's token, never a stored
+      # checkout credential available to earlier dependency setup.
+      arguments = ["git", "-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential", *arguments.drop(1)]
+    end
     output, _error, status = Open3.capture3(*arguments, chdir: ROOT)
     raise "Command failed: #{File.basename(arguments.first)} (exit #{status.exitstatus})" unless status.success?
     output.strip

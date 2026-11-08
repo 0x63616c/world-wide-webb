@@ -15,7 +15,15 @@ ROOT = Path(__file__).resolve().parents[2]
 TEAM = "X9E4HG27NK"
 
 
+def git_command(*args):
+    if os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("GH_TOKEN"):
+        return ["git", "-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential", *args]
+    return ["git", *args]
+
+
 def run(*args, cwd=None, env=None):
+    if args and args[0] == "git":
+        args = git_command(*args[1:])
     return subprocess.check_output(args, cwd=cwd, env=env, stderr=subprocess.PIPE, text=True).strip()
 
 

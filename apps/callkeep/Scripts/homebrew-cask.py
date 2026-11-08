@@ -15,6 +15,7 @@ Path(destination).write_text(
 
   url "https://github.com/0x63616c/world-wide-webb.git",
       using: :git,
+      only_path: "Callkeep.app",
       tag: "dist/callkeep/v#{version}",
       revision: "%s"
   name "Callkeep"
