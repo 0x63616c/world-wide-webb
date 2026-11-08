@@ -1,0 +1,19 @@
+{
+  "schema": 2,
+  "onePassword": { "backupVault": "aaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  "hosts": {
+    "vm-test": {
+      "adminUser": "admin",
+      "adminUID": 501,
+      "authorizedKeys": [],
+      "services": []
+    }
+  },
+  "tailscale": {
+    "tag": "tag:vm-test",
+    "oauth": {
+      "vault": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "item": "dddddddddddddddddddddddddd"
+    }
+  }
+}

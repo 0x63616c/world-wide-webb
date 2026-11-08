@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+repository=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+revision=$(git -C "$repository" rev-parse --short=8 HEAD)
+if ! git -C "$repository" diff --quiet HEAD --; then
+    revision="$revision-dirty"
+fi
+
+# Both executables must come from the same source before setup can use them.
+HOMELAB_DEV_REVISION="$revision" cargo build --quiet --locked \
+    --manifest-path "$repository/Cargo.toml" --features local-dev --bins \
+    --target-dir "$repository/target/dev"
+
+exec "$repository/target/dev/debug/homelab" "$@"
