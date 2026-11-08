@@ -13,8 +13,8 @@ Run the image builder on the physical Apple silicon Mac with a reviewed source
 revision and the installed signed Tart 2.41.1 bundle. GitHub-hosted macOS runners
 cannot build these VMs because they [do not support nested virtualization](https://docs.github.com/en/actions/reference/runners/github-hosted-runners); the
 manual Linux runner checks workflow validates Linux code only. The image builder
-uses a digest-pinned Ubuntu 24.04 base, guest agent 0.15.0 and Rust 1.99.0. The helper is compiled inside Linux and
-baked into the image. The host controller never uploads a Darwin executable into
+uses a digest-pinned Ubuntu 24.04 base, guest agent 0.15.0 and Rust 1.99.1. The helper is compiled inside Linux and
+baked into the image, alongside Rustfmt/Clippy and Python venv support for CI. The host controller never uploads a Darwin executable into
 Linux. The official runner 2.338.2 Linux ARM64 archive is independently fetched
 and checksum-verified through Nix during guest preparation.
 

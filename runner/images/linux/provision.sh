@@ -8,7 +8,7 @@ export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   ca-certificates curl git build-essential pkg-config libssl-dev \
-  libicu74 libkrb5-3 zlib1g libunwind8 docker.io python3 python3-yaml jq
+  libicu74 libkrb5-3 zlib1g libunwind8 docker.io python3 python3-venv python3-yaml jq
 sudo usermod -aG docker admin
 # The image's RPC service runs as admin; new sessions pick up the Docker group.
 curl -fL --retry 3 https://github.com/openai/tart-guest-agent/releases/download/v0.15.0/tart-guest-agent-linux-arm64.tar.gz -o /tmp/tart-agent.tar.gz
@@ -23,7 +23,7 @@ curl -fL --retry 3 https://static.rust-lang.org/rustup/archive/1.28.2/aarch64-un
 curl -fL --retry 3 https://static.rust-lang.org/rustup/archive/1.28.2/aarch64-unknown-linux-gnu/rustup-init.sha256 -o /tmp/rustup-init.sha256
 (cd /tmp && sha256sum --check rustup-init.sha256)
 chmod 0700 /tmp/rustup-init
-/tmp/rustup-init -y --profile minimal --default-toolchain 1.99.0
+/tmp/rustup-init -y --profile minimal --default-toolchain 1.99.1 --component rustfmt --component clippy
 source "$HOME/.cargo/env"
 cargo build --manifest-path /home/admin/runner-source/Cargo.toml --locked --release --bin homelab-runner-guest
 sudo install -d -m 0755 /usr/local/libexec
@@ -47,12 +47,14 @@ for name in glob.glob('/etc/netplan/*.yaml'):
 PY
 sudo systemctl enable tart-guest-agent.service docker.service systemd-resolved.service
 # No runner/helper service is enabled in the base image. Preparation owns the
-# first one-shot claim. Disable network login after Packer has finished its work.
+# first one-shot claim. Disable network login after trusted provisioning.
 sudo install -d -o admin -g admin -m 0700 /var/lib/homelab-runner
 sudo install -d -m 0755 /usr/local/share/homelab
 sudo sh -c 'dpkg-query -W > /usr/local/share/homelab/image-packages.txt'
 sudo install -m 0444 /home/admin/runner-source/Cargo.lock /usr/local/share/homelab/runner-Cargo.lock
-sudo rm -rf /home/admin/runner-source /home/admin/.cargo /home/admin/.rustup
+# Keep the pinned toolchain and public crate download cache for native CI jobs;
+# remove the helper build/source tree and retain no job registration.
+sudo rm -rf /home/admin/runner-source
 sudo rm -f /home/admin/.ssh/authorized_keys
 sudo systemctl disable ssh.service ssh.socket || true
 rm -rf /tmp/tart-agent /tmp/tart-agent.tar.gz /tmp/rustup-init /tmp/rustup-init.sha256

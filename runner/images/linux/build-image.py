@@ -158,9 +158,20 @@ def build(destination, output, cache_bundle=None):
                                           'cargo_lock_sha256': hashlib.sha256((source / 'Cargo.lock').read_bytes()).hexdigest(),
                                           'push_output': pushed.stdout.decode()[-4096:]}, indent=2) + '\n')
             if cache_bundle:
-                subprocess.run([sys.executable, str(source / 'images/linux/cache-image.py'), 'pack',
-                                '--tart-home', home, '--image', immutable,
-                                '--bundle', str(pathlib.Path(cache_bundle).resolve())], env=env, check=True)
+                # Tart populate-cache clones the local VM and can normalize its
+                # config bytes. Export a fresh registry pull instead, so every
+                # cached byte is bound to the authenticated manifest descriptors.
+                with build_home() as export_home:
+                    download_env = dict(env, TART_HOME=export_home)
+                    for key in ('TART_REGISTRY_HOSTNAME', 'TART_REGISTRY_USERNAME', 'TART_REGISTRY_PASSWORD'):
+                        if key in os.environ:
+                            download_env[key] = os.environ[key]
+                    call('pull', immutable, seconds=1200, command_env=download_env)
+                    download_env.pop('TART_REGISTRY_PASSWORD', None)
+                    subprocess.run([sys.executable, str(source / 'images/linux/cache-image.py'), 'pack',
+                                    '--tart-home', export_home, '--image', immutable,
+                                    '--bundle', str(pathlib.Path(cache_bundle).resolve())], env=env, check=True)
+
         finally:
             if process is not None and process.poll() is None:
                 call('stop', vm, check=False, seconds=60)
