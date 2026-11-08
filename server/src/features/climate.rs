@@ -132,9 +132,9 @@ fn fresh(r: &Row) -> bool {
 fn response(v: Climate) -> Result<Value> {
     let ambient = v.ambient.ok_or_else(unavailable)?;
     let action = match v.action.as_deref() {
-        Some("heating") => "heating",
-        Some("cooling") => "cooling",
-        _ => "idle",
+        Some("heating") => "Heating",
+        Some("cooling") => "Cooling",
+        _ => "Idle",
     };
     match v.mode.as_str() {
         "heat" | "cool" => Ok(

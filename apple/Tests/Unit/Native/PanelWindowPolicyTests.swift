@@ -12,7 +12,8 @@ final class PanelWindowPolicyTests: XCTestCase {
     func testHostedAppPreservesPlatformWindowPolicy() throws {
         let info = try XCTUnwrap(Bundle.main.infoDictionary)
         let isPanel = UIDevice.current.userInterfaceIdiom == .pad
-        XCTAssertEqual(info["UIRequiresFullScreen"] as? Bool, isPanel)
+        // App Store validation requires the unqualified flag for landscape-only iPad support.
+        XCTAssertEqual(info["UIRequiresFullScreen"] as? Bool, true)
         let orientations = try XCTUnwrap(info["UISupportedInterfaceOrientations"] as? [String])
         XCTAssertEqual(orientations.contains("UIInterfaceOrientationPortrait"), !isPanel)
         XCTAssertTrue(orientations.contains("UIInterfaceOrientationLandscapeLeft"))

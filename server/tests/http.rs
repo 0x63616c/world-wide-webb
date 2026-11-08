@@ -434,6 +434,7 @@ async fn climate_keeps_live_temperature_and_adopts_external_changes() {
     climate::reconcile(&s, &mut last_fan).await.unwrap();
     let (_, body) = call(&app, "GET", "/api/v1/climate", Value::Null).await;
     assert_eq!(body["ambient"], 74.0);
+    assert_eq!(body["action"], "Idle");
     assert_eq!(body["target"], 72.0);
     sqlx::query("UPDATE device_state SET desired_until_utc='2000-01-01T00:00:00.000000Z' WHERE id='climate-thermostat'").execute(&db).await.unwrap();
     live.write().unwrap()["attributes"]["temperature"] = json!(71);
