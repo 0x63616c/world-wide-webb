@@ -2,9 +2,10 @@
 """Resolve and validate the production SQLite mount without printing Compose secrets."""
 
 import json
-import sqlite3
 import sys
 from pathlib import Path
+
+from sqlite_snapshot import read_database
 
 
 def main():
@@ -27,7 +28,7 @@ def main():
     database = directory / "control-center.sqlite"
     if not database.is_file():
         raise RuntimeError("restore the production SQLite database before deploying")
-    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as connection:
+    with read_database(database) as connection:
         if connection.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
             raise RuntimeError("SQLite integrity check failed")
         # Reject a freshly created/incorrect database, even when SQLite itself is valid.

@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlite_snapshot import read_database
+
 spec = importlib.util.spec_from_file_location("cutover_backup", Path(__file__).with_name("cutover-backup.py"))
 backup = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(backup)
@@ -29,6 +31,20 @@ class CutoverBackupTests(unittest.TestCase):
                     )
                 with self.assertRaises(FileExistsError):
                     backup.sqlite_snapshot(source, target)
+
+    def test_read_database_rejects_sql_writes_and_missing_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "source.sqlite"
+            with self.assertRaises(FileNotFoundError), read_database(source):
+                self.fail("A missing database must never be created")
+            self.assertFalse(source.exists())
+            db = sqlite3.connect(source)
+            db.execute("CREATE TABLE records(id INTEGER)")
+            db.close()
+            with read_database(source) as reader:
+                with self.assertRaises(sqlite3.OperationalError):
+                    reader.execute("INSERT INTO records VALUES (1)")
+                self.assertEqual(reader.execute("SELECT count(*) FROM records").fetchone(), (0,))
 
     def test_complete_sqlite_snapshot_retains_lock_and_archives_media(self):
         with tempfile.TemporaryDirectory() as temp:
