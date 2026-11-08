@@ -1506,11 +1506,11 @@ private struct CrownedAvatar: View {
           PodiumRing(medal: medal, size: size)
         }
       }
-      .overlay(alignment: .topTrailing) {
+      .overlay {
         if let medal {
-          CompetitionCrown(medal: medal)
-            .frame(width: size >= 60 ? 38 : size >= 48 ? 30 : 22)
-            .offset(x: size >= 48 ? 8 : 5, y: size >= 48 ? -14 : -9)
+          CrownAtRim(
+            medal: medal, avatarSize: size,
+            crownSize: size >= 60 ? 38 : size >= 48 ? 30 : 22)
         }
       }
       .accessibilityLabel(

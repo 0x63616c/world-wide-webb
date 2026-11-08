@@ -4,10 +4,12 @@ import UIKit
 /// The selected tilted cartoon artwork, sharing one silhouette across podium metals.
 @MainActor struct CompetitionCrown: View {
   let medal: CompetitionMedal
+  var rotation: Double = 12
+  var rotationAnchor: UnitPoint = .bottom
   var body: some View {
     if let image = Self.artwork[medal] {
       Image(uiImage: image).resizable().scaledToFit()
-        .rotationEffect(.degrees(12), anchor: .bottom)
+        .rotationEffect(.degrees(rotation), anchor: rotationAnchor)
         .accessibilityLabel(medal.title)
     }
   }
@@ -112,5 +114,49 @@ import UIKit
     Circle().stroke(color, lineWidth: medal == .gold ? 2.5 : 1.5)
       .padding(-4)
       .shadow(color: medal == .gold ? color.opacity(0.25) : .clear, radius: 3)
+  }
+}
+
+/// Fit the brim to the avatar circumference rather than floating a rotated badge above it.
+@MainActor struct CrownAtRim: View {
+  let medal: CompetitionMedal
+  let avatarSize: CGFloat
+  let crownSize: CGFloat
+  private var radius: CGFloat { avatarSize / 2 + (avatarSize >= 48 ? 4 : 1) }
+  private var canvas: CGFloat { avatarSize + crownSize * 2 }
+  private var reach: CGFloat { radius + crownSize / 2 - 7 }
+  private var outline: Color {
+    switch medal {
+    case .gold: Color(red: 0.38, green: 0.25, blue: 0)
+    case .silver: Color(red: 0.23, green: 0.27, blue: 0.31)
+    case .bronze: Color(red: 0.30, green: 0.13, blue: 0.02)
+    }
+  }
+  private var artwork: some View {
+    CompetitionCrown(medal: medal, rotation: 33, rotationAnchor: .center)
+      .frame(width: crownSize, height: crownSize)
+      .offset(x: reach / sqrt(2), y: -reach / sqrt(2))
+      .frame(width: canvas, height: canvas)
+  }
+  var body: some View {
+    ZStack {
+      artwork
+      Circle().stroke(outline, lineWidth: 1.5)
+        .frame(width: radius * 2, height: radius * 2)
+        .frame(width: canvas, height: canvas)
+        .mask(artwork)
+    }
+    .mask {
+      Path { path in
+        path.addRect(CGRect(x: 0, y: 0, width: canvas, height: canvas))
+        path.addEllipse(
+          in: CGRect(
+            x: canvas / 2 - radius + 0.5, y: canvas / 2 - radius + 0.5,
+            width: radius * 2 - 1, height: radius * 2 - 1))
+      }.fill(style: FillStyle(eoFill: true))
+    }
+    .frame(width: canvas, height: canvas)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
   }
 }
