@@ -24,7 +24,7 @@ reconciles completion. Journals preserve uncertain outcomes; setup
 does not silently reinstall or regenerate identities after failure. Nix runs on
 the target, not the operator laptop.
 
-Comin owns subsequent Git reconciliation every 300 seconds. Enrollment holds it
+Comin owns subsequent Git reconciliation every 30 seconds. Enrollment holds it
 until verification completes. A narrow pinned patch uses Darwin's standard
 system profile for both activation and retention; native Nix generation deletion
 preserves the current profile under its lock. Completion checks Comin's deployed

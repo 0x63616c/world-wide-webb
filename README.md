@@ -66,8 +66,8 @@ flowchart TB
 
 ## What a merge does
 
-After a Mac completes enrollment, Comin checks `main` every five minutes and applies
-changes automatically. The interval is declared as `poller.period = 300` in
+After a Mac completes enrollment, Comin checks `main` every 30 seconds and applies
+changes automatically. The interval is declared as `poller.period = 30` in
 [`modules/updates.nix`](modules/updates.nix). Review and
 test before merging; the node uses a read-only deploy key and needs no Actions token.
 The wizard holds its approved commit through setup and reboot, then verifies the
