@@ -1,10 +1,12 @@
 require "digest"
+require "fileutils"
 require "logger"
 require "net/http"
 require "shellwords"
 require "yaml"
 require_relative "../scripts/release-build"
 require_relative "../scripts/release-policy"
+require_relative "../scripts/release-pipeline"
 require_relative "../scripts/review-products"
 
 default_platform(:ios)
@@ -259,6 +261,62 @@ platform :ios do
       changelog: options[:changelog] || "Small interface refinements and reliability improvements."
     )
     ensure_internal_testers(app) if app["testflight_group"]
+    if ENV["RELEASE_MANIFEST"]
+      File.write(ENV.fetch("RELEASE_MANIFEST"), JSON.pretty_generate({
+        app: app["slug"], version: version, build: build_number.to_s,
+        sha: ENV.fetch("GITHUB_SHA")
+      }))
+    end
+  end
+
+  desc "Plan the next automatic App Store update without disturbing active reviews"
+  lane :plan_release do |options|
+    config = r_app(options)
+    UI.user_error!("Automatic App Store delivery is not enabled") unless config["app_store_automatic"] == true
+    connect_api_key
+    asc = Spaceship::ConnectAPI.client.tunes_request_client
+    record = app_store_app(config)
+    rows = ReleasePipeline.all(asc, "v1/apps/#{record.id}/appStoreVersions?filter[platform]=IOS&limit=50")
+    begin
+      ReleasePipeline.require_idle_reviews!(ReleasePipeline.reviews(asc, record.id))
+      target, id = ReleasePipeline.version(rows, config.fetch("version"))
+    rescue ReleasePipeline::Deferred
+      FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
+      File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate({
+        state: "deferred", app: config["slug"], sha: ENV.fetch("GITHUB_SHA")
+      }))
+      raise
+    end
+    unless id
+      asc.post("v1/appStoreVersions", { data: { type: "appStoreVersions",
+        attributes: { platform: "IOS", versionString: target, releaseType: "AFTER_APPROVAL" },
+        relationships: { app: { data: { type: "apps", id: record.id } } }
+      } })
+    end
+    File.open(ENV.fetch("GITHUB_ENV"), "a") { |f| f.puts("RELEASE_VERSION=#{target}") }
+    UI.success("Planned #{target}; active submissions were left untouched")
+  end
+
+  desc "Verify uploaded screenshot bytes and submit the exact build from this run"
+  lane :finish_release do |options|
+    config = r_app(options)
+    UI.user_error!("Automatic App Store delivery is not enabled") unless config["app_store_automatic"] == true
+    manifest = JSON.parse(File.read(ENV.fetch("RELEASE_MANIFEST")))
+    UI.user_error!("Release provenance mismatch") unless manifest.values_at("app", "sha") == [config["slug"], ENV.fetch("GITHUB_SHA")]
+    target, number = manifest.values_at("version", "build")
+    prepare_review(app: config["slug"], version: target, build: number, strict: true)
+    record = app_store_app(config)
+    current = editable_app_store_version(record)
+    UI.user_error!("Release version changed during preparation") unless current.version_string == target
+    count = JSON.parse(File.read(File.join(config["dir"], "screenshots.json"))).fetch("duo_shots").length * 2
+    uploaded = ReleasePipeline.screenshots!(Spaceship::ConnectAPI.client.tunes_request_client,
+      current.id, File.join(config["screenshots_path"], "en-US"), count)
+    submit_with_iap(app: config["slug"], version: target, build: number, dry_run: false)
+    FileUtils.mkdir_p(File.join(REPO_ROOT, "build"))
+    File.write(File.join(REPO_ROOT, "build", "release-state.json"), JSON.generate(manifest.merge("state" => "submitted")))
+    File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |f|
+      f.puts("## Submitted #{config['name']} #{target} (#{number})\n\nSource: #{manifest['sha']}\n\nVerified #{uploaded} uploaded screenshots, including #{count} Duo images. App and ready purchases submitted together. Apple review is pending; public availability is checked separately.")
+    end
   end
 
   desc "Upload the App Store listing and screenshots. Never uploads a binary or submits for review"
@@ -512,6 +570,7 @@ platform :ios do
     begin
       ensure_free_pricing(app: app)
     rescue StandardError => error
+      raise if options[:strict]
       UI.important("Could not set Free pricing (#{error.message}). Set it under Pricing and Availability in App Store Connect.")
     end
     select_build(app: app, version: options[:version], build: number)

@@ -99,6 +99,26 @@ class ReleaseTests(unittest.TestCase):
             release_call = next(body for path, body in calls if body.get("data", {}).get("attributes", {}).get("releaseType"))
             self.assertEqual(release_call["data"]["attributes"]["releaseType"], "AFTER_APPROVAL")
 
+    def test_duo_landscape_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw, output = root / "raw", root / "output"
+            raw.mkdir()
+            config = root / "screenshots.json"
+            config.write_text(json.dumps({"duo_shots": [{"screen": "home", "appearance": "dark"}]}))
+            (raw / "plan.json").write_text('{"mode":"fold"}')
+            for pose, size in (("inner", (2853, 2007)), ("outer", (2034, 1398))):
+                image = Image.new("RGB", size, (23, 23, 23))
+                image.putpixel((1, 1), (240, 240, 240))
+                image.save(raw / f"{pose}-dark-home.png")
+            duo.stage(config, raw, output)
+            files = list(output.glob("*.png"))
+            self.assertEqual(len(files), 2)
+            for path in files:
+                with Image.open(path) as image:
+                    self.assertGreater(image.width, image.height)
+                    self.assertEqual(image.getpixel((1, 1)), (240, 240, 240))
+
     def test_duo_export(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

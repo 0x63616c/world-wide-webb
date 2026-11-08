@@ -26,8 +26,8 @@ def stage(config_path, raw, output):
             source = raw / f"{pose}-{appearance}-{screen}.png"
             with Image.open(source) as image:
                 image.load()
-                if image.format != "PNG" or image.size != dimensions:
-                    raise ValueError(f"{source}: expected {dimensions[0]}x{dimensions[1]} PNG, got {image.format} {image.size}")
+                if image.format != "PNG" or image.size not in (dimensions, dimensions[::-1]):
+                    raise ValueError(f"{source}: expected {dimensions[0]}x{dimensions[1]} or {dimensions[1]}x{dimensions[0]} PNG, got {image.format} {image.size}")
                 # Simulator PNGs may have a fully opaque alpha channel; strip it for ASC.
                 if image.convert("RGBA").getchannel("A").getextrema() != (255, 255):
                     raise ValueError(f"{source}: screenshot contains transparent pixels")

@@ -6,6 +6,8 @@ on:
       - .github/workflows/duo-screenshots.yml
       - scripts/capture-duo-screenshots.sh
       - scripts/duo-simulator.py
+      - scripts/duo-host-control/**
+      - scripts/stage-duo-screenshots.py
       - scripts/select-duo-xcode.py
       - apps/tendr/**
       - packages/RDesign/**
@@ -31,13 +33,12 @@ concurrency:
 
 jobs:
   screenshots:
-    # Duo UI tests are not passing yet (APP-36); do not block PRs on them.
-    continue-on-error: ${{ github.event_name == 'pull_request' }}
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       APP: ${{ inputs.app || 'tendr' }}
+      DUO_HOST_CONTROL: '1'
       REQUESTED_DEVELOPER_DIR: ${{ inputs.developer_dir || '/Applications/Xcode_27.1.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@v4
@@ -64,9 +65,19 @@ jobs:
           if not any("iphone duo" in device["name"].lower() for device in devices):
               sys.exit(f"No iPhone Duo simulator device type found in {os.environ['DEVELOPER_DIR']}. Install Xcode 27.1+ with Duo support, then select it with developer_dir.")
           PY
+      - name: Install XcodeGen for the native display controller
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
       - name: Capture raw Duo screens (light and dark)
-        timeout-minutes: 50
+        timeout-minutes: 100
         run: scripts/capture-duo-screenshots.sh "$APP" "build/duo-screenshots/$APP/raw" light dark
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require uploadable inner and outer screenshots
+        run: |
+          python3 -m pip install -r scripts/requirements-screenshots.txt
+          python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
+            "build/duo-screenshots/$APP/raw" "build/duo-screenshots/$APP/staged"
       - name: Record display support
         if: always()
         run: |
@@ -86,4 +97,5 @@ jobs:
             build/duo-screenshots/${{ env.APP }}/run.*/*.xcresult
             build/duo-screenshots/${{ env.APP }}/run.*/*/*.png
             build/duo-screenshots/${{ env.APP }}/run.*/*.txt
+            build/duo-screenshots/${{ env.APP }}/run.*/*.log
           if-no-files-found: ignore

@@ -5,14 +5,12 @@ import Charts
 struct RootView: View {
     @Environment(Store.self) private var store
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var selected = 0
     @State private var medicationVisit = 0
     @State private var journalFilter = "All"
     var body: some View {
         sectionTabs
-            .modifier(AdaptiveTabPlacement())
-            .environment(\.tendrShowsSystemNavigationBar, horizontalSizeClass == .regular)
+            .modifier(NativeTabPlacement())
             .onChange(of: selected) { _, section in
                 // Returning to Home starts its charts live; folding is not a new visit.
                 if section == 0 { medicationVisit += 1 }
@@ -43,26 +41,15 @@ struct RootView: View {
     }
 }
 
-/// Keep the tab host and its section stacks alive across trait changes. The
-/// system owns the sidebar, toggle, safe areas and compact tab presentation.
-private struct AdaptiveTabPlacement: ViewModifier {
+/// Match Folding's system tab style. Duo chooses its trailing rail while phones
+/// keep the native tab bar. A stable host preserves section stacks and drafts.
+private struct NativeTabPlacement: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
-        #if compiler(>=6.4)
-        if #available(iOS 27.0, *) {
-            content.tabViewStyle(.sidebarAdaptable)
-                .defaultTabBarPlacement(.sidebar)
-        } else {
-            legacyPlacement(content)
-        }
-        #else
-        legacyPlacement(content)
-        #endif
-    }
-
-    @ViewBuilder private func legacyPlacement(_ content: Content) -> some View {
-        if #available(iOS 18.0, *) {
-            content.tabViewStyle(.sidebarAdaptable)
-                .defaultAdaptableTabBarPlacement(.sidebar)
+        if #available(iOS 26.0, *) {
+            content.tabViewStyle(.tabBarOnly)
+                .tabBarMinimizeBehavior(.never)
+        } else if #available(iOS 18.0, *) {
+            content.tabViewStyle(.tabBarOnly)
         } else {
             content
         }

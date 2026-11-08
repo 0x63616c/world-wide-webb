@@ -1,0 +1,44 @@
+name: App Store availability
+
+# Apple's review can outlast an Actions job. Check again without holding a runner,
+# changing the submission, or conflating App Store Connect approval with a working page.
+on:
+  workflow_run:
+    workflows: [TestFlight]
+    branches: [main]
+    types: [completed]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: storefront-status
+  cancel-in-progress: false
+
+jobs:
+  public-availability:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Verify Apple state and public storefronts
+        id: store
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: bundle exec ruby scripts/storefront-status.rb
+      - name: Resume changes deferred by an earlier review
+        if: steps.store.outputs.idle == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/resume-release.py

@@ -2,7 +2,8 @@ name: TestFlight
 
 # On every push to main, builds and uploads each app whose binary could have changed (its
 # apps/<app>/ code, or declared shared packages) and whose app.yml sets testflight: true.
-# Docs, listing text and screenshot-frame changes never start an upload (scripts/affected --intent ship).
+# Tendr also ships listing and screenshot-configuration changes through its complete App Store pipeline.
+# Other apps retain binary-only TestFlight delivery.
 on:
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   changes:
@@ -41,17 +43,37 @@ jobs:
         env:
           INPUT_APP: ${{ inputs.app }}
           AFFECTED_APPS: ${{ steps.affected.outputs.apps }}
+          BEFORE: ${{ github.event.before }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
             [[ "$(ruby scripts/app-config.rb "$INPUT_APP" testflight)" == true ]] || { echo "::error::$INPUT_APP does not have testflight: true"; exit 1; }
             echo "apps=[\"$INPUT_APP\"]" >> "$GITHUB_OUTPUT"
           else
-            echo "apps=$AFFECTED_APPS" >> "$GITHUB_OUTPUT"
+            apps="$AFFECTED_APPS"
+            listing_changes=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- apps/tendr/fastlane/metadata apps/tendr/screenshots.json)
+            if [[ -n "$listing_changes" ]]; then
+              apps=$(python3 -c 'import json,sys; print(json.dumps(sorted(set(json.loads(sys.argv[1]) + ["tendr"]))))' "$apps")
+            fi
+            echo "apps=$apps" >> "$GITHUB_OUTPUT"
           fi
           cat "$GITHUB_OUTPUT"
 
-  beta:
+  verify:
     needs: changes
+    if: needs.changes.outputs.apps != '[]'
+    # Do not occupy a Mac needed by the CI jobs we are waiting for.
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require CI for this exact main revision
+        if: github.ref == 'refs/heads/main' && contains(fromJSON(needs.changes.outputs.apps), 'tendr')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/wait-release-ci.py
+
+  beta:
+    needs: [changes, verify]
     if: needs.changes.outputs.apps != '[]'
     strategy:
       fail-fast: false
@@ -59,10 +81,10 @@ jobs:
         app: ${{ fromJSON(needs.changes.outputs.apps) }}
     # latest_testflight_build_number + 1 must have only one publisher per app at a time.
     concurrency:
-      group: testflight-${{ matrix.app }}
+      group: app-store-${{ matrix.app }}
       cancel-in-progress: false
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 180
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       LANG: en_US.UTF-8
@@ -71,6 +93,8 @@ jobs:
       FASTLANE_HIDE_CHANGELOG: '1'
       FASTLANE_SKIP_DOCS: '1'
       APP: ${{ matrix.app }}
+      DUO_HOST_CONTROL: '1'
+      RELEASE_MANIFEST: ${{ github.workspace }}/build/release-manifest.json
     steps:
       - uses: actions/checkout@v4
       - name: Check release secrets
@@ -102,6 +126,16 @@ jobs:
         with:
           ruby-version: '3.4'
           bundler-cache: true
+      - name: Shared component tests
+        if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
+        run: swift test --package-path packages/RDesign
+      - name: Plan automatic App Store version
+        if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: bundle exec fastlane ios plan_release app:"$APP"
       - name: Install release signing assets
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -134,7 +168,53 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
-        run: bundle exec fastlane ios beta app:"$APP" changelog:"Build from $GITHUB_REF_NAME ($GITHUB_SHA)"
+        run: |
+          mkdir -p build
+          args=(ios beta "app:$APP" "changelog:Build from $GITHUB_REF_NAME ($GITHUB_SHA)")
+          if [[ -n "${RELEASE_VERSION:-}" ]]; then args+=("version:$RELEASE_VERSION"); fi
+          bundle exec fastlane "${args[@]}"
+      - uses: actions/setup-python@v5
+        if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
+        with:
+          python-version: '3.12'
+      - name: Capture and verify all App Store screenshots
+        if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
+        run: |
+          python3 -m pip install -r scripts/requirements-screenshots.txt
+          selected=$(python3 scripts/select-duo-xcode.py "$DEVELOPER_DIR")
+          export DEVELOPER_DIR="$selected"
+          scripts/capture-screenshots.sh "$APP"
+          scripts/frame-screenshots.sh "$APP"
+          scripts/capture-duo-screenshots.sh "$APP"
+          python3 scripts/stage-duo-screenshots.py "apps/$APP/screenshots.json" \
+            "build/duo-screenshots/$APP/raw" "apps/$APP/fastlane/screenshots/en-US"
+      - name: Upload listing, verify Apple received images, and submit app with purchases
+        if: matrix.app == 'tendr' && github.ref == 'refs/heads/main'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_BETA_FEEDBACK_EMAIL: ${{ secrets.ASC_BETA_FEEDBACK_EMAIL }}
+          ASC_REVIEW_PHONE: ${{ secrets.ASC_REVIEW_PHONE }}
+          ASC_REVIEW_EMAIL: ${{ secrets.ASC_REVIEW_EMAIL }}
+        run: bundle exec fastlane ios finish_release app:"$APP"
+      - name: Preserve release state for automatic review deferrals
+        if: always() && matrix.app == 'tendr'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-state
+          path: build/release-state.json
+          if-no-files-found: ignore
+      - name: Preserve release evidence
+        if: always() && matrix.app == 'tendr'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ matrix.app }}-${{ github.run_id }}
+          path: |
+            build/release-manifest.json
+            apps/${{ matrix.app }}/fastlane/screenshots/en-US/*.png
+            build/duo-screenshots/${{ matrix.app }}/raw
+          if-no-files-found: warn
       - name: Remove release signing assets
         if: always()
         run: |

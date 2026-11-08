@@ -33,26 +33,6 @@ extension TendrLayout.SizeClass {
     }
 }
 
-private struct SystemNavigationBarKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    var tendrShowsSystemNavigationBar: Bool {
-        get { self[SystemNavigationBarKey.self] }
-        set { self[SystemNavigationBarKey.self] = newValue }
-    }
-}
-
-private struct RootNavigationBar: ViewModifier {
-    @Environment(\.tendrShowsSystemNavigationBar) private var showsSystemNavigationBar
-    func body(content: Content) -> some View {
-        // The system's sidebar restore button lives in the navigation bar.
-        // Use the root window's traits, not the narrower sidebar detail column.
-        content.toolbar(showsSystemNavigationBar ? .visible : .hidden, for: .navigationBar)
-    }
-}
-
 private struct ReadableWidth: ViewModifier {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     func body(content: Content) -> some View {
@@ -64,7 +44,8 @@ private struct ReadableWidth: ViewModifier {
 
 extension View {
     func tendrReadableWidth() -> some View { modifier(ReadableWidth()) }
-    func tendrRootNavigationBar() -> some View { modifier(RootNavigationBar()) }
+    // Root screens draw PageHeader; pushed detail screens show their own bar.
+    func tendrRootNavigationBar() -> some View { toolbar(.hidden, for: .navigationBar) }
 
     /// System sizing follows the presenting window. No size-class branch around
     /// the editor, so folding with a draft or keyboard open keeps its identity.

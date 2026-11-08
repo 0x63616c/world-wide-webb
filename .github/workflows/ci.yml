@@ -45,6 +45,10 @@ jobs:
         run: |
           ruby scripts/check-release.rb
           ruby scripts/test-review-products.rb
+          ruby scripts/test-release-pipeline.rb
+          ruby scripts/test-storefront-status.rb
+          python3 scripts/test-resume-release.py
+          python3 scripts/test-wait-release-ci.py
       - name: Install impact resolver dependencies
         run: python3 -m pip install -r scripts/requirements.txt
       - name: Path filter regression checks

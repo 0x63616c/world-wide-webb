@@ -10,6 +10,7 @@ bundle_id: com.calumwebb.still
 apple_id: "6809098849"
 version: 1.1.0
 testflight: true
+app_store_automatic: true
 testflight_group: Owner Preview
 beta_description: Tendr is a private, local-first companion for tracking doses, medication levels, vials, weight, schedules, and progress.
 # CI signs with this App Store profile, created by sigh for the shared Apple Distribution certificate.

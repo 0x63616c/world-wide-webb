@@ -34,12 +34,23 @@ for appearance in light dark; do
 done
 rm -f "$out/capture-notes.txt" "$out/simctl-capabilities.txt" "$out/plan.json"
 work=$(mktemp -d "build/duo-screenshots/$app/run.XXXXXX")
-work="$PWD/$work"
+work=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve())' "$work")
 derived="$work/DerivedData"
 udid=
 worker=
+host_worker=
+host_application_worker=
 cleanup() {
+  if [[ -n "$host_worker" ]]; then
+    touch "$work/host-stop"
+    kill "$host_worker" 2>/dev/null || true
+    wait "$host_worker" 2>/dev/null || true
+  fi
   if [[ -n "$worker" ]]; then kill "$worker" 2>/dev/null || true; wait "$worker" 2>/dev/null || true; fi
+  if [[ -n "$host_application_worker" ]]; then
+    kill "$host_application_worker" 2>/dev/null || true
+    wait "$host_application_worker" 2>/dev/null || true
+  fi
   if [[ -n "$udid" ]]; then
     xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
     xcrun simctl delete "$udid" >/dev/null 2>&1 || true
@@ -80,7 +91,69 @@ udid=$(xcrun simctl create "$simulator_name" "$device_type" "$runtime")
 scripts/boot-simulator.sh "$udid" 300
 python3 scripts/duo-simulator.py probe "$udid" "$work"
 cp "$work/capture-notes.txt" "$work/simctl-capabilities.txt" "$work/plan.json" "$out/"
+# A powered framebuffer is not an open foldable device. On hosted runners, use
+# a macOS UI test to operate Device Hub's actual Open/Closed controls.
+if [[ "${DUO_HOST_CONTROL:-0}" == 1 ]] && [[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["mode"])' "$work/plan.json")" == unmapped ]]; then
+  echo "Building the native Device Hub controller"
+  cp -R scripts/duo-host-control "$work/host-project"
+  (cd "$work/host-project" && xcodegen generate --quiet)
+  xcodebuild build-for-testing -project "$work/host-project/DuoCaptureHost.xcodeproj" \
+    -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
+    DUO_HOST_CONTROL_DIRECTORY="$work" -quiet > "$work/host-build.log" 2>&1
+  codesign -d --entitlements :- "$work/HostDerivedData/Build/Products/Debug/DuoHostControlTests-Runner.app" \
+    2>/dev/null > "$work/host-entitlements.plist"
+  python3 - "$work" <<'ENTITLEMENTSPY'
+import pathlib, plistlib, sys
+folder = pathlib.Path(sys.argv[1])
+with (folder / "host-entitlements.plist").open("rb") as file:
+    grants = plistlib.load(file)
+if grants.get("com.apple.security.app-sandbox") is not True or grants.get("com.apple.security.temporary-exception.files.absolute-path.read-write") != [str(folder) + "/"]:
+    sys.exit("Native controller must retain its sandbox and have write access only to this capture directory")
+print("Verified scoped capture handoff access")
+ENTITLEMENTSPY
+  echo "Starting the native Device Hub controller"
+  # The outer app's DevicesTrampoline can publish PID -1 to AppKit/XCTest.
+  # Start the actual executable on this disposable CI host, retaining only our PID.
+  if pgrep -x DeviceHub >/dev/null; then
+    echo "Device Hub is already running; refusing to replace another session" >&2
+    exit 1
+  fi
+  "${DEVELOPER_DIR%/Developer}/Applications/DeviceHub.app/Contents/MacOS/DeviceHub" \
+    > "$work/host-application.log" 2>&1 &
+  host_application_worker=$!
+  TEST_RUNNER_DUO_HOST_APPLICATION_PATH="${DEVELOPER_DIR%/Developer}/Applications/DeviceHub.app" \
+  TEST_RUNNER_DUO_HOST_APPLICATION_PID="$host_application_worker" \
+  TEST_RUNNER_DUO_HOST_CONTROL_DIR="$work" TEST_RUNNER_DUO_HOST_DEVICE_NAME="$simulator_name" \
+    xcodebuild test-without-building -project "$work/host-project/DuoCaptureHost.xcodeproj" \
+    -scheme DuoCaptureHost -destination 'platform=macOS' -derivedDataPath "$work/HostDerivedData" \
+    DUO_HOST_CONTROL_DIRECTORY="$work" -parallel-testing-enabled NO -test-timeouts-enabled NO -resultBundlePath "$work/DuoHostControl.xcresult" -quiet \
+    > "$work/host-control.log" 2>&1 &
+  host_worker=$!
+  python3 - "$work" "$host_worker" <<'HOSTPY'
+import os, pathlib, subprocess, sys, time
+folder, process = pathlib.Path(sys.argv[1]), int(sys.argv[2])
+for _ in range(120):
+    if (folder / "host-ready").exists():
+        break
+    try:
+        os.kill(process, 0)
+    except ProcessLookupError:
+        print((folder / "host-control.log").read_text()[-8000:])
+        result = folder / "DuoHostControl.xcresult"
+        if result.exists():
+            subprocess.run(["xcrun", "xcresulttool", "get", "test-results", "summary", "--path", str(result)], check=False)
+        sys.exit(f"Device Hub controller stopped; see {folder}/host-control.log")
+    time.sleep(1)
+else:
+    print((folder / "host-control.log").read_text()[-8000:])
+    sys.exit(f"Device Hub controller did not start; see {folder}/host-control.log")
+HOSTPY
+  python3 scripts/duo-simulator.py configure-host "$udid" "$work"
+  echo "Device Hub controller ready; capturing active inner and outer displays"
+fi
+cp "$work/capture-notes.txt" "$work/simctl-capabilities.txt" "$work/plan.json" "$out/"
 fold=$(python3 -c 'import json,sys; print("1" if json.load(open(sys.argv[1]))["mode"] == "fold" else "0")' "$work/plan.json")
+host_orientation=$(python3 -c 'import json,sys; print("1" if json.load(open(sys.argv[1])).get("host_control") else "0")' "$work/plan.json")
 
 xcodebuild build-for-testing -project "$project" -scheme "$scheme" \
   -destination "id=$udid" -derivedDataPath "$derived" CODE_SIGNING_ALLOWED=NO -quiet
@@ -97,12 +170,12 @@ for appearance in "${appearances[@]}"; do
   rm -f "$work/request.json" "$work/response.json"
   python3 scripts/duo-simulator.py serve "$udid" "$work" --output "$capture" --appearance "$appearance" &
   worker=$!
-  TEST_RUNNER_DUO_CONTROL_DIR="$work" TEST_RUNNER_DUO_CAN_FOLD="$fold" \
+  TEST_RUNNER_DUO_CONTROL_DIR="$work" TEST_RUNNER_DUO_CAN_FOLD="$fold" TEST_RUNNER_DUO_HOST_ORIENTATION="$host_orientation" \
     xcodebuild test-without-building -project "$project" -scheme "$scheme" \
     -destination "id=$udid" -derivedDataPath "$derived" -only-testing:"$test_id" \
     -parallel-testing-enabled NO \
     -test-timeouts-enabled YES -default-test-execution-time-allowance 300 -maximum-test-execution-time-allowance 600 \
-    -resultBundlePath "$work/DuoScreenshotTests-$appearance.xcresult" -quiet
+    -resultBundlePath "$work/DuoScreenshotTests-$appearance.xcresult"
   kill "$worker" 2>/dev/null || true
   wait "$worker" 2>/dev/null || true
   worker=
@@ -128,5 +201,10 @@ for pose in poses:
         shutil.copy2(png, pathlib.Path(output) / png.name)
 PY
 done
+if [[ -n "$host_worker" ]]; then
+  touch "$work/host-stop"
+  wait "$host_worker"
+  host_worker=
+fi
 echo "Raw Duo screenshots: $out"
 cat "$out/capture-notes.txt"

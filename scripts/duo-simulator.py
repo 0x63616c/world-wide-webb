@@ -2,8 +2,9 @@
 """Runtime simctl capability detection and the UI-test capture/resize handshake.
 
 Only commands advertised by the installed simctl help are attempted, on the
-script's disposable simulator. Unnamed integrated screens retain their reported
-IDs; display IDs and fold syntax are never assumed from device dimensions.
+script's disposable simulator. Display IDs always come from enumeration. The
+optional Device Hub bridge pairs native modes with Open/Closed controls; the iOS
+tests independently verify the resulting layout before release export.
 """
 import argparse
 import json
@@ -119,6 +120,58 @@ def probe(udid, directory):
     print(note)
 
 
+def configure_host(directory, set_pose=None):
+    """Map reported IDs to the two known native display modes, then verify via UI tests."""
+    plan = json.loads((directory / "plan.json").read_text())
+    if plan["mode"] != "unmapped":
+        raise ValueError("Device Hub bridge requires two enumerated integrated displays")
+    text = (directory / "simctl-capabilities.txt").read_text()
+    displays = {}
+    expected = {(2007, 2853): "inner", (2853, 2007): "inner",
+                (1398, 2034): "outer", (2034, 1398): "outer"}
+    for block in re.split(r"(?=^\s*Screen ID:\s*\d+\s*$)", text, flags=re.MULTILINE):
+        identifier = re.search(r"^\s*Screen ID:\s*(\d+)\s*$", block, re.MULTILINE)
+        pixels = re.search(r"Pixel Size:\s*\{(\d+),\s*(\d+)\}", block)
+        if identifier and pixels and re.search(r"Screen Type:\s*Integrated", block):
+            pose = expected.get((int(pixels[1]), int(pixels[2])))
+            if pose:
+                if pose in displays:
+                    raise ValueError("Ambiguous integrated Duo display modes")
+                displays[pose] = identifier[1]
+    if set(displays) != {"inner", "outer"}:
+        raise ValueError("Expected both native Duo display modes")
+    if not (directory / "host-ready").exists():
+        raise ValueError("Device Hub controller is not ready")
+    (set_pose or host_pose)(directory, "inner")
+    (directory / "plan.json").write_text(json.dumps({"mode": "fold", "host_control": True, "displays": displays}))
+    (directory / "capture-notes.txt").write_text(
+        "Device Hub Open/Closed controls select each pose. Display IDs come from enumeration and their native pixel modes. "
+        "The iOS tests assert native inner/outer navigation and live state retention. Blank or incorrectly sized releases are rejected.\n")
+
+
+def host_pose(directory, pose):
+    host_command(directory, {"pose": pose})
+
+
+def host_command(directory, command):
+    identifier = str(time.time_ns())
+    temporary = directory / "host-request.tmp"
+    temporary.write_text(json.dumps({"id": identifier, **command}))
+    temporary.replace(directory / "host-request.json")
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        try:
+            response = json.loads((directory / "host-response.json").read_text())
+            if response["id"] == identifier:
+                if response.get("ok") is not True:
+                    raise ValueError("Device Hub control failed")
+                return
+        except FileNotFoundError:
+            pass
+        time.sleep(0.1)
+    raise ValueError("Device Hub did not acknowledge the requested control")
+
+
 def serve(udid, directory, output, appearance):
     plan = json.loads((directory / "plan.json").read_text())
     pose = "inner" if plan["mode"] == "fold" else "default"
@@ -137,16 +190,29 @@ def serve(udid, directory, output, appearance):
         try:
             if request["action"] == "pose":
                 target = request["name"]
-                if plan["mode"] != "fold" or target not in plan["commands"]:
+                if plan["mode"] != "fold" or target not in ("inner", "outer"):
                     raise ValueError(f"Unsupported pose: {target}")
-                simctl(*plan["commands"][target], check=True)
+                if plan.get("host_control"):
+                    host_pose(directory, target)
+                else:
+                    simctl(*plan["commands"][target], check=True)
                 pose = target
                 time.sleep(2)  # window/scene transition must finish before the test proceeds
+            elif request["action"] == "orientation":
+                orientation = request["name"]
+                if not plan.get("host_control") or orientation not in ("portrait", "landscape-left", "landscape-right"):
+                    raise ValueError("Native host orientation is unavailable or invalid")
+                host_command(directory, {"orientation": orientation})
+                # Device Hub's orientation menu and folding controls can leave
+                # different displays selected. Restore the requested physical
+                # pose before acknowledging the combined transition to iOS.
+                host_pose(directory, pose)
+                time.sleep(2)
             elif request["action"] == "capture":
                 screen = request["name"]
                 if not re.fullmatch(r"[a-z0-9-]+", screen):
                     raise ValueError("Invalid screenshot name")
-                displays = plan.get("displays", {pose: None})
+                displays = {pose: plan["displays"][pose]} if plan.get("host_control") else plan.get("displays", {pose: None})
                 for label, display in displays.items():
                     destination = output / f"{label}-{appearance}-{screen}.png"
                     options = [f"--display={display}"] if display is not None else []
@@ -163,7 +229,7 @@ def serve(udid, directory, output, appearance):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["probe", "serve"])
+    parser.add_argument("action", choices=["probe", "serve", "configure-host"])
     parser.add_argument("udid")
     parser.add_argument("directory", type=Path)
     parser.add_argument("--output", type=Path)
@@ -171,6 +237,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.action == "probe":
         probe(args.udid, args.directory)
+    elif args.action == "configure-host":
+        configure_host(args.directory)
     else:
         if args.output is None or args.appearance is None:
             parser.error("serve requires --output and --appearance")

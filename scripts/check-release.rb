@@ -255,3 +255,10 @@ raise "automatic release policy" unless policy_writes == [["v1/appStoreVersions/
 ReleasePolicy.apply!(policy_api, { "bundle_id" => "com.calumwebb.airmiles" }, "other-version")
 raise "changed another app's release policy" unless policy_writes.length == 1 && ReleasePolicy.automatic?({ "bundle_id" => "com.calumwebb.airmiles" }).nil?
 puts "Release policy checks passed (Tendr automatic, other apps unchanged)."
+
+# The publisher cannot reserve a Mac while its prerequisite CI needs that pool.
+require "yaml"
+release_jobs = YAML.safe_load_file(File.expand_path("../.github/workflows/testflight.yml", __dir__), aliases: true).fetch("jobs")
+raise "publisher must depend on source verification" unless release_jobs.fetch("beta").fetch("needs").include?("verify")
+gate = release_jobs.fetch("verify")
+raise "source verification must wait outside the Mac pool" unless gate.fetch("runs-on") == "ubuntu-latest" && gate.fetch("steps").any? { |step| step["run"] == "python3 scripts/wait-release-ci.py" }

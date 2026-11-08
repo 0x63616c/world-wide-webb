@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Uses the same synthetic, in-memory fixture as ScreenshotTests. The host script
 /// controls physical displays; rotation here exercises short windows independently.
@@ -8,13 +9,27 @@ final class DuoScreenshotTests: XCTestCase {
         return URL(fileURLWithPath: path, isDirectory: true)
     }
     private var canFold: Bool { ProcessInfo.processInfo.environment["DUO_CAN_FOLD"] == "1" }
+    private var canHostOrient: Bool { ProcessInfo.processInfo.environment["DUO_HOST_ORIENTATION"] == "1" }
+    private var foldCheckpoint = 0
+
+    override func tearDown() async throws {
+        // XCTest can abort a test at a failed assertion without running its
+        // Swift defer blocks. Restore an absolute physical pose in test teardown.
+        let restoration = Result {
+            if canHostOrient { try request("orientation", name: "portrait") }
+        }
+        if !canHostOrient {
+            await MainActor.run { XCUIDevice.shared.orientation = .portrait }
+        }
+        try await super.tearDown()
+        try restoration.get()
+    }
 
     /// APP-3: inspect before touching the bar, since interaction masked the bug.
     @MainActor func testPhoneTabLabelsSurviveActivationAndSelection() throws {
         continueAfterFailure = false
         if canFold { try request("pose", name: "outer") }
-        XCUIDevice.shared.orientation = .portrait
-        defer { XCUIDevice.shared.orientation = .portrait }
+        try orient(.portrait)
         let app = launchFixture()
         assertPhoneTabs(in: app, checkpoint: "launch")
 
@@ -60,10 +75,11 @@ final class DuoScreenshotTests: XCTestCase {
 
     @MainActor func testMainScreens() throws {
         continueAfterFailure = false
-        defer { XCUIDevice.shared.orientation = .portrait }
+        // Both displays, native orientation menus and all capture checkpoints.
+        executionTimeAllowance = 600
         for pose in canFold ? ["inner", "outer"] : ["default"] {
             if canFold { try request("pose", name: pose) }
-            XCUIDevice.shared.orientation = .portrait
+            try orient(.portrait)
             let app = launchFixture()
             if canFold { assertNavigation(for: pose, in: app) }
             try snap("home")
@@ -90,7 +106,7 @@ final class DuoScreenshotTests: XCTestCase {
             amount.tap()
             amount.typeText("7.5")
             try snap("log-dose")
-            XCUIDevice.shared.orientation = .landscapeLeft
+            try orient(.landscapeLeft)
             // Inner displays and centered sheets need not adopt the requested
             // device orientation. Verify the draft/actions in the resulting layout.
             XCTAssertEqual(amount.value as? String, "7.5", "Rotation must preserve an unsaved dose")
@@ -110,16 +126,22 @@ final class DuoScreenshotTests: XCTestCase {
         if canFold { try request("pose", name: "outer") }
         try XCTSkipIf(!canFold && XCUIScreen.screens.count > 1,
                       "The host cannot select the outer display for a compact-height check")
-        defer { XCUIDevice.shared.orientation = .portrait }
+        try orient(.portrait)
         let app = launchFixture()
         app.buttons["logDose"].tap()
         let amount = app.textFields["doseAmount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
         amount.tap()
         amount.typeText("7.5")
-        XCUIDevice.shared.orientation = .landscapeLeft
+        try orient(.landscapeRight)
+        try snap("compact-height-rotation")
+        var observedFrame: CGRect?
         waitUntil("Editor must resize into a short window") {
             let frame = app.windows.firstMatch.frame
+            if observedFrame != frame {
+                print("Compact editor window: \(frame)")
+                observedFrame = frame
+            }
             return frame.width > frame.height
         }
         XCTAssertEqual(amount.value as? String, "7.5")
@@ -144,23 +166,15 @@ final class DuoScreenshotTests: XCTestCase {
         }
     }
 
-    /// Run on the open Duo display. Compact-only runs retain the tab regression below.
-    @MainActor func testSystemSidebarNavigation() throws {
+    /// The open Duo keeps the trailing system rail, rather than a leading sidebar.
+    @MainActor func testSystemTabRailNavigation() throws {
         continueAfterFailure = false
+        try XCTSkipUnless(canFold, "This check requires a host that can open the Duo")
+        try request("pose", name: "inner")
+        try orient(.portrait)
         let app = launchFixture()
-        let toggle = app.buttons["ToggleSidebar"]
-        let initialControl = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "sidebar"))
-            .allElementsBoundByIndex.first { $0.isHittable }
-        try XCTSkipUnless(initialControl != nil, "This check requires an open, regular-width display")
-        if !toggle.isHittable { initialControl?.tap() }
         assertNavigation(for: "inner", in: app)
-        try snap("system-sidebar-home")
-        toggle.tap()
-        waitUntil("System sidebar hides") { !app.descendants(matching: .any)["navJournal"].firstMatch.isHittable }
-        let restore = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "sidebar")).allElementsBoundByIndex.first { $0.isHittable }
-        XCTAssertNotNil(restore, "System restore control remains reachable")
-        restore?.tap()
-        assertNavigation(for: "inner", in: app)
+        try snap("native-tab-rail-home")
         for section in ["Treatment", "Progress", "Journal", "Settings"] {
             select(section, in: app)
             XCTAssertTrue(app.staticTexts["pageHeader-\(section)"].waitForExistence(timeout: 5))
@@ -172,28 +186,22 @@ final class DuoScreenshotTests: XCTestCase {
         amount.tap()
         amount.typeText("7.5")
         XCTAssertTrue(app.buttons["saveDose"].isHittable)
-        try snap("system-sidebar-dose-draft")
+        try snap("native-tab-rail-dose-draft")
         app.buttons["Cancel"].tap()
         XCTAssertTrue(app.buttons["logDose"].waitForExistence(timeout: 5))
     }
 
     @MainActor func testLiveFoldPreservesNavigationAndDraft() throws {
         continueAfterFailure = false
+        // Five real display handoffs and captures, each with bounded waits.
+        executionTimeAllowance = 600
         try XCTSkipUnless(canFold, "simctl does not expose a supported live-fold control; see capture-notes.txt")
-        defer { XCUIDevice.shared.orientation = .portrait }
         try request("pose", name: "inner")
-        XCUIDevice.shared.orientation = .portrait
+        try orient(.portrait)
         let app = launchFixture()
         assertNavigation(for: "inner", in: app)
-        // Section navigation must remain recoverable after hiding the sidebar.
-        let toggle = app.buttons["ToggleSidebar"]
-        toggle.tap()
-        waitUntil("Sidebar can be hidden") { !app.descendants(matching: .any)["navJournal"].firstMatch.isHittable }
-        let restore = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "sidebar")).allElementsBoundByIndex.first { $0.isHittable }
-        XCTAssertNotNil(restore)
-        restore?.tap()
-        assertNavigation(for: "inner", in: app)
         select("Journal", in: app)
+        XCTAssertTrue(app.buttons["Doses"].waitForExistence(timeout: 5))
         app.buttons["Doses"].tap()
         select("Home", in: app)
         let card = app.descendants(matching: .any)["medicationCard"].firstMatch
@@ -204,7 +212,7 @@ final class DuoScreenshotTests: XCTestCase {
         detail.coordinate(withNormalizedOffset: CGVector(dx: 0.72, dy: 0.5))
             .press(forDuration: 0.2, thenDragTo: detail.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)))
         XCTAssertTrue(app.buttons["Live"].waitForExistence(timeout: 3), "Scrubbing selects a past time")
-        try request("pose", name: "outer")
+        try fold(to: "outer", in: app)
         assertNavigation(for: "outer", in: app)
         XCTAssertTrue(detail.waitForExistence(timeout: 5), "Folding keeps the pushed destination")
         XCTAssertTrue(app.buttons["Live"].exists, "Folding keeps the chart selection")
@@ -212,7 +220,7 @@ final class DuoScreenshotTests: XCTestCase {
         select("Home", in: app)
         XCTAssertTrue(detail.waitForExistence(timeout: 5), "Each section keeps its own stack")
         waitUntil("Returning to Home explicitly restores the live chart") { !app.buttons["Live"].exists }
-        try request("pose", name: "inner")
+        try fold(to: "inner", in: app)
         assertNavigation(for: "inner", in: app)
         XCTAssertTrue(detail.waitForExistence(timeout: 5))
         select("Journal", in: app)
@@ -229,11 +237,7 @@ final class DuoScreenshotTests: XCTestCase {
         amount.tap()
         amount.typeText("7.5")
         for pose in ["outer", "inner", "outer"] {
-            let previousSize = app.windows.firstMatch.frame.size
-            try request("pose", name: pose)
-            waitUntil("A fold must resize the app window while the sheet is open") {
-                app.windows.firstMatch.frame.size != previousSize
-            }
+            try fold(to: pose, in: app)
             XCTAssertTrue(amount.waitForExistence(timeout: 5), "The sheet stays presented")
             XCTAssertEqual(amount.value as? String, "7.5", "Folding keeps the unsaved draft")
             XCTAssertTrue(app.buttons["saveDose"].isHittable)
@@ -250,6 +254,23 @@ final class DuoScreenshotTests: XCTestCase {
         return app
     }
 
+    @MainActor private func orient(_ orientation: UIDeviceOrientation) throws {
+        if canHostOrient {
+            let name: String
+            switch orientation {
+            case .portrait: name = "portrait"
+            case .landscapeLeft: name = "landscape-left"
+            case .landscapeRight: name = "landscape-right"
+            default: throw NSError(domain: "DuoOrientation", code: 1)
+            }
+            // Device Hub owns both physical orientation and the viewport. Do not
+            // simultaneously drive XCTest's independent sensor on a Duo.
+            try request("orientation", name: name)
+        } else {
+            XCUIDevice.shared.orientation = orientation
+        }
+    }
+
     @MainActor private func select(_ section: String, in app: XCUIApplication) {
         let identified = app.descendants(matching: .any).matching(identifier: "nav\(section)")
         if let button = identified.allElementsBoundByIndex.first(where: { $0.isHittable }) {
@@ -259,27 +280,78 @@ final class DuoScreenshotTests: XCTestCase {
             XCTAssertTrue(tab.waitForExistence(timeout: 5), "Section must be reachable in either layout")
             tab.tap()
         }
+        waitUntil("Selecting \(section) must update the active tab") {
+            identified.allElementsBoundByIndex.contains { $0.isSelected } || app.tabBars.buttons[section].isSelected
+        }
     }
 
     @MainActor private func assertNavigation(for pose: String, in app: XCUIApplication) {
-        let home = app.descendants(matching: .any)["navHome"].firstMatch
-        let sidebarToggle = app.buttons["ToggleSidebar"]
-        waitUntil("Home navigation must remain reachable") { home.isHittable }
-        if pose == "inner" {
-            XCTAssertTrue(sidebarToggle.isHittable, "Inner display exposes the native sidebar")
-        } else {
-            XCTAssertFalse(sidebarToggle.isHittable, "Outer display uses system tabs, which may be vertical")
+        // Both displays can rotate. Their aspect ratio does not identify the
+        // active display; live-fold checks require an actual window resize.
+        let bounds = app.windows.firstMatch.frame
+        var buttons: [XCUIElement] = []
+        for section in ["Home", "Treatment", "Progress", "Journal", "Settings"] {
+            let identified = app.descendants(matching: .any).matching(identifier: "nav\(section)")
+            waitUntil("\(section) navigation remains reachable on \(pose)") {
+                identified.allElementsBoundByIndex.contains { $0.isHittable }
+            }
+            guard let button = identified.allElementsBoundByIndex.first(where: { $0.isHittable }) else { return }
+            XCTAssertGreaterThan(button.frame.midX, bounds.midX, "Duo navigation stays on the trailing edge on \(pose)")
+            buttons.append(button)
         }
+        XCTAssertFalse(app.buttons["ToggleSidebar"].isHittable, "Duo uses the system tab rail rather than an expandable sidebar")
+        if let first = buttons.first, let last = buttons.last {
+            XCTAssertGreaterThan(last.frame.midY, first.frame.maxY, "Duo navigation is a vertical rail on \(pose)")
+        }
+    }
+
+    @MainActor private func fold(to pose: String, in app: XCUIApplication) throws {
+        foldCheckpoint += 1
+        if let directory = controlDirectory {
+            try Data(app.debugDescription.utf8).write(
+                to: directory.appendingPathComponent("live-fold-\(foldCheckpoint)-\(pose)-before.txt"), options: .atomic)
+        }
+        let previousSize = app.windows.firstMatch.frame.size
+        let previousArea = previousSize.width * previousSize.height
+        try request("pose", name: pose)
+        var observedSize: CGSize?
+        var adapted = false
+        // Native display wakeup exceeded ten seconds in hosted CI.
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            let size = app.windows.firstMatch.frame.size
+            if observedSize != size {
+                print("Live fold \(pose): \(previousSize) → \(size)")
+                observedSize = size
+            }
+            // This fixture occupies the full display: opening must enlarge its
+            // window and closing must shrink it, regardless of either rotation.
+            let area = size.width * size.height
+            adapted = size.width > 0 && size.height > 0 && (pose == "inner" ? area > previousArea : area < previousArea)
+            if adapted { break }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        // The new framebuffer can still be black during a resize. Capture after
+        // adaptation, including on failure before XCTest aborts the assertion.
+        // Its default recording follows the inactive primary display inside.
+        try snap("live-fold-\(foldCheckpoint)-\(pose)")
+        if let directory = controlDirectory {
+            try Data(app.debugDescription.utf8).write(
+                to: directory.appendingPathComponent("live-fold-\(foldCheckpoint)-\(pose)-after.txt"), options: .atomic)
+        }
+        XCTAssertTrue(adapted, "Folding to \(pose) must resize the active app window")
     }
 
     @MainActor private func waitUntil(_ message: String, timeout: TimeInterval = 10, _ condition: () -> Bool) {
         let deadline = Date().addingTimeInterval(timeout)
-        while !condition() && Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
+        while !condition() && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
         XCTAssertTrue(condition(), message)
     }
 
     @MainActor private func snap(_ name: String) throws {
-        Thread.sleep(forTimeInterval: 1.5)
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         // App-window screenshots can crop incorrectly during rotation. Capture
         // every active screen instead; the host maps named Duo displays separately.
         for (index, screen) in XCUIScreen.screens.enumerated() {
@@ -300,7 +372,7 @@ final class DuoScreenshotTests: XCTestCase {
         }
     }
 
-    @MainActor private func request(_ action: String, name: String) throws {
+    private func request(_ action: String, name: String) throws {
         let directory = try XCTUnwrap(controlDirectory)
         let id = UUID().uuidString
         let data = try JSONSerialization.data(withJSONObject: ["id": id, "action": action, "name": name])
@@ -316,7 +388,10 @@ final class DuoScreenshotTests: XCTestCase {
                 }
                 return
             }
-            Thread.sleep(forTimeInterval: 0.1)
+            // Native pose/rotation notifications arrive on this runner's main
+            // loop. Keep it running while the host handles the request, rather
+            // than deferring coordinate updates until the next XCTest action.
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         XCTFail("Timed out waiting for the Duo simulator capture helper")
         throw NSError(domain: "DuoCapture", code: 2)

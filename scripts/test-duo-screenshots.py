@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -21,6 +23,82 @@ spec.loader.exec_module(duo)
 xcode_spec = importlib.util.spec_from_file_location("select_duo_xcode", ROOT / "scripts/select-duo-xcode.py")
 xcode = importlib.util.module_from_spec(xcode_spec)
 xcode_spec.loader.exec_module(xcode)
+
+
+class HostControlProtocolTests(unittest.TestCase):
+    def test_orientation_restores_current_display_before_acknowledging(self):
+        for accepted in (True, False):
+            with self.subTest(accepted=accepted), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                (directory / "plan.json").write_text(json.dumps({"mode": "fold", "host_control": True}))
+                (directory / "request.json").write_text(json.dumps({
+                    "id": "turn-inner", "action": "orientation", "name": "landscape-right"
+                }))
+                response = directory / "response.json"
+                selected = {"display": "inner"}
+
+                def orient(folder, command):
+                    self.assertFalse(response.exists())
+                    self.assertEqual(command, {"orientation": "landscape-right"})
+                    selected["display"] = "outer"
+
+                def restore(folder, pose):
+                    self.assertFalse(response.exists())
+                    if not accepted:
+                        raise ValueError("Display re-selection failed")
+                    selected["display"] = pose
+
+                def pause(seconds):
+                    if response.exists():
+                        raise StopIteration
+
+                with patch.object(duo, "host_command", side_effect=orient), \
+                     patch.object(duo, "host_pose", side_effect=restore), \
+                     patch.object(duo.time, "sleep", side_effect=pause):
+                    with self.assertRaises(StopIteration):
+                        duo.serve("duo", directory, directory, "light")
+                result = json.loads(response.read_text())
+                self.assertEqual(result["id"], "turn-inner")
+                self.assertEqual(result["ok"], accepted)
+                if accepted:
+                    self.assertEqual(selected["display"], "inner")
+                else:
+                    self.assertIn("re-selection failed", result["error"])
+
+    def test_orientation_waits_for_its_own_acknowledgement(self):
+        for accepted in (True, False):
+            with self.subTest(accepted=accepted), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                # A previous command's acknowledgement must never complete this one.
+                (directory / "host-response.json").write_text(json.dumps({"id": "previous", "ok": True}))
+                observed = []
+
+                def controller():
+                    deadline = time.monotonic() + 2
+                    while time.monotonic() < deadline:
+                        path = directory / "host-request.json"
+                        if path.exists():
+                            command = json.loads(path.read_text())
+                            observed.append(command)
+                            response = directory / "controller-response.tmp"
+                            response.write_text(json.dumps({"id": command["id"], "ok": accepted}))
+                            response.replace(directory / "host-response.json")
+                            return
+                        time.sleep(0.01)
+
+                worker = threading.Thread(target=controller)
+                worker.start()
+                try:
+                    if accepted:
+                        duo.host_command(directory, {"orientation": "landscape-right"})
+                    else:
+                        with self.assertRaisesRegex(ValueError, "control failed"):
+                            duo.host_command(directory, {"orientation": "landscape-right"})
+                finally:
+                    worker.join(timeout=3)
+                self.assertFalse(worker.is_alive())
+                self.assertEqual(observed[0]["orientation"], "landscape-right")
+                self.assertNotEqual(observed[0]["id"], "previous")
 
 MOCK_TOOL = r'''#!/usr/bin/env python3
 import base64, json, os, pathlib, sys, time
@@ -202,6 +280,28 @@ class DuoCapabilitiesTests(unittest.TestCase):
         self.assertEqual(duo.named_displays("Display 0: Inner"), {})
         self.assertEqual(duo.named_displays("Display 2: Inner\nDisplay 4: Outer"), {"inner":"2", "outer":"4"})
         self.assertEqual(duo.named_displays(json.dumps({"displays":[{"id":3,"name":"Inner display"},{"id":7,"name":"Outer display"}]})), {"inner":"3", "outer":"7"})
+
+    def test_device_hub_bridge_requires_both_enumerated_native_modes_and_ready_controller(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / "plan.json").write_text(json.dumps({"mode": "unmapped"}))
+            enumeration = "Screen ID: 8\n Screen Type: Integrated\n Pixel Size: {2007, 2853}\nScreen ID: 2\n Screen Type: Integrated\n Pixel Size: {1398, 2034}\n"
+            (folder / "simctl-capabilities.txt").write_text(enumeration)
+            with self.assertRaises(ValueError):
+                duo.configure_host(folder, set_pose=lambda directory, pose: self.assertEqual(pose, "inner"))
+            (folder / "host-ready").touch()
+            duo.configure_host(folder, set_pose=lambda directory, pose: self.assertEqual(pose, "inner"))
+            plan = json.loads((folder / "plan.json").read_text())
+            self.assertEqual(plan, {"mode": "fold", "host_control": True, "displays": {"inner": "8", "outer": "2"}})
+            (folder / "plan.json").write_text(json.dumps({"mode": "unmapped"}))
+            (folder / "simctl-capabilities.txt").write_text(enumeration.replace("2007, 2853", "2853, 2007").replace("1398, 2034", "2034, 1398"))
+            duo.configure_host(folder, set_pose=lambda directory, pose: self.assertEqual(pose, "inner"))
+            self.assertEqual(json.loads((folder / "plan.json").read_text())["displays"], {"inner": "8", "outer": "2"})
+            for invalid in ["", enumeration.replace("1398, 2034", "720, 480"), enumeration + enumeration]:
+                (folder / "plan.json").write_text(json.dumps({"mode": "unmapped"}))
+                (folder / "simctl-capabilities.txt").write_text(invalid)
+                with self.assertRaises(ValueError):
+                    duo.configure_host(folder, set_pose=lambda directory, pose: self.assertEqual(pose, "inner"))
 
     def test_no_undocumented_fold_command_is_attempted(self):
         self.assertEqual(duo.fold_candidates("test", {}), [])
