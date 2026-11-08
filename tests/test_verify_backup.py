@@ -29,6 +29,7 @@ class RestoreVerificationTests(unittest.TestCase):
             'control-center': ['www-control-center-www-1'],
             'bambuddy': ['bambuddy', 'bambu-studio-api', 'bambuddy-tailscale'],
             'hindsight': ['hindsight'],
+            'beszel': ['beszel-beszel-1'],
             'penpot': list(verify.CONTAINERS['penpot']),
         }
         images = {name: {'id': 'sha256:' + 'a' * 64,
@@ -43,6 +44,7 @@ class RestoreVerificationTests(unittest.TestCase):
         credentials = {
             'cloudflared': ['TUNNEL_TOKEN'],
             'hindsight': ['environment'],
+            'beszel': ['environment', 'config.yml'],
             'bambuddy': ['environment', 'serve.json'],
             'control-center': ['HA_TOKEN', 'ALARM_API_TOKEN',
                                'HOME_LAT', 'HOME_LON', 'WIFI_GUEST_SSID', 'WIFI_GUEST_PASSWORD'],
@@ -56,6 +58,8 @@ class RestoreVerificationTests(unittest.TestCase):
             files['containers.env'] = b'fixture environment'
         if 'control-center' in self.host['services']:
             files['compose/control-center/release.json'] = b'fixture release'
+        if 'beszel' in self.host['services']:
+            files['compose/beszel/config.yml'] = b'fixture systems inventory'
         if 'penpot' in self.host['services']:
             files['compose/penpot/mcp-locations.conf.template'] = b'fixture MCP template'
         if 'bambuddy' in self.host['services']:
@@ -204,6 +208,39 @@ class RestoreVerificationTests(unittest.TestCase):
         self.archive()
         (self.root/'penpot-assets.tar.gz').unlink();self.manifest()
         with self.assertRaisesRegex(ValueError,'Payloads'):verify.verify(self.root)
+
+    def test_beszel_requires_full_data_identity_credentials_and_inventory(self):
+        self.host['services'] = ['beszel']
+        self.images(); self.archive()
+        with tarfile.open(self.root / 'beszel-data.tar.gz', 'w:gz') as archive:
+            for name in ('data.db', 'id_ed25519'):
+                member = tarfile.TarInfo('./' + name); member.size = 4
+                archive.addfile(member, io.BytesIO(b'data'))
+        self.manifest()
+        self.assertEqual(verify.verify(self.root), self.host)
+        for member in ['credentials/beszel/environment', 'credentials/beszel/config.yml',
+                       'compose/beszel/config.yml']:
+            self.archive(omit=member); self.manifest()
+            with self.assertRaisesRegex(ValueError, 'required service files'):
+                verify.verify(self.root)
+        self.archive()
+        (self.root / 'beszel-data.tar.gz').unlink(); self.manifest()
+        with self.assertRaisesRegex(ValueError, 'Payloads'):
+            verify.verify(self.root)
+
+    def test_beszel_data_cannot_omit_identity_or_contain_links(self):
+        for entries in [[('data.db', tarfile.REGTYPE)],
+                        [('data.db', tarfile.REGTYPE), ('id_ed25519', tarfile.SYMTYPE)]]:
+            archive_path = self.root / 'beszel-data.tar.gz'
+            with tarfile.open(archive_path, 'w:gz') as archive:
+                for name, kind in entries:
+                    member = tarfile.TarInfo(name); member.type = kind
+                    if kind == tarfile.REGTYPE:
+                        member.size = 4; archive.addfile(member, io.BytesIO(b'data'))
+                    else:
+                        member.linkname = '/outside'; archive.addfile(member)
+            with self.assertRaises(ValueError):
+                verify.verify_beszel_data(archive_path)
 
     def test_all_service_recovery_files_and_image_identities_are_supported(self):
         self.host['services'] = ['cloudflared', 'control-center', 'bambuddy',

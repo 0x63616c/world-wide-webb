@@ -24,6 +24,7 @@ NAMES = {
     'control-center': ('services', ['www-control-center-www-1']),
     'bambuddy': ('services', ['bambuddy', 'bambu-studio-api', 'bambuddy-tailscale']),
     'hindsight': ('services', ['hindsight']),
+    'beszel': ('services', ['beszel-beszel-1']),
     'cloudflared': ('services', ['www-tunnel-cloudflared-1']),
     'penpot': ('services', ['penpot-penpot-frontend-1', 'penpot-penpot-mcp-1',
                           'penpot-penpot-exporter-1', 'penpot-penpot-admin-console-1',
@@ -228,6 +229,11 @@ def snapshot(destination, services, weekly_exports=False, control_center_online=
             with stopped('services', 'penpot-penpot-valkey-1', destination):
                 container_files(destination / 'penpot-valkey.tar.gz', 'services',
                                 'penpot-penpot-valkey-1', '/data')
+    if 'beszel' in services:
+        # PocketBase databases and the hub SSH identity form one recovery unit.
+        with stopped('services', 'beszel-beszel-1', destination):
+            container_files(destination / 'beszel-data.tar.gz', 'services',
+                            'beszel-beszel-1', '/beszel_data')
     if 'home-assistant' in services:
         name = 'www-home-assistant-home-assistant-1'
         with stopped('ha', name, destination):

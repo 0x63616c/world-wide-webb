@@ -14,6 +14,7 @@ WWW_KEYS = ('HA_TOKEN', 'ALARM_API_TOKEN', 'HOME_LAT',
 FILES = {
     'control-center': {name: 'www-' + name for name in WWW_KEYS},
     'hindsight': {'environment': 'hindsight-env'},
+    'beszel': {'environment': 'beszel-env'},
     'penpot': {'environment': 'penpot-env'},
     'cloudflared': {'TUNNEL_TOKEN': 'tunnel-token'},
     'bambuddy': {'environment': 'bambuddy-environment'},
@@ -59,6 +60,8 @@ def reconcile(service, source, runtime, compose_root, compose_env):
     with os.fdopen(fd, 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         material = {name: read_private_file(source / key) for name, key in FILES[service].items()}
+        if service == 'beszel':
+            material['config.yml'] = (compose_root / service / 'config.yml').read_bytes()
         if service == 'penpot':
             material['mcp-locations.conf.template'] = (compose_root / service / 'mcp-locations.conf.template').read_bytes()
         if service == 'bambuddy':
@@ -90,6 +93,8 @@ def reconcile(service, source, runtime, compose_root, compose_env):
         env.update({
             'control-center': {'WWW_SECRETS_DIR': str(destination)},
             'hindsight': {'HINDSIGHT_ENV_FILE': str(destination / 'environment')},
+            'beszel': {'BESZEL_ENV_FILE': str(destination / 'environment'),
+                       'BESZEL_CONFIG_FILE': str(destination / 'config.yml')},
             'penpot': {'PENPOT_ENV_FILE': str(destination / 'environment'),
                        'PENPOT_MCP_TEMPLATE': str(destination / 'mcp-locations.conf.template')},
             'cloudflared': {'TUNNEL_TOKEN_FILE': str(destination / 'TUNNEL_TOKEN')},

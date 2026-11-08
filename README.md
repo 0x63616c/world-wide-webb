@@ -110,6 +110,18 @@ private `last-attempt.json` retains both resource names and job IDs after cleanu
 See the [controller plan](docs/runner-controller-plan.md) and
 [validation evidence](docs/research/runner-validation.md).
 
+## Monitoring
+
+Beszel runs in the Mini's existing services VM; native non-admin agents report
+physical Mac metrics over Tailscale. Open `https://beszel.worldwidewebb.co` through
+Cloudflare Access and use the **Homelab Beszel** login in the homelab 1Password vault.
+Accounts and both system entries are provisioned automatically.
+
+The hub's public key lives in `lib/beszel-hub.pub`; its private identity and history
+stay in the backed-up data volume. System names, addresses and ports are stable
+identities: changing them in Beszel's inventory can delete the old history.
+See [the setup and recovery plan](docs/beszel-plan.md).
+
 ## Find the details
 
 - [Setup and adding a host](docs/setup.md)

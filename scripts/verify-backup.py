@@ -12,6 +12,7 @@ PAYLOADS = {
     'home-assistant': {'home-assistant-config.tar.gz'},
     'bambuddy': {'bambuddy-data.tar.gz', 'bambuddy-studio.tar.gz', 'bambuddy-tailscale.tar.gz'},
     'hindsight': {'hindsight.dump', 'hindsight-codex-home.tar.gz'},
+    'beszel': {'beszel-data.tar.gz'},
     'cloudflared': set(),
     'penpot': {'penpot.dump', 'penpot-assets.tar.gz', 'penpot-valkey.tar.gz'},
 }
@@ -22,6 +23,7 @@ CONTAINERS = {
     'home-assistant': {'www-home-assistant-home-assistant-1'},
     'bambuddy': {'bambuddy', 'bambu-studio-api', 'bambuddy-tailscale'},
     'hindsight': {'hindsight'},
+    'beszel': {'beszel-beszel-1'},
     'cloudflared': {'www-tunnel-cloudflared-1'},
     'penpot': {'penpot-penpot-frontend-1', 'penpot-penpot-mcp-1',
                'penpot-penpot-exporter-1', 'penpot-penpot-admin-console-1',
@@ -33,6 +35,7 @@ CREDENTIALS = {
                        'HOME_LON', 'WIFI_GUEST_SSID', 'WIFI_GUEST_PASSWORD'},
     'bambuddy': {'environment', 'serve.json'},
     'hindsight': {'environment'},
+    'beszel': {'environment', 'config.yml'},
     'cloudflared': {'TUNNEL_TOKEN'},
     'home-assistant': set(),
     'penpot': {'environment'},
@@ -82,6 +85,8 @@ def host_metadata(archive):
         required.add('containers.env')
     if 'control-center' in services:
         required.add('compose/control-center/release.json')
+    if 'beszel' in services:
+        required.add('compose/beszel/config.yml')
     if 'penpot' in services:
         required.add('compose/penpot/mcp-locations.conf.template')
     if 'bambuddy' in services:
@@ -111,6 +116,29 @@ def verify_images(path, services):
                 not isinstance(digest, str) or not re.fullmatch(r'[A-Za-z0-9._:/-]+@sha256:[a-f0-9]{64}', digest)
                 for digest in digests):
             raise ValueError('Invalid image repository digest')
+
+
+def verify_beszel_data(path):
+    # A healthy restored hub must keep its account/history database and SSH key.
+    # Inspect headers only; never read or display the private identity.
+    required = {'data.db', 'id_ed25519'}
+    seen = set()
+    total = 0
+    with tarfile.open(path, 'r|gz') as archive:
+        for member in archive:
+            name = PurePosixPath(member.name)
+            normalized = str(name)
+            if (name.is_absolute() or '..' in name.parts
+                    or not (member.isfile() or member.isdir()) or normalized in seen):
+                raise ValueError('Unsafe or duplicate Beszel data archive entry')
+            seen.add(normalized)
+            total += member.size
+            if len(seen) > 100000 or member.size < 0 or total > 16 * 1024 ** 3:
+                raise ValueError('Beszel data archive exceeds recovery limits')
+            if member.isfile() and member.size > 0:
+                required.discard(normalized)
+    if required:
+        raise ValueError('Beszel data archive lacks its database or SSH identity')
 
 
 def verify(root):
@@ -167,6 +195,8 @@ def verify(root):
         expected.add('hindsight-bank-exports.tar.gz')
     if names != expected:
         raise ValueError('Payloads do not match the recorded service assignment')
+    if 'beszel' in metadata['services']:
+        verify_beszel_data(root / 'beszel-data.tar.gz')
     return metadata
 
 

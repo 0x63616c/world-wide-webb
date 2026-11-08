@@ -38,6 +38,7 @@
           ./modules/operations.nix
           ./modules/backups.nix
           ./modules/health.nix
+          ./modules/monitoring.nix
           (./hosts + "/${name}.nix")
         ];
       };
@@ -49,6 +50,7 @@
       packages.${system} = runnerTools // {
         homelab = import ./packages/client.nix { inherit pkgs; };
         homelab-runner = import ./packages/runner.nix { inherit pkgs; };
+        beszel-agent = import ./packages/beszel-agent.nix { inherit pkgs; };
       };
       devShells.${system}.default = pkgs.mkShellNoCC {
         packages = with pkgs; [
@@ -62,6 +64,72 @@
         homelab-mac-mini = mkHost "homelab-mac-mini";
       };
       checks.${system} = {
+        beszel-agent = self.packages.${system}.beszel-agent;
+        beszel-agent-settings =
+          let
+            options = self.darwinConfigurations.homelab-macbook.options.homelab.monitoring.agent;
+            address = options.listenAddress.type;
+            key = options.publicKey.type;
+            fixtures = map (name: (self.darwinConfigurations.${name}.extendModules {
+              modules = [({ lib, ... }: {
+                homelab.monitoring.agent = {
+                  enable = lib.mkForce true;
+                  listenAddress = lib.mkForce "100.100.100.100";
+                  publicKey = lib.mkForce "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+                };
+              })];
+            }).config) [ "homelab-macbook" "homelab-mac-mini" ];
+            valid = cfg:
+              let
+                daemon = cfg.launchd.daemons.homelab-beszel-agent;
+                service = daemon.serviceConfig;
+                env = service.EnvironmentVariables;
+              in service.UserName == "_monitor" && service.GroupName == "_monitor"
+                && cfg.users.users._monitor.uid == 452 && cfg.users.groups._monitor.gid == 452
+                && service.RunAtLoad && service.KeepAlive && service.ThrottleInterval == 30
+                && service.Umask == 63 && service.WorkingDirectory == "/var/lib/_monitor"
+                && service.StandardOutPath == "/dev/null" && service.StandardErrorPath == "/dev/null"
+                && env.LISTEN == "100.100.100.100:45876" && env.DATA_DIR == "/var/lib/_monitor"
+                && env.CHECK_UPDATES == "false"
+                && builtins.attrNames env == [ "CHECK_UPDATES" "DATA_DIR" "HOME" "KEY" "LISTEN" "PATH" ]
+                && daemon.command != "";
+            plists = map (cfg: pkgs.writeText "homelab-beszel-agent.plist"
+              cfg.environment.launchDaemons."org.nixos.homelab-beszel-agent.plist".text) fixtures;
+          in
+            assert address.check "100.64.0.1" && address.check "100.127.255.254";
+            assert builtins.all (value: !(address.check value)) [
+              "0.0.0.0" "::" "127.0.0.1" "192.168.1.1" "100.63.0.1"
+              "100.128.0.1" "100.100.100.256" "100.100.100.100:45876" "node.example.ts.net"
+            ];
+            assert !(key.check "") && !(key.check "private-key") && !(key.check "ssh-ed25519 abc\nTOKEN=secret");
+            assert builtins.all valid fixtures;
+            pkgs.runCommand "homelab-beszel-agent-settings-check" {} ''
+              for plist in ${pkgs.lib.concatStringsSep " " (map toString plists)}; do
+                test "$(/usr/bin/plutil -extract ProgramArguments.0 raw -o - "$plist")" = /bin/sh
+                test "$(/usr/bin/plutil -extract ProgramArguments.1 raw -o - "$plist")" = -c
+                /usr/bin/plutil -extract ProgramArguments.2 raw -o - "$plist" | /usr/bin/grep -q '^/bin/wait4path /nix/store && exec '
+                test "$(/usr/bin/plutil -extract UserName raw -o - "$plist")" = _monitor
+              done
+              touch "$out"
+            '';
+        macbook-monitoring = (self.darwinConfigurations.homelab-macbook.extendModules {
+          modules = [({ lib, ... }: {
+            homelab.monitoring.agent = {
+              enable = lib.mkForce true;
+              listenAddress = lib.mkForce "100.100.100.100";
+              publicKey = lib.mkForce "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+            };
+          })];
+        }).system;
+        mac-mini-monitoring = (self.darwinConfigurations.homelab-mac-mini.extendModules {
+          modules = [({ lib, ... }: {
+            homelab.monitoring.agent = {
+              enable = lib.mkForce true;
+              listenAddress = lib.mkForce "100.100.100.100";
+              publicKey = lib.mkForce "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+            };
+          })];
+        }).system;
         runner-concurrency-limits =
           let
             options = self.darwinConfigurations.homelab-macbook.options.homelab.runners;

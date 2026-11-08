@@ -27,7 +27,7 @@ in {
   options.homelab.containers = {
     enable = lib.mkEnableOption "service-owned Colima runtime";
     services = lib.mkOption {
-      type = lib.types.listOf (lib.types.enum [ "bambuddy" "control-center" "hindsight" "cloudflared" "penpot" ]);
+      type = lib.types.listOf (lib.types.enum [ "beszel" "bambuddy" "control-center" "hindsight" "cloudflared" "penpot" ]);
       default = [ ];
     };
     memoryGiB = lib.mkOption { type = lib.types.ints.positive; default = 6; };

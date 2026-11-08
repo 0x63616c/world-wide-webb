@@ -37,4 +37,8 @@
     admissionFreeBytes = 150323855360; # 140 GiB
     emergencyFreeBytes = 85899345920; # 80 GiB
   };
+  homelab.monitoring.agent = {
+    enable = true;
+    listenAddress = "100.96.15.83";
+  };
 }

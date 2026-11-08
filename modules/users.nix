@@ -1,7 +1,8 @@
 { config, lib, ... }:
 let
   # Determinate Nix uses GID 350 and build UIDs starting at 351.
-  accounts = { _containers = 450; _runner = 451; };
+  accounts = { _containers = 450; _runner = 451; }
+    // lib.optionalAttrs config.homelab.monitoring.agent.enable { _monitor = 452; };
 in {
   users.knownUsers = builtins.attrNames accounts;
   users.knownGroups = builtins.attrNames accounts;
