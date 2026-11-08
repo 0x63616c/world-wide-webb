@@ -58,3 +58,25 @@ The pre-fix app-hosted suite also failed the brief-contention recording test:
 Evidence logs are ignored at `/tmp/folding-shortcut-*` and `build/shortcuts-busy/`.
 Actual overnight, locked-Duo and physical Shortcuts confirmation remains deferred
 under #47/F13. CI, storefront review and App Store submission remain deferred.
+
+## Internal distribution
+
+Fastlane signed, uploaded and distributed **0.1.10 (build 11)** from
+`da0ac00aa2608686d847f5a1d1084b4b3a7c7a96`. Apple returned exact build
+`a9dfa54a-0b2b-4d0e-aaa0-4e2d11b08dfe`, **VALID**, non-exempt encryption `false`.
+Independent API readback verified that exact build in **Folding Internal**.
+The manifest is revision 10, state `processed`. Signed archive, IPA,
+dSYMs, manifest revisions and verification receipts are retained in the private
+[release](https://github.com/0x63616c/folding/releases/tag/v0.1.10).
+IPA SHA-256: `1547ec727e9c5eabb0f25b92f6d3aedc7982c362e7e64160ab3b96cf4d58bae5`.
+
+Production configuration was read before the update and verified afterwards.
+Only build 11 was added to the App Attest build allowlist, retaining builds 2–10,
+all other bindings/settings and six secrets. The config-only Cloudflare version
+is `1185681c-71b3-41e2-8e7c-77310df67ad3`; Worker source remains
+`480725ecb2007c00669eb0e3ff6102eddb584566`, and production health passed.
+No backend code, database schema, infrastructure or CloudKit state was changed.
+
+#58 is complete for reproduction, code, stated local verification and internal
+distribution. Actual overnight/locked-Duo/Shortcuts confirmation remains deferred
+under #47/F13. No App Store submission or physical-device pass is claimed.
