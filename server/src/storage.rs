@@ -58,3 +58,79 @@ pub async fn open(path: &Path) -> Result<sqlx::SqlitePool, sqlx::Error> {
     sqlx::migrate!().run(&pool).await?;
     Ok(pool)
 }
+
+/// A transactionally consistent online copy, produced entirely inside Linux.
+pub async fn snapshot(source: &Path, destination: &Path) -> Result<(), sqlx::Error> {
+    if destination.exists() {
+        return Err(sqlx::Error::Protocol(
+            "Snapshot destination already exists".into(),
+        ));
+    }
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(source)
+                .read_only(true)
+                .busy_timeout(Duration::from_secs(5)),
+        )
+        .await?;
+    let result = sqlx::query("VACUUM INTO ?")
+        .bind(destination.to_string_lossy().as_ref())
+        .execute(&pool)
+        .await;
+    pool.close().await;
+    result?;
+    validate(destination).await?;
+    let copy = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(destination)
+                .read_only(true),
+        )
+        .await?;
+    let invalid = sqlx::query("PRAGMA foreign_key_check")
+        .fetch_optional(&copy)
+        .await?;
+    copy.close().await;
+    if invalid.is_some() {
+        return Err(sqlx::Error::Protocol(
+            "Snapshot foreign key check failed".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Remove only reserved hourly scratch artifacts while the caller holds the deployment lock.
+pub async fn clean_snapshots(directory: &Path) -> std::io::Result<()> {
+    let mut entries = tokio::fs::read_dir(directory).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        let base = name
+            .strip_suffix("-wal")
+            .or_else(|| name.strip_suffix("-shm"))
+            .unwrap_or(&name);
+        let Some(stamp) = base
+            .strip_prefix(".hourly-")
+            .and_then(|v| v.strip_suffix(".sqlite"))
+        else {
+            continue;
+        };
+        let valid = stamp.len() == 16
+            && stamp.as_bytes().iter().enumerate().all(|(i, b)| {
+                if i == 8 {
+                    *b == b'T'
+                } else if i == 15 {
+                    *b == b'Z'
+                } else {
+                    b.is_ascii_digit()
+                }
+            });
+        if valid && entry.file_type().await?.is_file() {
+            tokio::fs::remove_file(entry.path()).await?;
+        }
+    }
+    Ok(())
+}

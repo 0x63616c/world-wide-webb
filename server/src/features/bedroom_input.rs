@@ -73,7 +73,7 @@ pub async fn session(s: &AppState, id: &str) -> Result<()> {
                         record(s,false);
                     },
                     Some("pong") if pending_ping.is_some() && value["id"].as_u64()==pending_ping=>{
-                        pending_ping=None;deadline=tokio::time::Instant::now()+Duration::from_secs(25);
+                        pending_ping=None;deadline=tokio::time::Instant::now()+Duration::from_secs(25);record(s,false);
                     },
                     Some("event") if phase==2 && value["id"]==1 && value["event"]["data"]["entity_id"]==id=>{
                         let data=&value["event"]["data"];

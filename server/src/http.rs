@@ -181,7 +181,15 @@ async fn restrict_release(State(state): State<AppState>, request: Request, next:
     response
 }
 async fn health(State(state): State<AppState>) -> Result<Json<Value>> {
-    sqlx::query("SELECT 1").execute(&state.db).await?;
+    sqlx::query("SELECT value FROM notification_revision WHERE id=1")
+        .execute(&state.db)
+        .await?;
+    if !crate::runtime::workers_ready(&state.workers) {
+        return Err(ApiError {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            message: "Workers unavailable",
+        });
+    }
     Ok(Json(
         json!({"status":"ok","timestamp":chrono::Utc::now().timestamp_millis(),"database":"ok","cycles":{"enabled":state.config.workers_enabled}, "workers":state.workers.read().expect("worker lock").clone(), "backend":"rust", "build": option_env!("BUILD_HASH").unwrap_or("local")}),
     ))

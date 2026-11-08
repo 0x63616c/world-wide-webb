@@ -205,6 +205,13 @@ pub async fn upload(
     file.write_all(&bytes).await.map_err(io_error)?;
     file.sync_all().await.map_err(io_error)?;
     drop(file);
+    // Persist the filename as well as its bytes before publishing its database row.
+    tokio::fs::File::open(&root)
+        .await
+        .map_err(io_error)?
+        .sync_all()
+        .await
+        .map_err(io_error)?;
     let mime = if gif { "image/gif" } else { "image/jpeg" };
     let inserted=sqlx::query("INSERT INTO booth_photo(id,path,captured_at,mode,group_id,frame_idx,mime_type,bytes,filter,device_id,source_only,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)")
         .bind(&key).bind(&rel).bind(captured.to_rfc3339_opts(chrono::SecondsFormat::Micros,true)).bind(mode).bind(&group).bind(frame).bind(mime).bind(bytes.len() as i64).bind(filter).bind(device).bind(source_only).bind(now()).execute(&s.db).await;
