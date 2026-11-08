@@ -79,7 +79,7 @@ jobs:
   apple:
     needs: changes
     if: needs.changes.outputs.apple == 'true'
-    runs-on: macos-26
+    runs-on: [self-hosted, macOS, ARM64, homelab-tart]
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
