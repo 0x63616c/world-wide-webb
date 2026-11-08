@@ -1,12 +1,7 @@
 import CoreText
 import PanelKit
 import SwiftUI
-
-#if os(macOS)
-    import AppKit
-#else
-    import UIKit
-#endif
+import UIKit
 
 enum PanelClockFace: String, CaseIterable {
     case green, tide
@@ -93,13 +88,8 @@ struct GreenClockDial: View {
         return CTFontGetCapHeight(font) / 100
     }()
     fileprivate static func roundedFont(size: CGFloat) -> CTFont {
-        #if os(macOS)
-            let base = NSFont.systemFont(ofSize: size, weight: .medium)
-            let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: size) }
-        #else
-            let base = UIFont.systemFont(ofSize: size, weight: .medium)
-            let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) }
-        #endif
+        let base = UIFont.systemFont(ofSize: size, weight: .medium)
+        let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: size) }
         return CTFontCreateWithName((rounded ?? base).fontName as CFString, size, nil)
     }
     private static func verticalMetrics(_ size: CGFloat) -> (ascent: CGFloat, descent: CGFloat) {

@@ -1,14 +1,11 @@
+import ActivityKit
 import SwiftUI
 
-#if os(iOS) && !targetEnvironment(macCatalyst)
-    import ActivityKit
-
-    struct WalkActivityAttributes: ActivityAttributes {
-        struct ContentState: Codable, Hashable { var startedAt: Date }
-        var dogName: String
-        var walkID: String = "walk_preview"
-    }
-#endif
+struct WalkActivityAttributes: ActivityAttributes {
+    struct ContentState: Codable, Hashable { var startedAt: Date }
+    var dogName: String
+    var walkID: String = "walk_preview"
+}
 
 /// Shared by the widget extension and the explicitly labelled simulator preview.
 struct WalkActivityContent: View {

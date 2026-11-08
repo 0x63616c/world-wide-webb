@@ -1,12 +1,8 @@
+import AlarmKit
 import AppIntents
 import Foundation
 import PanelKit
 import SwiftUI
-import UserNotifications
-
-#if !targetEnvironment(macCatalyst)
-    import AlarmKit
-#endif
 
 /// Only the server's next instant (or oldest active ring) is scheduled. There is
 /// no parallel AVAudioPlayer/web sound loop and no client recurrence calculation.
@@ -36,158 +32,115 @@ struct AlarmDelivery: Codable, Equatable, Sendable {
     func cancel() throws
 }
 
-#if !targetEnvironment(macCatalyst)
-    private struct PanelAlarmMetadata: AlarmMetadata {}
+private struct PanelAlarmMetadata: AlarmMetadata {}
 
-    @MainActor final class NativeAlarmScheduler: NativeAlarmScheduling {
-        static let shared = NativeAlarmScheduler()
-        private struct Record: Codable {
-            let id: UUID
-            let delivery: AlarmDelivery
-        }
-        private let defaults: UserDefaults
-        private let key = "panel.nativeAlarm.schedule.v1"
-        private var record: Record? {
-            get { defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(Record.self, from: $0) } }
-            set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: key) }
-        }
-        init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+@MainActor final class NativeAlarmScheduler: NativeAlarmScheduling {
+    static let shared = NativeAlarmScheduler()
+    private struct Record: Codable {
+        let id: UUID
+        let delivery: AlarmDelivery
+    }
+    private let defaults: UserDefaults
+    private let key = "panel.nativeAlarm.schedule.v1"
+    private var record: Record? {
+        get { defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(Record.self, from: $0) } }
+        set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: key) }
+    }
+    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
-        func authorize() async throws -> Bool {
-            let manager = AlarmManager.shared
-            if manager.authorizationState == .notDetermined {
-                return try await manager.requestAuthorization() == .authorized
-            }
-            return manager.authorizationState == .authorized
+    func authorize() async throws -> Bool {
+        let manager = AlarmManager.shared
+        if manager.authorizationState == .notDetermined {
+            return try await manager.requestAuthorization() == .authorized
         }
-
-        func sync(_ snapshot: AlarmsSnapshot) async throws {
-            let now = Date()
-            // Do not silence the system alert during the worker's claim delay.
-            if let record, let date = AlarmDate.parse(record.delivery.at), date <= now,
-                now.timeIntervalSince(date) < 1800,
-                snapshot.next?.id == record.delivery.sourceID, snapshot.next?.at == record.delivery.at,
-                try AlarmManager.shared.alarms.contains(where: { $0.id == record.id })
-            {
-                return
-            }
-            let desired = AlarmDelivery.next(in: snapshot, now: now)
-            if let record, let desired {
-                let existing = try AlarmManager.shared.alarms.first { $0.id == record.id }
-                // At fire time the server replaces alm_* next with alr_* active. Keep
-                // the already-alerting system alarm instead of canceling/restarting it.
-                let sameOccurrence = snapshot.active.contains { desired.matches($0) && record.delivery.matches($0) }
-                if existing != nil && (record.delivery == desired || sameOccurrence) { return }
-            }
-            try cancel()
-            guard let desired, let date = AlarmDate.parse(desired.at) else { return }
-            guard AlarmManager.shared.authorizationState == .authorized else { throw NativeAlarmFailure.unavailable }
-            let alert: AlarmPresentation.Alert
-            let secondary = AlarmButton(text: "Snooze", textColor: .orange, systemImageName: "zzz")
-            if #available(iOS 26.1, *) {
-                alert = .init(
-                    title: LocalizedStringResource(stringLiteral: desired.label), secondaryButton: secondary,
-                    secondaryButtonBehavior: .custom)
-            } else {
-                alert = .init(
-                    title: LocalizedStringResource(stringLiteral: desired.label),
-                    stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill"),
-                    secondaryButton: secondary, secondaryButtonBehavior: .custom)
-            }
-            let attributes = AlarmAttributes(
-                presentation: AlarmPresentation(alert: alert), metadata: PanelAlarmMetadata(), tintColor: .orange)
-            let id = UUID()  // AlarmKit requires a local UUID; backend IDs remain unchanged.
-            let configuration = AlarmManager.AlarmConfiguration.alarm(
-                schedule: .fixed(max(date, now.addingTimeInterval(1))), attributes: attributes,
-                stopIntent: StopNativeAlarmIntent(delivery: desired),
-                secondaryIntent: SnoozeNativeAlarmIntent(delivery: desired))
-            // Store before the await so process death cannot orphan a system alarm.
-            record = Record(id: id, delivery: desired)
-            _ = try await AlarmManager.shared.schedule(id: id, configuration: configuration)
-            // A document navigation can cancel while schedule() is suspended.
-            // Cancel the returned ID explicitly even if the persisted record cleared.
-            if record?.id != id { try AlarmManager.shared.cancel(id: id) }
-        }
-
-        func cancel() throws {
-            if let record, try AlarmManager.shared.alarms.contains(where: { $0.id == record.id }) {
-                try AlarmManager.shared.cancel(id: record.id)
-            }
-            record = nil
-        }
+        return manager.authorizationState == .authorized
     }
 
-#else
-    /// macOS has no AlarmKit. Deliver the server-owned next alarm as a system
-    /// notification; notification permission and Focus settings remain authoritative.
-    @MainActor final class NativeAlarmScheduler: NativeAlarmScheduling {
-        static let shared = NativeAlarmScheduler()
-        private let center = UNUserNotificationCenter.current()
-        private let identifier = "panel.next-alarm"
-        private var scheduled: AlarmDelivery?
-
-        func authorize() async throws -> Bool {
-            try await center.requestAuthorization(options: [.alert, .sound])
+    func sync(_ snapshot: AlarmsSnapshot) async throws {
+        let now = Date()
+        // Do not silence the system alert during the worker's claim delay.
+        if let record, let date = AlarmDate.parse(record.delivery.at), date <= now,
+            now.timeIntervalSince(date) < 1800,
+            snapshot.next?.id == record.delivery.sourceID, snapshot.next?.at == record.delivery.at,
+            try AlarmManager.shared.alarms.contains(where: { $0.id == record.id })
+        {
+            return
         }
-
-        func sync(_ snapshot: AlarmsSnapshot) async throws {
-            let desired = AlarmDelivery.next(in: snapshot, now: Date())
-            guard desired != scheduled else { return }
-            center.removePendingNotificationRequests(withIdentifiers: [identifier])
-            guard let desired, let date = AlarmDate.parse(desired.at) else {
-                scheduled = nil
-                return
-            }
-            let content = UNMutableNotificationContent()
-            content.title = desired.label.isEmpty ? "Alarm" : desired.label
-            content.body = "Open Control Center to manage this alarm."
-            content.sound = .default
-            let trigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
-            try await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
-            scheduled = desired
+        let desired = AlarmDelivery.next(in: snapshot, now: now)
+        if let record, let desired {
+            let existing = try AlarmManager.shared.alarms.first { $0.id == record.id }
+            // At fire time the server replaces alm_* next with alr_* active. Keep
+            // the already-alerting system alarm instead of canceling/restarting it.
+            let sameOccurrence = snapshot.active.contains { desired.matches($0) && record.delivery.matches($0) }
+            if existing != nil && (record.delivery == desired || sameOccurrence) { return }
         }
-
-        func cancel() throws {
-            center.removePendingNotificationRequests(withIdentifiers: [identifier])
-            center.removeDeliveredNotifications(withIdentifiers: [identifier])
-            scheduled = nil
+        try cancel()
+        guard let desired, let date = AlarmDate.parse(desired.at) else { return }
+        guard AlarmManager.shared.authorizationState == .authorized else { throw NativeAlarmFailure.unavailable }
+        let alert: AlarmPresentation.Alert
+        let secondary = AlarmButton(text: "Snooze", textColor: .orange, systemImageName: "zzz")
+        if #available(iOS 26.1, *) {
+            alert = .init(
+                title: LocalizedStringResource(stringLiteral: desired.label), secondaryButton: secondary,
+                secondaryButtonBehavior: .custom)
+        } else {
+            alert = .init(
+                title: LocalizedStringResource(stringLiteral: desired.label),
+                stopButton: AlarmButton(text: "Stop", textColor: .white, systemImageName: "stop.fill"),
+                secondaryButton: secondary, secondaryButtonBehavior: .custom)
         }
+        let attributes = AlarmAttributes(
+            presentation: AlarmPresentation(alert: alert), metadata: PanelAlarmMetadata(), tintColor: .orange)
+        let id = UUID()  // AlarmKit requires a local UUID; backend IDs remain unchanged.
+        let configuration = AlarmManager.AlarmConfiguration.alarm(
+            schedule: .fixed(max(date, now.addingTimeInterval(1))), attributes: attributes,
+            stopIntent: StopNativeAlarmIntent(delivery: desired),
+            secondaryIntent: SnoozeNativeAlarmIntent(delivery: desired))
+        // Store before the await so process death cannot orphan a system alarm.
+        record = Record(id: id, delivery: desired)
+        _ = try await AlarmManager.shared.schedule(id: id, configuration: configuration)
+        // A document navigation can cancel while schedule() is suspended.
+        // Cancel the returned ID explicitly even if the persisted record cleared.
+        if record?.id != id { try AlarmManager.shared.cancel(id: id) }
     }
-#endif
+
+    func cancel() throws {
+        if let record, try AlarmManager.shared.alarms.contains(where: { $0.id == record.id }) {
+            try AlarmManager.shared.cancel(id: record.id)
+        }
+        record = nil
+    }
+}
 
 enum NativeAlarmFailure: LocalizedError {
     case unavailable
     var errorDescription: String? { "Native alarms are unavailable. Open Control Center to reconnect." }
 }
 
-#if !targetEnvironment(macCatalyst)
-    struct StopNativeAlarmIntent: LiveActivityIntent {
-        static let title: LocalizedStringResource = "Stop panel alarm"
-        @Parameter(title: "Occurrence") var deliveryJSON: String
-        init() {}
-        init(delivery: AlarmDelivery) {
-            deliveryJSON = String(decoding: (try? JSONEncoder().encode(delivery)) ?? Data(), as: UTF8.self)
-        }
-        func perform() async throws -> some IntentResult {
-            let delivery = try JSONDecoder().decode(AlarmDelivery.self, from: Data(deliveryJSON.utf8))
-            try await PanelAlarmCoordinator.shared.act(delivery: delivery, snooze: false)
-            return .result()
-        }
+struct StopNativeAlarmIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Stop panel alarm"
+    @Parameter(title: "Occurrence") var deliveryJSON: String
+    init() {}
+    init(delivery: AlarmDelivery) {
+        deliveryJSON = String(decoding: (try? JSONEncoder().encode(delivery)) ?? Data(), as: UTF8.self)
     }
-
-    struct SnoozeNativeAlarmIntent: LiveActivityIntent {
-        static let title: LocalizedStringResource = "Snooze panel alarm"
-        @Parameter(title: "Occurrence") var deliveryJSON: String
-        init() {}
-        init(delivery: AlarmDelivery) {
-            deliveryJSON = String(decoding: (try? JSONEncoder().encode(delivery)) ?? Data(), as: UTF8.self)
-        }
-        func perform() async throws -> some IntentResult {
-            let delivery = try JSONDecoder().decode(AlarmDelivery.self, from: Data(deliveryJSON.utf8))
-            try await PanelAlarmCoordinator.shared.act(delivery: delivery, snooze: true)
-            return .result()
-        }
+    func perform() async throws -> some IntentResult {
+        let delivery = try JSONDecoder().decode(AlarmDelivery.self, from: Data(deliveryJSON.utf8))
+        try await PanelAlarmCoordinator.shared.act(delivery: delivery, snooze: false)
+        return .result()
     }
+}
 
-#endif
+struct SnoozeNativeAlarmIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Snooze panel alarm"
+    @Parameter(title: "Occurrence") var deliveryJSON: String
+    init() {}
+    init(delivery: AlarmDelivery) {
+        deliveryJSON = String(decoding: (try? JSONEncoder().encode(delivery)) ?? Data(), as: UTF8.self)
+    }
+    func perform() async throws -> some IntentResult {
+        let delivery = try JSONDecoder().decode(AlarmDelivery.self, from: Data(deliveryJSON.utf8))
+        try await PanelAlarmCoordinator.shared.act(delivery: delivery, snooze: true)
+        return .result()
+    }
+}

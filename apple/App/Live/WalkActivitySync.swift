@@ -1,10 +1,7 @@
+import ActivityKit
 import Foundation
 import Observation
-
-#if os(iOS) && !targetEnvironment(macCatalyst)
-    import ActivityKit
-    import UIKit
-#endif
+import UIKit
 
 enum WalkActivityState: Equatable, Sendable {
     case unknown
@@ -66,39 +63,35 @@ enum WalkActivityState: Equatable, Sendable {
 
 @MainActor private final class SystemWalkActivityDriver: WalkActivityDriving {
     func reconcile(_ state: WalkActivityState) async throws {
-        #if os(iOS) && !targetEnvironment(macCatalyst)
-            guard UIDevice.current.userInterfaceIdiom == .phone,
-                !ProcessInfo.processInfo.arguments.contains("-snapshot"), state != .unknown
-            else { return }
-            try await Self.reconcileActivities(state)
-        #endif
+        guard UIDevice.current.userInterfaceIdiom == .phone,
+            !ProcessInfo.processInfo.arguments.contains("-snapshot"), state != .unknown
+        else { return }
+        try await Self.reconcileActivities(state)
     }
 
-    #if os(iOS) && !targetEnvironment(macCatalyst)
-        /// Activity is not Sendable and update/end run concurrently in the SDK. Keep
-        /// every Activity reference inside this nonisolated operation; only our value
-        /// snapshot crosses from MainActor. WalkActivitySync serializes these calls.
-        nonisolated private static func reconcileActivities(_ state: WalkActivityState) async throws {
-            let walkID: String?
-            if case .walking(let id, _) = state { walkID = id } else { walkID = nil }
-            // Adopt an existing activity on relaunch; clean up orphaned/duplicate activities first.
-            let keep = Activity<WalkActivityAttributes>.activities.first { $0.attributes.walkID == walkID }
-            for activity in Activity<WalkActivityAttributes>.activities where activity.id != keep?.id {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
-            guard case .walking(let id, let startedAt) = state else { return }
-            let content = ActivityContent(
-                state: WalkActivityAttributes.ContentState(startedAt: startedAt), staleDate: nil)
-            if let activity = Activity<WalkActivityAttributes>.activities.first(where: { $0.attributes.walkID == id }) {
-                if activity.content.state.startedAt != startedAt { await activity.update(content) }
-            } else {
-                guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw ActivityFailure.disabled }
-                _ = try Activity.request(
-                    attributes: WalkActivityAttributes(dogName: "Zero", walkID: id),
-                    content: content, pushType: nil)
-            }
+    /// Activity is not Sendable and update/end run concurrently in the SDK. Keep
+    /// every Activity reference inside this nonisolated operation; only our value
+    /// snapshot crosses from MainActor. WalkActivitySync serializes these calls.
+    nonisolated private static func reconcileActivities(_ state: WalkActivityState) async throws {
+        let walkID: String?
+        if case .walking(let id, _) = state { walkID = id } else { walkID = nil }
+        // Adopt an existing activity on relaunch; clean up orphaned/duplicate activities first.
+        let keep = Activity<WalkActivityAttributes>.activities.first { $0.attributes.walkID == walkID }
+        for activity in Activity<WalkActivityAttributes>.activities where activity.id != keep?.id {
+            await activity.end(nil, dismissalPolicy: .immediate)
         }
-    #endif
+        guard case .walking(let id, let startedAt) = state else { return }
+        let content = ActivityContent(
+            state: WalkActivityAttributes.ContentState(startedAt: startedAt), staleDate: nil)
+        if let activity = Activity<WalkActivityAttributes>.activities.first(where: { $0.attributes.walkID == id }) {
+            if activity.content.state.startedAt != startedAt { await activity.update(content) }
+        } else {
+            guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw ActivityFailure.disabled }
+            _ = try Activity.request(
+                attributes: WalkActivityAttributes(dogName: "Zero", walkID: id),
+                content: content, pushType: nil)
+        }
+    }
 
     private enum ActivityFailure: Error { case disabled }
 }

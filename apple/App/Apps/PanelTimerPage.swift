@@ -150,9 +150,7 @@ struct PanelTimerPage: View {
             Picker(title, selection: selection) {
                 ForEach(range, id: \.self) { Text("\($0)").tag($0) }
             }
-            #if os(iOS)
-                .pickerStyle(.wheel)
-            #endif
+            .pickerStyle(.wheel)
             .labelsHidden().font(.title).frame(maxWidth: 160).frame(height: 220)
             .accessibilityIdentifier("timer-\(title.lowercased())")
         }

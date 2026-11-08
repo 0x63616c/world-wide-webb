@@ -1,12 +1,7 @@
 import SwiftUI
+import UIKit
 
-#if canImport(UIKit)
-    import UIKit
-    private typealias GridFont = UIFont
-#else
-    import AppKit
-    private typealias GridFont = NSFont
-#endif
+private typealias GridFont = UIFont
 
 /// WWW-54 base grid for the iPad landscape Home face (spec: docs/v2/home-grid.md).
 /// Six columns by four rows of square 192 pt cells, 24 pt gutters, and a 24 pt

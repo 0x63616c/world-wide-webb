@@ -1,11 +1,6 @@
 import CoreText
 import SwiftUI
-
-#if os(macOS)
-    import AppKit
-#else
-    import UIKit
-#endif
+import UIKit
 
 /// Oversized stacked numerals and a continuous blue colour field, like a typographic poster.
 struct TideClockDial: View {
@@ -124,13 +119,8 @@ private struct TideClockGlyph: Identifiable {
     }
 
     @MainActor private static let font: CTFont = {
-        #if os(macOS)
-            let base = NSFont.monospacedDigitSystemFont(ofSize: 100, weight: .bold)
-            let rounded = base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 100) }
-        #else
-            let base = UIFont.monospacedDigitSystemFont(ofSize: 100, weight: .bold)
-            let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 100) }
-        #endif
+        let base = UIFont.monospacedDigitSystemFont(ofSize: 100, weight: .bold)
+        let rounded = base.fontDescriptor.withDesign(.rounded).map { UIFont(descriptor: $0, size: 100) }
         return CTFontCreateWithName((rounded ?? base).fontName as CFString, 100, nil)
     }()
 

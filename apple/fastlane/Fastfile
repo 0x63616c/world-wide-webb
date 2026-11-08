@@ -16,6 +16,15 @@ platform :ios do
       key_id: ENV.fetch("ASC_KEY_ID"), issuer_id: ENV.fetch("ASC_ISSUER_ID"),
       key_content: ENV.fetch("ASC_KEY_CONTENT"), is_key_content_base64: true
     )
+    # Only iPhone and iPad are distribution destinations, including existing beta groups.
+    app = Spaceship::ConnectAPI::App.find(identifier)
+    UI.user_error!("App Store Connect application not found") unless app
+    app.get_beta_groups.each do |group|
+      Spaceship::ConnectAPI.patch_group(group_id: group.id, attributes: {
+        "iosBuildsAvailableForAppleSiliconMac" => false,
+        "iosBuildsAvailableForAppleVision" => false
+      })
+    end
     match(type: "appstore", app_identifier: identifiers, api_key: api_key, readonly: true)
     Dir.chdir(root) { sh("xcodegen", "generate") }
     project = File.join(root, "WorldWideWebb.xcodeproj")

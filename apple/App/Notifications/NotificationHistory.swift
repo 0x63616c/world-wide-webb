@@ -1,8 +1,5 @@
 import SwiftUI
-
-#if os(iOS)
-    import UIKit
-#endif
+import UIKit
 
 enum NotificationHistoryGesture {
     static func opens(x: Double, y: Double, startY: Double = 0) -> Bool {
@@ -16,64 +13,43 @@ struct NotificationHistoryEdge: View {
     @Environment(NotificationCenter.self) private var center
 
     var body: some View {
-        #if os(iOS)
-            NotificationEdgePan { center.historyPresented = true }
-                .frame(height: 24)
-        #else
-            Color.clear
-                .frame(height: 24)
-                .contentShape(.rect)
-                .gesture(
-                    DragGesture(minimumDistance: 12).onEnded { value in
-                        if NotificationHistoryGesture.opens(x: value.translation.width, y: value.translation.height) {
-                            center.historyPresented = true
-                        }
-                    }
-                )
-                .accessibilityElement()
-                .accessibilityLabel("Notification Center")
-                .accessibilityHint("Pull down or activate to show notification history")
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { center.historyPresented = true }
-                .accessibilityIdentifier("notification-history-edge")
-        #endif
+        NotificationEdgePan { center.historyPresented = true }
+            .frame(height: 24)
     }
 }
 
-#if os(iOS)
-    /// A real edge hit region above UIKit-backed paging. Its pan never receives
-    /// touches inside the history List, so native row swipe actions remain intact.
-    private struct NotificationEdgePan: UIViewRepresentable {
-        let open: () -> Void
-        func makeUIView(context: Context) -> EdgeView { EdgeView(open: open) }
-        func updateUIView(_ view: EdgeView, context: Context) { view.open = open }
+/// A real edge hit region above UIKit-backed paging. Its pan never receives
+/// touches inside the history List, so native row swipe actions remain intact.
+private struct NotificationEdgePan: UIViewRepresentable {
+    let open: () -> Void
+    func makeUIView(context: Context) -> EdgeView { EdgeView(open: open) }
+    func updateUIView(_ view: EdgeView, context: Context) { view.open = open }
 
-        final class EdgeView: UIView {
-            var open: () -> Void
-            init(open: @escaping () -> Void) {
-                self.open = open
-                super.init(frame: .zero)
-                backgroundColor = .clear
-                addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(panEnded)))
-                isAccessibilityElement = true
-                accessibilityLabel = "Notification Center"
-                accessibilityHint = "Pull down or activate to show notification history"
-                accessibilityTraits = .button
-                accessibilityIdentifier = "notification-history-edge"
-            }
-            required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-            override func accessibilityActivate() -> Bool {
-                open()
-                return true
-            }
-            @objc private func panEnded(_ gesture: UIPanGestureRecognizer) {
-                guard gesture.state == .ended else { return }
-                let translation = gesture.translation(in: self)
-                if NotificationHistoryGesture.opens(x: translation.x, y: translation.y) { open() }
-            }
+    final class EdgeView: UIView {
+        var open: () -> Void
+        init(open: @escaping () -> Void) {
+            self.open = open
+            super.init(frame: .zero)
+            backgroundColor = .clear
+            addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(panEnded)))
+            isAccessibilityElement = true
+            accessibilityLabel = "Notification Center"
+            accessibilityHint = "Pull down or activate to show notification history"
+            accessibilityTraits = .button
+            accessibilityIdentifier = "notification-history-edge"
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func accessibilityActivate() -> Bool {
+            open()
+            return true
+        }
+        @objc private func panEnded(_ gesture: UIPanGestureRecognizer) {
+            guard gesture.state == .ended else { return }
+            let translation = gesture.translation(in: self)
+            if NotificationHistoryGesture.opens(x: translation.x, y: translation.y) { open() }
         }
     }
-#endif
+}
 
 /// A floating inbox keeps the current app in view. Glass is reserved for
 /// navigation; a neutral reading surface keeps colorful wallpapers out of text.
@@ -132,12 +108,8 @@ struct NotificationHistory: View {
                 }
             }
         }
-        #if os(iOS)
-            .listStyle(.insetGrouped)
-            .listSectionSpacing(20)
-        #else
-            .listStyle(.inset)
-        #endif
+        .listStyle(.insetGrouped)
+        .listSectionSpacing(20)
         .scrollContentBackground(.hidden)
         .scrollBounceBehavior(.basedOnSize)
         .animation(.snappy(duration: 0.25), value: expanded)
@@ -296,8 +268,6 @@ private struct NotificationHistoryRow: View {
 struct NotificationHistoryAccess: ViewModifier {
     func body(content: Content) -> some View {
         content
-            #if os(iOS)
-                .defersSystemGestures(on: [.top, .bottom])
-            #endif
+            .defersSystemGestures(on: [.top, .bottom])
     }
 }

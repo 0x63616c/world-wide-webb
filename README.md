@@ -1,6 +1,6 @@
 # World Wide Webb
 
-Native SwiftUI home control for iPad, iPhone/Duo and Mac, with a Rust backend, SQLite and OpenTofu.
+Native SwiftUI home control for iPad and iPhone/Duo, with a Rust backend, SQLite and OpenTofu.
 The shared clock-first interface retains the iPad app's components and slide-up launcher.
 
 Start with [CODEBASE_OVERVIEW.md](CODEBASE_OVERVIEW.md) for source locations and

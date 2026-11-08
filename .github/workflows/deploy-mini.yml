@@ -13,7 +13,6 @@ on:
 permissions:
   contents: read
   actions: read
-  packages: write
 concurrency:
   group: deploy-mini
   cancel-in-progress: false
@@ -28,6 +27,7 @@ jobs:
       sha: ${{ steps.source.outputs.sha }}
       generation: ${{ steps.source.outputs.generation }}
       image: ${{ steps.selection.outputs.image }}
+      image_ref: ${{ steps.image.outputs.image }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -50,6 +50,17 @@ jobs:
           assert isinstance(value,bool)
           with open(os.environ['GITHUB_OUTPUT'],'a') as out:out.write('image='+str(value).lower()+'\n')
           PY
+      - uses: actions/download-artifact@v4
+        if: steps.selection.outputs.image == 'true'
+        with:
+          name: ci-image
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - id: image
+        if: steps.selection.outputs.image == 'true'
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: python3 tools/ci_image.py select "$SOURCE_SHA"
   release:
     needs: source
     if: needs.source.outputs.image == 'true'
@@ -61,20 +72,7 @@ jobs:
         with:
           ref: ${{ needs.source.outputs.sha }}
           persist-credentials: false
-      - uses: docker/setup-buildx-action@v4
-      - uses: ./.github/actions/ghcr-login
-        env:
-          SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
-      - id: image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          platforms: linux/arm64
-          tags: ghcr.io/0x63616c/www-control-center-mini:${{ needs.source.outputs.sha }}
-          build-args: BUILD_HASH=${{ needs.source.outputs.sha }}
-          cache-from: type=gha,scope=www-mini
-          cache-to: type=gha,mode=max,scope=www-mini
+      - uses: ./.github/actions/install-sops
       - name: Load deployment credentials once
         env:
           SOPS_AGE_KEY: ${{ secrets.AGE_PRIVATE_KEY }}
@@ -86,7 +84,7 @@ jobs:
           tags: tag:ci
       - name: Deploy tested image and operations together
         env:
-          IMAGE: ghcr.io/0x63616c/www-control-center-mini@${{ steps.image.outputs.digest }}
+          IMAGE: ${{ needs.source.outputs.image_ref }}
           REVISION: ${{ needs.source.outputs.sha }}
           GENERATION: ${{ needs.source.outputs.generation }}
           MINI_KNOWN_HOSTS: ${{ vars.MINI_KNOWN_HOSTS }}

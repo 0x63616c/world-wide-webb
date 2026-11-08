@@ -1,9 +1,6 @@
 import Foundation
 import Observation
-
-#if os(iOS)
-    import UIKit
-#endif
+import UIKit
 
 // Presentation models default to fixtures for the prototype; live hosts inject values.
 // No device discovery, credentials, or networking belongs in these models.
@@ -453,11 +450,7 @@ extension HomeDataSource {
     ) {
         self.latency = latency
         self.fixedNow = fixedNow
-        #if os(iOS)
-            let device: WalkDevice = UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
-        #else
-            let device: WalkDevice = .mac
-        #endif
+        let device: WalkDevice = UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
         let walks = MockWalkProvider(
             now: fixedNow ?? ISO8601DateFormatter().date(from: "2026-10-29T22:41:00Z")!, device: device)
         self.walks = walks

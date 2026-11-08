@@ -15,7 +15,6 @@ import XCTest
         let store = MockHomeDataSource(latency: .zero, fixedNow: FixtureClock.now)
         let scenes: [(String, AnyView)] = [
             ("home", AnyView(SnapshotFace(store: store, controls: false))),
-            ("mac-home", AnyView(SnapshotFace(store: store, controls: false).environment(\.desktopLayout, true))),
             ("tesla", AnyView(ControllerHost(tile: .tesla, store: store, close: {}).background(.black))),
             (
                 "tesla-tile",
@@ -95,7 +94,7 @@ import XCTest
             // Faithful fallback: render the same view in one persistent unit-test window.
             // drawHierarchy includes native glass/backdrop compositing, unlike ImageRenderer.
             let host = UIHostingController(rootView: content)
-            host.traitOverrides.userInterfaceIdiom = name == "mac-home" ? .mac : .pad
+            host.traitOverrides.userInterfaceIdiom = .pad
             host.safeAreaRegions = []
             host.view.backgroundColor = .clear
             window.rootViewController = host

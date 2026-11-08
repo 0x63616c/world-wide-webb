@@ -1,5 +1,10 @@
 # Native Swift, Rust, SQLite and OpenTofu reset
 
+> Latest approved scope (2026-11-07): ship only the shared iPad/iPhone/Duo app. Mac app support and
+> distribution are cancelled; retain Mac mini backend hosting and macOS development/CI tooling.
+> Historical Mac deliverables below are superseded. Visual evidence stays outside Git.
+
+
 Status: independently reviewed and approved by Calum on 2026-11-07.
 Source baseline: `7841e2732c73b99f99344142eedccf15e75aa53e` plus read-only production measurements.
 Implementation is approved. All work remains local through completed implementation and independent

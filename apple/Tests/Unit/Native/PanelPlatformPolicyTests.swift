@@ -3,12 +3,7 @@ import XCTest
 
 @testable import Panel
 
-final class PanelWindowPolicyTests: XCTestCase {
-    func testDesktopWindowCanResizeToPhoneWidth() throws {
-        XCTAssertEqual(PanelWindowPolicy.minimumSize(isDesktop: true), CGSize(width: 360, height: 480))
-        XCTAssertNil(PanelWindowPolicy.minimumSize(isDesktop: false))
-    }
-
+final class PanelPlatformPolicyTests: XCTestCase {
     func testHostedAppPreservesPlatformWindowPolicy() throws {
         let info = try XCTUnwrap(Bundle.main.infoDictionary)
         let isPanel = UIDevice.current.userInterfaceIdiom == .pad
@@ -18,6 +13,12 @@ final class PanelWindowPolicyTests: XCTestCase {
         XCTAssertEqual(orientations.contains("UIInterfaceOrientationPortrait"), !isPanel)
         XCTAssertTrue(orientations.contains("UIInterfaceOrientationLandscapeLeft"))
         XCTAssertTrue(orientations.contains("UIInterfaceOrientationLandscapeRight"))
+    }
+
+    func testOnlyPhoneAndTabletDeviceFamiliesAreShipped() throws {
+        let families = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "UIDeviceFamily") as? [Int])
+        XCTAssertEqual(Set(families), [1, 2])
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "LSRequiresIPhoneOS") as? Bool, true)
     }
 
     func testLauncherFitsCompactAndRegularWindows() {

@@ -155,7 +155,6 @@ struct PanelRoot: View {
             .accessibilityHidden(!nativeVisible)
         }
         .background(Color.black)
-        .background { PanelWindowAttachment().allowsHitTesting(false) }
         .background { PanelDiagnosticsAccess(store: store).allowsHitTesting(false) }
         .onReceive(
             Foundation.NotificationCenter.default.publisher(for: PanelCommandLog.failureNotification).receive(
@@ -168,7 +167,7 @@ struct PanelRoot: View {
         }
         .statusBarHidden()
         .defersSystemGestures(on: .bottom)
-        .persistentSystemOverlays(ProcessInfo.processInfo.isiOSAppOnMac ? .automatic : .hidden)
+        .persistentSystemOverlays(.hidden)
         .onChange(of: PanelTimerAlerts.shared.openedTimerID, initial: true) { _, id in
             guard timer.matchesNotification(id) else { return }
             PanelTimerAlerts.shared.clearOpenedTimer()

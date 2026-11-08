@@ -238,9 +238,6 @@ struct HomeView: View {
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height).clipped()
                 .environment(\.colorScheme, .dark).foregroundStyle(.white).tint(.white)
-                #if os(macOS)
-                    .onExitCommand { if showingClock || selected != nil { home() } else { clock() } }
-                #endif
                 .onOpenURL { url in if url.host == "dogwalk", let app = catalog.app(id: "walks") { open(app) } }
                 .onChange(of: store.walks.activeWalk, initial: true) { _, walk in
                     store.walkActivity.synchronize(walk: walk, now: store.now)
@@ -278,7 +275,7 @@ struct HomeView: View {
             PanelIdleDimming(
                 onIdle: clock, timeout: display.returnToClockSeconds, inhibited: keepsAwake, onWake: onWake)
         )
-        #if targetEnvironment(simulator) || targetEnvironment(macCatalyst)
+        #if targetEnvironment(simulator)
             .background {
                 Button("Open apps") { if showingClock || selected != nil { home() } else { clock() } }
                 .keyboardShortcut(.escape, modifiers: [])

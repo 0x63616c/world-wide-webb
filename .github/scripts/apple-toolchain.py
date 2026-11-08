@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Select the same supported Xcode major for CI and local release validation."""
 
+import argparse
 import glob
+import hashlib
 import os
 import re
 import subprocess
@@ -43,6 +45,14 @@ def developer_dir():
 
 if __name__ == "__main__":
     try:
-        print(developer_dir())
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--cache-key", action="store_true")
+        args = parser.parse_args()
+        path = developer_dir()
+        if args.cache_key:
+            version = subprocess.check_output([str(Path(path) / "usr/bin/xcodebuild"), "-version"])
+            print(hashlib.sha256(version).hexdigest()[:16])
+        else:
+            print(path)
     except ValueError as error:
         raise SystemExit(str(error))

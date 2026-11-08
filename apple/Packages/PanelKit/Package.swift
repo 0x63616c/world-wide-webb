@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "PanelKit",
+    // macOS hosts developer/CI package tests; it is not an application destination.
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [.library(name: "PanelKit", targets: ["PanelKit"])],
     targets: [

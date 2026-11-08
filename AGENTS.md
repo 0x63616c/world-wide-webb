@@ -14,7 +14,8 @@ Calum chose a Tailscale-only API: all devices on the Tailnet are trusted, with n
 Production uses the fresh frozen-writer SQLite import; original PostgreSQL and media archives are retained.
 Consult issue #941 and the progress tracker for current deployment and Apple-delivery evidence.
 Documentation follows working code. Prioritize iPad fidelity, database/Photo Booth preservation and Rust;
-exercise iPhone/Duo and Mac last. They remain in scope. Legacy wake images are not a blocker.
+exercise iPhone/Duo last. Calum removed Mac app support: ship only iPad and iPhone/Duo.
+Keep Mac mini hosting and macOS development/test tooling; retain historical data decoding. Legacy wake images are not a blocker.
 
 ## Structure and invariants
 
@@ -46,10 +47,10 @@ Commit coherent working slices using Conventional Commits. Keep vendored skills 
 updates in `.agents/skills/SOURCES.md`.
 
 For SwiftUI changes use `swiftui-expert-skill`, `apple-hig`, `animation-patterns` and the platform's
-`swiftui-liquid-glass`/`liquid-glass` skills; use `swiftui-patterns` for desktop scenes. Use system glass APIs.
+`swiftui-liquid-glass` skill. Use system glass APIs.
 
 `tools/check` exposes `lint`, `rust`, `ops`, `apple`, `integration` and `infra`. Run relevant checks, then
-`tools/test_apple.sh` for the production iPad build/unit tests. Use existing UI tests for interaction evidence.
+`tools/test_apple.sh` for the production iPad build/unit tests and iPhone platform policy. Use existing UI tests for interaction evidence.
 Pinned linters cover Rust, Python, Swift, shell and workflow files. `tools/check dependencies` enforces
 cargo-deny advisories, licenses, dependency constraints and allowed sources. Pre-commit guards formatting/syntax,
 private information, encrypted secrets and worktree rules; pre-push runs Rust and operations tests.

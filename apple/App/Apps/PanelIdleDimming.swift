@@ -48,11 +48,12 @@ struct PanelIdleDimming: ViewModifier {
     }
 
     private var visualOpacity: Double {
-        #if os(iOS) && !targetEnvironment(simulator) && !targetEnvironment(macCatalyst)
-            // iPad hardware brightness must not be multiplied by a second dark overlay.
-            if !ProcessInfo.processInfo.isiOSAppOnMac { return 0 }
+        #if targetEnvironment(simulator)
+            return 1 - display.brightness(dimmed: idle.dimmed)
+        #else
+            // Hardware brightness must not be multiplied by a second dark overlay.
+            return 0
         #endif
-        return 1 - display.brightness(dimmed: idle.dimmed)
     }
 
     func body(content: Content) -> some View {
@@ -70,16 +71,11 @@ struct PanelIdleDimming: ViewModifier {
                     .accessibilityAddTraits(.isModal)
                 }
             }
-            #if os(iOS) && !targetEnvironment(macCatalyst)
-                .background {
-                    PanelScreenBrightness(level: display.brightness(dimmed: idle.dimmed), active: phase == .active)
+            .background {
+                PanelScreenBrightness(level: display.brightness(dimmed: idle.dimmed), active: phase == .active)
                     .allowsHitTesting(false)
-                    PanelInputObserver(activity: { idle.activity() })
-                }
-            #else
-                .simultaneousGesture(TapGesture().onEnded { idle.activity() })
-                .onContinuousHover { hover in if case .active = hover { idle.wake() } }
-            #endif
+                PanelInputObserver(activity: { idle.activity() })
+            }
             .task(id: "\(phase)-\(timeout)-\(display.dimAfterSeconds)-\(display.idleDimming)-\(inhibited)") {
                 guard phase == .active, !inhibited else { return }
                 idle.wake()

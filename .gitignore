@@ -94,3 +94,5 @@ ci-selection.json
 /docs/pr-screenshots/
 /apple/docs/screenshots/
 /apple/App/Platform/Verification/
+
+/ci-image.json
