@@ -14,7 +14,8 @@ struct NotificationHistoryEdge: View {
 
     var body: some View {
         NotificationEdgePan { center.historyPresented = true }
-            .frame(height: 24)
+            .frame(width: 180, height: 24)
+            .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -51,13 +52,11 @@ private struct NotificationEdgePan: UIViewRepresentable {
     }
 }
 
-/// A floating inbox keeps the current app in view. Glass is reserved for
-/// navigation; a neutral reading surface keeps colorful wallpapers out of text.
+/// A flat inbox shares the incoming card layout and native glass surfaces.
 struct NotificationHistory: View {
     @Environment(NotificationCenter.self) private var center
     @Environment(\.dynamicTypeSize) private var typeSize
     let source: (String) -> NotificationSource
-    @State private var expanded: Set<String> = []
     @State private var clearing = false
 
     var body: some View {
@@ -68,18 +67,14 @@ struct NotificationHistory: View {
             VStack(spacing: 12) {
                 header
                     .glassEffect(.regular, in: .rect(cornerRadius: 32))
-                VStack(spacing: 0) {
-                    status
-                    if center.history.isEmpty {
-                        ContentUnavailableView("All caught up", systemImage: "checkmark")
-                            .accessibilityIdentifier("notification-history-empty")
-                    } else {
-                        historyList
-                    }
-                    closeHandle
+                status
+                if center.history.isEmpty {
+                    ContentUnavailableView("All caught up", systemImage: "checkmark")
+                        .accessibilityIdentifier("notification-history-empty")
+                } else {
+                    historyList
                 }
-                .background(.background, in: .rect(cornerRadius: 28))
-                .clipShape(.rect(cornerRadius: 28))
+                closeHandle
             }
             .frame(
                 maxWidth: typeSize.isAccessibilitySize ? 760 : 600,
@@ -96,23 +91,16 @@ struct NotificationHistory: View {
 
     private var historyList: some View {
         List {
-            ForEach(center.groups) { group in
-                Section {
-                    ForEach(expanded.contains(group.id) ? group.items : Array(group.items.prefix(1))) { item in
-                        NotificationHistoryRow(item: item, source: source(group.id))
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-                    }
-                } header: {
-                    groupHeader(group)
-                }
+            ForEach(center.history) { item in
+                NotificationHistoryRow(item: item, source: source(item.sourceModule))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0))
             }
         }
-        .listStyle(.insetGrouped)
-        .listSectionSpacing(20)
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollBounceBehavior(.basedOnSize)
-        .animation(.snappy(duration: 0.25), value: expanded)
     }
 
     private var header: some View {
@@ -152,51 +140,6 @@ struct NotificationHistory: View {
             Label("Offline", systemImage: "wifi.slash")
                 .font(.callout).foregroundStyle(.secondary).padding(.vertical, 8)
         }
-    }
-
-    private func groupHeader(_ group: NotificationGroup) -> some View {
-        let identity = source(group.id)
-        let isExpanded = expanded.contains(group.id)
-        return HStack(spacing: 8) {
-            if group.items.count > 1 {
-                Button {
-                    if !expanded.insert(group.id).inserted { expanded.remove(group.id) }
-                } label: {
-                    groupLabel(group, identity: identity, isExpanded: isExpanded)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(identity.name), \(group.items.count) notifications")
-                .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
-                .accessibilityHint("Shows or hides older notifications")
-                .accessibilityIdentifier("notification-history-group-\(group.id)")
-            } else {
-                groupLabel(group, identity: identity, isExpanded: false)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("notification-history-group-\(group.id)")
-            }
-            NotificationIconButton(label: "Clear all \(identity.name) notifications", symbol: "xmark") {
-                clear(group.id)
-            }
-            .disabled(clearing || !group.items.contains(where: { !$0.isPersistentUpdate }))
-            .accessibilityIdentifier("notification-history-clear-\(group.id)")
-        }
-        .textCase(nil)
-        .padding(.bottom, 4)
-    }
-
-    private func groupLabel(_ group: NotificationGroup, identity: NotificationSource, isExpanded: Bool) -> some View {
-        HStack(spacing: 12) {
-            NotificationSourceIcon(source: identity, side: 32)
-            Text(identity.name).font(.headline).foregroundStyle(Color.primary)
-            if group.items.count > 1 {
-                Text(group.items.count, format: .number)
-                    .font(.subheadline.monospacedDigit()).foregroundStyle(Color.secondary)
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.caption.weight(.semibold)).foregroundStyle(Color.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(minHeight: 44).contentShape(.rect)
     }
 
     private var closeHandle: some View {
@@ -240,8 +183,8 @@ private struct NotificationHistoryRow: View {
         Button {
             Task { await center.open(item.id) }
         } label: {
-            NotificationMessage(item: item)
-                .padding(.vertical, 2)
+            NotificationCardContent(item: item, source: source)
+                .glassEffect(.regular, in: .rect(cornerRadius: 26))
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)

@@ -15,13 +15,13 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertGreaterThan(banner.frame.width, 300)
         XCTAssertLessThan(app.frame.maxX - banner.frame.maxX, 90)
         XCTAssertGreaterThanOrEqual(banner.frame.minY - app.frame.minY, 72)
-        XCTAssertTrue(app.buttons["notification-dismiss-lights"].isHittable)
+        XCTAssertFalse(app.buttons["notification-dismiss-lights"].exists)
         banner.swipeLeft()
         XCTAssertTrue(banner.exists)
         swipeRight(banner)
         XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.012))
-            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.4)))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.012))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.4)))
         XCTAssertTrue(app.buttons["notification-history-close"].waitForExistence(timeout: 10))
         XCTAssertTrue(
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-history-item-"))
@@ -32,7 +32,7 @@ final class NotificationBannerTests: XCTestCase {
         let app = launchCapture("stacked")
         let top = app.buttons["notification-banner-updates"]
         XCTAssertTrue(top.waitForExistence(timeout: 20))
-        XCTAssertEqual(app.staticTexts["notification-stack-count"].label, "3 notifications")
+        XCTAssertEqual(app.buttons["notification-stack-expand"].value as? String, "3 notifications")
         XCTAssertEqual(
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-")).count, 1)
         capture("notification-stack", app)
@@ -47,7 +47,7 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(app.buttons["notification-banner-walk"].exists)
         capture("notification-expanded-after-dismiss", app)
         app.buttons["notification-stack-collapse"].tap()
-        XCTAssertTrue(app.staticTexts["notification-stack-count"].exists)
+        XCTAssertTrue(app.buttons["notification-stack-expand"].exists)
     }
 
     @MainActor func testExpandedStackPausesTimeouts() async {
@@ -134,6 +134,26 @@ final class NotificationBannerTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["native-lights-detail"].firstMatch.waitForExistence(timeout: 10))
     }
 
+    @MainActor func testOpenAppHidesItsBannerAndDoesNotReplayAfterClosing() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples",
+            "-notificationHold", "-panel.idleDimming", "NO",
+        ]
+        XCUIDevice.shared.orientation = .landscapeLeft
+        app.launch()
+        defer { app.terminate() }
+        let banner = app.buttons["notification-banner-lights"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 20))
+        app.openHomeModule("lights")
+        XCTAssertTrue(banner.waitForNonExistence(timeout: 5))
+        app.buttons["app-back"].tap()
+        XCTAssertTrue(app.buttons["app-lights"].waitForExistence(timeout: 10))
+        XCTAssertFalse(banner.exists)
+        XCTAssertFalse(app.buttons["notification-open-history"].exists)
+    }
+
     @MainActor func testAutoTimeoutOnNativeHome() {
         let app = XCUIApplication(bundleIdentifier: "co.worldwidewebb.theworkflowengine")
         app.launchArguments = ["-hybridFixtures", "-hybridStill", "-updateCheckFakeBuild", "1", "-notificationSamples"]
@@ -166,7 +186,7 @@ final class NotificationBannerTests: XCTestCase {
         let banners = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "notification-banner-"))
             .allElementsBoundByIndex
         for banner in banners where banner.isHittable { XCTAssertGreaterThanOrEqual(banner.frame.width, 300) }
-        let screenshot = XCUIScreen.main.screenshot()
+        let screenshot = app.windows.firstMatch.screenshot()
         XCTAssertEqual(screenshot.image.size.width / screenshot.image.size.height, 1366.0 / 1024.0, accuracy: 0.01)
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name

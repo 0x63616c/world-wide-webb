@@ -98,6 +98,20 @@ struct NotificationBanners: View {
                     if let first = items.first {
                         banner(first)
                     }
+                    if items.count > 1 {
+                        Button {
+                            withAnimation(motion) { expanded.toggle() }
+                        } label: {
+                            Text(expanded ? "Show less" : "\(items.count - 1) more")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                .frame(minWidth: 80, minHeight: 44)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityValue("\(items.count) notifications")
+                        .accessibilityLabel(expanded ? "Collapse notifications" : "Expand notifications")
+                        .accessibilityIdentifier(expanded ? "notification-stack-collapse" : "notification-stack-expand")
+                    }
                     if expanded && items.count > 1 {
                         ScrollView {
                             LazyVStack(spacing: 10) {
@@ -115,38 +129,6 @@ struct NotificationBanners: View {
                         .frame(maxHeight: min(580, expandedContentHeight))
                         .transition(.opacity)
                     }
-                    if !center.history.isEmpty {
-                        HStack(spacing: 10) {
-                            if items.count > 1 {
-                                Button {
-                                    withAnimation(motion) { expanded.toggle() }
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: expanded ? "chevron.up" : "square.stack")
-                                        Text(items.count, format: .number)
-                                            .monospacedDigit()
-                                            .accessibilityLabel("\(items.count) notifications")
-                                            .accessibilityIdentifier("notification-stack-count")
-                                    }
-                                    .font(.subheadline.weight(.semibold))
-                                    .frame(minWidth: 64, minHeight: 44)
-                                }
-                                .accessibilityLabel(expanded ? "Collapse notifications" : "Expand notifications")
-                                .accessibilityIdentifier(
-                                    expanded ? "notification-stack-collapse" : "notification-stack-expand")
-                            }
-                            Button {
-                                center.historyPresented = true
-                            } label: {
-                                Image(systemName: "tray.full")
-                                    .frame(width: 44, height: 44)
-                            }
-                            .accessibilityLabel("Open Notification Center")
-                            .accessibilityIdentifier("notification-open-history")
-                        }
-                        .buttonStyle(.glass)
-                        .tint(.primary)
-                    }
                     if let error = center.lastError {
                         Text(error).font(.callout).padding(12)
                             .background(.regularMaterial, in: .rect(cornerRadius: 16))
@@ -155,7 +137,7 @@ struct NotificationBanners: View {
                 }
             }
         }
-        .frame(width: typeSize.isAccessibilitySize ? 600 : 420)
+        .frame(maxWidth: typeSize.isAccessibilitySize ? 600 : 420)
         // Keep the host’s top control row reachable.
         .padding(.trailing, 20).padding(.top, 72)
         .opacity(isActivePresenter ? 1 : 0)
@@ -197,7 +179,7 @@ struct NotificationBanners: View {
             }
         )
         .id(item.id)
-        .transition(.move(edge: .trailing).combined(with: .opacity))
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
 
@@ -214,24 +196,12 @@ private struct NotificationBanner: View {
     let touch: (Bool) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 4) {
+        // Keep the swipe recognizer on a container, separate from Button's tap.
+        HStack(spacing: 0) {
             Button(action: open) {
-                HStack(alignment: .top, spacing: 12) {
-                    NotificationSourceIcon(source: source, side: 36)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(source.name).font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.secondary).lineLimit(1)
-                            Spacer(minLength: 4)
-                            NotificationTimestamp(date: item.createdAt)
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        NotificationMessage(item: item, compact: true)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 16).padding(.trailing, item.isPersistentUpdate ? 16 : 0).padding(.vertical, 16)
-                .contentShape(.rect)
+                NotificationCardContent(item: item, source: source)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
             }
             .buttonStyle(
                 NotificationTouchStyle(touch: { pressed in
@@ -240,14 +210,9 @@ private struct NotificationBanner: View {
                 })
             )
             .accessibilityIdentifier("notification-banner-\(item.sourceModule)")
-            .accessibilityHint("Opens \(source.name)")
+            .accessibilityHint("Opens \(source.name). Swipe right to hide.")
             .accessibilityActions {
                 if !item.isPersistentUpdate { Button("Dismiss", action: dismiss) }
-            }
-            if !item.isPersistentUpdate {
-                NotificationIconButton(label: "Dismiss \(source.name) banner", symbol: "xmark", action: dismiss)
-                    .padding(.trailing, 8).padding(.top, 8)
-                    .accessibilityIdentifier("notification-dismiss-\(item.sourceModule)")
             }
         }
         .foregroundStyle(.primary)

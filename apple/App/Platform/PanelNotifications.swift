@@ -96,6 +96,12 @@ import UIKit
         }
     }
 
+    static func sources(for appID: String?) -> Set<String> {
+        guard let appID else { return [] }
+        let ids = PanelModule.allCases.map(\.rawValue) + ["ctrl", "ac", "sound", "booth", "walks", "events", "timer"]
+        return Set(ids.filter { source($0).app?.id == appID || $0 == appID })
+    }
+
     static func source(_ id: String) -> NotificationSource {
         if id == "updates" { return NotificationSource(name: "Updates", symbol: "arrow.down.circle.fill") }
         let module = module(for: "module/\(id)")
@@ -104,6 +110,8 @@ import UIKit
         case .sonos: appID = "music"
         case .walk: appID = "walks"
         case .tesla: appID = "car"
+        case .photos: appID = "booth"
+        case .fan: appID = "climate"
         default: appID = module?.rawValue ?? id
         }
         if let app = PanelAppCatalog.standard.app(id: appID) {

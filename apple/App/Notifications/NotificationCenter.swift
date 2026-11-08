@@ -65,6 +65,7 @@ struct NotificationGroup: Identifiable, Equatable {
     private(set) var cursor: String?
     private var items: [String: NotificationItem] = [:]
     private var banners: Set<String> = []
+    private var visibleSources: Set<String> = []
     @ObservationIgnored private var remaining: [String: TimeInterval] = [:]
     @ObservationIgnored private var pausedSources: Set<String> = []
     @ObservationIgnored private var revisions: [String: Int64] = [:]
@@ -106,6 +107,14 @@ struct NotificationGroup: Identifiable, Equatable {
     var groups: [NotificationGroup] { group(history) }
     var unreadCount: Int { items.values.filter { $0.readAt == nil }.count }
     var bannerGroups: [NotificationGroup] { group(banners.compactMap { items[$0] }.sorted(by: Self.ordered)) }
+
+    func setVisibleSources(_ sources: Set<String>) {
+        visibleSources = sources
+        for id in banners where items[id].map({ sources.contains($0.sourceModule) }) == true {
+            banners.remove(id)
+            remaining.removeValue(forKey: id)
+        }
+    }
 
     @discardableResult
     func post(
@@ -282,7 +291,7 @@ struct NotificationGroup: Identifiable, Equatable {
         if row.readAt != nil {
             hideBanner(row.id)
         } else if duplicateLocal {
-            if wasPresented {
+            if wasPresented && !visibleSources.contains(row.sourceModule) {
                 banners.insert(row.id)
                 remaining[row.id] = oldRemaining
             }
@@ -297,7 +306,7 @@ struct NotificationGroup: Identifiable, Equatable {
     }
 
     private func present(_ id: String, feedback: Bool = true) {
-        guard let item = items[id] else { return }
+        guard let item = items[id], !visibleSources.contains(item.sourceModule) else { return }
         banners.insert(id)
         remaining[id] = item.priority.bannerDuration
         if feedback { arrivalFeedback += 1 }

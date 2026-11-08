@@ -157,7 +157,7 @@ struct PanelSettingsPage: View {
     }
 }
 
-/// Small, interruptible press feedback; screen navigation itself stays a crossfade.
+/// Small, interruptible press feedback; native zoom handles app presentation.
 private struct LauncherPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

@@ -20,6 +20,33 @@ import XCTest
         }
     }
 
+    func testCompactRelativeAges() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertEqual(NotificationAge.formatted(from: now - 60, to: now), "1m ago")
+        XCTAssertEqual(NotificationAge.formatted(from: now - 7200, to: now), "2h ago")
+        XCTAssertEqual(NotificationAge.formatted(from: now - 10, to: now), "Now")
+    }
+
+    func testOpenAppSuppressesBannersWithoutLosingHistoryOrReplayingOnClose() {
+        let center = Panel.NotificationCenter()
+        let old = center.post(sourceModule: "sound", title: "Sonos", body: "", deepLink: "module/sound")
+        center.setVisibleSources(PanelNotifications.sources(for: "music"))
+        XCTAssertTrue(center.bannerGroups.isEmpty)
+        let feedback = center.arrivalFeedback
+        center.post(sourceModule: "sonos", title: "Volume updated", body: "", deepLink: "module/sonos")
+        XCTAssertEqual(center.arrivalFeedback, feedback)
+        XCTAssertTrue(center.bannerGroups.isEmpty)
+        XCTAssertTrue(center.history.contains { $0.id == old })
+        center.post(sourceModule: "climate", title: "Ready", body: "", deepLink: "module/climate")
+        XCTAssertEqual(center.bannerGroups.map(\.id), ["climate"])
+        center.setVisibleSources([])
+        XCTAssertEqual(center.bannerGroups.map(\.id), ["climate"])
+        XCTAssertEqual(center.history.count, 3)
+        XCTAssertTrue(PanelNotifications.sources(for: "lights").contains("ctrl"))
+        XCTAssertTrue(PanelNotifications.sources(for: "timer").contains("timer"))
+        XCTAssertTrue(PanelNotifications.sources(for: "booth").contains("photos"))
+    }
+
     func testRightDragAndFlingOnly() {
         XCTAssertTrue(NotificationBannerGesture.dismisses(x: 90, y: 5))
         XCTAssertTrue(NotificationBannerGesture.dismisses(x: 25, y: 3, predictedX: 220))

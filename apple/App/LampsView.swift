@@ -160,7 +160,6 @@ struct LampEffectsView: View {
     @State private var editingSlot: Int?
     @State private var editingColors = false
     @State private var draftHex = ""
-    @State private var previewKelvin: Int?
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             Picker(
@@ -173,16 +172,12 @@ struct LampEffectsView: View {
             }.pickerStyle(.segmented)
             if store.lamps.scene == "White" {
                 VStack(spacing: 10) {
-                    HStack {
-                        SectionLabel(text: "White temperature")
-                        Spacer()
-                        Text("\(previewKelvin ?? store.lamps.kelvin) K").font(.system(size: 22))
-                    }
+                    SectionLabel(text: "White temperature")
                     FilledLevelControl(
                         value: store.lamps.kelvin, label: "White temperature", symbol: "thermometer.medium",
                         range: 2000...6500, step: 100, unit: "kelvin",
-                        track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color,
-                        preview: { previewKelvin = $0 }
+                        valueLabel: { "\($0) K" },
+                        track: WhiteTemperaturePreview.gradient, fill: WhiteTemperaturePreview.color
                     ) { store.send(.kelvin($0)) }
                     .frame(height: 70).accessibilityIdentifier("lamp-temperature")
                     HStack {
