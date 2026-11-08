@@ -202,7 +202,18 @@ def complete_assets(release, record):
 
 
 def reserve(source):
-    delivered = Release("callkeep-delivery").latest("delivery")
+    pointer = Release("callkeep-delivery")
+    fence = pointer.latest("promotion")
+    if fence:
+        comparison = subprocess.run(
+            prepare.git_command("merge-base", "--is-ancestor", source, fence["source_sha"]),
+            cwd=ROOT, capture_output=True, check=False,
+        )
+        if comparison.returncode == 0 and source != fence["source_sha"]:
+            return {"needed": False, "source_sha": source}
+        if comparison.returncode not in (0, 1):
+            raise RuntimeError("Cannot establish the promotion-source ancestry")
+    delivered = pointer.latest("delivery")
     if delivered:
         comparison = subprocess.run(
             prepare.git_command("merge-base", "--is-ancestor", source, delivered["source_sha"]),
@@ -224,6 +235,7 @@ def reserve(source):
         if comparison.returncode != 1:
             raise RuntimeError("Cannot establish the delivered-source ancestry")
     replacement = None
+    replacement_reason = None
     for _ in range(5):
         tags = source_tags()
         matching = [entry for entry in tags if entry[2] == source]
@@ -232,7 +244,11 @@ def reserve(source):
             release = Release(tag)
             release.ensure(source)
             record = release.latest()
-            if record and record.get("archive_attempt_started") and not complete_assets(release, record):
+            if fence and int(tag.rsplit(".", 1)[1]) < int(fence["version"].rsplit(".", 1)[1]):
+                replacement = tag
+                replacement_reason = "superseded_promotion_counter"
+            elif record and record.get("archive_attempt_started") and not complete_assets(release, record):
+                replacement_reason = "interrupted_archive"
                 replacement = tag  # Burn a possibly built number; keep every old record/artifact.
             else:
                 if record is None:
@@ -264,6 +280,7 @@ def reserve(source):
                 "version": f"1.0.{counter}",
                 "state": "planned",
                 "replaces_tag": replacement,
+                "replacement_reason": replacement_reason,
             }
         )
         return dict(record, needed=True, build=True)
@@ -377,7 +394,8 @@ def promote(release, record):
         raise ValueError("Prepared immutable artifact differs from the recorded artifact")
     commit = publish.publish(prepared)
     record = release.save(
-        dict(record, state="artifact_published", artifact_commit=commit, artifact_tag=prepared["tag"])
+        dict(record, state="artifact_published", artifact_commit=commit, artifact_tag=prepared["tag"],
+             artifact_receipt_sha256=prepared["receipt_sha256"])
     )
     from release_notes import release_notes
 
@@ -404,6 +422,54 @@ def promote(release, record):
     return record
 
 
+def validate_download_stage(stage, record):
+    # Homebrew's Git strategy stages its checkout metadata and the root receipt too.
+    names = {path.name for path in stage.iterdir()}
+    if not {"Callkeep.app", "artifact-receipt.json"} <= names or not names <= {
+        "Callkeep.app", "artifact-receipt.json", ".git"
+    }:
+        raise ValueError("Unexpected Homebrew transport entries")
+    app = stage / "Callkeep.app"
+    receipt_path = stage / "artifact-receipt.json"
+    if app.is_symlink() or not app.is_dir() or receipt_path.is_symlink() or not receipt_path.is_file():
+        raise ValueError("Expected regular artifact receipt and application directory")
+    if sha(receipt_path) != record["artifact_receipt_sha256"]:
+        raise ValueError("Downloaded artifact receipt differs")
+    receipt = json.loads(receipt_path.read_text())
+    if (
+        receipt.get("version") != 1
+        or receipt.get("product") != "callkeep"
+        or receipt.get("product_version") != record["version"]
+        or receipt.get("source_repository") != REPOSITORY
+        or receipt.get("source_sha") != record["source_sha"]
+    ):
+        raise ValueError("Downloaded artifact identity differs")
+    actual = {"Callkeep.app/" + name: entry for name, entry in prepare.fingerprint(app).items()}
+    if actual != receipt.get("payload"):
+        raise ValueError("Downloaded application bytes or modes differ")
+    prepare.validate_callkeep_app(app, record["source_sha"], record["version"])
+
+
+def fence_promotion(record):
+    """Persist monotonic intent before tap mutation, including an ambiguous push."""
+    require_download_proof(record)
+    pointer = Release("callkeep-delivery")
+    previous = pointer.latest("promotion")
+    if previous:
+        comparison = subprocess.run(
+            prepare.git_command("merge-base", "--is-ancestor", previous["source_sha"], record["source_sha"]),
+            cwd=ROOT, capture_output=True, check=False,
+        )
+        if comparison.returncode != 0:
+            raise ValueError("Refuse older or unrelated Callkeep promotion")
+        if int(record["version"].rsplit(".", 1)[1]) < int(previous["version"].rsplit(".", 1)[1]):
+            raise ValueError("Refuse a lower Callkeep release counter")
+        if previous["artifact_commit"] == record["artifact_commit"]:
+            return
+    pointer.ensure(record["source_sha"])
+    pointer.save({key: record[key] for key in ("source_sha", "version", "tag", "artifact_commit")}, "promotion")
+
+
 def verify_download(release, record):
     if record["state"] != "artifact_published":
         raise ValueError("Publish the immutable artifact before its download canary")
@@ -412,7 +478,7 @@ def verify_download(release, record):
         state = folder / "release.json"
         atomic_json(state, record)
         prepare.run("brew", "ruby", str(PRODUCT / "Scripts/verify-homebrew-download.rb"), str(state), str(folder))
-        prepare.validate_payload(folder / "stage", "callkeep", source=record["source_sha"], version=record["version"])
+        validate_download_stage(folder / "stage", record)
         environment = dict(os.environ)
         for name in ("GH_TOKEN", "GITHUB_TOKEN", "HOMEBREW_GITHUB_API_TOKEN", "GIT_ASKPASS", "GIT_CONFIG_PARAMETERS"):
             environment.pop(name, None)
@@ -535,7 +601,7 @@ def main():
         elif args.command == "cask":
             if not args.tap:
                 parser.error("--tap is required")
-            require_download_proof(state)
+            fence_promotion(state)
             prepare.run(
                 "python3",
                 str(PRODUCT / "Scripts/homebrew-cask.py"),

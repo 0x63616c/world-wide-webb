@@ -38,7 +38,7 @@ class ReleaseTests(unittest.TestCase):
         class Store:
             def __init__(self, tag):
                 self.tag = tag
-                self.store = stores.setdefault(tag, {"manifest": [], "delivery": [], "assets": {}})
+                self.store = stores.setdefault(tag, {"manifest": [], "delivery": [], "promotion": [], "assets": {}})
 
             def ensure(self, source):
                 pass
@@ -115,6 +115,75 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(release.reserve(self.second)["needed"])
         self.assertEqual(store.latest()["state"], "complete", "Reconcile a lost final-record response")
         self.assertEqual(len(self.refs), 1)
+
+    def test_tap_pushed_but_delivery_pointer_lost_cannot_allow_older_source(self):
+        newer = release.reserve(self.second)
+        newer.update(state="artifact_published", artifact_commit="b" * 40)
+        newer["download_verified"] = {
+            "source_sha": self.second, "artifact_commit": "b" * 40, "anonymous_denied": True,
+        }
+        release.fence_promotion(newer)
+        # Tap push succeeds, but the job dies before complete writes its delivery pointer.
+        self.assertIsNone(release.Release("callkeep-delivery").latest("delivery"))
+        self.assertFalse(release.reserve(self.first)["needed"])
+        older = dict(newer, source_sha=self.first, version="1.0.25", artifact_commit="a" * 40)
+        older["download_verified"] = {
+            "source_sha": self.first, "artifact_commit": "a" * 40, "anonymous_denied": True,
+        }
+        with self.assertRaisesRegex(ValueError, "older"):
+            release.fence_promotion(older)
+        release.fence_promotion(newer)  # Same artifact recovery remains possible.
+
+    def test_newer_source_with_sealed_lower_counter_gets_fresh_reservation(self):
+        newer = release.reserve(self.second)
+        store = release.Release(newer["tag"])
+        candidates = {name: {"name": name + ".zip", "sha256": "a" * 64} for name in ("archive", "dsym", "notary")}
+        sealed = store.save(dict(store.latest(), archive_attempt_started=True, state="sealed", candidates=candidates))
+        store.store["assets"].update({item["name"]: b"fixture" for item in candidates.values()})
+        older = release.reserve(self.first)
+        older.update(state="artifact_published", artifact_commit="a" * 40)
+        older["download_verified"] = {
+            "source_sha": self.first, "artifact_commit": "a" * 40, "anonymous_denied": True,
+        }
+        release.fence_promotion(older)
+        replacement = release.reserve(self.second)
+        self.assertEqual(replacement["version"], "1.0.28")
+        self.assertEqual(replacement["replaces_tag"], newer["tag"])
+        self.assertEqual(replacement["replacement_reason"], "superseded_promotion_counter")
+        self.assertTrue(replacement["build"])
+        self.assertEqual(store.latest(), sealed, "Never relabel or discard the sealed lower-version bytes")
+
+    def test_homebrew_metadata_is_separate_from_strict_artifact_payload(self):
+        stage = self.root / "stage"
+        app = stage / "Callkeep.app"
+        app.mkdir(parents=True)
+        (app / "executable").write_bytes(b"app")
+        (app / "executable").chmod(0o755)
+        (stage / ".git").mkdir()
+        receipt = {
+            "version": 1, "product": "callkeep", "product_version": "1.0.26",
+            "source_repository": release.REPOSITORY, "source_sha": self.first,
+            "payload": {"Callkeep.app/" + name: entry for name, entry in release.prepare.fingerprint(app).items()},
+        }
+        path = stage / "artifact-receipt.json"
+        path.write_text(json.dumps(receipt))
+        record = {"source_sha": self.first, "version": "1.0.26", "artifact_receipt_sha256": release.sha(path)}
+        with patch.object(release.prepare, "validate_callkeep_app") as validate:
+            release.validate_download_stage(stage, record)
+            validate.assert_called_once_with(app, self.first, "1.0.26")
+            with self.assertRaisesRegex(ValueError, "prebuilt"):
+                release.prepare.validate_payload(stage, "callkeep", source=self.first, version="1.0.26")
+            (stage / "extra").write_text("unexpected")
+            with self.assertRaisesRegex(ValueError, "transport"):
+                release.validate_download_stage(stage, record)
+            (stage / "extra").unlink()
+            (app / "executable").chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "modes"):
+                release.validate_download_stage(stage, record)
+            (app / "executable").chmod(0o755)
+            path.write_text(json.dumps(dict(receipt, source_sha=self.second)))
+            with self.assertRaisesRegex(ValueError, "receipt"):
+                release.validate_download_stage(stage, record)
 
     def test_manifest_compare_and_set_rejects_a_stale_writer_before_upload(self):
         store = REAL_RELEASE("callkeep/v1.0.26")

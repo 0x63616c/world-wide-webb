@@ -3,10 +3,35 @@
 Execution authorized November 8, 2026. The accepted scope and acceptance criteria are in
 [the migration plan](world-wide-webb-monorepo-2026-11-08.md).
 
+## Active goal execution contract
+
+The full consolidation goal remains active. The November 8 working instructions govern
+execution, including where they are stricter than the stored goal wording:
+
+- The primary agent implements substantial coherent batches. Subagents provide independent
+  final review only; Astra reviews the completed candidate, with findings fixed locally.
+- Keep the entire migration candidate, verification, review fixes and Conventional Commits
+  local until the complete candidate is reviewed. Then publish, pass required checks, merge
+  and verify delivery. A usable-cutover priority does not authorize publishing a partial candidate.
+- Preserve the existing worktree, original checkouts, ongoing source work, product identities,
+  data/media, infrastructure ownership and excluded repositories. Refresh sources before handover.
+- Use one primary-agent persistent credential session; reviewers do not access credentials.
+  Keep secrets, private state and private visual evidence outside Git.
+- Optimize elapsed time through substantial batches, existing product tooling and reuse of
+  valid exact-source evidence. Run relevant checks and required product acceptance checks;
+  avoid repeated broad verification without a new reason.
+- Continue autonomously within the agreed scope. Report estimated overall completion and
+  current stage. Completion requires actual delivery, retained integrations/data/media and
+  applicable restore evidence; local wiring or successful uploads alone do not prove it.
+
+Overall estimate remains approximately 36%; current stage is local release-adapter review
+and fixes. The complete candidate is not yet ready for publication or live cutover.
+
 ## Current candidate
 
 Local branch `codex/monorepo-consolidation`, created from WWW `242eb8f4a0c3dc1ca336c20682e610128f914ac9`.
-Nothing published, no visibility or production changes. Original working copies remain untouched.
+Migration candidate not published; repository visibility is unchanged. Original working copies remain untouched.
+The obsolete Mini deployment trigger was disabled separately; the running service remained healthy.
 
 Non-squashed local history imports:
 
@@ -360,3 +385,18 @@ Before enabling: drain legacy Callkeep writer, seed all relevant source aliases 
 latest counter, transfer scoped signing/tap credentials, perform real notarized/private download/
 install/upgrade canaries, and pass the independent complete batch review. Intel slices are checked;
 Intel runtime acceptance remains separate from universal packaging.
+
+### Callkeep producer review fixes
+
+Astra's two confirmed findings are fixed locally. Homebrew transport validation accepts only
+its expected checkout metadata, verifies the exact immutable receipt digest/identity and every
+app byte/mode/symlink, then verifies the app signature and source identity. Generic artifact roots
+remain strict. A durable monotonic promotion fence is saved before changing the tap; a successful
+tap push followed by a lost delivery-pointer write can no longer permit an older source rollback.
+A newer sealed source stranded below that fence gets a fresh higher reservation with an explicit
+replacement reason; the old signed bytes and records remain unchanged. Eleven producer tests
+and eight shared artifact tests pass. Independent fix review is pending; live delivery is unproved.
+
+Upstream freshness: WWW main now includes Linux runner CI PR958 at `4af50b39b`; homelab main
+includes permanent runner validation PR35 at `574330c`. Import/handover still requires preserving
+active CLI/source work and confirming current live ownership before any writer changes.

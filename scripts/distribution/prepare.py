@@ -69,6 +69,19 @@ def validate_callkeep_identity(app, source, version):
         raise ValueError("Signed Callkeep identity does not match this production release")
 
 
+def validate_callkeep_app(app, source, version):
+    if app.is_symlink() or not app.is_dir():
+        raise ValueError("Expected a real Callkeep application directory")
+    run("codesign", "--verify", "--deep", "--strict", str(app))
+    details = subprocess.run(
+        ["codesign", "-dv", "--verbose=4", str(app)], capture_output=True, text=True, check=True
+    ).stderr
+    if f"TeamIdentifier={TEAM}" not in details or "Authority=Developer ID Application:" not in details:
+        raise ValueError("Private Callkeep distribution requires the expected Developer ID signature")
+    run("xcrun", "stapler", "validate", str(app))
+    validate_callkeep_identity(app, source, version)
+
+
 def validate_payload(payload, product, *, source=None, version=None):
     expected = {"Callkeep.app"} if product == "callkeep" else {"bin", "share"}
     names = {path.name for path in payload.iterdir()}
@@ -76,14 +89,7 @@ def validate_payload(payload, product, *, source=None, version=None):
         raise ValueError("Artifact root must contain only its prebuilt product payload")
     if product == "callkeep":
         app = payload / "Callkeep.app"
-        run("codesign", "--verify", "--deep", "--strict", str(app))
-        details = subprocess.run(
-            ["codesign", "-dv", "--verbose=4", str(app)], capture_output=True, text=True, check=True
-        ).stderr
-        if f"TeamIdentifier={TEAM}" not in details or "Authority=Developer ID Application:" not in details:
-            raise ValueError("Private Callkeep distribution requires the expected Developer ID signature")
-        run("xcrun", "stapler", "validate", str(app))
-        validate_callkeep_identity(app, source, version)
+        validate_callkeep_app(app, source, version)
     else:
         for name in ("homelab", "homelab-host", "hl"):
             binary = payload / "bin" / name
