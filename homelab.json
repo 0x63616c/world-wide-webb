@@ -11,7 +11,14 @@
       "authorizedKeys": [
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHZ7LV/EOeunWFi71s4dNzLnwsusY9RlMj37TaPecurE"
       ],
-      "services": []
+      "services": [
+        "control-center",
+        "home-assistant",
+        "bambuddy",
+        "hindsight",
+        "cloudflared",
+        "penpot"
+      ]
     },
     "homelab-macbook": {
       "adminUser": "admin",

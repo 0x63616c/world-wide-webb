@@ -11,7 +11,16 @@ services:
     env_file:
       - path: ${HINDSIGHT_ENV_FILE:?Provision the existing Hindsight runtime environment securely}
         format: raw
+    environment:
+      HF_HOME: /model-cache/huggingface
+      HF_HUB_CACHE: /model-cache/huggingface/hub
+      SENTENCE_TRANSFORMERS_HOME: /model-cache/huggingface/hub
     volumes:
+      - type: volume
+        source: hindsight_model_cache
+        target: /model-cache
+        volume:
+          nocopy: true
       - type: volume
         source: hindsight_data
         target: /home/hindsight/.pg0
@@ -35,3 +44,6 @@ volumes:
   hindsight_codex_home:
     external: true
     name: hindsight_codex_home
+  hindsight_model_cache:
+    external: true
+    name: hindsight_model_cache

@@ -8,4 +8,10 @@
   homelab.containers.memoryGiB = 4;
   homelab.homeassistant.memoryGiB = 2;
   homelab.runners.enable = false;
+  # Verified on the rebuilt Mini: en1 is the home-LAN default route.
+  homelab.homeassistant.bridgeInterface = "en1";
+  homelab.homeassistant.lanIPv4 = "192.168.0.130/24";
+  homelab.homeassistant.lanIPv4Gateway = "192.168.0.1";
+  homelab.containers.controlCenter.workersEnabled = true;
+  homelab.backups.enable = true;
 }
