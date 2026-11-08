@@ -1,3 +1,8 @@
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import textwrap
 import unittest
 
 from ci_changes import classify
@@ -5,6 +10,29 @@ from ci_gate import verify
 
 
 class CITests(unittest.TestCase):
+    def test_cloudflare_apply_requires_positive_remote_confirmation(self):
+        workflow = Path(__file__).resolve().parents[1] / ".github/workflows/cloudflare.yml"
+        source = workflow.read_text()
+        confirmation = textwrap.dedent(source[source.index("          result=$(ssh") :])
+        expected = "Applied tested Cloudflare configuration; encrypted recovery evidence retained"
+        with tempfile.TemporaryDirectory() as directory:
+            ssh = Path(directory) / "ssh"
+            ssh.write_text('#!/bin/sh\nprintf "%s" "$REMOTE_OUTPUT"\nexit "$REMOTE_STATUS"\n')
+            ssh.chmod(0o700)
+            for output, status, succeeds in [(expected, 0, True), ("", 0, False), (expected, 1, False)]:
+                result = subprocess.run(
+                    ["bash", "-c", "set -euo pipefail\noptions=(-T)\nremote=fixture\nstage=/fixture\n" + confirmation],
+                    env={
+                        "PATH": directory + os.pathsep + "/usr/bin:/bin",
+                        "REMOTE_OUTPUT": output,
+                        "REMOTE_STATUS": str(status),
+                    },
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode == 0, succeeds)
+
     def test_selection_tracks_contract_and_deployment_dependencies(self):
         self.assertEqual(classify(["README.md"]), dict(apple=False, image=False, infra=False, publish_apple=False))
         self.assertEqual(
