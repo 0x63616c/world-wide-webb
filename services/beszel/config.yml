@@ -1,0 +1,11 @@
+# Identity is name + host + port. Changing or omitting a system deletes its history.
+# Schema: henrygd/beszel v0.21.1 internal/hub/config/config.go.
+systems:
+  - name: homelab-mac-mini
+    host: homelab-mac-mini.tail8c014d.ts.net
+    port: 45876
+    users: [calumpeterwebb@icloud.com]
+  - name: homelab-macbook
+    host: homelab-macbook.tail8c014d.ts.net
+    port: 45876
+    users: [calumpeterwebb@icloud.com]

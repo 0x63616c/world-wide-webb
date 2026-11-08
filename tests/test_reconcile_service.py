@@ -115,6 +115,33 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn('--force-recreate', run.call_args.args[0])
 
     @patch.object(reconcile.subprocess, 'run')
+    def test_beszel_projects_only_bootstrap_and_inventory_and_recreates_on_config_change(self, run):
+        source = self.source / 'beszel-env'
+        source.write_bytes(b'USER_EMAIL=fixture@example.test\nUSER_PASSWORD=synthetic-password$\n')
+        source.chmod(0o400)
+        compose = self.root / 'compose'
+        (compose / 'beszel').mkdir(parents=True)
+        config = compose / 'beszel/config.yml'
+        config.write_text('systems: []\n')
+        def deliver():
+            reconcile.reconcile('beszel', self.source, self.runtime, compose, self.root / 'compose.env')
+        deliver()
+        destination = self.runtime / 'beszel'
+        self.assertEqual({p.name for p in destination.iterdir()}, {'environment', 'config.yml'})
+        self.assertEqual((destination / 'environment').read_bytes(), source.read_bytes())
+        self.assertEqual((destination / 'config.yml').stat().st_mode & 0o777, 0o600)
+        env = run.call_args.kwargs['env']
+        self.assertEqual(env['BESZEL_ENV_FILE'], str(destination / 'environment'))
+        self.assertEqual(env['BESZEL_CONFIG_FILE'], str(destination / 'config.yml'))
+        self.assertNotIn('synthetic-password', str(run.call_args))
+        deliver()
+        self.assertNotIn('--force-recreate', run.call_args.args[0])
+        config.write_text('systems: [{name: fixture}]\n')
+        deliver()
+        self.assertIn('--force-recreate', run.call_args.args[0])
+        self.assertEqual((destination / 'config.yml').read_bytes(), config.read_bytes())
+
+    @patch.object(reconcile.subprocess, 'run')
     def test_control_center_uses_git_release_images(self, run):
         compose = self.root / 'compose'
         (compose / 'control-center').mkdir(parents=True)

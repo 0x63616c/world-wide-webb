@@ -19,6 +19,18 @@ class ArchiveTests(unittest.TestCase):
   self.assertEqual((self.target/'data/file').stat().st_mode&0o7777,0o600)
   self.assertEqual(records[0]['uid'],1000)
   with self.assertRaises(ValueError):restore.extract(self.archive,self.target)
+ def test_beszel_database_history_and_ssh_identity_restore_together(self):
+  payloads={'data.db':b'fixture database and historical records','auxiliary.db':b'fixture auxiliary database','id_ed25519':b'synthetic private identity'}
+  with tarfile.open(self.archive,'w:gz') as archive:
+   for name,data in payloads.items():
+    member=tarfile.TarInfo('./'+name);member.uid=450;member.gid=450;member.mode=0o600;member.size=len(data)
+    archive.addfile(member,io.BytesIO(data))
+  records=restore.extract(self.archive,self.target)
+  self.assertEqual({record['path'] for record in records},set(payloads))
+  self.assertTrue(all(record['uid']==450 and record['gid']==450 for record in records))
+  for name,data in payloads.items():
+   self.assertEqual((self.target/name).read_bytes(),data)
+   self.assertEqual((self.target/name).stat().st_mode&0o777,0o600)
  def test_unsafe_paths_links_special_files_and_duplicates_are_rejected_before_creation(self):
   for entries in [[('../outside','file')],[('/absolute','file')],[('link',tarfile.SYMTYPE)],[('hard',tarfile.LNKTYPE)],[('fifo',tarfile.FIFOTYPE)],[('a/b','file'),('a//b','file')]]:
    with self.subTest(entries=entries):

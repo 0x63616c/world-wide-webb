@@ -14,4 +14,8 @@
   homelab.homeassistant.lanIPv4Gateway = "192.168.0.1";
   homelab.containers.controlCenter.workersEnabled = true;
   homelab.backups.enable = true;
+  homelab.monitoring.agent = {
+    enable = true;
+    listenAddress = "100.73.156.11";
+  };
 }

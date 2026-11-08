@@ -48,6 +48,7 @@ impl Fixture {
             "bambu-studio-api",
             "bambuddy-tailscale",
             "hindsight",
+            "beszel-beszel-1",
             "www-tunnel-cloudflared-1",
             "www-home-assistant-home-assistant-1",
             "penpot-penpot-frontend-1",
@@ -111,6 +112,7 @@ fn required_docker_health_is_not_optional_even_for_inherited_bambuddy_check() {
         (Service::Bambuddy, "bambuddy"),
         (Service::Bambuddy, "bambu-studio-api"),
         (Service::Hindsight, "hindsight"),
+        (Service::Beszel, "beszel-beszel-1"),
         (
             Service::HomeAssistant,
             "www-home-assistant-home-assistant-1",
@@ -336,4 +338,20 @@ fn penpot_static_frontend_cannot_hide_backend_or_protocol_failures() {
         fixture.flag(&format!("penpot-protocol-fails-{role}"));
         assert_eq!(fixture.check(), Err(HealthError::UnhealthyContainer(name)));
     }
+}
+
+#[test]
+fn beszel_health_uses_the_services_vm_and_requires_healthy_hub() {
+    let fixture = Fixture::new(vec![Service::Beszel]);
+    fixture.check().unwrap();
+    assert_eq!(fixture.events(), "inspect beszel-beszel-1\n");
+    fixture.change("beszel-beszel-1.json", "running", json!(false));
+    assert_eq!(
+        fixture.check(),
+        Err(HealthError::UnhealthyContainer("beszel-beszel-1"))
+    );
+    assert_eq!(
+        serde_json::from_str::<Service>("\"beszel\"").unwrap(),
+        Service::Beszel
+    );
 }

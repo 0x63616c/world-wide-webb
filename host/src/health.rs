@@ -26,6 +26,7 @@ const CONTAINER_FACTS: &str = r#"{"running":{{json .State.Running}},"health":{{i
 pub enum Service {
     ControlCenter,
     Bambuddy,
+    Beszel,
     Hindsight,
     Cloudflared,
     HomeAssistant,
@@ -261,6 +262,7 @@ fn containers(service: Service) -> (&'static str, &'static [(&'static str, bool)
                 ("bambuddy-tailscale", false),
             ],
         ),
+        Service::Beszel => (SERVICES, &[("beszel-beszel-1", true)]),
         Service::Hindsight => (SERVICES, &[("hindsight", true)]),
         Service::Cloudflared => (SERVICES, &[("www-tunnel-cloudflared-1", false)]),
         Service::Penpot => (
@@ -474,7 +476,7 @@ pub fn check_once(config: &Config, deadline: Instant) -> Result<(), HealthError>
                     })?;
                 }
             }
-            Service::Hindsight | Service::HomeAssistant => {}
+            Service::Beszel | Service::Hindsight | Service::HomeAssistant => {}
         }
     }
     Ok(())

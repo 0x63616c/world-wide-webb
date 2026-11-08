@@ -57,6 +57,9 @@ in {
         (lib.mkIf (selected "penpot") {
           penpot-env = containerSecret "services/penpot/environment";
         })
+        (lib.mkIf (selected "beszel") {
+          beszel-env = containerSecret "services/beszel/environment";
+        })
         (lib.mkIf (selected "bambuddy") {
           bambuddy-environment = containerSecret "services/bambuddy/environment";
         })

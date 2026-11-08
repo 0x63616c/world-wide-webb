@@ -98,6 +98,27 @@ class SnapshotSafetyTests(unittest.TestCase):
         healthy.assert_called_once_with('services', 'app')
         self.assertTrue((self.destination / 'app.restart-required').exists())
 
+    @patch.object(snapshot, 'healthy')
+    @patch.object(snapshot, 'container_files')
+    @patch.object(snapshot, 'run')
+    @patch.object(snapshot, 'running_state', return_value={'Running': True})
+    def test_beszel_data_is_copied_only_while_stopped_and_restarted_after_failure(self, state, run, files, healthy):
+        from unittest.mock import Mock
+        def execute(args, **kwargs):
+            return Mock(stdout='[]' if 'image' in args else 'sha256:fixture')
+        run.side_effect = execute
+        def copy(destination, runtime, name, path):
+            self.assertEqual((runtime, name, path), ('services', 'beszel-beszel-1', '/beszel_data'))
+            self.assertEqual(destination, self.destination / 'beszel-data.tar.gz')
+            self.assertEqual(run.call_args.args[0][-4:], ['stop', '--time', '120', name])
+            raise OSError('fixture copy failure')
+        files.side_effect = copy
+        with self.assertRaisesRegex(OSError, 'fixture copy failure'):
+            snapshot.snapshot(self.destination, ['beszel'])
+        self.assertEqual(run.call_args.args[0][-2:], ['start', 'beszel-beszel-1'])
+        healthy.assert_called_once_with('services', 'beszel-beszel-1')
+        self.assertFalse(list(self.destination.glob('*.restart-required')))
+
     def test_hindsight_password_never_enters_command_arguments(self):
         metadata = dict(installation_dir='/postgres', version='16', port=5432,
                         username='hindsight', database='hindsight', password='synthetic-password')
