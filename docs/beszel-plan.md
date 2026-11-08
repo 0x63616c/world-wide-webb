@@ -1,6 +1,7 @@
 # Beszel monitoring plan
 
-Plan only. Inspected 2026-11-08; no deployments or configuration changes.
+Reviewed design, inspected 2026-11-08. The hub and both agents are deployed;
+public endpoint and restore validation are still in progress.
 
 ## Outcome
 
