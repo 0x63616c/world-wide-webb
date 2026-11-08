@@ -1,10 +1,10 @@
 # Linux runner validation
 
-November 8, 2026. Implementation is on `codex/linux-runners`, including private
-main `0bf8d4c`. Real canary validation used a separate controller and VM inventory, with four
-shared slots and at most two macOS guests. Production was held idle for these
-checks; the temporary controller is now unloaded. Permanent activation and its
-verification are recorded separately from the canary evidence.
+November 8, 2026. The implementation merged in PR31 (`5a7ce6b`) and the maintenance
+handoff fix in PR34 (`d9ec625`). The permanent MacBook controller now enables four
+shared slots and at most two macOS guests. Earlier canary validation used a separate
+controller and VM inventory; that temporary controller is unloaded. Permanent
+activation and its verification are recorded separately from the canary evidence.
 
 ## Source checks
 
@@ -192,8 +192,8 @@ disposable VMs. See [mixed network proof](evidence/linux-mixed-network-proof.jso
 The production image cache was installed as UID451, verified against the pinned
 manifest, cloned with a cleared registry environment and verified again afterward.
 The stopped proof clone was deleted. No registry credential was delivered to the
-MacBook. There are no owned validation guests or registered recovery runners left. The
-idle temporary controller and sampler have been unloaded.
+MacBook. At that earlier canary checkpoint, no owned validation guests or registered
+recovery runners remained. The idle temporary controller and sampler were unloaded.
 
 An automatic update encountered the validation maintenance hold after advancing
 its boot profile. Its original stateless activation record was inspected and
@@ -202,11 +202,39 @@ both idle controllers unloaded before releasing the hold. Boot/live profiles
 and the permanent daemon were verified before completing that record. No app
 data or controller journal was reset. See [update recovery proof](evidence/linux-update-recovery-proof.json).
 
+## Permanent activation and maintenance handoff
+
+PR31 activated the permanent pool. One real recovery job per platform reached
+`executing` under its production daemon and v3 journal; see
+[production bootstrap proof](evidence/linux-production-bootstrap-proof.json).
+Cancellation and drain were requested for both. The initial bootstrap receipt
+does not record their terminal cleanup; the subsequent deployment independently
+verified the idle fleet before handoff. A subsequent independent idle check found a
+maintenance acknowledgement race before any unsafe update handoff occurred.
+
+PR34 prevents a hold arriving after discovery from acknowledging idle while
+still allowing admission in the same observation. Its regression failed before
+the fix and passes afterward, including malformed late holds; all 159 Rust tests,
+Clippy and native host/fixture/concurrency/process-survival builds pass.
+Independent review found no blockers. The idle old controller was unloaded under
+the host operation lock, then the automatic updater applied merged PR34 through
+its offline drain path. At the deployment checkpoint, the live controller matched the reviewed native
+build, boot/live generations agreed, no transaction or runner hold remained,
+and the updater was running. See [deployment proof](evidence/linux-maintenance-fix-deployment.json).
+The five stopped prototype test startup entries were removed before reboot testing.
+
+The permanent patched controller also ran recovery attempt 3 with both platforms.
+Stopping the Linux guest agent made RPC unavailable; a guest-owned timer restored
+it and the same helper attempt still reported `executing`, with the same helper attempt ID. A digest-pinned Alpine Docker image built and ran natively as ARM64
+inside that Linux guest. Stopping only that owned Linux VM left the Mac helper
+executing. See [fault proof](evidence/linux-fault-proof.json); cancellation and
+fleet cleanup are checked separately from the successful fault injection.
+
 ## Remaining rollout gates
 
-- Merge the reviewed runner change, stop the idle temporary controller, activate
-  the permanent profile and verify runtime four/two limits, the pinned Linux
-  image/cache and actual job bootstrap/cleanup under the production daemon.
-- Publish and pass required checks for the application CI routing change. Its
-  main merge must coordinate with the separate app deployment migration: the
-  existing enabled legacy Mini workflow still targets the retired SSH identity.
+- Finish native mixed-platform cleanup, reboot before GUI login, and
+  configuration-change recovery checks against the permanent pool.
+- Application PR958 passes its required CI, including Linux typecheck/unit tests
+  and the full Apple job. Its main merge must coordinate with the separate app
+  deployment migration: the existing enabled legacy Mini workflow still targets
+  the retired SSH identity.

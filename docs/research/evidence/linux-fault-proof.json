@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "observed_at": "2026-11-08T23:20:56.448450+00:00",
+  "run_id": 42528327661,
+  "run_attempt": 3,
+  "owned_before": [
+    {
+      "nonce": "26acdaa30b524d069c8073108ce4ef23",
+      "platform": "macos-arm64",
+      "runner_id": 71,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 3,
+        "job_id": 128895947770
+      }
+    },
+    {
+      "nonce": "ae01414c1236447e835b94f1165a1a94",
+      "platform": "linux-arm64",
+      "runner_id": 72,
+      "assigned": {
+        "repository": "0x63616c/world-wide-webb",
+        "run_id": 42528327661,
+        "run_attempt": 3,
+        "job_id": 128895947535
+      }
+    }
+  ],
+  "before": {
+    "macos-arm64": {
+      "schema": 1,
+      "attempt_id": "26acdaa30b524d069c8073108ce4ef23",
+      "phase": "executing",
+      "updated_at": 1794179994,
+      "exit_code": null,
+      "reason": null
+    },
+    "linux-arm64": {
+      "schema": 1,
+      "attempt_id": "ae01414c1236447e835b94f1165a1a94",
+      "phase": "executing",
+      "updated_at": 1794180015,
+      "exit_code": null,
+      "reason": null
+    }
+  },
+  "transport_unavailable": true,
+  "after_transport": {
+    "schema": 1,
+    "attempt_id": "ae01414c1236447e835b94f1165a1a94",
+    "phase": "executing",
+    "updated_at": 1794180015,
+    "exit_code": null,
+    "reason": null
+  },
+  "mac_survived_transport": {
+    "schema": 1,
+    "attempt_id": "26acdaa30b524d069c8073108ce4ef23",
+    "phase": "executing",
+    "updated_at": 1794179994,
+    "exit_code": null,
+    "reason": null
+  },
+  "container_returncode": 0,
+  "container_stdout": "Sending build context to Docker daemon  2.048kB\r\r\nStep 1/2 : FROM alpine@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f\ndocker.io/library/alpine@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f: Pulling from library/alpine\nfea5b91588ca: Pulling fs layer\nfea5b91588ca: Download complete\nfea5b91588ca: Pull complete\n4e709acd85f9: Download complete\n95d2a6fd92cc: Download complete\nDigest: sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f\nStatus: Downloaded newer image for alpine@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f\n ---> 49340b346798\nStep 2/2 : RUN uname -m | grep -x aarch64\n ---> Running in 729b210adf4e\naarch64\n ---> Removed intermediate container 729b210adf4e\n ---> ab75280e09bf\nSuccessfully built ab75280e09bf\nSuccessfully tagged homelab-arm64-proof:latest\nNative ARM64 Docker build and run passed\n",
+  "container_stderr": "DEPRECATED: The legacy builder is deprecated and will be removed in a future release.\n            Install the buildx component to build images with BuildKit:\n            https://docs.docker.com/go/buildx/\n\n",
+  "linux_vm_stopped": true,
+  "mac_survived_linux_vm_loss": {
+    "schema": 1,
+    "attempt_id": "26acdaa30b524d069c8073108ce4ef23",
+    "phase": "executing",
+    "updated_at": 1794179994,
+    "exit_code": null,
+    "reason": null
+  }
+}
