@@ -27,6 +27,12 @@ The chronological shipping checkpoints below remain evidence. Live integration h
 
 Update issue-body checkboxes as individual requirements are verified, with commit/evidence links. Progress comments supplement these checklists. Close fully accepted issues and tick their work-order entries below; partial or deferred work remains unchecked. These rules are enforced as agent instructions in `AGENTS.md`.
 
+## Join verification and Settings build identity — November 8, 2026
+
+The owner reproduced unauthorized Join after fresh signup. Production readback confirmed successful Apple sign-in/key enrollment and two unused session-bound Join challenges at assertion counter zero. A signed assertion using Apple’s documented assertion extension names reproduced a local verifier rejection. [Fix `35a98d6`](https://github.com/0x63616c/folding/commit/35a98d6f4f30d05fc7d092bcd234a7895618854d) separates assertion/enrollment metadata names while preserving required distribution/build policy, signature/body/counter/challenge checks. Seven domain contracts, 24 Worker unit tests and nine compiled runtime tests passed, including valid Join, body tampering and replay. The fix is live as Cloudflare version `81519196-59e7-49f6-a396-cb978ae141dd`; health/readback verified the exact source and unchanged remaining runtime bindings. Owner-device Join retry remains pending in #33; the specific device assertion contents have not been captured. [Evidence](experiments/join-verification-2026-11-08.md).
+
+[Settings change `079f64b`](https://github.com/0x63616c/folding/commit/079f64b) shows the installed version/build and verified TestFlight environment. Debug simulator and unsigned Release device builds plus localization checks passed. It is implemented for the next app build, not yet distributed. Existing Reset history confirmation was verified in source. Broader UI/device and shipping acceptance stays open in #25/#47.
+
 ## Current batch
 
 Foundation and personal persistence are in progress. Reducer, journal and local private-mirror integration are tested; live cloud, app, backend and release acceptance remain pending.
