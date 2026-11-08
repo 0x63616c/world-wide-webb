@@ -6,7 +6,7 @@
   },
   "hosts": {
     "homelab-mac-mini": {
-      "adminUser": "calum",
+      "adminUser": "admin",
       "adminUID": 501,
       "authorizedKeys": [],
       "services": []
